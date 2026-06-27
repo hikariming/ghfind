@@ -1,8 +1,9 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { tierStyle } from "@/lib/tier";
+import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
 export interface LeaderboardClientEntry {
@@ -29,38 +30,44 @@ export interface LeaderboardLabels {
 export type LeaderboardView = "score" | "heat";
 
 const RANK_BADGE = ["🥇", "🥈", "🥉"];
+const TAG_TONE: Record<TagLocale, string> = {
+  zh: "bg-orange-500/10 text-orange-200/90",
+  en: "bg-sky-500/10 text-sky-200/90",
+};
 
-/** Second-line tags: 3 zh + 3 en by default, expandable to show all. */
+type TagLocale = "zh" | "en";
+
+function tagLocaleFor(locale: string): TagLocale {
+  return locale === "en" ? "en" : "zh";
+}
+
+/** Second-line tags: current locale first, with the other locale as fallback. */
 function TagRow({
   labels,
+  locale,
   tags,
 }: {
   labels: LeaderboardLabels;
+  locale: TagLocale;
   tags?: { zh: string[]; en: string[] };
 }) {
   const [expanded, setExpanded] = useState(false);
-  const zh = tags?.zh ?? [];
-  const en = tags?.en ?? [];
-  if (zh.length + en.length === 0) return null;
+  const fallbackLocale: TagLocale = locale === "en" ? "zh" : "en";
+  const primary = tags?.[locale] ?? [];
+  const fallback = tags?.[fallbackLocale] ?? [];
+  const visibleTags = primary.length > 0 ? primary : fallback;
+  const visibleLocale = primary.length > 0 ? locale : fallbackLocale;
+  if (visibleTags.length === 0) return null;
 
-  const zhShown = expanded ? zh : zh.slice(0, 3);
-  const enShown = expanded ? en : en.slice(0, 3);
-  const hidden = zh.length - zhShown.length + (en.length - enShown.length);
+  const shown = expanded ? visibleTags : visibleTags.slice(0, 3);
+  const hidden = visibleTags.length - shown.length;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1">
-      {zhShown.map((t, i) => (
+      {shown.map((t, i) => (
         <span
-          key={`zh-${t}-${i}`}
-          className="rounded-full bg-orange-500/10 px-1.5 py-px text-[10px] text-orange-200/90"
-        >
-          #{t}
-        </span>
-      ))}
-      {enShown.map((t, i) => (
-        <span
-          key={`en-${t}-${i}`}
-          className="rounded-full bg-sky-500/10 px-1.5 py-px text-[10px] text-sky-200/90"
+          key={`${visibleLocale}-${t}-${i}`}
+          className={`rounded-full px-1.5 py-px text-[10px] ${TAG_TONE[visibleLocale]}`}
         >
           #{t}
         </span>
@@ -98,8 +105,11 @@ export function LeaderboardClient({
   scoreEntries: LeaderboardClientEntry[];
   heatEntries: LeaderboardClientEntry[];
 }) {
+  const locale = useLocale();
+  const tTier = useTranslations("tiers");
   const [page, setPage] = useState(0);
   const entries = initialView === "heat" ? heatEntries : scoreEntries;
+  const tagLocale = tagLocaleFor(locale);
 
   if (entries.length === 0) {
     return <p className="text-center text-zinc-500">{labels.empty}</p>;
@@ -116,6 +126,7 @@ export function LeaderboardClient({
         {visible.map((e, i) => {
           const rank = offset + i;
           const style = tierStyle(e.tier);
+          const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
           const heatSelected = initialView === "heat";
           return (
@@ -154,7 +165,7 @@ export function LeaderboardClient({
                 </div>
                 {/* Above the stretched link so the +N / collapse buttons toggle, not navigate. */}
                 <div className="relative z-10 w-fit">
-                  <TagRow labels={labels} tags={e.tags} />
+                  <TagRow labels={labels} locale={tagLocale} tags={e.tags} />
                 </div>
               </div>
               {heatSelected ? (
@@ -173,7 +184,7 @@ export function LeaderboardClient({
                     {e.lookup_count}
                   </div>
                   <div className={`truncate text-left text-[11px] font-medium ${style.text}`}>
-                    {style.emoji} {e.tier}
+                    {style.emoji} {tierName}
                   </div>
                   <div className={`text-sm font-black tabular-nums ${style.text}`}>
                     {e.final_score.toFixed(2)}
@@ -182,7 +193,7 @@ export function LeaderboardClient({
               ) : (
                 <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
                   <div className={`truncate text-left text-xs font-medium sm:text-sm ${style.text}`}>
-                    {style.emoji} {e.tier}
+                    {style.emoji} {tierName}
                   </div>
                   <div className={`text-lg font-black tabular-nums ${style.text}`}>
                     {e.final_score.toFixed(2)}
