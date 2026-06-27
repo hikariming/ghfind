@@ -14,6 +14,7 @@ import { rankSimilar } from "./similarity";
 import type { SubScores, Tags, Tier } from "./types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
+const MIN_RECORDED_LOOKUP_COUNT = 1;
 
 function parseTags(raw: unknown): Tags {
   if (typeof raw !== "string" || !raw) return EMPTY_TAGS;
@@ -49,6 +50,10 @@ function parseSubScores(raw: unknown): SubScores {
   } catch {
     return EMPTY_SUB;
   }
+}
+
+function normalizeLookupCount(raw: unknown): number {
+  return Math.max(MIN_RECORDED_LOOKUP_COUNT, Number(raw) || 0);
 }
 
 let client: Client | null = null;
@@ -276,7 +281,7 @@ function toLeaderboardEntry(account: AccountDetail): LeaderboardEntry {
     final_score: account.final_score,
     tier: account.tier,
     tags: account.tags,
-    lookup_count: PREVIEW_HEAT[account.username] ?? 0,
+    lookup_count: normalizeLookupCount(PREVIEW_HEAT[account.username]),
   };
 }
 
@@ -331,6 +336,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
   if (!db) return;
   try {
     await ensureSchema(db);
+    const username = entry.username.toLowerCase();
     await db.execute({
       sql: `INSERT INTO scores
               (username, display_name, avatar_url, profile_url, final_score, tier, tags, bot_score, sub_scores, scanned_at)
@@ -346,7 +352,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               sub_scores   = excluded.sub_scores,
               scanned_at   = excluded.scanned_at`,
       args: [
-        entry.username.toLowerCase(),
+        username,
         entry.display_name,
         entry.avatar_url,
         entry.profile_url,
@@ -357,6 +363,13 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
       ],
+    });
+    await db.execute({
+      sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+              lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
+      args: [username, MIN_RECORDED_LOOKUP_COUNT, entry.scanned_at, entry.scanned_at],
     });
   } catch (e) {
     console.error("recordScore failed:", e);
@@ -463,7 +476,7 @@ export async function getLeaderboard(
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
-                   COALESCE(stats.lookup_count, 0) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
@@ -479,7 +492,7 @@ export async function getLeaderboard(
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: parseTags(r.tags),
-      lookup_count: Number(r.lookup_count) || 0,
+      lookup_count: normalizeLookupCount(r.lookup_count),
     }));
     return entries.length > 0 ? entries : previewLeaderboard(limit, minScore);
   } catch (e) {
@@ -500,7 +513,7 @@ export async function getHeatLeaderboard(
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
-                   COALESCE(stats.lookup_count, 0) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
@@ -516,7 +529,7 @@ export async function getHeatLeaderboard(
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: parseTags(r.tags),
-      lookup_count: Number(r.lookup_count) || 0,
+      lookup_count: normalizeLookupCount(r.lookup_count),
     }));
     return entries.length > 0 ? entries : previewHeatLeaderboard(limit, minScore);
   } catch (e) {
@@ -659,7 +672,7 @@ export async function getSimilarAccounts(
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags, s.sub_scores,
-                   COALESCE(stats.lookup_count, 0) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0
@@ -683,7 +696,7 @@ export async function getSimilarAccounts(
       tier: String(r.tier) as Tier,
       tags: parseTags(r.tags),
       sub_scores: parseSubScores(r.sub_scores),
-      lookup_count: Number(r.lookup_count) || 0,
+      lookup_count: normalizeLookupCount(r.lookup_count),
     }));
     const ranked = rankSimilar(subScores, candidates, limit).map((e) => ({
       username: e.username,
