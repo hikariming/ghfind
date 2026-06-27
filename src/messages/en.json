@@ -44,9 +44,9 @@
     "next": "Next →",
     "collapse": "Collapse",
     "scoreView": "Top Scores",
-    "heatView": "🔥 Most Viewed",
+    "heatView": "🔥 Most Roasted",
     "heatLabel": "Heat",
-    "heatTitle": "Successful lookup count",
+    "heatTitle": "Successful roast count",
     "viewDetail": "View @{username}'s score detail"
   },
   "detail": {

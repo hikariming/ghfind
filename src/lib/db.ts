@@ -196,7 +196,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
     tier: "夯",
     tags: {
       zh: ["高频被查", "框架老炮", "PR 稳定"],
-      en: ["frequent lookup", "framework veteran", "steady prs"],
+      en: ["frequently roasted", "framework veteran", "steady prs"],
     },
     sub_scores: {
       ...PREVIEW_SUB_SCORES,
