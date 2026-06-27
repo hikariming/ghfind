@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "title": "Savage GitHub Roast · githubroast.icu",
+    "description": "Drop a GitHub handle and get a 0-100 value & trust score in 30 seconds, plus one brutally honest roast. Built to expose PR farmers, AI bots, and fork-hoarding 'developers'. githubroast.icu",
+    "ogTitle": "Savage GitHub Roast · githubroast.icu",
+    "ogDescription": "Drop a GitHub handle, get a 0-100 value & trust score in 30 seconds + one savage roast. See how you really stack up.",
+    "twDescription": "Drop a GitHub handle, get a score + savage roast in 30 seconds. See how you really stack up.",
+    "siteName": "Savage GitHub Roast"
+  },
+  "header": {
+    "signIn": "Sign in with GitHub",
+    "signOut": "Sign out"
+  },
+  "langSwitch": {
+    "label": "Switch language",
+    "zh": "中文",
+    "en": "EN"
+  },
+  "home": {
+    "leaderboardPill": "Hall of Fame",
+    "leaderboardPillTag": "Who's on top",
+    "authorIntro": "By hikariming — follow 👉",
+    "titleBefore": "Savage",
+    "titleAfter": "Roast",
+    "tagline": "Drop a GitHub handle and get a 0–100 value & trust score, plus one savage, meme-worthy roast.",
+    "boardHeading": "🏆 Hall of Fame",
+    "openBoard": "Open full leaderboard →",
+    "disclaimer1": "Scores and roasts are generated automatically from <b>public GitHub data</b> only. We roast an account's public behavior and stats, not the person. Results are not factual claims about anyone — please don't use them to harass.",
+    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only."
+  },
+  "leaderboard": {
+    "heading": "🏆 Hall of Fame",
+    "subtitle": "Score 60+ to make the board.",
+    "judgeCta": "← Judge an account",
+    "footerNote": "Only high-scoring accounts built from public GitHub data are listed. To remove yourself from the board, <a>request removal here</a>.",
+    "loadError": "Couldn't load the board right now — try again later.",
+    "loading": "Loading the Hall of Fame…",
+    "empty": "The Hall of Fame is empty — go scan the first 60+ legend from the home page.",
+    "prev": "← Prev",
+    "next": "Next →",
+    "collapse": "Collapse",
+    "viewDetail": "View @{username}'s score detail"
+  },
+  "detail": {
+    "back": "← Back to Hall of Fame",
+    "dimensionsHeading": "Score breakdown",
+    "similarHeading": "🧬 Most similar developers",
+    "similarSub": "Closest profile, nearby score",
+    "roastHeading": "🔥 Full roast",
+    "roastEmpty": "This roast hasn't been archived yet — <a>judge again from the home page</a> to generate it.",
+    "selfCta": "Rate your own GitHub →"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | Savage GitHub Roast",
+    "descWithTags": "{tags} — see {username}'s full score report on githubroast.icu.",
+    "descPlain": "{username}'s GitHub value & trust report — githubroast.icu.",
+    "notFoundTitle": "Account not found · Savage GitHub Roast"
+  },
+  "roaster": {
+    "inputPlaceholder": "Enter a GitHub username or profile URL",
+    "judge": "Judge",
+    "judging": "Judging…",
+    "byoLink": "Use your own model / API key",
+    "scanning": "Digging up {username}'s history… reading commits, checking PRs, counting stars, sniffing out farmed activity",
+    "roastLabel": "🔥 Roast",
+    "roastThinking": "The AI is cooking up a savage roast — coming right up…",
+    "roastPending": "Preparing the roast",
+    "firstJudged": "🥇 You're the first to be judged — a true pioneer",
+    "beatLine": "<hl>🏆 Beat {beat}%</hl><muted> of developers ({total} judged so far)</muted>",
+    "saveImage": "📸 Save flex image",
+    "saving": "Generating…",
+    "pasteGithub": "📌 Pin to GitHub",
+    "copied": "Copied ✓",
+    "privateNote": "Note: the score uses public signals only — private contributions don't count, so active members of private orgs may be underrated.",
+    "shareText": "My GitHub just got judged: {score}/100 · {tier} ({tierLabel}){beat}. Rate yours 👉 githubroast.icu",
+    "shareBeat": ", beating {beat}% of developers",
+    "errNeedTurnstile": "Please complete the verification below first.",
+    "errRoastFailed": "Roast generation failed — try again later or use your own key.",
+    "errNetworkRoast": "Connection dropped — the roast got cut off.",
+    "errScanFailed": "Scan failed, try again later.",
+    "errNetworkScan": "Network error — couldn't even reach GitHub.",
+    "byoReasonQuota": "Free quota's used up 😵 Add your own API key to keep roasting (OpenAI / StepFun / Groq all work).",
+    "byoReasonRate": "You've roasted a lot today 🥵 Take a breather, or add your own API key for unlimited roasts.",
+    "byoReasonDefault": "No default model is configured on the server — add your own API key to start roasting."
+  },
+  "scanErrors": {
+    "invalid_username": "That doesn't look like a GitHub username — double-check it?",
+    "account_not_found": "No such account — spelled right?",
+    "turnstile_failed": "Verification failed — refresh the page and retry.",
+    "rate_limited": "Too fast — take a breath and try again in a minute.",
+    "github_rate_limited": "GitHub's API is maxed out right now — give it a moment.",
+    "scan_failed": "The scan crashed — try again later."
+  },
+  "share": {
+    "open": "🔗 Share",
+    "heading": "Share to",
+    "imageHint": "Share as image",
+    "copyLink": "Copy link",
+    "copied": "Copied ✓",
+    "native": "More…",
+    "siteName": "Savage GitHub Roast"
+  },
+  "badge": {
+    "heading": "📌 Pin to your GitHub profile",
+    "blurb": "Copy any snippet below into your Profile README. The score stays up to date automatically, and the image links to your detail page.",
+    "badgeTitle": "Badge",
+    "cardTitle": "Flex card",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "Copy",
+    "copied": "Copied ✓",
+    "badgeAlt": "GitHub Roast score badge",
+    "cardAlt": "GitHub Roast"
+  },
+  "byok": {
+    "title": "Use your own model",
+    "compatNote": "Works with any OpenAI-compatible API (OpenAI / OpenRouter / Groq / DeepSeek / local). Your key stays in your own browser. It's relayed once through our server to call the model, <b>but never stored, never logged, discarded after use</b>.",
+    "tempKeyNote": "🔒 If you're concerned, use a <b>temporary / spend-limited</b> key and revoke it when you're done.",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "saveContinue": "Save & continue"
+  },
+  "developerCount": "<n>{count, number}</n> developers have entered the arena ⚔️",
+  "shareCard": {
+    "beatLabel": "developers beaten",
+    "brand": "🔥 Savage GitHub Roast · see how you stack up"
+  },
+  "tiers": {
+    "god": { "name": "GOD", "blurb": "Legendary · Hall of Fame" },
+    "elite": { "name": "ELITE", "blurb": "Elite · Top-tier dev" },
+    "solid": { "name": "SOLID", "blurb": "Solid · Trustworthy" },
+    "npc": { "name": "NPC", "blurb": "Average · Unremarkable" },
+    "trash": { "name": "TRASH", "blurb": "Low-value · Likely farmed" }
+  },
+  "dimensions": {
+    "account_maturity": "Account maturity",
+    "original_project_quality": "Original project quality",
+    "contribution_quality": "Contribution quality",
+    "ecosystem_impact": "Ecosystem / maintenance impact",
+    "community_influence": "Community influence",
+    "activity_authenticity": "Activity authenticity"
+  }
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { Link } from "@/i18n/navigation";
 import { tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
@@ -19,6 +20,7 @@ const RANK_BADGE = ["🥇", "🥈", "🥉"];
 
 /** Second-line tags: 3 zh + 3 en by default, expandable to show all. */
 function TagRow({ tags }: { tags?: { zh: string[]; en: string[] } }) {
+  const t = useTranslations("leaderboard");
   const [expanded, setExpanded] = useState(false);
   const zh = tags?.zh ?? [];
   const en = tags?.en ?? [];
@@ -59,7 +61,7 @@ function TagRow({ tags }: { tags?: { zh: string[]; en: string[] } }) {
           onClick={() => setExpanded(false)}
           className="rounded-full border border-white/10 px-1.5 py-px text-[10px] text-zinc-400 hover:bg-white/10"
         >
-          收起
+          {t("collapse")}
         </button>
       )}
     </div>
@@ -67,6 +69,7 @@ function TagRow({ tags }: { tags?: { zh: string[]; en: string[] } }) {
 }
 
 export function Leaderboard({ pageSize }: { pageSize?: number }) {
+  const t = useTranslations("leaderboard");
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState(false);
   const [page, setPage] = useState(0);
@@ -85,17 +88,13 @@ export function Leaderboard({ pageSize }: { pageSize?: number }) {
   }, []);
 
   if (error) {
-    return <p className="text-center text-zinc-500">榜单暂时加载不出来，稍后再试。</p>;
+    return <p className="text-center text-zinc-500">{t("loadError")}</p>;
   }
   if (entries === null) {
-    return <p className="text-center text-zinc-500 animate-pulse">加载名人堂…</p>;
+    return <p className="text-center text-zinc-500 animate-pulse">{t("loading")}</p>;
   }
   if (entries.length === 0) {
-    return (
-      <p className="text-center text-zinc-500">
-        名人堂还空着 —— 去首页扫出第一个 60 分以上的高手吧。
-      </p>
-    );
+    return <p className="text-center text-zinc-500">{t("empty")}</p>;
   }
 
   const totalPages = pageSize ? Math.max(1, Math.ceil(entries.length / pageSize)) : 1;
@@ -120,7 +119,7 @@ export function Leaderboard({ pageSize }: { pageSize?: number }) {
               <Link
                 href={`/u/${e.username}`}
                 prefetch={false}
-                aria-label={`查看 @${e.username} 的评分详情`}
+                aria-label={t("viewDetail", { username: e.username })}
                 className="absolute inset-0 z-0 rounded-xl"
               />
               <span className="w-8 shrink-0 text-center text-sm font-bold tabular-nums text-zinc-400">
@@ -166,7 +165,7 @@ export function Leaderboard({ pageSize }: { pageSize?: number }) {
             disabled={current === 0}
             className="rounded-lg border border-white/10 px-3 py-1.5 text-zinc-300 hover:bg-white/10 disabled:opacity-40"
           >
-            ← 上一页
+            {t("prev")}
           </button>
           <span className="tabular-nums text-zinc-500">
             {current + 1} / {totalPages}
@@ -176,7 +175,7 @@ export function Leaderboard({ pageSize }: { pageSize?: number }) {
             disabled={current >= totalPages - 1}
             className="rounded-lg border border-white/10 px-3 py-1.5 text-zinc-300 hover:bg-white/10 disabled:opacity-40"
           >
-            下一页 →
+            {t("next")}
           </button>
         </div>
       )}

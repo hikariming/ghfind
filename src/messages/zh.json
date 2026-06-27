@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "title": "毒舌 GitHub 评分 · githubroast.icu",
+    "description": "输入 GitHub 账号，30 秒得到一份 0-100 分的价值与信任评分，外加一句扎心的毒舌点评。专治刷量号、AI 机器人、收藏夹开发者。githubroast.icu",
+    "ogTitle": "毒舌 GitHub 评分 · githubroast.icu",
+    "ogDescription": "输入 GitHub 账号，30 秒得到 0-100 分的价值与信任评分 + 一句扎心毒舌点评。来测测你的含金量。",
+    "twDescription": "输入 GitHub 账号，30 秒出分 + 毒舌点评。来测测你的含金量。",
+    "siteName": "毒舌 GitHub 评分"
+  },
+  "header": {
+    "signIn": "用 GitHub 登录",
+    "signOut": "登出"
+  },
+  "langSwitch": {
+    "label": "切换语言",
+    "zh": "中文",
+    "en": "EN"
+  },
+  "home": {
+    "leaderboardPill": "名人堂排行榜",
+    "leaderboardPillTag": "看谁最强",
+    "authorIntro": "作者 hikariming，欢迎关注 👉",
+    "titleBefore": "毒舌",
+    "titleAfter": "评分",
+    "tagline": "输入一个 GitHub 账号，得到 0–100 分的价值与信任评分，外加一句扎心又有梗的毒舌点评。",
+    "boardHeading": "🏆 名人堂",
+    "openBoard": "打开完整榜单 →",
+    "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
+    "disclaimer2": "评分核心开源于 <code>github-account-value</code> 技能 · 自带 Key 仅存于你的浏览器本地。"
+  },
+  "leaderboard": {
+    "heading": "🏆 名人堂",
+    "subtitle": "评分 60 分以上即可上榜。",
+    "judgeCta": "← 去审判一个账号",
+    "footerNote": "仅收录基于 GitHub 公开数据的高分账号。如需将自己从榜单移除，<a>点此申请下榜</a>。",
+    "loadError": "榜单暂时加载不出来，稍后再试。",
+    "loading": "加载名人堂…",
+    "empty": "名人堂还空着 —— 去首页扫出第一个 60 分以上的高手吧。",
+    "prev": "← 上一页",
+    "next": "下一页 →",
+    "collapse": "收起",
+    "viewDetail": "查看 @{username} 的评分详情"
+  },
+  "detail": {
+    "back": "← 返回名人堂",
+    "dimensionsHeading": "维度评分",
+    "similarHeading": "🧬 和 TA 最像的开发者",
+    "similarSub": "画像最接近、分数相近的账号",
+    "roastHeading": "🔥 毒舌点评全文",
+    "roastEmpty": "这份锐评还没存档 —— <a>去首页重新审判一次</a> 即可生成。",
+    "selfCta": "测测你自己的 GitHub 含金量 →"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | 毒舌 GitHub 评分",
+    "descWithTags": "{tags} —— 在 githubroast.icu 查看 {username} 的完整评分报告。",
+    "descPlain": "{username} 的 GitHub 价值评分报告 —— githubroast.icu。",
+    "notFoundTitle": "查无此号 · 毒舌 GitHub 评分"
+  },
+  "roaster": {
+    "inputPlaceholder": "输入 GitHub 用户名或主页链接",
+    "judge": "开始审判",
+    "judging": "审判中…",
+    "byoLink": "用自己的模型 / API Key",
+    "scanning": "正在扒 {username} 的老底…读 commit、查 PR、数 star、抓刷量痕迹",
+    "roastLabel": "🔥 毒舌点评",
+    "roastThinking": "AI 正在憋一段毒舌点评，马上端上来…",
+    "roastPending": "准备生成点评",
+    "firstJudged": "🥇 你是第一个被审判的，前无古人",
+    "beatLine": "<hl>🏆 超越了 {beat}%</hl><muted> 的开发者（共 {total} 人受审）</muted>",
+    "saveImage": "📸 保存炫耀图",
+    "saving": "生成中…",
+    "pasteGithub": "📌 贴到 GitHub",
+    "copied": "已复制 ✓",
+    "privateNote": "注：评分仅基于公开信号，私有贡献不计入，可能低估私有组织的活跃员工。",
+    "shareText": "我的 GitHub 含金量被审判了：{score}/100 · {tier}（{tierLabel}）{beat}。来测测你的 👉 githubroast.icu",
+    "shareBeat": "，超越了 {beat}% 的开发者",
+    "errNeedTurnstile": "请先完成下方的人机校验。",
+    "errRoastFailed": "毒舌生成失败，稍后再试或换用自己的 Key。",
+    "errNetworkRoast": "网络中断，毒舌没说完。",
+    "errScanFailed": "扫描失败，稍后再试。",
+    "errNetworkScan": "网络出错，连 GitHub 都连不上。",
+    "byoReasonQuota": "免费额度用完了 😵 填入你自己的 API Key 继续毒舌（OpenAI / StepFun / Groq 都行）。",
+    "byoReasonRate": "你今天点评得有点多啦 🥵 歇会儿，或填入自己的 API Key 不限量继续。",
+    "byoReasonDefault": "服务端还没配默认模型，填入你自己的 API Key 即可开评。"
+  },
+  "scanErrors": {
+    "invalid_username": "这不像个 GitHub 用户名，检查一下？",
+    "account_not_found": "查无此号 —— 拼写没错吧？",
+    "turnstile_failed": "人机校验没过，刷新页面重试。",
+    "rate_limited": "手速太快了，喘口气，一分钟后再来。",
+    "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",
+    "scan_failed": "扫描翻车了，稍后再试。"
+  },
+  "share": {
+    "open": "🔗 分享",
+    "heading": "分享到",
+    "imageHint": "微信 / 小红书（发图）",
+    "copyLink": "复制链接",
+    "copied": "已复制 ✓",
+    "native": "系统分享…",
+    "siteName": "毒舌 GitHub 评分"
+  },
+  "badge": {
+    "heading": "📌 贴到你的 GitHub 主页",
+    "blurb": "复制下面任意一段贴进 Profile README，分数会自动保持最新，点击图片跳转你的详情页。",
+    "badgeTitle": "小徽章",
+    "cardTitle": "炫耀大卡",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "复制",
+    "copied": "已复制 ✓",
+    "badgeAlt": "GitHub Roast 评分徽章",
+    "cardAlt": "GitHub Roast"
+  },
+  "byok": {
+    "title": "用你自己的模型",
+    "compatNote": "兼容任意 OpenAI 接口（OpenAI / OpenRouter / Groq / DeepSeek / 本地）。Key 保存在你自己的浏览器里。调用时会经过我们的服务器中转一次去请求模型，<b>但绝不落库、不写日志、用完即弃</b>。",
+    "tempKeyNote": "🔒 介意的话，建议用一把<b>临时 / 额度受限</b>的 Key，用完即可吊销。",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "清除",
+    "cancel": "取消",
+    "saveContinue": "保存并继续"
+  },
+  "developerCount": "已经有 <n>{count, number}</n> 名开发者参与战斗 ⚔️",
+  "shareCard": {
+    "beatLabel": "超越的开发者",
+    "brand": "🔥 毒舌 GitHub 评分 · 来测测你的含金量"
+  },
+  "tiers": {
+    "god": { "name": "夯", "blurb": "封神 · 殿堂级标杆" },
+    "elite": { "name": "顶级", "blurb": "顶级开发者 · 一线水准" },
+    "solid": { "name": "人上人", "blurb": "优质贡献者 · 值得信任" },
+    "npc": { "name": "NPC", "blurb": "普通账号 · 特征平庸存疑" },
+    "trash": { "name": "拉完了", "blurb": "低价值 · 疑似刷量 / AI 机器人" }
+  },
+  "dimensions": {
+    "account_maturity": "账号成熟度",
+    "original_project_quality": "原创项目质量",
+    "contribution_quality": "贡献质量",
+    "ecosystem_impact": "生态/维护影响力",
+    "community_influence": "社区影响力",
+    "activity_authenticity": "活跃真实性"
+  }
+}

@@ -1,13 +1,15 @@
 import { cache } from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { getAccountDetail, getSimilarAccounts } from "@/lib/db";
 import { CopyBadge } from "@/components/CopyBadge";
 import { SUBSCORE_MAX } from "@/lib/score";
-import { tierStyle } from "@/lib/tier";
+import { TIER_KEY, tierStyle } from "@/lib/tier";
+import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || "https://githubroast.icu";
@@ -19,13 +21,13 @@ export const revalidate = 3600;
 // Dedupe the DB read between generateMetadata() and the page render.
 const getDetail = cache((username: string) => getAccountDetail(username));
 
-const DIMENSIONS: { key: SubScoreKey; label: string }[] = [
-  { key: "account_maturity", label: "账号成熟度" },
-  { key: "original_project_quality", label: "原创项目质量" },
-  { key: "contribution_quality", label: "贡献质量" },
-  { key: "ecosystem_impact", label: "生态/维护影响力" },
-  { key: "community_influence", label: "社区影响力" },
-  { key: "activity_authenticity", label: "活跃真实性" },
+const DIMENSIONS: SubScoreKey[] = [
+  "account_maturity",
+  "original_project_quality",
+  "contribution_quality",
+  "ecosystem_impact",
+  "community_influence",
+  "activity_authenticity",
 ];
 
 function barColor(pct: number): string {
@@ -37,25 +39,38 @@ function barColor(pct: number): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ username: string }>;
+  params: Promise<{ locale: string; username: string }>;
 }): Promise<Metadata> {
-  const { username } = await params;
+  const { locale, username } = await params;
+  const t = await getTranslations({ locale, namespace: "detailMeta" });
   const d = await getDetail(decodeURIComponent(username));
-  if (!d) return { title: "查无此号 · 毒舌 GitHub 评分" };
-  const title = `${d.username} — ${d.final_score.toFixed(2)}/100 · ${d.tier} | 毒舌 GitHub 评分`;
-  const description = d.tags.zh.length
-    ? `#${d.tags.zh.join(" #")} —— 在 githubroast.icu 查看 ${d.username} 的完整评分报告。`
-    : `${d.username} 的 GitHub 价值评分报告 —— githubroast.icu。`;
+  if (!d) return { title: t("notFoundTitle") };
+
+  const tt = await getTranslations({ locale, namespace: "tiers" });
+  const tierName = tt(`${TIER_KEY[d.tier]}.name`);
+  const title = t("title", {
+    username: d.username,
+    score: d.final_score.toFixed(2),
+    tier: tierName,
+  });
+  const tags = locale === "en" ? d.tags.en : d.tags.zh;
+  const description = tags.length
+    ? t("descWithTags", { tags: tags.map((x) => `#${x}`).join(" "), username: d.username })
+    : t("descPlain", { username: d.username });
   // The flex card doubles as the social preview image (resolved absolute via
   // metadataBase in layout.tsx) — so shared /u links render a rich card.
   const image = `/api/card/${d.username}`;
+  const path = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
   return {
     title,
     description,
+    alternates: {
+      languages: { "zh-CN": `/u/${d.username}`, en: `/en/u/${d.username}` },
+    },
     openGraph: {
       title,
       description,
-      url: `/u/${d.username}`,
+      url: path,
       type: "website",
       images: [{ url: image, width: 1200, height: 630 }],
     },
@@ -66,19 +81,28 @@ export async function generateMetadata({
 export default async function AccountPage({
   params,
 }: {
-  params: Promise<{ username: string }>;
+  params: Promise<{ locale: string; username: string }>;
 }) {
-  const { username } = await params;
+  const { locale, username } = await params;
+  setRequestLocale(locale);
   const d = await getDetail(decodeURIComponent(username));
   if (!d) notFound();
+
+  const t = await getTranslations("detail");
+  const tDim = await getTranslations("dimensions");
+  const tTier = await getTranslations("tiers");
   const style = tierStyle(d.tier);
-  const tags = [...d.tags.zh, ...d.tags.en];
+  const tierKey = TIER_KEY[d.tier];
+  const lang = normLang(locale);
+  // English visitors read the English-cached roast; fall back to the empty state
+  // (not the Chinese report) so the page never mixes languages.
+  const roast = lang === "en" ? d.roast_en : d.roast;
   const similar = await getSimilarAccounts(d.username, d.final_score, d.sub_scores);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
       <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
-        ← 返回名人堂
+        {t("back")}
       </Link>
 
       {/* Header card */}
@@ -106,26 +130,26 @@ export default async function AccountPage({
           <span className="text-2xl text-zinc-600">/100</span>
         </div>
         <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-          {style.emoji} {d.tier}
+          {style.emoji} {tTier(`${tierKey}.name`)}
         </div>
-        <div className="mt-1 text-sm text-zinc-400">{style.blurb}</div>
+        <div className="mt-1 text-sm text-zinc-400">{tTier(`${tierKey}.blurb`)}</div>
 
-        {tags.length > 0 && (
+        {d.tags.zh.length + d.tags.en.length > 0 && (
           <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-            {d.tags.zh.map((t, i) => (
+            {d.tags.zh.map((tag, i) => (
               <span
-                key={`zh-${t}-${i}`}
+                key={`zh-${tag}-${i}`}
                 className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-200/90"
               >
-                #{t}
+                #{tag}
               </span>
             ))}
-            {d.tags.en.map((t, i) => (
+            {d.tags.en.map((tag, i) => (
               <span
-                key={`en-${t}-${i}`}
+                key={`en-${tag}-${i}`}
                 className="rounded-full bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200/90"
               >
-                #{t}
+                #{tag}
               </span>
             ))}
           </div>
@@ -134,16 +158,16 @@ export default async function AccountPage({
 
       {/* Dimension breakdown */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-        <h2 className="mb-4 text-base font-bold text-zinc-200">维度评分</h2>
+        <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
         <div className="flex flex-col gap-3">
-          {DIMENSIONS.map((dim) => {
-            const max = SUBSCORE_MAX[dim.key];
-            const v = d.sub_scores[dim.key] ?? 0;
+          {DIMENSIONS.map((key) => {
+            const max = SUBSCORE_MAX[key];
+            const v = d.sub_scores[key] ?? 0;
             const pct = Math.max(0, Math.min(1, v / max));
             return (
-              <div key={dim.key}>
+              <div key={key}>
                 <div className="mb-1 flex items-baseline justify-between text-sm">
-                  <span className="text-zinc-300">{dim.label}</span>
+                  <span className="text-zinc-300">{tDim(key)}</span>
                   <span className="tabular-nums text-zinc-400">
                     {v.toFixed(1)}
                     <span className="text-zinc-600"> / {max}</span>
@@ -164,11 +188,12 @@ export default async function AccountPage({
       {/* Similar developers — same profile shape, nearby score */}
       {similar.length > 0 && (
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-          <h2 className="mb-1 text-base font-bold text-zinc-200">🧬 和 TA 最像的开发者</h2>
-          <p className="mb-4 text-xs text-zinc-500">画像最接近、分数相近的账号</p>
+          <h2 className="mb-1 text-base font-bold text-zinc-200">{t("similarHeading")}</h2>
+          <p className="mb-4 text-xs text-zinc-500">{t("similarSub")}</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {similar.map((s) => {
               const st = tierStyle(s.tier);
+              const tag = lang === "en" ? s.tags.en[0] : s.tags.zh[0];
               return (
                 <Link
                   key={s.username}
@@ -184,8 +209,8 @@ export default async function AccountPage({
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-zinc-200">@{s.username}</div>
-                    {s.tags.zh[0] && (
-                      <div className="truncate text-[11px] text-orange-200/80">#{s.tags.zh[0]}</div>
+                    {tag && (
+                      <div className="truncate text-[11px] text-orange-200/80">#{tag}</div>
                     )}
                   </div>
                   <span className={`shrink-0 text-right text-sm font-black tabular-nums ${st.text}`}>
@@ -200,18 +225,20 @@ export default async function AccountPage({
 
       {/* Full roast report */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-        <h2 className="mb-3 text-lg font-bold text-orange-400">🔥 毒舌点评全文</h2>
-        {d.roast ? (
+        <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
+        {roast ? (
           <div className="report text-[0.95rem] text-zinc-200">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.roast}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm text-zinc-500">
-            这份锐评还没存档 ——{" "}
-            <Link href="/" className="text-orange-400 hover:underline">
-              去首页重新审判一次
-            </Link>{" "}
-            即可生成。
+            {t.rich("roastEmpty", {
+              a: (c) => (
+                <Link href="/" className="text-orange-400 hover:underline">
+                  {c}
+                </Link>
+              ),
+            })}
           </p>
         )}
       </section>
@@ -225,7 +252,7 @@ export default async function AccountPage({
           href="/"
           className="inline-block rounded-full bg-orange-600 px-5 py-2 text-sm font-medium text-white hover:bg-orange-500"
         >
-          测测你自己的 GitHub 含金量 →
+          {t("selfCta")}
         </Link>
       </footer>
     </main>

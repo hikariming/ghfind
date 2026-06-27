@@ -9,6 +9,7 @@
  */
 
 import { Client, createClient } from "@libsql/client";
+import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
 import type { SubScores, Tags, Tier } from "./types";
 
@@ -100,7 +101,14 @@ function ensureSchema(db: Client): Promise<void> {
         "write",
       );
       // Migrations for tables created before these columns existed.
-      for (const col of ["tags TEXT", "bot_score REAL", "sub_scores TEXT", "roast TEXT"]) {
+      // `roast` holds the Chinese report; `roast_en` the English one.
+      for (const col of [
+        "tags TEXT",
+        "bot_score REAL",
+        "sub_scores TEXT",
+        "roast TEXT",
+        "roast_en TEXT",
+      ]) {
         try {
           await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
         } catch {
@@ -184,13 +192,15 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
  * runs before streaming so the percentile reflects this scan). No-op if the row
  * doesn't exist yet (e.g. a BYO-key roast that was never recorded).
  */
-export async function updateRoast(username: string, roast: string): Promise<void> {
+export async function updateRoast(username: string, roast: string, lang: Lang): Promise<void> {
   const db = getClient();
   if (!db) return;
+  // Column name comes from a fixed allowlist (never from user input).
+  const col = lang === "en" ? "roast_en" : "roast";
   try {
     await ensureSchema(db);
     await db.execute({
-      sql: `UPDATE scores SET roast = ? WHERE username = ?`,
+      sql: `UPDATE scores SET ${col} = ? WHERE username = ?`,
       args: [roast, username.toLowerCase()],
     });
   } catch (e) {
@@ -276,7 +286,10 @@ export interface AccountDetail {
   tier: Tier;
   tags: Tags;
   sub_scores: SubScores;
+  /** Chinese roast report (legacy single-language column). */
   roast: string | null;
+  /** English roast report; null until an `/en` roast has been generated. */
+  roast_en: string | null;
   scanned_at: number;
 }
 
@@ -322,7 +335,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, sub_scores, roast, scanned_at
+                   tags, sub_scores, roast, roast_en, scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
             LIMIT 1`,
@@ -340,6 +353,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       tags: parseTags(r.tags),
       sub_scores: parseSubScores(r.sub_scores),
       roast: (r.roast as string | null) ?? null,
+      roast_en: (r.roast_en as string | null) ?? null,
       scanned_at: Number(r.scanned_at),
     };
   } catch (e) {

@@ -1,5 +1,18 @@
 import type { Tier } from "./types";
 
+/** Stable, language-neutral slug per tier — used as the i18n message key
+ * (`tiers.<slug>.name` / `.blurb`) so JSON never needs CJK object keys. The
+ * stored/canonical tier value itself stays Chinese (see {@link Tier}). */
+export type TierKey = "god" | "elite" | "solid" | "npc" | "trash";
+
+export const TIER_KEY: Record<Tier, TierKey> = {
+  夯: "god",
+  顶级: "elite",
+  人上人: "solid",
+  NPC: "npc",
+  拉完了: "trash",
+};
+
 export interface TierStyle {
   tier: Tier;
   emoji: string;

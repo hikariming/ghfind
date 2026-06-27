@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 export interface ByoKeyConfig {
@@ -41,6 +42,7 @@ export function ByoKeyModal({
   onClose: () => void;
   onSave: (cfg: ByoKeyConfig | null) => void;
 }) {
+  const t = useTranslations("byok");
   const existing = loadByoKey();
   const [baseURL, setBaseURL] = useState(existing?.baseURL ?? PRESETS[0].baseURL);
   const [apiKey, setApiKey] = useState(existing?.apiKey ?? "");
@@ -73,17 +75,15 @@ export function ByoKeyModal({
         className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-bold">用你自己的模型</h3>
+        <h3 className="text-lg font-bold">{t("title")}</h3>
         {reason && (
           <p className="mt-1 text-sm text-amber-400/90">{reason}</p>
         )}
         <p className="mt-2 text-xs text-zinc-400">
-          兼容任意 OpenAI 接口（OpenAI / OpenRouter / Groq / DeepSeek / 本地）。
-          Key 保存在你自己的浏览器里。调用时会经过我们的服务器中转一次去请求模型，
-          <span className="text-zinc-300">但绝不落库、不写日志、用完即弃</span>。
+          {t.rich("compatNote", { b: (c) => <span className="text-zinc-300">{c}</span> })}
         </p>
         <p className="mt-1.5 text-xs text-amber-400/90">
-          🔒 介意的话，建议用一把<span className="font-semibold">临时 / 额度受限</span>的 Key，用完即可吊销。
+          {t.rich("tempKeyNote", { b: (c) => <span className="font-semibold">{c}</span> })}
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -101,14 +101,14 @@ export function ByoKeyModal({
           ))}
         </div>
 
-        <label className="mt-4 block text-xs text-zinc-400">Base URL</label>
+        <label className="mt-4 block text-xs text-zinc-400">{t("baseUrl")}</label>
         <input
           value={baseURL}
           onChange={(e) => setBaseURL(e.target.value)}
           className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/60"
           placeholder="https://api.openai.com/v1"
         />
-        <label className="mt-3 block text-xs text-zinc-400">API Key</label>
+        <label className="mt-3 block text-xs text-zinc-400">{t("apiKey")}</label>
         <input
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
@@ -116,7 +116,7 @@ export function ByoKeyModal({
           className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/60"
           placeholder="sk-..."
         />
-        <label className="mt-3 block text-xs text-zinc-400">Model</label>
+        <label className="mt-3 block text-xs text-zinc-400">{t("model")}</label>
         <input
           value={model}
           onChange={(e) => setModel(e.target.value)}
@@ -126,21 +126,21 @@ export function ByoKeyModal({
 
         <div className="mt-5 flex items-center justify-between">
           <button onClick={clear} className="text-xs text-zinc-500 hover:text-zinc-300">
-            清除
+            {t("clear")}
           </button>
           <div className="flex gap-2">
             <button
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:bg-white/5"
             >
-              取消
+              {t("cancel")}
             </button>
             <button
               onClick={save}
               disabled={!apiKey.trim()}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-40"
             >
-              保存并继续
+              {t("saveContinue")}
             </button>
           </div>
         </div>

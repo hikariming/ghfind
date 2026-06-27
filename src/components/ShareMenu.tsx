@@ -1,16 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-
-// User-facing copy in one place so wiring i18n later only touches this object.
-const T = {
-  open: "🔗 分享",
-  heading: "分享到",
-  imageHint: "微信 / 小红书（发图）",
-  copyLink: "复制链接",
-  copied: "已复制 ✓",
-  native: "系统分享…",
-};
 
 type Platform = { key: string; label: string; color: string; href: (u: string, t: string) => string };
 
@@ -34,6 +25,7 @@ export function ShareMenu({
   text: string;
   onShareImage: () => void;
 }) {
+  const T = useTranslations("share");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canNative, setCanNative] = useState(false);
@@ -62,7 +54,7 @@ export function ShareMenu({
 
   const nativeShare = async () => {
     try {
-      await navigator.share({ title: "毒舌 GitHub 评分", text, url: link });
+      await navigator.share({ title: T("siteName"), text, url: link });
     } catch {
       /* user cancelled / unsupported */
     }
@@ -75,7 +67,7 @@ export function ShareMenu({
         onClick={() => setOpen((v) => !v)}
         className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
       >
-        {T.open}
+        {T("open")}
       </button>
 
       {open && (
@@ -83,7 +75,7 @@ export function ShareMenu({
           {/* backdrop closes the menu on outside click */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute left-1/2 z-50 mt-2 w-60 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-2xl">
-            <div className="mb-2 px-1 text-left text-xs font-medium text-zinc-500">{T.heading}</div>
+            <div className="mb-2 px-1 text-left text-xs font-medium text-zinc-500">{T("heading")}</div>
             <div className="grid grid-cols-3 gap-1.5">
               {PLATFORMS.map((p) => (
                 <button
@@ -104,7 +96,7 @@ export function ShareMenu({
               }}
               className="mt-2 w-full rounded-lg border border-orange-400/30 bg-orange-500/10 px-2 py-2 text-xs font-medium text-orange-200 hover:bg-orange-500/20"
             >
-              📷 {T.imageHint}
+              📷 {T("imageHint")}
             </button>
 
             <div className="mt-1.5 flex gap-1.5">
@@ -112,14 +104,14 @@ export function ShareMenu({
                 onClick={copyLink}
                 className="flex-1 rounded-lg border border-white/10 px-2 py-2 text-xs text-zinc-300 hover:bg-white/10"
               >
-                📋 {copied ? T.copied : T.copyLink}
+                📋 {copied ? T("copied") : T("copyLink")}
               </button>
               {canNative && (
                 <button
                   onClick={nativeShare}
                   className="flex-1 rounded-lg border border-white/10 px-2 py-2 text-xs text-zinc-300 hover:bg-white/10"
                 >
-                  {T.native}
+                  {T("native")}
                 </button>
               )}
             </div>

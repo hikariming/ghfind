@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 /**
@@ -8,6 +9,7 @@ import { useEffect, useState } from "react";
  * cold / DB-less environment shows no broken state).
  */
 export function DeveloperCount() {
+  const t = useTranslations();
   const [target, setTarget] = useState<number | null>(null);
   const [display, setDisplay] = useState(0);
 
@@ -43,11 +45,12 @@ export function DeveloperCount() {
 
   return (
     <div className="mt-4 text-sm text-zinc-300">
-      已经有{" "}
-      <span className="text-base font-black tabular-nums text-orange-400">
-        {display.toLocaleString()}
-      </span>{" "}
-      名开发者参与战斗 ⚔️
+      {t.rich("developerCount", {
+        count: display,
+        n: (c) => (
+          <span className="text-base font-black tabular-nums text-orange-400">{c}</span>
+        ),
+      })}
     </div>
   );
 }

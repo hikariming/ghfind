@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TIER_LABEL_EN } from "@/lib/badge";
 import { getPercentile, recordScore, updateRoast } from "@/lib/db";
+import { Lang, normLang } from "@/lib/lang";
 import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/llm";
 import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
@@ -29,6 +31,8 @@ interface ByoKey {
 interface RoastBody {
   scan?: ScanResult;
   byoKey?: ByoKey;
+  /** UI locale → report language. Defaults to zh (see {@link normLang}). */
+  lang?: string;
 }
 
 function clientIp(req: NextRequest): string {
@@ -123,9 +127,11 @@ async function computeMeta(
   delta: number,
   tags: Tags,
   record: boolean,
+  lang: Lang,
 ): Promise<RoastMeta> {
   const adjusted = clampScore(scan.scoring.final_score + delta);
-  const { tier, tier_label } = tierFor(adjusted);
+  const { tier, tier_label: zhLabel } = tierFor(adjusted);
+  const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
   if (record) {
     await recordScore({
       username: scan.metrics.username,
@@ -160,6 +166,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
 
+  const lang = normLang(body.lang);
+
   const resolved = resolveConfig(body.byoKey);
   if (!resolved) {
     return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
@@ -178,13 +186,14 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
-    const cachedRoast = await getCachedRoast(username);
+    const cachedRoast = await getCachedRoast(username, lang);
     if (cachedRoast) {
       const meta = await computeMeta(
         scan,
         cachedRoast.delta,
         cachedRoast.tags ?? { zh: [], en: [] },
         false,
+        lang,
       );
       return roastResponse(cachedRoast.report, meta);
     }
@@ -197,7 +206,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const generator = chatStream(config, buildRoastMessages(scan));
+  const generator = chatStream(config, buildRoastMessages(scan, lang));
 
   // Read the leading control lines (`@@ADJUST@@` + `@@TAGS@@`) before streaming —
   // i.e. up to the report heading. Pulling tokens up-front also surfaces
@@ -224,7 +233,7 @@ export async function POST(req: NextRequest) {
   const tags = parseTags(head);
   const report = extractReport(head);
 
-  const meta = await computeMeta(scan, delta, tags, isDefault);
+  const meta = await computeMeta(scan, delta, tags, isDefault, lang);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -239,8 +248,8 @@ export async function POST(req: NextRequest) {
         // Cache the finished roast so repeat views don't re-spend LLM credit,
         // and persist it to the account row for the leaderboard detail view.
         if (isDefault) {
-          await setCachedRoast(username, { report: full, delta, tags });
-          await updateRoast(username, full);
+          await setCachedRoast(username, lang, { report: full, delta, tags });
+          await updateRoast(username, full, lang);
         }
       } catch (e) {
         console.error("roast stream error:", e);

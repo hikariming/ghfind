@@ -1,7 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { forwardRef, useEffect, useState } from "react";
-import { tierStyle } from "@/lib/tier";
+import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
 
 interface ShareCardProps {
@@ -24,6 +25,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   { username, name, avatarUrl, score, tier, tierLabel, beat, tags },
   ref,
 ) {
+  const t = useTranslations("shareCard");
+  const tTier = useTranslations("tiers");
   const style = tierStyle(tier);
   const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
   const [avatarData, setAvatarData] = useState<string | null>(null);
@@ -86,14 +89,14 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
             <span className="text-3xl text-zinc-600">/100</span>
           </div>
           <div className={`mt-1 text-3xl font-bold ${style.text}`}>
-            {style.emoji} {tier}
+            {style.emoji} {tTier(`${TIER_KEY[tier]}.name`)}
           </div>
           <div className="text-sm text-zinc-400">{tierLabel}</div>
         </div>
         {beat !== null && (
           <div className="mb-1 text-right">
             <div className={`text-4xl font-black ${style.text}`}>{beat}%</div>
-            <div className="text-xs text-zinc-400">超越的开发者</div>
+            <div className="text-xs text-zinc-400">{t("beatLabel")}</div>
           </div>
         )}
       </div>
@@ -114,7 +117,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
 
       {/* Footer brand */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-500">🔥 毒舌 GitHub 评分 · 来测测你的含金量</span>
+        <span className="text-zinc-500">{t("brand")}</span>
         <span className="font-black text-orange-400">githubroast.icu</span>
       </div>
     </div>

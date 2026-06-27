@@ -1,9 +1,11 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { tierStyle } from "@/lib/tier";
+import { splitReport } from "@/lib/report";
+import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 import {
   ByoKeyConfig,
@@ -25,32 +27,12 @@ interface Display {
   delta: number;
 }
 
-// The LLM report ends with a "🔥 **毒舌点评**: <one-liner>" line. Split it so the
-// card shows only that savage one-liner while the scoring table/dimensions render
-// separately below (above the leaderboard). While streaming, the marker may not
-// have arrived yet — then the whole thing is still "body" and roast stays empty.
-function splitReport(md: string): { body: string; roast: string } {
-  // Drop the leading "## <username> — <score>/100 · <tier>" heading — the card
-  // above already shows score + tier, so it would just be redundant here.
-  const stripTitle = (s: string) => s.replace(/^\s*#{1,6}\s+.*(?:\r?\n|$)/, "").trim();
-  const m = md.match(/🔥\s*\*{0,2}\s*毒舌点评\s*\*{0,2}\s*[：:]/);
-  if (!m || m.index === undefined) return { body: stripTitle(md), roast: "" };
-  return {
-    body: stripTitle(md.slice(0, m.index)),
-    roast: md.slice(m.index + m[0].length).trim(),
-  };
-}
-
-const SCAN_ERRORS: Record<string, string> = {
-  invalid_username: "这不像个 GitHub 用户名，检查一下？",
-  account_not_found: "查无此号 —— 拼写没错吧？",
-  turnstile_failed: "人机校验没过，刷新页面重试。",
-  rate_limited: "手速太快了，喘口气，一分钟后再来。",
-  github_rate_limited: "GitHub 接口暂时被打满了，缓一会儿再试。",
-  scan_failed: "扫描翻车了，稍后再试。",
-};
-
 export function Roaster() {
+  const t = useTranslations("roaster");
+  const tScan = useTranslations("scanErrors");
+  const tTier = useTranslations("tiers");
+  const locale = useLocale();
+
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -67,80 +49,84 @@ export function Roaster() {
   const [tags, setTags] = useState<Tags | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const runRoast = useCallback(async (scanResult: ScanResult) => {
-    setRoasting(true);
-    setReport("");
-    const byoKey: ByoKeyConfig | null = loadByoKey();
-    try {
-      const res = await fetch("/api/roast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scan: scanResult, byoKey }),
-      });
+  const runRoast = useCallback(
+    async (scanResult: ScanResult) => {
+      setRoasting(true);
+      setReport("");
+      const byoKey: ByoKeyConfig | null = loadByoKey();
+      try {
+        const res = await fetch("/api/roast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // `lang` selects the English vs Chinese prompt + per-language cache.
+          body: JSON.stringify({ scan: scanResult, byoKey, lang: locale }),
+        });
 
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        if (data?.useByoKey) {
-          setByoReason(
-            data.error === "llm_quota"
-              ? "免费额度用完了 😵 填入你自己的 API Key 继续毒舌（OpenAI / StepFun / Groq 都行）。"
-              : data.error === "rate_limited"
-                ? "你今天点评得有点多啦 🥵 歇会儿，或填入自己的 API Key 不限量继续。"
-                : "服务端还没配默认模型，填入你自己的 API Key 即可开评。",
-          );
-          setByoOpen(true);
+        if (!res.ok || !res.body) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.useByoKey) {
+            setByoReason(
+              data.error === "llm_quota"
+                ? t("byoReasonQuota")
+                : data.error === "rate_limited"
+                  ? t("byoReasonRate")
+                  : t("byoReasonDefault"),
+            );
+            setByoOpen(true);
+            setRoasting(false);
+            return;
+          }
+          setError(t("errRoastFailed"));
           setRoasting(false);
           return;
         }
-        setError("毒舌生成失败，稍后再试或换用自己的 Key。");
-        setRoasting(false);
-        return;
-      }
 
-      // The AI-adjusted score + percentile arrive as a header (base64 JSON), so
-      // the streamed body is pure markdown — no in-band parsing to get wrong.
-      const metaHeader = res.headers.get("X-Roast-Meta");
-      if (metaHeader) {
-        try {
-          const json = new TextDecoder().decode(
-            Uint8Array.from(atob(metaHeader), (c) => c.charCodeAt(0)),
-          );
-          const meta = JSON.parse(json) as RoastMeta;
-          setDisplay({
-            score: meta.final_score,
-            tier: meta.tier,
-            tierLabel: meta.tier_label,
-            delta: meta.delta,
-          });
-          setPercentile(meta.percentile);
-          if (meta.tags && (meta.tags.zh.length || meta.tags.en.length)) setTags(meta.tags);
-        } catch {
-          /* malformed meta — keep the deterministic display */
+        // The AI-adjusted score + percentile arrive as a header (base64 JSON), so
+        // the streamed body is pure markdown — no in-band parsing to get wrong.
+        const metaHeader = res.headers.get("X-Roast-Meta");
+        if (metaHeader) {
+          try {
+            const json = new TextDecoder().decode(
+              Uint8Array.from(atob(metaHeader), (c) => c.charCodeAt(0)),
+            );
+            const meta = JSON.parse(json) as RoastMeta;
+            setDisplay({
+              score: meta.final_score,
+              tier: meta.tier,
+              tierLabel: meta.tier_label,
+              delta: meta.delta,
+            });
+            setPercentile(meta.percentile);
+            if (meta.tags && (meta.tags.zh.length || meta.tags.en.length)) setTags(meta.tags);
+          } catch {
+            /* malformed meta — keep the deterministic display */
+          }
         }
-      }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        setReport(acc);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setReport(acc);
+        }
+      } catch {
+        setError(t("errNetworkRoast"));
+      } finally {
+        setRoasting(false);
       }
-    } catch {
-      setError("网络中断，毒舌没说完。");
-    } finally {
-      setRoasting(false);
-    }
-  }, []);
+    },
+    [locale, t],
+  );
 
   const submit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
       if (!username.trim() || scanning || roasting) return;
       if (turnstileEnabled() && !token) {
-        setError("请先完成下方的人机校验。");
+        setError(t("errNeedTurnstile"));
         return;
       }
       setError("");
@@ -158,7 +144,7 @@ export function Roaster() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(SCAN_ERRORS[data?.error] ?? "扫描失败，稍后再试。");
+          setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
           setScanning(false);
           return;
         }
@@ -179,18 +165,23 @@ export function Roaster() {
           100,
         );
       } catch {
-        setError("网络出错，连 GitHub 都连不上。");
+        setError(t("errNetworkScan"));
         setScanning(false);
       }
     },
-    [username, token, scanning, roasting, runRoast],
+    [username, token, scanning, roasting, runRoast, t, tScan],
   );
 
   const beatText =
-    percentile && percentile.beat !== null ? `，超越了 ${percentile.beat}% 的开发者` : "";
+    percentile && percentile.beat !== null ? t("shareBeat", { beat: percentile.beat }) : "";
   const shareText =
     scan && display
-      ? `我的 GitHub 含金量被审判了：${display.score.toFixed(2)}/100 · ${display.tier}（${display.tierLabel}）${beatText}。来测测你的 👉 githubroast.icu`
+      ? t("shareText", {
+          score: display.score.toFixed(2),
+          tier: tTier(`${TIER_KEY[display.tier]}.name`),
+          tierLabel: display.tierLabel,
+          beat: beatText,
+        })
       : "";
 
   const style = display ? tierStyle(display.tier) : null;
@@ -275,7 +266,7 @@ export function Roaster() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="输入 GitHub 用户名或主页链接"
+            placeholder={t("inputPlaceholder")}
             className="flex-1 bg-transparent px-1 py-2 text-base outline-none placeholder:text-zinc-600"
             autoCapitalize="off"
             autoCorrect="off"
@@ -286,7 +277,7 @@ export function Roaster() {
             disabled={scanning || roasting || !username.trim()}
             className="rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-40"
           >
-            {scanning ? "审判中…" : "开始审判"}
+            {scanning ? t("judging") : t("judge")}
           </button>
         </div>
         <Turnstile onToken={setToken} />
@@ -303,14 +294,14 @@ export function Roaster() {
           }}
           className="text-xs text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
         >
-          用自己的模型 / API Key
+          {t("byoLink")}
         </button>
       </div>
 
       {/* Scanning skeleton */}
       {scanning && (
         <div className="mt-10 animate-pulse text-center text-zinc-500">
-          正在扒 {username} 的老底…读 commit、查 PR、数 star、抓刷量痕迹
+          {t("scanning", { username })}
         </div>
       )}
 
@@ -334,12 +325,12 @@ export function Roaster() {
               <span className="text-2xl text-zinc-600">/100</span>
             </div>
             <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-              {style.emoji} {display.tier}
+              {style.emoji} {tTier(`${TIER_KEY[display.tier]}.name`)}
             </div>
 
             {/* Savage one-liner only — full scoring report renders below the card */}
             <div className="mt-4 w-full rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-left">
-              <div className="mb-2 text-base font-bold text-orange-400">🔥 毒舌点评</div>
+              <div className="mb-2 text-base font-bold text-orange-400">{t("roastLabel")}</div>
               {roastLine ? (
                 <p
                   className={`text-sm leading-relaxed text-zinc-100 ${
@@ -356,19 +347,19 @@ export function Roaster() {
                     <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
                   </div>
                   <div className="text-sm text-zinc-400">
-                    {roasting ? "AI 正在憋一段毒舌点评，马上端上来…" : "准备生成点评"}
+                    {roasting ? t("roastThinking") : t("roastPending")}
                   </div>
                 </div>
               )}
 
               {tags && (tags.zh.length > 0 || tags.en.length > 0) && (
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
-                  {[...tags.zh, ...tags.en].map((t, i) => (
+                  {[...tags.zh, ...tags.en].map((tag, i) => (
                     <span
-                      key={`${t}-${i}`}
+                      key={`${tag}-${i}`}
                       className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-200"
                     >
-                      #{t}
+                      #{tag}
                     </span>
                   ))}
                 </div>
@@ -377,11 +368,15 @@ export function Roaster() {
 
             {percentile &&
               (percentile.beat === null ? (
-                <div className="mt-3 text-sm text-zinc-300">🥇 你是第一个被审判的，前无古人</div>
+                <div className="mt-3 text-sm text-zinc-300">{t("firstJudged")}</div>
               ) : (
                 <div className="mt-3 text-sm">
-                  <span className={`font-semibold ${style.text}`}>🏆 超越了 {percentile.beat}%</span>
-                  <span className="text-zinc-400"> 的开发者（共 {percentile.total} 人受审）</span>
+                  {t.rich("beatLine", {
+                    beat: percentile.beat,
+                    total: percentile.total,
+                    hl: (c) => <span className={`font-semibold ${style.text}`}>{c}</span>,
+                    muted: (c) => <span className="text-zinc-400">{c}</span>,
+                  })}
                 </div>
               ))}
 
@@ -391,13 +386,13 @@ export function Roaster() {
                 disabled={savingImg}
                 className="rounded-full bg-orange-600/90 px-4 py-1.5 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
               >
-                {savingImg ? "生成中…" : "📸 保存炫耀图"}
+                {savingImg ? t("saving") : t("saveImage")}
               </button>
               <button
                 onClick={copyCardEmbed}
                 className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
               >
-                {embedCopied ? "已复制 ✓" : "📌 贴到 GitHub"}
+                {embedCopied ? t("copied") : t("pasteGithub")}
               </button>
               <ShareMenu
                 link={
@@ -433,9 +428,7 @@ export function Roaster() {
           )}
 
           {scan.metrics.days_since_last_activity === null && (
-            <p className="mt-3 text-center text-xs text-zinc-600">
-              注：评分仅基于公开信号，私有贡献不计入，可能低估私有组织的活跃员工。
-            </p>
+            <p className="mt-3 text-center text-xs text-zinc-600">{t("privateNote")}</p>
           )}
 
           {/* Off-screen export target for the flex image */}

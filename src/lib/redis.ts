@@ -11,6 +11,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { LeaderboardEntry } from "./db";
+import type { Lang } from "./lang";
 import type { ScanResult } from "./types";
 
 let redis: Redis | null = null;
@@ -155,7 +156,9 @@ export async function checkRoastRateLimit(ip: string): Promise<{ success: boolea
   }
 }
 
-/** Cached roast: the LLM-written report + its ±delta + tags, keyed by username (24h). */
+/** Cached roast: the LLM-written report + its ±delta + tags, keyed by
+ * language + username (24h). The roast text differs by language, so the cache
+ * key carries the lang; the scan cache stays language-neutral (deterministic). */
 export interface CachedRoast {
   report: string;
   delta: number;
@@ -163,23 +166,28 @@ export interface CachedRoast {
 }
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
-const roastKey = (username: string) => `roast:${username.toLowerCase()}`;
+export const roastKey = (username: string, lang: Lang) =>
+  `roast:${lang}:${username.toLowerCase()}`;
 
-export async function getCachedRoast(username: string): Promise<CachedRoast | null> {
+export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
   const r = getRedis();
   if (!r) return null;
   try {
-    return (await r.get<CachedRoast>(roastKey(username))) ?? null;
+    return (await r.get<CachedRoast>(roastKey(username, lang))) ?? null;
   } catch {
     return null;
   }
 }
 
-export async function setCachedRoast(username: string, value: CachedRoast): Promise<void> {
+export async function setCachedRoast(
+  username: string,
+  lang: Lang,
+  value: CachedRoast,
+): Promise<void> {
   const r = getRedis();
   if (!r) return;
   try {
-    await r.set(roastKey(username), value, { ex: ROAST_TTL_SECONDS });
+    await r.set(roastKey(username, lang), value, { ex: ROAST_TTL_SECONDS });
   } catch {
     // best-effort
   }
