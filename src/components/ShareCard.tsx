@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { forwardRef, useEffect, useState } from "react";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
+import { TierAvatarFrame } from "./TierAvatarFrame";
 
 interface ShareCardProps {
   username: string;
@@ -18,7 +19,7 @@ interface ShareCardProps {
 
 /**
  * The "flex" card rendered off-screen and exported to PNG via html-to-image.
- * Fixed 600×360 so the export is deterministic. The avatar is inlined as a data
+ * Fixed 600×460 so the export is deterministic. The avatar is inlined as a data
  * URL up-front so the cross-origin image never taints the export canvas.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
@@ -57,7 +58,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   return (
     <div
       ref={ref}
-      style={{ width: 600, height: 360 }}
+      style={{ width: 600, height: 460 }}
       className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
     >
       <div
@@ -65,26 +66,28 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         style={{ background: style.glow }}
       />
 
-      {/* Header: avatar + handle */}
-      <div className="flex items-center gap-3">
-        {avatarData ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarData} alt="" className="h-14 w-14 rounded-full" />
-        ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-xl font-bold">
-            {username.slice(0, 1).toUpperCase()}
-          </div>
-        )}
-        <div className="leading-tight">
-          <div className="text-lg font-bold">@{username}</div>
-          {name && <div className="text-sm text-zinc-400">{name}</div>}
+      {/* Header: highlighted handle, then tier-framed avatar before the score. */}
+      <div className="flex flex-col items-center text-center">
+        <div
+          className={`max-w-full rounded-full bg-black/35 px-4 py-1 text-2xl font-black leading-tight ${style.text} ring-1 ${style.ring}`}
+          style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
+        >
+          @{username}
         </div>
+        {name && <div className="mt-1 max-w-full truncate text-sm text-zinc-400">{name}</div>}
+        <TierAvatarFrame
+          username={username}
+          avatarUrl={avatarData}
+          tier={tier}
+          size="md"
+          className="mt-3"
+        />
       </div>
 
       {/* Score */}
-      <div className="flex items-end justify-between">
-        <div>
-          <div className={`text-7xl font-black tabular-nums ${style.text}`}>
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <div className={`text-6xl font-black tabular-nums ${style.text}`}>
             {score.toFixed(2)}
             <span className="text-3xl text-zinc-600">/100</span>
           </div>

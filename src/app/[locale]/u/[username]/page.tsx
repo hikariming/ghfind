@@ -7,6 +7,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getAccountDetail, getSimilarAccounts } from "@/lib/db";
 import { CopyBadge } from "@/components/CopyBadge";
+import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { SUBSCORE_MAX } from "@/lib/score";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
@@ -110,22 +111,26 @@ export default async function AccountPage({
         className={`animate-pop mt-4 flex flex-col items-center rounded-2xl border bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
         style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
       >
-        {d.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={d.avatar_url} alt={d.username} className="h-16 w-16 rounded-full" />
-        ) : (
-          <div className="h-16 w-16 rounded-full bg-white/10" />
-        )}
         <a
           href={d.profile_url ?? `https://github.com/${d.username}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 text-sm text-zinc-400 hover:text-zinc-200"
+          className={`max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring} hover:bg-black/45`}
+          style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
         >
           @{d.username}
-          {d.display_name && <span className="ml-1.5 text-zinc-500">· {d.display_name}</span>}
         </a>
-        <div className={`mt-2 text-6xl font-black tabular-nums ${style.text}`}>
+        {d.display_name && (
+          <div className="mt-2 max-w-full truncate text-sm text-zinc-400">{d.display_name}</div>
+        )}
+        <TierAvatarFrame
+          username={d.username}
+          avatarUrl={d.avatar_url}
+          tier={d.tier}
+          size="lg"
+          className="mt-5"
+        />
+        <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
         </div>

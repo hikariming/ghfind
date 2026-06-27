@@ -4,6 +4,8 @@ import { getAccountDetail, getPercentile } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
 import { SPONSOR } from "@/lib/sponsor";
+import { tierAvatarFrame } from "@/lib/tier";
+import type { TierAvatarFramePlacement } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -53,6 +55,7 @@ function png(element: React.ReactElement, fontList: Awaited<ReturnType<typeof fo
     width: W,
     height: H,
     fonts: fontList,
+    emoji: "twemoji",
     headers: { "Cache-Control": CDN_CACHE },
   });
 }
@@ -66,7 +69,7 @@ function Shell({ glow, children }: { glow: string; children: React.ReactNode }) 
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: 64,
+        padding: 52,
         backgroundColor: BG,
         backgroundImage: `radial-gradient(900px circle at 95% -10%, ${glow}, transparent 60%)`,
         color: "#fff",
@@ -86,6 +89,101 @@ function Brand() {
         <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>githubroast.icu</span>
       </div>
       <div style={{ display: "flex", color: "#71717a" }}>Powered by {SPONSOR.name}</div>
+    </div>
+  );
+}
+
+function OgAvatarFrame({
+  username,
+  avatar,
+  tier,
+  color,
+}: {
+  username: string;
+  avatar: string | null;
+  tier: Tier;
+  color: string;
+}) {
+  const frame = tierAvatarFrame(tier);
+  const emojiBox = frame.emojiSize === "large" ? 48 : 34;
+  const emojiFont = frame.emojiSize === "large" ? 32 : 22;
+  const center = (152 - emojiBox) / 2;
+  const side = -emojiBox / 2;
+  const corner = frame.emojiSize === "large" ? 0 : 6;
+  const positions: Record<TierAvatarFramePlacement, React.CSSProperties> = {
+    top: { left: center, top: side },
+    "top-right": { right: corner, top: corner },
+    right: { right: side, top: center },
+    "bottom-right": { right: corner, bottom: corner },
+    bottom: { left: center, bottom: side },
+    "bottom-left": { left: corner, bottom: corner },
+    left: { left: side, top: center },
+    "top-left": { left: corner, top: corner },
+  };
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        width: 152,
+        height: 152,
+        borderRadius: 9999,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: `${color}1A`,
+        boxShadow: `0 0 44px -12px ${color}`,
+        border: `3px solid ${color}B3`,
+      }}
+    >
+      {frame.placements.map((placement) => (
+        <div
+          key={`${frame.emoji}-${placement}`}
+          style={{
+            position: "absolute",
+            display: "flex",
+            width: emojiBox,
+            height: emojiBox,
+            borderRadius: 9999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: BG,
+            fontSize: emojiFont,
+            lineHeight: 1,
+            ...positions[placement],
+          }}
+        >
+          {frame.emoji}
+        </div>
+      ))}
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatar}
+          width={112}
+          height={112}
+          style={{ borderRadius: 9999, border: "4px solid #050505" }}
+          alt=""
+        />
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            width: 112,
+            height: 112,
+            borderRadius: 9999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#27272a",
+            border: "4px solid #050505",
+            color: "#f4f4f5",
+            fontSize: 52,
+            fontWeight: 800,
+          }}
+        >
+          {username.slice(0, 1).toUpperCase()}
+        </div>
+      )}
     </div>
   );
 }
@@ -130,32 +228,29 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   return png(
     <Shell glow={`${color}55`}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        {avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} width={96} height={96} style={{ borderRadius: 9999 }} alt="" />
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              width: 96,
-              height: 96,
-              borderRadius: 9999,
-              backgroundColor: "#27272a",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 44,
-              fontWeight: 800,
-            }}
-          >
-            {detail.username.slice(0, 1).toUpperCase()}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            borderRadius: 9999,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            border: `2px solid ${color}80`,
+            boxShadow: `0 0 34px -12px ${color}`,
+            color,
+            fontSize: 38,
+            fontWeight: 800,
+            padding: "8px 26px",
+          }}
+        >
+          @{detail.username}
+        </div>
+        {displayName && (
+          <div style={{ display: "flex", marginTop: 8, fontSize: 22, color: "#a1a1aa" }}>
+            {displayName}
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", marginLeft: 24 }}>
-          <div style={{ display: "flex", fontSize: 34, fontWeight: 800 }}>@{detail.username}</div>
-          {displayName && (
-            <div style={{ display: "flex", fontSize: 22, color: "#a1a1aa" }}>{displayName}</div>
-          )}
+        <div style={{ display: "flex", marginTop: 18 }}>
+          <OgAvatarFrame username={detail.username} avatar={avatar} tier={tier} color={color} />
         </div>
       </div>
 
@@ -163,23 +258,23 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 132, fontWeight: 800, color, lineHeight: 1 }}>
+            <span style={{ fontSize: 116, fontWeight: 800, color, lineHeight: 1 }}>
               {detail.final_score.toFixed(2)}
             </span>
-            <span style={{ fontSize: 44, color: "#52525b", marginLeft: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 40, color: "#52525b", marginLeft: 8, marginBottom: 10 }}>
               /100
             </span>
           </div>
-          <div style={{ display: "flex", fontSize: 46, fontWeight: 800, color, marginTop: 10 }}>
+          <div style={{ display: "flex", fontSize: 40, fontWeight: 800, color, marginTop: 8 }}>
             {TIER_EN[tier]}
           </div>
-          <div style={{ display: "flex", fontSize: 24, color: "#a1a1aa", marginTop: 2 }}>
+          <div style={{ display: "flex", fontSize: 22, color: "#a1a1aa", marginTop: 2 }}>
             {TIER_LABEL_EN[tier]}
           </div>
         </div>
         {beat !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 72, fontWeight: 800, color }}>{beat}%</span>
+            <span style={{ fontSize: 64, fontWeight: 800, color }}>{beat}%</span>
             <span style={{ fontSize: 22, color: "#a1a1aa" }}>ahead of devs</span>
           </div>
         )}

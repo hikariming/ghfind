@@ -25,6 +25,82 @@ export interface TierStyle {
   blurb: string;
 }
 
+export type TierAvatarFramePlacement =
+  | "top"
+  | "top-right"
+  | "right"
+  | "bottom-right"
+  | "bottom"
+  | "bottom-left"
+  | "left"
+  | "top-left";
+
+export type TierAvatarFrameEmojiSize = "normal" | "large";
+
+export interface TierAvatarFrame {
+  emoji: string;
+  placements: TierAvatarFramePlacement[];
+  emojiSize: TierAvatarFrameEmojiSize;
+  /** Tailwind ring color class for the avatar shell. */
+  ring: string;
+  /** Tailwind background class for the inner avatar shell. */
+  bg: string;
+  /** CSS glow color used by inline shadow styles. */
+  glow: string;
+}
+
+export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
+  夯: {
+    emoji: "👑",
+    placements: ["top"],
+    emojiSize: "large",
+    ring: "ring-amber-300/70",
+    bg: "bg-amber-400/10",
+    glow: "rgba(251,191,36,0.65)",
+  },
+  顶级: {
+    emoji: "🥇",
+    placements: ["bottom"],
+    emojiSize: "large",
+    ring: "ring-yellow-300/70",
+    bg: "bg-yellow-300/10",
+    glow: "rgba(250,204,21,0.55)",
+  },
+  人上人: {
+    emoji: "👍",
+    placements: ["top-left", "top-right", "bottom-right", "bottom-left"],
+    emojiSize: "normal",
+    ring: "ring-emerald-300/70",
+    bg: "bg-emerald-400/10",
+    glow: "rgba(52,211,153,0.5)",
+  },
+  NPC: {
+    emoji: "🙂",
+    placements: ["bottom"],
+    emojiSize: "normal",
+    ring: "ring-sky-300/55",
+    bg: "bg-sky-300/10",
+    glow: "rgba(125,211,252,0.35)",
+  },
+  拉完了: {
+    emoji: "💩",
+    placements: [
+      "top",
+      "top-right",
+      "right",
+      "bottom-right",
+      "bottom",
+      "bottom-left",
+      "left",
+      "top-left",
+    ],
+    emojiSize: "normal",
+    ring: "ring-rose-300/70",
+    bg: "bg-rose-400/10",
+    glow: "rgba(251,113,133,0.55)",
+  },
+};
+
 export const TIER_STYLES: Record<Tier, TierStyle> = {
   夯: {
     tier: "夯",
@@ -70,4 +146,8 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
 
 export function tierStyle(tier: Tier): TierStyle {
   return TIER_STYLES[tier] ?? TIER_STYLES.NPC;
+}
+
+export function tierAvatarFrame(tier: Tier): TierAvatarFrame {
+  return TIER_AVATAR_FRAMES[tier] ?? TIER_AVATAR_FRAMES.NPC;
 }

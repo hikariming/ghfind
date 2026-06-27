@@ -275,6 +275,56 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       "## Local preview data\n\nThis sample account creates more variety in the heat ranking.",
     scanned_at: PREVIEW_SCANNED_AT - 3,
   },
+  {
+    username: "demo-npc-average",
+    display_name: "Preview NPC",
+    avatar_url: null,
+    profile_url: null,
+    final_score: 62.18,
+    tier: "NPC",
+    tags: {
+      zh: ["均匀平庸", "存在感稀薄", "还没成型"],
+      en: ["evenly average", "low signal", "not formed yet"],
+    },
+    sub_scores: {
+      account_maturity: 6,
+      original_project_quality: 7,
+      contribution_quality: 16,
+      ecosystem_impact: 7,
+      community_influence: 3,
+      activity_authenticity: 13,
+    },
+    roast:
+      "## 本地预览数据\n\n这个账号用于验证 NPC 档位：分数过线但没有亮点，头像框应显示笑脸围绕。",
+    roast_en:
+      "## Local preview data\n\nThis sample account validates the NPC tier and its smiley avatar frame.",
+    scanned_at: PREVIEW_SCANNED_AT - 4,
+  },
+  {
+    username: "demo-trash-fire",
+    display_name: "Preview Trash",
+    avatar_url: null,
+    profile_url: null,
+    final_score: 28.66,
+    tier: "拉完了",
+    tags: {
+      zh: ["刷量疑云", "项目空心", "收藏夹开发者"],
+      en: ["farm signals", "hollow repos", "bookmark dev"],
+    },
+    sub_scores: {
+      account_maturity: 2,
+      original_project_quality: 1,
+      contribution_quality: 8,
+      ecosystem_impact: 0,
+      community_influence: 1,
+      activity_authenticity: 9,
+    },
+    roast:
+      "## 本地预览数据\n\n这个账号用于验证拉完了档位：低分、低贡献、低影响力，头像框应显示便便围绕。",
+    roast_en:
+      "## Local preview data\n\nThis sample account validates the trash tier and its poop avatar frame.",
+    scanned_at: PREVIEW_SCANNED_AT - 5,
+  },
 ];
 
 const PREVIEW_HEAT: Record<string, number> = {
@@ -282,6 +332,8 @@ const PREVIEW_HEAT: Record<string, number> = {
   "demo-heat-runner": 612,
   "demo-score-smith": 241,
   "demo-fresh-star": 404,
+  "demo-npc-average": 133,
+  "demo-trash-fire": 36,
 };
 
 function previewEnabled(): boolean {
