@@ -1,0 +1,11 @@
+# Code owners for github-roast.
+#
+# Every pull request targeting a protected branch (main) requires review from
+# the owner(s) listed here, because the branch ruleset enables
+# "Require review from Code Owners". This enforces "only I decide what lands on
+# main" while collaborators work on feature branches + PRs.
+#
+# Syntax: <path pattern>  <@owner ...>   (last matching line wins)
+
+# Default: the whole repository is owned by @hikariming.
+*       @hikariming
