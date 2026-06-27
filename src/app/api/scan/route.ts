@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordAccountLookup } from "@/lib/db";
-import { AccountNotFoundError, GitHubRateLimitError, collect } from "@/lib/github";
+import {
+  getStoredAccountEmail,
+  isDbConfigured,
+  recordAccountLookup,
+  saveAccountEmail,
+} from "@/lib/db";
+import {
+  AccountNotFoundError,
+  GitHubRateLimitError,
+  collect,
+  fetchPublicProfileEmail,
+} from "@/lib/github";
+import { maybeSendHeatTop20Notification } from "@/lib/email";
 import {
   checkRateLimit,
   clearCachedLeaderboards,
@@ -30,9 +41,29 @@ function clientIp(req: NextRequest): string {
   return fwd?.split(",")[0]?.trim() || "0.0.0.0";
 }
 
-async function recordSuccessfulLookup(username: string, ip: string): Promise<void> {
-  const counted = await recordAccountLookup(username, ip);
-  if (counted) await clearCachedLeaderboards();
+async function ensureProfileEmail(username: string, discoveredEmail?: string | null): Promise<void> {
+  if (discoveredEmail) {
+    await saveAccountEmail(username, discoveredEmail);
+    return;
+  }
+  if (!isDbConfigured()) return;
+  const storedEmail = await getStoredAccountEmail(username);
+  if (storedEmail) return;
+  const profileEmail = await fetchPublicProfileEmail(username);
+  if (profileEmail) await saveAccountEmail(username, profileEmail);
+}
+
+async function recordSuccessfulLookup(
+  username: string,
+  ip: string,
+  email?: string | null,
+): Promise<void> {
+  const counted = await recordAccountLookup(username, ip, email);
+  await ensureProfileEmail(username, email);
+  if (counted) {
+    await clearCachedLeaderboards();
+    await maybeSendHeatTop20Notification(username);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -70,12 +101,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    let discoveredEmail: string | null = null;
     const result = await coalesceScan(username, async (): Promise<ScanResult> => {
-      const { metrics, top_repos, recent_prs, flood_pr_titles } = await collect(username);
+      const { metrics, top_repos, recent_prs, flood_pr_titles, profile_email } =
+        await collect(username);
+      discoveredEmail = profile_email;
       const scoring = score(metrics);
       return { metrics, top_repos, recent_prs, flood_pr_titles, scoring };
     });
-    await recordSuccessfulLookup(result.metrics.username, ip);
+    await recordSuccessfulLookup(result.metrics.username, ip, discoveredEmail);
     return NextResponse.json({ ...result, cached: false });
   } catch (e) {
     if (e instanceof AccountNotFoundError) {

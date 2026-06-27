@@ -64,6 +64,14 @@ function heatIpHash(ip: string): string {
   return createHash("sha256").update(salt).update("\0").update(ip).digest("hex");
 }
 
+function normalizeEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const email = raw.trim().toLowerCase();
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return null;
+  if (email.endsWith("@users.noreply.github.com")) return null;
+  return email;
+}
+
 let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
 
@@ -78,6 +86,10 @@ function getClient(): Client | null {
   return client;
 }
 
+export function isDbConfigured(): boolean {
+  return Boolean(process.env.TURSO_DATABASE_URL);
+}
+
 /** Create the table/index once per process. */
 function ensureSchema(db: Client): Promise<void> {
   if (!schemaReady) {
@@ -86,6 +98,7 @@ function ensureSchema(db: Client): Promise<void> {
         [
           `CREATE TABLE IF NOT EXISTS scores (
              username     TEXT PRIMARY KEY,
+             email        TEXT,
              display_name TEXT,
              avatar_url   TEXT,
              profile_url  TEXT,
@@ -101,6 +114,7 @@ function ensureSchema(db: Client): Promise<void> {
           `CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(final_score DESC)`,
           `CREATE TABLE IF NOT EXISTS account_stats (
              username        TEXT PRIMARY KEY,
+             email           TEXT,
              lookup_count    INTEGER NOT NULL DEFAULT 0,
              first_lookup_at INTEGER NOT NULL,
              last_lookup_at  INTEGER NOT NULL
@@ -126,12 +140,24 @@ function ensureSchema(db: Client): Promise<void> {
              last_login  INTEGER NOT NULL
            )`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login)`,
+          `CREATE TABLE IF NOT EXISTS email_notifications (
+             username   TEXT NOT NULL,
+             kind       TEXT NOT NULL,
+             recipient  TEXT NOT NULL,
+             subject    TEXT NOT NULL,
+             status     TEXT NOT NULL DEFAULT 'pending',
+             created_at INTEGER NOT NULL,
+             sent_at    INTEGER,
+             last_error TEXT,
+             PRIMARY KEY (username, kind)
+           )`,
         ],
         "write",
       );
       // Migrations for tables created before these columns existed.
       // `roast` holds the Chinese report; `roast_en` the English one.
       for (const col of [
+        "email TEXT",
         "tags TEXT",
         "bot_score REAL",
         "sub_scores TEXT",
@@ -140,6 +166,13 @@ function ensureSchema(db: Client): Promise<void> {
       ]) {
         try {
           await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
+        } catch {
+          // column already exists — ignore
+        }
+      }
+      for (const col of ["email TEXT"]) {
+        try {
+          await db.execute(`ALTER TABLE account_stats ADD COLUMN ${col}`);
         } catch {
           // column already exists — ignore
         }
@@ -154,6 +187,7 @@ function ensureSchema(db: Client): Promise<void> {
 
 export interface ScoreEntry {
   username: string;
+  email?: string | null;
   display_name: string | null;
   avatar_url: string | null;
   profile_url: string | null;
@@ -333,13 +367,18 @@ function previewAccountDetail(username: string): AccountDetail | null {
  * successful scans for the same account from the same IP hash inside 24 hours
  * are accepted by the app, but do not increment leaderboard heat.
  */
-export async function recordAccountLookup(username: string, ip: string): Promise<boolean> {
+export async function recordAccountLookup(
+  username: string,
+  ip: string,
+  email?: string | null,
+): Promise<boolean> {
   const db = getClient();
   if (!db) return false;
   try {
     await ensureSchema(db);
     const now = Date.now();
     const normalizedUsername = username.toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const tx = await db.transaction("write");
     try {
       const gate = await tx.execute({
@@ -361,12 +400,13 @@ export async function recordAccountLookup(username: string, ip: string): Promise
         return false;
       }
       await tx.execute({
-        sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
-              VALUES (?, 1, ?, ?)
+        sql: `INSERT INTO account_stats (username, email, lookup_count, first_lookup_at, last_lookup_at)
+              VALUES (?, ?, 1, ?, ?)
               ON CONFLICT(username) DO UPDATE SET
+                email          = COALESCE(account_stats.email, excluded.email),
                 lookup_count   = account_stats.lookup_count + 1,
                 last_lookup_at = excluded.last_lookup_at`,
-        args: [normalizedUsername, now, now],
+        args: [normalizedUsername, normalizedEmail, now, now],
       });
       await tx.commit();
       return true;
@@ -380,6 +420,54 @@ export async function recordAccountLookup(username: string, ip: string): Promise
   }
 }
 
+export async function getStoredAccountEmail(username: string): Promise<string | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const normalizedUsername = username.toLowerCase();
+    const res = await db.execute({
+      sql: `SELECT COALESCE(
+              (SELECT email FROM account_stats WHERE username = ?),
+              (SELECT email FROM scores WHERE username = ?)
+            ) AS email`,
+      args: [normalizedUsername, normalizedUsername],
+    });
+    return normalizeEmail(res.rows[0]?.email as string | null | undefined);
+  } catch (e) {
+    console.error("getStoredAccountEmail failed:", e);
+    return null;
+  }
+}
+
+export async function saveAccountEmail(
+  username: string,
+  email: string | null | undefined,
+): Promise<void> {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return;
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const normalizedUsername = username.toLowerCase();
+    await db.execute({
+      sql: `INSERT INTO account_stats (username, email, lookup_count, first_lookup_at, last_lookup_at)
+            VALUES (?, ?, 0, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+              email = COALESCE(account_stats.email, excluded.email)`,
+      args: [normalizedUsername, normalizedEmail, now, now],
+    });
+    await db.execute({
+      sql: `UPDATE scores SET email = COALESCE(email, ?) WHERE username = ?`,
+      args: [normalizedEmail, normalizedUsername],
+    });
+  } catch (e) {
+    console.error("saveAccountEmail failed:", e);
+  }
+}
+
 /** Upsert an account's latest score. Best-effort; never throws to the caller. */
 export async function recordScore(entry: ScoreEntry): Promise<void> {
   const db = getClient();
@@ -387,11 +475,13 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
   try {
     await ensureSchema(db);
     const username = entry.username.toLowerCase();
+    const email = normalizeEmail(entry.email);
     await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (username, email, display_name, avatar_url, profile_url, final_score, tier, tags, bot_score, sub_scores, scanned_at)
+            VALUES (?, COALESCE(?, (SELECT email FROM account_stats WHERE username = ?)), ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
+              email        = COALESCE(excluded.email, scores.email),
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
               profile_url  = excluded.profile_url,
@@ -402,6 +492,8 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               sub_scores   = excluded.sub_scores,
               scanned_at   = excluded.scanned_at`,
       args: [
+        username,
+        email,
         username,
         entry.display_name,
         entry.avatar_url,
@@ -415,11 +507,12 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
       ],
     });
     await db.execute({
-      sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
-            VALUES (?, ?, ?, ?)
+      sql: `INSERT INTO account_stats (username, email, lookup_count, first_lookup_at, last_lookup_at)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
+              email = COALESCE(account_stats.email, excluded.email),
               lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
-      args: [username, MIN_RECORDED_LOOKUP_COUNT, entry.scanned_at, entry.scanned_at],
+      args: [username, email, MIN_RECORDED_LOOKUP_COUNT, entry.scanned_at, entry.scanned_at],
     });
   } catch (e) {
     console.error("recordScore failed:", e);
@@ -604,6 +697,29 @@ export interface AccountDetail {
   scanned_at: number;
 }
 
+export interface ArchivedRoast {
+  username: string;
+  final_score: number;
+  tier: Tier;
+  tags: Tags;
+  report: string;
+}
+
+export type EmailNotificationKind = "god_score" | "heat_top_20";
+
+export interface EmailNotificationCandidate {
+  username: string;
+  email: string;
+  display_name: string | null;
+  profile_url: string | null;
+  final_score: number;
+  tier: Tier;
+  tags: Tags;
+  roast: string | null;
+  roast_en: string | null;
+  lookup_count: number;
+}
+
 export interface ScoreBrief {
   username: string;
   display_name: string | null;
@@ -690,6 +806,151 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
   } catch (e) {
     console.error("getAccountDetail failed:", e);
     return previewAccountDetail(username);
+  }
+}
+
+/**
+ * Stored roast report for replaying a previous default-model generation. The
+ * language column is fixed by allowlist, so the SQL never uses user input for a
+ * column name.
+ */
+export async function getArchivedRoast(
+  username: string,
+  lang: Lang,
+): Promise<ArchivedRoast | null> {
+  const db = getClient();
+  if (!db) return null;
+  const col = lang === "en" ? "roast_en" : "roast";
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT username, final_score, tier, tags, ${col} AS report
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND ${col} IS NOT NULL
+              AND ${col} != ''
+            LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      username: String(r.username),
+      final_score: Number(r.final_score),
+      tier: String(r.tier) as Tier,
+      tags: parseTags(r.tags),
+      report: String(r.report),
+    };
+  } catch (e) {
+    console.error("getArchivedRoast failed:", e);
+    return null;
+  }
+}
+
+export async function getEmailNotificationCandidate(
+  username: string,
+): Promise<EmailNotificationCandidate | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const normalizedUsername = username.toLowerCase();
+    const res = await db.execute({
+      sql: `SELECT s.username, s.display_name, s.profile_url, s.final_score, s.tier,
+                   s.tags, s.roast, s.roast_en,
+                   COALESCE(s.email, stats.email) AS email,
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
+            FROM scores AS s
+            LEFT JOIN account_stats AS stats ON stats.username = s.username
+            WHERE s.username = ? AND s.hidden = 0
+            LIMIT 1`,
+      args: [normalizedUsername],
+    });
+    const r = res.rows[0];
+    const email = normalizeEmail(r?.email as string | null | undefined);
+    if (!r || !email) return null;
+    return {
+      username: String(r.username),
+      email,
+      display_name: r.display_name as string | null,
+      profile_url: r.profile_url as string | null,
+      final_score: Number(r.final_score),
+      tier: String(r.tier) as Tier,
+      tags: parseTags(r.tags),
+      roast: (r.roast as string | null) ?? null,
+      roast_en: (r.roast_en as string | null) ?? null,
+      lookup_count: normalizeLookupCount(r.lookup_count),
+    };
+  } catch (e) {
+    console.error("getEmailNotificationCandidate failed:", e);
+    return null;
+  }
+}
+
+export async function claimEmailNotification(
+  username: string,
+  kind: EmailNotificationKind,
+  recipient: string,
+  subject: string,
+): Promise<boolean> {
+  const db = getClient();
+  const email = normalizeEmail(recipient);
+  if (!db || !email) return false;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const res = await db.execute({
+      sql: `INSERT INTO email_notifications
+              (username, kind, recipient, subject, status, created_at)
+            VALUES (?, ?, ?, ?, 'pending', ?)
+            ON CONFLICT(username, kind) DO NOTHING
+            RETURNING username`,
+      args: [username.toLowerCase(), kind, email, subject, now],
+    });
+    return res.rows.length > 0;
+  } catch (e) {
+    console.error("claimEmailNotification failed:", e);
+    return false;
+  }
+}
+
+export async function markEmailNotificationSent(
+  username: string,
+  kind: EmailNotificationKind,
+): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `UPDATE email_notifications
+            SET status = 'sent', sent_at = ?, last_error = NULL
+            WHERE username = ? AND kind = ?`,
+      args: [Date.now(), username.toLowerCase(), kind],
+    });
+  } catch (e) {
+    console.error("markEmailNotificationSent failed:", e);
+  }
+}
+
+export async function releaseEmailNotificationClaim(
+  username: string,
+  kind: EmailNotificationKind,
+  error: unknown,
+): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `DELETE FROM email_notifications
+            WHERE username = ? AND kind = ? AND status = 'pending'`,
+      args: [username.toLowerCase(), kind],
+    });
+    console.error("email notification send failed:", error);
+  } catch (e) {
+    console.error("releaseEmailNotificationClaim failed:", e);
   }
 }
 

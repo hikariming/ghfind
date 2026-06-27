@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { forwardRef, useEffect, useState } from "react";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
+import { TierAvatarFrame } from "./TierAvatarFrame";
 
 interface ShareCardProps {
   username: string;
@@ -14,21 +15,23 @@ interface ShareCardProps {
   tierLabel: string;
   beat: number | null;
   tags: Tags;
+  roastLine: string;
 }
 
 /**
  * The "flex" card rendered off-screen and exported to PNG via html-to-image.
- * Fixed 600×360 so the export is deterministic. The avatar is inlined as a data
+ * Fixed 600×540 so the export is deterministic. The avatar is inlined as a data
  * URL up-front so the cross-origin image never taints the export canvas.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
-  { username, name, avatarUrl, score, tier, tierLabel, beat, tags },
+  { username, name, avatarUrl, score, tier, tierLabel, beat, tags, roastLine },
   ref,
 ) {
   const t = useTranslations("shareCard");
   const tTier = useTranslations("tiers");
   const style = tierStyle(tier);
   const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
+  const shownRoast = roastLine.trim().slice(0, 96);
   const [avatarData, setAvatarData] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,49 +60,62 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   return (
     <div
       ref={ref}
-      style={{ width: 600, height: 360 }}
-      className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
+      style={{ width: 600, height: 540 }}
+      className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-8 font-sans text-white"
     >
       <div
         className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full blur-3xl"
         style={{ background: style.glow }}
       />
 
-      {/* Header: avatar + handle */}
-      <div className="flex items-center gap-3">
-        {avatarData ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarData} alt="" className="h-14 w-14 rounded-full" />
-        ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-xl font-bold">
-            {username.slice(0, 1).toUpperCase()}
+      {/* Top: identity + score breathe horizontally. */}
+      <div className="grid grid-cols-[auto_1fr] items-center gap-5">
+        <div className="flex flex-col items-center text-center">
+          <div
+            className={`max-w-[240px] truncate rounded-full bg-black/35 px-4 py-1 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring}`}
+            style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
+          >
+            @{username}
           </div>
-        )}
-        <div className="leading-tight">
-          <div className="text-lg font-bold">@{username}</div>
-          {name && <div className="text-sm text-zinc-400">{name}</div>}
+          {name && <div className="mt-1 max-w-[220px] truncate text-sm text-zinc-400">{name}</div>}
+          <TierAvatarFrame
+            username={username}
+            avatarUrl={avatarData}
+            tier={tier}
+            size="md"
+            className="mt-3"
+          />
         </div>
-      </div>
 
-      {/* Score */}
-      <div className="flex items-end justify-between">
-        <div>
-          <div className={`text-7xl font-black tabular-nums ${style.text}`}>
+        <div className="min-w-0 text-left">
+          <div className={`text-7xl font-black leading-none tabular-nums ${style.text}`}>
             {score.toFixed(2)}
-            <span className="text-3xl text-zinc-600">/100</span>
+            <span className="ml-2 text-3xl text-zinc-600">/100</span>
           </div>
-          <div className={`mt-1 text-3xl font-bold ${style.text}`}>
+          <div className={`mt-2 text-3xl font-bold ${style.text}`}>
             {style.emoji} {tTier(`${TIER_KEY[tier]}.name`)}
           </div>
           <div className="text-sm text-zinc-400">{tierLabel}</div>
+          {beat !== null && (
+            <div className="mt-3 flex items-baseline gap-2">
+              <div className={`text-3xl font-black ${style.text}`}>{beat}%</div>
+              <div className="text-xs text-zinc-400">{t("beatLabel")}</div>
+            </div>
+          )}
         </div>
-        {beat !== null && (
-          <div className="mb-1 text-right">
-            <div className={`text-4xl font-black ${style.text}`}>{beat}%</div>
-            <div className="text-xs text-zinc-400">{t("beatLabel")}</div>
-          </div>
-        )}
       </div>
+
+      {/* Savage one-liner */}
+      {shownRoast && (
+        <div className="rounded-2xl border border-orange-400/20 bg-orange-500/[0.06] p-4 text-left">
+          <div className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+            Roast
+          </div>
+          <div className="text-base font-semibold leading-snug text-zinc-100">
+            {shownRoast}
+          </div>
+        </div>
+      )}
 
       {/* Tags */}
       {shownTags.length > 0 && (

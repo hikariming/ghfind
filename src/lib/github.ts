@@ -46,12 +46,50 @@ interface RestUser {
   html_url: string;
   avatar_url: string | null;
   name: string | null;
+  email: string | null;
   bio: string | null;
   company: string | null;
   created_at: string;
   followers: number;
   following: number;
   public_repos: number;
+}
+
+export function normalizePublicEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const withoutScheme = raw.trim().replace(/^mailto:/i, "").split(/[?#]/, 1)[0];
+  let email: string;
+  try {
+    email = decodeURIComponent(withoutScheme).trim().toLowerCase();
+  } catch {
+    email = withoutScheme.trim().toLowerCase();
+  }
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return null;
+  if (email.endsWith("@users.noreply.github.com")) return null;
+  return email;
+}
+
+async function fetchProfileHomeEmail(username: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(`https://github.com/${encodeURIComponent(username)}`, {
+      headers: { "User-Agent": "github-roast" },
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  const html = await res.text().catch(() => "");
+  const mailto = html.match(/href=["']mailto:([^"'?#]+)(?:\?[^"']*)?["']/i);
+  return normalizePublicEmail(mailto?.[1]);
+}
+
+export async function fetchPublicProfileEmail(
+  username: string,
+  restEmail?: string | null,
+): Promise<string | null> {
+  return normalizePublicEmail(restEmail) ?? fetchProfileHomeEmail(username);
 }
 
 async function restGet<T>(path: string): Promise<T | null> {
@@ -307,6 +345,7 @@ export async function collect(username: string): Promise<{
   top_repos: TopRepo[];
   recent_prs: RecentPr[];
   flood_pr_titles: string[];
+  profile_email: string | null;
 }> {
   const now = new Date();
 
@@ -513,5 +552,6 @@ export async function collect(username: string): Promise<{
     top_repos: topRepos,
     recent_prs: recentPrs,
     flood_pr_titles: flood.flood_pr_titles,
+    profile_email: await fetchPublicProfileEmail(login, user.email),
   };
 }

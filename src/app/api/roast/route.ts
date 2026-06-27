@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
-import { getPercentile, recordScore, updateRoast } from "@/lib/db";
+import { getArchivedRoast, getPercentile, recordScore, updateRoast } from "@/lib/db";
+import {
+  maybeSendGodScoreNotification,
+  maybeSendHeatTop20Notification,
+} from "@/lib/email";
 import { Lang, normLang } from "@/lib/lang";
 import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/llm";
 import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
+import { reportMatchesLang } from "@/lib/report";
 import {
   checkRoastRateLimit,
   getCachedRoast,
@@ -12,7 +17,7 @@ import {
   setCachedRoast,
 } from "@/lib/redis";
 import { clampScore, spamBotScore, tierFor } from "@/lib/score";
-import type { RoastMeta, ScanResult, Tags } from "@/lib/types";
+import type { RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -146,11 +151,50 @@ async function computeMeta(
       scanned_at: Date.now(),
     });
   }
-  const counts = await getPercentile(adjusted);
-  const percentile = counts
+  const percentile = await percentileFor(adjusted);
+  return { final_score: adjusted, tier, tier_label, delta, percentile, tags };
+}
+
+async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
+  const counts = await getPercentile(score);
+  return counts
     ? { beat: beatPercent(counts.below, counts.total), total: counts.total }
     : null;
-  return { final_score: adjusted, tier, tier_label, delta, percentile, tags };
+}
+
+async function metaForStoredRoast(
+  finalScore: number,
+  tier: Tier,
+  tags: Tags,
+  delta: number,
+  lang: Lang,
+): Promise<RoastMeta> {
+  const { tier_label: zhLabel } = tierFor(finalScore);
+  const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
+  const percentile = await percentileFor(finalScore);
+  return { final_score: finalScore, tier, tier_label, delta, percentile, tags };
+}
+
+function inferredDelta(scan: ScanResult, finalScore: number): number {
+  return Math.round((finalScore - scan.scoring.final_score) * 100) / 100;
+}
+
+async function cacheRoastReplay(
+  username: string,
+  lang: Lang,
+  report: string,
+  delta: number,
+  tags: Tags,
+  finalScore: number,
+  tier: Tier,
+): Promise<void> {
+  await setCachedRoast(username, lang, {
+    report,
+    delta,
+    tags,
+    final_score: finalScore,
+    tier,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -187,16 +231,43 @@ export async function POST(req: NextRequest) {
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
     const cachedRoast = await getCachedRoast(username, lang);
-    if (cachedRoast) {
-      const meta = await computeMeta(
-        scan,
-        cachedRoast.delta,
-        cachedRoast.tags ?? { zh: [], en: [] },
-        false,
-        lang,
-      );
+    if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
+      const tags = cachedRoast.tags ?? { zh: [], en: [] };
+      const meta =
+        cachedRoast.final_score !== undefined && cachedRoast.tier
+          ? await metaForStoredRoast(
+              cachedRoast.final_score,
+              cachedRoast.tier,
+              tags,
+              cachedRoast.delta,
+              lang,
+            )
+          : await computeMeta(scan, cachedRoast.delta, tags, false, lang);
       return roastResponse(cachedRoast.report, meta);
     }
+
+    const archivedRoast = await getArchivedRoast(username, lang);
+    if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
+      const delta = inferredDelta(scan, archivedRoast.final_score);
+      const meta = await metaForStoredRoast(
+        archivedRoast.final_score,
+        archivedRoast.tier,
+        archivedRoast.tags,
+        delta,
+        lang,
+      );
+      await cacheRoastReplay(
+        username,
+        lang,
+        archivedRoast.report,
+        delta,
+        archivedRoast.tags,
+        archivedRoast.final_score,
+        archivedRoast.tier,
+      );
+      return roastResponse(archivedRoast.report, meta);
+    }
+
     const { success } = await checkRoastRateLimit(clientIp(req));
     if (!success) {
       return NextResponse.json(
@@ -247,9 +318,11 @@ export async function POST(req: NextRequest) {
         }
         // Cache the finished roast so repeat views don't re-spend LLM credit,
         // and persist it to the account row for the leaderboard detail view.
-        if (isDefault) {
-          await setCachedRoast(username, lang, { report: full, delta, tags });
+        if (isDefault && reportMatchesLang(full, lang)) {
+          await cacheRoastReplay(username, lang, full, delta, tags, meta.final_score, meta.tier);
           await updateRoast(username, full, lang);
+          await maybeSendGodScoreNotification(username, meta, full);
+          await maybeSendHeatTop20Notification(username, full);
         }
       } catch (e) {
         console.error("roast stream error:", e);

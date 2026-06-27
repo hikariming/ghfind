@@ -3,7 +3,9 @@ import { ImageResponse } from "next/og";
 import { getAccountDetail, getPercentile } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
+import { splitReport } from "@/lib/report";
 import { SPONSOR } from "@/lib/sponsor";
+import { tierAvatarFrame } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -53,6 +55,7 @@ function png(element: React.ReactElement, fontList: Awaited<ReturnType<typeof fo
     width: W,
     height: H,
     fonts: fontList,
+    emoji: "twemoji",
     headers: { "Cache-Control": CDN_CACHE },
   });
 }
@@ -66,7 +69,7 @@ function Shell({ glow, children }: { glow: string; children: React.ReactNode }) 
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: 64,
+        padding: 52,
         backgroundColor: BG,
         backgroundImage: `radial-gradient(900px circle at 95% -10%, ${glow}, transparent 60%)`,
         color: "#fff",
@@ -86,6 +89,102 @@ function Brand() {
         <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>githubroast.icu</span>
       </div>
       <div style={{ display: "flex", color: "#71717a" }}>Powered by {SPONSOR.name}</div>
+    </div>
+  );
+}
+
+function truncate(value: string, max: number): string {
+  const text = value.trim().replace(/\s+/g, " ");
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+function OgAvatarFrame({
+  username,
+  avatar,
+  tier,
+  color,
+}: {
+  username: string;
+  avatar: string | null;
+  tier: Tier;
+  color: string;
+}) {
+  const frame = tierAvatarFrame(tier);
+  const positions = [
+    { left: 59, top: -14 },
+    { right: 6, top: 6 },
+    { right: -14, top: 59 },
+    { right: 6, bottom: 6 },
+    { left: 59, bottom: -14 },
+    { left: 6, bottom: 6 },
+    { left: -14, top: 59 },
+    { left: 6, top: 6 },
+  ];
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        width: 152,
+        height: 152,
+        borderRadius: 9999,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: `${color}1A`,
+        boxShadow: `0 0 44px -12px ${color}`,
+        border: `3px solid ${color}B3`,
+      }}
+    >
+      {positions.map((position, i) => (
+        <div
+          key={`${frame.emoji}-${i}`}
+          style={{
+            position: "absolute",
+            display: "flex",
+            width: 34,
+            height: 34,
+            borderRadius: 9999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: BG,
+            fontSize: 22,
+            lineHeight: 1,
+            ...position,
+          }}
+        >
+          {frame.emoji}
+        </div>
+      ))}
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatar}
+          width={112}
+          height={112}
+          style={{ borderRadius: 9999, border: "4px solid #050505" }}
+          alt=""
+        />
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            width: 112,
+            height: 112,
+            borderRadius: 9999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#27272a",
+            border: "4px solid #050505",
+            color: "#f4f4f5",
+            fontSize: 52,
+            fontWeight: 800,
+          }}
+        >
+          {username.slice(0, 1).toUpperCase()}
+        </div>
+      )}
     </div>
   );
 }
@@ -126,64 +225,102 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const displayName =
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
   const tags = (detail.tags.en ?? []).slice(0, 4);
+  const roastLine = truncate(splitReport(detail.roast_en ?? detail.roast ?? "").roast, 150);
 
   return png(
     <Shell glow={`${color}55`}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        {avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} width={96} height={96} style={{ borderRadius: 9999 }} alt="" />
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              width: 96,
-              height: 96,
-              borderRadius: 9999,
-              backgroundColor: "#27272a",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 44,
-              fontWeight: 800,
-            }}
-          >
-            {detail.username.slice(0, 1).toUpperCase()}
+      {/* Top summary: identity, score, and brand use the wide canvas. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <OgAvatarFrame username={detail.username} avatar={avatar} tier={tier} color={color} />
+          <div style={{ display: "flex", flexDirection: "column", marginLeft: 34 }}>
+            <div
+              style={{
+                display: "flex",
+                borderRadius: 9999,
+                backgroundColor: "rgba(0,0,0,0.35)",
+                border: `2px solid ${color}80`,
+                boxShadow: `0 0 34px -12px ${color}`,
+                color,
+                fontSize: 38,
+                fontWeight: 800,
+                padding: "8px 26px",
+              }}
+            >
+              @{detail.username}
+            </div>
+            {displayName && (
+              <div style={{ display: "flex", marginTop: 10, fontSize: 22, color: "#a1a1aa" }}>
+                {displayName}
+              </div>
+            )}
           </div>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", marginLeft: 24 }}>
-          <div style={{ display: "flex", fontSize: 34, fontWeight: 800 }}>@{detail.username}</div>
-          {displayName && (
-            <div style={{ display: "flex", fontSize: 22, color: "#a1a1aa" }}>{displayName}</div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <span style={{ fontSize: 112, fontWeight: 800, color, lineHeight: 1 }}>
+              {detail.final_score.toFixed(2)}
+            </span>
+            <span style={{ fontSize: 38, color: "#52525b", marginLeft: 8, marginBottom: 10 }}>
+              /100
+            </span>
+          </div>
+          <div style={{ display: "flex", fontSize: 40, fontWeight: 800, color, marginTop: 8 }}>
+            {TIER_EN[tier]}
+          </div>
+          <div style={{ display: "flex", fontSize: 22, color: "#a1a1aa", marginTop: 2 }}>
+            {TIER_LABEL_EN[tier]}
+          </div>
+          {beat !== null && (
+            <div style={{ display: "flex", alignItems: "baseline", marginTop: 10 }}>
+              <span style={{ fontSize: 34, fontWeight: 800, color }}>{beat}%</span>
+              <span style={{ fontSize: 18, color: "#a1a1aa", marginLeft: 8 }}>ahead of devs</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Score */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 132, fontWeight: 800, color, lineHeight: 1 }}>
-              {detail.final_score.toFixed(2)}
-            </span>
-            <span style={{ fontSize: 44, color: "#52525b", marginLeft: 8, marginBottom: 12 }}>
-              /100
-            </span>
+      {/* Roast line */}
+      {roastLine ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            border: "2px solid rgba(251,146,60,0.22)",
+            backgroundColor: "rgba(249,115,22,0.08)",
+            borderRadius: 24,
+            padding: "18px 22px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              color: "#fdba74",
+              fontSize: 18,
+              fontWeight: 800,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          >
+            Roast
           </div>
-          <div style={{ display: "flex", fontSize: 46, fontWeight: 800, color, marginTop: 10 }}>
-            {TIER_EN[tier]}
-          </div>
-          <div style={{ display: "flex", fontSize: 24, color: "#a1a1aa", marginTop: 2 }}>
-            {TIER_LABEL_EN[tier]}
+          <div
+            style={{
+              display: "flex",
+              color: "#f4f4f5",
+              fontSize: 25,
+              fontWeight: 800,
+              lineHeight: 1.25,
+              marginTop: 8,
+            }}
+          >
+            {roastLine}
           </div>
         </div>
-        {beat !== null && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 72, fontWeight: 800, color }}>{beat}%</span>
-            <span style={{ fontSize: 22, color: "#a1a1aa" }}>ahead of devs</span>
-          </div>
-        )}
-      </div>
+      ) : (
+        <div style={{ display: "flex" }} />
+      )}
 
       {/* Tags */}
       {tags.length > 0 ? (

@@ -12,7 +12,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { LeaderboardEntry } from "./db";
 import type { Lang } from "./lang";
-import type { ScanResult } from "./types";
+import type { ScanResult, Tags, Tier } from "./types";
 
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
@@ -162,7 +162,11 @@ export async function checkRoastRateLimit(ip: string): Promise<{ success: boolea
 export interface CachedRoast {
   report: string;
   delta: number;
-  tags: import("./types").Tags;
+  tags: Tags;
+  /** Persisted final score for archived/cache replay. Older cache entries omit it. */
+  final_score?: number;
+  /** Persisted tier for archived/cache replay. Older cache entries omit it. */
+  tier?: Tier;
 }
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;

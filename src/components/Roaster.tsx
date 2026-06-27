@@ -16,6 +16,7 @@ import { CopyBadge } from "./CopyBadge";
 import { ShareMenu } from "./ShareMenu";
 import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
+import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
 const SITE_URL = "https://githubroast.icu";
@@ -316,11 +317,19 @@ export function Roaster() {
               href={scan.metrics.profile_url ?? "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-zinc-400 hover:text-zinc-200"
+              className={`max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring} hover:bg-black/45`}
+              style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
             >
               @{scan.metrics.username}
             </a>
-            <div className={`mt-2 text-6xl font-black tabular-nums ${style.text}`}>
+            <TierAvatarFrame
+              username={scan.metrics.username}
+              avatarUrl={scan.metrics.avatar_url}
+              tier={display.tier}
+              size="lg"
+              className="mt-5"
+            />
+            <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
               {display.score.toFixed(2)}
               <span className="text-2xl text-zinc-600">/100</span>
             </div>
@@ -443,6 +452,7 @@ export function Roaster() {
               tierLabel={display.tierLabel}
               beat={percentile?.beat ?? null}
               tags={tags ?? { zh: [], en: [] }}
+              roastLine={roastLine}
             />
           </div>
         </div>
