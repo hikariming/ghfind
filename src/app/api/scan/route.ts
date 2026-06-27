@@ -30,9 +30,9 @@ function clientIp(req: NextRequest): string {
   return fwd?.split(",")[0]?.trim() || "0.0.0.0";
 }
 
-async function recordSuccessfulLookup(username: string): Promise<void> {
-  await recordAccountLookup(username);
-  await clearCachedLeaderboards();
+async function recordSuccessfulLookup(username: string, ip: string): Promise<void> {
+  const counted = await recordAccountLookup(username, ip);
+  if (counted) await clearCachedLeaderboards();
 }
 
 export async function POST(req: NextRequest) {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   // score), so the scan response stays purely the deterministic result.
   const cached = await getCachedScan(username);
   if (cached) {
-    await recordSuccessfulLookup(cached.metrics.username);
+    await recordSuccessfulLookup(cached.metrics.username, ip);
     return NextResponse.json({ ...cached, cached: true });
   }
 
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       const scoring = score(metrics);
       return { metrics, top_repos, recent_prs, flood_pr_titles, scoring };
     });
-    await recordSuccessfulLookup(result.metrics.username);
+    await recordSuccessfulLookup(result.metrics.username, ip);
     return NextResponse.json({ ...result, cached: false });
   } catch (e) {
     if (e instanceof AccountNotFoundError) {

@@ -9,11 +9,13 @@
  */
 
 import { Client, createClient } from "@libsql/client";
+import { createHash } from "node:crypto";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
 import type { SubScores, Tags, Tier } from "./types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
+const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
 
 function parseTags(raw: unknown): Tags {
@@ -54,6 +56,12 @@ function parseSubScores(raw: unknown): SubScores {
 
 function normalizeLookupCount(raw: unknown): number {
   return Math.max(MIN_RECORDED_LOOKUP_COUNT, Number(raw) || 0);
+}
+
+function heatIpHash(ip: string): string {
+  const salt =
+    process.env.AUTH_SECRET ?? process.env.TURNSTILE_SECRET_KEY ?? "github-roast-heat-v1";
+  return createHash("sha256").update(salt).update("\0").update(ip).digest("hex");
 }
 
 let client: Client | null = null;
@@ -99,6 +107,14 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_account_stats_heat
              ON account_stats(lookup_count DESC)`,
+          `CREATE TABLE IF NOT EXISTS account_lookup_limits (
+             username        TEXT NOT NULL,
+             ip_hash         TEXT NOT NULL,
+             last_counted_at INTEGER NOT NULL,
+             PRIMARY KEY (username, ip_hash)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_last_counted
+             ON account_lookup_limits(last_counted_at)`,
           // Logged-in users (GitHub OAuth). Identity only for now; the lowercased
           // `login` lets us later link a user to their own `scores` row + comments.
           `CREATE TABLE IF NOT EXISTS users (
@@ -310,23 +326,57 @@ function previewAccountDetail(username: string): AccountDetail | null {
   );
 }
 
-/** Count one successful public lookup for a GitHub account. */
-export async function recordAccountLookup(username: string): Promise<void> {
+/**
+ * Count one successful public lookup for a GitHub account.
+ *
+ * Returns true only when the lookup changed the public heat value. Repeated
+ * successful scans for the same account from the same IP hash inside 24 hours
+ * are accepted by the app, but do not increment leaderboard heat.
+ */
+export async function recordAccountLookup(username: string, ip: string): Promise<boolean> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return false;
   try {
     await ensureSchema(db);
     const now = Date.now();
-    await db.execute({
-      sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
-            VALUES (?, 1, ?, ?)
-            ON CONFLICT(username) DO UPDATE SET
-              lookup_count   = account_stats.lookup_count + 1,
-              last_lookup_at = excluded.last_lookup_at`,
-      args: [username.toLowerCase(), now, now],
-    });
+    const normalizedUsername = username.toLowerCase();
+    const tx = await db.transaction("write");
+    try {
+      const gate = await tx.execute({
+        sql: `INSERT INTO account_lookup_limits (username, ip_hash, last_counted_at)
+              VALUES (?, ?, ?)
+              ON CONFLICT(username, ip_hash) DO UPDATE SET
+                last_counted_at = excluded.last_counted_at
+              WHERE account_lookup_limits.last_counted_at <= ?
+              RETURNING last_counted_at`,
+        args: [
+          normalizedUsername,
+          heatIpHash(ip),
+          now,
+          now - HEAT_LOOKUP_WINDOW_MS,
+        ],
+      });
+      if (gate.rows.length === 0) {
+        await tx.rollback();
+        return false;
+      }
+      await tx.execute({
+        sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
+              VALUES (?, 1, ?, ?)
+              ON CONFLICT(username) DO UPDATE SET
+                lookup_count   = account_stats.lookup_count + 1,
+                last_lookup_at = excluded.last_lookup_at`,
+        args: [normalizedUsername, now, now],
+      });
+      await tx.commit();
+      return true;
+    } catch (e) {
+      await tx.rollback().catch(() => {});
+      throw e;
+    }
   } catch (e) {
     console.error("recordAccountLookup failed:", e);
+    return false;
   }
 }
 
