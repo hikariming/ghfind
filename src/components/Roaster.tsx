@@ -10,8 +10,12 @@ import {
   ByoKeyModal,
   loadByoKey,
 } from "./ByoKeyModal";
+import { CopyBadge } from "./CopyBadge";
+import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+
+const SITE_URL = "https://githubroast.icu";
 
 interface Display {
   score: number;
@@ -246,6 +250,10 @@ export function Roaster() {
         </div>
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
+      </form>
+
+      <div className="mt-3 flex flex-col items-center gap-3">
+        <SponsorPill large />
         <button
           type="button"
           onClick={() => {
@@ -256,7 +264,7 @@ export function Roaster() {
         >
           用自己的模型 / API Key
         </button>
-      </form>
+      </div>
 
       {/* Scanning skeleton */}
       {scanning && (
@@ -364,6 +372,13 @@ export function Roaster() {
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportBody}</ReactMarkdown>
               </div>
+            </div>
+          )}
+
+          {/* Badge snippet — appears once the roast finishes (score is recorded). */}
+          {!roasting && (
+            <div className="mt-6">
+              <CopyBadge baseUrl={SITE_URL} username={scan.metrics.username} />
             </div>
           )}
 

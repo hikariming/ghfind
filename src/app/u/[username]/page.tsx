@@ -5,9 +5,12 @@ import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getAccountDetail, getSimilarAccounts } from "@/lib/db";
+import { CopyBadge } from "@/components/CopyBadge";
 import { SUBSCORE_MAX } from "@/lib/score";
 import { tierStyle } from "@/lib/tier";
 import type { SubScoreKey } from "@/lib/types";
+
+const SITE_URL = process.env.PUBLIC_SITE_URL || "https://githubroast.icu";
 
 // Re-render at most hourly; on-demand pages are then served from the cache, so a
 // viral account doesn't hammer the DB or rack up function time on every view.
@@ -199,6 +202,10 @@ export default async function AccountPage({
           </p>
         )}
       </section>
+
+      <div className="mt-6">
+        <CopyBadge baseUrl={SITE_URL} username={d.username} />
+      </div>
 
       <footer className="mt-10 text-center">
         <Link

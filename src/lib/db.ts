@@ -85,6 +85,17 @@ function ensureSchema(db: Client): Promise<void> {
              scanned_at   INTEGER NOT NULL
            )`,
           `CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(final_score DESC)`,
+          // Logged-in users (GitHub OAuth). Identity only for now; the lowercased
+          // `login` lets us later link a user to their own `scores` row + comments.
+          `CREATE TABLE IF NOT EXISTS users (
+             github_id   INTEGER PRIMARY KEY,
+             login       TEXT NOT NULL,
+             name        TEXT,
+             avatar_url  TEXT,
+             created_at  INTEGER NOT NULL,
+             last_login  INTEGER NOT NULL
+           )`,
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login)`,
         ],
         "write",
       );
@@ -269,6 +280,40 @@ export interface AccountDetail {
   scanned_at: number;
 }
 
+export interface ScoreBrief {
+  username: string;
+  display_name: string | null;
+  final_score: number;
+  tier: Tier;
+}
+
+/** Minimal score lookup for the SVG badge — avoids fetching the heavy roast text. */
+export async function getScoreBrief(username: string): Promise<ScoreBrief | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT username, display_name, final_score, tier
+            FROM scores
+            WHERE username = ? AND hidden = 0
+            LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      username: String(r.username),
+      display_name: r.display_name as string | null,
+      final_score: Number(r.final_score),
+      tier: String(r.tier) as Tier,
+    };
+  } catch (e) {
+    console.error("getScoreBrief failed:", e);
+    return null;
+  }
+}
+
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();
@@ -370,5 +415,37 @@ export async function hideUser(username: string): Promise<void> {
     });
   } catch (e) {
     console.error("hideUser failed:", e);
+  }
+}
+
+export interface UserUpsert {
+  github_id: number;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+/**
+ * Upsert a logged-in GitHub user. Best-effort; no-ops without Turso. `login` is
+ * stored lowercased to match the `scores.username` convention for later linking.
+ */
+export async function upsertUser(u: UserUpsert): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    await db.execute({
+      sql: `INSERT INTO users (github_id, login, name, avatar_url, created_at, last_login)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(github_id) DO UPDATE SET
+              login      = excluded.login,
+              name       = excluded.name,
+              avatar_url = excluded.avatar_url,
+              last_login = excluded.last_login`,
+      args: [u.github_id, u.login.toLowerCase(), u.name, u.avatar_url, now, now],
+    });
+  } catch (e) {
+    console.error("upsertUser failed:", e);
   }
 }
