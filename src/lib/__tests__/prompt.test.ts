@@ -3,7 +3,12 @@ import { buildRoastMessages } from "../prompt";
 import type { ScanResult } from "../types";
 
 const scan = {
-  metrics: { username: "octocat" },
+  metrics: {
+    username: "octocat",
+    merged_pr_count: 74,
+    recent_merged_pr_sample: 50,
+    impact_pr_count: 10,
+  },
   top_repos: [],
   recent_prs: [],
   flood_pr_titles: [],
@@ -52,5 +57,29 @@ describe("buildRoastMessages", () => {
       // re-emit a 🔥 marker that splitReport would pick up.
       expect(sys.content).not.toContain("🔥");
     }
+  });
+
+  it("marks recent_prs as a sample in both the prompt and payload", () => {
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("recent_prs 只是最近 merged PR 样本");
+    expect(zhSys.content).toContain("不能从 recent_prs 推断");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes).toMatchObject({
+      recent_prs_sample_size: 50,
+      total_merged_pr_count: 74,
+    });
+    expect(zhPayload.context_notes.recent_prs_scope).toContain("不代表全量 PR 分布");
+    expect(zhPayload.context_notes.no_sample_extrapolation).toContain("不要仅凭 recent_prs");
+
+    const [enSys, enUser] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("recent_prs is only a recent merged-PR sample");
+    expect(enSys.content).toContain("never infer");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes).toMatchObject({
+      recent_prs_sample_size: 50,
+      total_merged_pr_count: 74,
+    });
+    expect(enPayload.context_notes.recent_prs_scope).toContain("not the all-time PR distribution");
+    expect(enPayload.context_notes.no_sample_extrapolation).toContain("Do not infer");
   });
 });
