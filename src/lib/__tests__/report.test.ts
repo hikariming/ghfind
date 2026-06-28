@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitReport } from "../report";
+import { reportMatchesLang, splitReport } from "../report";
 
 describe("splitReport", () => {
   it("splits a Chinese report at the 🔥 毒舌点评 marker", () => {
@@ -28,5 +28,22 @@ describe("splitReport", () => {
   it("returns an empty roast while the marker has not streamed yet", () => {
     const { roast } = splitReport("## user\n\npartial body still streaming");
     expect(roast).toBe("");
+  });
+});
+
+describe("reportMatchesLang", () => {
+  it("accepts an English report with English structure", () => {
+    const md = "## octocat — 95.20/100 · GOD\n\n**TL;DR**: strong account.\n\n🔥 **Roast**: too good to roast.";
+    expect(reportMatchesLang(md, "en")).toBe(true);
+  });
+
+  it("rejects a Chinese report stored under the English cache key", () => {
+    const md = "## octocat — 95.20/100 · 夯\n\n**一句话结论**: 很强。\n\n🔥 **毒舌点评**: 强到没法吐槽。";
+    expect(reportMatchesLang(md, "en")).toBe(false);
+  });
+
+  it("allows a few CJK characters in English reports for names or repo titles", () => {
+    const md = "## dev — 90.00/100 · GOD\n\n**TL;DR**: shipped 数据工具 and earned it.";
+    expect(reportMatchesLang(md, "en")).toBe(true);
   });
 });

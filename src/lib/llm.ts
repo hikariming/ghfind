@@ -56,6 +56,13 @@ export function defaultLlmConfig(): LlmConfig | null {
       model: process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3-0324:free",
     };
   }
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    };
+  }
   return null;
 }
 

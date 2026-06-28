@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { getAccountDetail, getPercentile } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
+import { splitReport } from "@/lib/report";
 import { SPONSOR } from "@/lib/sponsor";
 import { tierAvatarFrame } from "@/lib/tier";
 import type { TierAvatarFramePlacement } from "@/lib/tier";
@@ -79,6 +80,12 @@ function Shell({ glow, children }: { glow: string; children: React.ReactNode }) 
       {children}
     </div>
   );
+}
+
+function truncate(value: string, max: number): string {
+  const text = value.trim().replace(/\s+/g, " ");
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
 function Brand() {
@@ -224,6 +231,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const displayName =
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
   const tags = (detail.tags.en ?? []).slice(0, 4);
+  const roastLine = truncate(splitReport(detail.roast_en ?? detail.roast ?? "").roast, 150);
 
   return png(
     <Shell glow={`${color}55`}>
@@ -279,6 +287,47 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
           </div>
         )}
       </div>
+
+      {/* Roast line */}
+      {roastLine ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            border: "2px solid rgba(251,146,60,0.22)",
+            backgroundColor: "rgba(249,115,22,0.08)",
+            borderRadius: 24,
+            padding: "18px 22px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              color: "#fdba74",
+              fontSize: 18,
+              fontWeight: 800,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          >
+            Roast
+          </div>
+          <div
+            style={{
+              display: "flex",
+              color: "#f4f4f5",
+              fontSize: 25,
+              fontWeight: 800,
+              lineHeight: 1.25,
+              marginTop: 8,
+            }}
+          >
+            {roastLine}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex" }} />
+      )}
 
       {/* Tags */}
       {tags.length > 0 ? (

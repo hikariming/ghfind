@@ -656,6 +656,14 @@ export interface AccountDetail {
   scanned_at: number;
 }
 
+export interface ArchivedRoast {
+  username: string;
+  final_score: number;
+  tier: Tier;
+  tags: Tags;
+  report: string;
+}
+
 export interface ScoreBrief {
   username: string;
   display_name: string | null;
@@ -742,6 +750,45 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
   } catch (e) {
     console.error("getAccountDetail failed:", e);
     return previewAccountDetail(username);
+  }
+}
+
+/**
+ * Stored roast report for replaying a previous default-model generation. The
+ * language column is fixed by allowlist, so the SQL never uses user input for a
+ * column name.
+ */
+export async function getArchivedRoast(
+  username: string,
+  lang: Lang,
+): Promise<ArchivedRoast | null> {
+  const db = getClient();
+  if (!db) return null;
+  const col = lang === "en" ? "roast_en" : "roast";
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT username, final_score, tier, tags, ${col} AS report
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND ${col} IS NOT NULL
+              AND ${col} != ''
+            LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      username: String(r.username),
+      final_score: Number(r.final_score),
+      tier: String(r.tier) as Tier,
+      tags: parseTags(r.tags),
+      report: String(r.report),
+    };
+  } catch (e) {
+    console.error("getArchivedRoast failed:", e);
+    return null;
   }
 }
 
