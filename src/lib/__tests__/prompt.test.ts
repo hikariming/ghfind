@@ -8,9 +8,21 @@ const scan = {
     merged_pr_count: 74,
     recent_merged_pr_sample: 50,
     impact_pr_count: 10,
+    unverified_impact_pr_count: 7,
   },
   top_repos: [],
   recent_prs: [],
+  verified_impact_prs: [
+    {
+      title: "refactor: use current_user in console controllers",
+      repo: "popular-ai/backend",
+      repo_stars: 146000,
+      churn: 207,
+      changed_files: 14,
+      trivial: false,
+      files: ["api/controllers/console/wraps.py", "api/tests/unit_tests/controllers/console/test_wraps.py"],
+    },
+  ],
   flood_pr_titles: [],
   scoring: {
     sub_scores: {},
@@ -95,5 +107,22 @@ describe("buildRoastMessages", () => {
     });
     expect(enPayload.context_notes.recent_prs_scope).toContain("not the all-time PR distribution");
     expect(enPayload.context_notes.no_sample_extrapolation).toContain("Do not infer");
+  });
+
+  it("keeps impact coverage neutral and includes verified high-star PR samples", () => {
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("不是负面指标");
+    expect(zhSys.content).toContain("verified_impact_prs");
+
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(payload.metrics.unverified_impact_pr_count).toBeUndefined();
+    expect(payload.metrics.impact_prs_outside_quality_sample).toBe(7);
+    expect(payload.context_notes.impact_prs_outside_quality_sample).toContain("不是负面指标");
+    expect(payload.verified_impact_prs[0]).toMatchObject({
+      repo: "popular-ai/backend",
+      repo_stars: 146000,
+      changed_files: 14,
+    });
+    expect(payload.verified_impact_prs[0].files).toContain("api/controllers/console/wraps.py");
   });
 });

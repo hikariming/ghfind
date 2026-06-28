@@ -120,9 +120,15 @@ function sanitizeScan(scan: ScanResult): ScanResult {
     recent_prs: (scan.recent_prs ?? []).slice(0, 50).map((p) => ({
       ...p,
       title: p.title?.slice(0, 200) ?? null,
+      files: (p.files ?? []).slice(0, 20).map((f) => f.slice(0, 200)),
     })),
     flood_pr_titles: (scan.flood_pr_titles ?? []).slice(0, 5).map((t) => t.slice(0, 200)),
     impact_repos: (scan.impact_repos ?? []).slice(0, 8),
+    verified_impact_prs: (scan.verified_impact_prs ?? []).slice(0, 12).map((p) => ({
+      ...p,
+      title: p.title?.slice(0, 200) ?? null,
+      files: (p.files ?? []).slice(0, 20).map((f) => f.slice(0, 200)),
+    })),
     scoring: scan.scoring,
   };
 }
@@ -142,6 +148,17 @@ function roastResponse(body: ReadableStream<Uint8Array> | string, meta: RoastMet
   });
 }
 
+function adjustedScoreCap(scan: ScanResult): number | null {
+  if (
+    scan.metrics.impact_quality_cap !== undefined &&
+    scan.metrics.impact_quality_cap <= 4 &&
+    scan.metrics.impact_pr_count >= 10
+  ) {
+    return 60;
+  }
+  return null;
+}
+
 /** Adjusted score + tier + fresh percentile. Records to the leaderboard only on a
  * fresh (non-replayed) default-model roast. */
 async function computeMeta(
@@ -152,7 +169,14 @@ async function computeMeta(
   record: boolean,
   lang: Lang,
 ): Promise<RoastMeta> {
-  const adjusted = clampScore(scan.scoring.final_score + delta);
+  const requested = clampScore(scan.scoring.final_score + delta);
+  const cap = adjustedScoreCap(scan);
+  const adjusted = clampScore(
+    cap !== null && delta > 0 && requested > cap
+      ? Math.max(scan.scoring.final_score, cap)
+      : requested,
+  );
+  const effectiveDelta = Math.round((adjusted - scan.scoring.final_score) * 100) / 100;
   const { tier, tier_label: zhLabel } = tierFor(adjusted);
   const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
   if (record) {
@@ -171,7 +195,7 @@ async function computeMeta(
     });
   }
   const percentile = await percentileFor(adjusted);
-  return { final_score: adjusted, tier, tier_label, delta, percentile, tags, roast_line: roastLine };
+  return { final_score: adjusted, tier, tier_label, delta: effectiveDelta, percentile, tags, roast_line: roastLine };
 }
 
 async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
