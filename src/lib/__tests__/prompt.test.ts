@@ -4,7 +4,7 @@ import type { ScanResult } from "../types";
 
 const scan = {
   metrics: {
-    username: "octocat",
+    username: "sample-user",
     merged_pr_count: 74,
     recent_merged_pr_sample: 50,
     impact_pr_count: 10,
@@ -45,7 +45,7 @@ describe("buildRoastMessages", () => {
     expect(sys.content).not.toContain("毒舌 GitHub 评分官");
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
-    expect(user.content).toContain("octocat");
+    expect(user.content).toContain("sample-user");
     expect(user.content).toContain('"tier": "GOD"');
     expect(user.content).toContain('"tier_label": "Legendary · Hall of Fame"');
     expect(user.content).not.toContain("封神");
@@ -124,5 +124,25 @@ describe("buildRoastMessages", () => {
       changed_files: 14,
     });
     expect(payload.verified_impact_prs[0].files).toContain("api/controllers/console/wraps.py");
+  });
+
+  it("requires human review for low-trust docs-heavy impact", () => {
+    const lowTrust = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        impact_quality_cap: 4,
+        recent_external_doc_like_pr_ratio: 0.59,
+        top_starred_original_repo_quality_score: 0.14,
+      },
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(lowTrust, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes.required_verdict).toContain("需人工复核");
+
+    const [, enUser] = buildRoastMessages(lowTrust, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes.required_verdict).toContain("needs human review");
   });
 });

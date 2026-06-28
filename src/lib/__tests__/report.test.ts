@@ -19,9 +19,9 @@ describe("splitReport", () => {
   });
 
   it("strips the leading heading from the body", () => {
-    const md = "## torvalds — 99.00/100 · 夯\n\ndetails";
+    const md = "## sample-user — 99.00/100 · 夯\n\ndetails";
     const { body } = splitReport(md);
-    expect(body).not.toContain("torvalds — 99");
+    expect(body).not.toContain("sample-user — 99");
     expect(body).toContain("details");
   });
 
@@ -33,12 +33,12 @@ describe("splitReport", () => {
 
 describe("reportMatchesLang", () => {
   it("accepts an English report with English structure", () => {
-    const md = "## octocat — 95.20/100 · GOD\n\n**TL;DR**: strong account.\n\n🔥 **Roast**: too good to roast.";
+    const md = "## sample-user — 95.20/100 · GOD\n\n**TL;DR**: strong account.\n\n🔥 **Roast**: too good to roast.";
     expect(reportMatchesLang(md, "en")).toBe(true);
   });
 
   it("rejects a Chinese report stored under the English cache key", () => {
-    const md = "## octocat — 95.20/100 · 夯\n\n**一句话结论**: 很强。\n\n🔥 **毒舌点评**: 强到没法吐槽。";
+    const md = "## sample-user — 95.20/100 · 夯\n\n**一句话结论**: 很强。\n\n🔥 **毒舌点评**: 强到没法吐槽。";
     expect(reportMatchesLang(md, "en")).toBe(false);
   });
 

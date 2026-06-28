@@ -99,6 +99,43 @@ function parseRoast(head: string): RoastLine {
   return { zh: grab("zh"), en: grab("en") };
 }
 
+function hasExplicitCommitterIdentity(scan: ScanResult): boolean {
+  const text = [scan.metrics.name, scan.metrics.bio, scan.metrics.company]
+    .filter(Boolean)
+    .join(" ");
+  return /\bcommitter\b/i.test(text);
+}
+
+function removeInferredCommitterClaims(text: string): string {
+  return text
+    .replace(/自称\s*Apache\s*Committer[，,]?\s*/gi, "给 Apache 相关仓库提过 PR，")
+    .replace(/Apache\s*Committer/gi, "Apache 相关仓库贡献者")
+    .replace(/\bFake Committer\b/gi, "Repo Visitor")
+    .replace(/\bCommitter\b/g, "Contributor")
+    .replace(/伪\s*Apache\s*Co/gi, "Apache访客")
+    .replace(/伪\s*Apache\s*贡献者/gi, "Apache访客");
+}
+
+function sanitizeIdentityClaims(
+  scan: ScanResult,
+  tags: Tags,
+  roastLine: RoastLine,
+  report: string,
+): { tags: Tags; roastLine: RoastLine; report: string } {
+  if (hasExplicitCommitterIdentity(scan)) return { tags, roastLine, report };
+  return {
+    tags: {
+      zh: tags.zh.map(removeInferredCommitterClaims),
+      en: tags.en.map(removeInferredCommitterClaims),
+    },
+    roastLine: {
+      zh: removeInferredCommitterClaims(roastLine.zh),
+      en: removeInferredCommitterClaims(roastLine.en),
+    },
+    report: removeInferredCommitterClaims(report),
+  };
+}
+
 /** Strip the leading control lines so they never reach the rendered report. */
 function extractReport(head: string): string {
   const lines = head.split("\n");
@@ -383,9 +420,15 @@ export async function POST(req: NextRequest) {
   }
 
   const delta = parseDelta(head);
-  const tags = parseTags(head);
-  const roastLine = parseRoast(head);
-  const report = extractReport(head);
+  const parsedTags = parseTags(head);
+  const parsedRoastLine = parseRoast(head);
+  const parsedReport = extractReport(head);
+  const { tags, roastLine, report } = sanitizeIdentityClaims(
+    scan,
+    parsedTags,
+    parsedRoastLine,
+    parsedReport,
+  );
 
   const meta = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
 

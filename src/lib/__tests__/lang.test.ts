@@ -16,11 +16,11 @@ describe("normLang", () => {
 
 describe("roastKey", () => {
   it("namespaces the cache key by language and lowercases the username", () => {
-    expect(roastKey("Torvalds", "en")).toBe("roast:en:torvalds");
-    expect(roastKey("Torvalds", "zh")).toBe("roast:zh:torvalds");
+    expect(roastKey("SampleUser", "en")).toBe("roast:en:sampleuser");
+    expect(roastKey("SampleUser", "zh")).toBe("roast:zh:sampleuser");
   });
 
   it("keeps en and zh keys distinct", () => {
-    expect(roastKey("octocat", "en")).not.toBe(roastKey("octocat", "zh"));
+    expect(roastKey("sample-user", "en")).not.toBe(roastKey("sample-user", "zh"));
   });
 });
