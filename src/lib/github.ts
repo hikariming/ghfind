@@ -774,6 +774,9 @@ export async function collect(username: string): Promise<{
   const recentPrWindow = await fetchRecentPrs(login, 100);
   const recentPrs = recentPrWindow.slice(0, 50);
   const trivialPrs = recentPrs.filter((p) => p.trivial).length;
+  const docLikePrCount = recentPrs.filter(isDocLikeImpactPr).length;
+  const docLikePrRatio =
+    recentPrs.length > 0 ? Math.round((docLikePrCount / recentPrs.length) * 100) / 100 : 0;
 
   // Templated-PR flooding signal (recent PRs across all states) — only flags
   // flooding of OTHER people's repos (own-repo floods are normal solo work).
@@ -861,6 +864,8 @@ export async function collect(username: string): Promise<{
     days_since_last_activity: daysSinceActive,
     recent_merged_pr_sample: recentPrs.length,
     recent_trivial_pr_count: trivialPrs,
+    recent_doc_like_pr_count: docLikePrCount,
+    recent_doc_like_pr_ratio: docLikePrRatio,
     max_impact_repo_stars: maxImpactRepoStars,
     impact_pr_count: impact.impact_pr_count,
     impact_depth_raw: impactDepthRaw,

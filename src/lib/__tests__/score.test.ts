@@ -9,7 +9,7 @@ import {
   isExternalTrivialFarmPr,
   type ContribRepoAgg,
 } from "../github";
-import { logRatio, score, spamBotScore, tierFor } from "../score";
+import { docLikePrVolumeDiscount, logRatio, score, spamBotScore, tierFor } from "../score";
 import type { RawMetrics, RecentPr } from "../types";
 import fixtures from "./score-fixtures.json";
 
@@ -516,6 +516,59 @@ describe("impact quality caps", () => {
     expect(signals.verified_impact_pr_count).toBe(0);
     expect(signals.unverified_impact_pr_count).toBe(10);
     expect(signals.impact_quality_cap).toBeUndefined();
+  });
+});
+
+describe("doc-like PR contribution-quality discount", () => {
+  it("lightly discounts PR volume for docs/site/examples/template-heavy histories", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      username: "DocsHeavyUser",
+      account_age_years: 2.28,
+      contribution_years_active: 3,
+      nonempty_original_repo_count: 14,
+      total_stars: 158,
+      max_stars: 85,
+      merged_pr_count: 38,
+      total_pr_count: 68,
+      issues_created: 65,
+      followers: 1047,
+      following: 33,
+      last_year_contributions: 356,
+      activity_type_count: 2,
+      recent_merged_pr_sample: 38,
+      recent_doc_like_pr_count: 25,
+      recent_doc_like_pr_ratio: 0.66,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 23,
+      impact_depth_raw: 13.08,
+      impact_quality_cap: 4,
+    };
+    const prVolume = logRatio(m.merged_pr_count, 200) * 16;
+    expect(docLikePrVolumeDiscount(m, prVolume)).toBeCloseTo(3.5, 1);
+    expect(score(m).sub_scores.contribution_quality).toBe(15.4);
+  });
+
+  it("does not discount normal histories with a small docs share", () => {
+    const m = {
+      ...NEUTRAL,
+      recent_merged_pr_sample: 50,
+      recent_doc_like_pr_count: 8,
+      recent_doc_like_pr_ratio: 0.16,
+    };
+    const prVolume = logRatio(m.merged_pr_count, 200) * 16;
+    expect(docLikePrVolumeDiscount(m, prVolume)).toBe(0);
+  });
+
+  it("does not discount tiny samples even when docs dominate", () => {
+    const m = {
+      ...NEUTRAL,
+      recent_merged_pr_sample: 8,
+      recent_doc_like_pr_count: 6,
+      recent_doc_like_pr_ratio: 0.75,
+    };
+    const prVolume = logRatio(m.merged_pr_count, 200) * 16;
+    expect(docLikePrVolumeDiscount(m, prVolume)).toBe(0);
   });
 });
 

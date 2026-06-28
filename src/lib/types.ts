@@ -67,6 +67,8 @@ export interface RawMetrics {
   days_since_last_activity: number | null;
   recent_merged_pr_sample: number;
   recent_trivial_pr_count: number;
+  recent_doc_like_pr_count?: number;
+  recent_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
   impact_pr_count: number;
