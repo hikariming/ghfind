@@ -15,7 +15,6 @@ interface ShareCardProps {
   tierLabel: string;
   beat: number | null;
   tags: Tags;
-  roastLine: string;
 }
 
 /**
@@ -24,14 +23,13 @@ interface ShareCardProps {
  * URL up-front so the cross-origin image never taints the export canvas.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
-  { username, name, avatarUrl, score, tier, tierLabel, beat, tags, roastLine },
+  { username, name, avatarUrl, score, tier, tierLabel, beat, tags },
   ref,
 ) {
   const t = useTranslations("shareCard");
   const tTier = useTranslations("tiers");
   const style = tierStyle(tier);
   const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
-  const shownRoast = roastLine.trim().slice(0, 96);
   const [avatarData, setAvatarData] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,16 +103,6 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           </div>
         )}
       </div>
-
-      {/* Savage one-liner */}
-      {shownRoast && (
-        <div className="rounded-2xl border border-orange-400/20 bg-orange-500/[0.06] p-4 text-left">
-          <div className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
-            Roast
-          </div>
-          <div className="text-base font-semibold leading-snug text-zinc-100">{shownRoast}</div>
-        </div>
-      )}
 
       {/* Tags */}
       {shownTags.length > 0 && (

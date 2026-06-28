@@ -463,7 +463,6 @@ export function Roaster() {
               tierLabel={display.tierLabel}
               beat={percentile?.beat ?? null}
               tags={tags ?? { zh: [], en: [] }}
-              roastLine={roastLine}
             />
           </div>
         </div>
