@@ -131,7 +131,11 @@ export function Roaster() {
   const submit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!username.trim() || scanning || roasting) return;
+      if (scanning || roasting) return;
+      if (!username.trim()) {
+        setError(t("errEmpty"));
+        return;
+      }
       if (turnstileEnabled() && !token) {
         setError(t("errNeedTurnstile"));
         return;
@@ -286,8 +290,8 @@ export function Roaster() {
           />
           <button
             type="submit"
-            disabled={scanning || roasting || !username.trim()}
-            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-40"
+            disabled={scanning || roasting}
+            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-60"
           >
             {scanning ? t("judging") : t("judge")}
           </button>

@@ -87,7 +87,11 @@ export function PaperRoaster() {
   const submit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!input.trim() || scanning || roasting) return;
+      if (scanning || roasting) return;
+      if (!input.trim()) {
+        setError(t("errEmpty"));
+        return;
+      }
       setError("");
       setPaper(null);
       setMeta(null);
@@ -149,8 +153,8 @@ export function PaperRoaster() {
           />
           <button
             type="submit"
-            disabled={scanning || roasting || !input.trim()}
-            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-40"
+            disabled={scanning || roasting}
+            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-60"
           >
             {scanning ? t("judging") : t("judge")}
           </button>
