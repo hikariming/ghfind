@@ -83,7 +83,13 @@ export function spamBotScore(m: RawMetrics): number {
   }
 
   // 3. High PR rejection (0..2).
-  const rejected = m.maintainer_closed_unmerged_pr_count ?? m.closed_unmerged_pr_count ?? 0;
+  const rejected =
+    m.maintainer_closed_unmerged_pr_count ??
+    (m.self_closed_external_pr_count === undefined &&
+    m.self_closed_own_repo_pr_count === undefined
+      ? m.closed_unmerged_pr_count
+      : 0) ??
+    0;
   const decided = m.merged_pr_count + rejected;
   if (decided >= 10 && (m.pr_rejection_rate ?? 0) > 0.5) {
     s += Math.min(2, (((m.pr_rejection_rate ?? 0) - 0.5) / 0.5) * 2);
@@ -138,6 +144,56 @@ export function contributionQualityCap(m: RawMetrics): number | undefined {
   if (lowTrustImpact && weakTopStarProject) return 12;
   if (lowTrustImpact && manySelfClosedExternal) return 12.5;
   return undefined;
+}
+
+/**
+ * Give contribution quality a small deterministic lift when the user has
+ * inspectable core PRs in truly high-impact repos. This keeps an Apache/dify-
+ * scale backend/core change from being treated as equivalent to the same number
+ * of low-stakes PRs in small community repos. The bonus is intentionally small:
+ * ecosystem_impact already carries most of this signal.
+ */
+export function highImpactCorePrBonus(m: RawMetrics): number {
+  const core = m.core_impact_pr_count ?? 0;
+  if (core < 2 || m.max_impact_repo_stars < 50_000) return 0;
+
+  const starSignal = logRatio(m.max_impact_repo_stars, 100_000);
+  const coreSignal = Math.min(core / 5, 1);
+  return Math.min(2, starSignal * 0.8 + coreSignal * 1.2);
+}
+
+/**
+ * Many merged PRs are not automatically top-tier contribution quality. If the
+ * history is bulk-heavy but lacks either a 10k-star external repo signal or a
+ * genuinely popular own project, cap the PR/issue-derived contribution score.
+ * This still lets small-community work score well, but prevents low-stakes PR
+ * volume from outranking fewer high-impact core PRs.
+ */
+export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefined {
+  if (m.merged_pr_count < 80) return undefined;
+  if (m.max_impact_repo_stars >= 10_000) return undefined;
+  if (m.max_stars >= 1000) return undefined;
+  return 22;
+}
+
+/**
+ * Author-closed external PRs are not maintainer rejections: people close PRs
+ * after rebases, wrong-base mistakes, upstream direction changes, or duplicate
+ * submissions. Do not put them in the acceptance denominator. Only a large,
+ * high-ratio pattern gets a small collaboration-stability penalty.
+ */
+export function authorSelfClosedExternalPenalty(m: RawMetrics): number {
+  const selfClosed = m.self_closed_external_pr_count ?? 0;
+  if (selfClosed < 10) return 0;
+
+  const totalExternalish =
+    m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosed;
+  if (totalExternalish < 20) return 0;
+
+  const ratio = selfClosed / totalExternalish;
+  if (ratio < 0.2) return 0;
+
+  return Math.min(1.5, (ratio - 0.2) * 5);
 }
 
 function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
@@ -206,10 +262,16 @@ export function score(m: RawMetrics): Scoring {
   const prVolumeRaw = logRatio(m.merged_pr_count, 200) * 16;
   const prVolume = Math.max(0, prVolumeRaw - docLikePrVolumeDiscount(m, prVolumeRaw));
   let acceptance: number;
-  const acceptanceTotal = Math.max(
-    m.merged_pr_count,
-    m.total_pr_count - (m.self_closed_own_repo_pr_count ?? 0),
-  );
+  const hasClosedPrBreakdown =
+    m.maintainer_closed_unmerged_pr_count !== undefined ||
+    m.self_closed_external_pr_count !== undefined ||
+    m.self_closed_own_repo_pr_count !== undefined;
+  const acceptanceTotal = hasClosedPrBreakdown
+    ? Math.max(
+        m.merged_pr_count,
+        m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0),
+      )
+    : Math.max(m.merged_pr_count, m.total_pr_count);
   if (acceptanceTotal >= 3) {
     acceptance = (m.merged_pr_count / acceptanceTotal) * 6;
   } else {
@@ -217,8 +279,17 @@ export function score(m: RawMetrics): Scoring {
   }
   acceptance = Math.min(acceptance, 6.0);
   const issuePts = logRatio(m.issues_created, 100) * 5;
-  const contributionQualityRaw = prVolume + acceptance + issuePts;
-  const contributionCap = contributionQualityCap(m);
+  const contributionQualityRaw =
+    prVolume +
+    acceptance +
+    issuePts +
+    highImpactCorePrBonus(m) -
+    authorSelfClosedExternalPenalty(m);
+  const caps = [
+    contributionQualityCap(m),
+    lowPrestigeBulkContributionCap(m),
+  ].filter((cap): cap is number => cap !== undefined);
+  const contributionCap = caps.length > 0 ? Math.min(...caps) : undefined;
   sub.contribution_quality = round(
     contributionCap === undefined
       ? contributionQualityRaw

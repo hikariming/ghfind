@@ -13,8 +13,11 @@ import {
   type ContribRepoAgg,
 } from "../github";
 import {
+  authorSelfClosedExternalPenalty,
   contributionQualityCap,
   docLikePrVolumeDiscount,
+  highImpactCorePrBonus,
+  lowPrestigeBulkContributionCap,
   logRatio,
   score,
   spamBotScore,
@@ -169,6 +172,52 @@ describe("spam-PR red flags", () => {
     expect(withSelfClosedOwn.red_flags.some((f) => f.flag === "high_pr_rejection")).toBe(false);
     expect(withSelfClosedOwn.sub_scores.contribution_quality).toBeGreaterThan(
       base.sub_scores.contribution_quality,
+    );
+  });
+
+  it("does not treat normal author-closed external PRs as acceptance misses", () => {
+    const base = score({
+      ...NEUTRAL,
+      merged_pr_count: 20,
+      total_pr_count: 25,
+      closed_unmerged_pr_count: 5,
+      maintainer_closed_unmerged_pr_count: 0,
+      self_closed_external_pr_count: 5,
+      self_closed_own_repo_pr_count: 0,
+      pr_rejection_rate: 0,
+    });
+    const withoutSelfClosedExternal = score({
+      ...NEUTRAL,
+      merged_pr_count: 20,
+      total_pr_count: 20,
+      closed_unmerged_pr_count: 0,
+      maintainer_closed_unmerged_pr_count: 0,
+      self_closed_external_pr_count: 0,
+      self_closed_own_repo_pr_count: 0,
+      pr_rejection_rate: 0,
+    });
+
+    expect(base.red_flags.some((f) => f.flag === "high_pr_rejection")).toBe(false);
+    expect(base.sub_scores.contribution_quality).toBe(
+      withoutSelfClosedExternal.sub_scores.contribution_quality,
+    );
+  });
+
+  it("applies only a small penalty to abnormal author-closed external PR patterns", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 20,
+      total_pr_count: 50,
+      closed_unmerged_pr_count: 30,
+      maintainer_closed_unmerged_pr_count: 0,
+      self_closed_external_pr_count: 30,
+      self_closed_own_repo_pr_count: 0,
+      pr_rejection_rate: 0,
+    };
+    expect(authorSelfClosedExternalPenalty(m)).toBeCloseTo(1.5, 1);
+    expect(score(m).sub_scores.contribution_quality).toBeCloseTo(
+      score({ ...m, self_closed_external_pr_count: 0 }).sub_scores.contribution_quality - 1.5,
+      1,
     );
   });
 
@@ -751,6 +800,50 @@ describe("doc-like PR contribution-quality discount", () => {
     };
     const prVolume = logRatio(m.merged_pr_count, 200) * 16;
     expect(docLikePrVolumeDiscount(m, prVolume)).toBe(0);
+  });
+
+  it("gives a small contribution-quality bonus for high-star core PRs", () => {
+    const base: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 78,
+      total_pr_count: 98,
+      issues_created: 16,
+      max_impact_repo_stars: 146000,
+      core_impact_pr_count: 3,
+      doc_like_impact_pr_count: 0,
+    };
+    const withoutCoreSignal = {
+      ...base,
+      core_impact_pr_count: 1,
+    };
+
+    expect(highImpactCorePrBonus(base)).toBeCloseTo(1.5, 1);
+    expect(score(base).sub_scores.contribution_quality).toBeGreaterThan(
+      score(withoutCoreSignal).sub_scores.contribution_quality,
+    );
+  });
+
+  it("caps bulk PR contribution quality when popular-impact signals are low", () => {
+    const bulkSmallRepoHistory: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 118,
+      total_pr_count: 120,
+      issues_created: 45,
+      max_stars: 50,
+      max_impact_repo_stars: 5500,
+      impact_pr_count: 19,
+      impact_depth_raw: 9.6,
+    };
+    const sameVolumeHighImpact: RawMetrics = {
+      ...bulkSmallRepoHistory,
+      max_impact_repo_stars: 146000,
+      core_impact_pr_count: 3,
+    };
+
+    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBe(22);
+    expect(score(bulkSmallRepoHistory).sub_scores.contribution_quality).toBe(22);
+    expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)).toBeUndefined();
+    expect(score(sameVolumeHighImpact).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 });
 
