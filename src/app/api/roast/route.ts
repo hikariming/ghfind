@@ -6,6 +6,7 @@ import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/ll
 import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
+import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
   acquireRoastLock,
   checkRoastRateLimit,
@@ -97,43 +98,6 @@ function parseRoast(head: string): RoastLine {
     return (mm?.[1] ?? "").trim().slice(0, 200);
   };
   return { zh: grab("zh"), en: grab("en") };
-}
-
-function hasExplicitCommitterIdentity(scan: ScanResult): boolean {
-  const text = [scan.metrics.name, scan.metrics.bio, scan.metrics.company]
-    .filter(Boolean)
-    .join(" ");
-  return /\bcommitter\b/i.test(text);
-}
-
-function removeInferredCommitterClaims(text: string): string {
-  return text
-    .replace(/自称\s*Apache\s*Committer[，,]?\s*/gi, "给 Apache 相关仓库提过 PR，")
-    .replace(/Apache\s*Committer/gi, "Apache 相关仓库贡献者")
-    .replace(/\bFake Committer\b/gi, "Repo Visitor")
-    .replace(/\bCommitter\b/g, "Contributor")
-    .replace(/伪\s*Apache\s*Co/gi, "Apache访客")
-    .replace(/伪\s*Apache\s*贡献者/gi, "Apache访客");
-}
-
-function sanitizeIdentityClaims(
-  scan: ScanResult,
-  tags: Tags,
-  roastLine: RoastLine,
-  report: string,
-): { tags: Tags; roastLine: RoastLine; report: string } {
-  if (hasExplicitCommitterIdentity(scan)) return { tags, roastLine, report };
-  return {
-    tags: {
-      zh: tags.zh.map(removeInferredCommitterClaims),
-      en: tags.en.map(removeInferredCommitterClaims),
-    },
-    roastLine: {
-      zh: removeInferredCommitterClaims(roastLine.zh),
-      en: removeInferredCommitterClaims(roastLine.en),
-    },
-    report: removeInferredCommitterClaims(report),
-  };
 }
 
 /** Strip the leading control lines so they never reach the rendered report. */

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordAccountLookup } from "@/lib/db";
-import { AccountNotFoundError, GitHubRateLimitError, collect } from "@/lib/github";
+import {
+  AccountNotFoundError,
+  GitHubAuthRequiredError,
+  GitHubRateLimitError,
+  collect,
+} from "@/lib/github";
 import {
   checkRateLimit,
   clearCachedLeaderboards,
@@ -79,6 +84,9 @@ export async function POST(req: NextRequest) {
     await recordSuccessfulLookup(result.metrics.username, ip);
     return NextResponse.json({ ...result, cached: false });
   } catch (e) {
+    if (e instanceof GitHubAuthRequiredError) {
+      return NextResponse.json({ error: "github_token_required" }, { status: 500 });
+    }
     if (e instanceof AccountNotFoundError) {
       return NextResponse.json({ error: "account_not_found" }, { status: 404 });
     }

@@ -16,6 +16,8 @@ const GITHUB_API = "https://api.github.com";
 export class AccountNotFoundError extends Error {}
 /** Raised when GitHub rate-limits us (403/429 with rate-limit headers). */
 export class GitHubRateLimitError extends Error {}
+/** Raised when the app cannot collect GraphQL-only scoring dimensions safely. */
+export class GitHubAuthRequiredError extends Error {}
 
 function authHeaders(): Record<string, string> {
   const token = process.env.GITHUB_TOKEN;
@@ -719,6 +721,10 @@ export async function collect(username: string): Promise<{
   impact_repos: ImpactRepo[];
   verified_impact_prs: RecentPr[];
 }> {
+  if (!process.env.GITHUB_TOKEN) {
+    throw new GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.");
+  }
+
   const now = new Date();
 
   const user = await restGet<RestUser>(`users/${username}`);

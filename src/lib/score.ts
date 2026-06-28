@@ -140,6 +140,19 @@ export function contributionQualityCap(m: RawMetrics): number | undefined {
   return undefined;
 }
 
+function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
+  const bestProjectQuality = m.best_original_repo_quality_score ?? 0;
+  return (
+    m.followers >= 500 &&
+    m.last_year_contributions === 0 &&
+    m.merged_pr_count === 0 &&
+    (m.impact_pr_count ?? 0) === 0 &&
+    (m.max_impact_repo_stars ?? 0) === 0 &&
+    m.total_stars <= 300 &&
+    bestProjectQuality < 0.85
+  );
+}
+
 /** Map a final score to its tier label. Shared by the scorer and the AI-adjust step. */
 export function tierFor(final: number): { tier: Tier; tier_label: string } {
   if (final >= 90) return { tier: "夯", tier_label: "封神 · 殿堂级标杆" };
@@ -240,7 +253,11 @@ export function score(m: RawMetrics): Scoring {
     const ratio = followers / following;
     ratioPts = ratio >= 2 ? 3 : ratio >= 1 ? 2 : ratio >= 0.5 ? 1.5 : 1;
   }
-  sub.community_influence = round(followerPts + ratioPts, 1);
+  const communityRaw = followerPts + ratioPts;
+  sub.community_influence = round(
+    hasSocialOnlyDormantSignal(m) ? Math.min(communityRaw, 2.5) : communityRaw,
+    1,
+  );
 
   // 6. Activity Authenticity (17)
   const contribPts = logRatio(m.last_year_contributions, 2000) * 8;
@@ -305,6 +322,14 @@ export function score(m: RawMetrics): Scoring {
     (m.days_since_last_activity ?? 999) > 365
   ) {
     flag("burst_then_dormant", 5, "Active in only one year then dormant — burst pattern.");
+  }
+  if (hasSocialOnlyDormantSignal(m)) {
+    flag(
+      "social_only_dormant_profile",
+      5,
+      `${m.followers} followers but 0 last-year contributions, 0 PRs, no external impact, ` +
+        "and no strong original project signal — social/profile attention is disconnected from code work.",
+    );
   }
   if (m.star_inflation_suspect) {
     flag(

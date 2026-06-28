@@ -754,6 +754,58 @@ describe("doc-like PR contribution-quality discount", () => {
   });
 });
 
+describe("social-only dormant profiles", () => {
+  it("caps community influence and adds a red flag when followers are detached from code work", () => {
+    const s = score({
+      ...NEUTRAL,
+      account_age_years: 2.28,
+      contribution_years_active: 0,
+      followers: 1047,
+      following: 33,
+      public_repos: 70,
+      fetched_repo_count: 70,
+      fork_repo_count: 55,
+      original_repo_count: 15,
+      nonempty_original_repo_count: 14,
+      total_stars: 158,
+      max_stars: 85,
+      top_starred_original_repo_quality_score: 0.14,
+      best_original_repo_quality_score: 0.75,
+      merged_pr_count: 0,
+      total_pr_count: 0,
+      issues_created: 0,
+      last_year_contributions: 0,
+      activity_type_count: 0,
+      max_impact_repo_stars: 0,
+      impact_pr_count: 0,
+      impact_depth_raw: 0,
+    });
+
+    expect(s.sub_scores.community_influence).toBe(2.5);
+    expect(s.red_flags.some((f) => f.flag === "social_only_dormant_profile")).toBe(true);
+    expect(s.final_score).toBeLessThan(20);
+  });
+
+  it("does not cap followers for dormant accounts with strong original project quality", () => {
+    const s = score({
+      ...NEUTRAL,
+      followers: 1047,
+      following: 33,
+      merged_pr_count: 0,
+      total_pr_count: 0,
+      last_year_contributions: 0,
+      max_impact_repo_stars: 0,
+      impact_pr_count: 0,
+      impact_depth_raw: 0,
+      total_stars: 250,
+      best_original_repo_quality_score: 0.9,
+    });
+
+    expect(s.sub_scores.community_influence).toBeGreaterThan(2.5);
+    expect(s.red_flags.some((f) => f.flag === "social_only_dormant_profile")).toBe(false);
+  });
+});
+
 describe("tierFor (5 bands incl. 顶级)", () => {
   it("maps each score band to the right tier", () => {
     expect(tierFor(95).tier).toBe("夯");

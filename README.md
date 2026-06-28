@@ -36,7 +36,8 @@ pnpm dev
 | Command | Description |
 |------|------|
 | `pnpm dev` | Local development |
-| `pnpm build` / `pnpm start` | Production build / run |
+| `pnpm start` or `pnpm build/start` | One-command production build + run |
+| `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
 | `pnpm test` | Vitest scoring-parity tests (against the Python skill output) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |

@@ -29,9 +29,9 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
-// v2: all-time ecosystem-impact (per-repo PR + commit aggregation). Bumping the
-// prefix invalidates pre-v2 entries that scored old high-value work as 0.
-const scanKey = (username: string) => `scan:v2:${username.toLowerCase()}`;
+// v3: scoring formula includes social-only dormant profile handling. Bumping the
+// prefix invalidates cached scans whose embedded scoring used older rules.
+const scanKey = (username: string) => `scan:v3:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -175,7 +175,7 @@ export interface CachedRoast {
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
 export const roastKey = (username: string, lang: Lang) =>
-  `roast:${lang}:${username.toLowerCase()}`;
+  `roast:v2:${lang}:${username.toLowerCase()}`;
 
 export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
   const r = getRedis();

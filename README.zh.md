@@ -36,7 +36,8 @@ pnpm dev
 | 命令 | 说明 |
 |------|------|
 | `pnpm dev` | 本地开发 |
-| `pnpm build` / `pnpm start` | 生产构建 / 运行 |
+| `pnpm start` 或 `pnpm build/start` | 一键生产构建并运行 |
+| `pnpm build` / `pnpm start:prod` | 仅构建 / 运行已有生产构建 |
 | `pnpm test` | Vitest 打分一致性测试(对照 Python 技能输出) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |

@@ -16,8 +16,8 @@ describe("normLang", () => {
 
 describe("roastKey", () => {
   it("namespaces the cache key by language and lowercases the username", () => {
-    expect(roastKey("SampleUser", "en")).toBe("roast:en:sampleuser");
-    expect(roastKey("SampleUser", "zh")).toBe("roast:zh:sampleuser");
+    expect(roastKey("SampleUser", "en")).toBe("roast:v2:en:sampleuser");
+    expect(roastKey("SampleUser", "zh")).toBe("roast:v2:zh:sampleuser");
   });
 
   it("keeps en and zh keys distinct", () => {
