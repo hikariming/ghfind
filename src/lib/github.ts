@@ -177,6 +177,57 @@ interface AnyPr {
   repo: string;
 }
 
+interface ClosedPrNode {
+  author: { login: string } | null;
+  repository: { owner: { login: string } | null } | null;
+  timelineItems: {
+    nodes: ({ actor: { login: string } | null } | null)[];
+  } | null;
+}
+
+export interface ClosedPrBreakdown {
+  closed_unmerged_pr_count: number;
+  maintainer_closed_unmerged_pr_count: number;
+  self_closed_external_pr_count: number;
+  self_closed_own_repo_pr_count: number;
+  unknown_closed_unmerged_pr_count: number;
+}
+
+export function computeClosedPrBreakdown(
+  nodes: ClosedPrNode[],
+  total: number,
+  loginLower: string,
+): ClosedPrBreakdown {
+  let maintainerClosed = 0;
+  let selfClosedExternal = 0;
+  let selfClosedOwnRepo = 0;
+  let unknownClosed = Math.max(0, total - nodes.length);
+
+  for (const node of nodes) {
+    const author = (node.author?.login ?? loginLower).toLowerCase();
+    const repoOwner = node.repository?.owner?.login?.toLowerCase() ?? "";
+    const actor = node.timelineItems?.nodes?.[0]?.actor?.login?.toLowerCase() ?? "";
+    if (!actor) {
+      unknownClosed += 1;
+    } else if (actor === author || actor === loginLower) {
+      if (repoOwner === loginLower) selfClosedOwnRepo += 1;
+      else selfClosedExternal += 1;
+    } else if (repoOwner === loginLower) {
+      unknownClosed += 1;
+    } else {
+      maintainerClosed += 1;
+    }
+  }
+
+  return {
+    closed_unmerged_pr_count: total,
+    maintainer_closed_unmerged_pr_count: maintainerClosed,
+    self_closed_external_pr_count: selfClosedExternal,
+    self_closed_own_repo_pr_count: selfClosedOwnRepo,
+    unknown_closed_unmerged_pr_count: unknownClosed,
+  };
+}
+
 /** Recent PRs across ALL states (for templated-flood detection). */
 async function fetchRecentAllPrs(username: string, count = 30): Promise<AnyPr[]> {
   const data = await graphql<{
@@ -517,7 +568,7 @@ export async function collect(username: string): Promise<{
     user: {
       mergedPRs: { totalCount: number };
       allPRs: { totalCount: number };
-      closedPRs: { totalCount: number };
+      closedPRs: { totalCount: number; nodes: ClosedPrNode[] };
       issues: { totalCount: number };
       contributionsCollection: {
         totalCommitContributions: number;
@@ -534,7 +585,20 @@ export async function collect(username: string): Promise<{
       user(login: $login) {
         mergedPRs: pullRequests(states: MERGED) { totalCount }
         allPRs: pullRequests { totalCount }
-        closedPRs: pullRequests(states: CLOSED) { totalCount }
+        closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+          totalCount
+          nodes {
+            author { login }
+            repository { owner { login } }
+            timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
+              nodes {
+                ... on ClosedEvent {
+                  actor { login }
+                }
+              }
+            }
+          }
+        }
         issues { totalCount }
         contributionsCollection {
           totalCommitContributions
@@ -553,11 +617,19 @@ export async function collect(username: string): Promise<{
   const contributionYears = contrib?.user?.contributionYears?.contributionYears ?? [];
   const mergedPrCount = contrib?.user?.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib?.user?.allPRs?.totalCount ?? 0;
-  const closedUnmergedPrCount = contrib?.user?.closedPRs?.totalCount ?? 0;
+  const closedPrBreakdown = computeClosedPrBreakdown(
+    contrib?.user?.closedPRs?.nodes ?? [],
+    contrib?.user?.closedPRs?.totalCount ?? 0,
+    loginLower,
+  );
   const issuesCreated = contrib?.user?.issues?.totalCount ?? 0;
-  const decidedPrCount = mergedPrCount + closedUnmergedPrCount;
+  const decidedPrCount = mergedPrCount + closedPrBreakdown.maintainer_closed_unmerged_pr_count;
   const prRejectionRate =
-    decidedPrCount > 0 ? Math.round((closedUnmergedPrCount / decidedPrCount) * 100) / 100 : 0;
+    decidedPrCount > 0
+      ? Math.round(
+          (closedPrBreakdown.maintainer_closed_unmerged_pr_count / decidedPrCount) * 100,
+        ) / 100
+      : 0;
 
   const created = parseTs(user.created_at);
   const dayMs = 1000 * 60 * 60 * 24;
@@ -689,7 +761,12 @@ export async function collect(username: string): Promise<{
     impact_commit_count: impact.impact_commit_count,
     external_trivial_pr_count: externalTrivialPrCount,
     star_inflation_suspect: starInflationSuspect,
-    closed_unmerged_pr_count: closedUnmergedPrCount,
+    closed_unmerged_pr_count: closedPrBreakdown.closed_unmerged_pr_count,
+    maintainer_closed_unmerged_pr_count:
+      closedPrBreakdown.maintainer_closed_unmerged_pr_count,
+    self_closed_external_pr_count: closedPrBreakdown.self_closed_external_pr_count,
+    self_closed_own_repo_pr_count: closedPrBreakdown.self_closed_own_repo_pr_count,
+    unknown_closed_unmerged_pr_count: closedPrBreakdown.unknown_closed_unmerged_pr_count,
     pr_rejection_rate: prRejectionRate,
     recent_pr_sample: flood.recent_pr_sample,
     top_repo_pr_target: flood.top_repo_pr_target,

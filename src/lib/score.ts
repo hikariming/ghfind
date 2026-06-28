@@ -83,7 +83,8 @@ export function spamBotScore(m: RawMetrics): number {
   }
 
   // 3. High PR rejection (0..2).
-  const decided = m.merged_pr_count + (m.closed_unmerged_pr_count ?? 0);
+  const rejected = m.maintainer_closed_unmerged_pr_count ?? m.closed_unmerged_pr_count ?? 0;
+  const decided = m.merged_pr_count + rejected;
   if (decided >= 10 && (m.pr_rejection_rate ?? 0) > 0.5) {
     s += Math.min(2, (((m.pr_rejection_rate ?? 0) - 0.5) / 0.5) * 2);
   }
@@ -138,8 +139,12 @@ export function score(m: RawMetrics): Scoring {
   // is legitimate); spam is judged separately by the external-trivial / flood flags.
   const prVolume = logRatio(m.merged_pr_count, 200) * 16;
   let acceptance: number;
-  if (m.total_pr_count >= 3) {
-    acceptance = (m.merged_pr_count / m.total_pr_count) * 6;
+  const acceptanceTotal = Math.max(
+    m.merged_pr_count,
+    m.total_pr_count - (m.self_closed_own_repo_pr_count ?? 0),
+  );
+  if (acceptanceTotal >= 3) {
+    acceptance = (m.merged_pr_count / acceptanceTotal) * 6;
   } else {
     acceptance = m.merged_pr_count * 1.2; // tiny history: ~1pt per merged
   }
@@ -276,14 +281,15 @@ export function score(m: RawMetrics): Scoring {
         ` — 疑似 AI 批量生成 / 刷量洪水。`,
     );
   }
-  // High PR rejection: most decided PRs were closed unmerged — low-quality / spam.
-  const decidedPrs = m.merged_pr_count + (m.closed_unmerged_pr_count ?? 0);
+  // High PR rejection: maintainer-closed unmerged PRs, not self-closed cleanup.
+  const rejectedPrs = m.maintainer_closed_unmerged_pr_count ?? m.closed_unmerged_pr_count ?? 0;
+  const decidedPrs = m.merged_pr_count + rejectedPrs;
   const rejection = m.pr_rejection_rate ?? 0;
   if (decidedPrs >= 10 && rejection > 0.5) {
     flag(
       "high_pr_rejection",
       rejection > 0.7 ? 10 : 8,
-      `${m.closed_unmerged_pr_count}/${decidedPrs} 个已决 PR 被拒未合并（被拒率 ` +
+      `${rejectedPrs}/${decidedPrs} 个已决 PR 被维护者关闭未合并（被拒率 ` +
         `${Math.round(rejection * 100)}%）— 低质 / 频繁被拒。`,
     );
   }

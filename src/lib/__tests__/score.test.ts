@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeClosedPrBreakdown,
   computeFloodSignals,
   computeImpactFromContribMap,
   isEcosystemImpactPr,
@@ -66,6 +67,22 @@ const NEUTRAL: RawMetrics = {
 const hasFlag = (m: RawMetrics, name: string) =>
   score(m).red_flags.some((f) => f.flag === name);
 
+const closedPr = ({
+  actor,
+  author = "alice",
+  owner = "someone",
+}: {
+  actor?: string | null;
+  author?: string;
+  owner?: string;
+}) => ({
+  author: { login: author },
+  repository: { owner: { login: owner } },
+  timelineItems: {
+    nodes: actor === undefined ? [] : [{ actor: actor ? { login: actor } : null }],
+  },
+});
+
 describe("spam-PR red flags", () => {
   it("does not fire on a neutral account", () => {
     expect(score(NEUTRAL).red_flags).toHaveLength(0);
@@ -94,6 +111,7 @@ describe("spam-PR red flags", () => {
       ...NEUTRAL,
       merged_pr_count: 5,
       closed_unmerged_pr_count: 20,
+      maintainer_closed_unmerged_pr_count: 20,
       pr_rejection_rate: 0.8,
     };
     const flag = score(m).red_flags.find((f) => f.flag === "high_pr_rejection");
@@ -109,6 +127,23 @@ describe("spam-PR red flags", () => {
         "high_pr_rejection",
       ),
     ).toBe(false); // decided 7 < 10
+  });
+
+  it("does not treat self-closed own-repo PRs as rejection or acceptance misses", () => {
+    const base = score({ ...NEUTRAL, merged_pr_count: 10, total_pr_count: 20 });
+    const withSelfClosedOwn = score({
+      ...NEUTRAL,
+      merged_pr_count: 10,
+      total_pr_count: 20,
+      closed_unmerged_pr_count: 10,
+      maintainer_closed_unmerged_pr_count: 0,
+      self_closed_own_repo_pr_count: 10,
+      pr_rejection_rate: 0,
+    });
+    expect(withSelfClosedOwn.red_flags.some((f) => f.flag === "high_pr_rejection")).toBe(false);
+    expect(withSelfClosedOwn.sub_scores.contribution_quality).toBeGreaterThan(
+      base.sub_scores.contribution_quality,
+    );
   });
 
   it("flags trivial_pr_farming for garbage PRs into popular external repos", () => {
@@ -229,6 +264,29 @@ describe("computeFloodSignals", () => {
     }));
     expect(computeFloodSignals(prs, "alice").pr_flood_suspect).toBe(false); // own repo
     expect(computeFloodSignals(prs, "bob").pr_flood_suspect).toBe(true); // someone else's
+  });
+});
+
+describe("computeClosedPrBreakdown", () => {
+  it("separates maintainer-closed PRs from author self-closed PRs", () => {
+    const b = computeClosedPrBreakdown(
+      [
+        closedPr({ actor: "maintainer", owner: "external" }),
+        closedPr({ actor: "alice", owner: "external" }),
+        closedPr({ actor: "alice", owner: "alice" }),
+        closedPr({ actor: "teammate", owner: "alice" }),
+        closedPr({ actor: null, owner: "external" }),
+      ],
+      6,
+      "alice",
+    );
+    expect(b).toEqual({
+      closed_unmerged_pr_count: 6,
+      maintainer_closed_unmerged_pr_count: 1,
+      self_closed_external_pr_count: 1,
+      self_closed_own_repo_pr_count: 1,
+      unknown_closed_unmerged_pr_count: 3,
+    });
   });
 });
 

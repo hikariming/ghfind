@@ -59,6 +59,20 @@ describe("buildRoastMessages", () => {
     }
   });
 
+  it("asks for PR status breakdown instead of vague acceptance-rate copy", () => {
+    const [zh] = buildRoastMessages(scan, "zh");
+    expect(zh.content).not.toContain("通过率");
+    expect(zh.content).toContain("维护者关闭未合并");
+    expect(zh.content).toContain("作者主动关闭外部 PR");
+    expect(zh.content).toContain("作者主动关闭自有仓库 PR");
+
+    const [en] = buildRoastMessages(scan, "en");
+    expect(en.content).not.toContain("acceptance rate");
+    expect(en.content).toContain("maintainer-closed unmerged");
+    expect(en.content).toContain("author-closed external PRs");
+    expect(en.content).toContain("author-closed own-repo PRs");
+  });
+
   it("marks recent_prs as a sample in both the prompt and payload", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("recent_prs 只是最近 merged PR 样本");

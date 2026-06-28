@@ -77,6 +77,10 @@ export interface RawMetrics {
   star_inflation_suspect: boolean;
   // Spam / low-quality PR signals.
   closed_unmerged_pr_count: number;
+  maintainer_closed_unmerged_pr_count?: number;
+  self_closed_external_pr_count?: number;
+  self_closed_own_repo_pr_count?: number;
+  unknown_closed_unmerged_pr_count?: number;
   pr_rejection_rate: number;
   recent_pr_sample: number;
   top_repo_pr_target: string | null;
