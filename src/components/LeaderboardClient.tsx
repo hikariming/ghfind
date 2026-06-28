@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
@@ -15,6 +15,8 @@ export interface LeaderboardClientEntry {
   tier: Tier;
   tags?: { zh: string[]; en: string[] };
   lookup_count: number;
+  recent_lookup_count: number;
+  trending_score: number;
   prev_score?: number;
   delta?: number;
 }
@@ -25,6 +27,10 @@ export interface LeaderboardLabels {
   next: string;
   collapse: string;
   viewDetail: string;
+  trendLabel: string;
+  trendTitle: string;
+  scoreLabel: string;
+  scoreTitle: string;
   heatLabel: string;
   heatTitle: string;
   progressLabel: string;
@@ -32,7 +38,7 @@ export interface LeaderboardLabels {
   progressEmpty: string;
 }
 
-export type LeaderboardView = "score" | "heat" | "progress";
+export type LeaderboardView = "trending" | "score" | "heat" | "progress";
 
 const RANK_BADGE = ["🥇", "🥈", "🥉"];
 const TAG_TONE: Record<TagLocale, string> = {
@@ -44,6 +50,42 @@ type TagLocale = "zh" | "en";
 
 function tagLocaleFor(locale: string): TagLocale {
   return locale === "en" ? "en" : "zh";
+}
+
+interface MetricRow {
+  label: ReactNode;
+  value: ReactNode;
+  title?: string;
+  ariaLabel?: string;
+  valueClass?: string;
+}
+
+function MetricBlock({ compact, rows }: { compact?: boolean; rows: MetricRow[] }) {
+  return (
+    <div
+      className={`grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right ${
+        compact ? "w-28 sm:w-36" : "w-52 sm:w-60"
+      }`}
+    >
+      {rows.map((row, index) => (
+        <div key={index} className="contents">
+          <div
+            className="truncate text-left text-[11px] font-semibold sm:text-xs"
+            title={row.title}
+          >
+            {row.label}
+          </div>
+          <div
+            className={`font-black tabular-nums ${row.valueClass ?? "text-sm"}`}
+            title={row.title}
+            aria-label={row.ariaLabel}
+          >
+            {row.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Second-line tags: current locale first, with the other locale as fallback. */
@@ -103,6 +145,7 @@ export function LeaderboardClient({
   pageSize,
   scoreEntries,
   heatEntries,
+  trendingEntries,
   progressEntries = [],
 }: {
   initialView: LeaderboardView;
@@ -110,17 +153,20 @@ export function LeaderboardClient({
   pageSize?: number;
   scoreEntries: LeaderboardClientEntry[];
   heatEntries: LeaderboardClientEntry[];
+  trendingEntries: LeaderboardClientEntry[];
   progressEntries?: LeaderboardClientEntry[];
 }) {
   const locale = useLocale();
   const tTier = useTranslations("tiers");
   const [page, setPage] = useState(0);
   const entries =
-    initialView === "heat"
+    initialView === "score"
+      ? scoreEntries
+      : initialView === "heat"
       ? heatEntries
       : initialView === "progress"
         ? progressEntries
-        : scoreEntries;
+        : trendingEntries;
   const tagLocale = tagLocaleFor(locale);
 
   if (entries.length === 0) {
@@ -141,10 +187,119 @@ export function LeaderboardClient({
           const style = tierStyle(e.tier);
           const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
-          const heatSelected = initialView === "heat";
-          const progressSelected = initialView === "progress";
           const delta = e.delta ?? e.final_score - (e.prev_score ?? e.final_score);
+          const trendingScore = e.trending_score ?? 0;
+          const recentLookupCount = e.recent_lookup_count ?? 0;
+          const heatValue = initialView === "trending" ? recentLookupCount : e.lookup_count;
           const profileUrl = e.profile_url ?? `https://github.com/${encodeURIComponent(e.username)}`;
+          const scoreLabel = (
+            <span className={style.text}>
+              {style.emoji} {tierName}
+            </span>
+          );
+          const scoreValue = <span className={style.text}>{e.final_score.toFixed(2)}</span>;
+          const trendLabel = <span className="text-orange-300">🚀{labels.trendLabel}</span>;
+          const trendValue = <span className="text-orange-300">{trendingScore.toFixed(1)}</span>;
+          const heatLabel = <span className="text-amber-300">🔥 {labels.heatLabel}</span>;
+          const heatMetricValue = <span className="text-amber-300">{heatValue}</span>;
+          const divider = <span className="px-1 text-zinc-600">/</span>;
+          const metricRows: MetricRow[] =
+            initialView === "progress"
+              ? [
+                  {
+                    label: <span className="text-emerald-300">📈 {labels.progressLabel}</span>,
+                    value: <span className="text-emerald-300">+{delta.toFixed(2)}</span>,
+                    title: labels.progressTitle,
+                    ariaLabel: `${labels.progressLabel} +${delta.toFixed(2)}`,
+                    valueClass: "text-lg",
+                  },
+                  {
+                    label: scoreLabel,
+                    value: scoreValue,
+                    title: labels.scoreTitle,
+                    ariaLabel: `${labels.scoreLabel} ${e.final_score.toFixed(2)}`,
+                  },
+                ]
+              : initialView === "score"
+                ? [
+                    {
+                      label: scoreLabel,
+                      value: scoreValue,
+                      title: labels.scoreTitle,
+                      ariaLabel: `${labels.scoreLabel} ${e.final_score.toFixed(2)}`,
+                      valueClass: "text-lg",
+                    },
+                    {
+                      label: (
+                        <>
+                          {trendLabel}
+                          {divider}
+                          {heatLabel}
+                        </>
+                      ),
+                      value: (
+                        <>
+                          {trendValue}
+                          {divider}
+                          <span className="text-amber-300">{e.lookup_count}</span>
+                        </>
+                      ),
+                      title: labels.trendTitle,
+                    },
+                  ]
+                : initialView === "heat"
+                  ? [
+                      {
+                        label: heatLabel,
+                        value: <span className="text-amber-300">{e.lookup_count}</span>,
+                        title: labels.heatTitle,
+                        ariaLabel: `${labels.heatLabel} ${e.lookup_count}`,
+                        valueClass: "text-lg",
+                      },
+                      {
+                        label: (
+                          <>
+                            {trendLabel}
+                            {divider}
+                            {scoreLabel}
+                          </>
+                        ),
+                        value: (
+                          <>
+                            {trendValue}
+                            {divider}
+                            {scoreValue}
+                          </>
+                        ),
+                        title: labels.scoreTitle,
+                      },
+                    ]
+                  : [
+                      {
+                        label: trendLabel,
+                        value: trendValue,
+                        title: labels.trendTitle,
+                        ariaLabel: `${labels.trendLabel} ${trendingScore.toFixed(1)}`,
+                        valueClass: "text-lg",
+                      },
+                      {
+                        label: (
+                          <>
+                            {scoreLabel}
+                            {divider}
+                            {heatLabel}
+                          </>
+                        ),
+                        value: (
+                          <>
+                            {scoreValue}
+                            {divider}
+                            {heatMetricValue}
+                          </>
+                        ),
+                        title: labels.scoreTitle,
+                      },
+                    ];
           return (
             <li
               key={e.username}
@@ -191,73 +346,7 @@ export function LeaderboardClient({
                   <TagRow labels={labels} locale={tagLocale} tags={e.tags} />
                 </div>
               </div>
-              {progressSelected ? (
-                <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
-                  <div
-                    className="truncate text-left text-xs font-medium text-emerald-300 sm:text-sm"
-                    title={labels.progressTitle}
-                  >
-                    📈 {labels.progressLabel}
-                  </div>
-                  <div
-                    className="text-lg font-black tabular-nums text-emerald-300"
-                    title={labels.progressTitle}
-                    aria-label={`${labels.progressLabel} +${delta.toFixed(2)}`}
-                  >
-                    +{delta.toFixed(2)}
-                  </div>
-                  <div className={`truncate text-left text-[11px] font-medium ${style.text}`}>
-                    {style.emoji} {tierName}
-                  </div>
-                  <div className={`text-sm font-black tabular-nums ${style.text}`}>
-                    {e.final_score.toFixed(2)}
-                  </div>
-                </div>
-              ) : heatSelected ? (
-                <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
-                  <div
-                    className="truncate text-left text-xs font-medium text-amber-300 sm:text-sm"
-                    title={labels.heatTitle}
-                  >
-                    🔥 {labels.heatLabel}
-                  </div>
-                  <div
-                    className="text-lg font-black tabular-nums text-amber-300"
-                    title={labels.heatTitle}
-                    aria-label={`${labels.heatLabel} ${e.lookup_count}`}
-                  >
-                    {e.lookup_count}
-                  </div>
-                  <div className={`truncate text-left text-[11px] font-medium ${style.text}`}>
-                    {style.emoji} {tierName}
-                  </div>
-                  <div className={`text-sm font-black tabular-nums ${style.text}`}>
-                    {e.final_score.toFixed(2)}
-                  </div>
-                </div>
-              ) : (
-                <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
-                  <div className={`truncate text-left text-xs font-medium sm:text-sm ${style.text}`}>
-                    {style.emoji} {tierName}
-                  </div>
-                  <div className={`text-lg font-black tabular-nums ${style.text}`}>
-                    {e.final_score.toFixed(2)}
-                  </div>
-                  <div
-                    className="truncate text-left text-[11px] font-semibold text-amber-300"
-                    title={labels.heatTitle}
-                  >
-                    🔥 {labels.heatLabel}
-                  </div>
-                  <div
-                    className="text-sm font-black tabular-nums text-amber-300"
-                    title={labels.heatTitle}
-                    aria-label={`${labels.heatLabel} ${e.lookup_count}`}
-                  >
-                    {e.lookup_count}
-                  </div>
-                </div>
-              )}
+              <MetricBlock compact={initialView === "progress"} rows={metricRows} />
             </li>
           );
         })}

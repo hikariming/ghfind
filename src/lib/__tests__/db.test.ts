@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ScoreEntry } from "../db";
 
@@ -56,5 +57,41 @@ describe("getArchivedRoast", () => {
     await expect(db.getArchivedRoast("RockChinQ", "en")).resolves.toMatchObject({
       report: "## English report",
     });
+  });
+});
+
+describe("getTrendingLeaderboard", () => {
+  it("counts unique lookups from the last seven days only", async () => {
+    const now = Date.now();
+    await db.recordScore({ ...entry, username: "fresh", final_score: 92, scanned_at: now });
+    await db.recordScore({ ...entry, username: "stale", final_score: 100, scanned_at: now - 1 });
+
+    await db.recordAccountLookup("fresh", "203.0.113.1");
+    await db.recordAccountLookup("fresh", "203.0.113.2");
+    await db.recordAccountLookup("fresh", "203.0.113.2"); // same visitor, same 24h window
+    await db.recordAccountLookup("stale", "203.0.113.3");
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE account_lookup_limits
+            SET last_counted_at = ?
+            WHERE username = ?`,
+      args: [now - 8 * 24 * 60 * 60 * 1000, "stale"],
+    });
+    await client.execute({
+      sql: `UPDATE account_stats
+            SET last_lookup_at = ?
+            WHERE username = ?`,
+      args: [now - 8 * 24 * 60 * 60 * 1000, "stale"],
+    });
+
+    const entries = await db.getTrendingLeaderboard(10);
+    const fresh = entries.find((e) => e.username === "fresh");
+    const stale = entries.find((e) => e.username === "stale");
+
+    expect(fresh?.recent_lookup_count).toBe(2);
+    expect(stale?.recent_lookup_count).toBe(0);
+    expect(fresh?.trending_score).toBeGreaterThan(0);
+    expect(entries[0]?.username).toBe("fresh");
   });
 });

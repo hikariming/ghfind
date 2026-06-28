@@ -10,12 +10,14 @@
 
 import { Client, createClient } from "@libsql/client";
 import { createHash } from "node:crypto";
+import { computeTrendingScore, rankTrending } from "./hotness";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
 import type { RoastLine, SubScores, Tags, Tier } from "./types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
 // Only roll the previous score forward when this much time has passed since the
 // last recorded scan. Distinguishes a genuine re-scan (≥24h apart, since scans
@@ -73,6 +75,14 @@ function parseSubScores(raw: unknown): SubScores {
 
 function normalizeLookupCount(raw: unknown): number {
   return Math.max(MIN_RECORDED_LOOKUP_COUNT, Number(raw) || 0);
+}
+
+function normalizeRecentLookupCount(raw: unknown): number {
+  return Math.max(0, Number(raw) || 0);
+}
+
+function normalizeLastLookupAt(raw: unknown): number | null {
+  return raw == null ? null : Number(raw);
 }
 
 function heatIpHash(ip: string): string {
@@ -203,6 +213,8 @@ export interface LeaderboardEntry {
   tier: Tier;
   tags: Tags;
   lookup_count: number;
+  recent_lookup_count: number;
+  trending_score: number;
   /** Previous recorded score — only set on the 进步榜 (progress) board. */
   prev_score?: number;
   /** final_score - prev_score — only set on the 进步榜 (progress) board. */
@@ -377,6 +389,84 @@ export async function getScoreCount(): Promise<number | null> {
   }
 }
 
+interface LeaderboardRow {
+  username: unknown;
+  display_name: unknown;
+  avatar_url: unknown;
+  profile_url: unknown;
+  final_score: unknown;
+  tier: unknown;
+  tags: unknown;
+  lookup_count: unknown;
+  recent_lookup_count?: unknown;
+  last_lookup_at?: unknown;
+}
+
+function toLeaderboardEntry(r: LeaderboardRow, now = Date.now()): LeaderboardEntry {
+  const username = String(r.username);
+  const final_score = Number(r.final_score);
+  const lookup_count = normalizeLookupCount(r.lookup_count);
+  const recent_lookup_count = normalizeRecentLookupCount(r.recent_lookup_count);
+  const last_lookup_at = normalizeLastLookupAt(r.last_lookup_at);
+  return {
+    username,
+    display_name: r.display_name as string | null,
+    avatar_url: r.avatar_url as string | null,
+    profile_url: r.profile_url as string | null,
+    final_score,
+    tier: String(r.tier) as Tier,
+    tags: parseTags(r.tags),
+    lookup_count,
+    recent_lookup_count,
+    trending_score: computeTrendingScore(
+      { username, final_score, lookup_count, recent_lookup_count, last_lookup_at },
+      now,
+    ),
+  };
+}
+
+/** Default 名人堂 board: score lifted by recent unique lookup heat. */
+export async function getTrendingLeaderboard(
+  limit = 100,
+  minScore = 60,
+): Promise<LeaderboardEntry[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const res = await db.execute({
+      sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
+                   s.final_score, s.tier, s.tags,
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
+                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   stats.last_lookup_at AS last_lookup_at
+            FROM scores AS s
+            LEFT JOIN account_stats AS stats ON stats.username = s.username
+            LEFT JOIN (
+              SELECT username, COUNT(*) AS recent_lookup_count
+              FROM account_lookup_limits
+              WHERE last_counted_at >= ?
+              GROUP BY username
+            ) AS recent ON recent.username = s.username
+            WHERE s.hidden = 0 AND s.final_score >= ?`,
+      args: [now - TRENDING_LOOKUP_WINDOW_MS, minScore],
+    });
+    return rankTrending(
+      res.rows.map((r) => ({
+        ...toLeaderboardEntry(r as unknown as LeaderboardRow, now),
+        last_lookup_at: normalizeLastLookupAt(r.last_lookup_at),
+      })),
+      now,
+    )
+      .slice(0, limit)
+      .map(({ last_lookup_at: _lastLookupAt, ...entry }) => entry);
+  } catch (e) {
+    console.error("getTrendingLeaderboard failed:", e);
+    return [];
+  }
+}
+
 /** Top high-scoring accounts for the public 名人堂 board (excludes hidden). */
 export async function getLeaderboard(
   limit = 100,
@@ -389,24 +479,24 @@ export async function getLeaderboard(
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
-                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
+                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   stats.last_lookup_at AS last_lookup_at
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
+            LEFT JOIN (
+              SELECT username, COUNT(*) AS recent_lookup_count
+              FROM account_lookup_limits
+              WHERE last_counted_at >= ?
+              GROUP BY username
+            ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [minScore, limit],
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, minScore, limit],
     });
-    return res.rows.map((r) => ({
-      username: String(r.username),
-      display_name: r.display_name as string | null,
-      avatar_url: r.avatar_url as string | null,
-      profile_url: r.profile_url as string | null,
-      final_score: Number(r.final_score),
-      tier: String(r.tier) as Tier,
-      tags: parseTags(r.tags),
-      lookup_count: normalizeLookupCount(r.lookup_count),
-    }));
+    const now = Date.now();
+    return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
   } catch (e) {
     console.error("getLeaderboard failed:", e);
     return [];
@@ -425,24 +515,24 @@ export async function getHeatLeaderboard(
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
-                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
+                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   stats.last_lookup_at AS last_lookup_at
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
+            LEFT JOIN (
+              SELECT username, COUNT(*) AS recent_lookup_count
+              FROM account_lookup_limits
+              WHERE last_counted_at >= ?
+              GROUP BY username
+            ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
             ORDER BY lookup_count DESC, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [minScore, limit],
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, minScore, limit],
     });
-    return res.rows.map((r) => ({
-      username: String(r.username),
-      display_name: r.display_name as string | null,
-      avatar_url: r.avatar_url as string | null,
-      profile_url: r.profile_url as string | null,
-      final_score: Number(r.final_score),
-      tier: String(r.tier) as Tier,
-      tags: parseTags(r.tags),
-      lookup_count: normalizeLookupCount(r.lookup_count),
-    }));
+    const now = Date.now();
+    return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
   } catch (e) {
     console.error("getHeatLeaderboard failed:", e);
     return [];
@@ -459,28 +549,32 @@ export async function getProgressLeaderboard(limit = 100): Promise<LeaderboardEn
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags, s.prev_score,
-                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
+                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   stats.last_lookup_at AS last_lookup_at
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
+            LEFT JOIN (
+              SELECT username, COUNT(*) AS recent_lookup_count
+              FROM account_lookup_limits
+              WHERE last_counted_at >= ?
+              GROUP BY username
+            ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
             ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [limit],
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, limit],
     });
+    const now = Date.now();
     return res.rows.map((r) => {
+      const entry = toLeaderboardEntry(r as unknown as LeaderboardRow, now);
       const final_score = Number(r.final_score);
       const prev_score = Number(r.prev_score);
       return {
-        username: String(r.username),
-        display_name: r.display_name as string | null,
-        avatar_url: r.avatar_url as string | null,
-        profile_url: r.profile_url as string | null,
+        ...entry,
         final_score,
-        tier: String(r.tier) as Tier,
-        tags: parseTags(r.tags),
-        lookup_count: normalizeLookupCount(r.lookup_count),
         prev_score,
         delta: final_score - prev_score,
       };
@@ -669,15 +763,8 @@ export async function getSimilarAccounts(
       ],
     });
     const candidates = res.rows.map((r) => ({
-      username: String(r.username),
-      display_name: r.display_name as string | null,
-      avatar_url: r.avatar_url as string | null,
-      profile_url: r.profile_url as string | null,
-      final_score: Number(r.final_score),
-      tier: String(r.tier) as Tier,
-      tags: parseTags(r.tags),
+      ...toLeaderboardEntry(r as unknown as LeaderboardRow),
       sub_scores: parseSubScores(r.sub_scores),
-      lookup_count: normalizeLookupCount(r.lookup_count),
     }));
     const ranked = rankSimilar(subScores, candidates, limit).map((e) => ({
       username: e.username,
@@ -688,6 +775,8 @@ export async function getSimilarAccounts(
       tier: e.tier,
       tags: e.tags,
       lookup_count: e.lookup_count,
+      recent_lookup_count: e.recent_lookup_count,
+      trending_score: e.trending_score,
     }));
     return ranked;
   } catch (e) {

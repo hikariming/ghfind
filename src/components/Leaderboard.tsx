@@ -1,5 +1,10 @@
 import { getTranslations } from "next-intl/server";
-import { getHeatLeaderboard, getLeaderboard, getProgressLeaderboard } from "@/lib/db";
+import {
+  getHeatLeaderboard,
+  getLeaderboard,
+  getProgressLeaderboard,
+  getTrendingLeaderboard,
+} from "@/lib/db";
 import {
   LeaderboardClient,
   type LeaderboardLabels,
@@ -7,7 +12,7 @@ import {
 } from "./LeaderboardClient";
 
 export async function Leaderboard({
-  initialView = "score",
+  initialView = "trending",
   pageSize,
 }: {
   initialView?: LeaderboardView;
@@ -20,6 +25,10 @@ export async function Leaderboard({
     next: t("next"),
     collapse: t("collapse"),
     viewDetail: t("viewDetail", { username: "{username}" }),
+    trendLabel: t("trendLabel"),
+    trendTitle: t("trendTitle"),
+    scoreLabel: t("scoreLabel"),
+    scoreTitle: t("scoreTitle"),
     heatLabel: t("heatLabel"),
     heatTitle: t("heatTitle"),
     progressLabel: t("progressLabel"),
@@ -27,7 +36,8 @@ export async function Leaderboard({
     progressEmpty: t("progressEmpty"),
   };
 
-  const [scoreEntries, heatEntries, progressEntries] = await Promise.all([
+  const [trendingEntries, scoreEntries, heatEntries, progressEntries] = await Promise.all([
+    initialView === "trending" ? getTrendingLeaderboard(500) : Promise.resolve([]),
     initialView === "score" ? getLeaderboard(500) : Promise.resolve([]),
     initialView === "heat" ? getHeatLeaderboard(500) : Promise.resolve([]),
     initialView === "progress" ? getProgressLeaderboard(500) : Promise.resolve([]),
@@ -41,6 +51,7 @@ export async function Leaderboard({
       pageSize={pageSize}
       scoreEntries={scoreEntries}
       heatEntries={heatEntries}
+      trendingEntries={trendingEntries}
       progressEntries={progressEntries}
     />
   );

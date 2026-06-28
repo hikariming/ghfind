@@ -270,7 +270,7 @@ export function Roaster() {
   };
 
   return (
-    <div className="w-full max-w-2xl">
+    <div className="w-full max-w-4xl">
       {/* Input */}
       <form onSubmit={submit} className="flex flex-col items-center gap-3">
         <div className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60">

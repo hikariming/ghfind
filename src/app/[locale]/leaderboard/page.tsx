@@ -33,26 +33,56 @@ export default async function LeaderboardPage({
   const { locale } = await params;
   const query = await searchParams;
   const view: LeaderboardView =
-    query?.view === "heat" ? "heat" : query?.view === "progress" ? "progress" : "score";
+    query?.view === "score"
+      ? "score"
+      : query?.view === "heat"
+        ? "heat"
+        : query?.view === "progress"
+          ? "progress"
+          : "trending";
   await connection();
   setRequestLocale(locale);
   const t = await getTranslations("leaderboard");
-  const pageTitle =
-    view === "heat" ? t("heatView") : view === "progress" ? t("progressView") : t("heading");
-  const subtitle = view === "progress" ? t("progressSubtitle") : t("subtitle");
+  const viewTitle =
+    view === "score"
+      ? t("scoreView")
+      : view === "heat"
+        ? t("heatView")
+        : view === "progress"
+          ? t("progressView")
+          : t("trendView");
+  const subtitle =
+    view === "score"
+      ? t("scoreSubtitle")
+      : view === "heat"
+        ? t("heatSubtitle")
+        : view === "progress"
+          ? t("progressSubtitle")
+          : t("trendSubtitle");
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 py-14 sm:py-20">
       <header className="mb-8">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-4xl font-black leading-tight tracking-tight text-zinc-100 sm:text-5xl">
-              {pageTitle}
+              {t("heading")}
             </h1>
-            <div className="mt-4 inline-flex max-w-full flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold">
+            <p className="mt-2 text-xl font-black text-zinc-300">{viewTitle}</p>
+            <div className="mt-4 grid w-full max-w-[40rem] grid-cols-2 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:grid-cols-4">
               <Link
                 href="/leaderboard"
-                className={`rounded-full px-3 py-1.5 transition-colors ${
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
+                  view === "trending"
+                    ? "bg-white/10 text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {t("trendView")}
+              </Link>
+              <Link
+                href="/leaderboard?view=score"
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
                   view === "score"
                     ? "bg-white/10 text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-200"
@@ -62,7 +92,7 @@ export default async function LeaderboardPage({
               </Link>
               <Link
                 href="/leaderboard?view=heat"
-                className={`rounded-full px-3 py-1.5 transition-colors ${
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
                   view === "heat"
                     ? "bg-white/10 text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-200"
@@ -72,7 +102,7 @@ export default async function LeaderboardPage({
               </Link>
               <Link
                 href="/leaderboard?view=progress"
-                className={`rounded-full px-3 py-1.5 transition-colors ${
+                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
                   view === "progress"
                     ? "bg-white/10 text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-200"

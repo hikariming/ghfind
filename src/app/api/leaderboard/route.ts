@@ -3,6 +3,7 @@ import {
   getHeatLeaderboard,
   getLeaderboard,
   getProgressLeaderboard,
+  getTrendingLeaderboard,
   type LeaderboardEntry,
 } from "@/lib/db";
 import {
@@ -23,9 +24,10 @@ const CDN_CACHE = "public, s-maxage=120, stale-while-revalidate=600";
 
 function leaderboardView(req: NextRequest): LeaderboardCacheView {
   const view = req.nextUrl.searchParams.get("view");
+  if (view === "score") return "score";
   if (view === "heat") return "heat";
   if (view === "progress") return "progress";
-  return "score";
+  return "trending";
 }
 
 export async function GET(req: NextRequest) {
@@ -39,11 +41,13 @@ export async function GET(req: NextRequest) {
   }
 
   const entries: LeaderboardEntry[] =
-    view === "heat"
+    view === "score"
+      ? await getLeaderboard(LIMIT)
+      : view === "heat"
       ? await getHeatLeaderboard(LIMIT)
       : view === "progress"
         ? await getProgressLeaderboard(LIMIT)
-        : await getLeaderboard(LIMIT);
+        : await getTrendingLeaderboard(LIMIT);
   await setCachedLeaderboard(entries, view);
   return NextResponse.json(
     { entries, cached: false, view },
