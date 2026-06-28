@@ -7,6 +7,7 @@
  * the markdown report and the grounded savage one-liner.
  */
 
+import { TIER_EN, TIER_LABEL_EN } from "./badge";
 import type { Lang } from "./lang";
 import type { ScanResult } from "./types";
 
@@ -71,6 +72,8 @@ const SYSTEM_PROMPT_EN = `You are the "Savage GitHub Rater". You're handed the *
 2. **Produce the report**: use the Markdown format below. The "final score" in the title and the dimension table is always **(script final_score + delta)**, kept to **two decimals** (e.g. \`87.30\`).
 3. **The roast**: end with one (at most two) sentences of savage, data-grounded humor.
 
+The Markdown report after the two control lines must be written in **English only**. The \`zh=...\` tags in the second control line are the only Chinese text allowed. Do not use Chinese headings, Chinese field labels, Chinese tier words, or a Chinese tier_label in the report.
+
 ## Roasting principles
 - **You must cite the account's real numbers/traits** (star count, self-merge ratio, fork share, follower ratio, account age, top-starred project name, etc.) — no canned templates.
 - **Savage but not vulgar**: only roast the account's GitHub behavior and data (farming, zero stars, all forks, simp-style following, curation posing as development…). **Never** touch gender/race/looks/origin or any personal attack. Attack the behavior, not the person.
@@ -115,12 +118,20 @@ const SYSTEM_PROMPT_EN = `You are the "Savage GitHub Rater". You're handed the *
 Notes: ① the first two lines of your reply must be exactly \`@@ADJUST <delta>@@\` then \`@@TAGS zh=...|en=...@@\`; ② the "final score" in the title and dimension table = script final_score + delta, to two decimals; ③ use sub_scores directly for each dimension's score. The tier word stays as given (GOD / ELITE / SOLID / NPC / TRASH). Output only these two control lines plus the report itself — do not explain your reasoning.`;
 
 export function buildRoastMessages(scan: ScanResult, lang: Lang = "zh") {
+  const scoring =
+    lang === "en"
+      ? {
+          ...scan.scoring,
+          tier: TIER_EN[scan.scoring.tier],
+          tier_label: TIER_LABEL_EN[scan.scoring.tier],
+        }
+      : scan.scoring;
   const payload = {
     metrics: scan.metrics,
     top_repos: scan.top_repos,
     recent_prs: scan.recent_prs,
     flood_pr_titles: scan.flood_pr_titles,
-    scoring: scan.scoring,
+    scoring,
   };
   const system = lang === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
   const preamble =

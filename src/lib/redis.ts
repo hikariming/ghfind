@@ -163,6 +163,10 @@ export interface CachedRoast {
   report: string;
   delta: number;
   tags: import("./types").Tags;
+  /** Persisted final score for archived/cache replay. Older cache entries omit it. */
+  final_score?: number;
+  /** Persisted tier for archived/cache replay. Older cache entries omit it. */
+  tier?: import("./types").Tier;
 }
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;

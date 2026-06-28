@@ -7,7 +7,12 @@ const scan = {
   top_repos: [],
   recent_prs: [],
   flood_pr_titles: [],
-  scoring: { sub_scores: {}, final_score: 80 },
+  scoring: {
+    sub_scores: {},
+    final_score: 95.2,
+    tier: "夯",
+    tier_label: "封神 · 殿堂级标杆",
+  },
 } as unknown as ScanResult;
 
 describe("buildRoastMessages", () => {
@@ -24,6 +29,9 @@ describe("buildRoastMessages", () => {
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
     expect(user.content).toContain("octocat");
+    expect(user.content).toContain('"tier": "GOD"');
+    expect(user.content).toContain('"tier_label": "Legendary · Hall of Fame"');
+    expect(user.content).not.toContain("封神");
   });
 
   it("keeps the @@ADJUST@@ / @@TAGS@@ control lines and bilingual tags in both languages", () => {

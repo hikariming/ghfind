@@ -15,21 +15,23 @@ interface ShareCardProps {
   tierLabel: string;
   beat: number | null;
   tags: Tags;
+  roastLine: string;
 }
 
 /**
  * The "flex" card rendered off-screen and exported to PNG via html-to-image.
- * Fixed 600×460 so the export is deterministic. The avatar is inlined as a data
+ * Fixed 600×540 so the export is deterministic. The avatar is inlined as a data
  * URL up-front so the cross-origin image never taints the export canvas.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
-  { username, name, avatarUrl, score, tier, tierLabel, beat, tags },
+  { username, name, avatarUrl, score, tier, tierLabel, beat, tags, roastLine },
   ref,
 ) {
   const t = useTranslations("shareCard");
   const tTier = useTranslations("tiers");
   const style = tierStyle(tier);
   const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
+  const shownRoast = roastLine.trim().slice(0, 96);
   const [avatarData, setAvatarData] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   return (
     <div
       ref={ref}
-      style={{ width: 600, height: 460 }}
+      style={{ width: 600, height: 540 }}
       className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
     >
       <div
@@ -103,6 +105,16 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           </div>
         )}
       </div>
+
+      {/* Savage one-liner */}
+      {shownRoast && (
+        <div className="rounded-2xl border border-orange-400/20 bg-orange-500/[0.06] p-4 text-left">
+          <div className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+            Roast
+          </div>
+          <div className="text-base font-semibold leading-snug text-zinc-100">{shownRoast}</div>
+        </div>
+      )}
 
       {/* Tags */}
       {shownTags.length > 0 && (
