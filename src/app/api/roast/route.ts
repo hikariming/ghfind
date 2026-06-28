@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { TIER_LABEL_EN } from "@/lib/badge";
+import { TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { getArchivedRoast, getPercentile, recordScore, updateRoast } from "@/lib/db";
 import { Lang, normLang } from "@/lib/lang";
 import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/llm";
 import { beatPercent } from "@/lib/percentile";
-import { buildRoastMessages } from "@/lib/prompt";
+import { buildRoastJudgeMessages, buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
@@ -17,7 +17,7 @@ import {
   waitForCachedRoast,
 } from "@/lib/redis";
 import { clampScore, spamBotScore, tierFor } from "@/lib/score";
-import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
+import type { RoastJudgeResult, RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,6 +109,56 @@ function extractReport(head: string): string {
   return lines.filter((l) => !/@@(ADJUST|TAGS|ROAST)/.test(l)).join("\n").replace(/^\n+/, "");
 }
 
+async function readStreamText(
+  generator: AsyncGenerator<string>,
+  maxChars = 12000,
+): Promise<string> {
+  let text = "";
+  for await (const chunk of generator) {
+    text += chunk;
+    if (text.length >= maxChars) return text.slice(0, maxChars);
+  }
+  return text;
+}
+
+function parseJudgeResult(raw: string, scan: ScanResult, lang: Lang): RoastJudgeResult {
+  const fallback: RoastJudgeResult = {
+    delta: 0,
+    reason: lang === "en" ? "Judge output was not parseable." : "judge 输出无法解析。",
+    verdict: lang === "en" ? "normal" : "正常",
+    risk_notes: [],
+  };
+  const scoreSummary = (delta: number) => {
+    const summary = adjustedScoreSummary(scan, delta, lang);
+    return {
+      ...summary,
+      tier: lang === "en" ? TIER_EN[summary.tier] : summary.tier,
+    };
+  };
+  const jsonText = raw.match(/\{[\s\S]*\}/)?.[0];
+  if (!jsonText) return { ...fallback, ...scoreSummary(0) };
+
+  try {
+    const parsed = JSON.parse(jsonText) as Partial<RoastJudgeResult>;
+    const n = Math.round(Number(parsed.delta ?? 0));
+    const delta = Number.isFinite(n) ? Math.max(-10, Math.min(10, n)) : 0;
+    const summary = scoreSummary(delta);
+    return {
+      delta: summary.delta,
+      reason: String(parsed.reason ?? fallback.reason).slice(0, 500),
+      verdict: String(parsed.verdict ?? fallback.verdict).slice(0, 120),
+      risk_notes: Array.isArray(parsed.risk_notes)
+        ? parsed.risk_notes.map((n) => String(n).slice(0, 240)).slice(0, 6)
+        : [],
+      final_score: summary.final_score,
+      tier: summary.tier,
+      tier_label: summary.tier_label,
+    };
+  } catch {
+    return { ...fallback, ...scoreSummary(0) };
+  }
+}
+
 /** Bound a client-supplied scan so a fabricated payload can't bloat the prompt. */
 function sanitizeScan(scan: ScanResult): ScanResult {
   return {
@@ -149,6 +199,24 @@ function roastResponse(body: ReadableStream<Uint8Array> | string, meta: RoastMet
   });
 }
 
+function adjustedScoreSummary(
+  scan: ScanResult,
+  delta: number,
+  lang: Lang,
+): Pick<RoastMeta, "final_score" | "tier" | "tier_label" | "delta"> {
+  const requested = clampScore(scan.scoring.final_score + delta);
+  const cap = adjustedScoreCap(scan);
+  const adjusted = clampScore(
+    cap !== null && delta > 0 && requested > cap
+      ? Math.max(scan.scoring.final_score, cap)
+      : requested,
+  );
+  const effectiveDelta = Math.round((adjusted - scan.scoring.final_score) * 100) / 100;
+  const { tier, tier_label: zhLabel } = tierFor(adjusted);
+  const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
+  return { final_score: adjusted, tier, tier_label, delta: effectiveDelta };
+}
+
 function adjustedScoreCap(scan: ScanResult): number | null {
   if (
     scan.metrics.impact_quality_cap !== undefined &&
@@ -170,24 +238,15 @@ async function computeMeta(
   record: boolean,
   lang: Lang,
 ): Promise<RoastMeta> {
-  const requested = clampScore(scan.scoring.final_score + delta);
-  const cap = adjustedScoreCap(scan);
-  const adjusted = clampScore(
-    cap !== null && delta > 0 && requested > cap
-      ? Math.max(scan.scoring.final_score, cap)
-      : requested,
-  );
-  const effectiveDelta = Math.round((adjusted - scan.scoring.final_score) * 100) / 100;
-  const { tier, tier_label: zhLabel } = tierFor(adjusted);
-  const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
+  const summary = adjustedScoreSummary(scan, delta, lang);
   if (record) {
     await recordScore({
       username: scan.metrics.username,
       display_name: scan.metrics.name,
       avatar_url: scan.metrics.avatar_url,
       profile_url: scan.metrics.profile_url,
-      final_score: adjusted,
-      tier,
+      final_score: summary.final_score,
+      tier: summary.tier,
       tags,
       roast_line: roastLine,
       bot_score: spamBotScore(scan.metrics),
@@ -195,8 +254,8 @@ async function computeMeta(
       scanned_at: Date.now(),
     });
   }
-  const percentile = await percentileFor(adjusted);
-  return { final_score: adjusted, tier, tier_label, delta: effectiveDelta, percentile, tags, roast_line: roastLine };
+  const percentile = await percentileFor(summary.final_score);
+  return { ...summary, percentile, tags, roast_line: roastLine };
 }
 
 async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
@@ -356,7 +415,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const generator = chatStream(config, buildRoastMessages(scan, lang));
+  let judge: RoastJudgeResult;
+  try {
+    const judgeText = await readStreamText(
+      chatStream(config, buildRoastJudgeMessages(scan, lang)),
+    );
+    judge = parseJudgeResult(judgeText, scan, lang);
+  } catch (e) {
+    if (isLeader) await releaseRoastLock(username, lang);
+    if (e instanceof LlmQuotaError) {
+      return NextResponse.json(
+        { error: "llm_quota", useByoKey: true, status: e.status },
+        { status: 402 },
+      );
+    }
+    console.error("roast judge failed:", e);
+    return NextResponse.json({ error: "roast_failed" }, { status: 502 });
+  }
+
+  const generator = chatStream(config, buildRoastMessages(scan, lang, judge));
 
   // Read the leading control lines (`@@ADJUST@@` + `@@TAGS@@` + `@@ROAST@@`)
   // before streaming — i.e. up to the report heading. Pulling tokens up-front also
@@ -383,7 +460,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "roast_failed" }, { status: 502 });
   }
 
-  const delta = parseDelta(head);
+  const parsedDelta = parseDelta(head);
+  const delta = parsedDelta === judge.delta ? parsedDelta : judge.delta;
   const parsedTags = parseTags(head);
   const parsedRoastLine = parseRoast(head);
   const parsedReport = extractReport(head);

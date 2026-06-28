@@ -167,6 +167,21 @@ export interface RoastLine {
 }
 
 /**
+ * Factual LLM judgment produced before the roast-writing pass. This is the only
+ * model output allowed to affect the score delta; the later writer pass must
+ * treat it as fixed input.
+ */
+export interface RoastJudgeResult {
+  delta: number;
+  reason: string;
+  verdict: string;
+  risk_notes: string[];
+  final_score?: number;
+  tier?: string;
+  tier_label?: string;
+}
+
+/**
  * Metadata the roast stream emits on its first line, after the AI applies its
  * bounded ±10 qualitative adjustment. `final_score` is the deterministic score
  * plus `delta` (clamped 0-100, 2 decimals) and is the authoritative final score.
