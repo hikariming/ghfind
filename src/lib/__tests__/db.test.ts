@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ROAST_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
 
 let db: typeof import("../db");
@@ -57,6 +58,34 @@ describe("getArchivedRoast", () => {
     await expect(db.getArchivedRoast("RockChinQ", "en")).resolves.toMatchObject({
       report: "## English report",
     });
+  });
+
+  it("does not replay archived reports from a stale roast version", async () => {
+    await db.recordScore({ ...entry, username: "stale-roast" });
+    await db.updateRoast("stale-roast", "## stale report", "zh");
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET roast_version = ? WHERE username = ?`,
+      args: [`${ROAST_CACHE_VERSION}-old`, "stale-roast"],
+    });
+
+    await expect(db.getArchivedRoast("stale-roast", "zh")).resolves.toBeNull();
+  });
+
+  it("does not replay archived reports from rows without cache versions", async () => {
+    await db.recordScore({ ...entry, username: "legacy-roast" });
+    await db.updateRoast("legacy-roast", "## legacy report", "zh");
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = NULL, roast_version = NULL
+            WHERE username = ?`,
+      args: ["legacy-roast"],
+    });
+
+    await expect(db.getArchivedRoast("legacy-roast", "zh")).resolves.toBeNull();
   });
 });
 

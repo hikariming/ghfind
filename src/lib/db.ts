@@ -10,6 +10,11 @@
 
 import { Client, createClient } from "@libsql/client";
 import { createHash } from "node:crypto";
+import {
+  bypassGeneratedCaches,
+  ROAST_CACHE_VERSION,
+  SCORE_CACHE_VERSION,
+} from "./cache-version";
 import { computeTrendingScore, rankTrending } from "./hotness";
 import type { Lang } from "./lang";
 import type { PaperDims, PaperMode, PaperTierKey } from "./paper-types";
@@ -199,6 +204,9 @@ function ensureSchema(db: Client): Promise<void> {
         // Bilingual one-liner {zh,en} JSON — generated in one LLM call so the
         // roast shows in the visitor's language regardless of report language.
         "roast_line TEXT",
+        "score_version TEXT",
+        "roast_version TEXT",
+        "roast_en_version TEXT",
         // Previous scan's score + timestamp, kept for the 进步榜 (progress board).
         // Populated by recordScore on a genuinely later re-scan; NULL until then.
         "prev_score REAL",
@@ -315,8 +323,8 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
     const username = entry.username.toLowerCase();
     await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, score_version, bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
               prev_score      = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.final_score ELSE scores.prev_score END,
@@ -329,6 +337,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               tier         = excluded.tier,
               tags         = excluded.tags,
               roast_line   = excluded.roast_line,
+              score_version = excluded.score_version,
               bot_score    = excluded.bot_score,
               sub_scores   = excluded.sub_scores,
               scanned_at   = excluded.scanned_at`,
@@ -341,6 +350,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         entry.tier,
         JSON.stringify(entry.tags ?? EMPTY_TAGS),
         JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE),
+        SCORE_CACHE_VERSION,
         entry.bot_score,
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
@@ -371,11 +381,12 @@ export async function updateRoast(username: string, roast: string, lang: Lang): 
   if (!db) return;
   // Column name comes from a fixed allowlist (never from user input).
   const col = lang === "en" ? "roast_en" : "roast";
+  const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
   try {
     await ensureSchema(db);
     await db.execute({
-      sql: `UPDATE scores SET ${col} = ? WHERE username = ?`,
-      args: [roast, username.toLowerCase()],
+      sql: `UPDATE scores SET ${col} = ?, ${versionCol} = ? WHERE username = ?`,
+      args: [roast, ROAST_CACHE_VERSION, username.toLowerCase()],
     });
   } catch (e) {
     console.error("updateRoast failed:", e);
@@ -755,9 +766,11 @@ export async function getArchivedRoast(
   username: string,
   lang: Lang,
 ): Promise<ArchivedRoast | null> {
+  if (bypassGeneratedCaches()) return null;
   const db = getClient();
   if (!db) return null;
   const col = lang === "en" ? "roast_en" : "roast";
+  const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -765,10 +778,12 @@ export async function getArchivedRoast(
             FROM scores
             WHERE username = ?
               AND hidden = 0
+              AND score_version = ?
+              AND ${versionCol} = ?
               AND ${col} IS NOT NULL
               AND ${col} != ''
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [username.toLowerCase(), SCORE_CACHE_VERSION, ROAST_CACHE_VERSION],
     });
     const r = res.rows[0];
     if (!r) return null;
