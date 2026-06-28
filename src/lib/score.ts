@@ -158,7 +158,13 @@ export function score(m: RawMetrics): Scoring {
   // creator/maintainer value.
   const prestige = logRatio(m.max_impact_repo_stars, 100000) * 9;
   const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
-  sub.ecosystem_impact = round(prestige + depth, 1);
+  const ecosystemRaw = prestige + depth;
+  sub.ecosystem_impact = round(
+    m.impact_quality_cap === undefined
+      ? ecosystemRaw
+      : Math.min(ecosystemRaw, m.impact_quality_cap),
+    1,
+  );
 
   // 5. Community Influence (8)
   const followerPts = logRatio(m.followers, 2000) * 5;

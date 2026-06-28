@@ -138,6 +138,7 @@ interface PrNode {
     stargazerCount: number;
     isPrivate: boolean;
   } | null;
+  files?: { nodes: { path: string | null }[] | null } | null;
 }
 
 async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]> {
@@ -151,6 +152,7 @@ async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]>
           nodes {
             title additions deletions changedFiles
             repository { nameWithOwner stargazerCount isPrivate }
+            files(first: 50) { nodes { path } }
           }
         }
       }
@@ -168,6 +170,7 @@ async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]>
       churn,
       changed_files: n.changedFiles ?? 0,
       trivial: churn <= 5,
+      files: (n.files?.nodes ?? []).map((f) => f.path).filter((p): p is string => Boolean(p)),
     };
   });
 }
@@ -353,6 +356,87 @@ export function isExternalTrivialFarmPr(pr: RecentPr, loginLower: string): boole
   return owner !== "" && owner !== loginLower && pr.trivial && pr.repo_stars >= 200;
 }
 
+function repoName(nameWithOwner: string | null | undefined): string {
+  const repo = nameWithOwner ?? "";
+  return repo.includes("/") ? repo.split("/").pop()?.toLowerCase() ?? "" : repo.toLowerCase();
+}
+
+function isDocLikeRepo(nameWithOwner: string | null | undefined): boolean {
+  const name = repoName(nameWithOwner);
+  return (
+    /(^|[-_.])(docs?|site|website|blog|examples?|templates?|profile|notebook|learning|tutorial|interview|guide|manual)([-_.]|$)/.test(
+      name,
+    ) || name.endsWith(".github.io")
+  );
+}
+
+function isDocLikePath(path: string): boolean {
+  const p = path.toLowerCase();
+  return (
+    /\.(md|mdx|rst|adoc|txt)$/i.test(p) ||
+    /(^|\/)(docs?|site|website|blog|content|articles|examples?|templates?|tutorials?|guides?|manual|i18n|locales?)(\/|$)/.test(
+      p,
+    ) ||
+    /(^|\/)(readme|changelog|contributing|license)(\.[^/]*)?$/i.test(p)
+  );
+}
+
+function isCoreCodePath(path: string): boolean {
+  const p = path.toLowerCase();
+  if (isDocLikePath(p)) return false;
+  return /\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|mm|php|py|rb|rs|scala|swift|ts|tsx)$/i.test(
+    p,
+  );
+}
+
+export function isDocLikeImpactPr(pr: RecentPr): boolean {
+  if (isDocLikeRepo(pr.repo)) return true;
+  const title = pr.title ?? "";
+  if (/\b(docs?|readme|typo|translate|translation|i18n|website|site|blog|examples?|templates?|tutorial|guide)\b/i.test(title)) {
+    return true;
+  }
+
+  const files = pr.files ?? [];
+  if (files.length === 0) return false;
+  const docLike = files.filter(isDocLikePath).length;
+  const coreCode = files.filter(isCoreCodePath).length;
+  return docLike > 0 && (coreCode === 0 || docLike / files.length >= 0.6);
+}
+
+export interface ImpactQualitySignals {
+  verified_impact_pr_count: number;
+  core_impact_pr_count: number;
+  doc_like_impact_pr_count: number;
+  unverified_impact_pr_count: number;
+  impact_quality_cap?: number;
+}
+
+export function computeImpactQualitySignals(
+  recentPrs: RecentPr[],
+  impactPrCount: number,
+  loginLower: string,
+): ImpactQualitySignals {
+  const verifiedImpactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower));
+  const docLikeCount = verifiedImpactPrs.filter(isDocLikeImpactPr).length;
+  const coreCount = verifiedImpactPrs.length - docLikeCount;
+  const unverifiedCount = Math.max(0, impactPrCount - verifiedImpactPrs.length);
+
+  let impactQualityCap: number | undefined;
+  if (impactPrCount >= 10 && coreCount <= 2 && docLikeCount > coreCount) {
+    impactQualityCap = 4;
+  } else if (impactPrCount >= 10 && docLikeCount > coreCount) {
+    impactQualityCap = 8;
+  }
+
+  return {
+    verified_impact_pr_count: verifiedImpactPrs.length,
+    core_impact_pr_count: coreCount,
+    doc_like_impact_pr_count: docLikeCount,
+    unverified_impact_pr_count: unverifiedCount,
+    impact_quality_cap: impactQualityCap,
+  };
+}
+
 /** One repo's all-time contribution aggregate, keyed by `nameWithOwner`. */
 export interface ContribRepoAgg {
   repo: string;
@@ -368,6 +452,11 @@ export interface ContribRepoAgg {
 export interface ImpactMetrics {
   max_impact_repo_stars: number;
   impact_depth_raw: number;
+  impact_quality_cap?: number;
+  verified_impact_pr_count?: number;
+  core_impact_pr_count?: number;
+  doc_like_impact_pr_count?: number;
+  unverified_impact_pr_count?: number;
   impact_repo_count: number;
   impact_commit_count: number;
   impact_pr_count: number;
@@ -528,6 +617,7 @@ export async function collect(username: string): Promise<{
   recent_prs: RecentPr[];
   flood_pr_titles: string[];
   impact_repos: ImpactRepo[];
+  verified_impact_prs: RecentPr[];
 }> {
   const now = new Date();
 
@@ -678,8 +768,11 @@ export async function collect(username: string): Promise<{
     }),
   );
 
-  // Recent merged PRs (titles + diff size + target-repo stars)
-  const recentPrs = await fetchRecentPrs(login);
+  // Recent merged PRs (titles + diff size + target-repo stars). Keep the public
+  // report sample at 50, but use a wider window to verify older popular-repo PRs
+  // before applying impact-quality caps.
+  const recentPrWindow = await fetchRecentPrs(login, 100);
+  const recentPrs = recentPrWindow.slice(0, 50);
   const trivialPrs = recentPrs.filter((p) => p.trivial).length;
 
   // Templated-PR flooding signal (recent PRs across all states) — only flags
@@ -709,6 +802,20 @@ export async function collect(username: string): Promise<{
       impact_repos: [],
     };
   }
+  const impactQuality = computeImpactQualitySignals(
+    recentPrWindow,
+    impact.impact_pr_count,
+    loginLower,
+  );
+  const verifiedImpactPrs = recentPrWindow
+    .filter((p) => isEcosystemImpactPr(p, loginLower))
+    .slice(0, 12)
+    .map((p) => ({
+      ...p,
+      title: p.title?.slice(0, 200) ?? null,
+      files: (p.files ?? []).slice(0, 20),
+    }));
+  impact = { ...impact, ...impactQuality };
   const maxImpactRepoStars = impact.max_impact_repo_stars;
   const impactDepthRaw = impact.impact_depth_raw;
 
@@ -757,6 +864,11 @@ export async function collect(username: string): Promise<{
     max_impact_repo_stars: maxImpactRepoStars,
     impact_pr_count: impact.impact_pr_count,
     impact_depth_raw: impactDepthRaw,
+    impact_quality_cap: impact.impact_quality_cap,
+    verified_impact_pr_count: impact.verified_impact_pr_count,
+    core_impact_pr_count: impact.core_impact_pr_count,
+    doc_like_impact_pr_count: impact.doc_like_impact_pr_count,
+    unverified_impact_pr_count: impact.unverified_impact_pr_count,
     impact_repo_count: impact.impact_repo_count,
     impact_commit_count: impact.impact_commit_count,
     external_trivial_pr_count: externalTrivialPrCount,
@@ -781,5 +893,6 @@ export async function collect(username: string): Promise<{
     recent_prs: recentPrs,
     flood_pr_titles: flood.flood_pr_titles,
     impact_repos: impact.impact_repos,
+    verified_impact_prs: verifiedImpactPrs,
   };
 }

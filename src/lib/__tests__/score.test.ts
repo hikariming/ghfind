@@ -3,6 +3,8 @@ import {
   computeClosedPrBreakdown,
   computeFloodSignals,
   computeImpactFromContribMap,
+  computeImpactQualitySignals,
+  isDocLikeImpactPr,
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
   type ContribRepoAgg,
@@ -93,7 +95,7 @@ describe("spam-PR red flags", () => {
       ...NEUTRAL,
       pr_flood_suspect: true,
       recent_pr_sample: 18,
-      top_repo_pr_target: "langgenius/dify",
+      top_repo_pr_target: "popular-ai/backend",
       top_repo_pr_share: share,
       templated_pr_ratio: templated,
     });
@@ -226,10 +228,10 @@ describe("computeFloodSignals", () => {
       "refactor(api): remove member field compatibility",
       "chore: rehearse ordered BaseModel migration merge",
     ];
-    const prs = titles.map((title) => ({ title, repo: "langgenius/dify" }));
+    const prs = titles.map((title) => ({ title, repo: "popular-ai/backend" }));
     const s = computeFloodSignals(prs);
     expect(s.pr_flood_suspect).toBe(true);
-    expect(s.top_repo_pr_target).toBe("langgenius/dify");
+    expect(s.top_repo_pr_target).toBe("popular-ai/backend");
     expect(s.top_repo_pr_share).toBe(1);
     expect(s.templated_pr_ratio).toBeGreaterThanOrEqual(0.5);
     expect(s.flood_pr_titles.length).toBeGreaterThan(0);
@@ -337,13 +339,13 @@ describe("isEcosystemImpactPr (dimension 4 qualification)", () => {
   });
 
   it("does NOT count PRs into your own <1000★ repo (self-PR-farming pattern)", () => {
-    // AsperforMias → own 0-star repos: self-review/self-merge inflation.
+    // A low-star own repo should not borrow ecosystem impact from self-PR volume.
     expect(isEcosystemImpactPr(pr({ repo: "asper/junk", repo_stars: 0 }), "asper")).toBe(false);
     expect(isEcosystemImpactPr(pr({ repo: "karpathy/sidequest", repo_stars: 500 }), me)).toBe(false);
   });
 
   it("counts a substantial PR into an external ≥200★ repo", () => {
-    expect(isEcosystemImpactPr(pr({ repo: "langgenius/dify", repo_stars: 5000 }), me)).toBe(true);
+    expect(isEcosystemImpactPr(pr({ repo: "popular-ai/backend", repo_stars: 5000 }), me)).toBe(true);
   });
 
   it("does NOT count an external repo below 200★", () => {
@@ -381,7 +383,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   });
 
   it("credits a single landed PR into an external ≥200★ repo", () => {
-    const m = computeImpactFromContribMap([agg({ repo: "langgenius/dify", owner_login: "langgenius", stars: 5000, prs: 1 })], me);
+    const m = computeImpactFromContribMap([agg({ repo: "popular-ai/backend", owner_login: "popular-ai", stars: 5000, prs: 1 })], me);
     expect(m.impact_repo_count).toBe(1);
   });
 
@@ -412,6 +414,108 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   it("does NOT count an external repo below 200★", () => {
     const m = computeImpactFromContribMap([agg({ repo: "someone/tiny", owner_login: "someone", stars: 100, commits: 50 })], me);
     expect(m.impact_repo_count).toBe(0);
+  });
+});
+
+describe("impact quality caps", () => {
+  it("classifies docs, website, examples, and templates as doc-like impact", () => {
+    expect(isDocLikeImpactPr(pr({ repo: "apache/fory-site", repo_stars: 4000 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ repo: "docs-org/examples", repo_stars: 2000 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ title: "docs: update install guide", repo_stars: 5000 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ title: "feat: add project template", repo_stars: 5000 }))).toBe(true);
+    expect(
+      isDocLikeImpactPr(
+        pr({
+          title: "fix(frontend): avoid stale chat route state",
+          repo: "big-org/workflow",
+          repo_stars: 75000,
+          files: ["web/src/routes/chat.tsx", "web/src/store/session.ts"],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("caps ecosystem impact when graph-heavy high-star impact is not backed by core PRs", () => {
+    const recentPrs = [
+      pr({
+        title: "fix(frontend): avoid stale chat route state",
+        repo: "big-org/workflow",
+        repo_stars: 75000,
+        files: ["web/src/routes/chat.tsx"],
+      }),
+      pr({
+        title: "fix: update interaction demo",
+        repo: "ant-design/x",
+        repo_stars: 4600,
+        files: ["components/demo/basic.tsx"],
+      }),
+      pr({ title: "docs: update agent guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "feat: add example", repo: "docs-org/examples", repo_stars: 2700 }),
+      pr({ title: "feat: add company template", repo: "ui-org/components", repo_stars: 13000 }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 23, "docsheavyuser");
+    expect(signals.core_impact_pr_count).toBe(2);
+    expect(signals.doc_like_impact_pr_count).toBe(3);
+    expect(signals.unverified_impact_pr_count).toBe(18);
+    expect(signals.impact_quality_cap).toBe(4);
+
+    const s = score({
+      ...NEUTRAL,
+      username: "DocsHeavyUser",
+      account_age_years: 2.28,
+      contribution_years_active: 3,
+      nonempty_original_repo_count: 14,
+      total_stars: 158,
+      max_stars: 85,
+      merged_pr_count: 38,
+      total_pr_count: 68,
+      issues_created: 65,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 23,
+      impact_depth_raw: 13.08,
+      followers: 1047,
+      following: 33,
+      last_year_contributions: 356,
+      activity_type_count: 2,
+      impact_quality_cap: signals.impact_quality_cap,
+    });
+    expect(s.sub_scores.ecosystem_impact).toBe(4);
+    expect(s.final_score).toBeLessThanOrEqual(60);
+  });
+
+  it("does not cap old high-star code PRs just because they are outside the recent 50", () => {
+    const recentPrs = [
+      pr({
+        title: "refactor: use current_user in console controllers",
+        repo: "popular-ai/backend",
+        repo_stars: 146000,
+        files: ["api/controllers/console/wraps.py", "api/tests/unit_tests/controllers/console/test_wraps.py"],
+      }),
+      pr({
+        title: "feat: complete local app metadata lifecycle",
+        repo: "foundation/runtime",
+        repo_stars: 4900,
+        files: ["metadata/metadata.go", "metadata/metadata_test.go"],
+      }),
+      pr({
+        title: "add: supply deployment in vercel",
+        repo: "deploy-org/service",
+        repo_stars: 1600,
+        files: ["vercel.json"],
+      }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 10, "codeheavyuser");
+    expect(signals.core_impact_pr_count).toBe(3);
+    expect(signals.doc_like_impact_pr_count).toBe(0);
+    expect(signals.unverified_impact_pr_count).toBe(7);
+    expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("does not treat an empty verification window as proof of low-quality impact", () => {
+    const signals = computeImpactQualitySignals([], 10, "codeheavyuser");
+    expect(signals.verified_impact_pr_count).toBe(0);
+    expect(signals.unverified_impact_pr_count).toBe(10);
+    expect(signals.impact_quality_cap).toBeUndefined();
   });
 });
 
