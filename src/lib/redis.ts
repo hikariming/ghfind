@@ -10,6 +10,11 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import {
+  bypassGeneratedCaches,
+  ROAST_CACHE_VERSION,
+  SCORE_CACHE_VERSION,
+} from "./cache-version";
 import type { LeaderboardEntry } from "./db";
 import type { Lang } from "./lang";
 import type { ScanResult } from "./types";
@@ -29,14 +34,14 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
-// v3: scoring formula includes social-only dormant profile handling. Bumping the
-// prefix invalidates cached scans whose embedded scoring used older rules.
-const scanKey = (username: string) => `scan:v3:${username.toLowerCase()}`;
+export const scanKey = (username: string) =>
+  `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
+  if (bypassGeneratedCaches()) return null;
   const r = getRedis();
   if (!r) return null;
   try {
@@ -47,6 +52,7 @@ export async function getCachedScan(username: string): Promise<ScanResult | null
 }
 
 export async function setCachedScan(username: string, scan: ScanResult): Promise<void> {
+  if (bypassGeneratedCaches()) return;
   const r = getRedis();
   if (!r) return;
   try {
@@ -67,6 +73,7 @@ export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
 ): Promise<ScanResult> {
+  if (bypassGeneratedCaches()) return producer();
   const r = getRedis();
   if (!r) return producer();
 
@@ -175,9 +182,10 @@ export interface CachedRoast {
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
 export const roastKey = (username: string, lang: Lang) =>
-  `roast:v2:${lang}:${username.toLowerCase()}`;
+  `roast:${ROAST_CACHE_VERSION}:${lang}:${username.toLowerCase()}`;
 
 export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
+  if (bypassGeneratedCaches()) return null;
   const r = getRedis();
   if (!r) return null;
   try {
@@ -192,6 +200,7 @@ export async function setCachedRoast(
   lang: Lang,
   value: CachedRoast,
 ): Promise<void> {
+  if (bypassGeneratedCaches()) return;
   const r = getRedis();
   if (!r) return;
   try {
@@ -213,6 +222,7 @@ const roastLockKey = (username: string, lang: Lang) =>
 /** Try to become the sole generator for (username, lang). `true` = leader.
  *  Without Redis there's no coordination, so everyone leads (behavior unchanged). */
 export async function acquireRoastLock(username: string, lang: Lang): Promise<boolean> {
+  if (bypassGeneratedCaches()) return true;
   const r = getRedis();
   if (!r) return true;
   try {
@@ -228,6 +238,7 @@ export async function acquireRoastLock(username: string, lang: Lang): Promise<bo
 }
 
 export async function releaseRoastLock(username: string, lang: Lang): Promise<void> {
+  if (bypassGeneratedCaches()) return;
   const r = getRedis();
   if (!r) return;
   try {
@@ -248,6 +259,7 @@ export async function waitForCachedRoast(
   lang: Lang,
   timeoutMs = 60000,
 ): Promise<CachedRoast | null> {
+  if (bypassGeneratedCaches()) return null;
   const r = getRedis();
   if (!r) return null;
   const steps = Math.max(1, Math.floor(timeoutMs / 500));
