@@ -113,6 +113,17 @@ export interface Tags {
 }
 
 /**
+ * The savage one-liner roast, generated in both languages in a single LLM call
+ * (so switching site language never shows an empty roast). The full report stays
+ * single-language; only this one-liner is bilingual — the extra cost is ~one
+ * short sentence, mirroring the bilingual {@link Tags}.
+ */
+export interface RoastLine {
+  zh: string;
+  en: string;
+}
+
+/**
  * Metadata the roast stream emits on its first line, after the AI applies its
  * bounded ±10 qualitative adjustment. `final_score` is the deterministic score
  * plus `delta` (clamped 0-100, 2 decimals) and is the authoritative final score.
@@ -124,4 +135,6 @@ export interface RoastMeta {
   delta: number;
   percentile: { beat: number | null; total: number } | null;
   tags: Tags;
+  /** Bilingual savage one-liner; the UI shows the side matching the locale. */
+  roast_line: RoastLine;
 }

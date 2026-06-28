@@ -7,13 +7,16 @@ import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import {
+  acquireRoastLock,
   checkRoastRateLimit,
   getCachedRoast,
   getCachedScan,
+  releaseRoastLock,
   setCachedRoast,
+  waitForCachedRoast,
 } from "@/lib/redis";
 import { clampScore, spamBotScore, tierFor } from "@/lib/score";
-import type { RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
+import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +25,7 @@ export const dynamic = "force-dynamic";
 export const ROAST_META_HEADER = "X-Roast-Meta";
 
 const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+const EMPTY_ROAST_LINE: RoastLine = { zh: "", en: "" };
 
 interface ByoKey {
   baseURL?: string;
@@ -79,13 +83,29 @@ function parseTags(head: string): Tags {
   return { zh: clean(grab("zh"), 10), en: clean(grab("en"), 24) };
 }
 
+/**
+ * Parse the `@@ROAST zh=...|en=...@@` control line into the bilingual one-liner.
+ * Unlike {@link parseTags} this must NOT split on commas — a roast sentence
+ * contains commas and CJK punctuation. `zh` runs up to the `|`; `en` to the end.
+ */
+function parseRoast(head: string): RoastLine {
+  const m = head.match(/@@ROAST\s*([\s\S]*?)@@/);
+  if (!m) return { zh: "", en: "" };
+  const body = m[1];
+  const grab = (key: string): string => {
+    const mm = body.match(new RegExp(`${key}=([\\s\\S]*?)(?=\\||$)`));
+    return (mm?.[1] ?? "").trim().slice(0, 200);
+  };
+  return { zh: grab("zh"), en: grab("en") };
+}
+
 /** Strip the leading control lines so they never reach the rendered report. */
 function extractReport(head: string): string {
   const lines = head.split("\n");
   const idx = lines.findIndex((l) => /^\s*##\s/.test(l));
   if (idx >= 0) return lines.slice(idx).join("\n");
   // No heading found (model ignored format) — just drop any control lines.
-  return lines.filter((l) => !/@@(ADJUST|TAGS)/.test(l)).join("\n").replace(/^\n+/, "");
+  return lines.filter((l) => !/@@(ADJUST|TAGS|ROAST)/.test(l)).join("\n").replace(/^\n+/, "");
 }
 
 /** Bound a client-supplied scan so a fabricated payload can't bloat the prompt. */
@@ -127,6 +147,7 @@ async function computeMeta(
   scan: ScanResult,
   delta: number,
   tags: Tags,
+  roastLine: RoastLine,
   record: boolean,
   lang: Lang,
 ): Promise<RoastMeta> {
@@ -142,13 +163,14 @@ async function computeMeta(
       final_score: adjusted,
       tier,
       tags,
+      roast_line: roastLine,
       bot_score: spamBotScore(scan.metrics),
       sub_scores: scan.scoring.sub_scores,
       scanned_at: Date.now(),
     });
   }
   const percentile = await percentileFor(adjusted);
-  return { final_score: adjusted, tier, tier_label, delta, percentile, tags };
+  return { final_score: adjusted, tier, tier_label, delta, percentile, tags, roast_line: roastLine };
 }
 
 async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
@@ -158,17 +180,20 @@ async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
     : null;
 }
 
+/** Meta for a replayed (stored) roast — score/tier come from storage, not a fresh
+ * scan, so percentile is the only DB read. */
 async function metaForStoredRoast(
   finalScore: number,
   tier: Tier,
   tags: Tags,
+  roastLine: RoastLine,
   delta: number,
   lang: Lang,
 ): Promise<RoastMeta> {
   const { tier_label: zhLabel } = tierFor(finalScore);
   const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
   const percentile = await percentileFor(finalScore);
-  return { final_score: finalScore, tier, tier_label, delta, percentile, tags };
+  return { final_score: finalScore, tier, tier_label, delta, percentile, tags, roast_line: roastLine };
 }
 
 function inferredDelta(scan: ScanResult, finalScore: number): number {
@@ -181,6 +206,7 @@ async function cacheRoastReplay(
   report: string,
   delta: number,
   tags: Tags,
+  roastLine: RoastLine,
   finalScore: number,
   tier: Tier,
 ): Promise<void> {
@@ -188,6 +214,7 @@ async function cacheRoastReplay(
     report,
     delta,
     tags,
+    roast_line: roastLine,
     final_score: finalScore,
     tier,
   });
@@ -213,6 +240,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
   }
   const { config, isDefault } = resolved;
+  // Single-flight: set once we hold the roast lock, so the stream/error paths
+  // know to release it. Only the default model coalesces (BYO keys self-serve).
+  let isLeader = false;
 
   // Prefer the server's cached scan (authoritative — the client cannot fabricate
   // metrics to inflate the prompt or the score). Fall back to the sanitized
@@ -229,16 +259,18 @@ export async function POST(req: NextRequest) {
     const cachedRoast = await getCachedRoast(username, lang);
     if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
       const tags = cachedRoast.tags ?? { zh: [], en: [] };
+      const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
       const meta =
         cachedRoast.final_score !== undefined && cachedRoast.tier
           ? await metaForStoredRoast(
               cachedRoast.final_score,
               cachedRoast.tier,
               tags,
+              roastLine,
               cachedRoast.delta,
               lang,
             )
-          : await computeMeta(scan, cachedRoast.delta, tags, false, lang);
+          : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
       return roastResponse(cachedRoast.report, meta);
     }
 
@@ -249,6 +281,7 @@ export async function POST(req: NextRequest) {
         archivedRoast.final_score,
         archivedRoast.tier,
         archivedRoast.tags,
+        archivedRoast.roast_line,
         delta,
         lang,
       );
@@ -258,6 +291,7 @@ export async function POST(req: NextRequest) {
         archivedRoast.report,
         delta,
         archivedRoast.tags,
+        archivedRoast.roast_line,
         archivedRoast.final_score,
         archivedRoast.tier,
       );
@@ -271,21 +305,48 @@ export async function POST(req: NextRequest) {
         { status: 429 },
       );
     }
+    // Single-flight: become the lone generator, or wait for whoever already is.
+    // Collapses a viral account's concurrent cold-cache requests into ONE LLM call.
+    isLeader = await acquireRoastLock(username, lang);
+    if (!isLeader) {
+      const shared = await waitForCachedRoast(username, lang);
+      if (shared && reportMatchesLang(shared.report, lang)) {
+        const tags = shared.tags ?? { zh: [], en: [] };
+        const roastLine = shared.roast_line ?? EMPTY_ROAST_LINE;
+        const meta =
+          shared.final_score !== undefined && shared.tier
+            ? await metaForStoredRoast(
+                shared.final_score,
+                shared.tier,
+                tags,
+                roastLine,
+                shared.delta,
+                lang,
+              )
+            : await computeMeta(scan, shared.delta, tags, roastLine, false, lang);
+        return roastResponse(shared.report, meta);
+      }
+      // Leader failed or timed out — self-generate (we hold no lock).
+    }
   }
 
   const generator = chatStream(config, buildRoastMessages(scan, lang));
 
-  // Read the leading control lines (`@@ADJUST@@` + `@@TAGS@@`) before streaming —
-  // i.e. up to the report heading. Pulling tokens up-front also surfaces
-  // quota/auth failures as a JSON status code.
+  // Read the leading control lines (`@@ADJUST@@` + `@@TAGS@@` + `@@ROAST@@`)
+  // before streaming — i.e. up to the report heading. Pulling tokens up-front also
+  // surfaces quota/auth failures as a JSON status code. The cap is generous since
+  // @@ROAST@@ now carries a full bilingual sentence ahead of the heading.
   let head = "";
   try {
-    while (!/(^|\n)\s*##\s/.test(head) && head.length < 1200) {
+    while (!/(^|\n)\s*##\s/.test(head) && head.length < 2000) {
       const { done, value } = await generator.next();
       if (done) break;
       head += value;
     }
   } catch (e) {
+    // Release the single-flight lock so waiting requests aren't stalled for the
+    // full lock TTL by a generation that died before it ever streamed.
+    if (isLeader) await releaseRoastLock(username, lang);
     if (e instanceof LlmQuotaError) {
       return NextResponse.json(
         { error: "llm_quota", useByoKey: true, status: e.status },
@@ -298,30 +359,57 @@ export async function POST(req: NextRequest) {
 
   const delta = parseDelta(head);
   const tags = parseTags(head);
+  const roastLine = parseRoast(head);
   const report = extractReport(head);
 
-  const meta = await computeMeta(scan, delta, tags, isDefault, lang);
+  const meta = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let full = report;
+      let clientGone = false;
+      // If the client disconnects mid-stream, enqueue throws. Swallow it and keep
+      // draining the generator so the (already in-flight, already paid-for) roast
+      // still lands in cache — otherwise the next viewer re-spends LLM credit.
+      const push = (bytes: Uint8Array) => {
+        if (clientGone) return;
+        try {
+          controller.enqueue(bytes);
+        } catch {
+          clientGone = true;
+        }
+      };
       try {
-        if (report) controller.enqueue(encoder.encode(report));
+        if (report) push(encoder.encode(report));
         for await (const chunk of generator) {
           full += chunk;
-          controller.enqueue(encoder.encode(chunk));
+          push(encoder.encode(chunk));
         }
         // Cache the finished roast so repeat views don't re-spend LLM credit,
         // and persist it to the account row for the leaderboard detail view.
         if (isDefault && reportMatchesLang(full, lang)) {
-          await cacheRoastReplay(username, lang, full, delta, tags, meta.final_score, meta.tier);
+          await cacheRoastReplay(
+            username,
+            lang,
+            full,
+            delta,
+            tags,
+            roastLine,
+            meta.final_score,
+            meta.tier,
+          );
           await updateRoast(username, full, lang);
         }
       } catch (e) {
         console.error("roast stream error:", e);
       } finally {
-        controller.close();
+        if (isLeader) await releaseRoastLock(username, lang);
+        try {
+          controller.close();
+        } catch {
+          // already closed (client gone)
+        }
       }
     },
   });

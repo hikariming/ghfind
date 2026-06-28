@@ -34,13 +34,23 @@ describe("buildRoastMessages", () => {
     expect(user.content).not.toContain("封神");
   });
 
-  it("keeps the @@ADJUST@@ / @@TAGS@@ control lines and bilingual tags in both languages", () => {
+  it("keeps the @@ADJUST@@ / @@TAGS@@ / @@ROAST@@ control lines and bilingual fields in both languages", () => {
     for (const lang of ["zh", "en"] as const) {
       const [sys] = buildRoastMessages(scan, lang);
       expect(sys.content).toContain("@@ADJUST");
       expect(sys.content).toContain("@@TAGS");
+      expect(sys.content).toContain("@@ROAST");
       expect(sys.content).toContain("zh=");
       expect(sys.content).toContain("en=");
+    }
+  });
+
+  it("no longer asks for an inline 🔥 roast line in the report body", () => {
+    for (const lang of ["zh", "en"] as const) {
+      const [sys] = buildRoastMessages(scan, lang);
+      // The one-liner moved to the @@ROAST@@ control line; the body must not
+      // re-emit a 🔥 marker that splitReport would pick up.
+      expect(sys.content).not.toContain("🔥");
     }
   });
 });

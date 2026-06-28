@@ -15,6 +15,7 @@ const entry: ScoreEntry = {
   final_score: 95.2,
   tier: "夯",
   tags: { zh: ["开源狠人"], en: ["oss beast"] },
+  roast_line: { zh: "强到没法吐槽。", en: "Too good to roast." },
   bot_score: 0,
   sub_scores: {
     account_maturity: 10,

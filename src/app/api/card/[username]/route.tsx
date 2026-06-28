@@ -231,7 +231,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const displayName =
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
   const tags = (detail.tags.en ?? []).slice(0, 4);
-  const roastLine = truncate(splitReport(detail.roast_en ?? detail.roast ?? "").roast, 150);
+  // The card is all-English: prefer the dedicated English one-liner; fall back to
+  // splitting a legacy report that still carried an inline 🔥 roast line.
+  const roastLine = truncate(
+    detail.roast_line.en || splitReport(detail.roast_en ?? detail.roast ?? "").roast,
+    150,
+  );
 
   return png(
     <Shell glow={`${color}55`}>

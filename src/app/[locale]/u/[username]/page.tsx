@@ -98,6 +98,10 @@ export default async function AccountPage({
   // English visitors read the English-cached roast; fall back to the empty state
   // (not the Chinese report) so the page never mixes languages.
   const roast = lang === "en" ? d.roast_en : d.roast;
+  // The bilingual one-liner is generated in one call, so it's available in the
+  // visitor's language even when the full report exists only in the other one.
+  // Empty for legacy rows — those still carry the one-liner inline in `roast`.
+  const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
   const similar = await getSimilarAccounts(d.username, d.final_score, d.sub_scores);
 
   return (
@@ -231,11 +235,17 @@ export default async function AccountPage({
       {/* Full roast report */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
         <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
+        {/* Savage one-liner (current language) — shown above the full report. */}
+        {roastLine && (
+          <p className="mb-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
+            🔥 {roastLine}
+          </p>
+        )}
         {roast ? (
           <div className="report text-[0.95rem] text-zinc-200">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
           </div>
-        ) : (
+        ) : roastLine ? null : (
           <p className="text-sm text-zinc-500">
             {t.rich("roastEmpty", {
               a: (c) => (

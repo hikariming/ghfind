@@ -167,6 +167,8 @@ export interface CachedRoast {
   final_score?: number;
   /** Persisted tier for archived/cache replay. Older cache entries omit it. */
   tier?: import("./types").Tier;
+  /** Bilingual one-liner (optional: pre-deploy entries lack it; caller defaults). */
+  roast_line?: import("./types").RoastLine;
 }
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
@@ -195,6 +197,68 @@ export async function setCachedRoast(
   } catch {
     // best-effort
   }
+}
+
+// Single-flight for roast generation — the analogue of `coalesceScan` for the
+// (credit-spending) LLM call. When a hot account's roast cache goes cold and N
+// requests arrive at once, only the lock holder runs the LLM; the rest wait for
+// its result via the cache. Without this, a viral account re-generates N times
+// per cold window instead of once.
+const ROAST_LOCK_TTL_SECONDS = 60; // long enough to cover a full report stream
+const roastLockKey = (username: string, lang: Lang) =>
+  `lock:roast:${lang}:${username.toLowerCase()}`;
+
+/** Try to become the sole generator for (username, lang). `true` = leader.
+ *  Without Redis there's no coordination, so everyone leads (behavior unchanged). */
+export async function acquireRoastLock(username: string, lang: Lang): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return true;
+  try {
+    return (
+      (await r.set(roastLockKey(username, lang), "1", {
+        nx: true,
+        ex: ROAST_LOCK_TTL_SECONDS,
+      })) === "OK"
+    );
+  } catch {
+    return true; // Redis hiccup — don't block the roast.
+  }
+}
+
+export async function releaseRoastLock(username: string, lang: Lang): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(roastLockKey(username, lang));
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * A non-leader waits for the leader's finished roast to land in cache. Polls
+ * until the cache appears, the lock is released (leader finished or errored), or
+ * the timeout elapses. Returns the cached roast, or null so the caller can fall
+ * back to generating itself rather than starve.
+ */
+export async function waitForCachedRoast(
+  username: string,
+  lang: Lang,
+  timeoutMs = 60000,
+): Promise<CachedRoast | null> {
+  const r = getRedis();
+  if (!r) return null;
+  const steps = Math.max(1, Math.floor(timeoutMs / 500));
+  for (let i = 0; i < steps; i++) {
+    await sleep(500);
+    const cached = await getCachedRoast(username, lang);
+    if (cached) return cached;
+    const stillLocked = await r.get(roastLockKey(username, lang)).catch(() => null);
+    // Lock gone: leader finished (and may have just written cache) or errored.
+    // Re-check the cache once to avoid the write/release race before giving up.
+    if (!stillLocked) return (await getCachedRoast(username, lang)) ?? null;
+  }
+  return null;
 }
 
 const STATS_KEY = "stats:count";

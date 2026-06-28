@@ -12,7 +12,7 @@ import { Client, createClient } from "@libsql/client";
 import { createHash } from "node:crypto";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
-import type { SubScores, Tags, Tier } from "./types";
+import type { RoastLine, SubScores, Tags, Tier } from "./types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +25,18 @@ function parseTags(raw: unknown): Tags {
     return { zh: Array.isArray(t.zh) ? t.zh : [], en: Array.isArray(t.en) ? t.en : [] };
   } catch {
     return EMPTY_TAGS;
+  }
+}
+
+const EMPTY_ROAST_LINE: RoastLine = { zh: "", en: "" };
+
+function parseRoastLine(raw: unknown): RoastLine {
+  if (typeof raw !== "string" || !raw) return EMPTY_ROAST_LINE;
+  try {
+    const r = JSON.parse(raw) as Partial<RoastLine>;
+    return { zh: typeof r.zh === "string" ? r.zh : "", en: typeof r.en === "string" ? r.en : "" };
+  } catch {
+    return EMPTY_ROAST_LINE;
   }
 }
 
@@ -95,6 +107,7 @@ function ensureSchema(db: Client): Promise<void> {
              bot_score    REAL,
              sub_scores   TEXT,
              roast        TEXT,
+             roast_line   TEXT,
              hidden       INTEGER NOT NULL DEFAULT 0,
              scanned_at   INTEGER NOT NULL
            )`,
@@ -137,6 +150,9 @@ function ensureSchema(db: Client): Promise<void> {
         "sub_scores TEXT",
         "roast TEXT",
         "roast_en TEXT",
+        // Bilingual one-liner {zh,en} JSON — generated in one LLM call so the
+        // roast shows in the visitor's language regardless of report language.
+        "roast_line TEXT",
       ]) {
         try {
           await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
@@ -160,6 +176,8 @@ export interface ScoreEntry {
   final_score: number;
   tier: Tier;
   tags: Tags;
+  /** Bilingual savage one-liner {zh,en}; shown in the visitor's language. */
+  roast_line: RoastLine;
   /** Hidden 0-10 spam-PR / bot likelihood — stored, never returned to clients. */
   bot_score: number;
   /** Per-dimension breakdown — persisted for "similar developers" matching. */
@@ -202,6 +220,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       en: ["oss beast", "hot profile", "perfect score"],
     },
     sub_scores: PREVIEW_SUB_SCORES,
+    roast_line: { zh: "满分预览号，挑不出毛病只能夸。", en: "A perfect preview profile — nothing left to roast." },
     roast:
       "## 本地预览数据\n\n这个账号是开发环境假数据，用来检查榜单热度布局。生产环境不会显示这些示例账号。",
     roast_en:
@@ -224,6 +243,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       contribution_quality: 25,
       activity_authenticity: 16,
     },
+    roast_line: { zh: "热度榜二把手，预览专用工具人。", en: "Runner-up on the heat board — a preview stand-in." },
     roast:
       "## 本地预览数据\n\n这个账号用于验证热度榜第二名和详情页跳转，不代表真实 GitHub 用户。",
     roast_en:
@@ -246,6 +266,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       ecosystem_impact: 18,
       community_influence: 7,
     },
+    roast_line: { zh: "稳定输出的工具匠，分数排版试金石。", en: "Steady tool builder — here to test the score layout." },
     roast:
       "## 本地预览数据\n\n这个账号用于验证热度数字和评分数字在同一个右侧块里上下并列。",
     roast_en:
@@ -269,6 +290,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       contribution_quality: 22,
       ecosystem_impact: 15,
     },
+    roast_line: { zh: "新晋热门，靠分页排序刷存在感。", en: "A rising star padding out the pagination demo." },
     roast:
       "## 本地预览数据\n\n这个账号用于拉开热度榜分页和排序差异。",
     roast_en:
@@ -294,6 +316,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       community_influence: 3,
       activity_authenticity: 13,
     },
+    roast_line: { zh: "过线但没亮点，标准 NPC。", en: "Past the line but unremarkable — a textbook NPC." },
     roast:
       "## 本地预览数据\n\n这个账号用于验证 NPC 档位：分数过线但没有亮点，头像框应显示笑脸围绕。",
     roast_en:
@@ -319,6 +342,7 @@ const PREVIEW_ACCOUNTS: AccountDetail[] = [
       community_influence: 1,
       activity_authenticity: 9,
     },
+    roast_line: { zh: "低分低贡献，收藏夹开发者实锤。", en: "Low score, hollow repos — a bookmark dev." },
     roast:
       "## 本地预览数据\n\n这个账号用于验证拉完了档位：低分、低贡献、低影响力，头像框应显示便便围绕。",
     roast_en:
@@ -441,8 +465,8 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
     const username = entry.username.toLowerCase();
     await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
@@ -450,6 +474,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               final_score  = excluded.final_score,
               tier         = excluded.tier,
               tags         = excluded.tags,
+              roast_line   = excluded.roast_line,
               bot_score    = excluded.bot_score,
               sub_scores   = excluded.sub_scores,
               scanned_at   = excluded.scanned_at`,
@@ -461,6 +486,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         entry.final_score,
         entry.tier,
         JSON.stringify(entry.tags ?? EMPTY_TAGS),
+        JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE),
         entry.bot_score,
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
@@ -649,6 +675,8 @@ export interface AccountDetail {
   tier: Tier;
   tags: Tags;
   sub_scores: SubScores;
+  /** Bilingual savage one-liner {zh,en}; empty for legacy rows (see `roast`). */
+  roast_line: RoastLine;
   /** Chinese roast report (legacy single-language column). */
   roast: string | null;
   /** English roast report; null until an `/en` roast has been generated. */
@@ -661,6 +689,7 @@ export interface ArchivedRoast {
   final_score: number;
   tier: Tier;
   tags: Tags;
+  roast_line: RoastLine;
   report: string;
 }
 
@@ -726,7 +755,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, sub_scores, roast, roast_en, scanned_at
+                   tags, roast_line, sub_scores, roast, roast_en, scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
             LIMIT 1`,
@@ -742,6 +771,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: parseTags(r.tags),
+      roast_line: parseRoastLine(r.roast_line),
       sub_scores: parseSubScores(r.sub_scores),
       roast: (r.roast as string | null) ?? null,
       roast_en: (r.roast_en as string | null) ?? null,
@@ -768,7 +798,7 @@ export async function getArchivedRoast(
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT username, final_score, tier, tags, ${col} AS report
+      sql: `SELECT username, final_score, tier, tags, roast_line, ${col} AS report
             FROM scores
             WHERE username = ?
               AND hidden = 0
@@ -784,6 +814,7 @@ export async function getArchivedRoast(
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: parseTags(r.tags),
+      roast_line: parseRoastLine(r.roast_line),
       report: String(r.report),
     };
   } catch (e) {

@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { splitReport } from "@/lib/report";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
-import type { RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
+import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 import {
   ByoKeyConfig,
   ByoKeyModal,
@@ -48,12 +48,16 @@ export function Roaster() {
   );
   const [display, setDisplay] = useState<Display | null>(null);
   const [tags, setTags] = useState<Tags | null>(null);
+  // Bilingual one-liner from the X-Roast-Meta header (arrives before the body
+  // streams). The card shows the side matching the current locale.
+  const [metaRoast, setMetaRoast] = useState<RoastLine | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const runRoast = useCallback(
     async (scanResult: ScanResult) => {
       setRoasting(true);
       setReport("");
+      setMetaRoast(null);
       const byoKey: ByoKeyConfig | null = loadByoKey();
       try {
         const res = await fetch("/api/roast", {
@@ -99,6 +103,8 @@ export function Roaster() {
             });
             setPercentile(meta.percentile);
             if (meta.tags && (meta.tags.zh.length || meta.tags.en.length)) setTags(meta.tags);
+            if (meta.roast_line && (meta.roast_line.zh || meta.roast_line.en))
+              setMetaRoast(meta.roast_line);
           } catch {
             /* malformed meta — keep the deterministic display */
           }
@@ -136,6 +142,7 @@ export function Roaster() {
       setPercentile(null);
       setDisplay(null);
       setTags(null);
+      setMetaRoast(null);
       setScanning(true);
       try {
         const res = await fetch("/api/scan", {
@@ -186,7 +193,11 @@ export function Roaster() {
       : "";
 
   const style = display ? tierStyle(display.tier) : null;
-  const { body: reportBody, roast: roastLine } = splitReport(report);
+  // The one-liner now rides the meta header (bilingual, shown in the current
+  // locale). Fall back to splitReport for legacy cached reports that still carry
+  // the inline 🔥 marker; either way the body renders without that line.
+  const { body: reportBody, roast: inlineRoast } = splitReport(report);
+  const roastLine = (metaRoast ? (locale === "en" ? metaRoast.en : metaRoast.zh) : "") || inlineRoast;
   const cardRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
   const [savingImg, setSavingImg] = useState(false);
