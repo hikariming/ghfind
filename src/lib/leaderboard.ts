@@ -15,7 +15,7 @@ import {
 // One source of truth for "how many rows a board holds". The full /leaderboard
 // page wants the long list; the home page slices what it needs off the same
 // cached payload, so both share a single Redis entry per (view, window).
-export const LEADERBOARD_LIMIT = 500;
+export const LEADERBOARD_LIMIT = 20;
 
 const fetchers: Record<
   LeaderboardCacheView,
