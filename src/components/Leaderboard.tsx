@@ -10,6 +10,7 @@ import {
   type LeaderboardLabels,
   type LeaderboardView,
 } from "./LeaderboardClient";
+import { withDevLeaderboardPreview } from "./devLeaderboardPreview";
 
 export async function Leaderboard({
   initialView = "trending",
@@ -50,10 +51,10 @@ export async function Leaderboard({
       initialView={initialView}
       labels={labels}
       pageSize={pageSize}
-      scoreEntries={scoreEntries}
-      heatEntries={heatEntries}
-      trendingEntries={trendingEntries}
-      progressEntries={progressEntries}
+      scoreEntries={withDevLeaderboardPreview("score", scoreEntries)}
+      heatEntries={withDevLeaderboardPreview("heat", heatEntries)}
+      trendingEntries={withDevLeaderboardPreview("trending", trendingEntries)}
+      progressEntries={withDevLeaderboardPreview("progress", progressEntries)}
     />
   );
 }

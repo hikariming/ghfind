@@ -65,14 +65,14 @@ interface MetricRow {
 function MetricBlock({ compact, rows }: { compact?: boolean; rows: MetricRow[] }) {
   return (
     <div
-      className={`grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right ${
-        compact ? "w-28 sm:w-36" : "w-52 sm:w-60"
+      className={`grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/10 px-2.5 py-2 text-right sm:border-0 sm:bg-transparent sm:p-0 ${
+        compact ? "sm:w-36" : "sm:w-60"
       }`}
     >
       {rows.map((row, index) => (
         <div key={index} className="contents">
           <div
-            className="truncate text-left text-[11px] font-semibold sm:text-xs"
+            className="truncate text-left text-[11px] font-semibold leading-tight sm:text-xs"
             title={row.title}
           >
             {row.label}
@@ -116,7 +116,7 @@ function TagRow({
       {shown.map((t, i) => (
         <span
           key={`${visibleLocale}-${t}-${i}`}
-          className={`rounded-full px-1.5 py-px text-[10px] ${TAG_TONE[visibleLocale]}`}
+          className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] ${TAG_TONE[visibleLocale]}`}
         >
           #{t}
         </span>
@@ -323,7 +323,7 @@ export function LeaderboardClient({
           return (
             <li
               key={e.username}
-              className="group relative flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 transition-colors hover:bg-white/[0.06] sm:px-4"
+              className="group relative flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 transition-colors hover:bg-white/[0.06] sm:flex-row sm:items-center sm:rounded-xl sm:px-4"
             >
               {/* Stretched link: whole row navigates to the detail page. Kept as a
                   real <a> so cmd/ctrl-click opens a new tab. Tag expand buttons sit
@@ -332,38 +332,42 @@ export function LeaderboardClient({
                 href={`/u/${e.username}`}
                 prefetch={false}
                 aria-label={detailLabel}
-                className="absolute inset-0 z-0 rounded-xl"
+                className="absolute inset-0 z-0 rounded-2xl sm:rounded-xl"
               />
-              <span className="w-8 shrink-0 text-center text-sm font-bold tabular-nums text-zinc-400">
-                {RANK_BADGE[rank] ?? rank + 1}
-              </span>
-              {e.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={e.avatar_url}
-                  alt={e.username}
-                  className="h-9 w-9 shrink-0 rounded-full"
-                />
-              ) : (
-                <div className="h-9 w-9 shrink-0 rounded-full bg-white/10" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate">
-                  <a
-                    href={profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="relative z-10 font-medium underline-offset-2 hover:underline"
-                  >
-                    @{e.username}
-                  </a>
-                  {e.display_name && (
-                    <span className="ml-1.5 text-sm text-zinc-500">{e.display_name}</span>
-                  )}
-                </div>
-                {/* Above the stretched link so the +N / collapse buttons toggle, not navigate. */}
-                <div className="relative z-10 w-fit">
-                  <TagRow labels={labels} locale={tagLocale} tags={e.tags} />
+              <div className="flex w-full min-w-0 items-start gap-3 sm:w-auto sm:flex-1 sm:items-center">
+                <span className="mt-1 w-8 shrink-0 text-center text-sm font-bold tabular-nums text-zinc-400 sm:mt-0">
+                  {RANK_BADGE[rank] ?? rank + 1}
+                </span>
+                {e.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={e.avatar_url}
+                    alt={e.username}
+                    className="h-10 w-10 shrink-0 rounded-full sm:h-9 sm:w-9"
+                  />
+                ) : (
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-white/10 sm:h-9 sm:w-9" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                    <a
+                      href={profileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="relative z-10 max-w-full truncate font-medium underline-offset-2 hover:underline"
+                    >
+                      @{e.username}
+                    </a>
+                    {e.display_name && (
+                      <span className="min-w-0 max-w-full truncate text-sm text-zinc-500">
+                        {e.display_name}
+                      </span>
+                    )}
+                  </div>
+                  {/* Above the stretched link so the +N / collapse buttons toggle, not navigate. */}
+                  <div className="relative z-10 w-full min-w-0 sm:w-fit">
+                    <TagRow labels={labels} locale={tagLocale} tags={e.tags} />
+                  </div>
                 </div>
               </div>
               <MetricBlock compact={initialView === "progress"} rows={metricRows} />
@@ -373,7 +377,7 @@ export function LeaderboardClient({
       </ol>
 
       {pageSize && totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-4 text-sm">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
           <button
             onClick={() => goToPage(current - 1)}
             disabled={current === 0}

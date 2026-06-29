@@ -61,6 +61,10 @@ export default async function LeaderboardPage({
         : view === "progress"
           ? t("progressSubtitle")
           : t("trendSubtitle");
+  const tabClass = (tab: LeaderboardView) =>
+    `shrink-0 snap-start whitespace-nowrap rounded-full px-3 py-1.5 text-center transition-colors ${
+      view === tab ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
+    }`;
 
   // Structured data only for the canonical score ranking — the directory's main
   // "top developers" list. Heat/progress are sort variants behind query params,
@@ -82,56 +86,28 @@ export default async function LeaderboardPage({
       <header className="mb-8">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h1 className="text-4xl font-black leading-tight tracking-tight text-zinc-100 sm:text-5xl">
+            <h1 className="text-3xl font-black leading-tight tracking-tight text-zinc-100 sm:text-5xl">
               {t("heading")}
             </h1>
-            <p className="mt-2 text-xl font-black text-zinc-300">{viewTitle}</p>
-            <div className="mt-4 grid w-full max-w-[40rem] grid-cols-2 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:grid-cols-4">
-              <Link
-                href="/leaderboard"
-                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
-                  view === "trending"
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
+            <p className="mt-2 text-lg font-black text-zinc-300 sm:text-xl">{viewTitle}</p>
+            <div className="mt-4 flex w-full max-w-full snap-x items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:max-w-[40rem]">
+              <Link href="/leaderboard" className={tabClass("trending")}>
                 {t("trendView")}
               </Link>
-              <Link
-                href="/leaderboard?view=score"
-                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
-                  view === "score"
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
+              <Link href="/leaderboard?view=score" className={tabClass("score")}>
                 {t("scoreView")}
               </Link>
-              <Link
-                href="/leaderboard?view=heat"
-                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
-                  view === "heat"
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
+              <Link href="/leaderboard?view=heat" className={tabClass("heat")}>
                 {t("heatView")}
               </Link>
-              <Link
-                href="/leaderboard?view=progress"
-                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
-                  view === "progress"
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
+              <Link href="/leaderboard?view=progress" className={tabClass("progress")}>
                 {t("progressView")}
               </Link>
             </div>
           </div>
           <Link
             href="/"
-            className="shrink-0 rounded-full bg-orange-600 px-4 py-2 text-xs font-medium text-white hover:bg-orange-500 sm:px-5 sm:text-sm"
+            className="w-full shrink-0 rounded-full bg-orange-600 px-4 py-2 text-center text-xs font-medium text-white hover:bg-orange-500 sm:w-auto sm:px-5 sm:text-sm"
           >
             {t("judgeCta")}
           </Link>

@@ -19,7 +19,9 @@ export interface HomeLeaderboardLabels {
 }
 
 function TabDivider() {
-  return <span className="h-10 w-1 shrink-0 rotate-12 rounded-full bg-[rgb(255,105,0)] sm:h-12" />;
+  return (
+    <span className="hidden h-10 w-1 shrink-0 rotate-12 rounded-full bg-[rgb(255,105,0)] sm:block sm:h-12" />
+  );
 }
 
 export function HomeLeaderboardClient({
@@ -49,8 +51,10 @@ export function HomeLeaderboardClient({
         ? "/leaderboard?view=progress"
         : "/leaderboard";
   const tabClass = (tab: LeaderboardView) =>
-    `shrink-0 text-base font-black leading-tight sm:text-lg ${
-      view === tab ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
+    `shrink-0 snap-start rounded-full border px-3 py-2 text-sm font-black leading-tight transition-colors sm:border-transparent sm:px-0 sm:py-0 sm:text-lg ${
+      view === tab
+        ? "border-orange-500/40 bg-orange-500/10 text-zinc-100 sm:bg-transparent"
+        : "border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-200 sm:border-transparent"
     }`;
 
   return (
@@ -58,9 +62,9 @@ export function HomeLeaderboardClient({
       <h2 className="mb-4 text-center text-2xl font-black leading-tight text-zinc-100 sm:text-3xl">
         {labels.heading}
       </h2>
-      <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-5">
+          <div className="-mx-1 flex max-w-full snap-x items-center gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:gap-x-5 sm:overflow-visible sm:px-0 sm:pb-0">
             <button
               type="button"
               onClick={() => setView("trending")}

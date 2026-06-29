@@ -7,6 +7,7 @@ import {
 } from "@/lib/db";
 import { HomeLeaderboardClient, type HomeLeaderboardLabels } from "./HomeLeaderboardClient";
 import type { LeaderboardLabels } from "./LeaderboardClient";
+import { withDevLeaderboardPreview } from "./devLeaderboardPreview";
 
 export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) {
   const tHome = await getTranslations("home");
@@ -49,10 +50,10 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
       labels={labels}
       leaderboardLabels={leaderboardLabels}
       pageSize={pageSize}
-      scoreEntries={scoreEntries}
-      heatEntries={heatEntries}
-      trendingEntries={trendingEntries}
-      progressEntries={progressEntries}
+      scoreEntries={withDevLeaderboardPreview("score", scoreEntries)}
+      heatEntries={withDevLeaderboardPreview("heat", heatEntries)}
+      trendingEntries={withDevLeaderboardPreview("trending", trendingEntries)}
+      progressEntries={withDevLeaderboardPreview("progress", progressEntries)}
     />
   );
 }
