@@ -75,6 +75,41 @@ body {
   animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes floating-comment {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0.45rem, -0.65rem, 0);
+  }
+}
+
+.floating-comment-bubble {
+  animation: floating-comment 10s ease-in-out infinite;
+}
+
+@keyframes mobile-danmaku {
+  0% {
+    transform: translate3d(105vw, 0, 0);
+  }
+  100% {
+    transform: translate3d(calc(-100% - 105vw), 0, 0);
+  }
+}
+
+.mobile-danmaku-comment {
+  animation: mobile-danmaku 20s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-comment-bubble,
+  .mobile-danmaku-comment {
+    animation: none;
+  }
+}
+
 @keyframes blink {
   50% {
     opacity: 0;

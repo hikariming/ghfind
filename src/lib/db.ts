@@ -9,12 +9,18 @@
  */
 
 import { Client, createClient } from "@libsql/client";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   bypassGeneratedCaches,
   ROAST_CACHE_VERSION,
   SCORE_CACHE_VERSION,
 } from "./cache-version";
+import {
+  normalizeCommentText,
+  normalizeGitHubUsername,
+  type ProfileComment,
+  type ProfileCommentAuthor,
+} from "./comments";
 import { computeTrendingScore, rankTrending } from "./hotness";
 import type { Lang } from "./lang";
 import type { PaperDims, PaperMode, PaperTierKey } from "./paper-types";
@@ -160,6 +166,19 @@ function ensureSchema(db: Client): Promise<void> {
              last_login  INTEGER NOT NULL
            )`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login)`,
+          `CREATE TABLE IF NOT EXISTS profile_comments (
+             id                TEXT PRIMARY KEY,
+             target_username   TEXT NOT NULL,
+             body              TEXT NOT NULL,
+             author_kind       TEXT NOT NULL,
+             author_github_id  INTEGER,
+             author_login      TEXT,
+             author_avatar_url TEXT,
+             hidden            INTEGER NOT NULL DEFAULT 0,
+             created_at        INTEGER NOT NULL
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_profile_comments_target_created
+             ON profile_comments(target_username, created_at DESC)`,
           // arXiv 论文锐评: one row per scored paper (score fixed once computed).
           `CREATE TABLE IF NOT EXISTS papers (
              arxiv_id      TEXT PRIMARY KEY,
@@ -908,6 +927,116 @@ export async function upsertUser(u: UserUpsert): Promise<void> {
     });
   } catch (e) {
     console.error("upsertUser failed:", e);
+  }
+}
+
+interface CreateProfileCommentInput {
+  targetUsername: string;
+  text: string;
+  author: ProfileCommentAuthor;
+  authorGithubId?: number;
+}
+
+function toProfileComment(row: Record<string, unknown>): ProfileComment {
+  const authorLogin =
+    typeof row.author_login === "string" && row.author_login
+      ? row.author_login
+      : null;
+  const authorAvatarUrl =
+    typeof row.author_avatar_url === "string" && row.author_avatar_url
+      ? row.author_avatar_url
+      : null;
+  const author: ProfileCommentAuthor =
+    row.author_kind === "github" && authorLogin
+      ? { type: "github", username: authorLogin, avatarUrl: authorAvatarUrl }
+      : { type: "anonymous" };
+
+  return {
+    id: String(row.id),
+    targetUsername: String(row.target_username),
+    author,
+    text: String(row.body),
+    createdAt: Number(row.created_at),
+  };
+}
+
+export async function getProfileComments(
+  targetUsername: string,
+  limit = 24,
+): Promise<ProfileComment[]> {
+  const db = getClient();
+  if (!db) return [];
+  const target = normalizeGitHubUsername(targetUsername);
+  if (!target) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT id, target_username, body, author_kind, author_login,
+                   author_avatar_url, created_at
+            FROM profile_comments
+            WHERE target_username = ? AND hidden = 0
+            ORDER BY created_at DESC
+            LIMIT ?`,
+      args: [target, Math.max(1, Math.min(100, limit))],
+    });
+    return res.rows
+      .map((row) => toProfileComment(row as Record<string, unknown>))
+      .reverse();
+  } catch (e) {
+    console.error("getProfileComments failed:", e);
+    return [];
+  }
+}
+
+export async function createProfileComment(
+  input: CreateProfileCommentInput,
+): Promise<ProfileComment | null> {
+  const db = getClient();
+  if (!db) return null;
+  const target = normalizeGitHubUsername(input.targetUsername);
+  const text = normalizeCommentText(input.text);
+  if (!target || !text) return null;
+
+  const githubAuthor =
+    input.author.type === "github"
+      ? normalizeGitHubUsername(input.author.username)
+      : null;
+  const authorKind = githubAuthor ? "github" : "anonymous";
+  const authorAvatarUrl =
+    input.author.type === "github" ? input.author.avatarUrl ?? null : null;
+  const now = Date.now();
+  const id = randomUUID();
+
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO profile_comments
+              (id, target_username, body, author_kind, author_github_id,
+               author_login, author_avatar_url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        id,
+        target,
+        text,
+        authorKind,
+        authorKind === "github" ? input.authorGithubId ?? null : null,
+        githubAuthor,
+        authorKind === "github" ? authorAvatarUrl : null,
+        now,
+      ],
+    });
+    return {
+      id,
+      targetUsername: target,
+      author: githubAuthor
+        ? { type: "github", username: githubAuthor, avatarUrl: authorAvatarUrl }
+        : { type: "anonymous" },
+      text,
+      createdAt: now,
+    };
+  } catch (e) {
+    console.error("createProfileComment failed:", e);
+    return null;
   }
 }
 

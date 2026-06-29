@@ -89,6 +89,46 @@ describe("getArchivedRoast", () => {
   });
 });
 
+describe("profile comments", () => {
+  it("stores anonymous and GitHub comments for a profile", async () => {
+    const anonymous = await db.createProfileComment({
+      targetUsername: "Torvalds",
+      text: "硬核 🔥",
+      author: { type: "anonymous" },
+    });
+    const github = await db.createProfileComment({
+      targetUsername: "torvalds",
+      text: "Legend status",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      authorGithubId: 499550,
+    });
+
+    expect(anonymous).toMatchObject({
+      targetUsername: "torvalds",
+      author: { type: "anonymous" },
+      text: "硬核 🔥",
+    });
+    expect(github).toMatchObject({
+      targetUsername: "torvalds",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      text: "Legend status",
+    });
+
+    await expect(db.getProfileComments("TORVALDS")).resolves.toMatchObject([
+      { author: { type: "anonymous" }, text: "硬核 🔥" },
+      { author: { type: "github", username: "yyx990803" }, text: "Legend status" },
+    ]);
+  });
+});
+
 describe("getTrendingLeaderboard", () => {
   it("counts unique lookups from the last seven days only", async () => {
     const now = Date.now();

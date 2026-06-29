@@ -5,19 +5,20 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getAccountDetail, getSimilarAccounts } from "@/lib/db";
+import { getAccountDetail, getProfileComments, getSimilarAccounts } from "@/lib/db";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
 import { SITE_URL, PUBLIC_INDEX_MIN_SCORE } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
+import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { SUBSCORE_MAX } from "@/lib/score";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
 
-// Re-render at most hourly; on-demand pages are then served from the cache, so a
-// viral account doesn't hammer the DB or rack up function time on every view.
-export const revalidate = 3600;
+// Profile comments must be fresh; score/roast data is still fetched from the DB
+// and remains cached at the persistence layer where applicable.
+export const dynamic = "force-dynamic";
 
 // Dedupe the DB read between generateMetadata() and the page render.
 const getDetail = cache((username: string) => getAccountDetail(username));
@@ -107,23 +108,33 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
-  const similar = await getSimilarAccounts(d.username, d.final_score, d.sub_scores);
+  const [similar, comments] = await Promise.all([
+    getSimilarAccounts(d.username, d.final_score, d.sub_scores),
+    getProfileComments(d.username),
+  ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
-      <JsonLd
-        data={profileJsonLd({
-          username: d.username,
-          displayName: d.display_name,
-          avatarUrl: d.avatar_url,
-          profileUrl: d.profile_url,
-          score: d.final_score,
-          locale,
-        })}
+    <main className="relative isolate flex w-full flex-1 justify-center overflow-hidden px-5 py-14 sm:py-20">
+      <FloatingCommentBubbles
+        key={d.username}
+        lang={lang}
+        profileUsername={d.username}
+        initialComments={comments}
       />
-      <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
-        {t("back")}
-      </Link>
+      <div className="relative z-10 flex w-full max-w-2xl flex-col">
+        <JsonLd
+          data={profileJsonLd({
+            username: d.username,
+            displayName: d.display_name,
+            avatarUrl: d.avatar_url,
+            profileUrl: d.profile_url,
+            score: d.final_score,
+            locale,
+          })}
+        />
+        <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
+          {t("back")}
+        </Link>
 
       {/* Header card */}
       <div
@@ -285,6 +296,7 @@ export default async function AccountPage({
           {t("selfCta")}
         </Link>
       </footer>
+      </div>
     </main>
   );
 }
