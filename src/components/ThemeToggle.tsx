@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 
 type ThemeMode = "light" | "dark" | "auto";
@@ -73,6 +73,11 @@ export function ThemeToggle() {
   const t = useTranslations("themeSwitch");
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [mode] = snapshot.split(":") as [ThemeMode, ResolvedTheme];
+
+  // Locale transitions can replace <html> attrs; keep the persisted theme applied.
+  useEffect(() => {
+    applyMode(mode);
+  });
 
   return (
     <div
