@@ -1,7 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+// Stable no-op subscribe: the origin never changes after load, so we only need
+// the server/client snapshot split (null on SSR, real origin once hydrated).
+const subscribeNoop = () => () => {};
+const getOriginSnapshot = () => window.location.origin;
+const getOriginServerSnapshot = () => null;
 
 /** One copyable snippet row. Declared at module scope (not inside render) so it
  *  keeps a stable identity and doesn't reset state on every parent render. */
@@ -57,11 +63,11 @@ export function CopyBadge({
 }) {
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
-  const [previewOrigin, setPreviewOrigin] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPreviewOrigin(window.location.origin);
-  }, []);
+  const previewOrigin = useSyncExternalStore(
+    subscribeNoop,
+    getOriginSnapshot,
+    getOriginServerSnapshot,
+  );
 
   const base = baseUrl.replace(/\/$/, "");
   const previewBase = (previewOrigin ?? base).replace(/\/$/, "");
