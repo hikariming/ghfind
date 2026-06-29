@@ -58,8 +58,8 @@ export async function generateMetadata({
   });
   const tags = locale === "en" ? d.tags.en : d.tags.zh;
   const description = tags.length
-    ? t("descWithTags", { tags: tags.map((x) => `#${x}`).join(" "), username: d.username })
-    : t("descPlain", { username: d.username });
+    ? t("descWithTags", { tags: tags.map((x) => `#${x}`).join(" "), username: d.username, siteUrl: SITE_URL.replace(/^https?:\/\//, "") })
+    : t("descPlain", { username: d.username, siteUrl: SITE_URL.replace(/^https?:\/\//, "") });
   // The flex card doubles as the social preview image (resolved absolute via
   // metadataBase in layout.tsx) — so shared /u links render a rich card.
   const image = `/api/card/${d.username}`;

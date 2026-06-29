@@ -15,6 +15,7 @@ interface ShareCardProps {
   tierLabel: string;
   beat: number | null;
   tags: Tags;
+  siteUrl: string;
 }
 
 /**
@@ -23,7 +24,7 @@ interface ShareCardProps {
  * URL up-front so the cross-origin image never taints the export canvas.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
-  { username, name, avatarUrl, score, tier, tierLabel, beat, tags },
+  { username, name, avatarUrl, score, tier, tierLabel, beat, tags, siteUrl },
   ref,
 ) {
   const t = useTranslations("shareCard");
@@ -122,7 +123,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       {/* Footer brand */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-zinc-500">{t("brand")}</span>
-        <span className="font-black text-orange-400">githubroast.dev</span>
+        <span className="font-black text-orange-400">{siteUrl.replace(/^https?:\/\//, "")}</span>
       </div>
     </div>
   );

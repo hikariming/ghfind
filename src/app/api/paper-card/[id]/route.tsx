@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { getPaper } from "@/lib/db";
 import { normalizeArxivId } from "@/lib/arxiv";
 import { SPONSOR } from "@/lib/sponsor";
+import { SITE_URL } from "@/lib/site";
 import type { PaperTierKey } from "@/lib/paper-types";
 
 export const runtime = "nodejs";
@@ -59,7 +60,7 @@ function Brand() {
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
       <div style={{ display: "flex", color: "#71717a" }}>
         arXiv Roast ·{" "}
-        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>githubroast.dev</span>
+        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>{SITE_URL.replace(/^https?:\/\//, "")}</span>
       </div>
       <div style={{ display: "flex", color: "#71717a" }}>Powered by {SPONSOR.name}</div>
     </div>

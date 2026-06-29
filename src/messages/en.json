@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "GitHub Roast | Score Developers & Discover the Best",
-    "description": "Drop a GitHub handle for a 0-100 value & trust score and a savage roast in 30 seconds — then browse the leaderboard to discover the best developers worth following. Built to expose PR farmers, AI bots, and fork-hoarders. githubroast.dev",
+    "description": "Drop a GitHub handle for a 0-100 value & trust score and a savage roast in 30 seconds — then browse the leaderboard to discover the best developers worth following. Built to expose PR farmers, AI bots, and fork-hoarders.",
     "ogTitle": "GitHub Roast | Score Developers & Discover the Best",
     "ogDescription": "Score any GitHub account and discover top developers. 0-100 value & trust score + a savage roast in 30 seconds, plus a ranked developer leaderboard.",
     "twDescription": "Score any GitHub dev + discover the best on the leaderboard. 0-100 score & savage roast in 30s.",
@@ -158,8 +158,8 @@
   },
   "detailMeta": {
     "title": "{username} — {score}/100 · {tier} | Savage GitHub Roast",
-    "descWithTags": "{tags} — see {username}'s full score report on githubroast.dev.",
-    "descPlain": "{username}'s GitHub value & trust report — githubroast.dev.",
+    "descWithTags": "{tags} — see {username}'s full score report on {siteUrl}.",
+    "descPlain": "{username}'s GitHub value & trust report — {siteUrl}.",
     "notFoundTitle": "Account not found · Savage GitHub Roast"
   },
   "roaster": {
@@ -178,7 +178,7 @@
     "pasteGithub": "📌 Pin to GitHub",
     "copied": "Copied ✓",
     "privateNote": "Note: the score uses public signals only — private contributions don't count, so active members of private orgs may be underrated.",
-    "shareText": "My GitHub just got judged: {score}/100 · {tier} ({tierLabel}){beat}. Rate yours 👉 githubroast.dev",
+    "shareText": "My GitHub just got judged: {score}/100 · {tier} ({tierLabel}){beat}. Rate yours 👉 {siteUrl}",
     "shareBeat": ", beating {beat}% of developers",
     "errEmpty": "Enter a GitHub username or profile URL first.",
     "errNeedTurnstile": "Please complete the verification below first.",

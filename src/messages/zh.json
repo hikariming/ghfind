@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "毒舌 GitHub | 开发者评分 · 发现最佳开发者",
-    "description": "输入 GitHub 账号，30 秒得到一份 0-100 分的价值与信任评分和一句扎心毒舌点评；再逛逛名人堂榜单，发现最值得关注的优质开发者。专治刷量号、AI 机器人、收藏夹开发者。githubroast.dev",
+    "description": "输入 GitHub 账号，30 秒得到一份 0-100 分的价值与信任评分和一句扎心毒舌点评；再逛逛名人堂榜单，发现最值得关注的优质开发者。专治刷量号、AI 机器人、收藏夹开发者。",
     "ogTitle": "毒舌 GitHub | 开发者评分 · 发现最佳开发者",
     "ogDescription": "给 GitHub 账号打分，发现最佳开发者。30 秒出 0-100 分含金量评分 + 一句毒舌点评，还能逛开发者排行榜。",
     "twDescription": "30 秒给 GitHub 账号打分 + 毒舌点评，还能逛榜单发现最佳开发者。",
@@ -158,8 +158,8 @@
   },
   "detailMeta": {
     "title": "{username} — {score}/100 · {tier} | 毒舌 GitHub 评分",
-    "descWithTags": "{tags} —— 在 githubroast.dev 查看 {username} 的完整评分报告。",
-    "descPlain": "{username} 的 GitHub 价值评分报告 —— githubroast.dev。",
+    "descWithTags": "{tags} —— 在 {siteUrl} 查看 {username} 的完整评分报告。",
+    "descPlain": "{username} 的 GitHub 价值评分报告 —— {siteUrl}。",
     "notFoundTitle": "查无此号 · 毒舌 GitHub 评分"
   },
   "roaster": {
@@ -178,7 +178,7 @@
     "pasteGithub": "📌 贴到 GitHub",
     "copied": "已复制 ✓",
     "privateNote": "注：评分仅基于公开信号，私有贡献不计入，可能低估私有组织的活跃员工。",
-    "shareText": "我的 GitHub 含金量被审判了：{score}/100 · {tier}（{tierLabel}）{beat}。来测测你的 👉 githubroast.dev",
+    "shareText": "我的 GitHub 含金量被审判了：{score}/100 · {tier}（{tierLabel}）{beat}。来测测你的 👉 {siteUrl}",
     "shareBeat": "，超越了 {beat}% 的开发者",
     "errEmpty": "请先输入 GitHub 用户名或主页链接。",
     "errNeedTurnstile": "请先完成下方的人机校验。",

@@ -18,8 +18,7 @@ import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
-
-const SITE_URL = "https://githubroast.dev";
+import { SITE_URL } from "@/lib/site";
 
 interface Display {
   score: number;
@@ -193,6 +192,7 @@ export function Roaster() {
           tier: tTier(`${TIER_KEY[display.tier]}.name`),
           tierLabel: display.tierLabel,
           beat: beatText,
+          siteUrl: SITE_URL.replace(/^https?:\/\//, ""),
         })
       : "";
 
@@ -471,6 +471,7 @@ export function Roaster() {
               tierLabel={display.tierLabel}
               beat={percentile?.beat ?? null}
               tags={tags ?? { zh: [], en: [] }}
+              siteUrl={SITE_URL}
             />
           </div>
         </div>

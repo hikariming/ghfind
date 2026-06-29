@@ -9,6 +9,7 @@ import type { PaperData } from "./paper-types";
 
 const ARXIV_API = "https://export.arxiv.org/api/query";
 const S2_API = "https://api.semanticscholar.org/graph/v1/paper";
+const USER_AGENT = `${process.env.PUBLIC_SITE_URL || "githubroast.dev"} paper-review`;
 
 export class PaperNotFoundError extends Error {}
 
@@ -56,7 +57,7 @@ function tag(xml: string, name: string): string | null {
 async function fetchArxivMeta(id: string): Promise<Omit<PaperData, "citation_count" | "influential_citation_count" | "venue" | "tldr">> {
   const res = await fetchTimeout(
     `${ARXIV_API}?id_list=${encodeURIComponent(id)}&max_results=1`,
-    { headers: { "User-Agent": "githubroast.dev paper-review" } },
+    { headers: { "User-Agent": USER_AGENT } },
     12000,
   );
   if (!res.ok) throw new Error(`arXiv API ${res.status}`);
@@ -99,7 +100,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 async function fetchCitations(id: string): Promise<Pick<PaperData, "citation_count" | "influential_citation_count" | "venue" | "tldr">> {
   const empty = { citation_count: null, influential_citation_count: null, venue: null, tldr: null };
-  const headers: Record<string, string> = { "User-Agent": "githubroast.dev paper-review" };
+  const headers: Record<string, string> = { "User-Agent": USER_AGENT };
   if (process.env.SEMANTIC_SCHOLAR_API_KEY) headers["x-api-key"] = process.env.SEMANTIC_SCHOLAR_API_KEY;
   const url = `${S2_API}/arXiv:${encodeURIComponent(id)}?fields=citationCount,influentialCitationCount,venue,tldr`;
   // One initial try + 2 retries: a keyless 429 usually clears within ~1–2s once

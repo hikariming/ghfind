@@ -4,6 +4,7 @@ import { getAccountDetail, getPercentile } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
 import { SPONSOR } from "@/lib/sponsor";
+import { SITE_URL } from "@/lib/site";
 import { tierAvatarFrame } from "@/lib/tier";
 import type { TierAvatarFramePlacement } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
@@ -155,7 +156,7 @@ function Brand({ palette }: { palette: CardPalette }) {
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
       <div style={{ display: "flex", color: palette.subtle }}>
         GitHub Roast ·{" "}
-        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>githubroast.dev</span>
+        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>{SITE_URL.replace(/^https?:\/\//, "")}</span>
       </div>
       <div style={{ display: "flex", color: palette.subtle }}>Powered by {SPONSOR.name}</div>
     </div>
@@ -280,7 +281,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             Not yet rated
           </div>
           <div style={{ display: "flex", fontSize: 26, color: palette.subtle, marginTop: 8 }}>
-            Get roasted at githubroast.dev
+            Get roasted at {SITE_URL.replace(/^https?:\/\//, "")}
           </div>
         </div>
         <Brand palette={palette} />
