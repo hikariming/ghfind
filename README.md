@@ -4,7 +4,7 @@
 
 > **Live:** [githubroast.dev](https://githubroast.dev)
 
-Drop a GitHub handle and get, in 30 seconds, a **0–100 value & trust score**, a four-tier verdict (🏆 Legend / 💪 Solid / 🫥 NPC / 💩 Cooked), and one **brutally honest roast grounded in real data**. Built to expose star-farmers, AI bots, fork-hoarders, and self-merge PR farmers.
+Drop a GitHub handle and get, in 30 seconds, a **0–100 value & trust score**, a five-tier verdict (🏆 GOD / 🥇 ELITE / 💪 SOLID / 🫥 NPC / 💩 TRASH), and one **brutally honest roast grounded in real data**. Built to expose star-farmers, AI bots, fork-hoarders, and self-merge PR farmers.
 
 The scoring core comes from the open-source Claude skill `github-account-value` — this site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
 
@@ -14,12 +14,15 @@ The scoring core comes from the open-source Claude skill `github-account-value` 
 browser ─▶ /api/scan ─▶ [Redis cache?] ─▶ lib/github.ts  (GitHub REST + GraphQL, operator PAT)
                                      └─▶ lib/score.ts   (deterministic scoring, parity with the Python skill)
                                      └─▶ write cache 24h
-         ─▶ /api/roast (streaming) ─▶ lib/llm.ts (OpenAI-compatible; defaults to StepFun; bring-your-own key)
+         ─▶ /api/roast (streaming) ─▶ LLM judge pass (bounded score calibration)
+                                      └─▶ LLM writer pass (roast/report text only)
+                                      └─▶ lib/llm.ts (OpenAI-compatible; defaults to StepFun; bring-your-own key)
 ```
 
-- **The score is deterministic** — computed server-side by `lib/score.ts`. The LLM cannot change the number.
-- The LLM does only two things: read README/PRs to apply a bounded **±10** qualitative adjustment, and write the roast line. So even a free small model won't miscalculate the score.
+- **The base score is deterministic** — computed server-side by `lib/score.ts`.
+- The LLM runs in two separated passes: a factual judge may apply a bounded **±10** calibration, then a writer turns the fixed result into tags, the top roast line, and the report. The writer cannot change the score.
 - 6 dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) + 10 farming red flags. Weights lean toward **hard-to-fake** signals (PRs merged into real repos, sustained activity) and discount **buyable** ones (stars, followers).
+- The site also includes arXiv paper roast/praise scoring, share cards, README badges, profile comments, and GitHub-authenticated profile reactions.
 
 ## Local development
 
@@ -38,19 +41,19 @@ pnpm dev
 | `pnpm dev` | Local development |
 | `pnpm start` or `pnpm build/start` | One-command production build + run |
 | `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
-| `pnpm test` | Vitest scoring-parity tests (against the Python skill output) |
+| `pnpm test` | Vitest test suite (scoring, prompts, DB, UI helpers, reactions, etc.) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
 
 ## Environment variables
 
-See [`.env.example`](./.env.example). The minimum to run is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, and the leaderboard **degrade silently** when unconfigured (fine for local). Configure everything for production.
+See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, the leaderboard, and arXiv citation bonuses **degrade silently** when unconfigured (fine for local). Configure everything for production.
 
 ## Leaderboard + percentile (Turso, optional)
 
 Configure `TURSO_*` to unlock the "Hall of Fame" leaderboard (`/leaderboard`) and the result page's "🏆 You beat X% of developers".
 Each scan upserts the account's latest score into the DB (one row per account); percentile = the share of stored scores strictly below yours.
-**The public board only lists accounts scoring ≥70**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The whole feature degrades silently when unconfigured.
+**The public board only lists accounts scoring ≥60**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The whole feature degrades silently when unconfigured.
 
 ```bash
 # cloud
@@ -65,8 +68,11 @@ TURSO_DATABASE_URL=file:./local.db
 1. Push to GitHub, import in Vercel.
 2. Configure environment variables (as above). `UPSTASH_*` can be provisioned in one click via Vercel's Upstash integration.
 3. Grab a Cloudflare Turnstile site/secret key pair; set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`.
-4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard.
-5. Deploy.
+4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and paper boards.
+5. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
+6. (Optional) arXiv citation signals: `SEMANTIC_SCHOLAR_API_KEY`; `ADMIN_SECRET` enables the paper citation rescore endpoint.
+7. (Optional) set `PUBLIC_SITE_URL` when deploying under a custom domain so metadata, sitemap, cards, and LLM attribution use the right origin.
+8. Deploy.
 
 ## Bring your own model / API key
 
