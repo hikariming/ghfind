@@ -8,6 +8,8 @@ const scan = {
     merged_pr_count: 74,
     recent_merged_pr_sample: 50,
     impact_pr_count: 10,
+    impact_commit_count: 5,
+    impact_repo_count: 4,
     unverified_impact_pr_count: 7,
   },
   top_repos: [],
@@ -228,17 +230,42 @@ describe("buildRoastMessages", () => {
     const [, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("不是负面指标");
     expect(zhSys.content).toContain("verified_impact_prs");
+    expect(zhSys.content).toContain("不能把样本数量写成长期高星贡献总量");
 
     const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.metrics.unverified_impact_pr_count).toBeUndefined();
     expect(payload.metrics.impact_prs_outside_quality_sample).toBe(7);
     expect(payload.context_notes.impact_prs_outside_quality_sample).toContain("不是负面指标");
+    expect(payload.context_notes.verified_impact_sample_scope).toContain("不能把样本条数写成长期贡献总数");
+    expect(payload.impact_summary).toMatchObject({
+      popular_repo_pr_count: 10,
+      popular_repo_commit_count: 5,
+      popular_repo_count: 4,
+      verified_file_sample_count: 1,
+    });
+    expect(payload.impact_summary.sample_rule).toContain("不是总贡献数");
     expect(payload.verified_impact_prs[0]).toMatchObject({
       repo: "popular-ai/backend",
       repo_stars: 146000,
       changed_files: 14,
     });
     expect(payload.verified_impact_prs[0].files).toContain("api/controllers/console/wraps.py");
+  });
+
+  it("tells the writer to use all-time impact totals instead of verified sample length", () => {
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("生态/维护影响力行必须先用 impact_summary 的长期总量");
+    expect(zhSys.content).toContain("不能把样本数写成");
+    expect(zhSys.content).toContain("长期贡献 N 个 PR + M 个 commit");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.impact_summary.total_rule).toContain("popular_repo_pr_count + popular_repo_commit_count");
+
+    const [enSys, enUser] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("impact_summary's all-time totals");
+    expect(enSys.content).toContain("never write the sample length");
+    expect(enSys.content).toContain("N PRs + M commits");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.impact_summary.sample_rule).toContain("not the total contribution count");
   });
 
   it("requires human review for low-trust docs-heavy impact", () => {
