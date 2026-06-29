@@ -274,7 +274,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
         </div>
         {beat !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 64, fontWeight: 800, color }}>{beat}%</span>
+            <span style={{ fontSize: 64, fontWeight: 800, color }}>{beat.toFixed(1)}%</span>
             <span style={{ fontSize: 22, color: "#a1a1aa" }}>ahead of devs</span>
           </div>
         )}

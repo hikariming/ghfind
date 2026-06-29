@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** One copyable snippet row. Declared at module scope (not inside render) so it
  *  keeps a stable identity and doesn't reset state on every parent render. */
@@ -57,17 +57,25 @@ export function CopyBadge({
 }) {
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
+  const [previewOrigin, setPreviewOrigin] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewOrigin(window.location.origin);
+  }, []);
 
   const base = baseUrl.replace(/\/$/, "");
+  const previewBase = (previewOrigin ?? base).replace(/\/$/, "");
   const pageUrl = `${base}/u/${username}`;
   const badgeUrl = `${base}/api/badge/${username}`;
   const cardUrl = `${base}/api/card/${username}`;
+  const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
+  const cardPreviewUrl = `${previewBase}/api/card/${username}`;
   const v =
     version !== undefined && version !== null
       ? `?v=${encodeURIComponent(String(version))}`
       : "";
-  const badgePreview = `${badgeUrl}${v}`;
-  const cardPreview = `${cardUrl}${v}`;
+  const badgePreview = `${badgePreviewUrl}${v}`;
+  const cardPreview = `${cardPreviewUrl}${v}`;
 
   const badgeAlt = T("badgeAlt");
   const cardAlt = T("cardAlt");

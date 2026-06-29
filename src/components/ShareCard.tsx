@@ -98,7 +98,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         </div>
         {beat !== null && (
           <div className="mb-1 text-right">
-            <div className={`text-4xl font-black ${style.text}`}>{beat}%</div>
+            <div className={`text-4xl font-black ${style.text}`}>{beat.toFixed(1)}%</div>
             <div className="text-xs text-zinc-400">{t("beatLabel")}</div>
           </div>
         )}

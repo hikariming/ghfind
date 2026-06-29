@@ -184,8 +184,8 @@ export function Roaster() {
     [username, token, scanning, roasting, runRoast, t, tScan],
   );
 
-  const beatText =
-    percentile && percentile.beat !== null ? t("shareBeat", { beat: percentile.beat }) : "";
+  const beatValue = percentile?.beat == null ? null : percentile.beat.toFixed(1);
+  const beatText = beatValue !== null ? t("shareBeat", { beat: beatValue }) : "";
   const shareText =
     scan && display
       ? t("shareText", {
@@ -396,7 +396,7 @@ export function Roaster() {
               ) : (
                 <div className="mt-3 text-sm">
                   {t.rich("beatLine", {
-                    beat: percentile.beat,
+                    beat: percentile.beat.toFixed(1),
                     total: percentile.total,
                     hl: (c) => <span className={`font-semibold ${style.text}`}>{c}</span>,
                     muted: (c) => <span className="text-zinc-400">{c}</span>,

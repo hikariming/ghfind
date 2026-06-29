@@ -7,10 +7,10 @@ describe("beatPercent", () => {
     expect(beatPercent(0, 1)).toBeNull();
   });
 
-  it("computes the share of accounts scored below you, rounded", () => {
+  it("computes the share of accounts scored below you, rounded to 1 decimal", () => {
     expect(beatPercent(87, 100)).toBe(87);
-    expect(beatPercent(1, 3)).toBe(33); // 33.33 → 33
-    expect(beatPercent(2, 3)).toBe(67); // 66.66 → 67
+    expect(beatPercent(1, 3)).toBe(33.3); // 33.33 -> 33.3
+    expect(beatPercent(2, 3)).toBe(66.7); // 66.66 -> 66.7
   });
 
   it("beats 0% when nobody is below you, 100% when everyone else is", () => {
