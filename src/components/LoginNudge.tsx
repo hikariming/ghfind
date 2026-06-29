@@ -18,9 +18,8 @@ const EXIT_MS = 300;
  * has to know about auth — it just owns the timing, the slide animation, and the
  * "don't nag me again" snooze. Sits at the top-right (just under the sticky
  * navbar) on desktop, full-width under the navbar on mobile, sliding down into
- * view. Styling reuses the same zinc/white
- * utility classes as the rest of the app, which `globals.css` remaps for the
- * light theme, so the card adapts automatically.
+ * view. The outer card has a dedicated theme hook so its translucent panel can
+ * stay dark in dark mode and become a real light surface in light mode.
  *
  * `signInAction` is a server action passed down from the layout (`signIn("github")`).
  */
@@ -67,7 +66,7 @@ export function LoginNudge({ signInAction }: { signInAction: () => Promise<void>
         visible ? "translate-y-0 opacity-100" : "-translate-y-6 opacity-0"
       }`}
     >
-      <div className="relative rounded-2xl border border-orange-400/25 bg-zinc-900/95 p-5 shadow-2xl ring-1 ring-orange-500/10 backdrop-blur">
+      <div className="login-nudge-card relative rounded-2xl border border-orange-400/25 bg-zinc-900/95 p-5 shadow-2xl ring-1 ring-orange-500/10 backdrop-blur">
         <button
           type="button"
           onClick={dismiss}
