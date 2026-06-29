@@ -2,10 +2,10 @@
  * Turso (libSQL) persistence for the leaderboard + percentile.
  *
  * Optional, like {@link ./redis}: if `TURSO_DATABASE_URL` is unset, every function
- * no-ops (returns null/empty) so the app runs fine without it. Stores exactly one
- * row per scanned account (latest score). The score itself is still computed
- * deterministically by `lib/score.ts`; this layer only persists the result for
- * cross-account ranking.
+ * no-ops (returns null/empty) so the app runs fine without it. Stores one latest
+ * row per scanned account plus append-only score snapshots for long-term progress.
+ * The score itself is still computed deterministically by `lib/score.ts`; this
+ * layer only persists the result for cross-account ranking.
  */
 
 import { Client, createClient } from "@libsql/client";
@@ -155,6 +155,25 @@ function ensureSchema(db: Client): Promise<void> {
           // so a composite index lets one seek cover both conditions.
           `CREATE INDEX IF NOT EXISTS idx_scores_hidden_score
              ON scores(hidden, final_score DESC)`,
+          `CREATE TABLE IF NOT EXISTS score_snapshots (
+             id            TEXT PRIMARY KEY,
+             username      TEXT NOT NULL,
+             display_name  TEXT,
+             avatar_url    TEXT,
+             profile_url   TEXT,
+             final_score   REAL NOT NULL,
+             tier          TEXT NOT NULL,
+             tags          TEXT,
+             roast_line    TEXT,
+             bot_score     REAL,
+             sub_scores    TEXT,
+             score_version TEXT NOT NULL,
+             roast_version TEXT NOT NULL,
+             roast_lang    TEXT NOT NULL CHECK(roast_lang IN ('zh', 'en')),
+             generated_at  INTEGER NOT NULL
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_score_snapshots_username_generated
+             ON score_snapshots(username, generated_at DESC)`,
           `CREATE TABLE IF NOT EXISTS account_stats (
              username        TEXT PRIMARY KEY,
              lookup_count    INTEGER NOT NULL DEFAULT 0,
@@ -430,9 +449,30 @@ export async function updateRoast(username: string, roast: string, lang: Lang): 
   const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
   try {
     await ensureSchema(db);
+    const normalizedUsername = username.toLowerCase();
+    const generatedAt = Date.now();
     await db.execute({
       sql: `UPDATE scores SET ${col} = ?, ${versionCol} = ? WHERE username = ?`,
-      args: [roast, ROAST_CACHE_VERSION, username.toLowerCase()],
+      args: [roast, ROAST_CACHE_VERSION, normalizedUsername],
+    });
+    await db.execute({
+      sql: `INSERT INTO score_snapshots
+              (id, username, display_name, avatar_url, profile_url, final_score, tier,
+               tags, roast_line, score_version, roast_version, roast_lang, bot_score,
+               sub_scores, generated_at)
+            SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
+                   tags, roast_line, COALESCE(score_version, ?), ?, ?, bot_score,
+                   sub_scores, ?
+            FROM scores
+            WHERE username = ?`,
+      args: [
+        randomUUID(),
+        SCORE_CACHE_VERSION,
+        ROAST_CACHE_VERSION,
+        lang,
+        generatedAt,
+        normalizedUsername,
+      ],
     });
   } catch (e) {
     console.error("updateRoast failed:", e);

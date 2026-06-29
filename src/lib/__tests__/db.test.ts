@@ -89,6 +89,39 @@ describe("getArchivedRoast", () => {
   });
 });
 
+describe("score snapshots", () => {
+  it("stores one generated-at stub when a completed roast is persisted", async () => {
+    const username = "roast-snapshot";
+    const before = Date.now();
+    await db.recordScore({ ...entry, username, final_score: 90 });
+    await db.updateRoast(username, "## first report", "zh");
+    await db.recordScore({
+      ...entry,
+      username,
+      final_score: 96.1,
+      scanned_at: entry.scanned_at + 2 * 60 * 60 * 1000,
+    });
+    await db.updateRoast(username, "## second report", "en");
+    const after = Date.now();
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const res = await client.execute({
+      sql: `SELECT COUNT(*) AS n,
+                   MIN(generated_at) AS first_generated_at,
+                   MAX(generated_at) AS last_generated_at,
+                   GROUP_CONCAT(roast_lang, ',') AS langs
+            FROM score_snapshots
+            WHERE username = ?`,
+      args: [username],
+    });
+
+    expect(Number(res.rows[0]?.n)).toBe(2);
+    expect(Number(res.rows[0]?.first_generated_at)).toBeGreaterThanOrEqual(before);
+    expect(Number(res.rows[0]?.last_generated_at)).toBeLessThanOrEqual(after);
+    expect(String(res.rows[0]?.langs).split(",").sort()).toEqual(["en", "zh"]);
+  });
+});
+
 describe("profile comments", () => {
   it("stores anonymous and GitHub comments for a profile", async () => {
     const anonymous = await db.createProfileComment({
