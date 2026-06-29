@@ -1041,6 +1041,60 @@ function rowToPaper(r: Record<string, unknown>): PaperDetail {
   };
 }
 
+/** Every stored paper (incl. hidden), for the citation rescore backfill. */
+export async function getAllPapers(): Promise<PaperDetail[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute(`SELECT * FROM papers ORDER BY scored_at ASC`);
+    return res.rows.map((r) => rowToPaper(r as unknown as Record<string, unknown>));
+  } catch (e) {
+    console.error("getAllPapers failed:", e);
+    return [];
+  }
+}
+
+/**
+ * Overwrite the citation-derived score of an existing paper. Unlike
+ * {@link recordPaper}'s deliberately score-frozen upsert, this DOES rewrite
+ * final_score/tier/citation_bonus — it's the one place re-scoring is allowed,
+ * driven only by refreshed (deterministic) citation signals, no LLM.
+ */
+export async function rescorePaperScore(
+  arxivId: string,
+  v: {
+    citation_count: number | null;
+    influential_citation_count: number | null;
+    venue: string | null;
+    citation_bonus: number;
+    final_score: number;
+    tier: PaperTierKey;
+  },
+): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `UPDATE papers SET citation_count = ?, influential_citation_count = ?,
+              venue = ?, citation_bonus = ?, final_score = ?, tier = ?
+            WHERE arxiv_id = ?`,
+      args: [
+        v.citation_count,
+        v.influential_citation_count,
+        v.venue,
+        v.citation_bonus,
+        v.final_score,
+        v.tier,
+        arxivId,
+      ],
+    });
+  } catch (e) {
+    console.error("rescorePaperScore failed:", e);
+  }
+}
+
 export async function getPaper(arxivId: string): Promise<PaperDetail | null> {
   const db = getClient();
   if (!db) return null;
@@ -1112,9 +1166,12 @@ export async function getPaperLeaderboard(
   try {
     await ensureSchema(db);
     const dir = order === "bottom" ? "ASC" : "DESC";
+    // 灌水榜 hides sub-60 papers — those are usually unparseable/garbage scans,
+    // not honest "filler", so surfacing them just reads as broken.
+    const floor = order === "bottom" ? "AND final_score >= 60" : "";
     const res = await db.execute({
       sql: `SELECT arxiv_id, title, authors, final_score, tier, tags, citation_count
-            FROM papers WHERE hidden = 0
+            FROM papers WHERE hidden = 0 ${floor}
             ORDER BY final_score ${dir}, scored_at DESC
             LIMIT ?`,
       args: [limit],

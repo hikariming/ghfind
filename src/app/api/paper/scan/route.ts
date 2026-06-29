@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaperNotFoundError, fetchPaper, normalizeArxivId } from "@/lib/arxiv";
+import { getPaper } from "@/lib/db";
 import { checkRateLimit } from "@/lib/redis";
 
 export const runtime = "nodejs";
@@ -26,6 +27,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const paper = await fetchPaper(id);
+    // S2 rate-limits the keyless pool hard; when the live fetch misses citations
+    // (null), reuse the values we persisted on a prior successful scan so the
+    // score keeps its citation bonus instead of collapsing to the 80-pt ceiling.
+    if (paper.citation_count == null) {
+      const stored = await getPaper(id);
+      if (stored && stored.citation_count != null) {
+        paper.citation_count = stored.citation_count;
+        paper.influential_citation_count = stored.influential_citation_count;
+        paper.venue = paper.venue ?? stored.venue;
+      }
+    }
     return NextResponse.json(paper);
   } catch (e) {
     if (e instanceof PaperNotFoundError) {

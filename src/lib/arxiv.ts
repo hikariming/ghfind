@@ -87,29 +87,59 @@ interface S2Response {
   tldr?: { text?: string } | null;
 }
 
-/** Best-effort citation signals from Semantic Scholar; all null on miss/error. */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Best-effort citation signals from Semantic Scholar; all null on miss/error.
+ *
+ * The keyless S2 pool is shared and rate-limits hard (HTTP 429) under any load,
+ * which used to silently zero out every paper's citation bonus (capping scores
+ * at the 80-pt content ceiling). We now retry the 429s and log misses so the
+ * failure is visible. The real fix for production is SEMANTIC_SCHOLAR_API_KEY.
+ */
 async function fetchCitations(id: string): Promise<Pick<PaperData, "citation_count" | "influential_citation_count" | "venue" | "tldr">> {
   const empty = { citation_count: null, influential_citation_count: null, venue: null, tldr: null };
-  try {
-    const headers: Record<string, string> = {};
-    if (process.env.SEMANTIC_SCHOLAR_API_KEY) headers["x-api-key"] = process.env.SEMANTIC_SCHOLAR_API_KEY;
-    const res = await fetchTimeout(
-      `${S2_API}/arXiv:${encodeURIComponent(id)}?fields=citationCount,influentialCitationCount,venue,tldr`,
-      { headers },
-      8000,
-    );
-    if (!res.ok) return empty;
-    const j = (await res.json()) as S2Response;
-    return {
-      citation_count: typeof j.citationCount === "number" ? j.citationCount : null,
-      influential_citation_count:
-        typeof j.influentialCitationCount === "number" ? j.influentialCitationCount : null,
-      venue: j.venue || null,
-      tldr: j.tldr?.text || null,
-    };
-  } catch {
-    return empty;
+  const headers: Record<string, string> = { "User-Agent": "githubroast.dev paper-review" };
+  if (process.env.SEMANTIC_SCHOLAR_API_KEY) headers["x-api-key"] = process.env.SEMANTIC_SCHOLAR_API_KEY;
+  const url = `${S2_API}/arXiv:${encodeURIComponent(id)}?fields=citationCount,influentialCitationCount,venue,tldr`;
+  // One initial try + 2 retries: a keyless 429 usually clears within ~1–2s once
+  // the shared pool frees up. With a key the first try almost always succeeds.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetchTimeout(url, { headers }, 8000);
+      if (res.status === 429 && attempt < 2) {
+        await sleep(1200 * (attempt + 1));
+        continue;
+      }
+      if (!res.ok) {
+        console.warn(`S2 citations ${id}: HTTP ${res.status}`);
+        return empty;
+      }
+      const j = (await res.json()) as S2Response;
+      return {
+        citation_count: typeof j.citationCount === "number" ? j.citationCount : null,
+        influential_citation_count:
+          typeof j.influentialCitationCount === "number" ? j.influentialCitationCount : null,
+        venue: j.venue || null,
+        tldr: j.tldr?.text || null,
+      };
+    } catch (e) {
+      if (attempt < 2) {
+        await sleep(1200 * (attempt + 1));
+        continue;
+      }
+      console.warn(`S2 citations ${id} failed:`, e);
+    }
   }
+  return empty;
+}
+
+/** Public re-fetch of just the citation signals — used by the rescore backfill
+ *  to refresh stored papers without re-hitting the arXiv metadata endpoint. */
+export async function fetchPaperCitations(
+  id: string,
+): Promise<Pick<PaperData, "citation_count" | "influential_citation_count" | "venue" | "tldr">> {
+  return fetchCitations(id);
 }
 
 /** Full paper "scan": arXiv metadata + (best-effort) citation signals. */
