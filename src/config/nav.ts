@@ -25,14 +25,7 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  // 「锐评」是下拉父级:GitHub 锐评(首页)+ arxiv 锐评(beta)。
-  {
-    key: "roast",
-    children: [
-      { key: "githubRoast", href: "/", exact: true },
-      { key: "arxivRoast", href: "/arxiv", badge: "beta" },
-    ],
-  },
+  { key: "roast", href: "/", exact: true },
   { key: "leaderboard", href: "/leaderboard" },
   // P1 落地后加: { key: "developers", href: "/developers" },
 ];

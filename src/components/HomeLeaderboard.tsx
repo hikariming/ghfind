@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import {
   getHeatLeaderboard,
   getLeaderboard,
-  getProgressLeaderboard,
   getTrendingLeaderboard,
 } from "@/lib/db";
 import { HomeLeaderboardClient, type HomeLeaderboardLabels } from "./HomeLeaderboardClient";
@@ -25,9 +24,6 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
     scoreTitle: tBoard("scoreTitle"),
     heatLabel: tBoard("heatLabel"),
     heatTitle: tBoard("heatTitle"),
-    progressLabel: tBoard("progressLabel"),
-    progressTitle: tBoard("progressTitle"),
-    progressEmpty: tBoard("progressEmpty"),
   };
   const labels: HomeLeaderboardLabels = {
     heading: tHome("boardHeading"),
@@ -35,14 +31,12 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
     trendView: tBoard("trendView"),
     scoreView: tBoard("scoreView"),
     heatView: tBoard("heatView"),
-    progressView: tBoard("progressView"),
   };
 
-  const [trendingEntries, scoreEntries, heatEntries, progressEntries] = await Promise.all([
+  const [trendingEntries, scoreEntries, heatEntries] = await Promise.all([
     getTrendingLeaderboard(500),
     getLeaderboard(500),
     getHeatLeaderboard(500),
-    getProgressLeaderboard(500),
   ]);
 
   return (
@@ -53,7 +47,6 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
       scoreEntries={withDevLeaderboardPreview("score", scoreEntries)}
       heatEntries={withDevLeaderboardPreview("heat", heatEntries)}
       trendingEntries={withDevLeaderboardPreview("trending", trendingEntries)}
-      progressEntries={withDevLeaderboardPreview("progress", progressEntries)}
     />
   );
 }

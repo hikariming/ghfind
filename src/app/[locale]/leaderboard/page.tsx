@@ -39,9 +39,7 @@ export default async function LeaderboardPage({
       ? "score"
       : query?.view === "heat"
         ? "heat"
-        : query?.view === "progress"
-          ? "progress"
-          : "trending";
+        : "trending";
   await connection();
   setRequestLocale(locale);
   const t = await getTranslations("leaderboard");
@@ -50,25 +48,21 @@ export default async function LeaderboardPage({
       ? t("scoreView")
       : view === "heat"
         ? t("heatView")
-        : view === "progress"
-          ? t("progressView")
-          : t("trendView");
+        : t("trendView");
   const subtitle =
     view === "score"
       ? t("scoreSubtitle")
       : view === "heat"
         ? t("heatSubtitle")
-        : view === "progress"
-          ? t("progressSubtitle")
-          : t("trendSubtitle");
+        : t("trendSubtitle");
   const tabClass = (tab: LeaderboardView) =>
     `shrink-0 snap-start whitespace-nowrap rounded-full px-3 py-1.5 text-center transition-colors ${
       view === tab ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
     }`;
 
   // Structured data only for the canonical score ranking — the directory's main
-  // "top developers" list. Heat/progress are sort variants behind query params,
-  // so emitting one ItemList keeps the markup unambiguous for crawlers.
+  // "top developers" list. Heat is a sort variant behind query params, so
+  // emitting one ItemList keeps the markup unambiguous for crawlers.
   const rankingEntries = view === "score" ? await getLeaderboard(50) : [];
 
   return (
@@ -99,9 +93,6 @@ export default async function LeaderboardPage({
               </Link>
               <Link href="/leaderboard?view=heat" className={tabClass("heat")}>
                 {t("heatView")}
-              </Link>
-              <Link href="/leaderboard?view=progress" className={tabClass("progress")}>
-                {t("progressView")}
               </Link>
             </div>
           </div>

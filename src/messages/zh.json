@@ -10,8 +10,6 @@
   "nav": {
     "brand": "毒舌 GitHub",
     "roast": "锐评",
-    "githubRoast": "GitHub 锐评",
-    "arxivRoast": "arxiv 锐评",
     "leaderboard": "榜单",
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单"
@@ -126,14 +124,9 @@
     "heatLabel": "热度",
     "heatTitle": "被成功查询的次数",
     "viewDetail": "查看 @{username} 的评分详情",
-    "progressView": "📈 进步榜",
-    "progressLabel": "进步",
-    "progressTitle": "相比上次扫描的涨分",
     "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间；热度会先归一化，避免刷量压过高质量账号。",
     "scoreSubtitle": "按 0-100 分价值与信任评分排序。",
-    "heatSubtitle": "按被成功查询审判的累计次数排序。",
-    "progressSubtitle": "比上次扫描涨分即可上榜。",
-    "progressEmpty": "🧮 正在计算中，稍后再来看看…"
+    "heatSubtitle": "按被成功查询审判的累计次数排序。"
   },
   "detail": {
     "back": "← 返回名人堂",

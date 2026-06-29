@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getAllPaperIds, getAllPublicUsernames } from "@/lib/db";
+import { getAllPublicUsernames } from "@/lib/db";
 import { PUBLIC_INDEX_MIN_SCORE, SITE_URL } from "@/lib/site";
 
 // Re-generate at most hourly — new profiles are scored continuously, but the
@@ -26,15 +26,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     entry("/", { changeFrequency: "daily", priority: 1 }),
     entry("/leaderboard", { changeFrequency: "hourly", priority: 0.9 }),
-    entry("/arxiv", { changeFrequency: "weekly", priority: 0.8 }),
-    entry("/arxiv/leaderboard", { changeFrequency: "daily", priority: 0.8 }),
   ];
 
-  const [profiles, papers] = await Promise.all([
-    // Indexable profiles (non-hidden, score ≥ floor). Below-floor pages omitted.
-    getAllPublicUsernames(PUBLIC_INDEX_MIN_SCORE),
-    getAllPaperIds(),
-  ]);
+  // Indexable profiles (non-hidden, score ≥ floor). Below-floor pages omitted.
+  const profiles = await getAllPublicUsernames(PUBLIC_INDEX_MIN_SCORE);
   const profileRoutes: MetadataRoute.Sitemap = profiles.map((p) =>
     entry(`/u/${p.username}`, {
       lastModified: p.scanned_at ? new Date(p.scanned_at) : undefined,
@@ -42,13 +37,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }),
   );
-  const paperRoutes: MetadataRoute.Sitemap = papers.map((p) =>
-    entry(`/arxiv/${p.arxiv_id}`, {
-      lastModified: p.scored_at ? new Date(p.scored_at) : undefined,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    }),
-  );
 
-  return [...staticRoutes, ...profileRoutes, ...paperRoutes];
+  return [...staticRoutes, ...profileRoutes];
 }

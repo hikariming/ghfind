@@ -10,8 +10,6 @@
   "nav": {
     "brand": "GitHub Roast",
     "roast": "Roast",
-    "githubRoast": "GitHub Roast",
-    "arxivRoast": "arXiv Roast",
     "leaderboard": "Leaderboard",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
@@ -126,14 +124,9 @@
     "heatLabel": "Heat",
     "heatTitle": "Successful roast count",
     "viewDetail": "View @{username}'s score detail",
-    "progressView": "📈 Most Improved",
-    "progressLabel": "Gain",
-    "progressTitle": "Points gained since last scan",
     "trendSubtitle": "Trend blends score, unique 7-day visitor heat, and recent lookup recency; heat is normalized so raw attention cannot overwhelm quality.",
     "scoreSubtitle": "Ranked by the 0-100 value and trust score.",
-    "heatSubtitle": "Ranked by total successful roast lookups.",
-    "progressSubtitle": "Climb from your last scan to make the board.",
-    "progressEmpty": "🧮 Crunching the numbers — check back soon…"
+    "heatSubtitle": "Ranked by total successful roast lookups."
   },
   "detail": {
     "back": "← Back to Hall of Fame",

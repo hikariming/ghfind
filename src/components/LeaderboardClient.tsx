@@ -35,12 +35,9 @@ export interface LeaderboardLabels {
   scoreTitle: string;
   heatLabel: string;
   heatTitle: string;
-  progressLabel: string;
-  progressTitle: string;
-  progressEmpty: string;
 }
 
-export type LeaderboardView = "trending" | "score" | "heat" | "progress";
+export type LeaderboardView = "trending" | "score" | "heat";
 
 const RANK_BADGE = ["🥇", "🥈", "🥉"];
 const TAG_TONE: Record<TagLocale, string> = {
@@ -148,7 +145,6 @@ export function LeaderboardClient({
   scoreEntries,
   heatEntries,
   trendingEntries,
-  progressEntries = [],
 }: {
   initialView: LeaderboardView;
   labels: LeaderboardLabels;
@@ -156,7 +152,6 @@ export function LeaderboardClient({
   scoreEntries: LeaderboardClientEntry[];
   heatEntries: LeaderboardClientEntry[];
   trendingEntries: LeaderboardClientEntry[];
-  progressEntries?: LeaderboardClientEntry[];
 }) {
   const locale = useLocale();
   const tTier = useTranslations("tiers");
@@ -166,9 +161,7 @@ export function LeaderboardClient({
     initialView === "score"
       ? scoreEntries
       : initialView === "heat"
-      ? heatEntries
-      : initialView === "progress"
-        ? progressEntries
+        ? heatEntries
         : trendingEntries;
   const tagLocale = tagLocaleFor(locale);
   const totalPages = pageSize ? Math.max(1, Math.ceil(entries.length / pageSize)) : 1;
@@ -194,10 +187,7 @@ export function LeaderboardClient({
     commitPageInput();
   }
 
-  if (entries.length === 0) {
-    const emptyMsg = initialView === "progress" ? labels.progressEmpty : labels.empty;
-    return <p className="text-center text-zinc-500">{emptyMsg}</p>;
-  }
+  if (entries.length === 0) return <p className="text-center text-zinc-500">{labels.empty}</p>;
 
   return (
     <>
@@ -207,7 +197,6 @@ export function LeaderboardClient({
           const style = tierStyle(e.tier);
           const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
-          const delta = e.delta ?? e.final_score - (e.prev_score ?? e.final_score);
           const trendingScore = e.trending_score ?? 0;
           const recentLookupCount = e.recent_lookup_count ?? 0;
           const heatValue = initialView === "trending" ? recentLookupCount : e.lookup_count;
@@ -224,29 +213,40 @@ export function LeaderboardClient({
           const heatMetricValue = <span className="text-amber-300">{heatValue}</span>;
           const divider = <span className="px-1 text-zinc-600">/</span>;
           const metricRows: MetricRow[] =
-            initialView === "progress"
+            initialView === "score"
               ? [
-                  {
-                    label: <span className="text-emerald-300">📈 {labels.progressLabel}</span>,
-                    value: <span className="text-emerald-300">+{delta.toFixed(2)}</span>,
-                    title: labels.progressTitle,
-                    ariaLabel: `${labels.progressLabel} +${delta.toFixed(2)}`,
-                    valueClass: "text-lg",
-                  },
                   {
                     label: scoreLabel,
                     value: scoreValue,
                     title: labels.scoreTitle,
                     ariaLabel: `${labels.scoreLabel} ${e.final_score.toFixed(2)}`,
+                    valueClass: "text-lg",
+                  },
+                  {
+                    label: (
+                      <>
+                        {trendLabel}
+                        {divider}
+                        {heatLabel}
+                      </>
+                    ),
+                    value: (
+                      <>
+                        {trendValue}
+                        {divider}
+                        <span className="text-amber-300">{e.lookup_count}</span>
+                      </>
+                    ),
+                    title: labels.trendTitle,
                   },
                 ]
-              : initialView === "score"
+              : initialView === "heat"
                 ? [
                     {
-                      label: scoreLabel,
-                      value: scoreValue,
-                      title: labels.scoreTitle,
-                      ariaLabel: `${labels.scoreLabel} ${e.final_score.toFixed(2)}`,
+                      label: heatLabel,
+                      value: <span className="text-amber-300">{e.lookup_count}</span>,
+                      title: labels.heatTitle,
+                      ariaLabel: `${labels.heatLabel} ${e.lookup_count}`,
                       valueClass: "text-lg",
                     },
                     {
@@ -254,72 +254,45 @@ export function LeaderboardClient({
                         <>
                           {trendLabel}
                           {divider}
-                          {heatLabel}
+                          {scoreLabel}
                         </>
                       ),
                       value: (
                         <>
                           {trendValue}
                           {divider}
-                          <span className="text-amber-300">{e.lookup_count}</span>
+                          {scoreValue}
                         </>
                       ),
-                      title: labels.trendTitle,
+                      title: labels.scoreTitle,
                     },
                   ]
-                : initialView === "heat"
-                  ? [
-                      {
-                        label: heatLabel,
-                        value: <span className="text-amber-300">{e.lookup_count}</span>,
-                        title: labels.heatTitle,
-                        ariaLabel: `${labels.heatLabel} ${e.lookup_count}`,
-                        valueClass: "text-lg",
-                      },
-                      {
-                        label: (
-                          <>
-                            {trendLabel}
-                            {divider}
-                            {scoreLabel}
-                          </>
-                        ),
-                        value: (
-                          <>
-                            {trendValue}
-                            {divider}
-                            {scoreValue}
-                          </>
-                        ),
-                        title: labels.scoreTitle,
-                      },
-                    ]
-                  : [
-                      {
-                        label: trendLabel,
-                        value: trendValue,
-                        title: labels.trendTitle,
-                        ariaLabel: `${labels.trendLabel} ${trendingScore.toFixed(1)}`,
-                        valueClass: "text-lg",
-                      },
-                      {
-                        label: (
-                          <>
-                            {scoreLabel}
-                            {divider}
-                            {heatLabel}
-                          </>
-                        ),
-                        value: (
-                          <>
-                            {scoreValue}
-                            {divider}
-                            {heatMetricValue}
-                          </>
-                        ),
-                        title: labels.scoreTitle,
-                      },
-                    ];
+                : [
+                    {
+                      label: trendLabel,
+                      value: trendValue,
+                      title: labels.trendTitle,
+                      ariaLabel: `${labels.trendLabel} ${trendingScore.toFixed(1)}`,
+                      valueClass: "text-lg",
+                    },
+                    {
+                      label: (
+                        <>
+                          {scoreLabel}
+                          {divider}
+                          {heatLabel}
+                        </>
+                      ),
+                      value: (
+                        <>
+                          {scoreValue}
+                          {divider}
+                          {heatMetricValue}
+                        </>
+                      ),
+                      title: labels.scoreTitle,
+                    },
+                  ];
           return (
             <li
               key={e.username}
@@ -370,7 +343,7 @@ export function LeaderboardClient({
                   </div>
                 </div>
               </div>
-              <MetricBlock compact={initialView === "progress"} rows={metricRows} />
+              <MetricBlock rows={metricRows} />
             </li>
           );
         })}

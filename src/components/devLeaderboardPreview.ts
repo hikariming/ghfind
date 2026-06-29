@@ -177,7 +177,6 @@ const PREVIEW_BY_VIEW: Record<LeaderboardView, LeaderboardClientEntry[]> = {
   trending: [...DEV_PREVIEW_ENTRIES].sort((a, b) => b.trending_score - a.trending_score),
   score: [...DEV_PREVIEW_ENTRIES].sort((a, b) => b.final_score - a.final_score),
   heat: [...DEV_PREVIEW_ENTRIES].sort((a, b) => b.lookup_count - a.lookup_count),
-  progress: [...DEV_PREVIEW_ENTRIES].sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0)),
 };
 
 export function withDevLeaderboardPreview(
