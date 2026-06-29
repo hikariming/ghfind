@@ -42,6 +42,12 @@ pnpm dev
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
 
+### 持续集成(CI)
+
+每个 Pull Request 以及每次 push 到 `main`,都会运行 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml),按顺序跑完整套关卡:**typecheck → lint → test → build**。目的是在改动**合并进生产部署之前**,就拦住会让构建崩溃的回归(类型错误、import 写错、构建期报错、测试挂掉)。
+
+**注意 —— 环境相关的崩溃 CI 未必能复现。** CI 没有 Turso 凭据,所以依赖数据库的代码路径(如 `getClient()`)会短路返回空、秒级跑完。只有在生产数据量/连接下才暴露的问题——比如 `/sitemap.xml` 在构建期预渲染时做全表扫描而超时——在这里**不会**出现。这类问题靠代码层兜底(该路由已改为 `force-dynamic`,在请求时渲染而非构建时)。把 CI 当作覆盖常见情况的网,而不是生产级验证的替代品。
+
 ## 环境变量
 
 见 [`.env.example`](./.env.example)。最小可跑只需 `GITHUB_TOKEN` + `LLM_API_KEY`(默认 StepFun 阶跃,OpenAI 兼容;可换任意 OpenAI 兼容服务);缓存、限流、人机校验、GitHub 登录、排行榜在未配置时会**静默降级**(适合本地)。生产强烈建议全配齐。
