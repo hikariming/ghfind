@@ -15,6 +15,19 @@ function getServerOriginSnapshot() {
   return null;
 }
 
+type CardTheme = "dark" | "light";
+
+const CARD_THEMES: CardTheme[] = ["dark", "light"];
+
+function withQuery(url: string, params: Record<string, string | undefined>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) query.set(key, value);
+  }
+  const qs = query.toString();
+  return qs ? `${url}?${qs}` : url;
+}
+
 /** One copyable snippet row. Declared at module scope (not inside render) so it
  *  keeps a stable identity and doesn't reset state on every parent render. */
 function SnippetRow({
@@ -82,20 +95,30 @@ export function CopyBadge({
   const cardUrl = `${base}/api/card/${username}`;
   const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
   const cardPreviewUrl = `${previewBase}/api/card/${username}`;
-  const v =
+  const versionParam =
     version !== undefined && version !== null
-      ? `?v=${encodeURIComponent(String(version))}`
-      : "";
-  const badgePreview = `${badgePreviewUrl}${v}`;
-  const cardPreview = `${cardPreviewUrl}${v}`;
+      ? String(version)
+      : undefined;
+  const badgePreview = withQuery(badgePreviewUrl, { v: versionParam });
 
   const badgeAlt = T("badgeAlt");
   const cardAlt = T("cardAlt");
+  const cardUrls = Object.fromEntries(
+    CARD_THEMES.map((theme) => [
+      theme,
+      {
+        url: withQuery(cardUrl, { theme }),
+        preview: withQuery(cardPreviewUrl, { theme, v: versionParam }),
+      },
+    ]),
+  ) as Record<CardTheme, { url: string; preview: string }>;
   const snippets = {
     badgeMd: `[![${badgeAlt}](${badgeUrl})](${pageUrl})`,
     badgeHtml: `<a href="${pageUrl}"><img src="${badgeUrl}" alt="${badgeAlt}" /></a>`,
-    cardMd: `[![${cardAlt}](${cardUrl})](${pageUrl})`,
-    cardHtml: `<a href="${pageUrl}"><img src="${cardUrl}" alt="${cardAlt}" width="600" /></a>`,
+    cardDarkMd: `[![${cardAlt}](${cardUrls.dark.url})](${pageUrl})`,
+    cardDarkHtml: `<a href="${pageUrl}"><img src="${cardUrls.dark.url}" alt="${cardAlt}" width="600" /></a>`,
+    cardLightMd: `[![${cardAlt}](${cardUrls.light.url})](${pageUrl})`,
+    cardLightHtml: `<a href="${pageUrl}"><img src="${cardUrls.light.url}" alt="${cardAlt}" width="600" /></a>`,
   };
 
   const copy = async (text: string, key: string) => {
@@ -141,26 +164,51 @@ export function CopyBadge({
       {/* Big flex card */}
       <div className="mt-6 border-t border-white/10 pt-5">
         <div className="mb-2 text-xs font-semibold text-zinc-300">{T("cardTitle")}</div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={cardPreview}
-          alt={cardAlt}
-          className="w-full max-w-md rounded-xl border border-white/10"
-        />
+        <div className="grid gap-3 lg:grid-cols-2">
+          {CARD_THEMES.map((theme) => (
+            <figure key={theme} className="min-w-0">
+              <figcaption className="mb-1 text-xs font-semibold text-zinc-400">
+                {theme === "dark" ? T("cardDark") : T("cardLight")}
+              </figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cardUrls[theme].preview}
+                alt={`${cardAlt} ${theme}`}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
+              />
+            </figure>
+          ))}
+        </div>
         <div className="mt-3 flex flex-col gap-3">
           <SnippetRow
-            label={T("markdown")}
-            value={snippets.cardMd}
-            copied={copied === "card-md"}
-            onCopy={() => copy(snippets.cardMd, "card-md")}
+            label={`${T("markdown")} · ${T("cardDark")}`}
+            value={snippets.cardDarkMd}
+            copied={copied === "card-dark-md"}
+            onCopy={() => copy(snippets.cardDarkMd, "card-dark-md")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
           <SnippetRow
-            label={T("html")}
-            value={snippets.cardHtml}
-            copied={copied === "card-html"}
-            onCopy={() => copy(snippets.cardHtml, "card-html")}
+            label={`${T("markdown")} · ${T("cardLight")}`}
+            value={snippets.cardLightMd}
+            copied={copied === "card-light-md"}
+            onCopy={() => copy(snippets.cardLightMd, "card-light-md")}
+            copyLabel={T("copy")}
+            copiedLabel={T("copied")}
+          />
+          <SnippetRow
+            label={`${T("html")} · ${T("cardDark")}`}
+            value={snippets.cardDarkHtml}
+            copied={copied === "card-dark-html"}
+            onCopy={() => copy(snippets.cardDarkHtml, "card-dark-html")}
+            copyLabel={T("copy")}
+            copiedLabel={T("copied")}
+          />
+          <SnippetRow
+            label={`${T("html")} · ${T("cardLight")}`}
+            value={snippets.cardLightHtml}
+            copied={copied === "card-light-html"}
+            onCopy={() => copy(snippets.cardLightHtml, "card-light-html")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />

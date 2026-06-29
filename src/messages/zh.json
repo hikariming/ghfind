@@ -199,6 +199,8 @@
     "blurb": "复制下面任意一段贴进 Profile README，分数会自动保持最新，点击图片跳转你的详情页。",
     "badgeTitle": "小徽章",
     "cardTitle": "炫耀大卡",
+    "cardDark": "暗色大卡",
+    "cardLight": "亮色大卡",
     "markdown": "Markdown",
     "html": "HTML",
     "copy": "复制",

@@ -199,6 +199,8 @@
     "blurb": "Copy any snippet below into your Profile README. The score stays up to date automatically, and the image links to your detail page.",
     "badgeTitle": "Badge",
     "cardTitle": "Flex card",
+    "cardDark": "Dark card",
+    "cardLight": "Light card",
     "markdown": "Markdown",
     "html": "HTML",
     "copy": "Copy",
