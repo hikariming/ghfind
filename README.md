@@ -42,6 +42,12 @@ pnpm dev
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
 
+### Continuous integration (CI)
+
+Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](./.github/workflows/ci.yml), which executes the full gate in order: **typecheck → lint → test → build**. The goal is to catch build-breaking regressions (type errors, bad imports, build-time failures, broken tests) *before* they reach a production deploy.
+
+**Caveat — environment-specific failures aren't always reproducible in CI.** CI has no Turso credentials, so DB-backed code paths (e.g. `getClient()`) short-circuit to empty and run instantly. A failure that only manifests under production data/connectivity — like the `/sitemap.xml` route that timed out doing a full-table scan during build-time prerender — will *not* surface here. Those are guarded at the code level instead (that route was moved to `force-dynamic` so it renders at request time, not build time). Treat CI as the net for the common case, not a substitute for production-like verification.
+
 ## Environment variables
 
 See [`.env.example`](./.env.example). The minimum to run is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, and the leaderboard **degrade silently** when unconfigured (fine for local). Configure everything for production.
