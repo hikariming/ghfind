@@ -10,11 +10,11 @@ Turn any public GitHub profile into a **0–100 value & trust score**, an honest
 
 **English** · [中文](./README.zh.md)
 
-[**🔥 Roast a GitHub profile**](https://githubroast.dev/en) · [**🏆 Explore developers**](https://githubroast.dev/en/leaderboard) · [**⭐ View source**](https://github.com/hikariming/github-roast)
+[**🔥 Roast a GitHub profile**](https://ghfind.com/en) · [**🏆 Explore developers**](https://ghfind.com/en/leaderboard) · [**⭐ View source**](https://github.com/hikariming/github-roast)
 
 </div>
 
-[![GitHub Roast developer profile preview](./show_img/usercard.png)](https://githubroast.dev/en/u/hikariming)
+[![GitHub Roast developer profile preview](./show_img/usercard.png)](https://ghfind.com/en/u/hikariming)
 
 ## Assess. Discover. Show off.
 
@@ -26,7 +26,7 @@ Enter a GitHub handle to get a **0–100 value & trust score**, a five-tier verd
 
 GitHub Roast is more than a scoring tool. Use the leaderboard and public profiles to find strong open-source contributors, builders in your ecosystem, potential collaborators, and the developers you want to measure yourself against.
 
-[![GitHub Roast developer leaderboard](./show_img/leaderboard.png)](https://githubroast.dev/en/leaderboard)
+[![GitHub Roast developer leaderboard](./show_img/leaderboard.png)](https://ghfind.com/en/leaderboard)
 
 ### 🪪 Turn your GitHub work into a shareable identity
 
@@ -34,13 +34,13 @@ Every assessment can generate a live badge and light/dark developer card for you
 
 <div align="center">
 
-[![GitHub Roast score badge](https://githubroast.dev/api/badge/hikariming)](https://githubroast.dev/en/u/hikariming)
+[![GitHub Roast score badge](https://ghfind.com/api/badge/hikariming)](https://ghfind.com/en/u/hikariming)
 
-<a href="https://githubroast.dev/en/u/hikariming">
+<a href="https://ghfind.com/en/u/hikariming">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://githubroast.dev/api/card/hikariming?theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://githubroast.dev/api/card/hikariming?theme=light">
-    <img alt="GitHub Roast card for hikariming" src="https://githubroast.dev/api/card/hikariming?theme=light" width="720">
+    <source media="(prefers-color-scheme: dark)" srcset="https://ghfind.com/api/card/hikariming?theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://ghfind.com/api/card/hikariming?theme=light">
+    <img alt="GitHub Roast card for hikariming" src="https://ghfind.com/api/card/hikariming?theme=light" width="720">
   </picture>
 </a>
 

@@ -10,11 +10,11 @@
 
 [English](./README.md) · **中文**
 
-[**🔥 测测 GitHub 成色**](https://githubroast.dev) · [**🏆 发现更多开发者**](https://githubroast.dev/leaderboard) · [**⭐ 查看源码**](https://github.com/hikariming/github-roast)
+[**🔥 测测 GitHub 成色**](https://ghfind.com) · [**🏆 发现更多开发者**](https://ghfind.com/leaderboard) · [**⭐ 查看源码**](https://github.com/hikariming/github-roast)
 
 </div>
 
-[![GitHub Roast 中文开发者主页预览](./show_img/usercard_cn.png)](https://githubroast.dev/u/hikariming)
+[![GitHub Roast 中文开发者主页预览](./show_img/usercard_cn.png)](https://ghfind.com/u/hikariming)
 
 ## 测评、发现、展示，一站完成
 
@@ -26,7 +26,7 @@
 
 这里不只负责打分。你可以通过排行榜和公开开发者主页，找到真正活跃的开源贡献者、同技术栈伙伴、潜在合作者，也能看看那些与你旗鼓相当、值得较量的「对家」。
 
-[![GitHub Roast 开发者排行榜](./show_img/leaderboard.png)](https://githubroast.dev/leaderboard)
+[![GitHub Roast 开发者排行榜](./show_img/leaderboard.png)](https://ghfind.com/leaderboard)
 
 ### 🪪 把开发经历变成可炫耀的身份卡
 
@@ -34,13 +34,13 @@
 
 <div align="center">
 
-[![GitHub Roast 评分徽章](https://githubroast.dev/api/badge/hikariming)](https://githubroast.dev/u/hikariming)
+[![GitHub Roast 评分徽章](https://ghfind.com/api/badge/hikariming)](https://ghfind.com/u/hikariming)
 
-<a href="https://githubroast.dev/u/hikariming">
+<a href="https://ghfind.com/u/hikariming">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://githubroast.dev/api/card/hikariming?theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://githubroast.dev/api/card/hikariming?theme=light">
-    <img alt="hikariming 的 GitHub Roast 开发者卡片" src="https://githubroast.dev/api/card/hikariming?theme=light" width="720">
+    <source media="(prefers-color-scheme: dark)" srcset="https://ghfind.com/api/card/hikariming?theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://ghfind.com/api/card/hikariming?theme=light">
+    <img alt="hikariming 的 GitHub Roast 开发者卡片" src="https://ghfind.com/api/card/hikariming?theme=light" width="720">
   </picture>
 </a>
 

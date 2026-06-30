@@ -43,10 +43,10 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           {t("subtitle")}
         </p>
         <a
-          href="https://githubroast.dev"
+          href="https://ghfind.com"
           className="mt-2 text-sm font-bold tracking-wide text-orange-400 hover:text-orange-300"
         >
-          githubroast.dev
+          ghfind.com
         </a>
         <p className="mt-3 max-w-md text-zinc-400">{t("tagline")}</p>
         <DeveloperCount />
@@ -82,8 +82,8 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           })}
         </p>
         <p className="mt-2">
-          <a href="https://githubroast.dev" className="font-bold text-orange-400 hover:text-orange-300">
-            githubroast.dev
+          <a href="https://ghfind.com" className="font-bold text-orange-400 hover:text-orange-300">
+            ghfind.com
           </a>
         </p>
       </footer>

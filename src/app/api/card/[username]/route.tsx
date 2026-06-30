@@ -155,7 +155,7 @@ function Brand({ palette }: { palette: CardPalette }) {
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
       <div style={{ display: "flex", color: palette.subtle }}>
         GitHub Roast ·{" "}
-        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>githubroast.dev</span>
+        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>ghfind.com</span>
       </div>
       <div style={{ display: "flex", color: palette.subtle }}>Powered by {SPONSOR.name}</div>
     </div>
@@ -280,7 +280,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             Not yet rated
           </div>
           <div style={{ display: "flex", fontSize: 26, color: palette.subtle, marginTop: 8 }}>
-            Get roasted at githubroast.dev
+            Get roasted at ghfind.com
           </div>
         </div>
         <Brand palette={palette} />
