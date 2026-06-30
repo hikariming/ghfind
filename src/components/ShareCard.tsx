@@ -122,7 +122,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       {/* Footer brand */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-zinc-500">{t("brand")}</span>
-        <span className="font-black text-orange-400">githubroast.dev</span>
+        <span className="font-black text-orange-400">ghfind.com</span>
       </div>
     </div>
   );
