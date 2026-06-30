@@ -36,10 +36,13 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   return (
     <main className="flex flex-1 flex-col items-center px-5 py-14 sm:py-20">
       <header className="mb-10 flex flex-col items-center text-center">
-        <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-          {t("titleBefore")} <span className="text-orange-500">GitHub</span> {t("titleAfter")}
+        <p className="mb-3 text-sm font-bold tracking-wide text-zinc-400">
+          {t("brand")} <span className="text-orange-500">GitHub</span>
+        </p>
+        <h1 className="max-w-2xl text-balance text-4xl font-black tracking-tight sm:text-5xl">
+          {t("headline")}
         </h1>
-        <p className="mt-2 text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">
+        <p className="mt-3 text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">
           {t("subtitle")}
         </p>
         <a
