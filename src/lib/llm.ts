@@ -220,7 +220,13 @@ export async function* chatStreamEvents(
 export async function* chatStream(
   config: LlmConfig,
   messages: ChatMessage[],
-  opts?: { temperature?: number; connectTimeoutMs?: number; idleTimeoutMs?: number },
+  opts?: {
+    temperature?: number;
+    connectTimeoutMs?: number;
+    idleTimeoutMs?: number;
+    /** Absolute wall-clock deadline (epoch ms); see {@link chatStreamEvents}. */
+    deadlineMs?: number;
+  },
 ): AsyncGenerator<string> {
   for await (const ev of chatStreamEvents(config, messages, opts)) {
     if (ev.type === "content") yield ev.text;

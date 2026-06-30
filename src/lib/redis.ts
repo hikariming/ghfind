@@ -393,3 +393,33 @@ export async function clearCachedReactionCounts(target: string): Promise<void> {
     // best-effort
   }
 }
+
+// Negative cache for profile danmaku generation. A success persists to the DB
+// (saveProfileDanmaku) and serves forever; a FAILURE (LLM timeout/parse/empty)
+// persists nothing, so without this every viewer of a failing-but-popular
+// profile re-runs the (slow, credit-spending) LLM. This short marker caps a
+// failing account to one attempt per cooldown instead of one per view.
+const DANMAKU_FAIL_TTL_SECONDS = 15 * 60; // 15 min
+const danmakuFailKey = (username: string) => `danmaku:fail:${username.toLowerCase()}`;
+
+/** True when a recent generation for this account failed and is still cooling down. */
+export async function isDanmakuOnFailCooldown(username: string): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return false;
+  try {
+    return (await r.get(danmakuFailKey(username))) !== null;
+  } catch {
+    return false; // Redis hiccup — don't block a generation attempt.
+  }
+}
+
+/** Mark this account's danmaku generation as failed for the cooldown window. */
+export async function markDanmakuFailed(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(danmakuFailKey(username), "1", { ex: DANMAKU_FAIL_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}

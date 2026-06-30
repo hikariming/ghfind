@@ -14,7 +14,11 @@ import {
 import { chatStream, defaultLlmConfig, LlmQuotaError } from "@/lib/llm";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { buildDanmakuMessages } from "@/lib/prompt";
-import { checkRateLimit } from "@/lib/redis";
+import {
+  checkRateLimit,
+  isDanmakuOnFailCooldown,
+  markDanmakuFailed,
+} from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +83,13 @@ export async function GET(
     return jsonNoStore({ lines: [] } satisfies DanmakuResponse);
   }
 
+  // Negative cache: a recent generation for this account failed/timed out, so
+  // don't re-spend LLM credit on every viewer — just show no barrage until the
+  // short cooldown lapses.
+  if (await isDanmakuOnFailCooldown(target)) {
+    return jsonNoStore({ lines: [] } satisfies DanmakuResponse);
+  }
+
   // Generation spends LLM credit — rate-limit by IP (reuses the scan limiter).
   const { success } = await checkRateLimit(clientIp(req));
   if (!success) {
@@ -115,17 +126,37 @@ export async function GET(
 
   let lines: DanmakuLine[];
   try {
-    const raw = await readAll(chatStream(config, buildDanmakuMessages(context)));
+    // Danmaku is non-essential decoration, and the default model is a reasoning
+    // model whose chain-of-thought (dropped by chatStream) can run long before
+    // the JSON appears. The function ceiling is 30s and the llm.ts idle timeout
+    // defaults to 30s too, so a stalled/over-thinking stream would 504 instead
+    // of failing gracefully. Bound it well under 30s: bail on a 10s stall, hard
+    // stop at 22s, then just return empty lines (the page simply shows no
+    // barrage) instead of hanging the function to a platform timeout.
+    const raw = await readAll(
+      chatStream(config, buildDanmakuMessages(context), {
+        connectTimeoutMs: 12_000,
+        idleTimeoutMs: 10_000,
+        deadlineMs: Date.now() + 22_000,
+      }),
+    );
     lines = parseLines(raw);
   } catch (e) {
     if (e instanceof LlmQuotaError) {
+      // Quota is a global condition, not this account's fault — don't cool it
+      // down (the next account would just hit quota too).
       return jsonNoStore({ error: "llm_quota", lines: [] }, { status: 402 });
     }
     console.error("danmaku generation failed:", e);
+    // Timeout / network / parse error → cool this account down so the next
+    // viewer doesn't immediately re-run the same slow, failing generation.
+    await markDanmakuFailed(target);
     return jsonNoStore({ error: "generation_failed", lines: [] }, { status: 502 });
   }
 
   if (lines.length === 0) {
+    // Model returned but nothing parseable — also a wasted generation; cool down.
+    await markDanmakuFailed(target);
     return jsonNoStore({ lines: [] } satisfies DanmakuResponse);
   }
 
