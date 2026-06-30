@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "ghfind | Savage GitHub · Discover the Best Developers",
-    "description": "ghfind — drop a GitHub handle for a 0-100 value & trust score and a savage roast in 30 seconds, then browse the board to find and become the best developers. Built to expose PR farmers, AI bots, and fork-hoarders. ghfind.com",
-    "ogTitle": "ghfind | Savage GitHub · Discover the Best Developers",
+    "title": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
+    "description": "ghfind: a 0-100 GitHub value & trust score plus a savage roast in 30s. See your gaps, self-test and grow, then discover top developers and get found.",
+    "ogTitle": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
     "ogDescription": "ghfind: score any GitHub account and discover top developers. 0-100 value & trust score + a savage roast in 30 seconds, plus a ranked developer board.",
     "twDescription": "Score any GitHub dev + discover the best on ghfind. 0-100 score & savage roast in 30s.",
     "siteName": "ghfind"

@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "ghfind | 毒舌 GitHub · 发现最佳开发者",
-    "description": "ghfind —— 输入 GitHub 账号，30 秒得到 0-100 分的价值与信任评分和一句扎心毒舌点评；逛发现榜，找到并成为最佳开发者。专治刷量号、AI 机器人、收藏夹开发者。ghfind.com",
-    "ogTitle": "ghfind | 毒舌 GitHub · 发现最佳开发者",
+    "title": "ghfind | 毒舌 GitHub 评分 · 开发者自测成长 · 发现最佳开发者",
+    "description": "ghfind（毒舌 GitHub 评分）：输入 GitHub 账号，30 秒得到 0-100 分价值与信任评分和一句扎心毒舌点评，看清差距、知道往哪努力，自测并持续成长；再逛发现榜找到值得关注的优质开发者，也让世界发现你。专治刷量号、AI 机器人、收藏夹开发者。",
+    "ogTitle": "ghfind | 毒舌 GitHub 评分 · 开发者自测成长 · 发现最佳开发者",
     "ogDescription": "ghfind：给 GitHub 账号打分，发现最佳开发者。30 秒出 0-100 分含金量评分 + 一句毒舌点评，还能逛开发者榜单。",
     "twDescription": "30 秒给 GitHub 账号打分 + 毒舌点评，在 ghfind 发现最佳开发者。",
     "siteName": "ghfind"
