@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   applyReactionSelection,
@@ -37,8 +37,29 @@ export function ProfileReactions({
   const [failed, setFailed] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [animated, setAnimated] = useState<ProfileReaction | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setPickerOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setPickerOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [pickerOpen]);
 
   async function react(reaction: ProfileReaction) {
+    setPickerOpen(false);
     if (!authenticated) {
       setShowLogin(true);
       setFailed(false);
@@ -81,21 +102,26 @@ export function ProfileReactions({
     }
   }
 
+  const activeReactions = PROFILE_REACTIONS.filter(
+    (reaction) => state.counts[reaction] > 0,
+  );
+
   return (
     <section className="mt-4 rounded-2xl border border-orange-300/15 bg-orange-500/[0.035] p-3 sm:p-4">
-      <div className="mb-3 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <div className="mb-2.5 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <h2 className="text-sm font-bold text-orange-100">{t("heading")}</h2>
         <p className="text-[11px] text-zinc-500">{t("hint")}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-        {PROFILE_REACTIONS.map((reaction) => {
+      <div className="flex flex-wrap items-center gap-1.5">
+        {activeReactions.map((reaction) => {
           const selected = state.viewerReaction === reaction;
           const count = state.counts[reaction];
           return (
             <button
               key={reaction}
               type="button"
+              title={t(reaction)}
               aria-label={`${t(reaction)}: ${count}`}
               aria-pressed={selected}
               disabled={saving}
@@ -103,20 +129,72 @@ export function ProfileReactions({
               onAnimationEnd={() => {
                 if (animated === reaction) setAnimated(null);
               }}
-              className={`profile-reaction-button flex min-h-16 flex-col items-center justify-center rounded-xl border px-2 py-2 transition-colors disabled:cursor-wait ${
+              className={`profile-reaction-button inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors disabled:cursor-wait ${
                 selected
-                  ? "border-orange-400/60 bg-orange-500/15 text-orange-100 shadow-[0_0_24px_rgba(249,115,22,0.12)]"
+                  ? "border-orange-400/60 bg-orange-500/15 text-orange-100"
                   : "border-white/10 bg-black/20 text-zinc-300 hover:border-orange-300/30 hover:bg-orange-500/[0.07]"
               } ${animated === reaction ? "profile-reaction-bump" : ""}`}
             >
-              <span aria-hidden="true" className="text-2xl leading-none">
+              <span aria-hidden="true" className="text-base leading-none">
                 {REACTION_EMOJI[reaction]}
               </span>
-              <span className="mt-1 text-[11px] font-medium leading-none">{t(reaction)}</span>
-              <span className="mt-1 text-xs font-bold tabular-nums text-zinc-400">{count}</span>
+              <span className="text-xs font-bold tabular-nums">{count}</span>
             </button>
           );
         })}
+
+        <div ref={pickerRef} className="relative">
+          <button
+            type="button"
+            aria-label={t("addReaction")}
+            aria-haspopup="true"
+            aria-expanded={pickerOpen}
+            disabled={saving}
+            onClick={() => {
+              if (!authenticated) {
+                setShowLogin(true);
+                setFailed(false);
+                return;
+              }
+              setPickerOpen((open) => !open);
+            }}
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2 text-zinc-400 transition-colors hover:border-orange-300/30 hover:bg-orange-500/[0.07] hover:text-orange-100 disabled:cursor-wait"
+          >
+            <span aria-hidden="true" className="text-base leading-none">
+              🙂
+            </span>
+            <span aria-hidden="true" className="text-sm font-bold leading-none">
+              +
+            </span>
+          </button>
+
+          {pickerOpen ? (
+            <div
+              role="menu"
+              className="absolute left-0 top-full z-10 mt-1.5 flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/95 px-2 py-1.5 shadow-xl shadow-black/40 backdrop-blur"
+            >
+              {PROFILE_REACTIONS.map((reaction) => {
+                const selected = state.viewerReaction === reaction;
+                return (
+                  <button
+                    key={reaction}
+                    type="button"
+                    role="menuitemradio"
+                    title={t(reaction)}
+                    aria-label={t(reaction)}
+                    aria-checked={selected}
+                    onClick={() => react(reaction)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-colors hover:bg-orange-500/15 ${
+                      selected ? "bg-orange-500/20 ring-1 ring-orange-400/50" : ""
+                    }`}
+                  >
+                    <span aria-hidden="true">{REACTION_EMOJI[reaction]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {showLogin && !authenticated ? (
