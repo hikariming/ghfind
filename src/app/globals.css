@@ -355,7 +355,7 @@ html[data-theme="light"] [data-force-dark] .text-orange-400 {
 }
 
 .mobile-danmaku-comment {
-  animation: mobile-danmaku 20s linear infinite;
+  animation: mobile-danmaku 20s linear 1 forwards;
   will-change: transform;
 }
 

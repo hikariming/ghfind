@@ -155,7 +155,7 @@ export default async function AccountPage({
   });
 
   return (
-    <main className="relative isolate flex w-full flex-1 justify-center overflow-hidden px-5 py-14 sm:py-20">
+    <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
       <FloatingCommentBubbles
         key={d.username}
         lang={lang}
@@ -163,7 +163,7 @@ export default async function AccountPage({
         initialComments={comments}
         initialDanmaku={danmaku}
       />
-      <div className="relative z-10 flex w-full max-w-2xl flex-col">
+      <div className="relative z-10 flex w-full max-w-4xl flex-col">
         <JsonLd
           data={profileJsonLd({
             username: d.username,
@@ -178,20 +178,25 @@ export default async function AccountPage({
           {t("back")}
         </Link>
 
+      <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* Left: sticky identity sidebar — score stays visible while reading */}
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
-        className={`animate-pop mt-4 flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
+        className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
         style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
       >
-        <a
-          href={d.profile_url ?? `https://github.com/${d.username}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring} hover:bg-black/45`}
-          style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
-        >
-          @{d.username}
-        </a>
+        <h1 className="max-w-full">
+          <a
+            href={d.profile_url ?? `https://github.com/${d.username}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-block max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring} hover:bg-black/45`}
+            style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
+          >
+            @{d.username}
+          </a>
+        </h1>
         {d.display_name && (
           <div className="mt-2 max-w-full truncate text-sm text-zinc-400">{d.display_name}</div>
         )}
@@ -259,7 +264,7 @@ export default async function AccountPage({
 
       <Suspense
         fallback={
-          <div className="mt-4 h-28 animate-pulse rounded-2xl border border-orange-300/15 bg-orange-500/[0.035]" />
+          <div className="h-28 animate-pulse rounded-2xl border border-orange-300/15 bg-orange-500/[0.035]" />
         }
       >
         <ProfileReactionsSection
@@ -269,39 +274,17 @@ export default async function AccountPage({
         />
       </Suspense>
 
-      {/* Dimension breakdown */}
-      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-        <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
-        <div className="flex flex-col gap-3">
-          {DIMENSIONS.map((key) => {
-            const max = SUBSCORE_MAX[key];
-            const v = d.sub_scores[key] ?? 0;
-            const pct = Math.max(0, Math.min(1, v / max));
-            return (
-              <div key={key}>
-                <div className="mb-1 flex items-baseline justify-between text-sm">
-                  <span className="text-zinc-300">{tDim(key)}</span>
-                  <span className="tabular-nums text-zinc-400">
-                    {v.toFixed(1)}
-                    <span className="text-zinc-600"> / {max}</span>
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={`h-full rounded-full ${barColor(pct)}`}
-                    style={{ width: `${pct * 100}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+        <CopyBadge baseUrl={SITE_URL} username={d.username} version={d.scanned_at} />
+        </aside>
+
+        {/* Right: evidence + report */}
+        <div className="flex min-w-0 flex-1 flex-col">
 
       {/* Notable contributions — popular repos the user has shipped to (the
-          hardest evidence behind the ecosystem-impact dimension). */}
+          hardest evidence behind the ecosystem-impact dimension). Surfaced first
+          as the strongest signal on the profile. */}
       {impactRepos.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-amber-300/15 bg-amber-500/[0.03] p-5 sm:p-6">
+        <section className="mb-6 rounded-2xl border border-amber-300/15 bg-amber-500/[0.03] p-5 sm:p-6">
           <h2 className="mb-1 text-base font-bold text-amber-200">{t("impactHeading")}</h2>
           <p className="mb-4 text-xs text-zinc-500">{t("impactSub")}</p>
           <div className="flex flex-col gap-2">
@@ -331,6 +314,35 @@ export default async function AccountPage({
           </div>
         </section>
       )}
+
+      {/* Dimension breakdown */}
+      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+        <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
+        <div className="flex flex-col gap-3">
+          {DIMENSIONS.map((key) => {
+            const max = SUBSCORE_MAX[key];
+            const v = d.sub_scores[key] ?? 0;
+            const pct = Math.max(0, Math.min(1, v / max));
+            return (
+              <div key={key}>
+                <div className="mb-1 flex items-baseline justify-between text-sm">
+                  <span className="text-zinc-300">{tDim(key)}</span>
+                  <span className="tabular-nums text-zinc-400">
+                    {v.toFixed(1)}
+                    <span className="text-zinc-600"> / {max}</span>
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={`h-full rounded-full ${barColor(pct)}`}
+                    style={{ width: `${pct * 100}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Featured work — the user's own popular repos, self-pinned floated up. */}
       {featuredRepos.length > 0 && (
@@ -472,9 +484,7 @@ export default async function AccountPage({
           </p>
         )}
       </section>
-
-      <div className="mt-6">
-        <CopyBadge baseUrl={SITE_URL} username={d.username} version={d.scanned_at} />
+        </div>
       </div>
 
       <footer className="mt-10 text-center">
