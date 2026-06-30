@@ -9,7 +9,6 @@ import {
 } from "@/lib/github";
 import {
   checkRateLimit,
-  clearCachedLeaderboards,
   coalesceScan,
   getCachedScan,
 } from "@/lib/redis";
@@ -37,8 +36,14 @@ function clientIp(req: NextRequest): string {
 }
 
 async function recordSuccessfulLookup(username: string, ip: string): Promise<void> {
-  const counted = await recordAccountLookup(username, ip);
-  if (counted) await clearCachedLeaderboards();
+  // Record the lookup for heat/trending counts, but intentionally DON'T bust the
+  // leaderboard cache here. Under real traffic this "counted" path fires
+  // constantly (first lookup per IP per account per 24h), and clearing all 16
+  // board variants each time meant the 5-min cache almost never survived — every
+  // /leaderboard visit then ran the heavy 500-row triple JOIN and hammered Turso
+  // (slow board + cascading DB timeouts elsewhere). A board that's up to one TTL
+  // stale is perfectly fine; natural expiry refreshes it.
+  await recordAccountLookup(username, ip);
 }
 
 export async function POST(req: NextRequest) {

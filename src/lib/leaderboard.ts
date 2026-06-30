@@ -27,10 +27,18 @@ const fetchers: Record<
   progress: (limit, window) => getProgressLeaderboard(limit, window),
 };
 
+// In-process single-flight: when the cache expires, a burst of concurrent
+// requests would otherwise ALL run the heavy triple JOIN (cache stampede). We
+// dedupe per (view, window) within a function instance so only the first miss
+// queries the DB; the rest await the same promise. Fluid Compute reuses
+// instances across concurrent requests, so this absorbs most of the herd.
+const inflight = new Map<string, Promise<{ entries: LeaderboardEntry[]; cached: boolean }>>();
+
 /**
  * Cache-aside leaderboard read shared by the home page (SSR) and the
  * /api/leaderboard route. A hit serves entirely from Redis — no DB query — so
- * the expensive triple LEFT JOIN only runs once per (view, window) per TTL.
+ * the expensive triple LEFT JOIN only runs once per (view, window) per TTL, and
+ * concurrent misses are coalesced into a single query.
  */
 export async function getLeaderboardCached(
   view: LeaderboardCacheView = "trending",
@@ -38,7 +46,20 @@ export async function getLeaderboardCached(
 ): Promise<{ entries: LeaderboardEntry[]; cached: boolean }> {
   const cached = await getCachedLeaderboard(view, window);
   if (cached) return { entries: cached, cached: true };
-  const entries = await fetchers[view](LEADERBOARD_LIMIT, window);
-  await setCachedLeaderboard(entries, view, window);
-  return { entries, cached: false };
+
+  const key = `${view}:${window}`;
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  const run = (async () => {
+    const entries = await fetchers[view](LEADERBOARD_LIMIT, window);
+    await setCachedLeaderboard(entries, view, window);
+    return { entries, cached: false };
+  })();
+  inflight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    inflight.delete(key);
+  }
 }
