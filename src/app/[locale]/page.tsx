@@ -42,16 +42,9 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         <h1 className="max-w-2xl text-balance text-4xl font-black tracking-tight sm:text-5xl">
           {t("headline")}
         </h1>
-        <p className="mt-3 text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">
+        <p className="mt-3 max-w-md text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">
           {t("subtitle")}
         </p>
-        <a
-          href="https://ghfind.com"
-          className="mt-2 text-sm font-bold tracking-wide text-orange-400 hover:text-orange-300"
-        >
-          ghfind.com
-        </a>
-        <p className="mt-3 max-w-md text-zinc-400">{t("tagline")}</p>
         <DeveloperCount />
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
           {TIER_PILLS.map(({ key, emoji, cls }) => (
