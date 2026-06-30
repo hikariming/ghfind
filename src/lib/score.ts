@@ -301,15 +301,13 @@ export function score(m: RawMetrics): Scoring {
     issuePts +
     highImpactCorePrBonus(m) -
     authorSelfClosedExternalPenalty(m);
-  const caps = [
-    contributionQualityCap(m),
-    lowPrestigeBulkContributionCap(m),
-  ].filter((cap): cap is number => cap !== undefined);
-  const contributionCap = caps.length > 0 ? Math.min(...caps) : undefined;
+  const contributionCap = Math.min(
+    contributionQualityCap(m) ?? Infinity,
+    lowPrestigeBulkContributionCap(m) ?? Infinity,
+    SUBSCORE_MAX.contribution_quality,
+  );
   sub.contribution_quality = round(
-    contributionCap === undefined
-      ? contributionQualityRaw
-      : Math.min(contributionQualityRaw, contributionCap),
+    Math.min(contributionQualityRaw, contributionCap),
     1,
   );
 
