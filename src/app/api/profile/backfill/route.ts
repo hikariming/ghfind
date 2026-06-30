@@ -7,6 +7,7 @@ import {
 import {
   AccountNotFoundError,
   GitHubAuthRequiredError,
+  GitHubDataUnavailableError,
   GitHubRateLimitError,
   collect,
 } from "@/lib/github";
@@ -96,6 +97,12 @@ export async function POST(req: NextRequest) {
     }
     if (e instanceof GitHubRateLimitError) {
       return NextResponse.json({ error: "github_rate_limited" }, { status: 503 });
+    }
+    if (e instanceof GitHubDataUnavailableError) {
+      return NextResponse.json(
+        { error: "github_unavailable", retry_after: 60 },
+        { status: 503, headers: { "Retry-After": "60" } },
+      );
     }
     console.error("profile backfill failed:", e);
     return NextResponse.json({ error: "backfill_failed" }, { status: 500 });

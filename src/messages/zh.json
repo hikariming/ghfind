@@ -234,6 +234,7 @@
     "turnstile_failed": "人机校验没过，刷新页面重试。",
     "rate_limited": "手速太快了，喘口气，一分钟后再来。",
     "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",
+    "github_unavailable": "GitHub 数据暂时不可用，稍后再试。",
     "scan_failed": "扫描翻车了，稍后再试。"
   },
   "share": {

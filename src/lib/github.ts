@@ -18,6 +18,7 @@ export class AccountNotFoundError extends Error {}
 export class GitHubRateLimitError extends Error {}
 /** Raised when the app cannot collect GraphQL-only scoring dimensions safely. */
 export class GitHubAuthRequiredError extends Error {}
+export class GitHubDataUnavailableError extends Error {}
 
 function authHeaders(): Record<string, string> {
   const token = process.env.GITHUB_TOKEN;
@@ -87,9 +88,9 @@ async function restGet<T>(path: string): Promise<T | null> {
 async function graphql<T>(
   query: string,
   variables: Record<string, unknown>,
-): Promise<T | null> {
+): Promise<T> {
   const token = process.env.GITHUB_TOKEN;
-  if (!token) return null; // GraphQL requires auth
+  if (!token) throw new GitHubAuthRequiredError("GITHUB_TOKEN is required.");
   let res: Response;
   try {
     res = await fetch(`${GITHUB_API}/graphql`, {
@@ -99,15 +100,28 @@ async function graphql<T>(
       cache: "no-store",
     });
   } catch {
-    return null;
+    throw new GitHubDataUnavailableError("GitHub GraphQL request failed.");
   }
-  if (!res.ok) return null;
+  if (res.status === 403 || res.status === 429) {
+    throw new GitHubRateLimitError();
+  }
+  if (!res.ok) {
+    throw new GitHubDataUnavailableError(`GitHub GraphQL HTTP ${res.status}.`);
+  }
+  let json: { data?: T; errors?: { message?: string }[] };
   try {
-    const json = (await res.json()) as { data?: T };
-    return json.data ?? null;
+    json = (await res.json()) as { data?: T; errors?: { message?: string }[] };
   } catch {
-    return null;
+    throw new GitHubDataUnavailableError("GitHub GraphQL returned invalid JSON.");
   }
+  if (json.errors?.length) {
+    const message = json.errors[0]?.message ?? "GitHub GraphQL error.";
+    throw /rate.?limit/i.test(message)
+      ? new GitHubRateLimitError(message)
+      : new GitHubDataUnavailableError(message);
+  }
+  if (!json.data) throw new GitHubDataUnavailableError("GitHub GraphQL returned no data.");
+  return json.data;
 }
 
 function parseTs(value: string | null | undefined): Date | null {
@@ -269,10 +283,11 @@ async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]>
           }
         }
       }
-    }`,
+  }`,
     { login: username, count },
   );
-  const nodes = data?.user?.pullRequests?.nodes ?? [];
+  if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no PR data.");
+  const nodes = data.user.pullRequests?.nodes ?? [];
   return nodes.map((n): RecentPr => {
     const repo = n.repository;
     const churn = (n.additions ?? 0) + (n.deletions ?? 0);
@@ -355,10 +370,11 @@ async function fetchRecentAllPrs(username: string, count = 30): Promise<AnyPr[]>
           nodes { title repository { nameWithOwner } }
         }
       }
-    }`,
+  }`,
     { login: username, count },
   );
-  const nodes = data?.user?.pullRequests?.nodes ?? [];
+  if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no PR data.");
+  const nodes = data.user.pullRequests?.nodes ?? [];
   return nodes
     .filter((n) => n.title && n.repository)
     .map((n) => ({ title: n.title as string, repo: n.repository!.nameWithOwner }));
@@ -658,8 +674,7 @@ interface YearContribs {
 /**
  * Fetch all-time per-repo commit + PR contributions by aliasing one
  * `contributionsCollection(from,to)` per year (GraphQL caps each to a 1-year
- * span), capped to the most recent {@link IMPACT_YEAR_CAP} years. Returns null
- * when unauthenticated (caller falls back to the recent-PR computation).
+ * span), capped to the most recent {@link IMPACT_YEAR_CAP} years.
  */
 async function fetchContribReposByYear(
   username: string,
@@ -701,7 +716,7 @@ async function fetchContribReposByYear(
     query,
     variables,
   );
-  if (!data?.user) return null;
+  if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
 
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
   const map = new Map<string, ContribRepoAgg>();
@@ -837,22 +852,25 @@ export async function collect(username: string): Promise<{
     }`,
     { login: username },
   );
-  const cc = contrib?.user?.contributionsCollection;
-  const contributionYears = contrib?.user?.contributionYears?.contributionYears ?? [];
-  const pinnedRepos = (contrib?.user?.pinnedItems?.nodes ?? [])
+  if (!contrib.user) {
+    throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
+  }
+  const cc = contrib.user.contributionsCollection;
+  const contributionYears = contrib.user.contributionYears?.contributionYears ?? [];
+  const pinnedRepos = (contrib.user.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
-  const organizations = (contrib?.user?.organizations?.nodes ?? [])
+  const organizations = (contrib.user.organizations?.nodes ?? [])
     .map((n) => n?.login)
     .filter((s): s is string => typeof s === "string");
-  const mergedPrCount = contrib?.user?.mergedPRs?.totalCount ?? 0;
-  const totalPrCount = contrib?.user?.allPRs?.totalCount ?? 0;
+  const mergedPrCount = contrib.user.mergedPRs?.totalCount ?? 0;
+  const totalPrCount = contrib.user.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
-    contrib?.user?.closedPRs?.nodes ?? [],
-    contrib?.user?.closedPRs?.totalCount ?? 0,
+    contrib.user.closedPRs?.nodes ?? [],
+    contrib.user.closedPRs?.totalCount ?? 0,
     loginLower,
   );
-  const issuesCreated = contrib?.user?.issues?.totalCount ?? 0;
+  const issuesCreated = contrib.user.issues?.totalCount ?? 0;
   const decidedPrCount = mergedPrCount + closedPrBreakdown.maintainer_closed_unmerged_pr_count;
   const prRejectionRate =
     decidedPrCount > 0
