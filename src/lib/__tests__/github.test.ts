@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { collect, GitHubDataUnavailableError } from "../github";
+import {
+  boundedContributionYearsActive,
+  collect,
+  GitHubDataUnavailableError,
+} from "../github";
 
 const originalToken = process.env.GITHUB_TOKEN;
 
@@ -9,6 +13,35 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+describe("boundedContributionYearsActive", () => {
+  const now = new Date("2026-07-01T00:00:00Z");
+
+  it("counts contribution calendar years only within the account lifetime", () => {
+    expect(
+      boundedContributionYearsActive(
+        [2027, 2026, 2025, 2024, 2023],
+        "2024-05-01T00:00:00Z",
+        now,
+      ),
+    ).toBe(3);
+  });
+
+  it("allows short-lived accounts to span adjacent calendar contribution years", () => {
+    expect(
+      boundedContributionYearsActive(
+        [2026, 2025],
+        "2025-12-31T00:00:00Z",
+        new Date("2026-01-01T00:00:00Z"),
+      ),
+    ).toBe(2);
+    expect(boundedContributionYearsActive([], "2025-12-31T00:00:00Z", now)).toBe(0);
+  });
+
+  it("dedupes repeated contribution years before bounding", () => {
+    expect(boundedContributionYearsActive([2026, 2026, 2025], "2020-01-01T00:00:00Z", now)).toBe(2);
+  });
+});
 
 describe("collect", () => {
   beforeEach(() => {

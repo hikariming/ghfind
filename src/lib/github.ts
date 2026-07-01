@@ -167,6 +167,28 @@ function parseTs(value: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+export function boundedContributionYearsActive(
+  contributionYears: number[],
+  createdAt: string | null | undefined,
+  now = new Date(),
+): number {
+  const activeYears = new Set(contributionYears.filter((year) => Number.isInteger(year)));
+  if (activeYears.size === 0) return 0;
+
+  const created = parseTs(createdAt);
+  if (!created) return activeYears.size;
+
+  const createdYear = created.getUTCFullYear();
+  const currentYear = now.getUTCFullYear();
+  if (currentYear < createdYear) return 0;
+
+  let bounded = 0;
+  for (const year of activeYears) {
+    if (year >= createdYear && year <= currentYear) bounded += 1;
+  }
+  return bounded;
+}
+
 function meaningfulText(value: string | null | undefined): string {
   return (value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -1548,7 +1570,11 @@ export async function collect(username: string): Promise<{
     issues_created: issuesCreated,
     last_year_contributions: lastYearContributions,
     activity_type_count: activityTypes,
-    contribution_years_active: contributionYears.length,
+    contribution_years_active: boundedContributionYearsActive(
+      contributionYears,
+      user.created_at,
+      now,
+    ),
     days_since_last_activity: daysSinceActive,
     recent_merged_pr_sample: recentPrs.length,
     recent_trivial_pr_count: trivialPrs,

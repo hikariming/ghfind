@@ -263,6 +263,8 @@ describe("buildRoastMessages", () => {
       total_merged_pr_count: 74,
     });
     expect(zhPayload.context_notes.recent_prs_scope).toContain("不代表全量 PR 分布");
+    expect(zhPayload.context_notes.account_time_scope).toContain("自然年份数量");
+    expect(zhPayload.context_notes.account_time_scope).toContain("不要把它直接和 account_age_years 比较");
     expect(zhPayload.context_notes.no_sample_extrapolation).toContain("不要仅凭 recent_prs");
 
     const [enSys] = buildRoastJudgeMessages(scan, "en");
@@ -275,6 +277,8 @@ describe("buildRoastMessages", () => {
       total_merged_pr_count: 74,
     });
     expect(enPayload.context_notes.recent_prs_scope).toContain("not the all-time PR distribution");
+    expect(enPayload.context_notes.account_time_scope).toContain("calendar years with contributions");
+    expect(enPayload.context_notes.account_time_scope).toContain("time-travel");
     expect(enPayload.context_notes.no_sample_extrapolation).toContain("Do not infer");
   });
 
