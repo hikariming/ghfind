@@ -69,23 +69,44 @@ export function LeaderboardControls({
   return (
     <div
       className={cn(
-        frame === "panel" && "rounded-2xl border border-white/10 bg-white/[0.02] p-3 shadow-sm sm:p-4",
+        frame === "panel" &&
+          "rounded-2xl border border-white/10 bg-white/[0.02] p-3 shadow-sm sm:p-4",
         className,
       )}
     >
-      <div className={cn("flex flex-col gap-3", action && "sm:flex-row sm:items-start sm:justify-between")}>
+      <div
+        className={cn(
+          "flex flex-col gap-3",
+          action && "sm:flex-row sm:items-start sm:justify-between",
+        )}
+      >
         <div className="flex w-full flex-wrap items-center gap-2">
           {viewItems.map((item) => (
             <LeaderboardControlChip key={item.key} item={item} size="view" />
           ))}
         </div>
-        {action ? <div className="shrink-0 self-end sm:self-auto">{action}</div> : null}
+        {action ? (
+          <div className="flex w-full justify-end sm:w-auto sm:shrink-0 sm:self-auto">
+            {action}
+          </div>
+        ) : null}
       </div>
 
-      <div role="group" aria-label={windowAriaLabel} className="mt-3 flex w-full flex-wrap items-center gap-2">
-        {windowItems.map((item) => (
-          <LeaderboardControlChip key={item.key} item={item} size="window" />
-        ))}
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {action ? (
+          <div className="sm:hidden">
+            <div className="h-px bg-white/10" />
+          </div>
+        ) : null}
+        <div
+          role="group"
+          aria-label={windowAriaLabel}
+          className="flex w-full flex-wrap items-center gap-2"
+        >
+          {windowItems.map((item) => (
+            <LeaderboardControlChip key={item.key} item={item} size="window" />
+          ))}
+        </div>
       </div>
     </div>
   );

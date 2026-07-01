@@ -201,7 +201,7 @@ export default async function AccountPage({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
-        className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
+        className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-center ring-1 ${style.ring}`}
         style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
       >
         <h1 className="max-w-full">
@@ -216,10 +216,12 @@ export default async function AccountPage({
           </a>
         </h1>
         {d.display_name && (
-          <div className="mt-2 max-w-full truncate text-sm text-zinc-400">{d.display_name}</div>
+          <div className="mt-2 max-w-full truncate text-sm font-medium text-zinc-300">
+            {d.display_name}
+          </div>
         )}
         {bio && (
-          <div className="mt-2 line-clamp-2 max-w-md text-sm text-zinc-500">{bio}</div>
+          <div className="mt-2 line-clamp-2 max-w-md text-sm text-zinc-400">{bio}</div>
         )}
         <TierAvatarFrame
           username={d.username}
@@ -235,7 +237,9 @@ export default async function AccountPage({
         <div className={`mt-1 text-2xl font-bold ${style.text}`}>
           {style.emoji} {tTier(`${tierKey}.name`)}
         </div>
-        <div className="mt-1 text-sm text-zinc-400">{tTier(`${tierKey}.blurb`)}</div>
+        <div className="mt-1 text-sm font-medium text-zinc-300">
+          {tTier(`${tierKey}.blurb`)}
+        </div>
 
         {d.tags.zh.length + d.tags.en.length > 0 && (
           <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -282,28 +286,28 @@ export default async function AccountPage({
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next
           tier, and an inline re-detect button to refresh the score. */}
-      <div className="mt-5 rounded-2xl border border-orange-300/15 bg-orange-500/[0.04] p-4 text-center">
-        <div className="text-xs font-medium uppercase tracking-wide text-orange-200/80">
+      <div className="mt-5 rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center">
+        <div className="text-xs font-semibold uppercase tracking-wide text-orange-200/90">
           {t("rankTitle")}
         </div>
         {rank ? (
           <>
             <div className={`mt-1 text-4xl font-black tabular-nums ${style.text}`}>
               #{rank.rank}
-              <span className="ml-1 text-sm font-medium text-zinc-500">
+              <span className="ml-1 text-sm font-medium text-zinc-400">
                 {t("rankUnit", { total: rank.total })}
               </span>
             </div>
             {beat != null && (
-              <div className="mt-0.5 text-xs text-zinc-400">
+              <div className="mt-0.5 text-xs font-medium text-zinc-300">
                 {t("beatInline", { beat: beat.toFixed(1) })}
               </div>
             )}
           </>
         ) : (
-          <div className="mt-1 text-sm text-zinc-400">{t("rankUnranked")}</div>
+          <div className="mt-1 text-sm font-medium text-zinc-300">{t("rankUnranked")}</div>
         )}
-        <div className="mt-2 text-xs text-zinc-300">
+        <div className="mt-2 text-xs font-medium text-zinc-200">
           {promo
             ? t("milestoneNext", { tier: promoTierName!, gap: promoGap! })
             : t("milestoneCapped")}
@@ -349,9 +353,9 @@ export default async function AccountPage({
           hardest evidence behind the ecosystem-impact dimension). Surfaced first
           as the strongest signal on the profile. */}
       {impactRepos.length > 0 && (
-        <section className="mb-6 rounded-2xl border border-amber-300/15 bg-amber-500/[0.03] p-5 sm:p-6">
+        <section className="mb-6 rounded-2xl border border-amber-300/25 bg-amber-500/[0.05] p-5 sm:p-6">
           <h2 className="mb-1 text-base font-bold text-amber-200">{t("impactHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-500">{t("impactSub")}</p>
+          <p className="mb-4 text-xs text-zinc-400">{t("impactSub")}</p>
           <div className="flex flex-col gap-2">
             {impactRepos.map((r) => (
               <a
@@ -381,7 +385,7 @@ export default async function AccountPage({
       )}
 
       {/* Dimension breakdown */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
         <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
         <div className="flex flex-col gap-3">
           {DIMENSIONS.map((key) => {
@@ -411,9 +415,9 @@ export default async function AccountPage({
 
       {/* Featured work — the user's own popular repos, self-pinned floated up. */}
       {featuredRepos.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <h2 className="mb-1 text-base font-bold text-zinc-200">{t("worksHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-500">{t("worksSub")}</p>
+          <p className="mb-4 text-xs text-zinc-400">{t("worksSub")}</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {featuredRepos.map((r) => (
               <a
@@ -432,10 +436,10 @@ export default async function AccountPage({
                   </span>
                 </div>
                 {r.description && (
-                  <p className="line-clamp-2 text-xs text-zinc-500">{r.description}</p>
+                  <p className="line-clamp-2 text-xs text-zinc-400">{r.description}</p>
                 )}
                 {r.language && (
-                  <span className="text-[11px] text-zinc-500">{r.language}</span>
+                  <span className="text-[11px] text-zinc-400">{r.language}</span>
                 )}
               </a>
             ))}
@@ -445,17 +449,17 @@ export default async function AccountPage({
 
       {/* Stack & domains — aggregated language mix + topic tags. */}
       {(languages.length > 0 || topics.length > 0) && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <h2 className="mb-4 text-base font-bold text-zinc-200">{t("stackHeading")}</h2>
           {languages.length > 0 && (
             <div className="mb-4">
-              <div className="mb-2 text-xs text-zinc-500">{t("stackLangLabel")}</div>
+              <div className="mb-2 text-xs text-zinc-400">{t("stackLangLabel")}</div>
               <div className="flex flex-col gap-2">
                 {languages.map((l) => (
                   <div key={l.name}>
                     <div className="mb-1 flex items-baseline justify-between text-sm">
                       <span className="text-zinc-300">{l.name}</span>
-                      <span className="tabular-nums text-zinc-500">{l.pct}%</span>
+                      <span className="tabular-nums text-zinc-400">{l.pct}%</span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                       <div
@@ -470,12 +474,12 @@ export default async function AccountPage({
           )}
           {topics.length > 0 && (
             <div>
-              <div className="mb-2 text-xs text-zinc-500">{t("stackTopicsLabel")}</div>
+              <div className="mb-2 text-xs text-zinc-400">{t("stackTopicsLabel")}</div>
               <div className="flex flex-wrap gap-1.5">
                 {topics.map((topic) => (
                   <span
                     key={topic}
-                    className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200/90"
+                    className="rounded-full border border-emerald-400/30 bg-emerald-500/12 px-2.5 py-1 text-xs font-semibold text-emerald-200/90"
                   >
                     {topic}
                   </span>
@@ -488,9 +492,9 @@ export default async function AccountPage({
 
       {/* Similar developers — same profile shape, nearby score */}
       {similar.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <h2 className="mb-1 text-base font-bold text-zinc-200">{t("similarHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-500">{t("similarSub")}</p>
+          <p className="mb-4 text-xs text-zinc-400">{t("similarSub")}</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {similar.map((s) => {
               const st = tierStyle(s.tier);
@@ -525,11 +529,11 @@ export default async function AccountPage({
       )}
 
       {/* Full roast report */}
-      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
+      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
         <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
         {/* Savage one-liner (current language) — shown above the full report. */}
         {roastLine && (
-          <p className="mb-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
+          <p className="mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
             🔥 {roastLine}
           </p>
         )}
@@ -538,7 +542,7 @@ export default async function AccountPage({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
           </div>
         ) : roastLine ? null : (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-zinc-400">
             {t.rich("roastEmpty", {
               a: (c) => (
                 <Link href="/" className="text-orange-400 hover:underline">

@@ -53,8 +53,8 @@ export function NavLinks({
     const active = isActive(item);
     const baseClass = vertical
       ? active
-        ? "w-full rounded-2xl bg-white/10 px-4 py-3 font-semibold text-zinc-100"
-        : "w-full rounded-2xl px-4 py-3 text-zinc-300 hover:bg-white/5 hover:text-zinc-100"
+        ? "w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 font-semibold text-zinc-100"
+        : "w-full rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/[0.04] hover:text-zinc-100"
       : active
         ? "font-semibold text-zinc-100"
         : "text-zinc-400 hover:text-zinc-200";

@@ -20,7 +20,17 @@ import { WorkspaceUserMenu } from "@/components/workspace/WorkspaceUserMenu";
  */
 type Me = { user: { login: string; image: string | null } | null; scored: boolean };
 
-export function NavAuth({ configured }: { configured: boolean }) {
+export function NavAuth({
+  configured,
+  repoHref,
+  repoLabel,
+  repoTitle,
+}: {
+  configured: boolean;
+  repoHref: string;
+  repoLabel: string;
+  repoTitle: string;
+}) {
   const t = useTranslations("header");
   const [me, setMe] = useState<Me | null>(null);
 
@@ -40,14 +50,25 @@ export function NavAuth({ configured }: { configured: boolean }) {
     };
   }, [configured]);
 
-  if (!configured) return <NavGuestMenu />;
-  if (!me) return <NavGuestMenu />; // keep settings reachable during the probe
+  if (!configured) {
+    return <NavGuestMenu repoHref={repoHref} repoLabel={repoLabel} repoTitle={repoTitle} />;
+  }
+  if (!me) {
+    return <NavGuestMenu repoHref={repoHref} repoLabel={repoLabel} repoTitle={repoTitle} />;
+  } // keep settings reachable during the probe
 
   const user = me.user;
 
   if (user) {
     return (
-      <WorkspaceUserMenu image={user.image} login={user.login} scored={me.scored} />
+      <WorkspaceUserMenu
+        image={user.image}
+        login={user.login}
+        scored={me.scored}
+        repoHref={repoHref}
+        repoLabel={repoLabel}
+        repoTitle={repoTitle}
+      />
     );
   }
 
@@ -63,7 +84,7 @@ export function NavAuth({ configured }: { configured: boolean }) {
         </svg>
         {t("signIn")}
       </button>
-      <NavGuestMenu />
+      <NavGuestMenu repoHref={repoHref} repoLabel={repoLabel} repoTitle={repoTitle} />
     </>
   );
 }

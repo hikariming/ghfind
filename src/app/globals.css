@@ -148,6 +148,11 @@ html[data-theme="light"] .bg-sky-500\/10 {
   background-color: rgba(14, 165, 233, 0.11);
 }
 
+html[data-theme="light"] .bg-emerald-500\/10,
+html[data-theme="light"] .bg-emerald-500\/12 {
+  background-color: rgba(16, 185, 129, 0.16);
+}
+
 html[data-theme="light"] .border-white\/5 {
   border-color: var(--border-soft);
 }
@@ -167,6 +172,10 @@ html[data-theme="light"] .border-orange-300\/30,
 html[data-theme="light"] .border-orange-400\/30,
 html[data-theme="light"] .border-orange-500\/20 {
   border-color: rgba(234, 88, 12, 0.24);
+}
+
+html[data-theme="light"] .border-emerald-400\/30 {
+  border-color: rgba(16, 185, 129, 0.32);
 }
 
 html[data-theme="light"] .ring-white\/10,
@@ -251,6 +260,10 @@ html[data-theme="light"] .text-emerald-300 {
   color: #047857;
 }
 
+html[data-theme="light"] .text-emerald-200\/90 {
+  color: #065f46;
+}
+
 html[data-theme="light"] .text-slate-300 {
   color: #475569;
 }
@@ -290,6 +303,23 @@ html[data-theme="light"] .login-nudge-card {
   box-shadow:
     0 18px 50px rgba(15, 23, 42, 0.14),
     0 4px 18px rgba(234, 88, 12, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"] {
+  scrollbar-color: rgba(71, 85, 105, 0.75) rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.72);
+  border-radius: 999px;
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(51, 65, 85, 0.82);
 }
 
 html[data-theme="light"] [data-force-dark] {
