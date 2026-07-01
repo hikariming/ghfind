@@ -17,12 +17,17 @@ type globalOptions struct {
 	Lang           string
 	JSON           bool
 	Help           bool
+	Version        bool
 }
 
 func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 	positional, opts, err := parseArgs(args)
 	if err != nil {
 		return exitError(stderr, err)
+	}
+	if opts.Version {
+		fmt.Fprintln(stdout, VersionString())
+		return 0
 	}
 	if len(positional) == 0 || opts.Help {
 		printHelp(stdout)
@@ -139,6 +144,8 @@ func parseArgs(args []string) ([]string, globalOptions, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
+		case "--version", "version":
+			opts.Version = true
 		case "--json":
 			opts.JSON = true
 			opts.Output = "json"
