@@ -320,6 +320,8 @@ function buildPayload(
             "recent_doc_like_pr_ratio covers all recent merged PRs and may include the user's own repos. For external-contribution quality, prefer recent_external_doc_like_pr_ratio and verified impact core/doc-like counts.",
           star_quality_scope:
             "Original-project star points are discounted by top_starred_original_repo_quality_score. If the top-starred repo looks like a profile/config/list/notebook rather than a usable project, do not praise the stars or add positive delta for them.",
+          attributed_original_scope:
+            "If metrics.attributed_original_repo_count > 0 or top_repos contains attributed_original=true, those are organization-owned projects attributed to the user by strong long-term maintenance signals. Describe them as org-owned attributed/led projects; do not say the user has no original project just because the repo owner is an organization. Do not claim admin/owner/control unless the data explicitly says so.",
           identity_scope:
             "Do not infer titles such as Apache Committer from PRs to Apache repos. Only state such identity when the input explicitly provides it.",
           core_contribution_scope:
@@ -356,6 +358,8 @@ function buildPayload(
             "recent_doc_like_pr_ratio 覆盖所有最近 merged PR，可能包含作者自己的仓库；判断外部贡献质量时优先看 recent_external_doc_like_pr_ratio 以及高星影响 PR 的 core/doc-like 拆分。",
           star_quality_scope:
             "原创项目 star 分已按 top_starred_original_repo_quality_score 折扣；如果最高星仓库更像 profile/config/list/notebook 而不是可用项目，不要因为 star 额外夸奖或给正向 delta。",
+          attributed_original_scope:
+            "如果 metrics.attributed_original_repo_count > 0 或 top_repos 中存在 attributed_original=true，这些是基于长期维护强信号归属给用户的组织名下项目。应描述为“组织名下可归属/主导维护项目”，不要因为 repo owner 是组织就写成用户没有原创项目；除非输入明确证明，不要声称其拥有 admin/owner/实际控制权。",
           identity_scope:
             "不要因为给 Apache 等组织仓库提过 PR 就推断其是 Committer；只有输入明确给出身份时才能这样写。",
           core_contribution_scope:

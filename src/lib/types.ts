@@ -34,6 +34,8 @@ export interface RepoReadme {
 
 export interface TopRepo {
   name: string;
+  owner_login?: string;
+  name_with_owner?: string;
   stars: number;
   forks: number;
   open_issues: number;
@@ -49,6 +51,11 @@ export interface TopRepo {
   /** Per-language byte breakdown for the repo (e.g. Python 70% + Cuda 20%),
    * a finer domain signal than the single primary `language`. Top repos only. */
   languages?: { name: string; size: number }[];
+  /** True when an organization-owned repo is credited as the user's attributable
+   * original project because the user is an org member with strong long-term
+   * maintenance signals. */
+  attributed_original?: boolean;
+  attribution_evidence?: string[];
 }
 
 export interface RecentPr {
@@ -93,6 +100,9 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
+  attributed_original_repo_count?: number;
+  attributed_original_repo_stars?: number;
+  attributed_original_repos?: string[];
   best_original_repo_quality_score?: number;
   best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_score?: number;

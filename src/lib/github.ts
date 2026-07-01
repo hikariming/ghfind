@@ -42,6 +42,8 @@ function authHeaders(): Record<string, string> {
 
 interface RestRepo {
   name: string;
+  full_name?: string;
+  private?: boolean;
   fork: boolean;
   size: number;
   stargazers_count: number;
@@ -50,9 +52,25 @@ interface RestRepo {
   language: string | null;
   description: string | null;
   pushed_at: string | null;
+  owner?: { login?: string } | null;
   // Topics are returned by default on the modern REST repos endpoint; absent on
   // older proxies, so optional. A high-signal official domain label.
   topics?: string[];
+}
+
+interface RestRelease {
+  author?: { login?: string | null } | null;
+  tag_name?: string | null;
+}
+
+interface RestTag {
+  name?: string;
+  commit?: { sha?: string | null } | null;
+}
+
+interface RestCommit {
+  author?: { login?: string | null } | null;
+  committer?: { login?: string | null } | null;
 }
 
 interface RestReadme {
@@ -153,9 +171,15 @@ function meaningfulText(value: string | null | undefined): string {
   return (value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function repoDisplayName(repo: TopRepo): string {
+  return repo.name_with_owner ?? repo.name;
+}
+
 function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean {
   const name = repo.name.toLowerCase();
-  if (name === loginLower) return true; // profile README repo, not a product/project.
+  if (!repo.attributed_original && name === loginLower) {
+    return true; // profile README repo, not a product/project.
+  }
   const nameAndDesc = `${name} ${repo.description ?? ""}`.toLowerCase();
   if (/\b(wip|todo|tmp|temp|scratch|playground|practice|learning|notes?|leetcode|algorithm|blog|profile)\b/.test(nameAndDesc)) {
     return true;
@@ -238,7 +262,7 @@ export function bestOriginalRepoQuality(
   let best = { score: 0, repo: null as string | null };
   for (const repo of repos) {
     const score = originalRepoQualityScore(repo, loginLower, now);
-    if (score > best.score) best = { score, repo: repo.name };
+    if (score > best.score) best = { score, repo: repoDisplayName(repo) };
   }
   return best;
 }
@@ -254,7 +278,7 @@ export function topStarredOriginalRepoQuality(
   if (!topStarred) return { score: 0, repo: null };
   return {
     score: originalRepoQualityScore(topStarred, loginLower, now),
-    repo: topStarred.name,
+    repo: repoDisplayName(topStarred),
   };
 }
 
@@ -503,6 +527,158 @@ async function fetchRepoLanguages(
     .sort((a, b) => b.size - a.size);
 }
 
+async function fetchRepoDetails(owner: string, repo: string): Promise<RestRepo | null> {
+  return restGet<RestRepo>(`repos/${owner}/${repo}`).catch(() => null);
+}
+
+async function hasReleaseOrTagAuthor(owner: string, repo: string, loginLower: string): Promise<boolean> {
+  const releases = await restGet<RestRelease[]>(
+    `repos/${owner}/${repo}/releases?per_page=10`,
+  ).catch(() => null);
+  if (
+    releases?.some((r) => r.author?.login?.toLowerCase() === loginLower)
+  ) {
+    return true;
+  }
+
+  const tags = await restGet<RestTag[]>(`repos/${owner}/${repo}/tags?per_page=5`).catch(
+    () => null,
+  );
+  if (!tags?.length) return false;
+
+  const commits = await Promise.all(
+    tags
+      .map((t) => t.commit?.sha)
+      .filter((sha): sha is string => typeof sha === "string" && sha.length > 0)
+      .slice(0, 5)
+      .map((sha) =>
+        restGet<RestCommit>(`repos/${owner}/${repo}/commits/${sha}`).catch(() => null),
+      ),
+  );
+  return commits.some(
+    (c) =>
+      c?.author?.login?.toLowerCase() === loginLower ||
+      c?.committer?.login?.toLowerCase() === loginLower,
+  );
+}
+
+const MAINTAINER_FILE_PATHS = [
+  "MAINTAINERS",
+  "MAINTAINERS.md",
+  "CODEOWNERS",
+  ".github/CODEOWNERS",
+  "docs/MAINTAINERS.md",
+  "docs/maintainers.md",
+];
+
+function maintainerTextMatchesUser(text: string, loginLower: string, profileUrl: string | null): boolean {
+  const lower = text.toLowerCase();
+  if (new RegExp(`(^|[^a-z0-9-])@?${loginLower}([^a-z0-9-]|$)`).test(lower)) {
+    return true;
+  }
+  if (profileUrl && lower.includes(profileUrl.toLowerCase())) return true;
+  return lower.includes(`github.com/${loginLower}`);
+}
+
+async function hasMaintainerFileHit(
+  owner: string,
+  repo: string,
+  loginLower: string,
+  profileUrl: string | null,
+): Promise<boolean> {
+  for (const path of MAINTAINER_FILE_PATHS) {
+    const data = await restGet<RestReadme>(
+      `repos/${owner}/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`,
+    ).catch(() => null);
+    if (!data?.content || data.encoding !== "base64") continue;
+    try {
+      const text = Buffer.from(data.content.replace(/\s+/g, ""), "base64").toString("utf-8");
+      if (maintainerTextMatchesUser(text, loginLower, profileUrl)) return true;
+    } catch {
+      // Try the next known maintainer path.
+    }
+  }
+  return false;
+}
+
+function repoToTopRepo(
+  repo: RestRepo,
+  fallbackOwner: string,
+  attribution?: OrgRepoAttribution,
+): TopRepo {
+  const owner = repo.owner?.login ?? repo.full_name?.split("/", 1)[0] ?? fallbackOwner;
+  return {
+    name: repo.name,
+    owner_login: owner,
+    name_with_owner: repo.full_name ?? `${owner}/${repo.name}`,
+    stars: repo.stargazers_count ?? 0,
+    forks: repo.forks_count ?? 0,
+    open_issues: repo.open_issues_count ?? 0,
+    size: repo.size ?? 0,
+    language: repo.language,
+    description: repo.description,
+    pushed_at: repo.pushed_at,
+    topics: repo.topics ?? [],
+    attributed_original: attribution !== undefined,
+    attribution_evidence: attribution?.evidence,
+  };
+}
+
+function hasDocLikeTopic(repo: RestRepo): boolean {
+  return (repo.topics ?? []).some((topic) =>
+    /^(docs?|documentation|website|blog|examples?|templates?|tutorials?|guides?|manual)$/i.test(
+      topic,
+    ),
+  );
+}
+
+async function collectAttributedOriginalRepos(input: {
+  contribRepos: ContribRepoAgg[];
+  organizations: string[];
+  pinnedRepos: string[];
+  loginLower: string;
+  profileUrl: string | null;
+}): Promise<TopRepo[]> {
+  if (input.organizations.length === 0) return [];
+
+  const candidates = input.contribRepos
+    .filter((repo) =>
+      computeOrgRepoAttribution({
+        repo,
+        organizations: input.organizations,
+        pinnedRepos: input.pinnedRepos,
+      }),
+    )
+    .sort((a, b) => b.stars - a.stars || b.commits + b.prs - (a.commits + a.prs))
+    .slice(0, 8);
+
+  const repos = await Promise.all(
+    candidates.map(async (candidate) => {
+      const [owner, name] = candidate.repo.split("/");
+      if (!owner || !name) return null;
+      const detail = await fetchRepoDetails(owner, name);
+      if (!detail || detail.private || detail.fork) return null;
+      if (isDocLikeRepo(candidate.repo) || hasDocLikeTopic(detail)) return null;
+
+      const [releaseOrTagAuthorHit, maintainerFileHit] = await Promise.all([
+        hasReleaseOrTagAuthor(owner, name, input.loginLower),
+        hasMaintainerFileHit(owner, name, input.loginLower, input.profileUrl),
+      ]);
+      const attribution = computeOrgRepoAttribution({
+        repo: candidate,
+        organizations: input.organizations,
+        pinnedRepos: input.pinnedRepos,
+        releaseOrTagAuthorHit,
+        maintainerFileHit,
+      });
+      if (!attribution) return null;
+      return repoToTopRepo(detail, owner, attribution);
+    }),
+  );
+
+  return repos.filter((repo): repo is TopRepo => repo !== null);
+}
+
 interface PrNode {
   title: string | null;
   additions: number | null;
@@ -733,11 +909,6 @@ export function isExternalTrivialFarmPr(pr: RecentPr, loginLower: string): boole
   return owner !== "" && owner !== loginLower && pr.trivial && pr.repo_stars >= 200;
 }
 
-function repoName(nameWithOwner: string | null | undefined): string {
-  const repo = nameWithOwner ?? "";
-  return repo.includes("/") ? repo.split("/").pop()?.toLowerCase() ?? "" : repo.toLowerCase();
-}
-
 function repoOwner(nameWithOwner: string | null | undefined): string {
   const repo = nameWithOwner ?? "";
   return repo.includes("/") ? repo.split("/", 1)[0].toLowerCase() : "";
@@ -745,15 +916,6 @@ function repoOwner(nameWithOwner: string | null | undefined): string {
 
 function isOwnRepoName(nameWithOwner: string | null | undefined, loginLower: string): boolean {
   return repoOwner(nameWithOwner) === loginLower;
-}
-
-function isDocLikeRepo(nameWithOwner: string | null | undefined): boolean {
-  const name = repoName(nameWithOwner);
-  return (
-    /(^|[-_.])(docs?|site|website|blog|examples?|templates?|profile|notebook|learning|tutorial|interview|guide|manual)([-_.]|$)/.test(
-      name,
-    ) || name.endsWith(".github.io")
-  );
 }
 
 function isDocLikePath(path: string): boolean {
@@ -832,6 +994,85 @@ export interface ContribRepoAgg {
   owner_login: string;
   commits: number;
   prs: number;
+  active_years: number;
+}
+
+export interface OrgRepoAttribution {
+  repo: string;
+  evidence: string[];
+  score: number;
+}
+
+export const ORG_ATTRIBUTED_MIN_SCORE = 5;
+export const ORG_ATTRIBUTED_COMMIT_MIN = 50;
+export const ORG_ATTRIBUTED_MIXED_COMMIT_MIN = 20;
+export const ORG_ATTRIBUTED_MIXED_PR_MIN = 10;
+export const ORG_ATTRIBUTED_ACTIVE_YEAR_MIN = 2;
+
+function repoName(nameWithOwner: string | null | undefined): string {
+  const repo = (nameWithOwner ?? "").toLowerCase();
+  return repo.includes("/") ? repo.split("/").pop() ?? "" : repo;
+}
+
+function isDocLikeRepo(nameWithOwner: string | null | undefined): boolean {
+  const name = repoName(nameWithOwner);
+  return (
+    /(^|[-_.])(docs?|site|website|blog|examples?|templates?|profile|notebook|learning|tutorial|interview|guide|manual)([-_.]|$)/.test(
+      name,
+    ) || name.endsWith(".github.io")
+  );
+}
+
+function hasStrongLongTermOrgContribution(repo: ContribRepoAgg): boolean {
+  if (repo.active_years >= ORG_ATTRIBUTED_ACTIVE_YEAR_MIN) {
+    if (repo.commits >= ORG_ATTRIBUTED_COMMIT_MIN) return true;
+    return (
+      repo.commits >= ORG_ATTRIBUTED_MIXED_COMMIT_MIN &&
+      repo.prs >= ORG_ATTRIBUTED_MIXED_PR_MIN
+    );
+  }
+
+  // A very high commit count is still strong enough when the public contribution
+  // graph only exposes one recent year for the account/repo pair.
+  return repo.commits >= ORG_ATTRIBUTED_COMMIT_MIN * 2;
+}
+
+export function computeOrgRepoAttribution(input: {
+  repo: ContribRepoAgg;
+  organizations: string[];
+  pinnedRepos?: string[];
+  releaseOrTagAuthorHit?: boolean;
+  maintainerFileHit?: boolean;
+}): OrgRepoAttribution | null {
+  const owner = input.repo.owner_login.toLowerCase();
+  const organizations = new Set(input.organizations.map((o) => o.toLowerCase()));
+  if (!organizations.has(owner)) return null;
+  if (input.repo.is_private || input.repo.is_fork) return null;
+  if (isDocLikeRepo(input.repo.repo)) return null;
+  if (!hasStrongLongTermOrgContribution(input.repo)) return null;
+
+  const evidence = [
+    `org member of ${input.repo.owner_login}`,
+    `${input.repo.commits} commits + ${input.repo.prs} PRs across ${input.repo.active_years} years`,
+  ];
+  let score = 1 + 4;
+
+  if ((input.pinnedRepos ?? []).some((r) => r.toLowerCase() === input.repo.repo.toLowerCase())) {
+    score += 1;
+    evidence.push("pinned by user");
+  }
+  if (input.releaseOrTagAuthorHit) {
+    score += 3;
+    evidence.push("release/tag author");
+  }
+  if (input.maintainerFileHit) {
+    score += 3;
+    evidence.push("listed in maintainer/codeowner docs");
+  }
+
+  return score >= ORG_ATTRIBUTED_MIN_SCORE
+    ? { repo: input.repo.repo, evidence, score }
+    : null;
 }
 
 /** Derived ecosystem-impact metrics (the fields `score.ts` consumes plus extras). */
@@ -968,7 +1209,8 @@ async function fetchContribReposByYear(
 
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
   const map = new Map<string, ContribRepoAgg>();
-  const ingest = (node: ContribByRepoNode, kind: "commits" | "prs"): void => {
+  const yearsByRepo = new Map<string, Set<number>>();
+  const ingest = (node: ContribByRepoNode, kind: "commits" | "prs", year: number): void => {
     const repo = node.repository;
     if (!repo) return;
     const key = repo.nameWithOwner;
@@ -982,18 +1224,25 @@ async function fetchContribReposByYear(
         owner_login: repo.owner?.login ?? key.split("/", 1)[0],
         commits: 0,
         prs: 0,
+        active_years: 0,
       };
     entry.stars = Math.max(entry.stars, repo.stargazerCount ?? 0);
     entry[kind] += node.contributions?.totalCount ?? 0;
     map.set(key, entry);
+    const years = yearsByRepo.get(key) ?? new Set<number>();
+    years.add(year);
+    yearsByRepo.set(key, years);
   };
   for (let i = 0; i < capped.length; i++) {
     const yc = data.user[`y${i}`];
     if (!yc) continue;
-    for (const n of yc.commitContributionsByRepository ?? []) ingest(n, "commits");
-    for (const n of yc.pullRequestContributionsByRepository ?? []) ingest(n, "prs");
+    for (const n of yc.commitContributionsByRepository ?? []) ingest(n, "commits", capped[i]);
+    for (const n of yc.pullRequestContributionsByRepository ?? []) ingest(n, "prs", capped[i]);
   }
-  return [...map.values()];
+  return [...map.entries()].map(([key, value]) => ({
+    ...value,
+    active_years: yearsByRepo.get(key)?.size ?? 0,
+  }));
 }
 
 export async function collect(username: string): Promise<{
@@ -1034,12 +1283,6 @@ export async function collect(username: string): Promise<{
   const forks = repos.filter((r) => r.fork);
   const empty = repos.filter((r) => (r.size ?? 0) === 0 && !r.fork);
   const nonemptyOriginal = original.filter((r) => (r.size ?? 0) > 0);
-
-  const totalStars = original.reduce((a, r) => a + (r.stargazers_count ?? 0), 0);
-  const maxStars = original.reduce(
-    (a, r) => Math.max(a, r.stargazers_count ?? 0),
-    0,
-  );
 
   // PR / issue counts + contribution signals in a single GraphQL call.
   // Counts come from `pullRequests`/`issues` totalCount (5000-point/hr GraphQL
@@ -1111,6 +1354,7 @@ export async function collect(username: string): Promise<{
   const organizations = (contrib.user.organizations?.nodes ?? [])
     .map((n) => n?.login)
     .filter((s): s is string => typeof s === "string");
+  const contribRepos = await fetchContribReposByYear(login, contributionYears);
   const mergedPrCount = contrib.user.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib.user.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
@@ -1153,18 +1397,32 @@ export async function collect(username: string): Promise<{
       ).length
     : 0;
 
-  const topRepos: TopRepo[] = original
-    .map((r) => ({
-      name: r.name,
-      stars: r.stargazers_count ?? 0,
-      forks: r.forks_count ?? 0,
-      open_issues: r.open_issues_count ?? 0,
-      size: r.size ?? 0,
-      language: r.language,
-      description: r.description,
-      pushed_at: r.pushed_at,
-      topics: r.topics ?? [],
-    }))
+  const personalOriginalRepos = original.map((r) => repoToTopRepo(r, login));
+  const attributedOriginalRepos = contribRepos
+    ? await collectAttributedOriginalRepos({
+        contribRepos,
+        organizations,
+        pinnedRepos,
+        loginLower,
+        profileUrl: user.html_url,
+      })
+    : [];
+  const scoredOriginalRepos = [
+    ...new Map(
+      [...personalOriginalRepos, ...attributedOriginalRepos].map((repo) => [
+        repo.name_with_owner ?? `${repo.owner_login ?? login}/${repo.name}`,
+        repo,
+      ]),
+    ).values(),
+  ];
+  const attributedOriginalRepoNames = attributedOriginalRepos.map((r) => repoDisplayName(r));
+  const attributedOriginalRepoStars = attributedOriginalRepos.reduce(
+    (a, r) => a + (r.stars ?? 0),
+    0,
+  );
+  const scoredNonemptyOriginalRepos = scoredOriginalRepos.filter((r) => (r.size ?? 0) > 0);
+
+  const topRepos: TopRepo[] = scoredOriginalRepos
     .sort((a, b) => b.stars - a.stars)
     .slice(0, 10);
 
@@ -1172,9 +1430,10 @@ export async function collect(username: string): Promise<{
   // limit API calls — same top-6 budget as the README fetch).
   await Promise.all(
     topRepos.slice(0, 6).map(async (repo) => {
+      const owner = repo.owner_login ?? login;
       const [readme, languages] = await Promise.all([
-        fetchReadmeDocument(login, repo.name),
-        fetchRepoLanguages(login, repo.name),
+        fetchReadmeDocument(owner, repo.name),
+        fetchRepoLanguages(owner, repo.name),
       ]);
       repo.readme = readme ?? undefined;
       repo.readme_excerpt = readme?.features.prompt_summary ?? null;
@@ -1209,7 +1468,6 @@ export async function collect(username: string): Promise<{
   // repos (≥1000★). Computed from all-time per-repo contribution aggregates so
   // old high-value work (e.g. apache/flink commits) still counts; falls back to
   // the recent-PR window when unauthenticated (no GraphQL).
-  const contribRepos = await fetchContribReposByYear(login, contributionYears);
   let impact: ImpactMetrics;
   if (contribRepos) {
     impact = computeImpactFromContribMap(contribRepos, loginLower);
@@ -1271,12 +1529,16 @@ export async function collect(username: string): Promise<{
     following,
     public_repos: user.public_repos ?? 0,
     fetched_repo_count: repos.length,
-    original_repo_count: original.length,
-    nonempty_original_repo_count: nonemptyOriginal.length,
+    original_repo_count: original.length + attributedOriginalRepos.length,
+    nonempty_original_repo_count:
+      nonemptyOriginal.length + scoredNonemptyOriginalRepos.filter((r) => r.attributed_original).length,
     fork_repo_count: forks.length,
     empty_original_repo_count: empty.length,
-    total_stars: totalStars,
-    max_stars: maxStars,
+    total_stars: scoredOriginalRepos.reduce((a, r) => a + (r.stars ?? 0), 0),
+    max_stars: scoredOriginalRepos.reduce((a, r) => Math.max(a, r.stars ?? 0), 0),
+    attributed_original_repo_count: attributedOriginalRepos.length,
+    attributed_original_repo_stars: attributedOriginalRepoStars,
+    attributed_original_repos: attributedOriginalRepoNames,
     best_original_repo_quality_score: bestOriginalQuality.score,
     best_original_repo_quality_repo: bestOriginalQuality.repo,
     top_starred_original_repo_quality_score: topStarredOriginalQuality.score,
