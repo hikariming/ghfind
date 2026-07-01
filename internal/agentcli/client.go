@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -92,6 +93,54 @@ func (c Client) Roast(ctx context.Context, scan map[string]any, lang string) (Ro
 		return RoastResult{}, readAPIError(res)
 	}
 	return parseRoastHTTPResponse(res)
+}
+
+func (c Client) Stats(ctx context.Context) (map[string]any, error) {
+	return c.getJSON(ctx, "/api/stats", nil)
+}
+
+func (c Client) Leaderboard(ctx context.Context, view string, window string) (map[string]any, error) {
+	query := url.Values{}
+	if view != "" {
+		query.Set("view", view)
+	}
+	if window != "" {
+		query.Set("window", window)
+	}
+	return c.getJSON(ctx, "/api/leaderboard", query)
+}
+
+func (c Client) Developers(ctx context.Context, facetType string, value string) (map[string]any, error) {
+	query := url.Values{}
+	query.Set("type", facetType)
+	if value != "" {
+		query.Set("value", value)
+	}
+	return c.getJSON(ctx, "/api/developers", query)
+}
+
+func (c Client) getJSON(ctx context.Context, path string, query url.Values) (map[string]any, error) {
+	reqURL := c.Host + path
+	if len(query) > 0 {
+		reqURL += "?" + query.Encode()
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.http().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, readAPIError(res)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c Client) postJSON(ctx context.Context, path string, body any, out any) error {

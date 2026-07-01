@@ -68,3 +68,35 @@ func TestClientRoastParsesMetaFrames(t *testing.T) {
 		t.Fatalf("unexpected meta: %#v", result.Meta)
 	}
 }
+
+func TestClientDiscoveryGETs(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	client := Client{Host: server.URL, HTTP: server.Client()}
+	if _, err := client.Stats(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Leaderboard(context.Background(), "score", "7d"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Developers(context.Background(), "language", "Go"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"/api/stats",
+		"/api/leaderboard?view=score&window=7d",
+		"/api/developers?type=language&value=Go",
+	}
+	for i := range want {
+		if paths[i] != want[i] {
+			t.Fatalf("path %d: want %q, got %q", i, want[i], paths[i])
+		}
+	}
+}
