@@ -119,8 +119,9 @@ as `GITHUB_ROAST_API_KEY` or `--api-key`; the CLI sends it as
 `Authorization: Bearer ...` to the same `/api/scan` endpoint.
 
 If `GITHUB_ROAST_CLI_API_KEY` is not configured in production, the CLI can still
-hit cached scans, but cold users may fail Turnstile because the CLI cannot solve
-the browser challenge.
+hit cached scans, but scan cache misses may fail Turnstile because the CLI
+cannot solve the browser challenge. A scan cache miss means the requested GitHub
+account has no valid server-side scan cache yet, or its cache has expired.
 
 ## Environment variables
 

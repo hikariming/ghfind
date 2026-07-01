@@ -119,7 +119,8 @@ GITHUB_ROAST_HOST=http://localhost:3000 pnpm github-roast roast hikariming --lan
 `Authorization: Bearer ...`。
 
 如果生产环境没有配置 `GITHUB_ROAST_CLI_API_KEY`,CLI 仍可能命中已有 scan 缓存;
-但冷用户扫描可能因为 CLI 无法完成浏览器 Turnstile 挑战而失败。
+但未命中 scan 缓存的账号可能因为 CLI 无法完成浏览器 Turnstile 挑战而失败。
+这里的“未命中 scan 缓存”指该 GitHub 账号没有有效的服务端 scan 缓存,或缓存已经过期。
 
 ## 环境变量
 
