@@ -118,10 +118,10 @@ set `GITHUB_ROAST_CLI_API_KEY` on the server and pass the same value to the CLI
 as `GITHUB_ROAST_API_KEY` or `--api-key`; the CLI sends it as
 `Authorization: Bearer ...` to the same `/api/scan` endpoint.
 
-If `GITHUB_ROAST_CLI_API_KEY` is not configured in production, the CLI can still
-hit cached scans, but scan cache misses may fail Turnstile because the CLI
-cannot solve the browser challenge. A scan cache miss means the requested GitHub
-account has no valid server-side scan cache yet, or its cache has expired.
+`/api/scan` checks machine auth or Turnstile before it reads the scan cache or
+uses the server GitHub token. If `GITHUB_ROAST_CLI_API_KEY` is not configured
+and Turnstile is enabled, an unauthenticated CLI request can fail before cache
+lookup, even when the server has a GitHub token and Redis cache.
 
 ## Environment variables
 

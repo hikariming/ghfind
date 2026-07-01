@@ -30,7 +30,7 @@ var commandCatalog = []CommandInfo{
 		ResponseSemantics: "/api/scan returns factual structured scoring data: metrics, repository signals, PR signals, deterministic sub_scores, red_flags, and base final_score. " +
 			"It does not include writer-layer roast copy.",
 		AgentGuidance: "Use scan when you need objective account evidence or want to perform your own analysis. Treat this as the authoritative factual payload.",
-		Auth:          "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+		Auth:          "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
 		Args:          []Arg{{Name: "username", Required: true}},
 		Options:       []string{"--host", "--api-key", "--turnstile-token", "-o, --output"},
 	},
@@ -43,7 +43,7 @@ var commandCatalog = []CommandInfo{
 		ResponseSemantics: "score is a compact view derived from /api/scan.scoring. " +
 			"It is factual structured scoring data and does not include writer-layer roast copy.",
 		AgentGuidance: "Use score when an agent only needs the numeric result, tier, sub_scores, and red_flags. Prefer this over roast for automated decisions.",
-		Auth:          "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+		Auth:          "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
 		Args:          []Arg{{Name: "username", Required: true}},
 		Options:       []string{"--host", "--api-key", "--turnstile-token", "-o, --output"},
 	},
@@ -56,7 +56,7 @@ var commandCatalog = []CommandInfo{
 		ResponseSemantics: "/api/roast returns the website presentation report. It includes writer-layer style: roast tags, roast_line, jokes, sarcasm, and markdown commentary. " +
 			"It also returns meta with final_score, tier, tier_label, delta, and percentile.",
 		AgentGuidance: "Use roast only when you need the same web-facing report a human sees. Do not treat roast prose as independent factual evidence; for factual scoring use scan or score.",
-		Auth:          "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+		Auth:          "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
 		Args:          []Arg{{Name: "username", Required: true}},
 		Options:       []string{"--host", "--api-key", "--turnstile-token", "--lang", "-o, --output"},
 	},

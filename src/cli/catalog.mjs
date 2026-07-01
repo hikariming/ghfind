@@ -12,7 +12,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use scan when you need objective account evidence or want to perform your own analysis. Treat this as the authoritative factual payload.",
     auth:
-      "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
   },
@@ -27,7 +27,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use score when an agent only needs the numeric result, tier, sub_scores, and red_flags. Prefer this over roast for automated decisions.",
     auth:
-      "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
   },
@@ -42,7 +42,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use roast only when you need the same web-facing report a human sees. Do not treat roast prose as independent factual evidence; for factual scoring use scan or score.",
     auth:
-      "Production scan cache misses need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. Without machine auth, cached scans may work but uncached accounts can fail Turnstile.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "--lang", "-o, --output"],
   },
