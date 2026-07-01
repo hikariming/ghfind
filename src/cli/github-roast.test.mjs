@@ -32,17 +32,14 @@ const scanPayload = {
 
 describe("github-roast CLI", () => {
   let stdout = "";
-  let stderr = "";
 
   beforeEach(() => {
     stdout = "";
-    stderr = "";
     process.stdout.write = vi.fn((chunk) => {
       stdout += String(chunk);
       return true;
     });
-    process.stderr.write = vi.fn((chunk) => {
-      stderr += String(chunk);
+    process.stderr.write = vi.fn((_chunk) => {
       return true;
     });
     process.exit = vi.fn((code) => {
