@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parseRoastResponse, roastAccount, scanAccount } from "./remote-client.mjs";
+import {
+  getDevelopers,
+  getLeaderboard,
+  getStats,
+  parseRoastResponse,
+  roastAccount,
+  scanAccount,
+} from "./remote-client.mjs";
 
 function jsonResponse(body, init = {}) {
   return new Response(JSON.stringify(body), {
@@ -69,5 +76,23 @@ describe("remote CLI client", () => {
       report: "## Demo\nReport",
       progress: ["Calibrating"],
     });
+  });
+
+  it("calls website discovery APIs with GET", async () => {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse({ ok: true });
+    };
+
+    await getStats({ host: "https://ghfind.com", fetchImpl });
+    await getLeaderboard({ host: "https://ghfind.com", fetchImpl, view: "score", window: "7d" });
+    await getDevelopers({ host: "https://ghfind.com", fetchImpl, type: "language", value: "Go" });
+
+    expect(calls.map((call) => [call.url, call.init.method])).toEqual([
+      ["https://ghfind.com/api/stats", "GET"],
+      ["https://ghfind.com/api/leaderboard?view=score&window=7d", "GET"],
+      ["https://ghfind.com/api/developers?type=language&value=Go", "GET"],
+    ]);
   });
 });

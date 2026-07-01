@@ -78,6 +78,32 @@ export async function roastAccount(options) {
   return parseRoastResponse(response);
 }
 
+export async function getStats(options) {
+  return getJson(options, "/api/stats");
+}
+
+export async function getLeaderboard(options) {
+  const params = new URLSearchParams();
+  if (options.view) params.set("view", options.view);
+  if (options.window) params.set("window", options.window);
+  return getJson(options, `/api/leaderboard${params.size ? `?${params}` : ""}`);
+}
+
+export async function getDevelopers(options) {
+  const params = new URLSearchParams({ type: options.type });
+  if (options.value) params.set("value", options.value);
+  return getJson(options, `/api/developers?${params}`);
+}
+
+async function getJson(options, path) {
+  const host = normalizeHost(options.host);
+  const response = await options.fetchImpl(`${host}${path}`, {
+    method: "GET",
+  });
+  if (!response.ok) await readError(response);
+  return response.json();
+}
+
 export async function parseRoastResponse(response) {
   const headerMeta = decodeMeta(response.headers.get(ROAST_META_HEADER));
   const text = await response.text();

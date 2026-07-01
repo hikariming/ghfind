@@ -115,4 +115,19 @@ describe("github-roast CLI", () => {
       "https://ghfind.com/api/roast",
     ]);
   });
+
+  it("calls discovery APIs without touching scan or roast", async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse({ entries: [], cached: true, view: "score", window: "7d" });
+    });
+
+    await run(["leaderboard", "--view", "score", "--window", "7d", "-o", "json"]);
+
+    expect(JSON.parse(stdout).view).toBe("score");
+    expect(calls.map((call) => call.url)).toEqual([
+      "https://ghfind.com/api/leaderboard?view=score&window=7d",
+    ]);
+  });
 });

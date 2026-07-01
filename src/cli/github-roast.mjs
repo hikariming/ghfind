@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { DEFAULT_HOST, commandCatalog, findCommand } from "./catalog.mjs";
-import { CliHttpError, normalizeHost, roastAccount, scanAccount } from "./remote-client.mjs";
+import {
+  CliHttpError,
+  getDevelopers,
+  getLeaderboard,
+  getStats,
+  normalizeHost,
+  roastAccount,
+  scanAccount,
+} from "./remote-client.mjs";
 
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const VALID_LANGS = new Set(["zh", "en"]);
@@ -47,6 +55,22 @@ function parseArgs(argv) {
       flags.lang = argv[++i];
       continue;
     }
+    if (arg === "--view") {
+      flags.view = argv[++i];
+      continue;
+    }
+    if (arg === "--window") {
+      flags.window = argv[++i];
+      continue;
+    }
+    if (arg === "--type") {
+      flags.type = argv[++i];
+      continue;
+    }
+    if (arg === "--value") {
+      flags.value = argv[++i];
+      continue;
+    }
     if (arg === "-h" || arg === "--help") {
       flags.help = true;
       continue;
@@ -75,6 +99,23 @@ function langMode(flags) {
   const lang = flags.lang ?? "zh";
   if (!VALID_LANGS.has(lang)) fail(`Invalid language: ${lang}`);
   return lang;
+}
+
+function validateLeaderboard(flags) {
+  const view = flags.view ?? "";
+  const window = flags.window ?? "";
+  if (view && !["trending", "score", "heat", "progress"].includes(view)) {
+    fail(`Invalid leaderboard view: ${view}`);
+  }
+  if (window && !["all", "24h", "7d", "30d"].includes(window)) {
+    fail(`Invalid leaderboard window: ${window}`);
+  }
+}
+
+function validateFacetType(type) {
+  if (!["language", "org", "repo"].includes(type ?? "")) {
+    fail(`Invalid developers type: ${type ?? ""}`);
+  }
 }
 
 function usernameArg(positional, index = 1) {
@@ -188,6 +229,23 @@ export async function run(argv = process.argv.slice(2)) {
       return printCatalog(flags.json);
     }
     if (command === "auth" && positional[1] === "status") return printAuthStatus(flags);
+
+    if (command === "stats") {
+      const result = await getStats(baseOptions(flags));
+      return printJson(result);
+    }
+
+    if (command === "leaderboard") {
+      validateLeaderboard(flags);
+      const result = await getLeaderboard({ ...baseOptions(flags), view: flags.view, window: flags.window });
+      return printJson(result);
+    }
+
+    if (command === "developers") {
+      validateFacetType(flags.type);
+      const result = await getDevelopers({ ...baseOptions(flags), type: flags.type, value: flags.value });
+      return printJson(result);
+    }
 
     if (command === "scan") {
       const result = await scanAccount({
