@@ -14,9 +14,11 @@ const mocks = vi.hoisted(() => ({
   acquireRoastLock: vi.fn(),
   checkRoastRateLimit: vi.fn(),
   getCachedRoast: vi.fn(),
+  getCachedRoastJudge: vi.fn(),
   getCachedScan: vi.fn(),
   releaseRoastLock: vi.fn(),
   setCachedRoast: vi.fn(),
+  setCachedRoastJudge: vi.fn(),
   waitForCachedRoast: vi.fn(),
   buildRoastJudgeMessages: vi.fn((_scan: ScanResult, _lang?: string) => []),
   buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string, _judge?: unknown) => []),
@@ -80,9 +82,11 @@ vi.mock("@/lib/redis", () => ({
   acquireRoastLock: mocks.acquireRoastLock,
   checkRoastRateLimit: mocks.checkRoastRateLimit,
   getCachedRoast: mocks.getCachedRoast,
+  getCachedRoastJudge: mocks.getCachedRoastJudge,
   getCachedScan: mocks.getCachedScan,
   releaseRoastLock: mocks.releaseRoastLock,
   setCachedRoast: mocks.setCachedRoast,
+  setCachedRoastJudge: mocks.setCachedRoastJudge,
   waitForCachedRoast: mocks.waitForCachedRoast,
 }));
 
@@ -198,6 +202,7 @@ beforeEach(() => {
   mocks.fallbackLlmConfig.mockReturnValue(null);
   mocks.getCachedScan.mockResolvedValue(null);
   mocks.getCachedRoast.mockResolvedValue(null);
+  mocks.getCachedRoastJudge.mockResolvedValue(null);
   mocks.getArchivedRoast.mockResolvedValue(null);
   mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
   mocks.acquireRoastLock.mockResolvedValue(true);
@@ -207,6 +212,7 @@ beforeEach(() => {
   mocks.recordProfileSnapshot.mockResolvedValue(undefined);
   mocks.updateRoast.mockResolvedValue(undefined);
   mocks.setCachedRoast.mockResolvedValue(undefined);
+  mocks.setCachedRoastJudge.mockResolvedValue(undefined);
   mocks.releaseRoastLock.mockResolvedValue(undefined);
   mocks.chatStreamEvents
     .mockReturnValueOnce(streamText(`{"delta":3,"reason":"ok","verdict":"正常","risk_notes":[]}`))
@@ -248,6 +254,70 @@ describe("roast API persistence", () => {
       expect.stringContaining("## 毒舌点评"),
       "zh",
     );
+    expect(mocks.setCachedRoastJudge).toHaveBeenCalledWith(
+      "DemoDev",
+      expect.objectContaining({
+        base_score: 68,
+        judge: expect.objectContaining({ delta: 3 }),
+      }),
+    );
+  });
+
+  it("reuses a language-neutral judge result instead of recalibrating per locale", async () => {
+    mocks.getCachedRoastJudge.mockResolvedValue({
+      base_score: 68,
+      judge: {
+        delta: 3,
+        reason: "cached calibration",
+        verdict: "normal",
+        risk_notes: [],
+        final_score: 71,
+        tier: "人上人",
+        tier_label: "优质贡献者 · 值得信任",
+      },
+    });
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 3@@",
+          "@@TAGS zh=进步,维护者|en=improving,maintainer@@",
+          "@@ROAST zh=稳步进步。|en=Steady improvement.@@",
+          "## Roast",
+          "Open-source activity is rising.",
+        ].join("\n"),
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "en" }),
+      }),
+    );
+
+    await expect(response.text()).resolves.toContain("Open-source activity is rising");
+    expect(response.status).toBe(200);
+    expect(mocks.buildRoastJudgeMessages).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).toHaveBeenCalledTimes(1);
+    expect(mocks.buildRoastMessages).toHaveBeenCalledWith(
+      expect.anything(),
+      "en",
+      expect.objectContaining({
+        delta: 3,
+        final_score: 71,
+        tier: "ELITE",
+        tier_label: "Trusted contributor",
+      }),
+    );
+    expect(mocks.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "DemoDev",
+        final_score: 71,
+        tier: "人上人",
+      }),
+    );
+    expect(mocks.setCachedRoastJudge).not.toHaveBeenCalled();
   });
 
   it("drops malformed nested README summaries from client fallback scans", async () => {

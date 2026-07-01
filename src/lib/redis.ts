@@ -19,7 +19,7 @@ import type { FacetCategory, LeaderboardEntry, LeaderboardWindow } from "./db";
 import type { FacetType } from "./facets";
 import type { Lang } from "./lang";
 import type { ProfileReactionCounts } from "./reactions";
-import type { ScanResult } from "./types";
+import type { RoastJudgeResult, ScanResult } from "./types";
 
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
@@ -207,6 +207,39 @@ export async function setCachedRoast(
   if (!r) return;
   try {
     await r.set(roastKey(username, lang), value, { ex: ROAST_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
+export interface CachedRoastJudge {
+  base_score: number;
+  judge: RoastJudgeResult;
+}
+
+export const roastJudgeKey = (username: string) =>
+  `roast-judge:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
+
+export async function getCachedRoastJudge(username: string): Promise<CachedRoastJudge | null> {
+  if (bypassGeneratedCaches()) return null;
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return (await r.get<CachedRoastJudge>(roastJudgeKey(username))) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedRoastJudge(
+  username: string,
+  value: CachedRoastJudge,
+): Promise<void> {
+  if (bypassGeneratedCaches()) return;
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(roastJudgeKey(username), value, { ex: ROAST_TTL_SECONDS });
   } catch {
     // best-effort
   }

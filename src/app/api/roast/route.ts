@@ -18,9 +18,11 @@ import {
   acquireRoastLock,
   checkRoastRateLimit,
   getCachedRoast,
+  getCachedRoastJudge,
   getCachedScan,
   releaseRoastLock,
   setCachedRoast,
+  setCachedRoastJudge,
   waitForCachedRoast,
 } from "@/lib/redis";
 import { clampScore, spamBotScore, tierFor } from "@/lib/score";
@@ -42,6 +44,7 @@ export const ROAST_META_HEADER = "X-Roast-Meta";
 
 const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
 const EMPTY_ROAST_LINE: RoastLine = { zh: "", en: "" };
+const DEFAULT_JUDGE_LANG: Lang = "zh";
 
 interface ByoKey {
   baseURL?: string;
@@ -181,6 +184,17 @@ function parseJudgeResult(raw: string, scan: ScanResult, lang: Lang): RoastJudge
   } catch {
     return { ...fallback, ...scoreSummary(0) };
   }
+}
+
+function localizeJudgeResult(judge: RoastJudgeResult, scan: ScanResult, lang: Lang): RoastJudgeResult {
+  const summary = adjustedScoreSummary(scan, judge.delta, lang);
+  return {
+    ...judge,
+    delta: summary.delta,
+    final_score: summary.final_score,
+    tier: lang === "en" ? TIER_EN[summary.tier] : summary.tier,
+    tier_label: summary.tier_label,
+  };
 }
 
 /** Bound a client-supplied scan so a fabricated payload can't bloat the prompt. */
@@ -556,19 +570,31 @@ export async function POST(req: NextRequest) {
       // 1) Cold judge pass (score calibration). Reasoning → calibrating heartbeat.
       let judge: RoastJudgeResult;
       try {
-        beat(calibrating, true);
-        let judgeText = "";
-        for await (const ev of chatStreamEventsWithFallback(llmConfigs, buildRoastJudgeMessages(scan, lang), {
-          deadlineMs: llmDeadlineMs,
-        })) {
-          if (ev.type === "content") {
-            judgeText += ev.text;
-            if (judgeText.length >= 12000) break;
-          } else {
-            beat(calibrating);
+        const cachedJudge = isDefault ? await getCachedRoastJudge(username) : null;
+        if (cachedJudge && cachedJudge.base_score === scan.scoring.final_score) {
+          judge = localizeJudgeResult(cachedJudge.judge, scan, lang);
+        } else {
+          beat(calibrating, true);
+          const judgeLang = isDefault ? DEFAULT_JUDGE_LANG : lang;
+          let judgeText = "";
+          for await (const ev of chatStreamEventsWithFallback(llmConfigs, buildRoastJudgeMessages(scan, judgeLang), {
+            deadlineMs: llmDeadlineMs,
+          })) {
+            if (ev.type === "content") {
+              judgeText += ev.text;
+              if (judgeText.length >= 12000) break;
+            } else {
+              beat(calibrating);
+            }
+          }
+          judge = parseJudgeResult(judgeText, scan, lang);
+          if (isDefault) {
+            await setCachedRoastJudge(username, {
+              base_score: scan.scoring.final_score,
+              judge,
+            });
           }
         }
-        judge = parseJudgeResult(judgeText, scan, lang);
         judgeMs = Date.now() - t0;
       } catch (e) {
         logRoastSummary({
