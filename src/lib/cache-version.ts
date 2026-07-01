@@ -7,7 +7,7 @@
  * edits are visible on the next request.
  */
 export const SCORE_CACHE_VERSION = "v6";
-export const ROAST_CACHE_VERSION = "v7";
+export const ROAST_CACHE_VERSION = "v8";
 
 export function bypassGeneratedCaches(): boolean {
   return (
