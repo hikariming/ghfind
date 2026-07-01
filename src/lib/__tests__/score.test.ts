@@ -217,7 +217,7 @@ describe("spam-PR red flags", () => {
     );
   });
 
-  it("applies only a small penalty to abnormal author-closed external PR patterns", () => {
+  it("ignores even large author-closed external PR patterns for scoring", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 20,
@@ -228,10 +228,9 @@ describe("spam-PR red flags", () => {
       self_closed_own_repo_pr_count: 0,
       pr_rejection_rate: 0,
     };
-    expect(authorSelfClosedExternalPenalty(m)).toBeCloseTo(1.5, 1);
-    expect(score(m).sub_scores.contribution_quality).toBeCloseTo(
-      score({ ...m, self_closed_external_pr_count: 0 }).sub_scores.contribution_quality - 1.5,
-      1,
+    expect(authorSelfClosedExternalPenalty(m)).toBe(0);
+    expect(score(m).sub_scores.contribution_quality).toBe(
+      score({ ...m, self_closed_external_pr_count: 0 }).sub_scores.contribution_quality,
     );
   });
 
@@ -900,6 +899,29 @@ describe("doc-like PR contribution-quality discount", () => {
     };
     expect(contributionQualityCap(m)).toBe(12);
     expect(score(m).sub_scores.contribution_quality).toBe(12);
+  });
+
+  it("does not cap contribution quality just because external PRs were author-closed", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 38,
+      total_pr_count: 68,
+      issues_created: 65,
+      total_stars: 158,
+      recent_merged_pr_sample: 38,
+      recent_external_pr_sample: 37,
+      recent_external_doc_like_pr_count: 22,
+      recent_external_doc_like_pr_ratio: 0.59,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 23,
+      impact_depth_raw: 13.08,
+      impact_quality_cap: 4,
+      core_impact_pr_count: 2,
+      doc_like_impact_pr_count: 3,
+      top_starred_original_repo_quality_score: 0.8,
+      self_closed_external_pr_count: 21,
+    };
+    expect(contributionQualityCap(m)).toBeUndefined();
   });
 
   it("does not discount normal histories with a small docs share", () => {

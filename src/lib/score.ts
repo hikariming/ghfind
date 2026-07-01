@@ -139,10 +139,7 @@ export function contributionQualityCap(m: RawMetrics): number | undefined {
     (m.core_impact_pr_count ?? 0) <= 2;
   const weakTopStarProject =
     (m.top_starred_original_repo_quality_score ?? 1) < 0.3 && m.total_stars > 0;
-  const manySelfClosedExternal = (m.self_closed_external_pr_count ?? 0) >= 10;
-
   if (lowTrustImpact && weakTopStarProject) return 12;
-  if (lowTrustImpact && manySelfClosedExternal) return 12.5;
   return undefined;
 }
 
@@ -179,21 +176,12 @@ export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefine
 /**
  * Author-closed external PRs are not maintainer rejections: people close PRs
  * after rebases, wrong-base mistakes, upstream direction changes, or duplicate
- * submissions. Do not put them in the acceptance denominator. Only a large,
- * high-ratio pattern gets a small collaboration-stability penalty.
+ * submissions. Keep them out of both the acceptance denominator and scoring
+ * penalties; they remain only as a report/display fact.
  */
 export function authorSelfClosedExternalPenalty(m: RawMetrics): number {
-  const selfClosed = m.self_closed_external_pr_count ?? 0;
-  if (selfClosed < 10) return 0;
-
-  const totalExternalish =
-    m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosed;
-  if (totalExternalish < 20) return 0;
-
-  const ratio = selfClosed / totalExternalish;
-  if (ratio < 0.2) return 0;
-
-  return Math.min(1.5, (ratio - 0.2) * 5);
+  void m;
+  return 0;
 }
 
 function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
