@@ -1,0 +1,121 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { run } from "./github-roast.mjs";
+
+const originalStdoutWrite = process.stdout.write;
+const originalStderrWrite = process.stderr.write;
+const originalExit = process.exit;
+const originalFetch = globalThis.fetch;
+const originalApiKey = process.env.GITHUB_ROAST_API_KEY;
+const originalHost = process.env.GITHUB_ROAST_HOST;
+
+function jsonResponse(body) {
+  return new Response(JSON.stringify(body), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function metaHeader(meta) {
+  return Buffer.from(JSON.stringify(meta), "utf8").toString("base64");
+}
+
+const scanPayload = {
+  metrics: { username: "DemoDev" },
+  scoring: {
+    final_score: 68,
+    tier: "NPC",
+    tier_label: "普通账号 · 特征平庸存疑",
+    sub_scores: { contribution_quality: 20 },
+    red_flags: [],
+  },
+  cached: false,
+};
+
+describe("github-roast CLI", () => {
+  let stdout = "";
+  let stderr = "";
+
+  beforeEach(() => {
+    stdout = "";
+    stderr = "";
+    process.stdout.write = vi.fn((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+    process.stderr.write = vi.fn((chunk) => {
+      stderr += String(chunk);
+      return true;
+    });
+    process.exit = vi.fn((code) => {
+      throw new Error(`exit:${code}`);
+    });
+    delete process.env.GITHUB_ROAST_API_KEY;
+    delete process.env.GITHUB_ROAST_HOST;
+  });
+
+  afterEach(() => {
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+    process.exit = originalExit;
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.GITHUB_ROAST_API_KEY;
+    else process.env.GITHUB_ROAST_API_KEY = originalApiKey;
+    if (originalHost === undefined) delete process.env.GITHUB_ROAST_HOST;
+    else process.env.GITHUB_ROAST_HOST = originalHost;
+    vi.restoreAllMocks();
+  });
+
+  it("lists agent-callable commands as JSON", async () => {
+    await run(["commands", "--json"]);
+
+    const body = JSON.parse(stdout);
+    expect(body.default_host).toBe("https://ghfind.com");
+    expect(body.commands.map((cmd) => cmd.name)).toContain("roast");
+  });
+
+  it("calls /api/scan for score without importing local scoring logic", async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse(scanPayload);
+    });
+
+    await run(["score", "DemoDev", "--api-key", "secret", "-o", "json"]);
+
+    const body = JSON.parse(stdout);
+    expect(body.final_score).toBe(68);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://ghfind.com/api/scan");
+    expect(calls[0].init.headers.authorization).toBe("Bearer secret");
+  });
+
+  it("calls /api/scan then /api/roast for roast JSON output", async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls.push({ url, init });
+      if (String(url).endsWith("/api/scan")) return jsonResponse(scanPayload);
+      return new Response("## Demo\nReport", {
+        headers: {
+          "x-roast-meta": metaHeader({
+            final_score: 71,
+            tier: "人上人",
+            tier_label: "优质贡献者 · 值得信任",
+            delta: 3,
+            tags: { zh: ["测试"], en: ["test"] },
+            roast_line: { zh: "中文", en: "English" },
+          }),
+        },
+      });
+    });
+
+    await run(["roast", "DemoDev", "--lang", "zh", "-o", "json"]);
+
+    const body = JSON.parse(stdout);
+    expect(body.username).toBe("DemoDev");
+    expect(body.final_score).toBe(71);
+    expect(body.report).toBe("## Demo\nReport");
+    expect(calls.map((call) => call.url)).toEqual([
+      "https://ghfind.com/api/scan",
+      "https://ghfind.com/api/roast",
+    ]);
+  });
+});
