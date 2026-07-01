@@ -5,7 +5,7 @@ import { defineRouting } from "next-intl/routing";
  * every existing URL — `/`, `/leaderboard`, `/u/<name>`, and the README-embedded
  * badge/card endpoints — keeps working untouched. English is served under `/en`.
  *
- * `localeDetection: false` keeps next-intl's built-in detection off; `middleware.ts`
+ * `localeDetection: false` keeps next-intl's built-in detection off; `proxy.ts`
  * handles language selection itself: a remembered `NEXT_LOCALE` cookie wins, and a
  * first-time visitor whose Accept-Language top language is English is sent to `/en`.
  * Visitors without an English-first header — including crawlers that send no

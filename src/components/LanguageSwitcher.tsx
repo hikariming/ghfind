@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { Button } from "@/components/ui/button";
 
 /**
  * zh / en toggle. Uses next-intl navigation so it swaps the locale while keeping
@@ -25,7 +26,7 @@ export function LanguageSwitcher() {
       aria-label={t("label")}
     >
       {routing.locales.map((loc) => (
-        <button
+        <Button
           key={loc}
           type="button"
           onClick={() => {
@@ -38,14 +39,16 @@ export function LanguageSwitcher() {
             }
           }}
           aria-current={loc === locale}
-          className={`rounded-full px-2.5 py-1 transition-colors ${
+          variant={loc === locale ? "secondary" : "ghost"}
+          size="sm"
+          className={`rounded-full px-2.5 py-1 ${
             loc === locale
-              ? "bg-white/10 font-semibold text-zinc-100"
+              ? "bg-white/10 font-semibold text-zinc-100 hover:bg-white/10"
               : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
           {t(loc)}
-        </button>
+        </Button>
       ))}
     </div>
   );

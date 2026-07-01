@@ -50,7 +50,10 @@ function SnippetRow({
           {copied ? copiedLabel : copyLabel}
         </button>
       </div>
-      <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] leading-relaxed text-zinc-300">
+      <pre
+        className="overflow-x-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] leading-relaxed text-zinc-300 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.3)_transparent] data-[scrollbar=code] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/30 hover:[&::-webkit-scrollbar-thumb]:bg-white/40"
+        data-scrollbar="code"
+      >
         <code>{value}</code>
       </pre>
     </div>

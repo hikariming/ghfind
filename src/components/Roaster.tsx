@@ -1,7 +1,8 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { splitReport } from "@/lib/report";
@@ -12,12 +13,14 @@ import {
   ByoKeyModal,
   loadByoKey,
 } from "./ByoKeyModal";
+import { Button } from "@/components/ui/button";
 import { CopyBadge } from "./CopyBadge";
 import { ShareMenu } from "./ShareMenu";
 import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+import { Input } from "@/components/ui/input";
 
 const SITE_URL = "https://ghfind.com";
 
@@ -33,6 +36,7 @@ export function Roaster() {
   const tScan = useTranslations("scanErrors");
   const tTier = useTranslations("tiers");
   const locale = useLocale();
+  const searchParams = useSearchParams();
 
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
@@ -57,6 +61,20 @@ export function Roaster() {
   // streams). The card shows the side matching the current locale.
   const [metaRoast, setMetaRoast] = useState<RoastLine | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lastPrefillRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const seededUsername = searchParams.get("username")?.trim();
+    if (!seededUsername || seededUsername === lastPrefillRef.current) return;
+    lastPrefillRef.current = seededUsername;
+    setUsername(seededUsername);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(seededUsername.length, seededUsername.length);
+      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [searchParams]);
 
   const runRoast = useCallback(
     async (scanResult: ScanResult) => {
@@ -333,27 +351,28 @@ export function Roaster() {
   };
 
   return (
-    <div className="w-full max-w-4xl">
+    <div className="w-full max-w-6xl">
       {/* Input */}
-      <form onSubmit={submit} className="flex flex-col items-center gap-3">
+      <form onSubmit={submit} className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3">
         <div className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60">
           <span className="pl-3 text-zinc-500">@</span>
-          <input
+          <Input
+            ref={inputRef}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder={t("inputPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base outline-none placeholder:text-zinc-600"
+            className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-base shadow-none focus-visible:ring-0"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
           />
-          <button
+          <Button
             type="submit"
             disabled={scanning || roasting}
-            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-60"
+            className="shrink-0 whitespace-nowrap bg-orange-600 text-white hover:bg-orange-500"
           >
             {scanning ? t("judging") : t("judge")}
-          </button>
+          </Button>
         </div>
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
@@ -361,16 +380,18 @@ export function Roaster() {
 
       <div className="mt-3 flex flex-col items-center gap-3">
         <SponsorPill large />
-        <button
+        <Button
           type="button"
           onClick={() => {
             setByoReason(undefined);
             setByoOpen(true);
           }}
-          className="text-xs text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+          variant="link"
+          size="sm"
+          className="h-auto px-0 text-xs text-zinc-500"
         >
           {t("byoLink")}
-        </button>
+        </Button>
       </div>
 
       {/* Scanning skeleton */}

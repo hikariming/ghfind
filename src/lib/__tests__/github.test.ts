@@ -272,4 +272,111 @@ ${"Useful project detail. ".repeat(50)}
       expect.anything(),
     );
   });
+
+  it("degrades gracefully when organization lookup lacks read:org scope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === "https://api.github.com/users/alice") {
+          return jsonResponse({
+            login: "alice",
+            id: 1,
+            html_url: "https://github.com/alice",
+            avatar_url: null,
+            name: "Alice",
+            bio: null,
+            company: null,
+            created_at: "2020-01-01T00:00:00Z",
+            followers: 1,
+            following: 0,
+            public_repos: 0,
+          });
+        }
+
+        if (url.includes("/users/alice/repos")) {
+          return jsonResponse([]);
+        }
+
+        if (url === "https://api.github.com/graphql") {
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            query?: string;
+          };
+
+          if (body.query?.includes("organizations(first: 20)")) {
+            return jsonResponse({
+              errors: [
+                {
+                  type: "INSUFFICIENT_SCOPES",
+                  message:
+                    "The 'login' field requires one of the following scopes: ['read:org']",
+                },
+              ],
+            });
+          }
+
+          if (
+            body.query?.includes("mergedPRs: pullRequests") &&
+            body.query?.includes("pinnedItems(first: 6, types: REPOSITORY)")
+          ) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pinnedItems: { nodes: [] },
+                  mergedPRs: { totalCount: 0 },
+                  allPRs: { totalCount: 0 },
+                  closedPRs: { totalCount: 0, nodes: [] },
+                  issues: { totalCount: 0 },
+                  contributionsCollection: {
+                    totalCommitContributions: 0,
+                    totalPullRequestContributions: 0,
+                    totalIssueContributions: 0,
+                    totalPullRequestReviewContributions: 0,
+                    restrictedContributionsCount: 0,
+                    contributionCalendar: { totalContributions: 0 },
+                  },
+                  contributionYears: { contributionYears: [] },
+                },
+              },
+            });
+          }
+
+          if (body.query?.includes("pullRequests(first: $count, states: MERGED")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: { nodes: [] },
+                },
+              },
+            });
+          }
+
+          if (
+            body.query?.includes("pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC})")
+          ) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: { nodes: [] },
+                },
+              },
+            });
+          }
+        }
+
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    const result = await collect("alice");
+
+    expect(result.organizations).toEqual([]);
+    expect(result.metrics.username).toBe("alice");
+  });
 });

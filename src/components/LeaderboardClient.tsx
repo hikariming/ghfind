@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import type { LeaderboardWindow } from "@/lib/leaderboardWindow";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -161,7 +161,8 @@ export function LeaderboardClient({
 }) {
   const locale = useLocale();
   const tTier = useTranslations("tiers");
-  const listRef = useRef<HTMLOListElement>(null);
+  const listAnchorRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef(false);
   const [page, setPage] = useState(0);
   const [pageInput, setPageInput] = useState({ page: 0, value: "1" });
   const entries =
@@ -177,21 +178,24 @@ export function LeaderboardClient({
   const visible = pageSize ? entries.slice(current * pageSize, (current + 1) * pageSize) : entries;
   const offset = pageSize ? current * pageSize : 0;
 
-  function scrollToListTop() {
-    const list = listRef.current;
-    if (!list) return;
-    const top = list.getBoundingClientRect().top + window.scrollY;
-    // Only pull the viewport up when the list head is above the fold; never push
-    // the user further down a page they're already at the top of.
-    if (window.scrollY > top) {
-      window.scrollTo({ top, behavior: "smooth" });
-    }
-  }
+  useEffect(() => {
+    if (!pendingScrollRef.current) return;
+    pendingScrollRef.current = false;
+    const anchor = listAnchorRef.current;
+    if (!anchor) return;
+    requestAnimationFrame(() => {
+      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [current]);
 
   function changePage(target: number) {
+    if (target === current) {
+      setPageInput({ page: target, value: String(target + 1) });
+      return;
+    }
+    pendingScrollRef.current = true;
     setPage(target);
     setPageInput({ page: target, value: String(target + 1) });
-    scrollToListTop();
   }
 
   function goToPage(nextPage: number) {
@@ -211,7 +215,8 @@ export function LeaderboardClient({
 
   return (
     <>
-      <ol ref={listRef} className="flex flex-col gap-2">
+      <div ref={listAnchorRef} aria-hidden className="h-0 scroll-mt-24" />
+      <ol className="flex flex-col gap-2">
         {visible.map((e, i) => {
           const rank = offset + i;
           const style = tierStyle(e.tier);

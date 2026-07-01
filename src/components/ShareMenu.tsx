@@ -2,6 +2,16 @@
 
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore } from "react";
+import { Camera, Clipboard, Share2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /** Whether the browser supports the native Web Share API. Read via
  *  useSyncExternalStore so SSR sees `false` and the client reads the real value
@@ -65,62 +75,74 @@ export function ShareMenu({
   };
 
   return (
-    <div className="relative inline-block">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" shape="pill" className="px-4 py-1.5 text-xs">
+          <Share2 className="h-3.5 w-3.5" />
+          {T("open")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="center"
+        className="w-60 border-white/10 bg-zinc-900 p-3"
+        onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        {T("open")}
-      </button>
-
-      {open && (
-        <>
-          {/* backdrop closes the menu on outside click */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-1/2 z-50 mt-2 w-60 -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-900 p-3 shadow-2xl">
-            <div className="mb-2 px-1 text-left text-xs font-medium text-zinc-500">{T("heading")}</div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => openIntent(p.href(u, t))}
-                  className="rounded-lg border border-white/10 px-2 py-2 text-xs hover:bg-white/10"
-                  style={{ color: p.color }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                onShareImage();
-                setOpen(false);
-              }}
-              className="mt-2 w-full rounded-lg border border-orange-400/30 bg-orange-500/10 px-2 py-2 text-xs font-medium text-orange-200 hover:bg-orange-500/20"
+        <DropdownMenuLabel className="px-1 text-left text-xs font-medium text-zinc-500">
+          {T("heading")}
+        </DropdownMenuLabel>
+        <div className="grid grid-cols-3 gap-1.5 p-1">
+          {PLATFORMS.map((p) => (
+            <Button
+              key={p.key}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto border-white/10 px-2 py-2 text-xs hover:bg-white/10"
+              style={{ color: p.color }}
+              onClick={() => openIntent(p.href(u, t))}
             >
-              📷 {T("imageHint")}
-            </button>
+              {p.label}
+            </Button>
+          ))}
+        </div>
 
-            <div className="mt-1.5 flex gap-1.5">
-              <button
-                onClick={copyLink}
-                className="flex-1 rounded-lg border border-white/10 px-2 py-2 text-xs text-zinc-300 hover:bg-white/10"
-              >
-                📋 {copied ? T("copied") : T("copyLink")}
-              </button>
-              {canNative && (
-                <button
-                  onClick={nativeShare}
-                  className="flex-1 rounded-lg border border-white/10 px-2 py-2 text-xs text-zinc-300 hover:bg-white/10"
-                >
-                  {T("native")}
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+        <DropdownMenuSeparator className="my-2 bg-white/10" />
+        <DropdownMenuItem
+          className="rounded-lg border border-orange-400/30 bg-orange-500/10 px-3 py-2 text-xs font-medium text-orange-200 focus:bg-orange-500/20 focus:text-orange-100"
+          onSelect={(event) => {
+            event.preventDefault();
+            onShareImage();
+            setOpen(false);
+          }}
+        >
+          <Camera className="h-3.5 w-3.5" />
+          {T("imageHint")}
+        </DropdownMenuItem>
+
+        <div className="mt-2 flex gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="flex-1 border-white/10 text-xs"
+            onClick={copyLink}
+          >
+            <Clipboard className="h-3.5 w-3.5" />
+            {copied ? T("copied") : T("copyLink")}
+          </Button>
+          {canNative && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1 border-white/10 text-xs"
+              onClick={nativeShare}
+            >
+              {T("native")}
+            </Button>
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

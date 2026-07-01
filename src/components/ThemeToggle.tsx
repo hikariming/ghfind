@@ -2,6 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
+import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type ThemeMode = "light" | "dark" | "auto";
 type ResolvedTheme = "light" | "dark";
@@ -77,7 +79,7 @@ export function ThemeToggle() {
   // Locale transitions can replace <html> attrs; keep the persisted theme applied.
   useEffect(() => {
     applyMode(mode);
-  });
+  }, [mode]);
 
   return (
     <div
@@ -87,25 +89,34 @@ export function ThemeToggle() {
     >
       {MODES.map((m) => {
         const active = mode === m;
-        const icon = m === "light" ? "☀" : m === "dark" ? "☾" : "A";
+        const icon =
+          m === "light" ? (
+            <Sun className="h-3.5 w-3.5" />
+          ) : m === "dark" ? (
+            <Moon className="h-3.5 w-3.5" />
+          ) : (
+            <span aria-hidden="true" className="text-[11px] font-black leading-none">
+              A
+            </span>
+          );
         return (
-          <button
+          <Button
             key={m}
             type="button"
             aria-pressed={active}
             aria-label={t(m)}
             title={t(m)}
             onClick={() => setMode(m)}
-            className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+            variant={active ? "default" : "ghost"}
+            size="icon"
+            className={`h-7 w-7 rounded-full ${
               active
-                ? "bg-orange-600 text-white shadow-sm"
+                ? "bg-orange-600 text-white hover:bg-orange-500"
                 : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
             }`}
           >
-            <span aria-hidden="true" className="text-[13px] font-black leading-none">
-              {icon}
-            </span>
-          </button>
+            {icon}
+          </Button>
         );
       })}
     </div>

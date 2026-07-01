@@ -2,6 +2,17 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export interface ByoKeyConfig {
   baseURL: string;
@@ -31,6 +42,15 @@ const PRESETS: { label: string; baseURL: string; model: string }[] = [
   { label: "DeepSeek", baseURL: "https://api.deepseek.com/v1", model: "deepseek-chat" },
 ];
 
+function getInitialConfig(): ByoKeyConfig {
+  const existing = loadByoKey();
+  return {
+    baseURL: existing?.baseURL ?? PRESETS[0].baseURL,
+    apiKey: existing?.apiKey ?? "",
+    model: existing?.model ?? PRESETS[0].model,
+  };
+}
+
 export function ByoKeyModal({
   open,
   reason,
@@ -42,13 +62,34 @@ export function ByoKeyModal({
   onClose: () => void;
   onSave: (cfg: ByoKeyConfig | null) => void;
 }) {
-  const t = useTranslations("byok");
-  const existing = loadByoKey();
-  const [baseURL, setBaseURL] = useState(existing?.baseURL ?? PRESETS[0].baseURL);
-  const [apiKey, setApiKey] = useState(existing?.apiKey ?? "");
-  const [model, setModel] = useState(existing?.model ?? PRESETS[0].model);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      {open ? (
+        <ByoKeyModalContent reason={reason} onClose={onClose} onSave={onSave} />
+      ) : null}
+    </Dialog>
+  );
+}
 
-  if (!open) return null;
+function ByoKeyModalContent({
+  reason,
+  onClose,
+  onSave,
+}: {
+  reason?: string;
+  onClose: () => void;
+  onSave: (cfg: ByoKeyConfig | null) => void;
+}) {
+  const t = useTranslations("byok");
+  const initial = getInitialConfig();
+  const [baseURL, setBaseURL] = useState(initial.baseURL);
+  const [apiKey, setApiKey] = useState(initial.apiKey);
+  const [model, setModel] = useState(initial.model);
 
   const save = () => {
     if (!apiKey.trim()) return;
@@ -66,88 +107,108 @@ export function ByoKeyModal({
     setBaseURL(PRESETS[0].baseURL);
     setApiKey("");
     setModel(PRESETS[0].model);
-    onSave(null);
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={onClose}
+    <DialogContent
+      className="w-full max-w-[30.5rem] border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+      }}
     >
-      <div
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold">{t("title")}</h3>
-        {reason && (
-          <p className="mt-1 text-sm text-amber-400/90">{reason}</p>
-        )}
-        <p className="mt-2 text-xs text-zinc-400">
-          {t.rich("compatNote", { b: (c) => <span className="text-zinc-300">{c}</span> })}
-        </p>
-        <p className="mt-1.5 text-xs text-amber-400/90">
-          {t.rich("tempKeyNote", { b: (c) => <span className="font-semibold">{c}</span> })}
-        </p>
+      <DialogHeader className="space-y-0">
+        <DialogTitle>{t("title")}</DialogTitle>
+      </DialogHeader>
+      {reason && (
+        <p className="mt-1 text-sm text-amber-400/90">{reason}</p>
+      )}
+      <DialogDescription className="mt-2 text-xs text-zinc-400">
+        {t.rich("compatNote", { b: (c) => <span className="text-zinc-300">{c}</span> })}
+      </DialogDescription>
+      <p className="mt-1.5 text-xs text-amber-400/90">
+        {t.rich("tempKeyNote", { b: (c) => <span className="font-semibold">{c}</span> })}
+      </p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => {
-                setBaseURL(p.baseURL);
-                setModel(p.model);
-              }}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300 hover:bg-white/10"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {PRESETS.map((p) => (
+          <Button
+            key={p.label}
+            type="button"
+            onClick={() => {
+              setBaseURL(p.baseURL);
+              setModel(p.model);
+            }}
+            variant="outline"
+            size="sm"
+            shape="pill"
+            className="h-auto border-white/10 px-3 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
 
-        <label className="mt-4 block text-xs text-zinc-400">{t("baseUrl")}</label>
-        <input
+      <div className="mt-4 space-y-1">
+        <Label htmlFor="byo-base-url">{t("baseUrl")}</Label>
+        <Input
+          id="byo-base-url"
           value={baseURL}
           onChange={(e) => setBaseURL(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/60"
+          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
           placeholder="https://api.openai.com/v1"
         />
-        <label className="mt-3 block text-xs text-zinc-400">{t("apiKey")}</label>
-        <input
+      </div>
+      <div className="mt-3 space-y-1">
+        <Label htmlFor="byo-api-key">{t("apiKey")}</Label>
+        <Input
+          id="byo-api-key"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
-          className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/60"
+          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
           placeholder="sk-..."
         />
-        <label className="mt-3 block text-xs text-zinc-400">{t("model")}</label>
-        <input
+      </div>
+      <div className="mt-3 space-y-1">
+        <Label htmlFor="byo-model">{t("model")}</Label>
+        <Input
+          id="byo-model"
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/60"
+          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
           placeholder="gpt-4o-mini"
         />
-
-        <div className="mt-5 flex items-center justify-between">
-          <button onClick={clear} className="text-xs text-zinc-500 hover:text-zinc-300">
-            {t("clear")}
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:bg-white/5"
-            >
-              {t("cancel")}
-            </button>
-            <button
-              onClick={save}
-              disabled={!apiKey.trim()}
-              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-40"
-            >
-              {t("saveContinue")}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+
+      <DialogFooter className="mt-5 flex-row items-center justify-between sm:flex-row sm:justify-between">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-0 text-xs text-zinc-500 hover:bg-transparent hover:text-zinc-300"
+          onClick={clear}
+        >
+          {t("clear")}
+        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            className="text-zinc-400 hover:bg-white/5"
+          >
+            {t("cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={save}
+            disabled={!apiKey.trim()}
+            className="bg-orange-600 text-white hover:bg-orange-500"
+          >
+            {t("saveContinue")}
+          </Button>
+        </div>
+      </DialogFooter>
+    </DialogContent>
   );
 }

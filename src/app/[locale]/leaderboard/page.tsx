@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { Leaderboard } from "@/components/Leaderboard";
+import { LeaderboardControls } from "@/components/LeaderboardControls";
 import { JsonLd, leaderboardJsonLd } from "@/components/JsonLd";
 import { localeAlternates } from "@/lib/site";
 import { getLeaderboardCached } from "@/lib/leaderboard";
@@ -82,14 +82,18 @@ export default async function LeaderboardPage({
       : view === "heat"
         ? t("heatSubtitle")
         : t("trendSubtitle");
-  const tabClass = (tab: LeaderboardView) =>
-    `shrink-0 snap-start whitespace-nowrap rounded-full px-3 py-1.5 text-center transition-colors ${
-      view === tab ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
-    }`;
-  const windowTabClass = (tab: LeaderboardWindow) =>
-    `shrink-0 snap-start whitespace-nowrap rounded-full px-3 py-1 text-center transition-colors ${
-      timeWindow === tab ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
-    }`;
+  const viewItems = (["trending", "score", "heat"] as const).map((tab) => ({
+    key: tab,
+    label: tab === "trending" ? t("trendView") : tab === "score" ? t("scoreView") : t("heatView"),
+    active: view === tab,
+    href: boardHref(tab, timeWindow),
+  }));
+  const windowItems = LEADERBOARD_WINDOW_OPTIONS.map((w) => ({
+    key: w,
+    label: t(WINDOW_LABEL_KEY[w]),
+    active: timeWindow === w,
+    href: boardHref(view, w),
+  }));
 
   // Structured data only for the canonical score ranking — the directory's main
   // "top developers" list. Heat is a sort variant behind query params, so
@@ -114,42 +118,20 @@ export default async function LeaderboardPage({
         />
       )}
       <header className="mb-8">
-        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col items-start gap-5">
+          <div className="min-w-0">
             <h1 className="text-3xl font-black leading-tight tracking-tight text-zinc-100 sm:text-5xl">
               {t("heading")}
             </h1>
             <p className="mt-2 text-lg font-black text-zinc-300 sm:text-xl">{viewTitle}</p>
-            <div className="mt-4 flex w-full max-w-full snap-x items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:max-w-[40rem]">
-              <Link href={boardHref("trending", timeWindow)} className={tabClass("trending")}>
-                {t("trendView")}
-              </Link>
-              <Link href={boardHref("score", timeWindow)} className={tabClass("score")}>
-                {t("scoreView")}
-              </Link>
-              <Link href={boardHref("heat", timeWindow)} className={tabClass("heat")}>
-                {t("heatView")}
-              </Link>
-            </div>
-            <div
-              role="group"
-              aria-label={t("windowAria")}
-              className="mt-2 flex w-full max-w-full snap-x items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.03] p-1 text-xs font-bold sm:max-w-[40rem]"
-            >
-              {LEADERBOARD_WINDOW_OPTIONS.map((w) => (
-                <Link key={w} href={boardHref(view, w)} className={windowTabClass(w)}>
-                  {t(WINDOW_LABEL_KEY[w])}
-                </Link>
-              ))}
-            </div>
           </div>
-          <Link
-            href="/"
-            className="w-full shrink-0 rounded-full bg-orange-600 px-4 py-2 text-center text-xs font-medium text-white hover:bg-orange-500 sm:w-auto sm:px-5 sm:text-sm"
-          >
-            {t("judgeCta")}
-          </Link>
         </div>
+        <LeaderboardControls
+          className="mt-5"
+          viewItems={viewItems}
+          windowItems={windowItems}
+          windowAriaLabel={t("windowAria")}
+        />
         <p className="mt-2 text-zinc-400">{subtitle}</p>
       </header>
 

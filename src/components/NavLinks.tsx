@@ -1,8 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
 import type { NavItem } from "@/config/nav";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Primary nav links with active-state highlighting + dropdown submenus. Client
@@ -44,22 +51,33 @@ export function NavLinks({
 
   const linkItem = (item: NavItem) => {
     const active = isActive(item);
+    const baseClass = vertical
+      ? active
+        ? "w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 font-semibold text-zinc-100"
+        : "w-full rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/[0.04] hover:text-zinc-100"
+      : active
+        ? "font-semibold text-zinc-100"
+        : "text-zinc-400 hover:text-zinc-200";
     return (
       <Link
         key={item.key}
         href={item.href ?? "/"}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
-        className={`flex items-center rounded-full border px-3 py-1.5 text-sm transition-colors ${
-          vertical ? "w-full" : ""
-        } ${
-          active
-            ? "border-white/10 bg-white/10 font-medium text-zinc-100"
-            : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-        }`}
+        className={`group relative flex items-center text-sm transition-colors ${vertical ? "" : "px-3 py-2"} ${baseClass}`}
       >
-        {t(item.key)}
+        <span>{t(item.key)}</span>
         {badge(item)}
+        {!vertical && (
+          <span
+            aria-hidden="true"
+            className={`absolute inset-x-3 bottom-0 h-px rounded-full transition-opacity ${
+              active
+                ? "bg-orange-500/80 opacity-100"
+                : "bg-white/20 opacity-0 group-hover:opacity-100"
+            }`}
+          />
+        )}
       </Link>
     );
   };
@@ -70,7 +88,7 @@ export function NavLinks({
     if (vertical) {
       return (
         <div key={item.key} className="flex flex-col gap-1">
-          <span className="px-3 pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span className="px-4 pt-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
             {t(item.key)}
           </span>
           {children.map((c) => linkItem(c))}
@@ -78,32 +96,49 @@ export function NavLinks({
       );
     }
     return (
-      <div key={item.key} className="group relative">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          className={`flex items-center rounded-full border px-3 py-1.5 text-sm transition-colors ${
-            active
-              ? "border-white/10 bg-white/10 font-medium text-zinc-100"
-              : "border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-          }`}
+      <DropdownMenu key={item.key}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`h-auto px-3 py-2 text-sm ${
+              active
+                ? "font-semibold text-zinc-100 hover:bg-transparent hover:text-zinc-100"
+                : "text-zinc-400 hover:bg-transparent hover:text-zinc-200"
+            }`}
+          >
+            {t(item.key)}
+            <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[12rem] border-white/10 bg-popover/98 p-1.5 backdrop-blur-xl"
         >
-          {t(item.key)}
-          <svg viewBox="0 0 20 20" className="ml-1 h-3.5 w-3.5 fill-current opacity-70" aria-hidden>
-            <path d="M5.5 7.5l4.5 4 4.5-4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          </svg>
-        </button>
-        <div className="invisible absolute left-0 top-full z-50 min-w-[12rem] pt-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-          <div className="flex flex-col gap-1 rounded-xl border border-white/10 bg-zinc-900 p-1 shadow-xl">
-            {children.map((c) => linkItem(c))}
-          </div>
-        </div>
-      </div>
+          {children.map((c) => (
+            <Link
+              key={c.key}
+              href={c.href ?? "/"}
+              onClick={onNavigate}
+              aria-current={isActive(c) ? "page" : undefined}
+              className={`flex items-center rounded-xl px-3 py-2 text-sm transition-colors ${
+                isActive(c)
+                  ? "bg-white/[0.06] font-medium text-zinc-100"
+                  : "text-zinc-300 hover:bg-white/[0.04] hover:text-zinc-100"
+              }`}
+            >
+              {t(c.key)}
+              {badge(c)}
+            </Link>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
   return (
-    <nav className={vertical ? "flex flex-col gap-1" : "flex items-center gap-1"}>
+    <nav className={vertical ? "flex flex-col gap-1.5" : "flex items-center gap-1"}>
       {items.map((item) => (item.children ? dropdown(item) : linkItem(item)))}
     </nav>
   );

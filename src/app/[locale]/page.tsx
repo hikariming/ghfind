@@ -34,8 +34,8 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   const tt = await getTranslations("tiers");
 
   return (
-    <main className="flex flex-1 flex-col items-center px-5 py-14 sm:py-20">
-      <header className="mb-10 flex flex-col items-center text-center">
+    <main className="flex flex-1 flex-col items-center px-5 py-14 sm:px-6 sm:py-20">
+      <header className="mb-10 flex w-full max-w-4xl flex-col items-center text-center">
         <p className="mb-3 text-sm font-bold tracking-wide text-zinc-400">
           {t("brand")} <span className="text-orange-500">GitHub</span>
         </p>
@@ -62,7 +62,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
 
       <Suspense
         fallback={
-          <section className="mt-16 w-full max-w-4xl">
+          <section className="mt-16 w-full max-w-6xl">
             <div className="h-72 animate-pulse rounded-2xl border border-white/5 bg-white/5" />
           </section>
         }

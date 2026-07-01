@@ -38,7 +38,7 @@ function ensureCookie(res: NextResponse, locale: string) {
   });
 }
 
-export default function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isEnPath = pathname === "/en" || pathname.startsWith("/en/");
 

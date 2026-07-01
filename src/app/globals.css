@@ -8,6 +8,18 @@
   --surface-muted: rgba(255, 255, 255, 0.08);
   --border: rgba(255, 255, 255, 0.12);
   --border-soft: rgba(255, 255, 255, 0.08);
+  --card: var(--surface-strong);
+  --card-foreground: var(--foreground);
+  --popover: rgba(24, 24, 27, 0.96);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --muted-foreground: rgba(237, 237, 237, 0.72);
+  --accent: rgba(255, 255, 255, 0.08);
+  --accent-foreground: var(--foreground);
+  --input: rgba(0, 0, 0, 0.4);
+  --ring: rgba(249, 115, 22, 0.55);
+  --primary: #ea580c;
+  --primary-foreground: #ffffff;
   color-scheme: dark;
 }
 
@@ -19,6 +31,18 @@ html[data-theme="light"] {
   --surface-muted: rgba(15, 23, 42, 0.06);
   --border: rgba(15, 23, 42, 0.13);
   --border-soft: rgba(15, 23, 42, 0.08);
+  --card: var(--surface-strong);
+  --card-foreground: var(--foreground);
+  --popover: rgba(255, 255, 255, 0.98);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --muted-foreground: #52525b;
+  --accent: rgba(15, 23, 42, 0.08);
+  --accent-foreground: #18181b;
+  --input: rgba(255, 255, 255, 0.72);
+  --ring: rgba(234, 88, 12, 0.42);
+  --primary: #ea580c;
+  --primary-foreground: #ffffff;
   color-scheme: light;
   background: var(--background);
 }
@@ -26,6 +50,19 @@ html[data-theme="light"] {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -111,6 +148,11 @@ html[data-theme="light"] .bg-sky-500\/10 {
   background-color: rgba(14, 165, 233, 0.11);
 }
 
+html[data-theme="light"] .bg-emerald-500\/10,
+html[data-theme="light"] .bg-emerald-500\/12 {
+  background-color: rgba(16, 185, 129, 0.16);
+}
+
 html[data-theme="light"] .border-white\/5 {
   border-color: var(--border-soft);
 }
@@ -120,12 +162,20 @@ html[data-theme="light"] .border-white\/20 {
   border-color: var(--border);
 }
 
+html[data-theme="light"] .border-white\/15 {
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
 html[data-theme="light"] .border-orange-300\/15,
 html[data-theme="light"] .border-orange-300\/20,
 html[data-theme="light"] .border-orange-300\/30,
 html[data-theme="light"] .border-orange-400\/30,
 html[data-theme="light"] .border-orange-500\/20 {
   border-color: rgba(234, 88, 12, 0.24);
+}
+
+html[data-theme="light"] .border-emerald-400\/30 {
+  border-color: rgba(16, 185, 129, 0.32);
 }
 
 html[data-theme="light"] .ring-white\/10,
@@ -168,6 +218,10 @@ html[data-theme="light"] .placeholder\:text-zinc-600::placeholder {
   color: #9ca3af;
 }
 
+html[data-theme="light"] .placeholder\:text-zinc-500::placeholder {
+  color: #94a3b8;
+}
+
 html[data-theme="light"] .hover\:text-white:hover,
 html[data-theme="light"] .hover\:text-zinc-200:hover,
 html[data-theme="light"] .hover\:text-zinc-300:hover,
@@ -204,6 +258,10 @@ html[data-theme="light"] .text-violet-300 {
 
 html[data-theme="light"] .text-emerald-300 {
   color: #047857;
+}
+
+html[data-theme="light"] .text-emerald-200\/90 {
+  color: #065f46;
 }
 
 html[data-theme="light"] .text-slate-300 {
@@ -245,6 +303,23 @@ html[data-theme="light"] .login-nudge-card {
   box-shadow:
     0 18px 50px rgba(15, 23, 42, 0.14),
     0 4px 18px rgba(234, 88, 12, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"] {
+  scrollbar-color: rgba(71, 85, 105, 0.75) rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.72);
+  border-radius: 999px;
+}
+
+html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(51, 65, 85, 0.82);
 }
 
 html[data-theme="light"] [data-force-dark] {

@@ -161,6 +161,67 @@ async function graphql<T>(
   return json.data;
 }
 
+async function fetchOrganizations(username: string): Promise<string[]> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return [];
+
+  let res: Response;
+  try {
+    res = await fetch(`${GITHUB_API}/graphql`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query($login: String!) {
+          user(login: $login) {
+            organizations(first: 20) { nodes { login } }
+          }
+        }`,
+        variables: { login: username },
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    return [];
+  }
+
+  if (res.status === 403 || res.status === 429) {
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    if (remaining === "0") throw new GitHubRateLimitError();
+    return [];
+  }
+  if (!res.ok) return [];
+
+  let json:
+    | {
+        data?: {
+          user?: {
+            organizations?: { nodes?: ({ login?: string | null } | null)[] | null } | null;
+          } | null;
+        };
+        errors?: { type?: string; message?: string }[];
+      }
+    | undefined;
+  try {
+    json = (await res.json()) as typeof json;
+  } catch {
+    return [];
+  }
+
+  if (json?.errors?.length) {
+    const insufficientScopes = json.errors.some(
+      (error) =>
+        error.type === "INSUFFICIENT_SCOPES" ||
+        /read:org|insufficient scopes|organizations/i.test(error.message ?? ""),
+    );
+    if (insufficientScopes) return [];
+    return [];
+  }
+
+  return (json?.data?.user?.organizations?.nodes ?? [])
+    .map((node) => node?.login)
+    .filter((login): login is string => typeof login === "string");
+}
+
 function parseTs(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = new Date(value);
@@ -1326,7 +1387,6 @@ export async function collect(username: string): Promise<{
       };
       contributionYears: { contributionYears: number[] };
       pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
-      organizations: { nodes: ({ login?: string } | null)[] };
     } | null;
   }>(
     `query($login: String!) {
@@ -1334,7 +1394,6 @@ export async function collect(username: string): Promise<{
         pinnedItems(first: 6, types: REPOSITORY) {
           nodes { ... on Repository { nameWithOwner } }
         }
-        organizations(first: 20) { nodes { login } }
         mergedPRs: pullRequests(states: MERGED) { totalCount }
         allPRs: pullRequests { totalCount }
         closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -1373,10 +1432,8 @@ export async function collect(username: string): Promise<{
   const pinnedRepos = (contrib.user.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
-  const organizations = (contrib.user.organizations?.nodes ?? [])
-    .map((n) => n?.login)
-    .filter((s): s is string => typeof s === "string");
   const contribRepos = await fetchContribReposByYear(login, contributionYears);
+  const organizations = await fetchOrganizations(login);
   const mergedPrCount = contrib.user.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib.user.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
