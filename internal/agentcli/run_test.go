@@ -76,6 +76,63 @@ func TestRoastCommandCallsScanThenRoast(t *testing.T) {
 	}
 }
 
+func TestDiscoveryCommandsCallGETAPIs(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/stats":
+			_, _ = w.Write([]byte(`{"total":123,"cached":true}`))
+		case "/api/leaderboard":
+			_, _ = w.Write([]byte(`{"entries":[],"cached":true,"view":"score","window":"7d"}`))
+		case "/api/developers":
+			_, _ = w.Write([]byte(`{"type":"language","categories":[]}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	commands := [][]string{
+		{"stats", "--host", server.URL, "-o", "json"},
+		{"leaderboard", "--host", server.URL, "--view", "score", "--window", "7d", "-o", "json"},
+		{"developers", "--host", server.URL, "--type", "language", "-o", "json"},
+	}
+	for _, args := range commands {
+		var stdout bytes.Buffer
+		code := Execute(args, &stdout, &bytes.Buffer{})
+		if code != 0 {
+			t.Fatalf("%v returned %d", args, code)
+		}
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v did not return json: %s", args, stdout.String())
+		}
+	}
+
+	want := []string{
+		"/api/stats",
+		"/api/leaderboard?view=score&window=7d",
+		"/api/developers?type=language",
+	}
+	for i := range want {
+		if paths[i] != want[i] {
+			t.Fatalf("path %d: want %q, got %q", i, want[i], paths[i])
+		}
+	}
+}
+
+func TestDevelopersRequiresFacetType(t *testing.T) {
+	var stderr bytes.Buffer
+	code := Execute([]string{"developers", "-o", "json"}, &bytes.Buffer{}, &stderr)
+	if code == 0 {
+		t.Fatal("expected validation failure")
+	}
+	if !bytes.Contains(stderr.Bytes(), []byte("invalid developers type")) {
+		t.Fatalf("unexpected stderr: %s", stderr.String())
+	}
+}
+
 func TestAuthStatusDoesNotContactServer(t *testing.T) {
 	var stdout bytes.Buffer
 	code := Execute([]string{"auth", "status", "--json"}, &stdout, &bytes.Buffer{})

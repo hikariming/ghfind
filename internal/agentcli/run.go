@@ -15,6 +15,10 @@ type globalOptions struct {
 	TurnstileToken string
 	Output         string
 	Lang           string
+	View           string
+	Window         string
+	FacetType      string
+	FacetValue     string
 	JSON           bool
 	Help           bool
 	Version        bool
@@ -41,6 +45,12 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runScore(positional[1:], opts, stdout, stderr)
 	case "roast":
 		return runRoast(positional[1:], opts, stdout, stderr)
+	case "stats":
+		return runStats(opts, stdout, stderr)
+	case "leaderboard":
+		return runLeaderboard(opts, stdout, stderr)
+	case "developers":
+		return runDevelopers(opts, stdout, stderr)
 	case "commands":
 		return runCommands(positional[1:], opts, stdout, stderr)
 	case "auth":
@@ -51,6 +61,58 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 	default:
 		return exitError(stderr, fmt.Errorf("unknown command: %s", positional[0]))
 	}
+}
+
+func runStats(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	result, err := NewClient(opts).Stats(context.Background())
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" || opts.Output == "pretty" {
+		return writeJSON(stdout, result)
+	}
+	return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+}
+
+func runLeaderboard(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	if !validLeaderboardView(opts.View) {
+		return exitError(stderr, fmt.Errorf("invalid leaderboard view: %s", opts.View))
+	}
+	if !validLeaderboardWindow(opts.Window) {
+		return exitError(stderr, fmt.Errorf("invalid leaderboard window: %s", opts.Window))
+	}
+	result, err := NewClient(opts).Leaderboard(context.Background(), opts.View, opts.Window)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" {
+		return writeJSON(stdout, result)
+	}
+	if opts.Output != "pretty" {
+		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+	}
+	entries, _ := result["entries"].([]any)
+	fmt.Fprintf(stdout, "leaderboard view=%v window=%v entries=%d cached=%v\n",
+		result["view"], result["window"], len(entries), result["cached"])
+	for i, raw := range entries {
+		entry, _ := raw.(map[string]any)
+		fmt.Fprintf(stdout, "%d. %v %v/100 %v\n", i+1, entry["username"], entry["final_score"], entry["tier"])
+	}
+	return 0
+}
+
+func runDevelopers(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	if !validFacetType(opts.FacetType) {
+		return exitError(stderr, fmt.Errorf("invalid developers type: %s", opts.FacetType))
+	}
+	result, err := NewClient(opts).Developers(context.Background(), opts.FacetType, opts.FacetValue)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" || opts.Output == "pretty" {
+		return writeJSON(stdout, result)
+	}
+	return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
 }
 
 func runRoast(args []string, opts globalOptions, stdout io.Writer, stderr io.Writer) int {
@@ -181,6 +243,30 @@ func parseArgs(args []string) ([]string, globalOptions, error) {
 				return nil, opts, fmt.Errorf("%s requires a value", arg)
 			}
 			opts.Lang = args[i]
+		case "--view":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.View = args[i]
+		case "--window":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.Window = args[i]
+		case "--type":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.FacetType = args[i]
+		case "--value":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.FacetValue = args[i]
 		default:
 			positional = append(positional, arg)
 		}
@@ -326,4 +412,16 @@ func configured(ok bool) string {
 		return "configured"
 	}
 	return "missing"
+}
+
+func validLeaderboardView(view string) bool {
+	return view == "" || view == "trending" || view == "score" || view == "heat" || view == "progress"
+}
+
+func validLeaderboardWindow(window string) bool {
+	return window == "" || window == "all" || window == "24h" || window == "7d" || window == "30d"
+}
+
+func validFacetType(facetType string) bool {
+	return facetType == "language" || facetType == "org" || facetType == "repo"
 }
