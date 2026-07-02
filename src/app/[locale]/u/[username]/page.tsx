@@ -20,8 +20,9 @@ import { CopyBadge } from "@/components/CopyBadge";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
-import { SUBSCORE_MAX, nextTier } from "@/lib/score";
-import { DIMENSIONS, barColor } from "@/lib/dimensions";
+import { DimensionStarChart } from "@/components/DimensionStarChart";
+import { nextTier } from "@/lib/score";
+import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
@@ -125,6 +126,9 @@ export default async function AccountPage({
   const promoTierName = promo ? tTier(`${TIER_KEY[promo.tier]}.name`) : null;
   const beat = rank ? beatPercent(rank.below, rank.total) : null;
   const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
+  const dimensionLabels = Object.fromEntries(
+    DIMENSIONS.map((key) => [key, tDim(key)]),
+  ) as Record<(typeof DIMENSIONS)[number], string>;
 
   // Evidence blocks (only when a sedimented snapshot exists). Featured work =
   // the user's own top repos, with self-pinned repos floated to the front.
@@ -371,30 +375,7 @@ export default async function AccountPage({
       {/* Dimension breakdown */}
       <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
         <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
-        <div className="flex flex-col gap-3">
-          {DIMENSIONS.map((key) => {
-            const max = SUBSCORE_MAX[key];
-            const v = d.sub_scores[key] ?? 0;
-            const pct = Math.max(0, Math.min(1, v / max));
-            return (
-              <div key={key}>
-                <div className="mb-1 flex items-baseline justify-between text-sm">
-                  <span className="text-zinc-300">{tDim(key)}</span>
-                  <span className="tabular-nums text-zinc-400">
-                    {v.toFixed(1)}
-                    <span className="text-zinc-600"> / {max}</span>
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={`h-full rounded-full ${barColor(pct)}`}
-                    style={{ width: `${pct * 100}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DimensionStarChart scores={d.sub_scores} labels={dimensionLabels} tier={d.tier} />
       </section>
 
       {/* Featured work — the user's own popular repos, self-pinned floated up. */}

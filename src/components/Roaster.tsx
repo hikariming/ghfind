@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { DIMENSIONS } from "@/lib/dimensions";
 import { splitReport } from "@/lib/report";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
-import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
+import type { RoastLine, RoastMeta, ScanResult, SubScoreKey, Tags, Tier } from "@/lib/types";
 import {
   ByoKeyConfig,
   ByoKeyModal,
@@ -23,6 +24,7 @@ import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { Omnibox } from "./Omnibox";
+import { DimensionStarChart } from "./DimensionStarChart";
 
 const SITE_URL = "https://ghfind.com";
 
@@ -37,6 +39,8 @@ export function Roaster() {
   const t = useTranslations("roaster");
   const tScan = useTranslations("scanErrors");
   const tTier = useTranslations("tiers");
+  const tDetail = useTranslations("detail");
+  const tDim = useTranslations("dimensions");
   const locale = useLocale();
   const searchParams = useSearchParams();
 
@@ -280,6 +284,9 @@ export function Roaster() {
   // the inline 🔥 marker; either way the body renders without that line.
   const { body: reportBody, roast: inlineRoast } = splitReport(report);
   const roastLine = (metaRoast ? (locale === "en" ? metaRoast.en : metaRoast.zh) : "") || inlineRoast;
+  const dimensionLabels = Object.fromEntries(
+    DIMENSIONS.map((key) => [key, tDim(key)]),
+  ) as Record<SubScoreKey, string>;
   const cardRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
   const [savingImg, setSavingImg] = useState(false);
@@ -392,7 +399,7 @@ export function Roaster() {
       {scan && display && style && (
         <div ref={reportRef} className="mt-10">
           <div
-            className={`animate-pop mx-auto flex max-w-md flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
+            className={`animate-pop mx-auto flex max-w-3xl flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
             style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
           >
             <a
@@ -455,6 +462,17 @@ export function Roaster() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left sm:p-5">
+              <div className="mb-4 text-base font-bold text-zinc-200">
+                {tDetail("dimensionsHeading")}
+              </div>
+              <DimensionStarChart
+                scores={scan.scoring.sub_scores}
+                labels={dimensionLabels}
+                tier={display.tier}
+              />
             </div>
 
             {percentile &&
