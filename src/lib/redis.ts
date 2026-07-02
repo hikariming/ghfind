@@ -14,17 +14,20 @@ import {
   bypassGeneratedCaches,
   ROAST_CACHE_VERSION,
   SCORE_CACHE_VERSION,
+  VERDICT_CACHE_VERSION,
 } from "./cache-version";
 import type { FacetCategory, LeaderboardEntry, LeaderboardWindow } from "./db";
 import type { FacetType } from "./facets";
 import type { Lang } from "./lang";
 import type { ProfileReactionCounts } from "./reactions";
-import type { RoastJudgeResult, ScanResult } from "./types";
+import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
 let roastDayLimiter: Ratelimit | null = null;
+let verdictMinuteLimiter: Ratelimit | null = null;
+let verdictDayLimiter: Ratelimit | null = null;
 
 function getRedis(): Redis | null {
   if (redis) return redis;
@@ -308,6 +311,135 @@ export async function waitForCachedRoast(
     if (!stillLocked) return (await getCachedRoast(username, lang)) ?? null;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// PK (versus) verdict — bilingual LLM savage verdict + self-improvement advice,
+// cached per canonical matchup for ~5 days so the model is called at most once
+// per pair per window. Mirrors the roast cache/lock/limit machinery.
+// ---------------------------------------------------------------------------
+
+export interface CachedVerdict {
+  verdict: RoastLine;
+  advice: RoastLine;
+  winner: string | null;
+  bucket: string;
+}
+
+const VERDICT_TTL_SECONDS = 60 * 60 * 24 * 5; // ~5 days
+const VERDICT_LOCK_TTL_SECONDS = 60;
+
+/** Canonical (lowercased, dictionary-sorted) pair key — so /vs/a/b and /vs/b/a
+ *  share one cache entry. */
+function verdictPair(a: string, b: string): string {
+  return [a.toLowerCase(), b.toLowerCase()].sort().join("|");
+}
+export const verdictKey = (a: string, b: string) =>
+  `verdict:${VERDICT_CACHE_VERSION}:${verdictPair(a, b)}`;
+const verdictLockKey = (a: string, b: string) => `lock:verdict:${verdictPair(a, b)}`;
+
+export async function getCachedVerdict(a: string, b: string): Promise<CachedVerdict | null> {
+  if (bypassGeneratedCaches()) return null;
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return (await r.get<CachedVerdict>(verdictKey(a, b))) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedVerdict(
+  a: string,
+  b: string,
+  value: CachedVerdict,
+): Promise<void> {
+  if (bypassGeneratedCaches()) return;
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(verdictKey(a, b), value, { ex: VERDICT_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
+export async function acquireVerdictLock(a: string, b: string): Promise<boolean> {
+  if (bypassGeneratedCaches()) return true;
+  const r = getRedis();
+  if (!r) return true;
+  try {
+    return (
+      (await r.set(verdictLockKey(a, b), "1", {
+        nx: true,
+        ex: VERDICT_LOCK_TTL_SECONDS,
+      })) === "OK"
+    );
+  } catch {
+    return true;
+  }
+}
+
+export async function releaseVerdictLock(a: string, b: string): Promise<void> {
+  if (bypassGeneratedCaches()) return;
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(verdictLockKey(a, b));
+  } catch {
+    // best-effort
+  }
+}
+
+/** Non-leader waits for the leader's verdict to land in cache (see waitForCachedRoast). */
+export async function waitForCachedVerdict(
+  a: string,
+  b: string,
+  timeoutMs = 45000,
+): Promise<CachedVerdict | null> {
+  if (bypassGeneratedCaches()) return null;
+  const r = getRedis();
+  if (!r) return null;
+  const steps = Math.max(1, Math.floor(timeoutMs / 500));
+  for (let i = 0; i < steps; i++) {
+    await sleep(500);
+    const cached = await getCachedVerdict(a, b);
+    if (cached) return cached;
+    const stillLocked = await r.get(verdictLockKey(a, b)).catch(() => null);
+    if (!stillLocked) return (await getCachedVerdict(a, b)) ?? null;
+  }
+  return null;
+}
+
+/** Per-IP limiter for the PK verdict LLM call (operator credit). Burst + daily. */
+export async function checkVerdictRateLimit(ip: string): Promise<{ success: boolean }> {
+  const r = getRedis();
+  if (!r) return { success: true };
+  if (!verdictMinuteLimiter) {
+    verdictMinuteLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(6, "60 s"),
+      prefix: "rl:verdict:m",
+      analytics: false,
+    });
+  }
+  if (!verdictDayLimiter) {
+    verdictDayLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(40, "1 d"),
+      prefix: "rl:verdict:d",
+      analytics: false,
+    });
+  }
+  try {
+    const [minute, day] = await Promise.all([
+      verdictMinuteLimiter.limit(ip),
+      verdictDayLimiter.limit(ip),
+    ]);
+    return { success: minute.success && day.success };
+  } catch {
+    return { success: true };
+  }
 }
 
 const STATS_KEY = "stats:count";

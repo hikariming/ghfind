@@ -21,6 +21,14 @@ export const SITE_URL = (
 export const PUBLIC_INDEX_MIN_SCORE = 60;
 
 /**
+ * Minimum score BOTH sides of a PK must clear for the /vs page to (a) spend an
+ * LLM call on a savage verdict and (b) be indexed / added to the sitemap. Lower
+ * than the profile floor: a duel is interesting even at "solid" tier, but we
+ * still don't burn the model or index pages on low-value matchups.
+ */
+export const VS_MIN_SCORE = 55;
+
+/**
  * Build the `alternates` block for a page's metadata: a self-referencing
  * `canonical` plus `hreflang` pairs for both locales and an `x-default`.
  *

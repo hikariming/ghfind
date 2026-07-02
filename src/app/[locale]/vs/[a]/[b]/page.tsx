@@ -3,20 +3,30 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
-import { getAccountDetail } from "@/lib/db";
+import { getAccountDetail, getMatchup } from "@/lib/db";
 import { SUBSCORE_MAX } from "@/lib/score";
 import { DIMENSIONS, barColor } from "@/lib/dimensions";
 import { TIER_KEY } from "@/lib/tier";
 import { verdict } from "@/lib/verdict";
 import { normalizeUsername } from "@/lib/username";
-import { localeAlternates } from "@/lib/site";
+import { localeAlternates, VS_MIN_SCORE } from "@/lib/site";
+import type { RoastLine } from "@/lib/types";
 import { VsPlayerCard } from "@/components/VsPlayerCard";
 import { VsSummonButton } from "@/components/VsSummonButton";
+import { VsVerdictLive } from "@/components/VsVerdictLive";
+import { VsShare } from "@/components/VsShare";
 
 export const dynamic = "force-dynamic";
 
 // Dedupe the DB reads between generateMetadata() and the page render.
 const getDetail = cache((username: string) => getAccountDetail(username));
+const getM = cache((a: string, b: string) => getMatchup(a, b));
+
+/** Pick the locale side of a bilingual line, falling back to the other. */
+function localeSide(line: RoastLine | null | undefined, locale: string): string {
+  if (!line) return "";
+  return locale === "en" ? line.en || line.zh : line.zh || line.en;
+}
 
 /** Normalize + canonicalize (lowercased, dictionary order) a /vs pair, or null
  *  if either handle is invalid. */
@@ -39,13 +49,21 @@ export async function generateMetadata({
   if (!pair) return { title: t("heading") };
   const title = t("metaTitle", { a: pair.a, b: pair.b });
   const description = t("metaDescription", { a: pair.a, b: pair.b });
-  const image = `/api/card/vs/${pair.a}/${pair.b}`;
+  const image =
+    locale === "en"
+      ? `/api/card/vs/${pair.a}/${pair.b}`
+      : `/api/card/vs/${pair.a}/${pair.b}?lang=zh`;
+  // Index only a matchup that earned an LLM verdict AND clears the floor on both
+  // sides — keeps N² UGC pairs out of the index but lets real, judged duels rank.
+  const matchup = await getM(pair.a, pair.b);
+  const indexable =
+    !!matchup?.verdict &&
+    matchup.scoreA >= VS_MIN_SCORE &&
+    matchup.scoreB >= VS_MIN_SCORE;
   return {
     title,
     description,
-    // UGC pair combos are N² — keep them out of the index, but follow through to
-    // the (indexable) profile pages they link to.
-    robots: { index: false, follow: true },
+    robots: indexable ? undefined : { index: false, follow: true },
     alternates: localeAlternates(locale, `/vs/${pair.a}/${pair.b}`),
     openGraph: {
       title,
@@ -78,24 +96,39 @@ export default async function VsPage({
   const tDim = await getTranslations("dimensions");
   const tTier = await getTranslations("tiers");
 
-  const [da, db] = await Promise.all([getDetail(pair.a), getDetail(pair.b)]);
+  const [da, db, matchup] = await Promise.all([
+    getDetail(pair.a),
+    getDetail(pair.b),
+    getM(pair.a, pair.b),
+  ]);
   const v = verdict(da, db);
 
   const tierName = (d: typeof da) => (d ? tTier(`${TIER_KEY[d.tier]}.name`) : null);
-  const bucketLabel =
-    v.bucket === "crush"
+  const bucketLabel = v.missing
+    ? null
+    : v.bucket === "crush"
       ? t("bucketCrush")
       : v.bucket === "edge"
         ? t("bucketEdge")
         : t("bucketEven");
 
-  // Verdict line: neutral prompt while a side is missing, "tie" copy on a dead
-  // heat, otherwise the deterministically-selected savage template.
-  const verdictLine = v.missing
+  // SSR verdict: a stored LLM verdict (indexable, instant on repeat visits) wins;
+  // else the neutral/tie/deterministic template. The client component swaps in a
+  // freshly-generated LLM verdict when one is eligible but not yet stored.
+  const storedVerdict = localeSide(matchup?.verdict, locale);
+  const storedAdvice = localeSide(matchup?.advice, locale);
+  const templateLine = v.missing
     ? t("verdictMissing")
     : v.winner === "tie"
       ? t("verdictTie")
       : t(v.templateKey, v.slots);
+  const initialVerdict = storedVerdict || templateLine;
+  const bothEligible = !!(
+    da &&
+    db &&
+    da.final_score >= VS_MIN_SCORE &&
+    db.final_score >= VS_MIN_SCORE
+  );
 
   // "换个对手" seeds the loser back into the Omnibox in half-state.
   const loser =
@@ -137,15 +170,17 @@ export default async function VsPage({
           </VsPlayerCard>
         </div>
 
-        {/* Verdict banner */}
-        <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/[0.07] p-5 text-center">
-          {!v.missing && (
-            <div className="mb-2 inline-block rounded-full bg-orange-500/20 px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-orange-200">
-              {bucketLabel}
-            </div>
-          )}
-          <p className="text-[0.95rem] leading-relaxed text-zinc-100">🔥 {verdictLine}</p>
-        </div>
+        {/* Verdict banner (auto-generates the LLM verdict + advice on first human
+            visit when both sides are eligible; otherwise shows the template). */}
+        <VsVerdictLive
+          a={pair.a}
+          b={pair.b}
+          bucketLabel={bucketLabel}
+          initialVerdict={initialVerdict}
+          initialAdvice={storedAdvice}
+          adviceHeading={t("adviceHeading")}
+          autoGenerate={bothEligible && !matchup?.verdict}
+        />
 
         {da && db && (
           <>
@@ -225,6 +260,18 @@ export default async function VsPage({
 
         {v.missing && !da && !db && (
           <p className="mt-6 text-center text-sm text-zinc-400">{t("bothMissing")}</p>
+        )}
+
+        {/* Save / share the result as a big flex image */}
+        {da && db && (
+          <div className="mt-6">
+            <VsShare
+              a={{ username: da.username, avatarUrl: da.avatar_url, score: da.final_score, tier: da.tier }}
+              b={{ username: db.username, avatarUrl: db.avatar_url, score: db.final_score, tier: db.tier }}
+              winner={v.winner}
+              verdictLine={initialVerdict}
+            />
+          </div>
         )}
 
         {/* Keep the chain going */}

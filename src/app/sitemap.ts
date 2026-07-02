@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getAllPublicUsernames } from "@/lib/db";
+import { getAllPublicUsernames, getIndexableMatchups } from "@/lib/db";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import { PUBLIC_INDEX_MIN_SCORE, SITE_URL } from "@/lib/site";
@@ -48,6 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/", { changeFrequency: "daily", priority: 1 }),
     entry("/leaderboard", { changeFrequency: "hourly", priority: 0.9 }),
     entry("/developers", { changeFrequency: "daily", priority: 0.9 }),
+    entry("/vs", { changeFrequency: "daily", priority: 0.8 }),
   ];
 
   // Directory buckets (top languages + projects + orgs). Reads the same cached
@@ -89,5 +90,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
-  return [...staticRoutes, ...facetRoutes, ...profileRoutes];
+  // Indexable PK matchups: LLM-judged and both sides above the floor. Handles are
+  // already lowercased+sorted canonical, so each maps to one canonical /vs URL.
+  const matchups = await withTimeout(getIndexableMatchups(), PROFILE_QUERY_TIMEOUT_MS, []);
+  const matchupRoutes: MetadataRoute.Sitemap = matchups.map((m) =>
+    entry(`/vs/${encodeURIComponent(m.a)}/${encodeURIComponent(m.b)}`, {
+      lastModified: m.updatedAt ? new Date(m.updatedAt) : undefined,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    }),
+  );
+
+  return [...staticRoutes, ...facetRoutes, ...profileRoutes, ...matchupRoutes];
 }

@@ -8,6 +8,8 @@
  */
 export const SCORE_CACHE_VERSION = "v6";
 export const ROAST_CACHE_VERSION = "v8";
+/** Bump when the PK (versus) verdict prompt / output semantics change. */
+export const VERDICT_CACHE_VERSION = "v1";
 
 export function bypassGeneratedCaches(): boolean {
   return (

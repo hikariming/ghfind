@@ -9,7 +9,10 @@
 
 import { TIER_EN, TIER_LABEL_EN } from "./badge";
 import type { Lang } from "./lang";
-import type { RoastJudgeResult, ScanResult } from "./types";
+import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
+import type { AccountDetail } from "./db";
+import type { Verdict } from "./verdict";
+import { SUBSCORE_MAX } from "./score";
 
 const JUDGE_SYSTEM_PROMPT_ZH = `你是「GitHub 评分校准员」。给你的是某个 GitHub 账号的确定性打分结果。你的任务只做事实判断和分数校准，**不要写报告，不要玩梗，不要毒舌**。
 
@@ -444,4 +447,91 @@ export function buildRoastMessages(
       content: preamble + JSON.stringify(payload, null, 2) + "\n```",
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// PK (versus) verdict prompt — one LLM call yields a bilingual savage verdict
+// AND bilingual self-improvement advice for the two developers being compared.
+// ---------------------------------------------------------------------------
+
+const PK_SYSTEM_PROMPT = `你是「GitHub 开发者对决裁判 / 毒舌解说」。给你两名开发者 A、B 的确定性评分数据(总分、段位、六维子分、标签、一句话点评),以及已经算好的胜负 winner / 分差 gap / 档位 bucket(crush=碾压, edge=险胜, even=五五开)。胜负是既定事实,你不要改判。
+
+你的任务:基于数据写**两段**,并且**中英双语**、各自地道(不要机翻腔)。
+
+1) 毒舌裁决(verdict):2-4 句,有梗、嘴臭但**不造谣、不辱骂人身**,只吐槽账号的公开数据与行为。点名双方差距的**具体维度**(如"生态影响力被碾压""原创项目质量拉胯"),让胜负有据可依。
+2) 进步建议(advice):面向**落后一方**(五五开则兼顾双方)的**具体、可执行**的自我提升/学习建议 2-3 条。点名最弱的维度,给方向(例如"少灌文档型 PR,多向高星仓库提核心功能 PR""把某个原创项目补上 README/测试/release,做出可用度""持续活跃、把贡献沉淀成可验证的 commit")。不要空话套话、不要客套。
+
+严格输出格式:只输出下面两行控制行,不要任何多余解释、不要 Markdown、不要代码块:
+@@VERDICT zh=<中文毒舌裁决>|en=<English savage verdict>@@
+@@ADVICE zh=<中文进步建议,可用「1)…2)…」编号>|en=<English advice, may use 1)… 2)…>@@`;
+
+/** Compact per-side view for the PK prompt (no heavy scan payload needed). */
+function pkSide(d: AccountDetail) {
+  const dims: Record<string, string> = {};
+  for (const [k, v] of Object.entries(d.sub_scores)) {
+    const max = (SUBSCORE_MAX as Record<string, number>)[k] ?? 0;
+    dims[k] = `${v.toFixed(1)}/${max}`;
+  }
+  return {
+    handle: d.username,
+    final_score: d.final_score,
+    tier_zh: d.tier,
+    tier_en: TIER_EN[d.tier],
+    sub_scores: dims,
+    tags: [...(d.tags.zh ?? []), ...(d.tags.en ?? [])].slice(0, 6),
+    one_liner: d.roast_line?.zh || d.roast_line?.en || "",
+  };
+}
+
+/**
+ * Build the messages for the PK verdict. `a`/`b` are the two accounts (already
+ * canonical order); `v` is the deterministic {@link Verdict} so the model knows
+ * the settled winner/gap/bucket and per-dimension winners.
+ */
+export function buildPkVerdictMessages(
+  a: AccountDetail,
+  b: AccountDetail,
+  v: Verdict,
+): { role: "system" | "user"; content: string }[] {
+  const payload = {
+    a: pkSide(a),
+    b: pkSide(b),
+    result: {
+      winner: v.winner === "tie" ? "tie" : v.winner === "a" ? a.username : b.username,
+      bucket: v.bucket,
+      gap: Number(v.gap.toFixed(2)),
+      dimension_winners: v.dimWinners,
+    },
+  };
+  return [
+    { role: "system", content: PK_SYSTEM_PROMPT },
+    {
+      role: "user",
+      content:
+        "这是两名开发者的对决数据(JSON)。请只据此输出 @@VERDICT@@ 与 @@ADVICE@@ 两行:\n\n```json\n" +
+        JSON.stringify(payload, null, 2) +
+        "\n```",
+    },
+  ];
+}
+
+/** Extract a `key=<zh>|en=<en>` bilingual pair from one `@@TAG ...@@` control
+ *  line (no comma splitting — sentences contain commas). Caps each side. */
+function grabBilingual(text: string, tag: string): RoastLine {
+  const m = text.match(new RegExp(`@@${tag}\\s*([\\s\\S]*?)@@`));
+  if (!m) return { zh: "", en: "" };
+  const body = m[1];
+  const grab = (key: string): string => {
+    const mm = body.match(new RegExp(`${key}=([\\s\\S]*?)(?=\\||$)`));
+    return (mm?.[1] ?? "").trim().slice(0, 500);
+  };
+  return { zh: grab("zh"), en: grab("en") };
+}
+
+/** Parse the PK verdict LLM output into {verdict, advice}, each bilingual. */
+export function parsePkVerdict(text: string): { verdict: RoastLine; advice: RoastLine } {
+  return {
+    verdict: grabBilingual(text, "VERDICT"),
+    advice: grabBilingual(text, "ADVICE"),
+  };
 }

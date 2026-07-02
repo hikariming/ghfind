@@ -30,6 +30,7 @@ import {
   type ProfileReactionState,
 } from "./reactions";
 import { computeTrendingScore, rankTrending } from "./hotness";
+import { VS_MIN_SCORE } from "./site";
 import {
   clearCachedReactionCounts,
   getCachedReactionCounts,
@@ -316,6 +317,29 @@ function ensureSchema(db: Client): Promise<void> {
           // contiguous range per type.
           `CREATE INDEX IF NOT EXISTS idx_developer_facets_lookup
              ON developer_facets(facet_type, facet_value, username)`,
+          // PK (versus) matchups — one row per canonical (lowercased, sorted)
+          // pair. Holds the deterministic result plus the cached bilingual LLM
+          // verdict + self-improvement advice (JSON {zh,en}); feeds the /vs page,
+          // the profile "battles" section, the trending board, and the sitemap.
+          `CREATE TABLE IF NOT EXISTS vs_matchups (
+             handle_a       TEXT NOT NULL,
+             handle_b       TEXT NOT NULL,
+             winner         TEXT,
+             bucket         TEXT NOT NULL,
+             gap            REAL NOT NULL,
+             score_a        REAL NOT NULL,
+             score_b        REAL NOT NULL,
+             verdict        TEXT,
+             advice         TEXT,
+             verdict_source TEXT,
+             view_count     INTEGER NOT NULL DEFAULT 0,
+             created_at     INTEGER NOT NULL,
+             updated_at     INTEGER NOT NULL,
+             PRIMARY KEY (handle_a, handle_b)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_vs_matchups_a ON vs_matchups(handle_a, updated_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_vs_matchups_b ON vs_matchups(handle_b, updated_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_vs_matchups_hot ON vs_matchups(view_count DESC)`,
         ],
         "write",
       );
@@ -1300,6 +1324,212 @@ export async function searchScoredUsers(
     }));
   } catch (e) {
     console.error("searchScoredUsers failed:", e);
+    return [];
+  }
+}
+
+/** Parse a JSON `{zh,en}` column, returning null when the column is empty/null
+ *  (so callers can tell "no LLM verdict yet" from an empty one). */
+function parseNullableRoastLine(raw: unknown): RoastLine | null {
+  if (typeof raw !== "string" || !raw) return null;
+  return parseRoastLine(raw);
+}
+
+/** A stored PK matchup (canonical lowercased+sorted pair). */
+export interface VsMatchup {
+  handleA: string;
+  handleB: string;
+  winner: string | null;
+  bucket: string;
+  gap: number;
+  scoreA: number;
+  scoreB: number;
+  /** Bilingual LLM savage verdict; null until generated. */
+  verdict: RoastLine | null;
+  /** Bilingual self-improvement advice; null until generated. */
+  advice: RoastLine | null;
+  verdictSource: string | null;
+  viewCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+function mapMatchupRow(r: Record<string, unknown>): VsMatchup {
+  return {
+    handleA: String(r.handle_a),
+    handleB: String(r.handle_b),
+    winner: (r.winner as string | null) ?? null,
+    bucket: String(r.bucket),
+    gap: Number(r.gap),
+    scoreA: Number(r.score_a),
+    scoreB: Number(r.score_b),
+    verdict: parseNullableRoastLine(r.verdict),
+    advice: parseNullableRoastLine(r.advice),
+    verdictSource: (r.verdict_source as string | null) ?? null,
+    viewCount: Number(r.view_count ?? 0),
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+export interface MatchupInput {
+  /** Canonical (lowercased, dictionary-sorted) handles. */
+  a: string;
+  b: string;
+  winner: string | null;
+  bucket: string;
+  gap: number;
+  scoreA: number;
+  scoreB: number;
+  verdict?: RoastLine | null;
+  advice?: RoastLine | null;
+  source?: "template" | "llm" | null;
+}
+
+/**
+ * Upsert a matchup. A null verdict/advice never overwrites an existing one
+ * (COALESCE), so re-recording the base result on later views can't wipe a
+ * generated LLM verdict; `verdict_source` only advances when a verdict is set.
+ * `created_at` and `view_count` are preserved on conflict. Best-effort.
+ */
+export async function recordMatchup(m: MatchupInput): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    await db.execute({
+      sql: `INSERT INTO vs_matchups
+              (handle_a, handle_b, winner, bucket, gap, score_a, score_b, verdict, advice, verdict_source, view_count, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            ON CONFLICT(handle_a, handle_b) DO UPDATE SET
+              winner         = excluded.winner,
+              bucket         = excluded.bucket,
+              gap            = excluded.gap,
+              score_a        = excluded.score_a,
+              score_b        = excluded.score_b,
+              verdict        = COALESCE(excluded.verdict, vs_matchups.verdict),
+              advice         = COALESCE(excluded.advice, vs_matchups.advice),
+              verdict_source = CASE WHEN excluded.verdict IS NOT NULL
+                                    THEN excluded.verdict_source ELSE vs_matchups.verdict_source END,
+              updated_at     = excluded.updated_at`,
+      args: [
+        m.a.toLowerCase(),
+        m.b.toLowerCase(),
+        m.winner,
+        m.bucket,
+        m.gap,
+        m.scoreA,
+        m.scoreB,
+        m.verdict ? JSON.stringify(m.verdict) : null,
+        m.advice ? JSON.stringify(m.advice) : null,
+        m.source ?? null,
+        now,
+        now,
+      ],
+    });
+  } catch (e) {
+    console.error("recordMatchup failed:", e);
+  }
+}
+
+/** Increment a matchup's human view count (fed by the client verdict ping). */
+export async function bumpMatchupView(a: string, b: string): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `UPDATE vs_matchups SET view_count = view_count + 1
+            WHERE handle_a = ? AND handle_b = ?`,
+      args: [a.toLowerCase(), b.toLowerCase()],
+    });
+  } catch (e) {
+    console.error("bumpMatchupView failed:", e);
+  }
+}
+
+/** One matchup by canonical pair (null if never recorded). */
+export async function getMatchup(a: string, b: string): Promise<VsMatchup | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT * FROM vs_matchups WHERE handle_a = ? AND handle_b = ? LIMIT 1`,
+      args: [a.toLowerCase(), b.toLowerCase()],
+    });
+    const r = res.rows[0];
+    return r ? mapMatchupRow(r as Record<string, unknown>) : null;
+  } catch (e) {
+    console.error("getMatchup failed:", e);
+    return null;
+  }
+}
+
+/** A user's recent battles (either side), newest first. */
+export async function getUserMatchups(username: string, limit = 8): Promise<VsMatchup[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const u = username.toLowerCase();
+    const n = Math.max(1, Math.min(50, limit));
+    const res = await db.execute({
+      sql: `SELECT * FROM vs_matchups
+            WHERE handle_a = ? OR handle_b = ?
+            ORDER BY updated_at DESC LIMIT ?`,
+      args: [u, u, n],
+    });
+    return res.rows.map((r) => mapMatchupRow(r as Record<string, unknown>));
+  } catch (e) {
+    console.error("getUserMatchups failed:", e);
+    return [];
+  }
+}
+
+/** Trending battles for the /vs board — LLM-judged, both sides above the floor,
+ *  hottest first. */
+export async function getTrendingMatchups(limit = 40): Promise<VsMatchup[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const n = Math.max(1, Math.min(100, limit));
+    const res = await db.execute({
+      sql: `SELECT * FROM vs_matchups
+            WHERE verdict_source = 'llm' AND score_a >= ? AND score_b >= ?
+            ORDER BY view_count DESC, updated_at DESC LIMIT ?`,
+      args: [VS_MIN_SCORE, VS_MIN_SCORE, n],
+    });
+    return res.rows.map((r) => mapMatchupRow(r as Record<string, unknown>));
+  } catch (e) {
+    console.error("getTrendingMatchups failed:", e);
+    return [];
+  }
+}
+
+/** Indexable matchups for the sitemap: has an LLM verdict and both sides clear
+ *  the floor. */
+export async function getIndexableMatchups(): Promise<
+  { a: string; b: string; updatedAt: number }[]
+> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT handle_a, handle_b, updated_at FROM vs_matchups
+            WHERE verdict IS NOT NULL AND score_a >= ? AND score_b >= ?`,
+      args: [VS_MIN_SCORE, VS_MIN_SCORE],
+    });
+    return res.rows.map((r) => ({
+      a: String(r.handle_a),
+      b: String(r.handle_b),
+      updatedAt: Number(r.updated_at),
+    }));
+  } catch (e) {
+    console.error("getIndexableMatchups failed:", e);
     return [];
   }
 }

@@ -11,6 +11,7 @@ import {
   getProfileSnapshot,
   getRank,
   getSimilarAccounts,
+  getUserMatchups,
 } from "@/lib/db";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
@@ -106,12 +107,13 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
-  const [similar, comments, snap, rank, session] = await Promise.all([
+  const [similar, comments, snap, rank, session, battles] = await Promise.all([
     getSimilarAccounts(d.username, d.final_score, d.sub_scores),
     getProfileComments(d.username),
     getProfileSnapshot(d.username),
     getRank(d.final_score),
     authConfigured() ? auth() : Promise.resolve(null),
+    getUserMatchups(d.username),
   ]);
   // Inline re-detect is self-service: only the signed-in owner sees it on their
   // own profile. GitHub handles are case-insensitive, so compare normalized.
@@ -502,6 +504,52 @@ export default async function AccountPage({
                   </div>
                   <span className={`shrink-0 text-right text-sm font-black tabular-nums ${st.text}`}>
                     {st.emoji} {s.final_score.toFixed(2)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Battles — this dev's PK matchups (internal links + entertainment) */}
+      {battles.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <h2 className="mb-1 text-base font-bold text-zinc-200">{t("battlesHeading")}</h2>
+          <p className="mb-4 text-xs text-zinc-400">{t("battlesSub")}</p>
+          <div className="flex flex-col gap-2">
+            {battles.map((m) => {
+              const meIsA = m.handleA.toLowerCase() === d.username.toLowerCase();
+              const opponent = meIsA ? m.handleB : m.handleA;
+              const myScore = meIsA ? m.scoreA : m.scoreB;
+              const oppScore = meIsA ? m.scoreB : m.scoreA;
+              const outcome =
+                m.winner === null
+                  ? "tie"
+                  : m.winner.toLowerCase() === d.username.toLowerCase()
+                    ? "win"
+                    : "loss";
+              const badge =
+                outcome === "win"
+                  ? { text: t("battleWin"), cls: "bg-emerald-500/15 text-emerald-300" }
+                  : outcome === "loss"
+                    ? { text: t("battleLoss"), cls: "bg-rose-500/15 text-rose-300" }
+                    : { text: t("battleTie"), cls: "bg-zinc-500/15 text-zinc-300" };
+              return (
+                <Link
+                  key={`${m.handleA}-${m.handleB}`}
+                  href={`/vs/${m.handleA}/${m.handleB}`}
+                  prefetch={false}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+                >
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.cls}`}>
+                    {badge.text}
+                  </span>
+                  <div className="min-w-0 flex-1 truncate text-sm text-zinc-300">
+                    vs <span className="font-medium text-zinc-200">@{opponent}</span>
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                    {myScore.toFixed(1)} : {oppScore.toFixed(1)}
                   </span>
                 </Link>
               );

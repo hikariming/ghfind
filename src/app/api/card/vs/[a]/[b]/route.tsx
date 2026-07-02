@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { getAccountDetail } from "@/lib/db";
+import { getAccountDetail, getMatchup } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
 import { normalizeUsername } from "@/lib/username";
 import { verdict } from "@/lib/verdict";
@@ -102,9 +102,10 @@ export async function GET(
   const a = (na ?? decodeURIComponent(rawA ?? "")).toLowerCase();
   const b = (nb ?? decodeURIComponent(rawB ?? "")).toLowerCase();
 
-  const [da, db] = await Promise.all([
+  const [da, db, matchup] = await Promise.all([
     na ? getAccountDetail(a) : Promise.resolve(null),
     nb ? getAccountDetail(b) : Promise.resolve(null),
+    na && nb ? getMatchup(a, b) : Promise.resolve(null),
   ]);
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
@@ -115,11 +116,20 @@ export async function GET(
   ]);
 
   const vsColor = BUCKET_COLOR[v.bucket] ?? "#f97316";
-  const line = v.missing
-    ? t("verdictMissing")
-    : v.winner === "tie"
-      ? t("verdictTie")
-      : t(v.templateKey, v.slots);
+  // Prefer the stored LLM verdict (matches the /vs page); fall back to the
+  // deterministic template.
+  const storedVerdict = matchup?.verdict
+    ? locale === "en"
+      ? matchup.verdict.en || matchup.verdict.zh
+      : matchup.verdict.zh || matchup.verdict.en
+    : "";
+  const line =
+    storedVerdict ||
+    (v.missing
+      ? t("verdictMissing")
+      : v.winner === "tie"
+        ? t("verdictTie")
+        : t(v.templateKey, v.slots));
 
   const qr = parseQr(req) ? await qrDataUrl(`/vs/${a}/${b}`, qrModuleColor(vsColor, theme)) : null;
 

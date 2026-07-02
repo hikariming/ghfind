@@ -295,3 +295,20 @@ export async function* chatStream(
     if (ev.type === "content") yield ev.text;
   }
 }
+
+/**
+ * One-shot, non-streaming completion: accumulates the content deltas from
+ * {@link chatStreamEventsWithFallback} into a single string. For callers (e.g.
+ * the PK verdict) that want the whole answer, not a stream. Reasoning is dropped.
+ */
+export async function getCompletionWithFallback(
+  configs: LlmConfig[],
+  messages: ChatMessage[],
+  opts?: Parameters<typeof chatStreamEvents>[2],
+): Promise<string> {
+  let out = "";
+  for await (const ev of chatStreamEventsWithFallback(configs, messages, opts)) {
+    if (ev.type === "content") out += ev.text;
+  }
+  return out;
+}
