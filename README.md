@@ -179,3 +179,13 @@ Licensed under **[GNU AGPL-3.0](./LICENSE)**.
 - The scoring core is ported from the open-source Claude skill `github-account-value`, kept as the single source of truth.
 
 > **Trademark:** the "GitHub Roast / 毒舌 GitHub 评分" name, logo, and domain are **not covered** by the open-source license; all rights reserved. You may self-host from this code, but please do not use the project's name/brand to impersonate the official site or cause confusion.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=hikariming%2Fgithub-roast&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hikariming/github-roast&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hikariming/github-roast&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hikariming/github-roast&type=date&legend=top-left" />
+ </picture>
+</a>
