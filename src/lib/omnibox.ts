@@ -28,6 +28,13 @@ export type OmniIntent =
   | { kind: "user"; username: string }
   | { kind: "freetext"; query: string };
 
+export function shouldAutoLockPkIntent(
+  intent: OmniIntent,
+  suppressHalfLock: boolean,
+): intent is Extract<OmniIntent, { kind: "pk" | "pk-half" }> {
+  return intent.kind === "pk" || (intent.kind === "pk-half" && !suppressHalfLock);
+}
+
 /** Language alias → canonical GitHub Linguist name (matches stored facet value). */
 export const LANGUAGE_ALIASES: Record<string, string> = {
   rust: "Rust",

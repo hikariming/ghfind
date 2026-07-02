@@ -3,6 +3,7 @@ import {
   omniboxRoute,
   omniboxSuggestions,
   parseOmnibox,
+  shouldAutoLockPkIntent,
 } from "../omnibox";
 
 describe("parseOmnibox — PK (P0)", () => {
@@ -127,5 +128,16 @@ describe("omniboxSuggestions", () => {
 
   it("returns nothing for empty input", () => {
     expect(omniboxSuggestions("   ")).toEqual([]);
+  });
+});
+
+describe("shouldAutoLockPkIntent", () => {
+  it("does not relock a restored half-PK string while the user backspaces it", () => {
+    expect(shouldAutoLockPkIntent(parseOmnibox("torvalds vs"), true)).toBe(false);
+    expect(shouldAutoLockPkIntent(parseOmnibox("torvalds vs"), false)).toBe(true);
+  });
+
+  it("still auto-locks a complete pasted PK while half-lock suppression is active", () => {
+    expect(shouldAutoLockPkIntent(parseOmnibox("torvalds vs linus"), true)).toBe(true);
   });
 });

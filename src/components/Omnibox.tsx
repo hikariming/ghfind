@@ -9,6 +9,7 @@ import {
   omniboxRoute,
   omniboxSuggestions,
   parseOmnibox,
+  shouldAutoLockPkIntent,
 } from "@/lib/omnibox";
 import type { UserSuggestion } from "@/lib/db";
 import { tierStyle } from "@/lib/tier";
@@ -69,6 +70,7 @@ export function Omnibox({
   const t = useTranslations("omnibox");
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const suppressNextHalfLockRef = useRef(false);
 
   // The locked first handle once a PK separator is typed; while set, `value`
   // holds only the opponent's handle and the combined string is reconstructed.
@@ -185,15 +187,12 @@ export function Omnibox({
       // left handle into a chip and start collecting the opponent.
       if (!pkA) {
         const parsed = parseOmnibox(next);
-        if (parsed.kind === "pk-half") {
-          setPkA(parsed.a);
-          onChange("");
-          return;
+        if (suppressNextHalfLockRef.current && parsed.kind !== "pk-half") {
+          suppressNextHalfLockRef.current = false;
         }
-        if (parsed.kind === "pk") {
-          // Pasted "a vs b" — lock the first, keep the second as editable text.
+        if (shouldAutoLockPkIntent(parsed, suppressNextHalfLockRef.current)) {
           setPkA(parsed.a);
-          onChange(parsed.b);
+          onChange(parsed.kind === "pk" ? parsed.b : "");
           return;
         }
       }
@@ -205,6 +204,7 @@ export function Omnibox({
   const popChip = useCallback(() => {
     if (pkA == null) return;
     const restored = `${pkA} vs `;
+    suppressNextHalfLockRef.current = true;
     setPkA(null);
     onChange(restored);
     requestAnimationFrame(() => inputRef.current?.focus());
