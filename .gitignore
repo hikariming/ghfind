@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# edgeone
+.edgeone/
+
 # private planning / internal docs (do not open-source)
 /planning
 
