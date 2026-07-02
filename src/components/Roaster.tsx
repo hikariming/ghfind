@@ -18,6 +18,7 @@ import { CopyBadge } from "./CopyBadge";
 import { ShareMenu } from "./ShareMenu";
 import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
+import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { Input } from "@/components/ui/input";
@@ -303,8 +304,7 @@ export function Roaster() {
 
   const genCardBlob = async (): Promise<Blob | null> => {
     if (!cardRef.current) return null;
-    const { toBlob } = await import("html-to-image");
-    return toBlob(cardRef.current, { pixelRatio: 2, cacheBust: true });
+    return createShareCardBlob(cardRef.current);
   };
 
   const downloadBlob = (blob: Blob) => {
@@ -552,7 +552,7 @@ export function Roaster() {
           )}
 
           {/* Off-screen export target for the flex image */}
-          <div className="pointer-events-none fixed -left-[9999px] top-0">
+          <div className="pointer-events-none fixed left-0 top-0 -z-10">
             <ShareCard
               ref={cardRef}
               username={scan.metrics.username}

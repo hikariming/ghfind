@@ -31,8 +31,11 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   const style = tierStyle(tier);
   const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
   const [avatarData, setAvatarData] = useState<string | null>(null);
+  const [avatarReady, setAvatarReady] = useState(!avatarUrl);
 
   useEffect(() => {
+    setAvatarData(null);
+    setAvatarReady(!avatarUrl);
     if (!avatarUrl) return;
     let alive = true;
     fetch(avatarUrl)
@@ -46,9 +49,13 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
             fr.readAsDataURL(b);
           }),
       )
-      .then((d) => alive && setAvatarData(d))
+      .then((d) => {
+        if (!alive) return;
+        setAvatarData(d);
+        setAvatarReady(true);
+      })
       .catch(() => {
-        /* CORS/network — fall back to the initial-letter avatar */
+        if (alive) setAvatarReady(true);
       });
     return () => {
       alive = false;
@@ -59,6 +66,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
     <div
       ref={ref}
       data-force-dark
+      data-share-card-ready={avatarReady ? "true" : "false"}
       style={{ width: 600, height: 540 }}
       className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
     >

@@ -6,6 +6,7 @@ import { TIER_KEY } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { ShareCard } from "./ShareCard";
+import { createShareCardBlob } from "./shareCardExport";
 import { ShareMenu } from "./ShareMenu";
 
 /**
@@ -54,8 +55,7 @@ export function ProfileShare({
 
   const genCardBlob = async (): Promise<Blob | null> => {
     if (!cardRef.current) return null;
-    const { toBlob } = await import("html-to-image");
-    return toBlob(cardRef.current, { pixelRatio: 2, cacheBust: true });
+    return createShareCardBlob(cardRef.current);
   };
 
   const downloadBlob = (blob: Blob) => {
@@ -113,7 +113,7 @@ export function ProfileShare({
       <ShareMenu link={link} text={shareText} onShareImage={shareImage} />
 
       {/* Off-screen export target for the flex image */}
-      <div className="pointer-events-none fixed -left-[9999px] top-0">
+      <div className="pointer-events-none fixed left-0 top-0 -z-10">
         <ShareCard
           ref={cardRef}
           username={username}
