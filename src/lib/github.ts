@@ -1068,7 +1068,10 @@ export function computeImpactQualitySignals(
   };
 }
 
-/** One repo's all-time contribution aggregate, keyed by `nameWithOwner`. */
+/** One repo's all-time contribution aggregate, keyed by `nameWithOwner`.
+ * `commits` comes from the contribution graph; `prs` must come from merged PRs
+ * only. GitHub's PR contribution graph can include opened-but-unmerged PRs, so
+ * it is not safe as a landed-impact source. */
 export interface ContribRepoAgg {
   repo: string;
   stars: number;
@@ -1240,15 +1243,14 @@ interface ContribByRepoNode {
 
 interface YearContribs {
   commitContributionsByRepository: ContribByRepoNode[];
-  pullRequestContributionsByRepository: ContribByRepoNode[];
 }
 
 /**
- * Fetch all-time per-repo commit + PR contributions by aliasing one
+ * Fetch all-time per-repo commit contributions by aliasing one
  * `contributionsCollection(from,to)` per year (GraphQL caps each to a 1-year
  * span), capped to the most recent {@link IMPACT_YEAR_CAP} years.
  */
-async function fetchContribReposByYear(
+async function fetchCommitContribReposByYear(
   username: string,
   years: number[],
 ): Promise<ContribRepoAgg[] | null> {
@@ -1257,10 +1259,6 @@ async function fetchContribReposByYear(
 
   const fragment = `fragment RepoContribs on ContributionsCollection {
     commitContributionsByRepository(maxRepositories: 100) {
-      contributions { totalCount }
-      repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
-    }
-    pullRequestContributionsByRepository(maxRepositories: 100) {
       contributions { totalCount }
       repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
     }
@@ -1293,7 +1291,7 @@ async function fetchContribReposByYear(
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
   const map = new Map<string, ContribRepoAgg>();
   const yearsByRepo = new Map<string, Set<number>>();
-  const ingest = (node: ContribByRepoNode, kind: "commits" | "prs", year: number): void => {
+  const ingest = (node: ContribByRepoNode, year: number): void => {
     const repo = node.repository;
     if (!repo) return;
     const key = repo.nameWithOwner;
@@ -1310,7 +1308,7 @@ async function fetchContribReposByYear(
         active_years: 0,
       };
     entry.stars = Math.max(entry.stars, repo.stargazerCount ?? 0);
-    entry[kind] += node.contributions?.totalCount ?? 0;
+    entry.commits += node.contributions?.totalCount ?? 0;
     map.set(key, entry);
     const years = yearsByRepo.get(key) ?? new Set<number>();
     years.add(year);
@@ -1319,13 +1317,127 @@ async function fetchContribReposByYear(
   for (let i = 0; i < capped.length; i++) {
     const yc = data.user[`y${i}`];
     if (!yc) continue;
-    for (const n of yc.commitContributionsByRepository ?? []) ingest(n, "commits", capped[i]);
-    for (const n of yc.pullRequestContributionsByRepository ?? []) ingest(n, "prs", capped[i]);
+    for (const n of yc.commitContributionsByRepository ?? []) ingest(n, capped[i]);
   }
   return [...map.entries()].map(([key, value]) => ({
     ...value,
     active_years: yearsByRepo.get(key)?.size ?? 0,
   }));
+}
+
+interface MergedPrRepoNode {
+  mergedAt: string | null;
+  repository: {
+    nameWithOwner: string;
+    stargazerCount: number;
+    isPrivate: boolean;
+    isFork: boolean;
+    owner: { login: string } | null;
+  } | null;
+}
+
+type MergedPrPageInfo = { hasNextPage: boolean; endCursor: string | null };
+
+interface MergedPrReposResponse {
+  user: {
+    pullRequests: {
+      nodes: MergedPrRepoNode[];
+      pageInfo: MergedPrPageInfo;
+    };
+  } | null;
+}
+
+async function fetchMergedPrContribRepos(
+  username: string,
+  maxPrs = 300,
+): Promise<ContribRepoAgg[]> {
+  const map = new Map<string, ContribRepoAgg>();
+  const yearsByRepo = new Map<string, Set<number>>();
+  let after: string | null = null;
+
+  while (map.size < maxPrs) {
+    const remaining = Math.max(0, maxPrs - [...map.values()].reduce((a, r) => a + r.prs, 0));
+    if (remaining === 0) break;
+    const count = Math.min(100, remaining);
+    const data: MergedPrReposResponse = await graphql<MergedPrReposResponse>(
+      `query($login: String!, $count: Int!, $after: String) {
+        user(login: $login) {
+          pullRequests(first: $count, states: MERGED, after: $after,
+                       orderBy: {field: CREATED_AT, direction: DESC}) {
+            nodes {
+              mergedAt
+              repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }`,
+      { login: username, count, after },
+    );
+    if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no merged PR data.");
+
+    const pullRequests = data.user.pullRequests;
+    for (const node of pullRequests.nodes ?? []) {
+      const repo = node.repository;
+      if (!repo) continue;
+      const key = repo.nameWithOwner;
+      const entry =
+        map.get(key) ??
+        {
+          repo: key,
+          stars: 0,
+          is_private: repo.isPrivate,
+          is_fork: repo.isFork,
+          owner_login: repo.owner?.login ?? key.split("/", 1)[0],
+          commits: 0,
+          prs: 0,
+          active_years: 0,
+        };
+      entry.stars = Math.max(entry.stars, repo.stargazerCount ?? 0);
+      entry.prs += 1;
+      map.set(key, entry);
+      const year = node.mergedAt ? parseTs(node.mergedAt)?.getUTCFullYear() : null;
+      if (year) {
+        const years = yearsByRepo.get(key) ?? new Set<number>();
+        years.add(year);
+        yearsByRepo.set(key, years);
+      }
+    }
+
+    const pageInfo: MergedPrPageInfo = pullRequests.pageInfo;
+    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+    after = pageInfo.endCursor;
+  }
+
+  return [...map.entries()].map(([key, value]) => ({
+    ...value,
+    active_years: yearsByRepo.get(key)?.size ?? 0,
+  }));
+}
+
+export function mergeContribRepoAggs(groups: ContribRepoAgg[][]): ContribRepoAgg[] {
+  const map = new Map<string, ContribRepoAgg>();
+  for (const group of groups) {
+    for (const repo of group) {
+      const entry =
+        map.get(repo.repo) ??
+        {
+          ...repo,
+          stars: 0,
+          commits: 0,
+          prs: 0,
+          active_years: 0,
+        };
+      entry.stars = Math.max(entry.stars, repo.stars);
+      entry.is_private = entry.is_private || repo.is_private;
+      entry.is_fork = entry.is_fork || repo.is_fork;
+      entry.commits += repo.commits;
+      entry.prs += repo.prs;
+      entry.active_years = Math.max(entry.active_years, repo.active_years);
+      map.set(repo.repo, entry);
+    }
+  }
+  return [...map.values()];
 }
 
 export async function collect(username: string): Promise<{
@@ -1432,7 +1544,14 @@ export async function collect(username: string): Promise<{
   const pinnedRepos = (contrib.user.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
-  const contribRepos = await fetchContribReposByYear(login, contributionYears);
+  const [commitContribRepos, mergedPrContribRepos] = await Promise.all([
+    fetchCommitContribReposByYear(login, contributionYears),
+    fetchMergedPrContribRepos(login),
+  ]);
+  const contribRepos = mergeContribRepoAggs([
+    commitContribRepos ?? [],
+    mergedPrContribRepos,
+  ]);
   const organizations = await fetchOrganizations(login);
   const mergedPrCount = contrib.user.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib.user.allPRs?.totalCount ?? 0;
@@ -1545,25 +1664,10 @@ export async function collect(username: string): Promise<{
   // Ecosystem & maintainer impact: substantial work (PRs + landed commits) into
   // popular repos — others' projects (≥200★) or the user's own genuinely popular
   // repos (≥1000★). Computed from all-time per-repo contribution aggregates so
-  // old high-value work (e.g. apache/flink commits) still counts; falls back to
-  // the recent-PR window when unauthenticated (no GraphQL).
-  let impact: ImpactMetrics;
-  if (contribRepos) {
-    impact = computeImpactFromContribMap(contribRepos, loginLower);
-  } else {
-    const impactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower));
-    impact = {
-      max_impact_repo_stars: impactPrs.reduce((a, p) => Math.max(a, p.repo_stars), 0),
-      impact_depth_raw:
-        Math.round(
-          impactPrs.reduce((a, p) => a + logRatio(p.repo_stars, 5000), 0) * 100,
-        ) / 100,
-      impact_repo_count: impactPrs.length,
-      impact_commit_count: 0,
-      impact_pr_count: impactPrs.length,
-      impact_repos: [],
-    };
-  }
+  // old high-value work (e.g. apache/flink commits) still counts. PR impact is
+  // sourced from states: MERGED only; contribution-graph PR entries are not
+  // treated as landed work because closed/unmerged PRs can appear there.
+  let impact = computeImpactFromContribMap(contribRepos, loginLower);
   const impactQuality = computeImpactQualitySignals(
     recentPrWindow,
     impact.impact_pr_count,

@@ -273,6 +273,154 @@ ${"Useful project detail. ".repeat(50)}
     );
   });
 
+  it("does not count unmerged PR contribution graph entries as high-star impact", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === "https://api.github.com/users/lamp") {
+          return jsonResponse({
+            login: "lamp",
+            id: 1,
+            html_url: "https://github.com/lamp",
+            avatar_url: null,
+            name: "Lamp",
+            bio: null,
+            company: null,
+            created_at: "2020-01-01T00:00:00Z",
+            followers: 0,
+            following: 0,
+            public_repos: 0,
+          });
+        }
+
+        if (url.includes("/users/lamp/repos")) {
+          return jsonResponse([]);
+        }
+
+        if (url === "https://api.github.com/graphql") {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
+          const query = body.query ?? "";
+
+          if (query.includes("organizations(first: 20)")) {
+            return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+          }
+
+          if (query.includes("contributionsCollection(from:")) {
+            expect(query).not.toContain("pullRequestContributionsByRepository");
+            return jsonResponse({
+              data: {
+                user: {
+                  y0: {
+                    commitContributionsByRepository: [],
+                    // This used to be the source of the bug: GitHub's PR
+                    // contribution graph can include opened-but-unmerged PRs.
+                    // The scanner must ignore it for landed impact.
+                    pullRequestContributionsByRepository: [
+                      {
+                        contributions: { totalCount: 1 },
+                        repository: {
+                          nameWithOwner: "trekhleb/javascript-algorithms",
+                          stargazerCount: 196000,
+                          isPrivate: false,
+                          isFork: false,
+                          owner: { login: "trekhleb" },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            });
+          }
+
+          if (
+            query.includes("mergedPRs: pullRequests") &&
+            query.includes("pinnedItems(first: 6, types: REPOSITORY)")
+          ) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pinnedItems: { nodes: [] },
+                  mergedPRs: { totalCount: 0 },
+                  allPRs: { totalCount: 1 },
+                  closedPRs: {
+                    totalCount: 1,
+                    nodes: [
+                      {
+                        author: { login: "lamp" },
+                        repository: { owner: { login: "trekhleb" } },
+                        timelineItems: { nodes: [{ actor: { login: "lamp" } }] },
+                      },
+                    ],
+                  },
+                  issues: { totalCount: 0 },
+                  contributionsCollection: {
+                    totalCommitContributions: 0,
+                    totalPullRequestContributions: 1,
+                    totalIssueContributions: 0,
+                    totalPullRequestReviewContributions: 0,
+                    restrictedContributionsCount: 0,
+                    contributionCalendar: { totalContributions: 1 },
+                  },
+                  contributionYears: { contributionYears: [2023] },
+                },
+              },
+            });
+          }
+
+          if (query.includes("pullRequests(first: $count, states: MERGED")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: {
+                    nodes: [],
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                  },
+                },
+              },
+            });
+          }
+
+          if (
+            query.includes("pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC})")
+          ) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: {
+                    nodes: [
+                      {
+                        title: "Add fastPoweringBitwise function",
+                        repository: { nameWithOwner: "trekhleb/javascript-algorithms" },
+                      },
+                    ],
+                  },
+                },
+              },
+            });
+          }
+        }
+
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    const result = await collect("lamp");
+
+    expect(result.metrics.merged_pr_count).toBe(0);
+    expect(result.metrics.self_closed_external_pr_count).toBe(1);
+    expect(result.metrics.impact_pr_count).toBe(0);
+    expect(result.metrics.max_impact_repo_stars).toBe(0);
+    expect(result.impact_repos).toEqual([]);
+  });
+
   it("degrades gracefully when organization lookup lacks read:org scope", async () => {
     vi.stubGlobal(
       "fetch",
