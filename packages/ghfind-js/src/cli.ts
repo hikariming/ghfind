@@ -12,11 +12,16 @@
  * No LLM is ever bundled. `roast` uses the server's model by default (protected
  * by caching + rate limits); pass `--byo-*` to run it through your own provider.
  */
+import { chmodSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { arch, platform } from "node:os";
+import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { GhFind, GhFindError } from "./client.js";
 import type { ByoKey, ScanResult } from "./types.js";
 import { catalog, DEFAULT_HOST } from "./catalog.js";
 
 const VERSION = "0.1.1";
+const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const SUB_SCORE_ORDER = [
   "account_maturity",
@@ -45,6 +50,11 @@ export interface Flags {
   markdown?: boolean;
   includeScan?: boolean;
   verifyExists?: boolean;
+  releaseUrl?: string;
+  method?: string;
+  target?: string;
+  assetUrl?: string;
+  dryRun?: boolean;
   help?: boolean;
   version?: boolean;
 }
@@ -77,6 +87,10 @@ export function parseArgs(argv: string[]): { positional: string[]; flags: Flags 
     "--byo-base-url": "byoBaseUrl",
     "--byo-api-key": "byoApiKey",
     "--byo-model": "byoModel",
+    "--release-url": "releaseUrl",
+    "--method": "method",
+    "--target": "target",
+    "--asset-url": "assetUrl",
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -85,6 +99,7 @@ export function parseArgs(argv: string[]): { positional: string[]; flags: Flags 
     else if (arg === "--markdown" || arg === "--md") flags.markdown = true;
     else if (arg === "--include-scan") flags.includeScan = true;
     else if (arg === "--verify-exists") flags.verifyExists = true;
+    else if (arg === "--dry-run") flags.dryRun = true;
     else if (arg === "-h" || arg === "--help") flags.help = true;
     else if (arg === "--version") flags.version = true;
     else if (arg in takesValue) {
@@ -386,6 +401,225 @@ function byoKeyConfigured(flags: Flags): boolean {
   );
 }
 
+function parseVersionParts(version: string | undefined): number[] | null {
+  const normalized = String(version ?? "")
+    .trim()
+    .replace(/^ghfind\s*/i, "")
+    .replace(/^v/i, "")
+    .split(/[+-]/)[0];
+  if (!normalized || normalized === "dev") return null;
+  const parts = normalized.split(".").map((part) => Number.parseInt(part, 10));
+  if (parts.some((part) => !Number.isFinite(part))) return null;
+  return parts;
+}
+
+function isNewerVersion(latest: string | undefined, current: string): { newer: boolean; comparable: boolean } {
+  const latestParts = parseVersionParts(latest);
+  const currentParts = parseVersionParts(current);
+  if (!latestParts || !currentParts) return { newer: false, comparable: false };
+  const max = Math.max(latestParts.length, currentParts.length);
+  for (let i = 0; i < max; i++) {
+    const l = latestParts[i] ?? 0;
+    const c = currentParts[i] ?? 0;
+    if (l > c) return { newer: true, comparable: true };
+    if (l < c) return { newer: false, comparable: true };
+  }
+  return { newer: false, comparable: true };
+}
+
+async function checkUpdate(flags: Flags): Promise<Record<string, unknown>> {
+  const releaseUrl = flags.releaseUrl ?? process.env.GHFIND_RELEASE_URL ?? DEFAULT_RELEASE_URL;
+  const response = await fetch(releaseUrl, {
+    headers: {
+      accept: "application/vnd.github+json",
+      "user-agent": "ghfind-cli",
+    },
+  });
+  if (response.status === 404) {
+    return {
+      name: "ghfind",
+      current_version: VERSION,
+      update_available: false,
+      checked_url: releaseUrl,
+      status: "no_release",
+      message: "No GitHub release is published yet.",
+    };
+  }
+  if (!response.ok) throw new GhFindError(`API request failed with HTTP ${response.status}`, { status: response.status });
+  const latest = (await response.json()) as { tag_name?: string; html_url?: string };
+  const comparison = isNewerVersion(latest.tag_name, VERSION);
+  let status = "current";
+  let message = "ghfind is up to date.";
+  if (VERSION === "dev") {
+    status = "dev_build";
+    message = "This is a dev build; compare manually with the latest release.";
+  } else if (!comparison.comparable) {
+    status = "unknown";
+    message = "Could not compare versions; compare manually with the latest release.";
+  } else if (comparison.newer) {
+    status = "update_available";
+    message = "A newer ghfind CLI release is available.";
+  }
+  return {
+    name: "ghfind",
+    current_version: VERSION,
+    latest_version: latest.tag_name ?? "",
+    update_available: comparison.newer && comparison.comparable,
+    release_url: latest.html_url ?? "",
+    checked_url: releaseUrl,
+    status,
+    message,
+  };
+}
+
+function releaseAssetName(): string {
+  const goos = platform() === "win32" ? "windows" : platform();
+  const goarch = arch() === "x64" ? "amd64" : arch();
+  return `ghfind-${goos}-${goarch}${goos === "windows" ? ".exe" : ""}`;
+}
+
+async function fetchLatestRelease(flags: Flags): Promise<{ release: Record<string, unknown>; checkedUrl: string }> {
+  const releaseUrl = flags.releaseUrl ?? process.env.GHFIND_RELEASE_URL ?? DEFAULT_RELEASE_URL;
+  const response = await fetch(releaseUrl, {
+    headers: {
+      accept: "application/vnd.github+json",
+      "user-agent": "ghfind-cli",
+    },
+  });
+  if (!response.ok) throw new GhFindError(`API request failed with HTTP ${response.status}`, { status: response.status });
+  return { release: (await response.json()) as Record<string, unknown>, checkedUrl: releaseUrl };
+}
+
+function selectReleaseAsset(release: Record<string, unknown>, assetUrl: string | undefined): { name: string; url: string } {
+  if (assetUrl) return { name: "custom", url: assetUrl };
+  const want = releaseAssetName();
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const asset = assets.find((item): item is { name: string; browser_download_url: string } => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as Record<string, unknown>;
+    return candidate.name === want && typeof candidate.browser_download_url === "string";
+  });
+  if (!asset) fail(`Release ${String(release.tag_name ?? "")} does not contain asset ${want}`);
+  return { name: asset.name, url: asset.browser_download_url };
+}
+
+async function installBinaryUpdate(flags: Flags): Promise<Record<string, unknown>> {
+  if (platform() === "win32") {
+    fail("Binary self-update is not supported on Windows; use --method npm, pip, or brew.");
+  }
+  const { release, checkedUrl } = await fetchLatestRelease(flags);
+  const asset = selectReleaseAsset(release, flags.assetUrl);
+  const target = resolve(flags.target ?? process.argv[1] ?? "ghfind");
+  const latestVersion = String(release.tag_name ?? "");
+  const comparison = isNewerVersion(latestVersion, VERSION);
+  let status = "current";
+  let message = "ghfind is already up to date.";
+  if (VERSION === "dev" || !comparison.comparable) {
+    status = "installable";
+    message = "Current version is not comparable; installing the latest release asset is allowed.";
+  } else if (comparison.newer) {
+    status = "update_available";
+    message = "A newer ghfind CLI release is available.";
+  }
+  const result: Record<string, unknown> = {
+    name: "ghfind",
+    current_version: VERSION,
+    latest_version: latestVersion,
+    update_available: comparison.newer && comparison.comparable,
+    method: "binary",
+    target_path: target,
+    asset_name: asset.name,
+    asset_url: asset.url,
+    release_url: String(release.html_url ?? ""),
+    checked_url: checkedUrl,
+    status,
+    message,
+    ...(flags.dryRun ? { dry_run: true } : {}),
+  };
+  if (flags.dryRun) {
+    result.status = "dry_run";
+    result.message = "Dry run only; no files were changed.";
+    return result;
+  }
+  if (status === "current") return result;
+
+  const download = await fetch(asset.url, { headers: { "user-agent": "ghfind-cli" } });
+  if (!download.ok) throw new GhFindError(`API request failed with HTTP ${download.status}`, { status: download.status });
+  const mode = statSync(target).mode;
+  const tmp = `${target}.new`;
+  const backup = `${target}.old`;
+  writeFileSync(tmp, Buffer.from(await download.arrayBuffer()), { mode });
+  chmodSync(tmp, mode);
+  rmSync(backup, { force: true });
+  renameSync(target, backup);
+  try {
+    renameSync(tmp, target);
+  } catch (error) {
+    renameSync(backup, target);
+    rmSync(tmp, { force: true });
+    throw error;
+  }
+  rmSync(backup, { force: true });
+  result.status = "updated";
+  result.message = "ghfind binary was updated.";
+  return result;
+}
+
+function packageManagerCommand(method: string): string[] {
+  if (method === "npm") return ["npm", "install", "-g", "@hikariming/ghfind@latest"];
+  if (method === "pip") return ["python3", "-m", "pip", "install", "--upgrade", "ghfind"];
+  if (method === "brew") return ["brew", "upgrade", "ghfind"];
+  fail(`Invalid update method: ${method}`);
+}
+
+function installPackageManagerUpdate(method: string, flags: Flags): Record<string, unknown> {
+  const command = packageManagerCommand(method);
+  const result: Record<string, unknown> = {
+    name: "ghfind",
+    current_version: VERSION,
+    method,
+    command,
+    status: flags.dryRun ? "dry_run" : "ready",
+    message: flags.dryRun ? "Dry run only; command was not executed." : "Package manager upgrade is ready.",
+    ...(flags.dryRun ? { dry_run: true } : {}),
+  };
+  if (flags.dryRun) return result;
+  const child = spawnSync(command[0], command.slice(1), { encoding: "utf8" });
+  if (child.status !== 0) {
+    fail(`${method} failed: ${(child.stderr || child.stdout || "").trim()}`);
+  }
+  result.status = "updated";
+  result.message = "Package manager upgrade completed.";
+  return result;
+}
+
+async function installUpdate(method: string | undefined, flags: Flags): Promise<Record<string, unknown>> {
+  const resolvedMethod = method || flags.method || "binary";
+  if (resolvedMethod === "binary") return installBinaryUpdate(flags);
+  return installPackageManagerUpdate(resolvedMethod, flags);
+}
+
+function printUpdateInfo(info: Record<string, unknown>, mode: string): void {
+  if (mode === "json") return outJson(info);
+  out(`ghfind current: ${info.current_version}`);
+  if (info.latest_version) out(`latest: ${info.latest_version}`);
+  out(`status: ${info.status}`);
+  out(String(info.message));
+  if (info.release_url) out(`release: ${info.release_url}`);
+}
+
+function printUpdateInstallResult(result: Record<string, unknown>, mode: string): void {
+  if (mode === "json") return outJson(result);
+  out(`ghfind update method: ${result.method}`);
+  out(`current: ${result.current_version}`);
+  if (result.latest_version) out(`latest: ${result.latest_version}`);
+  out(`status: ${result.status}`);
+  out(String(result.message));
+  if (result.target_path) out(`target: ${result.target_path}`);
+  if (result.asset_url) out(`asset: ${result.asset_url}`);
+  if (Array.isArray(result.command)) out(`command: ${result.command.join(" ")}`);
+}
+
 function printHelp(): void {
   out("ghfind — score any GitHub account 0-100 (deterministic, no LLM) + roasts, battles, leaderboards.");
   out("");
@@ -403,6 +637,9 @@ function printHelp(): void {
   out("  stats                 Platform totals.");
   out("  badge <user>          Print the score badge URL. --markdown for a README snippet.");
   out("  card <user>           Print the OG share-card URL.");
+  out("  update check          Check whether this ghfind CLI is older than the latest release.");
+  out("  update install        Install latest release binary, or --method npm|pip|brew.");
+  out("  update npm|pip|brew   Upgrade through a package manager. Use --dry-run first.");
   out("  commands [show <c>]    List agent-callable capabilities (self-describing).");
   out("  auth status           Show host + which credentials are configured.");
   out("");
@@ -448,6 +685,15 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         return cmdBadge(positional, flags);
       case "card":
         return cmdCard(positional, flags);
+      case "update":
+        if (positional[1] === "check") return printUpdateInfo(await checkUpdate(flags), outputMode(flags));
+        if (positional[1] === "install") {
+          return printUpdateInstallResult(await installUpdate(undefined, flags), outputMode(flags));
+        }
+        if (["npm", "pip", "brew"].includes(positional[1])) {
+          return printUpdateInstallResult(await installUpdate(positional[1], flags), outputMode(flags));
+        }
+        return fail("Unknown update command. Try: ghfind update check");
       case "commands":
         return cmdCommands(positional, flags);
       case "auth":

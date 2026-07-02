@@ -26,6 +26,10 @@ type globalOptions struct {
 	ByoAPIKey      string
 	ByoModel       string
 	Markdown       bool
+	UpdateMethod   string
+	TargetPath     string
+	AssetURL       string
+	DryRun         bool
 	JSON           bool
 	Help           bool
 	Version        bool
@@ -96,6 +100,13 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 	case "update":
 		if len(positional) > 1 && positional[1] == "check" {
 			return runUpdateCheck(opts, stdout, stderr)
+		}
+		if len(positional) > 1 && positional[1] == "install" {
+			return runUpdateInstall(opts, stdout, stderr)
+		}
+		if len(positional) > 1 && (positional[1] == "npm" || positional[1] == "pip" || positional[1] == "brew") {
+			opts.UpdateMethod = positional[1]
+			return runUpdateInstall(opts, stdout, stderr)
 		}
 		return exitError(stderr, fmt.Errorf("unknown update command"))
 	case "commands":
@@ -174,6 +185,27 @@ func runUpdateCheck(opts globalOptions, stdout io.Writer, stderr io.Writer) int 
 		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
 	}
 	fmt.Fprintln(stdout, formatUpdateInfo(result))
+	return 0
+}
+
+func runUpdateInstall(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	result, err := InstallUpdate(context.Background(), nil, UpdateInstallOptions{
+		ReleaseURL: opts.ReleaseURL,
+		Method:     opts.UpdateMethod,
+		TargetPath: opts.TargetPath,
+		AssetURL:   opts.AssetURL,
+		DryRun:     opts.DryRun,
+	})
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" || opts.JSON {
+		return writeJSON(stdout, result)
+	}
+	if opts.Output != "pretty" {
+		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+	}
+	fmt.Fprintln(stdout, formatUpdateInstallResult(result))
 	return 0
 }
 
@@ -512,6 +544,26 @@ func parseArgs(args []string) ([]string, globalOptions, error) {
 				return nil, opts, fmt.Errorf("%s requires a value", arg)
 			}
 			opts.ReleaseURL = args[i]
+		case "--method":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.UpdateMethod = args[i]
+		case "--target":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.TargetPath = args[i]
+		case "--asset-url":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.AssetURL = args[i]
+		case "--dry-run":
+			opts.DryRun = true
 		default:
 			positional = append(positional, arg)
 		}

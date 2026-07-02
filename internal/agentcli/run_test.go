@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -164,6 +166,108 @@ func TestUpdateCheckReportsAvailableRelease(t *testing.T) {
 	}
 	if !payload.UpdateAvailable || payload.Name != "ghfind" || payload.LatestVersion != "v0.2.0" {
 		t.Fatalf("unexpected update payload: %#v", payload)
+	}
+}
+
+func TestUpdateInstallBinaryDryRunReportsAsset(t *testing.T) {
+	oldVersion := Version
+	Version = "0.1.0"
+	defer func() { Version = oldVersion }()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/latest" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"tag_name":"v0.2.0",
+			"html_url":"https://example.test/releases/v0.2.0",
+			"assets":[{"name":"custom","browser_download_url":"https://example.test/download/ghfind"}]
+		}`))
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	code := Execute([]string{
+		"update", "install",
+		"--release-url", server.URL + "/latest",
+		"--asset-url", "https://example.test/download/ghfind",
+		"--dry-run",
+		"-o", "json",
+	}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+
+	var payload UpdateInstallResult
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Method != "binary" || payload.Status != "dry_run" || payload.AssetURL == "" {
+		t.Fatalf("unexpected install payload: %#v", payload)
+	}
+}
+
+func TestUpdateInstallBinaryReplacesTarget(t *testing.T) {
+	oldVersion := Version
+	Version = "0.1.0"
+	defer func() { Version = oldVersion }()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/latest":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"tag_name":"v0.2.0",
+				"html_url":"https://example.test/releases/v0.2.0",
+				"assets":[{"name":"custom","browser_download_url":"` + r.Host + `/asset"}]
+			}`))
+		case "/asset":
+			_, _ = w.Write([]byte("new ghfind binary"))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	target := filepath.Join(t.TempDir(), "ghfind")
+	if err := os.WriteFile(target, []byte("old ghfind binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	code := Execute([]string{
+		"update", "install",
+		"--release-url", server.URL + "/latest",
+		"--asset-url", server.URL + "/asset",
+		"--target", target,
+		"-o", "json",
+	}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new ghfind binary" {
+		t.Fatalf("target was not replaced: %q", string(data))
+	}
+}
+
+func TestUpdatePackageManagerDryRunReportsCommand(t *testing.T) {
+	var stdout bytes.Buffer
+	code := Execute([]string{"update", "npm", "--dry-run", "-o", "json"}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+
+	var payload UpdateInstallResult
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Method != "npm" || payload.Status != "dry_run" || len(payload.Command) == 0 {
+		t.Fatalf("unexpected npm update payload: %#v", payload)
 	}
 }
 
