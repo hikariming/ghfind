@@ -39,9 +39,12 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
+const STALE_SCORE_REFRESH_COOLDOWN_SECONDS = 60 * 60 * 3; // 3h
 export const scanKey = (username: string) =>
   `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
+const staleScoreRefreshCooldownKey = (username: string) =>
+  `cooldown:stale-score-refresh:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -64,6 +67,38 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
     await r.set(scanKey(username), scan, { ex: SCAN_TTL_SECONDS });
   } catch {
     // best-effort cache; ignore failures
+  }
+}
+
+export async function deleteCachedScan(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(scanKey(username));
+  } catch {
+    // best-effort cache cleanup; ignore failures
+  }
+}
+
+export async function hasStaleScoreRefreshCooldown(username: string): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return false;
+  try {
+    return Boolean(await r.get(staleScoreRefreshCooldownKey(username)));
+  } catch {
+    return false;
+  }
+}
+
+export async function markStaleScoreRefreshCooldown(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(staleScoreRefreshCooldownKey(username), "1", {
+      ex: STALE_SCORE_REFRESH_COOLDOWN_SECONDS,
+    });
+  } catch {
+    // best-effort cost guard; ignore failures
   }
 }
 
