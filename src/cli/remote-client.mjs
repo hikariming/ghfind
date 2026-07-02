@@ -12,7 +12,7 @@ export class CliHttpError extends Error {
 }
 
 export function normalizeHost(host) {
-  const raw = (host || process.env.GITHUB_ROAST_HOST || "https://ghfind.com").trim();
+  const raw = (host || process.env.GHFIND_HOST || process.env.GITHUB_ROAST_HOST || "https://ghfind.com").trim();
   return raw.replace(/\/+$/, "");
 }
 

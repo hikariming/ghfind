@@ -28,6 +28,22 @@ func TestCommandsJSONIncludesAgentGuidance(t *testing.T) {
 	}
 }
 
+func TestCommandsShowAcceptsMultiWordCommand(t *testing.T) {
+	var stdout bytes.Buffer
+	code := Execute([]string{"commands", "show", "update", "check", "--json"}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+
+	var payload CommandInfo
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Name != "update check" {
+		t.Fatalf("expected update check command, got %q", payload.Name)
+	}
+}
+
 func TestRoastCommandCallsScanThenRoast(t *testing.T) {
 	var paths []string
 	meta := map[string]any{
@@ -119,6 +135,35 @@ func TestDiscoveryCommandsCallGETAPIs(t *testing.T) {
 		if paths[i] != want[i] {
 			t.Fatalf("path %d: want %q, got %q", i, want[i], paths[i])
 		}
+	}
+}
+
+func TestUpdateCheckReportsAvailableRelease(t *testing.T) {
+	oldVersion := Version
+	Version = "0.1.0"
+	defer func() { Version = oldVersion }()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/latest" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0","html_url":"https://example.test/releases/v0.2.0"}`))
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	code := Execute([]string{"update", "check", "--release-url", server.URL + "/latest", "-o", "json"}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+
+	var payload UpdateInfo
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.UpdateAvailable || payload.Name != "ghfind" || payload.LatestVersion != "v0.2.0" {
+		t.Fatalf("unexpected update payload: %#v", payload)
 	}
 }
 

@@ -19,6 +19,7 @@ type globalOptions struct {
 	Window         string
 	FacetType      string
 	FacetValue     string
+	ReleaseURL     string
 	JSON           bool
 	Help           bool
 	Version        bool
@@ -51,6 +52,11 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runLeaderboard(opts, stdout, stderr)
 	case "developers":
 		return runDevelopers(opts, stdout, stderr)
+	case "update":
+		if len(positional) > 1 && positional[1] == "check" {
+			return runUpdateCheck(opts, stdout, stderr)
+		}
+		return exitError(stderr, fmt.Errorf("unknown update command"))
 	case "commands":
 		return runCommands(positional[1:], opts, stdout, stderr)
 	case "auth":
@@ -113,6 +119,21 @@ func runDevelopers(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
 		return writeJSON(stdout, result)
 	}
 	return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+}
+
+func runUpdateCheck(opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	result, err := CheckUpdate(context.Background(), nil, opts.ReleaseURL)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" || opts.JSON {
+		return writeJSON(stdout, result)
+	}
+	if opts.Output != "pretty" {
+		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+	}
+	fmt.Fprintln(stdout, formatUpdateInfo(result))
+	return 0
 }
 
 func runRoast(args []string, opts globalOptions, stdout io.Writer, stderr io.Writer) int {
@@ -196,9 +217,10 @@ func runScore(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 
 func parseArgs(args []string) ([]string, globalOptions, error) {
 	opts := globalOptions{
-		Host:           envOrDefault("GITHUB_ROAST_HOST", DefaultHost),
-		APIKey:         os.Getenv("GITHUB_ROAST_API_KEY"),
-		TurnstileToken: os.Getenv("GITHUB_ROAST_TURNSTILE_TOKEN"),
+		Host:           envFirst([]string{"GHFIND_HOST", "GITHUB_ROAST_HOST"}, DefaultHost),
+		APIKey:         envFirst([]string{"GHFIND_API_KEY", "GITHUB_ROAST_API_KEY"}, ""),
+		TurnstileToken: envFirst([]string{"GHFIND_TURNSTILE_TOKEN", "GITHUB_ROAST_TURNSTILE_TOKEN"}, ""),
+		ReleaseURL:     envFirst([]string{"GHFIND_RELEASE_URL"}, DefaultReleaseURL),
 		Output:         "pretty",
 		Lang:           "zh",
 	}
@@ -267,6 +289,12 @@ func parseArgs(args []string) ([]string, globalOptions, error) {
 				return nil, opts, fmt.Errorf("%s requires a value", arg)
 			}
 			opts.FacetValue = args[i]
+		case "--release-url":
+			i++
+			if i >= len(args) {
+				return nil, opts, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.ReleaseURL = args[i]
 		default:
 			positional = append(positional, arg)
 		}
@@ -280,9 +308,10 @@ func runCommands(args []string, opts globalOptions, stdout io.Writer, stderr io.
 		if len(args) < 2 {
 			return exitError(stderr, fmt.Errorf("missing command name"))
 		}
-		cmd, ok := findCommand(strings.ReplaceAll(args[1], "-", " "))
+		name := strings.ReplaceAll(strings.Join(args[1:], " "), "-", " ")
+		cmd, ok := findCommand(name)
 		if !ok {
-			return exitError(stderr, fmt.Errorf("unknown command: %s", args[1]))
+			return exitError(stderr, fmt.Errorf("unknown command: %s", name))
 		}
 		if opts.JSON {
 			return writeJSON(stdout, cmd)
@@ -310,6 +339,10 @@ func runAuthStatus(opts globalOptions, stdout io.Writer) int {
 		"default_host":        DefaultHost,
 		"has_api_key":         opts.APIKey != "",
 		"has_turnstile_token": opts.TurnstileToken != "",
+		"env": map[string]any{
+			"primary":    []string{"GHFIND_HOST", "GHFIND_API_KEY", "GHFIND_TURNSTILE_TOKEN"},
+			"compatible": []string{"GITHUB_ROAST_HOST", "GITHUB_ROAST_API_KEY", "GITHUB_ROAST_TURNSTILE_TOKEN"},
+		},
 	}
 	if opts.Output == "json" {
 		return writeJSON(stdout, payload)
@@ -400,9 +433,11 @@ func roastLine(summary map[string]any, lang string) string {
 	return ""
 }
 
-func envOrDefault(key string, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func envFirst(keys []string, fallback string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
 	}
 	return fallback
 }

@@ -1,4 +1,5 @@
 export const DEFAULT_HOST = "https://ghfind.com";
+export const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
 
 export const commandCatalog = [
   {
@@ -12,7 +13,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use scan when you need objective account evidence or want to perform your own analysis. Treat this as the authoritative factual payload.",
     auth:
-      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GHFIND_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. GITHUB_ROAST_API_KEY remains a compatibility alias.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
   },
@@ -27,7 +28,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use score when an agent only needs the numeric result, tier, sub_scores, and red_flags. Prefer this over roast for automated decisions.",
     auth:
-      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GHFIND_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. GITHUB_ROAST_API_KEY remains a compatibility alias.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
   },
@@ -42,7 +43,7 @@ export const commandCatalog = [
     agent_guidance:
       "Use roast only when you need the same web-facing report a human sees. Do not treat roast prose as independent factual evidence; for factual scoring use scan or score.",
     auth:
-      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GITHUB_ROAST_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token.",
+      "Production /api/scan checks machine auth or Turnstile before reading scan cache or using the server GitHub token. When Turnstile is enabled, CLI calls need --api-key/GHFIND_API_KEY backed by server-side GITHUB_ROAST_CLI_API_KEY, or a Turnstile token. GITHUB_ROAST_API_KEY remains a compatibility alias.",
     args: [{ name: "username", required: true }],
     options: ["--host", "--api-key", "--turnstile-token", "--lang", "-o, --output"],
   },
@@ -55,6 +56,20 @@ export const commandCatalog = [
     auth: "Does not contact the server.",
     args: [],
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
+  },
+  {
+    name: "update check",
+    usage: "ghfind update check [-o json|pretty]",
+    summary: "Check whether this ghfind CLI install is older than the latest GitHub release.",
+    api: ["GET https://api.github.com/repos/hikariming/ghfind/releases/latest"],
+    output: ["json", "pretty"],
+    response_semantics:
+      "Returns current_version, latest_version, update_available, release_url, and status. It only checks for updates; it does not self-modify the install.",
+    agent_guidance:
+      "Use update check before long-running automation to detect stale CLI installs. If update_available is true, tell the user to install the latest ghfind binary/package before relying on new commands.",
+    auth: "Does not require authentication.",
+    args: [],
+    options: ["--release-url", "-o, --output"],
   },
   {
     name: "stats",

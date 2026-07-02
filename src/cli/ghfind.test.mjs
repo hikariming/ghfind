@@ -7,6 +7,8 @@ const originalExit = process.exit;
 const originalFetch = globalThis.fetch;
 const originalApiKey = process.env.GITHUB_ROAST_API_KEY;
 const originalHost = process.env.GITHUB_ROAST_HOST;
+const originalGhfindApiKey = process.env.GHFIND_API_KEY;
+const originalGhfindHost = process.env.GHFIND_HOST;
 
 function jsonResponse(body) {
   return new Response(JSON.stringify(body), {
@@ -47,6 +49,8 @@ describe("ghfind CLI", () => {
     });
     delete process.env.GITHUB_ROAST_API_KEY;
     delete process.env.GITHUB_ROAST_HOST;
+    delete process.env.GHFIND_API_KEY;
+    delete process.env.GHFIND_HOST;
   });
 
   afterEach(() => {
@@ -58,6 +62,10 @@ describe("ghfind CLI", () => {
     else process.env.GITHUB_ROAST_API_KEY = originalApiKey;
     if (originalHost === undefined) delete process.env.GITHUB_ROAST_HOST;
     else process.env.GITHUB_ROAST_HOST = originalHost;
+    if (originalGhfindApiKey === undefined) delete process.env.GHFIND_API_KEY;
+    else process.env.GHFIND_API_KEY = originalGhfindApiKey;
+    if (originalGhfindHost === undefined) delete process.env.GHFIND_HOST;
+    else process.env.GHFIND_HOST = originalGhfindHost;
     vi.restoreAllMocks();
   });
 
@@ -67,6 +75,14 @@ describe("ghfind CLI", () => {
     const body = JSON.parse(stdout);
     expect(body.default_host).toBe("https://ghfind.com");
     expect(body.commands.map((cmd) => cmd.name)).toContain("roast");
+  });
+
+  it("shows multi-word command metadata", async () => {
+    await run(["commands", "show", "update", "check", "--json"]);
+
+    const body = JSON.parse(stdout);
+    expect(body.name).toBe("update check");
+    expect(body.api).toContain("GET https://api.github.com/repos/hikariming/ghfind/releases/latest");
   });
 
   it("calls /api/scan for score without importing local scoring logic", async () => {
@@ -83,6 +99,21 @@ describe("ghfind CLI", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe("https://ghfind.com/api/scan");
     expect(calls[0].init.headers.authorization).toBe("Bearer secret");
+  });
+
+  it("prefers ghfind env vars for host and machine auth", async () => {
+    process.env.GHFIND_HOST = "https://cli.example.test";
+    process.env.GHFIND_API_KEY = "ghfind-secret";
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse(scanPayload);
+    });
+
+    await run(["score", "DemoDev", "-o", "json"]);
+
+    expect(calls[0].url).toBe("https://cli.example.test/api/scan");
+    expect(calls[0].init.headers.authorization).toBe("Bearer ghfind-secret");
   });
 
   it("calls /api/scan then /api/roast for roast JSON output", async () => {
@@ -129,5 +160,25 @@ describe("ghfind CLI", () => {
     expect(calls.map((call) => call.url)).toEqual([
       "https://ghfind.com/api/leaderboard?view=score&window=7d",
     ]);
+  });
+
+  it("checks the latest ghfind release", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse({
+        tag_name: "v99.0.0",
+        html_url: "https://example.test/releases/v99.0.0",
+      }),
+    );
+
+    await run(["update", "check", "--release-url", "https://example.test/latest", "-o", "json"]);
+
+    const body = JSON.parse(stdout);
+    expect(body.name).toBe("ghfind");
+    expect(body.latest_version).toBe("v99.0.0");
+    expect(body.update_available).toBe(true);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://example.test/latest",
+      expect.objectContaining({ headers: expect.objectContaining({ "user-agent": "ghfind-cli" }) }),
+    );
   });
 });

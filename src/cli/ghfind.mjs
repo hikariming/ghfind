@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { DEFAULT_HOST, commandCatalog, findCommand } from "./catalog.mjs";
+import { readFileSync } from "node:fs";
+import { DEFAULT_HOST, DEFAULT_RELEASE_URL, commandCatalog, findCommand } from "./catalog.mjs";
 import {
   CliHttpError,
   getDevelopers,
@@ -12,6 +13,7 @@ import {
 
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const VALID_LANGS = new Set(["zh", "en"]);
+const CURRENT_VERSION = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version ?? "dev";
 
 function print(value) {
   process.stdout.write(`${value}\n`);
@@ -75,6 +77,14 @@ function parseArgs(argv) {
       flags.help = true;
       continue;
     }
+    if (arg === "--version") {
+      flags.version = true;
+      continue;
+    }
+    if (arg === "--release-url") {
+      flags.releaseUrl = argv[++i];
+      continue;
+    }
     positional.push(arg);
   }
   return { positional, flags };
@@ -83,8 +93,8 @@ function parseArgs(argv) {
 function baseOptions(flags) {
   return {
     host: normalizeHost(flags.host),
-    apiKey: flags.apiKey ?? process.env.GITHUB_ROAST_API_KEY,
-    turnstileToken: flags.turnstileToken ?? process.env.GITHUB_ROAST_TURNSTILE_TOKEN,
+    apiKey: flags.apiKey ?? process.env.GHFIND_API_KEY ?? process.env.GITHUB_ROAST_API_KEY,
+    turnstileToken: flags.turnstileToken ?? process.env.GHFIND_TURNSTILE_TOKEN ?? process.env.GITHUB_ROAST_TURNSTILE_TOKEN,
     fetchImpl: fetch,
   };
 }
@@ -200,11 +210,96 @@ function printAuthStatus(flags) {
     default_host: DEFAULT_HOST,
     has_api_key: Boolean(options.apiKey),
     has_turnstile_token: Boolean(options.turnstileToken),
+    env: {
+      primary: ["GHFIND_HOST", "GHFIND_API_KEY", "GHFIND_TURNSTILE_TOKEN"],
+      compatible: ["GITHUB_ROAST_HOST", "GITHUB_ROAST_API_KEY", "GITHUB_ROAST_TURNSTILE_TOKEN"],
+    },
   };
   if (outputMode(flags) === "json") return printJson(body);
   print(`host: ${body.host}`);
   print(`api key: ${body.has_api_key ? "configured" : "missing"}`);
   print(`turnstile token: ${body.has_turnstile_token ? "configured" : "missing"}`);
+}
+
+function parseVersionParts(version) {
+  const normalized = String(version ?? "")
+    .trim()
+    .replace(/^ghfind\s*/i, "")
+    .replace(/^v/i, "")
+    .split(/[+-]/)[0];
+  if (!normalized || normalized === "dev") return null;
+  const parts = normalized.split(".").map((part) => Number.parseInt(part, 10));
+  if (parts.some((part) => !Number.isFinite(part))) return null;
+  return parts;
+}
+
+function isNewerVersion(latest, current) {
+  const latestParts = parseVersionParts(latest);
+  const currentParts = parseVersionParts(current);
+  if (!latestParts || !currentParts) return { newer: false, comparable: false };
+  const max = Math.max(latestParts.length, currentParts.length);
+  for (let i = 0; i < max; i++) {
+    const l = latestParts[i] ?? 0;
+    const c = currentParts[i] ?? 0;
+    if (l > c) return { newer: true, comparable: true };
+    if (l < c) return { newer: false, comparable: true };
+  }
+  return { newer: false, comparable: true };
+}
+
+async function checkUpdate(flags) {
+  const releaseUrl = flags.releaseUrl ?? process.env.GHFIND_RELEASE_URL ?? DEFAULT_RELEASE_URL;
+  const response = await fetch(releaseUrl, {
+    headers: {
+      accept: "application/vnd.github+json",
+      "user-agent": "ghfind-cli",
+    },
+  });
+  if (response.status === 404) {
+    return {
+      name: "ghfind",
+      current_version: CURRENT_VERSION,
+      update_available: false,
+      checked_url: releaseUrl,
+      status: "no_release",
+      message: "No GitHub release is published yet.",
+    };
+  }
+  if (!response.ok) throw new CliHttpError(`API request failed with HTTP ${response.status}`, { status: response.status });
+  const latest = await response.json();
+  const latestVersion = latest.tag_name ?? "";
+  const comparison = isNewerVersion(latestVersion, CURRENT_VERSION);
+  let status = "current";
+  let message = "ghfind is up to date.";
+  if (CURRENT_VERSION === "dev") {
+    status = "dev_build";
+    message = "This is a dev build; compare manually with the latest release.";
+  } else if (!comparison.comparable) {
+    status = "unknown";
+    message = "Could not compare versions; compare manually with the latest release.";
+  } else if (comparison.newer) {
+    status = "update_available";
+    message = "A newer ghfind CLI release is available.";
+  }
+  return {
+    name: "ghfind",
+    current_version: CURRENT_VERSION,
+    latest_version: latestVersion,
+    update_available: comparison.newer && comparison.comparable,
+    release_url: latest.html_url ?? "",
+    checked_url: releaseUrl,
+    status,
+    message,
+  };
+}
+
+function printUpdateInfo(info, mode) {
+  if (mode === "json") return printJson(info);
+  print(`ghfind current: ${info.current_version}`);
+  if (info.latest_version) print(`latest: ${info.latest_version}`);
+  print(`status: ${info.status}`);
+  print(info.message);
+  if (info.release_url) print(`release: ${info.release_url}`);
 }
 
 function printHelp() {
@@ -221,14 +316,22 @@ function printHelp() {
 export async function run(argv = process.argv.slice(2)) {
   const { positional, flags } = parseArgs(argv);
   const command = positional[0];
+  if (flags.version || command === "version") {
+    print(`ghfind ${CURRENT_VERSION}`);
+    return;
+  }
   if (!command || flags.help) return printHelp();
 
   try {
     if (command === "commands") {
-      if (positional[1] === "show") return printCommand(positional[2], flags.json);
+      if (positional[1] === "show") return printCommand(positional.slice(2).join(" "), flags.json);
       return printCatalog(flags.json);
     }
     if (command === "auth" && positional[1] === "status") return printAuthStatus(flags);
+    if (command === "update" && positional[1] === "check") {
+      const info = await checkUpdate(flags);
+      return printUpdateInfo(info, outputMode(flags));
+    }
 
     if (command === "stats") {
       const result = await getStats(baseOptions(flags));
