@@ -166,6 +166,12 @@ function getClient(): Client | null {
   return client;
 }
 
+export function closeDbClientForTests(): void {
+  client?.close();
+  client = null;
+  schemaReady = null;
+}
+
 /** Create the table/index once per process. */
 function ensureSchema(db: Client): Promise<void> {
   if (!schemaReady) {
@@ -1142,6 +1148,14 @@ export interface FacetCategory {
   count: number;
 }
 
+export interface FacetSearchResult extends FacetCategory {
+  type: FacetType;
+}
+
+function escapeSqlLike(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 /**
  * Directory categories for a facet type ("language" | "org"), each with its
  * qualifying-developer count, busiest bucket first. Powers the /developers
@@ -1172,6 +1186,58 @@ export async function getFacetCategories(
     return res.rows.map((r) => ({ value: String(r.value), count: Number(r.count) }));
   } catch (e) {
     console.error("getFacetCategories failed:", e);
+    return [];
+  }
+}
+
+/**
+ * Search directory facet labels across language/project/org buckets. This is
+ * intentionally facet-first: future natural-language search can compile a user
+ * intent into the same facet refs, while today's UI gets fast tag lookup.
+ */
+export async function searchFacetCategories(
+  query: string,
+  options: { type?: FacetType | null; limit?: number } = {},
+): Promise<FacetSearchResult[]> {
+  const db = getClient();
+  const term = query.trim().toLowerCase();
+  if (!db || !term) return [];
+  try {
+    await ensureSchema(db);
+    const capped = Math.max(1, Math.min(100, options.limit ?? 30));
+    const escaped = escapeSqlLike(term);
+    const contains = `%${escaped}%`;
+    const startsWith = `${escaped}%`;
+    const typeClause = options.type ? "AND f.facet_type = ?" : "";
+    const args: (string | number)[] = [FACET_MIN_SCORE, contains];
+    if (options.type) args.push(options.type);
+    args.push(term, startsWith, capped);
+    const res = await db.execute({
+      sql: `SELECT f.facet_type AS type, f.facet_value AS value, COUNT(*) AS count
+            FROM developer_facets AS f
+            JOIN scores AS s ON s.username = f.username
+            WHERE s.hidden = 0
+              AND s.final_score >= ?
+              AND LOWER(f.facet_value) LIKE ? ESCAPE '\\'
+              ${typeClause}
+            GROUP BY f.facet_type, f.facet_value
+            ORDER BY CASE
+                       WHEN LOWER(f.facet_value) = ? THEN 0
+                       WHEN LOWER(f.facet_value) LIKE ? ESCAPE '\\' THEN 1
+                       ELSE 2
+                     END,
+                     count DESC,
+                     f.facet_value ASC
+            LIMIT ?`,
+      args,
+    });
+    return res.rows.map((r) => ({
+      type: String(r.type) as FacetType,
+      value: String(r.value),
+      count: Number(r.count),
+    }));
+  } catch (e) {
+    console.error("searchFacetCategories failed:", e);
     return [];
   }
 }

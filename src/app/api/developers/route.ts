@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getDevelopersByFacetCached,
   getFacetCategoriesCached,
+  searchFacetCategoriesForDirectory,
 } from "@/lib/developers";
+import { buildFacetDiscoveryIntent } from "@/lib/discovery";
 import type { FacetType } from "@/lib/facets";
 
 export const runtime = "nodejs";
@@ -27,6 +29,23 @@ function parseFacetType(raw: string | null): FacetType | null {
  */
 export async function GET(req: NextRequest) {
   const type = parseFacetType(req.nextUrl.searchParams.get("type"));
+  const query = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+
+  if (query) {
+    const results = await searchFacetCategoriesForDirectory(query, {
+      type,
+      limit: 40,
+    });
+    const intent = buildFacetDiscoveryIntent(
+      query,
+      results.slice(0, 8).map((r) => ({ type: r.type, value: r.value })),
+    );
+    return NextResponse.json(
+      { query, type, results, intent },
+      { headers: { "Cache-Control": CDN_CACHE } },
+    );
+  }
+
   if (!type) {
     return NextResponse.json({ error: "invalid type" }, { status: 400 });
   }

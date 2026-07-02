@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import {
+  DevelopersDiscovery,
+  type DiscoveryCategory,
+  type DiscoveryPreset,
+} from "@/components/DevelopersDiscovery";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import type { FacetCategory } from "@/lib/db";
@@ -27,38 +31,17 @@ export async function generateMetadata({
   };
 }
 
-function CategoryGrid({
-  type,
-  categories,
-  countLabel,
-}: {
-  type: FacetType;
-  categories: FacetCategory[];
-  countLabel: (count: number) => string;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {categories.map((c) => (
-        <Link
-          key={c.value}
-          // Encode each path segment separately, then join with "/". For `repo`
-          // the value is "owner/name" → two segments (matches the catch-all
-          // bucket route); for language/org it stays a single segment (e.g. "C++"
-          // → "C%2B%2B"). Never percent-encode the separating slash itself.
-          href={`/developers/${type}/${c.value
-            .split("/")
-            .map((seg) => encodeURIComponent(seg))
-            .join("/")}`}
-          className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-sm transition-colors hover:border-white/20 hover:bg-white/[0.07]"
-        >
-          <span className="font-semibold text-zinc-100">{c.value}</span>
-          <span className="tabular-nums text-xs text-zinc-500 group-hover:text-zinc-400">
-            {countLabel(c.count)}
-          </span>
-        </Link>
-      ))}
-    </div>
-  );
+function withFacetMetadata(
+  type: FacetType,
+  categories: FacetCategory[],
+  countLabel: (count: number) => string,
+): DiscoveryCategory[] {
+  return categories.map((c) => ({
+    type,
+    value: c.value,
+    count: c.count,
+    countText: countLabel(c.count),
+  }));
 }
 
 export default async function DevelopersPage({
@@ -80,8 +63,22 @@ export default async function DevelopersPage({
   // busiest head so the grid stays scannable instead of a wall of 100 pills.
   const projects = projectsAll.slice(0, 48);
   const countLabel = (count: number) => t("count", { count });
-  const isEmpty =
-    languages.length === 0 && orgs.length === 0 && projects.length === 0;
+  const searchCategories = {
+    language: withFacetMetadata("language", languages, countLabel),
+    repo: withFacetMetadata("repo", projectsAll, countLabel),
+    org: withFacetMetadata("org", orgs, countLabel),
+  };
+  const browseCategories = {
+    language: searchCategories.language,
+    repo: withFacetMetadata("repo", projects, countLabel),
+    org: searchCategories.org,
+  };
+  const presets: DiscoveryPreset[] = [
+    { id: "ai-builders", label: t("presetAiBuilders"), query: t("presetAiBuildersQuery") },
+    { id: "infra", label: t("presetInfra"), query: t("presetInfraQuery") },
+    { id: "frontend", label: t("presetFrontend"), query: t("presetFrontendQuery") },
+    { id: "data", label: t("presetData"), query: t("presetDataQuery") },
+  ];
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 py-14 sm:py-20">
@@ -92,34 +89,34 @@ export default async function DevelopersPage({
         <p className="mt-3 max-w-2xl text-zinc-400">{t("subtitle")}</p>
       </header>
 
-      {isEmpty ? (
-        <p className="text-zinc-500">{t("emptyCategories")}</p>
-      ) : (
-        <div className="flex flex-col gap-10">
-          {languages.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-black text-zinc-200">
-                {t("languagesTitle")}
-              </h2>
-              <CategoryGrid type="language" categories={languages} countLabel={countLabel} />
-            </section>
-          )}
-          {projects.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-black text-zinc-200">
-                {t("projectsTitle")}
-              </h2>
-              <CategoryGrid type="repo" categories={projects} countLabel={countLabel} />
-            </section>
-          )}
-          {orgs.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-black text-zinc-200">{t("orgsTitle")}</h2>
-              <CategoryGrid type="org" categories={orgs} countLabel={countLabel} />
-            </section>
-          )}
-        </div>
-      )}
+      <DevelopersDiscovery
+        browseCategories={browseCategories}
+        searchCategories={searchCategories}
+        labels={{
+          searchLabel: t("searchLabel"),
+          searchPlaceholder: t("searchPlaceholder"),
+          clearSearch: t("clearSearch"),
+          searchResultsTitle: t("searchResultsTitle"),
+          browseTitle: t("browseTitle"),
+          emptySearchResults: t("emptySearchResults"),
+          emptyBrowseResults: t("emptyCategories"),
+          aiLoading: t("aiLoading"),
+          aiFallback: t("aiFallback"),
+          aiUnavailable: t("aiUnavailable"),
+          aiSummaryTitle: t("aiSummaryTitle"),
+          aiDevelopersTitle: t("aiDevelopersTitle"),
+          promptTitle: t("promptTitle"),
+          typeLabels: {
+            language: t("languageType"),
+            repo: t("repoType"),
+            org: t("orgType"),
+          },
+          languagesTitle: t("languagesTitle"),
+          projectsTitle: t("projectsTitle"),
+          orgsTitle: t("orgsTitle"),
+        }}
+        presets={presets}
+      />
     </main>
   );
 }

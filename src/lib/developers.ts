@@ -10,7 +10,9 @@
 import {
   getDevelopersByFacet,
   getFacetCategories,
+  searchFacetCategories,
   type FacetCategory,
+  type FacetSearchResult,
   type LeaderboardEntry,
 } from "@/lib/db";
 import type { FacetType } from "@/lib/facets";
@@ -76,4 +78,22 @@ export async function getDevelopersByFacetCached(
   } finally {
     developersInflight.delete(key);
   }
+}
+
+/** Query matching facet buckets. Not Redis-cached: search terms are high-cardinality
+ * and the underlying query is bounded to a small result set. */
+export async function searchFacetCategoriesForDirectory(
+  query: string,
+  options: { type?: FacetType | null; limit?: number } = {},
+): Promise<FacetSearchResult[]> {
+  return searchFacetCategories(query, options);
+}
+
+/** Broad facet catalog for AI search. Bypasses Redis because the AI prompt wants
+ * a larger catalog than the public browse grid, and the query only runs when a
+ * visitor submits a search. */
+export async function getFacetCatalogForAiSearch(
+  type: FacetType,
+): Promise<FacetCategory[]> {
+  return getFacetCategories(type, 500);
 }

@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION } from "../cache-version";
@@ -37,9 +38,17 @@ beforeAll(async () => {
   db = await import("../db");
 });
 
-afterAll(() => {
+afterAll(async () => {
   delete process.env.TURSO_DATABASE_URL;
-  rmSync(tmpDir, { recursive: true, force: true });
+  db.closeDbClientForTests();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+      return;
+    } catch {
+      await delay(50 * (attempt + 1));
+    }
+  }
 });
 
 describe("getArchivedRoast", () => {
@@ -69,6 +78,7 @@ describe("getArchivedRoast", () => {
       sql: `UPDATE scores SET roast_version = ? WHERE username = ?`,
       args: [`${ROAST_CACHE_VERSION}-old`, "stale-roast"],
     });
+    client.close();
 
     await expect(db.getArchivedRoast("stale-roast", "zh")).resolves.toBeNull();
   });
@@ -84,6 +94,7 @@ describe("getArchivedRoast", () => {
             WHERE username = ?`,
       args: ["legacy-roast"],
     });
+    client.close();
 
     await expect(db.getArchivedRoast("legacy-roast", "zh")).resolves.toBeNull();
   });
@@ -119,6 +130,7 @@ describe("score snapshots", () => {
     expect(Number(res.rows[0]?.first_generated_at)).toBeGreaterThanOrEqual(before);
     expect(Number(res.rows[0]?.last_generated_at)).toBeLessThanOrEqual(after);
     expect(String(res.rows[0]?.langs).split(",").sort()).toEqual(["en", "zh"]);
+    client.close();
   });
 });
 
@@ -234,6 +246,7 @@ describe("getTrendingLeaderboard", () => {
             WHERE username = ?`,
       args: [now - 8 * 24 * 60 * 60 * 1000, "stale"],
     });
+    client.close();
 
     const entries = await db.getTrendingLeaderboard(10);
     const fresh = entries.find((e) => e.username === "fresh");
@@ -243,6 +256,47 @@ describe("getTrendingLeaderboard", () => {
     expect(stale?.recent_lookup_count).toBe(0);
     expect(fresh?.trending_score).toBeGreaterThan(0);
     expect(entries[0]?.username).toBe("fresh");
+  });
+});
+
+describe("searchFacetCategories", () => {
+  it("searches facet labels across types and counts only public qualified developers", async () => {
+    const now = Date.now();
+    await db.recordScore({ ...entry, username: "facet-search-a", final_score: 91, scanned_at: now });
+    await db.recordScore({ ...entry, username: "facet-search-b", final_score: 87, scanned_at: now });
+    await db.recordScore({ ...entry, username: "facet-search-low", final_score: 59, scanned_at: now });
+    await db.recordScore({ ...entry, username: "facet-search-hidden", final_score: 99, scanned_at: now });
+
+    await db.recordDeveloperFacets("facet-search-a", [
+      { type: "language", value: "FacetSearchVectorDB", weight: 100 },
+      { type: "repo", value: "facetsearch/vector-db", weight: 1000 },
+      { type: "org", value: "FacetSearchLabs", weight: 1 },
+    ]);
+    await db.recordDeveloperFacets("facet-search-b", [
+      { type: "language", value: "FacetSearchVectorDB", weight: 100 },
+    ]);
+    await db.recordDeveloperFacets("facet-search-low", [
+      { type: "language", value: "FacetSearchVectorDB", weight: 100 },
+    ]);
+    await db.recordDeveloperFacets("facet-search-hidden", [
+      { type: "language", value: "FacetSearchVectorDB", weight: 100 },
+    ]);
+    await db.hideUser("facet-search-hidden");
+
+    const results = await db.searchFacetCategories("FacetSearchVectorDB", { limit: 10 });
+    expect(results[0]).toEqual({
+      type: "language",
+      value: "FacetSearchVectorDB",
+      count: 2,
+    });
+
+    const repoResults = await db.searchFacetCategories("facetsearch", {
+      type: "repo",
+      limit: 10,
+    });
+    expect(repoResults).toEqual([
+      { type: "repo", value: "facetsearch/vector-db", count: 1 },
+    ]);
   });
 });
 
