@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getTrendingMatchups } from "@/lib/db";
 import { localeAlternates } from "@/lib/site";
+import { VsBattleBox } from "@/components/VsBattleBox";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,10 @@ export default async function VsIndexPage({
       <div className="flex w-full max-w-3xl flex-col">
         <h1 className="text-center text-2xl font-black text-zinc-100">{t("trendingHeading")}</h1>
         <p className="mt-2 text-center text-sm text-zinc-400">{t("trendingSub")}</p>
+
+        <div className="mt-8">
+          <VsBattleBox />
+        </div>
 
         {matchups.length === 0 ? (
           <p className="mt-10 text-center text-sm text-zinc-500">{t("trendingEmpty")}</p>
