@@ -66,6 +66,8 @@ Start by discovering commands:
 pnpm ghfind commands --json
 pnpm ghfind commands show roast --json
 pnpm ghfind update check -o json
+pnpm ghfind update install --method binary --dry-run -o json
+pnpm ghfind update npm --dry-run -o json
 ```
 
 When a standalone binary is available, prefer it:
@@ -74,11 +76,19 @@ When a standalone binary is available, prefer it:
 ./bin/ghfind commands --json
 ./bin/ghfind commands show roast --json
 ./bin/ghfind update check -o json
+./bin/ghfind update install --method binary --dry-run -o json
 ```
 
 `update check` compares the local CLI version with the latest GitHub release and
 returns `update_available`, `latest_version`, and `release_url`. It only reports;
 it never modifies the installed binary.
+
+`update install --method binary` downloads the current platform's GitHub release
+asset and replaces the local `ghfind` binary by rename. `update npm`, `update
+pip`, and `update brew` run `npm install -g ghfind@latest`, `python3 -m pip
+install --upgrade ghfind`, and `brew upgrade ghfind` respectively. Use
+`--dry-run` before executing an upgrade in automation; do not run upgrade
+commands unless the user explicitly asked to change the local installation.
 
 ## Common Calls
 

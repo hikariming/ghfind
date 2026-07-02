@@ -136,11 +136,27 @@ GitHub token 和 Redis 缓存。
 ```bash
 ghfind --version
 ghfind update check -o json
+ghfind update install --method binary --dry-run -o json
+ghfind update install --method binary
+ghfind update npm --dry-run -o json
+ghfind update npm
+ghfind update pip
+ghfind update brew
 ```
 
 `update check` 会对比本地 CLI 版本和 GitHub 最新 release,输出
 `update_available`、`latest_version` 和 `release_url`。它只做检查和提示,不会自动
 修改已安装的二进制。
+
+`update install --method binary` 会下载当前平台对应的 GitHub release asset,写到
+当前二进制旁边,再通过 rename 替换本地 `ghfind`。建议先加 `--dry-run` 查看会选择
+哪个 asset 和目标路径。包管理器快捷命令会执行对应升级命令:
+
+- `ghfind update npm`: `npm install -g ghfind@latest`
+- `ghfind update pip`: `python3 -m pip install --upgrade ghfind`
+- `ghfind update brew`: `brew upgrade ghfind`
+
+这些命令只有在被显式调用时才会修改本地安装;`update check` 不会触发自动升级。
 
 已接入的网站 API:
 

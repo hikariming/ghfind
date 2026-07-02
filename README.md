@@ -136,11 +136,29 @@ Version/update management:
 ```bash
 ghfind --version
 ghfind update check -o json
+ghfind update install --method binary --dry-run -o json
+ghfind update install --method binary
+ghfind update npm --dry-run -o json
+ghfind update npm
+ghfind update pip
+ghfind update brew
 ```
 
 `update check` compares the local CLI version with the latest GitHub release and
 prints `update_available`, `latest_version`, and `release_url`. It only reports;
 it never modifies the installed binary.
+
+`update install --method binary` downloads the current platform's GitHub release
+asset, writes it next to the running binary, and replaces the local `ghfind`
+binary by rename. Use `--dry-run` first to inspect the selected asset and target
+path. Package-manager shortcuts run the matching upgrade command:
+
+- `ghfind update npm`: `npm install -g ghfind@latest`
+- `ghfind update pip`: `python3 -m pip install --upgrade ghfind`
+- `ghfind update brew`: `brew upgrade ghfind`
+
+These commands modify the local installation only when explicitly invoked. They
+are not triggered by `update check`.
 
 Connected website APIs:
 

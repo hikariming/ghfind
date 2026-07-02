@@ -53,6 +53,8 @@ calls an LLM; roast/vs prose is the only LLM part and supports bring-your-own ke
 - Command name: ghfind
 - Version: ghfind --version
 - Update check: ghfind update check -o json
+- Self-update: ghfind update install --method binary [--dry-run] -o json
+- Package upgrades: ghfind update npm|pip|brew [--dry-run] -o json
 - Command catalog: ghfind commands --json
 - Factual scoring: ghfind scan {username} -o json / ghfind score {username} -o json
 - Web-facing report: ghfind roast {username} --lang zh|en -o json|markdown
