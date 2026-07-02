@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { SITE_URL } from "@/lib/site";
 import { VsShareCard, type VsSide } from "./VsShareCard";
 import { createShareCardBlob } from "./shareCardExport";
+import { ShareCardExportHost } from "./ShareCardExportHost";
 import { ShareMenu } from "./ShareMenu";
 
 /**
@@ -99,8 +100,7 @@ export function VsShare({
       </button>
       <ShareMenu link={link} text={shareText} onShareImage={shareImage} />
 
-      {/* Off-screen export target */}
-      <div className="pointer-events-none fixed -left-[9999px] top-0">
+      <ShareCardExportHost>
         <VsShareCard
           ref={cardRef}
           a={a}
@@ -110,7 +110,7 @@ export function VsShare({
           verdictLine={verdictLine}
           adviceLine={adviceLine}
         />
-      </div>
+      </ShareCardExportHost>
     </div>
   );
 }

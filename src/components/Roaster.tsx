@@ -18,6 +18,7 @@ import { CopyBadge } from "./CopyBadge";
 import { ShareMenu } from "./ShareMenu";
 import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
+import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
@@ -537,8 +538,7 @@ export function Roaster() {
             <p className="mt-3 text-center text-xs text-zinc-600">{t("privateNote")}</p>
           )}
 
-          {/* Off-screen export target for the flex image */}
-          <div className="pointer-events-none fixed left-0 top-0 -z-10">
+          <ShareCardExportHost>
             <ShareCard
               ref={cardRef}
               username={scan.metrics.username}
@@ -550,7 +550,7 @@ export function Roaster() {
               beat={percentile?.beat ?? null}
               tags={tags ?? { zh: [], en: [] }}
             />
-          </div>
+          </ShareCardExportHost>
         </div>
       )}
 

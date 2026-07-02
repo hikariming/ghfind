@@ -6,6 +6,7 @@ import { TIER_KEY } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { ShareCard } from "./ShareCard";
+import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { ShareMenu } from "./ShareMenu";
 
@@ -112,8 +113,7 @@ export function ProfileShare({
       </button>
       <ShareMenu link={link} text={shareText} onShareImage={shareImage} />
 
-      {/* Off-screen export target for the flex image */}
-      <div className="pointer-events-none fixed left-0 top-0 -z-10">
+      <ShareCardExportHost>
         <ShareCard
           ref={cardRef}
           username={username}
@@ -125,7 +125,7 @@ export function ProfileShare({
           beat={beat}
           tags={tags}
         />
-      </div>
+      </ShareCardExportHost>
     </div>
   );
 }
