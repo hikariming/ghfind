@@ -266,10 +266,12 @@ export default async function VsPage({
         {da && db && (
           <div className="mt-6">
             <VsShare
-              a={{ username: da.username, avatarUrl: da.avatar_url, score: da.final_score, tier: da.tier }}
-              b={{ username: db.username, avatarUrl: db.avatar_url, score: db.final_score, tier: db.tier }}
+              a={{ username: da.username, avatarUrl: da.avatar_url, score: da.final_score, tier: da.tier, subScores: da.sub_scores }}
+              b={{ username: db.username, avatarUrl: db.avatar_url, score: db.final_score, tier: db.tier, subScores: db.sub_scores }}
               winner={v.winner}
+              bucketLabel={bucketLabel ?? t("bucketEven")}
               verdictLine={initialVerdict}
+              adviceLine={storedAdvice}
             />
           </div>
         )}

@@ -16,12 +16,16 @@ export function VsShare({
   a,
   b,
   winner,
+  bucketLabel,
   verdictLine,
+  adviceLine,
 }: {
   a: VsSide;
   b: VsSide;
   winner: "a" | "b" | "tie";
+  bucketLabel: string;
   verdictLine: string;
+  adviceLine?: string;
 }) {
   const t = useTranslations("vs");
   const locale = useLocale();
@@ -95,7 +99,15 @@ export function VsShare({
 
       {/* Off-screen export target */}
       <div className="pointer-events-none fixed -left-[9999px] top-0">
-        <VsShareCard ref={cardRef} a={a} b={b} winner={winner} verdictLine={verdictLine} />
+        <VsShareCard
+          ref={cardRef}
+          a={a}
+          b={b}
+          winner={winner}
+          bucketLabel={bucketLabel}
+          verdictLine={verdictLine}
+          adviceLine={adviceLine}
+        />
       </div>
     </div>
   );
