@@ -134,9 +134,9 @@ export function CopyBadge({
 
   const base = baseUrl.replace(/\/$/, "");
   const previewBase = (previewOrigin ?? base).replace(/\/$/, "");
-  const pageUrl = `${base}/u/${username}`;
-  const badgeUrl = `${base}/api/badge/${username}`;
-  const cardUrl = `${base}/api/card/${username}`;
+  const pageUrl = `${previewBase}/u/${username}`;
+  const badgeUrl = `${previewBase}/api/badge/${username}`;
+  const cardUrl = `${previewBase}/api/card/${username}`;
   const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
   const cardPreviewUrl = `${previewBase}/api/card/${username}`;
   const versionParam =
