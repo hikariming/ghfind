@@ -81,7 +81,7 @@ pnpm dev
 | `pnpm dev` | Local development |
 | `pnpm start` or `pnpm build/start` | One-command production build + run |
 | `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
-| `pnpm ghfind` | Agent-friendly CLI wrapper around the website `/api/scan` + `/api/roast` APIs |
+| `pnpm ghfind` | Agent-friendly `ghfind` CLI wrapper around the website scoring and discovery APIs |
 | `pnpm test` | Vitest test suite (scoring, prompts, DB, UI helpers, reactions, etc.) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
@@ -93,6 +93,7 @@ run GitHub scanning, scoring, or LLM logic locally.
 
 ```bash
 pnpm ghfind commands --json
+pnpm ghfind update check -o json
 pnpm ghfind score hikariming -o json
 pnpm ghfind roast hikariming --lang en -o markdown
 ```
@@ -102,26 +103,56 @@ For a standalone binary:
 ```bash
 pnpm cli:build
 ./bin/ghfind commands --json
+./bin/ghfind update check -o json
 ./bin/ghfind roast hikariming --lang en -o markdown
 ./bin/ghfind leaderboard --view trending --window all -o json
 ./bin/ghfind developers --type language -o json
 ```
 
+The CLI name is `ghfind`. The standalone binary is built as `./bin/ghfind`,
+and package/bin metadata also exposes `ghfind`.
+
 The default service host is `https://ghfind.com`. Override it for local dev:
 
 ```bash
-GITHUB_ROAST_HOST=http://localhost:3000 pnpm ghfind roast hikariming --lang en
+GHFIND_HOST=http://localhost:3000 pnpm ghfind roast hikariming --lang en
 ```
+
+`GITHUB_ROAST_HOST` is still accepted as a backward-compatible alias.
 
 Production `/api/scan` uses Turnstile for browser calls. For agent/CLI calls,
 set `GITHUB_ROAST_CLI_API_KEY` on the server and pass the same value to the CLI
-as `GITHUB_ROAST_API_KEY` or `--api-key`; the CLI sends it as
+as `GHFIND_API_KEY` or `--api-key`; the CLI sends it as
 `Authorization: Bearer ...` to the same `/api/scan` endpoint.
+`GITHUB_ROAST_API_KEY` remains a backward-compatible alias.
 
 `/api/scan` checks machine auth or Turnstile before it reads the scan cache or
 uses the server GitHub token. If `GITHUB_ROAST_CLI_API_KEY` is not configured
 and Turnstile is enabled, an unauthenticated CLI request can fail before cache
 lookup, even when the server has a GitHub token and Redis cache.
+
+Version/update management:
+
+```bash
+ghfind --version
+ghfind update check -o json
+```
+
+`update check` compares the local CLI version with the latest GitHub release and
+prints `update_available`, `latest_version`, and `release_url`. It only reports;
+it never modifies the installed binary.
+
+Connected website APIs:
+
+- `scan` / `score`: `POST /api/scan`, factual structured score data.
+- `roast`: `POST /api/scan` + `POST /api/roast`, web-facing roast report.
+- `stats`: `GET /api/stats`, platform aggregate metadata.
+- `leaderboard`: `GET /api/leaderboard`, cached ranking/discovery entries.
+- `developers`: `GET /api/developers`, language/org/repo discovery facets.
+
+For agent decisions about one account, use `scan` or `score`; leaderboard and
+developer directory commands are discovery/catalog surfaces, not fresh scoring
+facts.
 
 ## Environment variables
 

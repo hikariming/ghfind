@@ -1,11 +1,13 @@
-# GitHub Roast CLI
+# ghfind CLI
 
 Use this skill when an agent needs to score or roast a public GitHub account
-through the official GitHub Roast service.
+through the official ghfind service.
 
 The CLI is a remote wrapper around the website API. It does not run local
 GitHub scanning, scoring, or LLM logic. Use it instead of importing project
 internals.
+
+The CLI command name is `ghfind`.
 
 ## Default Service
 
@@ -18,8 +20,10 @@ https://ghfind.com
 Override it for local development:
 
 ```bash
-GITHUB_ROAST_HOST=http://localhost:3000
+GHFIND_HOST=http://localhost:3000
 ```
+
+`GITHUB_ROAST_HOST` is still accepted as a backward-compatible alias.
 
 ## Authentication
 
@@ -27,7 +31,7 @@ Production `/api/scan` requests need either a machine API key or a Turnstile
 token. Prefer machine auth for agents:
 
 ```bash
-GITHUB_ROAST_API_KEY=...
+GHFIND_API_KEY=...
 ```
 
 This is sent as:
@@ -37,10 +41,13 @@ Authorization: Bearer <key>
 ```
 
 Deployments should set `GITHUB_ROAST_CLI_API_KEY` on the server. Agents pass the
-same value as `GITHUB_ROAST_API_KEY` or `--api-key`. `/api/scan` checks machine
+same value as `GHFIND_API_KEY` or `--api-key`. `/api/scan` checks machine
 auth or Turnstile before it reads the scan cache or uses the server GitHub token.
 When Turnstile is enabled, an unauthenticated CLI request can fail before cache
 lookup, even if the server has a GitHub token and Redis cache.
+
+`GITHUB_ROAST_API_KEY` and `GITHUB_ROAST_TURNSTILE_TOKEN` remain compatibility
+aliases for older automation.
 
 The server still uses the same website endpoints:
 
@@ -58,6 +65,7 @@ Start by discovering commands:
 ```bash
 pnpm ghfind commands --json
 pnpm ghfind commands show roast --json
+pnpm ghfind update check -o json
 ```
 
 When a standalone binary is available, prefer it:
@@ -65,7 +73,12 @@ When a standalone binary is available, prefer it:
 ```bash
 ./bin/ghfind commands --json
 ./bin/ghfind commands show roast --json
+./bin/ghfind update check -o json
 ```
+
+`update check` compares the local CLI version with the latest GitHub release and
+returns `update_available`, `latest_version`, and `release_url`. It only reports;
+it never modifies the installed binary.
 
 ## Common Calls
 
