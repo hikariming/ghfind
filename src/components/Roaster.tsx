@@ -25,8 +25,7 @@ import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { Omnibox } from "./Omnibox";
 import { DimensionStarChart } from "./DimensionStarChart";
-
-const SITE_URL = "https://ghfind.com";
+import { SITE_URL } from "@/lib/site";
 
 interface Display {
   score: number;
