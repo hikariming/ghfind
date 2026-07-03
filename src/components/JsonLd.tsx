@@ -90,6 +90,33 @@ export function profileJsonLd(opts: {
   };
 }
 
+/** A research/blog article. `date`/`updated` are ISO dates from the post frontmatter. */
+export function articleJsonLd(opts: {
+  slug: string;
+  locale: string;
+  title: string;
+  description: string;
+  date: string;
+  updated?: string;
+  tags: string[];
+}) {
+  const path = opts.locale === "en" ? `/en/blog/${opts.slug}` : `/blog/${opts.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: opts.title,
+    description: opts.description,
+    datePublished: opts.date,
+    ...(opts.updated ? { dateModified: opts.updated } : {}),
+    inLanguage: opts.locale === "en" ? "en" : "zh-CN",
+    ...(opts.tags.length ? { keywords: opts.tags.join(", ") } : {}),
+    image: [`${SITE_URL}/api/og/blog/${opts.slug}`],
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}${path}` },
+    author: { "@type": "Organization", name: "ghfind", url: `${SITE_URL}/` },
+    publisher: { "@type": "Organization", name: "ghfind", url: `${SITE_URL}/` },
+  };
+}
+
 /** The leaderboard as a ranked developer directory (CollectionPage + ItemList). */
 export function leaderboardJsonLd(opts: {
   name: string;

@@ -1,0 +1,350 @@
+{
+  "generated_at": "2026-07-03T12:44:49.567Z",
+  "method_notes": "Visible (non-hidden) accounts only. Red flags & recomputed spam scores use the current engine over each user's latest raw-metrics snapshot. Stored bot_score reflects the engine version at scan time.",
+  "totals": {
+    "scored_accounts_visible": 18947,
+    "hidden_accounts": 0,
+    "snapshot_users": 3444,
+    "metrics_swept_users": 3444
+  },
+  "score_histogram_bucket5": {
+    "0": 2357,
+    "5": 563,
+    "10": 792,
+    "15": 974,
+    "20": 1202,
+    "25": 1262,
+    "30": 1082,
+    "35": 969,
+    "40": 1031,
+    "45": 1064,
+    "50": 975,
+    "55": 1042,
+    "60": 912,
+    "65": 916,
+    "70": 850,
+    "75": 808,
+    "80": 762,
+    "85": 681,
+    "90": 431,
+    "95": 274
+  },
+  "tier_histogram": {
+    "NPC": 5940,
+    "拉完了": 9201,
+    "人上人": 1658,
+    "顶级": 1443,
+    "夯": 705
+  },
+  "stored_bot_score": {
+    "with_value": 18934,
+    "histogram_bucket1": {
+      "0": 14627,
+      "1": 3435,
+      "2": 762,
+      "3": 41,
+      "4": 20,
+      "5": 17,
+      "6": 20,
+      "7": 7,
+      "8": 4,
+      "9": 1
+    },
+    "gte3": 110,
+    "gte5": 49,
+    "gte7": 12
+  },
+  "recomputed_spam": {
+    "gte3": 20,
+    "gte5": 13,
+    "of": 3444
+  },
+  "red_flags": {
+    "users_with_any": 584,
+    "of": 3444,
+    "by_flag": {
+      "templated_pr_flooding": 17,
+      "mostly_forks": 247,
+      "ghost_profile": 345,
+      "no_original_work": 284,
+      "burst_then_dormant": 4,
+      "high_pr_rejection": 5,
+      "trivial_pr_farming": 11,
+      "follow_farming": 3,
+      "social_only_dormant_profile": 1,
+      "mostly_empty_repos": 2,
+      "new_account_mass_repos": 4
+    }
+  },
+  "farming_signals": {
+    "of": 3444,
+    "pr_flood_suspect": 17,
+    "star_inflation_suspect": 0,
+    "follow_farming": 3,
+    "users_with_merged_pr_sample": 2558,
+    "any_external_trivial_pr": 1486,
+    "majority_external_trivial_gte10": 11
+  },
+  "metric_distributions": {
+    "followers": {
+      "n": 3444,
+      "p10": 0,
+      "p25": 3,
+      "p50": 27,
+      "p75": 205,
+      "p90": 1275.4000000000005,
+      "p99": 19073.27000000002,
+      "mean": 1079.5766550522649,
+      "max": 309412
+    },
+    "total_stars": {
+      "n": 3444,
+      "p10": 0,
+      "p25": 2,
+      "p50": 34,
+      "p75": 623.5,
+      "p90": 5875.700000000008,
+      "p99": 100284.15000000011,
+      "mean": 4962.519163763066,
+      "max": 853458
+    },
+    "max_stars": {
+      "n": 3444,
+      "p10": 0,
+      "p25": 1,
+      "p50": 16,
+      "p75": 337.25,
+      "p90": 3230.600000000002,
+      "p99": 73027.05000000015,
+      "mean": 3074.4230545876885,
+      "max": 479889
+    },
+    "merged_pr_count": {
+      "n": 3444,
+      "p10": 0,
+      "p25": 1,
+      "p50": 20,
+      "p75": 152,
+      "p90": 598,
+      "p99": 3260.030000000013,
+      "mean": 237.9335075493612,
+      "max": 13242
+    },
+    "account_age_years": {
+      "n": 3444,
+      "p10": 1.953,
+      "p25": 4.38,
+      "p50": 7.375,
+      "p75": 10.9625,
+      "p90": 14.057000000000004,
+      "p99": 17.867100000000004,
+      "mean": 7.797973286875712,
+      "max": 18.69
+    },
+    "last_year_contributions": {
+      "n": 3444,
+      "p10": 1,
+      "p25": 27,
+      "p50": 291.5,
+      "p75": 1139.25,
+      "p90": 2704.800000000004,
+      "p99": 9644.820000000003,
+      "mean": 1154.7868757259,
+      "max": 256479
+    },
+    "public_repos": {
+      "n": 3444,
+      "p10": 2,
+      "p25": 10,
+      "p50": 28,
+      "p75": 66,
+      "p90": 132,
+      "p99": 421.28000000000065,
+      "mean": 58.50145180023229,
+      "max": 2198
+    },
+    "issues_created": {
+      "n": 3444,
+      "p10": 0,
+      "p25": 1,
+      "p50": 14,
+      "p75": 73,
+      "p90": 236,
+      "p99": 1629.6600000000062,
+      "mean": 111.9732868757259,
+      "max": 10539
+    }
+  },
+  "pr_rejection_rate_decided_gte10": {
+    "n": 2003,
+    "p10": 0,
+    "p25": 0,
+    "p50": 0.02,
+    "p75": 0.06,
+    "p90": 0.13,
+    "p99": 0.34920000000000073,
+    "mean": 0.04887169246130796,
+    "max": 0.8
+  },
+  "templated_pr_ratio_sample_gte10": {
+    "n": 2122,
+    "p10": 0.03,
+    "p25": 0.07,
+    "p50": 0.07,
+    "p75": 0.13,
+    "p90": 0.2,
+    "p99": 0.7236999999999989,
+    "mean": 0.11331762488218514,
+    "max": 0.97
+  },
+  "age_vs_score": [
+    {
+      "age": 0,
+      "n": 157,
+      "mean": 20.456687898089175,
+      "median": 17.5
+    },
+    {
+      "age": 1,
+      "n": 196,
+      "mean": 32.919897959183665,
+      "median": 29.950000000000003
+    },
+    {
+      "age": 2,
+      "n": 181,
+      "mean": 36.67071823204421,
+      "median": 38.2
+    },
+    {
+      "age": 3,
+      "n": 236,
+      "mean": 44.45211864406781,
+      "median": 45.849999999999994
+    },
+    {
+      "age": 4,
+      "n": 252,
+      "mean": 49.797619047619044,
+      "median": 54.3
+    },
+    {
+      "age": 5,
+      "n": 264,
+      "mean": 52.250378787878816,
+      "median": 56.9
+    },
+    {
+      "age": 6,
+      "n": 324,
+      "mean": 56.19876543209878,
+      "median": 59.3
+    },
+    {
+      "age": 7,
+      "n": 270,
+      "mean": 57.473333333333294,
+      "median": 62.4
+    },
+    {
+      "age": 8,
+      "n": 265,
+      "mean": 63.063018867924534,
+      "median": 70.1
+    },
+    {
+      "age": 9,
+      "n": 232,
+      "mean": 66.82284482758618,
+      "median": 75.75
+    },
+    {
+      "age": 10,
+      "n": 1067,
+      "mean": 74.0291471415183,
+      "median": 85.5
+    }
+  ],
+  "languages_top_score_gte60": [
+    {
+      "language": "TypeScript",
+      "devs": 520
+    },
+    {
+      "language": "Python",
+      "devs": 460
+    },
+    {
+      "language": "JavaScript",
+      "devs": 395
+    },
+    {
+      "language": "Rust",
+      "devs": 225
+    },
+    {
+      "language": "C++",
+      "devs": 201
+    },
+    {
+      "language": "Go",
+      "devs": 189
+    },
+    {
+      "language": "C",
+      "devs": 184
+    },
+    {
+      "language": "Java",
+      "devs": 159
+    },
+    {
+      "language": "Vue",
+      "devs": 119
+    },
+    {
+      "language": "Kotlin",
+      "devs": 83
+    },
+    {
+      "language": "C#",
+      "devs": 78
+    },
+    {
+      "language": "PHP",
+      "devs": 45
+    },
+    {
+      "language": "Swift",
+      "devs": 36
+    },
+    {
+      "language": "Lua",
+      "devs": 32
+    },
+    {
+      "language": "Dart",
+      "devs": 24
+    },
+    {
+      "language": "Svelte",
+      "devs": 20
+    },
+    {
+      "language": "Astro",
+      "devs": 19
+    },
+    {
+      "language": "Nix",
+      "devs": 19
+    },
+    {
+      "language": "Ruby",
+      "devs": 18
+    },
+    {
+      "language": "MDX",
+      "devs": 16
+    }
+  ]
+}

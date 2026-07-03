@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPublicUsernames, getIndexableMatchups } from "@/lib/db";
+import { getPost, getPostSlugs } from "@/lib/blog";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import { PUBLIC_INDEX_MIN_SCORE, SITE_URL } from "@/lib/site";
@@ -49,6 +50,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/leaderboard", { changeFrequency: "hourly", priority: 0.9 }),
     entry("/developers", { changeFrequency: "daily", priority: 0.9 }),
     entry("/vs", { changeFrequency: "daily", priority: 0.8 }),
+  ];
+
+  // Blog posts: synchronous fs reads, no timeout guard needed. `entry()` emits
+  // the zh+en alternate pair — correct while every post ships both locales
+  // (fallback pages canonicalize onto en anyway, so a missing translation only
+  // costs an extra hreflang hint, never a duplicate-content page).
+  const blogRoutes: MetadataRoute.Sitemap = [
+    entry("/blog", { changeFrequency: "weekly", priority: 0.7 }),
+    ...getPostSlugs().map((slug) => {
+      const post = getPost(slug, "en");
+      return entry(`/blog/${slug}`, {
+        lastModified: post ? new Date(post.updated ?? post.date) : undefined,
+        changeFrequency: "monthly",
+        priority: 0.8,
+      });
+    }),
   ];
 
   // Directory buckets (top languages + projects + orgs). Reads the same cached
@@ -101,5 +118,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
-  return [...staticRoutes, ...facetRoutes, ...profileRoutes, ...matchupRoutes];
+  return [...staticRoutes, ...blogRoutes, ...facetRoutes, ...profileRoutes, ...matchupRoutes];
 }

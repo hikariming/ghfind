@@ -13,6 +13,7 @@
     "leaderboard": "Leaderboard",
     "developers": "Discover",
     "versus": "Versus",
+    "blog": "Research",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
   },
@@ -318,6 +319,14 @@
     "suggestOrg": "{value} · org members",
     "pkHalfHint": "Type an opponent, then hit Enter to fight",
     "lockedRemove": "Remove"
+  },
+  "blog": {
+    "heading": "Research",
+    "subtitle": "Data notes from scoring real GitHub contribution at scale.",
+    "readingTime": "{minutes} min read",
+    "notTranslated": "This article hasn't been translated yet — showing the English original.",
+    "backToList": "All research",
+    "empty": "No articles yet."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · Who wins? | ghfind",

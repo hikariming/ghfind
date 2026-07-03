@@ -13,6 +13,7 @@
     "leaderboard": "榜单",
     "developers": "发现",
     "versus": "对战",
+    "blog": "研究",
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单"
   },
@@ -318,6 +319,14 @@
     "suggestOrg": "{value} · 组织成员榜",
     "pkHalfHint": "再输一个对手，回车开战",
     "lockedRemove": "移除"
+  },
+  "blog": {
+    "heading": "研究",
+    "subtitle": "来自大规模真实贡献评分的数据笔记。",
+    "readingTime": "阅读约 {minutes} 分钟",
+    "notTranslated": "这篇文章还没有中文版，以下为英文原文。",
+    "backToList": "全部研究",
+    "empty": "还没有文章。"
   },
   "vs": {
     "metaTitle": "{a} vs {b} · 谁更强？| ghfind",
