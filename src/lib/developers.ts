@@ -18,12 +18,15 @@ import {
 import type { FacetType } from "@/lib/facets";
 import {
   getCachedFacetCategories,
+  getCachedFacetCatalog,
   getCachedFacetDevelopers,
   setCachedFacetCategories,
+  setCachedFacetCatalog,
   setCachedFacetDevelopers,
 } from "@/lib/redis";
 
 const categoriesInflight = new Map<string, Promise<FacetCategory[]>>();
+const catalogInflight = new Map<string, Promise<FacetCategory[]>>();
 const developersInflight = new Map<string, Promise<LeaderboardEntry[]>>();
 
 /** Directory categories for a facet type, cache-aside + single-flight. */
@@ -89,11 +92,31 @@ export async function searchFacetCategoriesForDirectory(
   return searchFacetCategories(query, options);
 }
 
-/** Broad facet catalog for AI search. Bypasses Redis because the AI prompt wants
- * a larger catalog than the public browse grid, and the query only runs when a
- * visitor submits a search. */
+/** Broad facet catalog for AI search, cache-aside + single-flight. It uses a
+ * separate Redis key from the public browse grid because the prompt can consume
+ * more buckets than the page renders, but it still must not GROUP BY Turso on
+ * every search request. */
 export async function getFacetCatalogForAiSearch(
   type: FacetType,
+  limit = 500,
 ): Promise<FacetCategory[]> {
-  return getFacetCategories(type, 500);
+  const capped = Math.max(1, Math.min(500, limit));
+  const cached = await getCachedFacetCatalog(type, capped);
+  if (cached) return cached;
+
+  const key = `${type}:${capped}`;
+  const existing = catalogInflight.get(key);
+  if (existing) return existing;
+
+  const run = (async () => {
+    const categories = await getFacetCategories(type, capped);
+    if (categories.length > 0) await setCachedFacetCatalog(type, capped, categories);
+    return categories;
+  })();
+  catalogInflight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    catalogInflight.delete(key);
+  }
 }

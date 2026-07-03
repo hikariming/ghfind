@@ -26,7 +26,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const CDN_CACHE = "public, s-maxage=120, stale-while-revalidate=600";
+const NO_STORE = "no-store";
 const FACET_TYPES: FacetType[] = ["language", "repo", "org"];
 const AI_DISCOVERY_LLM_MODE = resolveAiDiscoveryLlmMode(
   process.env.AI_DISCOVERY_LLM_MODE,
@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
         estimatedTokens,
         message: "AI discovery search requires the visitor's own model key.",
       },
-      { status: 402 },
+      { status: 402, headers: { "Cache-Control": NO_STORE } },
     );
   }
 
@@ -333,6 +333,6 @@ export async function POST(req: NextRequest) {
       facets: facets.map((facet) => facetPayload(facet, catalog)),
       developers,
     },
-    { headers: { "Cache-Control": CDN_CACHE } },
+    { headers: { "Cache-Control": NO_STORE } },
   );
 }

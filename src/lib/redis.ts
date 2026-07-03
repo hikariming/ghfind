@@ -528,6 +528,7 @@ const FACET_TTL_SECONDS = 600; // 10 min
 
 // Bucket values are canonical (e.g. "Rust", "C++") and safe in a Redis key.
 const facetCategoriesKey = (type: FacetType) => `facets:cat:${type}`;
+const facetCatalogKey = (type: FacetType, limit: number) => `facets:catalog:${type}:${limit}`;
 const facetListKey = (type: FacetType, value: string) => `facets:list:${type}:${value}`;
 
 export async function getCachedFacetCategories(
@@ -550,6 +551,33 @@ export async function setCachedFacetCategories(
   if (!r) return;
   try {
     await r.set(facetCategoriesKey(type), categories, { ex: FACET_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
+export async function getCachedFacetCatalog(
+  type: FacetType,
+  limit: number,
+): Promise<FacetCategory[] | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return (await r.get<FacetCategory[]>(facetCatalogKey(type, limit))) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedFacetCatalog(
+  type: FacetType,
+  limit: number,
+  categories: FacetCategory[],
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(facetCatalogKey(type, limit), categories, { ex: FACET_TTL_SECONDS });
   } catch {
     // best-effort
   }
