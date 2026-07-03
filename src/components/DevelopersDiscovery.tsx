@@ -2,12 +2,16 @@
 
 import { Search, X } from "lucide-react";
 import { useLocale } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { facetPath } from "@/lib/discovery";
+import {
+  estimateDiscoverySearchTokens,
+  facetPath,
+  type AiDiscoveryLlmMode,
+} from "@/lib/discovery";
 import type { FacetType } from "@/lib/facets";
 import type { Tier } from "@/lib/types";
-import { loadByoKey } from "@/components/ByoKeyModal";
+import { ByoKeyModal, loadByoKey } from "@/components/ByoKeyModal";
 import { Input } from "@/components/ui/input";
 
 export interface DiscoveryCategory {
@@ -36,6 +40,12 @@ export interface DevelopersDiscoveryLabels {
   aiUnavailable: string;
   aiSummaryTitle: string;
   aiDevelopersTitle: string;
+  aiTokenEstimate: (values: { min: number; max: number }) => string;
+  aiUseOwnKey: string;
+  aiRunSearch: string;
+  aiServerMode: string;
+  aiKeyRequired: string;
+  aiSearchFailed: string;
   promptTitle: string;
   typeLabels: Record<FacetType, string>;
   languagesTitle: string;
@@ -64,6 +74,7 @@ interface AiDeveloperResult {
 interface AiSearchResponse {
   mode: "ai" | "fallback";
   error?: string;
+  estimatedTokens?: { min: number; max: number };
   summary?: string;
   facets: AiFacetResult[];
   developers: AiDeveloperResult[];
@@ -74,6 +85,7 @@ interface DevelopersDiscoveryProps {
   searchCategories: Record<FacetType, DiscoveryCategory[]>;
   labels: DevelopersDiscoveryLabels;
   presets: DiscoveryPreset[];
+  aiSearchMode: AiDiscoveryLlmMode;
 }
 
 const TYPE_ORDER: FacetType[] = ["language", "repo", "org"];
@@ -152,14 +164,17 @@ export function DevelopersDiscovery({
   searchCategories,
   labels,
   presets,
+  aiSearchMode,
 }: DevelopersDiscoveryProps) {
   const locale = useLocale();
   const [query, setQuery] = useState("");
   const [aiResult, setAiResult] = useState<AiSearchResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [byoOpen, setByoOpen] = useState(false);
   const normalizedQuery = normalize(query);
   const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const tokenEstimate = estimateDiscoverySearchTokens(query);
 
   const allCategories = useMemo(
     () => TYPE_ORDER.flatMap((type) => searchCategories[type]),
@@ -200,46 +215,63 @@ export function DevelopersDiscovery({
     }
   }
 
-  useEffect(() => {
+  async function runAiSearch() {
     const trimmed = query.trim();
     if (!trimmed) return;
+    const byoKey = loadByoKey();
+    if (!byoKey && aiSearchMode !== "server") {
+      setByoOpen(true);
+      return;
+    }
 
     const ctrl = new AbortController();
-    const timer = window.setTimeout(() => {
-      setAiLoading(true);
-      setAiError(null);
-      fetch("/api/developers/search", {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/developers/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmed, lang: locale, byoKey: loadByoKey() }),
+        body: JSON.stringify({ query: trimmed, lang: locale, byoKey }),
         signal: ctrl.signal,
-      })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`search_${res.status}`);
-          return (await res.json()) as AiSearchResponse;
-        })
-        .then((data) => {
-          setAiResult(data);
-          setAiError(data.error ?? null);
-        })
-        .catch((error: unknown) => {
-          if (ctrl.signal.aborted) return;
-          setAiResult(null);
-          setAiError(error instanceof Error ? error.message : "search_failed");
-        })
-        .finally(() => {
-          if (!ctrl.signal.aborted) setAiLoading(false);
-        });
-    }, 350);
+      });
+      const data = (await res.json().catch(() => null)) as
+        | AiSearchResponse
+        | { error?: string }
+        | null;
+      if (!res.ok) {
+        const code = data?.error ?? `search_${res.status}`;
+        if (code === "byo_required") setByoOpen(true);
+        throw new Error(code);
+      }
+      setAiResult(data as AiSearchResponse);
+      setAiError((data as AiSearchResponse).error ?? null);
+    } catch (error: unknown) {
+      if (ctrl.signal.aborted) return;
+      setAiResult(null);
+      setAiError(error instanceof Error ? error.message : "search_failed");
+    } finally {
+      if (!ctrl.signal.aborted) setAiLoading(false);
+    }
+  }
 
-    return () => {
-      ctrl.abort();
-      window.clearTimeout(timer);
-    };
-  }, [locale, query]);
+  function aiErrorMessage(error: string | null): string | null {
+    if (!error) return null;
+    if (error === "byo_required") return labels.aiKeyRequired;
+    if (error === "no_llm_configured") return labels.aiUnavailable;
+    return labels.aiSearchFailed;
+  }
 
   return (
     <div className="flex flex-col gap-10">
+      <ByoKeyModal
+        open={byoOpen}
+        reason={labels.aiKeyRequired}
+        onClose={() => setByoOpen(false)}
+        onSave={() => {
+          setByoOpen(false);
+          void runAiSearch();
+        }}
+      />
       <section className="border-y border-white/10 py-5">
         <label className="block text-sm font-semibold text-zinc-300" htmlFor="developer-tag-search">
           {labels.searchLabel}
@@ -283,6 +315,22 @@ export function DevelopersDiscovery({
             ))}
           </div>
         </div>
+        {terms.length > 0 && (
+          <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-xs leading-relaxed text-zinc-500">
+              {labels.aiTokenEstimate(tokenEstimate)}
+              {aiSearchMode === "server" ? ` ${labels.aiServerMode}` : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => void runAiSearch()}
+              disabled={aiLoading}
+              className="mt-3 rounded-full bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {aiSearchMode === "server" ? labels.aiRunSearch : labels.aiUseOwnKey}
+            </button>
+          </div>
+        )}
       </section>
 
       {terms.length > 0 ? (
@@ -291,8 +339,8 @@ export function DevelopersDiscovery({
             {labels.searchResultsTitle}
           </h2>
           {aiLoading && <p className="text-zinc-500">{labels.aiLoading}</p>}
-          {aiError === "no_llm_configured" && (
-            <p className="mb-4 text-sm text-amber-300">{labels.aiUnavailable}</p>
+          {aiErrorMessage(aiError) && (
+            <p className="mb-4 text-sm text-amber-300">{aiErrorMessage(aiError)}</p>
           )}
           {aiResult?.mode === "fallback" && aiError !== "no_llm_configured" && (
             <p className="mb-4 text-sm text-zinc-500">{labels.aiFallback}</p>

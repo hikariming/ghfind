@@ -6,7 +6,9 @@ import {
 } from "@/lib/developers";
 import {
   buildFacetDiscoveryIntent,
+  estimateDiscoverySearchTokens,
   facetPath,
+  resolveAiDiscoveryLlmMode,
   type DiscoveryFacetRef,
 } from "@/lib/discovery";
 import type { FacetSearchResult, LeaderboardEntry } from "@/lib/db";
@@ -26,6 +28,9 @@ export const maxDuration = 30;
 
 const CDN_CACHE = "public, s-maxage=120, stale-while-revalidate=600";
 const FACET_TYPES: FacetType[] = ["language", "repo", "org"];
+const AI_DISCOVERY_LLM_MODE = resolveAiDiscoveryLlmMode(
+  process.env.AI_DISCOVERY_LLM_MODE,
+);
 
 interface SearchBody {
   query?: string;
@@ -93,10 +98,15 @@ async function collectAiText(
   return text;
 }
 
+function hasByoKey(byo?: ByoKey): boolean {
+  return Boolean(byo?.apiKey && byo.baseURL && byo.model);
+}
+
 function resolveLlmConfigs(byo?: ByoKey): LlmConfig[] {
   if (byo?.apiKey && byo.baseURL && byo.model) {
     return [{ baseURL: byo.baseURL, apiKey: byo.apiKey, model: byo.model }];
   }
+  if (AI_DISCOVERY_LLM_MODE !== "server") return [];
   const primary = defaultLlmConfig();
   if (!primary) return [];
   const fallback = fallbackLlmConfig();
@@ -272,6 +282,18 @@ export async function POST(req: NextRequest) {
   if (!query) return NextResponse.json({ error: "empty_query" }, { status: 400 });
 
   const lang = body.lang === "en" ? "en" : "zh";
+  const estimatedTokens = estimateDiscoverySearchTokens(query);
+  if (!hasByoKey(body.byoKey) && AI_DISCOVERY_LLM_MODE !== "server") {
+    return NextResponse.json(
+      {
+        error: "byo_required",
+        estimatedTokens,
+        message: "AI discovery search requires the visitor's own model key.",
+      },
+      { status: 402 },
+    );
+  }
+
   const catalog = await buildCatalog(query);
   const llmConfigs = resolveLlmConfigs(body.byoKey);
   let mode: "ai" | "fallback" = "ai";
@@ -305,6 +327,7 @@ export async function POST(req: NextRequest) {
       query,
       mode,
       error,
+      estimatedTokens,
       summary: plan.summary ?? "",
       intent,
       facets: facets.map((facet) => facetPayload(facet, catalog)),

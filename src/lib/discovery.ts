@@ -20,6 +20,20 @@ export interface DeveloperDiscoveryIntent {
   minScore: number;
 }
 
+export const AI_DISCOVERY_LLM_MODES = ["byok", "server"] as const;
+export type AiDiscoveryLlmMode = (typeof AI_DISCOVERY_LLM_MODES)[number];
+
+export function resolveAiDiscoveryLlmMode(raw: string | undefined): AiDiscoveryLlmMode {
+  return raw === "server" ? "server" : "byok";
+}
+
+export function estimateDiscoverySearchTokens(query: string, catalogItems = 1500) {
+  const q = query.trim().length;
+  const min = Math.ceil((900 + q / 3 + catalogItems * 4) / 500) * 500;
+  const max = Math.ceil((1600 + q + catalogItems * 9) / 500) * 500;
+  return { min, max };
+}
+
 export function facetPath(type: FacetType, value: string): string {
   return `/developers/${type}/${value
     .split("/")

@@ -6,6 +6,7 @@ import {
   type DiscoveryPreset,
 } from "@/components/DevelopersDiscovery";
 import { getFacetCategoriesCached } from "@/lib/developers";
+import { resolveAiDiscoveryLlmMode } from "@/lib/discovery";
 import type { FacetType } from "@/lib/facets";
 import type { FacetCategory } from "@/lib/db";
 import { localeAlternates } from "@/lib/site";
@@ -92,6 +93,7 @@ export default async function DevelopersPage({
       <DevelopersDiscovery
         browseCategories={browseCategories}
         searchCategories={searchCategories}
+        aiSearchMode={resolveAiDiscoveryLlmMode(process.env.AI_DISCOVERY_LLM_MODE)}
         labels={{
           searchLabel: t("searchLabel"),
           searchPlaceholder: t("searchPlaceholder"),
@@ -105,6 +107,12 @@ export default async function DevelopersPage({
           aiUnavailable: t("aiUnavailable"),
           aiSummaryTitle: t("aiSummaryTitle"),
           aiDevelopersTitle: t("aiDevelopersTitle"),
+          aiTokenEstimate: ({ min, max }) => t("aiTokenEstimate", { min, max }),
+          aiUseOwnKey: t("aiUseOwnKey"),
+          aiRunSearch: t("aiRunSearch"),
+          aiServerMode: t("aiServerMode"),
+          aiKeyRequired: t("aiKeyRequired"),
+          aiSearchFailed: t("aiSearchFailed"),
           promptTitle: t("promptTitle"),
           typeLabels: {
             language: t("languageType"),
