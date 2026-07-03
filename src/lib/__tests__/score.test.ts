@@ -715,6 +715,50 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_repo_count).toBe(1);
   });
 
+  it("excludes one-off personal entries in known registry and directory repos", () => {
+    const m = computeImpactFromContribMap(
+      [
+        agg({
+          repo: "is-a-dev/register",
+          owner_login: "is-a-dev",
+          stars: 10600,
+          commits: 1,
+          prs: 1,
+        }),
+        agg({
+          repo: "tuna/blogroll",
+          owner_login: "tuna",
+          stars: 2200,
+          commits: 1,
+          prs: 1,
+        }),
+        agg({ repo: "org/target", owner_login: "org", stars: 5000, prs: 1 }),
+      ],
+      me,
+    );
+    expect(m.impact_repos.map((r) => r.repo)).toEqual(["org/target"]);
+    expect(m.impact_repo_count).toBe(1);
+    expect(m.impact_commit_count).toBe(0);
+    expect(m.impact_pr_count).toBe(1);
+  });
+
+  it("preserves sustained maintenance work in a registry repo", () => {
+    const m = computeImpactFromContribMap(
+      [
+        agg({
+          repo: "is-a-dev/register",
+          owner_login: "is-a-dev",
+          stars: 10600,
+          commits: 20,
+          prs: 10,
+        }),
+      ],
+      me,
+    );
+    expect(m.impact_repo_count).toBe(1);
+    expect(m.impact_repos[0].repo).toBe("is-a-dev/register");
+  });
+
   it("ignores a single drive-by commit (needs ≥2 commits or ≥1 PR)", () => {
     const m = computeImpactFromContribMap([agg({ commits: 1, prs: 0 })], me);
     expect(m.impact_repo_count).toBe(0);
@@ -749,6 +793,8 @@ describe("impact quality caps", () => {
   it("classifies docs, website, examples, and templates as doc-like impact", () => {
     expect(isDocLikeImpactPr(pr({ repo: "foundation/project-site", repo_stars: 4000 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ repo: "docs-org/examples", repo_stars: 2000 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ repo: "is-a-dev/register", repo_stars: 10600 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ repo: "tuna/blogroll", repo_stars: 2200 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ title: "docs: update install guide", repo_stars: 5000 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ title: "feat: add project template", repo_stars: 5000 }))).toBe(true);
     expect(

@@ -1100,7 +1100,17 @@ function repoName(nameWithOwner: string | null | undefined): string {
   return repo.includes("/") ? repo.split("/").pop() ?? "" : repo;
 }
 
+// Popular registries/directories where a typical contribution is a personal
+// entry rather than shipped software. Keep this exact-match list deliberately
+// small: generic names such as "register" can also belong to real codebases.
+const LOW_SIGNAL_ENTRY_REPOS = new Set(["is-a-dev/register", "tuna/blogroll"]);
+
+function isLowSignalEntryRepo(nameWithOwner: string | null | undefined): boolean {
+  return LOW_SIGNAL_ENTRY_REPOS.has((nameWithOwner ?? "").trim().toLowerCase());
+}
+
 function isDocLikeRepo(nameWithOwner: string | null | undefined): boolean {
+  if (isLowSignalEntryRepo(nameWithOwner)) return true;
   const name = repoName(nameWithOwner);
   return (
     /(^|[-_.])(docs?|site|website|blog|examples?|templates?|profile|notebook|learning|tutorial|interview|guide|manual)([-_.]|$)/.test(
@@ -1197,6 +1207,10 @@ export function computeImpactFromContribMap(
 ): ImpactMetrics {
   const qualifying = repos.filter((r) => {
     if (r.is_private || r.is_fork) return false;
+    // A single merged entry can appear as both one PR and one contribution-graph
+    // commit. Do not let that personal registry/directory entry borrow the
+    // repository's star count, while preserving credit for actual maintainers.
+    if (isLowSignalEntryRepo(r.repo) && r.commits <= 1 && r.prs <= 1) return false;
     const isExternal = r.owner_login.toLowerCase() !== loginLower;
     const threshold = isExternal ? 200 : 1000;
     if (r.stars < threshold) return false;

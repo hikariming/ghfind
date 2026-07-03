@@ -700,7 +700,16 @@ def _repo_name(name_with_owner: Optional[str]) -> str:
     return repo.split("/")[-1] if "/" in repo else repo
 
 
+_LOW_SIGNAL_ENTRY_REPOS = {"is-a-dev/register", "tuna/blogroll"}
+
+
+def _is_low_signal_entry_repo(name_with_owner: Optional[str]) -> bool:
+    return (name_with_owner or "").strip().lower() in _LOW_SIGNAL_ENTRY_REPOS
+
+
 def _is_doc_like_repo(name_with_owner: Optional[str]) -> bool:
+    if _is_low_signal_entry_repo(name_with_owner):
+        return True
     name = _repo_name(name_with_owner)
     return bool(
         re.search(
@@ -753,6 +762,11 @@ def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: st
     qualifying = []
     for r in repos:
         if r["is_private"] or r["is_fork"]:
+            continue
+        # A single merged entry can surface as both one PR and one contribution-
+        # graph commit. Exclude that shallow registry/directory entry without
+        # discarding sustained maintenance work in the same repository.
+        if _is_low_signal_entry_repo(r["repo"]) and r["commits"] <= 1 and r["prs"] <= 1:
             continue
         is_external = r["owner_login"].lower() != login_lower
         threshold = 200 if is_external else 1000
