@@ -30,6 +30,9 @@ README_PROMPT_SUMMARY_LIMIT = 1500
 
 IMPACT_YEAR_CAP = 6
 IMPACT_COMMIT_MIN = 2
+# Canonical projects whose official patch flow does not produce GitHub merged
+# PRs, even though GitHub can verify the authored commit in the final history.
+SINGLE_COMMIT_IMPACT_REPOS = {"git/git"}
 ORG_ATTRIBUTED_MIN_SCORE = 5
 ORG_ATTRIBUTED_COMMIT_MIN = 50
 ORG_ATTRIBUTED_MIXED_COMMIT_MIN = 20
@@ -758,7 +761,12 @@ def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: st
         threshold = 200 if is_external else 1000
         if r["stars"] < threshold:
             continue
-        if r["commits"] >= IMPACT_COMMIT_MIN or r["prs"] >= 1:
+        commit_min = (
+            1
+            if r["repo"].strip().lower() in SINGLE_COMMIT_IMPACT_REPOS
+            else IMPACT_COMMIT_MIN
+        )
+        if r["commits"] >= commit_min or r["prs"] >= 1:
             qualifying.append(r)
 
     max_impact_repo_stars = max((r["stars"] for r in qualifying), default=0)
