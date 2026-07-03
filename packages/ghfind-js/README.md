@@ -33,6 +33,7 @@ ghfind score torvalds          # deterministic score (no auth, cached)
 ghfind roast torvalds --lang en
 ghfind vs torvalds octocat
 ghfind badge torvalds --markdown   # a README badge that links back to ghfind
+ghfind update check                 # check whether the local CLI is stale
 ```
 
 `score` hits the public **`GET /api/score`** endpoint: no auth, edge-cached and
@@ -52,6 +53,8 @@ deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
 | `stats` | Platform totals. | `GET /api/stats` | no |
 | `badge <user>` | Badge URL, or `--markdown` for a README snippet linking to the profile. | — | no |
 | `card <user>` | OG share-card PNG URL. | — | no |
+| `update check` | Compare the local CLI with the latest GitHub release. | GitHub releases API | no |
+| `update install` | Download and replace the local release binary, or use `--method npm\|pip\|brew`. | GitHub releases API | no |
 | `commands [show <c>]` | Self-describing capability catalog (for agents). | — | no |
 | `auth status` | Show host + which credentials are configured. | — | no |
 
@@ -83,6 +86,22 @@ plain `score`** (ghfind scores it for you). Output is identical.
 --byo-base-url/-api-key/-model   your OpenAI-compatible provider for roast
 --json | -o json|pretty|markdown
 --lang zh|en
+```
+
+### Updating the CLI
+
+`ghfind update check` only reports whether a newer release exists. It never
+changes the local install.
+
+Use `ghfind update install --method binary --dry-run` to inspect the selected
+release asset and target path, then remove `--dry-run` to replace the current
+binary. Package-manager shortcuts are explicit:
+
+```bash
+ghfind update npm --dry-run
+ghfind update npm   # npm install -g @hikariming/ghfind@latest
+ghfind update pip   # python3 -m pip install --upgrade ghfind
+ghfind update brew  # brew upgrade ghfind
 ```
 
 ---

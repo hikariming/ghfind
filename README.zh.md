@@ -152,7 +152,7 @@ ghfind update brew
 当前二进制旁边,再通过 rename 替换本地 `ghfind`。建议先加 `--dry-run` 查看会选择
 哪个 asset 和目标路径。包管理器快捷命令会执行对应升级命令:
 
-- `ghfind update npm`: `npm install -g ghfind@latest`
+- `ghfind update npm`: `npm install -g @hikariming/ghfind@latest`
 - `ghfind update pip`: `python3 -m pip install --upgrade ghfind`
 - `ghfind update brew`: `brew upgrade ghfind`
 

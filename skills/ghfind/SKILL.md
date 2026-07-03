@@ -85,7 +85,7 @@ it never modifies the installed binary.
 
 `update install --method binary` downloads the current platform's GitHub release
 asset and replaces the local `ghfind` binary by rename. `update npm`, `update
-pip`, and `update brew` run `npm install -g ghfind@latest`, `python3 -m pip
+pip`, and `update brew` run `npm install -g @hikariming/ghfind@latest`, `python3 -m pip
 install --upgrade ghfind`, and `brew upgrade ghfind` respectively. Use
 `--dry-run` before executing an upgrade in automation; do not run upgrade
 commands unless the user explicitly asked to change the local installation.

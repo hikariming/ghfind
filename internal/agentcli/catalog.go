@@ -157,10 +157,10 @@ var commandCatalog = []CommandInfo{
 	{
 		Name:              "update npm",
 		Usage:             "ghfind update npm [--dry-run] [-o json|pretty]",
-		Summary:           "Upgrade the npm-installed ghfind CLI with npm install -g ghfind@latest.",
+		Summary:           "Upgrade the npm-installed ghfind CLI with npm install -g @hikariming/ghfind@latest.",
 		API:               []string{},
 		Output:            []string{"json", "pretty"},
-		ResponseSemantics: "Runs npm install -g ghfind@latest unless --dry-run is set.",
+		ResponseSemantics: "Runs npm install -g @hikariming/ghfind@latest unless --dry-run is set.",
 		AgentGuidance:     "Use when ghfind was installed from npm. Prefer --dry-run before executing in automation.",
 		Auth:              "Does not require authentication.",
 		Args:              []Arg{},

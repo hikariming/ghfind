@@ -153,7 +153,7 @@ asset, writes it next to the running binary, and replaces the local `ghfind`
 binary by rename. Use `--dry-run` first to inspect the selected asset and target
 path. Package-manager shortcuts run the matching upgrade command:
 
-- `ghfind update npm`: `npm install -g ghfind@latest`
+- `ghfind update npm`: `npm install -g @hikariming/ghfind@latest`
 - `ghfind update pip`: `python3 -m pip install --upgrade ghfind`
 - `ghfind update brew`: `brew upgrade ghfind`
 

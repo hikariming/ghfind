@@ -20,7 +20,7 @@ import { GhFind, GhFindError } from "./client.js";
 import type { ByoKey, ScanResult } from "./types.js";
 import { catalog, DEFAULT_HOST } from "./catalog.js";
 
-const VERSION = "0.1.1";
+const VERSION: string = "0.1.1";
 const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const SUB_SCORE_ORDER = [
