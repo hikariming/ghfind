@@ -194,13 +194,17 @@ export function Roaster() {
           return;
         }
         const result = data as ScanResult;
+        const byoKey = loadByoKey();
+        const forceProfileHandoff =
+          process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
         // Hand off to the profile page: stash the fresh scan so the inner page
         // can render its evidence and stream the roast in place (drives internal
         // traffic; the user reads their repos/score while the LLM works). Passing
         // the scan through sessionStorage means the handoff works with or without
-        // a server-side cache. BYO keys stay inline — they persist nothing for
-        // the profile page to show and use the user's own credit.
-        if (!loadByoKey()) {
+        // a server-side cache. BYO keys stay inline in production because the
+        // profile page never receives/stores user secrets; local dev can force the
+        // profile handoff with ?profile=1 when the server has its own LLM config.
+        if (!byoKey || forceProfileHandoff) {
           try {
             sessionStorage.setItem(pendingScanKey(result.metrics.username), JSON.stringify(result));
           } catch {
@@ -230,7 +234,7 @@ export function Roaster() {
         setScanning(false);
       }
     },
-    [username, token, scanning, roasting, runRoast, router, t, tScan],
+    [username, token, scanning, roasting, runRoast, router, searchParams, t, tScan],
   );
 
   const beatValue = percentile?.beat == null ? null : percentile.beat.toFixed(1);
