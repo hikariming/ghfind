@@ -1180,13 +1180,14 @@ export interface ImpactMetrics {
 export const IMPACT_YEAR_CAP = 6;
 /** Min landed commits for a repo to qualify on commits alone (avoids drive-bys). */
 export const IMPACT_COMMIT_MIN = 2;
-// Some canonical projects accept patches outside GitHub's merge flow. Their
-// authored commits are verifiable, but the corresponding GitHub PR is never
-// marked MERGED, so one landed commit must be sufficient evidence.
-const SINGLE_COMMIT_IMPACT_REPOS = new Set(["git/git"]);
+// GitHub only includes commits in commitContributionsByRepository after they
+// land on the upstream default branch (or gh-pages). For canonical projects
+// whose official patch flow never marks the corresponding GitHub PR as MERGED,
+// that single default-branch contribution is sufficient landing evidence.
+const SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS = new Set(["git/git"]);
 
-function impactCommitMin(nameWithOwner: string): number {
-  return SINGLE_COMMIT_IMPACT_REPOS.has(nameWithOwner.trim().toLowerCase())
+function defaultBranchCommitMin(nameWithOwner: string): number {
+  return SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS.has(nameWithOwner.trim().toLowerCase())
     ? 1
     : IMPACT_COMMIT_MIN;
 }
@@ -1212,7 +1213,7 @@ export function computeImpactFromContribMap(
     const isExternal = r.owner_login.toLowerCase() !== loginLower;
     const threshold = isExternal ? 200 : 1000;
     if (r.stars < threshold) return false;
-    return r.commits >= impactCommitMin(r.repo) || r.prs >= 1;
+    return r.commits >= defaultBranchCommitMin(r.repo) || r.prs >= 1;
   });
 
   const maxImpactRepoStars = qualifying.reduce((a, r) => Math.max(a, r.stars), 0);

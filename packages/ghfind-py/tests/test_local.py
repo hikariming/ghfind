@@ -53,7 +53,7 @@ def test_collect_and_score_requires_token():
             os.environ["GITHUB_TOKEN"] = prev
 
 
-def test_git_git_single_authored_commit_counts_as_ecosystem_impact():
+def test_git_git_single_default_branch_commit_counts_as_ecosystem_impact():
     base = {
         "stars": 61828,
         "is_private": False,

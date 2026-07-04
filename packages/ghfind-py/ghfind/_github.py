@@ -30,9 +30,10 @@ README_PROMPT_SUMMARY_LIMIT = 1500
 
 IMPACT_YEAR_CAP = 6
 IMPACT_COMMIT_MIN = 2
-# Canonical projects whose official patch flow does not produce GitHub merged
-# PRs, even though GitHub can verify the authored commit in the final history.
-SINGLE_COMMIT_IMPACT_REPOS = {"git/git"}
+# ``commitContributionsByRepository`` only reports commits after they land on
+# the upstream default branch (or gh-pages). This is sufficient landing evidence
+# for canonical projects whose official flow does not mark a GitHub PR MERGED.
+SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS = {"git/git"}
 ORG_ATTRIBUTED_MIN_SCORE = 5
 ORG_ATTRIBUTED_COMMIT_MIN = 50
 ORG_ATTRIBUTED_MIXED_COMMIT_MIN = 20
@@ -763,7 +764,7 @@ def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: st
             continue
         commit_min = (
             1
-            if r["repo"].strip().lower() in SINGLE_COMMIT_IMPACT_REPOS
+            if r["repo"].strip().lower() in SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS
             else IMPACT_COMMIT_MIN
         )
         if r["commits"] >= commit_min or r["prs"] >= 1:

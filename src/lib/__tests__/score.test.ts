@@ -721,7 +721,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.max_impact_repo_stars).toBe(0);
   });
 
-  it("credits one authored git/git commit despite its non-GitHub merge workflow", () => {
+  it("credits one git/git default-branch commit despite its non-GitHub merge workflow", () => {
     const m = computeImpactFromContribMap(
       [
         agg({
