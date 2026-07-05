@@ -8,6 +8,7 @@ import os
 
 import pytest
 
+from ghfind._github import compute_impact_from_contrib_map
 from ghfind.local import collect_and_score, score_metrics, GitHubAuthRequiredError
 
 
@@ -50,6 +51,35 @@ def test_collect_and_score_requires_token():
     finally:
         if prev is not None:
             os.environ["GITHUB_TOKEN"] = prev
+
+
+def test_git_git_single_default_branch_commit_counts_as_ecosystem_impact():
+    base = {
+        "stars": 61828,
+        "is_private": False,
+        "is_fork": False,
+        "commits": 1,
+        "prs": 0,
+        "active_years": 1,
+    }
+    impact = compute_impact_from_contrib_map(
+        [
+            {**base, "repo": "git/git", "owner_login": "git"},
+            {
+                **base,
+                "repo": "foundation/drive-by",
+                "owner_login": "foundation",
+            },
+        ],
+        "contributor",
+    )
+
+    assert impact["impact_repos"] == [
+        {"repo": "git/git", "stars": 61828, "commits": 1, "prs": 0},
+    ]
+    assert impact["impact_repo_count"] == 1
+    assert impact["impact_commit_count"] == 1
+    assert impact["impact_pr_count"] == 0
 
 
 @pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="needs GITHUB_TOKEN for a live crawl")

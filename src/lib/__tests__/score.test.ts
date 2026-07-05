@@ -765,6 +765,34 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.max_impact_repo_stars).toBe(0);
   });
 
+  it("credits one git/git default-branch commit despite its non-GitHub merge workflow", () => {
+    const m = computeImpactFromContribMap(
+      [
+        agg({
+          repo: "git/git",
+          owner_login: "git",
+          stars: 61828,
+          commits: 1,
+          prs: 0,
+        }),
+        agg({
+          repo: "foundation/drive-by",
+          owner_login: "foundation",
+          stars: 61828,
+          commits: 1,
+          prs: 0,
+        }),
+      ],
+      me,
+    );
+    expect(m.impact_repos).toEqual([
+      { repo: "git/git", stars: 61828, commits: 1, prs: 0 },
+    ]);
+    expect(m.impact_repo_count).toBe(1);
+    expect(m.impact_commit_count).toBe(1);
+    expect(m.impact_pr_count).toBe(0);
+  });
+
   it("excludes forks and private repos", () => {
     const m = computeImpactFromContribMap(
       [
