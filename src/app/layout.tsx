@@ -1,6 +1,6 @@
 import Script from "next/script";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { BotIdClient } from "botid/client";
+import AnalyticsGate from "@/components/AnalyticsGate";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,15 @@ const geistMono = Geist_Mono({
 /** Google Analytics 4 measurement ID (override via env in other environments). */
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
+
+/**
+ * Routes whose fetches get a BotID signature attached client-side, so the server
+ * can invisibly tell humans from headless farms via checkBotId(). Only the
+ * credit-spending LLM route needs this — /api/scan keeps its Turnstile gate, and
+ * agents skip BotID entirely by authenticating with a Bearer key (or by being a
+ * verified bot).
+ */
+const BOTID_PROTECTED_ROUTES = [{ path: "/api/roast", method: "POST" as const }];
 
 const THEME_INIT_SCRIPT = `
 try {
@@ -52,6 +61,9 @@ export default function RootLayout({
       // so the server markup intentionally differs for saved theme and /en.
       suppressHydrationWarning
     >
+      <head>
+        <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
+      </head>
       <body className="min-h-full flex flex-col">
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
@@ -63,15 +75,18 @@ export default function RootLayout({
         />
         <Script id="gtag-init" strategy="afterInteractive">
           {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}');
+            // navigator.webdriver flags headless automation (scraper farms were
+            // inflating GA4 pageviews) — skip config so no hit is ever sent.
+            if (!navigator.webdriver) {
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+            }
           `}
         </Script>
         {children}
-        <Analytics />
-        <SpeedInsights />
+        <AnalyticsGate />
       </body>
     </html>
   );

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
+import { machineAuth } from "@/lib/machine-auth";
 import { getArchivedRoast, getRank, getScoreScannedAt, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
@@ -416,6 +418,30 @@ export async function POST(req: NextRequest) {
   const username = body.scan?.metrics?.username ?? body.username;
   if (!username || !USERNAME_RE.test(username)) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
+  }
+
+  // Human/agent gate, before any cache or LLM work — but ONLY for the paths that
+  // spend the operator's LLM credit. Anonymous agents keep two open lanes: byoKey
+  // (their own model, their own bill) and the Bearer key. Verified
+  // crawlers/assistants (googlebot, chatgpt-user, claude…) pass as agents;
+  // browsers must pass BotID's invisible human check. Only the impersonator
+  // remainder — headless farms on rotating proxies — is refused, and the refusal
+  // advertises the documented agent surface instead.
+  const auth = machineAuth(req);
+  if (auth === "invalid") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (auth === "absent" && !body.byoKey) {
+    const verification = await checkBotId();
+    if (verification.isBot && !verification.isVerifiedBot) {
+      return NextResponse.json(
+        {
+          error: "bot_detected",
+          hint: "Automated clients are welcome: use the documented API and MCP server at https://ghfind.com/docs (free, no headless browser required).",
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const lang = normLang(body.lang);

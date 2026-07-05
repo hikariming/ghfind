@@ -26,6 +26,12 @@ const mocks = vi.hoisted(() => ({
   buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string, _judge?: unknown) => []),
 }));
 
+// Outside a real browser/Vercel request there is no BotID signal — treat every
+// test request as a verified human so the gate is transparent to these suites.
+vi.mock("botid/server", () => ({
+  checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
+}));
+
 vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
   getScoreScannedAt: mocks.getScoreScannedAt,

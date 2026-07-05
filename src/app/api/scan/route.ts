@@ -7,6 +7,7 @@ import {
   rateLimitHeaders,
 } from "@/lib/redis";
 import { apiError } from "@/lib/api-error";
+import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
@@ -17,17 +18,6 @@ export const dynamic = "force-dynamic";
 function clientIp(req: NextRequest): string {
   const fwd = req.headers.get("x-forwarded-for");
   return fwd?.split(",")[0]?.trim() || "0.0.0.0";
-}
-
-/** Presence + validity of the Authorization header, kept separate so an invalid
- *  key returns a spec-shaped 401 (with WWW-Authenticate) instead of falling
- *  through to the browser Turnstile path. */
-function machineAuth(req: NextRequest): "valid" | "invalid" | "absent" {
-  const value = req.headers.get("authorization") ?? "";
-  if (!value) return "absent";
-  const expected = process.env.GITHUB_ROAST_CLI_API_KEY;
-  const token = value.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  return expected && token === expected ? "valid" : "invalid";
 }
 
 /** Echo the client's Idempotency-Key so retries are correlatable. Scans are
