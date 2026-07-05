@@ -85,7 +85,9 @@ Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · A
 - \`GET ${SITE_URL}/api/developers?type=language|org|repo&value={facet}&limit={1-500}&offset={n}\`
 - \`GET ${SITE_URL}/api/search-users?q={prefix}\` · \`GET ${SITE_URL}/api/stats\`
 
-Errors are JSON: \`{ "error": "<code>", "message": "...", "hint": "..." }\`. Responses carry \`RateLimit-*\` headers; a 429 carries \`Retry-After\`. Write calls accept an \`Idempotency-Key\` header (scans are idempotent per username).`;
+Errors are JSON: \`{ "error": "<code>", "message": "...", "hint": "..." }\`. Responses carry \`RateLimit-*\` headers; a 429 carries \`Retry-After\`. Write calls accept an \`Idempotency-Key\` header (scans are idempotent per username).
+
+Bulk vetting (recruiting screens, candidate pipelines, account-trust checks at scale): the API is free for moderate use; if you need higher rate limits for batch scoring, email [lbm21@tsinghua.org.cn](mailto:lbm21@tsinghua.org.cn) or ask via [${SITE_URL}/contact](${SITE_URL}/contact) — this is a supported use case, not something to work around.`;
 }
 
 /** Markdown: the MCP server block. */

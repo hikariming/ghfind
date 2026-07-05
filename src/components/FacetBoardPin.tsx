@@ -1,8 +1,42 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { normalizeUsername } from "@/lib/username";
 import { trackEvent } from "@/lib/track";
+
+/**
+ * Client-side resolver for the `?u=` pin. The board page is ISR-cached (the
+ * canonical URL never carries the param), so the query string can only be read
+ * here, after hydration — reading it on the server would force every crawler
+ * hit of a clean URL through a function invocation. Off-board or garbage
+ * handles render nothing, same as the old server-side behavior.
+ * Must sit under a <Suspense> boundary (useSearchParams in a static page).
+ */
+export function FacetBoardPinFromQuery({
+  usernames,
+  facetValue,
+}: {
+  /** Board order, rank 1 first — same array the leaderboard renders from. */
+  usernames: string[];
+  facetValue: string;
+}) {
+  const fromUser = normalizeUsername(useSearchParams().get("u") ?? "");
+  if (!fromUser) return null;
+  const idx = usernames.findIndex(
+    (u) => u.toLowerCase() === fromUser.toLowerCase(),
+  );
+  if (idx < 0) return null;
+  return (
+    <FacetBoardPin
+      username={usernames[idx]}
+      rank={idx + 1}
+      ahead={idx > 0 ? usernames[idx - 1] : null}
+      facetValue={facetValue}
+    />
+  );
+}
 
 /**
  * The landing half of the facet-rank loop: a visitor arrives on a directory

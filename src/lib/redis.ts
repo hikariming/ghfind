@@ -35,7 +35,12 @@ function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  redis = new Redis({ url, token });
+  // The client defaults to `cache: "no-store"`, and a no-store fetch inside an
+  // ISR page flips it "static → dynamic" at runtime (a 500 under next start).
+  // Upstash REST calls are POSTs, which Next's data cache never caches anyway,
+  // so "default" changes nothing about freshness — it only stops Redis reads
+  // from poisoning static rendering (the /developers facet boards).
+  redis = new Redis({ url, token, cache: "default" });
   return redis;
 }
 

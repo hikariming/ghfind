@@ -53,6 +53,17 @@ export default async function ContactPage({
         {t("issuesLabel")} →
       </a>
 
+      <p className="mt-8 text-base leading-relaxed text-zinc-300">
+        {t("bizLead")}{" "}
+        <a
+          href="mailto:lbm21@tsinghua.org.cn"
+          className="font-semibold text-[var(--primary)] hover:underline"
+        >
+          lbm21@tsinghua.org.cn
+        </a>
+        <span className="block mt-1 text-sm text-zinc-500">{t("bizNote")}</span>
+      </p>
+
       <h2 className="mt-12 text-lg font-bold text-[var(--foreground)]">
         {t("resourcesLabel")}
       </h2>

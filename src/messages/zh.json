@@ -105,7 +105,9 @@
     "backToDirectory": "← 返回发现页",
     "metaTitle": "发现开发者",
     "metaDescription": "按编程语言、项目和组织浏览 GitHub 头部开发者榜单。",
-    "bucketMetaDescription": "{value} 方向评分最高的 GitHub 开发者榜单。"
+    "bucketMetaDescription": "{value} 方向评分最高的 GitHub 开发者榜单。",
+    "apiCta": "需要批量评估开发者（招聘初筛、账号可信度核验）？本榜单的每个分数都来自 ghfind API——对任意 GitHub 账号做确定性 0-100 评分，适度调用免费。",
+    "apiCtaLink": "API 文档 →"
   },
   "challenge": {
     "bannerTitle": "从 @{owner} 的主页来的？测测你在 TA 面前是什么成色",
@@ -487,6 +489,8 @@
     ],
     "issuesLabel": "在 GitHub 上提 issue",
     "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "商业合作、批量授权或 API 提额，直接发邮件：",
+    "bizNote": "（开源使用问题请优先走 GitHub issue，公开讨论对其他用户也有帮助）",
     "resourcesLabel": "开发者资源",
     "apiLabel": "API 参考（OpenAPI）",
     "llmsLabel": "Agent 文档（llms.txt）",

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -6,15 +7,29 @@ import {
   LeaderboardClient,
   type LeaderboardLabels,
 } from "@/components/LeaderboardClient";
-import { FacetBoardPin } from "@/components/FacetBoardPin";
+import { FacetBoardPinFromQuery } from "@/components/FacetBoardPin";
 import { getDevelopersByFacetCached } from "@/lib/developers";
 import { DEVELOPERS_PER_FACET_LIMIT } from "@/lib/db";
 import type { FacetType } from "@/lib/facets";
 import { localeAlternates } from "@/lib/site";
-import { normalizeUsername } from "@/lib/username";
 import { JsonLd, breadcrumbJsonLd } from "@/components/JsonLd";
 
-export const dynamic = "force-dynamic";
+// ISR, not force-dynamic: these boards are the heaviest crawler target on the
+// site (~16k function invocations/day, all cache MISS), and the data layer is
+// already Redis-cached — the CDN should absorb repeat hits. The `?u=` pin is
+// the only per-request bit, and it's resolved client-side (FacetBoardPinFromQuery)
+// precisely so this page can stay static.
+export const revalidate = 600;
+
+// No pre-built paths — every bucket is generated on first hit, then cached for
+// `revalidate`. Without this export a dynamic-segment route is rendered per
+// request and never cached, which defeats the ISR conversion above.
+export function generateStaticParams(): {
+  type: string;
+  value: string[];
+}[] {
+  return [];
+}
 
 const FACET_TYPES: FacetType[] = ["language", "org", "repo"];
 
@@ -66,10 +81,8 @@ export async function generateMetadata({
 
 export default async function FacetBucketPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string; type: string; value: string[] }>;
-  searchParams: Promise<{ u?: string }>;
 }) {
   const { locale, type: rawType, value: rawValue } = await params;
   const type = parseFacetType(rawType);
@@ -81,18 +94,6 @@ export default async function FacetBucketPage({
   const tl = await getTranslations("leaderboard");
 
   const entries = await getDevelopersByFacetCached(type, value);
-
-  // "?u=<handle>" marks a visitor arriving from a profile's facet-rank link.
-  // If that dev is actually on this board, pin their position + a duel against
-  // the dev one spot above (the loop closer). Off-board or garbage handles just
-  // render the plain board — the canonical URL never carries the param.
-  const fromUser = normalizeUsername((await searchParams)?.u ?? "");
-  const pinIdx = fromUser
-    ? entries.findIndex(
-        (e) => e.username.toLowerCase() === fromUser.toLowerCase(),
-      )
-    : -1;
-  const pinned = pinIdx >= 0 ? entries[pinIdx] : null;
 
   const localePrefix = locale === "en" ? "/en" : "";
   const encodedPath = value.split("/").map(encodeURIComponent).join("/");
@@ -140,14 +141,12 @@ export default async function FacetBucketPage({
         </p>
       </header>
 
-      {pinned && (
-        <FacetBoardPin
-          username={pinned.username}
-          rank={pinIdx + 1}
-          ahead={pinIdx > 0 ? entries[pinIdx - 1].username : null}
+      <Suspense fallback={null}>
+        <FacetBoardPinFromQuery
+          usernames={entries.map((e) => e.username)}
           facetValue={value}
         />
-      )}
+      </Suspense>
 
       <LeaderboardClient
         initialView="score"
@@ -157,6 +156,16 @@ export default async function FacetBucketPage({
         heatEntries={[]}
         trendingEntries={[]}
       />
+
+      <p className="mt-10 text-sm text-zinc-500">
+        {t("apiCta")}{" "}
+        <Link
+          href="/docs"
+          className="text-orange-300 underline-offset-2 hover:underline"
+        >
+          {t("apiCtaLink")}
+        </Link>
+      </p>
     </main>
   );
 }

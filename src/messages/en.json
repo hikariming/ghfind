@@ -105,7 +105,9 @@
     "backToDirectory": "← Back to Discover",
     "metaTitle": "Discover developers",
     "metaDescription": "Browse top GitHub developers by programming language, project, and organization.",
-    "bucketMetaDescription": "The highest-scoring GitHub developers in {value}."
+    "bucketMetaDescription": "The highest-scoring GitHub developers in {value}.",
+    "apiCta": "Vetting candidates in bulk? Every score on this board comes from the ghfind API — deterministic 0-100 trust scoring for any GitHub account, free for moderate use.",
+    "apiCtaLink": "API docs →"
   },
   "challenge": {
     "bannerTitle": "Came from @{owner}'s profile? See how you stack up against them",
@@ -487,6 +489,8 @@
     ],
     "issuesLabel": "Open an issue on GitHub",
     "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "For business inquiries, bulk licensing, or elevated API rate limits, email us directly:",
+    "bizNote": "(For open-source usage questions, please prefer a GitHub issue — public answers help other users too.)",
     "resourcesLabel": "Developer resources",
     "apiLabel": "API reference (OpenAPI)",
     "llmsLabel": "Agent docs (llms.txt)",
