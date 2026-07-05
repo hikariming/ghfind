@@ -158,6 +158,9 @@
     "liveRateLimited": "当前锐评太频繁，请一分钟后再试。",
     "liveExpired": "扫描数据在锐评完成前过期了。",
     "liveGoHome": "回首页重新锐评 →",
+    "staleBadge": "历史评分：规则版本已过期",
+    "staleBody": "下面展示的是旧规则生成的历史分数和报告，仅用于临时兜底。系统会在访问时自动尝试刷新当前版本评分；若生产环境或 GitHub 暂时不可用，同一用户会在冷却后自动重试。",
+    "staleCta": "回首页重新检测 →",
     "modalTitle": "🔥 你的锐评出炉了",
     "modalRoastHeading": "完整锐评",
     "modalFirstJudged": "🥇 你是第一个被审判的，前无古人",
@@ -196,7 +199,8 @@
     "descWithTags": "{tags} —— 在 ghfind.com 查看 {username} 的完整评分报告。",
     "descPlain": "{username} 的 GitHub 价值评分报告 —— ghfind.com。",
     "notFoundTitle": "查无此号 · ghfind",
-    "pendingTitle": "正在锐评 @{username}… · ghfind"
+    "pendingTitle": "正在锐评 @{username}… · ghfind",
+    "staleTitle": "@{username} 的评分正在刷新 · ghfind"
   },
   "roaster": {
     "inputPlaceholder": "输入 GitHub 用户名或主页链接",

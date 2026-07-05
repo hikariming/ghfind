@@ -15,7 +15,15 @@ import {
   getSimilarAccounts,
   getUserMatchups,
 } from "@/lib/db";
-import { getCachedScan } from "@/lib/redis";
+import {
+  beginStaleScoreRefresh,
+  coalesceScan,
+  deleteCachedScan,
+  finishStaleScoreRefresh,
+  getCachedScan,
+} from "@/lib/redis";
+import { buildScanResult } from "@/lib/scan-core";
+import { recordDeterministicScan } from "@/lib/score-persist";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { PendingProfile } from "./PendingProfile";
 import { LiveRoast } from "@/components/LiveRoast";
@@ -57,8 +65,32 @@ export const dynamic = "force-dynamic";
 
 // Dedupe the DB read between generateMetadata() and the page render.
 const getDetail = cache((username: string) => getAccountDetail(username));
+const getStaleDetail = cache((username: string) =>
+  getAccountDetail(username, { includeStale: true }),
+);
 // Dedupe the cached-scan read (pending-profile fallback) across the same pair.
 const getLiveScan = cache((username: string) => getCachedScan(username));
+async function requestIp(): Promise<string> {
+  const h = await headers();
+  const fwd = h.get("x-forwarded-for");
+  return fwd?.split(",")[0]?.trim() || h.get("x-real-ip") || "0.0.0.0";
+}
+
+const refreshStaleDetail = cache(async (username: string, ip: string) => {
+  const guard = await beginStaleScoreRefresh(username, ip);
+  if (!guard.allowed) return null;
+  try {
+    const scan = await coalesceScan(username, () => buildScanResult(username));
+    await recordDeterministicScan(scan);
+    await deleteCachedScan(scan.metrics.username);
+    return getAccountDetail(scan.metrics.username);
+  } catch (e) {
+    console.error("stale score refresh failed:", e);
+    return null;
+  } finally {
+    await finishStaleScoreRefresh(username);
+  }
+});
 
 export async function generateMetadata({
   params,
@@ -80,6 +112,13 @@ export async function generateMetadata({
     if (scan || roasting) {
       return {
         title: t("pendingTitle", { username: scan?.metrics.username ?? decoded }),
+        robots: { index: false, follow: true },
+      };
+    }
+    const stale = await getStaleDetail(decoded);
+    if (stale) {
+      return {
+        title: t("staleTitle", { username: stale.username }),
         robots: { index: false, follow: true },
       };
     }
@@ -133,7 +172,8 @@ export default async function AccountPage({
   const { locale, username } = await params;
   setRequestLocale(locale);
   const decoded = decodeURIComponent(username);
-  const d = await getDetail(decoded);
+  let d = await getDetail(decoded);
+  let staleFallback = false;
   if (!d) {
     // First-time username being roasted right now: no `scores` row yet. Render
     // the live pending shell when we have a scan to show — either the server-side
@@ -142,8 +182,17 @@ export default async function AccountPage({
     // completion. Otherwise it's a genuine unknown handle → 404.
     const scan = await getLiveScan(decoded);
     const roasting = (await searchParams)?.roasting === "1";
-    if (!scan && !roasting) notFound();
-    return <PendingProfile username={decoded} initialScan={scan ?? null} />;
+    if (!scan && !roasting) {
+      const stale = await getStaleDetail(decoded);
+      if (!stale) notFound();
+      d = await refreshStaleDetail(stale.username, await requestIp());
+      if (!d) {
+        d = stale;
+        staleFallback = true;
+      }
+    } else {
+      return <PendingProfile username={decoded} initialScan={scan ?? null} />;
+    }
   }
 
   const t = await getTranslations("detail");
@@ -162,17 +211,19 @@ export default async function AccountPage({
   // Row exists but this language's roast is missing (e.g. an English visitor on a
   // zh-only roast). If the scan is still cached, stream a live roast in the
   // report slot instead of the "run a roast" empty state.
-  const liveScan = !roast && !roastLine ? await getLiveScan(d.username) : null;
-  const [similar, comments, snap, rank, session, battles, facetRank] =
-    await Promise.all([
-      getSimilarAccounts(d.username, d.final_score, d.sub_scores),
-      getProfileComments(d.username),
-      getProfileSnapshot(d.username),
-      getRank(d.final_score),
-      authConfigured() ? auth() : Promise.resolve(null),
-      getUserMatchups(d.username),
-      getFacetRank(d.username, d.final_score),
-    ]);
+  const liveScan =
+    !staleFallback && !roast && !roastLine ? await getLiveScan(d.username) : null;
+  const [similar, comments, snap, rank, session, battles, facetRank] = await Promise.all([
+    staleFallback
+      ? Promise.resolve([])
+      : getSimilarAccounts(d.username, d.final_score, d.sub_scores),
+    getProfileComments(d.username),
+    getProfileSnapshot(d.username, { includeStale: staleFallback }),
+    staleFallback ? Promise.resolve(null) : getRank(d.final_score),
+    authConfigured() ? auth() : Promise.resolve(null),
+    getUserMatchups(d.username),
+    staleFallback ? Promise.resolve(null) : getFacetRank(d.username, d.final_score),
+  ]);
   // Inline re-detect is self-service: only the signed-in owner sees it on their
   // own profile. GitHub handles are case-insensitive, so compare normalized.
   const isOwner =
@@ -255,6 +306,13 @@ export default async function AccountPage({
         </Link>
         {showBadgeBanner && (
           <BadgeReferralBanner owner={d.username} signal={badgeSignal!} />
+        )}
+
+        {staleFallback && (
+          <section className="mt-4 rounded-2xl border border-orange-300/30 bg-orange-500/[0.08] p-4 text-sm leading-6 text-zinc-200 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="font-bold text-orange-300">{t("staleBadge")}</div>
+            <p className="mt-1 text-zinc-300">{t("staleBody")}</p>
+          </section>
         )}
 
       <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">

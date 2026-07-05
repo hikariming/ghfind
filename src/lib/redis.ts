@@ -29,6 +29,8 @@ let roastMinuteLimiter: Ratelimit | null = null;
 let roastDayLimiter: Ratelimit | null = null;
 let verdictMinuteLimiter: Ratelimit | null = null;
 let verdictDayLimiter: Ratelimit | null = null;
+let staleRefreshIpLimiter: Ratelimit | null = null;
+let staleRefreshGlobalLimiter: Ratelimit | null = null;
 
 function getRedis(): Redis | null {
   if (redis) return redis;
@@ -40,9 +42,15 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
+const STALE_SCORE_REFRESH_COOLDOWN_SECONDS = 60 * 60 * 3; // 3h
+const STALE_SCORE_REFRESH_LEASE_SECONDS = 60 * 5; // 5m
 export const scanKey = (username: string) =>
   `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
+const staleScoreRefreshCooldownKey = (username: string) =>
+  `cooldown:stale-score-refresh:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
+const staleScoreRefreshLeaseKey = (username: string) =>
+  `lock:stale-score-refresh:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -65,6 +73,100 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
     await r.set(scanKey(username), scan, { ex: SCAN_TTL_SECONDS });
   } catch {
     // best-effort cache; ignore failures
+  }
+}
+
+export async function deleteCachedScan(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(scanKey(username));
+  } catch {
+    // best-effort cache cleanup; ignore failures
+  }
+}
+
+type StaleScoreRefreshGuardReason =
+  | "allowed"
+  | "cache_bypass"
+  | "redis_unavailable"
+  | "cooldown"
+  | "rate_limited"
+  | "in_flight"
+  | "redis_error";
+
+export interface StaleScoreRefreshGuard {
+  allowed: boolean;
+  reason: StaleScoreRefreshGuardReason;
+}
+
+/**
+ * Cost guard for passive stale-profile refreshes.
+ *
+ * Unlike a user-initiated scan, this path is triggered just by visiting an old
+ * profile URL. Therefore it is fail-closed: without Redis (cooldown, limiter,
+ * and lease) we show the stale fallback instead of spending GitHub/DB work.
+ */
+export async function beginStaleScoreRefresh(
+  username: string,
+  ip: string,
+): Promise<StaleScoreRefreshGuard> {
+  if (bypassGeneratedCaches()) return { allowed: false, reason: "cache_bypass" };
+  const r = getRedis();
+  if (!r) return { allowed: false, reason: "redis_unavailable" };
+
+  const cooldownKey = staleScoreRefreshCooldownKey(username);
+  const leaseKey = staleScoreRefreshLeaseKey(username);
+  try {
+    if (await r.get(cooldownKey)) return { allowed: false, reason: "cooldown" };
+
+    if (!staleRefreshIpLimiter) {
+      staleRefreshIpLimiter = new Ratelimit({
+        redis: r,
+        limiter: Ratelimit.slidingWindow(5, "10 m"),
+        prefix: "rl:stale-score-refresh:ip",
+        analytics: false,
+      });
+    }
+    if (!staleRefreshGlobalLimiter) {
+      staleRefreshGlobalLimiter = new Ratelimit({
+        redis: r,
+        limiter: Ratelimit.slidingWindow(30, "60 s"),
+        prefix: "rl:stale-score-refresh:global",
+        analytics: false,
+      });
+    }
+
+    const [perIp, global] = await Promise.all([
+      staleRefreshIpLimiter.limit(ip || "0.0.0.0"),
+      staleRefreshGlobalLimiter.limit("global"),
+    ]);
+    if (!perIp.success || !global.success) {
+      return { allowed: false, reason: "rate_limited" };
+    }
+
+    const acquired = (await r.set(leaseKey, "1", {
+      nx: true,
+      ex: STALE_SCORE_REFRESH_LEASE_SECONDS,
+    })) === "OK";
+    if (!acquired) return { allowed: false, reason: "in_flight" };
+
+    // Set before the expensive scan. If the scan or DB write fails, do not retry
+    // on every page visit; the stale fallback remains visible until cooldown ends.
+    await r.set(cooldownKey, "1", { ex: STALE_SCORE_REFRESH_COOLDOWN_SECONDS });
+    return { allowed: true, reason: "allowed" };
+  } catch {
+    return { allowed: false, reason: "redis_error" };
+  }
+}
+
+export async function finishStaleScoreRefresh(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(staleScoreRefreshLeaseKey(username));
+  } catch {
+    // best-effort lease cleanup; the lease has a short TTL.
   }
 }
 

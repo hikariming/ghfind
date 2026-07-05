@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ROAST_CACHE_VERSION } from "../cache-version";
+import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
+import type { ScanResult } from "../types";
 
 let db: typeof import("../db");
+let persist: typeof import("../score-persist");
 let tmpDir: string;
 
 const entry: ScoreEntry = {
@@ -35,6 +37,7 @@ beforeAll(async () => {
   process.env.TURSO_DATABASE_URL = `file:${join(tmpDir, "test.db")}`;
   delete process.env.TURSO_AUTH_TOKEN;
   db = await import("../db");
+  persist = await import("../score-persist");
 });
 
 afterAll(() => {
@@ -86,6 +89,153 @@ describe("getArchivedRoast", () => {
     });
 
     await expect(db.getArchivedRoast("legacy-roast", "zh")).resolves.toBeNull();
+  });
+});
+
+describe("current score reads", () => {
+  it("does not expose stale score rows as current account details", async () => {
+    await db.recordScore({ ...entry, username: "stale-score" });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
+      args: [`${SCORE_CACHE_VERSION}-old`, "stale-score"],
+    });
+
+    await expect(db.getAccountDetail("stale-score")).resolves.toBeNull();
+    await expect(
+      db.getAccountDetail("stale-score", { includeStale: true }),
+    ).resolves.toMatchObject({
+      username: "stale-score",
+      final_score: entry.final_score,
+    });
+  });
+
+  it("does not expose stale profile snapshots as current evidence", async () => {
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `INSERT INTO profile_snapshots
+              (id, username, scanned_at, top_repos, impact_repos, verified_prs,
+               metrics, pinned_repos, organizations, scan_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        "stale-snapshot-id",
+        "stale-snapshot",
+        1,
+        "[]",
+        "[]",
+        "[]",
+        "{}",
+        "[]",
+        "[]",
+        `${SCORE_CACHE_VERSION}-old`,
+      ],
+    });
+
+    await expect(db.getProfileSnapshot("stale-snapshot")).resolves.toBeNull();
+    await expect(
+      db.getProfileSnapshot("stale-snapshot", { includeStale: true }),
+    ).resolves.toMatchObject({ scanned_at: 1 });
+  });
+
+  it("excludes stale score rows from public score surfaces", async () => {
+    await db.recordScore({ ...entry, username: "current-public", final_score: 91 });
+    await db.recordScore({ ...entry, username: "stale-public", final_score: 100 });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
+      args: [`${SCORE_CACHE_VERSION}-old`, "stale-public"],
+    });
+
+    const board = await db.getLeaderboard(20, 90);
+    expect(board.map((e) => e.username)).toContain("current-public");
+    expect(board.map((e) => e.username)).not.toContain("stale-public");
+
+    await expect(db.getScoreBrief("stale-public")).resolves.toBeNull();
+    await expect(db.searchScoredUsers("stale-public")).resolves.toEqual([]);
+  });
+
+  it("can refresh a stale score row with deterministic scan output", async () => {
+    await db.recordScore({ ...entry, username: "auto-refresh", final_score: 40 });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
+      args: [`${SCORE_CACHE_VERSION}-old`, "auto-refresh"],
+    });
+
+    const scan: ScanResult = {
+      metrics: {
+        username: "auto-refresh",
+        profile_url: "https://github.com/auto-refresh",
+        avatar_url: null,
+        name: "Auto Refresh",
+        bio: null,
+        company: null,
+        account_age_years: 3,
+        created_at: "2023-01-01T00:00:00Z",
+        followers: 2,
+        following: 0,
+        public_repos: 1,
+        fetched_repo_count: 1,
+        original_repo_count: 1,
+        nonempty_original_repo_count: 1,
+        fork_repo_count: 0,
+        empty_original_repo_count: 0,
+        total_stars: 10,
+        max_stars: 10,
+        merged_pr_count: 2,
+        total_pr_count: 2,
+        issues_created: 0,
+        last_year_contributions: 10,
+        activity_type_count: 2,
+        contribution_years_active: 2,
+        days_since_last_activity: 1,
+        recent_merged_pr_sample: 2,
+        recent_trivial_pr_count: 0,
+        external_trivial_pr_count: 0,
+        max_impact_repo_stars: 0,
+        impact_pr_count: 0,
+        impact_depth_raw: 0,
+        star_inflation_suspect: false,
+        closed_unmerged_pr_count: 0,
+        pr_rejection_rate: 0,
+        recent_pr_sample: 2,
+        top_repo_pr_target: null,
+        top_repo_pr_share: 0,
+        templated_pr_ratio: 0,
+        pr_flood_suspect: false,
+      },
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      impact_repos: [],
+      verified_impact_prs: [],
+      pinned_repos: [],
+      organizations: [],
+      scoring: {
+        sub_scores: entry.sub_scores,
+        base_score: 73.5,
+        red_flags: [],
+        total_penalty: 0,
+        final_score: 73.5,
+        tier: "人上人",
+        tier_label: "人上人",
+      },
+    };
+
+    await persist.recordDeterministicScan(scan, entry.scanned_at + 1);
+
+    await expect(db.getAccountDetail("auto-refresh")).resolves.toMatchObject({
+      username: "auto-refresh",
+      final_score: 73.5,
+      roast_line: { zh: "", en: "" },
+    });
+    await expect(db.getProfileSnapshot("auto-refresh")).resolves.toMatchObject({
+      top_repos: [],
+      metrics: expect.objectContaining({ total_stars: 10, merged_pr_count: 2 }),
+    });
   });
 });
 

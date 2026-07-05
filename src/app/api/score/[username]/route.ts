@@ -6,6 +6,7 @@ import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
 import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { recordDeterministicScan } from "@/lib/score-persist";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -105,6 +106,7 @@ export async function GET(
   }
 
   // 2) Not indexed → score it live, deterministically (NO LLM).
+  const staleDetail = await getAccountDetail(handle, { includeStale: true });
   const cached = await getCachedScan(handle);
   let rlHeaders: Record<string, string> = {};
   if (!cached) {
@@ -136,6 +138,9 @@ export async function GET(
 
   if (!cached) {
     await recordAccountLookup(result.metrics.username, clientIp(req));
+  }
+  if (staleDetail) {
+    await recordDeterministicScan(result);
   }
 
   const s = result.scoring;
