@@ -7,20 +7,9 @@ import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { LiveRoast } from "@/components/LiveRoast";
 import { DIMENSIONS } from "@/lib/dimensions";
-import { pendingScanKey } from "@/lib/roast-stream";
+import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
-import type { ScanResult, SubScoreKey } from "@/lib/types";
-
-/** Read the homepage-stashed scan for `username`; null during SSR or if absent. */
-function readSessionScan(username: string): ScanResult | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(pendingScanKey(username));
-    return raw ? (JSON.parse(raw) as ScanResult) : null;
-  } catch {
-    return null;
-  }
-}
+import type { RoastMeta, ScanResult, SubScoreKey } from "@/lib/types";
 
 /**
  * Slim profile shell shown while a first-time username is roasted live (no
@@ -34,9 +23,14 @@ function readSessionScan(username: string): ScanResult | null {
 export function PendingProfile({
   username,
   initialScan,
+  fromHome = false,
 }: {
   username: string;
   initialScan: ScanResult | null;
+  /** Arrived via the homepage `?roasting=1` handoff → the share popup opens
+   * immediately, seeded with the deterministic scan score; the AI-adjusted
+   * score and one-liner stream into it in place. */
+  fromHome?: boolean;
 }) {
   const t = useTranslations("detail");
   const tDim = useTranslations("dimensions");
@@ -97,6 +91,18 @@ export function PendingProfile({
     notation: "compact",
     maximumFractionDigits: 1,
   });
+  // Seed for the mount-time share popup: the deterministic scan score. The
+  // AI-adjusted meta (score delta, tags, one-liner) streams into the popup
+  // in place once the roast's meta frame arrives.
+  const scanMeta: RoastMeta = {
+    final_score: scoring.final_score,
+    tier: scoring.tier,
+    tier_label: scoring.tier_label,
+    delta: 0,
+    percentile: null,
+    tags: { zh: [], en: [] },
+    roast_line: { zh: "", en: "" },
+  };
   const impactRepos = [...(scan.impact_repos ?? [])]
     .sort((a, b) => b.stars - a.stars)
     .slice(0, 6);
@@ -261,7 +267,12 @@ export function PendingProfile({
             {/* Live roast — streams in place, then refreshes into the full profile */}
             <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
               <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
-              <LiveRoast username={metrics.username} scan={scan} />
+              <LiveRoast
+                username={metrics.username}
+                scan={scan}
+                openModalOnMount={fromHome}
+                fallbackMeta={fromHome ? scanMeta : undefined}
+              />
             </section>
           </div>
         </div>

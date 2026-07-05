@@ -19,6 +19,11 @@ import { getCachedScan } from "@/lib/redis";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { PendingProfile } from "./PendingProfile";
 import { LiveRoast } from "@/components/LiveRoast";
+import { RoastReveal } from "@/components/RoastReveal";
+import { ROAST_FRESH_MS } from "@/lib/freshness";
+import { splitReport } from "@/lib/report";
+import { TIER_LABEL_EN } from "@/lib/badge";
+import type { RoastMeta } from "@/lib/types";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
 import { SITE_URL, PUBLIC_INDEX_MIN_SCORE, localeAlternates } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
@@ -26,7 +31,7 @@ import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
-import { nextTier } from "@/lib/score";
+import { nextTier, tierFor } from "@/lib/score";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -177,7 +182,9 @@ export default async function AccountPage({
     const scan = await getLiveScan(decoded);
     const roasting = (await searchParams)?.roasting === "1";
     if (!scan && !roasting) notFound();
-    return <PendingProfile username={decoded} initialScan={scan ?? null} />;
+    return (
+      <PendingProfile username={decoded} initialScan={scan ?? null} fromHome={roasting} />
+    );
   }
 
   const t = await getTranslations("detail");
@@ -193,10 +200,20 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
+  // Homepage handoff: the input box navigated here with `?roasting=1`. That
+  // arrival must always get the result popup — replayed from the stored roast
+  // when it's still fresh, or via a forced regeneration when it has gone stale
+  // (the homepage's /api/scan call just re-scanned, so the score is current).
+  // Direct visits / shared links (no param) keep the popup-free SSR page.
+  const fromHome = (await searchParams)?.roasting === "1";
+  // eslint-disable-next-line react-hooks/purity -- force-dynamic Server Component: rendered per request, so wall-clock staleness here is intentional (and the server re-validates before spending LLM credit)
+  const staleReroast = fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
   // Row exists but this language's roast is missing (e.g. an English visitor on a
   // zh-only roast). If the scan is still cached, stream a live roast in the
-  // report slot instead of the "run a roast" empty state.
-  const liveScan = !roast && !roastLine ? await getLiveScan(d.username) : null;
+  // report slot instead of the "run a roast" empty state. The stale re-roast
+  // needs the cached scan too (the handoff just wrote it).
+  const liveScan =
+    (!roast && !roastLine) || staleReroast ? await getLiveScan(d.username) : null;
   const [similar, comments, snap, rank, session, battles, facetRank] =
     await Promise.all([
       getSimilarAccounts(d.username, d.final_score, d.sub_scores),
@@ -233,6 +250,24 @@ export default async function AccountPage({
   const promoGap = promo ? (promo.threshold - d.final_score).toFixed(2) : null;
   const promoTierName = promo ? tTier(`${TIER_KEY[promo.tier]}.name`) : null;
   const beat = rank ? beatPercent(rank.below, rank.total) : null;
+  // Popup payload for the homepage handoff — the fresh replay (RoastReveal), the
+  // stale re-roast seed and the missing-language seed all reuse it. Built
+  // entirely from the row plus the rank already computed above; delta is 0
+  // because a replay adjusts nothing.
+  const revealMeta: RoastMeta | null =
+    fromHome
+      ? {
+          final_score: d.final_score,
+          tier: d.tier,
+          tier_label:
+            lang === "en" ? TIER_LABEL_EN[d.tier] : tierFor(d.final_score).tier_label,
+          delta: 0,
+          percentile: rank ? { beat, total: rank.total, rank: rank.rank } : null,
+          tags: d.tags,
+          roast_line: d.roast_line,
+        }
+      : null;
+  const revealBody = fromHome && roast ? splitReport(roast).body : "";
   const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
   const dimensionLabels = Object.fromEntries(
     DIMENSIONS.map((key) => [key, tDim(key)]),
@@ -686,18 +721,58 @@ export default async function AccountPage({
       {/* Full roast report */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
         <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
-        {/* Savage one-liner (current language) — shown above the full report. */}
-        {roastLine && (
+        {/* Savage one-liner (current language) — shown above the full report.
+            The stale re-roast stream renders its own line, so skip it there. */}
+        {roastLine && !staleReroast && (
           <p className="mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
             🔥 {roastLine}
           </p>
         )}
         {roast ? (
-          <div className="report text-[0.95rem] text-zinc-200">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
-          </div>
+          staleReroast ? (
+            // Homepage handoff onto a >24h roast: the popup opens IMMEDIATELY
+            // (seeded with the stored result) while the regeneration streams
+            // over the old report; the popup's card updates in place when the
+            // new meta lands. On failure it simply keeps the stored content.
+            <LiveRoast
+              username={d.username}
+              scan={liveScan}
+              refresh
+              openModalOnMount
+              fallbackReport={revealBody}
+              fallbackMeta={revealMeta ?? undefined}
+              profileName={d.display_name}
+              profileAvatarUrl={d.avatar_url}
+              orgs={organizations}
+            />
+          ) : (
+            <>
+              {fromHome && revealMeta && (
+                // Homepage handoff onto a fresh (<24h) roast: the SSR report
+                // stays, and the stored result pops as the share modal.
+                <RoastReveal
+                  username={d.username}
+                  name={d.display_name}
+                  avatarUrl={d.avatar_url}
+                  meta={revealMeta}
+                  orgs={organizations}
+                />
+              )}
+              <div className="report text-[0.95rem] text-zinc-200">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
+              </div>
+            </>
+          )
         ) : roastLine ? null : liveScan ? (
-          <LiveRoast username={d.username} scan={liveScan} />
+          <LiveRoast
+            username={d.username}
+            scan={liveScan}
+            openModalOnMount={fromHome}
+            fallbackMeta={fromHome ? (revealMeta ?? undefined) : undefined}
+            profileName={d.display_name}
+            profileAvatarUrl={d.avatar_url}
+            orgs={organizations}
+          />
         ) : (
           <p className="text-sm text-zinc-400">
             {t.rich("roastEmpty", {

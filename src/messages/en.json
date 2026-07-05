@@ -165,6 +165,8 @@
     "modalFirstJudged": "🥇 You're the first to be judged — a true pioneer",
     "modalBeat": "🏆 Beat {beat}% of developers ({total} judged so far)",
     "modalViewProfile": "View full profile",
+    "modalBadgeCta": "Get your GitHub badge",
+    "modalClose": "Close",
     "battlesHeading": "⚔️ Battles",
     "battlesSub": "PK duels this dev has fought",
     "battleWin": "Win",

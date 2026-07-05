@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
-import { getArchivedRoast, getRank, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
+import { getArchivedRoast, getRank, getScoreScannedAt, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
+import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
 import {
   LlmConfig,
@@ -17,6 +18,7 @@ import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
   acquireRoastLock,
   checkRoastRateLimit,
+  clearCachedRoast,
   getCachedRoast,
   getCachedRoastJudge,
   getCachedScan,
@@ -63,6 +65,10 @@ interface RoastBody {
   byoKey?: ByoKey;
   /** UI locale → report language. Defaults to zh (see {@link normLang}). */
   lang?: string;
+  /** Ask to regenerate instead of replaying the cache/archive. Honored only when
+   * the server confirms the stored roast is stale (scanned_at older than
+   * ROAST_FRESH_MS) — otherwise ignored, so the flag can't burn LLM credit. */
+  refresh?: boolean;
 }
 
 /** Map a thrown LLM error to a coarse failure kind for the triage log. */
@@ -440,46 +446,58 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
-    const cachedRoast = await getCachedRoast(username, lang);
-    if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
-      const tags = cachedRoast.tags ?? { zh: [], en: [] };
-      const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
-      const meta =
-        cachedRoast.final_score !== undefined && cachedRoast.tier
-          ? await metaForStoredRoast(
-              cachedRoast.final_score,
-              cachedRoast.tier,
-              tags,
-              roastLine,
-              cachedRoast.delta,
-              lang,
-            )
-          : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
-      return roastResponse(cachedRoast.report, meta);
+    // A validated `refresh` (homepage handoff onto a stale profile, or the
+    // owner's rescan) skips both replay paths below and regenerates. Server-
+    // checked against the row's scanned_at — without this, the DB archive
+    // replays a version-matched roast forever, no matter its age.
+    let refreshHonored = false;
+    if (body.refresh === true) {
+      const scannedAt = await getScoreScannedAt(username);
+      refreshHonored = scannedAt == null || Date.now() - scannedAt > ROAST_FRESH_MS;
     }
 
-    const archivedRoast = await getArchivedRoast(username, lang);
-    if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
-      const delta = inferredDelta(scan, archivedRoast.final_score);
-      const meta = await metaForStoredRoast(
-        archivedRoast.final_score,
-        archivedRoast.tier,
-        archivedRoast.tags,
-        archivedRoast.roast_line,
-        delta,
-        lang,
-      );
-      await cacheRoastReplay(
-        username,
-        lang,
-        archivedRoast.report,
-        delta,
-        archivedRoast.tags,
-        archivedRoast.roast_line,
-        archivedRoast.final_score,
-        archivedRoast.tier,
-      );
-      return roastResponse(archivedRoast.report, meta);
+    if (!refreshHonored) {
+      const cachedRoast = await getCachedRoast(username, lang);
+      if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
+        const tags = cachedRoast.tags ?? { zh: [], en: [] };
+        const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
+        const meta =
+          cachedRoast.final_score !== undefined && cachedRoast.tier
+            ? await metaForStoredRoast(
+                cachedRoast.final_score,
+                cachedRoast.tier,
+                tags,
+                roastLine,
+                cachedRoast.delta,
+                lang,
+              )
+            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
+        return roastResponse(cachedRoast.report, meta);
+      }
+
+      const archivedRoast = await getArchivedRoast(username, lang);
+      if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
+        const delta = inferredDelta(scan, archivedRoast.final_score);
+        const meta = await metaForStoredRoast(
+          archivedRoast.final_score,
+          archivedRoast.tier,
+          archivedRoast.tags,
+          archivedRoast.roast_line,
+          delta,
+          lang,
+        );
+        await cacheRoastReplay(
+          username,
+          lang,
+          archivedRoast.report,
+          delta,
+          archivedRoast.tags,
+          archivedRoast.roast_line,
+          archivedRoast.final_score,
+          archivedRoast.tier,
+        );
+        return roastResponse(archivedRoast.report, meta);
+      }
     }
 
     const { success } = await checkRoastRateLimit(clientIp(req));
@@ -492,7 +510,11 @@ export async function POST(req: NextRequest) {
     // Single-flight: become the lone generator, or wait for whoever already is.
     // Collapses a viral account's concurrent cold-cache requests into ONE LLM call.
     isLeader = await acquireRoastLock(username, lang);
-    if (!isLeader) {
+    if (isLeader) {
+      // Regeneration leader: drop the (possibly archive-re-warmed) cached roast
+      // so single-flight followers wait for the NEW report, not the old one.
+      if (refreshHonored) await clearCachedRoast(username, lang);
+    } else {
       const shared = await waitForCachedRoast(username, lang);
       if (shared && reportMatchesLang(shared.report, lang)) {
         const tags = shared.tags ?? { zh: [], en: [] };

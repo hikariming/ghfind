@@ -4,6 +4,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   getArchivedRoast: vi.fn(),
+  getScoreScannedAt: vi.fn(),
   getRank: vi.fn(),
   recordScore: vi.fn(),
   recordProfileSnapshot: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   fallbackLlmConfig: vi.fn(),
   acquireRoastLock: vi.fn(),
   checkRoastRateLimit: vi.fn(),
+  clearCachedRoast: vi.fn(),
   getCachedRoast: vi.fn(),
   getCachedRoastJudge: vi.fn(),
   getCachedScan: vi.fn(),
@@ -26,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
+  getScoreScannedAt: mocks.getScoreScannedAt,
   getRank: mocks.getRank,
   recordScore: mocks.recordScore,
   recordProfileSnapshot: mocks.recordProfileSnapshot,
@@ -81,6 +84,7 @@ vi.mock("@/lib/llm", () => {
 vi.mock("@/lib/redis", () => ({
   acquireRoastLock: mocks.acquireRoastLock,
   checkRoastRateLimit: mocks.checkRoastRateLimit,
+  clearCachedRoast: mocks.clearCachedRoast,
   getCachedRoast: mocks.getCachedRoast,
   getCachedRoastJudge: mocks.getCachedRoastJudge,
   getCachedScan: mocks.getCachedScan,
@@ -204,6 +208,8 @@ beforeEach(() => {
   mocks.getCachedRoast.mockResolvedValue(null);
   mocks.getCachedRoastJudge.mockResolvedValue(null);
   mocks.getArchivedRoast.mockResolvedValue(null);
+  mocks.getScoreScannedAt.mockResolvedValue(null);
+  mocks.clearCachedRoast.mockResolvedValue(undefined);
   mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
   mocks.acquireRoastLock.mockResolvedValue(true);
   mocks.waitForCachedRoast.mockResolvedValue(null);
@@ -318,6 +324,70 @@ describe("roast API persistence", () => {
       }),
     );
     expect(mocks.setCachedRoastJudge).not.toHaveBeenCalled();
+  });
+
+  it("ignores refresh for a still-fresh roast and replays the cache instead", async () => {
+    mocks.getScoreScannedAt.mockResolvedValue(Date.now() - 60 * 60 * 1000); // 1h ago
+    mocks.getCachedRoast.mockResolvedValue({
+      report: "## 缓存点评\n仍然新鲜。",
+      delta: 0,
+      tags: { zh: ["缓存"], en: ["cached"] },
+      roast_line: { zh: "缓存的。", en: "Cached." },
+      final_score: 71,
+      tier: "人上人",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", refresh: true }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("仍然新鲜");
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+    expect(mocks.clearCachedRoast).not.toHaveBeenCalled();
+    expect(mocks.recordScore).not.toHaveBeenCalled();
+  });
+
+  it("honors refresh for a stale roast: skips replay paths, clears the cache, regenerates", async () => {
+    mocks.getScoreScannedAt.mockResolvedValue(Date.now() - 25 * 60 * 60 * 1000); // 25h ago
+    // Both replay sources would hit — refresh must skip them anyway.
+    mocks.getCachedRoast.mockResolvedValue({
+      report: "## 旧缓存\n过期内容。",
+      delta: 0,
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "", en: "" },
+      final_score: 71,
+      tier: "人上人",
+    });
+    mocks.getArchivedRoast.mockResolvedValue({
+      username: "DemoDev",
+      final_score: 71,
+      tier: "人上人",
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "", en: "" },
+      report: "## 旧存档\n过期内容。",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", refresh: true }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain("开源活跃度在上升");
+    expect(text).not.toContain("过期内容");
+    expect(mocks.getCachedRoast).not.toHaveBeenCalled();
+    expect(mocks.getArchivedRoast).not.toHaveBeenCalled();
+    expect(mocks.clearCachedRoast).toHaveBeenCalledWith("DemoDev", "zh");
+    expect(mocks.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "DemoDev", final_score: 71 }),
+    );
   });
 
   it("drops malformed nested README summaries from client fallback scans", async () => {

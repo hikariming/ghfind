@@ -301,6 +301,22 @@ export async function setCachedRoast(
   }
 }
 
+/**
+ * Drop the cached roast so a validated `refresh` regenerates instead of
+ * replaying — single-flight followers then wait on the NEW report rather than
+ * an archive-re-warmed old one. Best-effort, like the other cache writes.
+ */
+export async function clearCachedRoast(username: string, lang: Lang): Promise<void> {
+  if (bypassGeneratedCaches()) return;
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(roastKey(username, lang));
+  } catch {
+    // best-effort
+  }
+}
+
 export interface CachedRoastJudge {
   base_score: number;
   judge: RoastJudgeResult;

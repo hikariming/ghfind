@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { ROAST_FRESH_MS } from "@/lib/freshness";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
 type Status = "idle" | "scanning" | "roasting" | "error";
 
-const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const COOLDOWN_MS = ROAST_FRESH_MS;
 
 /**
  * Inline re-detect on a profile page: re-runs scan → roast for `username`, then
@@ -70,7 +71,10 @@ export function RescanButton({
       const roastRes = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scan, byoKey: null, lang: locale }),
+        // `refresh` skips the roast replay paths (Redis + DB archive) so this
+        // actually regenerates; without it the archive replays the old report.
+        // The server re-validates staleness, matching the cooldown gate above.
+        body: JSON.stringify({ scan, byoKey: null, lang: locale, refresh: true }),
       });
       if (!roastRes.ok || !roastRes.body) {
         setStatus("error");

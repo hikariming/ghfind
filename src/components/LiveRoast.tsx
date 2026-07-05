@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@/i18n/navigation";
+import { readSessionScan, stripRoastingParam } from "@/lib/home-handoff";
 import { splitReport } from "@/lib/report";
 import { consumeRoastStream } from "@/lib/roast-stream";
 import type { RoastLine, RoastMeta, ScanResult, Tags } from "@/lib/types";
@@ -22,33 +23,74 @@ import { RoastResultModal } from "./RoastResultModal";
 export function LiveRoast({
   username,
   scan,
+  refresh = false,
+  openModalOnMount = false,
+  fallbackReport,
+  fallbackMeta,
+  profileName,
+  profileAvatarUrl,
+  orgs,
 }: {
   username: string;
   /** Fresh scan from the homepage handoff. Sent in the request body so the roast
    * works even without a server-side scan cache; the route still prefers its own
    * cached scan when present (the client can't inflate the score). */
   scan?: ScanResult | null;
+  /** Ask the route to regenerate instead of replaying. The server re-validates
+   * staleness, so this is safe to set whenever the caller believes the stored
+   * roast is >24h old. */
+  refresh?: boolean;
+  /** Homepage handoff: open the result popup IMMEDIATELY at mount, seeded with
+   * `fallbackMeta` (stored roast, or the deterministic scan score), then update
+   * it in place as the stream's meta arrives. The share moment must not wait on
+   * the LLM. */
+  openModalOnMount?: boolean;
+  /** Stored report body / meta: seed for the mount-time popup, and the content
+   * to fall back to when generation fails or is rate-limited (old report renders
+   * instead of an error line, so the popup keeps something to show). */
+  fallbackReport?: string;
+  fallbackMeta?: RoastMeta;
+  /** Display identity for the popup's share card when no scan is at hand. */
+  profileName?: string | null;
+  profileAvatarUrl?: string | null;
+  /** Org handles forwarded to the popup's flex card. */
+  orgs?: string[];
 }) {
   const t = useTranslations("detail");
   const locale = useLocale();
   const router = useRouter();
   const started = useRef(false);
+  // Popup lifecycle: `closedRef` remembers a user dismissal (never reopen on
+  // late frames); `doneRef` gates the deferred page refresh — closing mid-stream
+  // must NOT refresh, or the re-render would unmount this component and kill
+  // the in-flight generation.
+  const closedRef = useRef(false);
+  const doneRef = useRef(false);
 
   const [thinking, setThinking] = useState("");
   const [report, setReport] = useState("");
   const [meta, setMeta] = useState<RoastMeta | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  // The result popup only opens after a *fresh* LLM generation (the stream
-  // carried control frames); cached replays skip it. `modalMeta`/`modalReport`
-  // snapshot the values at completion so the popup stays stable while it's open.
-  const [modalMeta, setModalMeta] = useState<RoastMeta | null>(null);
-  const [modalReport, setModalReport] = useState("");
+  // The stream finished (success or failure) — the popup's 辣评 slot stops
+  // showing the warming-up spinner once this flips.
+  const [settled, setSettled] = useState(false);
+  // The popup's current content. Seeded at mount for homepage handoffs; for
+  // other visitors it opens only after a fresh LLM generation completes.
+  const [modalMeta, setModalMeta] = useState<RoastMeta | null>(() =>
+    openModalOnMount ? (fallbackMeta ?? null) : null,
+  );
+  // Handoff fallback: on a hard reload the caller may have no scan prop, but the
+  // homepage stash can still be in sessionStorage. Resolved once at mount.
+  const [sessionScan] = useState(() => (scan ? null : readSessionScan(username)));
 
   // Refresh the server page once (a one-shot guard prevents a refresh loop if the
   // row still isn't visible afterward). For a fresh roast this is deferred until
   // the popup closes — refreshing immediately would swap the shell for the full
-  // profile and unmount the popup mid-view.
+  // profile and unmount the popup mid-view. The `?roasting=1` handoff marker is
+  // spent here, BEFORE the refresh — otherwise the re-rendered server page would
+  // still see it and pop the reveal modal again right after the user closed it.
   const refreshOnce = useCallback(() => {
+    stripRoastingParam();
     const key = `liveRoastRefreshed:${username.toLowerCase()}`;
     if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
       sessionStorage.setItem(key, "1");
@@ -59,6 +101,24 @@ export function LiveRoast({
   useEffect(() => {
     if (started.current) return; // guard against StrictMode double-invoke
     started.current = true;
+    // A mount-time popup consumes the handoff marker right away: the popup has
+    // already delivered the moment, so reloads/back-nav must not repeat it (or
+    // re-trigger a stale regeneration).
+    if (openModalOnMount) stripRoastingParam();
+    // Failure downgrade: with fallback content the old report renders (and the
+    // already-open popup keeps its stored content) instead of an error line —
+    // the caller only passes it when a stored roast exists to fall back to.
+    const fail = (key: string) => {
+      doneRef.current = true;
+      setSettled(true);
+      if (fallbackReport !== undefined && fallbackMeta) {
+        setMeta(fallbackMeta);
+        setReport(fallbackReport);
+        if (!closedRef.current) setModalMeta(fallbackMeta);
+      } else {
+        setErrorKey(key);
+      }
+    };
     (async () => {
       try {
         const res = await fetch("/api/roast", {
@@ -68,75 +128,100 @@ export function LiveRoast({
           // the route falls back to its own cached scan otherwise. byoKey is
           // always null here (BYO roasts stay on the home page, since they
           // persist nothing for the profile to refresh into).
-          body: JSON.stringify({ username, scan: scan ?? undefined, byoKey: null, lang: locale }),
+          body: JSON.stringify({
+            username,
+            scan: scan ?? sessionScan ?? undefined,
+            byoKey: null,
+            lang: locale,
+            refresh: refresh || undefined,
+          }),
         });
 
         if (!res.ok || !res.body) {
           const data = await res.json().catch(() => ({}));
-          setErrorKey(mapError(data?.error));
+          fail(mapError(data?.error));
           return;
         }
 
         let latestMeta: RoastMeta | null = null;
-        const { report: finalReport, errored, fresh } = await consumeRoastStream(res, {
+        const { errored, fresh } = await consumeRoastStream(res, {
           onThinking: setThinking,
           onMeta: (m) => {
             latestMeta = m;
             setMeta(m);
+            // Mount-time popup: swap the seeded (old/deterministic) card for the
+            // real result the moment the meta frame lands — unless dismissed.
+            if (openModalOnMount && !closedRef.current) setModalMeta(m);
           },
           onReport: setReport,
-          onError: (data) => setErrorKey(mapError(data?.error)),
+          onError: (data) => fail(mapError(data?.error)),
         });
         if (errored) return;
 
-        // Fresh LLM generation → pop the result modal with a snapshot of the
-        // final meta/report, and hold the page refresh until the user closes it.
-        // Cached replay (no frames) → refresh straight into the full profile.
-        if (fresh && latestMeta) {
+        doneRef.current = true;
+        setSettled(true);
+        if (closedRef.current) {
+          // Popup already dismissed mid-stream — refresh into the full profile.
+          refreshOnce();
+        } else if ((fresh || openModalOnMount) && latestMeta) {
+          // Fresh generation (or a handoff popup that's already open): show the
+          // final meta and hold the page refresh until the user closes it.
           setModalMeta(latestMeta);
-          setModalReport(finalReport);
         } else {
+          // Cached replay for a non-handoff visitor → no popup, refresh now.
           refreshOnce();
         }
       } catch {
-        setErrorKey("liveError");
+        fail("liveError");
       }
     })();
-  }, [username, scan, locale, refreshOnce]);
+  }, [username, scan, sessionScan, locale, refresh, openModalOnMount, fallbackReport, fallbackMeta, refreshOnce]);
+
+  const effScan = scan ?? sessionScan;
+  // The popup outlives an error: a mount-time popup seeded with scan data keeps
+  // its flex card even when the stream fails (the error renders behind it).
+  const modal = modalMeta ? (
+    <RoastResultModal
+      open
+      onClose={() => {
+        closedRef.current = true;
+        setModalMeta(null);
+        // Deferred refresh: only once the stream has finished — refreshing
+        // mid-stream would unmount this component and abort the generation.
+        if (doneRef.current) refreshOnce();
+      }}
+      username={username}
+      name={profileName ?? effScan?.metrics.name ?? null}
+      avatarUrl={
+        profileAvatarUrl ?? effScan?.metrics.avatar_url ?? `https://github.com/${username}.png`
+      }
+      meta={modalMeta}
+      orgs={orgs ?? effScan?.organizations ?? undefined}
+      pendingLine={!settled}
+    />
+  ) : null;
 
   if (errorKey) {
     return (
-      <p className="text-sm text-zinc-400">
-        {t(errorKey)}{" "}
-        <Link href="/" className="text-orange-400 hover:underline">
-          {t("liveGoHome")}
-        </Link>
-      </p>
+      <>
+        {modal}
+        <p className="text-sm text-zinc-400">
+          {t(errorKey)}{" "}
+          <Link href="/" className="text-orange-400 hover:underline">
+            {t("liveGoHome")}
+          </Link>
+        </p>
+      </>
     );
   }
 
   const { body: reportBody, roast: inlineRoast } = splitReport(report);
   const line = pickLine(meta?.roast_line, locale) || inlineRoast;
   const tags = meta?.tags;
-  const { body: modalBody } = splitReport(modalReport);
 
   return (
     <>
-      {modalMeta && (
-        <RoastResultModal
-          open
-          onClose={() => {
-            setModalMeta(null);
-            refreshOnce();
-          }}
-          username={username}
-          name={scan?.metrics.name ?? null}
-          avatarUrl={scan?.metrics.avatar_url ?? `https://github.com/${username}.png`}
-          meta={modalMeta}
-          reportBody={modalBody}
-          subScores={scan?.scoring.sub_scores ?? null}
-        />
-      )}
+      {modal}
       {line ? (
         <p className="mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
           🔥 {line}

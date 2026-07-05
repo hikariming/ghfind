@@ -1683,6 +1683,28 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
 }
 
 /**
+ * Last real-generation time for a handle (`scores.scanned_at`), or null when the
+ * row is absent/hidden or the DB is unreadable. Cheap probe for the /api/roast
+ * `refresh` guard: a client may only force a regeneration past this timestamp.
+ */
+export async function getScoreScannedAt(username: string): Promise<number | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT scanned_at FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const r = res.rows[0];
+    return r ? Number(r.scanned_at) : null;
+  } catch (e) {
+    console.error("getScoreScannedAt failed:", e);
+    return null;
+  }
+}
+
+/**
  * Stored roast report for replaying a previous default-model generation. The
  * language column is fixed by allowlist, so the SQL never uses user input for a
  * column name.

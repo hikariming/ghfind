@@ -27,7 +27,8 @@ export type TrackEvent =
   | "scan_start" // a roast was submitted from the home scanner
   | "scan_complete" // /api/scan returned a score (pre-roast)
   | "badge_copy" // a README badge/card snippet was copied
-  | "share_click"; // a share channel was picked (platform / copy / native / image)
+  | "share_click" // a share channel was picked (platform / copy / native / image)
+  | "roast_reveal"; // homepage handoff popped the result modal over a cached roast
 
 type VaWindow = Window & {
   va?: (...params: unknown[]) => void;

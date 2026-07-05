@@ -165,6 +165,8 @@
     "modalFirstJudged": "🥇 你是第一个被审判的，前无古人",
     "modalBeat": "🏆 超越了 {beat}% 的开发者（共 {total} 人受审）",
     "modalViewProfile": "查看完整主页",
+    "modalBadgeCta": "生成 GitHub 炫耀卡",
+    "modalClose": "关闭",
     "battlesHeading": "⚔️ 对战记录",
     "battlesSub": "TA 参加过的 PK 对决",
     "battleWin": "胜",
