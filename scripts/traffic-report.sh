@@ -13,7 +13,10 @@ set -euo pipefail
 SINCE="${1:-24h}"
 
 # 高置信代理/爬虫农场 ASN(2026-07 实测:Oxylabs、Datacamp、M247 等,真人几乎不会从这些网络来)
-PROXY_ASNS='["212238","9009","3257","203020","210906","62874","7979","396356","46635","11798","396319","59253","55286"]'
+# 2026-07-06 增补:农场开始伪造 referrer=www.google.com,借伪造流量暴露了一批新 ASN —
+#   401152/11798 Ace Data Centers、212286 LonConnect、134450 HostRoyale二号段、
+#   132817 DZCRD、209709 code200、201341 trafficforce、393886 Leaseweb、210906 Bite(代理转售段)
+PROXY_ASNS='["212238","9009","3257","203020","210906","62874","7979","396356","46635","11798","396319","59253","55286","401152","212286","134450","132817","209709","201341","393886"]'
 # 注意:机场/VPN 出口(Eons 138997、DMIT、Akari、Bunny、GSL 等)有真实中国用户,刻意不算进农场层。
 AWS_ASNS='["14618","16509"]'
 
@@ -62,3 +65,18 @@ echo
 echo "声明式爬虫明细(谁在光顾 agent 漏斗):"
 q vercel.request.count --group-by bot_name --limit 12 \
   | jq -r '.summary[]? | select((.bot_name // "") != "") | "  \(.vercel_request_count_sum)\t\(.bot_name)"'
+
+# ── 搜索来源可信度 ─────────────────────────────────────────────
+# 农场自 2026-07-04 起伪造 referrer=www.google.com 假装 SEO 流量,
+# referrer 维度单看会得出"SEO 爆发"的错误结论。此处按 ASN 交叉验证:
+# 农场 ASN ∩ google referrer = 伪造;居民 ISP 出口的剩余量 ≈ 真实 SEO。
+g_by_asn=$(q vercel.request.count -f "referrer_hostname eq 'www.google.com'" --group-by asn_id --limit 200)
+g_total=$(echo "$g_by_asn" | jq '[.summary[]?.vercel_request_count_sum] | add // 0')
+g_farm=$(echo "$g_by_asn" | jq --argjson ids "$PROXY_ASNS" \
+  '[.summary[]? | select(.asn_id as $a | $ids | index($a)) | .vercel_request_count_sum] | add // 0')
+g_real=$((g_total - g_farm))
+echo
+echo "── 搜索来源可信度(google referrer 按 ASN 交叉验证)"
+echo "自称来自 Google:    $g_total"
+echo "其中农场伪造:      $g_farm"
+echo "疑似真实 SEO:      $g_real   ← 仍含未识别农场 ASN,看趋势;做 SEO 判断以这行为准"
