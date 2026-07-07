@@ -1,0 +1,161 @@
+[
+  {
+    "mode": "light",
+    "media": "light",
+    "themeState": {
+      "theme": "light",
+      "mode": "light",
+      "colorScheme": "light",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    "screenshot": "/tmp/ghfind-mobile-evidence/after-light-mobile.png",
+    "checks": [
+      {
+        "index": 1,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 2,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 3,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 4,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 5,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      }
+    ]
+  },
+  {
+    "mode": "dark",
+    "media": "dark",
+    "themeState": {
+      "theme": "dark",
+      "mode": "dark",
+      "colorScheme": "dark",
+      "background": "rgb(10, 10, 11)"
+    },
+    "screenshot": "/tmp/ghfind-mobile-evidence/after-dark-mobile.png",
+    "checks": [
+      {
+        "index": 1,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 2,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 3,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 4,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 5,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      }
+    ]
+  },
+  {
+    "mode": "auto",
+    "media": "light",
+    "themeState": {
+      "theme": "light",
+      "mode": "auto",
+      "colorScheme": "light",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    "screenshot": "/tmp/ghfind-mobile-evidence/after-auto-mobile.png",
+    "checks": [
+      {
+        "index": 1,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 2,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 3,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 4,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      },
+      {
+        "index": 5,
+        "rowRight": 370,
+        "rowLeft": 20,
+        "buttonRight": 357,
+        "buttonLeft": 321,
+        "within": true
+      }
+    ]
+  }
+]
