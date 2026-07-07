@@ -17,7 +17,20 @@ export const revalidate = 86400;
  */
 
 // Search / answer / user-triggered fetch crawlers — allowed (this is how we get
-// cited in AI answers; NOT training).
+// cited in AI answers; NOT training). Social preview crawlers get their own
+// explicit group so they never have to interpret the generic `/api/` exception
+// ordering before fetching `/api/card/...` images.
+const ALLOWED_PREVIEW_BOTS = [
+  "Twitterbot",
+  "facebookexternalhit",
+  "Slackbot-LinkExpanding",
+  "LinkedInBot",
+  "Discordbot",
+  "TelegramBot",
+  "WhatsApp",
+  "Line",
+];
+
 const ALLOWED_AI_BOTS = [
   "OAI-SearchBot",
   "ChatGPT-User",
@@ -46,6 +59,13 @@ const BLOCKED_TRAINING_BOTS = [
 
 export function GET() {
   const lines: string[] = [];
+
+  // Explicit allow tier for social preview crawlers. Keep this group fully open:
+  // social scrapers are black boxes, and a later `Disallow: /api/` can make them
+  // skip `/api/card/...` even when the card route is explicitly allowed.
+  for (const bot of ALLOWED_PREVIEW_BOTS) {
+    lines.push(`User-agent: ${bot}`, "Allow: /", "");
+  }
 
   // Explicit allow tier for the search/answer crawlers we welcome.
   for (const bot of ALLOWED_AI_BOTS) {

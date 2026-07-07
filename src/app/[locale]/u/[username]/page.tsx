@@ -140,6 +140,7 @@ export async function generateMetadata({
   // The flex card doubles as the social preview image (resolved absolute via
   // metadataBase in layout.tsx) — so shared /u links render a rich card.
   const image = `/api/card/${d.username}`;
+  const imageAlt = `${d.username} GitHub score card on ghfind`;
   const path = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
   // Keep low-score profiles out of search results: they name real people, so a
   // "NPC"/"拉完了" page shouldn't rank on someone's handle. Still reachable and
@@ -157,9 +158,14 @@ export async function generateMetadata({
       description,
       url: path,
       type: "website",
-      images: [{ url: image, width: 1200, height: 630 }],
+      images: [{ url: image, width: 1200, height: 630, alt: imageAlt, type: "image/png" }],
     },
-    twitter: { card: "summary_large_image", title, description, images: [image] },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [{ url: image, alt: imageAlt }],
+    },
   };
 }
 
