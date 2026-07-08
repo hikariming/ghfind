@@ -3,6 +3,7 @@ import {
   bestOriginalRepoQuality,
   computeClosedPrBreakdown,
   computeFloodSignals,
+  computeCommitBasedImpact,
   computeImpactFromContribMap,
   computeImpactQualitySignals,
   computeOrgRepoAttribution,
@@ -918,6 +919,200 @@ describe("impact quality caps", () => {
     expect(signals.verified_impact_pr_count).toBe(0);
     expect(signals.unverified_impact_pr_count).toBe(10);
     expect(signals.impact_quality_cap).toBeUndefined();
+  });
+});
+
+describe("computeCommitBasedImpact", () => {
+  it("returns high strength for many commits in high-star repos", () => {
+    const contribRepos = [
+      contribRepo({ repo: "AstrBotDevs/AstrBot", stars: 36000, commits: 71, prs: 30, owner_login: "AstrBotDevs" }),
+      contribRepo({ repo: "end-4/dots-hyprland", stars: 15000, commits: 5, prs: 2, owner_login: "end-4" }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBeGreaterThan(0.8);
+  });
+
+  it("returns low strength for few commits", () => {
+    const contribRepos = [
+      contribRepo({ repo: "org/repo", stars: 5000, commits: 2, prs: 1, owner_login: "org" }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBeLessThan(0.4);
+  });
+
+  it("returns 0 for no qualifying repos", () => {
+    const strength = computeCommitBasedImpact([], "alice");
+    expect(strength).toBe(0);
+  });
+
+  it("excludes private and fork repos", () => {
+    const contribRepos = [
+      contribRepo({ repo: "org/private", stars: 50000, commits: 50, prs: 10, owner_login: "org", is_private: true }),
+      contribRepo({ repo: "org/fork", stars: 50000, commits: 50, prs: 10, owner_login: "org", is_fork: true }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBe(0);
+  });
+});
+
+describe("computeImpactQualitySignals with commit strength", () => {
+  it("skips cap when commit strength is high (issue #91)", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const contribRepos = [
+      contribRepo({ repo: "AstrBotDevs/AstrBot", stars: 36000, commits: 71, prs: 30, owner_login: "AstrBotDevs" }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 30, "alice", contribRepos);
+    expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("relaxes cap when commit strength is moderate", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const contribRepos = [
+      contribRepo({ repo: "org/repo", stars: 5000, commits: 8, prs: 3, owner_login: "org" }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 10, "alice", contribRepos);
+    expect(signals.impact_quality_cap).toBe(8);
+  });
+
+  it("applies full cap when commit strength is low", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 10, "alice", []);
+    expect(signals.impact_quality_cap).toBe(4);
+  });
+});
+
+describe("isDocLikeImpactPr title regex", () => {
+  it("does not match 'guide' in title (issue #91)", () => {
+    expect(
+      isDocLikeImpactPr(
+        pr({ title: "Add deployment guide", repo: "org/project", repo_stars: 5000, files: ["src/deploy.ts", "src/config.ts"] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match 'site' in title", () => {
+    expect(
+      isDocLikeImpactPr(
+        pr({ title: "Update site configuration", repo: "org/project", repo_stars: 5000, files: ["src/site.ts", "src/config.ts"] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("still matches 'docs' in title", () => {
+    expect(isDocLikeImpactPr(pr({ title: "docs: update install guide", repo_stars: 5000 }))).toBe(true);
+  });
+
+  it("still matches 'tutorial' in title", () => {
+    expect(isDocLikeImpactPr(pr({ title: "Add tutorial for beginners", repo_stars: 5000 }))).toBe(true);
+  });
+});
+
+describe("computeCommitBasedImpact", () => {
+  it("returns high strength for many commits in high-star repos", () => {
+    const contribRepos = [
+      contribRepo({ repo: "AstrBotDevs/AstrBot", stars: 36000, commits: 71, prs: 30, owner_login: "AstrBotDevs" }),
+      contribRepo({ repo: "end-4/dots-hyprland", stars: 15000, commits: 5, prs: 2, owner_login: "end-4" }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBeGreaterThan(0.8);
+  });
+
+  it("returns low strength for few commits", () => {
+    const contribRepos = [
+      contribRepo({ repo: "org/repo", stars: 5000, commits: 2, prs: 1, owner_login: "org" }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBeLessThan(0.4);
+  });
+
+  it("returns 0 for no qualifying repos", () => {
+    const strength = computeCommitBasedImpact([], "alice");
+    expect(strength).toBe(0);
+  });
+
+  it("excludes private and fork repos", () => {
+    const contribRepos = [
+      contribRepo({ repo: "org/private", stars: 50000, commits: 50, prs: 10, owner_login: "org", is_private: true }),
+      contribRepo({ repo: "org/fork", stars: 50000, commits: 50, prs: 10, owner_login: "org", is_fork: true }),
+    ];
+    const strength = computeCommitBasedImpact(contribRepos, "alice");
+    expect(strength).toBe(0);
+  });
+});
+
+describe("computeImpactQualitySignals with commit strength", () => {
+  it("skips cap when commit strength is high (issue #91)", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const contribRepos = [
+      contribRepo({ repo: "AstrBotDevs/AstrBot", stars: 36000, commits: 71, prs: 30, owner_login: "AstrBotDevs" }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 30, "alice", contribRepos);
+    expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("relaxes cap when commit strength is moderate", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const contribRepos = [
+      contribRepo({ repo: "org/repo", stars: 5000, commits: 8, prs: 3, owner_login: "org" }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 10, "alice", contribRepos);
+    expect(signals.impact_quality_cap).toBe(8);
+  });
+
+  it("applies full cap when commit strength is low", () => {
+    const recentPrs = [
+      pr({ title: "docs: update install guide", repo: "docs-org/framework", repo_stars: 10000 }),
+      pr({ title: "docs: add tutorial", repo: "docs-org/guide", repo_stars: 8000 }),
+      pr({ title: "fix: typo in readme", repo: "big-org/project", repo_stars: 5000 }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 10, "alice", []);
+    expect(signals.impact_quality_cap).toBe(4);
+  });
+});
+
+describe("isDocLikeImpactPr title regex", () => {
+  it("does not match 'guide' in title (issue #91)", () => {
+    expect(
+      isDocLikeImpactPr(
+        pr({ title: "Add deployment guide", repo: "org/project", repo_stars: 5000, files: ["src/deploy.ts", "src/config.ts"] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match 'site' in title", () => {
+    expect(
+      isDocLikeImpactPr(
+        pr({ title: "Update site configuration", repo: "org/project", repo_stars: 5000, files: ["src/site.ts", "src/config.ts"] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("still matches 'docs' in title", () => {
+    expect(isDocLikeImpactPr(pr({ title: "docs: update install guide", repo_stars: 5000 }))).toBe(true);
+  });
+
+  it("still matches 'tutorial' in title", () => {
+    expect(isDocLikeImpactPr(pr({ title: "Add tutorial for beginners", repo_stars: 5000 }))).toBe(true);
   });
 });
 

@@ -1120,7 +1120,8 @@ function isCoreCodePath(path: string): boolean {
 export function isDocLikeImpactPr(pr: RecentPr): boolean {
   if (isDocLikeRepo(pr.repo)) return true;
   const title = pr.title ?? "";
-  if (/\b(docs?|readme|typo|translate|translation|i18n|website|site|blog|examples?|templates?|tutorial|guide)\b/i.test(title)) {
+  // Removed "guide" and "site" - too common in code PRs (e.g., "deployment guide", "site configuration")
+  if (/\b(docs?|readme|typo|translate|translation|i18n|website|blog|examples?|templates?|tutorial)\b/i.test(title)) {
     return true;
   }
 
@@ -1139,21 +1140,59 @@ export interface ImpactQualitySignals {
   impact_quality_cap?: number;
 }
 
+/**
+ * Compute commit-based impact strength from all-time contribution aggregates.
+ * Returns 0~1: higher when the user has substantial landed commits in high-star repos.
+ * This signal is more reliable than PR title/file-path heuristics for determining
+ * whether a contribution is substantive.
+ */
+export function computeCommitBasedImpact(
+  contribRepos: ContribRepoAgg[],
+  loginLower: string,
+): number {
+  const qualifying = contribRepos.filter((r) => {
+    if (r.is_private || r.is_fork) return false;
+    const isExternal = r.owner_login.toLowerCase() !== loginLower;
+    const threshold = isExternal ? 200 : 1000;
+    return r.stars >= threshold && r.commits >= IMPACT_COMMIT_MIN;
+  });
+
+  if (qualifying.length === 0) return 0;
+
+  // Weighted sum: more commits in higher-star repos → stronger signal
+  const weighted = qualifying.reduce((sum, r) => {
+    const starSignal = logRatio(r.stars, 50000);
+    const commitSignal = Math.min(r.commits / 20, 1);
+    return sum + starSignal * commitSignal;
+  }, 0);
+
+  // Normalize to 0~1: ≥2.0 is considered strong
+  return Math.min(weighted / 2.0, 1.0);
+}
+
 export function computeImpactQualitySignals(
   recentPrs: RecentPr[],
   impactPrCount: number,
   loginLower: string,
+  contribRepos: ContribRepoAgg[] = [],
 ): ImpactQualitySignals {
   const verifiedImpactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower));
   const docLikeCount = verifiedImpactPrs.filter(isDocLikeImpactPr).length;
   const coreCount = verifiedImpactPrs.length - docLikeCount;
   const unverifiedCount = Math.max(0, impactPrCount - verifiedImpactPrs.length);
 
+  // Compute commit-based impact strength to relax cap when there's strong
+  // evidence of substantive contributions (many landed commits in high-star repos)
+  const commitStrength = computeCommitBasedImpact(contribRepos, loginLower);
+
   let impactQualityCap: number | undefined;
-  if (impactPrCount >= 10 && coreCount <= 2 && docLikeCount > coreCount) {
-    impactQualityCap = 4;
+  if (commitStrength >= 0.8) {
+    // Strong commit signal: skip the cap entirely
+    impactQualityCap = undefined;
+  } else if (impactPrCount >= 10 && coreCount <= 2 && docLikeCount > coreCount) {
+    impactQualityCap = commitStrength >= 0.4 ? 8 : 4;
   } else if (impactPrCount >= 10 && docLikeCount > coreCount) {
-    impactQualityCap = 8;
+    impactQualityCap = commitStrength >= 0.4 ? 16 : 8;
   }
 
   return {
@@ -1796,6 +1835,7 @@ export async function collect(username: string): Promise<{
     recentPrWindow,
     impact.impact_pr_count,
     loginLower,
+    contribRepos,
   );
   const verifiedImpactPrs = recentPrWindow
     .filter((p) => isEcosystemImpactPr(p, loginLower))
