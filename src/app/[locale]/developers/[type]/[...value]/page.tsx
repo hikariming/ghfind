@@ -11,6 +11,7 @@ import { FacetBoardPinFromQuery } from "@/components/FacetBoardPin";
 import { RepoOverviewCard, type RepoOverviewLabels } from "@/components/RepoOverviewCard";
 import { RepoPageBeacon } from "@/components/RepoPageBeacon";
 import { ProjectRecommendations } from "@/components/ProjectRecommendations";
+import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { getDevelopersByFacetCached } from "@/lib/developers";
 import { DEVELOPERS_PER_FACET_LIMIT, getRepoOverview } from "@/lib/db";
 import { getRelatedProjectsCached } from "@/lib/project-discovery";
@@ -158,6 +159,15 @@ export default async function FacetBucketPage({
       {overview && (
         <>
           <RepoPageBeacon repo={overview.repo.name_with_owner} />
+          <ExplorationBeacon
+            item={{
+              kind: "project",
+              key: overview.repo.repo_key,
+              title: overview.repo.name_with_owner,
+              subtitle: overview.repo.description ?? overview.repo.language ?? undefined,
+              href: `/developers/repo/${encodedPath}`,
+            }}
+          />
           <RepoOverviewCard
             overview={overview}
             labels={{

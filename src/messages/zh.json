@@ -175,6 +175,12 @@
       "cta": "浏览组织"
     }
   },
+  "continueExploring": {
+    "title": "继续上次探索",
+    "subtitle": "回到你最近看过的开发者和项目。",
+    "developer": "开发者",
+    "project": "项目"
+  },
   "challenge": {
     "bannerTitle": "从 @{owner} 的主页来的？测测你在 TA 面前是什么成色",
     "cta": "和 TA 对线",

@@ -175,6 +175,12 @@
       "cta": "Browse organizations"
     }
   },
+  "continueExploring": {
+    "title": "Continue where you left off",
+    "subtitle": "Recent developers and projects from your exploration.",
+    "developer": "Developer",
+    "project": "Project"
+  },
   "challenge": {
     "bannerTitle": "Came from @{owner}'s profile? See how you stack up against them",
     "cta": "Challenge them",

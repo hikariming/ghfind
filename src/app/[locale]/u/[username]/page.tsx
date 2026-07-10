@@ -47,6 +47,7 @@ import { ChallengeCta } from "@/components/ChallengeCta";
 import { FollowButton } from "@/components/FollowButton";
 import { FacetRankLink } from "@/components/FacetRankLink";
 import { CommonProjects } from "@/components/CommonProjects";
+import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { auth, authConfigured } from "@/lib/auth";
 import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
 
@@ -394,6 +395,15 @@ export default async function AccountPage({
           })}
         />
         <ProfileLandingBeacon source={landingSource} tier={d.tier} owner={isOwner} />
+        <ExplorationBeacon
+          item={{
+            kind: "developer",
+            key: d.username.toLowerCase(),
+            title: `@${d.username}`,
+            subtitle: d.display_name ?? undefined,
+            href: `/u/${encodeURIComponent(d.username)}`,
+          }}
+        />
         <Link href="/leaderboard" prefetch={false} className="text-sm text-zinc-400 hover:text-zinc-200">
           {t("back")}
         </Link>
