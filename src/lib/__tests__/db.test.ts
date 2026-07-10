@@ -417,3 +417,149 @@ describe("getRepoOverview + filterExistingRepoKeys", () => {
   });
 });
 
+describe("project discovery queries", () => {
+  const repo = (
+    key: string,
+    over: Partial<import("../repo-graph").RepoNode> = {},
+  ): import("../repo-graph").RepoNode => {
+    const [owner, name] = key.split("/");
+    return {
+      repo_key: key,
+      name_with_owner: `${owner}/${name}`,
+      owner_login: owner,
+      name,
+      description: `${name} project`,
+      stars: 100,
+      forks: 5,
+      language: "TypeScript",
+      topics: ["developer-tools"],
+      ...over,
+    };
+  };
+
+  beforeAll(async () => {
+    const repos = {
+      quality: repo("discover/quality", { stars: 1_000, name: "QualityKit" }),
+      related: repo("discover/related", { stars: 900, name: "RelatedKit" }),
+      scale: repo("discover/scale", { stars: 800, name: "ScaleKit" }),
+      momentum: repo("discover/momentum", { stars: 700, name: "MomentumKit" }),
+      stars: repo("discover/stars", {
+        stars: 50_000,
+        name: "StarKit",
+        language: "Rust",
+        topics: ["database"],
+      }),
+    };
+    const score = async (username: string, finalScore: number, tier: ScoreEntry["tier"]) =>
+      db.recordScore({ ...entry, username, final_score: finalScore, tier });
+
+    await Promise.all([
+      score("discover-alice", 96, "夯"),
+      score("discover-bob", 90, "顶级"),
+      score("discover-carol", 72, "人上人"),
+      score("discover-dan", 72, "人上人"),
+      score("discover-eve", 72, "人上人"),
+      score("discover-hot", 65, "人上人"),
+      score("discover-star", 80, "顶级"),
+      score("discover-hidden", 100, "夯"),
+      score("discover-low", 50, "NPC"),
+    ]);
+
+    await db.recordRepoGraph("discover-alice", {
+      repos: [repos.quality, repos.related],
+      links: [
+        { repo_key: repos.quality.repo_key, relation: "contributor", commits: 5, prs: 2, weight: 7 },
+        { repo_key: repos.related.repo_key, relation: "contributor", commits: 3, prs: 1, weight: 4 },
+      ],
+    });
+    await db.recordRepoGraph("discover-bob", {
+      repos: [repos.quality, repos.related],
+      links: [
+        { repo_key: repos.quality.repo_key, relation: "contributor", commits: 4, prs: 1, weight: 5 },
+        { repo_key: repos.related.repo_key, relation: "contributor", commits: 2, prs: 1, weight: 3 },
+      ],
+    });
+    for (const username of ["discover-carol", "discover-dan", "discover-eve"]) {
+      await db.recordRepoGraph(username, {
+        repos: [repos.scale],
+        links: [
+          { repo_key: repos.scale.repo_key, relation: "contributor", commits: 1, prs: 1, weight: 2 },
+        ],
+      });
+    }
+    await db.recordRepoGraph("discover-hot", {
+      repos: [repos.momentum],
+      links: [
+        { repo_key: repos.momentum.repo_key, relation: "contributor", commits: 1, prs: 1, weight: 2 },
+      ],
+    });
+    await db.recordRepoGraph("discover-star", {
+      repos: [repos.stars],
+      links: [{ repo_key: repos.stars.repo_key, relation: "owner", commits: null, prs: null, weight: 50_000 }],
+    });
+    for (const username of ["discover-hidden", "discover-low"]) {
+      await db.recordRepoGraph(username, {
+        repos: [repos.quality],
+        links: [
+          { repo_key: repos.quality.repo_key, relation: "contributor", commits: 1, prs: 0, weight: 1 },
+        ],
+      });
+    }
+    await db.hideUser("discover-hidden");
+    await db.recordAccountLookup("discover-hot", "203.0.113.10");
+    await db.recordAccountLookup("discover-hot", "203.0.113.11");
+    await db.recordAccountLookup("discover-hot", "203.0.113.12");
+  });
+
+  it("orders projects by contributor quality and excludes hidden or low scores", async () => {
+    const projects = await db.getProjects({ sort: "quality", limit: 20 });
+    const quality = projects.find((p) => p.repo.repo_key === "discover/quality");
+    const scale = projects.find((p) => p.repo.repo_key === "discover/scale");
+
+    expect(quality).toMatchObject({ contributorCount: 2, avgScore: 93, eliteCount: 2 });
+    expect(quality!.qualityScore).toBeGreaterThan(scale!.qualityScore);
+    expect(projects.indexOf(quality!)).toBeLessThan(projects.indexOf(scale!));
+    expect(quality!.topContributors.map((c) => c.username)).toEqual([
+      "discover-alice",
+      "discover-bob",
+    ]);
+  });
+
+  it("supports momentum, stars, language, and stable pagination", async () => {
+    const momentum = await db.getProjects({ sort: "momentum", limit: 20 });
+    expect(momentum[0]?.repo.repo_key).toBe("discover/momentum");
+    expect(momentum[0]?.momentum).toBeGreaterThan(0);
+
+    const stars = await db.getProjects({ sort: "stars", limit: 20 });
+    expect(stars[0]?.repo.repo_key).toBe("discover/stars");
+
+    const rust = await db.getProjects({ sort: "quality", language: "Rust", limit: 20 });
+    expect(rust.map((p) => p.repo.repo_key)).toEqual(["discover/stars"]);
+
+    const first = await db.getProjects({ sort: "stars", limit: 1, offset: 0 });
+    const second = await db.getProjects({ sort: "stars", limit: 1, offset: 1 });
+    expect(first[0]?.repo.repo_key).not.toBe(second[0]?.repo.repo_key);
+  });
+
+  it("searches repositories by owner/name and bare project name", async () => {
+    const byOwner = await db.searchRepos("discover/q", 4);
+    expect(byOwner[0]?.repo_key).toBe("discover/quality");
+
+    const byName = await db.searchRepos("quality", 4);
+    expect(byName[0]?.name).toBe("QualityKit");
+  });
+
+  it("prefers shared contributors for related projects", async () => {
+    const related = await db.getRelatedProjects("discover/quality", 4);
+    expect(related[0]?.project.repo.repo_key).toBe("discover/related");
+    expect(related[0]?.sharedContributorCount).toBe(2);
+  });
+
+  it("finds projects shared by two developers", async () => {
+    const common = await db.getDeveloperCommonProjects("discover-alice", "discover-bob", 5);
+    expect(common.map((project) => project.repo.repo_key)).toEqual([
+      "discover/quality",
+      "discover/related",
+    ]);
+  });
+});

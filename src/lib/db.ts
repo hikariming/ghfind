@@ -23,6 +23,7 @@ import {
 } from "./comments";
 import { extractFacets, type FacetType } from "./facets";
 import { extractRepoGraph, type RepoGraph } from "./repo-graph";
+import { projectQualityScore, type ProjectSort } from "./projects";
 import {
   emptyReactionCounts,
   isProfileReaction,
@@ -1531,6 +1532,283 @@ export interface RepoOverview {
   repo: RepoDetail;
   owner: RepoOwnerRef | null;
   summary: RepoContributorSummary;
+}
+
+export interface ProjectListItem {
+  repo: RepoDetail;
+  contributorCount: number;
+  avgScore: number;
+  eliteCount: number;
+  momentum: number;
+  qualityScore: number;
+  topContributors: RepoOwnerRef[];
+}
+
+export interface RelatedProject {
+  project: ProjectListItem;
+  sharedContributorCount: number;
+}
+
+function repoDetailFromRow(row: Record<string, unknown>): RepoDetail {
+  return {
+    repo_key: String(row.repo_key),
+    name_with_owner: String(row.name_with_owner),
+    owner_login: String(row.owner_login),
+    name: String(row.name),
+    description: (row.description as string | null) ?? null,
+    stars: Number(row.stars ?? 0),
+    forks: row.forks == null ? null : Number(row.forks),
+    language: (row.language as string | null) ?? null,
+    topics: parseJsonArray<string>(row.topics),
+  };
+}
+
+async function attachTopContributors(
+  db: Client,
+  rows: Record<string, unknown>[],
+): Promise<ProjectListItem[]> {
+  const keys = rows.map((row) => String(row.repo_key));
+  const topByRepo = new Map<string, RepoOwnerRef[]>();
+  if (keys.length > 0) {
+    const placeholders = keys.map(() => "?").join(",");
+    const contributors = await db.execute({
+      sql: `SELECT edges.repo_key, s.username, s.display_name, s.avatar_url,
+                   s.final_score, s.tier
+            FROM (
+              SELECT DISTINCT repo_key, username FROM repo_developers
+              WHERE repo_key IN (${placeholders})
+            ) AS edges
+            JOIN scores AS s ON s.username = edges.username
+            WHERE s.hidden = 0 AND s.final_score >= ?
+            ORDER BY edges.repo_key ASC, s.final_score DESC, s.username ASC`,
+      args: [...keys, FACET_MIN_SCORE],
+    });
+    for (const row of contributors.rows) {
+      const key = String(row.repo_key);
+      const current = topByRepo.get(key) ?? [];
+      if (current.length >= 3) continue;
+      current.push({
+        username: String(row.username),
+        display_name: (row.display_name as string | null) ?? null,
+        avatar_url: (row.avatar_url as string | null) ?? null,
+        final_score: Number(row.final_score),
+        tier: row.tier as Tier,
+      });
+      topByRepo.set(key, current);
+    }
+  }
+  return rows.map((row) => {
+    const contributorCount = Number(row.contributor_count ?? 0);
+    const avgScore = Math.round(Number(row.avg_score ?? 0) * 10) / 10;
+    return {
+      repo: repoDetailFromRow(row),
+      contributorCount,
+      avgScore,
+      eliteCount: Number(row.elite_count ?? 0),
+      momentum:
+        contributorCount > 0
+          ? Math.round(
+              (Number(row.recent_lookup_count ?? 0) / Math.sqrt(contributorCount)) * 10,
+            ) / 10
+          : 0,
+      qualityScore: projectQualityScore(avgScore, contributorCount),
+      topContributors: topByRepo.get(String(row.repo_key)) ?? [],
+    };
+  });
+}
+
+async function queryProjectItems(
+  db: Client,
+  options: {
+    sort: ProjectSort;
+    language?: string | null;
+    repoKeys?: string[];
+    limit: number;
+    offset?: number;
+  },
+): Promise<ProjectListItem[]> {
+  const cutoff = Date.now() - TRENDING_LOOKUP_WINDOW_MS;
+  const clauses: string[] = [];
+  const filterArgs: (string | number)[] = [];
+  if (options.language) {
+    clauses.push("lower(r.language) = lower(?)");
+    filterArgs.push(options.language);
+  }
+  if (options.repoKeys) {
+    if (options.repoKeys.length === 0) return [];
+    clauses.push(`r.repo_key IN (${options.repoKeys.map(() => "?").join(",")})`);
+    filterArgs.push(...options.repoKeys);
+  }
+  const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+  const result = await db.execute({
+    sql: `WITH edges AS (
+            SELECT DISTINCT repo_key, username FROM repo_developers
+          ), recent AS (
+            SELECT username, COUNT(*) AS recent_lookups
+            FROM account_lookup_limits
+            WHERE last_counted_at >= ?
+            GROUP BY username
+          )
+          SELECT r.repo_key, r.name_with_owner, r.owner_login, r.name,
+                 r.description, r.stars, r.forks, r.language, r.topics,
+                 COUNT(*) AS contributor_count,
+                 AVG(s.final_score) AS avg_score,
+                 SUM(CASE WHEN s.tier IN ('夯', '顶级') THEN 1 ELSE 0 END) AS elite_count,
+                 COALESCE(SUM(recent.recent_lookups), 0) AS recent_lookup_count
+          FROM repos AS r
+          JOIN edges ON edges.repo_key = r.repo_key
+          JOIN scores AS s ON s.username = edges.username
+            AND s.hidden = 0 AND s.final_score >= ?
+          LEFT JOIN recent ON recent.username = edges.username
+          ${where}
+          GROUP BY r.repo_key`,
+    args: [cutoff, FACET_MIN_SCORE, ...filterArgs],
+  });
+  const rows = result.rows as unknown as Record<string, unknown>[];
+  const metric = (row: Record<string, unknown>) => {
+    const count = Number(row.contributor_count ?? 0);
+    const avg = Number(row.avg_score ?? 0);
+    const quality = projectQualityScore(avg, count);
+    const momentum = count > 0 ? Number(row.recent_lookup_count ?? 0) / Math.sqrt(count) : 0;
+    return { quality, momentum };
+  };
+  rows.sort((a, b) => {
+    const aMetric = metric(a);
+    const bMetric = metric(b);
+    const primary =
+      options.sort === "stars"
+        ? Number(b.stars ?? 0) - Number(a.stars ?? 0)
+        : options.sort === "momentum"
+          ? bMetric.momentum - aMetric.momentum || bMetric.quality - aMetric.quality
+          : bMetric.quality - aMetric.quality || Number(b.stars ?? 0) - Number(a.stars ?? 0);
+    return primary || String(a.repo_key).localeCompare(String(b.repo_key));
+  });
+  const offset = Math.max(0, options.offset ?? 0);
+  const limit = Math.max(1, Math.min(200, options.limit));
+  return attachTopContributors(db, rows.slice(offset, offset + limit));
+}
+
+export async function getProjects(options: {
+  sort?: ProjectSort;
+  language?: string | null;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<ProjectListItem[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    return await queryProjectItems(db, {
+      sort: options.sort ?? "quality",
+      language: options.language,
+      limit: options.limit ?? 24,
+      offset: options.offset,
+    });
+  } catch (e) {
+    console.error("getProjects failed:", e);
+    return [];
+  }
+}
+
+export async function searchRepos(query: string, limit = 4): Promise<RepoDetail[]> {
+  const db = getClient();
+  const normalized = query.trim().toLowerCase();
+  if (!db || !normalized) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT repo_key, name_with_owner, owner_login, name, description,
+                   stars, forks, language, topics
+            FROM repos
+            WHERE lower(repo_key) LIKE ? OR lower(name) LIKE ?
+            ORDER BY stars DESC, repo_key ASC
+            LIMIT ?`,
+      args: [`${normalized}%`, `${normalized}%`, Math.max(1, Math.min(20, limit))],
+    });
+    return result.rows.map((row) => repoDetailFromRow(row as unknown as Record<string, unknown>));
+  } catch (e) {
+    console.error("searchRepos failed:", e);
+    return [];
+  }
+}
+
+export async function getRelatedProjects(repoKey: string, limit = 6): Promise<RelatedProject[]> {
+  const db = getClient();
+  const key = repoKey.trim().toLowerCase();
+  if (!db || !key) return [];
+  try {
+    await ensureSchema(db);
+    const shared = await db.execute({
+      sql: `WITH edges AS (
+              SELECT DISTINCT repo_key, username FROM repo_developers
+            ), target AS (
+              SELECT username FROM edges WHERE repo_key = ?
+            )
+            SELECT edges.repo_key, COUNT(*) AS shared_count
+            FROM edges JOIN target USING(username)
+            WHERE edges.repo_key <> ?
+            GROUP BY edges.repo_key
+            ORDER BY shared_count DESC, edges.repo_key ASC
+            LIMIT ?`,
+      args: [key, key, Math.max(1, Math.min(50, limit))],
+    });
+    const sharedCounts = new Map(
+      shared.rows.map((row) => [String(row.repo_key), Number(row.shared_count)]),
+    );
+    const keys = [...sharedCounts.keys()];
+    const projects = await queryProjectItems(db, {
+      sort: "quality",
+      repoKeys: keys,
+      limit: keys.length || 1,
+    });
+    return projects
+      .sort(
+        (a, b) =>
+          (sharedCounts.get(b.repo.repo_key) ?? 0) -
+            (sharedCounts.get(a.repo.repo_key) ?? 0) ||
+          b.qualityScore - a.qualityScore,
+      )
+      .slice(0, limit)
+      .map((project) => ({
+        project,
+        sharedContributorCount: sharedCounts.get(project.repo.repo_key) ?? 0,
+      }));
+  } catch (e) {
+    console.error("getRelatedProjects failed:", e);
+    return [];
+  }
+}
+
+export async function getDeveloperCommonProjects(
+  usernameA: string,
+  usernameB: string,
+  limit = 6,
+): Promise<ProjectListItem[]> {
+  const db = getClient();
+  const a = usernameA.trim().toLowerCase();
+  const b = usernameB.trim().toLowerCase();
+  if (!db || !a || !b || a === b) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT repo_key
+            FROM repo_developers
+            WHERE username IN (?, ?)
+            GROUP BY repo_key
+            HAVING COUNT(DISTINCT username) = 2
+            ORDER BY repo_key ASC
+            LIMIT ?`,
+      args: [a, b, Math.max(1, Math.min(50, limit))],
+    });
+    return await queryProjectItems(db, {
+      sort: "quality",
+      repoKeys: result.rows.map((row) => String(row.repo_key)),
+      limit,
+    });
+  } catch (e) {
+    console.error("getDeveloperCommonProjects failed:", e);
+    return [];
+  }
 }
 
 /**
