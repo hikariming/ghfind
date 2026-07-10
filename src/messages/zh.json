@@ -131,6 +131,32 @@
     "repoContributors": "位上榜贡献者",
     "repoAvgScore": "平均分"
   },
+  "projects": {
+    "metaTitle": "发现高质量 GitHub 项目 · ghfind",
+    "metaDescription": "按背后开发者的质量、团队深度和近期势头发现 GitHub 项目。",
+    "eyebrow": "项目发现",
+    "heading": "不只看 Star，更看谁在做",
+    "subtitle": "Star 代表受欢迎程度；ghfind 补上贡献者质量、团队深度和近期关注这层信息。",
+    "sortLabel": "项目排序",
+    "languageLabel": "项目语言",
+    "sort": { "quality": "贡献者质量", "momentum": "近期势头", "stars": "Star" },
+    "allLanguages": "全部语言",
+    "contributors": "贡献者",
+    "avgScore": "平均分",
+    "momentum": "势头",
+    "reason": {
+      "elite": "多位顶级开发者参与",
+      "momentum": "本周关注度上升",
+      "quality": "贡献者质量领先",
+      "popular": "热门开源项目"
+    },
+    "prev": "← 上一页",
+    "next": "下一页 →",
+    "page": "第 {page} 页",
+    "listLabel": "项目结果",
+    "emptyTitle": "这里还没有项目图谱",
+    "emptyBody": "请先在本地运行项目回填，或移除当前筛选条件。"
+  },
   "challenge": {
     "bannerTitle": "从 @{owner} 的主页来的？测测你在 TA 面前是什么成色",
     "cta": "和 TA 对线",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildProjectListHref,
   normalizeProjectLanguage,
   parseProjectPage,
   parseProjectSort,
@@ -43,5 +44,17 @@ describe("project discovery primitives", () => {
     expect(normalizeProjectLanguage(" TypeScript ")).toBe("TypeScript");
     expect(normalizeProjectLanguage(" ")).toBeNull();
     expect(normalizeProjectLanguage(undefined)).toBeNull();
+  });
+
+  it("builds stable project list URLs while preserving filters", () => {
+    expect(buildProjectListHref({ sort: "quality", language: null, page: 1 })).toBe(
+      "/projects",
+    );
+    expect(
+      buildProjectListHref({ sort: "momentum", language: "TypeScript", page: 3 }),
+    ).toBe("/projects?sort=momentum&language=TypeScript&page=3");
+    expect(buildProjectListHref({ sort: "stars", language: "C++", page: 1 })).toBe(
+      "/projects?sort=stars&language=C%2B%2B",
+    );
   });
 });

@@ -131,6 +131,32 @@
     "repoContributors": "ranked contributors",
     "repoAvgScore": "avg score"
   },
+  "projects": {
+    "metaTitle": "Discover high-quality GitHub projects · ghfind",
+    "metaDescription": "Discover GitHub projects ranked by the quality and momentum of the developers behind them.",
+    "eyebrow": "Project discovery",
+    "heading": "Find projects by who builds them",
+    "subtitle": "Stars show popularity. ghfind adds the missing layer: contributor quality, team depth, and recent attention.",
+    "sortLabel": "Project sorting",
+    "languageLabel": "Project language",
+    "sort": { "quality": "Contributor quality", "momentum": "Recent momentum", "stars": "Stars" },
+    "allLanguages": "All languages",
+    "contributors": "contributors",
+    "avgScore": "avg score",
+    "momentum": "momentum",
+    "reason": {
+      "elite": "Built by multiple top developers",
+      "momentum": "Attention is rising this week",
+      "quality": "Contributor quality leads",
+      "popular": "Popular open-source project"
+    },
+    "prev": "← Previous",
+    "next": "Next →",
+    "page": "Page {page}",
+    "listLabel": "Project results",
+    "emptyTitle": "No project graph here yet",
+    "emptyBody": "Run the repository backfill locally or remove the current filter."
+  },
   "challenge": {
     "bannerTitle": "Came from @{owner}'s profile? See how you stack up against them",
     "cta": "Challenge them",

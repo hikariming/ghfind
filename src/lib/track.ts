@@ -34,7 +34,12 @@ export type TrackEvent =
   // measurable: repo_page_view carries a client-classified `source`, and
   // repo_card_click marks a profile repo card that routed into a project page.
   | "repo_page_view"
-  | "repo_card_click";
+  | "repo_card_click"
+  | "project_card_click"
+  | "project_sort_change"
+  | "project_filter_change"
+  | "discovery_recommendation_click"
+  | "continue_exploring_click";
 
 type VaWindow = Window & {
   va?: (...params: unknown[]) => void;

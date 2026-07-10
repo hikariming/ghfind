@@ -35,3 +35,16 @@ export function normalizeProjectLanguage(value: unknown): string | null {
   const normalized = scalar.trim();
   return normalized || null;
 }
+
+export function buildProjectListHref(options: {
+  sort: ProjectSort;
+  language: string | null;
+  page: number;
+}): string {
+  const search = new URLSearchParams();
+  if (options.sort !== "quality") search.set("sort", options.sort);
+  if (options.language) search.set("language", options.language);
+  if (options.page > 1) search.set("page", String(options.page));
+  const query = search.toString();
+  return query ? `/projects?${query}` : "/projects";
+}
