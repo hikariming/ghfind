@@ -70,7 +70,7 @@ interface MetricRow {
 function MetricBlock({ compact, rows }: { compact?: boolean; rows: MetricRow[] }) {
   return (
     <div
-      className={`grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/10 px-2.5 py-2 text-right sm:border-0 sm:bg-transparent sm:p-0 ${
+      className={`grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/10 px-2.5 py-2 text-right sm:shrink-0 sm:flex-none sm:border-0 sm:bg-transparent sm:p-0 ${
         compact ? "sm:w-36" : "sm:w-60"
       }`}
     >
