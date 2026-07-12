@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, localePath } from "@/lib/site";
 import { ShareCard } from "./ShareCard";
 import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
@@ -43,7 +43,7 @@ export function ProfileShare({
   const cardRef = useRef<HTMLDivElement>(null);
   const [savingImg, setSavingImg] = useState(false);
 
-  const link = locale === "en" ? `${SITE_URL}/en/u/${username}` : `${SITE_URL}/u/${username}`;
+  const link = `${SITE_URL}${localePath(locale, `/u/${username}`)}`;
   const beatText = beat == null ? "" : t("shareBeat", { beat: beat.toFixed(1) });
   const shareText = t("shareText", {
     score: score.toFixed(2),

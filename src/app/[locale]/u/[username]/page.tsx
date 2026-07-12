@@ -26,7 +26,7 @@ import { splitReport } from "@/lib/report";
 import { TIER_LABEL_EN } from "@/lib/badge";
 import type { RoastMeta } from "@/lib/types";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
-import { SITE_URL, PUBLIC_INDEX_MIN_SCORE, localeAlternates } from "@/lib/site";
+import { SITE_URL, PUBLIC_INDEX_MIN_SCORE, localeAlternates, localePath, bcp47 } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
@@ -138,7 +138,7 @@ export async function generateMetadata({
     score: d.final_score.toFixed(2),
     tier: tierName,
   });
-  const tags = locale === "en" ? d.tags.en : d.tags.zh;
+  const tags = normLang(locale) === "en" ? d.tags.en : d.tags.zh;
   const description = tags.length
     ? t("descWithTags", { tags: tags.map((x) => `#${x}`).join(" "), username: d.username })
     : t("descPlain", { username: d.username });
@@ -146,7 +146,7 @@ export async function generateMetadata({
   // metadataBase in layout.tsx) — so shared /u links render a rich card.
   const image = `/api/card/${d.username}`;
   const imageAlt = `${d.username} GitHub score card on ghfind`;
-  const path = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
+  const path = localePath(locale, `/u/${d.username}`);
   // Keep low-score profiles out of search results: they name real people, so a
   // "NPC"/"拉完了" page shouldn't rank on someone's handle. Still reachable and
   // shareable — just not indexed. Mirrors the sitemap floor.
@@ -293,7 +293,7 @@ export default async function AccountPage({
         }
       : null;
   const revealBody = fromHome && roast ? splitReport(roast).body : "";
-  const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
+  const detailPath = localePath(locale, `/u/${d.username}`);
   const dimensionLabels = Object.fromEntries(
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<(typeof DIMENSIONS)[number], string>;
@@ -341,7 +341,7 @@ export default async function AccountPage({
   };
   const bio = snap?.bio ?? null;
   const company = snap?.company ?? null;
-  const nf = new Intl.NumberFormat(locale === "en" ? "en" : "zh", {
+  const nf = new Intl.NumberFormat(bcp47(locale), {
     notation: "compact",
     maximumFractionDigits: 1,
   });
@@ -819,6 +819,11 @@ export default async function AccountPage({
       {/* Full roast report */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
         <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
+        {/* LLM content only exists in zh/en; a ja/ko visitor reads the English
+            side, so tell them why the report language differs from the UI. */}
+        {lang !== locale && (roast || roastLine) && (
+          <p className="mb-3 text-xs text-zinc-500">{t("reportLangNotice")}</p>
+        )}
         {/* Savage one-liner (current language) — shown above the full report.
             The stale re-roast stream renders its own line, so skip it there. */}
         {roastLine && !staleReroast && (

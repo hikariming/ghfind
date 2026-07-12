@@ -1,4 +1,4 @@
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, bcp47, localePath } from "@/lib/site";
 
 /**
  * Renders a JSON-LD `<script>`. Server component — the structured data is in the
@@ -133,7 +133,7 @@ export function websiteJsonLd(opts: { name: string; description: string }) {
 }
 
 function uPath(username: string, locale: string): string {
-  return locale === "en" ? `/en/u/${username}` : `/u/${username}`;
+  return localePath(locale, `/u/${username}`);
 }
 
 /** A `Person` node for a scored developer — the directory's core entity. */
@@ -189,7 +189,7 @@ export function articleJsonLd(opts: {
   updated?: string;
   tags: string[];
 }) {
-  const path = opts.locale === "en" ? `/en/blog/${opts.slug}` : `/blog/${opts.slug}`;
+  const path = localePath(opts.locale, `/blog/${opts.slug}`);
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -197,7 +197,7 @@ export function articleJsonLd(opts: {
     description: opts.description,
     datePublished: opts.date,
     ...(opts.updated ? { dateModified: opts.updated } : {}),
-    inLanguage: opts.locale === "en" ? "en" : "zh-CN",
+    inLanguage: bcp47(opts.locale),
     ...(opts.tags.length ? { keywords: opts.tags.join(", ") } : {}),
     image: [`${SITE_URL}/api/og/blog/${opts.slug}`],
     mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}${path}` },
@@ -225,7 +225,7 @@ export function datasetJsonLd(opts: {
   date: string;
   updated?: string;
 }) {
-  const path = opts.locale === "en" ? `/en/blog/${opts.slug}` : `/blog/${opts.slug}`;
+  const path = localePath(opts.locale, `/blog/${opts.slug}`);
   return {
     "@context": "https://schema.org",
     "@type": "Dataset",
@@ -254,7 +254,7 @@ export function leaderboardJsonLd(opts: {
     profile_url: string | null;
   }>;
 }) {
-  const path = opts.locale === "en" ? "/en/leaderboard" : "/leaderboard";
+  const path = localePath(opts.locale, "/leaderboard");
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",

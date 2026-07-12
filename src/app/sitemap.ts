@@ -3,7 +3,8 @@ import { getAllPublicUsernames, getIndexableMatchups } from "@/lib/db";
 import { getPost, getPostSlugs } from "@/lib/blog";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
-import { PUBLIC_INDEX_MIN_SCORE, SITE_URL } from "@/lib/site";
+import { PUBLIC_INDEX_MIN_SCORE, SITE_URL, localePath } from "@/lib/site";
+import { HTML_LANG, routing } from "@/i18n/routing";
 
 // Generate at request time, not at build: the profile query is a full scan of
 // the `scores` table and can exceed Next's 60s build-time prerender limit,
@@ -28,19 +29,21 @@ async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T
   }
 }
 
-/** zh lives at the root, en under `/en` — emit hreflang alternates for both. */
+/** zh lives at the root, other locales under their prefix — emit hreflang alternates for all. */
 function entry(
   path: string,
   opts: { lastModified?: Date; changeFrequency?: MetadataRoute.Sitemap[number]["changeFrequency"]; priority?: number } = {},
 ): MetadataRoute.Sitemap[number] {
-  const zh = `${SITE_URL}${path}`;
-  const en = `${SITE_URL}/en${path}`;
+  const languages: Record<string, string> = {};
+  for (const l of routing.locales) {
+    languages[HTML_LANG[l]] = `${SITE_URL}${localePath(l, path)}`;
+  }
   return {
-    url: zh,
+    url: `${SITE_URL}${path}`,
     lastModified: opts.lastModified,
     changeFrequency: opts.changeFrequency,
     priority: opts.priority,
-    alternates: { languages: { "zh-CN": zh, en } },
+    alternates: { languages },
   };
 }
 

@@ -28,6 +28,7 @@ import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { Omnibox } from "./Omnibox";
 import { DimensionStarChart } from "./DimensionStarChart";
 import { SITE_URL } from "@/lib/site";
+import { normLang } from "@/lib/lang";
 import { trackEvent } from "@/lib/track";
 
 interface Display {
@@ -261,7 +262,7 @@ export function Roaster() {
   // locale). Fall back to splitReport for legacy cached reports that still carry
   // the inline 🔥 marker; either way the body renders without that line.
   const { body: reportBody, roast: inlineRoast } = splitReport(report);
-  const roastLine = (metaRoast ? (locale === "en" ? metaRoast.en : metaRoast.zh) : "") || inlineRoast;
+  const roastLine = (metaRoast ? (normLang(locale) === "en" ? metaRoast.en : metaRoast.zh) : "") || inlineRoast;
   const dimensionLabels = Object.fromEntries(
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<SubScoreKey, string>;

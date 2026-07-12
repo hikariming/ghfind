@@ -9,6 +9,7 @@ import { LiveRoast } from "@/components/LiveRoast";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
+import { bcp47 } from "@/lib/site";
 import type { RoastMeta, ScanResult, SubScoreKey } from "@/lib/types";
 
 /**
@@ -87,7 +88,7 @@ export function PendingProfile({
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<SubScoreKey, string>;
 
-  const nf = new Intl.NumberFormat(locale === "en" ? "en" : "zh", {
+  const nf = new Intl.NumberFormat(bcp47(locale), {
     notation: "compact",
     maximumFractionDigits: 1,
   });

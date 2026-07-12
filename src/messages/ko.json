@@ -1,0 +1,789 @@
+{
+  "meta": {
+    "title": "ghfind | 독설 GitHub 평가 · 셀프 테스트 & 최고의 개발자 발견",
+    "description": "ghfind: GitHub 계정을 입력하면 30초 만에 0-100점 가치·신뢰 점수와 뼈 때리는 독설 한 줄이 나옵니다. 부족한 점을 확인하고 성장 방향을 잡은 뒤, 팔로우할 만한 최고의 개발자를 발견하고 세상에 나를 알리세요.",
+    "ogTitle": "ghfind | 독설 GitHub 평가 · 셀프 테스트 & 최고의 개발자 발견",
+    "ogDescription": "ghfind: 아무 GitHub 계정이나 채점하고 최고의 개발자를 발견하세요. 30초 만에 0-100점 가치·신뢰 점수 + 독설 한 줄, 개발자 랭킹 보드까지.",
+    "twDescription": "30초 만에 GitHub 계정 채점 + 독설 한 줄. ghfind에서 최고의 개발자를 발견하세요.",
+    "siteName": "ghfind"
+  },
+  "nav": {
+    "brand": "ghfind",
+    "roast": "팩폭",
+    "leaderboard": "랭킹",
+    "discover": "발견",
+    "developers": "개발자",
+    "projects": "프로젝트",
+    "languages": "언어",
+    "organizations": "조직",
+    "versus": "대결",
+    "blog": "리서치",
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기"
+  },
+  "globalSearch": {
+    "open": "전체 검색 열기",
+    "trigger": "검색",
+    "title": "ghfind 검색",
+    "description": "개발자, 프로젝트, 언어, 조직을 찾아보세요.",
+    "input": "개발자와 프로젝트 검색",
+    "placeholder": "antfu, vite, Rust, vercel 등을 입력해 보세요",
+    "loading": "검색 중…",
+    "empty": "일치하는 개발자나 프로젝트가 아직 없어요.",
+    "group": {
+      "users": "개발자",
+      "repos": "프로젝트",
+      "facets": "언어 & 조직"
+    }
+  },
+  "header": {
+    "signIn": "GitHub로 로그인",
+    "signOut": "로그아웃",
+    "myProfile": "내 프로필",
+    "judgeSelf": "나 자신 심판하기"
+  },
+  "loginNudge": {
+    "title": "🔥 로그인하고 더 즐기기",
+    "body": "GitHub로 로그인하면 투표와 리액션이 계속 유지되고, 더 매끄럽게 쓸 수 있어요.",
+    "signIn": "GitHub로 로그인",
+    "dismiss": "다음에요",
+    "close": "닫기"
+  },
+  "langSwitch": {
+    "label": "언어 변경",
+    "zh": "中文",
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어"
+  },
+  "themeSwitch": {
+    "label": "테마 변경",
+    "light": "라이트 테마",
+    "dark": "다크 테마",
+    "auto": "시스템 테마 따라가기"
+  },
+  "repoLink": {
+    "label": "오픈소스",
+    "title": "소스 코드와 채점 알고리즘 모두 오픈소스 · GitHub에서 보기"
+  },
+  "home": {
+    "brand": "독설",
+    "headline": "최고의 개발자를 발견하고, 그중 하나가 되세요",
+    "subtitle": "가차 없는 0–100점 진단으로 시작하세요. 지금 어디쯤인지, 어디로 가야 할지 보입니다.",
+    "boardHeading": "🏆 최고의 개발자들",
+    "openBoard": "전체 랭킹 열기 →",
+    "disclaimer1": "점수와 독설은 GitHub <b>공개 데이터</b>만으로 자동 생성됩니다. 계정의 공개 활동과 수치를 까는 것이지 사람을 공격하는 게 아니에요. 결과는 누군가에 대한 사실 판단이 아니니 괴롭힘에 쓰지 마세요.",
+    "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다."
+  },
+  "leaderboard": {
+    "heading": "🏆 명예의 전당",
+    "subtitle": "명예의 전당에는 60점 이상 계정만 올라오며, 기본은 트렌딩 순입니다.",
+    "judgeCta": "← 계정 하나 심판하러 가기",
+    "footerNote": "GitHub 공개 데이터 기반 고득점 계정만 등재됩니다. 보드에서 내려가고 싶다면 <a>여기서 삭제를 요청</a>하세요.",
+    "loadError": "지금은 랭킹을 불러올 수 없어요. 잠시 후 다시 시도해 주세요.",
+    "loading": "명예의 전당 불러오는 중…",
+    "empty": "🧮 열심히 계산 중 — 조금 있다 다시 와 주세요…",
+    "prev": "← 이전",
+    "next": "다음 →",
+    "pageJumpLabel": "페이지 이동",
+    "collapse": "접기",
+    "trendView": "🚀 트렌딩",
+    "scoreView": "💯 점수 랭킹",
+    "trendLabel": "트렌드",
+    "trendTitle": "트렌드 점수: 점수 80% + 최근 7일 순방문자 열기 15% + 최근 조회 감쇠 5%",
+    "scoreLabel": "점수",
+    "scoreTitle": "GitHub 공개 데이터 기반 0-100점 가치·신뢰 점수",
+    "heatView": "🔥 화제성 랭킹",
+    "heatLabel": "화제성",
+    "heatTitle": "성공적으로 로스트당한 횟수",
+    "vsButton": "도전",
+    "viewDetail": "@{username}의 점수 상세 보기",
+    "trendSubtitle": "트렌드 점수는 점수, 최근 7일 순방문자 열기, 최근 조회 시점을 종합합니다. 화제성은 정규화되어 어그로만으로는 퀄리티를 이길 수 없어요.",
+    "scoreSubtitle": "0-100점 가치·신뢰 점수 순 정렬입니다.",
+    "heatSubtitle": "누적 로스트 성공 횟수 순 정렬입니다.",
+    "windowAria": "기간",
+    "window24h": "24시간",
+    "window7d": "7일",
+    "window30d": "30일",
+    "windowAll": "전체"
+  },
+  "developers": {
+    "heading": "개발자 발견",
+    "subtitle": "프로그래밍 언어, 프로젝트, 조직별로 팔로우할 가치가 있는 상위 개발자를 찾아보세요.",
+    "languagesTitle": "언어별",
+    "projectsTitle": "프로젝트별",
+    "orgsTitle": "조직별",
+    "count": "{count}명",
+    "emptyCategories": "아직 보여줄 카테고리가 없어요. 조금 있다 다시 와 주세요.",
+    "languageBucketHeading": "{value} 상위 개발자",
+    "repoBucketHeading": "{value} · 기여자",
+    "orgBucketHeading": "{value} · 멤버",
+    "bucketSubtitle": "종합 점수 순으로 최대 상위 {limit}명까지 보여줍니다.",
+    "pinRankLine": "<strong>@{username}</strong>은(는) 이 보드에서 <strong>{rank}위</strong>",
+    "pinChallenge": "한 계단 위 @{username}에게 도전",
+    "pinTop": "보드 1위 👑",
+    "empty": "이 카테고리에는 아직 개발자가 없어요.",
+    "backToDirectory": "← 발견 페이지로",
+    "metaTitle": "개발자 발견",
+    "metaDescription": "프로그래밍 언어, 프로젝트, 조직별 GitHub 상위 개발자를 둘러보세요.",
+    "bucketMetaDescription": "{value} 분야 최고 점수 GitHub 개발자 랭킹.",
+    "apiCta": "후보를 대량으로 검증해야 하나요? 이 보드의 모든 점수는 ghfind API에서 나옵니다. 아무 GitHub 계정에나 결정론적 0-100 신뢰 점수를 매기며, 적당한 사용량은 무료입니다.",
+    "apiCtaLink": "API 문서 →",
+    "repoAuthoredBy": "메인테이너",
+    "repoContributors": "명의 랭킹 기여자",
+    "repoAvgScore": "평균 점수"
+  },
+  "projects": {
+    "metaTitle": "고품질 GitHub 프로젝트 발견 · ghfind",
+    "metaDescription": "프로젝트 뒤에 있는 개발자들의 퀄리티와 기세로 GitHub 프로젝트를 발견하세요.",
+    "eyebrow": "프로젝트 발견",
+    "heading": "누가 만드는지로 프로젝트 찾기",
+    "subtitle": "스타는 인기를 보여줄 뿐. ghfind는 기여자 퀄리티, 팀의 깊이, 최근 관심도라는 빠진 층을 더합니다.",
+    "sortLabel": "프로젝트 정렬",
+    "languageLabel": "프로젝트 언어",
+    "sort": {
+      "quality": "기여자 퀄리티",
+      "momentum": "최근 기세",
+      "stars": "스타"
+    },
+    "allLanguages": "전체 언어",
+    "contributors": "기여자",
+    "avgScore": "평균 점수",
+    "momentum": "기세",
+    "reason": {
+      "elite": "상위권 개발자 여럿이 참여",
+      "momentum": "이번 주 관심도 상승 중",
+      "quality": "기여자 퀄리티 선두",
+      "popular": "인기 오픈소스 프로젝트"
+    },
+    "prev": "← 이전",
+    "next": "다음 →",
+    "page": "{page}페이지",
+    "listLabel": "프로젝트 결과",
+    "emptyTitle": "아직 프로젝트 그래프가 없어요",
+    "emptyBody": "로컬에서 저장소 백필을 실행하거나 현재 필터를 해제하세요."
+  },
+  "discoveryNext": {
+    "relatedTitle": "계속 탐색하기",
+    "relatedSubtitle": "기여자나 언어로 이어진 프로젝트들.",
+    "sharedContributors": "{count}명의 공통 기여자",
+    "sameLanguage": "같은 언어",
+    "commonTitle": "함께 참여한 프로젝트",
+    "commonSubtitle": "이 개발자와 비슷한 프로필이 만난 작업들.",
+    "projects": {
+      "title": "프로젝트 탐색",
+      "body": "고퀄리티 기여자 팀이 받치고 있는 저장소를 확인하세요.",
+      "cta": "프로젝트 랭킹 보기"
+    },
+    "organizations": {
+      "title": "조직 탐색",
+      "body": "랭킹 뒤에 있는 팀과 커뮤니티를 이어서 둘러보세요.",
+      "cta": "조직 둘러보기"
+    }
+  },
+  "continueExploring": {
+    "title": "지난 탐색 이어가기",
+    "subtitle": "최근에 본 개발자와 프로젝트.",
+    "developer": "개발자",
+    "project": "프로젝트"
+  },
+  "challenge": {
+    "bannerTitle": "@{owner}의 프로필에서 오셨나요? 그 앞에서 내 성적은 어떤지 재보세요",
+    "cta": "맞짱 뜨기",
+    "go": "파이트",
+    "inputPlaceholder": "내 GitHub 사용자명",
+    "selfHint": "그건 본인이잖아요 — 다른 상대를 고르세요.",
+    "invalidHint": "유효한 GitHub 사용자명이 아닌 것 같아요.",
+    "dismiss": "닫기",
+    "profileCta": "맞짱 뜨기",
+    "ownerCta": "나랑 붙을 사람 데려오기"
+  },
+  "follow": {
+    "button": "팔로우",
+    "following": "팔로잉",
+    "limit": "개발자는 최대 50명까지 팔로우할 수 있어요.",
+    "homeTitle": "팔로우 중인 개발자",
+    "homeSub": "이번 주 점수 변동",
+    "homeEmpty": "개발자 프로필에서 팔로우한 뒤, 여기로 돌아와 점수 오르내림을 지켜보세요.",
+    "unrated": "미평가",
+    "menuLink": "팔로우 중인 개발자",
+    "pageTitle": "팔로우 중인 개발자",
+    "pageSubtitle": "이번 주 점수 변동",
+    "signInTitle": "로그인하고 팔로우 목록 보기",
+    "signInBody": "GitHub로 로그인해 개발자를 팔로우하고, 여기로 돌아와 점수 변동을 지켜보세요.",
+    "signIn": "GitHub로 로그인"
+  },
+  "detail": {
+    "back": "← 명예의 전당으로",
+    "backfilling": "🔍 오픈소스 발자취(저장소 / 언어 / 기여)를 긁어오는 중…",
+    "rankTitle": "내 위치",
+    "rankUnit": "/ 전체 {total}명",
+    "rankUnranked": "순위 없음 (데이터 부족)",
+    "beatInline": "개발자 {beat}%를 제쳤습니다",
+    "milestoneNext": "“{tier}”까지 {gap}점",
+    "milestoneCapped": "🏆 만렙 달성 · 최상위 티어",
+    "facetRankLine": "{facet} 보드 #{rank}",
+    "facetRankAhead": "바로 위는 @{username}",
+    "challengeCta": "맞짱 뜨기",
+    "challengeGo": "파이트",
+    "challengeSelf": "그건 본인이잖아요 — 다른 상대를 고르세요.",
+    "challengeInvalid": "유효한 GitHub 사용자명이 아닌 것 같아요.",
+    "challengePlaceholder": "내 GitHub 사용자명",
+    "challengeOwner": "나랑 붙을 사람 데려오기",
+    "modalPkCta": "비교할 사람 데려오기",
+    "modalFacetRankCta": "{facet} 보드에서 내 순위 보기",
+    "dimensionsHeading": "점수 상세 분석",
+    "similarHeading": "🧬 가장 닮은 개발자",
+    "similarSub": "프로필이 가장 가깝고 점수도 비슷한 계정",
+    "impactHeading": "🏆 굵직한 기여",
+    "impactSub": "커밋과 PR을 넣은 인기 오픈소스 저장소",
+    "worksHeading": "🛠 대표작",
+    "worksSub": "본인이 만든 인기 저장소와 고정 저장소",
+    "stackHeading": "🧬 기술 스택 & 분야",
+    "stackLangLabel": "주요 언어",
+    "stackTopicsLabel": "분야",
+    "orgsLabel": "조직",
+    "commits": "커밋",
+    "prs": "PR",
+    "roastHeading": "🔥 독설 전문",
+    "roastEmpty": "이 독설은 아직 보관되지 않았어요 — <a>홈에서 다시 심판</a>하면 생성됩니다.",
+    "livePendingBanner": "독설 생성 중…",
+    "livePending": "독설 예열 중…",
+    "liveError": "독설 생성에 실패했어요.",
+    "liveRateLimited": "지금 독설 주문이 밀려 있어요 — 1분 뒤 다시 시도하세요.",
+    "liveExpired": "독설이 완성되기 전에 스캔이 만료됐어요.",
+    "liveGoHome": "홈에서 다시 로스트하기 →",
+    "modalTitle": "🔥 당신의 독설이 나왔습니다",
+    "modalRoastHeading": "독설 전문",
+    "modalFirstJudged": "🥇 첫 번째로 심판받았습니다 — 진정한 개척자",
+    "modalBeat": "🏆 개발자 {beat}%를 제쳤습니다 (지금까지 {total}명 심판)",
+    "modalViewProfile": "전체 프로필 보기",
+    "modalBadgeCta": "GitHub 배지 받기",
+    "modalClose": "닫기",
+    "battlesHeading": "⚔️ 대결 기록",
+    "battlesSub": "이 개발자가 치른 PK 대결",
+    "battleWin": "승",
+    "battleLoss": "패",
+    "battleTie": "무",
+    "selfCta": "내 GitHub도 평가받기 →",
+    "reportLangNotice": "AI 독설 리포트는 현재 영어와 중국어만 지원해요 — 지금 보고 계신 건 영어판입니다."
+  },
+  "reactions": {
+    "heading": "커뮤니티 반응",
+    "hint": "GitHub 계정당 리액션 하나, 언제든 바꿀 수 있어요",
+    "addReaction": "리액션 추가",
+    "loginRequired": "GitHub로 로그인하면 리액션이 저장됩니다.",
+    "loginAction": "GitHub로 로그인",
+    "failed": "리액션이 저장되지 않았어요. 잠시 후 다시 시도해 주세요.",
+    "like": "리스펙",
+    "poop": "물경력",
+    "kick": "참교육",
+    "fire": "미쳤다",
+    "salute": "인정",
+    "clown": "웃참 실패"
+  },
+  "rescan": {
+    "button": "🔄 다시 검사",
+    "scanning": "검사 중…",
+    "roasting": "독설 굽는 중…",
+    "error": "검사에 실패했어요. 잠시 후 다시 시도하세요",
+    "cooldown": "{hours}시간 후 다시 검사 가능"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "descWithTags": "{tags} — {username}의 전체 점수 리포트를 ghfind.com에서 확인하세요.",
+    "descPlain": "{username}의 GitHub 가치·신뢰 리포트 — ghfind.com.",
+    "notFoundTitle": "계정을 찾을 수 없음 · ghfind",
+    "pendingTitle": "@{username} 로스트 중… · ghfind"
+  },
+  "roaster": {
+    "inputPlaceholder": "GitHub 사용자명 또는 프로필 URL 입력",
+    "judge": "심판 시작",
+    "judging": "심판 중…",
+    "byoLink": "내 모델 / API 키 사용",
+    "scanning": "{username}의 흑역사 파는 중… 커밋 읽고, PR 뒤지고, 스타 세고, 어뷰징 냄새 맡는 중",
+    "roastLabel": "🔥 독설",
+    "roastThinking": "AI가 매운맛 독설을 조리하는 중 — 곧 나갑니다…",
+    "roastPending": "독설 준비 중",
+    "firstJudged": "🥇 첫 번째로 심판받았습니다 — 진정한 개척자",
+    "rankLine": "<hl>📊 전체 {rank}위</hl><muted> / {total}명 중</muted>",
+    "beatLine": "<hl>🏆 {beat}% 제침</hl><muted> (지금까지 {total}명 심판)</muted>",
+    "saveImage": "📸 플렉스 이미지 저장",
+    "saving": "생성 중…",
+    "pasteGithub": "📌 GitHub에 붙이기",
+    "copied": "복사됨 ✓",
+    "privateNote": "참고: 점수는 공개 신호만 사용합니다. 비공개 기여는 반영되지 않아 비공개 조직에서 활발한 분은 저평가될 수 있어요.",
+    "shareText": "내 GitHub가 심판당했다: {score}/100 · {tier}({tierLabel}){beat}. 너도 재보기 👉 ghfind.com",
+    "shareBeat": ", 개발자 {beat}% 제침",
+    "errEmpty": "먼저 GitHub 사용자명이나 프로필 URL을 입력하세요.",
+    "errNeedTurnstile": "아래 인증부터 완료해 주세요.",
+    "errRoastFailed": "독설 생성 실패 — 잠시 후 다시 하거나 본인 키를 쓰세요.",
+    "errNetworkRoast": "연결이 끊겨서 독설이 중간에 끊겼어요.",
+    "errScanFailed": "스캔에 실패했어요. 잠시 후 다시 시도하세요.",
+    "errNetworkScan": "네트워크 오류 — GitHub에 닿지도 못했어요.",
+    "byoReasonQuota": "무료 할당량이 다 떨어졌어요 😵 본인 API 키를 넣으면 계속 로스트할 수 있어요 (OpenAI / StepFun / Groq 다 됩니다).",
+    "byoReasonRate": "오늘 로스트 좀 많이 하셨네요 🥵 잠깐 쉬거나, 본인 API 키를 넣으면 무제한입니다.",
+    "byoReasonDefault": "서버에 기본 모델이 설정되어 있지 않아요 — 본인 API 키를 넣으면 바로 시작합니다."
+  },
+  "scanErrors": {
+    "invalid_username": "GitHub 사용자명이 아닌 것 같은데요 — 다시 확인해 볼까요?",
+    "account_not_found": "그런 계정 없음 — 철자 맞나요?",
+    "turnstile_failed": "인증에 실패했어요 — 페이지를 새로고침하고 다시 시도하세요.",
+    "rate_limited": "손이 너무 빨라요 — 숨 한번 쉬고 1분 뒤에 다시 오세요.",
+    "github_rate_limited": "GitHub API가 지금 꽉 찼어요 — 잠시만 기다려 주세요.",
+    "github_unavailable": "GitHub 데이터를 잠시 사용할 수 없어요 — 나중에 다시 시도하세요.",
+    "scan_failed": "스캔이 터졌어요 — 잠시 후 다시 시도하세요."
+  },
+  "share": {
+    "open": "🔗 공유",
+    "heading": "공유하기",
+    "imageHint": "이미지로 공유",
+    "copyLink": "링크 복사",
+    "copied": "복사됨 ✓",
+    "native": "더 보기…",
+    "siteName": "ghfind"
+  },
+  "badge": {
+    "heading": "📌 GitHub 프로필에 붙이기",
+    "blurb": "아래 스니펫 아무거나 Profile README에 붙여 넣으세요. 점수는 자동으로 최신 상태를 유지하고, 이미지를 누르면 상세 페이지로 이동합니다.",
+    "badgeTitle": "배지",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "복사",
+    "copied": "복사됨 ✓",
+    "badgeAlt": "GitHub Roast 점수 배지",
+    "cardAlt": "GitHub Roast",
+    "builderTitle": "카드 빌더",
+    "builderBlurb": "카드 종류, 테마, 스캔 가능한 QR 표시 여부를 고르면 미리보기와 링크가 실시간으로 갱신됩니다.",
+    "fieldType": "카드 종류",
+    "fieldTheme": "테마",
+    "fieldQr": "QR 코드",
+    "fieldUrl": "이미지 URL",
+    "typeScore": "점수",
+    "themeDark": "다크",
+    "themeLight": "라이트",
+    "qrOn": "켬",
+    "qrOff": "끔",
+    "variantContrib": "기여 발자취",
+    "variantPr": "PR 전적",
+    "variantPath": "GitHub 궤적",
+    "variantWork": "대표작"
+  },
+  "byok": {
+    "title": "내 모델 사용하기",
+    "compatNote": "OpenAI 호환 API라면 뭐든 됩니다 (OpenAI / OpenRouter / Groq / DeepSeek / 로컬). 키는 당신의 브라우저에만 저장됩니다. 모델 호출을 위해 우리 서버를 한 번 거치지만, <b>절대 저장하지 않고, 로그도 남기지 않으며, 사용 후 즉시 폐기합니다</b>.",
+    "tempKeyNote": "🔒 걱정된다면 <b>임시 / 한도 제한</b> 키를 쓰고, 다 쓰면 폐기하세요.",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "지우기",
+    "cancel": "취소",
+    "saveContinue": "저장하고 계속"
+  },
+  "developerCount": "벌써 <n>{count, number}</n>명의 개발자가 참전했습니다 ⚔️",
+  "shareCard": {
+    "beatLabel": "제친 개발자",
+    "brand": "🔥 ghfind · 내 성적 재보기"
+  },
+  "tiers": {
+    "god": {
+      "name": "갓",
+      "blurb": "레전드 · 명예의 전당급"
+    },
+    "elite": {
+      "name": "고인물",
+      "blurb": "최상위권 · 일류 개발자"
+    },
+    "solid": {
+      "name": "탄탄",
+      "blurb": "알짜 기여자 · 믿어도 되는 계정"
+    },
+    "npc": {
+      "name": "NPC",
+      "blurb": "평범한 계정 · 존재감 없음"
+    },
+    "trash": {
+      "name": "나락",
+      "blurb": "저가치 · 어뷰징 / 봇 의심"
+    }
+  },
+  "dimensions": {
+    "account_maturity": "계정 성숙도",
+    "original_project_quality": "오리지널 프로젝트 퀄리티",
+    "contribution_quality": "기여 퀄리티",
+    "ecosystem_impact": "생태계 / 유지보수 영향력",
+    "community_influence": "커뮤니티 영향력",
+    "activity_authenticity": "활동 진정성"
+  },
+  "omnibox": {
+    "placeholder0": "GitHub 핸들을 입력하고 심판 시작",
+    "placeholder1": "a vs b 입력으로 맞짱 시작",
+    "placeholder2": "rust 검색으로 누가 제일 빡세게 구르는지 확인",
+    "placeholder3": "회사를 검색해서 인재 수준 훔쳐보기",
+    "ctaJudge": "심판",
+    "ctaPk": "파이트",
+    "ctaDiscover": "랭킹",
+    "groupDirect": "바로가기",
+    "groupPk": "맞짱",
+    "groupUser": "사용자",
+    "groupDiscover": "발견",
+    "suggestRoast": "@{username} 로스트",
+    "suggestPkStart": "@{username} vs …",
+    "suggestPkHint": "맞짱 뜰 사람 데려오기",
+    "suggestPk": "{a} vs {b}",
+    "suggestLanguage": "{value} 개발자 랭킹",
+    "suggestOrg": "{value} · 조직 멤버",
+    "pkHalfHint": "상대를 입력하고 Enter로 파이트",
+    "lockedRemove": "제거"
+  },
+  "blog": {
+    "heading": "리서치",
+    "subtitle": "대규모 GitHub 기여 채점에서 나온 데이터 노트.",
+    "readingTime": "{minutes}분 소요",
+    "notTranslated": "이 글은 아직 번역되지 않았어요 — 영어 원문을 보여드립니다.",
+    "backToList": "전체 리서치",
+    "empty": "아직 글이 없어요."
+  },
+  "footer": {
+    "tagline": "GitHub 개발자 가치·신뢰 채점.",
+    "about": "소개",
+    "contact": "문의",
+    "privacy": "개인정보",
+    "methodology": "채점 방식",
+    "docs": "API 문서",
+    "blog": "리서치",
+    "source": "GitHub 소스",
+    "sectionProduct": "제품",
+    "sectionResources": "리소스",
+    "sectionCompany": "회사"
+  },
+  "faq": {
+    "heading": "자주 묻는 질문",
+    "items": [
+      {
+        "q": "ghfind가 뭔가요?",
+        "a": "ghfind는 GitHub를 위한 개발자 채점·발견 도구입니다. 완전히 결정론적인 오픈소스 엔진으로 아무 계정이나 실제 기여 가치와 신뢰도를 0-100점으로 평가하고, 그 위에 선택형 AI 독설, 1:1 대결, 개발자 랭킹 디렉터리를 얹었습니다."
+      },
+      {
+        "q": "점수는 어떻게 계산되나요?",
+        "a": "엔진은 합계 100점이 되는 여섯 개의 가중 지표 — 계정 성숙도, 오리지널 프로젝트 퀄리티, 기여 퀄리티, 생태계 영향력, 커뮤니티 영향력, 활동 진정성 — 를 채점하고, PR 어뷰징이나 스타 부풀리기 같은 위험 신호에 감점을 적용합니다. GitHub 공개 데이터만 사용합니다."
+      },
+      {
+        "q": "점수는 결정론적이고 재현 가능한가요?",
+        "a": "네. 점수에는 어떤 LLM도 개입하지 않습니다: 같은 입력이면 항상 같은 점수가 나옵니다. 채점 코어는 github-account-value 스킬(AGPL)로 오픈소스 공개되어 누구나 결과를 재현하거나 감사할 수 있습니다. 선택형 독설 텍스트만 LLM이 작성합니다."
+      },
+      {
+        "q": "API, CLI, MCP로도 쓸 수 있나요?",
+        "a": "네. 공개 REST API(/openapi.json 참고), 공식 npm·PyPI 패키지와 CLI, 그리고 /mcp에 있는 Model Context Protocol 서버가 있으며 score_user, scan_user, compare_users, get_leaderboard, search_users 도구를 제공합니다. 점수 엔드포인트는 인증이 필요 없습니다."
+      },
+      {
+        "q": "ghfind는 봇이나 AI로 찍어낸 계정을 잡아내나요?",
+        "a": "찍어낸 활동과 정직한 작업을 가르는 패턴을 잡아냅니다 — 거의 똑같은 템플릿 PR 제목, 본인 소유가 아닌 저장소에 몰린 기여, 수상한 스타·팔로워 부풀리기 같은 것들이요. 18,947개 계정을 채점한 데이터셋에서 가장 강한 위험 신호에 걸린 계정은 1% 미만이었습니다 — 드물지만, 나타나면 극단적입니다."
+      },
+      {
+        "q": "제 비공개 작업도 반영되나요?",
+        "a": "아니요. 점수는 공개 신호만 사용하므로 비공개 조직의 기여는 엔진에 보이지 않습니다. 비공개 저장소에서 활발한 멤버는 저평가될 수 있어요. 낮은 점수는 사람에 대한 사실 판단이 아니라 계정의 공개 발자취를 설명하는 것입니다."
+      },
+      {
+        "q": "제 프로필을 ghfind에서 내리려면 어떻게 하나요?",
+        "a": "60점 이상 계정만 색인되고 등재됩니다. 보드에서 내리고 싶다면 랭킹 하단의 삭제 링크를 이용하거나 GitHub 저장소에 issue를 열면, 해당 프로필이 내려갑니다."
+      }
+    ]
+  },
+  "homeIntro": {
+    "whatHeading": "ghfind는 무엇인가요?",
+    "whatBody": "ghfind는 GitHub를 위한 개발자 채점·발견 도구입니다. 완전히 결정론적인 엔진(AGPL로 공개된 오픈소스 github-account-value 스킬)을 사용해, 계정 성숙도, 오리지널 프로젝트 퀄리티, 기여 퀄리티, 생태계 영향력, 커뮤니티 영향력, 활동 진정성이라는 여섯 개 가중 지표로 아무 계정이나 0-100점으로 평가합니다. 같은 입력이면 항상 같은 점수가 나오고, LLM은 점수에 손대지 않습니다. 점수 위에는 선택형 AI 독설, 개발자 대 개발자 대결, 언어·조직별 랭킹, README 점수 배지가 얹혀 있습니다.",
+    "howHeading": "ghfind는 어떻게 동작하나요",
+    "steps": [
+      {
+        "title": "1. 공개 발자취 스캔",
+        "body": "아무 GitHub 사용자명이나 입력하세요. 엔진이 계정의 공개 데이터 — 저장소, PR, issue, 스타, 팔로워 — 를 훑어 증거 스냅샷을 만듭니다. 로그인도 권한도 필요 없습니다."
+      },
+      {
+        "title": "2. 여섯 개 결정론적 지표 채점",
+        "body": "스냅샷을 계정 성숙도, 오리지널 프로젝트 퀄리티, 기여 퀄리티, 생태계 영향력, 커뮤니티 영향력, 활동 진정성에 따라 채점하고, PR 어뷰징·스타 부풀리기·템플릿 도배 패턴에는 감점을 적용합니다."
+      },
+      {
+        "title": "3. 점수, 티어, 독설 받기",
+        "body": "재현 가능한 0-100점과 「나락」부터 「갓」까지의 티어, 점수를 깎아 먹는 요인을 정확히 보여주는 지표별 리포트, 그리고 — 원할 때만 — 매운맛 AI 독설을 받게 됩니다."
+      }
+    ],
+    "numbersHeading": "숫자로 보는 ghfind",
+    "numbers": {
+      "accounts": "공개 연구 데이터셋에서 채점된 GitHub 계정 {count}개",
+      "snapshots": "수집·분석된 완전한 증거 스냅샷 {count}개",
+      "dimensions": "모든 점수 뒤에 있는 가중 지표 {count}개",
+      "flagged": "비정상 활동으로 플래그된 계정 비율 {share}"
+    },
+    "tableCaption": "ghfind 점수 vs 원시 GitHub 신호",
+    "tableColSignal": "신호",
+    "tableColMeasures": "무엇을 측정하나",
+    "tableColGameable": "쉽게 부풀릴 수 있나?",
+    "tableRows": [
+      {
+        "signal": "GitHub 스타",
+        "measures": "프로젝트의 인기이지, 작성자의 기여 퀄리티가 아님",
+        "gameable": "가능 — 스타 거래와 품앗이 스타는 헐값"
+      },
+      {
+        "signal": "팔로워",
+        "measures": "관객 규모와 소셜 도달 범위",
+        "gameable": "가능 — 맞팔 루프와 팔로워 구매로 충분"
+      },
+      {
+        "signal": "ghfind 점수",
+        "measures": "여섯 개 가중 지표에 걸친 실제 기여 가치와 신뢰도",
+        "gameable": "어려움 — 비정상 패턴은 탐지되어 감점됨"
+      }
+    ]
+  },
+  "docs": {
+    "metaTitle": "ghfind API 문서 — REST API, MCP 서버, SDK",
+    "metaDescription": "ghfind 개발자 문서: GitHub 계정 채점 REST 엔드포인트, AI 에이전트용 ghfind MCP 서버, 인증, 공식 npm·PyPI SDK, 기계가 읽을 수 있는 스펙(OpenAPI, llms.txt).",
+    "heading": "ghfind API 문서",
+    "lead": "ghfind는 결정론적 오픈소스 엔진으로 아무 GitHub 계정이나 실제 기여 가치와 신뢰도를 0-100점으로 평가합니다. 사이트의 모든 기능은 프로그래밍 방식으로도 쓸 수 있습니다: 공개 REST API, AI 에이전트용 MCP 서버, 공식 SDK. 이 페이지가 그 전부를 문서화합니다.",
+    "restHeading": "ghfind REST API",
+    "restIntro": "Base URL: https://ghfind.com. 채점 읽기에는 인증이 필요 없습니다. 오류는 구조화된 JSON({error, message, hint})이고, 응답에는 RateLimit-* 헤더가 실리며, 목록 엔드포인트는 limit/offset 페이지네이션을 지원합니다.",
+    "endpoints": [
+      {
+        "sig": "GET /api/score/{username}",
+        "desc": "결정론적 0-100점, 티어, 6개 지표 분석. 처음 보는 계정도 실시간 채점; 인증 없음, LLM 없음."
+      },
+      {
+        "sig": "POST /api/scan",
+        "desc": "완전한 결정론적 스캔 페이로드: 원시 지표, 상위 저장소, 최근 PR, 위험 신호, 세부 점수."
+      },
+      {
+        "sig": "POST /api/roast",
+        "desc": "AI가 작성하는 독설 리포트 (유일한 LLM 엔드포인트; 자체 키 지원)."
+      },
+      {
+        "sig": "POST /api/vs-verdict",
+        "desc": "두 계정의 맞대결 판결."
+      },
+      {
+        "sig": "GET /api/leaderboard",
+        "desc": "트렌딩, 점수, 화제성, 성장 순 개발자 랭킹; limit/offset 페이지네이션."
+      },
+      {
+        "sig": "GET /api/developers",
+        "desc": "언어, 조직, 기여 저장소별 개발자 디렉터리; 페이지네이션 지원."
+      },
+      {
+        "sig": "GET /api/search-users",
+        "desc": "이미 채점된 계정에 대한 접두사 검색."
+      },
+      {
+        "sig": "GET /api/stats",
+        "desc": "플랫폼 전체 통계 (채점된 계정 수)."
+      },
+      {
+        "sig": "GET /api/badge/{username}",
+        "desc": "README에 넣을 수 있는 SVG 점수 배지."
+      }
+    ],
+    "mcpHeading": "ghfind MCP 서버",
+    "mcpIntro": "Streamable HTTP 방식의 Model Context Protocol 서버가 https://ghfind.com/mcp 에 있습니다 (인증 없음, IP별 속도 제한, 읽기 전용). Claude, Cursor 등 아무 MCP 클라이언트에나 추가하면 에이전트 안에서 GitHub 계정을 채점하고 비교할 수 있습니다.",
+    "tools": [
+      {
+        "name": "score_user",
+        "desc": "아무 GitHub 로그인에 대한 0-100점, 티어, 6개 지표 분석."
+      },
+      {
+        "name": "scan_user",
+        "desc": "완전한 스캔 페이로드: 지표, 상위 저장소, 최근 PR, 위험 신호."
+      },
+      {
+        "name": "compare_users",
+        "desc": "승자와 점수 차를 제시하는 결정론적 맞대결 비교."
+      },
+      {
+        "name": "get_leaderboard",
+        "desc": "발견용 공개 개발자 랭킹."
+      },
+      {
+        "name": "search_users",
+        "desc": "채점된 계정의 접두사 검색."
+      }
+    ],
+    "authHeading": "인증",
+    "authBody": "읽기 엔드포인트는 모두 공개입니다. 쓰기 엔드포인트(POST /api/scan, POST /api/roast)는 브라우저 Turnstile 인증 또는 Bearer API 키를 받습니다. 에이전트는 /auth.md 의 기계용 안내를 읽어 주세요.",
+    "sdkHeading": "공식 SDK & CLI",
+    "sdks": [
+      {
+        "name": "@hikariming/ghfind (npm)",
+        "desc": "JavaScript / TypeScript SDK와 CLI: npm install -g @hikariming/ghfind"
+      },
+      {
+        "name": "ghfind (PyPI)",
+        "desc": "Python SDK: pip install --upgrade ghfind"
+      },
+      {
+        "name": "ghfind CLI",
+        "desc": "ghfind score {username} -o json · ghfind scan · ghfind roast · ghfind leaderboard · ghfind stats"
+      }
+    ],
+    "machineHeading": "기계가 읽을 수 있는 표면",
+    "machine": [
+      {
+        "label": "/openapi.json",
+        "desc": "모든 공개 엔드포인트를 담은 OpenAPI 3.1 스펙"
+      },
+      {
+        "label": "/llms.txt",
+        "desc": "모든 표면으로 이어지는 markdown 링크가 담긴 에이전트용 가이드"
+      },
+      {
+        "label": "/index.md",
+        "desc": "홈페이지의 markdown 쌍둥이 (Accept: text/markdown 시에도 제공)"
+      },
+      {
+        "label": "/.well-known/agent-card.json",
+        "desc": "/.well-known/ 아래의 A2A agent card, MCP server card, API 카탈로그와 skills"
+      }
+    ]
+  },
+  "about": {
+    "metaTitle": "ghfind 소개",
+    "metaDescription": "ghfind는 오픈소스 결정론적 엔진으로 아무 GitHub 계정이나 실제 기여 가치와 신뢰도를 0-100점으로 평가하고, 최고의 개발자를 발견하도록 돕습니다.",
+    "heading": "ghfind 소개",
+    "paragraphs": [
+      "ghfind는 GitHub를 위한 개발자 채점·발견 도구입니다. GitHub 공개 데이터만으로 동작하는 완전히 결정론적인 엔진을 사용해, 아무 계정이나 실제 기여 가치와 신뢰도를 0-100점으로 평가합니다. 같은 입력이면 항상 같은 점수가 나오고 — 점수 자체에는 어떤 대규모 언어 모델도 개입하지 않습니다 — 그래서 결과는 블랙박스가 아니라 재현 가능하고 감사 가능한 것이 됩니다.",
+      "점수는 합계 100점이 되는 여섯 개의 가중 지표로 구성됩니다: 계정 성숙도, 오리지널 프로젝트 퀄리티, 기여 퀄리티, 생태계 영향력, 커뮤니티 영향력, 활동 진정성. 이 사실 기반 코어 위에 ghfind는 선택형 AI 독설, 개발자 대 개발자 대결, 프로그래밍 언어·조직·프로젝트별 랭킹, 그리고 내 프로필에 넣을 수 있는 README 점수 배지를 더합니다.",
+      "채점 엔진은 github-account-value 스킬로 AGPL 라이선스 아래 오픈소스이며, 웹사이트, 공식 npm·PyPI 패키지, 커맨드라인 도구, Model Context Protocol 서버가 모두 같은 코드 경로 위에서 동작합니다. ghfind가 존재하는 이유는 GitHub 기여를 읽을 수 있게 만드는 것입니다: 진짜 오픈소스 작업에 보상하고, 팔로우할 가치가 있는 개발자를 드러내고, 원시 숫자 대신 패턴을 봄으로써 찍어내거나 조작된 활동을 한눈에 알아볼 수 있게 하는 것입니다."
+    ]
+  },
+  "contact": {
+    "metaTitle": "ghfind 문의",
+    "metaDescription": "ghfind 팀에 연락하는 방법: 문제 신고, 랭킹에서의 삭제 요청, API·CLI·MCP 서버 관련 문의.",
+    "heading": "문의",
+    "paragraphs": [
+      "ghfind는 오픈소스 프로젝트입니다. 팀에 연락하거나, 문제를 신고하거나, 랭킹에서의 삭제를 요청하거나, API·CLI·MCP 서버에 대해 물어보는 가장 빠른 방법은 공개 GitHub 저장소에 issue를 여는 것입니다. issue는 그곳에서 읽히고 분류되며, 대화를 공개로 유지하면 같은 궁금증을 가진 다른 사용자에게도 도움이 됩니다.",
+      "연동 관련 질문이라면, 기계가 읽을 수 있는 API 계약은 /openapi.json, 에이전트용 문서 인덱스는 /llms.txt, 인증 안내는 /auth.md 에 있습니다. 대량 서버 간 스캔을 위한 상향된 속도 제한이 필요하다면 GitHub issue에 사용 목적을 적어 주세요."
+    ],
+    "issuesLabel": "GitHub에 issue 열기",
+    "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "비즈니스 문의, 대량 라이선스, API 한도 상향은 이메일로 직접 연락 주세요:",
+    "bizNote": "(오픈소스 사용 관련 질문은 GitHub issue를 우선 이용해 주세요 — 공개된 답변은 다른 사용자에게도 도움이 됩니다.)",
+    "resourcesLabel": "개발자 리소스",
+    "apiLabel": "API 레퍼런스 (OpenAPI)",
+    "llmsLabel": "에이전트 문서 (llms.txt)",
+    "authLabel": "인증 (auth.md)"
+  },
+  "privacy": {
+    "metaTitle": "개인정보 — ghfind",
+    "metaDescription": "ghfind의 데이터 처리 방식: GitHub 공개 데이터만 채점하고, 개인 데이터를 판매하지 않으며, 색인된 프로필의 삭제 요청을 존중합니다.",
+    "heading": "개인정보",
+    "sections": [
+      {
+        "h": "ghfind가 사용하는 데이터",
+        "p": "ghfind는 GitHub 공개 데이터만으로 점수를 계산합니다 — 누구나 프로필과 그 공개 저장소, PR, 활동에서 볼 수 있는 것과 같은 정보입니다. 비공개 저장소, 비공개 기여, 이메일 내용, 혹은 GitHub에 아직 공개되지 않은 어떤 데이터에도 접근하지 않습니다. 그렇기 때문에 점수는 계정의 공개 발자취를 설명할 뿐, 그 뒤에 있는 사람에 대한 사실 판단이 아닙니다."
+      },
+      {
+        "h": "저장하는 것",
+        "p": "채점된 계정에 대해서는 계산된 점수, 티어, 파생 지표를 캐시해 공유된 리포트가 빠르게 로드되고 랭킹이 매끄럽게 유지되도록 합니다. 60점 이상 계정만 색인되어 공개 등재되며, 그보다 낮은 점수의 페이지는 직접 링크로는 접근할 수 있지만 검색 엔진에는 노출되지 않습니다. 트래픽 파악에는 프라이버시를 존중하는 집계형 분석을 사용하고, 개인 데이터를 판매하지 않습니다."
+      },
+      {
+        "h": "자체 키 독설",
+        "p": "선택형 독설 기능은 본인의 모델 제공사 키를 사용할 수 있습니다. 키를 제공하면 그 키는 당신의 브라우저에만 남고, 모델 호출을 위해 우리 서버를 딱 한 번 거칩니다 — 절대 저장되지 않고, 절대 로그에 남지 않으며, 요청이 끝나면 폐기됩니다."
+      },
+      {
+        "h": "삭제와 통제",
+        "p": "프로필을 내리고 싶다면 랭킹 하단의 삭제 링크를 이용하거나 GitHub 저장소에 issue를 열어 주세요. 보드와 색인에서 제거해 드립니다. ghfind는 GitHub 공개 데이터만 반영하므로, GitHub 활동을 수정하거나 비공개로 전환하면 다음 스캔 때 ghfind가 볼 수 있는 내용도 함께 바뀌거나 사라집니다."
+      }
+    ]
+  },
+  "methodology": {
+    "metaTitle": "채점 방식 — ghfind는 GitHub 계정을 어떻게 채점하나",
+    "metaDescription": "ghfind의 결정론적 엔진이 여섯 개 가중 지표로 GitHub 계정을 채점하고, 위험 신호 감점을 적용하며, LLM 없이 완전한 재현성을 유지하는 방법.",
+    "heading": "ghfind는 GitHub 계정을 어떻게 채점하나",
+    "lead": "ghfind의 점수는 모델이 아니라 결정론적 루브릭이 만듭니다. 엔진은 GitHub 공개 데이터를 읽고, 합계 100점이 되는 여섯 개 지표를 채점하고, 위험 신호에 감점을 적용하며, 같은 입력에는 매번 같은 숫자를 돌려줍니다. 코어는 AGPL 라이선스로 오픈소스이므로 어떤 결과든 재현하고 감사할 수 있습니다.",
+    "dimensionsHeading": "여섯 개 지표",
+    "dimensionsIntro": "각 지표는 100점 기본 점수에 기여합니다. 이들이 합쳐져 원시 활동량이 아니라 꾸준하고 독창적이며 널리 쓰이는 오픈소스 작업에 보상합니다.",
+    "dimensionDetails": {
+      "account_maturity": "계정이 시간에 걸쳐 얼마나 자리 잡고 일관적인가 — 나이, 지속적 활동, 하룻밤 부풀리기에 버티는 신뢰도 곡선.",
+      "original_project_quality": "포크나 사소한 프로젝트가 아니라, 계정이 실제로 소유하고 만든 저장소의 퀄리티와 평판.",
+      "contribution_quality": "다른 프로젝트에 대한 기여의 실속 — 템플릿 도배가 아닌, 머지된 의미 있는 PR.",
+      "ecosystem_impact": "계정의 작업이 더 넓은 생태계에서 얼마나 의존되고 유지보수되는가.",
+      "community_influence": "커뮤니티에서의 진짜 도달력과 위상. 원시 팔로워나 스타 수가 지배하지 못하도록 정규화됨.",
+      "activity_authenticity": "활동 패턴이 자연스러운지 조작된 것인지 — 정직한 작업과 어뷰징을 가르는 지표."
+    },
+    "penaltiesHeading": "위험 신호 감점",
+    "penaltiesBody": "여섯 개 지표 위에서, 엔진은 실제 가치 없이 프로필만 부풀리는 패턴에 감점을 적용합니다: 거의 똑같은 템플릿 PR 제목, 본인 소유가 아닌 저장소에 몰린 기여, 스타나 팔로워 부풀리기. 개별 이벤트 하나하나는 그럴듯해 보일 수 있지만, 감점은 패턴에 반응합니다 — 이것이 찍어낸 활동을 정직한 작업과 분리할 수 있는 이유입니다.",
+    "determinismHeading": "결정론과 재현성",
+    "determinismBody": "어떤 대규모 언어 모델도 점수에 손대지 않습니다. 채점 코어는 오픈소스 github-account-value 스킬(AGPL)이며, 웹사이트, npm·PyPI 패키지, CLI, MCP 서버가 모두 같은 코드 경로 위에서 동작합니다. 같은 공개 입력이 주어지면 어디서든 점수가 동일하고, 그래서 독립적으로 재현할 수 있습니다. 선택형 독설 텍스트만 LLM이 작성하며, 점수를 절대 바꾸지 않습니다.",
+    "dataHeading": "대규모 검증",
+    "dataBody": "18,947개 채점 계정(그중 3,444개는 완전한 원시 지표 스냅샷 보유)의 공개 데이터셋에 적용한 결과, 조작되거나 찍어낸 기여는 여론이 말하는 것보다 드물었지만(가장 강한 위험 신호에 걸린 계정은 1% 미만), 나타났을 때는 훨씬 극단적이었습니다. 전체 분석은 리서치 섹션에 있습니다."
+  },
+  "vs": {
+    "metaTitle": "{a} vs {b} · 승자는? | ghfind",
+    "metaDescription": "{a} vs {b} — GitHub 정면 대결. 누가 더 하드코어? ghfind.com에서 확인하세요.",
+    "back": "← 명예의 전당으로",
+    "heading": "개발자 맞대결",
+    "pkHeading": "⚔️ 대결 시작",
+    "pkSub": "GitHub 핸들 두 개를 넣고 누가 더 하드코어인지 확인하세요",
+    "pkPlaceholderA": "예: torvalds",
+    "pkPlaceholderB": "예: gaearon",
+    "pkButton": "🔥 파이트!",
+    "pkInvalid": "서로 다른 유효한 GitHub 핸들 두 개를 입력하세요",
+    "bucketCrush": "압살",
+    "bucketEdge": "신승",
+    "bucketEven": "박빙",
+    "win": "🏆 승",
+    "tie": "무승부",
+    "totalHeading": "총점 대결",
+    "dimensionsHeading": "지표별 대결",
+    "swapOpponent": "🔄 상대 바꾸기",
+    "judgeMe": "나도 심판받기 →",
+    "summonTitle": "@{username}은(는) 아직 심판받지 않았어요",
+    "summonHint": "링 위로 소환해야 싸움이 시작됩니다",
+    "summon": "🔥 소환해서 붙기",
+    "summonScanning": "스캔 중…",
+    "summonRoasting": "독설 생성 중…",
+    "summonError": "소환에 실패했어요. 잠시 후 다시 시도하세요",
+    "bothMissing": "둘 다 아직 심판 전이에요 — 먼저 소환한 뒤 대결하세요.",
+    "verdictGenerating": "🤖 AI가 매운맛 판결을 조리하는 중…",
+    "adviceHeading": "💡 레벨업 하는 법",
+    "saveImage": "📸 대결 이미지 저장",
+    "saving": "렌더링 중…",
+    "copyEmbed": "🃏 README 임베드 복사",
+    "embedCopied": "✅ 복사됨 — README에 붙여 넣으세요",
+    "shareText": "{a} vs {b} — 누가 더 하드코어? ghfind.com에서 이 GitHub 대결 구경하기 ⚔️",
+    "trendingHeading": "🔥 인기 대결",
+    "trendingSub": "가장 많이 구경당한 GitHub 개발자 PK — 들어가서 매운맛 판결을 확인하세요",
+    "trendingEmpty": "아직 등록된 대결이 없어요. 홈에서 \"a vs b\"를 입력해 첫 포문을 여세요.",
+    "notRated": "심판 전",
+    "verdictMissing": "판결은 잠시 보류 — 먼저 링 위로 소환하세요.",
+    "verdictTie": "막상막하, 우열을 가릴 수 없는 승부 — 누가 이겨도 억울할 게 없습니다.",
+    "verdictCrush": {
+      "0": "@{winner}이(가) {gap}점 차 넘사벽으로 @{loser}을(를) 밀어버렸습니다 — 이건 대결이 아니라 관람입니다.",
+      "1": "@{winner} {winnerScore} vs @{loser} {loserScore}: 격차가 너무 커서 심판이 휘슬 불 생각도 안 했습니다.",
+      "2": "@{loser}은(는) 아직 몸 푸는 중인데 @{winner}은(는) 벌써 {gap}점 앞 — 그냥 악수하고 항복합시다.",
+      "3": "@{winner}이(가) @{loser}을(를) 매트에 눌러버렸습니다. {gap}점짜리 협곡은 바닥이 안 보입니다.",
+      "4": "긴장감 제로: @{winner}이(가) {gap}점 차로 @{loser}을(를) 전 항목 압도했습니다.",
+      "5": "@{loser}은(는) 표정 관리할 새도 없이 패배 — @{winner}이(가) {gap}점 차 압살극을 가져갑니다.",
+      "6": "@{winner}의 {winnerScore} 앞에서 @{loser}의 {loserScore}는 스파링 파트너 수준입니다.",
+      "7": "의욕 꺾이는 격차: @{winner}이(가) @{loser}을(를) 무려 {gap}점 앞섭니다."
+    },
+    "verdictEdge": {
+      "0": "@{winner}이(가) {gap}점 차로 @{loser}에게 신승 — 결코 거저 얻은 승리가 아닙니다.",
+      "1": "막상막하였지만 마지막에 웃은 건 {gap}점 앞선 @{winner}입니다.",
+      "2": "@{winner} {winnerScore} vs @{loser} {loserScore}: 딱 한 걸음 차이의 승부.",
+      "3": "@{loser}이(가) 뒤집기 직전까지 갔지만, @{winner}에게 {gap}점 모자랐습니다.",
+      "4": "팽팽한 승부에서 @{winner}이(가) 반 발 앞서며 {gap}점을 챙겼습니다.",
+      "5": "@{winner}의 승리, 하지만 @{loser}이(가) 진땀 나게 만들었죠 — 겨우 {gap}점 차이.",
+      "6": "반 마신 차이의 승리: @{winner}이(가) @{loser}을(를) {gap}점 차로 넘었습니다.",
+      "7": "@{winner}이(가) 간신히 통과 — @{loser}은(는) 마지막 한 방이 부족했습니다."
+    },
+    "verdictEven": {
+      "0": "@{winner}과(와) @{loser}은(는) 사실상 동급 — {gap}점은 그냥 오차 범위입니다.",
+      "1": "완전 박빙: 억울한 쪽이 없는 승부 — 차이는 겨우 {gap}점입니다.",
+      "2": "@{winner} {winnerScore}, @{loser} {loserScore} — 그날 기분 따라 결과가 뒤집힐 수준입니다.",
+      "3": "우열을 가릴 수 없습니다: @{winner}과(와) @{loser}은(는) 같은 출발선에 서 있습니다.",
+      "4": "고인물들의 싸움 — {gap}점 차이는 언급할 가치도 없습니다.",
+      "5": "@{winner}이(가) 종이 한 장 앞서지만, @{loser}은(는) 전혀 꿀리지 않습니다.",
+      "6": "도긴개긴 — @{winner}이(가) 운으로 {gap}점 더 챙겼을 뿐입니다.",
+      "7": "오십보백보 — @{winner}과(와) @{loser} 누구도 이득을 못 봤습니다."
+    }
+  }
+}

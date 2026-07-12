@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { Link } from "@/i18n/navigation";
 import { readSessionScan, stripRoastingParam } from "@/lib/home-handoff";
 import { splitReport } from "@/lib/report";
+import { normLang } from "@/lib/lang";
 import { consumeRoastStream } from "@/lib/roast-stream";
 import type { RoastLine, RoastMeta, ScanResult, Tags } from "@/lib/types";
 import { RoastResultModal } from "./RoastResultModal";
@@ -270,7 +271,7 @@ function mapError(code: string | undefined): string {
 
 function pickLine(line: RoastLine | undefined, locale: string): string {
   if (!line) return "";
-  return locale === "en" ? line.en : line.zh;
+  return normLang(locale) === "en" ? line.en : line.zh;
 }
 
 function tagsList(tags: Tags): string[] {

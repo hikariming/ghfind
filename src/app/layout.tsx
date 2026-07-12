@@ -29,10 +29,9 @@ const BOTID_PROTECTED_ROUTES = [{ path: "/api/roast", method: "POST" as const }]
 
 const THEME_INIT_SCRIPT = `
 try {
-  var path = window.location.pathname;
-  document.documentElement.lang = path === "/en" || path.indexOf("/en/") === 0
-    ? "en"
-    : "zh-CN";
+  var seg = window.location.pathname.split("/")[1];
+  var langs = { en: "en", ja: "ja", ko: "ko" };
+  document.documentElement.lang = langs[seg] || "zh-CN";
 
   var key = "github-roast-theme";
   var stored = localStorage.getItem(key);

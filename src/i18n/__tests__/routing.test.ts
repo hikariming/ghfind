@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { routing } from "../routing";
 
 describe("routing", () => {
-  it("supports zh and en with zh as the default", () => {
-    expect(routing.locales).toEqual(["zh", "en"]);
+  it("supports zh, en, ja, ko with zh as the default", () => {
+    expect(routing.locales).toEqual(["zh", "en", "ja", "ko"]);
     expect(routing.defaultLocale).toBe("zh");
   });
 

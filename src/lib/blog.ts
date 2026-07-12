@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { routing } from "@/i18n/routing";
+import { HTML_LANG, routing } from "@/i18n/routing";
 
 /**
  * Filesystem blog loader. Posts live in `content/blog/<slug>/<locale>.md` —
@@ -113,7 +113,7 @@ export function postAlternates(locale: string, slug: string, availableLocales: s
   const languages: Record<string, string> = {};
   for (const l of routing.locales) {
     if (availableLocales.includes(l)) {
-      languages[l === "zh" ? "zh-CN" : l] = postPath(l, slug);
+      languages[HTML_LANG[l]] = postPath(l, slug);
     }
   }
   languages["x-default"] = postPath(availableLocales.includes("en") ? "en" : "zh", slug);

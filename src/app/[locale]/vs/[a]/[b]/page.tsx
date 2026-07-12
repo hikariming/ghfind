@@ -9,7 +9,8 @@ import { DIMENSIONS, barColor } from "@/lib/dimensions";
 import { TIER_KEY } from "@/lib/tier";
 import { verdict } from "@/lib/verdict";
 import { normalizeUsername } from "@/lib/username";
-import { localeAlternates, VS_MIN_SCORE } from "@/lib/site";
+import { localeAlternates, localePath, VS_MIN_SCORE } from "@/lib/site";
+import { normLang } from "@/lib/lang";
 import type { RoastLine } from "@/lib/types";
 import { VsPlayerCard } from "@/components/VsPlayerCard";
 import { VsSummonButton } from "@/components/VsSummonButton";
@@ -22,10 +23,10 @@ export const dynamic = "force-dynamic";
 const getDetail = cache((username: string) => getAccountDetail(username));
 const getM = cache((a: string, b: string) => getMatchup(a, b));
 
-/** Pick the locale side of a bilingual line, falling back to the other. */
+/** Pick the content-language side of a bilingual line, falling back to the other. */
 function localeSide(line: RoastLine | null | undefined, locale: string): string {
   if (!line) return "";
-  return locale === "en" ? line.en || line.zh : line.zh || line.en;
+  return normLang(locale) === "en" ? line.en || line.zh : line.zh || line.en;
 }
 
 /** Normalize + canonicalize (lowercased, dictionary order) a /vs pair, or null
@@ -50,7 +51,7 @@ export async function generateMetadata({
   const title = t("metaTitle", { a: pair.a, b: pair.b });
   const description = t("metaDescription", { a: pair.a, b: pair.b });
   const image =
-    locale === "en"
+    normLang(locale) === "en"
       ? `/api/card/vs/${pair.a}/${pair.b}`
       : `/api/card/vs/${pair.a}/${pair.b}?lang=zh`;
   // Index only a matchup that earned an LLM verdict AND clears the floor on both
@@ -68,7 +69,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      url: locale === "en" ? `/en/vs/${pair.a}/${pair.b}` : `/vs/${pair.a}/${pair.b}`,
+      url: localePath(locale, `/vs/${pair.a}/${pair.b}`),
       type: "website",
       images: [{ url: image, width: 1200, height: 630 }],
     },

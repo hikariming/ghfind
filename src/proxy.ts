@@ -1,7 +1,7 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { AGENT_LINK_HEADER } from "@/lib/agent-docs";
-import { routing } from "@/i18n/routing";
+import { routing, type Locale } from "@/i18n/routing";
 
 const handleI18n = createMiddleware(routing);
 
@@ -9,14 +9,22 @@ const handleI18n = createMiddleware(routing);
 const LOCALE_COOKIE = "NEXT_LOCALE";
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
+// Prefixed (non-default) locales: zh lives at the bare root, these under /<locale>.
+const PREFIXED_LOCALES = routing.locales.filter((l) => l !== routing.defaultLocale);
+
+function isLocale(value: unknown): value is Locale {
+  return routing.locales.includes(value as Locale);
+}
+
 /**
- * Returns "en" only when the visitor's HIGHEST-priority language is English.
- * A zh-first header like `zh-CN,zh;q=0.9,en;q=0.8` stays Chinese. A missing
- * header (most search-engine crawlers) returns null → we leave them on the zh
- * root so the canonical Chinese URLs keep getting indexed.
+ * Maps the visitor's HIGHEST-priority Accept-Language to a supported locale, or
+ * null when it doesn't match one. A zh-first header like
+ * `zh-CN,zh;q=0.9,en;q=0.8` stays Chinese; `ja-JP,en;q=0.8` maps to ja. A
+ * missing header (most search-engine crawlers) returns null → we leave them on
+ * the zh root so the canonical Chinese URLs keep getting indexed.
  */
-function topLanguageIsEnglish(acceptLanguage: string | null): boolean {
-  if (!acceptLanguage) return false;
+function topSupportedLanguage(acceptLanguage: string | null): Locale | null {
+  if (!acceptLanguage) return null;
   const top = acceptLanguage
     .split(",")
     .map((part) => {
@@ -28,7 +36,9 @@ function topLanguageIsEnglish(acceptLanguage: string | null): boolean {
     })
     .filter((entry) => entry.tag)
     .sort((a, b) => b.q - a.q)[0];
-  return top ? top.tag.startsWith("en") : false;
+  if (!top) return null;
+  const primary = top.tag.split("-")[0];
+  return isLocale(primary) ? primary : null;
 }
 
 function ensureCookie(res: NextResponse, locale: string) {
@@ -72,7 +82,8 @@ export default function proxy(req: NextRequest) {
   // homepage. Only the home routes negotiate here — deep pages have their own
   // `.md` twins (e.g. /blog/{slug}.md). `/index.md` contains a dot, so the
   // rewrite target is excluded from this middleware (no rewrite loop).
-  const isHome = pathname === "/" || pathname === "/en";
+  const isHome =
+    pathname === "/" || PREFIXED_LOCALES.some((l) => pathname === `/${l}`);
   if (isHome) {
     const accept = req.headers.get("accept") ?? "";
     const wantsMarkdown =
@@ -89,13 +100,15 @@ export default function proxy(req: NextRequest) {
     }
   }
 
-  const isEnPath = pathname === "/en" || pathname.startsWith("/en/");
+  const pathLocale = PREFIXED_LOCALES.find(
+    (l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`),
+  );
 
-  // Already on an English path: render it and remember the choice so a later
-  // visit to the bare root honors it.
-  if (isEnPath) {
+  // Already on a locale-prefixed path: render it and remember the choice so a
+  // later visit to the bare root honors it.
+  if (pathLocale) {
     const res = handleI18n(req);
-    ensureCookie(res, "en");
+    ensureCookie(res, pathLocale);
     appendAgentLink(res);
     if (isHome) appendVaryAccept(res);
     return res;
@@ -104,18 +117,15 @@ export default function proxy(req: NextRequest) {
   // Chinese root path. Decide the target locale: a remembered choice (cookie)
   // wins; first-time visitors fall back to their Accept-Language top language.
   const cookieLocale = req.cookies.get(LOCALE_COOKIE)?.value;
-  const desired =
-    cookieLocale === "en" || cookieLocale === "zh"
-      ? cookieLocale
-      : topLanguageIsEnglish(req.headers.get("accept-language"))
-        ? "en"
-        : "zh";
+  const desired = isLocale(cookieLocale)
+    ? cookieLocale
+    : (topSupportedLanguage(req.headers.get("accept-language")) ?? "zh");
 
-  if (desired === "en") {
+  if (desired !== "zh") {
     const url = req.nextUrl.clone();
-    url.pathname = pathname === "/" ? "/en" : `/en${pathname}`;
+    url.pathname = pathname === "/" ? `/${desired}` : `/${desired}${pathname}`;
     const res = NextResponse.redirect(url);
-    ensureCookie(res, "en");
+    ensureCookie(res, desired);
     return res;
   }
 

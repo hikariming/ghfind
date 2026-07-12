@@ -7,6 +7,7 @@ import type { LeaderboardWindow } from "@/lib/leaderboardWindow";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 import { trackEvent } from "@/lib/track";
+import { normLang } from "@/lib/lang";
 import { resolveLeaderboardPageInput } from "./leaderboardPagination";
 
 interface MeResponse {
@@ -56,7 +57,7 @@ const TAG_TONE: Record<TagLocale, string> = {
 type TagLocale = "zh" | "en";
 
 function tagLocaleFor(locale: string): TagLocale {
-  return locale === "en" ? "en" : "zh";
+  return normLang(locale);
 }
 
 interface MetricRow {

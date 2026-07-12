@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { JsonLd, articleJsonLd, datasetJsonLd } from "@/components/JsonLd";
 import { PostBody } from "@/components/blog/PostBody";
 import { getPost, getPostSlugs, postAlternates } from "@/lib/blog";
+import { bcp47, localePath } from "@/lib/site";
 
 // Fully static: pure fs reads, prerendered per slug × locale at build time —
 // an article on the HN front page never touches a function invocation.
@@ -26,7 +27,7 @@ export async function generateMetadata({
   const post = getPost(slug, locale);
   if (!post) return {};
   const og = `/api/og/blog/${slug}`;
-  const url = locale === "en" ? `/en/blog/${slug}` : `/blog/${slug}`;
+  const url = localePath(locale, `/blog/${slug}`);
   return {
     title: `${post.title} · ghfind`,
     description: post.description,
@@ -63,7 +64,7 @@ export default async function BlogPostPage({
   const post = getPost(slug, locale);
   if (!post) notFound();
   const t = await getTranslations("blog");
-  const dateFmt = new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : locale, {
+  const dateFmt = new Intl.DateTimeFormat(bcp47(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",

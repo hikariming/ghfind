@@ -52,7 +52,9 @@
   "langSwitch": {
     "label": "切换语言",
     "zh": "中文",
-    "en": "EN"
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어"
   },
   "themeSwitch": {
     "label": "切换主题",
@@ -139,7 +141,11 @@
     "subtitle": "Star 代表受欢迎程度；ghfind 补上贡献者质量、团队深度和近期关注这层信息。",
     "sortLabel": "项目排序",
     "languageLabel": "项目语言",
-    "sort": { "quality": "贡献者质量", "momentum": "近期势头", "stars": "Star" },
+    "sort": {
+      "quality": "贡献者质量",
+      "momentum": "近期势头",
+      "stars": "Star"
+    },
     "allLanguages": "全部语言",
     "contributors": "贡献者",
     "avgScore": "平均分",
@@ -259,7 +265,8 @@
     "battleWin": "胜",
     "battleLoss": "负",
     "battleTie": "平",
-    "selfCta": "测测你自己的 GitHub 含金量 →"
+    "selfCta": "测测你自己的 GitHub 含金量 →",
+    "reportLangNotice": "AI 锐评目前仅提供中英文版本，当前显示英文版。"
   },
   "reactions": {
     "heading": "社区反应",

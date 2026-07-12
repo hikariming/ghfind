@@ -52,7 +52,9 @@
   "langSwitch": {
     "label": "Switch language",
     "zh": "中文",
-    "en": "EN"
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어"
   },
   "themeSwitch": {
     "label": "Switch theme",
@@ -139,7 +141,11 @@
     "subtitle": "Stars show popularity. ghfind adds the missing layer: contributor quality, team depth, and recent attention.",
     "sortLabel": "Project sorting",
     "languageLabel": "Project language",
-    "sort": { "quality": "Contributor quality", "momentum": "Recent momentum", "stars": "Stars" },
+    "sort": {
+      "quality": "Contributor quality",
+      "momentum": "Recent momentum",
+      "stars": "Stars"
+    },
     "allLanguages": "All languages",
     "contributors": "contributors",
     "avgScore": "avg score",
@@ -259,7 +265,8 @@
     "battleWin": "Win",
     "battleLoss": "Loss",
     "battleTie": "Tie",
-    "selfCta": "Rate your own GitHub →"
+    "selfCta": "Rate your own GitHub →",
+    "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version."
   },
   "reactions": {
     "heading": "Community reactions",

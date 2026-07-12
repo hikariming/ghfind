@@ -1,0 +1,789 @@
+{
+  "meta": {
+    "title": "ghfind | 毒舌GitHub採点・自己診断で成長・トップ開発者を発見",
+    "description": "ghfind（毒舌GitHub採点）：GitHubアカウントを入力すると、30秒で0-100点の価値・信頼スコアと辛口ローストが出ます。自分の弱点を直視して成長の方向を掴み、発見ボードで注目すべき優良開発者を見つけ、自分も見つけてもらう。水増しアカウント・AI botの検出にも対応。",
+    "ogTitle": "ghfind | 毒舌GitHub採点・自己診断で成長・トップ開発者を発見",
+    "ogDescription": "ghfind：GitHubアカウントを採点してトップ開発者を発見。30秒で0-100点の実力スコア + 容赦ない毒舌ロースト、開発者ランキングも。",
+    "twDescription": "30秒でGitHubアカウントを採点 + 毒舌ロースト。ghfindで最強の開発者を発見しよう。",
+    "siteName": "ghfind"
+  },
+  "nav": {
+    "brand": "ghfind",
+    "roast": "ロースト",
+    "leaderboard": "ランキング",
+    "discover": "発見",
+    "developers": "開発者",
+    "projects": "プロジェクト",
+    "languages": "言語",
+    "organizations": "組織",
+    "versus": "対戦",
+    "blog": "リサーチ",
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる"
+  },
+  "globalSearch": {
+    "open": "グローバル検索を開く",
+    "trigger": "検索",
+    "title": "ghfind を検索",
+    "description": "開発者・プロジェクト・言語・組織を探せます。",
+    "input": "開発者とプロジェクトを検索",
+    "placeholder": "antfu、vite、Rust、vercel などを試してみて",
+    "loading": "検索中…",
+    "empty": "一致する開発者もプロジェクトもまだありません。",
+    "group": {
+      "users": "開発者",
+      "repos": "プロジェクト",
+      "facets": "言語と組織"
+    }
+  },
+  "header": {
+    "signIn": "GitHubでログイン",
+    "signOut": "ログアウト",
+    "myProfile": "マイページ",
+    "judgeSelf": "自分を審判する"
+  },
+  "loginNudge": {
+    "title": "🔥 ログインでもっと遊べる",
+    "body": "GitHubでログインすると、投票やリアクションが保存されて体験もスムーズに。",
+    "signIn": "GitHubでログイン",
+    "dismiss": "また今度",
+    "close": "閉じる"
+  },
+  "langSwitch": {
+    "label": "Switch language",
+    "zh": "中文",
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어"
+  },
+  "themeSwitch": {
+    "label": "テーマ切替",
+    "light": "ライトテーマ",
+    "dark": "ダークテーマ",
+    "auto": "システムに従う"
+  },
+  "repoLink": {
+    "label": "ソース",
+    "title": "ソースコードと採点アルゴリズムはオープンソース · GitHubで見る"
+  },
+  "home": {
+    "brand": "毒舌",
+    "headline": "最強の開発者を見つけろ。そして、その一人になれ。",
+    "subtitle": "まずは忖度ゼロの0–100点診断から。今の立ち位置と、進むべき方向が見える。",
+    "boardHeading": "🏆 最強の開発者たち",
+    "openBoard": "ランキングを全部見る →",
+    "disclaimer1": "スコアとローストは <b>GitHubの公開データ</b> のみから自動生成しています。刺しているのはアカウントの公開挙動と数字であって、人格ではありません。結果は誰かに関する事実認定ではないので、ハラスメントに使わないでください。",
+    "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。"
+  },
+  "leaderboard": {
+    "heading": "🏆 殿堂",
+    "subtitle": "殿堂には60点以上のアカウントを収録。デフォルトはトレンド順です。",
+    "judgeCta": "← アカウントを審判しに行く",
+    "footerNote": "GitHubの公開データに基づく高スコアのアカウントのみ掲載しています。掲載を取り下げたい場合は<a>こちらから削除申請</a>を。",
+    "loadError": "ランキングを読み込めませんでした。しばらくしてからもう一度どうぞ。",
+    "loading": "殿堂を読み込み中…",
+    "empty": "🧮 集計中です。また後で見に来てください…",
+    "prev": "← 前へ",
+    "next": "次へ →",
+    "pageJumpLabel": "ページ指定",
+    "collapse": "折りたたむ",
+    "trendView": "🚀 トレンド",
+    "scoreView": "💯 スコア順",
+    "trendLabel": "トレンド",
+    "trendTitle": "トレンドスコア：スコア80% + 直近7日のユニーク訪問ヒート15% + 直近クエリの減衰5%",
+    "scoreLabel": "スコア",
+    "scoreTitle": "GitHubの公開データに基づく0-100点の価値・信頼スコア",
+    "heatView": "🔥 被ロースト数",
+    "heatLabel": "ヒート",
+    "heatTitle": "ローストが成立した回数",
+    "vsButton": "挑戦する",
+    "viewDetail": "@{username} のスコア詳細を見る",
+    "trendSubtitle": "トレンドはスコア・直近7日のユニーク訪問ヒート・直近クエリの新しさを合成。ヒートは正規化済みなので、注目度だけでは質を押し切れません。",
+    "scoreSubtitle": "0-100点の価値・信頼スコア順。",
+    "heatSubtitle": "ロースト成立の累計回数順。",
+    "windowAria": "期間",
+    "window24h": "24時間",
+    "window7d": "7日",
+    "window30d": "30日",
+    "windowAll": "全期間"
+  },
+  "developers": {
+    "heading": "開発者を発見する",
+    "subtitle": "プログラミング言語・プロジェクト・組織ごとに、フォローする価値のあるトップ開発者を探せます。",
+    "languagesTitle": "言語から探す",
+    "projectsTitle": "プロジェクトから探す",
+    "orgsTitle": "組織から探す",
+    "count": "{count} 人",
+    "emptyCategories": "表示できるカテゴリがまだありません。また後で見に来てください。",
+    "languageBucketHeading": "{value} トップ開発者",
+    "repoBucketHeading": "{value} · コントリビューター",
+    "orgBucketHeading": "{value} · メンバー",
+    "bucketSubtitle": "総合スコア順、上位 {limit} 名まで表示。",
+    "pinRankLine": "<strong>@{username}</strong> はこのボードで <strong>#{rank}</strong> 位",
+    "pinChallenge": "一つ上の @{username} に挑戦",
+    "pinTop": "ボードの頂点 👑",
+    "empty": "このカテゴリにはまだ開発者がいません。",
+    "backToDirectory": "← 発見ページに戻る",
+    "metaTitle": "開発者を発見する",
+    "metaDescription": "プログラミング言語・プロジェクト・組織ごとにGitHubのトップ開発者を一覧できます。",
+    "bucketMetaDescription": "{value} で最高スコアを持つGitHub開発者。",
+    "apiCta": "候補者を一括で審査したい？このボードのスコアはすべて ghfind API 製 —— 任意のGitHubアカウントに決定論的な0-100点の信頼スコアを付けます。適度な利用なら無料。",
+    "apiCtaLink": "APIドキュメント →",
+    "repoAuthoredBy": "メンテナー",
+    "repoContributors": "ランクイン済みコントリビューター",
+    "repoAvgScore": "平均スコア"
+  },
+  "projects": {
+    "metaTitle": "良質なGitHubプロジェクトを発見 · ghfind",
+    "metaDescription": "作っている開発者の質と勢いでランク付けしたGitHubプロジェクトを発見できます。",
+    "eyebrow": "プロジェクト発見",
+    "heading": "「誰が作っているか」でプロジェクトを探す",
+    "subtitle": "スターは人気の証。ghfind はその先——コントリビューターの質、チームの厚み、直近の注目度——を可視化します。",
+    "sortLabel": "プロジェクトの並び順",
+    "languageLabel": "プロジェクトの言語",
+    "sort": {
+      "quality": "コントリビューターの質",
+      "momentum": "直近の勢い",
+      "stars": "スター"
+    },
+    "allLanguages": "すべての言語",
+    "contributors": "コントリビューター",
+    "avgScore": "平均スコア",
+    "momentum": "勢い",
+    "reason": {
+      "elite": "複数のトップ開発者が参加",
+      "momentum": "今週注目度が上昇中",
+      "quality": "コントリビューターの質がリード",
+      "popular": "人気のオープンソースプロジェクト"
+    },
+    "prev": "← 前へ",
+    "next": "次へ →",
+    "page": "{page} ページ目",
+    "listLabel": "プロジェクト一覧",
+    "emptyTitle": "ここにはまだプロジェクトグラフがありません",
+    "emptyBody": "ローカルでリポジトリのバックフィルを実行するか、現在のフィルタを外してください。"
+  },
+  "discoveryNext": {
+    "relatedTitle": "さらに探索する",
+    "relatedSubtitle": "コントリビューターや言語でつながったプロジェクト。",
+    "sharedContributors": "共通コントリビューター {count} 人",
+    "sameLanguage": "同じ言語",
+    "commonTitle": "共通で関わっているプロジェクト",
+    "commonSubtitle": "この開発者と似たプロフィールが交差する場所。",
+    "projects": {
+      "title": "プロジェクトを探索",
+      "body": "質の高いコントリビューターチームが支えるリポジトリを見てみましょう。",
+      "cta": "プロジェクトランキングを見る"
+    },
+    "organizations": {
+      "title": "組織を探索",
+      "body": "ランキングの裏にいるチームとコミュニティをたどっていきましょう。",
+      "cta": "組織を見る"
+    }
+  },
+  "continueExploring": {
+    "title": "続きから探索する",
+    "subtitle": "最近見た開発者とプロジェクト。",
+    "developer": "開発者",
+    "project": "プロジェクト"
+  },
+  "challenge": {
+    "bannerTitle": "@{owner} のページから来た？あの人と比べて自分がどの程度か、確かめてみよう",
+    "cta": "この人に挑む",
+    "go": "開戦",
+    "inputPlaceholder": "あなたのGitHubユーザー名",
+    "selfHint": "それ自分です。別の相手を選んで。",
+    "invalidHint": "それ、有効なGitHubユーザー名に見えません。",
+    "dismiss": "閉じる",
+    "profileCta": "この人に挑む",
+    "ownerCta": "誰か連れてきて対戦させる"
+  },
+  "follow": {
+    "button": "フォロー",
+    "following": "フォロー中",
+    "limit": "フォローできる開発者は50人までです。",
+    "homeTitle": "フォロー中の開発者",
+    "homeSub": "今週のスコア変動",
+    "homeEmpty": "開発者のプロフィールページからフォローして、ここでスコアの上下を眺めましょう。",
+    "unrated": "未採点",
+    "menuLink": "フォロー中の開発者",
+    "pageTitle": "フォロー中の開発者",
+    "pageSubtitle": "今週のスコア変動",
+    "signInTitle": "ログインしてフォローを確認",
+    "signInBody": "GitHubでログインして開発者をフォローすると、ここでスコアの変動を追えます。",
+    "signIn": "GitHubでログイン"
+  },
+  "detail": {
+    "back": "← 殿堂に戻る",
+    "backfilling": "🔍 OSSの足跡（リポジトリ / 言語 / コントリビューション）を取得中…",
+    "rankTitle": "現在の順位",
+    "rankUnit": "/ 全 {total} 人",
+    "rankUnranked": "ランク外（データ不足）",
+    "beatInline": "開発者の {beat}% に勝利",
+    "milestoneNext": "「{tier}」まであと {gap} 点",
+    "milestoneCapped": "🏆 カンスト · 最上位ティア",
+    "facetRankLine": "{facet} で #{rank} 位",
+    "facetRankAhead": "一つ上は @{username}",
+    "challengeCta": "この人に挑む",
+    "challengeGo": "開戦",
+    "challengeSelf": "それ自分です。別の相手を選んで。",
+    "challengeInvalid": "それ、有効なGitHubユーザー名に見えません。",
+    "challengePlaceholder": "あなたのGitHubユーザー名",
+    "challengeOwner": "誰か連れてきて対戦させる",
+    "modalPkCta": "誰かと比べてみる",
+    "modalFacetRankCta": "{facet} での自分の順位を見る",
+    "dimensionsHeading": "スコア内訳",
+    "similarHeading": "🧬 いちばん似ている開発者",
+    "similarSub": "プロフィールが近く、スコアも近いアカウント",
+    "impactHeading": "🏆 主なコントリビューション",
+    "impactSub": "コミットとPRを投げてきた人気OSSリポジトリ",
+    "worksHeading": "🛠 代表作",
+    "worksSub": "本人の人気リポジトリとピン留めプロジェクト",
+    "stackHeading": "🧬 技術スタックと領域",
+    "stackLangLabel": "主要言語",
+    "stackTopicsLabel": "領域",
+    "orgsLabel": "組織",
+    "commits": "コミット",
+    "prs": "PR",
+    "roastHeading": "🔥 ロースト全文",
+    "roastEmpty": "このローストはまだ保存されていません。<a>ホームからもう一度審判する</a>と生成されます。",
+    "livePendingBanner": "ロースト進行中…",
+    "livePending": "ローストを温め中…",
+    "liveError": "ローストの生成に失敗しました。",
+    "liveRateLimited": "ただいまロースト混雑中。1分後にもう一度どうぞ。",
+    "liveExpired": "ロースト完了前にスキャンの有効期限が切れました。",
+    "liveGoHome": "ホームからもう一度ロースト →",
+    "modalTitle": "🔥 あなたのローストが出ました",
+    "modalRoastHeading": "ロースト全文",
+    "modalFirstJudged": "🥇 最初に審判された一人目、まさに開拓者",
+    "modalBeat": "🏆 開発者の {beat}% に勝利（これまでに {total} 人が審判済み）",
+    "modalViewProfile": "プロフィール全体を見る",
+    "modalBadgeCta": "GitHubバッジを作る",
+    "modalClose": "閉じる",
+    "battlesHeading": "⚔️ 対戦記録",
+    "battlesSub": "この開発者が戦ってきたPK対決",
+    "battleWin": "勝",
+    "battleLoss": "負",
+    "battleTie": "分",
+    "selfCta": "自分のGitHubも採点する →",
+    "reportLangNotice": "AIローストレポートは現在英語と中国語のみ対応です。表示中は英語版です。"
+  },
+  "reactions": {
+    "heading": "コミュニティの反応",
+    "hint": "リアクションはGitHubアカウントごとに1つ、いつでも変更可",
+    "addReaction": "リアクションを追加",
+    "loginRequired": "リアクションにはGitHubログインが必要です。選択は保存されます。",
+    "loginAction": "GitHubでログイン",
+    "failed": "リアクションを保存できませんでした。あとで再試行してください。",
+    "like": "リスペクト",
+    "poop": "水増しすぎ",
+    "kick": "蹴っとけ",
+    "fire": "ヤバい",
+    "salute": "脱帽",
+    "clown": "草"
+  },
+  "rescan": {
+    "button": "🔄 再スキャン",
+    "scanning": "スキャン中…",
+    "roasting": "ロースト中…",
+    "error": "スキャンに失敗しました。あとで再試行を",
+    "cooldown": "再スキャンまであと {hours} 時間"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "descWithTags": "{tags} — {username} の完全スコアレポートは ghfind.com で。",
+    "descPlain": "{username} のGitHub価値・信頼レポート — ghfind.com。",
+    "notFoundTitle": "アカウントが見つかりません · ghfind",
+    "pendingTitle": "@{username} をロースト中… · ghfind"
+  },
+  "roaster": {
+    "inputPlaceholder": "GitHubユーザー名かプロフィールURLを入力",
+    "judge": "審判する",
+    "judging": "審判中…",
+    "byoLink": "自分のモデル / APIキーを使う",
+    "scanning": "{username} の身辺調査中…コミットを読み、PRを漁り、スターを数え、水増しの痕跡を嗅ぎ回っています",
+    "roastLabel": "🔥 ロースト",
+    "roastThinking": "AIが渾身の毒舌を練っています。もうすぐお出しします…",
+    "roastPending": "ローストを準備中",
+    "firstJudged": "🥇 最初に審判された一人目、まさに開拓者",
+    "rankLine": "<hl>📊 全体 {rank} 位</hl><muted> / 開発者 {total} 人中</muted>",
+    "beatLine": "<hl>🏆 {beat}% に勝利</hl><muted>（これまでに {total} 人が審判済み）</muted>",
+    "saveImage": "📸 自慢画像を保存",
+    "saving": "生成中…",
+    "pasteGithub": "📌 GitHubに貼る",
+    "copied": "コピー済み ✓",
+    "privateNote": "注：スコアは公開シグナルのみ使用。プライベートのコントリビューションは対象外なので、非公開組織で活躍中の人は過小評価される場合があります。",
+    "shareText": "自分のGitHubが審判された：{score}/100 · {tier}（{tierLabel}）{beat}。君も測ってみな 👉 ghfind.com",
+    "shareBeat": "、開発者の {beat}% に勝利",
+    "errEmpty": "まずGitHubユーザー名かプロフィールURLを入力してください。",
+    "errNeedTurnstile": "先に下の認証を完了してください。",
+    "errRoastFailed": "ローストの生成に失敗。あとで再試行するか、自分のキーをどうぞ。",
+    "errNetworkRoast": "接続が切れて、毒舌が途中で止まりました。",
+    "errScanFailed": "スキャンに失敗しました。あとで再試行を。",
+    "errNetworkScan": "ネットワークエラー。GitHubにすら届きませんでした。",
+    "byoReasonQuota": "無料枠が尽きました 😵 自分のAPIキーを入れればロースト続行できます（OpenAI / StepFun / Groq いずれも可）。",
+    "byoReasonRate": "今日はロースト三昧ですね 🥵 一息つくか、自分のAPIキーで無制限にどうぞ。",
+    "byoReasonDefault": "サーバーにデフォルトモデルが未設定です。自分のAPIキーを入れればロースト開始できます。"
+  },
+  "scanErrors": {
+    "invalid_username": "GitHubユーザー名に見えません。もう一度確認を？",
+    "account_not_found": "そんなアカウントは存在しません。スペル合ってます？",
+    "turnstile_failed": "認証に失敗しました。ページを再読み込みして再試行を。",
+    "rate_limited": "速すぎです。深呼吸して1分後にもう一度。",
+    "github_rate_limited": "GitHubのAPIが今パンク中です。少し待ってください。",
+    "github_unavailable": "GitHubのデータが一時的に取得できません。あとで再試行を。",
+    "scan_failed": "スキャンがクラッシュしました。あとで再試行を。"
+  },
+  "share": {
+    "open": "🔗 シェア",
+    "heading": "シェア先",
+    "imageHint": "画像でシェア",
+    "copyLink": "リンクをコピー",
+    "copied": "コピー済み ✓",
+    "native": "その他…",
+    "siteName": "ghfind"
+  },
+  "badge": {
+    "heading": "📌 GitHubプロフィールに貼る",
+    "blurb": "下のスニペットをどれでもProfile READMEに貼るだけ。スコアは自動で最新に保たれ、画像はあなたの詳細ページにリンクします。",
+    "badgeTitle": "バッジ",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "コピー",
+    "copied": "コピー済み ✓",
+    "badgeAlt": "GitHub Roast スコアバッジ",
+    "cardAlt": "GitHub Roast",
+    "builderTitle": "カードビルダー",
+    "builderBlurb": "カードの種類・テーマ・QRコードの有無を選ぶと、プレビューとリンクがリアルタイムで更新されます。",
+    "fieldType": "カードの種類",
+    "fieldTheme": "テーマ",
+    "fieldQr": "QRコード",
+    "fieldUrl": "画像URL",
+    "typeScore": "スコア",
+    "themeDark": "ダーク",
+    "themeLight": "ライト",
+    "qrOn": "あり",
+    "qrOff": "なし",
+    "variantContrib": "コントリビューション",
+    "variantPr": "PR戦績",
+    "variantPath": "GitHubの軌跡",
+    "variantWork": "代表作"
+  },
+  "byok": {
+    "title": "自分のモデルを使う",
+    "compatNote": "OpenAI互換APIならどれでも動きます（OpenAI / OpenRouter / Groq / DeepSeek / ローカル）。キーはあなたのブラウザ内に留まります。モデル呼び出しのため当社サーバーを一度だけ経由しますが、<b>保存もログもせず、使用後は即破棄します</b>。",
+    "tempKeyNote": "🔒 気になる場合は<b>一時的 / 利用上限付き</b>のキーを使い、終わったら失効させてください。",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "クリア",
+    "cancel": "キャンセル",
+    "saveContinue": "保存して続行"
+  },
+  "developerCount": "すでに <n>{count, number}</n> 人の開発者が参戦 ⚔️",
+  "shareCard": {
+    "beatLabel": "打ち負かした開発者",
+    "brand": "🔥 ghfind · 自分の実力を測ってみよう"
+  },
+  "tiers": {
+    "god": {
+      "name": "神",
+      "blurb": "レジェンド級 · 殿堂入り"
+    },
+    "elite": {
+      "name": "強者",
+      "blurb": "一線級 · トップ開発者"
+    },
+    "solid": {
+      "name": "人権あり",
+      "blurb": "堅実な貢献者 · 信頼できる"
+    },
+    "npc": {
+      "name": "NPC",
+      "blurb": "量産型 · 特筆事項なし"
+    },
+    "trash": {
+      "name": "終わってる",
+      "blurb": "低価値 · 水増し疑惑あり"
+    }
+  },
+  "dimensions": {
+    "account_maturity": "アカウント成熟度",
+    "original_project_quality": "オリジナルプロジェクトの質",
+    "contribution_quality": "コントリビューションの質",
+    "ecosystem_impact": "エコシステム / メンテナンス影響力",
+    "community_influence": "コミュニティ影響力",
+    "activity_authenticity": "アクティビティの真正性"
+  },
+  "omnibox": {
+    "placeholder0": "GitHubアカウントを入力して審判開始",
+    "placeholder1": "a vs b と入力して対戦開始",
+    "placeholder2": "rust で検索、誰が一番ガチか見てみよう",
+    "placeholder3": "企業名で検索、人材の実力を値踏み",
+    "ctaJudge": "審判",
+    "ctaPk": "開戦",
+    "ctaDiscover": "ランキング",
+    "groupDirect": "ダイレクト",
+    "groupPk": "対戦",
+    "groupUser": "ユーザー",
+    "groupDiscover": "発見",
+    "suggestRoast": "@{username} をロースト",
+    "suggestPkStart": "@{username} vs …",
+    "suggestPkHint": "誰か連れてきて対戦",
+    "suggestPk": "{a} vs {b}",
+    "suggestLanguage": "{value} 開発者ランキング",
+    "suggestOrg": "{value} · 組織メンバー",
+    "pkHalfHint": "対戦相手を入力してEnterで開戦",
+    "lockedRemove": "外す"
+  },
+  "blog": {
+    "heading": "リサーチ",
+    "subtitle": "GitHubの実コントリビューションを大規模に採点して得たデータノート。",
+    "readingTime": "読了目安 {minutes} 分",
+    "notTranslated": "この記事はまだ翻訳されていません。英語の原文を表示しています。",
+    "backToList": "リサーチ一覧",
+    "empty": "まだ記事がありません。"
+  },
+  "footer": {
+    "tagline": "GitHub開発者の価値と信頼度を採点。",
+    "about": "About",
+    "contact": "お問い合わせ",
+    "privacy": "プライバシー",
+    "methodology": "採点方法",
+    "docs": "APIドキュメント",
+    "blog": "リサーチ",
+    "source": "GitHubのソース",
+    "sectionProduct": "プロダクト",
+    "sectionResources": "リソース",
+    "sectionCompany": "運営情報"
+  },
+  "faq": {
+    "heading": "よくある質問",
+    "items": [
+      {
+        "q": "ghfind とは何ですか？",
+        "a": "ghfind はGitHub向けの開発者採点・発見ツールです。完全に決定論的なオープンソースエンジンで、任意のアカウントの実コントリビューション価値と信頼度を0〜100点で採点し、その上にオプションのAIロースト、開発者同士の対戦、ランキング付きの開発者ディレクトリを提供します。"
+      },
+      {
+        "q": "スコアはどうやって計算されますか？",
+        "a": "エンジンは合計100点になる6つの加重ディメンション——アカウント成熟度、オリジナルプロジェクトの質、コントリビューションの質、エコシステム影響力、コミュニティ影響力、アクティビティの真正性——を採点し、PR量産やスター水増しといったレッドフラグに対して減点します。GitHubの公開データのみで動作します。"
+      },
+      {
+        "q": "スコアは決定論的で再現可能ですか？",
+        "a": "はい。数値にLLMは一切関与しません。同じ入力からは常に同じスコアが出ます。採点コアは github-account-value スキルとして（AGPLで）オープンソース化されており、誰でも結果を再現・監査できます。LLMが書くのはオプションのロースト文だけです。"
+      },
+      {
+        "q": "API・CLI・MCPから使えますか？",
+        "a": "使えます。公開REST API（/openapi.json 参照）、公式のnpm・PyPIパッケージとCLI、そして /mcp にある Model Context Protocol サーバー（score_user、scan_user、compare_users、get_leaderboard、search_users ツールを公開）があります。スコアのエンドポイントは認証不要です。"
+      },
+      {
+        "q": "ghfind はbotやAI水増しアカウントを検出できますか？",
+        "a": "検出します。水増しと真面目な仕事を分けるパターン——ほぼ同一のテンプレPRタイトル、自分の所有していないリポジトリへの集中したコントリビューション、不審なスター・フォロワーの膨張——にフラグを立てます。採点済み18,947アカウントのデータセットでは、最強レベルのレッドフラグに引っかかったのは1%未満——稀ですが、出現時は極端です。"
+      },
+      {
+        "q": "プライベートの活動はカウントされますか？",
+        "a": "されません。スコアは公開シグナルのみを使うため、非公開組織でのコントリビューションはエンジンから見えません。プライベートリポジトリで活躍している人は過小評価される可能性があります。低スコアは人物に関する事実認定ではなく、アカウントの公開上の足跡を表すものです。"
+      },
+      {
+        "q": "自分のプロフィールを ghfind から削除するには？",
+        "a": "インデックスされ掲載されるのは60点以上のアカウントのみです。ボードからの削除を希望する場合は、ランキング下部の削除リンクを使うか、GitHubリポジトリでissueを立ててください。プロフィールは掲載解除されます。"
+      }
+    ]
+  },
+  "homeIntro": {
+    "whatHeading": "ghfind とは？",
+    "whatBody": "ghfind はGitHub向けの開発者採点・発見ツールです。完全に決定論的なエンジン（オープンソースの github-account-value スキル、AGPL）を使い、アカウント成熟度、オリジナルプロジェクトの質、コントリビューションの質、エコシステム影響力、コミュニティ影響力、アクティビティの真正性という6つの加重ディメンションで、任意のアカウントを0〜100点で採点します。同じ入力からは常に同じスコアが出て、数値にLLMは一切関与しません。スコアの上に、オプションのAIロースト、開発者対戦、言語・組織別ランキング、READMEスコアバッジを提供します。",
+    "howHeading": "ghfind の仕組み",
+    "steps": [
+      {
+        "title": "1. 公開上の足跡をスキャン",
+        "body": "GitHubユーザー名を入力すると、エンジンがアカウントの公開データ——リポジトリ、PR、Issue、スター、フォロワー——をクロールし、証拠スナップショットを作ります。ログインも権限付与も不要です。"
+      },
+      {
+        "title": "2. 決定論的な6ディメンションで採点",
+        "body": "スナップショットをアカウント成熟度、オリジナルプロジェクトの質、コントリビューションの質、エコシステム影響力、コミュニティ影響力、アクティビティの真正性で採点し、PR量産・スター水増し・テンプレスパムのパターンに減点を加えます。"
+      },
+      {
+        "title": "3. スコア・ティア・ローストを受け取る",
+        "body": "再現可能な0-100点のスコア、「終わってる」から「神」までのティア、スコアを押し下げている要因がはっきり分かるディメンション別の内訳、そして——望んだ場合のみ——容赦ないAIローストが手に入ります。"
+      }
+    ],
+    "numbersHeading": "数字で見る ghfind",
+    "numbers": {
+      "accounts": "公開リサーチデータセットで採点済みのGitHubアカウント {count} 件",
+      "snapshots": "収集・分析済みの完全な証拠スナップショット {count} 件",
+      "dimensions": "すべてのスコアを支える加重ディメンション {count} 個",
+      "flagged": "不正なアクティビティのフラグが立った採点済みアカウントは {share}"
+    },
+    "tableCaption": "ghfind スコア vs 素のGitHubシグナル",
+    "tableColSignal": "シグナル",
+    "tableColMeasures": "何を測るか",
+    "tableColGameable": "水増ししやすい？",
+    "tableRows": [
+      {
+        "signal": "GitHubスター",
+        "measures": "プロジェクトの人気であって、作者のコントリビューションの質ではない",
+        "gameable": "しやすい——スター売買や相互スターの互助会は安上がり"
+      },
+      {
+        "signal": "フォロワー",
+        "measures": "オーディエンスの規模とリーチ",
+        "gameable": "しやすい——相互フォローや買ったフォロワーで済む"
+      },
+      {
+        "signal": "ghfind スコア",
+        "measures": "6つの加重ディメンションにわたる実コントリビューション価値と信頼度",
+        "gameable": "困難——不正なパターンは検出され減点される"
+      }
+    ]
+  },
+  "docs": {
+    "metaTitle": "ghfind APIドキュメント — REST API・MCPサーバー・SDK",
+    "metaDescription": "ghfind の開発者向けドキュメント：GitHubアカウント採点のRESTエンドポイント、AIエージェント向け ghfind MCPサーバー、認証、公式npm・PyPI SDK、機械可読な仕様（OpenAPI、llms.txt）。",
+    "heading": "ghfind APIドキュメント",
+    "lead": "ghfind は決定論的なオープンソースエンジンで、任意のGitHubアカウントの実コントリビューション価値と信頼度を0-100点で採点します。サイト上のすべての機能はプログラムからも利用可能：公開REST API、AIエージェント向けMCPサーバー、公式SDK。このページはその完全なドキュメントです。",
+    "restHeading": "ghfind REST API",
+    "restIntro": "Base URL: https://ghfind.com。スコアの読み取りに認証は不要。エラーは構造化JSON（{error, message, hint}）、レスポンスには RateLimit-* ヘッダーが付き、一覧系エンドポイントは limit/offset ページネーションに対応します。",
+    "endpoints": [
+      {
+        "sig": "GET /api/score/{username}",
+        "desc": "決定論的な0-100点スコア、ティア、6ディメンションの内訳。未知のアカウントもライブで採点。認証不要、LLM不使用。"
+      },
+      {
+        "sig": "POST /api/scan",
+        "desc": "決定論的スキャンの完全ペイロード：生メトリクス、トップリポジトリ、直近のPR、レッドフラグ、サブスコア。"
+      },
+      {
+        "sig": "POST /api/roast",
+        "desc": "AIが書くローストレポート（唯一のLLMエンドポイント。自前キー持ち込み対応）。"
+      },
+      {
+        "sig": "POST /api/vs-verdict",
+        "desc": "2アカウントの直接対決の判定。"
+      },
+      {
+        "sig": "GET /api/leaderboard",
+        "desc": "トレンド・スコア・ヒート・進捗で並べた開発者ランキング。limit/offset でページネーション。"
+      },
+      {
+        "sig": "GET /api/developers",
+        "desc": "言語・組織・コントリビュート先リポジトリ別の開発者ディレクトリ。ページネーション対応。"
+      },
+      {
+        "sig": "GET /api/search-users",
+        "desc": "採点済みアカウントの前方一致検索。"
+      },
+      {
+        "sig": "GET /api/stats",
+        "desc": "プラットフォーム全体の統計（採点済みアカウント数）。"
+      },
+      {
+        "sig": "GET /api/badge/{username}",
+        "desc": "READMEに埋め込めるSVGスコアバッジ。"
+      }
+    ],
+    "mcpHeading": "ghfind MCPサーバー",
+    "mcpIntro": "Streamable HTTP の Model Context Protocol サーバーが https://ghfind.com/mcp にあります（認証不要、IPごとのレート制限、読み取り専用）。Claude、Cursor など任意のMCPクライアントに追加すれば、エージェント内からGitHubアカウントの採点と比較ができます。",
+    "tools": [
+      {
+        "name": "score_user",
+        "desc": "任意のGitHubログインの0-100点スコア、ティア、6ディメンションの内訳。"
+      },
+      {
+        "name": "scan_user",
+        "desc": "スキャンの完全ペイロード：メトリクス、トップリポジトリ、直近のPR、レッドフラグ。"
+      },
+      {
+        "name": "compare_users",
+        "desc": "決定論的な直接対決の比較。勝者とスコア差を返します。"
+      },
+      {
+        "name": "get_leaderboard",
+        "desc": "発見用の公開開発者ランキング。"
+      },
+      {
+        "name": "search_users",
+        "desc": "採点済みアカウントの前方一致検索。"
+      }
+    ],
+    "authHeading": "認証",
+    "authBody": "読み取りエンドポイントはすべて公開です。書き込みエンドポイント（POST /api/scan、POST /api/roast）はブラウザのTurnstile認証またはBearer APIキーを受け付けます。エージェントは /auth.md の機械向けガイドを参照してください。",
+    "sdkHeading": "公式SDKとCLI",
+    "sdks": [
+      {
+        "name": "@hikariming/ghfind (npm)",
+        "desc": "JavaScript / TypeScript SDKとCLI：npm install -g @hikariming/ghfind"
+      },
+      {
+        "name": "ghfind (PyPI)",
+        "desc": "Python SDK：pip install --upgrade ghfind"
+      },
+      {
+        "name": "ghfind CLI",
+        "desc": "ghfind score {username} -o json · ghfind scan · ghfind roast · ghfind leaderboard · ghfind stats"
+      }
+    ],
+    "machineHeading": "機械可読な入り口",
+    "machine": [
+      {
+        "label": "/openapi.json",
+        "desc": "全公開エンドポイントを網羅するOpenAPI 3.1仕様"
+      },
+      {
+        "label": "/llms.txt",
+        "desc": "全入り口へのmarkdownリンクを含むエージェント向けガイド"
+      },
+      {
+        "label": "/index.md",
+        "desc": "ホームページのmarkdown版（Accept: text/markdown でも返却）"
+      },
+      {
+        "label": "/.well-known/agent-card.json",
+        "desc": "/.well-known/ 配下のA2A agent card、MCP server card、APIカタログとスキル"
+      }
+    ]
+  },
+  "about": {
+    "metaTitle": "ghfind について",
+    "metaDescription": "ghfind はオープンソースの決定論的エンジンで、任意のGitHubアカウントの実コントリビューション価値と信頼度を0-100点で採点し、トップ開発者の発見を手助けします。",
+    "heading": "ghfind について",
+    "paragraphs": [
+      "ghfind はGitHub向けの開発者採点・発見ツールです。GitHubの公開データのみで動く完全に決定論的なエンジンを使い、任意のアカウントの実コントリビューション価値と信頼度を0〜100点で採点します。同じ入力からは常に同じスコアが出て、数値そのものに大規模言語モデルは一切関与しません。だから結果はブラックボックスではなく、再現・監査が可能です。",
+      "スコアは合計100点になる6つの加重ディメンションから構成されます：アカウント成熟度、オリジナルプロジェクトの質、コントリビューションの質、エコシステム影響力、コミュニティ影響力、アクティビティの真正性。この事実ベースのコアの上に、ghfind はオプションのAIロースト、開発者同士の対戦、プログラミング言語・組織・プロジェクト別のランキング、自分のプロフィールに埋め込めるREADMEスコアバッジを提供します。",
+      "採点エンジンは github-account-value スキルとしてAGPLライセンスでオープンソース化されており、ウェブサイト、公式npm・PyPIパッケージ、コマンドラインツール、Model Context Protocol サーバーはすべて同じコードパスで動いています。ghfind の目的はGitHubのコントリビューションを読める形にすること：真面目なオープンソースの仕事に報い、フォローする価値のある開発者を浮かび上がらせ、生の数字ではなくパターンを見ることで、水増しや偽装のアクティビティを一目で分かるようにすることです。"
+    ]
+  },
+  "contact": {
+    "metaTitle": "ghfind へのお問い合わせ",
+    "metaDescription": "ghfind チームへの連絡方法：問題の報告、ランキングからの削除申請、API・CLI・MCPサーバーに関する質問。",
+    "heading": "お問い合わせ",
+    "paragraphs": [
+      "ghfind はオープンソースプロジェクトです。チームへの連絡、問題の報告、ランキングからの削除申請、API・CLI・MCPサーバーに関する質問は、公開GitHubリポジトリでissueを立てるのが最速です。issueはそこで読まれトリアージされますし、公開の場で会話しておくと同じ疑問を持つ他のユーザーの助けにもなります。",
+      "インテグレーションについて：機械可読なAPI契約は /openapi.json、エージェント向けドキュメントの索引は /llms.txt、認証の解説は /auth.md にあります。サーバー間の大量スキャンでレート制限の引き上げが必要な場合は、GitHub issueで用途を添えて申請してください。"
+    ],
+    "issuesLabel": "GitHubでissueを立てる",
+    "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "ビジネスに関するお問い合わせ、一括ライセンス、APIレート制限の引き上げは、直接メールでどうぞ：",
+    "bizNote": "（オープンソースの利用に関する質問はGitHub issueを優先してください。公開の回答は他のユーザーにも役立ちます）",
+    "resourcesLabel": "開発者向けリソース",
+    "apiLabel": "APIリファレンス（OpenAPI）",
+    "llmsLabel": "エージェント向けドキュメント（llms.txt）",
+    "authLabel": "認証（auth.md）"
+  },
+  "privacy": {
+    "metaTitle": "プライバシー — ghfind",
+    "metaDescription": "ghfind のデータの扱い：GitHubの公開データのみを採点し、個人データを販売せず、掲載済みプロフィールの削除リクエストに応じます。",
+    "heading": "プライバシー",
+    "sections": [
+      {
+        "h": "ghfind が使うデータ",
+        "p": "ghfind はGitHubの公開データのみからスコアを計算します——つまり、プロフィールとその公開リポジトリ、PR、アクティビティで誰でも見られる情報です。プライベートリポジトリ、プライベートのコントリビューション、メールの内容、GitHub上でまだ公開されていないデータには一切アクセスしません。したがってスコアが表すのはアカウントの公開上の足跡であり、その背後にいる人物に関する事実認定ではありません。"
+      },
+      {
+        "h": "保存するもの",
+        "p": "採点されたアカウントについては、算出したスコア・ティア・派生メトリクスをキャッシュし、共有されたレポートの高速表示とランキングの快適さを保ちます。インデックスされ公開掲載されるのは60点以上のアカウントのみ。それより低いスコアのページは直リンクで到達できますが、検索エンジンには載せません。トラフィック把握にはプライバシーに配慮した集計分析を使い、個人データは販売しません。"
+      },
+      {
+        "h": "自前キーによるロースト",
+        "p": "オプションのロースト機能では、あなた自身のモデルプロバイダーのキーを使えます。提供されたキーはあなたのブラウザ内に留まり、モデル呼び出しのために当社サーバーを一度だけ経由します——保存もログも一切せず、リクエスト完了後に破棄されます。"
+      },
+      {
+        "h": "削除とコントロール",
+        "p": "プロフィールの掲載解除を希望する場合は、ランキング下部の削除リンクを使うか、GitHubリポジトリでissueを立ててください。ボードとインデックスから削除します。ghfind はGitHubの公開データを映すだけなので、GitHub上のアクティビティを更新したり非公開にしたりすれば、次回のスキャンで ghfind に見える内容も変わるか消えます。"
+      }
+    ]
+  },
+  "methodology": {
+    "metaTitle": "採点方法 — ghfind はGitHubアカウントをどう採点するか",
+    "metaDescription": "ghfind の決定論的エンジンが6つの加重ディメンションでGitHubアカウントを採点し、レッドフラグの減点を適用し、LLMを一切使わずに完全な再現性を保つ仕組み。",
+    "heading": "ghfind はGitHubアカウントをこう採点する",
+    "lead": "ghfind のスコアはモデルではなく、決定論的なルーブリックが生み出します。エンジンはGitHubの公開データを読み、合計100点になる6つのディメンションを採点し、レッドフラグの分を減点し、同じ入力には毎回同じ数値を返します。コアはAGPLライセンスでオープンソース化されており、あらゆる結果を再現・監査できます。",
+    "dimensionsHeading": "6つのディメンション",
+    "dimensionsIntro": "各ディメンションが100点の基礎点に寄与します。全体として、生のアクティビティ数ではなく、継続的でオリジナルで広く使われるオープンソースの仕事に報いる設計です。",
+    "dimensionDetails": {
+      "account_maturity": "アカウントが時間をかけてどれだけ確立され一貫しているか——年数、継続的なアクティビティ、一夜漬けの膨張に耐える信頼度カーブ。",
+      "original_project_quality": "フォークや取るに足らないプロジェクトではなく、アカウントが実際に所有し作り上げたリポジトリの質と評価。",
+      "contribution_quality": "他プロジェクトへのコントリビューションの中身——テンプレスパムではなく、マージされた意味のあるPR。",
+      "ecosystem_impact": "アカウントの仕事がより広いエコシステムでどれだけ依存され、メンテナンスされているか。",
+      "community_influence": "コミュニティでの本物のリーチと存在感。フォロワー数やスター数の生の値が支配しないよう正規化済み。",
+      "activity_authenticity": "アクティビティパターンが自然か、作為的か——真面目な仕事と水増しを分けるディメンション。"
+    },
+    "penaltiesHeading": "レッドフラグの減点",
+    "penaltiesBody": "6つのディメンションに加えて、実質的な価値なしにプロフィールを膨らませるパターンには減点が入ります：ほぼ同一のテンプレPRタイトル、アカウントが所有していないリポジトリへの集中したコントリビューション、スターやフォロワーの膨張。個々のイベントはどれももっともらしく見えますが、減点はパターンに対して発動します——だからこそ水増しは真面目な仕事と区別できるのです。",
+    "determinismHeading": "決定論と再現性",
+    "determinismBody": "スコアに大規模言語モデルは一切触れません。採点コアはオープンソースの github-account-value スキル（AGPL）であり、ウェブサイト、npm・PyPIパッケージ、CLI、MCPサーバーはすべて同じコードパスで動いています。同じ公開入力を与えれば、どこで計算してもスコアは完全に一致するので、独立に再現可能です。オプションのロースト文だけがLLMの書く部分で、数値を変えることは決してありません。",
+    "dataHeading": "スケールで見ると",
+    "dataBody": "採点済み18,947アカウント（うち3,444件は完全な生メトリクスのスナップショット付き）の公開データセットに適用したところ、偽装・水増しされたコントリビューションは世間の言説より稀（最強レベルのレッドフラグに引っかかったのは1%未満）でしたが、出現した場合ははるかに極端でした。完全な分析はリサーチセクションにあります。"
+  },
+  "vs": {
+    "metaTitle": "{a} vs {b} · どっちが勝つ？ | ghfind",
+    "metaDescription": "{a} vs {b} —— GitHubガチンコ対決。どっちがより硬派か？ghfind.com で見届けよう。",
+    "back": "← 殿堂に戻る",
+    "heading": "開発者対決",
+    "pkHeading": "⚔️ 対戦を始める",
+    "pkSub": "GitHubのユーザー名を2つ入れて、どっちがガチか見てみよう",
+    "pkPlaceholderA": "例: torvalds",
+    "pkPlaceholderB": "例: gaearon",
+    "pkButton": "🔥 開戦！",
+    "pkInvalid": "異なる2つの有効なGitHubユーザー名を入力してください",
+    "bucketCrush": "圧勝",
+    "bucketEdge": "辛勝",
+    "bucketEven": "互角",
+    "win": "🏆 勝ち",
+    "tie": "引き分け",
+    "totalHeading": "総合スコア",
+    "dimensionsHeading": "ディメンション対決",
+    "swapOpponent": "🔄 相手を替える",
+    "judgeMe": "自分も審判される →",
+    "summonTitle": "@{username} はまだ審判されていません",
+    "summonHint": "リングに召喚しないと試合が始まりません",
+    "summon": "🔥 召喚して開戦",
+    "summonScanning": "スキャン中…",
+    "summonRoasting": "ロースト中…",
+    "summonError": "召喚に失敗しました。あとで再試行を",
+    "bothMissing": "どちらもまだ審判されていません。先に召喚してから対決を。",
+    "verdictGenerating": "🤖 AIが渾身の毒舌ジャッジを練っています…",
+    "adviceHeading": "💡 レベルアップのヒント",
+    "saveImage": "📸 対戦画像を保存",
+    "saving": "レンダリング中…",
+    "copyEmbed": "🃏 README埋め込みをコピー",
+    "embedCopied": "✅ コピー済み。READMEに貼ってください",
+    "shareText": "{a} vs {b} —— どっちがガチ？このGitHub対決を ghfind.com で観戦 ⚔️",
+    "trendingHeading": "🔥 話題の対戦",
+    "trendingSub": "いちばん観戦されているGitHub開発者PK。毒舌ジャッジを見に行こう",
+    "trendingEmpty": "まだ対戦がありません。ホームで「a vs b」と入力して、最初の一発を撃ちましょう。",
+    "notRated": "未審判",
+    "verdictMissing": "判定はまだお預け。まずはリングに召喚してから。",
+    "verdictTie": "実力伯仲、甲乙つけがたし。どっちが勝っても文句なしの一戦。",
+    "verdictCrush": {
+      "0": "@{winner} が {gap} 点差で @{loser} を轢き潰した。これは対決じゃなくて公開処刑。",
+      "1": "@{winner} {winnerScore} 対 @{loser} {loserScore}：レフェリーが笛を吹く気も失せる差。",
+      "2": "@{loser} がまだウォーミングアップ中に、@{winner} はもう {gap} 点先行。握手して投了をおすすめします。",
+      "3": "@{winner} が @{loser} をマットに沈めた。{gap} 点の断層は底が見えない。",
+      "4": "波乱の余地なし：@{winner} が全ディメンションで @{loser} を圧倒、その差 {gap} 点。",
+      "5": "@{loser} は表情を作る間もなく敗北。@{winner} が {gap} 点差の圧勝劇。",
+      "6": "@{winner} の {winnerScore} の前では、@{loser} の {loserScore} はスパーリング相手にしか見えない。",
+      "7": "心が折れるレベルの差：@{winner} が @{loser} をきっちり {gap} 点リード。"
+    },
+    "verdictEdge": {
+      "0": "@{winner} が {gap} 点差で @{loser} に辛勝。この勝利、安くはなかった。",
+      "1": "接戦だったが、最後に笑ったのは {gap} 点差で @{winner}。",
+      "2": "@{winner} {winnerScore} 対 @{loser} {loserScore}：紙一重の勝負。",
+      "3": "@{loser} はあと一歩でひっくり返すところだったが、@{winner} に {gap} 点届かず。",
+      "4": "拮抗した試合で @{winner} がわずかに抜け出し、{gap} 点を持ち帰った。",
+      "5": "@{winner} の勝ちだが、@{loser} に冷や汗をかかされた——差はたった {gap} 点。",
+      "6": "半馬身差の勝利：@{winner} が @{loser} を {gap} 点かわした。",
+      "7": "@{winner} がギリギリ逃げ切り。@{loser} はあと一撃だった。"
+    },
+    "verdictEven": {
+      "0": "@{winner} と @{loser} はほぼ互角。{gap} 点差なんて誤差の範囲。",
+      "1": "完全に五分：どっちが勝っても文句なし——差はわずか {gap} 点。",
+      "2": "@{winner} {winnerScore}、@{loser} {loserScore} —— 気分次第で結果はひっくり返る。",
+      "3": "甲乙つけがたし：@{winner} と @{loser} は同じスタートラインに立っている。",
+      "4": "神々の戦い——{gap} 点の差なんて語るに値しない。",
+      "5": "@{winner} が髪の毛一本分リード。でも @{loser} はまったく動じていない。",
+      "6": "痛み分け——@{winner} は運が {gap} 点分よかっただけ。",
+      "7": "どっちもどっち。@{winner} も @{loser} も相手から何も奪えなかった。"
+    }
+  }
+}

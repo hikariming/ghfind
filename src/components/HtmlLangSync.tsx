@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { HTML_LANG, routing, type Locale } from "@/i18n/routing";
 
-export function HtmlLangSync({ locale }: { locale: "en" | "zh" }) {
+export function HtmlLangSync({ locale }: { locale: string }) {
   useEffect(() => {
-    document.documentElement.lang = locale === "en" ? "en" : "zh-CN";
+    const known = routing.locales.includes(locale as Locale)
+      ? (locale as Locale)
+      : routing.defaultLocale;
+    document.documentElement.lang = HTML_LANG[known];
   }, [locale]);
 
   return null;

@@ -18,7 +18,7 @@ import { getRelatedProjectsCached } from "@/lib/project-discovery";
 import type { FacetType } from "@/lib/facets";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
-import { localeAlternates } from "@/lib/site";
+import { localeAlternates, localePath } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd } from "@/components/JsonLd";
 
 // ISR, not force-dynamic: these boards are the heaviest crawler target on the
@@ -110,7 +110,7 @@ export default async function FacetBucketPage({
     type === "repo" ? getRelatedProjectsCached(value) : Promise.resolve([]),
   ]);
 
-  const localePrefix = locale === "en" ? "/en" : "";
+  const localePrefix = localePath(locale, "/").replace(/\/$/, "");
   const encodedPath = value.split("/").map(encodeURIComponent).join("/");
   const breadcrumb = breadcrumbJsonLd([
     { name: t("heading"), path: `${localePrefix}/developers` },

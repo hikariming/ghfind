@@ -14,7 +14,7 @@ import {
   organizationJsonLd,
   softwareApplicationJsonLd,
 } from "@/components/JsonLd";
-import { SITE_URL, localeAlternates } from "@/lib/site";
+import { SITE_URL, localeAlternates, localePath } from "@/lib/site";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -43,7 +43,7 @@ export async function generateMetadata({
     openGraph: {
       title: t("ogTitle"),
       description: t("ogDescription"),
-      url: locale === "en" ? "/en" : "/",
+      url: localePath(locale, "/"),
       siteName: t("siteName"),
       type: "website",
       images: [{ url: "/api/og/home", width: 1200, height: 630, alt: t("siteName") }],

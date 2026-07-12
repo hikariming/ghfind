@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState } from "react";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, localePath } from "@/lib/site";
 import { trackEvent } from "@/lib/track";
 import { VsShareCard, type VsSide } from "./VsShareCard";
 import { createShareCardBlob } from "./shareCardExport";
@@ -36,10 +36,7 @@ export function VsShare({
   const [savingImg, setSavingImg] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
 
-  const link =
-    locale === "en"
-      ? `${SITE_URL}/en/vs/${a.username}/${b.username}`
-      : `${SITE_URL}/vs/${a.username}/${b.username}`;
+  const link = `${SITE_URL}${localePath(locale, `/vs/${a.username}/${b.username}`)}`;
   const shareText = t("shareText", { a: a.username, b: b.username });
   const fileName = () => `ghfind-vs-${a.username}-${b.username}.png`;
 

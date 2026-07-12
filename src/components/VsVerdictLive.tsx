@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import type { RoastLine } from "@/lib/types";
+import { normLang } from "@/lib/lang";
 
 /**
  * The /vs verdict banner. SSR renders the deterministic template (or a stored
@@ -60,7 +61,7 @@ export function VsVerdictLive({
         };
         if (!data.verdict) return;
         const pick = (r: RoastLine | null | undefined) =>
-          !r ? "" : locale === "en" ? r.en || r.zh : r.zh || r.en;
+          !r ? "" : normLang(locale) === "en" ? r.en || r.zh : r.zh || r.en;
         const v = pick(data.verdict);
         if (v) setVerdictText(v);
         const adv = pick(data.advice);

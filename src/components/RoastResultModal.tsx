@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SITE_URL } from "@/lib/site";
+import { normLang } from "@/lib/lang";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { trackEvent } from "@/lib/track";
 import type { RoastLine, RoastMeta } from "@/lib/types";
@@ -212,5 +213,5 @@ export function RoastResultModal({
 
 function pickLine(line: RoastLine | undefined, locale: string): string {
   if (!line) return "";
-  return locale === "en" ? line.en : line.zh;
+  return normLang(locale) === "en" ? line.en : line.zh;
 }

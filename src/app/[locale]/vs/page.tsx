@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getTrendingMatchups } from "@/lib/db";
 import { localeAlternates } from "@/lib/site";
+import { normLang } from "@/lib/lang";
 import { VsBattleBox } from "@/components/VsBattleBox";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export default async function VsIndexPage({
         ) : (
           <div className="mt-8 flex flex-col gap-2">
             {matchups.map((m) => {
-              const line = locale === "en" ? m.verdict?.en || m.verdict?.zh : m.verdict?.zh || m.verdict?.en;
+              const line = normLang(locale) === "en" ? m.verdict?.en || m.verdict?.zh : m.verdict?.zh || m.verdict?.en;
               const aWon = m.winner === m.handleA;
               const bWon = m.winner === m.handleB;
               return (
