@@ -1,0 +1,261 @@
+{
+  "generated_at": "2026-07-11T16:29:05.888Z",
+  "repo": {
+    "full_name": "openclaw/openclaw",
+    "description": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 ",
+    "stars": 382580,
+    "forks": 80292,
+    "open_issues": 6446,
+    "created_at": "2025-11-24T10:16:47Z",
+    "language": "TypeScript",
+    "topics": [
+      "ai",
+      "assistant",
+      "crustacean",
+      "molty",
+      "openclaw",
+      "own-your-data",
+      "personal"
+    ]
+  },
+  "sample": {
+    "top_contributors_fetched": 100,
+    "bots_excluded": 4,
+    "bot_logins": [
+      "github-actions[bot]",
+      "clawsweeper[bot]",
+      "openclaw-clownfish[bot]",
+      "dependabot[bot]"
+    ],
+    "humans": 96,
+    "scored": 96,
+    "with_deep_metrics": 92
+  },
+  "scores": {
+    "dist": {
+      "n": 96,
+      "p10": 44.25,
+      "p25": 65.1,
+      "p50": 79.7,
+      "p75": 88.75,
+      "p90": 96.25,
+      "mean": 74.47708333333331,
+      "max": 100
+    },
+    "tier_histogram": {
+      "夯": 21,
+      "顶级": 26,
+      "NPC": 20,
+      "人上人": 20,
+      "拉完了": 9
+    },
+    "gte90": 21,
+    "gte70": 67,
+    "lt40": 9
+  },
+  "spam": {
+    "stored_bot_gte3": 0,
+    "recomputed_gte3": 0,
+    "recomputed_gte5": 0,
+    "of": 92
+  },
+  "red_flags": {
+    "users_with_any": 19,
+    "of": 92,
+    "by_flag": {
+      "new_account_mass_repos": 1,
+      "mostly_forks": 15,
+      "no_original_work": 10,
+      "high_pr_rejection": 4,
+      "ghost_profile": 1
+    }
+  },
+  "raw_metrics": {
+    "followers": {
+      "n": 92,
+      "p10": 1.0999999999999996,
+      "p25": 8,
+      "p50": 40,
+      "p75": 143.5,
+      "p90": 361.1,
+      "mean": 759.945652173913,
+      "max": 52067
+    },
+    "account_age_years": {
+      "n": 92,
+      "p10": 0.34400000000000003,
+      "p25": 1.815,
+      "p50": 8.735,
+      "p75": 12.504999999999999,
+      "p90": 14.427,
+      "mean": 7.9572826086956505,
+      "max": 18.08
+    },
+    "merged_pr_count": {
+      "n": 92,
+      "p10": 40.2,
+      "p25": 56.5,
+      "p50": 123.5,
+      "p75": 294,
+      "p90": 1000.4000000000001,
+      "mean": 397.2717391304348,
+      "max": 6261
+    },
+    "total_stars": {
+      "n": 92,
+      "p10": 0,
+      "p25": 1.75,
+      "p50": 22,
+      "p75": 505.5,
+      "p90": 382584.8,
+      "mean": 55734.239130434784,
+      "max": 383677
+    },
+    "accounts_lt1y": 18,
+    "accounts_lt2y": 24
+  },
+  "bus_factor": {
+    "total_commits_top_sample": 58487,
+    "top1_share": 0.5724690956964795,
+    "top3_share": 0.8150871133756219,
+    "top5_share": 0.8596440234582043,
+    "top10_share": 0.9021662933643374,
+    "top_contributors": [
+      {
+        "login": "steipete",
+        "commits": 33482
+      },
+      {
+        "login": "vincentkoc",
+        "commits": 10502
+      },
+      {
+        "login": "shakkernerd",
+        "commits": 3688
+      },
+      {
+        "login": "obviyus",
+        "commits": 1771
+      },
+      {
+        "login": "Takhoffman",
+        "commits": 835
+      },
+      {
+        "login": "gumadeiras",
+        "commits": 816
+      },
+      {
+        "login": "joshavant",
+        "commits": 558
+      },
+      {
+        "login": "vignesh07",
+        "commits": 497
+      },
+      {
+        "login": "thewilloftheshadow",
+        "commits": 326
+      },
+      {
+        "login": "RomneyDa",
+        "commits": 290
+      },
+      {
+        "login": "BunsDev",
+        "commits": 230
+      },
+      {
+        "login": "giodl73-repo",
+        "commits": 192
+      },
+      {
+        "login": "sebslight",
+        "commits": 177
+      },
+      {
+        "login": "jalehman",
+        "commits": 176
+      },
+      {
+        "login": "mbelinky",
+        "commits": 172
+      }
+    ]
+  },
+  "underrated_candidates": [
+    {
+      "login": "RomneyDa",
+      "score": 98.4,
+      "tier": "夯",
+      "followers": 169,
+      "commits_here": 290
+    },
+    {
+      "login": "altaywtf",
+      "score": 97.7,
+      "tier": "夯",
+      "followers": 273,
+      "commits_here": 66
+    },
+    {
+      "login": "osolmaz",
+      "score": 97.2,
+      "tier": "夯",
+      "followers": 290,
+      "commits_here": 76
+    },
+    {
+      "login": "pashpashpash",
+      "score": 97,
+      "tier": "夯",
+      "followers": 294,
+      "commits_here": 102
+    },
+    {
+      "login": "ngutman",
+      "score": 96,
+      "tier": "夯",
+      "followers": 91,
+      "commits_here": 143
+    },
+    {
+      "login": "joshavant",
+      "score": 95.7,
+      "tier": "夯",
+      "followers": 160,
+      "commits_here": 558
+    },
+    {
+      "login": "omarshahine",
+      "score": 93.4,
+      "tier": "夯",
+      "followers": 60,
+      "commits_here": 57
+    },
+    {
+      "login": "sallyom",
+      "score": 90.9,
+      "tier": "夯",
+      "followers": 193,
+      "commits_here": 64
+    }
+  ],
+  "baseline_19k": {
+    "n": 18947,
+    "approx_median_score": 42.5,
+    "tier_histogram": {
+      "NPC": 5940,
+      "拉完了": 9201,
+      "人上人": 1658,
+      "顶级": 1443,
+      "夯": 705
+    },
+    "spam_gte3_rate": 0.005809654589627126,
+    "red_flag_any_rate": 0.16957026713124274,
+    "followers_p50": 27,
+    "merged_pr_p50": 20,
+    "account_age_p50": 7.375
+  },
+  "method_notes": "Aggregate statistics for the article \"382,000 Stars, One Pair of Hands\". Per-contributor rows are withheld by policy (individuals are named only in positive contexts). Engine: ghfind deterministic rubric, AGPL. Baseline: we-scored-19000-github-accounts."
+}

@@ -58,3 +58,6 @@ next-env.d.ts
 scripts/_*.log
 scripts/_*.jsonl
 scripts/_org-members.json
+
+# repo-research raw output (per-contributor scores stay private; published aggregates live in public/blog/)
+scripts/repo-research/out/

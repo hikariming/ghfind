@@ -1,0 +1,272 @@
+{
+  "generated_at": "2026-07-11T16:10:19.612Z",
+  "repo": {
+    "full_name": "langgenius/dify",
+    "description": "Production-ready platform for agentic workflow development.",
+    "stars": 148500,
+    "forks": 23407,
+    "open_issues": 955,
+    "created_at": "2023-04-12T07:40:24Z",
+    "language": "TypeScript",
+    "topics": [
+      "agent",
+      "agentic-ai",
+      "agentic-framework",
+      "agentic-workflow",
+      "ai",
+      "automation",
+      "gemini",
+      "genai",
+      "gpt",
+      "gpt-4",
+      "llm",
+      "low-code",
+      "mcp",
+      "nextjs",
+      "no-code",
+      "openai",
+      "orchestration",
+      "python",
+      "rag",
+      "workflow"
+    ]
+  },
+  "sample": {
+    "top_contributors_fetched": 100,
+    "bots_excluded": 3,
+    "bot_logins": [
+      "dependabot[bot]",
+      "github-actions[bot]",
+      "Copilot"
+    ],
+    "humans": 97,
+    "scored": 96,
+    "with_deep_metrics": 86
+  },
+  "scores": {
+    "dist": {
+      "n": 96,
+      "p10": 56.05,
+      "p25": 67.675,
+      "p50": 78.2,
+      "p75": 85.325,
+      "p90": 93.9,
+      "mean": 74.34791666666666,
+      "max": 100
+    },
+    "tier_histogram": {
+      "夯": 15,
+      "人上人": 23,
+      "顶级": 30,
+      "NPC": 23,
+      "拉完了": 5
+    },
+    "gte90": 15,
+    "gte70": 68,
+    "lt40": 5
+  },
+  "spam": {
+    "stored_bot_gte3": 2,
+    "recomputed_gte3": 1,
+    "recomputed_gte5": 0,
+    "of": 86
+  },
+  "red_flags": {
+    "users_with_any": 13,
+    "of": 86,
+    "by_flag": {
+      "trivial_pr_farming": 1,
+      "mostly_forks": 12,
+      "no_original_work": 4,
+      "templated_pr_flooding": 1
+    }
+  },
+  "raw_metrics": {
+    "followers": {
+      "n": 86,
+      "p10": 3.5,
+      "p25": 12.25,
+      "p50": 31.5,
+      "p75": 192.75,
+      "p90": 596,
+      "mean": 291.74418604651163,
+      "max": 6495
+    },
+    "account_age_years": {
+      "n": 86,
+      "p10": 2.245,
+      "p25": 5.5075,
+      "p50": 8.99,
+      "p75": 10.99,
+      "p90": 13.18,
+      "mean": 8.33232558139535,
+      "max": 14.96
+    },
+    "merged_pr_count": {
+      "n": 86,
+      "p10": 30.5,
+      "p25": 51.5,
+      "p50": 117.5,
+      "p75": 298,
+      "p90": 590.5,
+      "mean": 244.56976744186048,
+      "max": 3135
+    },
+    "total_stars": {
+      "n": 86,
+      "p10": 0,
+      "p25": 1,
+      "p50": 31,
+      "p75": 211.5,
+      "p90": 5598.5,
+      "mean": 6870.558139534884,
+      "max": 188760
+    },
+    "accounts_lt1y": 4,
+    "accounts_lt2y": 8
+  },
+  "bus_factor": {
+    "total_commits_top_sample": 8434,
+    "top1_share": 0.08394593312781598,
+    "top3_share": 0.2104576713303296,
+    "top5_share": 0.31290016599478304,
+    "top10_share": 0.4981029167654731,
+    "top_contributors": [
+      {
+        "login": "laipz8200",
+        "commits": 708
+      },
+      {
+        "login": "takatost",
+        "commits": 539
+      },
+      {
+        "login": "lyzno1",
+        "commits": 528
+      },
+      {
+        "login": "iamjoel",
+        "commits": 494
+      },
+      {
+        "login": "JohnJyong",
+        "commits": 370
+      },
+      {
+        "login": "hjlarry",
+        "commits": 365
+      },
+      {
+        "login": "crazywoola",
+        "commits": 360
+      },
+      {
+        "login": "bowenliang123",
+        "commits": 295
+      },
+      {
+        "login": "zxhlyh",
+        "commits": 293
+      },
+      {
+        "login": "hyoban",
+        "commits": 249
+      },
+      {
+        "login": "asukaminato0721",
+        "commits": 248
+      },
+      {
+        "login": "Yeuoly",
+        "commits": 220
+      },
+      {
+        "login": "fatelei",
+        "commits": 220
+      },
+      {
+        "login": "JzoNgKVO",
+        "commits": 147
+      },
+      {
+        "login": "WTW0313",
+        "commits": 140
+      }
+    ]
+  },
+  "underrated_candidates": [
+    {
+      "login": "linw1995",
+      "score": 96.4,
+      "tier": "夯",
+      "followers": 165,
+      "commits_here": 16
+    },
+    {
+      "login": "kurokobo",
+      "score": 94.3,
+      "tier": "夯",
+      "followers": 116,
+      "commits_here": 58
+    },
+    {
+      "login": "bowenliang123",
+      "score": 94,
+      "tier": "夯",
+      "followers": 163,
+      "commits_here": 295
+    },
+    {
+      "login": "junjiem",
+      "score": 93.8,
+      "tier": "夯",
+      "followers": 229,
+      "commits_here": 20
+    },
+    {
+      "login": "hjlarry",
+      "score": 93.6,
+      "tier": "夯",
+      "followers": 160,
+      "commits_here": 365
+    },
+    {
+      "login": "lin-snow",
+      "score": 92.3,
+      "tier": "夯",
+      "followers": 152,
+      "commits_here": 21
+    },
+    {
+      "login": "WH-2099",
+      "score": 89.6,
+      "tier": "顶级",
+      "followers": 31,
+      "commits_here": 24
+    },
+    {
+      "login": "wylswz",
+      "score": 86.9,
+      "tier": "顶级",
+      "followers": 31,
+      "commits_here": 41
+    }
+  ],
+  "baseline_19k": {
+    "n": 18947,
+    "approx_median_score": 42.5,
+    "tier_histogram": {
+      "NPC": 5940,
+      "拉完了": 9201,
+      "人上人": 1658,
+      "顶级": 1443,
+      "夯": 705
+    },
+    "spam_gte3_rate": 0.005809654589627126,
+    "red_flag_any_rate": 0.16957026713124274,
+    "followers_p50": 27,
+    "merged_pr_p50": 20,
+    "account_age_p50": 7.375
+  },
+  "method_notes": "Aggregate statistics for the article \"Who Builds Dify?\". Per-contributor rows are withheld by policy (individuals are named only in positive contexts). Engine: ghfind deterministic rubric, AGPL. Baseline: we-scored-19000-github-accounts."
+}
