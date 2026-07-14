@@ -1,0 +1,794 @@
+{
+  "meta": {
+    "title": "ghfind | Score brutal de GitHub, autoevalúate y descubre a los mejores devs",
+    "description": "ghfind: un score de valor y confianza de GitHub de 0 a 100, más un roast sin piedad en 30s. Ve tus puntos débiles, ponte a prueba y crece; luego descubre a los mejores developers y deja que te encuentren.",
+    "ogTitle": "ghfind | Score brutal de GitHub, autoevalúate y descubre a los mejores devs",
+    "ogDescription": "ghfind: evalúa cualquier cuenta de GitHub y descubre a los mejores developers. Score de valor y confianza de 0 a 100 + un roast sin piedad en 30 segundos, más un ranking de developers.",
+    "twDescription": "Evalúa a cualquier dev de GitHub y descubre a los mejores en ghfind. Score 0-100 y roast brutal en 30s.",
+    "siteName": "ghfind"
+  },
+  "nav": {
+    "brand": "ghfind",
+    "roast": "Roast",
+    "leaderboard": "Ranking",
+    "discover": "Descubrir",
+    "developers": "Developers",
+    "projects": "Proyectos",
+    "languages": "Lenguajes",
+    "organizations": "Organizaciones",
+    "versus": "Versus",
+    "blog": "Research",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú"
+  },
+  "globalSearch": {
+    "open": "Abrir búsqueda global",
+    "trigger": "Buscar",
+    "title": "Buscar en ghfind",
+    "description": "Encuentra developers, proyectos, lenguajes y organizaciones.",
+    "input": "Buscar developers y proyectos",
+    "placeholder": "Prueba con antfu, vite, Rust o vercel",
+    "loading": "Buscando…",
+    "empty": "Todavía no hay developers ni proyectos que coincidan.",
+    "group": {
+      "users": "Developers",
+      "repos": "Proyectos",
+      "facets": "Lenguajes y organizaciones"
+    }
+  },
+  "header": {
+    "signIn": "Iniciar sesión con GitHub",
+    "signOut": "Cerrar sesión",
+    "myProfile": "Mi perfil",
+    "judgeSelf": "Juzgarme a mí"
+  },
+  "loginNudge": {
+    "title": "🔥 Inicia sesión para desbloquear más",
+    "body": "Inicia sesión con GitHub para conservar tus votos y reacciones — y llevarte una experiencia más fluida.",
+    "signIn": "Iniciar sesión con GitHub",
+    "dismiss": "Quizás luego",
+    "close": "Cerrar"
+  },
+  "langSwitch": {
+    "label": "Cambiar idioma",
+    "zh": "中文",
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "id": "Bahasa Indonesia",
+    "vi": "Tiếng Việt",
+    "ar": "العربية"
+  },
+  "themeSwitch": {
+    "label": "Cambiar tema",
+    "light": "Tema claro",
+    "dark": "Tema oscuro",
+    "auto": "Usar tema del sistema"
+  },
+  "repoLink": {
+    "label": "Código",
+    "title": "El código fuente y el algoritmo de scoring son open source · Ver en GitHub"
+  },
+  "home": {
+    "brand": "Sin piedad",
+    "headline": "Descubre a los mejores developers — y conviértete en uno.",
+    "subtitle": "Empieza con un score de 0 a 100 brutalmente honesto. Mira dónde estás parado y hacia dónde ir.",
+    "boardHeading": "🏆 Los mejores developers",
+    "openBoard": "Abrir el ranking completo →",
+    "disclaimer1": "Los scores y roasts se generan automáticamente solo a partir de <b>datos públicos de GitHub</b>. Roasteamos el comportamiento y las estadísticas públicas de una cuenta, no a la persona. Los resultados no son afirmaciones factuales sobre nadie — por favor no los uses para acosar.",
+    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador."
+  },
+  "leaderboard": {
+    "heading": "🏆 Salón de la Fama",
+    "subtitle": "El Salón de la Fama lista cuentas con score de 60+, ordenado por Tendencia por defecto.",
+    "judgeCta": "← Juzgar una cuenta",
+    "footerNote": "Solo se listan cuentas de score alto construidas con datos públicos de GitHub. Para salir del ranking, <a>solicita tu eliminación aquí</a>.",
+    "loadError": "No pudimos cargar el ranking ahora mismo — inténtalo más tarde.",
+    "loading": "Cargando el Salón de la Fama…",
+    "empty": "🧮 Haciendo cuentas — vuelve pronto…",
+    "prev": "← Anterior",
+    "next": "Siguiente →",
+    "pageJumpLabel": "Ir a la página",
+    "collapse": "Colapsar",
+    "trendView": "🚀 Tendencia",
+    "scoreView": "💯 Mejores scores",
+    "trendLabel": "Tendencia",
+    "trendTitle": "Score de tendencia: 80% score + 15% calor de visitantes únicos en 7 días + 5% decaimiento de búsquedas recientes",
+    "scoreLabel": "Score",
+    "scoreTitle": "Score de valor y confianza de 0 a 100 basado en datos públicos de GitHub",
+    "heatView": "🔥 Más roasteados",
+    "heatLabel": "Calor",
+    "heatTitle": "Cantidad de roasts exitosos",
+    "vsButton": "Retar",
+    "viewDetail": "Ver el detalle del score de @{username}",
+    "trendSubtitle": "La tendencia mezcla score, calor de visitantes únicos en 7 días y recencia de búsquedas; el calor se normaliza para que la atención pura no aplaste a la calidad.",
+    "scoreSubtitle": "Ordenado por el score de valor y confianza de 0 a 100.",
+    "heatSubtitle": "Ordenado por el total de roasts exitosos.",
+    "windowAria": "Rango de tiempo",
+    "window24h": "24h",
+    "window7d": "7d",
+    "window30d": "30d",
+    "windowAll": "Histórico"
+  },
+  "developers": {
+    "heading": "Descubre developers",
+    "subtitle": "Encuentra a los mejores developers que vale la pena seguir, agrupados por lenguaje de programación, proyecto y organización.",
+    "languagesTitle": "Por lenguaje",
+    "projectsTitle": "Por proyecto",
+    "orgsTitle": "Por organización",
+    "count": "{count}",
+    "emptyCategories": "Todavía no hay categorías para mostrar — vuelve pronto.",
+    "languageBucketHeading": "Los mejores developers de {value}",
+    "repoBucketHeading": "{value} · contributors",
+    "orgBucketHeading": "{value} · miembros",
+    "bucketSubtitle": "Ordenado por score general, mostrando hasta el top {limit}.",
+    "pinRankLine": "<strong>@{username}</strong> ocupa el puesto <strong>#{rank}</strong> en este ranking",
+    "pinChallenge": "Retar a @{username}, un puesto más arriba",
+    "pinTop": "Cima del ranking 👑",
+    "empty": "Todavía no hay developers en esta categoría.",
+    "backToDirectory": "← Volver a Descubrir",
+    "metaTitle": "Descubre developers",
+    "metaDescription": "Explora a los mejores developers de GitHub por lenguaje de programación, proyecto y organización.",
+    "bucketMetaDescription": "Los developers de GitHub con mejor score en {value}.",
+    "apiCta": "¿Evaluando candidatos en masa? Cada score de este ranking sale de la API de ghfind — scoring de confianza determinista de 0 a 100 para cualquier cuenta de GitHub, gratis para uso moderado.",
+    "apiCtaLink": "Docs de la API →",
+    "repoAuthoredBy": "Mantenido por",
+    "repoContributors": "contributors rankeados",
+    "repoAvgScore": "score promedio"
+  },
+  "projects": {
+    "metaTitle": "Descubre proyectos de GitHub de calidad · ghfind",
+    "metaDescription": "Descubre proyectos de GitHub rankeados por la calidad y el impulso de los developers que hay detrás.",
+    "eyebrow": "Descubrimiento de proyectos",
+    "heading": "Encuentra proyectos por quién los construye",
+    "subtitle": "Las stars muestran popularidad. ghfind agrega la capa que falta: calidad de contributors, profundidad del equipo y atención reciente.",
+    "sortLabel": "Orden de proyectos",
+    "languageLabel": "Lenguaje del proyecto",
+    "sort": {
+      "quality": "Calidad de contributors",
+      "momentum": "Impulso reciente",
+      "stars": "Stars"
+    },
+    "allLanguages": "Todos los lenguajes",
+    "contributors": "contributors",
+    "avgScore": "score promedio",
+    "momentum": "impulso",
+    "reason": {
+      "elite": "Construido por varios developers top",
+      "momentum": "La atención va en subida esta semana",
+      "quality": "Lidera en calidad de contributors",
+      "popular": "Proyecto open source popular"
+    },
+    "prev": "← Anterior",
+    "next": "Siguiente →",
+    "page": "Página {page}",
+    "listLabel": "Resultados de proyectos",
+    "emptyTitle": "Todavía no hay grafo de proyectos aquí",
+    "emptyBody": "Corre el backfill de repositorios en local o quita el filtro actual."
+  },
+  "discoveryNext": {
+    "relatedTitle": "Sigue explorando",
+    "relatedSubtitle": "Proyectos conectados por contributors o lenguaje.",
+    "sharedContributors": "{count} contributors en común",
+    "sameLanguage": "Mismo lenguaje",
+    "commonTitle": "Proyectos que tienen en común",
+    "commonSubtitle": "Trabajo compartido entre este developer y perfiles similares.",
+    "projects": {
+      "title": "Explorar proyectos",
+      "body": "Mira qué repositorios están respaldados por equipos de contributors de alta calidad.",
+      "cta": "Ver ranking de proyectos"
+    },
+    "organizations": {
+      "title": "Explorar organizaciones",
+      "body": "Sigue el recorrido por los equipos y comunidades detrás del ranking.",
+      "cta": "Ver organizaciones"
+    }
+  },
+  "continueExploring": {
+    "title": "Continúa donde lo dejaste",
+    "subtitle": "Developers y proyectos recientes de tu exploración.",
+    "developer": "Developer",
+    "project": "Proyecto"
+  },
+  "challenge": {
+    "bannerTitle": "¿Vienes del perfil de @{owner}? Mira cómo te comparas contra esa persona",
+    "cta": "Retar",
+    "go": "Pelear",
+    "inputPlaceholder": "Tu usuario de GitHub",
+    "selfHint": "Ese eres tú — elige a alguien más.",
+    "invalidHint": "Eso no parece un usuario de GitHub válido.",
+    "dismiss": "Descartar",
+    "profileCta": "Retar",
+    "ownerCta": "Trae a alguien a enfrentarme"
+  },
+  "follow": {
+    "button": "Seguir",
+    "following": "Siguiendo",
+    "limit": "Puedes seguir hasta 50 developers.",
+    "homeTitle": "Developers que sigues",
+    "homeSub": "movimientos de score esta semana",
+    "homeEmpty": "Sigue developers desde su página de perfil y vuelve aquí para ver cómo se mueven sus scores.",
+    "unrated": "sin evaluar",
+    "menuLink": "Developers que sigues",
+    "pageTitle": "Developers que sigues",
+    "pageSubtitle": "movimientos de score esta semana",
+    "signInTitle": "Inicia sesión para ver a quién sigues",
+    "signInBody": "Inicia sesión con GitHub, sigue developers y vuelve aquí para ver cómo se mueven sus scores.",
+    "signIn": "Iniciar sesión con GitHub"
+  },
+  "detail": {
+    "back": "← Volver al Salón de la Fama",
+    "backfilling": "🔍 Rastreando su huella open source (repos / lenguajes / contribuciones)…",
+    "rankTitle": "Tu posición",
+    "rankUnit": "/ de {total}",
+    "rankUnranked": "Sin ranking (datos insuficientes)",
+    "beatInline": "Superas al {beat}% de los developers",
+    "milestoneNext": "{gap} pts para “{tier}”",
+    "milestoneCapped": "🏆 Al tope · nivel máximo",
+    "facetRankLine": "#{rank} en {facet}",
+    "facetRankAhead": "detrás de @{username}",
+    "challengeCta": "Retar",
+    "challengeGo": "Pelear",
+    "challengeSelf": "Ese eres tú — elige a alguien más.",
+    "challengeInvalid": "Eso no parece un usuario de GitHub válido.",
+    "challengePlaceholder": "Tu usuario de GitHub",
+    "challengeOwner": "Trae a alguien a enfrentarme",
+    "modalPkCta": "Trae a alguien para comparar",
+    "modalFacetRankCta": "Ver mi posición en {facet}",
+    "dimensionsHeading": "Desglose del score",
+    "similarHeading": "🧬 Developers más parecidos",
+    "similarSub": "Perfil más cercano, score similar",
+    "impactHeading": "🏆 Contribuciones destacadas",
+    "impactSub": "Repos open source populares a los que ha aportado (commits + PRs)",
+    "worksHeading": "🛠 Trabajo destacado",
+    "worksSub": "Sus propios repositorios populares y fijados",
+    "stackHeading": "🧬 Stack y dominios",
+    "stackLangLabel": "Lenguajes principales",
+    "stackTopicsLabel": "Dominios",
+    "orgsLabel": "Organizaciones",
+    "commits": "commits",
+    "prs": "PRs",
+    "roastHeading": "🔥 Roast completo",
+    "roastEmpty": "Este roast todavía no está archivado — <a>vuelve a juzgar desde la página de inicio</a> para generarlo.",
+    "livePendingBanner": "Roast en proceso…",
+    "livePending": "Calentando el roast…",
+    "liveError": "El roast falló al generarse.",
+    "liveRateLimited": "Demasiados roasts ahora mismo — inténtalo en un minuto.",
+    "liveExpired": "El escaneo expiró antes de que el roast terminara.",
+    "liveGoHome": "Roastear de nuevo desde la página de inicio →",
+    "modalTitle": "🔥 Tu roast ya llegó",
+    "modalRoastHeading": "Roast completo",
+    "modalFirstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
+    "modalBeat": "🏆 Superaste al {beat}% de los developers ({total} juzgados hasta ahora)",
+    "modalViewProfile": "Ver perfil completo",
+    "modalBadgeCta": "Consigue tu badge para GitHub",
+    "modalClose": "Cerrar",
+    "battlesHeading": "⚔️ Batallas",
+    "battlesSub": "Duelos PK que este dev ha peleado",
+    "battleWin": "Victoria",
+    "battleLoss": "Derrota",
+    "battleTie": "Empate",
+    "selfCta": "Evalúa tu propio GitHub →",
+    "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés."
+  },
+  "reactions": {
+    "heading": "Reacciones de la comunidad",
+    "hint": "Una reacción por cuenta de GitHub; cámbiala cuando quieras",
+    "addReaction": "Agregar reacción",
+    "loginRequired": "Inicia sesión con GitHub para reaccionar. Tu elección quedará guardada.",
+    "loginAction": "Iniciar sesión con GitHub",
+    "failed": "Tu reacción no se guardó. Inténtalo más tarde.",
+    "like": "Respeto",
+    "poop": "Muy aguado",
+    "kick": "Patada",
+    "fire": "Brutal",
+    "salute": "Saludo",
+    "clown": "No puedo con esto"
+  },
+  "rescan": {
+    "button": "🔄 Volver a detectar",
+    "scanning": "Escaneando…",
+    "roasting": "Roasteando…",
+    "error": "La detección falló, inténtalo más tarde",
+    "cooldown": "Podrás refrescar en {hours}h"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "descWithTags": "{tags} — mira el reporte completo del score de {username} en ghfind.com.",
+    "descPlain": "Reporte de valor y confianza de GitHub de {username} — ghfind.com.",
+    "notFoundTitle": "Cuenta no encontrada · ghfind",
+    "pendingTitle": "Roasteando a @{username}… · ghfind"
+  },
+  "roaster": {
+    "inputPlaceholder": "Escribe un usuario de GitHub o la URL de un perfil",
+    "judge": "Juzgar",
+    "judging": "Juzgando…",
+    "byoLink": "Usa tu propio modelo / API key",
+    "scanning": "Desenterrando el historial de {username}… leyendo commits, revisando PRs, contando stars, olfateando actividad inflada",
+    "roastLabel": "🔥 Roast",
+    "roastThinking": "La IA está cocinando un roast sin piedad — ya casi sale…",
+    "roastPending": "Preparando el roast",
+    "firstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
+    "rankLine": "<hl>📊 Puesto #{rank}</hl><muted> de {total} developers</muted>",
+    "beatLine": "<hl>🏆 Superaste al {beat}%</hl><muted> de los developers ({total} juzgados hasta ahora)</muted>",
+    "saveImage": "📸 Guardar imagen para presumir",
+    "saving": "Generando…",
+    "pasteGithub": "📌 Fijar en GitHub",
+    "copied": "Copiado ✓",
+    "privateNote": "Nota: el score usa solo señales públicas — las contribuciones privadas no cuentan, así que los miembros activos de orgs privadas pueden quedar subvalorados.",
+    "shareText": "Mi GitHub acaba de ser juzgado: {score}/100 · {tier} ({tierLabel}){beat}. Evalúa el tuyo 👉 ghfind.com",
+    "shareBeat": ", superando al {beat}% de los developers",
+    "errEmpty": "Primero escribe un usuario de GitHub o la URL de un perfil.",
+    "errNeedTurnstile": "Primero completa la verificación de abajo.",
+    "errRoastFailed": "La generación del roast falló — inténtalo más tarde o usa tu propia key.",
+    "errNetworkRoast": "Se cayó la conexión — el roast quedó a medias.",
+    "errScanFailed": "El escaneo falló, inténtalo más tarde.",
+    "errNetworkScan": "Error de red — ni siquiera pudimos llegar a GitHub.",
+    "byoReasonQuota": "La cuota gratis se acabó 😵 Agrega tu propia API key para seguir roasteando (OpenAI / StepFun / Groq, todas sirven).",
+    "byoReasonRate": "Has roasteado mucho hoy 🥵 Tómate un respiro, o agrega tu propia API key para roasts ilimitados.",
+    "byoReasonDefault": "No hay un modelo por defecto configurado en el servidor — agrega tu propia API key para empezar a roastear."
+  },
+  "scanErrors": {
+    "invalid_username": "Eso no parece un usuario de GitHub — ¿lo revisas de nuevo?",
+    "account_not_found": "Esa cuenta no existe — ¿está bien escrita?",
+    "turnstile_failed": "La verificación falló — refresca la página y reintenta.",
+    "rate_limited": "Muy rápido — respira y vuelve a intentarlo en un minuto.",
+    "github_rate_limited": "La API de GitHub está al límite ahora mismo — dale un momento.",
+    "github_unavailable": "Los datos de GitHub no están disponibles por ahora — inténtalo más tarde.",
+    "scan_failed": "El escaneo se estrelló — inténtalo más tarde."
+  },
+  "share": {
+    "open": "🔗 Compartir",
+    "heading": "Compartir en",
+    "imageHint": "Compartir como imagen",
+    "copyLink": "Copiar enlace",
+    "copied": "Copiado ✓",
+    "native": "Más…",
+    "siteName": "ghfind"
+  },
+  "badge": {
+    "heading": "📌 Fíjalo en tu perfil de GitHub",
+    "blurb": "Copia cualquiera de los snippets de abajo en tu README de perfil. El score se mantiene actualizado automáticamente y la imagen enlaza a tu página de detalle.",
+    "badgeTitle": "Badge",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "Copiar",
+    "copied": "Copiado ✓",
+    "badgeAlt": "Badge de score de GitHub Roast",
+    "cardAlt": "GitHub Roast",
+    "builderTitle": "Constructor de tarjetas",
+    "builderBlurb": "Elige un tipo de tarjeta, un tema y si mostrar un QR escaneable — la vista previa y los enlaces se actualizan en vivo.",
+    "fieldType": "Tipo de tarjeta",
+    "fieldTheme": "Tema",
+    "fieldQr": "Código QR",
+    "fieldUrl": "URL de la imagen",
+    "typeScore": "Score",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro",
+    "qrOn": "Activado",
+    "qrOff": "Desactivado",
+    "variantContrib": "Contribuciones",
+    "variantPr": "Historial de PRs",
+    "variantPath": "Trayectoria en GitHub",
+    "variantWork": "Obra insignia"
+  },
+  "byok": {
+    "title": "Usa tu propio modelo",
+    "compatNote": "Funciona con cualquier API compatible con OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / local). Tu key se queda en tu propio navegador. Pasa una sola vez por nuestro servidor para llamar al modelo, <b>pero nunca se guarda, nunca se registra y se descarta tras usarse</b>.",
+    "tempKeyNote": "🔒 Si te preocupa, usa una key <b>temporal / con límite de gasto</b> y revócala cuando termines.",
+    "baseUrl": "URL base",
+    "apiKey": "API Key",
+    "model": "Modelo",
+    "clear": "Limpiar",
+    "cancel": "Cancelar",
+    "saveContinue": "Guardar y continuar"
+  },
+  "developerCount": "<n>{count, number}</n> developers han entrado a la arena ⚔️",
+  "shareCard": {
+    "beatLabel": "developers superados",
+    "brand": "🔥 ghfind · mira cómo te comparas"
+  },
+  "tiers": {
+    "god": {
+      "name": "GOD",
+      "blurb": "Legendario · Salón de la Fama"
+    },
+    "elite": {
+      "name": "ELITE",
+      "blurb": "Élite · Dev de primer nivel"
+    },
+    "solid": {
+      "name": "SOLID",
+      "blurb": "Sólido · Confiable"
+    },
+    "npc": {
+      "name": "NPC",
+      "blurb": "Promedio · Nada memorable"
+    },
+    "trash": {
+      "name": "TRASH",
+      "blurb": "Bajo valor · Probablemente inflado"
+    }
+  },
+  "dimensions": {
+    "account_maturity": "Madurez de la cuenta",
+    "original_project_quality": "Calidad de proyectos originales",
+    "contribution_quality": "Calidad de contribuciones",
+    "ecosystem_impact": "Impacto en el ecosistema / mantenimiento",
+    "community_influence": "Influencia en la comunidad",
+    "activity_authenticity": "Autenticidad de la actividad"
+  },
+  "omnibox": {
+    "placeholder0": "Escribe un usuario de GitHub para empezar el juicio",
+    "placeholder1": "Escribe a vs b para empezar un duelo",
+    "placeholder2": "Busca rust para ver quién le mete más duro",
+    "placeholder3": "Busca una empresa para medir su talento",
+    "ctaJudge": "Juzgar",
+    "ctaPk": "Pelear",
+    "ctaDiscover": "Rankings",
+    "groupDirect": "Directo",
+    "groupPk": "Duelo",
+    "groupUser": "Usuario",
+    "groupDiscover": "Descubrir",
+    "suggestRoast": "Roastear a @{username}",
+    "suggestPkStart": "@{username} vs …",
+    "suggestPkHint": "Trae a alguien a duelo",
+    "suggestPk": "{a} vs {b}",
+    "suggestLanguage": "Ranking de developers de {value}",
+    "suggestOrg": "{value} · miembros de la org",
+    "pkHalfHint": "Escribe un oponente y presiona Enter para pelear",
+    "lockedRemove": "Quitar"
+  },
+  "blog": {
+    "heading": "Research",
+    "subtitle": "Notas con datos de evaluar contribución real en GitHub a escala.",
+    "readingTime": "{minutes} min de lectura",
+    "notTranslated": "Este artículo todavía no está traducido — se muestra el original en inglés.",
+    "backToList": "Todo el research",
+    "empty": "Todavía no hay artículos."
+  },
+  "footer": {
+    "tagline": "Scoring de valor y confianza para developers de GitHub.",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "privacy": "Privacidad",
+    "methodology": "Metodología",
+    "docs": "Docs de la API",
+    "blog": "Research",
+    "source": "Código en GitHub",
+    "sectionProduct": "Producto",
+    "sectionResources": "Recursos",
+    "sectionCompany": "Compañía"
+  },
+  "faq": {
+    "heading": "Preguntas frecuentes",
+    "items": [
+      {
+        "q": "¿Qué es ghfind?",
+        "a": "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 en valor real de contribución y confiabilidad usando un motor totalmente determinista y open source, y le suma un roast opcional escrito por IA, batallas uno contra uno y un directorio de developers rankeado."
+      },
+      {
+        "q": "¿Cómo se calcula el score?",
+        "a": "El motor evalúa seis dimensiones ponderadas que suman 100 — madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad — y resta penalizaciones por señales de alerta como el farmeo de PRs o la inflación de stars. Corre únicamente sobre datos públicos de GitHub."
+      },
+      {
+        "q": "¿El score es determinista y reproducible?",
+        "a": "Sí. Ningún LLM toca el número: los mismos datos de entrada siempre producen el mismo score. El núcleo de scoring es open source como la skill github-account-value (AGPL), así que cualquiera puede reproducir o auditar un resultado. Solo el texto opcional del roast lo escribe un LLM."
+      },
+      {
+        "q": "¿Puedo usar ghfind vía API, CLI o MCP?",
+        "a": "Sí. Hay una REST API pública (ver /openapi.json), paquetes oficiales en npm y PyPI más una CLI, y un servidor de Model Context Protocol en /mcp que expone las herramientas score_user, scan_user, compare_users, get_leaderboard y search_users. El endpoint de score no necesita autenticación."
+      },
+      {
+        "q": "¿ghfind detecta bots y cuentas farmeadas por IA?",
+        "a": "Marca los patrones que separan la actividad farmeada del trabajo honesto — títulos de PR casi idénticos hechos con plantilla, contribuciones concentradas en repos que la cuenta no posee e inflación sospechosa de stars o seguidores. En un dataset de 18,947 cuentas evaluadas, menos del 1% activó las señales de alerta más fuertes — raras, pero extremas cuando aparecen."
+      },
+      {
+        "q": "¿Se cuenta mi trabajo privado?",
+        "a": "No. Los scores usan solo señales públicas, así que las contribuciones en organizaciones privadas son invisibles para el motor. Un miembro activo de repos privados puede quedar subvalorado. Un score bajo no es una afirmación factual sobre una persona — describe la huella pública de una cuenta."
+      },
+      {
+        "q": "¿Cómo elimino mi perfil de ghfind?",
+        "a": "Solo se indexan y listan las cuentas con score de 60+. Para salir del ranking, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y el perfil será retirado."
+      }
+    ]
+  },
+  "homeIntro": {
+    "whatHeading": "¿Qué es ghfind?",
+    "whatBody": "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 en seis dimensiones ponderadas — madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad — usando un motor totalmente determinista (la skill open source github-account-value, AGPL). Los mismos datos de entrada siempre producen el mismo score; ningún LLM toca el número. Encima del score suma un roast opcional escrito por IA, batallas dev contra dev, rankings por lenguaje y organización, y badges de score para el README.",
+    "howHeading": "Cómo funciona ghfind",
+    "steps": [
+      {
+        "title": "1. Escanea la huella pública",
+        "body": "Escribe cualquier usuario de GitHub. El motor rastrea los datos públicos de la cuenta — repositorios, pull requests, issues, stars, seguidores — y construye una instantánea de evidencia. No requiere login ni permisos."
+      },
+      {
+        "title": "2. Evalúa seis dimensiones deterministas",
+        "body": "La instantánea se evalúa en madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad, con penalizaciones por farmeo de PRs, inflación de stars y patrones de spam con plantillas."
+      },
+      {
+        "title": "3. Recibe score, nivel y roast",
+        "body": "Recibes un score reproducible de 0 a 100 con un nivel que va de Trash a God, un desglose por dimensión que muestra exactamente qué frena tu score y — solo si lo pides — un roast sin piedad escrito por IA."
+      }
+    ],
+    "numbersHeading": "ghfind en números",
+    "numbers": {
+      "accounts": "{count} cuentas de GitHub evaluadas en el dataset público de investigación",
+      "snapshots": "{count} instantáneas de evidencia completas recopiladas y analizadas",
+      "dimensions": "{count} dimensiones ponderadas detrás de cada score",
+      "flagged": "{share} de las cuentas evaluadas marcadas por actividad no auténtica"
+    },
+    "tableCaption": "Score de ghfind vs señales crudas de GitHub",
+    "tableColSignal": "Señal",
+    "tableColMeasures": "Qué mide",
+    "tableColGameable": "¿Fácil de inflar?",
+    "tableRows": [
+      {
+        "signal": "Stars de GitHub",
+        "measures": "La popularidad de un proyecto, no la calidad de contribución de su autor",
+        "gameable": "Sí — los mercados de stars y los anillos de stars mutuas salen baratos"
+      },
+      {
+        "signal": "Seguidores",
+        "measures": "Tamaño de audiencia y alcance social",
+        "gameable": "Sí — círculos de follow-back y seguidores comprados"
+      },
+      {
+        "signal": "Score de ghfind",
+        "measures": "Valor real de contribución y confianza en seis dimensiones ponderadas",
+        "gameable": "Difícil — los patrones no auténticos se detectan y penalizan"
+      }
+    ]
+  },
+  "docs": {
+    "metaTitle": "Documentación de la API de ghfind — REST API, servidor MCP, SDKs",
+    "metaDescription": "Documentación para developers de ghfind: endpoints REST para el scoring de cuentas de GitHub, el servidor MCP de ghfind para agentes de IA, autenticación, SDKs oficiales en npm y PyPI, y specs legibles por máquina (OpenAPI, llms.txt).",
+    "heading": "Documentación de la API de ghfind",
+    "lead": "ghfind evalúa cualquier cuenta de GitHub de 0 a 100 en valor real de contribución y confiabilidad con un motor determinista y open source. Todo lo que hay en el sitio también está disponible programáticamente: una REST API pública, un servidor MCP para agentes de IA y SDKs oficiales. Esta página documenta todo eso.",
+    "restHeading": "REST API de ghfind",
+    "restIntro": "URL base: https://ghfind.com. Las lecturas de scoring no necesitan autenticación. Los errores son JSON estructurado ({error, message, hint}), las respuestas llevan headers RateLimit-* y los endpoints de listas soportan paginación con limit/offset.",
+    "endpoints": [
+      {
+        "sig": "GET /api/score/{username}",
+        "desc": "Score determinista de 0 a 100, nivel y desglose en seis dimensiones. Evalúa cuentas nuevas en vivo; sin auth, sin LLM."
+      },
+      {
+        "sig": "POST /api/scan",
+        "desc": "Payload completo del escaneo determinista: métricas crudas, repositorios top, pull requests recientes, señales de alerta, sub-scores."
+      },
+      {
+        "sig": "POST /api/roast",
+        "desc": "Reporte de roast escrito por IA (el único endpoint con LLM; soporta traer tu propia key)."
+      },
+      {
+        "sig": "POST /api/vs-verdict",
+        "desc": "Veredicto cara a cara para dos cuentas."
+      },
+      {
+        "sig": "GET /api/leaderboard",
+        "desc": "Developers rankeados por tendencia, score, calor o progreso; paginado vía limit/offset."
+      },
+      {
+        "sig": "GET /api/developers",
+        "desc": "Directorio de developers por lenguaje, organización o repositorio contribuido; paginado."
+      },
+      {
+        "sig": "GET /api/search-users",
+        "desc": "Búsqueda por prefijo sobre cuentas ya evaluadas."
+      },
+      {
+        "sig": "GET /api/stats",
+        "desc": "Totales de la plataforma (número de cuentas evaluadas)."
+      },
+      {
+        "sig": "GET /api/badge/{username}",
+        "desc": "Badge SVG del score para incrustar en un README."
+      }
+    ],
+    "mcpHeading": "Servidor MCP de ghfind",
+    "mcpIntro": "Hay un servidor de Model Context Protocol con Streamable HTTP en https://ghfind.com/mcp (sin auth, con límite de tasa por IP, solo lectura). Agrégalo a Claude, Cursor o cualquier cliente MCP para evaluar y comparar cuentas de GitHub desde dentro del agente.",
+    "tools": [
+      {
+        "name": "score_user",
+        "desc": "Score de 0 a 100, nivel y desglose en seis dimensiones para cualquier login de GitHub."
+      },
+      {
+        "name": "scan_user",
+        "desc": "Payload completo del escaneo: métricas, repos top, PRs recientes, señales de alerta."
+      },
+      {
+        "name": "compare_users",
+        "desc": "Comparación determinista cara a cara con ganador y brecha de score."
+      },
+      {
+        "name": "get_leaderboard",
+        "desc": "Developers públicos rankeados para descubrir."
+      },
+      {
+        "name": "search_users",
+        "desc": "Búsqueda por prefijo sobre cuentas evaluadas."
+      }
+    ],
+    "authHeading": "Autenticación",
+    "authBody": "Los endpoints de lectura son públicos. Los endpoints de escritura (POST /api/scan, POST /api/roast) aceptan una verificación Turnstile del navegador o una API key Bearer. Los agentes deberían leer la guía para máquinas en /auth.md.",
+    "sdkHeading": "SDKs oficiales y CLI",
+    "sdks": [
+      {
+        "name": "@hikariming/ghfind (npm)",
+        "desc": "SDK y CLI de JavaScript / TypeScript: npm install -g @hikariming/ghfind"
+      },
+      {
+        "name": "ghfind (PyPI)",
+        "desc": "SDK de Python: pip install --upgrade ghfind"
+      },
+      {
+        "name": "ghfind CLI",
+        "desc": "ghfind score {username} -o json · ghfind scan · ghfind roast · ghfind leaderboard · ghfind stats"
+      }
+    ],
+    "machineHeading": "Superficies legibles por máquina",
+    "machine": [
+      {
+        "label": "/openapi.json",
+        "desc": "Spec OpenAPI 3.1 de todos los endpoints públicos"
+      },
+      {
+        "label": "/llms.txt",
+        "desc": "Guía para agentes con enlaces markdown a cada superficie"
+      },
+      {
+        "label": "/index.md",
+        "desc": "Gemelo en markdown de la página de inicio (también se sirve con Accept: text/markdown)"
+      },
+      {
+        "label": "/.well-known/agent-card.json",
+        "desc": "Tarjeta de agente A2A, tarjeta del servidor MCP, catálogo de API y skills bajo /.well-known/"
+      }
+    ]
+  },
+  "about": {
+    "metaTitle": "Acerca de ghfind",
+    "metaDescription": "ghfind evalúa cualquier cuenta de GitHub de 0 a 100 en valor real de contribución y confianza con un motor open source y determinista, y te ayuda a descubrir a los mejores developers.",
+    "heading": "Acerca de ghfind",
+    "paragraphs": [
+      "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 en valor real de contribución y confiabilidad, usando un motor totalmente determinista que corre únicamente sobre datos públicos de GitHub. Los mismos datos de entrada siempre producen el mismo score — ningún modelo de lenguaje interviene en el número — así que los resultados son reproducibles y auditables, no opacos.",
+      "El score se construye con seis dimensiones ponderadas que suman 100: madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad. Sobre ese núcleo factual, ghfind agrega un roast opcional escrito por IA, batallas developer contra developer, rankings por lenguaje de programación, organización y proyecto, y badges de score para incrustar en tu propio README de perfil.",
+      "El motor de scoring es open source bajo la licencia AGPL como la skill github-account-value, y las mismas rutas de código impulsan el sitio web, los paquetes oficiales de npm y PyPI, la herramienta de línea de comandos y el servidor de Model Context Protocol. ghfind existe para hacer legible la contribución en GitHub: premiar el trabajo open source genuino, destacar developers que vale la pena seguir y hacer que la actividad farmeada o falsificada sea fácil de detectar mirando patrones en lugar de conteos crudos."
+    ]
+  },
+  "contact": {
+    "metaTitle": "Contactar a ghfind",
+    "metaDescription": "Cómo contactar al equipo de ghfind: reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI y el servidor MCP.",
+    "heading": "Contacto",
+    "paragraphs": [
+      "ghfind es un proyecto open source. La forma más rápida de contactar al equipo, reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI o el servidor MCP es abrir un issue en el repositorio público de GitHub. Los issues se leen y clasifican ahí, y mantener la conversación a la vista ayuda a otros usuarios con la misma duda.",
+      "Para preguntas de integración, el contrato de la API legible por máquina vive en /openapi.json, el índice de documentación para agentes en /llms.txt y la guía de autenticación en /auth.md. Si necesitas un límite de tasa elevado para escaneos servidor a servidor de alto volumen, menciona tu caso de uso en un issue de GitHub."
+    ],
+    "issuesLabel": "Abrir un issue en GitHub",
+    "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "Para consultas comerciales, licenciamiento en volumen o límites de API elevados, escríbenos directamente:",
+    "bizNote": "(Para dudas de uso open source, mejor abre un issue en GitHub — las respuestas públicas también ayudan a otros usuarios.)",
+    "resourcesLabel": "Recursos para developers",
+    "apiLabel": "Referencia de la API (OpenAPI)",
+    "llmsLabel": "Docs para agentes (llms.txt)",
+    "authLabel": "Autenticación (auth.md)"
+  },
+  "privacy": {
+    "metaTitle": "Privacidad — ghfind",
+    "metaDescription": "Cómo maneja los datos ghfind: evalúa solo datos públicos de GitHub, no vende datos personales y respeta las solicitudes de eliminación de perfiles indexados.",
+    "heading": "Privacidad",
+    "sections": [
+      {
+        "h": "Qué datos usa ghfind",
+        "p": "ghfind calcula los scores solo con datos públicos de GitHub — la misma información que cualquiera puede ver en un perfil y en sus repositorios, pull requests y actividad públicos. No accede a repositorios privados, contribuciones privadas, contenidos de correo ni a ningún dato que no sea ya público en GitHub. Por eso, los scores describen la huella pública de una cuenta y no son una afirmación factual sobre la persona detrás de ella."
+      },
+      {
+        "h": "Qué almacenamos",
+        "p": "Para las cuentas evaluadas, cacheamos el score calculado, el nivel y las métricas derivadas para que los reportes compartidos carguen rápido y el ranking se mantenga ágil. Solo las cuentas con score de 60 o más se indexan y listan públicamente; las páginas con score más bajo son accesibles por enlace directo pero se mantienen fuera de los motores de búsqueda. Usamos analítica agregada y respetuosa de la privacidad para entender el tráfico, y no vendemos datos personales."
+      },
+      {
+        "h": "Roasts con tu propia key",
+        "p": "La función opcional de roast puede usar la key de tu propio proveedor de modelos. Cuando la proporcionas, se queda en tu navegador y pasa una sola vez por nuestro servidor para llamar al modelo — nunca se guarda ni se registra, y se descarta cuando la solicitud termina."
+      },
+      {
+        "h": "Eliminación y control",
+        "p": "Si quieres que tu perfil sea retirado, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y lo quitaremos del ranking y del índice. Como ghfind solo refleja datos públicos de GitHub, actualizar tu actividad de GitHub o hacerla privada también cambiará o eliminará lo que ghfind pueda ver en el siguiente escaneo."
+      }
+    ]
+  },
+  "methodology": {
+    "metaTitle": "Metodología — cómo ghfind evalúa cuentas de GitHub",
+    "metaDescription": "Cómo el motor determinista de ghfind evalúa cuentas de GitHub en seis dimensiones ponderadas, aplica penalizaciones por señales de alerta y se mantiene totalmente reproducible sin ningún LLM.",
+    "heading": "Cómo ghfind evalúa cuentas de GitHub",
+    "lead": "El score de ghfind lo produce una rúbrica determinista, no un modelo. El motor lee datos públicos de GitHub, evalúa seis dimensiones que suman 100, resta penalizaciones por señales de alerta y devuelve el mismo número cada vez para los mismos datos de entrada. El núcleo es open source bajo la licencia AGPL, así que cualquier resultado puede reproducirse y auditarse.",
+    "dimensionsHeading": "Las seis dimensiones",
+    "dimensionsIntro": "Cada dimensión aporta al score base de 100 puntos. Juntas premian el trabajo open source sostenido, original y ampliamente usado por encima de los conteos crudos de actividad.",
+    "dimensionDetails": {
+      "account_maturity": "Qué tan establecida y consistente es la cuenta a lo largo del tiempo — antigüedad, actividad sostenida y una curva de credibilidad que resiste la inflación de la noche a la mañana.",
+      "original_project_quality": "La calidad y recepción de los repositorios que la cuenta realmente posee y escribió, no forks ni proyectos triviales.",
+      "contribution_quality": "La sustancia de las contribuciones a otros proyectos — pull requests significativos y mergeados versus spam con plantillas.",
+      "ecosystem_impact": "Cuánto se depende del trabajo de la cuenta y cuánto se mantiene en el ecosistema más amplio.",
+      "community_influence": "Alcance y reputación genuinos en la comunidad, normalizados para que los conteos crudos de seguidores o stars no puedan dominar.",
+      "activity_authenticity": "Si los patrones de actividad se ven orgánicos o fabricados — la dimensión que separa el trabajo honesto del farmeo."
+    },
+    "penaltiesHeading": "Penalizaciones por señales de alerta",
+    "penaltiesBody": "Sobre las seis dimensiones, el motor resta penalizaciones por patrones que inflan un perfil sin valor real: títulos de pull request casi idénticos hechos con plantilla, contribuciones concentradas en repositorios que la cuenta no posee e inflación de stars o seguidores. Cada evento individual puede parecer plausible; las penalizaciones se disparan con el patrón, que es lo que hace que la actividad farmeada sea separable del trabajo honesto.",
+    "determinismHeading": "Determinismo y reproducibilidad",
+    "determinismBody": "Ningún modelo de lenguaje toca el score. El núcleo de scoring es la skill open source github-account-value (AGPL), y las mismas rutas de código impulsan el sitio web, los paquetes de npm y PyPI, la CLI y el servidor MCP. Con los mismos datos públicos de entrada, el score es idéntico en todos ellos, y por eso puede reproducirse de forma independiente. El texto opcional del roast es la única parte escrita por un LLM y nunca cambia el número.",
+    "dataHeading": "A escala",
+    "dataBody": "Aplicado a un dataset público de 18,947 cuentas evaluadas — 3,444 con instantáneas completas de métricas crudas — la contribución falsificada o farmeada resultó ser más rara de lo que sugiere el discurso (menos del 1% de las cuentas activó las señales de alerta más fuertes) pero mucho más extrema cuando apareció. El análisis completo está en la sección de research."
+  },
+  "vs": {
+    "metaTitle": "{a} vs {b} · ¿Quién gana? | ghfind",
+    "metaDescription": "{a} vs {b} — un duelo cara a cara en GitHub. ¿Quién es más hardcore? Míralo en ghfind.com.",
+    "back": "← Volver al Salón de la Fama",
+    "heading": "Duelo de developers",
+    "pkHeading": "⚔️ Iniciar un duelo",
+    "pkSub": "Suelta dos usuarios de GitHub y mira quién es más hardcore",
+    "pkPlaceholderA": "p. ej. torvalds",
+    "pkPlaceholderB": "p. ej. gaearon",
+    "pkButton": "🔥 ¡A pelear!",
+    "pkInvalid": "Escribe dos usuarios de GitHub válidos y distintos",
+    "bucketCrush": "Paliza",
+    "bucketEdge": "Victoria ajustada",
+    "bucketEven": "Empate técnico",
+    "win": "🏆 Victoria",
+    "tie": "Empate",
+    "totalHeading": "Score total",
+    "dimensionsHeading": "Duelo por dimensiones",
+    "swapOpponent": "🔄 Cambiar oponente",
+    "judgeMe": "Júzgame a mí también →",
+    "summonTitle": "@{username} todavía no ha sido juzgado",
+    "summonHint": "Invócalo al ring para empezar la pelea",
+    "summon": "🔥 Invocar a pelear",
+    "summonScanning": "Escaneando…",
+    "summonRoasting": "Roasteando…",
+    "summonError": "La invocación falló, inténtalo más tarde",
+    "bothMissing": "Ninguno ha sido juzgado todavía — invócalos primero y luego que se batan.",
+    "verdictGenerating": "🤖 La IA está cocinando un veredicto sin piedad…",
+    "adviceHeading": "💡 Cómo subir de nivel",
+    "saveImage": "📸 Guardar imagen de la batalla",
+    "saving": "Renderizando…",
+    "copyEmbed": "🃏 Copiar embed para README",
+    "embedCopied": "✅ Copiado — pégalo en tu README",
+    "shareText": "{a} vs {b} — ¿quién es más hardcore? Mira este duelo de GitHub en ghfind.com ⚔️",
+    "trendingHeading": "🔥 Batallas en tendencia",
+    "trendingSub": "Los PKs de developers de GitHub más vistos — entra a leer el veredicto sin piedad",
+    "trendingEmpty": "Todavía no hay batallas en el tablero. Escribe \"a vs b\" en la página de inicio para disparar el primer tiro.",
+    "notRated": "Sin juzgar",
+    "verdictMissing": "Guarda tu veredicto — primero invócalos al ring.",
+    "verdictTie": "Cabeza a cabeza — nadie diría que aquí hubo robo.",
+    "verdictCrush": {
+      "0": "@{winner} aplana a @{loser} por {gap} puntos — esto no es un duelo, es deporte para espectadores.",
+      "1": "@{winner} {winnerScore} vs @{loser} {loserScore}: una brecha tan grande que el árbitro ni se molestó en pitar.",
+      "2": "@{loser} todavía está calentando mientras @{winner} va arriba por {gap} — mejor da la mano y concede.",
+      "3": "@{winner} clava a @{loser} contra la lona; el abismo de {gap} puntos no tiene fondo.",
+      "4": "Aquí no hay suspenso: @{winner} domina a @{loser} en todos los frentes por {gap} puntos.",
+      "5": "@{loser} perdió antes de que la cara alcanzara a reaccionar — @{winner} se lleva una paliza de {gap} puntos.",
+      "6": "El {winnerScore} de @{winner} hace que el {loserScore} de @{loser} parezca de sparring.",
+      "7": "Un margen desalentador: @{winner} le saca a @{loser} nada menos que {gap} puntos."
+    },
+    "verdictEdge": {
+      "0": "@{winner} le gana por poquito a @{loser} por {gap} — la victoria no salió barata.",
+      "1": "Cabeza a cabeza, pero @{winner} ríe al último con una ventaja de {gap} puntos.",
+      "2": "@{winner} {winnerScore} vs @{loser} {loserScore}: victoria por un solo paso.",
+      "3": "@{loser} casi le da la vuelta, pero se quedó a {gap} puntos de @{winner}.",
+      "4": "En un partido apretado, @{winner} se adelanta apenas y se embolsa {gap} puntos.",
+      "5": "@{winner} gana, pero @{loser} lo hizo sudar — solo {gap} puntos de diferencia.",
+      "6": "Victoria por media cabeza: @{winner} supera a @{loser} por {gap} puntos.",
+      "7": "@{winner} pasa raspando; a @{loser} le faltó una patada."
+    },
+    "verdictEven": {
+      "0": "@{winner} y @{loser} están prácticamente parejos — {gap} puntos es básicamente ruido.",
+      "1": "Empate técnico: aquí nadie fue robado — solo {gap} puntos los separan.",
+      "2": "@{winner} {winnerScore}, @{loser} {loserScore} — con otro humor y esto se voltea.",
+      "3": "Imposible de decidir: @{winner} y @{loser} están parados en la misma línea.",
+      "4": "Choque de titanes — una brecha de {gap} puntos no es para presumir.",
+      "5": "@{winner} va arriba por un pelo, pero @{loser} ni se inmuta.",
+      "6": "Repartan la diferencia — @{winner} solo tuvo {gap} puntos más de suerte.",
+      "7": "Da lo mismo uno que otro — @{winner} y @{loser} no se sacaron nada."
+    }
+  }
+}

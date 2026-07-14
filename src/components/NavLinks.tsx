@@ -44,7 +44,7 @@ export function NavLinks({
 
   const badge = (item: NavItem) =>
     item.badge ? (
-      <span className="ml-1.5 rounded bg-amber-400/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+      <span className="ms-1.5 rounded bg-amber-400/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
         {item.badge}
       </span>
     ) : null;

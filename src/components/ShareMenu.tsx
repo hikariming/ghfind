@@ -91,7 +91,7 @@ export function ShareMenu({
         className="w-60 border-white/10 bg-zinc-900 p-3"
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        <DropdownMenuLabel className="px-1 text-left text-xs font-medium text-zinc-500">
+        <DropdownMenuLabel className="px-1 text-start text-xs font-medium text-zinc-500">
           {T("heading")}
         </DropdownMenuLabel>
         <div className="grid grid-cols-3 gap-1.5 p-1">

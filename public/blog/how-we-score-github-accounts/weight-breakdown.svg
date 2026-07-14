@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="470" viewBox="0 0 1160 470" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif">
+<rect width="1160" height="470" fill="#0a0a0b"/>
+<text x="36" y="46" fill="#fafafa" font-size="26" font-weight="700">Where the 100 points go</text>
+<rect x="812" y="30" width="16" height="16" rx="3" fill="#ea580c"/><text x="836" y="44" fill="#a1a1aa" font-size="16">hard to fake</text>
+<rect x="980" y="30" width="16" height="16" rx="3" fill="#71717a"/><text x="1004" y="44" fill="#a1a1aa" font-size="16">buyable</text>
+<text x="300" y="120" fill="#fafafa" font-size="16" text-anchor="end">Contribution quality</text><rect x="314" y="100" width="702" height="30" rx="4" fill="#ea580c"/><text x="1028" y="120" fill="#a1a1aa" font-size="15">27 pts</text>
+<text x="300" y="176" fill="#fafafa" font-size="16" text-anchor="end">Ecosystem impact</text><rect x="314" y="156" width="520" height="30" rx="4" fill="#ea580c"/><text x="846" y="176" fill="#a1a1aa" font-size="15">20 pts</text>
+<text x="300" y="232" fill="#fafafa" font-size="16" text-anchor="end">Original project quality</text><rect x="314" y="212" width="468" height="30" rx="4" fill="#71717a"/><text x="794" y="232" fill="#a1a1aa" font-size="15">18 pts</text>
+<text x="300" y="288" fill="#fafafa" font-size="16" text-anchor="end">Activity authenticity</text><rect x="314" y="268" width="442" height="30" rx="4" fill="#ea580c"/><text x="768" y="288" fill="#a1a1aa" font-size="15">17 pts</text>
+<text x="300" y="344" fill="#fafafa" font-size="16" text-anchor="end">Account maturity</text><rect x="314" y="324" width="260" height="30" rx="4" fill="#ea580c"/><text x="586" y="344" fill="#a1a1aa" font-size="15">10 pts</text>
+<text x="300" y="400" fill="#fafafa" font-size="16" text-anchor="end">Community influence</text><rect x="314" y="380" width="208" height="30" rx="4" fill="#71717a"/><text x="534" y="400" fill="#a1a1aa" font-size="15">8 pts</text>
+<text x="36" y="452" fill="#3f3f46" font-size="14">Merged-PR and sustained-activity signals (orange) outweigh buyable stars and followers (gray) &#183; ghfind.com</text>
+</svg>

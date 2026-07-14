@@ -254,7 +254,7 @@ export function LiveRoast({
       )}
 
       {reportBody && (
-        <div className={`report text-[0.95rem] text-zinc-200 ${report ? "caret" : ""}`}>
+        <div dir="ltr" className={`report text-[0.95rem] text-zinc-200 ${report ? "caret" : ""}`}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportBody}</ReactMarkdown>
         </div>
       )}

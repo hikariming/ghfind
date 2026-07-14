@@ -126,7 +126,7 @@ export function FollowingBoard() {
                       </span>
                       {delta !== null ? (
                         <span
-                          className={`w-14 text-right text-xs font-bold tabular-nums ${
+                          className={`w-14 text-end text-xs font-bold tabular-nums ${
                             delta > 0 ? "text-emerald-300" : "text-rose-300"
                           }`}
                         >
@@ -134,7 +134,7 @@ export function FollowingBoard() {
                           {Math.abs(delta).toFixed(1)}
                         </span>
                       ) : (
-                        <span className="w-14 text-right text-xs text-zinc-600">—</span>
+                        <span className="w-14 text-end text-xs text-zinc-600">—</span>
                       )}
                     </>
                   ) : (

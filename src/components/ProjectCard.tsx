@@ -32,7 +32,7 @@ export function ProjectCard({ project, position }: { project: ProjectListItem; p
             </p>
           )}
         </div>
-        <div className="shrink-0 text-right text-sm tabular-nums text-zinc-400">
+        <div className="shrink-0 text-end text-sm tabular-nums text-zinc-400">
           <div>★ {number.format(model.stars)}</div>
           {model.language && <div className="mt-1 text-xs text-zinc-500">{model.language}</div>}
         </div>

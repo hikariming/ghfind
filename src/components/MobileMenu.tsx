@@ -78,7 +78,7 @@ export function MobileMenu({
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? t("closeMenu") : t("openMenu")}
-          className={`relative z-50 -mr-2 -translate-y-0.5 h-11 w-11 rounded-none border-0 p-0 text-zinc-200 shadow-none transition-none focus-visible:ring-0 focus-visible:outline-none active:bg-transparent ${
+          className={`relative z-50 -me-2 -translate-y-0.5 h-11 w-11 rounded-none border-0 p-0 text-zinc-200 shadow-none transition-none focus-visible:ring-0 focus-visible:outline-none active:bg-transparent ${
             open
               ? "bg-transparent hover:bg-transparent"
               : "bg-transparent hover:bg-transparent"
@@ -228,7 +228,7 @@ export function MobileMenu({
                       close();
                       void signOut();
                     }}
-                    className="flex min-h-12 w-full items-center gap-3 px-4 py-3 text-left text-sm text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-zinc-100"
+                    className="flex min-h-12 w-full items-center gap-3 px-4 py-3 text-start text-sm text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-zinc-100"
                   >
                     <LogOut className="h-4 w-4 shrink-0 text-zinc-400" />
                     <span>{tHeader("signOut")}</span>

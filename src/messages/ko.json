@@ -54,7 +54,12 @@
     "zh": "中文",
     "en": "EN",
     "ja": "日本語",
-    "ko": "한국어"
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "id": "Bahasa Indonesia",
+    "vi": "Tiếng Việt",
+    "ar": "العربية"
   },
   "themeSwitch": {
     "label": "테마 변경",

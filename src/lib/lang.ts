@@ -8,12 +8,15 @@
  * the parts of the pipeline that live outside the React tree — the LLM prompt,
  * the API route, and the Redis/DB cache keys.
  *
- * Non-zh UI locales (en, ja, ko) all read the ENGLISH side: a Japanese or
- * Korean visitor gets the fully localized UI shell with the English report,
- * plus a "report available in zh/en only" notice (`detail.reportLangNotice`).
- * Generating native ja/ko reports is deliberately deferred until those locales
- * prove out — it requires widening the two-column storage model.
+ * Non-zh UI locales (en, ja, ko, es, pt, id, vi, ar) all read the ENGLISH
+ * side: those visitors get the fully localized UI shell with the English
+ * report, plus a "report available in zh/en only" notice
+ * (`detail.reportLangNotice`). Generating native reports per locale is
+ * deliberately deferred until those locales prove out — it requires widening
+ * the two-column storage model.
  */
+
+import { routing, type Locale } from "@/i18n/routing";
 
 export type Lang = "zh" | "en";
 
@@ -23,5 +26,5 @@ export type Lang = "zh" | "en";
  * and missing values default to zh (the site default).
  */
 export function normLang(value: unknown): Lang {
-  return value === "en" || value === "ja" || value === "ko" ? "en" : "zh";
+  return value !== "zh" && routing.locales.includes(value as Locale) ? "en" : "zh";
 }

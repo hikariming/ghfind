@@ -88,7 +88,7 @@ export function VsVerdictLive({
         <p className="mt-2 animate-pulse text-xs text-orange-200/80">{t("verdictGenerating")}</p>
       )}
       {adviceText && (
-        <div className="mt-4 rounded-xl border border-sky-400/20 bg-sky-500/[0.06] p-4 text-left">
+        <div className="mt-4 rounded-xl border border-sky-400/20 bg-sky-500/[0.06] p-4 text-start">
           <div className="mb-1 text-sm font-bold text-sky-200">{adviceHeading}</div>
           <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-200">{adviceText}</p>
         </div>

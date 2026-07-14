@@ -433,7 +433,7 @@ html[data-theme="light"] [data-force-dark] .text-orange-400 {
 .post ul,
 .post ol {
   margin: 1.1em 0;
-  padding-left: 1.5em;
+  padding-inline-start: 1.5em;
 }
 .post ul {
   list-style: disc;
@@ -447,7 +447,7 @@ html[data-theme="light"] [data-force-dark] .text-orange-400 {
 .post blockquote {
   margin: 1.4em 0;
   padding: 0.2em 1.2em;
-  border-left: 3px solid var(--primary);
+  border-inline-start: 3px solid var(--primary);
   color: var(--muted-foreground);
 }
 .post table {
@@ -461,7 +461,7 @@ html[data-theme="light"] [data-force-dark] .text-orange-400 {
 .post td {
   border: 1px solid var(--border);
   padding: 0.5rem 0.7rem;
-  text-align: left;
+  text-align: start;
 }
 .post th {
   background: var(--surface-muted);
@@ -487,6 +487,11 @@ html[data-theme="light"] [data-force-dark] .text-orange-400 {
 .post pre code {
   background: transparent;
   padding: 0;
+}
+/* Code is inherently LTR — keep snippets readable inside RTL (ar) articles. */
+[dir="rtl"] .post pre {
+  direction: ltr;
+  text-align: left;
 }
 .post hr {
   border: 0;

@@ -4,10 +4,15 @@ import en from "../en.json";
 import zh from "../zh.json";
 import ja from "../ja.json";
 import ko from "../ko.json";
+import es from "../es.json";
+import pt from "../pt.json";
+import id from "../id.json";
+import vi from "../vi.json";
+import ar from "../ar.json";
 
 type Msgs = Record<string, unknown>;
 
-const ALL: Record<string, Msgs> = { en, zh, ja, ko };
+const ALL: Record<string, Msgs> = { en, zh, ja, ko, es, pt, id, vi, ar };
 
 /** Flatten a nested message object into dotted leaf paths. */
 function keyPaths(obj: Msgs, prefix = ""): string[] {

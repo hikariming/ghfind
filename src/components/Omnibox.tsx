@@ -343,9 +343,9 @@ export function Omnibox({
   return (
     <div className="relative w-full">
       <div className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60">
-        <span className="pl-3 text-lg leading-none text-zinc-400">{intentIcon(intent.kind)}</span>
+        <span className="ps-3 text-lg leading-none text-zinc-400">{intentIcon(intent.kind)}</span>
         {pkA && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-500/15 py-1 pl-2.5 pr-1 text-sm font-medium text-orange-200 ring-1 ring-orange-400/30">
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-500/15 py-1 ps-2.5 pe-1 text-sm font-medium text-orange-200 ring-1 ring-orange-400/30">
             @{pkA}
             <button
               type="button"
@@ -408,7 +408,7 @@ export function Omnibox({
                     row.activate();
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-start text-sm ${
                     i === activeIndex ? "bg-white/10 text-zinc-100" : "text-zinc-300"
                   }`}
                 >
@@ -429,7 +429,7 @@ export function Omnibox({
                       <span className="min-w-0 flex-1 truncate">
                         {row.label}
                         {row.user.display_name && (
-                          <span className="ml-1.5 text-xs text-zinc-500">
+                          <span className="ms-1.5 text-xs text-zinc-500">
                             {row.user.display_name}
                           </span>
                         )}

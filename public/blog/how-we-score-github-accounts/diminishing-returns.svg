@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="470" viewBox="0 0 1160 470" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif">
+<rect width="1160" height="470" fill="#0a0a0b"/>
+<text x="36" y="46" fill="#fafafa" font-size="26" font-weight="700">Why one viral repo can't run away with it</text>
+<line x1="90" y1="90" x2="90" y2="380" stroke="#3f3f46" stroke-width="1"/>
+<line x1="90" y1="380" x2="1110" y2="380" stroke="#3f3f46" stroke-width="1"/>
+<line x1="893" y1="90" x2="893" y2="380" stroke="#52525b" stroke-width="1" stroke-dasharray="4 4"/>
+<polyline points="90,356 242,319 307,298 459,246 524,223 676,168 741,145 806,121 893,90 1110,90" fill="none" stroke="#ea580c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="741" cy="145" r="5" fill="#ea580c"/>
+<text x="752" y="141" fill="#fafafa" font-size="15">1,000&#9733; already earns ~81% of the points</text>
+<text x="470" y="78" fill="#a1a1aa" font-size="16">beyond 5,000&#9733; the curve is flat &#8212; 50,000&#9733; scores no higher</text>
+<text x="100" y="82" fill="#71717a" font-size="14">points earned</text>
+<text x="90" y="400" fill="#71717a" font-size="14" text-anchor="middle">1</text>
+<text x="307" y="400" fill="#71717a" font-size="14" text-anchor="middle">10</text>
+<text x="524" y="400" fill="#71717a" font-size="14" text-anchor="middle">100</text>
+<text x="741" y="400" fill="#71717a" font-size="14" text-anchor="middle">1,000&#9733;</text>
+<text x="958" y="400" fill="#71717a" font-size="14" text-anchor="middle">10,000&#9733;</text>
+<text x="1110" y="400" fill="#71717a" font-size="14" text-anchor="end">50,000&#9733;</text>
+<text x="36" y="452" fill="#3f3f46" font-size="14">Every &#8220;how much&#8221; signal runs through this diminishing-returns curve (star axis log-scaled), so buying more barely moves the score &#183; ghfind.com</text>
+</svg>

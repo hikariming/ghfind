@@ -40,7 +40,7 @@ export async function HomeIntro() {
       <h2 className="mt-12 text-center text-2xl font-black tracking-tight text-[var(--foreground)] sm:text-3xl">
         {t("numbersHeading")}
       </h2>
-      <ul className="mt-5 list-disc space-y-2 pl-5 text-sm leading-relaxed text-zinc-400">
+      <ul className="mt-5 list-disc space-y-2 ps-5 text-sm leading-relaxed text-zinc-400">
         <li>{t("numbers.accounts", { count: NAMED_STATS.accountsScored })}</li>
         <li>{t("numbers.snapshots", { count: NAMED_STATS.fullSnapshots })}</li>
         <li>{t("numbers.dimensions", { count: NAMED_STATS.dimensions })}</li>
@@ -49,23 +49,23 @@ export async function HomeIntro() {
 
       <div className="mt-8 overflow-x-auto">
         <table className="w-full border-collapse text-sm">
-          <caption className="mb-3 text-left font-bold text-[var(--foreground)]">
+          <caption className="mb-3 text-start font-bold text-[var(--foreground)]">
             {t("tableCaption")}
           </caption>
           <thead>
-            <tr className="border-b border-[var(--border)] text-left text-zinc-400">
-              <th className="py-2 pr-4 font-semibold">{t("tableColSignal")}</th>
-              <th className="py-2 pr-4 font-semibold">{t("tableColMeasures")}</th>
+            <tr className="border-b border-[var(--border)] text-start text-zinc-400">
+              <th className="py-2 pe-4 font-semibold">{t("tableColSignal")}</th>
+              <th className="py-2 pe-4 font-semibold">{t("tableColMeasures")}</th>
               <th className="py-2 font-semibold">{t("tableColGameable")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={i} className="border-b border-[var(--border)]/50 align-top">
-                <th scope="row" className="py-2 pr-4 text-left font-semibold text-[var(--foreground)]">
+                <th scope="row" className="py-2 pe-4 text-start font-semibold text-[var(--foreground)]">
                   {row.signal}
                 </th>
-                <td className="py-2 pr-4 text-zinc-400">{row.measures}</td>
+                <td className="py-2 pe-4 text-zinc-400">{row.measures}</td>
                 <td className="py-2 text-zinc-400">{row.gameable}</td>
               </tr>
             ))}

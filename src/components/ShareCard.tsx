@@ -67,6 +67,9 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       ref={ref}
       data-force-dark
       data-share-card-ready={avatarReady ? "true" : "false"}
+      // The exported PNG has a fixed design and zh/en-only content — keep it
+      // LTR even when the surrounding page is RTL (ar).
+      dir="ltr"
       style={{ width: 600, height: 540 }}
       className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
     >

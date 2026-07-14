@@ -210,7 +210,7 @@ export function PendingProfile({
                       <span className="shrink-0 text-xs tabular-nums text-zinc-400">
                         ⭐ {nf.format(r.stars)}
                         {(r.commits > 0 || r.prs > 0) && (
-                          <span className="ml-2 text-zinc-500">
+                          <span className="ms-2 text-zinc-500">
                             {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
                             {r.commits > 0 && r.prs > 0 && " · "}
                             {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}

@@ -171,7 +171,7 @@ export function ProfileReactions({
           {pickerOpen ? (
             <div
               role="menu"
-              className="absolute left-0 top-full z-10 mt-1.5 flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/95 px-2 py-1.5 shadow-xl shadow-black/40 backdrop-blur"
+              className="absolute start-0 top-full z-10 mt-1.5 flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/95 px-2 py-1.5 shadow-xl shadow-black/40 backdrop-blur"
             >
               {PROFILE_REACTIONS.map((reaction) => {
                 const selected = state.viewerReaction === reaction;

@@ -45,7 +45,7 @@ export function RepoOverviewCard({
         </a>
         <span className="shrink-0 text-sm tabular-nums text-zinc-400">
           ⭐ {nf.format(repo.stars)}
-          {repo.language && <span className="ml-3 text-zinc-500">{repo.language}</span>}
+          {repo.language && <span className="ms-3 text-zinc-500">{repo.language}</span>}
         </span>
       </div>
 
@@ -72,7 +72,7 @@ export function RepoOverviewCard({
           <span className="text-xs text-zinc-500">{labels.authoredBy}</span>
           <Link
             href={`/u/${owner.username}`}
-            className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1 pr-3 hover:bg-white/[0.07]"
+            className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1 ps-1 pe-3 hover:bg-white/[0.07]"
           >
             {owner.avatar_url && (
               // eslint-disable-next-line @next/next/no-img-element -- avatar thumbnail, no LCP concern in a secondary row

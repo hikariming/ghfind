@@ -123,6 +123,9 @@ export const VsShareCard = forwardRef<
       ref={ref}
       data-force-dark
       data-share-card-ready={readyA && readyB ? "true" : "false"}
+      // The exported PNG has a fixed design and zh/en-only content — keep it
+      // LTR even when the surrounding page is RTL (ar).
+      dir="ltr"
       style={{ width: 640 }}
       className="relative flex flex-col gap-5 overflow-hidden bg-[#0a0a0b] p-8 font-sans text-white"
     >

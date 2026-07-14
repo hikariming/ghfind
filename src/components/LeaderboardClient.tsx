@@ -71,14 +71,14 @@ interface MetricRow {
 function MetricBlock({ compact, rows }: { compact?: boolean; rows: MetricRow[] }) {
   return (
     <div
-      className={`grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/10 px-2.5 py-2 text-right sm:shrink-0 sm:flex-none sm:border-0 sm:bg-transparent sm:p-0 ${
+      className={`grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/10 px-2.5 py-2 text-end sm:shrink-0 sm:flex-none sm:border-0 sm:bg-transparent sm:p-0 ${
         compact ? "sm:w-36" : "sm:w-60"
       }`}
     >
       {rows.map((row, index) => (
         <div key={index} className="contents">
           <div
-            className="truncate text-left text-[11px] font-semibold leading-tight sm:text-xs"
+            className="truncate text-start text-[11px] font-semibold leading-tight sm:text-xs"
             title={row.title}
           >
             {row.label}

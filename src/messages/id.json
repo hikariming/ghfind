@@ -1,0 +1,794 @@
+{
+  "meta": {
+    "title": "ghfind | Skor GitHub Pedas, Uji Diri & Temukan Dev Terbaik",
+    "description": "ghfind: skor nilai & kepercayaan GitHub 0-100 plus roast pedas dalam 30 detik. Lihat kekuranganmu, uji diri dan berkembang, lalu temukan developer terbaik dan biarkan dunia menemukanmu.",
+    "ogTitle": "ghfind | Skor GitHub Pedas, Uji Diri & Temukan Dev Terbaik",
+    "ogDescription": "ghfind: nilai akun GitHub mana pun dan temukan developer terbaik. Skor nilai & kepercayaan 0-100 + roast pedas dalam 30 detik, plus papan peringkat developer.",
+    "twDescription": "Nilai dev GitHub mana pun + temukan yang terbaik di ghfind. Skor 0-100 & roast pedas dalam 30 detik.",
+    "siteName": "ghfind"
+  },
+  "nav": {
+    "brand": "ghfind",
+    "roast": "Roast",
+    "leaderboard": "Peringkat",
+    "discover": "Jelajahi",
+    "developers": "Developer",
+    "projects": "Proyek",
+    "languages": "Bahasa",
+    "organizations": "Organisasi",
+    "versus": "Duel",
+    "blog": "Riset",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu"
+  },
+  "globalSearch": {
+    "open": "Buka pencarian global",
+    "trigger": "Cari",
+    "title": "Cari di ghfind",
+    "description": "Temukan developer, proyek, bahasa, dan organisasi.",
+    "input": "Cari developer dan proyek",
+    "placeholder": "Coba antfu, vite, Rust, atau vercel",
+    "loading": "Mencari…",
+    "empty": "Belum ada developer atau proyek yang cocok.",
+    "group": {
+      "users": "Developer",
+      "repos": "Proyek",
+      "facets": "Bahasa & organisasi"
+    }
+  },
+  "header": {
+    "signIn": "Masuk dengan GitHub",
+    "signOut": "Keluar",
+    "myProfile": "Profil saya",
+    "judgeSelf": "Nilai diriku"
+  },
+  "loginNudge": {
+    "title": "🔥 Masuk untuk membuka lebih banyak",
+    "body": "Masuk dengan GitHub supaya vote dan reaksimu tersimpan — pengalamannya juga jadi lebih mulus.",
+    "signIn": "Masuk dengan GitHub",
+    "dismiss": "Nanti saja",
+    "close": "Tutup"
+  },
+  "langSwitch": {
+    "label": "Ganti bahasa",
+    "zh": "中文",
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "id": "Bahasa Indonesia",
+    "vi": "Tiếng Việt",
+    "ar": "العربية"
+  },
+  "themeSwitch": {
+    "label": "Ganti tema",
+    "light": "Tema terang",
+    "dark": "Tema gelap",
+    "auto": "Ikuti sistem"
+  },
+  "repoLink": {
+    "label": "Sumber",
+    "title": "Kode sumber & algoritma skor sepenuhnya open source · Lihat di GitHub"
+  },
+  "home": {
+    "brand": "Pedas",
+    "headline": "Temukan developer terbaik — dan jadilah salah satunya.",
+    "subtitle": "Mulai dari skor 0–100 yang jujur tanpa ampun. Lihat posisimu, tahu harus ke mana.",
+    "boardHeading": "🏆 Developer terbaik",
+    "openBoard": "Buka peringkat lengkap →",
+    "disclaimer1": "Skor dan roast dibuat otomatis hanya dari <b>data publik GitHub</b>. Yang kami roast adalah perilaku dan statistik publik sebuah akun, bukan orangnya. Hasilnya bukan klaim faktual tentang siapa pun — jangan dipakai untuk merundung.",
+    "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu."
+  },
+  "leaderboard": {
+    "heading": "🏆 Hall of Fame",
+    "subtitle": "Hall of Fame memuat akun dengan skor 60+, default menampilkan Trending.",
+    "judgeCta": "← Nilai sebuah akun",
+    "footerNote": "Hanya akun berskor tinggi berdasarkan data publik GitHub yang ditampilkan. Untuk menghapus dirimu dari papan, <a>ajukan penghapusan di sini</a>.",
+    "loadError": "Papan peringkat lagi susah dimuat — coba lagi nanti.",
+    "loading": "Memuat Hall of Fame…",
+    "empty": "🧮 Lagi menghitung angka — cek lagi sebentar lagi…",
+    "prev": "← Sebelumnya",
+    "next": "Berikutnya →",
+    "pageJumpLabel": "Lompat ke halaman",
+    "collapse": "Ciutkan",
+    "trendView": "🚀 Trending",
+    "scoreView": "💯 Skor Tertinggi",
+    "trendLabel": "Tren",
+    "trendTitle": "Skor tren: 80% skor + 15% panas pengunjung unik 7 hari + 5% peluruhan pencarian terbaru",
+    "scoreLabel": "Skor",
+    "scoreTitle": "Skor nilai dan kepercayaan 0-100 berdasarkan data publik GitHub",
+    "heatView": "🔥 Paling Sering Di-roast",
+    "heatLabel": "Panas",
+    "heatTitle": "Jumlah roast yang berhasil",
+    "vsButton": "Tantang",
+    "viewDetail": "Lihat detail skor @{username}",
+    "trendSubtitle": "Tren memadukan skor, panas pengunjung unik 7 hari, dan kebaruan pencarian; panas dinormalisasi agar perhatian mentah tidak menenggelamkan kualitas.",
+    "scoreSubtitle": "Diurutkan berdasar skor nilai dan kepercayaan 0-100.",
+    "heatSubtitle": "Diurutkan berdasar total pencarian roast yang berhasil.",
+    "windowAria": "Rentang waktu",
+    "window24h": "24 jam",
+    "window7d": "7 hari",
+    "window30d": "30 hari",
+    "windowAll": "Sepanjang masa"
+  },
+  "developers": {
+    "heading": "Jelajahi developer",
+    "subtitle": "Temukan developer papan atas yang layak diikuti, dikelompokkan per bahasa pemrograman, proyek, dan organisasi.",
+    "languagesTitle": "Per bahasa",
+    "projectsTitle": "Per proyek",
+    "orgsTitle": "Per organisasi",
+    "count": "{count}",
+    "emptyCategories": "Belum ada kategori — cek lagi nanti.",
+    "languageBucketHeading": "Developer {value} terbaik",
+    "repoBucketHeading": "{value} · kontributor",
+    "orgBucketHeading": "{value} · anggota",
+    "bucketSubtitle": "Diurutkan berdasar skor keseluruhan, menampilkan maksimal {limit} teratas.",
+    "pinRankLine": "<strong>@{username}</strong> berada di peringkat <strong>#{rank}</strong> di papan ini",
+    "pinChallenge": "Tantang @{username}, satu posisi di atasmu",
+    "pinTop": "Puncak papan 👑",
+    "empty": "Belum ada developer di kategori ini.",
+    "backToDirectory": "← Kembali ke Jelajahi",
+    "metaTitle": "Jelajahi developer",
+    "metaDescription": "Telusuri developer GitHub terbaik per bahasa pemrograman, proyek, dan organisasi.",
+    "bucketMetaDescription": "Developer GitHub dengan skor tertinggi di {value}.",
+    "apiCta": "Menyeleksi kandidat dalam jumlah besar? Semua skor di papan ini berasal dari ghfind API — skor kepercayaan 0-100 yang deterministik untuk akun GitHub mana pun, gratis untuk pemakaian wajar.",
+    "apiCtaLink": "Dokumentasi API →",
+    "repoAuthoredBy": "Dirawat oleh",
+    "repoContributors": "kontributor terperingkat",
+    "repoAvgScore": "rata-rata skor"
+  },
+  "projects": {
+    "metaTitle": "Temukan proyek GitHub berkualitas · ghfind",
+    "metaDescription": "Temukan proyek GitHub yang diperingkat berdasar kualitas dan momentum developer di baliknya.",
+    "eyebrow": "Penemuan proyek",
+    "heading": "Cari proyek dari siapa yang membangunnya",
+    "subtitle": "Star cuma menunjukkan popularitas. ghfind menambah lapisan yang hilang: kualitas kontributor, kedalaman tim, dan perhatian terkini.",
+    "sortLabel": "Urutan proyek",
+    "languageLabel": "Bahasa proyek",
+    "sort": {
+      "quality": "Kualitas kontributor",
+      "momentum": "Momentum terkini",
+      "stars": "Star"
+    },
+    "allLanguages": "Semua bahasa",
+    "contributors": "kontributor",
+    "avgScore": "rata-rata skor",
+    "momentum": "momentum",
+    "reason": {
+      "elite": "Dibangun oleh banyak developer papan atas",
+      "momentum": "Perhatiannya naik minggu ini",
+      "quality": "Unggul di kualitas kontributor",
+      "popular": "Proyek open source populer"
+    },
+    "prev": "← Sebelumnya",
+    "next": "Berikutnya →",
+    "page": "Halaman {page}",
+    "listLabel": "Hasil proyek",
+    "emptyTitle": "Belum ada graf proyek di sini",
+    "emptyBody": "Jalankan backfill repositori secara lokal atau hapus filter yang sedang aktif."
+  },
+  "discoveryNext": {
+    "relatedTitle": "Lanjut menjelajah",
+    "relatedSubtitle": "Proyek yang terhubung lewat kontributor atau bahasa.",
+    "sharedContributors": "{count} kontributor yang sama",
+    "sameLanguage": "Bahasa yang sama",
+    "commonTitle": "Proyek yang sama-sama mereka kerjakan",
+    "commonSubtitle": "Kerja bareng antara developer ini dan profil-profil serupa.",
+    "projects": {
+      "title": "Jelajahi proyek",
+      "body": "Lihat repositori mana yang ditopang tim kontributor berkualitas tinggi.",
+      "cta": "Telusuri peringkat proyek"
+    },
+    "organizations": {
+      "title": "Jelajahi organisasi",
+      "body": "Lanjutkan menyusuri tim dan komunitas di balik papan peringkat.",
+      "cta": "Telusuri organisasi"
+    }
+  },
+  "continueExploring": {
+    "title": "Lanjutkan dari tempat terakhirmu",
+    "subtitle": "Developer dan proyek terbaru dari penjelajahanmu.",
+    "developer": "Developer",
+    "project": "Proyek"
+  },
+  "challenge": {
+    "bannerTitle": "Datang dari profil @{owner}? Lihat seberapa jauh kamu dibanding dia",
+    "cta": "Tantang dia",
+    "go": "Gas",
+    "inputPlaceholder": "Username GitHub kamu",
+    "selfHint": "Itu kamu sendiri — pilih orang lain.",
+    "invalidHint": "Itu tidak terlihat seperti username GitHub yang valid.",
+    "dismiss": "Tutup",
+    "profileCta": "Tantang dia",
+    "ownerCta": "Tarik seseorang untuk melawanku"
+  },
+  "follow": {
+    "button": "Ikuti",
+    "following": "Mengikuti",
+    "limit": "Kamu bisa mengikuti maksimal 50 developer.",
+    "homeTitle": "Developer yang kamu ikuti",
+    "homeSub": "pergerakan skor minggu ini",
+    "homeEmpty": "Ikuti developer dari halaman profil mereka, lalu kembali ke sini untuk memantau pergerakan skornya.",
+    "unrated": "belum dinilai",
+    "menuLink": "Developer yang kamu ikuti",
+    "pageTitle": "Developer yang kamu ikuti",
+    "pageSubtitle": "pergerakan skor minggu ini",
+    "signInTitle": "Masuk untuk melihat siapa yang kamu ikuti",
+    "signInBody": "Masuk dengan GitHub, ikuti developer, lalu kembali ke sini untuk memantau pergerakan skor mereka.",
+    "signIn": "Masuk dengan GitHub"
+  },
+  "detail": {
+    "back": "← Kembali ke Hall of Fame",
+    "backfilling": "🔍 Mengambil jejak open source mereka (repo / bahasa / kontribusi)…",
+    "rankTitle": "Posisimu",
+    "rankUnit": "/ dari {total}",
+    "rankUnranked": "Belum terperingkat (data belum cukup)",
+    "beatInline": "Mengalahkan {beat}% developer",
+    "milestoneNext": "{gap} poin lagi menuju “{tier}”",
+    "milestoneCapped": "🏆 Sudah mentok · tier tertinggi",
+    "facetRankLine": "#{rank} di {facet}",
+    "facetRankAhead": "di belakang @{username}",
+    "challengeCta": "Tantang dia",
+    "challengeGo": "Gas",
+    "challengeSelf": "Itu kamu sendiri — pilih orang lain.",
+    "challengeInvalid": "Itu tidak terlihat seperti username GitHub yang valid.",
+    "challengePlaceholder": "Username GitHub kamu",
+    "challengeOwner": "Tarik seseorang untuk melawanku",
+    "modalPkCta": "Tarik seseorang untuk dibandingkan",
+    "modalFacetRankCta": "Lihat peringkatku di {facet}",
+    "dimensionsHeading": "Rincian skor",
+    "similarHeading": "🧬 Developer paling mirip",
+    "similarSub": "Profil terdekat, skor berdampingan",
+    "impactHeading": "🏆 Kontribusi menonjol",
+    "impactSub": "Repo open source populer tempat mereka berkontribusi (commit + PR)",
+    "worksHeading": "🛠 Karya unggulan",
+    "worksSub": "Repositori populer dan pinned milik mereka sendiri",
+    "stackHeading": "🧬 Stack & domain",
+    "stackLangLabel": "Bahasa utama",
+    "stackTopicsLabel": "Domain",
+    "orgsLabel": "Organisasi",
+    "commits": "commit",
+    "prs": "PR",
+    "roastHeading": "🔥 Roast lengkap",
+    "roastEmpty": "Roast ini belum diarsipkan — <a>nilai ulang dari halaman utama</a> untuk membuatnya.",
+    "livePendingBanner": "Roast sedang dimasak…",
+    "livePending": "Memanaskan roast…",
+    "liveError": "Roast gagal dibuat.",
+    "liveRateLimited": "Terlalu banyak roast sekarang — coba lagi semenit lagi.",
+    "liveExpired": "Pemindaian kedaluwarsa sebelum roast-nya selesai.",
+    "liveGoHome": "Roast lagi dari halaman utama →",
+    "modalTitle": "🔥 Roast-mu sudah jadi",
+    "modalRoastHeading": "Roast lengkap",
+    "modalFirstJudged": "🥇 Kamu yang pertama dinilai — pionir sejati",
+    "modalBeat": "🏆 Mengalahkan {beat}% developer ({total} sudah dinilai)",
+    "modalViewProfile": "Lihat profil lengkap",
+    "modalBadgeCta": "Ambil badge GitHub-mu",
+    "modalClose": "Tutup",
+    "battlesHeading": "⚔️ Pertarungan",
+    "battlesSub": "Duel PK yang pernah dijalani dev ini",
+    "battleWin": "Menang",
+    "battleLoss": "Kalah",
+    "battleTie": "Seri",
+    "selfCta": "Nilai GitHub-mu sendiri →",
+    "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya."
+  },
+  "reactions": {
+    "heading": "Reaksi komunitas",
+    "hint": "Satu reaksi per akun GitHub; bisa diganti kapan saja",
+    "addReaction": "Tambah reaksi",
+    "loginRequired": "Masuk dengan GitHub untuk bereaksi. Pilihanmu akan disimpan.",
+    "loginAction": "Masuk dengan GitHub",
+    "failed": "Reaksimu gagal disimpan. Coba lagi nanti.",
+    "like": "Respect",
+    "poop": "Terlalu encer",
+    "kick": "Tendang",
+    "fire": "Gila sih",
+    "salute": "Hormat",
+    "clown": "Nggak sanggup"
+  },
+  "rescan": {
+    "button": "🔄 Deteksi ulang",
+    "scanning": "Memindai…",
+    "roasting": "Me-roast…",
+    "error": "Deteksi gagal, coba lagi nanti",
+    "cooldown": "Refresh tersedia dalam {hours} jam"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "descWithTags": "{tags} — lihat laporan skor lengkap {username} di ghfind.com.",
+    "descPlain": "Laporan nilai & kepercayaan GitHub {username} — ghfind.com.",
+    "notFoundTitle": "Akun tidak ditemukan · ghfind",
+    "pendingTitle": "Me-roast @{username}… · ghfind"
+  },
+  "roaster": {
+    "inputPlaceholder": "Masukkan username atau URL profil GitHub",
+    "judge": "Nilai",
+    "judging": "Menilai…",
+    "byoLink": "Pakai model / API key sendiri",
+    "scanning": "Membongkar riwayat {username}… membaca commit, memeriksa PR, menghitung star, mengendus aktivitas ternakan",
+    "roastLabel": "🔥 Roast",
+    "roastThinking": "AI-nya lagi meracik roast pedas — sebentar lagi matang…",
+    "roastPending": "Menyiapkan roast",
+    "firstJudged": "🥇 Kamu yang pertama dinilai — pionir sejati",
+    "rankLine": "<hl>📊 Peringkat #{rank}</hl><muted> dari {total} developer</muted>",
+    "beatLine": "<hl>🏆 Mengalahkan {beat}%</hl><muted> developer ({total} sudah dinilai)</muted>",
+    "saveImage": "📸 Simpan gambar pamer",
+    "saving": "Membuat…",
+    "pasteGithub": "📌 Sematkan ke GitHub",
+    "copied": "Tersalin ✓",
+    "privateNote": "Catatan: skor hanya memakai sinyal publik — kontribusi privat tidak dihitung, jadi anggota aktif org privat bisa terlihat lebih rendah dari seharusnya.",
+    "shareText": "GitHub-ku baru saja dinilai: {score}/100 · {tier} ({tierLabel}){beat}. Nilai punyamu 👉 ghfind.com",
+    "shareBeat": ", mengalahkan {beat}% developer",
+    "errEmpty": "Masukkan username atau URL profil GitHub dulu.",
+    "errNeedTurnstile": "Selesaikan verifikasi di bawah dulu ya.",
+    "errRoastFailed": "Pembuatan roast gagal — coba lagi nanti atau pakai key sendiri.",
+    "errNetworkRoast": "Koneksi putus — roast-nya kepotong.",
+    "errScanFailed": "Pemindaian gagal, coba lagi nanti.",
+    "errNetworkScan": "Kesalahan jaringan — GitHub saja tak tergapai.",
+    "byoReasonQuota": "Kuota gratis habis 😵 Tambahkan API key sendiri untuk terus me-roast (OpenAI / StepFun / Groq semuanya bisa).",
+    "byoReasonRate": "Kamu sudah banyak me-roast hari ini 🥵 Istirahat dulu, atau tambahkan API key sendiri untuk roast tanpa batas.",
+    "byoReasonDefault": "Server belum mengonfigurasi model default — tambahkan API key sendiri untuk mulai me-roast."
+  },
+  "scanErrors": {
+    "invalid_username": "Itu tidak terlihat seperti username GitHub — coba cek lagi?",
+    "account_not_found": "Akun tidak ada — ejaannya sudah benar?",
+    "turnstile_failed": "Verifikasi gagal — refresh halaman dan coba lagi.",
+    "rate_limited": "Kecepatan — tarik napas dan coba lagi semenit lagi.",
+    "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
+    "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
+    "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
+  },
+  "share": {
+    "open": "🔗 Bagikan",
+    "heading": "Bagikan ke",
+    "imageHint": "Bagikan sebagai gambar",
+    "copyLink": "Salin tautan",
+    "copied": "Tersalin ✓",
+    "native": "Lainnya…",
+    "siteName": "ghfind"
+  },
+  "badge": {
+    "heading": "📌 Sematkan di profil GitHub-mu",
+    "blurb": "Salin salah satu snippet di bawah ke README profilmu. Skornya selalu ter-update otomatis, dan gambarnya menaut ke halaman detailmu.",
+    "badgeTitle": "Badge",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "Salin",
+    "copied": "Tersalin ✓",
+    "badgeAlt": "Badge skor GitHub Roast",
+    "cardAlt": "GitHub Roast",
+    "builderTitle": "Perancang kartu",
+    "builderBlurb": "Pilih tipe kartu, tema, dan mau menampilkan QR yang bisa dipindai atau tidak — pratinjau dan tautannya ter-update langsung.",
+    "fieldType": "Tipe kartu",
+    "fieldTheme": "Tema",
+    "fieldQr": "Kode QR",
+    "fieldUrl": "URL gambar",
+    "typeScore": "Skor",
+    "themeDark": "Gelap",
+    "themeLight": "Terang",
+    "qrOn": "Aktif",
+    "qrOff": "Nonaktif",
+    "variantContrib": "Kontribusi",
+    "variantPr": "Rekam jejak PR",
+    "variantPath": "Perjalanan GitHub",
+    "variantWork": "Karya khas"
+  },
+  "byok": {
+    "title": "Pakai model sendiri",
+    "compatNote": "Kompatibel dengan API apa pun bergaya OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / lokal). Key-mu tetap di browsermu sendiri. Key diteruskan sekali lewat server kami untuk memanggil model, <b>tapi tidak pernah disimpan, tidak pernah di-log, dan dibuang setelah dipakai</b>.",
+    "tempKeyNote": "🔒 Kalau khawatir, pakai key <b>sementara / berlimit pengeluaran</b> dan cabut setelah selesai.",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "Bersihkan",
+    "cancel": "Batal",
+    "saveContinue": "Simpan & lanjut"
+  },
+  "developerCount": "<n>{count, number}</n> developer sudah masuk arena ⚔️",
+  "shareCard": {
+    "beatLabel": "developer terkalahkan",
+    "brand": "🔥 ghfind · lihat posisimu"
+  },
+  "tiers": {
+    "god": {
+      "name": "GOD",
+      "blurb": "Legendaris · Hall of Fame"
+    },
+    "elite": {
+      "name": "ELITE",
+      "blurb": "Elite · Dev kelas atas"
+    },
+    "solid": {
+      "name": "SOLID",
+      "blurb": "Solid · Bisa dipercaya"
+    },
+    "npc": {
+      "name": "NPC",
+      "blurb": "Rata-rata · Biasa saja"
+    },
+    "trash": {
+      "name": "TRASH",
+      "blurb": "Bernilai rendah · Kemungkinan hasil ternakan"
+    }
+  },
+  "dimensions": {
+    "account_maturity": "Kematangan akun",
+    "original_project_quality": "Kualitas proyek orisinal",
+    "contribution_quality": "Kualitas kontribusi",
+    "ecosystem_impact": "Dampak ekosistem / pemeliharaan",
+    "community_influence": "Pengaruh komunitas",
+    "activity_authenticity": "Keaslian aktivitas"
+  },
+  "omnibox": {
+    "placeholder0": "Masukkan handle GitHub untuk memulai penilaian",
+    "placeholder1": "Ketik a vs b untuk memulai duel",
+    "placeholder2": "Cari rust untuk lihat siapa yang paling ngoyo",
+    "placeholder3": "Cari sebuah perusahaan untuk menakar talentanya",
+    "ctaJudge": "Nilai",
+    "ctaPk": "Gas",
+    "ctaDiscover": "Peringkat",
+    "groupDirect": "Langsung",
+    "groupPk": "Duel",
+    "groupUser": "Pengguna",
+    "groupDiscover": "Jelajahi",
+    "suggestRoast": "Roast @{username}",
+    "suggestPkStart": "@{username} vs …",
+    "suggestPkHint": "Tarik seseorang untuk berduel",
+    "suggestPk": "{a} vs {b}",
+    "suggestLanguage": "Peringkat developer {value}",
+    "suggestOrg": "{value} · anggota org",
+    "pkHalfHint": "Ketik lawan, lalu tekan Enter untuk bertarung",
+    "lockedRemove": "Hapus"
+  },
+  "blog": {
+    "heading": "Riset",
+    "subtitle": "Catatan data dari menilai kontribusi GitHub sungguhan dalam skala besar.",
+    "readingTime": "{minutes} menit baca",
+    "notTranslated": "Artikel ini belum diterjemahkan — menampilkan versi asli bahasa Inggris.",
+    "backToList": "Semua riset",
+    "empty": "Belum ada artikel."
+  },
+  "footer": {
+    "tagline": "Skor nilai & kepercayaan developer GitHub.",
+    "about": "Tentang",
+    "contact": "Kontak",
+    "privacy": "Privasi",
+    "methodology": "Metodologi",
+    "docs": "Dokumentasi API",
+    "blog": "Riset",
+    "source": "Sumber di GitHub",
+    "sectionProduct": "Produk",
+    "sectionResources": "Sumber daya",
+    "sectionCompany": "Perusahaan"
+  },
+  "faq": {
+    "heading": "Pertanyaan yang sering diajukan",
+    "items": [
+      {
+        "q": "Apa itu ghfind?",
+        "a": "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 untuk nilai kontribusi nyata dan tingkat kepercayaan memakai mesin open source yang sepenuhnya deterministik, lalu menambahkan roast tulisan AI (opsional), duel satu lawan satu, dan direktori developer terperingkat."
+      },
+      {
+        "q": "Bagaimana skornya dihitung?",
+        "a": "Mesin menilai enam dimensi berbobot yang totalnya 100 — kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas — lalu mengurangi penalti untuk tanda bahaya seperti PR farming atau penggelembungan star. Mesin hanya berjalan di atas data publik GitHub."
+      },
+      {
+        "q": "Apakah skornya deterministik dan bisa direproduksi?",
+        "a": "Ya. Tidak ada LLM yang menyentuh angkanya: input yang sama selalu menghasilkan skor yang sama. Inti mesin skor di-open-source sebagai skill github-account-value (AGPL), sehingga siapa pun bisa mereproduksi atau mengaudit hasilnya. Hanya teks roast opsional yang ditulis LLM."
+      },
+      {
+        "q": "Bisakah ghfind dipakai lewat API, CLI, atau MCP?",
+        "a": "Bisa. Ada REST API publik (lihat /openapi.json), paket resmi npm dan PyPI plus CLI, serta server Model Context Protocol di /mcp yang menyediakan tool score_user, scan_user, compare_users, get_leaderboard, dan search_users. Endpoint skor tidak butuh autentikasi."
+      },
+      {
+        "q": "Apakah ghfind mendeteksi bot dan akun ternakan AI?",
+        "a": "Ia menandai pola yang memisahkan aktivitas ternakan dari kerja jujur — judul PR templat yang nyaris identik, kontribusi yang menumpuk di repo yang bukan milik akun itu, dan penggelembungan star atau follower yang mencurigakan. Dalam dataset 18.947 akun yang dinilai, kurang dari 1% memicu tanda bahaya terkuat — jarang, tapi ekstrem saat muncul."
+      },
+      {
+        "q": "Apakah pekerjaan privatku dihitung?",
+        "a": "Tidak. Skor hanya memakai sinyal publik, jadi kontribusi organisasi privat tak terlihat oleh mesin. Anggota aktif repo privat bisa terlihat lebih rendah dari seharusnya. Skor rendah bukan klaim faktual tentang seseorang — ia hanya menggambarkan jejak publik sebuah akun."
+      },
+      {
+        "q": "Bagaimana cara menghapus profilku dari ghfind?",
+        "a": "Hanya akun berskor 60+ yang diindeks dan ditampilkan. Untuk dihapus dari papan, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan profil akan dicabut dari daftar."
+      }
+    ]
+  },
+  "homeIntro": {
+    "whatHeading": "Apa itu ghfind?",
+    "whatBody": "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 lewat enam dimensi berbobot — kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas — memakai mesin yang sepenuhnya deterministik (skill open source github-account-value, AGPL). Input yang sama selalu menghasilkan skor yang sama; tidak ada LLM yang menyentuh angkanya. Di atas skor itu, ada roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa dan organisasi, serta badge skor untuk README.",
+    "howHeading": "Cara kerja ghfind",
+    "steps": [
+      {
+        "title": "1. Pindai jejak publik",
+        "body": "Masukkan username GitHub mana pun. Mesin merayapi data publik akun itu — repositori, pull request, issue, star, follower — dan membangun sebuah potret bukti. Tanpa login, tanpa izin apa pun."
+      },
+      {
+        "title": "2. Nilai enam dimensi deterministik",
+        "body": "Potret itu dinilai lewat kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas, dengan penalti untuk PR farming, penggelembungan star, dan pola spam templat."
+      },
+      {
+        "title": "3. Dapatkan skor, tier, dan roast",
+        "body": "Kamu mendapat skor 0-100 yang bisa direproduksi dengan tier dari Trash sampai God, rincian per dimensi yang menunjukkan persis apa yang menahan skormu, dan — hanya kalau kamu minta — roast pedas tulisan AI."
+      }
+    ],
+    "numbersHeading": "ghfind dalam angka",
+    "numbers": {
+      "accounts": "{count} akun GitHub telah dinilai dalam dataset riset publik",
+      "snapshots": "{count} potret bukti lengkap dikumpulkan dan dianalisis",
+      "dimensions": "{count} dimensi berbobot di balik setiap skor",
+      "flagged": "{share} dari akun yang dinilai ditandai karena aktivitas tidak autentik"
+    },
+    "tableCaption": "Skor ghfind vs sinyal mentah GitHub",
+    "tableColSignal": "Sinyal",
+    "tableColMeasures": "Apa yang diukur",
+    "tableColGameable": "Mudah digelembungkan?",
+    "tableRows": [
+      {
+        "signal": "Star GitHub",
+        "measures": "Popularitas sebuah proyek, bukan kualitas kontribusi penulisnya",
+        "gameable": "Ya — pasar star dan lingkaran saling-star itu murah meriah"
+      },
+      {
+        "signal": "Follower",
+        "measures": "Ukuran audiens dan jangkauan sosial",
+        "gameable": "Ya — lingkaran follow-back dan follower beli"
+      },
+      {
+        "signal": "Skor ghfind",
+        "measures": "Nilai kontribusi nyata dan kepercayaan lewat enam dimensi berbobot",
+        "gameable": "Susah — pola tidak autentik terdeteksi dan dikenai penalti"
+      }
+    ]
+  },
+  "docs": {
+    "metaTitle": "Dokumentasi API ghfind — REST API, server MCP, SDK",
+    "metaDescription": "Dokumentasi developer ghfind: endpoint REST untuk penilaian akun GitHub, server MCP ghfind untuk agen AI, autentikasi, SDK resmi npm dan PyPI, serta spesifikasi yang bisa dibaca mesin (OpenAPI, llms.txt).",
+    "heading": "Dokumentasi API ghfind",
+    "lead": "ghfind menilai akun GitHub mana pun 0-100 untuk nilai kontribusi nyata dan kepercayaan dengan mesin open source yang deterministik. Semua yang ada di situs juga tersedia secara programatik: REST API publik, server MCP untuk agen AI, dan SDK resmi. Halaman ini mendokumentasikan semuanya.",
+    "restHeading": "REST API ghfind",
+    "restIntro": "Base URL: https://ghfind.com. Pembacaan skor tidak butuh autentikasi. Error berupa JSON terstruktur ({error, message, hint}), respons membawa header RateLimit-*, dan endpoint daftar mendukung paginasi limit/offset.",
+    "endpoints": [
+      {
+        "sig": "GET /api/score/{username}",
+        "desc": "Skor deterministik 0-100, tier, dan rincian enam dimensi. Menilai akun baru secara langsung; tanpa autentikasi, tanpa LLM."
+      },
+      {
+        "sig": "POST /api/scan",
+        "desc": "Payload pemindaian deterministik lengkap: metrik mentah, repositori teratas, pull request terbaru, tanda bahaya, sub-skor."
+      },
+      {
+        "sig": "POST /api/roast",
+        "desc": "Laporan roast tulisan AI (satu-satunya endpoint LLM; mendukung key milik sendiri)."
+      },
+      {
+        "sig": "POST /api/vs-verdict",
+        "desc": "Vonis satu lawan satu untuk dua akun."
+      },
+      {
+        "sig": "GET /api/leaderboard",
+        "desc": "Developer terperingkat berdasar trending, skor, panas, atau progres; berpaginasi via limit/offset."
+      },
+      {
+        "sig": "GET /api/developers",
+        "desc": "Direktori developer per bahasa, organisasi, atau repositori kontribusi; berpaginasi."
+      },
+      {
+        "sig": "GET /api/search-users",
+        "desc": "Pencarian prefiks pada akun yang sudah dinilai."
+      },
+      {
+        "sig": "GET /api/stats",
+        "desc": "Total platform (jumlah akun yang dinilai)."
+      },
+      {
+        "sig": "GET /api/badge/{username}",
+        "desc": "Badge skor SVG untuk disematkan di README."
+      }
+    ],
+    "mcpHeading": "Server MCP ghfind",
+    "mcpIntro": "Server Model Context Protocol Streamable HTTP tersedia di https://ghfind.com/mcp (tanpa autentikasi, dibatasi laju per IP, hanya-baca). Tambahkan ke Claude, Cursor, atau klien MCP mana pun untuk menilai dan membandingkan akun GitHub dari dalam agen.",
+    "tools": [
+      {
+        "name": "score_user",
+        "desc": "Skor 0-100, tier, dan rincian enam dimensi untuk login GitHub mana pun."
+      },
+      {
+        "name": "scan_user",
+        "desc": "Payload pemindaian lengkap: metrik, repo teratas, PR terbaru, tanda bahaya."
+      },
+      {
+        "name": "compare_users",
+        "desc": "Perbandingan satu lawan satu deterministik dengan pemenang dan selisih skor."
+      },
+      {
+        "name": "get_leaderboard",
+        "desc": "Developer publik terperingkat untuk penemuan."
+      },
+      {
+        "name": "search_users",
+        "desc": "Pencarian prefiks pada akun yang sudah dinilai."
+      }
+    ],
+    "authHeading": "Autentikasi",
+    "authBody": "Endpoint baca bersifat publik. Endpoint tulis (POST /api/scan, POST /api/roast) menerima verifikasi Turnstile browser atau API key Bearer. Agen sebaiknya membaca panduan mesin di /auth.md.",
+    "sdkHeading": "SDK resmi & CLI",
+    "sdks": [
+      {
+        "name": "@hikariming/ghfind (npm)",
+        "desc": "SDK JavaScript / TypeScript dan CLI: npm install -g @hikariming/ghfind"
+      },
+      {
+        "name": "ghfind (PyPI)",
+        "desc": "SDK Python: pip install --upgrade ghfind"
+      },
+      {
+        "name": "ghfind CLI",
+        "desc": "ghfind score {username} -o json · ghfind scan · ghfind roast · ghfind leaderboard · ghfind stats"
+      }
+    ],
+    "machineHeading": "Antarmuka yang bisa dibaca mesin",
+    "machine": [
+      {
+        "label": "/openapi.json",
+        "desc": "Spesifikasi OpenAPI 3.1 dari semua endpoint publik"
+      },
+      {
+        "label": "/llms.txt",
+        "desc": "Panduan untuk agen dengan tautan markdown ke setiap antarmuka"
+      },
+      {
+        "label": "/index.md",
+        "desc": "Kembaran markdown dari beranda (juga disajikan pada Accept: text/markdown)"
+      },
+      {
+        "label": "/.well-known/agent-card.json",
+        "desc": "Kartu agen A2A, kartu server MCP, katalog API dan skill di bawah /.well-known/"
+      }
+    ]
+  },
+  "about": {
+    "metaTitle": "Tentang ghfind",
+    "metaDescription": "ghfind menilai akun GitHub mana pun 0-100 untuk nilai kontribusi nyata dan kepercayaan dengan mesin open source yang deterministik, serta membantumu menemukan developer terbaik.",
+    "heading": "Tentang ghfind",
+    "paragraphs": [
+      "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 untuk nilai kontribusi nyata dan tingkat kepercayaan, memakai mesin sepenuhnya deterministik yang hanya berjalan di atas data publik GitHub. Input yang sama selalu menghasilkan skor yang sama — tidak ada model bahasa besar yang terlibat dalam angkanya — sehingga hasilnya bisa direproduksi dan diaudit, bukan kotak hitam.",
+      "Skor dibangun dari enam dimensi berbobot yang totalnya 100: kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas. Di atas inti faktual itu, ghfind menambahkan roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa pemrograman, organisasi, dan proyek, serta badge skor README yang bisa kamu sematkan di profilmu sendiri.",
+      "Mesin skor bersifat open source dengan lisensi AGPL sebagai skill github-account-value, dan jalur kode yang sama menggerakkan situs web, paket resmi npm dan PyPI, alat baris perintah, dan server Model Context Protocol. ghfind ada untuk membuat kontribusi GitHub mudah dibaca: menghargai kerja open source yang tulen, memunculkan developer yang layak diikuti, dan membuat aktivitas ternakan atau palsu gampang dikenali dengan melihat pola, bukan angka mentah."
+    ]
+  },
+  "contact": {
+    "metaTitle": "Hubungi ghfind",
+    "metaDescription": "Cara menghubungi tim ghfind: laporkan masalah, ajukan penghapusan dari papan peringkat, atau tanyakan soal API, CLI, dan server MCP.",
+    "heading": "Kontak",
+    "paragraphs": [
+      "ghfind adalah proyek open source. Cara tercepat menghubungi tim, melaporkan masalah, mengajukan penghapusan dari papan peringkat, atau bertanya soal API, CLI, atau server MCP adalah membuka issue di repositori GitHub publik. Issue dibaca dan ditriase di sana, dan menjaga percakapan tetap terbuka membantu pengguna lain yang menemui pertanyaan yang sama.",
+      "Untuk pertanyaan integrasi, kontrak API yang bisa dibaca mesin ada di /openapi.json, indeks dokumentasi untuk agen di /llms.txt, dan panduan autentikasi di /auth.md. Kalau kamu butuh batas laju yang lebih tinggi untuk pemindaian server-ke-server bervolume besar, sebutkan use case-mu di sebuah issue GitHub."
+    ],
+    "issuesLabel": "Buka issue di GitHub",
+    "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "Untuk urusan bisnis, lisensi massal, atau batas laju API yang lebih tinggi, email kami langsung:",
+    "bizNote": "(Untuk pertanyaan pemakaian open source, lebih baik lewat issue GitHub — jawaban publik membantu pengguna lain juga.)",
+    "resourcesLabel": "Sumber daya developer",
+    "apiLabel": "Referensi API (OpenAPI)",
+    "llmsLabel": "Dokumentasi agen (llms.txt)",
+    "authLabel": "Autentikasi (auth.md)"
+  },
+  "privacy": {
+    "metaTitle": "Privasi — ghfind",
+    "metaDescription": "Cara ghfind menangani data: hanya menilai data publik GitHub, tidak menjual data pribadi, dan menghormati permintaan penghapusan profil yang terindeks.",
+    "heading": "Privasi",
+    "sections": [
+      {
+        "h": "Data apa yang dipakai ghfind",
+        "p": "ghfind menghitung skor hanya dari data publik GitHub — informasi yang sama dengan yang bisa dilihat siapa pun di sebuah profil beserta repositori, pull request, dan aktivitas publiknya. Ia tidak mengakses repositori privat, kontribusi privat, isi email, atau data apa pun yang belum publik di GitHub. Karena itu, skor menggambarkan jejak publik sebuah akun dan bukan klaim faktual tentang orang di baliknya."
+      },
+      {
+        "h": "Apa yang kami simpan",
+        "p": "Untuk akun yang dinilai, kami menyimpan cache skor, tier, dan metrik turunannya agar laporan yang dibagikan cepat dimuat dan papan peringkat tetap kencang. Hanya akun berskor 60 ke atas yang diindeks dan ditampilkan secara publik; halaman berskor lebih rendah tetap bisa diakses lewat tautan langsung tapi dijauhkan dari mesin pencari. Kami memakai analitik agregat yang menghormati privasi untuk memahami trafik dan tidak menjual data pribadi."
+      },
+      {
+        "h": "Roast dengan key milik sendiri",
+        "p": "Fitur roast opsional bisa memakai key penyedia modelmu sendiri. Saat kamu memberikannya, key itu tetap di browsermu dan diteruskan sekali lewat server kami untuk memanggil model — tidak pernah disimpan dan tidak pernah di-log, dan dibuang setelah permintaan selesai."
+      },
+      {
+        "h": "Penghapusan dan kendali",
+        "p": "Kalau kamu ingin profilmu dicabut dari daftar, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan kami akan menghapusnya dari papan dan indeks. Karena ghfind hanya mencerminkan data publik GitHub, mengubah atau memprivatkan aktivitas GitHub-mu juga akan mengubah atau menghapus apa yang bisa dilihat ghfind pada pemindaian berikutnya."
+      }
+    ]
+  },
+  "methodology": {
+    "metaTitle": "Metodologi — cara ghfind menilai akun GitHub",
+    "metaDescription": "Cara mesin deterministik ghfind menilai akun GitHub lewat enam dimensi berbobot, menerapkan penalti tanda bahaya, dan tetap sepenuhnya bisa direproduksi tanpa LLM.",
+    "heading": "Cara ghfind menilai akun GitHub",
+    "lead": "Skor ghfind dihasilkan oleh rubrik deterministik, bukan model. Mesin membaca data publik GitHub, menilai enam dimensi yang totalnya 100, mengurangi penalti untuk tanda bahaya, dan mengembalikan angka yang sama setiap kali untuk input yang sama. Intinya open source dengan lisensi AGPL, sehingga hasil apa pun bisa direproduksi dan diaudit.",
+    "dimensionsHeading": "Enam dimensi",
+    "dimensionsIntro": "Setiap dimensi berkontribusi pada skor dasar 100 poin. Bersama-sama mereka menghargai kerja open source yang berkelanjutan, orisinal, dan banyak dipakai — bukan sekadar angka aktivitas mentah.",
+    "dimensionDetails": {
+      "account_maturity": "Seberapa mapan dan konsisten akun itu dari waktu ke waktu — usia, aktivitas berkelanjutan, dan kurva kredibilitas yang tahan terhadap penggelembungan semalam jadi.",
+      "original_project_quality": "Kualitas dan sambutan atas repositori yang benar-benar dimiliki dan ditulis akun itu, bukan fork atau proyek receh.",
+      "contribution_quality": "Bobot kontribusi ke proyek lain — pull request yang di-merge dan bermakna versus spam templat.",
+      "ecosystem_impact": "Seberapa besar karya akun itu diandalkan dan dirawat di ekosistem yang lebih luas.",
+      "community_influence": "Jangkauan dan reputasi tulen di komunitas, dinormalisasi agar angka follower atau star mentah tidak bisa mendominasi.",
+      "activity_authenticity": "Apakah pola aktivitasnya terlihat organik atau direkayasa — dimensi yang memisahkan kerja jujur dari farming."
+    },
+    "penaltiesHeading": "Penalti tanda bahaya",
+    "penaltiesBody": "Di atas enam dimensi itu, mesin mengurangi penalti untuk pola yang menggelembungkan profil tanpa nilai nyata: judul pull request templat yang nyaris identik, kontribusi yang menumpuk di repositori yang bukan milik akun itu, dan penggelembungan star atau follower. Setiap kejadian tunggal bisa terlihat wajar; penalti menyala pada polanya, dan itulah yang membuat aktivitas ternakan bisa dipisahkan dari kerja jujur.",
+    "determinismHeading": "Determinisme dan reproduksibilitas",
+    "determinismBody": "Tidak ada model bahasa besar yang menyentuh skor. Inti mesin skor adalah skill open source github-account-value (AGPL), dan jalur kode yang sama menggerakkan situs web, paket npm dan PyPI, CLI, dan server MCP. Dengan input publik yang sama, skornya identik di semuanya — itulah mengapa ia bisa direproduksi secara independen. Teks roast opsional adalah satu-satunya bagian tulisan LLM dan tidak pernah mengubah angkanya.",
+    "dataHeading": "Dalam skala besar",
+    "dataBody": "Diterapkan pada dataset publik berisi 18.947 akun yang dinilai — 3.444 di antaranya dengan potret metrik mentah lengkap — kontribusi palsu atau hasil ternakan ternyata lebih jarang dari yang digosipkan (kurang dari 1% akun memicu tanda bahaya terkuat), tapi jauh lebih ekstrem saat muncul. Analisis lengkapnya ada di bagian riset."
+  },
+  "vs": {
+    "metaTitle": "{a} vs {b} · Siapa menang? | ghfind",
+    "metaDescription": "{a} vs {b} — adu GitHub satu lawan satu. Siapa yang lebih hardcore? Lihat di ghfind.com.",
+    "back": "← Kembali ke Hall of Fame",
+    "heading": "Duel developer",
+    "pkHeading": "⚔️ Mulai duel",
+    "pkSub": "Masukkan dua handle GitHub dan lihat siapa yang lebih hardcore",
+    "pkPlaceholderA": "mis. torvalds",
+    "pkPlaceholderB": "mis. gaearon",
+    "pkButton": "🔥 Gas!",
+    "pkInvalid": "Masukkan dua handle GitHub valid yang berbeda",
+    "bucketCrush": "Menang telak",
+    "bucketEdge": "Menang tipis",
+    "bucketEven": "Sama kuat",
+    "win": "🏆 Menang",
+    "tie": "Seri",
+    "totalHeading": "Skor total",
+    "dimensionsHeading": "Duel per dimensi",
+    "swapOpponent": "🔄 Ganti lawan",
+    "judgeMe": "Nilai aku juga →",
+    "summonTitle": "@{username} belum pernah dinilai",
+    "summonHint": "Panggil dia ke ring untuk memulai pertarungan",
+    "summon": "🔥 Panggil untuk bertarung",
+    "summonScanning": "Memindai…",
+    "summonRoasting": "Me-roast…",
+    "summonError": "Pemanggilan gagal, coba lagi nanti",
+    "bothMissing": "Dua-duanya belum dinilai — panggil dulu, baru duel.",
+    "verdictGenerating": "🤖 AI-nya lagi meracik vonis yang pedas…",
+    "adviceHeading": "💡 Cara naik level",
+    "saveImage": "📸 Simpan gambar duel",
+    "saving": "Merender…",
+    "copyEmbed": "🃏 Salin embed README",
+    "embedCopied": "✅ Tersalin — tempel ke README-mu",
+    "shareText": "{a} vs {b} — siapa yang lebih hardcore? Tonton duel GitHub ini di ghfind.com ⚔️",
+    "trendingHeading": "🔥 Duel yang lagi ramai",
+    "trendingSub": "PK developer GitHub paling banyak ditonton — mampir untuk vonis pedasnya",
+    "trendingEmpty": "Belum ada duel di papan. Ketik \"a vs b\" di halaman utama untuk melepaskan tembakan pertama.",
+    "notRated": "Belum dinilai",
+    "verdictMissing": "Tahan dulu vonisnya — panggil dia ke ring dulu.",
+    "verdictTie": "Beda tipis banget — tidak ada yang bisa bilang ini kecurangan.",
+    "verdictCrush": {
+      "0": "@{winner} menggilas @{loser} dengan selisih {gap} poin — ini bukan duel, ini tontonan.",
+      "1": "@{winner} {winnerScore} vs @{loser} {loserScore}: jaraknya begitu lebar sampai wasit malas meniup peluit.",
+      "2": "@{loser} masih pemanasan sementara @{winner} sudah unggul {gap} — salaman saja dan menyerah.",
+      "3": "@{winner} mengunci @{loser} di matras; jurang {gap} poin itu tak berdasar.",
+      "4": "Tidak ada kejutan di sini: @{winner} mendominasi @{loser} di semua lini dengan {gap} poin.",
+      "5": "@{loser} sudah kalah sebelum ekspresinya sempat berubah — @{winner} membawa pulang kemenangan telak {gap} poin.",
+      "6": "Skor {winnerScore} milik @{winner} membuat {loserScore} milik @{loser} terlihat seperti lawan latih tanding.",
+      "7": "Selisih yang bikin patah semangat: @{winner} memimpin @{loser} sejauh {gap} poin penuh."
+    },
+    "verdictEdge": {
+      "0": "@{winner} menang tipis atas @{loser} dengan {gap} poin — kemenangan yang tidak murah.",
+      "1": "Beda tipis, tapi @{winner} tetap tertawa terakhir dengan keunggulan {gap} poin.",
+      "2": "@{winner} {winnerScore} vs @{loser} {loserScore}: menang selangkah saja.",
+      "3": "@{loser} nyaris membalikkan keadaan, tapi kurang {gap} poin dari @{winner}.",
+      "4": "Dalam laga ketat, @{winner} sedikit melesat dan mengantongi {gap} poin.",
+      "5": "@{winner} menang, tapi @{loser} bikin dia keringatan — cuma beda {gap} poin.",
+      "6": "Menang setengah badan: @{winner} melewati @{loser} dengan {gap} poin.",
+      "7": "@{winner} lolos tipis; @{loser} tinggal satu tendangan lagi."
+    },
+    "verdictEven": {
+      "0": "@{winner} dan @{loser} nyaris imbang — {gap} poin itu praktis cuma noise.",
+      "1": "Sama kuat: tidak ada yang dicurangi di sini — mereka hanya terpaut {gap} poin.",
+      "2": "@{winner} {winnerScore}, @{loser} {loserScore} — beda suasana hati saja hasilnya bisa terbalik.",
+      "3": "Terlalu ketat untuk diputuskan: @{winner} dan @{loser} berdiri di garis yang sama.",
+      "4": "Bentrokan para raksasa — selisih {gap} poin tidak layak digosipkan.",
+      "5": "@{winner} unggul sehelai rambut, tapi @{loser} sama sekali tidak goyah.",
+      "6": "Anggap saja imbang — @{winner} cuma lebih beruntung {gap} poin.",
+      "7": "Setali tiga uang — @{winner} dan @{loser} tidak saling mengungguli sedikit pun."
+    }
+  }
+}

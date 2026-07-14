@@ -60,7 +60,7 @@ export function LanguageSwitcher() {
           >
             <span className="flex-1">{t(loc)}</span>
             {loc === locale && (
-              <Check className="ml-2 h-4 w-4 shrink-0 text-[var(--primary)]" />
+              <Check className="ms-2 h-4 w-4 shrink-0 text-[var(--primary)]" />
             )}
           </DropdownMenuItem>
         ))}

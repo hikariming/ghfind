@@ -405,7 +405,7 @@ export function Roaster() {
             </div>
 
             {/* Savage one-liner only — full scoring report renders below the card */}
-            <div className="mt-4 w-full rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-left">
+            <div className="mt-4 w-full rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-start">
               <div className="mb-2 text-base font-bold text-orange-400">{t("roastLabel")}</div>
               {roastLine ? (
                 <p
@@ -442,7 +442,7 @@ export function Roaster() {
               )}
             </div>
 
-            <div className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left sm:p-5">
+            <div className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-start sm:p-5">
               <div className="mb-4 text-base font-bold text-zinc-200">
                 {tDetail("dimensionsHeading")}
               </div>
@@ -510,6 +510,7 @@ export function Roaster() {
           {reportBody && (
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
               <div
+                dir="ltr"
                 className={`report text-[0.95rem] text-zinc-200 ${
                   roasting && !roastLine ? "caret" : ""
                 }`}

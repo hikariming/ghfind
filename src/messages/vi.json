@@ -1,0 +1,794 @@
+{
+  "meta": {
+    "title": "ghfind | Chấm điểm GitHub cực gắt, tự soi bản thân & khám phá dev xịn",
+    "description": "ghfind: điểm giá trị & độ tin cậy GitHub 0-100 kèm màn cà khịa cực gắt trong 30 giây. Thấy rõ lỗ hổng của mình, tự kiểm tra để tiến bộ, rồi khám phá các dev hàng đầu và được người khác tìm thấy.",
+    "ogTitle": "ghfind | Chấm điểm GitHub cực gắt, tự soi bản thân & khám phá dev xịn",
+    "ogDescription": "ghfind: chấm điểm bất kỳ tài khoản GitHub nào và khám phá các dev hàng đầu. Điểm giá trị & độ tin cậy 0-100 + màn cà khịa cực gắt trong 30 giây, kèm bảng xếp hạng dev.",
+    "twDescription": "Chấm điểm bất kỳ dev GitHub nào + khám phá những người giỏi nhất trên ghfind. Điểm 0-100 & cà khịa cực gắt trong 30 giây.",
+    "siteName": "ghfind"
+  },
+  "nav": {
+    "brand": "ghfind",
+    "roast": "Cà khịa",
+    "leaderboard": "Bảng xếp hạng",
+    "discover": "Khám phá",
+    "developers": "Lập trình viên",
+    "projects": "Dự án",
+    "languages": "Ngôn ngữ",
+    "organizations": "Tổ chức",
+    "versus": "Solo",
+    "blog": "Nghiên cứu",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu"
+  },
+  "globalSearch": {
+    "open": "Mở tìm kiếm toàn trang",
+    "trigger": "Tìm kiếm",
+    "title": "Tìm kiếm trên ghfind",
+    "description": "Tìm lập trình viên, dự án, ngôn ngữ và tổ chức.",
+    "input": "Tìm lập trình viên và dự án",
+    "placeholder": "Thử antfu, vite, Rust hoặc vercel",
+    "loading": "Đang tìm…",
+    "empty": "Chưa có lập trình viên hay dự án nào khớp.",
+    "group": {
+      "users": "Lập trình viên",
+      "repos": "Dự án",
+      "facets": "Ngôn ngữ & tổ chức"
+    }
+  },
+  "header": {
+    "signIn": "Đăng nhập bằng GitHub",
+    "signOut": "Đăng xuất",
+    "myProfile": "Hồ sơ của tôi",
+    "judgeSelf": "Tự phán xét mình"
+  },
+  "loginNudge": {
+    "title": "🔥 Đăng nhập để mở khóa thêm",
+    "body": "Đăng nhập bằng GitHub để giữ lại lượt bình chọn và reaction của bạn — và trải nghiệm mượt hơn.",
+    "signIn": "Đăng nhập bằng GitHub",
+    "dismiss": "Để sau vậy",
+    "close": "Đóng"
+  },
+  "langSwitch": {
+    "label": "Đổi ngôn ngữ",
+    "zh": "中文",
+    "en": "EN",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "id": "Bahasa Indonesia",
+    "vi": "Tiếng Việt",
+    "ar": "العربية"
+  },
+  "themeSwitch": {
+    "label": "Đổi giao diện",
+    "light": "Giao diện sáng",
+    "dark": "Giao diện tối",
+    "auto": "Theo hệ thống"
+  },
+  "repoLink": {
+    "label": "Mã nguồn",
+    "title": "Mã nguồn & thuật toán chấm điểm đều mã nguồn mở · Xem trên GitHub"
+  },
+  "home": {
+    "brand": "Cực gắt",
+    "headline": "Khám phá những dev giỏi nhất — và trở thành một trong số họ.",
+    "subtitle": "Bắt đầu bằng một điểm số 0–100 thật đến phũ phàng. Biết mình đang ở đâu, và nên đi về đâu.",
+    "boardHeading": "🏆 Những dev xịn nhất",
+    "openBoard": "Mở bảng xếp hạng đầy đủ →",
+    "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
+    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn."
+  },
+  "leaderboard": {
+    "heading": "🏆 Đại sảnh Danh vọng",
+    "subtitle": "Đại sảnh Danh vọng liệt kê các tài khoản đạt 60+ điểm, mặc định xếp theo Xu hướng.",
+    "judgeCta": "← Phán xét một tài khoản",
+    "footerNote": "Chỉ những tài khoản điểm cao dựng từ dữ liệu GitHub công khai mới được liệt kê. Muốn rút tên khỏi bảng, <a>gửi yêu cầu gỡ tại đây</a>.",
+    "loadError": "Không tải được bảng xếp hạng lúc này — thử lại sau nhé.",
+    "loading": "Đang tải Đại sảnh Danh vọng…",
+    "empty": "🧮 Đang tính toán số liệu — quay lại sau nhé…",
+    "prev": "← Trước",
+    "next": "Sau →",
+    "pageJumpLabel": "Đi tới trang",
+    "collapse": "Thu gọn",
+    "trendView": "🚀 Xu hướng",
+    "scoreView": "💯 Điểm cao nhất",
+    "trendLabel": "Xu hướng",
+    "trendTitle": "Điểm xu hướng: 80% điểm số + 15% độ nóng theo khách truy cập 7 ngày + 5% độ suy giảm lượt tra cứu gần đây",
+    "scoreLabel": "Điểm",
+    "scoreTitle": "Điểm giá trị và độ tin cậy 0-100 dựa trên dữ liệu GitHub công khai",
+    "heatView": "🔥 Bị cà khịa nhiều nhất",
+    "heatLabel": "Độ nóng",
+    "heatTitle": "Số lần bị cà khịa thành công",
+    "vsButton": "Thách đấu",
+    "viewDetail": "Xem chi tiết điểm của @{username}",
+    "trendSubtitle": "Xu hướng trộn giữa điểm số, độ nóng khách truy cập 7 ngày và độ mới của lượt tra cứu; độ nóng được chuẩn hóa để sự chú ý thô không lấn át chất lượng.",
+    "scoreSubtitle": "Xếp theo điểm giá trị và độ tin cậy 0-100.",
+    "heatSubtitle": "Xếp theo tổng số lượt cà khịa thành công.",
+    "windowAria": "Khoảng thời gian",
+    "window24h": "24h",
+    "window7d": "7 ngày",
+    "window30d": "30 ngày",
+    "windowAll": "Mọi lúc"
+  },
+  "developers": {
+    "heading": "Khám phá lập trình viên",
+    "subtitle": "Tìm những dev hàng đầu đáng theo dõi, phân nhóm theo ngôn ngữ lập trình, dự án và tổ chức.",
+    "languagesTitle": "Theo ngôn ngữ",
+    "projectsTitle": "Theo dự án",
+    "orgsTitle": "Theo tổ chức",
+    "count": "{count}",
+    "emptyCategories": "Chưa có danh mục nào để hiển thị — quay lại sau nhé.",
+    "languageBucketHeading": "Top dev {value}",
+    "repoBucketHeading": "{value} · người đóng góp",
+    "orgBucketHeading": "{value} · thành viên",
+    "bucketSubtitle": "Xếp theo điểm tổng, hiển thị tối đa top {limit}.",
+    "pinRankLine": "<strong>@{username}</strong> đứng hạng <strong>#{rank}</strong> trên bảng này",
+    "pinChallenge": "Thách đấu @{username}, người ngay trên bạn",
+    "pinTop": "Đỉnh của bảng 👑",
+    "empty": "Chưa có dev nào trong danh mục này.",
+    "backToDirectory": "← Quay lại Khám phá",
+    "metaTitle": "Khám phá lập trình viên",
+    "metaDescription": "Duyệt các dev GitHub hàng đầu theo ngôn ngữ lập trình, dự án và tổ chức.",
+    "bucketMetaDescription": "Những dev GitHub điểm cao nhất trong {value}.",
+    "apiCta": "Cần thẩm định ứng viên hàng loạt? Mọi điểm số trên bảng này đều đến từ API của ghfind — chấm điểm tin cậy 0-100 tất định cho bất kỳ tài khoản GitHub nào, miễn phí khi dùng vừa phải.",
+    "apiCtaLink": "Tài liệu API →",
+    "repoAuthoredBy": "Bảo trì bởi",
+    "repoContributors": "người đóng góp được xếp hạng",
+    "repoAvgScore": "điểm trung bình"
+  },
+  "projects": {
+    "metaTitle": "Khám phá dự án GitHub chất lượng cao · ghfind",
+    "metaDescription": "Khám phá các dự án GitHub được xếp hạng theo chất lượng và đà phát triển của những dev đứng sau.",
+    "eyebrow": "Khám phá dự án",
+    "heading": "Tìm dự án qua người xây nên chúng",
+    "subtitle": "Star chỉ nói lên độ phổ biến. ghfind bổ sung lớp còn thiếu: chất lượng người đóng góp, độ dày đội ngũ và sự chú ý gần đây.",
+    "sortLabel": "Sắp xếp dự án",
+    "languageLabel": "Ngôn ngữ dự án",
+    "sort": {
+      "quality": "Chất lượng người đóng góp",
+      "momentum": "Đà gần đây",
+      "stars": "Star"
+    },
+    "allLanguages": "Mọi ngôn ngữ",
+    "contributors": "người đóng góp",
+    "avgScore": "điểm trung bình",
+    "momentum": "đà tăng",
+    "reason": {
+      "elite": "Được xây bởi nhiều dev hàng đầu",
+      "momentum": "Sự chú ý đang tăng tuần này",
+      "quality": "Dẫn đầu về chất lượng người đóng góp",
+      "popular": "Dự án mã nguồn mở nổi tiếng"
+    },
+    "prev": "← Trước",
+    "next": "Sau →",
+    "page": "Trang {page}",
+    "listLabel": "Kết quả dự án",
+    "emptyTitle": "Chưa có dữ liệu dự án ở đây",
+    "emptyBody": "Chạy backfill kho mã ở máy bạn hoặc bỏ bộ lọc hiện tại."
+  },
+  "discoveryNext": {
+    "relatedTitle": "Khám phá tiếp",
+    "relatedSubtitle": "Các dự án liên kết qua người đóng góp hoặc ngôn ngữ.",
+    "sharedContributors": "{count} người đóng góp chung",
+    "sameLanguage": "Cùng ngôn ngữ",
+    "commonTitle": "Những dự án họ cùng tham gia",
+    "commonSubtitle": "Công việc chung giữa dev này và các hồ sơ tương tự.",
+    "projects": {
+      "title": "Khám phá dự án",
+      "body": "Xem repository nào được chống lưng bởi đội ngũ đóng góp chất lượng cao.",
+      "cta": "Duyệt xếp hạng dự án"
+    },
+    "organizations": {
+      "title": "Khám phá tổ chức",
+      "body": "Tiếp tục dạo qua các đội nhóm và cộng đồng đứng sau bảng xếp hạng.",
+      "cta": "Duyệt tổ chức"
+    }
+  },
+  "continueExploring": {
+    "title": "Tiếp tục nơi bạn đã dừng",
+    "subtitle": "Những dev và dự án bạn vừa khám phá gần đây.",
+    "developer": "Lập trình viên",
+    "project": "Dự án"
+  },
+  "challenge": {
+    "bannerTitle": "Vừa ghé từ trang của @{owner}? Xem bạn so kè với họ ra sao",
+    "cta": "Thách đấu họ",
+    "go": "Chiến",
+    "inputPlaceholder": "Username GitHub của bạn",
+    "selfHint": "Đó là bạn mà — chọn người khác đi.",
+    "invalidHint": "Cái này trông không giống username GitHub hợp lệ.",
+    "dismiss": "Bỏ qua",
+    "profileCta": "Thách đấu họ",
+    "ownerCta": "Kéo ai đó vào đấu với tôi"
+  },
+  "follow": {
+    "button": "Theo dõi",
+    "following": "Đang theo dõi",
+    "limit": "Bạn chỉ có thể theo dõi tối đa 50 dev.",
+    "homeTitle": "Những dev bạn theo dõi",
+    "homeSub": "biến động điểm tuần này",
+    "homeEmpty": "Theo dõi dev từ trang hồ sơ của họ, rồi quay lại đây xem điểm số của họ nhảy múa.",
+    "unrated": "chưa chấm",
+    "menuLink": "Những dev bạn theo dõi",
+    "pageTitle": "Những dev bạn theo dõi",
+    "pageSubtitle": "biến động điểm tuần này",
+    "signInTitle": "Đăng nhập để xem bạn đang theo dõi ai",
+    "signInBody": "Đăng nhập bằng GitHub, theo dõi vài dev, rồi quay lại đây xem điểm số của họ nhảy múa.",
+    "signIn": "Đăng nhập bằng GitHub"
+  },
+  "detail": {
+    "back": "← Về Đại sảnh Danh vọng",
+    "backfilling": "🔍 Đang lục lại dấu chân mã nguồn mở của họ (repo / ngôn ngữ / đóng góp)…",
+    "rankTitle": "Vị trí của bạn",
+    "rankUnit": "/ trên {total}",
+    "rankUnranked": "Chưa xếp hạng (thiếu dữ liệu)",
+    "beatInline": "Vượt {beat}% dev",
+    "milestoneNext": "Còn {gap} điểm nữa tới “{tier}”",
+    "milestoneCapped": "🏆 Kịch trần · hạng cao nhất",
+    "facetRankLine": "Hạng #{rank} trên {facet}",
+    "facetRankAhead": "sau @{username}",
+    "challengeCta": "Thách đấu họ",
+    "challengeGo": "Chiến",
+    "challengeSelf": "Đó là bạn mà — chọn người khác đi.",
+    "challengeInvalid": "Cái này trông không giống username GitHub hợp lệ.",
+    "challengePlaceholder": "Username GitHub của bạn",
+    "challengeOwner": "Kéo ai đó vào đấu với tôi",
+    "modalPkCta": "Kéo ai đó vào so kè",
+    "modalFacetRankCta": "Xem tôi xếp hạng mấy trên {facet}",
+    "dimensionsHeading": "Phân tích điểm số",
+    "similarHeading": "🧬 Những dev giống nhất",
+    "similarSub": "Hồ sơ gần nhất, điểm số sát nhau",
+    "impactHeading": "🏆 Đóng góp đáng chú ý",
+    "impactSub": "Các repo mã nguồn mở nổi tiếng họ từng đóng góp (commit + PR)",
+    "worksHeading": "🛠 Tác phẩm tiêu biểu",
+    "worksSub": "Những repo nổi bật và được ghim của chính họ",
+    "stackHeading": "🧬 Stack & lĩnh vực",
+    "stackLangLabel": "Ngôn ngữ chính",
+    "stackTopicsLabel": "Lĩnh vực",
+    "orgsLabel": "Tổ chức",
+    "commits": "commit",
+    "prs": "PR",
+    "roastHeading": "🔥 Toàn văn cà khịa",
+    "roastEmpty": "Bài cà khịa này chưa được lưu trữ — <a>phán xét lại từ trang chủ</a> để tạo nó.",
+    "livePendingBanner": "Đang cà khịa…",
+    "livePending": "Đang hâm nóng màn cà khịa…",
+    "liveError": "Tạo bài cà khịa thất bại.",
+    "liveRateLimited": "Nhiều người đang cà khịa quá — thử lại sau một phút nhé.",
+    "liveExpired": "Phiên quét đã hết hạn trước khi màn cà khịa hoàn tất.",
+    "liveGoHome": "Cà khịa lại từ trang chủ →",
+    "modalTitle": "🔥 Kết quả cà khịa đã về",
+    "modalRoastHeading": "Toàn văn cà khịa",
+    "modalFirstJudged": "🥇 Bạn là người đầu tiên bị phán xét — đúng chất tiên phong",
+    "modalBeat": "🏆 Vượt {beat}% dev ({total} người đã bị phán xét)",
+    "modalViewProfile": "Xem hồ sơ đầy đủ",
+    "modalBadgeCta": "Lấy huy hiệu GitHub của bạn",
+    "modalClose": "Đóng",
+    "battlesHeading": "⚔️ Trận đấu",
+    "battlesSub": "Những trận PK dev này từng tham chiến",
+    "battleWin": "Thắng",
+    "battleLoss": "Thua",
+    "battleTie": "Hòa",
+    "selfCta": "Chấm điểm GitHub của chính bạn →",
+    "reportLangNotice": "Báo cáo cà khịa của AI hiện chỉ được viết bằng tiếng Anh và tiếng Trung — bạn đang đọc bản tiếng Anh."
+  },
+  "reactions": {
+    "heading": "Phản ứng cộng đồng",
+    "hint": "Mỗi tài khoản GitHub một reaction; đổi lúc nào cũng được",
+    "addReaction": "Thêm reaction",
+    "loginRequired": "Đăng nhập bằng GitHub để thả reaction. Lựa chọn của bạn sẽ được lưu lại.",
+    "loginAction": "Đăng nhập bằng GitHub",
+    "failed": "Reaction của bạn chưa được lưu. Thử lại sau nhé.",
+    "like": "Nể",
+    "poop": "Nhạt quá",
+    "kick": "Đá văng",
+    "fire": "Cháy quá",
+    "salute": "Kính nể",
+    "clown": "Chịu luôn"
+  },
+  "rescan": {
+    "button": "🔄 Quét lại",
+    "scanning": "Đang quét…",
+    "roasting": "Đang cà khịa…",
+    "error": "Quét thất bại, thử lại sau nhé",
+    "cooldown": "Có thể làm mới sau {hours}h"
+  },
+  "detailMeta": {
+    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "descWithTags": "{tags} — xem báo cáo điểm đầy đủ của {username} trên ghfind.com.",
+    "descPlain": "Báo cáo giá trị & độ tin cậy GitHub của {username} — ghfind.com.",
+    "notFoundTitle": "Không tìm thấy tài khoản · ghfind",
+    "pendingTitle": "Đang cà khịa @{username}… · ghfind"
+  },
+  "roaster": {
+    "inputPlaceholder": "Nhập username GitHub hoặc URL hồ sơ",
+    "judge": "Phán xét",
+    "judging": "Đang phán xét…",
+    "byoLink": "Dùng model / API key của riêng bạn",
+    "scanning": "Đang đào bới lịch sử của {username}… đọc commit, soi PR, đếm star, đánh hơi hoạt động cày ảo",
+    "roastLabel": "🔥 Cà khịa",
+    "roastThinking": "AI đang nấu một màn cà khịa cực gắt — sắp ra lò rồi…",
+    "roastPending": "Đang chuẩn bị màn cà khịa",
+    "firstJudged": "🥇 Bạn là người đầu tiên bị phán xét — đúng chất tiên phong",
+    "rankLine": "<hl>📊 Hạng #{rank}</hl><muted> trên {total} dev</muted>",
+    "beatLine": "<hl>🏆 Vượt {beat}%</hl><muted> dev ({total} người đã bị phán xét)</muted>",
+    "saveImage": "📸 Lưu ảnh khoe điểm",
+    "saving": "Đang tạo…",
+    "pasteGithub": "📌 Ghim lên GitHub",
+    "copied": "Đã sao chép ✓",
+    "privateNote": "Lưu ý: điểm chỉ dùng tín hiệu công khai — đóng góp private không được tính, nên thành viên tích cực của các tổ chức private có thể bị đánh giá thấp.",
+    "shareText": "GitHub của tôi vừa bị phán xét: {score}/100 · {tier} ({tierLabel}){beat}. Chấm điểm của bạn đi 👉 ghfind.com",
+    "shareBeat": ", vượt {beat}% dev",
+    "errEmpty": "Nhập username GitHub hoặc URL hồ sơ trước đã.",
+    "errNeedTurnstile": "Vui lòng hoàn thành bước xác minh bên dưới trước.",
+    "errRoastFailed": "Tạo bài cà khịa thất bại — thử lại sau hoặc dùng key của riêng bạn.",
+    "errNetworkRoast": "Rớt mạng — màn cà khịa bị cắt ngang.",
+    "errScanFailed": "Quét thất bại, thử lại sau nhé.",
+    "errNetworkScan": "Lỗi mạng — còn chẳng chạm được tới GitHub.",
+    "byoReasonQuota": "Hạn mức miễn phí đã cạn 😵 Thêm API key của riêng bạn để cà khịa tiếp (OpenAI / StepFun / Groq đều dùng được).",
+    "byoReasonRate": "Hôm nay bạn cà khịa hơi nhiều rồi đó 🥵 Nghỉ chút đi, hoặc thêm API key riêng để cà khịa không giới hạn.",
+    "byoReasonDefault": "Server chưa cấu hình model mặc định — thêm API key của riêng bạn để bắt đầu cà khịa."
+  },
+  "scanErrors": {
+    "invalid_username": "Cái này trông không giống username GitHub — kiểm tra lại xem?",
+    "account_not_found": "Không có tài khoản này — gõ đúng chưa vậy?",
+    "turnstile_failed": "Xác minh thất bại — tải lại trang rồi thử lại nhé.",
+    "rate_limited": "Nhanh quá — hít thở sâu rồi thử lại sau một phút.",
+    "github_rate_limited": "API của GitHub đang quá tải — chờ chút nhé.",
+    "github_unavailable": "Dữ liệu GitHub tạm thời không khả dụng — thử lại sau.",
+    "scan_failed": "Quét bị sập — thử lại sau nhé."
+  },
+  "share": {
+    "open": "🔗 Chia sẻ",
+    "heading": "Chia sẻ tới",
+    "imageHint": "Chia sẻ dưới dạng ảnh",
+    "copyLink": "Sao chép liên kết",
+    "copied": "Đã sao chép ✓",
+    "native": "Thêm…",
+    "siteName": "ghfind"
+  },
+  "badge": {
+    "heading": "📌 Ghim lên hồ sơ GitHub của bạn",
+    "blurb": "Sao chép đoạn mã bất kỳ bên dưới vào Profile README. Điểm số tự động cập nhật, và ảnh liên kết tới trang chi tiết của bạn.",
+    "badgeTitle": "Huy hiệu",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép ✓",
+    "badgeAlt": "Huy hiệu điểm GitHub Roast",
+    "cardAlt": "GitHub Roast",
+    "builderTitle": "Trình tạo thẻ",
+    "builderBlurb": "Chọn loại thẻ, giao diện, và có hiển thị mã QR quét được hay không — bản xem trước và liên kết cập nhật ngay lập tức.",
+    "fieldType": "Loại thẻ",
+    "fieldTheme": "Giao diện",
+    "fieldQr": "Mã QR",
+    "fieldUrl": "URL ảnh",
+    "typeScore": "Điểm",
+    "themeDark": "Tối",
+    "themeLight": "Sáng",
+    "qrOn": "Bật",
+    "qrOff": "Tắt",
+    "variantContrib": "Đóng góp",
+    "variantPr": "Thành tích PR",
+    "variantPath": "Hành trình GitHub",
+    "variantWork": "Tác phẩm để đời"
+  },
+  "byok": {
+    "title": "Dùng model của riêng bạn",
+    "compatNote": "Hoạt động với mọi API tương thích OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / local). Key của bạn nằm trong trình duyệt của chính bạn. Nó được chuyển tiếp một lần qua server của chúng tôi để gọi model, <b>nhưng không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi dùng</b>.",
+    "tempKeyNote": "🔒 Nếu bạn lo lắng, hãy dùng key <b>tạm thời / có giới hạn chi tiêu</b> và thu hồi khi xong việc.",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "clear": "Xóa",
+    "cancel": "Hủy",
+    "saveContinue": "Lưu & tiếp tục"
+  },
+  "developerCount": "<n>{count, number}</n> dev đã bước vào đấu trường ⚔️",
+  "shareCard": {
+    "beatLabel": "dev bị vượt mặt",
+    "brand": "🔥 ghfind · xem bạn ở đâu trên bản đồ"
+  },
+  "tiers": {
+    "god": {
+      "name": "GOD",
+      "blurb": "Huyền thoại · Đại sảnh Danh vọng"
+    },
+    "elite": {
+      "name": "ELITE",
+      "blurb": "Tinh hoa · Dev hạng đỉnh"
+    },
+    "solid": {
+      "name": "SOLID",
+      "blurb": "Chắc tay · Đáng tin cậy"
+    },
+    "npc": {
+      "name": "NPC",
+      "blurb": "Trung bình · Không có gì nổi bật"
+    },
+    "trash": {
+      "name": "TRASH",
+      "blurb": "Giá trị thấp · Nhiều khả năng cày ảo"
+    }
+  },
+  "dimensions": {
+    "account_maturity": "Độ trưởng thành tài khoản",
+    "original_project_quality": "Chất lượng dự án gốc",
+    "contribution_quality": "Chất lượng đóng góp",
+    "ecosystem_impact": "Tác động hệ sinh thái / bảo trì",
+    "community_influence": "Ảnh hưởng cộng đồng",
+    "activity_authenticity": "Độ thật của hoạt động"
+  },
+  "omnibox": {
+    "placeholder0": "Nhập một handle GitHub để bắt đầu phiên xử",
+    "placeholder1": "Gõ a vs b để mở một trận solo",
+    "placeholder2": "Tìm rust để xem ai cày trâu nhất",
+    "placeholder3": "Tìm một công ty để cân đo nhân tài của họ",
+    "ctaJudge": "Phán xét",
+    "ctaPk": "Chiến",
+    "ctaDiscover": "Xếp hạng",
+    "groupDirect": "Trực tiếp",
+    "groupPk": "Solo",
+    "groupUser": "Người dùng",
+    "groupDiscover": "Khám phá",
+    "suggestRoast": "Cà khịa @{username}",
+    "suggestPkStart": "@{username} vs …",
+    "suggestPkHint": "Kéo ai đó vào solo",
+    "suggestPk": "{a} vs {b}",
+    "suggestLanguage": "Bảng xếp hạng dev {value}",
+    "suggestOrg": "{value} · thành viên tổ chức",
+    "pkHalfHint": "Gõ tên đối thủ, rồi nhấn Enter để chiến",
+    "lockedRemove": "Gỡ bỏ"
+  },
+  "blog": {
+    "heading": "Nghiên cứu",
+    "subtitle": "Ghi chú dữ liệu từ việc chấm điểm đóng góp GitHub thật ở quy mô lớn.",
+    "readingTime": "{minutes} phút đọc",
+    "notTranslated": "Bài viết này chưa được dịch — đang hiển thị bản gốc tiếng Anh.",
+    "backToList": "Tất cả nghiên cứu",
+    "empty": "Chưa có bài viết nào."
+  },
+  "footer": {
+    "tagline": "Chấm điểm giá trị & độ tin cậy dev GitHub.",
+    "about": "Giới thiệu",
+    "contact": "Liên hệ",
+    "privacy": "Quyền riêng tư",
+    "methodology": "Phương pháp",
+    "docs": "Tài liệu API",
+    "blog": "Nghiên cứu",
+    "source": "Mã nguồn trên GitHub",
+    "sectionProduct": "Sản phẩm",
+    "sectionResources": "Tài nguyên",
+    "sectionCompany": "Công ty"
+  },
+  "faq": {
+    "heading": "Câu hỏi thường gặp",
+    "items": [
+      {
+        "q": "ghfind là gì?",
+        "a": "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 về giá trị đóng góp thực và độ tin cậy bằng một engine mã nguồn mở hoàn toàn tất định, sau đó bổ sung thêm màn cà khịa do AI viết (tùy chọn), các trận đối đầu trực tiếp và một danh bạ dev có xếp hạng."
+      },
+      {
+        "q": "Điểm số được tính thế nào?",
+        "a": "Engine chấm sáu chiều có trọng số, cộng lại thành 100 — độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động — rồi trừ điểm phạt cho các dấu hiệu đáng ngờ như cày PR hay bơm star. Nó chỉ chạy trên dữ liệu GitHub công khai."
+      },
+      {
+        "q": "Điểm số có tất định và tái lập được không?",
+        "a": "Có. Không LLM nào chạm vào con số: cùng đầu vào luôn ra cùng điểm số. Lõi chấm điểm được mã nguồn mở dưới dạng skill github-account-value (AGPL), nên ai cũng có thể tái lập hoặc kiểm chứng kết quả. Chỉ có phần văn bản cà khịa tùy chọn là do LLM viết."
+      },
+      {
+        "q": "Tôi có thể dùng ghfind qua API, CLI hay MCP không?",
+        "a": "Có. Có REST API công khai (xem /openapi.json), các gói npm và PyPI chính thức kèm CLI, và một server Model Context Protocol tại /mcp cung cấp các công cụ score_user, scan_user, compare_users, get_leaderboard và search_users. Endpoint chấm điểm không cần xác thực."
+      },
+      {
+        "q": "ghfind có phát hiện bot và tài khoản cày bằng AI không?",
+        "a": "Nó đánh dấu những mẫu hành vi phân biệt hoạt động cày ảo với công việc chân chính — tiêu đề PR theo template gần như giống hệt nhau, đóng góp dồn vào những repo không thuộc sở hữu của tài khoản, và bơm star hay follower đáng ngờ. Trong bộ dữ liệu 18.947 tài khoản đã chấm, chưa tới 1% dính các cờ đỏ nặng nhất — hiếm, nhưng khi xuất hiện thì cực đoan."
+      },
+      {
+        "q": "Công việc private của tôi có được tính không?",
+        "a": "Không. Điểm số chỉ dùng tín hiệu công khai, nên đóng góp trong tổ chức private là vô hình với engine. Một thành viên tích cực của các repo private có thể bị đánh giá thấp. Điểm thấp không phải khẳng định thực tế về một con người — nó chỉ mô tả dấu chân công khai của một tài khoản."
+      },
+      {
+        "q": "Làm sao để gỡ hồ sơ của tôi khỏi ghfind?",
+        "a": "Chỉ những tài khoản đạt 60+ điểm mới được lập chỉ mục và liệt kê. Muốn rút khỏi bảng, dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, và hồ sơ sẽ được gỡ khỏi danh sách."
+      }
+    ]
+  },
+  "homeIntro": {
+    "whatHeading": "ghfind là gì?",
+    "whatBody": "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 theo sáu chiều có trọng số — độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động — bằng một engine hoàn toàn tất định (skill mã nguồn mở github-account-value, giấy phép AGPL). Cùng đầu vào luôn ra cùng điểm số; không LLM nào chạm vào con số. Trên nền điểm số đó, nó thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ và tổ chức, cùng huy hiệu điểm cho README.",
+    "howHeading": "ghfind hoạt động thế nào",
+    "steps": [
+      {
+        "title": "1. Quét dấu chân công khai",
+        "body": "Nhập bất kỳ username GitHub nào. Engine thu thập dữ liệu công khai của tài khoản — repository, pull request, issue, star, follower — và dựng một ảnh chụp bằng chứng. Không cần đăng nhập, không cần cấp quyền."
+      },
+      {
+        "title": "2. Chấm sáu chiều tất định",
+        "body": "Ảnh chụp được chấm theo độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động, kèm điểm phạt cho cày PR, bơm star và spam theo template."
+      },
+      {
+        "title": "3. Nhận điểm, hạng và màn cà khịa",
+        "body": "Bạn nhận được điểm 0-100 tái lập được kèm hạng từ Trash đến God, bảng phân tích từng chiều chỉ ra chính xác thứ đang kéo điểm của bạn xuống, và — chỉ khi bạn yêu cầu — một màn cà khịa cực gắt do AI viết."
+      }
+    ],
+    "numbersHeading": "ghfind qua những con số",
+    "numbers": {
+      "accounts": "{count} tài khoản GitHub đã được chấm trong bộ dữ liệu nghiên cứu công khai",
+      "snapshots": "{count} ảnh chụp bằng chứng đầy đủ đã thu thập và phân tích",
+      "dimensions": "{count} chiều có trọng số đứng sau mỗi điểm số",
+      "flagged": "{share} tài khoản đã chấm bị gắn cờ hoạt động không trung thực"
+    },
+    "tableCaption": "Điểm ghfind vs tín hiệu GitHub thô",
+    "tableColSignal": "Tín hiệu",
+    "tableColMeasures": "Đo lường điều gì",
+    "tableColGameable": "Dễ bơm thổi không?",
+    "tableRows": [
+      {
+        "signal": "Star GitHub",
+        "measures": "Độ phổ biến của dự án, không phải chất lượng đóng góp của tác giả",
+        "gameable": "Có — chợ mua star và hội star chéo rẻ bèo"
+      },
+      {
+        "signal": "Follower",
+        "measures": "Quy mô khán giả và độ phủ xã hội",
+        "gameable": "Có — vòng follow-lại-nhau và follower mua sẵn"
+      },
+      {
+        "signal": "Điểm ghfind",
+        "measures": "Giá trị đóng góp thực và độ tin cậy qua sáu chiều có trọng số",
+        "gameable": "Khó — mẫu hành vi không trung thực bị phát hiện và trừ điểm"
+      }
+    ]
+  },
+  "docs": {
+    "metaTitle": "Tài liệu API ghfind — REST API, MCP server, SDK",
+    "metaDescription": "Tài liệu dành cho lập trình viên của ghfind: các endpoint REST để chấm điểm tài khoản GitHub, MCP server ghfind cho AI agent, xác thực, SDK chính thức trên npm và PyPI, cùng đặc tả máy đọc được (OpenAPI, llms.txt).",
+    "heading": "Tài liệu API ghfind",
+    "lead": "ghfind chấm bất kỳ tài khoản GitHub nào từ 0-100 về giá trị đóng góp thực và độ tin cậy bằng một engine tất định, mã nguồn mở. Mọi thứ trên trang web cũng có thể truy cập theo cách lập trình: REST API công khai, MCP server cho AI agent, và các SDK chính thức. Trang này ghi lại tất cả.",
+    "restHeading": "REST API của ghfind",
+    "restIntro": "Base URL: https://ghfind.com. Các thao tác đọc điểm không cần xác thực. Lỗi trả về JSON có cấu trúc ({error, message, hint}), phản hồi mang header RateLimit-*, và các endpoint danh sách hỗ trợ phân trang limit/offset.",
+    "endpoints": [
+      {
+        "sig": "GET /api/score/{username}",
+        "desc": "Điểm tất định 0-100, hạng và bảng phân tích sáu chiều. Chấm ngay cả tài khoản chưa từng thấy; không xác thực, không LLM."
+      },
+      {
+        "sig": "POST /api/scan",
+        "desc": "Payload quét tất định đầy đủ: số liệu thô, repository nổi bật, pull request gần đây, cờ đỏ, điểm thành phần."
+      },
+      {
+        "sig": "POST /api/roast",
+        "desc": "Báo cáo cà khịa do AI viết (endpoint LLM duy nhất; hỗ trợ dùng key riêng)."
+      },
+      {
+        "sig": "POST /api/vs-verdict",
+        "desc": "Phán quyết đối đầu trực tiếp giữa hai tài khoản."
+      },
+      {
+        "sig": "GET /api/leaderboard",
+        "desc": "Dev xếp hạng theo xu hướng, điểm, độ nóng hoặc tiến bộ; phân trang qua limit/offset."
+      },
+      {
+        "sig": "GET /api/developers",
+        "desc": "Danh bạ dev theo ngôn ngữ, tổ chức hoặc repository đã đóng góp; có phân trang."
+      },
+      {
+        "sig": "GET /api/search-users",
+        "desc": "Tìm kiếm theo tiền tố trên các tài khoản đã được chấm."
+      },
+      {
+        "sig": "GET /api/stats",
+        "desc": "Tổng số liệu nền tảng (số tài khoản đã chấm)."
+      },
+      {
+        "sig": "GET /api/badge/{username}",
+        "desc": "Huy hiệu điểm SVG để nhúng vào README."
+      }
+    ],
+    "mcpHeading": "MCP server của ghfind",
+    "mcpIntro": "Một server Model Context Protocol dạng Streamable HTTP nằm tại https://ghfind.com/mcp (không xác thực, giới hạn tốc độ theo IP, chỉ đọc). Thêm nó vào Claude, Cursor hoặc bất kỳ MCP client nào để chấm điểm và so sánh tài khoản GitHub ngay bên trong agent.",
+    "tools": [
+      {
+        "name": "score_user",
+        "desc": "Điểm 0-100, hạng và bảng phân tích sáu chiều cho bất kỳ login GitHub nào."
+      },
+      {
+        "name": "scan_user",
+        "desc": "Payload quét đầy đủ: số liệu, repo nổi bật, PR gần đây, cờ đỏ."
+      },
+      {
+        "name": "compare_users",
+        "desc": "So sánh đối đầu tất định kèm người thắng và khoảng cách điểm."
+      },
+      {
+        "name": "get_leaderboard",
+        "desc": "Dev công khai được xếp hạng để khám phá."
+      },
+      {
+        "name": "search_users",
+        "desc": "Tìm kiếm theo tiền tố trên các tài khoản đã chấm."
+      }
+    ],
+    "authHeading": "Xác thực",
+    "authBody": "Các endpoint đọc là công khai. Các endpoint ghi (POST /api/scan, POST /api/roast) chấp nhận xác minh Turnstile trên trình duyệt hoặc Bearer API key. Agent nên đọc hướng dẫn dành cho máy tại /auth.md.",
+    "sdkHeading": "SDK chính thức & CLI",
+    "sdks": [
+      {
+        "name": "@hikariming/ghfind (npm)",
+        "desc": "SDK JavaScript / TypeScript và CLI: npm install -g @hikariming/ghfind"
+      },
+      {
+        "name": "ghfind (PyPI)",
+        "desc": "SDK Python: pip install --upgrade ghfind"
+      },
+      {
+        "name": "ghfind CLI",
+        "desc": "ghfind score {username} -o json · ghfind scan · ghfind roast · ghfind leaderboard · ghfind stats"
+      }
+    ],
+    "machineHeading": "Bề mặt máy đọc được",
+    "machine": [
+      {
+        "label": "/openapi.json",
+        "desc": "Đặc tả OpenAPI 3.1 của mọi endpoint công khai"
+      },
+      {
+        "label": "/llms.txt",
+        "desc": "Hướng dẫn dành cho agent với các liên kết markdown tới mọi bề mặt"
+      },
+      {
+        "label": "/index.md",
+        "desc": "Bản song sinh markdown của trang chủ (cũng được phục vụ qua Accept: text/markdown)"
+      },
+      {
+        "label": "/.well-known/agent-card.json",
+        "desc": "Thẻ agent A2A, thẻ MCP server, danh mục API và các skill dưới /.well-known/"
+      }
+    ]
+  },
+  "about": {
+    "metaTitle": "Giới thiệu ghfind",
+    "metaDescription": "ghfind chấm bất kỳ tài khoản GitHub nào từ 0-100 về giá trị đóng góp thực và độ tin cậy bằng một engine mã nguồn mở, tất định, và giúp bạn khám phá các dev hàng đầu.",
+    "heading": "Giới thiệu ghfind",
+    "paragraphs": [
+      "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 về giá trị đóng góp thực và độ tin cậy, bằng một engine hoàn toàn tất định chỉ chạy trên dữ liệu GitHub công khai. Cùng đầu vào luôn ra cùng điểm số — không mô hình ngôn ngữ lớn nào tham gia vào con số — nên kết quả tái lập và kiểm chứng được thay vì mù mờ.",
+      "Điểm số được dựng từ sáu chiều có trọng số cộng lại thành 100: độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động. Trên nền lõi dữ kiện đó, ghfind thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ lập trình, tổ chức và dự án, cùng huy hiệu điểm README bạn có thể nhúng vào hồ sơ của mình.",
+      "Engine chấm điểm là mã nguồn mở theo giấy phép AGPL dưới dạng skill github-account-value, và cùng một dòng code vận hành trang web, các gói npm và PyPI chính thức, công cụ dòng lệnh và server Model Context Protocol. ghfind tồn tại để làm cho đóng góp GitHub trở nên dễ đọc: thưởng cho công sức mã nguồn mở chân chính, làm nổi bật các dev đáng theo dõi, và khiến hoạt động cày ảo hay giả tạo dễ bị lộ bằng cách nhìn vào mẫu hành vi thay vì con số thô."
+    ]
+  },
+  "contact": {
+    "metaTitle": "Liên hệ ghfind",
+    "metaDescription": "Cách liên hệ đội ngũ ghfind: báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI và MCP server.",
+    "heading": "Liên hệ",
+    "paragraphs": [
+      "ghfind là một dự án mã nguồn mở. Cách nhanh nhất để liên hệ đội ngũ, báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI hay MCP server là mở một issue trên kho GitHub công khai. Issue được đọc và phân loại tại đó, và việc trao đổi công khai giúp cả những người dùng khác gặp cùng câu hỏi.",
+      "Với các câu hỏi tích hợp, hợp đồng API máy đọc được nằm tại /openapi.json, mục lục tài liệu dành cho agent tại /llms.txt, và hướng dẫn xác thực tại /auth.md. Nếu bạn cần nâng giới hạn tốc độ cho việc quét server-to-server khối lượng lớn, hãy nêu trường hợp sử dụng trong một issue GitHub."
+    ],
+    "issuesLabel": "Mở issue trên GitHub",
+    "issuesUrl": "https://github.com/hikariming/ghfind/issues",
+    "bizLead": "Với các nhu cầu kinh doanh, cấp phép số lượng lớn hoặc nâng giới hạn API, email trực tiếp cho chúng tôi:",
+    "bizNote": "(Với câu hỏi về sử dụng mã nguồn mở, hãy ưu tiên mở issue GitHub — câu trả lời công khai giúp cả người dùng khác.)",
+    "resourcesLabel": "Tài nguyên cho lập trình viên",
+    "apiLabel": "Tham chiếu API (OpenAPI)",
+    "llmsLabel": "Tài liệu cho agent (llms.txt)",
+    "authLabel": "Xác thực (auth.md)"
+  },
+  "privacy": {
+    "metaTitle": "Quyền riêng tư — ghfind",
+    "metaDescription": "Cách ghfind xử lý dữ liệu: chỉ chấm điểm dữ liệu GitHub công khai, không bán dữ liệu cá nhân, và tôn trọng yêu cầu gỡ với các hồ sơ đã lập chỉ mục.",
+    "heading": "Quyền riêng tư",
+    "sections": [
+      {
+        "h": "ghfind dùng dữ liệu gì",
+        "p": "ghfind tính điểm chỉ từ dữ liệu GitHub công khai — cùng những thông tin ai cũng thấy được trên một hồ sơ và các repository, pull request, hoạt động công khai của nó. Nó không truy cập repository private, đóng góp private, nội dung email, hay bất kỳ dữ liệu nào chưa công khai sẵn trên GitHub. Vì vậy, điểm số mô tả dấu chân công khai của một tài khoản và không phải khẳng định thực tế về con người đứng sau nó."
+      },
+      {
+        "h": "Chúng tôi lưu gì",
+        "p": "Với các tài khoản đã được chấm, chúng tôi cache điểm số, hạng và các số liệu dẫn xuất để báo cáo chia sẻ tải nhanh và bảng xếp hạng luôn mượt. Chỉ tài khoản đạt 60 điểm trở lên mới được lập chỉ mục và liệt kê công khai; trang của tài khoản điểm thấp hơn vẫn truy cập được qua liên kết trực tiếp nhưng bị chặn khỏi công cụ tìm kiếm. Chúng tôi dùng phân tích tổng hợp tôn trọng quyền riêng tư để hiểu lưu lượng và không bán dữ liệu cá nhân."
+      },
+      {
+        "h": "Cà khịa bằng key riêng",
+        "p": "Tính năng cà khịa tùy chọn có thể dùng key nhà cung cấp model của riêng bạn. Khi bạn cung cấp một key, nó nằm trong trình duyệt của bạn và được chuyển tiếp một lần qua server của chúng tôi để gọi model — không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi yêu cầu hoàn tất."
+      },
+      {
+        "h": "Gỡ bỏ và kiểm soát",
+        "p": "Nếu bạn muốn gỡ hồ sơ khỏi danh sách, hãy dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, chúng tôi sẽ gỡ khỏi bảng và chỉ mục. Vì ghfind chỉ phản chiếu dữ liệu GitHub công khai, việc cập nhật hay chuyển hoạt động GitHub của bạn sang private cũng sẽ thay đổi hoặc xóa những gì ghfind thấy được ở lần quét kế tiếp."
+      }
+    ]
+  },
+  "methodology": {
+    "metaTitle": "Phương pháp — ghfind chấm điểm tài khoản GitHub thế nào",
+    "metaDescription": "Cách engine tất định của ghfind chấm tài khoản GitHub theo sáu chiều có trọng số, áp dụng điểm phạt cờ đỏ, và luôn tái lập được hoàn toàn mà không cần LLM.",
+    "heading": "ghfind chấm điểm tài khoản GitHub thế nào",
+    "lead": "Điểm của ghfind được tạo ra bởi một bộ tiêu chí tất định, không phải một model. Engine đọc dữ liệu GitHub công khai, chấm sáu chiều cộng lại thành 100, trừ điểm phạt cho các cờ đỏ, và trả về cùng một con số mỗi lần với cùng đầu vào. Phần lõi là mã nguồn mở theo giấy phép AGPL, nên bất kỳ kết quả nào cũng có thể được tái lập và kiểm chứng.",
+    "dimensionsHeading": "Sáu chiều đánh giá",
+    "dimensionsIntro": "Mỗi chiều đóng góp vào điểm cơ sở 100. Kết hợp lại, chúng thưởng cho công việc mã nguồn mở bền bỉ, nguyên bản, được sử dụng rộng rãi thay vì các con số hoạt động thô.",
+    "dimensionDetails": {
+      "account_maturity": "Tài khoản đã ổn định và nhất quán theo thời gian ra sao — tuổi đời, hoạt động bền bỉ, và một đường cong uy tín chống lại việc bơm thổi qua đêm.",
+      "original_project_quality": "Chất lượng và mức đón nhận của những repository mà tài khoản thực sự sở hữu và tự viết, không tính fork hay dự án vặt vãnh.",
+      "contribution_quality": "Chất lượng thực chất của đóng góp cho các dự án khác — những pull request được merge, có ý nghĩa, đối lập với spam theo template.",
+      "ecosystem_impact": "Công việc của tài khoản được phụ thuộc và bảo trì đến mức nào trong hệ sinh thái rộng hơn.",
+      "community_influence": "Tầm với và vị thế thật trong cộng đồng, được chuẩn hóa để số follower hay star thô không thể lấn át.",
+      "activity_authenticity": "Mẫu hoạt động trông tự nhiên hay được dàn dựng — chiều đánh giá tách công việc chân chính khỏi cày ảo."
+    },
+    "penaltiesHeading": "Điểm phạt cờ đỏ",
+    "penaltiesBody": "Trên nền sáu chiều đó, engine trừ điểm phạt cho các mẫu hành vi bơm thổi hồ sơ mà không có giá trị thực: tiêu đề pull request theo template gần như giống hệt nhau, đóng góp dồn vào những repository không thuộc sở hữu của tài khoản, và bơm star hay follower. Từng sự kiện riêng lẻ có thể trông hợp lý; điểm phạt kích hoạt trên mẫu hành vi, và đó chính là điều khiến hoạt động cày ảo tách bạch được khỏi công việc chân chính.",
+    "determinismHeading": "Tính tất định và khả năng tái lập",
+    "determinismBody": "Không mô hình ngôn ngữ lớn nào chạm vào điểm số. Lõi chấm điểm là skill mã nguồn mở github-account-value (AGPL), và cùng một dòng code vận hành trang web, các gói npm và PyPI, CLI và MCP server. Với cùng đầu vào công khai, điểm số giống hệt nhau trên tất cả, vì thế nó có thể được tái lập độc lập. Phần văn bản cà khịa tùy chọn là thứ duy nhất do LLM viết và không bao giờ thay đổi con số.",
+    "dataHeading": "Ở quy mô lớn",
+    "dataBody": "Áp dụng lên bộ dữ liệu công khai gồm 18.947 tài khoản đã chấm — 3.444 trong số đó có ảnh chụp số liệu thô đầy đủ — thì đóng góp giả hay cày ảo hóa ra hiếm hơn dư luận vẫn đồn (dưới 1% tài khoản dính các cờ đỏ nặng nhất) nhưng khi xuất hiện thì cực đoan hơn nhiều. Phân tích đầy đủ nằm trong mục nghiên cứu."
+  },
+  "vs": {
+    "metaTitle": "{a} vs {b} · Ai thắng? | ghfind",
+    "metaDescription": "{a} vs {b} — màn so kè GitHub trực diện. Ai trâu hơn? Xem trên ghfind.com.",
+    "back": "← Về Đại sảnh Danh vọng",
+    "heading": "Solo lập trình viên",
+    "pkHeading": "⚔️ Mở một trận solo",
+    "pkSub": "Thả hai handle GitHub vào và xem ai trâu hơn",
+    "pkPlaceholderA": "vd: torvalds",
+    "pkPlaceholderB": "vd: gaearon",
+    "pkButton": "🔥 Chiến!",
+    "pkInvalid": "Nhập hai handle GitHub hợp lệ khác nhau",
+    "bucketCrush": "Đè bẹp",
+    "bucketEdge": "Thắng sát nút",
+    "bucketEven": "Ngang tài ngang sức",
+    "win": "🏆 Thắng",
+    "tie": "Hòa",
+    "totalHeading": "Tổng điểm",
+    "dimensionsHeading": "Solo từng chiều",
+    "swapOpponent": "🔄 Đổi đối thủ",
+    "judgeMe": "Phán xét tôi luôn →",
+    "summonTitle": "@{username} chưa bị phán xét",
+    "summonHint": "Triệu hồi họ lên võ đài để khai chiến",
+    "summon": "🔥 Triệu hồi lên đài",
+    "summonScanning": "Đang quét…",
+    "summonRoasting": "Đang cà khịa…",
+    "summonError": "Triệu hồi thất bại, thử lại sau nhé",
+    "bothMissing": "Cả hai đều chưa bị phán xét — triệu hồi họ trước rồi hẵng solo.",
+    "verdictGenerating": "🤖 AI đang nấu một phán quyết cực gắt…",
+    "adviceHeading": "💡 Cách để lên trình",
+    "saveImage": "📸 Lưu ảnh trận đấu",
+    "saving": "Đang kết xuất…",
+    "copyEmbed": "🃏 Sao chép mã nhúng README",
+    "embedCopied": "✅ Đã sao chép — dán vào README của bạn",
+    "shareText": "{a} vs {b} — ai trâu hơn? Xem trận solo GitHub này trên ghfind.com ⚔️",
+    "trendingHeading": "🔥 Trận đấu đang hot",
+    "trendingSub": "Những trận PK dev GitHub được xem nhiều nhất — nhảy vào xem phán quyết cực gắt",
+    "trendingEmpty": "Chưa có trận nào trên bảng. Gõ \"a vs b\" ở trang chủ để nổ phát súng đầu tiên.",
+    "notRated": "Chưa phán xét",
+    "verdictMissing": "Khoan hẵng phán — triệu hồi họ lên võ đài trước đã.",
+    "verdictTie": "Kẻ tám lạng người nửa cân — chẳng ai dám bảo trận này xử ép.",
+    "verdictCrush": {
+      "0": "@{winner} cán qua @{loser} với cách biệt {gap} điểm — đây không phải solo, đây là xem biểu diễn.",
+      "1": "@{winner} {winnerScore} vs @{loser} {loserScore}: khoảng cách rộng đến mức trọng tài chẳng buồn thổi còi.",
+      "2": "@{loser} còn đang khởi động thì @{winner} đã dẫn trước {gap} điểm — bắt tay xin thua cho lành.",
+      "3": "@{winner} đè @{loser} xuống sàn; vực sâu {gap} điểm này không thấy đáy.",
+      "4": "Chẳng có gì gay cấn: @{winner} áp đảo @{loser} toàn diện với {gap} điểm.",
+      "5": "@{loser} thua trước cả khi kịp đổi nét mặt — @{winner} ẵm trọn trận đè bẹp {gap} điểm.",
+      "6": "{winnerScore} điểm của @{winner} khiến {loserScore} điểm của @{loser} trông như quân xanh tập trận.",
+      "7": "Một cách biệt gây nản lòng: @{winner} dẫn @{loser} tận {gap} điểm."
+    },
+    "verdictEdge": {
+      "0": "@{winner} vượt @{loser} sát nút với {gap} điểm — chiến thắng này không hề rẻ.",
+      "1": "Ngang tài ngang sức, nhưng @{winner} vẫn cười sau cùng với lợi thế {gap} điểm.",
+      "2": "@{winner} {winnerScore} vs @{loser} {loserScore}: thắng đúng một bước chân.",
+      "3": "@{loser} suýt lật kèo, nhưng còn thiếu {gap} điểm mới bắt kịp @{winner}.",
+      "4": "Trong một trận sít sao, @{winner} nhỉnh hơn một chút và bỏ túi {gap} điểm.",
+      "5": "@{winner} thắng, nhưng @{loser} khiến họ toát mồ hôi — chỉ cách nhau {gap} điểm.",
+      "6": "Thắng nửa thân xe: @{winner} vượt @{loser} {gap} điểm.",
+      "7": "@{winner} lách qua khe cửa hẹp; @{loser} chỉ còn thiếu đúng một cú ra đòn."
+    },
+    "verdictEven": {
+      "0": "@{winner} và @{loser} gần như bất phân thắng bại — {gap} điểm về cơ bản chỉ là nhiễu.",
+      "1": "Ngang ngửa tuyệt đối: chẳng ai bị xử ép ở đây — chỉ {gap} điểm ngăn cách họ.",
+      "2": "@{winner} {winnerScore}, @{loser} {loserScore} — đổi tâm trạng một cái là kèo lật.",
+      "3": "Khó phân định: @{winner} và @{loser} đứng trên cùng một vạch.",
+      "4": "Đại chiến titan — cách biệt {gap} điểm chẳng đáng để kể lể.",
+      "5": "@{winner} dẫn trước một sợi tóc, nhưng @{loser} chẳng hề nao núng.",
+      "6": "Chia đôi khác biệt — @{winner} chỉ may mắn hơn đúng {gap} điểm.",
+      "7": "Bên tám lạng bên nửa cân — @{winner} và @{loser} chẳng ai hơn ai được gì."
+    }
+  }
+}

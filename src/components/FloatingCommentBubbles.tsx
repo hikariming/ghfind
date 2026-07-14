@@ -173,7 +173,7 @@ function FloatingCommentAuthorLabel({
   lang: FloatingCommentLang;
 }) {
   const className =
-    "mb-1.5 inline-flex max-w-full min-w-14 items-center rounded-full bg-black/35 px-2 py-0.5 text-left text-[10px] font-semibold leading-none text-orange-300/60 ring-1 ring-orange-300/10";
+    "mb-1.5 inline-flex max-w-full min-w-14 items-center rounded-full bg-black/35 px-2 py-0.5 text-start text-[10px] font-semibold leading-none text-orange-300/60 ring-1 ring-orange-300/10";
 
   if (author.type === "anonymous") {
     return <span className={className}>{ANONYMOUS_LABEL[lang]}</span>;
@@ -183,7 +183,7 @@ function FloatingCommentAuthorLabel({
     <Link
       href={`/u/${author.username}`}
       prefetch={false}
-      className={`${className} pointer-events-auto gap-1.5 pl-1 underline-offset-2 hover:text-orange-200 hover:underline`}
+      className={`${className} pointer-events-auto gap-1.5 ps-1 underline-offset-2 hover:text-orange-200 hover:underline`}
     >
       <span
         aria-hidden="true"
@@ -213,7 +213,7 @@ function FloatingCommentInlineAuthor({
     <Link
       href={`/u/${author.username}`}
       prefetch={false}
-      className={`${className} pointer-events-auto gap-1.5 pl-1 hover:text-orange-200`}
+      className={`${className} pointer-events-auto gap-1.5 ps-1 hover:text-orange-200`}
     >
       <span
         aria-hidden="true"
@@ -321,11 +321,11 @@ export function FloatingCommentBubbles({
         </div>
       )}
 
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+      <div className="fixed bottom-5 end-5 z-50 flex flex-col items-end gap-3">
         {open && (
           <form
             onSubmit={handleSubmit}
-            className="w-[min(calc(100vw-2.5rem),22rem)] rounded-2xl border border-orange-300/20 bg-zinc-950/95 p-4 text-left shadow-2xl ring-1 ring-white/[0.06] backdrop-blur"
+            className="w-[min(calc(100vw-2.5rem),22rem)] rounded-2xl border border-orange-300/20 bg-zinc-950/95 p-4 text-start shadow-2xl ring-1 ring-white/[0.06] backdrop-blur"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-orange-200">{labels.panelTitle}</h2>

@@ -86,7 +86,7 @@ export function LoginNudge({ configured }: { configured: boolean }) {
     <div
       role="dialog"
       aria-label={t("title")}
-      className={`fixed inset-x-3 top-[4.5rem] z-50 sm:inset-x-auto sm:left-auto sm:right-4 sm:top-[4.5rem] sm:w-[26rem] transition-all duration-300 ease-out ${
+      className={`fixed inset-x-3 top-[4.5rem] z-50 sm:inset-x-auto sm:start-auto sm:end-4 sm:top-[4.5rem] sm:w-[26rem] transition-all duration-300 ease-out ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-6 opacity-0"
       }`}
     >
@@ -95,14 +95,14 @@ export function LoginNudge({ configured }: { configured: boolean }) {
           type="button"
           onClick={dismiss}
           aria-label={t("close")}
-          className="absolute right-3 top-3 rounded-full p-1 text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
+          className="absolute end-3 top-3 rounded-full p-1 text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
         >
           <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5 fill-current">
             <path d="M4.3 4.3a1 1 0 0 1 1.4 0L8 6.6l2.3-2.3a1 1 0 1 1 1.4 1.4L9.4 8l2.3 2.3a1 1 0 0 1-1.4 1.4L8 9.4l-2.3 2.3a1 1 0 0 1-1.4-1.4L6.6 8 4.3 5.7a1 1 0 0 1 0-1.4Z" />
           </svg>
         </button>
 
-        <h3 className="pr-7 text-lg font-bold text-zinc-100">{t("title")}</h3>
+        <h3 className="pe-7 text-lg font-bold text-zinc-100">{t("title")}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{t("body")}</p>
 
         <div className="mt-4 flex items-center gap-3">

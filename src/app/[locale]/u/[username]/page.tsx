@@ -370,7 +370,7 @@ export default async function AccountPage({
                 <div className="truncate text-sm font-medium text-zinc-200">@{s.username}</div>
                 {tag && <div className="truncate text-[11px] text-orange-200/80">#{tag}</div>}
               </div>
-              <span className={`shrink-0 text-right text-sm font-black tabular-nums ${st.text}`}>
+              <span className={`shrink-0 text-end text-sm font-black tabular-nums ${st.text}`}>
                 {st.emoji} {s.final_score.toFixed(2)}
               </span>
             </Link>
@@ -515,7 +515,7 @@ export default async function AccountPage({
           <>
             <div className={`mt-1 text-4xl font-black tabular-nums ${style.text}`}>
               #{rank.rank}
-              <span className="ml-1 text-sm font-medium text-zinc-400">
+              <span className="ms-1 text-sm font-medium text-zinc-400">
                 {t("rankUnit", { total: rank.total })}
               </span>
             </div>
@@ -627,7 +627,7 @@ export default async function AccountPage({
                   <span className="shrink-0 text-xs tabular-nums text-zinc-400">
                     ⭐ {nf.format(r.stars)}
                     {(r.commits > 0 || r.prs > 0) && (
-                      <span className="ml-2 text-zinc-500">
+                      <span className="ms-2 text-zinc-500">
                         {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
                         {r.commits > 0 && r.prs > 0 && " · "}
                         {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
@@ -861,7 +861,7 @@ export default async function AccountPage({
                   orgs={organizations}
                 />
               )}
-              <div className="report text-[0.95rem] text-zinc-200">
+              <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
               </div>
             </>

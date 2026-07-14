@@ -87,7 +87,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>{t("description")}</DialogDescription>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+          <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-zinc-500" />
           <Input
             autoFocus
             value={query}
@@ -112,7 +112,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
             aria-controls="global-search-results"
             aria-label={t("input")}
             placeholder={t("placeholder")}
-            className="h-11 border-white/10 bg-white/[0.04] pl-9"
+            className="h-11 border-white/10 bg-white/[0.04] ps-9"
           />
         </div>
         <div id="global-search-results" role="listbox" className="max-h-[55vh] overflow-y-auto">
@@ -132,7 +132,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
                   aria-selected={activeIndex === index}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => navigate(row.href)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition-colors ${
                     activeIndex === index
                       ? "bg-white/[0.08] text-zinc-100"
                       : "text-zinc-300 hover:bg-white/[0.05]"

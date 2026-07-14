@@ -117,7 +117,8 @@ export default async function BlogPostPage({
           </p>
         )}
 
-        <div className="mt-8">
+        {/* A fallback body is English — keep it LTR even under an RTL locale. */}
+        <div className="mt-8" dir={post.isFallback ? "ltr" : undefined}>
           <PostBody body={post.body} />
         </div>
       </article>

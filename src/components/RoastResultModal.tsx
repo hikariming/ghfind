@@ -62,7 +62,7 @@ export function RoastResultModal({
       <DialogContent className="max-h-[88vh] w-[min(calc(100vw-2rem),26rem)] overflow-y-auto">
         <DialogClose
           aria-label={t("modalClose")}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"
+          className="absolute end-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"
         >
           <X className="h-4 w-4" />
         </DialogClose>
