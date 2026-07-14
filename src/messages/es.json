@@ -372,7 +372,10 @@
     "variantContrib": "Contribuciones",
     "variantPr": "Historial de PRs",
     "variantPath": "Trayectoria en GitHub",
-    "variantWork": "Obra insignia"
+    "variantWork": "Obra insignia",
+    "materialTitle": "Tarjeta impresa en chino",
+    "materialBlurb": "Diseño horizontal de 76 × 50 mm para impresión y eventos.",
+    "materialAlt": "Tarjeta china de perfil de desarrollador ghfind para {username}"
   },
   "byok": {
     "title": "Usa tu propio modelo",

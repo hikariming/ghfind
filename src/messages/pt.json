@@ -372,7 +372,10 @@
     "variantContrib": "Contribuições",
     "variantPr": "Histórico de PRs",
     "variantPath": "Trajetória no GitHub",
-    "variantWork": "Trabalho de assinatura"
+    "variantWork": "Trabalho de assinatura",
+    "materialTitle": "Card impresso em chinês",
+    "materialBlurb": "Arte horizontal de 76 × 50 mm para impressão e eventos.",
+    "materialAlt": "Card chinês de perfil de desenvolvedor ghfind para {username}"
   },
   "byok": {
     "title": "Use seu próprio modelo",

@@ -30,6 +30,11 @@ describe("renderBadge", () => {
 });
 
 describe("buildBadge", () => {
+  it("uses green for solid and bright blue for NPC", () => {
+    expect(BADGE_COLOR["人上人"]).toBe("#10B981");
+    expect(BADGE_COLOR.NPC).toBe("#38BDF8");
+  });
+
   it("renders score + English tier word and the tier color by default", () => {
     for (const tier of TIERS) {
       const svg = buildBadge({ score: 83.3, tier });

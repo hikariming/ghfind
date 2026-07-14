@@ -372,7 +372,10 @@
     "variantContrib": "Kontribusi",
     "variantPr": "Rekam jejak PR",
     "variantPath": "Perjalanan GitHub",
-    "variantWork": "Karya khas"
+    "variantWork": "Karya khas",
+    "materialTitle": "Kartu cetak berbahasa Mandarin",
+    "materialBlurb": "Desain lanskap 76 × 50 mm untuk materi cetak dan acara.",
+    "materialAlt": "Kartu profil developer ghfind berbahasa Mandarin untuk {username}"
   },
   "byok": {
     "title": "Pakai model sendiri",

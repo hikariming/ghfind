@@ -372,7 +372,10 @@
     "variantContrib": "Contributions",
     "variantPr": "PR track record",
     "variantPath": "GitHub trajectory",
-    "variantWork": "Signature work"
+    "variantWork": "Signature work",
+    "materialTitle": "Chinese print card",
+    "materialBlurb": "76 × 50 mm landscape artwork for print and event materials.",
+    "materialAlt": "ghfind Chinese developer profile card for {username}"
   },
   "byok": {
     "title": "Use your own model",

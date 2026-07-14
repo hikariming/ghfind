@@ -36,7 +36,7 @@ export const BADGE_COLOR: Record<Tier, string> = {
   夯: "#F59E0B",
   顶级: "#8B5CF6",
   人上人: "#10B981",
-  NPC: "#64748B",
+  NPC: "#38BDF8",
   拉完了: "#F43F5E",
 };
 

@@ -289,13 +289,6 @@ html[data-theme="light"] .floating-comment-mobile {
     0 1px 6px rgba(234, 88, 12, 0.08);
 }
 
-html[data-theme="light"] .tier-avatar-emoji-shell {
-  background-color: rgba(255, 255, 255, 0.96);
-  box-shadow:
-    0 6px 16px rgba(100, 116, 139, 0.12),
-    0 0 0 1px rgba(15, 23, 42, 0.08);
-}
-
 html[data-theme="light"] .login-nudge-card {
   background-color: rgba(255, 255, 255, 0.94);
   border-color: rgba(234, 88, 12, 0.24);
@@ -325,11 +318,6 @@ html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb:hover 
 html[data-theme="light"] [data-force-dark] {
   background-color: #0a0a0b;
   color: #ffffff;
-}
-
-html[data-theme="light"] [data-force-dark] .tier-avatar-emoji-shell {
-  background-color: #0a0a0b;
-  box-shadow: none;
 }
 
 html[data-theme="light"] [data-force-dark] .bg-black\/35 {

@@ -63,7 +63,9 @@ export async function qrDataUrl(path: string, dark: string): Promise<string | nu
     return await QRCode.toDataURL(`${SITE_URL}${path}`, {
       margin: 1,
       width: 300,
-      errorCorrectionLevel: "M",
+      // The rendered card places the ghfind mark over the center modules. High
+      // correction keeps the code robust after that intentional occlusion.
+      errorCorrectionLevel: "H",
       color: { dark, light: "#00000000" },
     });
   } catch {

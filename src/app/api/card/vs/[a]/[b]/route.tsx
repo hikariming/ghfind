@@ -2,6 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { getAccountDetail, getMatchup } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
 import { normalizeUsername } from "@/lib/username";
+import { tierAvatarFrame } from "@/lib/tier";
+import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { verdict } from "@/lib/verdict";
 import type { AccountDetail } from "@/lib/db";
 import { Brand, OgAvatarFrame, PALETTES, Shell, parseQr, parseTheme } from "../../../[username]/cards";
@@ -23,12 +25,14 @@ function Player({
   handle,
   detail,
   avatar,
+  tierIcon,
   palette,
   notRated,
 }: {
   handle: string;
   detail: AccountDetail | null;
   avatar: string | null;
+  tierIcon: string;
   palette: CardPalette;
   notRated: string;
 }) {
@@ -64,6 +68,7 @@ function Player({
           username={handle}
           avatar={avatar}
           tier={detail?.tier ?? "NPC"}
+          tierIcon={tierIcon}
           color={color}
           palette={palette}
         />
@@ -110,9 +115,11 @@ export async function GET(
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
 
-  const [avA, avB] = await Promise.all([
+  const [avA, avB, tierIconA, tierIconB] = await Promise.all([
     avatarDataUrl(da?.avatar_url ?? null),
     avatarDataUrl(db?.avatar_url ?? null),
+    tierAvatarFrameIconDataUrl(tierAvatarFrame(da?.tier ?? "NPC").icon),
+    tierAvatarFrameIconDataUrl(tierAvatarFrame(db?.tier ?? "NPC").icon),
   ]);
 
   const vsColor = BUCKET_COLOR[v.bucket] ?? "#f97316";
@@ -134,10 +141,22 @@ export async function GET(
   const qr = parseQr(req) ? await qrDataUrl(`/vs/${a}/${b}`, qrModuleColor(vsColor, theme)) : null;
 
   return png(
-    <Shell glow={`${vsColor}${theme === "light" ? "30" : "55"}`} palette={palette} qr={qr}>
+    <Shell
+      glow={`${vsColor}${theme === "light" ? "30" : "55"}`}
+      palette={palette}
+      qr={qr}
+      qrPlacement="inline"
+    >
       {/* Combatants */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Player handle={a} detail={da} avatar={avA} palette={palette} notRated={t("notRated")} />
+        <Player
+          handle={a}
+          detail={da}
+          avatar={avA}
+          tierIcon={tierIconA}
+          palette={palette}
+          notRated={t("notRated")}
+        />
         <div
           style={{
             display: "flex",
@@ -149,7 +168,14 @@ export async function GET(
         >
           VS
         </div>
-        <Player handle={b} detail={db} avatar={avB} palette={palette} notRated={t("notRated")} />
+        <Player
+          handle={b}
+          detail={db}
+          avatar={avB}
+          tierIcon={tierIconB}
+          palette={palette}
+          notRated={t("notRated")}
+        />
       </div>
 
       {/* Verdict */}

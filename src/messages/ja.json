@@ -372,7 +372,10 @@
     "variantContrib": "コントリビューション",
     "variantPr": "PR戦績",
     "variantPath": "GitHubの軌跡",
-    "variantWork": "代表作"
+    "variantWork": "代表作",
+    "materialTitle": "中国語印刷カード",
+    "materialBlurb": "印刷やイベント素材向けの 76 × 50 mm 横型デザインです。",
+    "materialAlt": "{username} の ghfind 中国語開発者プロフィールカード"
   },
   "byok": {
     "title": "自分のモデルを使う",

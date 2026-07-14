@@ -372,7 +372,10 @@
     "variantContrib": "贡献足迹",
     "variantPr": "PR 战绩",
     "variantPath": "GitHub 轨迹",
-    "variantWork": "代表作"
+    "variantWork": "代表作",
+    "materialTitle": "中文物料卡",
+    "materialBlurb": "76 × 50 mm 横版，可用于线下印刷与活动物料。",
+    "materialAlt": "{username} 的 ghfind 中文开发者实力卡"
   },
   "byok": {
     "title": "用你自己的模型",

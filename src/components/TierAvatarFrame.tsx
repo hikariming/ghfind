@@ -1,5 +1,9 @@
-import { tierAvatarFrame } from "@/lib/tier";
-import type { TierAvatarFrameEmojiSize, TierAvatarFramePlacement } from "@/lib/tier";
+import {
+  TIER_AVATAR_FRAME_VECTORS,
+  tierAvatarFrame,
+  tierAvatarFrameIconPath,
+} from "@/lib/tier";
+import type { TierAvatarFrameEmojiSize } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
 type AvatarFrameSize = "sm" | "md" | "lg";
@@ -12,46 +16,31 @@ interface TierAvatarFrameProps {
   className?: string;
 }
 
-const EMOJI_POSITIONS: Record<TierAvatarFramePlacement, string> = {
-  top: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
-  "top-right": "right-[8%] top-[8%] translate-x-1/2 -translate-y-1/2",
-  right: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
-  "bottom-right": "bottom-[8%] right-[8%] translate-x-1/2 translate-y-1/2",
-  bottom: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-  "bottom-left": "bottom-[8%] left-[8%] -translate-x-1/2 translate-y-1/2",
-  left: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
-  "top-left": "left-[8%] top-[8%] -translate-x-1/2 -translate-y-1/2",
-};
-
 const SIZE_CLASS: Record<
   AvatarFrameSize,
   {
     shell: string;
     avatar: string;
-    emoji: Record<TierAvatarFrameEmojiSize, string>;
-    emojiShell: Record<TierAvatarFrameEmojiSize, string>;
+    emojiIcon: Record<TierAvatarFrameEmojiSize, string>;
     initial: string;
   }
 > = {
   sm: {
     shell: "h-16 w-16",
     avatar: "h-12 w-12",
-    emoji: { normal: "text-[13px]", large: "text-[18px]" },
-    emojiShell: { normal: "h-5 w-5", large: "h-7 w-7" },
+    emojiIcon: { normal: "h-[13px] w-[13px]", large: "h-[18px] w-[18px]" },
     initial: "text-xl",
   },
   md: {
     shell: "h-24 w-24",
     avatar: "h-[72px] w-[72px]",
-    emoji: { normal: "text-[17px]", large: "text-[24px]" },
-    emojiShell: { normal: "h-7 w-7", large: "h-9 w-9" },
+    emojiIcon: { normal: "h-[17px] w-[17px]", large: "h-6 w-6" },
     initial: "text-3xl",
   },
   lg: {
     shell: "h-28 w-28",
     avatar: "h-20 w-20",
-    emoji: { normal: "text-[20px]", large: "text-[30px]" },
-    emojiShell: { normal: "h-8 w-8", large: "h-11 w-11" },
+    emojiIcon: { normal: "h-5 w-5", large: "h-[30px] w-[30px]" },
     initial: "text-4xl",
   },
 };
@@ -65,8 +54,7 @@ export function TierAvatarFrame({
 }: TierAvatarFrameProps) {
   const frame = tierAvatarFrame(tier);
   const classes = SIZE_CLASS[size];
-  const emojiClass = classes.emoji[frame.emojiSize];
-  const emojiShellClass = classes.emojiShell[frame.emojiSize];
+  const emojiIconClass = classes.emojiIcon[frame.emojiSize];
   const initial = username.slice(0, 1).toUpperCase();
 
   return (
@@ -77,13 +65,22 @@ export function TierAvatarFrame({
     >
       <div className="absolute inset-2 rounded-full border border-white/10" />
       {frame.placements.map((placement) => (
-        <span
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           key={`${frame.emoji}-${placement}`}
+          src={tierAvatarFrameIconPath(frame.icon)}
+          alt=""
           aria-hidden="true"
-          className={`tier-avatar-emoji-shell absolute z-10 flex items-center justify-center rounded-full bg-[#0a0a0b] leading-none drop-shadow ${emojiShellClass} ${emojiClass} ${EMOJI_POSITIONS[placement]}`}
-        >
-          {frame.emoji}
-        </span>
+          className={`tier-avatar-emoji-shell absolute z-10 block border-0 bg-transparent shadow-none ${emojiIconClass}`}
+          style={{
+            left: `${50 + TIER_AVATAR_FRAME_VECTORS[placement].x * 50}%`,
+            top: `${50 + TIER_AVATAR_FRAME_VECTORS[placement].y * 50}%`,
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "transparent",
+            border: "none",
+            boxShadow: "none",
+          }}
+        />
       ))}
 
       {avatarUrl ? (
