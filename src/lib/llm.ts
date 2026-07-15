@@ -124,6 +124,17 @@ export interface ChatStreamOptions {
   onAttempt?: (event: ChatAttemptEvent) => void;
 }
 
+/** StepFun supports OpenAI's reasoning_effort field. Keep it provider-scoped:
+ * fallback and BYO OpenAI-compatible endpoints may reject unknown fields. */
+function isStepFunEndpoint(baseURL: string): boolean {
+  try {
+    const hostname = new URL(baseURL).hostname.toLowerCase();
+    return hostname === "stepfun.com" || hostname.endsWith(".stepfun.com");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Stream a chat completion as typed events. Reasoning deltas (`reasoning_content`
  * / `reasoning`, emitted by reasoning models like StepFun's flash tiers ahead of
@@ -174,6 +185,7 @@ export async function* chatStreamEvents(
         messages,
         stream: true,
         temperature: opts?.temperature ?? 0.85,
+        ...(isStepFunEndpoint(base) ? { reasoning_effort: "low" } : {}),
       }),
       signal: ctrl.signal,
     });
