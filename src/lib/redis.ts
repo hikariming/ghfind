@@ -355,7 +355,11 @@ export async function setCachedRoastJudge(
 // requests arrive at once, only the lock holder runs the LLM; the rest wait for
 // its result via the cache. Without this, a viral account re-generates N times
 // per cold window instead of once.
-const ROAST_LOCK_TTL_SECONDS = 60; // long enough to cover a full report stream
+// Crash safety net only — the success/error paths release the lock explicitly.
+// Must exceed the route's 220s LLM deadline: at the old 60s the lock could expire
+// mid-generation, so under concurrency followers
+// saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
+const ROAST_LOCK_TTL_SECONDS = 270;
 const roastLockKey = (username: string, lang: Lang) =>
   `lock:roast:${lang}:${username.toLowerCase()}`;
 
@@ -397,7 +401,10 @@ export async function releaseRoastLock(username: string, lang: Lang): Promise<vo
 export async function waitForCachedRoast(
   username: string,
   lang: Lang,
-  timeoutMs = 60000,
+  // The loop exits the moment the leader releases the lock, so this ceiling is
+  // only reached when the leader is genuinely slow. Giving up too early merely
+  // duplicates its work.
+  timeoutMs = 120000,
 ): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
   const r = getRedis();

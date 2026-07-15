@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
-import { TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
+import { TIER_LABEL_EN } from "@/lib/badge";
 import { machineAuth } from "@/lib/machine-auth";
 import { getArchivedRoast, getRank, getScoreScannedAt, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
 import {
+  ChatAttemptEvent,
   LlmConfig,
   LlmQuotaError,
   LlmTimeoutError,
@@ -14,7 +15,7 @@ import {
   fallbackLlmConfig,
 } from "@/lib/llm";
 import { beatPercent } from "@/lib/percentile";
-import { buildRoastJudgeMessages, buildRoastMessages } from "@/lib/prompt";
+import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
@@ -22,25 +23,23 @@ import {
   checkRoastRateLimit,
   clearCachedRoast,
   getCachedRoast,
-  getCachedRoastJudge,
   getCachedScan,
   releaseRoastLock,
   setCachedRoast,
-  setCachedRoastJudge,
   waitForCachedRoast,
 } from "@/lib/redis";
 import { clampScore, spamBotScore, tierFor } from "@/lib/score";
-import type { RoastJudgeResult, RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
+import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Two sequential LLM calls (judge → roast) plus the streamed report. The default
-// model is a reasoning model that spends 10–25s on chain-of-thought before any
-// visible content, and a heavy account's two passes legitimately run ~60–120s.
+// One LLM call performs factual calibration and writes the streamed report. The
+// ceiling remains generous for provider failover, while the inner deadline keeps
+// failures inside the in-band protocol instead of letting the platform 504.
 // The ceiling is 240s (well under Vercel's 300s max) so a stalled primary can
 // fail over to DeepSeek and STILL have a fresh budget to finish — the old 120s
-// cap physically couldn't fit primary + fallback (a healthy writer alone runs to
-// ~82s), so the fallback got ~0s and timed out. Fluid Compute bills active CPU,
+// cap physically couldn't fit primary + fallback, so the fallback got ~0s and
+// timed out. Fluid Compute bills active CPU,
 // not the idle wait on the model, so the higher ceiling costs ~nothing. The LLM
 // work is bounded a touch under this (`llmDeadlineMs`) so we fail gracefully here
 // (roast_failed) instead of the platform 504'ing. Keep the inner budget below it.
@@ -51,7 +50,6 @@ export const ROAST_META_HEADER = "X-Roast-Meta";
 
 const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
 const EMPTY_ROAST_LINE: RoastLine = { zh: "", en: "" };
-const DEFAULT_JUDGE_LANG: Lang = "zh";
 
 interface ByoKey {
   baseURL?: string;
@@ -83,7 +81,7 @@ function classifyLlmError(e: unknown): "timeout" | "quota" | "upstream" | "other
 }
 
 /** One structured line per roast (success or failure) for prod triage. Failure
- *  rows carry the stage (judge|writer|meta|stream) and kind (timeout|quota|
+ *  rows carry the stage (generation|meta|stream) and kind (timeout|quota|
  *  upstream|other) so we can tell a slow-LLM timeout from an upstream 5xx from a
  *  parse miss without reading code. Never let logging throw into the roast path. */
 function logRoastSummary(fields: Record<string, unknown>): void {
@@ -160,55 +158,6 @@ function extractReport(head: string): string {
   if (idx >= 0) return lines.slice(idx).join("\n");
   // No heading found (model ignored format) — just drop any control lines.
   return lines.filter((l) => !/@@(ADJUST|TAGS|ROAST)/.test(l)).join("\n").replace(/^\n+/, "");
-}
-
-function parseJudgeResult(raw: string, scan: ScanResult, lang: Lang): RoastJudgeResult {
-  const fallback: RoastJudgeResult = {
-    delta: 0,
-    reason: lang === "en" ? "Judge output was not parseable." : "judge 输出无法解析。",
-    verdict: lang === "en" ? "normal" : "正常",
-    risk_notes: [],
-  };
-  const scoreSummary = (delta: number) => {
-    const summary = adjustedScoreSummary(scan, delta, lang);
-    return {
-      ...summary,
-      tier: lang === "en" ? TIER_EN[summary.tier] : summary.tier,
-    };
-  };
-  const jsonText = raw.match(/\{[\s\S]*\}/)?.[0];
-  if (!jsonText) return { ...fallback, ...scoreSummary(0) };
-
-  try {
-    const parsed = JSON.parse(jsonText) as Partial<RoastJudgeResult>;
-    const n = Math.round(Number(parsed.delta ?? 0));
-    const delta = Number.isFinite(n) ? Math.max(-10, Math.min(10, n)) : 0;
-    const summary = scoreSummary(delta);
-    return {
-      delta: summary.delta,
-      reason: String(parsed.reason ?? fallback.reason).slice(0, 500),
-      verdict: String(parsed.verdict ?? fallback.verdict).slice(0, 120),
-      risk_notes: Array.isArray(parsed.risk_notes)
-        ? parsed.risk_notes.map((n) => String(n).slice(0, 240)).slice(0, 6)
-        : [],
-      final_score: summary.final_score,
-      tier: summary.tier,
-      tier_label: summary.tier_label,
-    };
-  } catch {
-    return { ...fallback, ...scoreSummary(0) };
-  }
-}
-
-function localizeJudgeResult(judge: RoastJudgeResult, scan: ScanResult, lang: Lang): RoastJudgeResult {
-  const summary = adjustedScoreSummary(scan, judge.delta, lang);
-  return {
-    ...judge,
-    delta: summary.delta,
-    final_score: summary.final_score,
-    tier: lang === "en" ? TIER_EN[summary.tier] : summary.tier,
-    tier_label: summary.tier_label,
-  };
 }
 
 /** Bound a client-supplied scan so a fabricated payload can't bloat the prompt. */
@@ -408,6 +357,12 @@ async function cacheRoastReplay(
 }
 
 export async function POST(req: NextRequest) {
+  // Anchor for the LLM wall-clock budget. Deliberately taken at request start,
+  // NOT at stream start: a single-flight follower can spend up to 120s in
+  // waitForCachedRoast before falling back to self-generation, and a budget
+  // computed from stream start would let wait + generation overrun the 240s
+  // function ceiling — the platform then kills the stream mid-roast.
+  const reqT0 = Date.now();
   let body: RoastBody;
   try {
     body = await req.json();
@@ -456,9 +411,12 @@ export async function POST(req: NextRequest) {
   // never fail over — the user supplied a single key and pays their own way.
   const fallback = isDefault ? fallbackLlmConfig() : null;
   const llmConfigs = fallback ? [config, fallback] : [config];
+  const path = isDefault ? "default" : "byo";
   // Single-flight: set once we hold the roast lock, so the stream/error paths
   // know to release it. Only the default model coalesces (BYO keys self-serve).
   let isLeader = false;
+  let lockWaitMs = 0;
+  let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
 
   // Prefer the server's cached scan (authoritative — the client cannot fabricate
   // metrics to inflate the prompt or the score). Fall back to the sanitized
@@ -498,6 +456,10 @@ export async function POST(req: NextRequest) {
                 lang,
               )
             : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
+        logRoastSummary({
+          u: username, lang, path, ok: true, source: "redis_cache",
+          requestTotalMs: Date.now() - reqT0,
+        });
         return roastResponse(cachedRoast.report, meta);
       }
 
@@ -522,6 +484,10 @@ export async function POST(req: NextRequest) {
           archivedRoast.final_score,
           archivedRoast.tier,
         );
+        logRoastSummary({
+          u: username, lang, path, ok: true, source: "archive",
+          requestTotalMs: Date.now() - reqT0,
+        });
         return roastResponse(archivedRoast.report, meta);
       }
     }
@@ -541,7 +507,9 @@ export async function POST(req: NextRequest) {
       // so single-flight followers wait for the NEW report, not the old one.
       if (refreshHonored) await clearCachedRoast(username, lang);
     } else {
+      const lockWaitStartedAt = Date.now();
       const shared = await waitForCachedRoast(username, lang);
+      lockWaitMs = Date.now() - lockWaitStartedAt;
       if (shared && reportMatchesLang(shared.report, lang)) {
         const tags = shared.tags ?? { zh: [], en: [] };
         const roastLine = shared.roast_line ?? EMPTY_ROAST_LINE;
@@ -556,19 +524,19 @@ export async function POST(req: NextRequest) {
                 lang,
               )
             : await computeMeta(scan, shared.delta, tags, roastLine, false, lang);
+        logRoastSummary({
+          u: username, lang, path, ok: true, source: "singleflight_shared",
+          lockWaitMs, requestTotalMs: Date.now() - reqT0,
+        });
         return roastResponse(shared.report, meta);
       }
       // Leader failed or timed out — self-generate (we hold no lock).
+      generationPath = "follower_fallback";
     }
   }
 
-  // Stream from the very first byte. The default model is a reasoning model that
-  // spends 10–25s "thinking" before any visible content, and we run TWO passes
-  // (cold judge → savage writer); the old code awaited both fully before sending
-  // anything, so the user stared at a frozen spinner the whole time. Now we open
-  // the response immediately and push live progress (T-frames) during the wait,
-  // then the AI-adjusted meta (M-frame), then the report — same two-pass logic,
-  // same quality, no frozen wait.
+  // One model stream performs factual calibration and writes the report. Progress
+  // frames keep the client alive while the reasoning model prepares its controls.
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -597,20 +565,15 @@ export async function POST(req: NextRequest) {
       // The default reasoning model streams chain-of-thought continuously, so the
       // per-token idle timeout never fires on a long think; this caps everything
       // combined so a slow account fails gracefully here (roast_failed) instead of
-      // the platform 504'ing the whole function.
-      const llmDeadlineMs = t0 + 220_000;
-      // Per-attempt budget: each provider (StepFun primary, then DeepSeek
-      // fallback) gets its OWN fresh window of this length, still clamped by
-      // llmDeadlineMs. Sized just above the healthy p99 (judge ~47s, writer ~82s)
-      // so slow-but-fine runs aren't clipped, while a stalled primary bails in
-      // time to leave the fallback a real budget (the old shared-deadline bug:
-      // the primary burned the whole 105s and the fallback got ~0s).
-      const JUDGE_ATTEMPT_MS = 60_000;
-      const WRITER_ATTEMPT_MS = 95_000;
-      // Per-stage timings for the structured triage log (see logRoastSummary).
-      const path = isDefault ? "default" : "byo";
-      let judgeMs = 0;
-      let writerStart = 0;
+      // the platform 504'ing the whole function. Anchored to reqT0 (request
+      // start), not t0: a follower that waited out the single-flight window has
+      // already spent that time against the same 240s function ceiling.
+      const llmDeadlineMs = reqT0 + 220_000;
+      const GENERATION_ATTEMPT_MS = 95_000;
+      const attempts: ChatAttemptEvent[] = [];
+      let firstEventMs: number | null = null;
+      let firstContentMs: number | null = null;
+      let metaMs: number | null = null;
       let lastBeat = 0;
       const beat = (label: string, force = false) => {
         const now = Date.now();
@@ -619,65 +582,43 @@ export async function POST(req: NextRequest) {
         const secs = Math.round((now - t0) / 1000);
         push(thinkingFrame(enc, `${label} (${secs}s)`));
       };
-      const calibrating = lang === "en" ? "Calibrating score…" : "正在校准评分…";
-      const writing = lang === "en" ? "Writing the roast…" : "正在撰写锐评…";
-      const failAndClose = async (obj: unknown) => {
+      const generating = lang === "en" ? "Calibrating and writing…" : "正在校准并撰写锐评…";
+      const summaryFields = () => ({
+        u: username,
+        lang,
+        path,
+        source: "generate",
+        generationPath,
+        lockWaitMs,
+        streamMs: Date.now() - t0,
+        requestTotalMs: Date.now() - reqT0,
+        firstEventMs,
+        firstContentMs,
+        metaMs,
+        attempts,
+      });
+      const failAndClose = async (obj: unknown, fields: Record<string, unknown>) => {
         // Release the single-flight lock so waiting requests aren't stalled for
         // the full lock TTL by a generation that died early.
         if (isLeader) await releaseRoastLock(username, lang);
+        logRoastSummary({ ...summaryFields(), ok: false, ...fields });
         push(errorFrame(enc, obj));
         close();
       };
 
-      // 1) Cold judge pass (score calibration). Reasoning → calibrating heartbeat.
-      let judge: RoastJudgeResult;
-      try {
-        const cachedJudge = isDefault ? await getCachedRoastJudge(username) : null;
-        if (cachedJudge && cachedJudge.base_score === scan.scoring.final_score) {
-          judge = localizeJudgeResult(cachedJudge.judge, scan, lang);
-        } else {
-          beat(calibrating, true);
-          const judgeLang = isDefault ? DEFAULT_JUDGE_LANG : lang;
-          let judgeText = "";
-          for await (const ev of chatStreamEventsWithFallback(llmConfigs, buildRoastJudgeMessages(scan, judgeLang), {
-            deadlineMs: llmDeadlineMs,
-            attemptBudgetMs: JUDGE_ATTEMPT_MS,
-          })) {
-            if (ev.type === "content") {
-              judgeText += ev.text;
-              if (judgeText.length >= 12000) break;
-            } else {
-              beat(calibrating);
-            }
-          }
-          judge = parseJudgeResult(judgeText, scan, lang);
-          if (isDefault) {
-            await setCachedRoastJudge(username, {
-              base_score: scan.scoring.final_score,
-              judge,
-            });
-          }
-        }
-        judgeMs = Date.now() - t0;
-      } catch (e) {
-        logRoastSummary({
-          u: username, lang, path, ok: false, stage: "judge",
-          kind: classifyLlmError(e), judgeMs: Date.now() - t0,
-        });
-        if (e instanceof LlmQuotaError) {
-          return failAndClose({ error: "llm_quota", useByoKey: true, status: e.status });
-        }
-        console.error("roast judge failed:", e);
-        return failAndClose({ error: "roast_failed" });
-      }
-
-      // 2) Savage writer pass. Read the leading control lines (@@ADJUST@@ /
-      // @@TAGS@@ / @@ROAST@@) up to the report heading; reasoning → writing beat.
-      beat(writing, true);
-      writerStart = Date.now();
-      const events = chatStreamEventsWithFallback(llmConfigs, buildRoastMessages(scan, lang, judge), {
+      beat(generating, true);
+      const events = chatStreamEventsWithFallback(llmConfigs, buildRoastMessages(scan, lang), {
         deadlineMs: llmDeadlineMs,
-        attemptBudgetMs: WRITER_ATTEMPT_MS,
+        attemptBudgetMs: GENERATION_ATTEMPT_MS,
+        onAttempt(event) {
+          attempts.push(event);
+          if (event.phase === "first_event" && firstEventMs === null) {
+            firstEventMs = Date.now() - reqT0;
+          }
+          if (event.phase === "first_content" && firstContentMs === null) {
+            firstContentMs = Date.now() - reqT0;
+          }
+        },
       });
       let head = "";
       try {
@@ -685,23 +626,23 @@ export async function POST(req: NextRequest) {
           const { done, value } = await events.next();
           if (done) break;
           if (value.type === "content") head += value.text;
-          else beat(writing);
+          else beat(generating);
         }
       } catch (e) {
-        logRoastSummary({
-          u: username, lang, path, ok: false, stage: "writer",
-          kind: classifyLlmError(e), judgeMs, writerMs: Date.now() - writerStart,
-          head: head.slice(0, 200),
-        });
         if (e instanceof LlmQuotaError) {
-          return failAndClose({ error: "llm_quota", useByoKey: true, status: e.status });
+          return failAndClose(
+            { error: "llm_quota", useByoKey: true, status: e.status },
+            { stage: "generation", kind: "quota", head: head.slice(0, 200) },
+          );
         }
         console.error("roast failed:", e);
-        return failAndClose({ error: "roast_failed" });
+        return failAndClose(
+          { error: "roast_failed" },
+          { stage: "generation", kind: classifyLlmError(e), head: head.slice(0, 200) },
+        );
       }
 
-      const parsedDelta = parseDelta(head);
-      const delta = parsedDelta === judge.delta ? parsedDelta : judge.delta;
+      const delta = parseDelta(head);
       const parsedTags = parseTags(head);
       const parsedRoastLine = parseRoast(head);
       const parsedReport = extractReport(head);
@@ -715,13 +656,13 @@ export async function POST(req: NextRequest) {
       let meta: RoastMeta;
       try {
         meta = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
+        metaMs = Date.now() - reqT0;
       } catch (e) {
-        logRoastSummary({
-          u: username, lang, path, ok: false, stage: "meta",
-          judgeMs, writerMs: Date.now() - writerStart,
-        });
         console.error("roast meta failed:", e);
-        return failAndClose({ error: "roast_failed" });
+        return failAndClose(
+          { error: "roast_failed" },
+          { stage: "meta", kind: classifyLlmError(e) },
+        );
       }
 
       // End of control phase: ship the AI-adjusted meta, then the report body.
@@ -730,7 +671,7 @@ export async function POST(req: NextRequest) {
       let full = report;
       try {
         if (report) push(enc.encode(report));
-        // Drain the rest of the writer (resumes where head-reading left off).
+        // Drain the rest of the generation (resumes where head-reading left off).
         for await (const ev of events) {
           if (ev.type !== "content") continue;
           full += ev.text;
@@ -752,16 +693,16 @@ export async function POST(req: NextRequest) {
           await updateRoast(username, full, lang);
         }
         logRoastSummary({
-          u: username, lang, path, ok: true,
-          judgeMs, writerMs: Date.now() - writerStart, totalMs: Date.now() - t0,
+          ...summaryFields(), ok: true,
           score: meta.final_score, delta, chars: full.length,
         });
       } catch (e) {
         logRoastSummary({
-          u: username, lang, path, ok: false, stage: "stream",
-          kind: classifyLlmError(e), judgeMs, writerMs: Date.now() - writerStart,
+          ...summaryFields(), ok: false, stage: "stream",
+          kind: classifyLlmError(e), chars: full.length,
         });
         console.error("roast stream error:", e);
+        push(errorFrame(enc, { error: "roast_failed" }));
       } finally {
         if (isLeader) await releaseRoastLock(username, lang);
         close();
