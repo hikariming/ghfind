@@ -83,7 +83,7 @@ function sourceStatus(runStatus: PublicScanSourceStatus): PublicScanSourceStatus
   return { ...runStatus };
 }
 
-function initialSources(scan: ScanResult): PublicScanSourceStatus {
+function initialSources(): PublicScanSourceStatus {
   return {
     quick: "complete",
     original_repos: "pending",
@@ -201,7 +201,7 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
 
     if (job.phase === "quick") {
       const quick = await buildScanResult(job.username);
-      const seededSources = initialSources(quick);
+      const seededSources = initialSources();
       const saved = await savePublicScanQuickResult({
         jobId: job.id,
         runId: job.runId,
@@ -329,6 +329,21 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
         });
       }
       sources.workflow_landings = "complete";
+      // The normal contribution graph already supplied its bounded
+      // commit-only aggregate. REST commit recovery is only a fallback for the
+      // GraphQL resource-limit failure; running it for every prolific PR author
+      // would spend the scarce Search quota without adding new coverage.
+      if (!quick.metrics.commit_contribution_aggregation_unavailable) {
+        sources.commit_recovery = "complete";
+        return continueJob({
+          jobId: job.id,
+          runId: job.runId,
+          leaseToken,
+          phase: "publish",
+          payload: {},
+          sources,
+        });
+      }
       const from = quick.metrics.created_at ?? "2008-01-01T00:00:00.000Z";
       return continueJob({
         jobId: job.id,

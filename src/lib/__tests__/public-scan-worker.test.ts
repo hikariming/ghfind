@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   releasePublicScanExecutionLease: vi.fn(),
   buildScanResult: vi.fn(),
   schedulePublicScanDelivery: vi.fn(),
+  fetchDurablePullRequestPage: vi.fn(),
+  upsertPublicScanPrFacts: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -30,14 +32,14 @@ vi.mock("@/lib/db", () => ({
   splitPublicScanCommitVerificationWork: vi.fn(),
   upsertPublicScanCommitCandidates: vi.fn(),
   upsertPublicScanOwnedRepoFacts: vi.fn(),
-  upsertPublicScanPrFacts: vi.fn(),
+  upsertPublicScanPrFacts: mocks.upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage: vi.fn(),
   releasePublicScanExecutionLease: mocks.releasePublicScanExecutionLease,
 }));
 
 vi.mock("@/lib/github", () => ({
   fetchDurableOwnedRepositoryPage: vi.fn(),
-  fetchDurablePullRequestPage: vi.fn(),
+  fetchDurablePullRequestPage: mocks.fetchDurablePullRequestPage,
   hydrateTopRepoEvidence: vi.fn(),
   listPublicDefaultBranchCommits: vi.fn(),
   searchPublicCommitCandidates: vi.fn(),
@@ -90,6 +92,8 @@ describe("public scan worker", () => {
     mocks.savePublicScanQuickResult.mockResolvedValue(true);
     mocks.savePublicScanJobProgress.mockResolvedValue(true);
     mocks.schedulePublicScanDelivery.mockResolvedValue(true);
+    mocks.fetchDurablePullRequestPage.mockResolvedValue({ facts: [], hasNextPage: false, endCursor: null });
+    mocks.upsertPublicScanPrFacts.mockResolvedValue(true);
   });
 
   it("persists the quick probe then queues the bounded next phase", async () => {
@@ -109,5 +113,48 @@ describe("public scan worker", () => {
       jobId: "job-id",
       leaseToken: "lease-token",
     });
+  });
+
+  it("does not consume commit-search quota when the normal graph aggregate is available", async () => {
+    mocks.claimPublicScanJob.mockResolvedValue({
+      leaseToken: "lease-token",
+      job: {
+        id: "job-id",
+        runId: "run-id",
+        username: "worker-case",
+        phase: "workflow_landings",
+        payload: "{}",
+        attemptCount: 0,
+      },
+    });
+    mocks.getPublicScanRun.mockResolvedValue({
+      id: "run-id",
+      sourceStatus: {
+        quick: "complete",
+        original_repos: "complete",
+        native_prs: "complete",
+        workflow_landings: "pending",
+        commit_recovery: "pending",
+      },
+      quickScan: JSON.stringify({
+        ...quickScan,
+        metrics: { username: "worker-case", commit_contribution_aggregation_unavailable: false },
+      }),
+    });
+
+    await expect(processPublicScanJob("job-id")).resolves.toEqual({
+      status: "continued",
+      jobId: "job-id",
+      phase: "publish",
+    });
+    expect(mocks.savePublicScanJobProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "publish",
+        sourceStatus: expect.objectContaining({
+          workflow_landings: "complete",
+          commit_recovery: "complete",
+        }),
+      }),
+    );
   });
 });
