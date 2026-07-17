@@ -924,17 +924,7 @@ interface AnyPr {
 interface ClosedPrNode {
   id?: string | null;
   author: { login: string } | null;
-  additions?: number | null;
-  deletions?: number | null;
-  changedFiles?: number | null;
-  labels?: { nodes?: ({ name?: string | null } | null)[] | null } | null;
-  repository: {
-    nameWithOwner?: string | null;
-    stargazerCount?: number | null;
-    isPrivate?: boolean | null;
-    isFork?: boolean | null;
-    owner: { login: string } | null;
-  } | null;
+  repository: { owner: { login: string } | null } | null;
   timelineItems: {
     nodes: ({ actor: { login: string } | null } | null)[];
   } | null;
@@ -980,12 +970,6 @@ export interface WorkflowLandedPr {
   owner_login: string;
 }
 
-function hasMergedLabel(node: ClosedPrNode): boolean {
-  return (node.labels?.nodes ?? []).some(
-    (label) => label?.name?.trim().toLowerCase() === "merged",
-  );
-}
-
 /**
  * A few large projects merge through an official bot, then close the GitHub PR
  * instead of setting `mergedAt`. Do not generalize from the label alone: the
@@ -1025,15 +1009,42 @@ function isOfficialMergeBotActor(actor: WorkflowTimelineActor | null): actor is 
   );
 }
 
-async function fetchWorkflowLandedPrs(nodes: ClosedPrNode[]): Promise<WorkflowLandedPr[]> {
-  const ids = nodes
-    .filter(hasMergedLabel)
-    .map((node) => node.id)
-    .filter((id): id is string => Boolean(id))
-    .slice(0, 25);
-  if (ids.length === 0) return [];
-
+async function fetchWorkflowLandedPrs(username: string): Promise<WorkflowLandedPr[]> {
   try {
+    // Keep labels out of collect()'s already dense contribution query. A 100 ×
+    // 20 nested label selection can exceed GitHub's GraphQL resource budget for
+    // active accounts, making the *baseline* score unavailable. This optional
+    // side query may fail closed without changing native merge behavior.
+    const candidates = await graphql<{
+      user: {
+        pullRequests: {
+          nodes: ({
+            id: string;
+            labels: { nodes: ({ name: string | null } | null)[] } | null;
+          } | null)[];
+        } | null;
+      } | null;
+    }>(
+      `query($login: String!) {
+        user(login: $login) {
+          pullRequests(first: 100, states: CLOSED, orderBy: {field: CREATED_AT, direction: DESC}) {
+            nodes { id labels(first: 20) { nodes { name } } }
+          }
+        }
+      }`,
+      { login: username },
+    );
+    const ids = (candidates.user?.pullRequests?.nodes ?? [])
+      .filter((node): node is { id: string; labels: { nodes: ({ name: string | null } | null)[] } | null } => node !== null)
+      .filter((node) =>
+        (node.labels?.nodes ?? []).some(
+          (label) => label?.name?.trim().toLowerCase() === "merged",
+        ),
+      )
+      .map((node) => node.id)
+      .slice(0, 25);
+    if (ids.length === 0) return [];
+
     const data = await graphql<{
       nodes: (WorkflowLandedPrNode | { __typename: string } | null)[];
     }>(
@@ -1843,10 +1854,9 @@ const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
         closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
           totalCount
           nodes {
-            id additions deletions changedFiles
+            id
             author { login }
-            labels(first: 20) { nodes { name } }
-            repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
+            repository { owner { login } }
             timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
               nodes {
                 ... on ClosedEvent {
@@ -1997,7 +2007,7 @@ export async function collect(username: string): Promise<{
   const [commitContribRepos, mergedPrContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
     fetchMergedPrContribRepos(login),
-    fetchWorkflowLandedPrs(closedPrNodes),
+    fetchWorkflowLandedPrs(login),
   ]);
   const workflowLandedContribRepos: ContribRepoAgg[] = workflowLandedPrs.map((pr) => ({
     repo: pr.repo,
