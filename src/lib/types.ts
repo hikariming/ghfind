@@ -145,6 +145,13 @@ export interface RawMetrics {
   // Optional so existing RawMetrics literals / fixtures stay valid.
   impact_repo_count?: number;
   impact_commit_count?: number;
+  /** GitHub rejected the per-repository commit contribution graph for this
+   * account, so impact uses native merged PRs but cannot credit commit-only work. */
+  commit_contribution_aggregation_unavailable?: boolean;
+  /** The quick collector deliberately omitted its bounded native merged-PR
+   * aggregate. A durable paginated scan is required before this account can be
+   * scored or written about as complete public history. */
+  merged_pr_contribution_aggregation_incomplete?: boolean;
   star_inflation_suspect: boolean;
   // Spam / low-quality PR signals.
   closed_unmerged_pr_count: number;

@@ -102,6 +102,7 @@ describe("collect", () => {
 
   it("splits the contribution query when GitHub reports RESOURCE_LIMITS_EXCEEDED", async () => {
     let combinedAttempts = 0;
+    let boundedMergedAggregationCalls = 0;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -195,6 +196,11 @@ describe("collect", () => {
             return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
           }
 
+          if (query.includes("pullRequests(first: $count, states: MERGED, after:")) {
+            boundedMergedAggregationCalls += 1;
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          }
+
           if (query.includes("pullRequests(first:")) {
             return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
           }
@@ -212,6 +218,8 @@ describe("collect", () => {
     expect(result.metrics.last_year_contributions).toBe(7810);
     expect(result.metrics.merged_pr_count).toBe(480);
     expect(result.metrics.issues_created).toBe(220);
+    expect(result.metrics.merged_pr_contribution_aggregation_incomplete).toBe(true);
+    expect(boundedMergedAggregationCalls).toBe(0);
     // Approximated diversity: contributions + PRs + issues (reviews unknowable).
     expect(result.metrics.activity_type_count).toBe(3);
   });

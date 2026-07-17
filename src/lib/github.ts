@@ -2388,11 +2388,26 @@ export async function collect(username: string): Promise<{
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
   const closedPrNodes = overview.closedPRs?.nodes ?? [];
-  const [commitContribRepos, mergedPrContribRepos, workflowLandedPrs] = await Promise.all([
+  const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
+  // The quick collector intentionally caps merged-PR aggregation at 300.
+  // For larger histories, publish neither a partial impact aggregate nor a
+  // score: the durable paginator owns the complete result.
+  let mergedPrContribRepos: ContribRepoAgg[] = [];
+  let mergedPrContributionAggregationIncomplete = mergedPrCount > 300;
+  const [commitContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
-    fetchMergedPrContribRepos(login),
-    fetchWorkflowLandedPrs(login, contrib.user.closedPRs?.totalCount ?? 0),
+    fetchWorkflowLandedPrs(login, overview.closedPRs?.totalCount ?? 0),
   ]);
+  if (!mergedPrContributionAggregationIncomplete) {
+    try {
+      mergedPrContribRepos = await fetchMergedPrContribRepos(login);
+    } catch (error) {
+      if (!(error instanceof GitHubResourceLimitError)) throw error;
+      mergedPrContributionAggregationIncomplete = true;
+    }
+  }
+  const commitContributionAggregationUnavailable =
+    contributionYears.length > 0 && commitContribRepos === null;
   const workflowLandedContribRepos: ContribRepoAgg[] = workflowLandedPrs.map((pr) => ({
     repo: pr.repo,
     stars: pr.stars,
@@ -2409,7 +2424,6 @@ export async function collect(username: string): Promise<{
     workflowLandedContribRepos,
   ]);
   const organizations = await fetchOrganizations(login);
-  const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
   const totalPrCount = overview.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
     closedPrNodes,
@@ -2628,6 +2642,8 @@ export async function collect(username: string): Promise<{
     unverified_impact_pr_count: impact.unverified_impact_pr_count,
     impact_repo_count: impact.impact_repo_count,
     impact_commit_count: impact.impact_commit_count,
+    commit_contribution_aggregation_unavailable: commitContributionAggregationUnavailable,
+    merged_pr_contribution_aggregation_incomplete: mergedPrContributionAggregationIncomplete,
     external_trivial_pr_count: externalTrivialPrCount,
     star_inflation_suspect: starInflationSuspect,
     closed_unmerged_pr_count: closedPrBreakdown.closed_unmerged_pr_count,

@@ -77,6 +77,7 @@ export function applyPublicContributionAggregate(
     // default-branch REST recovery completes. Do not carry a quick-scan graph
     // failure marker into a complete snapshot.
     commit_contribution_aggregation_unavailable: false,
+    merged_pr_contribution_aggregation_incomplete: false,
   };
   return {
     ...scan,

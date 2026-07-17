@@ -65,6 +65,7 @@ describe("durable public scan admission", () => {
     expect(requiresDurablePublicScan(scan({ total_pr_count: 601 }))).toBe(true);
     expect(requiresDurablePublicScan(scan({ public_repos: 5, fetched_repo_count: 2 }))).toBe(true);
     expect(requiresDurablePublicScan(scan({ commit_contribution_aggregation_unavailable: true }))).toBe(true);
+    expect(requiresDurablePublicScan(scan({ merged_pr_contribution_aggregation_incomplete: true }))).toBe(true);
   });
 
   it("seeds the already-paid quick probe before queueing a new run", async () => {
