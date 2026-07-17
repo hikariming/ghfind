@@ -922,11 +922,152 @@ interface AnyPr {
 }
 
 interface ClosedPrNode {
+  id?: string | null;
   author: { login: string } | null;
-  repository: { owner: { login: string } | null } | null;
+  additions?: number | null;
+  deletions?: number | null;
+  changedFiles?: number | null;
+  labels?: { nodes?: ({ name?: string | null } | null)[] | null } | null;
+  repository: {
+    nameWithOwner?: string | null;
+    stargazerCount?: number | null;
+    isPrivate?: boolean | null;
+    isFork?: boolean | null;
+    owner: { login: string } | null;
+  } | null;
   timelineItems: {
     nodes: ({ actor: { login: string } | null } | null)[];
   } | null;
+}
+
+interface WorkflowTimelineActor {
+  login: string | null;
+  __typename: string;
+}
+
+interface WorkflowLandedPrNode {
+  __typename: "PullRequest";
+  id: string;
+  mergedAt: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+  repository: {
+    nameWithOwner: string;
+    stargazerCount: number;
+    isPrivate: boolean;
+    isFork: boolean;
+    owner: { login: string } | null;
+  } | null;
+  timelineItems: {
+    nodes: ({
+      __typename: "LabeledEvent";
+      createdAt: string;
+      actor: WorkflowTimelineActor | null;
+      label: { name: string } | null;
+    } | {
+      __typename: "ClosedEvent";
+      createdAt: string;
+      actor: WorkflowTimelineActor | null;
+    } | null)[];
+  } | null;
+}
+
+export interface WorkflowLandedPr {
+  id: string;
+  repo: string;
+  stars: number;
+  owner_login: string;
+}
+
+function hasMergedLabel(node: ClosedPrNode): boolean {
+  return (node.labels?.nodes ?? []).some(
+    (label) => label?.name?.trim().toLowerCase() === "merged",
+  );
+}
+
+/**
+ * A few large projects merge through an official bot, then close the GitHub PR
+ * instead of setting `mergedAt`. Do not generalize from the label alone: the
+ * same official merge bot must apply the exact Merged label and close the PR in
+ * that order. GitHub represents some repository bots (for example
+ * `pytorchmergebot`) as User rather than Bot, so a narrow merge/land-bot login
+ * pattern is accepted in addition to the Bot actor type.
+ */
+export function isWorkflowLandedPr(node: WorkflowLandedPrNode): boolean {
+  if (node.mergedAt || !node.repository || node.repository.isPrivate || node.repository.isFork) {
+    return false;
+  }
+
+  const events = node.timelineItems?.nodes ?? [];
+  const mergedEvents = events.filter(
+    (event): event is Extract<NonNullable<typeof event>, { __typename: "LabeledEvent" }> =>
+      event?.__typename === "LabeledEvent" && event.label?.name.trim().toLowerCase() === "merged",
+  );
+  return mergedEvents.some((merged) => {
+    const bot = merged.actor;
+    if (!isOfficialMergeBotActor(bot)) return false;
+    const botLogin = bot.login.toLowerCase();
+    return events.some(
+      (event) =>
+        event?.__typename === "ClosedEvent" &&
+        event.createdAt >= merged.createdAt &&
+        event.actor?.login?.toLowerCase() === botLogin &&
+        isOfficialMergeBotActor(event.actor),
+    );
+  });
+}
+
+function isOfficialMergeBotActor(actor: WorkflowTimelineActor | null): actor is WorkflowTimelineActor & { login: string } {
+  return Boolean(
+    actor?.login &&
+      (actor.__typename === "Bot" || /(?:merge|land)[-_]?bot$/i.test(actor.login)),
+  );
+}
+
+async function fetchWorkflowLandedPrs(nodes: ClosedPrNode[]): Promise<WorkflowLandedPr[]> {
+  const ids = nodes
+    .filter(hasMergedLabel)
+    .map((node) => node.id)
+    .filter((id): id is string => Boolean(id))
+    .slice(0, 25);
+  if (ids.length === 0) return [];
+
+  try {
+    const data = await graphql<{
+      nodes: (WorkflowLandedPrNode | { __typename: string } | null)[];
+    }>(
+      `query($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on PullRequest {
+            __typename id mergedAt additions deletions changedFiles
+            repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
+            timelineItems(last: 20, itemTypes: [LABELED_EVENT, CLOSED_EVENT]) {
+              nodes {
+                __typename
+                ... on LabeledEvent { createdAt actor { login __typename } label { name } }
+                ... on ClosedEvent { createdAt actor { login __typename } }
+              }
+            }
+          }
+        }
+      }`,
+      { ids },
+    );
+    return data.nodes
+      .filter((node): node is WorkflowLandedPrNode => node?.__typename === "PullRequest")
+      .filter(isWorkflowLandedPr)
+      .map((node) => ({
+        id: node.id,
+        repo: node.repository!.nameWithOwner,
+        stars: node.repository!.stargazerCount,
+        owner_login: node.repository!.owner?.login ?? node.repository!.nameWithOwner.split("/", 1)[0],
+      }));
+  } catch {
+    // This is an optional enrichment. Preserve the established native-merge
+    // scan when GitHub declines timeline access or a transient error occurs.
+    return [];
+  }
 }
 
 export interface ClosedPrBreakdown {
@@ -941,6 +1082,7 @@ export function computeClosedPrBreakdown(
   nodes: ClosedPrNode[],
   total: number,
   loginLower: string,
+  workflowLandedIds: ReadonlySet<string> = new Set(),
 ): ClosedPrBreakdown {
   let maintainerClosed = 0;
   let selfClosedExternal = 0;
@@ -948,6 +1090,7 @@ export function computeClosedPrBreakdown(
   let unknownClosed = Math.max(0, total - nodes.length);
 
   for (const node of nodes) {
+    if (node.id && workflowLandedIds.has(node.id)) continue;
     const author = (node.author?.login ?? loginLower).toLowerCase();
     const repoOwner = node.repository?.owner?.login?.toLowerCase() ?? "";
     const actor = node.timelineItems?.nodes?.[0]?.actor?.login?.toLowerCase() ?? "";
@@ -964,7 +1107,7 @@ export function computeClosedPrBreakdown(
   }
 
   return {
-    closed_unmerged_pr_count: total,
+    closed_unmerged_pr_count: Math.max(0, total - workflowLandedIds.size),
     maintainer_closed_unmerged_pr_count: maintainerClosed,
     self_closed_external_pr_count: selfClosedExternal,
     self_closed_own_repo_pr_count: selfClosedOwnRepo,
@@ -1152,11 +1295,18 @@ export function computeImpactQualitySignals(
   recentPrs: RecentPr[],
   impactPrCount: number,
   loginLower: string,
+  workflowLandedImpactPrCount = 0,
 ): ImpactQualitySignals {
   const verifiedImpactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower));
   const docLikeCount = verifiedImpactPrs.filter(isDocLikeImpactPr).length;
   const coreCount = verifiedImpactPrs.length - docLikeCount;
-  const unverifiedCount = Math.max(0, impactPrCount - verifiedImpactPrs.length);
+  // Bot-verified workflow landings are valid impact facts, but lack the
+  // file-level sample needed to classify them as core/doc-like. Keep them out
+  // of the "unverified" bucket without inventing a code-quality label.
+  const unverifiedCount = Math.max(
+    0,
+    impactPrCount - verifiedImpactPrs.length - workflowLandedImpactPrCount,
+  );
 
   let impactQualityCap: number | undefined;
   if (impactPrCount >= 10 && coreCount <= 2 && docLikeCount > coreCount) {
@@ -1175,9 +1325,10 @@ export function computeImpactQualitySignals(
 }
 
 /** One repo's all-time contribution aggregate, keyed by `nameWithOwner`.
- * `commits` comes from the contribution graph; `prs` must come from merged PRs
- * only. GitHub's PR contribution graph can include opened-but-unmerged PRs, so
- * it is not safe as a landed-impact source. */
+ * `commits` comes from the contribution graph; `prs` come from GitHub-native
+ * merges plus separately verified repository-workflow landings. GitHub's PR
+ * contribution graph can include opened-but-unmerged PRs, so it is not safe as
+ * a landed-impact source. */
 export interface ContribRepoAgg {
   repo: string;
   stars: number;
@@ -1692,8 +1843,10 @@ const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
         closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
           totalCount
           nodes {
+            id additions deletions changedFiles
             author { login }
-            repository { owner { login } }
+            labels(first: 20) { nodes { name } }
+            repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
             timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
               nodes {
                 ... on ClosedEvent {
@@ -1840,21 +1993,35 @@ export async function collect(username: string): Promise<{
   const pinnedRepos = (overview.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
-  const [commitContribRepos, mergedPrContribRepos] = await Promise.all([
+  const closedPrNodes = overview.closedPRs?.nodes ?? [];
+  const [commitContribRepos, mergedPrContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
     fetchMergedPrContribRepos(login),
+    fetchWorkflowLandedPrs(closedPrNodes),
   ]);
+  const workflowLandedContribRepos: ContribRepoAgg[] = workflowLandedPrs.map((pr) => ({
+    repo: pr.repo,
+    stars: pr.stars,
+    is_private: false,
+    is_fork: false,
+    owner_login: pr.owner_login,
+    commits: 0,
+    prs: 1,
+    active_years: 0,
+  }));
   const contribRepos = mergeContribRepoAggs([
     commitContribRepos ?? [],
     mergedPrContribRepos,
+    workflowLandedContribRepos,
   ]);
   const organizations = await fetchOrganizations(login);
   const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
   const totalPrCount = overview.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
-    overview.closedPRs?.nodes ?? [],
+    closedPrNodes,
     overview.closedPRs?.totalCount ?? 0,
     loginLower,
+    new Set(workflowLandedPrs.map((pr) => pr.id)),
   );
   const issuesCreated = overview.issues?.totalCount ?? 0;
   const decidedPrCount = mergedPrCount + closedPrBreakdown.maintainer_closed_unmerged_pr_count;
@@ -1969,13 +2136,19 @@ export async function collect(username: string): Promise<{
   // popular repos — others' projects (≥200★) or the user's own genuinely popular
   // repos (≥1000★). Computed from all-time per-repo contribution aggregates so
   // old high-value work (e.g. apache/flink commits) still counts. PR impact is
-  // sourced from states: MERGED only; contribution-graph PR entries are not
-  // treated as landed work because closed/unmerged PRs can appear there.
+  // sourced from states: MERGED plus the narrowly verified official-workflow
+  // path above; contribution-graph PR entries are never treated as landed work
+  // because closed/unmerged PRs can appear there.
   let impact = computeImpactFromContribMap(contribRepos, loginLower);
+  const workflowLandedImpactPrCount = workflowLandedPrs.filter((pr) => {
+    const isExternal = pr.owner_login.toLowerCase() !== loginLower;
+    return pr.stars >= (isExternal ? 200 : 1000);
+  }).length;
   const impactQuality = computeImpactQualitySignals(
     recentPrWindow,
     impact.impact_pr_count,
     loginLower,
+    workflowLandedImpactPrCount,
   );
   const verifiedImpactPrs = recentPrWindow
     .filter((p) => isEcosystemImpactPr(p, loginLower))
@@ -2032,6 +2205,7 @@ export async function collect(username: string): Promise<{
     top_starred_original_repo_quality_score: topStarredOriginalQuality.score,
     top_starred_original_repo_quality_repo: topStarredOriginalQuality.repo,
     merged_pr_count: mergedPrCount,
+    workflow_landed_pr_count: workflowLandedPrs.length,
     total_pr_count: totalPrCount,
     issues_created: issuesCreated,
     last_year_contributions: lastYearContributions,
@@ -2051,6 +2225,7 @@ export async function collect(username: string): Promise<{
     recent_external_doc_like_pr_ratio: externalDocLikePrRatio,
     max_impact_repo_stars: maxImpactRepoStars,
     impact_pr_count: impact.impact_pr_count,
+    workflow_landed_impact_pr_count: workflowLandedImpactPrCount,
     impact_depth_raw: impactDepthRaw,
     impact_quality_cap: impact.impact_quality_cap,
     verified_impact_pr_count: impact.verified_impact_pr_count,

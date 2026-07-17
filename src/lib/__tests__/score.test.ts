@@ -6,6 +6,7 @@ import {
   computeImpactFromContribMap,
   computeImpactQualitySignals,
   computeOrgRepoAttribution,
+  isWorkflowLandedPr,
   isDocLikeImpactPr,
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
@@ -377,6 +378,139 @@ describe("computeClosedPrBreakdown", () => {
       unknown_closed_unmerged_pr_count: 3,
     });
   });
+
+  it("excludes verified repository-workflow landings from closed-unmerged counts", () => {
+    const b = computeClosedPrBreakdown(
+      [
+        { ...closedPr({ actor: "merge-bot", owner: "upstream" }), id: "workflow-pr" },
+        { ...closedPr({ actor: "maintainer", owner: "upstream" }), id: "rejected-pr" },
+      ],
+      2,
+      "alice",
+      new Set(["workflow-pr"]),
+    );
+    expect(b).toEqual({
+      closed_unmerged_pr_count: 1,
+      maintainer_closed_unmerged_pr_count: 1,
+      self_closed_external_pr_count: 0,
+      self_closed_own_repo_pr_count: 0,
+      unknown_closed_unmerged_pr_count: 0,
+    });
+  });
+});
+
+describe("repository workflow landings", () => {
+  const workflowPr = (over: Record<string, unknown> = {}) => ({
+    __typename: "PullRequest" as const,
+    id: "PR_kwDOExample",
+    mergedAt: null,
+    additions: 24,
+    deletions: 8,
+    changedFiles: 3,
+    repository: {
+      nameWithOwner: "upstream/project",
+      stargazerCount: 50_000,
+      isPrivate: false,
+      isFork: false,
+      owner: { login: "upstream" },
+    },
+    timelineItems: {
+      nodes: [
+        {
+          __typename: "LabeledEvent" as const,
+          createdAt: "2026-01-02T00:00:00Z",
+          actor: { login: "upstream-mergebot", __typename: "Bot" },
+          label: { name: "Merged" },
+        },
+        {
+          __typename: "ClosedEvent" as const,
+          createdAt: "2026-01-02T00:01:00Z",
+          actor: { login: "upstream-mergebot", __typename: "Bot" },
+        },
+      ],
+    },
+    ...over,
+  });
+
+  it("accepts a substantive PR marked and closed by the same official bot", () => {
+    expect(isWorkflowLandedPr(workflowPr())).toBe(true);
+  });
+
+  it("accepts a repository merge-bot account even when GitHub types it as User", () => {
+    expect(
+      isWorkflowLandedPr(
+        workflowPr({
+          timelineItems: {
+            nodes: [
+              {
+                __typename: "LabeledEvent",
+                createdAt: "2026-01-02T00:00:00Z",
+                actor: { login: "upstreammergebot", __typename: "User" },
+                label: { name: "Merged" },
+              },
+              {
+                __typename: "ClosedEvent",
+                createdAt: "2026-01-02T00:01:00Z",
+                actor: { login: "upstreammergebot", __typename: "User" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not trust a human-applied Merged label", () => {
+    expect(
+      isWorkflowLandedPr(
+        workflowPr({
+          timelineItems: {
+            nodes: [
+              {
+                __typename: "LabeledEvent",
+                createdAt: "2026-01-02T00:00:00Z",
+                actor: { login: "maintainer", __typename: "User" },
+                label: { name: "Merged" },
+              },
+              {
+                __typename: "ClosedEvent",
+                createdAt: "2026-01-02T00:01:00Z",
+                actor: { login: "maintainer", __typename: "User" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not trust a bot label unless that bot also closes the PR", () => {
+    expect(
+      isWorkflowLandedPr(
+        workflowPr({
+          timelineItems: {
+            nodes: [
+              {
+                __typename: "LabeledEvent",
+                createdAt: "2026-01-02T00:00:00Z",
+                actor: { login: "upstream-mergebot", __typename: "Bot" },
+                label: { name: "Merged" },
+              },
+              {
+                __typename: "ClosedEvent",
+                createdAt: "2026-01-02T00:01:00Z",
+                actor: { login: "different-mergebot", __typename: "Bot" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat a native GitHub merge as a workflow landing", () => {
+    expect(isWorkflowLandedPr(workflowPr({ mergedAt: "2026-01-02T00:01:00Z" }))).toBe(false);
+  });
 });
 
 describe("original project quality", () => {
@@ -636,6 +770,7 @@ describe("isExternalTrivialFarmPr (garbage into popular community repos)", () =>
       isExternalTrivialFarmPr(pr({ repo: "org/framework", repo_stars: 200000, trivial: true }), me),
     ).toBe(true);
   });
+
   it("does NOT flag PRs into your own repo (any size/substance)", () => {
     expect(
       isExternalTrivialFarmPr(pr({ repo: "alice/toy", repo_stars: 0, trivial: true }), me),
@@ -984,6 +1119,13 @@ describe("impact quality caps", () => {
     const signals = computeImpactQualitySignals([], 10, "codeheavyuser");
     expect(signals.verified_impact_pr_count).toBe(0);
     expect(signals.unverified_impact_pr_count).toBe(10);
+    expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("does not mark bot-verified workflow landings as unverified impact", () => {
+    const signals = computeImpactQualitySignals([], 10, "workflowuser", 10);
+    expect(signals.verified_impact_pr_count).toBe(0);
+    expect(signals.unverified_impact_pr_count).toBe(0);
     expect(signals.impact_quality_cap).toBeUndefined();
   });
 });

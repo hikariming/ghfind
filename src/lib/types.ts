@@ -113,6 +113,9 @@ export interface RawMetrics {
   top_starred_original_repo_quality_score?: number;
   top_starred_original_repo_quality_repo?: string | null;
   merged_pr_count: number;
+  /** Closed PRs that a repository-owned merge bot explicitly marked as landed.
+   * This is intentionally separate from GitHub-native `merged_pr_count`. */
+  workflow_landed_pr_count?: number;
   total_pr_count: number;
   issues_created: number;
   last_year_contributions: number;
@@ -129,6 +132,9 @@ export interface RawMetrics {
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
   impact_pr_count: number;
+  /** Subset of impact PRs credited through a repository workflow rather than
+   * GitHub's native merged state. */
+  workflow_landed_impact_pr_count?: number;
   impact_depth_raw: number;
   impact_quality_cap?: number;
   verified_impact_pr_count?: number;
