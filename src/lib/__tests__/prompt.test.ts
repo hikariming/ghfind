@@ -226,14 +226,36 @@ describe("buildRoastMessages", () => {
     const [zh] = buildRoastMessages(scan, "zh");
     expect(zh.content).not.toContain("通过率");
     expect(zh.content).toContain("维护者关闭未合并");
+    expect(zh.content).toContain("官方工作流已落地 PR");
     expect(zh.content).toContain("作者主动关闭外部 PR");
     expect(zh.content).toContain("作者主动关闭自有仓库 PR");
 
     const [en] = buildRoastMessages(scan, "en");
     expect(en.content).not.toContain("acceptance rate");
     expect(en.content).toContain("maintainer-closed unmerged");
+    expect(en.content).toContain("workflow-landed PRs");
     expect(en.content).toContain("author-closed external PRs");
     expect(en.content).toContain("author-closed own-repo PRs");
+  });
+
+  it("keeps official workflow landings distinct from GitHub-native merges", () => {
+    const workflowScan = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        workflow_landed_pr_count: 3,
+        workflow_landed_impact_pr_count: 3,
+      },
+    } as ScanResult;
+    const [, zhUser] = buildRoastMessages(workflowScan, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes.workflow_landed_pr_count).toBe(3);
+    expect(zhPayload.context_notes.workflow_landing_scope).toContain("不得把官方工作流已落地 PR 写成 GitHub 合并");
+
+    const [, enUser] = buildRoastMessages(workflowScan, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes.workflow_landed_pr_count).toBe(3);
+    expect(enPayload.context_notes.workflow_landing_scope).toContain("Never call workflow-landed PRs GitHub merges");
   });
 
   it("marks recent_prs as a sample in both the prompt and payload", () => {
