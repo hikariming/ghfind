@@ -24,6 +24,7 @@ import {
   requiresDurablePublicScan,
   resolvePublicScan,
 } from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import {
   acquireRoastLock,
   checkRoastRateLimit,
@@ -449,6 +450,7 @@ export async function POST(req: NextRequest) {
     if (resolution.status === "complete") {
       scan = resolution.scan;
     } else {
+      if (resolution.status === "pending") kickPublicScanDrain();
       const retryAfterSeconds = resolution.retryAfterSeconds;
       return NextResponse.json(
         {

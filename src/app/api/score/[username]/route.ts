@@ -8,6 +8,7 @@ import { SITE_URL } from "@/lib/site";
 import { checkRateLimit, clearCachedScan, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult, Tier } from "@/lib/types";
 
@@ -181,6 +182,7 @@ export async function GET(
       result = durable.scan;
     } else {
       await clearCachedScan(result.metrics.username);
+      if (durable.status === "pending") kickPublicScanDrain();
       const status = durable.status === "pending" ? 202 : 503;
       return json(
         {

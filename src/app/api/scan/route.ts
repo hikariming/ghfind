@@ -12,6 +12,7 @@ import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
 
@@ -56,6 +57,7 @@ async function durableResponse(input: {
   }
   if (resolution.status === "pending") {
     await clearCachedScan(input.username);
+    kickPublicScanDrain();
     return NextResponse.json(
       {
         error: "scan_enrichment_pending",
