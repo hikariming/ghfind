@@ -1,218 +1,231 @@
 # Durable Public Scan Design
 
-## Problem
+## Status and Scope
 
-The synchronous GitHub scan is intentionally bounded for ordinary accounts, but
-the bound is not a reliable representation of prolific contributors. In
-particular, a user can have more native merged pull requests than the current
-sample collects, and GitHub can reject the contribution graph query that backs
-commit-only contribution attribution with `RESOURCE_LIMITS_EXCEEDED`.
+This document describes the durable public-history scan as implemented on
+`feat/durable-public-scan`, plus the explicitly deferred follow-ups. It is a
+factual collection pipeline only: the deterministic score and the writer keep
+their existing responsibilities.
 
-The product must never turn incomplete source coverage into a negative factual
-claim or a final roast. At the same time, repeatedly rescanning an entire
-history on every profile visit would be too expensive and would exceed serverless
-request budgets.
+### Constraints
 
-## Goals
+- Do not add a queue SaaS, callback broker, or new external billing boundary.
+- Use the existing GitHub API, Turso database, and Vercel deployment only.
+- Never turn incomplete public-history coverage into a final score, leaderboard
+  row, or writer claim.
+- Do not make a normal 24-hour cache expiry trigger a historical GitHub crawl.
+- Do not claim private activity or commits GitHub cannot attribute to the login.
 
-- Preserve the existing deterministic scoring formulas and judge semantics.
-- Collect all publicly attributable native merged PRs, rather than a fixed
-  recent sample, for accounts that need historical enrichment.
-- Recover public default-branch commit-only contribution when GitHub's
-  `commitContributionsByRepository` aggregation is unavailable.
-- Persist resumable scan inputs and versioned output in Turso.
-- Keep normal cached profile reads cheap and keep an older complete report
-  visible while a refresh runs.
-- Make the coverage used by score, ranking, and writer explicit and auditable.
+## Why This Exists
 
-## Non-goals
+The ordinary synchronous scan is intentionally bounded. It is sufficient for
+most accounts, but it cannot represent an account with a long public PR history
+or an account whose `commitContributionsByRepository` GraphQL resolver exceeds
+GitHub's resource budget.
 
-- Claiming access to private repositories or contributions that GitHub cannot
-  associate with the account.
-- Replacing the deterministic score with an LLM decision.
-- Performing a full historical crawl inside a page render or public API request.
+The failure mode to avoid is not merely a request error. A bounded recent sample
+can omit old high-impact work, and an unavailable contribution graph can omit
+commit-only work. Publishing a score or roast from either partial input would
+make a factual claim the collector has not earned.
 
-## Coverage Contract
+## Request and Cache Policy
 
-Every scan run has one of these states:
+### Ordinary account
 
-| State | Meaning | May update score, rank, and roast? |
-| --- | --- | --- |
-| `queued` / `running` | Collection is in progress. | No. Keep the last complete snapshot. |
-| `complete_public` | Every required public source for this scan version completed. | Yes. |
-| `partial_public` | A source remains unavailable after bounded retries. | No new final result. |
-| `failed` | The job cannot currently progress. | No. Keep the last complete snapshot. |
+1. Read the Redis scan cache. Its normal TTL remains 24 hours.
+2. On a Redis miss, read the current `complete_public` Turso snapshot first.
+3. If that snapshot exists, recompute the deterministic score from its stored
+   facts, repopulate Redis, and return it. No GitHub crawl and no LLM call run.
+4. Only accounts without a complete current snapshot run the bounded quick
+   collector.
 
-`complete_public` means complete within the public data GitHub attributes to the
-login. It does not include private activity or commits authored with an email
-that GitHub does not associate with that login.
+Therefore, Redis expiry is an accelerator expiry, not permission to repeat a
+full historical scan. Score-formula changes also recompute from the durable
+facts instead of crawling GitHub again.
 
-## User Request Path
+### Snapshot integrity, legacy data, and refresh boundaries
 
-1. Resolve the latest `complete_public` snapshot for the current **collection**
-   version. The snapshot is the durable factual input; the deterministic score
-   is recomputed from it when the score version changes.
-2. Return it directly on later reads. This remains the common path for normal
-   users and does not call GitHub or an LLM.
-3. A collection-version change, explicit refresh policy, or incomplete coverage
-   atomically creates or reuses a per-user scan job. Keep the prior complete
-   snapshot visible while a refresh runs.
-4. If no complete snapshot exists, expose factual quick-scan progress only.
-   Do not write a leaderboard row, percentile, final score, or roast until the
-   job publishes a `complete_public` snapshot.
+The current collection contract is `PUBLIC_SCAN_COLLECTION_VERSION = v2`.
+A stored run is accepted as `complete_public` only when all of the following
+are true:
 
-The freshness interval is a policy value. It is an eligibility window for an
-incremental check, not permission to repeat a full historical crawl.
+- the row has `state=complete_public` and `coverage=complete_public`;
+- all required sources (`quick`, owned repositories, native merged PRs,
+  workflow-landed PRs, and commit recovery) are marked `complete`;
+- the SHA-256 of the stored snapshot matches `snapshot_hash`; and
+- the snapshot has every required numeric scoring fact plus the required arrays.
 
-## Durable Data Model
+Missing hash, invalid JSON, incomplete source state, or a hash mismatch is
+treated as incomplete data, never as a valid old score. The next eligible
+request creates a new current-version job; it does not publish the suspect
+snapshot. The `v2` collection-version bump similarly makes pre-v2 historical
+snapshots eligible for one on-demand recollection. A future collector-semantic
+change must bump the collection version again.
 
-The worker persists each stage so it can continue after a serverless timeout or
-a later request-after/Cron retry.
+There are two distinct meanings of incremental here:
 
-### `public_scan_runs`
+1. **Implemented:** a running collection is incremental and resumable. Every
+   page cursor and fact write is durable, so the next `after()`/Cron step picks
+   up where the previous one stopped instead of restarting the history crawl.
+2. **Not yet implemented:** a completed snapshot does not yet have a
+   watermark-based delta refresh that fetches only newly changed history. It
+   also does not refresh merely because Redis expires. Collection-version
+   changes or an explicit future refresh policy perform a new complete pass,
+   while ordinary reads reuse the existing complete snapshot.
 
-- `id`, `username`, `score_version`, `collection_version`
-- `state`, `coverage`, `source_status_json`
-- `input_hash`, `started_at`, `completed_at`, `last_error`
+### Admission to durable collection
 
-### `public_scan_jobs`
+The quick collector is used only to establish basic facts and decide whether
+full public-history coverage is required. It admits a durable job when any of
+the following is true:
 
-- One active job per `username + collection_version`.
-- `phase`, `payload_json`, `attempt_count`, `next_run_at`
-- `lease_token`, `lease_expires_at` for worker ownership and idempotency.
+- GitHub rejected per-repository commit aggregation;
+- the native merged PR aggregate is intentionally incomplete;
+- native merged PR count is greater than 300;
+- total PR count is greater than 600; or
+- GitHub reports more public repositories than the quick two-page inventory
+  fetched.
 
-### `public_scan_pr_facts`
+When GitHub already reports more than 300 merged PRs, the quick path skips its
+known-incomplete 300-PR aggregate. This avoids both an invalid partial impact
+signal and the GraphQL resource-limit failure seen on very large accounts. It
+sets `merged_pr_contribution_aggregation_incomplete` and enqueues the full
+paginator instead.
 
-- One immutable row per `run_id + pull_request_node_id`.
-- Repository identity, native state, timestamps, change-size fields, title,
-  label evidence, and source (`native_merged` or `workflow_landed`).
+While no complete snapshot exists, `/api/scan`, `/api/score/:username`, and
+`/api/roast` return a pending response rather than a partial final result. The
+browser may poll scan status, but it does not execute collection work.
 
-### `public_scan_commit_repo_facts`
+## Durable Queue and Server Execution
 
-- Per-run, per-repository verified default-branch contribution aggregate.
-- Count, first/last commit timestamps, source, repository metadata, and bounded
-  evidence SHA samples.
+Turso is both the durable queue and the source of truth.
 
-### `public_scan_runs.snapshot`
+| Component | Responsibility |
+| --- | --- |
+| `public_scan_runs` | Run state, source coverage, quick input, final immutable snapshot, diagnostics. |
+| `public_scan_jobs` | One active resumable job per username and collection version; stores phase, cursor payload, retry time, and lease. |
+| `public_scan_*_facts` | Durable raw PR, owned-repository, commit-candidate, and verified commit facts. |
+| execution lease table | One process-wide worker slot, so concurrent requests and Cron invocations cannot multiply GitHub usage. |
 
-- The normalized input used by the deterministic scorer, its output, and a
-  stable `snapshot_hash` used to key writer output.
+### Dispatch
 
-Raw PR facts are durable. High-volume commit discovery detail can be compressed
-or expired after a retention period once the verified per-repository aggregate
-and evidence samples have been retained.
+1. A public API route creates or reuses the Turso job atomically.
+2. The same server request calls Next.js `after()` and drains at most one
+   worker step or 10 seconds. This gives a new job a server-side head start
+   without making the initiating high-history request wait behind multiple
+   GitHub pages; it is not browser work and does not rely on process memory.
+3. `vercel.json` invokes `GET /api/internal/public-scan` every five minutes.
+   The route drains at most 24 steps or 50 seconds, always resuming from the
+   cursor persisted before the previous step returned.
+4. Every invocation claims a database lease. An interrupted invocation expires
+   after 55 seconds; a later request or Cron run safely resumes it.
+
+There is no QStash client, callback URL, signing key, or external queue
+credential. `CRON_SECRET` only authenticates Vercel's existing Cron request
+using `Authorization: Bearer <secret>`.
+
+### Deployment prerequisite
+
+The five-minute schedule needs a Vercel plan that permits sub-daily Cron jobs.
+Vercel Hobby rejects this schedule at deployment rather than silently reducing
+the cadence. This is a limitation of the existing hosting plan, not a new SaaS
+dependency. The deployment must provide:
+
+```text
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
+CRON_SECRET=
+```
+
+`PUBLIC_SCAN_WORKER_SECRET` is only for local, non-production route tests.
 
 ## Collection Phases
 
-### 1. Quick facts
+Each phase persists its result and next cursor before returning. Replays are
+idempotent through run-scoped uniqueness keys and the execution lease.
 
-Collect the existing account profile, original repositories, contribution
-totals, calendar, and lightweight samples. This decides whether enrichment is
-needed but does not become a final historical-impact claim by itself.
+1. **Quick facts**: bounded profile, contribution totals, recent samples, and
+   current repository overview. A public route can seed this already-paid input
+   into the durable run; otherwise the worker collects it once.
+2. **Original repositories**: REST-page every public, non-fork owned repository.
+   These are fed through the existing original-project-quality filters; full
+   inventory does not make empty, profile-config, WIP, blog, or other low-signal
+   repositories representative work.
+3. **Native merged PRs**: GraphQL-page all public GitHub-native merged PRs in
+   pages of 100, then aggregate impact from the complete durable fact set rather
+   than the recent PR sample.
+4. **Workflow-landed PRs**: page closed PR candidates separately. Only an exact
+   official workflow label plus verified closing evidence may be counted as
+   workflow-landed; they stay distinct from GitHub-native merges.
+5. **Commit-only recovery**: if GitHub rejects the contribution graph, discover
+   public commit candidates with `author:<login>` and date windows, split ranges
+   above the Search result cap, then verify only default-branch commits before
+   counting them.
+6. **Publication**: only after every required source is complete, materialize a
+   `complete_public` snapshot, cache it in Redis, and make it available to the
+   normal scan/score/roast routes.
 
-When the profile reports more than 300 native merged PRs, the quick path does
-not query its known-incomplete 300-PR contribution aggregate. It records that
-coverage is incomplete and admits the durable paginator directly; this both
-avoids a misleading sample and avoids GitHub GraphQL resolver failures on very
-large histories.
+The durable worker does not itself call an LLM or write a roast/leaderboard row.
+Those existing routes consume the complete factual snapshot afterwards, so
+writer style cannot affect collection or deterministic scoring.
 
-Historical enrichment is required when a resource limit occurs, the account has
-more than the native PR sample limit, a prior snapshot is incomplete, or the
-collection version changes.
+## Quotas, Retries, and Failure Semantics
 
-### 2. Original repository inventory
+- One active job per username and collection version prevents duplicate scans.
+- One global execution slot serializes durable work across server instances.
+- Commit Search reserves a Turso-backed bucket of 20 requests per minute before
+  each page; Redis is not required for that safeguard.
+- A worker error retries with 5, 10, 20, then 40-second backoff. After the
+  bounded attempts are exhausted, the run becomes `failed` with diagnostics.
+- A failed run is retried by a later request only after a 15-minute cooldown.
+- If Turso is unavailable, the API returns an unavailable response; it does not
+  pretend a queue exists or publish a partial result.
+- If Redis is unavailable, Turso remains the queue and source of truth. The
+  system loses only cache acceleration.
+- Vercel does not retry failed Cron requests itself. That is safe because the
+  job row remains queued/running with its lease and the next scheduled request
+  can recover it.
 
-Cursor-paginate all owner, non-fork repositories and persist the fields already
-used by original-project-quality scoring. Existing quality filters still exclude
-WIP, profile configuration, empty, and low-signal projects from representative
-work. Pagination only removes an arbitrary inventory limit.
+The UI should keep a previous `complete_public` report visible during a later
+collection refresh. If no complete snapshot exists, it should show collection
+status rather than inventing a score or report.
 
-### 3. Native merged PR inventory
+## Score and Writer Boundaries
 
-Cursor-paginate `pullRequests(states: MERGED, first: 100, after: cursor)` until
-completion. Persist a page before advancing the cursor. Repository impact is
-then aggregated from all native merged PR facts, not from the recent sample.
+- The score formula is not changed by this design.
+- A complete snapshot recalculates the existing deterministic score at read
+  time, allowing score-version updates without a new history crawl.
+- The writer receives a complete factual snapshot only. It must treat
+  `recent_prs` as a recent sample and use durable aggregate fields for claims
+  about all-time PR and impact totals.
+- Self-closed PRs remain classified by the existing scoring rules; the durable
+  collector preserves the raw state and does not add an automatic penalty.
 
-### 4. Workflow-landed inventory
+## Deferred Work
 
-Cursor-paginate closed PR candidates with minimal label fields. Only candidates
-with the exact official workflow label and verified closing conditions are
-stored as `workflow_landed`. They remain separate from GitHub-native merges in
-both the score input and writer wording.
+These are intentionally not part of the current implementation:
 
-### 5. Commit-only recovery
+1. Completed-snapshot delta refresh using durable watermarks and overlap
+   windows. Until that exists, a collection-version change or explicit
+   collection policy is the only reason to crawl history again; Redis TTL is
+   never a reason.
+2. Operator dashboards for queue depth, phase duration, GitHub quota use, and
+   failed-run diagnostics.
+3. Retention/compaction policy for high-volume raw commit-discovery rows after
+   their verified per-repository aggregate has been retained.
+4. A self-hosted always-on worker alternative for deployments that cannot use a
+   sub-daily Vercel Cron schedule.
 
-Use GitHub's contribution graph aggregation when it succeeds. When it returns a
-resource limit:
+## Acceptance Checks
 
-1. Search public commit candidates using `author:<login>` and bounded
-   `author-date` time intervals.
-2. Recursively split an interval when its search result set is too large to
-   page safely.
-3. Group candidates by repository.
-4. List commits from each repository's default branch with the same author and
-   time window, then persist only the verified aggregate.
-
-Search discovers candidates; it is not score evidence. Default-branch
-verification prevents unmerged or non-default-branch commits from inflating
-ecosystem impact.
-
-## Incremental Refresh
-
-The first qualifying run performs historical backfill. The rollout initially
-reuses the immutable complete snapshot until a collection-version or explicit
-refresh policy requests another collection; this avoids coupling ordinary cache
-expiry or score-formula deployments to a full GitHub crawl. A future incremental
-refresh can use the last completed watermark and a small overlap, but must store
-per-commit identities before it is allowed to merge overlapping ranges.
-
-A score or writer version change recomputes from persisted factual input when
-the schema is compatible. It does not automatically trigger a GitHub history
-crawl. Only collection-schema changes, an explicit collection refresh policy,
-or incomplete coverage require source collection again.
-
-## Queue, Limits, and Failure Handling
-
-Use Turso itself as the durable queue and source of truth. The existing Vercel
-deployment invokes an authenticated internal Cron drain every five minutes;
-request `after()` work can give a new job an immediate server-side head start.
-Each drain step acquires a short database lease, processes bounded GitHub pages,
-and stores the next cursor before returning. No third-party queue SaaS is used.
-The five-minute schedule requires a Vercel plan that permits sub-daily Cron;
-Vercel Hobby rejects that schedule during deployment rather than silently
-running it less often.
-
-- Per-user active-job uniqueness avoids duplicate scans.
-- A global GitHub token bucket and low worker concurrency protect API quota.
-- Each phase has bounded retries with exponential backoff.
-- Redis is an optimization, never the sole correctness lock; the Turso job lease
-  remains authoritative when Redis is unavailable.
-- A failed job preserves the last `complete_public` result and records a
-  diagnostic status instead of publishing partial facts as a new score.
-
-## Publication Rules
-
-Only a `complete_public` run may atomically:
-
-1. build the score input;
-2. execute the unchanged deterministic score;
-3. update the leaderboard and percentile row;
-4. write the snapshot;
-5. generate or replay roast text keyed by `snapshot_hash`, writer version, and
-   language.
-
-Writer prompts receive source coverage. They must not infer a lack of impact,
-or quote a bounded sample as a total, when coverage is partial.
-
-## Delivery Plan
-
-1. Add run/job schema, job lease helpers, source coverage types, and tests.
-2. Move full native merged PR pagination into a resumable worker phase.
-3. Gate publication on complete snapshots while preserving stale complete pages.
-4. Add full workflow-landed pagination and verification.
-5. Add commit-search partitioning plus default-branch verification.
-6. Add incremental watermarks, Cron authentication, observability, rate limits,
-   and production dashboards.
-7. Verify with ordinary accounts, 300+ PR accounts, commit-only accounts,
-   resource-limit accounts, overlapping Cron delivery, Redis outage, Turso
-   outage, and version-rollout cases.
+- A normal Redis miss with a complete Turso snapshot performs no GitHub crawl.
+- A 300+ merged-PR account returns `collecting_public_history` instead of
+  failing in the bounded aggregate query.
+- Restarting the server between phases resumes from the persisted cursor.
+- Concurrent API and Cron drains never run two collection steps at once.
+- A contribution-graph resource limit reaches verified commit recovery rather
+  than producing zero commit-only impact as a final result.
+- No final score, leaderboard fact, or writer report is generated from a
+  partial run.
+- `CRON_SECRET` is accepted only by the internal worker route; no credential is
+  exposed to the browser or CLI.
