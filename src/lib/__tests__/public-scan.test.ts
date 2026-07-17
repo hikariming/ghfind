@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanResult } from "../types";
-import type { PublicScanRun } from "../scan-run-types";
+import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanRun } from "../scan-run-types";
 
 const mocks = vi.hoisted(() => ({
   enqueuePublicScan: vi.fn(),
@@ -20,10 +21,34 @@ function scan(overrides: Partial<ScanResult["metrics"]> = {}): ScanResult {
   return {
     metrics: {
       username: "durable-case",
+      account_age_years: 1,
+      followers: 0,
+      following: 0,
+      public_repos: 1,
       merged_pr_count: 1,
       total_pr_count: 1,
-      public_repos: 1,
       fetched_repo_count: 1,
+      original_repo_count: 1,
+      nonempty_original_repo_count: 1,
+      fork_repo_count: 0,
+      empty_original_repo_count: 0,
+      total_stars: 0,
+      max_stars: 0,
+      issues_created: 0,
+      last_year_contributions: 0,
+      activity_type_count: 0,
+      contribution_years_active: 1,
+      recent_merged_pr_sample: 1,
+      recent_trivial_pr_count: 0,
+      external_trivial_pr_count: 0,
+      max_impact_repo_stars: 0,
+      impact_pr_count: 0,
+      impact_depth_raw: 0,
+      closed_unmerged_pr_count: 0,
+      pr_rejection_rate: 0,
+      recent_pr_sample: 1,
+      top_repo_pr_share: 0,
+      templated_pr_ratio: 0,
       ...overrides,
     },
     top_repos: [],
@@ -38,7 +63,7 @@ function pendingRun(): PublicScanRun {
     id: "run-id",
     username: "durable-case",
     scoreVersion: "v7",
-    collectionVersion: "v1",
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     state: "queued",
     coverage: "partial_public",
     sourceStatus: {},
@@ -50,6 +75,16 @@ function pendingRun(): PublicScanRun {
     updatedAt: Date.now(),
     lastError: null,
   };
+}
+
+function completedSources() {
+  return {
+    quick: "complete",
+    original_repos: "complete",
+    native_prs: "complete",
+    workflow_landings: "complete",
+    commit_recovery: "complete",
+  } as const;
 }
 
 describe("durable public scan admission", () => {
@@ -88,11 +123,14 @@ describe("durable public scan admission", () => {
 
   it("returns only an immutable complete snapshot as complete evidence", async () => {
     const complete = scan({ merged_pr_count: 301 });
+    const snapshot = JSON.stringify(complete);
     mocks.getLatestPublicScanRun.mockResolvedValue({
       ...pendingRun(),
       state: "complete_public",
       coverage: "complete_public",
-      snapshot: JSON.stringify(complete),
+      sourceStatus: completedSources(),
+      snapshot,
+      snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
     });
 
     await expect(resolvePublicScan("durable-case")).resolves.toMatchObject({
@@ -100,5 +138,55 @@ describe("durable public scan admission", () => {
       scan: { metrics: { username: "durable-case" } },
     });
     expect(mocks.enqueuePublicScan).not.toHaveBeenCalled();
+  });
+
+  it("recollects legacy or corrupt complete snapshots instead of trusting them", async () => {
+    const complete = scan({ merged_pr_count: 301 });
+    const stale = {
+      ...pendingRun(),
+      state: "complete_public" as const,
+      coverage: "complete_public" as const,
+      sourceStatus: { ...completedSources(), native_prs: "pending" },
+      snapshot: JSON.stringify(complete),
+      snapshotHash: "wrong-hash",
+    };
+    mocks.getLatestPublicScanRun.mockResolvedValue(stale);
+    mocks.enqueuePublicScan.mockResolvedValue({
+      run: pendingRun(),
+      job: { id: "repair-job" },
+      created: true,
+    });
+
+    await expect(resolvePublicScan("durable-case", scan({ merged_pr_count: 301 }))).resolves.toMatchObject({
+      status: "pending",
+      run: { id: "run-id" },
+    });
+    expect(mocks.enqueuePublicScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("recollects a complete-looking snapshot missing required score facts", async () => {
+    const snapshot = JSON.stringify({
+      metrics: { username: "durable-case" },
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      scoring: {},
+    });
+    mocks.getLatestPublicScanRun.mockResolvedValue({
+      ...pendingRun(),
+      state: "complete_public",
+      coverage: "complete_public",
+      sourceStatus: completedSources(),
+      snapshot,
+      snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+    });
+    mocks.enqueuePublicScan.mockResolvedValue({
+      run: pendingRun(),
+      job: { id: "repair-job" },
+      created: true,
+    });
+
+    await expect(resolvePublicScan("durable-case")).resolves.toMatchObject({ status: "pending" });
+    expect(mocks.enqueuePublicScan).toHaveBeenCalledTimes(1);
   });
 });

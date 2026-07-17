@@ -40,6 +40,7 @@ import type {
   PublicScanJobPhase,
   PublicScanSourceStatus,
 } from "./scan-run-types";
+import { hasCompletePublicScanSources } from "./scan-run-types";
 import type { ScanResult, TopRepo } from "./types";
 
 interface DiscoveryRange {
@@ -107,7 +108,7 @@ function splitRange(range: DiscoveryRange): [DiscoveryRange, DiscoveryRange] {
 }
 
 function sourceComplete(sources: PublicScanSourceStatus): boolean {
-  return Object.values(sources).every((state) => state === "complete");
+  return hasCompletePublicScanSources(sources);
 }
 
 function toTopRepo(fact: Awaited<ReturnType<typeof getPublicScanOwnedRepoFacts>>[number]): TopRepo {

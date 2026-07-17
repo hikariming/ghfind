@@ -4,7 +4,19 @@
  * data snapshot, not of the deterministic scoring formula.
  */
 
-export const PUBLIC_SCAN_COLLECTION_VERSION = "v1";
+// Bump when the persisted factual collection contract changes. This is
+// intentionally separate from SCORE_CACHE_VERSION: an old scan can be
+// re-scored, but it must not be treated as complete when its collector no
+// longer covers the current source contract.
+export const PUBLIC_SCAN_COLLECTION_VERSION = "v2";
+
+export const PUBLIC_SCAN_REQUIRED_SOURCES = [
+  "quick",
+  "original_repos",
+  "native_prs",
+  "workflow_landings",
+  "commit_recovery",
+] as const;
 
 export type PublicScanRunState =
   | "queued"
@@ -26,6 +38,10 @@ export type PublicScanJobPhase =
 export type PublicScanSourceState = "pending" | "complete" | "unavailable" | "failed";
 
 export type PublicScanSourceStatus = Record<string, PublicScanSourceState>;
+
+export function hasCompletePublicScanSources(status: PublicScanSourceStatus): boolean {
+  return PUBLIC_SCAN_REQUIRED_SOURCES.every((source) => status[source] === "complete");
+}
 
 export interface PublicScanRun {
   id: string;

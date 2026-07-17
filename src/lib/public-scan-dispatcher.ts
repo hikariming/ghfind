@@ -1,8 +1,11 @@
 import { after } from "next/server";
 import { processPublicScanJob, type PublicScanWorkerResult } from "./public-scan-worker";
 
-const REQUEST_DRAIN_MAX_STEPS = 4;
-const REQUEST_DRAIN_MAX_MS = 45_000;
+// A response-side head start is optional acceleration only. Keep it to one
+// bounded unit so a high-history scan cannot make the initiating public API
+// request wait behind several GitHub pages; Cron is the durable throughput path.
+const REQUEST_DRAIN_MAX_STEPS = 1;
+const REQUEST_DRAIN_MAX_MS = 10_000;
 const CRON_DRAIN_MAX_STEPS = 24;
 const CRON_DRAIN_MAX_MS = 50_000;
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -177,6 +178,18 @@ describe("durable public scan jobs", () => {
         snapshotHash: "snapshot-a",
       }),
     ).resolves.toBe(false);
+    const snapshot = '{"complete":true}';
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: secondLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: sources,
+        snapshot,
+        snapshotHash: "snapshot-a",
+      }),
+    ).resolves.toBe(false);
     await expect(
       db.completePublicScanRun({
         jobId: first!.job.id,
@@ -184,8 +197,8 @@ describe("durable public scan jobs", () => {
         leaseToken: secondLease!.leaseToken,
         coverage: "complete_public",
         sourceStatus: { ...sources, native_prs: "complete", workflow_landings: "complete", commit_recovery: "complete", original_repos: "complete" },
-        snapshot: '{"complete":true}',
-        snapshotHash: "snapshot-a",
+        snapshot,
+        snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
       }),
     ).resolves.toBe(true);
 
@@ -193,7 +206,7 @@ describe("durable public scan jobs", () => {
       id: first!.run.id,
       state: "complete_public",
       coverage: "complete_public",
-      snapshotHash: "snapshot-a",
+      snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
       sourceStatus: { native_prs: "complete", commit_recovery: "complete" },
     });
     await expect(

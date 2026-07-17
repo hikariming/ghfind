@@ -52,6 +52,10 @@ import type {
   TopRepo,
 } from "./types";
 import type { LeaderboardWindow } from "./leaderboardWindow";
+import {
+  PUBLIC_SCAN_REQUIRED_SOURCES,
+  hasCompletePublicScanSources,
+} from "./scan-run-types";
 import type {
   PublicScanCoverage,
   PublicScanJob,
@@ -859,13 +863,9 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
   }
 }
 
-const PUBLIC_SCAN_PENDING_SOURCES: PublicScanSourceStatus = {
-  quick: "pending",
-  original_repos: "pending",
-  native_prs: "pending",
-  workflow_landings: "pending",
-  commit_recovery: "pending",
-};
+const PUBLIC_SCAN_PENDING_SOURCES: PublicScanSourceStatus = Object.fromEntries(
+  PUBLIC_SCAN_REQUIRED_SOURCES.map((source) => [source, "pending"]),
+) as PublicScanSourceStatus;
 
 function parsePublicScanSourceStatus(raw: unknown): PublicScanSourceStatus {
   if (typeof raw !== "string" || !raw) return { ...PUBLIC_SCAN_PENDING_SOURCES };
@@ -1377,6 +1377,14 @@ export async function completePublicScanRun(input: {
   snapshot: string;
   snapshotHash: string;
 }): Promise<boolean> {
+  if (
+    input.coverage !== "complete_public" ||
+    !input.snapshotHash ||
+    createHash("sha256").update(input.snapshot).digest("hex") !== input.snapshotHash ||
+    !hasCompletePublicScanSources(input.sourceStatus)
+  ) {
+    return false;
+  }
   const db = getClient();
   if (!db) return false;
   try {
