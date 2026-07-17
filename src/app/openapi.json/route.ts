@@ -85,6 +85,11 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
+            "202": {
+              description: "Large public history is collecting; poll /api/scan-status/{username} before using a score as final evidence",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
             "503": { description: "GitHub temporarily unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
@@ -138,7 +143,42 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
+            "202": {
+              description: "Durable public-history collection started; poll /api/scan-status/{username}",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
             "503": { description: "GitHub temporarily unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/scan-status/{username}": {
+        get: {
+          tags: ["scoring"],
+          operationId: "scanStatus",
+          summary: "Read durable public-history scan progress without starting work",
+          parameters: [{ $ref: "#/components/parameters/Username" }],
+          responses: {
+            "200": {
+              description: "Complete immutable public scan snapshot",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["status", "username", "run_id", "scan"],
+                    properties: {
+                      status: { type: "string", enum: ["complete_public"] },
+                      username: { type: "string" },
+                      run_id: { type: "string" },
+                      scan: { $ref: "#/components/schemas/ScanResult" },
+                    },
+                  },
+                },
+              },
+            },
+            "202": { description: "Collection remains in progress", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "404": { description: "No durable scan has been requested", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Durable run failed or its queue is unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -181,6 +221,7 @@ export function GET() {
           responses: {
             "200": { description: "Streamed roast report", content: { "text/plain": { schema: { type: "string" } } } },
             "400": { description: "Missing scan / no LLM configured", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "409": { description: "Large public history is still collecting; roast is intentionally deferred", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "429": {
               description: "Rate limited",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },

@@ -49,12 +49,14 @@ that GitHub does not associate with that login.
 
 ## User Request Path
 
-1. Resolve the latest `complete_public` snapshot for the current scoring and
-   collection versions.
-2. If it is fresh, return it directly. This remains the common path for normal
+1. Resolve the latest `complete_public` snapshot for the current **collection**
+   version. The snapshot is the durable factual input; the deterministic score
+   is recomputed from it when the score version changes.
+2. Return it directly on later reads. This remains the common path for normal
    users and does not call GitHub or an LLM.
-3. If it is stale, atomically create or reuse a per-user scan job. Return the
-   prior complete snapshot with a refresh indicator.
+3. A collection-version change, explicit refresh policy, or incomplete coverage
+   atomically creates or reuses a per-user scan job. Keep the prior complete
+   snapshot visible while a refresh runs.
 4. If no complete snapshot exists, expose factual quick-scan progress only.
    Do not write a leaderboard row, percentile, final score, or roast until the
    job publishes a `complete_public` snapshot.
@@ -67,31 +69,31 @@ incremental check, not permission to repeat a full historical crawl.
 The worker persists each stage so it can continue after a serverless timeout or
 delivery retry.
 
-### `scan_runs`
+### `public_scan_runs`
 
 - `id`, `username`, `score_version`, `collection_version`
 - `state`, `coverage`, `source_status_json`
 - `input_hash`, `started_at`, `completed_at`, `last_error`
 
-### `scan_jobs`
+### `public_scan_jobs`
 
 - One active job per `username + collection_version`.
 - `phase`, `payload_json`, `attempt_count`, `next_run_at`
 - `lease_token`, `lease_expires_at` for worker ownership and idempotency.
 
-### `scan_pr_facts`
+### `public_scan_pr_facts`
 
 - One immutable row per `run_id + pull_request_node_id`.
 - Repository identity, native state, timestamps, change-size fields, title,
   label evidence, and source (`native_merged` or `workflow_landed`).
 
-### `scan_commit_repo_facts`
+### `public_scan_commit_repo_facts`
 
 - Per-run, per-repository verified default-branch contribution aggregate.
 - Count, first/last commit timestamps, source, repository metadata, and bounded
   evidence SHA samples.
 
-### `scan_snapshots`
+### `public_scan_runs.snapshot`
 
 - The normalized input used by the deterministic scorer, its output, and a
   stable `snapshot_hash` used to key writer output.
@@ -151,15 +153,17 @@ ecosystem impact.
 
 ## Incremental Refresh
 
-The first qualifying run performs historical backfill. Later refreshes use the
-last completed watermark and fetch only new records, with a small overlapping
-time window to tolerate delayed GitHub indexing. Upserts by node id / commit
-identity make overlap safe.
+The first qualifying run performs historical backfill. The rollout initially
+reuses the immutable complete snapshot until a collection-version or explicit
+refresh policy requests another collection; this avoids coupling ordinary cache
+expiry or score-formula deployments to a full GitHub crawl. A future incremental
+refresh can use the last completed watermark and a small overlap, but must store
+per-commit identities before it is allowed to merge overlapping ranges.
 
-A score or writer version change recomputes from persisted facts when the input
-schema is compatible. It does not automatically trigger a GitHub history crawl.
-Only collection-schema changes or incomplete coverage require source collection
-again.
+A score or writer version change recomputes from persisted factual input when
+the schema is compatible. It does not automatically trigger a GitHub history
+crawl. Only collection-schema changes, an explicit collection refresh policy,
+or incomplete coverage require source collection again.
 
 ## Queue, Limits, and Failure Handling
 
