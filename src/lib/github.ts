@@ -1009,7 +1009,11 @@ function isOfficialMergeBotActor(actor: WorkflowTimelineActor | null): actor is 
   );
 }
 
-async function fetchWorkflowLandedPrs(username: string): Promise<WorkflowLandedPr[]> {
+async function fetchWorkflowLandedPrs(
+  username: string,
+  closedPrCount: number,
+): Promise<WorkflowLandedPr[]> {
+  if (closedPrCount === 0) return [];
   try {
     // Keep labels out of collect()'s already dense contribution query. A 100 ×
     // 20 nested label selection can exceed GitHub's GraphQL resource budget for
@@ -2007,7 +2011,7 @@ export async function collect(username: string): Promise<{
   const [commitContribRepos, mergedPrContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
     fetchMergedPrContribRepos(login),
-    fetchWorkflowLandedPrs(login),
+    fetchWorkflowLandedPrs(login, contrib.user.closedPRs?.totalCount ?? 0),
   ]);
   const workflowLandedContribRepos: ContribRepoAgg[] = workflowLandedPrs.map((pr) => ({
     repo: pr.repo,
