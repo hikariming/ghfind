@@ -186,45 +186,21 @@ export function Roaster() {
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: "home" });
-      try {
-        const res = await fetch("/api/scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: uname, turnstileToken: token }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
-          setScanning(false);
-          return;
-        }
-        const result = data as ScanResult;
+      const presentScan = (result: ScanResult) => {
         const byoKey = loadByoKey();
         const forceProfileHandoff =
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
-        // Scan succeeded (score in hand, before the LLM roast streams). Tier is a
-        // low-cardinality dimension — safe to slice the funnel by outcome.
         trackEvent("scan_complete", { source: "home", tier: result.scoring.tier });
-        // Hand off to the profile page: stash the fresh scan so the inner page
-        // can render its evidence and stream the roast in place (drives internal
-        // traffic; the user reads their repos/score while the LLM works). Passing
-        // the scan through sessionStorage means the handoff works with or without
-        // a server-side cache. BYO keys stay inline in production because the
-        // profile page never receives/stores user secrets; local dev can force the
-        // profile handoff with ?profile=1 when the server has its own LLM config.
         if (!byoKey || forceProfileHandoff) {
           try {
             sessionStorage.setItem(pendingScanKey(result.metrics.username), JSON.stringify(result));
           } catch {
-            /* storage unavailable (private mode / quota) — profile page falls
-               back to the server-side cached scan, else shows a home link */
+            /* storage unavailable (private mode / quota) */
           }
           router.push(`/u/${result.metrics.username}?roasting=1`);
-          return; // keep `scanning` true so the skeleton persists until navigation
+          return;
         }
         setScan(result);
-        // Show the deterministic score immediately; the roast's META line then
-        // updates it to the AI-adjusted final.
         setDisplay({
           score: result.scoring.final_score,
           tier: result.scoring.tier,
@@ -237,6 +213,49 @@ export function Roaster() {
           () => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
           100,
         );
+      };
+      try {
+        const res = await fetch("/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: uname, turnstileToken: token }),
+        });
+        const data = await res.json();
+        if (res.status === 202 && data?.error === "scan_enrichment_pending") {
+          setError(t("errScanPending"));
+          const retrySeconds = Math.max(2, Math.min(15, Number(data.retry_after) || 5));
+          const deadline = Date.now() + 2 * 60 * 1_000;
+          const poll = async () => {
+            while (Date.now() < deadline) {
+              await new Promise((resolve) => setTimeout(resolve, retrySeconds * 1_000));
+              try {
+                const statusRes = await fetch(
+                  `/api/scan-status/${encodeURIComponent(String(data.username ?? uname))}`,
+                  { cache: "no-store" },
+                );
+                const status = await statusRes.json();
+                if (statusRes.ok && status?.status === "complete_public" && status.scan) {
+                  setError("");
+                  presentScan(status.scan as ScanResult);
+                  return;
+                }
+                if (statusRes.status >= 500 || status?.status === "failed") break;
+              } catch {
+                break;
+              }
+            }
+            setScanning(false);
+          };
+          void poll();
+          return;
+        }
+        if (!res.ok) {
+          setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
+          setScanning(false);
+          return;
+        }
+        const result = data as ScanResult;
+        presentScan(result);
       } catch {
         setError(t("errNetworkScan"));
         setScanning(false);

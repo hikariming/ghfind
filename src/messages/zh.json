@@ -325,6 +325,7 @@
     "errRoastFailed": "毒舌生成失败，稍后再试或换用自己的 Key。",
     "errNetworkRoast": "网络中断，毒舌没说完。",
     "errScanFailed": "扫描失败，稍后再试。",
+    "errScanPending": "正在补全该账号的全部公开 PR 与 commit，完成后会自动继续。",
     "errNetworkScan": "网络出错，连 GitHub 都连不上。",
     "byoReasonQuota": "免费额度用完了 😵 填入你自己的 API Key 继续毒舌（OpenAI / StepFun / Groq 都行）。",
     "byoReasonRate": "你今天点评得有点多啦 🥵 歇会儿，或填入自己的 API Key 不限量继续。",

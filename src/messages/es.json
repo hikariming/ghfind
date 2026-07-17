@@ -325,6 +325,7 @@
     "errRoastFailed": "La generación del roast falló — inténtalo más tarde o usa tu propia key.",
     "errNetworkRoast": "Se cayó la conexión — el roast quedó a medias.",
     "errScanFailed": "El escaneo falló, inténtalo más tarde.",
+    "errScanPending": "Se está recopilando el historial público completo de PR y commits. Continuará automáticamente cuando esté listo.",
     "errNetworkScan": "Error de red — ni siquiera pudimos llegar a GitHub.",
     "byoReasonQuota": "La cuota gratis se acabó 😵 Agrega tu propia API key para seguir roasteando (OpenAI / StepFun / Groq, todas sirven).",
     "byoReasonRate": "Has roasteado mucho hoy 🥵 Tómate un respiro, o agrega tu propia API key para roasts ilimitados.",

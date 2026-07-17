@@ -325,6 +325,7 @@
     "errRoastFailed": "Tạo bài cà khịa thất bại — thử lại sau hoặc dùng key của riêng bạn.",
     "errNetworkRoast": "Rớt mạng — màn cà khịa bị cắt ngang.",
     "errScanFailed": "Quét thất bại, thử lại sau nhé.",
+    "errScanPending": "Đang thu thập toàn bộ lịch sử PR và commit công khai. Sẽ tự động tiếp tục khi hoàn tất.",
     "errNetworkScan": "Lỗi mạng — còn chẳng chạm được tới GitHub.",
     "byoReasonQuota": "Hạn mức miễn phí đã cạn 😵 Thêm API key của riêng bạn để cà khịa tiếp (OpenAI / StepFun / Groq đều dùng được).",
     "byoReasonRate": "Hôm nay bạn cà khịa hơi nhiều rồi đó 🥵 Nghỉ chút đi, hoặc thêm API key riêng để cà khịa không giới hạn.",

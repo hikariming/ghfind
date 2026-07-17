@@ -325,6 +325,7 @@
     "errRoastFailed": "Roast generation failed — try again later or use your own key.",
     "errNetworkRoast": "Connection dropped — the roast got cut off.",
     "errScanFailed": "Scan failed, try again later.",
+    "errScanPending": "Collecting the account's full public PR and commit history. This will continue automatically when ready.",
     "errNetworkScan": "Network error — couldn't even reach GitHub.",
     "byoReasonQuota": "Free quota's used up 😵 Add your own API key to keep roasting (OpenAI / StepFun / Groq all work).",
     "byoReasonRate": "You've roasted a lot today 🥵 Take a breather, or add your own API key for unlimited roasts.",

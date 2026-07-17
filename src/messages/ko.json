@@ -325,6 +325,7 @@
     "errRoastFailed": "독설 생성 실패 — 잠시 후 다시 하거나 본인 키를 쓰세요.",
     "errNetworkRoast": "연결이 끊겨서 독설이 중간에 끊겼어요.",
     "errScanFailed": "스캔에 실패했어요. 잠시 후 다시 시도하세요.",
+    "errScanPending": "공개 PR 및 커밋 전체 기록을 수집하고 있습니다. 준비되면 자동으로 계속합니다.",
     "errNetworkScan": "네트워크 오류 — GitHub에 닿지도 못했어요.",
     "byoReasonQuota": "무료 할당량이 다 떨어졌어요 😵 본인 API 키를 넣으면 계속 로스트할 수 있어요 (OpenAI / StepFun / Groq 다 됩니다).",
     "byoReasonRate": "오늘 로스트 좀 많이 하셨네요 🥵 잠깐 쉬거나, 본인 API 키를 넣으면 무제한입니다.",

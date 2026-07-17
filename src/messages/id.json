@@ -325,6 +325,7 @@
     "errRoastFailed": "Pembuatan roast gagal — coba lagi nanti atau pakai key sendiri.",
     "errNetworkRoast": "Koneksi putus — roast-nya kepotong.",
     "errScanFailed": "Pemindaian gagal, coba lagi nanti.",
+    "errScanPending": "Sedang mengumpulkan riwayat PR dan commit publik lengkap. Akan berlanjut otomatis saat siap.",
     "errNetworkScan": "Kesalahan jaringan — GitHub saja tak tergapai.",
     "byoReasonQuota": "Kuota gratis habis 😵 Tambahkan API key sendiri untuk terus me-roast (OpenAI / StepFun / Groq semuanya bisa).",
     "byoReasonRate": "Kamu sudah banyak me-roast hari ini 🥵 Istirahat dulu, atau tambahkan API key sendiri untuk roast tanpa batas.",
