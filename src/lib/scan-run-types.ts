@@ -66,3 +66,32 @@ export interface PublicScanJobLease {
   leaseToken: string;
 }
 
+export interface PublicScanPrFact {
+  pullRequestId: string;
+  source: "native_merged" | "workflow_landed" | "closed";
+  repoKey: string | null;
+  ownerLogin: string | null;
+  stars: number;
+  isPrivate: boolean;
+  isFork: boolean;
+  createdAt: string | null;
+  mergedAt: string | null;
+  closedAt: string | null;
+  title: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+  labels: string[];
+}
+
+export interface PublicScanCommitRepoFact {
+  repoKey: string;
+  ownerLogin: string | null;
+  stars: number;
+  commits: number;
+  activeYears: number;
+  firstCommittedAt: string | null;
+  lastCommittedAt: string | null;
+  source: "contribution_graph" | "default_branch_rest";
+  evidenceShas: string[];
+}

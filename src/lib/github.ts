@@ -16,6 +16,7 @@ import type {
   RepoReadme,
   TopRepo,
 } from "./types";
+import type { PublicScanPrFact } from "./scan-run-types";
 
 const GITHUB_API = "https://api.github.com";
 const README_FETCH_LIMIT = 1024 * 1024;
@@ -879,6 +880,109 @@ interface PrNode {
     isPrivate: boolean;
   } | null;
   files?: { nodes: { path: string | null }[] | null } | null;
+}
+
+type DurablePrState = "MERGED" | "CLOSED";
+
+interface DurablePrPageNode {
+  id: string;
+  title: string | null;
+  createdAt: string | null;
+  mergedAt: string | null;
+  closedAt: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+  labels?: { nodes: ({ name: string | null } | null)[] } | null;
+  repository: {
+    nameWithOwner: string;
+    stargazerCount: number;
+    isPrivate: boolean;
+    isFork: boolean;
+    owner: { login: string } | null;
+  } | null;
+}
+
+export interface DurablePullRequestPage {
+  facts: PublicScanPrFact[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+/**
+ * Fetch one deliberately small, cursor-addressable page for durable scan jobs.
+ * This is separate from the UI's recent-PR sample: its records are persisted and
+ * eventually form the all-history native merge / workflow landing aggregate.
+ */
+export async function fetchDurablePullRequestPage(input: {
+  username: string;
+  state: DurablePrState;
+  after?: string | null;
+  includeLabels?: boolean;
+  first?: number;
+}): Promise<DurablePullRequestPage> {
+  const count = Math.max(1, Math.min(input.first ?? (input.includeLabels ? 50 : 100), 100));
+  const data = await graphql<{
+    user: {
+      pullRequests: {
+        nodes: DurablePrPageNode[];
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      };
+    } | null;
+  }>(
+    `query($login: String!, $state: PullRequestState!, $after: String, $count: Int!, $includeLabels: Boolean!) {
+      user(login: $login) {
+        pullRequests(first: $count, states: [$state], after: $after,
+                     orderBy: {field: CREATED_AT, direction: DESC}) {
+          nodes {
+            id title createdAt mergedAt closedAt additions deletions changedFiles
+            labels(first: 20) @include(if: $includeLabels) { nodes { name } }
+            repository {
+              nameWithOwner stargazerCount isPrivate isFork owner { login }
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }`,
+    {
+      login: input.username,
+      state: input.state,
+      after: input.after ?? null,
+      count,
+      includeLabels: Boolean(input.includeLabels),
+    },
+  );
+  const pullRequests = data.user?.pullRequests;
+  if (!pullRequests) {
+    throw new GitHubDataUnavailableError("GitHub GraphQL returned no durable pull request page.");
+  }
+  return {
+    facts: (pullRequests.nodes ?? []).map((node) => {
+      const repo = node.repository;
+      return {
+        pullRequestId: node.id,
+        source: input.state === "MERGED" ? "native_merged" : "closed",
+        repoKey: repo?.nameWithOwner ?? null,
+        ownerLogin: repo?.owner?.login ?? null,
+        stars: repo?.stargazerCount ?? 0,
+        isPrivate: Boolean(repo?.isPrivate),
+        isFork: Boolean(repo?.isFork),
+        createdAt: node.createdAt ?? null,
+        mergedAt: node.mergedAt ?? null,
+        closedAt: node.closedAt ?? null,
+        title: node.title ?? null,
+        additions: node.additions ?? null,
+        deletions: node.deletions ?? null,
+        changedFiles: node.changedFiles ?? null,
+        labels: (node.labels?.nodes ?? [])
+          .map((label) => label?.name?.trim())
+          .filter((label): label is string => Boolean(label)),
+      };
+    }),
+    hasNextPage: pullRequests.pageInfo.hasNextPage,
+    endCursor: pullRequests.pageInfo.endCursor,
+  };
 }
 
 async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]> {

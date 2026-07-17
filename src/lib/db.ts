@@ -57,6 +57,8 @@ import type {
   PublicScanJob,
   PublicScanJobLease,
   PublicScanJobPhase,
+  PublicScanCommitRepoFact,
+  PublicScanPrFact,
   PublicScanRun,
   PublicScanRunState,
   PublicScanSourceStatus,
@@ -320,6 +322,7 @@ function ensureSchema(db: Client): Promise<void> {
              owner_login        TEXT,
              stars              INTEGER NOT NULL DEFAULT 0,
              commits            INTEGER NOT NULL DEFAULT 0,
+             active_years       INTEGER NOT NULL DEFAULT 0,
              first_committed_at TEXT,
              last_committed_at  TEXT,
              source             TEXT NOT NULL,
@@ -517,6 +520,15 @@ function ensureSchema(db: Client): Promise<void> {
         } catch {
           // column already exists — ignore
         }
+      }
+      try {
+        await db.execute(
+          `ALTER TABLE public_scan_commit_repo_facts
+           ADD COLUMN active_years INTEGER NOT NULL DEFAULT 0`,
+        );
+      } catch {
+        // New databases receive this field in CREATE TABLE. Existing durable
+        // scan tables may have been created by an earlier deployment.
       }
     })().catch((e) => {
       schemaReady = null; // allow retry on next call
@@ -1165,6 +1177,229 @@ export async function failPublicScanJob(input: {
   } catch (error) {
     console.error("failPublicScanJob failed:", error);
     return false;
+  }
+}
+
+async function hasPublicScanLease(
+  db: Client,
+  input: { jobId: string; runId: string; leaseToken: string },
+): Promise<boolean> {
+  const job = await db.execute({
+    sql: `SELECT id FROM public_scan_jobs
+          WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+    args: [input.jobId, input.runId, input.leaseToken],
+  });
+  return Boolean(job.rows[0]);
+}
+
+/**
+ * Upsert one page of facts behind the active database lease. Pages can be
+ * delivered more than once by the queue; `(run_id, pull_request_id)` makes that
+ * replay idempotent without deleting already-collected history.
+ */
+export async function upsertPublicScanPrFacts(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  facts: PublicScanPrFact[];
+}): Promise<boolean> {
+  if (input.facts.length === 0) return true;
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    await db.batch(
+      input.facts.map((fact) => ({
+        sql: `INSERT INTO public_scan_pr_facts
+                (run_id, pull_request_id, source, repo_key, owner_login, stars, is_private,
+                 is_fork, created_at, merged_at, closed_at, title, additions, deletions,
+                 changed_files, labels)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(run_id, pull_request_id) DO UPDATE SET
+                source        = excluded.source,
+                repo_key      = excluded.repo_key,
+                owner_login   = excluded.owner_login,
+                stars         = MAX(public_scan_pr_facts.stars, excluded.stars),
+                is_private    = excluded.is_private,
+                is_fork       = excluded.is_fork,
+                created_at    = COALESCE(excluded.created_at, public_scan_pr_facts.created_at),
+                merged_at     = COALESCE(excluded.merged_at, public_scan_pr_facts.merged_at),
+                closed_at     = COALESCE(excluded.closed_at, public_scan_pr_facts.closed_at),
+                title         = COALESCE(excluded.title, public_scan_pr_facts.title),
+                additions     = COALESCE(excluded.additions, public_scan_pr_facts.additions),
+                deletions     = COALESCE(excluded.deletions, public_scan_pr_facts.deletions),
+                changed_files = COALESCE(excluded.changed_files, public_scan_pr_facts.changed_files),
+                labels        = excluded.labels`,
+        args: [
+          input.runId,
+          fact.pullRequestId,
+          fact.source,
+          fact.repoKey,
+          fact.ownerLogin,
+          Math.max(0, Math.round(fact.stars)),
+          fact.isPrivate ? 1 : 0,
+          fact.isFork ? 1 : 0,
+          fact.createdAt,
+          fact.mergedAt,
+          fact.closedAt,
+          fact.title,
+          fact.additions,
+          fact.deletions,
+          fact.changedFiles,
+          JSON.stringify(fact.labels),
+        ] as (string | number | null)[],
+      })),
+      "write",
+    );
+    return true;
+  } catch (error) {
+    console.error("upsertPublicScanPrFacts failed:", error);
+    return false;
+  }
+}
+
+/** Same idempotent, lease-guarded persistence contract for commit aggregates. */
+export async function upsertPublicScanCommitRepoFacts(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  facts: PublicScanCommitRepoFact[];
+}): Promise<boolean> {
+  if (input.facts.length === 0) return true;
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    await db.batch(
+      input.facts.map((fact) => ({
+        sql: `INSERT INTO public_scan_commit_repo_facts
+                (run_id, repo_key, owner_login, stars, commits, first_committed_at,
+                 last_committed_at, active_years, source, evidence_shas)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(run_id, repo_key) DO UPDATE SET
+                owner_login        = COALESCE(excluded.owner_login, public_scan_commit_repo_facts.owner_login),
+                stars              = MAX(public_scan_commit_repo_facts.stars, excluded.stars),
+                commits            = MAX(public_scan_commit_repo_facts.commits, excluded.commits),
+                active_years       = MAX(public_scan_commit_repo_facts.active_years, excluded.active_years),
+                first_committed_at = CASE
+                  WHEN public_scan_commit_repo_facts.first_committed_at IS NULL THEN excluded.first_committed_at
+                  WHEN excluded.first_committed_at IS NULL THEN public_scan_commit_repo_facts.first_committed_at
+                  ELSE MIN(public_scan_commit_repo_facts.first_committed_at, excluded.first_committed_at)
+                END,
+                last_committed_at = CASE
+                  WHEN public_scan_commit_repo_facts.last_committed_at IS NULL THEN excluded.last_committed_at
+                  WHEN excluded.last_committed_at IS NULL THEN public_scan_commit_repo_facts.last_committed_at
+                  ELSE MAX(public_scan_commit_repo_facts.last_committed_at, excluded.last_committed_at)
+                END,
+                source        = excluded.source,
+                evidence_shas = excluded.evidence_shas`,
+        args: [
+          input.runId,
+          fact.repoKey,
+          fact.ownerLogin,
+          Math.max(0, Math.round(fact.stars)),
+          Math.max(0, Math.round(fact.commits)),
+          fact.firstCommittedAt,
+          fact.lastCommittedAt,
+          Math.max(0, Math.round(fact.activeYears)),
+          fact.source,
+          JSON.stringify(fact.evidenceShas.slice(0, 20)),
+        ] as (string | number | null)[],
+      })),
+      "write",
+    );
+    return true;
+  } catch (error) {
+    console.error("upsertPublicScanCommitRepoFacts failed:", error);
+    return false;
+  }
+}
+
+export interface PublicScanContributionAggregate {
+  repo: string;
+  stars: number;
+  isPrivate: boolean;
+  isFork: boolean;
+  ownerLogin: string;
+  commits: number;
+  prs: number;
+  activeYears: number;
+}
+
+/**
+ * Aggregate durable PR and commit facts into the exact per-repository shape the
+ * existing impact scorer consumes. The scorer remains unchanged; only its input
+ * becomes complete once all collection phases have finished.
+ */
+export async function getPublicScanContributionAggregates(
+  runId: string,
+): Promise<PublicScanContributionAggregate[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `WITH pr AS (
+              SELECT repo_key,
+                     MAX(owner_login) AS owner_login,
+                     MAX(stars) AS stars,
+                     MAX(is_private) AS is_private,
+                     MAX(is_fork) AS is_fork,
+                     COUNT(*) AS prs,
+                     COUNT(DISTINCT substr(COALESCE(merged_at, closed_at, created_at), 1, 4)) AS active_years
+              FROM public_scan_pr_facts
+              WHERE run_id = ?
+                AND source IN ('native_merged', 'workflow_landed')
+                AND repo_key IS NOT NULL
+              GROUP BY repo_key
+            ), commits AS (
+              SELECT repo_key,
+                     MAX(owner_login) AS owner_login,
+                     MAX(stars) AS stars,
+                     SUM(commits) AS commits,
+                     MAX(active_years) AS active_years
+              FROM public_scan_commit_repo_facts
+              WHERE run_id = ?
+              GROUP BY repo_key
+            ), keys AS (
+              SELECT repo_key FROM pr UNION SELECT repo_key FROM commits
+            )
+            SELECT keys.repo_key,
+                   COALESCE(pr.owner_login, commits.owner_login, substr(keys.repo_key, 1, instr(keys.repo_key, '/') - 1)) AS owner_login,
+                   MAX(COALESCE(pr.stars, 0), COALESCE(commits.stars, 0)) AS stars,
+                   COALESCE(pr.is_private, 0) AS is_private,
+                   COALESCE(pr.is_fork, 0) AS is_fork,
+                   COALESCE(commits.commits, 0) AS commits,
+                   COALESCE(pr.prs, 0) AS prs,
+                   MAX(COALESCE(pr.active_years, 0), COALESCE(commits.active_years, 0)) AS active_years
+            FROM keys
+            LEFT JOIN pr ON pr.repo_key = keys.repo_key
+            LEFT JOIN commits ON commits.repo_key = keys.repo_key
+            ORDER BY stars DESC, prs DESC, commits DESC`,
+      args: [runId, runId],
+    });
+    return result.rows.map((row) => {
+      const value = row as Record<string, unknown>;
+      const repo = String(value.repo_key);
+      return {
+        repo,
+        stars: Number(value.stars) || 0,
+        isPrivate: Number(value.is_private) === 1,
+        isFork: Number(value.is_fork) === 1,
+        ownerLogin:
+          typeof value.owner_login === "string" && value.owner_login
+            ? value.owner_login
+            : repo.split("/", 1)[0],
+        commits: Number(value.commits) || 0,
+        prs: Number(value.prs) || 0,
+        activeYears: Number(value.active_years) || 0,
+      };
+    });
+  } catch (error) {
+    console.error("getPublicScanContributionAggregates failed:", error);
+    return [];
   }
 }
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   boundedContributionYearsActive,
   collect,
+  fetchDurablePullRequestPage,
   ghFetch,
   githubTokens,
   GitHubDataUnavailableError,
@@ -662,6 +663,85 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.organizations).toEqual([]);
     expect(result.metrics.username).toBe("alice");
+  });
+});
+
+describe("fetchDurablePullRequestPage", () => {
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = originalToken;
+    vi.unstubAllGlobals();
+  });
+
+  it("returns durable merged PR facts and an opaque resume cursor", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url === "https://api.github.com/graphql") {
+          return jsonResponse({
+            data: {
+              user: {
+                pullRequests: {
+                  nodes: [
+                    {
+                      id: "PR_node_1",
+                      title: "refactor: durable history",
+                      createdAt: "2024-01-01T00:00:00Z",
+                      mergedAt: "2024-01-02T00:00:00Z",
+                      closedAt: "2024-01-02T00:00:00Z",
+                      additions: 30,
+                      deletions: 10,
+                      changedFiles: 4,
+                      labels: null,
+                      repository: {
+                        nameWithOwner: "upstream/project",
+                        stargazerCount: 900,
+                        isPrivate: false,
+                        isFork: false,
+                        owner: { login: "upstream" },
+                      },
+                    },
+                  ],
+                  pageInfo: { hasNextPage: true, endCursor: "opaque-cursor" },
+                },
+              },
+            },
+          });
+        }
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    await expect(
+      fetchDurablePullRequestPage({ username: "history-heavy", state: "MERGED" }),
+    ).resolves.toEqual({
+      facts: [
+        {
+          pullRequestId: "PR_node_1",
+          source: "native_merged",
+          repoKey: "upstream/project",
+          ownerLogin: "upstream",
+          stars: 900,
+          isPrivate: false,
+          isFork: false,
+          createdAt: "2024-01-01T00:00:00Z",
+          mergedAt: "2024-01-02T00:00:00Z",
+          closedAt: "2024-01-02T00:00:00Z",
+          title: "refactor: durable history",
+          additions: 30,
+          deletions: 10,
+          changedFiles: 4,
+          labels: [],
+        },
+      ],
+      hasNextPage: true,
+      endCursor: "opaque-cursor",
+    });
   });
 });
 

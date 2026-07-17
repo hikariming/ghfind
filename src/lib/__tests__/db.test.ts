@@ -219,6 +219,84 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
   });
+
+  it("aggregates lease-guarded PR and commit facts without double-counting replayed pages", async () => {
+    const queued = await db.enqueuePublicScan("fact-aggregate", versions);
+    const lease = await db.claimPublicScanJob(queued!.job.id);
+    const leaseInput = {
+      jobId: queued!.job.id,
+      runId: queued!.run.id,
+      leaseToken: lease!.leaseToken,
+    };
+    const facts = [
+      {
+        pullRequestId: "pr-1",
+        source: "native_merged" as const,
+        repoKey: "big/project",
+        ownerLogin: "big",
+        stars: 500,
+        isPrivate: false,
+        isFork: false,
+        createdAt: "2024-01-01T00:00:00Z",
+        mergedAt: "2024-01-03T00:00:00Z",
+        closedAt: "2024-01-03T00:00:00Z",
+        title: "core fix",
+        additions: 10,
+        deletions: 2,
+        changedFiles: 2,
+        labels: [],
+      },
+      {
+        pullRequestId: "pr-2",
+        source: "native_merged" as const,
+        repoKey: "big/project",
+        ownerLogin: "big",
+        stars: 550,
+        isPrivate: false,
+        isFork: false,
+        createdAt: "2025-01-01T00:00:00Z",
+        mergedAt: "2025-01-03T00:00:00Z",
+        closedAt: "2025-01-03T00:00:00Z",
+        title: "second fix",
+        additions: 10,
+        deletions: 2,
+        changedFiles: 2,
+        labels: [],
+      },
+    ];
+    await expect(db.upsertPublicScanPrFacts({ ...leaseInput, facts })).resolves.toBe(true);
+    await expect(db.upsertPublicScanPrFacts({ ...leaseInput, facts: [facts[0]] })).resolves.toBe(true);
+    await expect(
+      db.upsertPublicScanCommitRepoFacts({
+        ...leaseInput,
+        facts: [
+          {
+            repoKey: "big/project",
+            ownerLogin: "big",
+            stars: 550,
+            commits: 8,
+            activeYears: 3,
+            firstCommittedAt: "2023-01-01T00:00:00Z",
+            lastCommittedAt: "2025-01-01T00:00:00Z",
+            source: "default_branch_rest",
+            evidenceShas: ["abc"],
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(db.getPublicScanContributionAggregates(queued!.run.id)).resolves.toEqual([
+      {
+        repo: "big/project",
+        ownerLogin: "big",
+        stars: 550,
+        isPrivate: false,
+        isFork: false,
+        commits: 8,
+        prs: 2,
+        activeYears: 3,
+      },
+    ]);
+  });
 });
 
 describe("profile comments", () => {
