@@ -5,6 +5,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 
 let db: typeof import("../db");
 let tmpDir: string;
@@ -119,6 +120,104 @@ describe("score snapshots", () => {
     expect(Number(res.rows[0]?.first_generated_at)).toBeGreaterThanOrEqual(before);
     expect(Number(res.rows[0]?.last_generated_at)).toBeLessThanOrEqual(after);
     expect(String(res.rows[0]?.langs).split(",").sort()).toEqual(["en", "zh"]);
+  });
+});
+
+describe("durable public scan jobs", () => {
+  const versions = { scoreVersion: "test-score-v1", collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION };
+
+  it("dedupes active work, persists progress, and publishes only with its lease", async () => {
+    const first = await db.enqueuePublicScan("history-heavy", versions);
+    const second = await db.enqueuePublicScan("HISTORY-HEAVY", versions);
+
+    expect(first?.created).toBe(true);
+    expect(second).toMatchObject({ created: false, run: { id: first?.run.id }, job: { id: first?.job.id } });
+
+    const firstLease = await db.claimPublicScanJob(first?.job.id);
+    expect(firstLease).toMatchObject({ job: { phase: "quick", state: "running" } });
+    expect(firstLease?.leaseToken).toBeTruthy();
+
+    const sources = {
+      quick: "complete",
+      original_repos: "pending",
+      native_prs: "pending",
+      workflow_landings: "pending",
+      commit_recovery: "pending",
+    } as const;
+    await expect(
+      db.savePublicScanQuickResult({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        quickScan: '{"metrics":{"username":"history-heavy"}}',
+        sourceStatus: sources,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.savePublicScanJobProgress({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        phase: "merged_prs",
+        payload: '{"after":"cursor-1"}',
+        sourceStatus: sources,
+      }),
+    ).resolves.toBe(true);
+
+    const secondLease = await db.claimPublicScanJob(first!.job.id);
+    expect(secondLease).toMatchObject({ job: { phase: "merged_prs" } });
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: { ...sources, native_prs: "complete", workflow_landings: "complete", commit_recovery: "complete", original_repos: "complete" },
+        snapshot: '{"complete":true}',
+        snapshotHash: "snapshot-a",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: secondLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: { ...sources, native_prs: "complete", workflow_landings: "complete", commit_recovery: "complete", original_repos: "complete" },
+        snapshot: '{"complete":true}',
+        snapshotHash: "snapshot-a",
+      }),
+    ).resolves.toBe(true);
+
+    await expect(db.getLatestPublicScanRun("history-heavy", versions)).resolves.toMatchObject({
+      id: first!.run.id,
+      state: "complete_public",
+      coverage: "complete_public",
+      snapshotHash: "snapshot-a",
+      sourceStatus: { native_prs: "complete", commit_recovery: "complete" },
+    });
+  });
+
+  it("reclaims an expired lease instead of starting a second active job", async () => {
+    const queued = await db.enqueuePublicScan("expired-lease", versions);
+    const lease = await db.claimPublicScanJob(queued?.job.id);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE public_scan_jobs SET lease_expires_at = ? WHERE id = ?`,
+      args: [Date.now() - 1, queued!.job.id],
+    });
+
+    const recovered = await db.claimPublicScanJob(queued!.job.id);
+    expect(recovered?.job.id).toBe(queued?.job.id);
+    expect(recovered?.leaseToken).not.toBe(lease?.leaseToken);
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued!.job.id,
+        runId: queued!.run.id,
+        leaseToken: recovered!.leaseToken,
+        error: "test complete",
+      }),
+    ).resolves.toBe(true);
   });
 });
 

@@ -52,6 +52,15 @@ import type {
   TopRepo,
 } from "./types";
 import type { LeaderboardWindow } from "./leaderboardWindow";
+import type {
+  PublicScanCoverage,
+  PublicScanJob,
+  PublicScanJobLease,
+  PublicScanJobPhase,
+  PublicScanRun,
+  PublicScanRunState,
+  PublicScanSourceStatus,
+} from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -236,6 +245,89 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
              ON profile_snapshots(username, scanned_at DESC)`,
+          // Durable public-history scans. Redis remains the fast cache, but it
+          // cannot be the source of truth for a multi-delivery job: QStash can
+          // retry after a Vercel process has gone away, and Redis can be
+          // temporarily unavailable. These rows carry the resumable cursor,
+          // source coverage, and final immutable snapshot in Turso instead.
+          `CREATE TABLE IF NOT EXISTS public_scan_runs (
+             id                 TEXT PRIMARY KEY,
+             username           TEXT NOT NULL,
+             score_version      TEXT NOT NULL,
+             collection_version TEXT NOT NULL,
+             state              TEXT NOT NULL CHECK(state IN ('queued', 'running', 'complete_public', 'partial_public', 'failed')),
+             coverage           TEXT NOT NULL CHECK(coverage IN ('partial_public', 'complete_public')),
+             source_status      TEXT NOT NULL DEFAULT '{}',
+             quick_scan         TEXT,
+             snapshot           TEXT,
+             snapshot_hash      TEXT,
+             started_at         INTEGER NOT NULL,
+             completed_at       INTEGER,
+             updated_at         INTEGER NOT NULL,
+             last_error         TEXT
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_version
+             ON public_scan_runs(username, score_version, collection_version, updated_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_state
+             ON public_scan_runs(state, updated_at)`,
+          `CREATE TABLE IF NOT EXISTS public_scan_jobs (
+             id                 TEXT PRIMARY KEY,
+             run_id             TEXT NOT NULL,
+             username           TEXT NOT NULL,
+             score_version      TEXT NOT NULL,
+             collection_version TEXT NOT NULL,
+             state              TEXT NOT NULL CHECK(state IN ('queued', 'running', 'failed', 'complete')),
+             phase              TEXT NOT NULL,
+             payload            TEXT NOT NULL DEFAULT '{}',
+             attempt_count      INTEGER NOT NULL DEFAULT 0,
+             next_run_at        INTEGER NOT NULL,
+             lease_token        TEXT,
+             lease_expires_at   INTEGER,
+             created_at         INTEGER NOT NULL,
+             updated_at         INTEGER NOT NULL
+           )`,
+          // Only one active collection run can consume GitHub quota for a
+          // username/version pair. Completed and failed jobs stay inspectable.
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_public_scan_jobs_active_user_version
+             ON public_scan_jobs(username, score_version, collection_version)
+             WHERE state IN ('queued', 'running')`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_ready
+             ON public_scan_jobs(state, next_run_at)`,
+          `CREATE TABLE IF NOT EXISTS public_scan_pr_facts (
+             run_id             TEXT NOT NULL,
+             pull_request_id    TEXT NOT NULL,
+             source             TEXT NOT NULL CHECK(source IN ('native_merged', 'workflow_landed', 'closed')),
+             repo_key           TEXT,
+             owner_login        TEXT,
+             stars              INTEGER NOT NULL DEFAULT 0,
+             is_private         INTEGER NOT NULL DEFAULT 0,
+             is_fork            INTEGER NOT NULL DEFAULT 0,
+             created_at         TEXT,
+             merged_at          TEXT,
+             closed_at          TEXT,
+             title              TEXT,
+             additions          INTEGER,
+             deletions          INTEGER,
+             changed_files      INTEGER,
+             labels             TEXT,
+             PRIMARY KEY(run_id, pull_request_id)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_pr_facts_run_repo
+             ON public_scan_pr_facts(run_id, repo_key)`,
+          `CREATE TABLE IF NOT EXISTS public_scan_commit_repo_facts (
+             run_id             TEXT NOT NULL,
+             repo_key           TEXT NOT NULL,
+             owner_login        TEXT,
+             stars              INTEGER NOT NULL DEFAULT 0,
+             commits            INTEGER NOT NULL DEFAULT 0,
+             first_committed_at TEXT,
+             last_committed_at  TEXT,
+             source             TEXT NOT NULL,
+             evidence_shas      TEXT NOT NULL DEFAULT '[]',
+             PRIMARY KEY(run_id, repo_key)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_commit_facts_run
+             ON public_scan_commit_repo_facts(run_id)`,
           // Legacy: AI-generated anonymous danmaku for the detail page. The
           // feature was removed; this table is no longer read or written and is
           // kept only so existing databases (which may hold rows) stay valid.
@@ -651,6 +743,428 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
     await updateInfluenceStats(username, scan.metrics.followers, scan.metrics.total_stars);
   } catch (e) {
     console.error("recordProfileSnapshot failed:", e);
+  }
+}
+
+const PUBLIC_SCAN_PENDING_SOURCES: PublicScanSourceStatus = {
+  quick: "pending",
+  original_repos: "pending",
+  native_prs: "pending",
+  workflow_landings: "pending",
+  commit_recovery: "pending",
+};
+
+function parsePublicScanSourceStatus(raw: unknown): PublicScanSourceStatus {
+  if (typeof raw !== "string" || !raw) return { ...PUBLIC_SCAN_PENDING_SOURCES };
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const output: PublicScanSourceStatus = {};
+    for (const [source, state] of Object.entries(parsed)) {
+      if (
+        state === "pending" ||
+        state === "complete" ||
+        state === "unavailable" ||
+        state === "failed"
+      ) {
+        output[source] = state;
+      }
+    }
+    return { ...PUBLIC_SCAN_PENDING_SOURCES, ...output };
+  } catch {
+    return { ...PUBLIC_SCAN_PENDING_SOURCES };
+  }
+}
+
+function mapPublicScanRun(row: Record<string, unknown>): PublicScanRun {
+  return {
+    id: String(row.id),
+    username: String(row.username),
+    scoreVersion: String(row.score_version),
+    collectionVersion: String(row.collection_version),
+    state: String(row.state) as PublicScanRunState,
+    coverage: String(row.coverage) as PublicScanCoverage,
+    sourceStatus: parsePublicScanSourceStatus(row.source_status),
+    quickScan: typeof row.quick_scan === "string" ? row.quick_scan : null,
+    snapshot: typeof row.snapshot === "string" ? row.snapshot : null,
+    snapshotHash: typeof row.snapshot_hash === "string" ? row.snapshot_hash : null,
+    startedAt: Number(row.started_at),
+    completedAt: row.completed_at == null ? null : Number(row.completed_at),
+    updatedAt: Number(row.updated_at),
+    lastError: typeof row.last_error === "string" ? row.last_error : null,
+  };
+}
+
+function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
+  return {
+    id: String(row.id),
+    runId: String(row.run_id),
+    username: String(row.username),
+    scoreVersion: String(row.score_version),
+    collectionVersion: String(row.collection_version),
+    state: String(row.state) as PublicScanJob["state"],
+    phase: String(row.phase) as PublicScanJobPhase,
+    payload: typeof row.payload === "string" ? row.payload : "{}",
+    attemptCount: Number(row.attempt_count),
+    nextRunAt: Number(row.next_run_at),
+    leaseToken: typeof row.lease_token === "string" ? row.lease_token : null,
+    leaseExpiresAt: row.lease_expires_at == null ? null : Number(row.lease_expires_at),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
+
+export interface EnqueuedPublicScan {
+  run: PublicScanRun;
+  job: PublicScanJob;
+  created: boolean;
+}
+
+/**
+ * Create one durable public-history scan per username/version pair. The unique
+ * partial index on `public_scan_jobs` is the production correctness gate: Redis
+ * may be absent or flushed without allowing a duplicate expensive crawl.
+ */
+export async function enqueuePublicScan(
+  username: string,
+  input: { scoreVersion: string; collectionVersion: string },
+): Promise<EnqueuedPublicScan | null> {
+  const db = getClient();
+  if (!db) return null;
+  const normalized = username.toLowerCase();
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      const existing = await tx.execute({
+        sql: `SELECT j.*
+              FROM public_scan_jobs j
+              WHERE j.username = ?
+                AND j.score_version = ?
+                AND j.collection_version = ?
+                AND j.state IN ('queued', 'running')
+              ORDER BY j.created_at DESC
+              LIMIT 1`,
+        args: [normalized, input.scoreVersion, input.collectionVersion],
+      });
+      if (existing.rows[0]) {
+        const job = mapPublicScanJob(existing.rows[0] as Record<string, unknown>);
+        const runResult = await tx.execute({
+          sql: `SELECT * FROM public_scan_runs WHERE id = ? LIMIT 1`,
+          args: [job.runId],
+        });
+        await tx.commit();
+        const runRow = runResult.rows[0];
+        if (!runRow) return null;
+        return { run: mapPublicScanRun(runRow as Record<string, unknown>), job, created: false };
+      }
+
+      const runId = randomUUID();
+      const jobId = randomUUID();
+      const sourceStatus = JSON.stringify(PUBLIC_SCAN_PENDING_SOURCES);
+      await tx.execute({
+        sql: `INSERT INTO public_scan_runs
+                (id, username, score_version, collection_version, state, coverage,
+                 source_status, started_at, updated_at)
+              VALUES (?, ?, ?, ?, 'queued', 'partial_public', ?, ?, ?)`,
+        args: [runId, normalized, input.scoreVersion, input.collectionVersion, sourceStatus, now, now],
+      });
+      await tx.execute({
+        sql: `INSERT INTO public_scan_jobs
+                (id, run_id, username, score_version, collection_version, state, phase,
+                 payload, next_run_at, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, 'queued', 'quick', '{}', ?, ?, ?)`,
+        args: [jobId, runId, normalized, input.scoreVersion, input.collectionVersion, now, now, now],
+      });
+      await tx.commit();
+      return {
+        run: {
+          id: runId,
+          username: normalized,
+          scoreVersion: input.scoreVersion,
+          collectionVersion: input.collectionVersion,
+          state: "queued",
+          coverage: "partial_public",
+          sourceStatus: { ...PUBLIC_SCAN_PENDING_SOURCES },
+          quickScan: null,
+          snapshot: null,
+          snapshotHash: null,
+          startedAt: now,
+          completedAt: null,
+          updatedAt: now,
+          lastError: null,
+        },
+        job: {
+          id: jobId,
+          runId,
+          username: normalized,
+          scoreVersion: input.scoreVersion,
+          collectionVersion: input.collectionVersion,
+          state: "queued",
+          phase: "quick",
+          payload: "{}",
+          attemptCount: 0,
+          nextRunAt: now,
+          leaseToken: null,
+          leaseExpiresAt: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+        created: true,
+      };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("enqueuePublicScan failed:", error);
+    return null;
+  }
+}
+
+export async function getLatestPublicScanRun(
+  username: string,
+  input: { scoreVersion: string; collectionVersion: string },
+): Promise<PublicScanRun | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_runs
+            WHERE username = ? AND score_version = ? AND collection_version = ?
+            ORDER BY updated_at DESC
+            LIMIT 1`,
+      args: [username.toLowerCase(), input.scoreVersion, input.collectionVersion],
+    });
+    const row = result.rows[0];
+    return row ? mapPublicScanRun(row as Record<string, unknown>) : null;
+  } catch (error) {
+    console.error("getLatestPublicScanRun failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Claim a ready job with a database lease. A stale delivery can be recovered
+ * after its lease expires; the next worker receives a fresh token and the old
+ * worker can no longer publish progress or a final snapshot.
+ */
+export async function claimPublicScanJob(
+  jobId?: string,
+  leaseMs = 55_000,
+): Promise<PublicScanJobLease | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    // Recover work abandoned by an interrupted serverless invocation first.
+    await db.execute({
+      sql: `UPDATE public_scan_jobs
+            SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+            WHERE state = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`,
+      args: [now, now],
+    });
+    const candidate = await db.execute({
+      sql: jobId
+        ? `SELECT * FROM public_scan_jobs
+           WHERE id = ? AND state = 'queued' AND next_run_at <= ? LIMIT 1`
+        : `SELECT * FROM public_scan_jobs
+           WHERE state = 'queued' AND next_run_at <= ?
+           ORDER BY next_run_at ASC, created_at ASC
+           LIMIT 1`,
+      args: jobId ? [jobId, now] : [now],
+    });
+    const row = candidate.rows[0];
+    if (!row) return null;
+    const candidateJob = mapPublicScanJob(row as Record<string, unknown>);
+    const leaseToken = randomUUID();
+    const leaseExpiresAt = now + leaseMs;
+    const claimed = await db.execute({
+      sql: `UPDATE public_scan_jobs
+            SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
+            WHERE id = ? AND state = 'queued'`,
+      args: [leaseToken, leaseExpiresAt, now, candidateJob.id],
+    });
+    if (Number(claimed.rowsAffected ?? 0) !== 1) return null;
+    await db.execute({
+      sql: `UPDATE public_scan_runs SET state = 'running', updated_at = ? WHERE id = ?`,
+      args: [now, candidateJob.runId],
+    });
+    return {
+      leaseToken,
+      job: {
+        ...candidateJob,
+        state: "running",
+        leaseToken,
+        leaseExpiresAt,
+        updatedAt: now,
+      },
+    };
+  } catch (error) {
+    console.error("claimPublicScanJob failed:", error);
+    return null;
+  }
+}
+
+export async function savePublicScanJobProgress(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  phase: PublicScanJobPhase;
+  payload: string;
+  sourceStatus?: PublicScanSourceStatus;
+  nextRunAt?: number;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const nextRunAt = input.nextRunAt ?? now;
+    const update = await db.execute({
+      sql: `UPDATE public_scan_jobs
+            SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
+                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+      args: [input.phase, input.payload, nextRunAt, now, input.jobId, input.runId, input.leaseToken],
+    });
+    if (Number(update.rowsAffected ?? 0) !== 1) return false;
+    if (input.sourceStatus) {
+      await db.execute({
+        sql: `UPDATE public_scan_runs SET source_status = ?, updated_at = ? WHERE id = ?`,
+        args: [JSON.stringify(input.sourceStatus), now, input.runId],
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error("savePublicScanJobProgress failed:", error);
+    return false;
+  }
+}
+
+export async function savePublicScanQuickResult(input: {
+  runId: string;
+  leaseToken: string;
+  jobId: string;
+  quickScan: string;
+  sourceStatus: PublicScanSourceStatus;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const job = await db.execute({
+      sql: `SELECT id FROM public_scan_jobs
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+      args: [input.jobId, input.runId, input.leaseToken],
+    });
+    if (!job.rows[0]) return false;
+    await db.execute({
+      sql: `UPDATE public_scan_runs
+            SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
+            WHERE id = ?`,
+      args: [input.quickScan, JSON.stringify(input.sourceStatus), Date.now(), input.runId],
+    });
+    return true;
+  } catch (error) {
+    console.error("savePublicScanQuickResult failed:", error);
+    return false;
+  }
+}
+
+export async function completePublicScanRun(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  coverage: PublicScanCoverage;
+  sourceStatus: PublicScanSourceStatus;
+  snapshot: string;
+  snapshotHash: string;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const tx = await db.transaction("write");
+    try {
+      const job = await tx.execute({
+        sql: `SELECT id FROM public_scan_jobs
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+        args: [input.jobId, input.runId, input.leaseToken],
+      });
+      if (!job.rows[0]) {
+        await tx.rollback();
+        return false;
+      }
+      const now = Date.now();
+      const state: PublicScanRunState =
+        input.coverage === "complete_public" ? "complete_public" : "partial_public";
+      await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = ?, coverage = ?, source_status = ?, snapshot = ?, snapshot_hash = ?,
+                  completed_at = ?, updated_at = ?, last_error = NULL
+              WHERE id = ?`,
+        args: [
+          state,
+          input.coverage,
+          JSON.stringify(input.sourceStatus),
+          input.snapshot,
+          input.snapshotHash,
+          now,
+          now,
+          input.runId,
+        ],
+      });
+      await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'complete', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ?`,
+        args: [now, input.jobId],
+      });
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("completePublicScanRun failed:", error);
+    return false;
+  }
+}
+
+export async function failPublicScanJob(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  error: string;
+  retryAt?: number;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const retry = input.retryAt != null;
+    const update = await db.execute({
+      sql: `UPDATE public_scan_jobs
+            SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
+                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+      args: [retry ? "queued" : "failed", input.retryAt ?? now, now, input.jobId, input.runId, input.leaseToken],
+    });
+    if (Number(update.rowsAffected ?? 0) !== 1) return false;
+    await db.execute({
+      sql: `UPDATE public_scan_runs
+            SET state = ?, updated_at = ?, last_error = ? WHERE id = ?`,
+      args: [retry ? "queued" : "failed", now, input.error.slice(0, 2_000), input.runId],
+    });
+    return true;
+  } catch (error) {
+    console.error("failPublicScanJob failed:", error);
+    return false;
   }
 }
 
