@@ -204,10 +204,11 @@ TURSO_DATABASE_URL=file:./local.db
 1. Push to GitHub, import in Vercel.
 2. Configure environment variables (as above). `UPSTASH_*` can be provisioned in one click via Vercel's Upstash integration.
 3. Grab a Cloudflare Turnstile site/secret key pair; set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`.
-4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, and profile comments/reactions.
-5. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
-6. (Optional) set `PUBLIC_SITE_URL` when deploying under a custom domain so metadata, sitemap, cards, and LLM attribution use the right origin.
-7. Deploy.
+4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and resumable public-history scans.
+5. For resumable public-history scans in Vercel, set `CRON_SECRET`. The included `vercel.json` invokes the authenticated internal worker every five minutes; Turso is the durable queue and no additional queue SaaS is required. This cadence requires a Vercel plan that permits sub-daily Cron jobs; Vercel Hobby deployments reject the five-minute schedule at deployment time.
+6. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
+7. (Optional) set `PUBLIC_SITE_URL` when deploying under a custom domain so metadata, sitemap, cards, and LLM attribution use the right origin.
+8. Deploy.
 
 ## Bring your own model / API key
 

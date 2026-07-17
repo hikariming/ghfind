@@ -67,7 +67,7 @@ incremental check, not permission to repeat a full historical crawl.
 ## Durable Data Model
 
 The worker persists each stage so it can continue after a serverless timeout or
-delivery retry.
+a later request-after/Cron retry.
 
 ### `public_scan_runs`
 
@@ -109,6 +109,12 @@ and evidence samples have been retained.
 Collect the existing account profile, original repositories, contribution
 totals, calendar, and lightweight samples. This decides whether enrichment is
 needed but does not become a final historical-impact claim by itself.
+
+When the profile reports more than 300 native merged PRs, the quick path does
+not query its known-incomplete 300-PR contribution aggregate. It records that
+coverage is incomplete and admits the durable paginator directly; this both
+avoids a misleading sample and avoids GitHub GraphQL resolver failures on very
+large histories.
 
 Historical enrichment is required when a resource limit occurs, the account has
 more than the native PR sample limit, a prior snapshot is incomplete, or the
@@ -167,10 +173,14 @@ or incomplete coverage require source collection again.
 
 ## Queue, Limits, and Failure Handling
 
-Use a durable queue such as Upstash QStash, with Turso as the source of truth.
-Each delivery acquires a short database lease, processes a bounded number of
-GitHub pages, stores progress, and schedules the next delivery. The public route
-only enqueues work.
+Use Turso itself as the durable queue and source of truth. The existing Vercel
+deployment invokes an authenticated internal Cron drain every five minutes;
+request `after()` work can give a new job an immediate server-side head start.
+Each drain step acquires a short database lease, processes bounded GitHub pages,
+and stores the next cursor before returning. No third-party queue SaaS is used.
+The five-minute schedule requires a Vercel plan that permits sub-daily Cron;
+Vercel Hobby rejects that schedule during deployment rather than silently
+running it less often.
 
 - Per-user active-job uniqueness avoids duplicate scans.
 - A global GitHub token bucket and low worker concurrency protect API quota.
@@ -201,8 +211,8 @@ or quote a bounded sample as a total, when coverage is partial.
 3. Gate publication on complete snapshots while preserving stale complete pages.
 4. Add full workflow-landed pagination and verification.
 5. Add commit-search partitioning plus default-branch verification.
-6. Add incremental watermarks, queue delivery authentication, observability,
-   rate limits, and production dashboards.
+6. Add incremental watermarks, Cron authentication, observability, rate limits,
+   and production dashboards.
 7. Verify with ordinary accounts, 300+ PR accounts, commit-only accounts,
-   resource-limit accounts, duplicate delivery, Redis outage, queue outage, and
-   version-rollout cases.
+   resource-limit accounts, overlapping Cron delivery, Redis outage, Turso
+   outage, and version-rollout cases.
