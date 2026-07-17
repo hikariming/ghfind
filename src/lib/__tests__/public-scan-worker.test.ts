@@ -1,0 +1,113 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ScanResult } from "../types";
+
+const mocks = vi.hoisted(() => ({
+  claimPublicScanJob: vi.fn(),
+  acquirePublicScanExecutionLease: vi.fn(),
+  getPublicScanRun: vi.fn(),
+  savePublicScanQuickResult: vi.fn(),
+  savePublicScanJobProgress: vi.fn(),
+  releasePublicScanExecutionLease: vi.fn(),
+  buildScanResult: vi.fn(),
+  schedulePublicScanDelivery: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+  acquirePublicScanExecutionLease: mocks.acquirePublicScanExecutionLease,
+  acquirePublicScanRateWindow: vi.fn(),
+  claimPublicScanJob: mocks.claimPublicScanJob,
+  completePublicScanRun: vi.fn(),
+  failPublicScanJob: vi.fn(),
+  getNextPublicScanCommitVerificationWork: vi.fn(),
+  getPublicScanContributionAggregates: vi.fn(),
+  getPublicScanOwnedRepoFacts: vi.fn(),
+  getPublicScanPrSummary: vi.fn(),
+  getPublicScanRun: mocks.getPublicScanRun,
+  materializePublicScanCommitRepoFacts: vi.fn(),
+  preparePublicScanCommitVerificationWork: vi.fn(),
+  savePublicScanJobProgress: mocks.savePublicScanJobProgress,
+  savePublicScanQuickResult: mocks.savePublicScanQuickResult,
+  splitPublicScanCommitVerificationWork: vi.fn(),
+  upsertPublicScanCommitCandidates: vi.fn(),
+  upsertPublicScanOwnedRepoFacts: vi.fn(),
+  upsertPublicScanPrFacts: vi.fn(),
+  recordPublicScanCommitVerificationPage: vi.fn(),
+  releasePublicScanExecutionLease: mocks.releasePublicScanExecutionLease,
+}));
+
+vi.mock("@/lib/github", () => ({
+  fetchDurableOwnedRepositoryPage: vi.fn(),
+  fetchDurablePullRequestPage: vi.fn(),
+  hydrateTopRepoEvidence: vi.fn(),
+  listPublicDefaultBranchCommits: vi.fn(),
+  searchPublicCommitCandidates: vi.fn(),
+  verifyWorkflowLandedPublicScanFacts: vi.fn(),
+}));
+
+vi.mock("@/lib/scan-core", () => ({
+  applyPublicContributionAggregate: vi.fn(),
+  applyPublicOriginalRepoInventory: vi.fn(),
+  buildScanResult: mocks.buildScanResult,
+}));
+
+vi.mock("@/lib/public-scan-queue", () => ({
+  schedulePublicScanDelivery: mocks.schedulePublicScanDelivery,
+}));
+
+vi.mock("@/lib/redis", () => ({ setCachedScan: vi.fn() }));
+
+import { processPublicScanJob } from "../public-scan-worker";
+
+const quickScan = {
+  metrics: { username: "worker-case" },
+  top_repos: [],
+  recent_prs: [],
+  flood_pr_titles: [],
+  scoring: {},
+} as unknown as ScanResult;
+
+describe("public scan worker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimPublicScanJob.mockResolvedValue({
+      leaseToken: "lease-token",
+      job: {
+        id: "job-id",
+        runId: "run-id",
+        username: "worker-case",
+        phase: "quick",
+        payload: "{}",
+        attemptCount: 0,
+      },
+    });
+    mocks.acquirePublicScanExecutionLease.mockResolvedValue(1);
+    mocks.getPublicScanRun.mockResolvedValue({
+      id: "run-id",
+      sourceStatus: {},
+      quickScan: null,
+    });
+    mocks.buildScanResult.mockResolvedValue(quickScan);
+    mocks.savePublicScanQuickResult.mockResolvedValue(true);
+    mocks.savePublicScanJobProgress.mockResolvedValue(true);
+    mocks.schedulePublicScanDelivery.mockResolvedValue(true);
+  });
+
+  it("persists the quick probe then queues the bounded next phase", async () => {
+    await expect(processPublicScanJob("job-id")).resolves.toEqual({
+      status: "continued",
+      jobId: "job-id",
+      phase: "original_repos",
+    });
+    expect(mocks.savePublicScanQuickResult).toHaveBeenCalledWith(
+      expect.objectContaining({ quickScan: JSON.stringify(quickScan) }),
+    );
+    expect(mocks.savePublicScanJobProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "original_repos", payload: "{\"page\":1}" }),
+    );
+    expect(mocks.releasePublicScanExecutionLease).toHaveBeenCalledWith({
+      slot: 1,
+      jobId: "job-id",
+      leaseToken: "lease-token",
+    });
+  });
+});

@@ -58,6 +58,9 @@ import type {
   PublicScanJobLease,
   PublicScanJobPhase,
   PublicScanCommitRepoFact,
+  PublicScanCommitCandidate,
+  PublicScanCommitVerificationWork,
+  PublicScanOwnedRepoFact,
   PublicScanPrFact,
   PublicScanRun,
   PublicScanRunState,
@@ -295,6 +298,21 @@ function ensureSchema(db: Client): Promise<void> {
              WHERE state IN ('queued', 'running')`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_ready
              ON public_scan_jobs(state, next_run_at)`,
+          // Process-wide execution slots and API budgets live in Turso rather
+          // than Redis. A Redis outage must never turn a deployment or a queue
+          // replay into an unbounded GitHub crawl.
+          `CREATE TABLE IF NOT EXISTS public_scan_execution_leases (
+             slot             INTEGER PRIMARY KEY,
+             job_id           TEXT,
+             lease_token      TEXT,
+             lease_expires_at INTEGER NOT NULL DEFAULT 0
+           )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_rate_windows (
+             bucket           TEXT NOT NULL,
+             window_started   INTEGER NOT NULL,
+             count            INTEGER NOT NULL DEFAULT 0,
+             PRIMARY KEY(bucket, window_started)
+           )`,
           `CREATE TABLE IF NOT EXISTS public_scan_pr_facts (
              run_id             TEXT NOT NULL,
              pull_request_id    TEXT NOT NULL,
@@ -331,6 +349,59 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_commit_facts_run
              ON public_scan_commit_repo_facts(run_id)`,
+          // Search only discovers public commit candidates. Keep candidates
+          // separate until the corresponding repository default branch has been
+          // enumerated and verified; search results alone are never score facts.
+          `CREATE TABLE IF NOT EXISTS public_scan_commit_candidates (
+             run_id       TEXT NOT NULL,
+             sha          TEXT NOT NULL,
+             repo_key     TEXT NOT NULL,
+             owner_login  TEXT,
+             stars        INTEGER NOT NULL DEFAULT 0,
+             authored_at  TEXT,
+             PRIMARY KEY(run_id, sha, repo_key)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_commit_candidates_run_repo
+             ON public_scan_commit_candidates(run_id, repo_key, authored_at)`,
+          // One row is one repository/time range to verify through the default
+          // branch REST endpoint. Ranges split further if pagination would hit
+          // GitHub's result ceiling; completed rows form the materialized commit
+          // aggregate for the run.
+          `CREATE TABLE IF NOT EXISTS public_scan_commit_verification_work (
+             run_id              TEXT NOT NULL,
+             repo_key            TEXT NOT NULL,
+             range_from          TEXT NOT NULL,
+             range_to            TEXT NOT NULL,
+             owner_login         TEXT,
+             stars               INTEGER NOT NULL DEFAULT 0,
+             page                INTEGER NOT NULL DEFAULT 1,
+             state               TEXT NOT NULL CHECK(state IN ('queued', 'complete', 'superseded')),
+             commit_count        INTEGER NOT NULL DEFAULT 0,
+             first_committed_at  TEXT,
+             last_committed_at   TEXT,
+             active_years        TEXT NOT NULL DEFAULT '[]',
+             evidence_shas       TEXT NOT NULL DEFAULT '[]',
+             PRIMARY KEY(run_id, repo_key, range_from, range_to)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_commit_work_ready
+             ON public_scan_commit_verification_work(run_id, state, repo_key)`,
+          `CREATE TABLE IF NOT EXISTS public_scan_owned_repo_facts (
+             run_id       TEXT NOT NULL,
+             repo_key     TEXT NOT NULL,
+             name         TEXT NOT NULL,
+             owner_login  TEXT,
+             stars        INTEGER NOT NULL DEFAULT 0,
+             forks        INTEGER NOT NULL DEFAULT 0,
+             open_issues  INTEGER NOT NULL DEFAULT 0,
+             size         INTEGER NOT NULL DEFAULT 0,
+             language     TEXT,
+             description  TEXT,
+             pushed_at    TEXT,
+             topics       TEXT NOT NULL DEFAULT '[]',
+             PRIMARY KEY(run_id, repo_key)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_owned_repos_run_stars
+             ON public_scan_owned_repo_facts(run_id, stars DESC)`,
           // Legacy: AI-generated anonymous danmaku for the detail page. The
           // feature was removed; this table is no longer read or written and is
           // kept only so existing databases (which may hold rows) stay valid.
@@ -530,6 +601,26 @@ function ensureSchema(db: Client): Promise<void> {
         // New databases receive this field in CREATE TABLE. Existing durable
         // scan tables may have been created by an earlier deployment.
       }
+      try {
+        await db.execute(
+          `ALTER TABLE public_scan_commit_verification_work
+           ADD COLUMN active_years TEXT NOT NULL DEFAULT '[]'`,
+        );
+      } catch {
+        // Existing durable scan work rows can safely start with no year detail.
+      }
+      // One durable collection invocation is intentionally conservative. Each
+      // invocation is bounded, then QStash resumes it; a single slot keeps the
+      // GitHub Search and GraphQL quotas predictable when many stale profiles
+      // are discovered at once after a version bump.
+      await db.batch(
+        [{
+          sql: `INSERT OR IGNORE INTO public_scan_execution_leases
+                (slot, lease_expires_at) VALUES (1, 0)`,
+          args: [],
+        }],
+        "write",
+      );
     })().catch((e) => {
       schemaReady = null; // allow retry on next call
       throw e;
@@ -957,6 +1048,24 @@ export async function getLatestPublicScanRun(
   }
 }
 
+export async function getPublicScanRun(runId: string): Promise<PublicScanRun | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_runs WHERE id = ? LIMIT 1`,
+      args: [runId],
+    });
+    return result.rows[0]
+      ? mapPublicScanRun(result.rows[0] as Record<string, unknown>)
+      : null;
+  } catch (error) {
+    console.error("getPublicScanRun failed:", error);
+    return null;
+  }
+}
+
 /**
  * Claim a ready job with a database lease. A stale delivery can be recovered
  * after its lease expires; the next worker receives a fresh token and the old
@@ -1017,6 +1126,113 @@ export async function claimPublicScanJob(
   } catch (error) {
     console.error("claimPublicScanJob failed:", error);
     return null;
+  }
+}
+
+/**
+ * A database-backed, process-wide execution lease. QStash deliveries may land
+ * in many serverless instances at once, so per-process mutexes and Redis-only
+ * locks are insufficient. The single slot deliberately favors predictable
+ * GitHub quota use over throughput; each worker invocation is short and
+ * continues through the queue.
+ */
+export async function acquirePublicScanExecutionLease(input: {
+  jobId: string;
+  leaseToken: string;
+  leaseMs?: number;
+}): Promise<number | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const leaseExpiresAt = now + (input.leaseMs ?? 55_000);
+    const tx = await db.transaction("write");
+    try {
+      const candidate = await tx.execute({
+        sql: `SELECT slot FROM public_scan_execution_leases
+              WHERE lease_expires_at <= ?
+              ORDER BY slot
+              LIMIT 1`,
+        args: [now],
+      });
+      const slot = candidate.rows[0]?.slot;
+      if (typeof slot !== "number") {
+        await tx.rollback();
+        return null;
+      }
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_execution_leases
+              SET job_id = ?, lease_token = ?, lease_expires_at = ?
+              WHERE slot = ? AND lease_expires_at <= ?`,
+        args: [input.jobId, input.leaseToken, leaseExpiresAt, slot, now],
+      });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      return slot;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("acquirePublicScanExecutionLease failed:", error);
+    return null;
+  }
+}
+
+export async function releasePublicScanExecutionLease(input: {
+  slot: number;
+  jobId: string;
+  leaseToken: string;
+}): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `UPDATE public_scan_execution_leases
+            SET job_id = NULL, lease_token = NULL, lease_expires_at = 0
+            WHERE slot = ? AND job_id = ? AND lease_token = ?`,
+      args: [input.slot, input.jobId, input.leaseToken],
+    });
+  } catch (error) {
+    console.error("releasePublicScanExecutionLease failed:", error);
+  }
+}
+
+/**
+ * Atomically reserve a bounded operation in a wall-clock window. Unlike the
+ * normal public request limiter, this remains fail-closed when Redis is down
+ * because durable jobs run against the same shared Turso database.
+ */
+export async function acquirePublicScanRateWindow(input: {
+  bucket: string;
+  limit: number;
+  windowMs: number;
+}): Promise<{ granted: boolean; retryAt: number }> {
+  const db = getClient();
+  const now = Date.now();
+  const safeWindow = Math.max(1_000, Math.floor(input.windowMs));
+  const startedAt = Math.floor(now / safeWindow) * safeWindow;
+  const retryAt = startedAt + safeWindow;
+  if (!db) return { granted: false, retryAt };
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `INSERT INTO public_scan_rate_windows (bucket, window_started, count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(bucket, window_started) DO UPDATE SET count = count + 1
+              WHERE public_scan_rate_windows.count < ?`,
+      args: [input.bucket, startedAt, Math.max(1, Math.floor(input.limit))],
+    });
+    // `rowsAffected` is 0 when a full existing window rejected the increment.
+    return { granted: Number(result.rowsAffected ?? 0) === 1, retryAt };
+  } catch (error) {
+    console.error("acquirePublicScanRateWindow failed:", error);
+    return { granted: false, retryAt };
   }
 }
 
@@ -1082,6 +1298,52 @@ export async function savePublicScanQuickResult(input: {
     return true;
   } catch (error) {
     console.error("savePublicScanQuickResult failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Reuse the bounded synchronous probe that already established a high-history
+ * account needs durable collection. This avoids paying GitHub twice before the
+ * queued job starts; only an untouched `quick` job can be seeded.
+ */
+export async function seedPublicScanQuickResult(input: {
+  jobId: string;
+  runId: string;
+  quickScan: string;
+  sourceStatus: PublicScanSourceStatus;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const tx = await db.transaction("write");
+    try {
+      const now = Date.now();
+      const job = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET phase = 'original_repos', payload = '{"page":1}', updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'queued' AND phase = 'quick'`,
+        args: [now, input.jobId, input.runId],
+      });
+      if (Number(job.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
+              WHERE id = ?`,
+        args: [input.quickScan, JSON.stringify(input.sourceStatus), now, input.runId],
+      });
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("seedPublicScanQuickResult failed:", error);
     return false;
   }
 }
@@ -1317,6 +1579,435 @@ export async function upsertPublicScanCommitRepoFacts(input: {
   }
 }
 
+export async function upsertPublicScanCommitCandidates(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  candidates: PublicScanCommitCandidate[];
+}): Promise<boolean> {
+  if (input.candidates.length === 0) return true;
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    await db.batch(
+      input.candidates.map((candidate) => ({
+        sql: `INSERT INTO public_scan_commit_candidates
+                (run_id, sha, repo_key, owner_login, stars, authored_at)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(run_id, sha, repo_key) DO UPDATE SET
+                owner_login = COALESCE(excluded.owner_login, public_scan_commit_candidates.owner_login),
+                stars       = MAX(public_scan_commit_candidates.stars, excluded.stars),
+                authored_at = COALESCE(excluded.authored_at, public_scan_commit_candidates.authored_at)`,
+        args: [
+          input.runId,
+          candidate.sha,
+          candidate.repoKey,
+          candidate.ownerLogin,
+          Math.max(0, Math.round(candidate.stars)),
+          candidate.authoredAt,
+        ] as (string | number | null)[],
+      })),
+      "write",
+    );
+    return true;
+  } catch (error) {
+    console.error("upsertPublicScanCommitCandidates failed:", error);
+    return false;
+  }
+}
+
+export async function upsertPublicScanOwnedRepoFacts(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  facts: PublicScanOwnedRepoFact[];
+}): Promise<boolean> {
+  if (input.facts.length === 0) return true;
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    await db.batch(
+      input.facts.map((fact) => ({
+        sql: `INSERT INTO public_scan_owned_repo_facts
+                (run_id, repo_key, name, owner_login, stars, forks, open_issues,
+                 size, language, description, pushed_at, topics)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(run_id, repo_key) DO UPDATE SET
+                name        = excluded.name,
+                owner_login = COALESCE(excluded.owner_login, public_scan_owned_repo_facts.owner_login),
+                stars       = MAX(public_scan_owned_repo_facts.stars, excluded.stars),
+                forks       = MAX(public_scan_owned_repo_facts.forks, excluded.forks),
+                open_issues = MAX(public_scan_owned_repo_facts.open_issues, excluded.open_issues),
+                size        = MAX(public_scan_owned_repo_facts.size, excluded.size),
+                language    = COALESCE(excluded.language, public_scan_owned_repo_facts.language),
+                description = COALESCE(excluded.description, public_scan_owned_repo_facts.description),
+                pushed_at   = COALESCE(excluded.pushed_at, public_scan_owned_repo_facts.pushed_at),
+                topics      = excluded.topics`,
+        args: [
+          input.runId,
+          fact.repoKey,
+          fact.name,
+          fact.ownerLogin,
+          Math.max(0, Math.round(fact.stars)),
+          Math.max(0, Math.round(fact.forks)),
+          Math.max(0, Math.round(fact.openIssues)),
+          Math.max(0, Math.round(fact.size)),
+          fact.language,
+          fact.description,
+          fact.pushedAt,
+          JSON.stringify(fact.topics),
+        ] as (string | number | null)[],
+      })),
+      "write",
+    );
+    return true;
+  } catch (error) {
+    console.error("upsertPublicScanOwnedRepoFacts failed:", error);
+    return false;
+  }
+}
+
+export async function getPublicScanOwnedRepoFacts(runId: string): Promise<PublicScanOwnedRepoFact[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_owned_repo_facts
+            WHERE run_id = ? ORDER BY stars DESC, size DESC, repo_key ASC`,
+      args: [runId],
+    });
+    return result.rows.map((row) => {
+      const value = row as Record<string, unknown>;
+      let topics: string[] = [];
+      if (typeof value.topics === "string") {
+        try {
+          const parsed = JSON.parse(value.topics);
+          if (Array.isArray(parsed)) {
+            topics = parsed.filter((topic): topic is string => typeof topic === "string");
+          }
+        } catch {
+          // A malformed historic row is non-fatal; retain the repo facts.
+        }
+      }
+      return {
+        repoKey: String(value.repo_key),
+        name: String(value.name),
+        ownerLogin: typeof value.owner_login === "string" ? value.owner_login : null,
+        stars: Number(value.stars) || 0,
+        forks: Number(value.forks) || 0,
+        openIssues: Number(value.open_issues) || 0,
+        size: Number(value.size) || 0,
+        language: typeof value.language === "string" ? value.language : null,
+        description: typeof value.description === "string" ? value.description : null,
+        pushedAt: typeof value.pushed_at === "string" ? value.pushed_at : null,
+        topics,
+      };
+    });
+  } catch (error) {
+    console.error("getPublicScanOwnedRepoFacts failed:", error);
+    return [];
+  }
+}
+
+/** Seed default-branch verification from the discovered public candidate set. */
+export async function preparePublicScanCommitVerificationWork(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    await db.execute({
+      sql: `INSERT OR IGNORE INTO public_scan_commit_verification_work
+              (run_id, repo_key, range_from, range_to, owner_login, stars, state)
+            SELECT run_id,
+                   repo_key,
+                   MIN(authored_at),
+                   MAX(authored_at),
+                   MAX(owner_login),
+                   MAX(stars),
+                   'queued'
+            FROM public_scan_commit_candidates
+            WHERE run_id = ? AND authored_at IS NOT NULL
+            GROUP BY run_id, repo_key`,
+      args: [input.runId],
+    });
+    return true;
+  } catch (error) {
+    console.error("preparePublicScanCommitVerificationWork failed:", error);
+    return false;
+  }
+}
+
+function parseEvidenceShas(raw: unknown): string[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((sha): sha is string => typeof sha === "string").slice(0, 20)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseActiveYears(raw: unknown): number[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.from(
+      new Set(
+        Array.isArray(parsed)
+          ? parsed
+              .map((year) => Number(year))
+              .filter((year) => Number.isInteger(year) && year >= 1970 && year <= 3000)
+          : [],
+      ),
+    ).sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
+
+function mapPublicScanCommitVerificationWork(
+  row: Record<string, unknown>,
+): PublicScanCommitVerificationWork {
+  return {
+    runId: String(row.run_id),
+    repoKey: String(row.repo_key),
+    ownerLogin: typeof row.owner_login === "string" ? row.owner_login : null,
+    stars: Number(row.stars) || 0,
+    from: String(row.range_from),
+    to: String(row.range_to),
+    page: Number(row.page) || 1,
+    state: String(row.state) as PublicScanCommitVerificationWork["state"],
+    commitCount: Number(row.commit_count) || 0,
+    firstCommittedAt:
+      typeof row.first_committed_at === "string" ? row.first_committed_at : null,
+    lastCommittedAt: typeof row.last_committed_at === "string" ? row.last_committed_at : null,
+    activeYears: parseActiveYears(row.active_years),
+    evidenceShas: parseEvidenceShas(row.evidence_shas),
+  };
+}
+
+export async function getNextPublicScanCommitVerificationWork(
+  runId: string,
+): Promise<PublicScanCommitVerificationWork | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_commit_verification_work
+            WHERE run_id = ? AND state = 'queued'
+            ORDER BY repo_key, range_from
+            LIMIT 1`,
+      args: [runId],
+    });
+    return result.rows[0]
+      ? mapPublicScanCommitVerificationWork(result.rows[0] as Record<string, unknown>)
+      : null;
+  } catch (error) {
+    console.error("getNextPublicScanCommitVerificationWork failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Record a page exactly once by comparing the expected page number. If QStash
+ * retries after a successful write, the worker reads the advanced page instead
+ * of adding the same commits twice.
+ */
+export async function recordPublicScanCommitVerificationPage(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  work: PublicScanCommitVerificationWork;
+  commits: { sha: string; committedAt: string | null }[];
+  complete: boolean;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    const existingEvidence = input.work.evidenceShas;
+    const incomingEvidence = input.commits.map((commit) => commit.sha).filter(Boolean);
+    const evidence = [...new Set([...existingEvidence, ...incomingEvidence])].slice(0, 20);
+    const dates = input.commits
+      .map((commit) => commit.committedAt)
+      .filter((date): date is string => Boolean(date));
+    const activeYears = Array.from(
+      new Set([
+        ...input.work.activeYears,
+        ...dates
+          .map((date) => Number.parseInt(date.slice(0, 4), 10))
+          .filter((year) => Number.isInteger(year) && year >= 1970 && year <= 3000),
+      ]),
+    ).sort((a, b) => a - b);
+    const first = dates.length ? [...dates].sort()[0] : input.work.firstCommittedAt;
+    const last = dates.length ? [...dates].sort().at(-1)! : input.work.lastCommittedAt;
+    const update = await db.execute({
+      sql: `UPDATE public_scan_commit_verification_work
+            SET state = ?, page = ?, commit_count = commit_count + ?,
+                first_committed_at = CASE
+                  WHEN first_committed_at IS NULL THEN ?
+                  WHEN ? IS NULL THEN first_committed_at
+                  ELSE MIN(first_committed_at, ?)
+                END,
+                last_committed_at = CASE
+                  WHEN last_committed_at IS NULL THEN ?
+                  WHEN ? IS NULL THEN last_committed_at
+                  ELSE MAX(last_committed_at, ?)
+                END,
+                active_years = ?,
+                evidence_shas = ?
+            WHERE run_id = ? AND repo_key = ? AND range_from = ? AND range_to = ?
+              AND state = 'queued' AND page = ?`,
+      args: [
+        input.complete ? "complete" : "queued",
+        input.complete ? input.work.page : input.work.page + 1,
+        input.commits.length,
+        first,
+        first,
+        first,
+        last,
+        last,
+        last,
+        JSON.stringify(activeYears),
+        JSON.stringify(evidence),
+        input.runId,
+        input.work.repoKey,
+        input.work.from,
+        input.work.to,
+        input.work.page,
+      ],
+    });
+    return Number(update.rowsAffected ?? 0) === 1;
+  } catch (error) {
+    console.error("recordPublicScanCommitVerificationPage failed:", error);
+    return false;
+  }
+}
+
+export async function splitPublicScanCommitVerificationWork(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+  work: PublicScanCommitVerificationWork;
+  left: { from: string; to: string };
+  right: { from: string; to: string };
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    const tx = await db.transaction("write");
+    try {
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_commit_verification_work
+              SET state = 'superseded'
+              WHERE run_id = ? AND repo_key = ? AND range_from = ? AND range_to = ?
+                AND state = 'queued' AND page = ?`,
+        args: [input.runId, input.work.repoKey, input.work.from, input.work.to, input.work.page],
+      });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      await tx.batch(
+        [input.left, input.right].map((range) => ({
+          sql: `INSERT OR IGNORE INTO public_scan_commit_verification_work
+                  (run_id, repo_key, range_from, range_to, owner_login, stars, state)
+                VALUES (?, ?, ?, ?, ?, ?, 'queued')`,
+          args: [
+            input.runId,
+            input.work.repoKey,
+            range.from,
+            range.to,
+            input.work.ownerLogin,
+            input.work.stars,
+          ] as (string | number | null)[],
+        })),
+      );
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("splitPublicScanCommitVerificationWork failed:", error);
+    return false;
+  }
+}
+
+/** Materialize verified default-branch work only after every range is complete. */
+export async function materializePublicScanCommitRepoFacts(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+}): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    if (!(await hasPublicScanLease(db, input))) return false;
+    const unfinished = await db.execute({
+      sql: `SELECT 1 FROM public_scan_commit_verification_work
+            WHERE run_id = ? AND state = 'queued' LIMIT 1`,
+      args: [input.runId],
+    });
+    if (unfinished.rows[0]) return false;
+    await db.execute({
+      sql: `INSERT INTO public_scan_commit_repo_facts
+              (run_id, repo_key, owner_login, stars, commits, active_years,
+               first_committed_at, last_committed_at, source, evidence_shas)
+            SELECT run_id,
+                   repo_key,
+                   MAX(owner_login),
+                   MAX(stars),
+                   SUM(commit_count),
+                   (SELECT COUNT(DISTINCT years.value)
+                    FROM public_scan_commit_verification_work AS year_rows,
+                         json_each(year_rows.active_years) AS years
+                    WHERE year_rows.run_id = public_scan_commit_verification_work.run_id
+                      AND year_rows.repo_key = public_scan_commit_verification_work.repo_key
+                      AND year_rows.state = 'complete'),
+                   MIN(first_committed_at),
+                   MAX(last_committed_at),
+                   'default_branch_rest',
+                   MAX(evidence_shas)
+            FROM public_scan_commit_verification_work
+            WHERE run_id = ? AND state = 'complete'
+            GROUP BY run_id, repo_key
+            ON CONFLICT(run_id, repo_key) DO UPDATE SET
+              owner_login        = excluded.owner_login,
+              stars              = excluded.stars,
+              commits            = excluded.commits,
+              active_years       = excluded.active_years,
+              first_committed_at = excluded.first_committed_at,
+              last_committed_at  = excluded.last_committed_at,
+              source             = excluded.source,
+              evidence_shas      = excluded.evidence_shas`,
+      args: [input.runId],
+    });
+    return true;
+  } catch (error) {
+    console.error("materializePublicScanCommitRepoFacts failed:", error);
+    return false;
+  }
+}
+
 export interface PublicScanContributionAggregate {
   repo: string;
   stars: number;
@@ -1326,6 +2017,45 @@ export interface PublicScanContributionAggregate {
   commits: number;
   prs: number;
   activeYears: number;
+}
+
+export interface PublicScanPrSummary {
+  nativeMergedPrs: number;
+  workflowLandedPrs: number;
+  workflowLandedImpactPrs: number;
+}
+
+export async function getPublicScanPrSummary(
+  runId: string,
+  username: string,
+): Promise<PublicScanPrSummary> {
+  const db = getClient();
+  if (!db) return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT
+              SUM(CASE WHEN source = 'native_merged' THEN 1 ELSE 0 END) AS native_merged_prs,
+              SUM(CASE WHEN source = 'workflow_landed' THEN 1 ELSE 0 END) AS workflow_landed_prs,
+              SUM(CASE
+                WHEN source = 'workflow_landed'
+                 AND ((lower(COALESCE(owner_login, '')) = lower(?) AND stars >= 1000)
+                      OR (lower(COALESCE(owner_login, '')) <> lower(?) AND stars >= 200))
+                THEN 1 ELSE 0 END) AS workflow_landed_impact_prs
+            FROM public_scan_pr_facts
+            WHERE run_id = ?`,
+      args: [username, username, runId],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return {
+      nativeMergedPrs: Number(row?.native_merged_prs) || 0,
+      workflowLandedPrs: Number(row?.workflow_landed_prs) || 0,
+      workflowLandedImpactPrs: Number(row?.workflow_landed_impact_prs) || 0,
+    };
+  } catch (error) {
+    console.error("getPublicScanPrSummary failed:", error);
+    return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+  }
 }
 
 /**
@@ -2777,6 +3507,8 @@ export interface AccountDetail {
   roast: string | null;
   /** English roast report; null until an `/en` roast has been generated. */
   roast_en: string | null;
+  /** Score formula version that produced this persisted profile. */
+  score_version?: string | null;
   scanned_at: number;
   /** Previous scan's score/time (progress-board columns); NULL until a re-scan. */
   prev_score: number | null;
@@ -3093,7 +3825,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, roast_line, sub_scores, roast, roast_en, scanned_at,
+                   tags, roast_line, sub_scores, roast, roast_en, score_version, scanned_at,
                    prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
@@ -3114,6 +3846,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       sub_scores: parseSubScores(r.sub_scores),
       roast: (r.roast as string | null) ?? null,
       roast_en: (r.roast_en as string | null) ?? null,
+      score_version: typeof r.score_version === "string" ? r.score_version : null,
       scanned_at: Number(r.scanned_at),
       prev_score: r.prev_score === null ? null : Number(r.prev_score),
       prev_scanned_at: r.prev_scanned_at === null ? null : Number(r.prev_scanned_at),

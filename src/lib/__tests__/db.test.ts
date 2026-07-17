@@ -220,6 +220,46 @@ describe("durable public scan jobs", () => {
     ).resolves.toBe(true);
   });
 
+  it("uses a Turso execution slot and rate window when Redis is unavailable", async () => {
+    const one = await db.enqueuePublicScan("slot-one", versions);
+    const two = await db.enqueuePublicScan("slot-two", versions);
+    const leaseOne = await db.claimPublicScanJob(one!.job.id);
+    const leaseTwo = await db.claimPublicScanJob(two!.job.id);
+
+    const firstSlot = await db.acquirePublicScanExecutionLease({
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    const blockedSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(firstSlot).toBe(1);
+    expect(blockedSlot).toBeNull();
+
+    await db.releasePublicScanExecutionLease({
+      slot: firstSlot!,
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    await expect(
+      db.acquirePublicScanExecutionLease({
+        jobId: two!.job.id,
+        leaseToken: leaseTwo!.leaseToken,
+      }),
+    ).resolves.toBe(1);
+
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: true });
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: true });
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: false });
+  });
+
   it("aggregates lease-guarded PR and commit facts without double-counting replayed pages", async () => {
     const queued = await db.enqueuePublicScan("fact-aggregate", versions);
     const lease = await db.claimPublicScanJob(queued!.job.id);

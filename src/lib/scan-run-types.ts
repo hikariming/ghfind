@@ -95,3 +95,41 @@ export interface PublicScanCommitRepoFact {
   source: "contribution_graph" | "default_branch_rest";
   evidenceShas: string[];
 }
+
+export interface PublicScanCommitCandidate {
+  sha: string;
+  repoKey: string;
+  ownerLogin: string | null;
+  stars: number;
+  authoredAt: string | null;
+}
+
+export interface PublicScanCommitVerificationWork {
+  runId: string;
+  repoKey: string;
+  ownerLogin: string | null;
+  stars: number;
+  from: string;
+  to: string;
+  page: number;
+  state: "queued" | "complete" | "superseded";
+  commitCount: number;
+  firstCommittedAt: string | null;
+  lastCommittedAt: string | null;
+  activeYears: number[];
+  evidenceShas: string[];
+}
+
+export interface PublicScanOwnedRepoFact {
+  repoKey: string;
+  name: string;
+  ownerLogin: string | null;
+  stars: number;
+  forks: number;
+  openIssues: number;
+  size: number;
+  language: string | null;
+  description: string | null;
+  pushedAt: string | null;
+  topics: string[];
+}

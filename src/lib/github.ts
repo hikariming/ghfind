@@ -16,7 +16,7 @@ import type {
   RepoReadme,
   TopRepo,
 } from "./types";
-import type { PublicScanPrFact } from "./scan-run-types";
+import type { PublicScanOwnedRepoFact, PublicScanPrFact } from "./scan-run-types";
 
 const GITHUB_API = "https://api.github.com";
 const README_FETCH_LIMIT = 1024 * 1024;
@@ -227,6 +227,203 @@ async function restGet<T>(path: string): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+export interface DurableOwnedRepositoryPage {
+  facts: PublicScanOwnedRepoFact[];
+  hasNextPage: boolean;
+}
+
+/**
+ * REST owns the user's public repository inventory and is cursor-like through
+ * page numbers. The quick scan intentionally reads only two pages; durable
+ * jobs continue until an empty/short page so project quality cannot silently
+ * depend on repository count.
+ */
+export async function fetchDurableOwnedRepositoryPage(input: {
+  username: string;
+  page: number;
+}): Promise<DurableOwnedRepositoryPage> {
+  const page = Math.max(1, Math.floor(input.page));
+  const repos = await restGet<RestRepo[]>(
+    `users/${encodeURIComponent(input.username)}/repos?per_page=100&sort=pushed&page=${page}`,
+  );
+  if (repos === null) {
+    throw new GitHubDataUnavailableError("GitHub repository inventory is unavailable.");
+  }
+  return {
+    facts: repos
+      .filter((repo) => !repo.fork)
+      .map((repo) => {
+        const owner = repo.owner?.login ?? repo.full_name?.split("/", 1)[0] ?? input.username;
+        return {
+          repoKey: repo.full_name ?? `${owner}/${repo.name}`,
+          name: repo.name,
+          ownerLogin: owner,
+          stars: repo.stargazers_count ?? 0,
+          forks: repo.forks_count ?? 0,
+          openIssues: repo.open_issues_count ?? 0,
+          size: repo.size ?? 0,
+          language: repo.language ?? null,
+          description: repo.description ?? null,
+          pushedAt: repo.pushed_at ?? null,
+          topics: repo.topics ?? [],
+        };
+      }),
+    hasNextPage: repos.length === 100,
+  };
+}
+
+export interface PublicCommitSearchPage {
+  totalCount: number;
+  incompleteResults: boolean;
+  candidates: {
+    sha: string;
+    repoKey: string;
+    ownerLogin: string | null;
+    stars: number;
+    authoredAt: string | null;
+  }[];
+}
+
+interface RestCommitSearchResponse {
+  total_count?: number;
+  incomplete_results?: boolean;
+  items?: {
+    sha?: string | null;
+    repository?: {
+      full_name?: string | null;
+      stargazers_count?: number | null;
+      owner?: { login?: string | null } | null;
+    } | null;
+    commit?: { author?: { date?: string | null } | null } | null;
+  }[];
+}
+
+/**
+ * Search only discovers candidate public commits. Callers must follow it with
+ * {@link listPublicDefaultBranchCommits} before treating a result as impact.
+ */
+export async function searchPublicCommitCandidates(input: {
+  username: string;
+  from: string;
+  to: string;
+  page?: number;
+  perPage?: number;
+}): Promise<PublicCommitSearchPage> {
+  const page = Math.max(1, input.page ?? 1);
+  const perPage = Math.max(1, Math.min(input.perPage ?? 100, 100));
+  const query = `author:${input.username} author-date:${input.from}..${input.to}`;
+  let res: Response;
+  try {
+    res = await ghFetch(
+      `${GITHUB_API}/search/commits?${new URLSearchParams({
+        q: query,
+        page: String(page),
+        per_page: String(perPage),
+      }).toString()}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+        },
+      },
+    );
+  } catch {
+    throw new GitHubDataUnavailableError("GitHub commit search failed.");
+  }
+  if (res.status === 403 || res.status === 429) throw new GitHubRateLimitError();
+  if (!res.ok) {
+    throw new GitHubDataUnavailableError(`GitHub commit search HTTP ${res.status}.`);
+  }
+  let data: RestCommitSearchResponse;
+  try {
+    data = (await res.json()) as RestCommitSearchResponse;
+  } catch {
+    throw new GitHubDataUnavailableError("GitHub commit search returned invalid JSON.");
+  }
+  return {
+    totalCount: Math.max(0, Number(data.total_count) || 0),
+    incompleteResults: Boolean(data.incomplete_results),
+    candidates: (data.items ?? [])
+      .map((item) => {
+        const repo = item.repository?.full_name?.trim();
+        const sha = item.sha?.trim();
+        if (!repo || !sha) return null;
+        return {
+          sha,
+          repoKey: repo,
+          ownerLogin: item.repository?.owner?.login ?? null,
+          stars: Math.max(0, Number(item.repository?.stargazers_count) || 0),
+          authoredAt: item.commit?.author?.date ?? null,
+        };
+      })
+      .filter(
+        (candidate): candidate is PublicCommitSearchPage["candidates"][number] => candidate !== null,
+      ),
+  };
+}
+
+export interface PublicDefaultBranchCommitPage {
+  commits: { sha: string; committedAt: string | null }[];
+  hasNextPage: boolean;
+}
+
+interface RestDefaultBranchCommit {
+  sha?: string | null;
+  commit?: { committer?: { date?: string | null } | null } | null;
+}
+
+/**
+ * The REST list-commits endpoint starts from the repository default branch when
+ * `sha` is omitted. This is the verification step that makes discovered commit
+ * candidates eligible for ecosystem-impact aggregation.
+ */
+export async function listPublicDefaultBranchCommits(input: {
+  repoKey: string;
+  username: string;
+  from: string;
+  to: string;
+  page: number;
+}): Promise<PublicDefaultBranchCommitPage> {
+  const [owner, repo] = input.repoKey.split("/", 2);
+  if (!owner || !repo) {
+    throw new GitHubDataUnavailableError("Invalid repository key for commit verification.");
+  }
+  const params = new URLSearchParams({
+    author: input.username,
+    since: input.from,
+    until: input.to,
+    page: String(Math.max(1, input.page)),
+    per_page: "100",
+  });
+  let res: Response;
+  try {
+    res = await ghFetch(
+      `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?${params.toString()}`,
+    );
+  } catch {
+    throw new GitHubDataUnavailableError("GitHub default-branch commit lookup failed.");
+  }
+  if (res.status === 403 || res.status === 429) throw new GitHubRateLimitError();
+  if (!res.ok) {
+    throw new GitHubDataUnavailableError(`GitHub default-branch commits HTTP ${res.status}.`);
+  }
+  let data: RestDefaultBranchCommit[];
+  try {
+    data = (await res.json()) as RestDefaultBranchCommit[];
+  } catch {
+    throw new GitHubDataUnavailableError("GitHub default-branch commits returned invalid JSON.");
+  }
+  const hasNextPage = /<[^>]+>;\s*rel="next"/i.test(res.headers.get("link") ?? "");
+  return {
+    commits: (data ?? [])
+      .map((commit) => {
+        const sha = commit.sha?.trim();
+        return sha ? { sha, committedAt: commit.commit?.committer?.date ?? null } : null;
+      })
+      .filter((commit): commit is { sha: string; committedAt: string | null } => commit !== null),
+    hasNextPage,
+  };
 }
 
 async function graphql<T>(
@@ -717,6 +914,28 @@ async function fetchRepoLanguages(
     .sort((a, b) => b.size - a.size);
 }
 
+/** Hydrate bounded README/language evidence after a durable repo inventory. */
+export async function hydrateTopRepoEvidence(
+  repos: TopRepo[],
+  fallbackOwner: string,
+  limit = 12,
+): Promise<TopRepo[]> {
+  const selected = repos.slice(0, Math.max(0, limit));
+  await Promise.all(
+    selected.map(async (repo) => {
+      const owner = repo.owner_login ?? fallbackOwner;
+      const [readme, languages] = await Promise.all([
+        fetchReadmeDocument(owner, repo.name),
+        fetchRepoLanguages(owner, repo.name),
+      ]);
+      repo.readme = readme ?? undefined;
+      repo.readme_excerpt = readme?.features.prompt_summary ?? null;
+      repo.languages = languages;
+    }),
+  );
+  return repos;
+}
+
 async function fetchRepoDetails(owner: string, repo: string): Promise<RestRepo | null> {
   return restGet<RestRepo>(`repos/${owner}/${repo}`).catch(() => null);
 }
@@ -1111,6 +1330,63 @@ function isOfficialMergeBotActor(actor: WorkflowTimelineActor | null): actor is 
     actor?.login &&
       (actor.__typename === "Bot" || /(?:merge|land)[-_]?bot$/i.test(actor.login)),
   );
+}
+
+/**
+ * Verify candidate closed PR ids from the durable label crawl. A `Merged` label
+ * alone is deliberately insufficient: the same official bot must apply it and
+ * later close the PR. The returned facts replace the candidate's `closed`
+ * source, while native merges remain a separate source.
+ */
+export async function verifyWorkflowLandedPublicScanFacts(
+  ids: string[],
+): Promise<PublicScanPrFact[]> {
+  const unique = [...new Set(ids)].filter(Boolean).slice(0, 25);
+  if (unique.length === 0) return [];
+  const data = await graphql<{
+    nodes: (WorkflowLandedPrNode | { __typename: string } | null)[];
+  }>(
+    `query($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on PullRequest {
+          __typename id title createdAt closedAt mergedAt additions deletions changedFiles
+          repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
+          timelineItems(last: 20, itemTypes: [LABELED_EVENT, CLOSED_EVENT]) {
+            nodes {
+              __typename
+              ... on LabeledEvent { createdAt actor { login __typename } label { name } }
+              ... on ClosedEvent { createdAt actor { login __typename } }
+            }
+          }
+        }
+      }
+    }`,
+    { ids: unique },
+  );
+  return data.nodes
+    .filter((node): node is WorkflowLandedPrNode & {
+      title?: string | null;
+      createdAt?: string | null;
+      closedAt?: string | null;
+    } => node?.__typename === "PullRequest")
+    .filter(isWorkflowLandedPr)
+    .map((node) => ({
+      pullRequestId: node.id,
+      source: "workflow_landed" as const,
+      repoKey: node.repository!.nameWithOwner,
+      ownerLogin: node.repository!.owner?.login ?? null,
+      stars: node.repository!.stargazerCount ?? 0,
+      isPrivate: node.repository!.isPrivate,
+      isFork: node.repository!.isFork,
+      createdAt: node.createdAt ?? null,
+      mergedAt: node.mergedAt ?? null,
+      closedAt: node.closedAt ?? null,
+      title: node.title ?? null,
+      additions: node.additions ?? null,
+      deletions: node.deletions ?? null,
+      changedFiles: node.changedFiles ?? null,
+      labels: ["Merged"],
+    }));
 }
 
 async function fetchWorkflowLandedPrs(
