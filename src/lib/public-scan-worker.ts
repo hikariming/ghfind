@@ -366,7 +366,6 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
         phase: "commit_recovery",
         payload: { mode: "discover", ranges: [{ from, to: new Date().toISOString(), page: 1 }] },
         sources,
-        delaySeconds: 2,
       });
     }
 
@@ -388,7 +387,6 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
             phase: "commit_recovery",
             payload: { mode: "verify" },
             sources,
-            delaySeconds: 2,
           });
         }
         // Commit Search has a much smaller global quota than normal GitHub REST
@@ -425,7 +423,6 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
             phase: "commit_recovery",
             payload: { mode: "discover", ranges: [left, right, ...ranges.slice(1)] },
             sources,
-            delaySeconds: 2,
           });
         }
         const stored = await upsertPublicScanCommitCandidates({
@@ -446,7 +443,6 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
           phase: "commit_recovery",
           payload: { mode: "discover", ranges: nextRanges },
           sources,
-          delaySeconds: 2,
         });
       }
 
@@ -504,7 +500,6 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
         phase: "commit_recovery",
         payload: { mode: "verify" },
         sources,
-        delaySeconds: 2,
       });
     }
 

@@ -106,7 +106,11 @@ describe("public scan worker", () => {
       expect.objectContaining({ facts: [] }),
     );
     expect(mocks.savePublicScanJobProgress).toHaveBeenCalledWith(
-      expect.objectContaining({ phase: "original_repos", payload: "{\"page\":1}" }),
+      expect.objectContaining({
+        phase: "original_repos",
+        payload: "{\"page\":1}",
+        nextRunAt: undefined,
+      }),
     );
     expect(mocks.releasePublicScanExecutionLease).toHaveBeenCalledWith({
       slot: 1,

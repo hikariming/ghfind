@@ -141,8 +141,11 @@ CRON_SECRET=
 
 ## Collection Phases
 
-Each phase persists its result and next cursor before returning. Replays are
-idempotent through run-scoped uniqueness keys and the execution lease.
+Each phase persists its result and next cursor before returning. Normal
+continuations are immediately eligible for the same bounded Cron drain, so one
+five-minute invocation can advance several pages. Only explicit quota/backoff
+states defer `next_run_at`. Replays are idempotent through run-scoped uniqueness
+keys and the execution lease.
 
 1. **Quick facts**: bounded profile, contribution totals, recent samples, and
    current repository overview. A public route can seed this already-paid input
