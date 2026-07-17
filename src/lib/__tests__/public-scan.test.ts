@@ -6,17 +6,12 @@ const mocks = vi.hoisted(() => ({
   enqueuePublicScan: vi.fn(),
   getLatestPublicScanRun: vi.fn(),
   seedPublicScanQuickResult: vi.fn(),
-  schedulePublicScanDelivery: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   enqueuePublicScan: mocks.enqueuePublicScan,
   getLatestPublicScanRun: mocks.getLatestPublicScanRun,
   seedPublicScanQuickResult: mocks.seedPublicScanQuickResult,
-}));
-
-vi.mock("@/lib/public-scan-queue", () => ({
-  schedulePublicScanDelivery: mocks.schedulePublicScanDelivery,
 }));
 
 import { requiresDurablePublicScan, resolvePublicScan } from "../public-scan";
@@ -62,7 +57,6 @@ describe("durable public scan admission", () => {
     vi.clearAllMocks();
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.seedPublicScanQuickResult.mockResolvedValue(true);
-    mocks.schedulePublicScanDelivery.mockResolvedValue(true);
   });
 
   it("only diverts bounded-coverage cases", () => {
@@ -88,10 +82,6 @@ describe("durable public scan admission", () => {
     });
     expect(mocks.seedPublicScanQuickResult).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: "job-id", runId: "run-id" }),
-    );
-    expect(mocks.schedulePublicScanDelivery).toHaveBeenCalledWith(
-      { jobId: "job-id" },
-      expect.objectContaining({ deduplicationId: "job-id:initial" }),
     );
   });
 

@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   savePublicScanJobProgress: vi.fn(),
   releasePublicScanExecutionLease: vi.fn(),
   buildScanResult: vi.fn(),
-  schedulePublicScanDelivery: vi.fn(),
   fetchDurablePullRequestPage: vi.fn(),
   upsertPublicScanPrFacts: vi.fn(),
   upsertPublicScanCommitRepoFacts: vi.fn(),
@@ -54,10 +53,6 @@ vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
 }));
 
-vi.mock("@/lib/public-scan-queue", () => ({
-  schedulePublicScanDelivery: mocks.schedulePublicScanDelivery,
-}));
-
 vi.mock("@/lib/redis", () => ({ setCachedScan: vi.fn() }));
 
 import { processPublicScanJob } from "../public-scan-worker";
@@ -93,7 +88,6 @@ describe("public scan worker", () => {
     mocks.buildScanResult.mockResolvedValue(quickScan);
     mocks.savePublicScanQuickResult.mockResolvedValue(true);
     mocks.savePublicScanJobProgress.mockResolvedValue(true);
-    mocks.schedulePublicScanDelivery.mockResolvedValue(true);
     mocks.fetchDurablePullRequestPage.mockResolvedValue({ facts: [], hasNextPage: false, endCursor: null });
     mocks.upsertPublicScanPrFacts.mockResolvedValue(true);
     mocks.upsertPublicScanCommitRepoFacts.mockResolvedValue(true);

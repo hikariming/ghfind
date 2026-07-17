@@ -35,7 +35,6 @@ import {
   applyPublicOriginalRepoInventory,
   buildScanResult,
 } from "./scan-core";
-import { schedulePublicScanDelivery } from "./public-scan-queue";
 import { setCachedScan } from "./redis";
 import type {
   PublicScanJobPhase,
@@ -127,19 +126,6 @@ function toTopRepo(fact: Awaited<ReturnType<typeof getPublicScanOwnedRepoFacts>>
   };
 }
 
-async function scheduleContinuation(
-  jobId: string,
-  phase: PublicScanJobPhase,
-  payload: string,
-  delaySeconds = 0,
-): Promise<void> {
-  const fingerprint = createHash("sha256").update(payload).digest("hex").slice(0, 16);
-  await schedulePublicScanDelivery(
-    { jobId },
-    { delaySeconds, deduplicationId: `${jobId}:${phase}:${fingerprint}` },
-  );
-}
-
 async function continueJob(input: {
   jobId: string;
   runId: string;
@@ -163,14 +149,13 @@ async function continueJob(input: {
         : undefined,
   });
   if (!saved) return { status: "idle" };
-  await scheduleContinuation(input.jobId, input.phase, rawPayload, input.delaySeconds ?? 0);
   return { status: "continued", jobId: input.jobId, phase: input.phase };
 }
 
 /**
  * Execute exactly one bounded collection step. The database job lease makes the
- * method safe under QStash duplicate deliveries; the route that invokes it
- * should always return success after a stale/no-op delivery.
+ * method safe under Cron overlap and request after-work; the caller can safely
+ * treat a stale/no-op delivery as successful.
  */
 export async function processPublicScanJob(jobId?: string): Promise<PublicScanWorkerResult> {
   const lease = await claimPublicScanJob(jobId);
@@ -406,8 +391,8 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
           });
         }
         // Commit Search has a much smaller global quota than normal GitHub REST
-        // reads. Reserve from Turso before each page, so QStash retries and a
-        // Redis outage cannot stampede the shared token.
+        // reads. Reserve from Turso before each page, so retried Cron work and
+        // a Redis outage cannot stampede the shared token.
         const searchBudget = await acquirePublicScanRateWindow({
           bucket: "github-commit-search",
           limit: 20,
@@ -574,19 +559,13 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
   } catch (error) {
     const detail = error instanceof Error ? error.message : "durable public scan failed";
     const retryAt = job.attemptCount < 4 ? Date.now() + 5_000 * 2 ** job.attemptCount : undefined;
-    const failed = await failPublicScanJob({
+    await failPublicScanJob({
       jobId: job.id,
       runId: job.runId,
       leaseToken,
       error: detail,
       retryAt,
     });
-    if (failed && retryAt) {
-      await schedulePublicScanDelivery(
-        { jobId: job.id },
-        { delaySeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)) },
-      );
-    }
     console.error("processPublicScanJob failed:", error);
     return { status: "failed", jobId: job.id };
   } finally {

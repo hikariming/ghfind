@@ -2,10 +2,8 @@ import {
   enqueuePublicScan,
   getLatestPublicScanRun,
   seedPublicScanQuickResult,
-  type EnqueuedPublicScan,
 } from "./db";
 import { SCORE_CACHE_VERSION } from "./cache-version";
-import { schedulePublicScanDelivery } from "./public-scan-queue";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanRun } from "./scan-run-types";
 import { score } from "./score";
 import type { ScanResult } from "./types";
@@ -15,7 +13,7 @@ const FAILED_RUN_RETRY_MS = 15 * 60 * 1_000;
 export type PublicScanResolution =
   | { status: "complete"; run: PublicScanRun; scan: ScanResult }
   | { status: "pending"; run: PublicScanRun; retryAfterSeconds: number }
-  | { status: "queue_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
+  | { status: "storage_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
   | { status: "failed"; run: PublicScanRun; retryAfterSeconds: number };
 
 function parseCompleteSnapshot(run: PublicScanRun): ScanResult | null {
@@ -46,6 +44,7 @@ export function requiresDurablePublicScan(scan: ScanResult): boolean {
   const metrics = scan.metrics;
   return Boolean(
     metrics.commit_contribution_aggregation_unavailable ||
+      metrics.merged_pr_contribution_aggregation_incomplete ||
       metrics.merged_pr_count > 300 ||
       metrics.total_pr_count > 600 ||
       metrics.public_repos > metrics.fetched_repo_count,
@@ -59,17 +58,10 @@ function retryAfter(run: PublicScanRun): number {
   return 5;
 }
 
-async function schedule(enqueued: EnqueuedPublicScan): Promise<boolean> {
-  return schedulePublicScanDelivery(
-    { jobId: enqueued.job.id },
-    { deduplicationId: `${enqueued.job.id}:initial` },
-  );
-}
-
 /**
  * Return the immutable current-version complete snapshot if available, else
- * enqueue/resume one durable job. The database job remains the source of truth;
- * queue delivery is retried by every later read while the run is active.
+ * enqueue/resume one durable job. The database remains both the source of truth
+ * and the queue; request after-work and the deployment Cron drain it server-side.
  */
 export async function resolvePublicScan(
   username: string,
@@ -90,7 +82,8 @@ export async function resolvePublicScan(
 
   const enqueued = await enqueuePublicScan(username, versions);
   if (!enqueued) {
-    return { status: "queue_unavailable", run: existing ?? null, retryAfterSeconds: 30 };
+    // Turso itself is unavailable. Do not pretend a durable queue exists.
+    return { status: "storage_unavailable", run: existing ?? null, retryAfterSeconds: 30 };
   }
   if (quickScan && enqueued.created) {
     await seedPublicScanQuickResult({
@@ -105,10 +98,6 @@ export async function resolvePublicScan(
         commit_recovery: "pending",
       },
     });
-  }
-  const delivered = await schedule(enqueued);
-  if (!delivered) {
-    return { status: "queue_unavailable", run: enqueued.run, retryAfterSeconds: 30 };
   }
   return { status: "pending", run: enqueued.run, retryAfterSeconds: retryAfter(enqueued.run) };
 }

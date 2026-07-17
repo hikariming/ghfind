@@ -251,10 +251,10 @@ function ensureSchema(db: Client): Promise<void> {
           `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
              ON profile_snapshots(username, scanned_at DESC)`,
           // Durable public-history scans. Redis remains the fast cache, but it
-          // cannot be the source of truth for a multi-delivery job: QStash can
-          // retry after a Vercel process has gone away, and Redis can be
-          // temporarily unavailable. These rows carry the resumable cursor,
-          // source coverage, and final immutable snapshot in Turso instead.
+          // cannot be the source of truth for a job that may outlive a Vercel
+          // invocation or resume from a later Cron run. These rows carry the
+          // resumable cursor, source coverage, and final immutable snapshot in
+          // Turso instead.
           `CREATE TABLE IF NOT EXISTS public_scan_runs (
              id                 TEXT PRIMARY KEY,
              username           TEXT NOT NULL,
@@ -619,9 +619,10 @@ function ensureSchema(db: Client): Promise<void> {
         // Existing durable scan work rows can safely start with no year detail.
       }
       // One durable collection invocation is intentionally conservative. Each
-      // invocation is bounded, then QStash resumes it; a single slot keeps the
-      // GitHub Search and GraphQL quotas predictable when many stale profiles
-      // are discovered at once after a version bump.
+      // invocation is bounded, then a later request-after task or Cron run
+      // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
+      // predictable when many stale profiles are discovered after a version
+      // bump.
       await db.batch(
         [{
           sql: `INSERT OR IGNORE INTO public_scan_execution_leases
@@ -1138,11 +1139,11 @@ export async function claimPublicScanJob(
 }
 
 /**
- * A database-backed, process-wide execution lease. QStash deliveries may land
- * in many serverless instances at once, so per-process mutexes and Redis-only
- * locks are insufficient. The single slot deliberately favors predictable
- * GitHub quota use over throughput; each worker invocation is short and
- * continues through the queue.
+ * A database-backed, process-wide execution lease. Request-after work and
+ * overlapping Cron invocations may land in different serverless instances, so
+ * per-process mutexes and Redis-only locks are insufficient. The single slot
+ * deliberately favors predictable GitHub quota use over throughput; each
+ * worker invocation is short and continues through the queue.
  */
 export async function acquirePublicScanExecutionLease(input: {
   jobId: string;
@@ -1852,9 +1853,9 @@ export async function getNextPublicScanCommitVerificationWork(
 }
 
 /**
- * Record a page exactly once by comparing the expected page number. If QStash
- * retries after a successful write, the worker reads the advanced page instead
- * of adding the same commits twice.
+ * Record a page exactly once by comparing the expected page number. If a
+ * request-after task or Cron invocation retries after a successful write, the
+ * worker reads the advanced page instead of adding the same commits twice.
  */
 export async function recordPublicScanCommitVerificationPage(input: {
   jobId: string;
