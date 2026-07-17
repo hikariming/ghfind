@@ -209,6 +209,22 @@ TURSO_DATABASE_URL=file:./local.db
 6. (Optional) set `PUBLIC_SITE_URL` when deploying under a custom domain so metadata, sitemap, cards, and LLM attribution use the right origin.
 7. Deploy.
 
+### WAF proxy-farm ASN denylist
+
+The high-confidence proxy-farm ASN list is versioned in
+[`config/proxy-farm-asns.json`](./config/proxy-farm-asns.json). It is shared by
+the traffic report and the production WAF rule, so analytics classification and
+blocking cannot silently drift apart. General cloud providers, consumer VPNs,
+and residential networks are deliberately excluded.
+
+`pnpm waf:sync` is dry-run only and prints the exact Vercel rule. After review,
+run `pnpm waf:sync -- --apply` from an operator shell with `VERCEL_TOKEN`,
+`VERCEL_PROJECT_ID`, and, when needed, `VERCEL_TEAM_ID`. The script reads the
+current Firewall configuration first, creates the `geo_as_number` deny rule only
+when absent, and refuses to overwrite a changed live rule. Firewall changes take
+effect independently of a deployment; do not add the operator token to runtime
+environment variables.
+
 ## Bring your own model / API key
 
 Click "Use your own model" on the page and enter Base URL + API Key + Model. Compatible with any OpenAI-style API (OpenAI / OpenRouter / Groq / DeepSeek / local). **The key lives only in your own browser's localStorage, is passed directly on call, and is never uploaded to the server or persisted.**

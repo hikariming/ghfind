@@ -206,6 +206,20 @@ TURSO_DATABASE_URL=file:./local.db
 6. (可选)自定义域名部署时设置 `PUBLIC_SITE_URL`,保证 metadata、sitemap、卡片和 LLM attribution 使用正确域名。
 7. Deploy。
 
+### WAF 代理农场 ASN 拦截
+
+高置信代理农场 ASN 清单维护在
+[`config/proxy-farm-asns.json`](./config/proxy-farm-asns.json),流量报表和生产
+WAF 共用它,不会出现报表识别与实际拦截口径漂移。AWS 等通用云、消费级 VPN 和
+居民网络可能承载真人,刻意不纳入此清单。
+
+`pnpm waf:sync` 默认只 dry-run,打印将要写入的 Vercel 规则。确认后,在运维
+终端提供 `VERCEL_TOKEN`、`VERCEL_PROJECT_ID` 和必要时的 `VERCEL_TEAM_ID`,运行
+`pnpm waf:sync -- --apply`。脚本先读取当前 Firewall 配置,仅在规则不存在时以
+`geo_as_number` + `deny` 创建;若同名线上规则与仓库清单不一致,会停止并要求人工
+在 Vercel 审计后处理,绝不覆盖其他防火墙配置。Firewall 更新不依赖重新部署;运维
+token 不应写进线上运行时环境变量。
+
 ## 自带模型 / API Key
 
 点页面上的「用自己的模型」,填 Base URL + API Key + Model。兼容任意 OpenAI 接口(OpenAI / OpenRouter / Groq / DeepSeek / 本地)。**Key 只存在你自己的浏览器 localStorage,调用时直传,绝不上传到服务器、绝不落库。**
