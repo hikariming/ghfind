@@ -50,6 +50,11 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
+// A full scan can cross 30s for prolific accounts, especially when GitHub
+// forces contribution-graph fallbacks. Keep the distributed lock longer than
+// the public route budget so a cold-account burst remains one GitHub crawl.
+const SCAN_SINGLE_FLIGHT_LOCK_SECONDS = 75;
+const SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS = 120; // 60s at 500ms per poll
 export const scanKey = (username: string) =>
   `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
@@ -100,7 +105,8 @@ export async function coalesceScan(
   const key = lockKey(username);
   let acquired = false;
   try {
-    acquired = (await r.set(key, "1", { nx: true, ex: 30 })) === "OK";
+    acquired =
+      (await r.set(key, "1", { nx: true, ex: SCAN_SINGLE_FLIGHT_LOCK_SECONDS })) === "OK";
   } catch {
     return producer(); // Redis hiccup — don't block the scan.
   }
@@ -115,8 +121,9 @@ export async function coalesceScan(
     }
   }
 
-  // Another request is producing — poll the cache for up to ~10s.
-  for (let i = 0; i < 20; i++) {
+  // Another request is producing — wait for the bounded scan route rather than
+  // starting a duplicate expensive crawl after the old ~10s window.
+  for (let i = 0; i < SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS; i++) {
     await sleep(500);
     const c = await getCachedScan(username);
     if (c) return c;

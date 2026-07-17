@@ -11,6 +11,7 @@ import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Indexed accounts change rarely — cache hard at the edge.
 const RATED_CACHE = "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";

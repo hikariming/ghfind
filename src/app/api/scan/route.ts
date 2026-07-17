@@ -14,6 +14,7 @@ import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function clientIp(req: NextRequest): string {
   const fwd = req.headers.get("x-forwarded-for");
