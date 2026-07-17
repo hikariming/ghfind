@@ -103,7 +103,7 @@ export async function scanUser(rawUsername: string): Promise<ScanResult | ToolEr
   try {
     const completed = await getCompletedPublicScan(handle);
     const cached = completed ?? (await getCachedScan(handle));
-    let scan = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    const scan = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
     if (requiresDurablePublicScan(scan)) {
       const durable = await resolvePublicScan(scan.metrics.username, scan);
       if (durable.status === "complete") return durable.scan;
