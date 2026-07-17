@@ -16,6 +16,7 @@ import {
   savePublicScanQuickResult,
   splitPublicScanCommitVerificationWork,
   upsertPublicScanCommitCandidates,
+  upsertPublicScanCommitRepoFacts,
   upsertPublicScanOwnedRepoFacts,
   upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage,
@@ -210,6 +211,33 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
         sourceStatus: seededSources,
       });
       if (!saved) return { status: "idle" };
+      // When the contribution graph succeeds, retain its commit-only
+      // aggregates before moving to the complete native PR inventory. The
+      // durable PR phase then replaces only the PR portion; without this seed
+      // a high-PR user would lose valid commit-only impact at publication.
+      const graphCommitFacts = (quick.impact_repos ?? [])
+        .filter((repo) => repo.commits > 0)
+        .map((repo) => ({
+          repoKey: repo.repo,
+          ownerLogin: repo.repo.split("/", 1)[0] ?? null,
+          stars: repo.stars,
+          commits: repo.commits,
+          activeYears: 0,
+          firstCommittedAt: null,
+          lastCommittedAt: null,
+          source: "contribution_graph" as const,
+          evidenceShas: [],
+        }));
+      if (
+        !(await upsertPublicScanCommitRepoFacts({
+          jobId: job.id,
+          runId: job.runId,
+          leaseToken,
+          facts: graphCommitFacts,
+        }))
+      ) {
+        return { status: "idle" };
+      }
       return continueJob({
         jobId: job.id,
         runId: job.runId,

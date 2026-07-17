@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   schedulePublicScanDelivery: vi.fn(),
   fetchDurablePullRequestPage: vi.fn(),
   upsertPublicScanPrFacts: vi.fn(),
+  upsertPublicScanCommitRepoFacts: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -31,6 +32,7 @@ vi.mock("@/lib/db", () => ({
   savePublicScanQuickResult: mocks.savePublicScanQuickResult,
   splitPublicScanCommitVerificationWork: vi.fn(),
   upsertPublicScanCommitCandidates: vi.fn(),
+  upsertPublicScanCommitRepoFacts: mocks.upsertPublicScanCommitRepoFacts,
   upsertPublicScanOwnedRepoFacts: vi.fn(),
   upsertPublicScanPrFacts: mocks.upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage: vi.fn(),
@@ -94,6 +96,7 @@ describe("public scan worker", () => {
     mocks.schedulePublicScanDelivery.mockResolvedValue(true);
     mocks.fetchDurablePullRequestPage.mockResolvedValue({ facts: [], hasNextPage: false, endCursor: null });
     mocks.upsertPublicScanPrFacts.mockResolvedValue(true);
+    mocks.upsertPublicScanCommitRepoFacts.mockResolvedValue(true);
   });
 
   it("persists the quick probe then queues the bounded next phase", async () => {
@@ -105,6 +108,9 @@ describe("public scan worker", () => {
     expect(mocks.savePublicScanQuickResult).toHaveBeenCalledWith(
       expect.objectContaining({ quickScan: JSON.stringify(quickScan) }),
     );
+    expect(mocks.upsertPublicScanCommitRepoFacts).toHaveBeenCalledWith(
+      expect.objectContaining({ facts: [] }),
+    );
     expect(mocks.savePublicScanJobProgress).toHaveBeenCalledWith(
       expect.objectContaining({ phase: "original_repos", payload: "{\"page\":1}" }),
     );
@@ -113,6 +119,30 @@ describe("public scan worker", () => {
       jobId: "job-id",
       leaseToken: "lease-token",
     });
+  });
+
+  it("persists successful contribution-graph commits before collecting complete PR history", async () => {
+    mocks.buildScanResult.mockResolvedValue({
+      ...quickScan,
+      impact_repos: [{ repo: "public/project", stars: 40_000, commits: 7, prs: 0 }],
+    });
+
+    await expect(processPublicScanJob("job-id")).resolves.toMatchObject({
+      status: "continued",
+      phase: "original_repos",
+    });
+
+    expect(mocks.upsertPublicScanCommitRepoFacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        facts: [
+          expect.objectContaining({
+            repoKey: "public/project",
+            commits: 7,
+            source: "contribution_graph",
+          }),
+        ],
+      }),
+    );
   });
 
   it("does not consume commit-search quota when the normal graph aggregate is available", async () => {
