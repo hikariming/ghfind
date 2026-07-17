@@ -9,8 +9,10 @@ import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getLeaderboardCached } from "@/lib/leaderboard";
 import type { LeaderboardCacheView } from "@/lib/redis";
 import type { LeaderboardWindow } from "@/lib/db";
-import { coalesceScan, getCachedScan } from "@/lib/redis";
+import { clearCachedScan, coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
@@ -37,7 +39,7 @@ export async function scoreUser(rawUsername: string): Promise<Record<string, unk
   }
 
   const detail = await getAccountDetail(handle);
-  if (detail) {
+  if (detail?.score_version === SCORE_CACHE_VERSION) {
     return {
       source: "indexed",
       username: detail.username,
@@ -54,11 +56,25 @@ export async function scoreUser(rawUsername: string): Promise<Record<string, unk
 
   let result: ScanResult;
   try {
-    const cached = await getCachedScan(handle);
+    const completed = await getCompletedPublicScan(handle);
+    const cached = completed ?? (await getCachedScan(handle));
     result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
   } catch (e) {
     const { error } = scanErrorResponse(e);
     return { error, message: `could not score ${handle}` };
+  }
+
+  if (requiresDurablePublicScan(result)) {
+    const durable = await resolvePublicScan(result.metrics.username, result);
+    if (durable.status === "complete") {
+      result = durable.scan;
+    } else {
+      await clearCachedScan(result.metrics.username);
+      return {
+        error: "scan_enrichment_pending",
+        message: `durable public-history scan for ${result.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
+      };
+    }
   }
 
   const s = result.scoring;
@@ -85,8 +101,19 @@ export async function scanUser(rawUsername: string): Promise<ScanResult | ToolEr
     return { error: "invalid_username", message: "username must be a valid GitHub login" };
   }
   try {
-    const cached = await getCachedScan(handle);
-    return cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    const completed = await getCompletedPublicScan(handle);
+    const cached = completed ?? (await getCachedScan(handle));
+    let scan = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    if (requiresDurablePublicScan(scan)) {
+      const durable = await resolvePublicScan(scan.metrics.username, scan);
+      if (durable.status === "complete") return durable.scan;
+      await clearCachedScan(scan.metrics.username);
+      return {
+        error: "scan_enrichment_pending",
+        message: `durable public-history scan for ${scan.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
+      };
+    }
+    return scan;
   } catch (e) {
     const { error } = scanErrorResponse(e);
     return { error, message: `could not scan ${handle}` };

@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordAccountLookup } from "@/lib/db";
 import {
   checkRateLimit,
+  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
+  setCachedScan,
 } from "@/lib/redis";
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
 
@@ -37,6 +40,49 @@ async function recordSuccessfulLookup(username: string, ip: string): Promise<voi
   // (slow board + cascading DB timeouts elsewhere). A board that's up to one TTL
   // stale is perfectly fine; natural expiry refreshes it.
   await recordAccountLookup(username, ip);
+}
+
+async function durableResponse(input: {
+  username: string;
+  scan: import("@/lib/types").ScanResult;
+  headers: Record<string, string>;
+}) {
+  const resolution = await resolvePublicScan(input.username, input.scan);
+  if (resolution.status === "complete") {
+    return NextResponse.json(
+      { ...resolution.scan, cached: true, coverage: "complete_public" },
+      { headers: input.headers },
+    );
+  }
+  if (resolution.status === "pending") {
+    await clearCachedScan(input.username);
+    return NextResponse.json(
+      {
+        error: "scan_enrichment_pending",
+        status: "collecting_public_history",
+        username: input.username,
+        run_id: resolution.run.id,
+        retry_after: resolution.retryAfterSeconds,
+      },
+      {
+        status: 202,
+        headers: {
+          ...input.headers,
+          "Cache-Control": "no-store",
+          "Retry-After": String(resolution.retryAfterSeconds),
+        },
+      },
+    );
+  }
+  const retryAfterSeconds = resolution.retryAfterSeconds;
+  await clearCachedScan(input.username);
+  return apiError("github_unavailable", {
+    status: 503,
+    headers: {
+      ...input.headers,
+      "Retry-After": String(retryAfterSeconds),
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -88,8 +134,28 @@ export async function POST(req: NextRequest) {
   const cached = await getCachedScan(username);
   if (cached) {
     await recordSuccessfulLookup(cached.metrics.username, ip);
+    if (requiresDurablePublicScan(cached)) {
+      return durableResponse({
+        username: cached.metrics.username,
+        scan: cached,
+        headers: { ...idem, ...rlHeaders },
+      });
+    }
     return NextResponse.json(
       { ...cached, cached: true },
+      { headers: { ...idem, ...rlHeaders } },
+    );
+  }
+
+  // The 24h Redis cache is only an accelerator. Once it expires, reuse the
+  // immutable current-version public snapshot from Turso instead of re-running
+  // a quick crawl for the same high-history account on every daily visit.
+  const completed = await getCompletedPublicScan(username);
+  if (completed) {
+    await setCachedScan(completed.metrics.username, completed);
+    await recordSuccessfulLookup(completed.metrics.username, ip);
+    return NextResponse.json(
+      { ...completed, cached: true, coverage: "complete_public" },
       { headers: { ...idem, ...rlHeaders } },
     );
   }
@@ -97,6 +163,13 @@ export async function POST(req: NextRequest) {
   try {
     const result = await coalesceScan(username, () => buildScanResult(username));
     await recordSuccessfulLookup(result.metrics.username, ip);
+    if (requiresDurablePublicScan(result)) {
+      return durableResponse({
+        username: result.metrics.username,
+        scan: result,
+        headers: { ...idem, ...rlHeaders },
+      });
+    }
     return NextResponse.json(
       { ...result, cached: false },
       { headers: { ...idem, ...rlHeaders } },

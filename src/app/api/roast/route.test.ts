@@ -4,6 +4,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   getArchivedRoast: vi.fn(),
+  getLatestPublicScanRun: vi.fn(),
   getScoreScannedAt: vi.fn(),
   getRank: vi.fn(),
   recordScore: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("botid/server", () => ({
 
 vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
+  getLatestPublicScanRun: mocks.getLatestPublicScanRun,
   getScoreScannedAt: mocks.getScoreScannedAt,
   recordScore: mocks.recordScore,
   recordProfileSnapshot: mocks.recordProfileSnapshot,
@@ -233,7 +235,8 @@ beforeEach(() => {
   mocks.fallbackLlmConfig.mockReturnValue(null);
   mocks.getCachedScan.mockResolvedValue(null);
   mocks.getCachedRoast.mockResolvedValue(null);
-  mocks.getArchivedRoast.mockResolvedValue(null);
+    mocks.getArchivedRoast.mockResolvedValue(null);
+    mocks.getLatestPublicScanRun.mockResolvedValue(null);
   mocks.getScoreScannedAt.mockResolvedValue(null);
   mocks.clearCachedRoast.mockResolvedValue(undefined);
   mocks.checkRoastRateLimit.mockResolvedValue({ success: true });

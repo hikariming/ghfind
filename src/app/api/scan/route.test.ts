@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
   recordAccountLookup: vi.fn(),
+  getLatestPublicScanRun: vi.fn(),
   checkRateLimit: vi.fn(),
   rateLimitHeaders: vi.fn(),
   coalesceScan: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   recordAccountLookup: mocks.recordAccountLookup,
+  getLatestPublicScanRun: mocks.getLatestPublicScanRun,
 }));
 
 vi.mock("@/lib/github", () => {
@@ -99,6 +101,7 @@ describe("scan route machine auth", () => {
     mocks.score.mockReturnValue(scoring);
     mocks.verifyTurnstile.mockResolvedValue(false);
     mocks.recordAccountLookup.mockResolvedValue(true);
+    mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.coalesceScan.mockImplementation(async (_username: string, fn: () => unknown) => fn());

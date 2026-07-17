@@ -20,6 +20,11 @@ import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
+  getCompletedPublicScan,
+  requiresDurablePublicScan,
+  resolvePublicScan,
+} from "@/lib/public-scan";
+import {
   acquireRoastLock,
   checkRoastRateLimit,
   clearCachedRoast,
@@ -427,10 +432,37 @@ export async function POST(req: NextRequest) {
   // Prefer the server's cached scan (authoritative — the client cannot fabricate
   // metrics to inflate the prompt or the score). Fall back to the sanitized
   // client scan when there is no cache (e.g. Redis unconfigured).
-  const cachedScan = await getCachedScan(username);
-  const scan = cachedScan ?? (body.scan ? sanitizeScan(body.scan) : null);
+  const [completedPublicScan, cachedScan] = await Promise.all([
+    getCompletedPublicScan(username),
+    getCachedScan(username),
+  ]);
+  let scan = completedPublicScan ?? cachedScan ?? (body.scan ? sanitizeScan(body.scan) : null);
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
+  }
+
+  // A large public history cannot be truthfully represented by the quick
+  // sample. Never spend LLM credit or persist a leaderboard row from it: start
+  // (or resume) the durable collector and require its complete snapshot.
+  if (!completedPublicScan && requiresDurablePublicScan(scan)) {
+    const resolution = await resolvePublicScan(username, scan);
+    if (resolution.status === "complete") {
+      scan = resolution.scan;
+    } else {
+      const retryAfterSeconds = resolution.retryAfterSeconds;
+      return NextResponse.json(
+        {
+          error: "scan_enrichment_pending",
+          username,
+          ...(resolution.status === "pending" ? { run_id: resolution.run.id } : {}),
+          retry_after: retryAfterSeconds,
+        },
+        {
+          status: 409,
+          headers: { "Retry-After": String(retryAfterSeconds), "Cache-Control": "no-store" },
+        },
+      );
+    }
   }
 
   // Default-model protections: serve a cached roast for free, else rate-limit the

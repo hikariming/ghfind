@@ -83,6 +83,15 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
   }
 }
 
+/** Remove a bounded quick snapshot when a durable public-history run takes
+ * ownership. A partial score must never be replayed into the writer while the
+ * complete immutable snapshot is still collecting. */
+export async function clearCachedScan(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(scanKey(username)).catch(() => {});
+}
+
 /**
  * Single-flight a cold scan: when many requests hit the same username at once
  * (cache cold), only the first one calls GitHub; the rest wait for its result

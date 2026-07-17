@@ -5,8 +5,10 @@ import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
+import { checkRateLimit, clearCachedScan, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -86,7 +88,7 @@ export async function GET(
 
   // 1) Indexed (already roasted / scored) — richest payload, cheapest path.
   const detail = await getAccountDetail(handle);
-  if (detail) {
+  if (detail?.score_version === SCORE_CACHE_VERSION) {
     return json(
       {
         source: "indexed",
@@ -110,6 +112,36 @@ export async function GET(
   }
 
   // 2) Not indexed → score it live, deterministically (NO LLM).
+  const completedPublicScan = await getCompletedPublicScan(handle);
+  if (completedPublicScan) {
+    await setCachedScan(completedPublicScan.metrics.username, completedPublicScan);
+    const s = completedPublicScan.scoring;
+    const m = completedPublicScan.metrics;
+    const tier = s.tier as Tier;
+    return json(
+      {
+        source: "complete_public",
+        cached: true,
+        username: m.username,
+        display_name: m.name,
+        avatar_url: m.avatar_url,
+        profile_url: m.profile_url ?? `https://github.com/${m.username}`,
+        final_score: s.final_score,
+        tier,
+        tier_key: TIER_KEY[tier],
+        sub_scores: s.sub_scores,
+        base_score: s.base_score,
+        total_penalty: s.total_penalty,
+        red_flags: s.red_flags,
+        tags: null,
+        roast_line: null,
+        percentile: await percentileFor(s.final_score),
+        profile: `${SITE_URL}/u/${m.username}`,
+      },
+      200,
+      LIVE_CACHE,
+    );
+  }
   const cached = await getCachedScan(handle);
   let rlHeaders: Record<string, string> = {};
   if (!cached) {
@@ -141,6 +173,27 @@ export async function GET(
 
   if (!cached) {
     await recordAccountLookup(result.metrics.username, clientIp(req));
+  }
+
+  if (requiresDurablePublicScan(result)) {
+    const durable = await resolvePublicScan(result.metrics.username, result);
+    if (durable.status === "complete") {
+      result = durable.scan;
+    } else {
+      await clearCachedScan(result.metrics.username);
+      const status = durable.status === "pending" ? 202 : 503;
+      return json(
+        {
+          error: durable.status === "pending" ? "scan_enrichment_pending" : "durable_scan_unavailable",
+          username: result.metrics.username,
+          ...(durable.run ? { run_id: durable.run.id } : {}),
+          retry_after: durable.retryAfterSeconds,
+        },
+        status,
+        MISS_CACHE,
+        { ...rlHeaders, "Retry-After": String(durable.retryAfterSeconds) },
+      );
+    }
   }
 
   const s = result.scoring;
