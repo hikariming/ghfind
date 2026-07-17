@@ -196,6 +196,12 @@ describe("durable public scan jobs", () => {
       snapshotHash: "snapshot-a",
       sourceStatus: { native_prs: "complete", commit_recovery: "complete" },
     });
+    await expect(
+      db.getLatestPublicScanRun("history-heavy", {
+        scoreVersion: "future-score-formula",
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toMatchObject({ id: first!.run.id, state: "complete_public" });
   });
 
   it("reclaims an expired lease instead of starting a second active job", async () => {

@@ -273,6 +273,12 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_version
              ON public_scan_runs(username, score_version, collection_version, updated_at DESC)`,
+          // Fact collection evolves independently from the deterministic score.
+          // Keep the score-version index for audit, but reads/admission use the
+          // collection-only index so a formula release does not retrigger a
+          // historical GitHub crawl for every prolific account.
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection
+             ON public_scan_runs(username, collection_version, updated_at DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_state
              ON public_scan_runs(state, updated_at)`,
           `CREATE TABLE IF NOT EXISTS public_scan_jobs (
@@ -295,6 +301,9 @@ function ensureSchema(db: Client): Promise<void> {
           // username/version pair. Completed and failed jobs stay inspectable.
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_public_scan_jobs_active_user_version
              ON public_scan_jobs(username, score_version, collection_version)
+             WHERE state IN ('queued', 'running')`,
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_public_scan_jobs_active_user_collection
+             ON public_scan_jobs(username, collection_version)
              WHERE state IN ('queued', 'running')`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_ready
              ON public_scan_jobs(state, next_run_at)`,
@@ -923,9 +932,9 @@ export interface EnqueuedPublicScan {
 }
 
 /**
- * Create one durable public-history scan per username/version pair. The unique
- * partial index on `public_scan_jobs` is the production correctness gate: Redis
- * may be absent or flushed without allowing a duplicate expensive crawl.
+ * Create one durable public-history scan per username/collection version. Score
+ * versions are stored for audit, but changing score formulas must re-evaluate
+ * persisted facts rather than repeat the expensive GitHub collection.
  */
 export async function enqueuePublicScan(
   username: string,
@@ -943,12 +952,11 @@ export async function enqueuePublicScan(
         sql: `SELECT j.*
               FROM public_scan_jobs j
               WHERE j.username = ?
-                AND j.score_version = ?
                 AND j.collection_version = ?
                 AND j.state IN ('queued', 'running')
               ORDER BY j.created_at DESC
               LIMIT 1`,
-        args: [normalized, input.scoreVersion, input.collectionVersion],
+        args: [normalized, input.collectionVersion],
       });
       if (existing.rows[0]) {
         const job = mapPublicScanJob(existing.rows[0] as Record<string, unknown>);
@@ -1027,7 +1035,7 @@ export async function enqueuePublicScan(
 
 export async function getLatestPublicScanRun(
   username: string,
-  input: { scoreVersion: string; collectionVersion: string },
+  input: { scoreVersion?: string; collectionVersion: string },
 ): Promise<PublicScanRun | null> {
   const db = getClient();
   if (!db) return null;
@@ -1035,10 +1043,10 @@ export async function getLatestPublicScanRun(
     await ensureSchema(db);
     const result = await db.execute({
       sql: `SELECT * FROM public_scan_runs
-            WHERE username = ? AND score_version = ? AND collection_version = ?
+            WHERE username = ? AND collection_version = ?
             ORDER BY updated_at DESC
             LIMIT 1`,
-      args: [username.toLowerCase(), input.scoreVersion, input.collectionVersion],
+      args: [username.toLowerCase(), input.collectionVersion],
     });
     const row = result.rows[0];
     return row ? mapPublicScanRun(row as Record<string, unknown>) : null;
@@ -1255,8 +1263,18 @@ export async function savePublicScanJobProgress(input: {
       sql: `UPDATE public_scan_jobs
             SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
                 lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
-      args: [input.phase, input.payload, nextRunAt, now, input.jobId, input.runId, input.leaseToken],
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+              AND lease_expires_at > ?`,
+      args: [
+        input.phase,
+        input.payload,
+        nextRunAt,
+        now,
+        input.jobId,
+        input.runId,
+        input.leaseToken,
+        now,
+      ],
     });
     if (Number(update.rowsAffected ?? 0) !== 1) return false;
     if (input.sourceStatus) {
@@ -1285,8 +1303,9 @@ export async function savePublicScanQuickResult(input: {
     await ensureSchema(db);
     const job = await db.execute({
       sql: `SELECT id FROM public_scan_jobs
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
-      args: [input.jobId, input.runId, input.leaseToken],
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+              AND lease_expires_at > ?`,
+      args: [input.jobId, input.runId, input.leaseToken, Date.now()],
     });
     if (!job.rows[0]) return false;
     await db.execute({
@@ -1365,8 +1384,9 @@ export async function completePublicScanRun(input: {
     try {
       const job = await tx.execute({
         sql: `SELECT id FROM public_scan_jobs
-              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
-        args: [input.jobId, input.runId, input.leaseToken],
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [input.jobId, input.runId, input.leaseToken, Date.now()],
       });
       if (!job.rows[0]) {
         await tx.rollback();
@@ -1426,8 +1446,17 @@ export async function failPublicScanJob(input: {
       sql: `UPDATE public_scan_jobs
             SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
                 lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
-      args: [retry ? "queued" : "failed", input.retryAt ?? now, now, input.jobId, input.runId, input.leaseToken],
+            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+              AND lease_expires_at > ?`,
+      args: [
+        retry ? "queued" : "failed",
+        input.retryAt ?? now,
+        now,
+        input.jobId,
+        input.runId,
+        input.leaseToken,
+        now,
+      ],
     });
     if (Number(update.rowsAffected ?? 0) !== 1) return false;
     await db.execute({
@@ -1448,8 +1477,9 @@ async function hasPublicScanLease(
 ): Promise<boolean> {
   const job = await db.execute({
     sql: `SELECT id FROM public_scan_jobs
-          WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
-    args: [input.jobId, input.runId, input.leaseToken],
+          WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+            AND lease_expires_at > ?`,
+    args: [input.jobId, input.runId, input.leaseToken, Date.now()],
   });
   return Boolean(job.rows[0]);
 }

@@ -7,6 +7,7 @@ import {
 import { SCORE_CACHE_VERSION } from "./cache-version";
 import { schedulePublicScanDelivery } from "./public-scan-queue";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanRun } from "./scan-run-types";
+import { score } from "./score";
 import type { ScanResult } from "./types";
 
 const FAILED_RUN_RETRY_MS = 15 * 60 * 1_000;
@@ -23,9 +24,14 @@ function parseCompleteSnapshot(run: PublicScanRun): ScanResult | null {
   }
   try {
     const scan = JSON.parse(run.snapshot) as Partial<ScanResult>;
-    return scan.metrics && scan.scoring && Array.isArray(scan.top_repos) && Array.isArray(scan.recent_prs)
-      ? (scan as ScanResult)
-      : null;
+    if (!scan.metrics || !scan.scoring || !Array.isArray(scan.top_repos) || !Array.isArray(scan.recent_prs)) {
+      return null;
+    }
+    // A complete public-history snapshot is a durable factual input. Score
+    // formulas deliberately evolve faster than collectors, so recompute the
+    // deterministic result at read time instead of forcing another historical
+    // GitHub crawl solely because SCORE_CACHE_VERSION changed.
+    return { ...(scan as ScanResult), scoring: score(scan.metrics) };
   } catch {
     return null;
   }
