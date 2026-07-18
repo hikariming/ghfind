@@ -1,30 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPublicScanStatus } from "@/lib/public-scan";
+import { checkPublicScanStatusRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const PENDING_CACHE = "public, max-age=0, s-maxage=5, stale-while-revalidate=15";
+const COMPLETE_CACHE = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+
+function clientIp(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
+}
 
 /**
  * Poll only a previously queued durable collection. This endpoint never starts
  * a GitHub scan, so browsers and agents can safely wait without creating work.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
   const handle = normalizeUsername(decodeURIComponent(username ?? ""));
   if (!handle) return NextResponse.json({ error: "invalid_username" }, { status: 400 });
+
+  // The initiating response carries this opaque id. Requiring it keeps a public
+  // username from becoming an unbounded status-read target for arbitrary bots.
+  const runId = req.nextUrl.searchParams.get("run_id")?.trim();
+  if (!runId) return NextResponse.json({ error: "run_id_required" }, { status: 400 });
+
+  const limit = await checkPublicScanStatusRateLimit(clientIp(req));
+  const headers = rateLimitHeaders(limit);
+  if (!limit.success) {
+    return NextResponse.json(
+      { error: "rate_limited", retry_after: Number(headers["Retry-After"] ?? 1) },
+      { status: 429, headers: { ...headers, "Cache-Control": "no-store" } },
+    );
+  }
+
   const status = await getPublicScanStatus(handle);
-  if (!status) return NextResponse.json({ error: "scan_not_found" }, { status: 404 });
-  if (!status.run) {
-    return NextResponse.json({ error: "durable_scan_unavailable" }, { status: 503 });
+  if (!status || !status.run || status.run.id !== runId) {
+    return NextResponse.json({ error: "scan_not_found" }, { status: 404, headers });
   }
   if (status.status === "complete") {
     return NextResponse.json(
       { status: "complete_public", username: status.run.username, run_id: status.run.id, scan: status.scan },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: { ...headers, "Cache-Control": COMPLETE_CACHE } },
     );
   }
   return NextResponse.json(
@@ -38,7 +60,8 @@ export async function GET(
     {
       status: status.status === "failed" ? 503 : 202,
       headers: {
-        "Cache-Control": "no-store",
+        ...headers,
+        "Cache-Control": status.status === "failed" ? "no-store" : PENDING_CACHE,
         "Retry-After": String(status.retryAfterSeconds),
       },
     },

@@ -53,7 +53,7 @@ export const USE_CASES = [
 
 export const WHEN_TO_USE = [
   `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. It scores unseen accounts live on demand.`,
-  `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the full evidence payload: raw metrics, top repos, recent PRs, red flags, sub-scores. High-volume public histories can return 202; poll scan-status before treating them as complete evidence.`,
+  `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the full evidence payload: raw metrics, top repos, recent PRs, red flags, sub-scores. High-volume public histories can return 202; poll scan-status with the returned run_id before treating them as complete evidence.`,
   `Use POST ${SITE_URL}/api/roast (or the CLI) only when you want the human-facing prose roast — this is the one LLM path and it can spend model credit.`,
   `Use the leaderboard / developers / stats endpoints for discovery and platform context, NOT as fresh per-user scoring evidence (they are ranked snapshots).`,
   "Do NOT treat a low score as a factual claim about a person — scores use public signals only; private-org work is invisible to them.",
@@ -79,7 +79,7 @@ Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · A
 
 - \`GET ${SITE_URL}/api/score/{username}\` — deterministic score, no auth, no LLM; scores unseen accounts live. A \`202 scan_enrichment_pending\` means public history is still being collected; it is not a final score.
 - \`POST ${SITE_URL}/api/scan\` { "username": "..." } — full deterministic scan payload (metrics + repo/PR signals + red flags). For large public histories it returns \`202 { error: "scan_enrichment_pending", run_id, retry_after }\` instead of a partial final payload.
-- \`GET ${SITE_URL}/api/scan-status/{username}\` — poll a previously requested durable scan. Only \`200 { status: "complete_public", scan }\` is complete factual evidence; \`202\` is still collecting and \`503\` is a failed/unavailable durable run.
+- \`GET ${SITE_URL}/api/scan-status/{username}?run_id={run_id}\` — poll a previously requested durable scan using the opaque \`run_id\` returned by the initiating request. Only \`200 { status: "complete_public", scan }\` is complete factual evidence; \`202\` is still collecting and \`503\` is a failed/unavailable durable run.
 - \`POST ${SITE_URL}/api/roast\` — LLM roast report (streaming); pass \`byoKey\` for your own model. It returns \`409 scan_enrichment_pending\` rather than roasting a partial large-history scan.
 - \`POST ${SITE_URL}/api/vs-verdict\` { "a": "...", "b": "..." } — head-to-head verdict.
 - \`GET ${SITE_URL}/api/leaderboard?view=trending|score|heat|progress&window=all|24h|7d|30d&limit={1-500}&offset={n}\` — paginated; walk pages via \`nextOffset\`.

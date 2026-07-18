@@ -463,7 +463,7 @@ export async function POST(req: NextRequest) {
     if (resolution.status === "complete") {
       scan = resolution.scan;
     } else {
-      if (resolution.status === "pending") kickPublicScanDrain();
+      if (resolution.status === "pending" && resolution.shouldDrain) kickPublicScanDrain();
       const retryAfterSeconds = resolution.retryAfterSeconds;
       const busy = resolution.status === "queue_full" || resolution.status === "admission_limited";
       return NextResponse.json(

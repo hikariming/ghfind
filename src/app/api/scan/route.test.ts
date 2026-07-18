@@ -216,5 +216,21 @@ describe("scan route machine auth", () => {
     });
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+  });
+
+  it("starts one response-side step only when this request created the durable job", async () => {
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "new-run" },
+      retryAfterSeconds: 5,
+      shouldDrain: true,
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(202);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
   });
 });

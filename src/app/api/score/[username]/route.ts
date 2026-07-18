@@ -5,7 +5,14 @@ import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
+import {
+  checkPublicScanStatusRateLimit,
+  checkRateLimit,
+  coalesceScan,
+  getCachedScan,
+  rateLimitHeaders,
+  setCachedScan,
+} from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import {
   getPublicScanStatus,
@@ -68,7 +75,6 @@ function durableResponse(
   headers: Record<string, string>,
 ) {
   if (resolution.status === "pending") {
-    kickPublicScanDrain();
     return json(
       {
         error: "scan_enrichment_pending",
@@ -158,6 +164,16 @@ export async function GET(
   }
 
   // 2) Not indexed → score it live, deterministically (NO LLM).
+  const statusLimit = await checkPublicScanStatusRateLimit(clientIp(req));
+  const statusHeaders = rateLimitHeaders(statusLimit);
+  if (!statusLimit.success) {
+    return json(
+      { error: "rate_limited", message: "too many status requests", hint: "retry after the Retry-After interval" },
+      429,
+      "no-store",
+      statusHeaders,
+    );
+  }
   const publicStatus = await getPublicScanStatus(handle);
   if (publicStatus?.status === "complete") {
     await setCachedScan(publicStatus.scan.metrics.username, publicStatus.scan);
@@ -189,7 +205,7 @@ export async function GET(
     );
   }
   if (publicStatus) {
-    return durableResponse(handle, publicStatus, {});
+    return durableResponse(handle, publicStatus, statusHeaders);
   }
   const cached = await getCachedScan(handle);
   const durableAdmission = publicScanAdmission(`ip:${clientIp(req)}`);
@@ -234,7 +250,10 @@ export async function GET(
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
-      return durableResponse(result.metrics.username, durable, rlHeaders);
+      if (durable.status === "pending" && durable.shouldDrain) {
+        kickPublicScanDrain();
+      }
+      return durableResponse(result.metrics.username, durable, { ...statusHeaders, ...rlHeaders });
     }
   }
 

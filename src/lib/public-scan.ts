@@ -65,7 +65,13 @@ function hasUsableSnapshotShape(scan: Partial<ScanResult>): scan is ScanResult {
 
 export type PublicScanResolution =
   | { status: "complete"; run: PublicScanRun; scan: ScanResult }
-  | { status: "pending"; run: PublicScanRun; retryAfterSeconds: number }
+  | {
+      status: "pending";
+      run: PublicScanRun;
+      retryAfterSeconds: number;
+      /** Only the request that created a job may start one response-side step. */
+      shouldDrain: boolean;
+    }
   | { status: "queue_full" | "admission_limited"; run: null; retryAfterSeconds: number }
   | { status: "storage_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
   | { status: "failed"; run: PublicScanRun; retryAfterSeconds: number };
@@ -185,7 +191,12 @@ async function resolvePublicScan(
       },
     });
   }
-  return { status: "pending", run: enqueued.run, retryAfterSeconds: retryAfter(enqueued.run) };
+  return {
+    status: "pending",
+    run: enqueued.run,
+    retryAfterSeconds: retryAfter(enqueued.run),
+    shouldDrain: enqueued.created,
+  };
 }
 
 /**
@@ -234,7 +245,7 @@ export async function getPublicScanStatus(username: string): Promise<PublicScanR
     return { status: "failed", run, retryAfterSeconds: retryAfter(run) };
   }
   if (run.state === "queued" || run.state === "running") {
-    return { status: "pending", run, retryAfterSeconds: retryAfter(run) };
+    return { status: "pending", run, retryAfterSeconds: retryAfter(run), shouldDrain: false };
   }
   // Corrupt/legacy terminal rows must be repaired by resolvePublicScan rather
   // than reported as endlessly pending when no active job remains.

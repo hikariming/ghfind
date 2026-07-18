@@ -26,7 +26,7 @@ export async function GET() {
       endpoints: [
         `GET ${SITE_URL}/api/score/{username}`,
         `POST ${SITE_URL}/api/scan`,
-        `GET ${SITE_URL}/api/scan-status/{username}`,
+        `GET ${SITE_URL}/api/scan-status/{username}?run_id={run_id}`,
         `POST ${SITE_URL}/api/roast`,
         `POST ${SITE_URL}/api/vs-verdict`,
         `GET ${SITE_URL}/api/leaderboard`,

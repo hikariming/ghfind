@@ -308,6 +308,26 @@ describe("roast API persistence", () => {
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
   });
 
+  it("does not advance an existing durable scan when a roast is retried", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "pending",
+      run: { id: "active-run", username: "DemoDev" },
+      retryAfterSeconds: 5,
+      shouldDrain: false,
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
   it("emits one structured summary with request, stream, lock, and provider timings", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     try {

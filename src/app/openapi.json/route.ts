@@ -86,7 +86,7 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "202": {
-              description: "Large public history is collecting; poll /api/scan-status/{username} before using a score as final evidence",
+              description: "Large public history is collecting; poll /api/scan-status/{username}?run_id={run_id} before using a score as final evidence",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
@@ -144,7 +144,7 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "202": {
-              description: "Durable public-history collection started; poll /api/scan-status/{username}",
+              description: "Durable public-history collection started; poll /api/scan-status/{username}?run_id={run_id}",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
@@ -157,7 +157,16 @@ export function GET() {
           tags: ["scoring"],
           operationId: "scanStatus",
           summary: "Read durable public-history scan progress without starting work",
-          parameters: [{ $ref: "#/components/parameters/Username" }],
+          parameters: [
+            { $ref: "#/components/parameters/Username" },
+            {
+              name: "run_id",
+              in: "query",
+              required: true,
+              description: "Opaque durable run id returned by the initiating scan response",
+              schema: { type: "string" },
+            },
+          ],
           responses: {
             "200": {
               description: "Complete immutable public scan snapshot",

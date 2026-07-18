@@ -119,6 +119,7 @@ describe("durable public scan admission", () => {
     await expect(resolvePublicScanFromTrustedQuickScan("durable-case", quick)).resolves.toMatchObject({
       status: "pending",
       run: { id: "run-id" },
+      shouldDrain: true,
     });
     expect(mocks.seedPublicScanQuickResult).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: "job-id", runId: "run-id" }),
@@ -205,5 +206,19 @@ describe("durable public scan admission", () => {
 
     await expect(startPublicScan("durable-case")).resolves.toMatchObject({ status: "pending" });
     expect(mocks.seedPublicScanQuickResult).not.toHaveBeenCalled();
+  });
+
+  it("marks an existing durable job as passive so status readers cannot advance it", async () => {
+    const run = pendingRun();
+    mocks.enqueuePublicScan.mockResolvedValue({
+      run,
+      job: { id: "job-id" },
+      created: false,
+    });
+
+    await expect(startPublicScan("durable-case")).resolves.toMatchObject({
+      status: "pending",
+      shouldDrain: false,
+    });
   });
 });
