@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -5,6 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 
 let db: typeof import("../db");
 let tmpDir: string;
@@ -119,6 +121,354 @@ describe("score snapshots", () => {
     expect(Number(res.rows[0]?.first_generated_at)).toBeGreaterThanOrEqual(before);
     expect(Number(res.rows[0]?.last_generated_at)).toBeLessThanOrEqual(after);
     expect(String(res.rows[0]?.langs).split(",").sort()).toEqual(["en", "zh"]);
+  });
+});
+
+describe("durable public scan jobs", () => {
+  const versions = { scoreVersion: "test-score-v1", collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION };
+
+  async function enqueue(username: string) {
+    const result = await db.enqueuePublicScan(username, versions);
+    if (!result || "rejection" in result) {
+      throw new Error(`expected durable job for ${username}`);
+    }
+    return result;
+  }
+
+  it("dedupes active work, persists progress, and publishes only with its lease", async () => {
+    const first = await enqueue("history-heavy");
+    const second = await enqueue("HISTORY-HEAVY");
+
+    expect(first?.created).toBe(true);
+    expect(second).toMatchObject({ created: false, run: { id: first?.run.id }, job: { id: first?.job.id } });
+
+    const firstLease = await db.claimPublicScanJob(first?.job.id);
+    expect(firstLease).toMatchObject({ job: { phase: "quick", state: "running" } });
+    expect(firstLease?.leaseToken).toBeTruthy();
+
+    const sources = {
+      quick: "complete",
+      original_repos: "pending",
+      native_prs: "pending",
+      workflow_landings: "pending",
+      commit_recovery: "pending",
+    } as const;
+    await expect(
+      db.savePublicScanQuickResult({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        quickScan: '{"metrics":{"username":"history-heavy"}}',
+        sourceStatus: sources,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.savePublicScanJobProgress({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        phase: "merged_prs",
+        payload: '{"after":"cursor-1"}',
+        sourceStatus: sources,
+      }),
+    ).resolves.toBe(true);
+
+    const secondLease = await db.claimPublicScanJob(first!.job.id);
+    expect(secondLease).toMatchObject({ job: { phase: "merged_prs" } });
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: firstLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: { ...sources, native_prs: "complete", workflow_landings: "complete", commit_recovery: "complete", original_repos: "complete" },
+        snapshot: '{"complete":true}',
+        snapshotHash: "snapshot-a",
+      }),
+    ).resolves.toBe(false);
+    const snapshot = '{"complete":true}';
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: secondLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: sources,
+        snapshot,
+        snapshotHash: "snapshot-a",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.completePublicScanRun({
+        jobId: first!.job.id,
+        runId: first!.run.id,
+        leaseToken: secondLease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: { ...sources, native_prs: "complete", workflow_landings: "complete", commit_recovery: "complete", original_repos: "complete" },
+        snapshot,
+        snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+      }),
+    ).resolves.toBe(true);
+
+    await expect(db.getLatestPublicScanRun("history-heavy", versions)).resolves.toMatchObject({
+      id: first!.run.id,
+      state: "complete_public",
+      coverage: "complete_public",
+      snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+      sourceStatus: { native_prs: "complete", commit_recovery: "complete" },
+    });
+    await expect(
+      db.getLatestPublicScanRun("history-heavy", {
+        scoreVersion: "future-score-formula",
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toMatchObject({ id: first!.run.id, state: "complete_public" });
+  });
+
+  it("reclaims an expired lease instead of starting a second active job", async () => {
+    const queued = await enqueue("expired-lease");
+    const lease = await db.claimPublicScanJob(queued?.job.id);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE public_scan_jobs SET lease_expires_at = ? WHERE id = ?`,
+      args: [Date.now() - 1, queued!.job.id],
+    });
+
+    const recovered = await db.claimPublicScanJob(queued!.job.id);
+    expect(recovered?.job.id).toBe(queued?.job.id);
+    expect(recovered?.leaseToken).not.toBe(lease?.leaseToken);
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued!.job.id,
+        runId: queued!.run.id,
+        leaseToken: recovered!.leaseToken,
+        error: "test complete",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("admits new durable work atomically without charging an existing job", async () => {
+    const admission = {
+      bucket: "durable-admission-test",
+      limit: 1,
+      windowMs: 60_000,
+      maxActiveJobs: 100,
+    };
+    const first = await db.enqueuePublicScan("admission-first", { ...versions, admission });
+    expect(first && !("rejection" in first) && first.created).toBe(true);
+
+    const duplicate = await db.enqueuePublicScan("admission-first", { ...versions, admission });
+    expect(duplicate).toMatchObject({ created: false, run: { id: (first as { run: { id: string } }).run.id } });
+
+    await expect(
+      db.enqueuePublicScan("admission-second", { ...versions, admission }),
+    ).resolves.toMatchObject({ created: false, rejection: "admission_limited" });
+  });
+
+  it("rejects new durable work when the global active-job ceiling is full", async () => {
+    const first = await db.enqueuePublicScan("queue-cap-first", {
+      ...versions,
+      admission: { bucket: "queue-cap-first", limit: 10, windowMs: 60_000, maxActiveJobs: 1_000 },
+    });
+    expect(first && !("rejection" in first)).toBe(true);
+
+    await expect(
+      db.enqueuePublicScan("queue-cap-second", {
+        ...versions,
+        admission: { bucket: "queue-cap-second", limit: 10, windowMs: 60_000, maxActiveJobs: 1 },
+      }),
+    ).resolves.toMatchObject({ created: false, rejection: "queue_full" });
+  });
+
+  it("uses a Turso execution slot and rate window when Redis is unavailable", async () => {
+    const one = await enqueue("slot-one");
+    const two = await enqueue("slot-two");
+    const leaseOne = await db.claimPublicScanJob(one!.job.id);
+    const leaseTwo = await db.claimPublicScanJob(two!.job.id);
+
+    const firstSlot = await db.acquirePublicScanExecutionLease({
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    const blockedSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(firstSlot).toBe(1);
+    expect(blockedSlot).toBeNull();
+
+    await db.releasePublicScanExecutionLease({
+      slot: firstSlot!,
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    await expect(
+      db.acquirePublicScanExecutionLease({
+        jobId: two!.job.id,
+        leaseToken: leaseTwo!.leaseToken,
+      }),
+    ).resolves.toBe(1);
+
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: true });
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: true });
+    await expect(
+      db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
+    ).resolves.toMatchObject({ granted: false });
+  });
+
+  it("carries commit-candidate fork metadata through verification and aggregation", async () => {
+    const queued = await enqueue("fork-candidate-facts");
+    const lease = await db.claimPublicScanJob(queued.job.id);
+    const leaseInput = {
+      jobId: queued.job.id,
+      runId: queued.run.id,
+      leaseToken: lease!.leaseToken,
+    };
+    await expect(
+      db.upsertPublicScanCommitCandidates({
+        ...leaseInput,
+        candidates: [
+          {
+            sha: "candidate-sha",
+            repoKey: "forked/large-project",
+            ownerLogin: "forked",
+            stars: 20_000,
+            isPrivate: false,
+            isFork: true,
+            authoredAt: "2025-01-01T00:00:00Z",
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(db.preparePublicScanCommitVerificationWork(leaseInput)).resolves.toBe(true);
+    const work = await db.getNextPublicScanCommitVerificationWork(queued.run.id);
+    expect(work).toMatchObject({ repoKey: "forked/large-project", isFork: true });
+    await expect(
+      db.recordPublicScanCommitVerificationPage({
+        ...leaseInput,
+        work: work!,
+        commits: [{ sha: "verified-sha", committedAt: "2025-01-01T00:00:00Z" }],
+        complete: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(db.materializePublicScanCommitRepoFacts(leaseInput)).resolves.toBe(true);
+    await expect(db.getPublicScanContributionAggregates(queued.run.id)).resolves.toEqual([
+      expect.objectContaining({ repo: "forked/large-project", isFork: true, prs: 0, commits: 1 }),
+    ]);
+  });
+
+  it("aggregates lease-guarded PR and commit facts without double-counting replayed pages", async () => {
+    const queued = await enqueue("fact-aggregate");
+    const lease = await db.claimPublicScanJob(queued!.job.id);
+    const leaseInput = {
+      jobId: queued!.job.id,
+      runId: queued!.run.id,
+      leaseToken: lease!.leaseToken,
+    };
+    const facts = [
+      {
+        pullRequestId: "pr-1",
+        source: "native_merged" as const,
+        repoKey: "big/project",
+        ownerLogin: "big",
+        stars: 500,
+        isPrivate: false,
+        isFork: false,
+        createdAt: "2024-01-01T00:00:00Z",
+        mergedAt: "2024-01-03T00:00:00Z",
+        closedAt: "2024-01-03T00:00:00Z",
+        title: "core fix",
+        additions: 10,
+        deletions: 2,
+        changedFiles: 2,
+        labels: [],
+      },
+      {
+        pullRequestId: "pr-2",
+        source: "native_merged" as const,
+        repoKey: "big/project",
+        ownerLogin: "big",
+        stars: 550,
+        isPrivate: false,
+        isFork: false,
+        createdAt: "2025-01-01T00:00:00Z",
+        mergedAt: "2025-01-03T00:00:00Z",
+        closedAt: "2025-01-03T00:00:00Z",
+        title: "second fix",
+        additions: 10,
+        deletions: 2,
+        changedFiles: 2,
+        labels: [],
+      },
+    ];
+    await expect(db.upsertPublicScanPrFacts({ ...leaseInput, facts })).resolves.toBe(true);
+    await expect(db.upsertPublicScanPrFacts({ ...leaseInput, facts: [facts[0]] })).resolves.toBe(true);
+    await expect(
+      db.upsertPublicScanCommitRepoFacts({
+        ...leaseInput,
+        facts: [
+          {
+            repoKey: "big/project",
+            ownerLogin: "big",
+            stars: 550,
+            isPrivate: false,
+            isFork: false,
+            commits: 8,
+            activeYears: 3,
+            firstCommittedAt: "2023-01-01T00:00:00Z",
+            lastCommittedAt: "2025-01-01T00:00:00Z",
+            source: "default_branch_rest",
+            evidenceShas: ["abc"],
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.upsertPublicScanCommitRepoFacts({
+        ...leaseInput,
+        facts: [
+          {
+            repoKey: "forked/project",
+            ownerLogin: "forked",
+            stars: 5_000,
+            isPrivate: false,
+            isFork: true,
+            commits: 12,
+            activeYears: 2,
+            firstCommittedAt: "2024-01-01T00:00:00Z",
+            lastCommittedAt: "2025-01-01T00:00:00Z",
+            source: "default_branch_rest",
+            evidenceShas: ["def"],
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(db.getPublicScanContributionAggregates(queued!.run.id)).resolves.toEqual([
+      {
+        repo: "forked/project",
+        ownerLogin: "forked",
+        stars: 5000,
+        isPrivate: false,
+        isFork: true,
+        commits: 12,
+        prs: 0,
+        activeYears: 2,
+      },
+      {
+        repo: "big/project",
+        ownerLogin: "big",
+        stars: 550,
+        isPrivate: false,
+        isFork: false,
+        commits: 8,
+        prs: 2,
+        activeYears: 3,
+      },
+    ]);
   });
 });
 
@@ -595,10 +945,14 @@ describe("project discovery queries", () => {
     expect(related[0]?.sharedContributorCount).toBe(2);
   });
 
-  it("falls back to same-language projects when contributors do not overlap", async () => {
+  it("returns no related projects when contributors do not overlap (language filler lives in project-discovery)", async () => {
     const related = await db.getRelatedProjects("discover/stars", 4);
-    expect(related[0]?.project.repo.repo_key).toBe("discover/rust-peer");
-    expect(related[0]?.sharedContributorCount).toBe(0);
+    expect(related).toEqual([]);
+  });
+
+  it("exposes a repo's language for the project-discovery filler", async () => {
+    await expect(db.getRepoLanguage("discover/stars")).resolves.toBe("Rust");
+    await expect(db.getRepoLanguage("discover/unknown")).resolves.toBeNull();
   });
 
   it("finds projects shared by two developers", async () => {

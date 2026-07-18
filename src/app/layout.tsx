@@ -21,11 +21,15 @@ const GA_MEASUREMENT_ID =
 /**
  * Routes whose fetches get a BotID signature attached client-side, so the server
  * can invisibly tell humans from headless farms via checkBotId(). Only the
- * credit-spending LLM route needs this — /api/scan keeps its Turnstile gate, and
+ * credit-spending LLM routes need this — /api/scan keeps its Turnstile gate, and
  * agents skip BotID entirely by authenticating with a Bearer key (or by being a
- * verified bot).
+ * verified bot). vs-verdict is here because the /vs page auto-fires it on mount,
+ * which any JS-running crawler would otherwise trigger.
  */
-const BOTID_PROTECTED_ROUTES = [{ path: "/api/roast", method: "POST" as const }];
+const BOTID_PROTECTED_ROUTES = [
+  { path: "/api/roast", method: "POST" as const },
+  { path: "/api/vs-verdict", method: "POST" as const },
+];
 
 const THEME_INIT_SCRIPT = `
 try {

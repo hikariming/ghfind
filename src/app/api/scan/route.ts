@@ -6,15 +6,25 @@ import {
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
+  setCachedScan,
 } from "@/lib/redis";
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import {
+  getPublicScanStatus,
+  publicScanAdmission,
+  type PublicScanResolution,
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+} from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function clientIp(req: NextRequest): string {
   const fwd = req.headers.get("x-forwarded-for");
@@ -44,6 +54,74 @@ async function recordSuccessfulLookup(
     recordAccountLookup(username, ip),
     campaign ? recordCampaignParticipant(campaign, username) : Promise.resolve(),
   ]);
+}
+
+function durableStatusResponse(input: {
+  username: string;
+  resolution: Exclude<PublicScanResolution, { status: "complete" }>;
+  headers: Record<string, string>;
+}) {
+  if (input.resolution.status === "pending") {
+    kickPublicScanDrain();
+    return NextResponse.json(
+      {
+        error: "scan_enrichment_pending",
+        status: "collecting_public_history",
+        username: input.username,
+        run_id: input.resolution.run.id,
+        retry_after: input.resolution.retryAfterSeconds,
+      },
+      {
+        status: 202,
+        headers: {
+          ...input.headers,
+          "Cache-Control": "no-store",
+          "Retry-After": String(input.resolution.retryAfterSeconds),
+        },
+      },
+    );
+  }
+  if (input.resolution.status === "queue_full" || input.resolution.status === "admission_limited") {
+    return apiError(input.resolution.status, {
+      status: 429,
+      headers: {
+        ...input.headers,
+        "Cache-Control": "no-store",
+        "Retry-After": String(input.resolution.retryAfterSeconds),
+      },
+    });
+  }
+  return apiError("github_unavailable", {
+    status: 503,
+    headers: {
+      ...input.headers,
+      "Retry-After": String(input.resolution.retryAfterSeconds),
+    },
+  });
+}
+
+async function durableResponse(input: {
+  username: string;
+  scan: import("@/lib/types").ScanResult;
+  headers: Record<string, string>;
+  admission: ReturnType<typeof publicScanAdmission>;
+}) {
+  const resolution = await resolvePublicScanFromTrustedQuickScan(
+    input.username,
+    input.scan,
+    input.admission,
+  );
+  if (resolution.status === "complete") {
+    return NextResponse.json(
+      { ...resolution.scan, cached: true, coverage: "complete_public" },
+      { headers: input.headers },
+    );
+  }
+  return durableStatusResponse({
+    username: input.username,
+    resolution,
+    headers: input.headers,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -82,6 +160,9 @@ export async function POST(req: NextRequest) {
       return apiError("turnstile_failed", { status: 403, headers: idem });
     }
   }
+  const durableAdmission = publicScanAdmission(
+    auth === "valid" ? `bearer:${req.headers.get("authorization") ?? ""}` : `ip:${ip}`,
+  );
 
   // Rate-limit BEFORE the cache lookup. The cached path used to skip the
   // limiter as "cheap", but it still recorded a lookup per request — a bot
@@ -99,15 +180,67 @@ export async function POST(req: NextRequest) {
   const cached = await getCachedScan(username);
   if (cached) {
     await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
+    if (requiresDurablePublicScan(cached)) {
+      const status = await getPublicScanStatus(cached.metrics.username);
+      if (status?.status === "complete") {
+        await setCachedScan(status.scan.metrics.username, status.scan);
+        return NextResponse.json(
+          { ...status.scan, cached: true, coverage: "complete_public" },
+          { headers: { ...idem, ...rlHeaders } },
+        );
+      }
+      if (status) {
+        return durableStatusResponse({
+          username: cached.metrics.username,
+          resolution: status,
+          headers: { ...idem, ...rlHeaders },
+        });
+      }
+      return durableResponse({
+        username: cached.metrics.username,
+        scan: cached,
+        headers: { ...idem, ...rlHeaders },
+        admission: durableAdmission,
+      });
+    }
     return NextResponse.json(
       { ...cached, cached: true },
       { headers: { ...idem, ...rlHeaders } },
     );
   }
 
+  // When a durable job already owns this account, never run another quick
+  // crawl. The status read is cheap and prevents daily Redis expiry from
+  // turning one pending historical scan into repeated GitHub collection.
+  const status = await getPublicScanStatus(username);
+  if (status?.status === "complete") {
+    await setCachedScan(status.scan.metrics.username, status.scan);
+    await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
+    return NextResponse.json(
+      { ...status.scan, cached: true, coverage: "complete_public" },
+      { headers: { ...idem, ...rlHeaders } },
+    );
+  }
+  if (status) {
+    await recordSuccessfulLookup(username, ip, campaign);
+    return durableStatusResponse({
+      username,
+      resolution: status,
+      headers: { ...idem, ...rlHeaders },
+    });
+  }
+
   try {
     const result = await coalesceScan(username, () => buildScanResult(username));
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
+    if (requiresDurablePublicScan(result)) {
+      return durableResponse({
+        username: result.metrics.username,
+        scan: result,
+        headers: { ...idem, ...rlHeaders },
+        admission: durableAdmission,
+      });
+    }
     return NextResponse.json(
       { ...result, cached: false },
       { headers: { ...idem, ...rlHeaders } },

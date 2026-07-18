@@ -16,7 +16,10 @@ SINCE="${1:-24h}"
 # 2026-07-06 增补:农场开始伪造 referrer=www.google.com,借伪造流量暴露了一批新 ASN —
 #   401152/11798 Ace Data Centers、212286 LonConnect、134450 HostRoyale二号段、
 #   132817 DZCRD、209709 code200、201341 trafficforce、393886 Leaseweb、210906 Bite(代理转售段)
-PROXY_ASNS='["212238","9009","3257","203020","210906","62874","7979","396356","46635","11798","396319","59253","55286","401152","212286","134450","132817","209709","201341","393886"]'
+# 2026-07-17 增补:新农场波(HTML 加载 2.4×日均而 scan/roast 动作反跌)暴露的机房段 —
+#   30058 FDCservers、398781 Oculus、153371 Back Waves、51847 Nearoute、25820 IT7、
+#   199524 G-Core、45102 Alibaba US(有机场中继风险,challenge 可过,盯动作数)、396982 GCP
+PROXY_ASNS='["212238","9009","3257","203020","210906","62874","7979","396356","46635","11798","396319","59253","55286","401152","212286","134450","132817","209709","201341","393886","30058","398781","153371","51847","25820","199524","45102","396982"]'
 # 注意:机场/VPN 出口(Eons 138997、DMIT、Akari、Bunny、GSL 等)有真实中国用户,刻意不算进农场层。
 AWS_ASNS='["14618","16509"]'
 
@@ -24,17 +27,17 @@ q() { vercel metrics "$@" --since "$SINCE" --format=json 2>/dev/null; }
 
 total=$(q vercel.request.count | jq '.summary[0].vercel_request_count_sum // 0')
 
-by_asn=$(q vercel.request.count --group-by asn_id --limit 200)
-proxy=$(echo "$by_asn" | jq --argjson ids "$PROXY_ASNS" \
-  '[.summary[]? | select(.asn_id as $a | $ids | index($a)) | .vercel_request_count_sum] | add // 0')
-aws=$(echo "$by_asn" | jq --argjson ids "$AWS_ASNS" \
-  '[.summary[]? | select(.asn_id as $a | $ids | index($a)) | .vercel_request_count_sum] | add // 0')
-
-by_bot=$(q vercel.request.count --group-by bot_category --limit 30)
-declared=$(echo "$by_bot" | jq \
+# asn × bot_category 交叉表,各层互不重叠(2026-07-15 修复:此前 AWS 层与声明式爬虫
+# 重复扣减 — claude-searchbot 正是从 AWS 出口来的,大爬取日会把真人层算成负数)
+cross=$(q vercel.request.count --group-by asn_id --group-by bot_category --limit 500)
+declared=$(echo "$cross" | jq \
   '[.summary[]? | select((.bot_category // "") != "" and .bot_category != "browser_impersonation") | .vercel_request_count_sum] | add // 0')
-impersonation=$(echo "$by_bot" | jq \
+impersonation=$(echo "$cross" | jq \
   '[.summary[]? | select(.bot_category == "browser_impersonation") | .vercel_request_count_sum] | add // 0')
+proxy=$(echo "$cross" | jq --argjson ids "$PROXY_ASNS" \
+  '[.summary[]? | select((.bot_category // "") == "" and (.asn_id as $a | $ids | index($a))) | .vercel_request_count_sum] | add // 0')
+aws=$(echo "$cross" | jq --argjson ids "$AWS_ASNS" \
+  '[.summary[]? | select((.bot_category // "") == "" and (.asn_id as $a | $ids | index($a))) | .vercel_request_count_sum] | add // 0')
 
 action_count() { q vercel.request.count -f "request_path eq '$1'" | jq '.summary[0].vercel_request_count_sum // 0'; }
 scan=$(action_count /api/scan)

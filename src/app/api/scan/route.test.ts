@@ -6,14 +6,22 @@ const mocks = vi.hoisted(() => ({
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
   recordAccountLookup: vi.fn(),
+  getLatestPublicScanRun: vi.fn(),
   checkRateLimit: vi.fn(),
   rateLimitHeaders: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  setCachedScan: vi.fn(),
+  getPublicScanStatus: vi.fn(),
+  publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
+  requiresDurablePublicScan: vi.fn(),
+  resolvePublicScanFromTrustedQuickScan: vi.fn(),
+  kickPublicScanDrain: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   recordAccountLookup: mocks.recordAccountLookup,
+  getLatestPublicScanRun: mocks.getLatestPublicScanRun,
 }));
 
 vi.mock("@/lib/github", () => {
@@ -35,6 +43,18 @@ vi.mock("@/lib/redis", () => ({
   rateLimitHeaders: mocks.rateLimitHeaders,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
+  setCachedScan: mocks.setCachedScan,
+}));
+
+vi.mock("@/lib/public-scan", () => ({
+  getPublicScanStatus: mocks.getPublicScanStatus,
+  publicScanAdmission: mocks.publicScanAdmission,
+  requiresDurablePublicScan: mocks.requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
+}));
+
+vi.mock("@/lib/public-scan-dispatcher", () => ({
+  kickPublicScanDrain: mocks.kickPublicScanDrain,
 }));
 
 vi.mock("@/lib/score", () => ({
@@ -99,10 +119,13 @@ describe("scan route machine auth", () => {
     mocks.score.mockReturnValue(scoring);
     mocks.verifyTurnstile.mockResolvedValue(false);
     mocks.recordAccountLookup.mockResolvedValue(true);
+    mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.coalesceScan.mockImplementation(async (_username: string, fn: () => unknown) => fn());
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.getPublicScanStatus.mockResolvedValue(null);
+    mocks.requiresDurablePublicScan.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -173,5 +196,25 @@ describe("scan route machine auth", () => {
     expect((await response.json()).cached).toBe(true);
     expect(response.headers.get("RateLimit-Remaining")).toBe("9");
     expect(mocks.collect).not.toHaveBeenCalled();
+  });
+
+  it("does not rerun a quick GitHub scan while a durable job is pending", async () => {
+    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "pending",
+      run: { id: "active-run" },
+      retryAfterSeconds: 5,
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({
+      error: "scan_enrichment_pending",
+      run_id: "active-run",
+    });
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
   });
 });

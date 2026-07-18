@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   boundedContributionYearsActive,
   collect,
+  fetchDurablePullRequestPage,
   ghFetch,
   githubTokens,
   GitHubDataUnavailableError,
@@ -97,6 +98,130 @@ describe("collect", () => {
     );
 
     await expect(collect("alice")).rejects.toBeInstanceOf(GitHubDataUnavailableError);
+  });
+
+  it("splits the contribution query when GitHub reports RESOURCE_LIMITS_EXCEEDED", async () => {
+    let combinedAttempts = 0;
+    let boundedMergedAggregationCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === "https://api.github.com/users/hyper") {
+          return jsonResponse({
+            login: "hyper",
+            id: 2,
+            html_url: "https://github.com/hyper",
+            avatar_url: null,
+            name: null,
+            bio: null,
+            company: null,
+            created_at: "2019-07-21T00:00:00Z",
+            followers: 189,
+            following: 13,
+            public_repos: 44,
+          });
+        }
+
+        if (url.includes("/users/hyper/repos")) {
+          return jsonResponse([]);
+        }
+
+        if (url === "https://api.github.com/graphql") {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
+          const query = body.query ?? "";
+
+          // Combined overview+stats query: the account is too active for
+          // GitHub's per-query resource budget.
+          if (query.includes("totalCommitContributions")) {
+            combinedAttempts += 1;
+            return jsonResponse({
+              data: { user: null },
+              errors: [
+                {
+                  type: "RESOURCE_LIMITS_EXCEEDED",
+                  message: "Resource limits for this query exceeded.",
+                },
+              ],
+            });
+          }
+
+          // Degraded overview refetch (no stat fields).
+          if (query.includes("contributionYears")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pinnedItems: { nodes: [] },
+                  mergedPRs: { totalCount: 480 },
+                  allPRs: { totalCount: 520 },
+                  closedPRs: { totalCount: 0, nodes: [] },
+                  issues: { totalCount: 220 },
+                  contributionYears: { contributionYears: [2026, 2025] },
+                },
+              },
+            });
+          }
+
+          // Single-field calendar query still succeeds on its own.
+          if (query.includes("contributionCalendar")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  contributionsCollection: {
+                    contributionCalendar: { totalContributions: 7810 },
+                  },
+                },
+              },
+            });
+          }
+
+          if (query.includes("contributionsCollection(from:")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  y0: { commitContributionsByRepository: [] },
+                  y1: { commitContributionsByRepository: [] },
+                },
+              },
+            });
+          }
+
+          if (query.includes("organizations(first:")) {
+            return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+          }
+
+          if (query.includes("pullRequests(first: $count, states: MERGED, after:")) {
+            boundedMergedAggregationCalls += 1;
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          }
+
+          if (query.includes("pullRequests(first:")) {
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          }
+
+          return jsonResponse({ data: { user: null } });
+        }
+
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    const result = await collect("hyper");
+
+    expect(combinedAttempts).toBe(1);
+    expect(result.metrics.last_year_contributions).toBe(7810);
+    expect(result.metrics.merged_pr_count).toBe(480);
+    expect(result.metrics.issues_created).toBe(220);
+    expect(result.metrics.merged_pr_contribution_aggregation_incomplete).toBe(true);
+    expect(boundedMergedAggregationCalls).toBe(0);
+    // Approximated diversity: contributions + PRs + issues (reviews unknowable).
+    expect(result.metrics.activity_type_count).toBe(3);
   });
 
   it("attributes strongly maintained organization repos as original-project candidates", async () => {
@@ -231,6 +356,21 @@ ${"Useful project detail. ".repeat(50)}
           return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
         }
 
+        if (query.includes("repository(owner:")) {
+          return jsonResponse({
+            data: {
+              repository: {
+                stargazerCount: 12345,
+                hasIssuesEnabled: true,
+                isMirror: false,
+                watchers: { totalCount: 300 },
+                issues: { totalCount: 800 },
+                pullRequests: { totalCount: 400 },
+              },
+            },
+          });
+        }
+
         return jsonResponse({
           data: {
             user: {
@@ -263,6 +403,8 @@ ${"Useful project detail. ".repeat(50)}
     expect(result.metrics.attributed_original_repo_count).toBe(1);
     expect(result.metrics.nonempty_original_repo_count).toBe(1);
     expect(result.metrics.total_stars).toBe(12345);
+    // Engagement of the top-starred repo: (300 + 800 + 400) / 12345
+    expect(result.metrics.top_repo_engagement_ratio).toBeCloseTo(0.1215, 3);
     expect(result.top_repos[0]).toMatchObject({
       name: "core",
       owner_login: "acme",
@@ -529,6 +671,85 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.organizations).toEqual([]);
     expect(result.metrics.username).toBe("alice");
+  });
+});
+
+describe("fetchDurablePullRequestPage", () => {
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = originalToken;
+    vi.unstubAllGlobals();
+  });
+
+  it("returns durable merged PR facts and an opaque resume cursor", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url === "https://api.github.com/graphql") {
+          return jsonResponse({
+            data: {
+              user: {
+                pullRequests: {
+                  nodes: [
+                    {
+                      id: "PR_node_1",
+                      title: "refactor: durable history",
+                      createdAt: "2024-01-01T00:00:00Z",
+                      mergedAt: "2024-01-02T00:00:00Z",
+                      closedAt: "2024-01-02T00:00:00Z",
+                      additions: 30,
+                      deletions: 10,
+                      changedFiles: 4,
+                      labels: null,
+                      repository: {
+                        nameWithOwner: "upstream/project",
+                        stargazerCount: 900,
+                        isPrivate: false,
+                        isFork: false,
+                        owner: { login: "upstream" },
+                      },
+                    },
+                  ],
+                  pageInfo: { hasNextPage: true, endCursor: "opaque-cursor" },
+                },
+              },
+            },
+          });
+        }
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    await expect(
+      fetchDurablePullRequestPage({ username: "history-heavy", state: "MERGED" }),
+    ).resolves.toEqual({
+      facts: [
+        {
+          pullRequestId: "PR_node_1",
+          source: "native_merged",
+          repoKey: "upstream/project",
+          ownerLogin: "upstream",
+          stars: 900,
+          isPrivate: false,
+          isFork: false,
+          createdAt: "2024-01-01T00:00:00Z",
+          mergedAt: "2024-01-02T00:00:00Z",
+          closedAt: "2024-01-02T00:00:00Z",
+          title: "refactor: durable history",
+          additions: 30,
+          deletions: 10,
+          changedFiles: 4,
+          labels: [],
+        },
+      ],
+      hasNextPage: true,
+      endCursor: "opaque-cursor",
+    });
   });
 });
 

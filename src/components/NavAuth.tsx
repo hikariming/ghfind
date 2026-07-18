@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { NavGuestMenu } from "@/components/NavGuestMenu";
 import { WorkspaceUserMenu } from "@/components/workspace/WorkspaceUserMenu";
+import { fetchMe, type Me } from "@/lib/me-client";
 
 /**
  * GitHub login control for the navbar. Client island: it probes `/api/me` for the
@@ -18,8 +19,6 @@ import { WorkspaceUserMenu } from "@/components/workspace/WorkspaceUserMenu";
  * state); most visitors are signed out, and the button/avatar slots in once the
  * single fetch resolves.
  */
-type Me = { user: { login: string; image: string | null } | null; scored: boolean };
-
 export function NavAuth({
   configured,
   repoHref,
@@ -37,14 +36,9 @@ export function NavAuth({
   useEffect(() => {
     if (!configured) return;
     let alive = true;
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d: Me) => {
-        if (alive) setMe(d);
-      })
-      .catch(() => {
-        if (alive) setMe({ user: null, scored: false });
-      });
+    fetchMe().then((d: Me) => {
+      if (alive) setMe(d);
+    });
     return () => {
       alive = false;
     };

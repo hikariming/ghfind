@@ -4,41 +4,50 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   getArchivedRoast: vi.fn(),
+  getLatestPublicScanRun: vi.fn(),
   getScoreScannedAt: vi.fn(),
   getRank: vi.fn(),
   recordScore: vi.fn(),
   recordProfileSnapshot: vi.fn(),
   updateRoast: vi.fn(),
   chatStreamEvents: vi.fn(),
+  checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
   defaultLlmConfig: vi.fn(),
   fallbackLlmConfig: vi.fn(),
   acquireRoastLock: vi.fn(),
   checkRoastRateLimit: vi.fn(),
   clearCachedRoast: vi.fn(),
   getCachedRoast: vi.fn(),
-  getCachedRoastJudge: vi.fn(),
   getCachedScan: vi.fn(),
   releaseRoastLock: vi.fn(),
   setCachedRoast: vi.fn(),
-  setCachedRoastJudge: vi.fn(),
   waitForCachedRoast: vi.fn(),
-  buildRoastJudgeMessages: vi.fn((_scan: ScanResult, _lang?: string) => []),
-  buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string, _judge?: unknown) => []),
+  buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string) => []),
+  getPublicScanStatus: vi.fn(),
+  publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
+  requiresDurablePublicScan: vi.fn(),
+  resolvePublicScanFromTrustedQuickScan: vi.fn(),
+  startPublicScan: vi.fn(),
+  kickPublicScanDrain: vi.fn(),
 }));
 
 // Outside a real browser/Vercel request there is no BotID signal — treat every
 // test request as a verified human so the gate is transparent to these suites.
 vi.mock("botid/server", () => ({
-  checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
+  checkBotId: mocks.checkBotId,
 }));
 
 vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
+  getLatestPublicScanRun: mocks.getLatestPublicScanRun,
   getScoreScannedAt: mocks.getScoreScannedAt,
-  getRank: mocks.getRank,
   recordScore: mocks.recordScore,
   recordProfileSnapshot: mocks.recordProfileSnapshot,
   updateRoast: mocks.updateRoast,
+}));
+
+vi.mock("@/lib/rank", () => ({
+  getRankCached: mocks.getRank,
 }));
 
 vi.mock("@/lib/badge", () => ({
@@ -73,14 +82,37 @@ vi.mock("@/lib/llm", () => {
   }
   return {
     LlmQuotaError,
-    // The route calls the fallback wrapper; delegate to the per-call
-    // chatStreamEvents mock (driven by mockReturnValueOnce) using the primary
-    // config, preserving the existing judge-then-writer stream sequence.
-    chatStreamEventsWithFallback: (
+    // The route calls the fallback wrapper; delegate to the per-call stream mock
+    // using the primary config.
+    chatStreamEventsWithFallback: async function* (
       configs: unknown[],
       messages: unknown,
-      opts: unknown,
-    ) => mocks.chatStreamEvents(configs[0], messages, opts),
+      opts: {
+        onAttempt?: (event: {
+          attempt: number;
+          provider: string;
+          model: string;
+          phase: string;
+          elapsedMs: number;
+          emittedContent?: boolean;
+        }) => void;
+      },
+    ) {
+      const base = { attempt: 1, provider: "llm.example.test", model: "test-model" };
+      opts.onAttempt?.({ ...base, phase: "start", elapsedMs: 0 });
+      let first = true;
+      for await (const event of mocks.chatStreamEvents(configs[0], messages, opts)) {
+        if (first) {
+          first = false;
+          opts.onAttempt?.({ ...base, phase: "first_event", elapsedMs: 1 });
+          if (event.type === "content") {
+            opts.onAttempt?.({ ...base, phase: "first_content", elapsedMs: 1 });
+          }
+        }
+        yield event;
+      }
+      opts.onAttempt?.({ ...base, phase: "success", elapsedMs: 2, emittedContent: true });
+    },
     chatStreamEvents: mocks.chatStreamEvents,
     defaultLlmConfig: mocks.defaultLlmConfig,
     fallbackLlmConfig: mocks.fallbackLlmConfig,
@@ -92,11 +124,9 @@ vi.mock("@/lib/redis", () => ({
   checkRoastRateLimit: mocks.checkRoastRateLimit,
   clearCachedRoast: mocks.clearCachedRoast,
   getCachedRoast: mocks.getCachedRoast,
-  getCachedRoastJudge: mocks.getCachedRoastJudge,
   getCachedScan: mocks.getCachedScan,
   releaseRoastLock: mocks.releaseRoastLock,
   setCachedRoast: mocks.setCachedRoast,
-  setCachedRoastJudge: mocks.setCachedRoastJudge,
   waitForCachedRoast: mocks.waitForCachedRoast,
 }));
 
@@ -105,7 +135,6 @@ vi.mock("@/lib/percentile", () => ({
 }));
 
 vi.mock("@/lib/prompt", () => ({
-  buildRoastJudgeMessages: mocks.buildRoastJudgeMessages,
   buildRoastMessages: mocks.buildRoastMessages,
 }));
 
@@ -120,6 +149,18 @@ vi.mock("@/lib/identity", () => ({
     roastLine: unknown,
     report: unknown,
   ) => ({ tags, roastLine, report }),
+}));
+
+vi.mock("@/lib/public-scan", () => ({
+  getPublicScanStatus: mocks.getPublicScanStatus,
+  publicScanAdmission: mocks.publicScanAdmission,
+  requiresDurablePublicScan: mocks.requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
+  startPublicScan: mocks.startPublicScan,
+}));
+
+vi.mock("@/lib/public-scan-dispatcher", () => ({
+  kickPublicScanDrain: mocks.kickPublicScanDrain,
 }));
 
 vi.mock("@/lib/score", () => ({
@@ -211,9 +252,11 @@ beforeEach(() => {
   });
   mocks.fallbackLlmConfig.mockReturnValue(null);
   mocks.getCachedScan.mockResolvedValue(null);
+  mocks.getPublicScanStatus.mockResolvedValue(null);
+  mocks.requiresDurablePublicScan.mockReturnValue(false);
   mocks.getCachedRoast.mockResolvedValue(null);
-  mocks.getCachedRoastJudge.mockResolvedValue(null);
-  mocks.getArchivedRoast.mockResolvedValue(null);
+    mocks.getArchivedRoast.mockResolvedValue(null);
+    mocks.getLatestPublicScanRun.mockResolvedValue(null);
   mocks.getScoreScannedAt.mockResolvedValue(null);
   mocks.clearCachedRoast.mockResolvedValue(undefined);
   mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
@@ -224,24 +267,83 @@ beforeEach(() => {
   mocks.recordProfileSnapshot.mockResolvedValue(undefined);
   mocks.updateRoast.mockResolvedValue(undefined);
   mocks.setCachedRoast.mockResolvedValue(undefined);
-  mocks.setCachedRoastJudge.mockResolvedValue(undefined);
   mocks.releaseRoastLock.mockResolvedValue(undefined);
-  mocks.chatStreamEvents
-    .mockReturnValueOnce(streamText(`{"delta":3,"reason":"ok","verdict":"正常","risk_notes":[]}`))
-    .mockReturnValueOnce(
-      streamText(
-        [
-          "@@ADJUST 3@@",
-          "@@TAGS zh=进步,维护者|en=improving,maintainer@@",
-          "@@ROAST zh=稳步进步。|en=Steady improvement.@@",
-          "## 毒舌点评",
-          "开源活跃度在上升。",
-        ].join("\n"),
-      ),
-    );
+  mocks.chatStreamEvents.mockReturnValueOnce(
+    streamText(
+      [
+        "@@ADJUST 3@@",
+        "@@TAGS zh=进步,维护者|en=improving,maintainer@@",
+        "@@ROAST zh=稳步进步。|en=Steady improvement.@@",
+        "## 毒舌点评",
+        "开源活跃度在上升。",
+      ].join("\n"),
+    ),
+  );
 });
 
 describe("roast API persistence", () => {
+  it("never seeds a durable scan from an untrusted roast request body", async () => {
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "server-authored-run" },
+      retryAfterSeconds: 5,
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "scan_enrichment_pending",
+      run_id: "server-authored-run",
+    });
+    expect(mocks.startPublicScan).toHaveBeenCalledWith("DemoDev", expect.any(Object));
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.recordScore).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
+  it("emits one structured summary with request, stream, lock, and provider timings", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const response = await POST(
+        new NextRequest("https://example.test/api/roast", {
+          method: "POST",
+          body: JSON.stringify({ scan, lang: "zh" }),
+        }),
+      );
+      await response.text();
+
+      const summaryCall = log.mock.calls.find(([name]) => name === "roast.summary");
+      expect(summaryCall).toBeDefined();
+      const summary = JSON.parse(String(summaryCall![1]));
+      expect(summary).toMatchObject({
+        ok: true,
+        source: "generate",
+        generationPath: "leader",
+        lockWaitMs: 0,
+      });
+      expect(summary.requestTotalMs).toEqual(expect.any(Number));
+      expect(summary.streamMs).toEqual(expect.any(Number));
+      expect(summary.firstEventMs).toEqual(expect.any(Number));
+      expect(summary.firstContentMs).toEqual(expect.any(Number));
+      expect(summary.metaMs).toEqual(expect.any(Number));
+      expect(summary.attempts.map((event: { phase: string }) => event.phase)).toEqual([
+        "start",
+        "first_event",
+        "first_content",
+        "success",
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("persists the score and completed roast for a fresh default generation", async () => {
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -266,28 +368,10 @@ describe("roast API persistence", () => {
       expect.stringContaining("## 毒舌点评"),
       "zh",
     );
-    expect(mocks.setCachedRoastJudge).toHaveBeenCalledWith(
-      "DemoDev",
-      expect.objectContaining({
-        base_score: 68,
-        judge: expect.objectContaining({ delta: 3 }),
-      }),
-    );
+    expect(mocks.chatStreamEvents).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses a language-neutral judge result instead of recalibrating per locale", async () => {
-    mocks.getCachedRoastJudge.mockResolvedValue({
-      base_score: 68,
-      judge: {
-        delta: 3,
-        reason: "cached calibration",
-        verdict: "normal",
-        risk_notes: [],
-        final_score: 71,
-        tier: "人上人",
-        tier_label: "优质贡献者 · 值得信任",
-      },
-    });
+  it("calibrates and writes an English roast in one model call", async () => {
     mocks.chatStreamEvents.mockReset();
     mocks.chatStreamEvents.mockReturnValueOnce(
       streamText(
@@ -310,17 +394,10 @@ describe("roast API persistence", () => {
 
     await expect(response.text()).resolves.toContain("Open-source activity is rising");
     expect(response.status).toBe(200);
-    expect(mocks.buildRoastJudgeMessages).not.toHaveBeenCalled();
     expect(mocks.chatStreamEvents).toHaveBeenCalledTimes(1);
     expect(mocks.buildRoastMessages).toHaveBeenCalledWith(
       expect.anything(),
       "en",
-      expect.objectContaining({
-        delta: 3,
-        final_score: 71,
-        tier: "ELITE",
-        tier_label: "Trusted contributor",
-      }),
     );
     expect(mocks.recordScore).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -329,7 +406,6 @@ describe("roast API persistence", () => {
         tier: "人上人",
       }),
     );
-    expect(mocks.setCachedRoastJudge).not.toHaveBeenCalled();
   });
 
   it("ignores refresh for a still-fresh roast and replays the cache instead", async () => {
@@ -419,12 +495,61 @@ describe("roast API persistence", () => {
     );
 
     expect(response.status).toBe(200);
-    // The judge/writer passes run inside the streamed response's start()
-    // callback, so buildRoastMessages is only invoked once the body is
+    // Generation runs inside the streamed response's start() callback, so
+    // buildRoastMessages is only invoked once the body is
     // consumed — drain it before inspecting the mock.
     await response.text();
     const passedScan = mocks.buildRoastMessages.mock.calls[0]![0];
     expect(passedScan.top_repos[0].readme).toBeUndefined();
     expect(passedScan.top_repos[0].readme_excerpt).toBe("Fallback summary");
+  });
+});
+
+describe("roast API human gate", () => {
+  // The gate must key on the RESOLVED config: an incomplete byoKey falls back
+  // to the operator-paid default, so it has to pass BotID exactly like no key.
+  it("runs the BotID check when byoKey is present but incomplete (falls back to default)", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", byoKey: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(mocks.checkBotId).toHaveBeenCalledOnce();
+  });
+
+  it("refuses an unverified bot carrying an empty byoKey instead of spending default credit", async () => {
+    mocks.checkBotId.mockResolvedValueOnce({ isBot: true, isVerifiedBot: false });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", byoKey: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "bot_detected" });
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
+  it("skips the BotID check for a complete byoKey (the user pays their own bill)", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({
+          scan,
+          lang: "zh",
+          byoKey: { apiKey: "user-key", baseURL: "https://user-llm.test/v1", model: "m" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(mocks.checkBotId).not.toHaveBeenCalled();
   });
 });

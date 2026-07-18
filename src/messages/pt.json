@@ -325,6 +325,7 @@
     "errRoastFailed": "A geração da zoada falhou — tente mais tarde ou use sua própria key.",
     "errNetworkRoast": "A conexão caiu — a zoada foi cortada no meio.",
     "errScanFailed": "Falha no scan, tente de novo mais tarde.",
+    "errScanPending": "Coletando todo o histórico público de PRs e commits. Continuará automaticamente quando estiver pronto.",
     "errNetworkScan": "Erro de rede — não deu nem pra alcançar o GitHub.",
     "byoReasonQuota": "A cota grátis acabou 😵 Adicione sua própria API key pra continuar zoando (OpenAI / StepFun / Groq funcionam).",
     "byoReasonRate": "Você zoou demais hoje 🥵 Respira, ou adicione sua própria API key pra zoadas ilimitadas.",

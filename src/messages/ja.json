@@ -325,6 +325,7 @@
     "errRoastFailed": "ローストの生成に失敗。あとで再試行するか、自分のキーをどうぞ。",
     "errNetworkRoast": "接続が切れて、毒舌が途中で止まりました。",
     "errScanFailed": "スキャンに失敗しました。あとで再試行を。",
+    "errScanPending": "公開 PR と commit の全履歴を収集中です。準備でき次第、自動的に続行します。",
     "errNetworkScan": "ネットワークエラー。GitHubにすら届きませんでした。",
     "byoReasonQuota": "無料枠が尽きました 😵 自分のAPIキーを入れればロースト続行できます（OpenAI / StepFun / Groq いずれも可）。",
     "byoReasonRate": "今日はロースト三昧ですね 🥵 一息つくか、自分のAPIキーで無制限にどうぞ。",

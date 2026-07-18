@@ -1,15 +1,26 @@
 import { NextRequest } from "next/server";
-import { getAccountDetail, getPercentile, getRank, recordAccountLookup } from "@/lib/db";
+import { getAccountDetail, recordAccountLookup } from "@/lib/db";
+import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
+import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import {
+  getPublicScanStatus,
+  publicScanAdmission,
+  type PublicScanResolution,
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+} from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Indexed accounts change rarely — cache hard at the edge.
 const RATED_CACHE = "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
@@ -42,10 +53,52 @@ function json(
 /** Deterministic global percentile/rank for a score, computed against the scored
  * population WITHOUT requiring the account to be in it. */
 async function percentileFor(finalScore: number) {
-  const [rank, pct] = await Promise.all([getRank(finalScore), getPercentile(finalScore)]);
+  const [rank, pct] = await Promise.all([
+    getRankCached(finalScore),
+    getPercentileCached(finalScore),
+  ]);
   return pct
     ? { beat: beatPercent(pct.below, pct.total), total: pct.total, rank: rank?.rank ?? null }
     : null;
+}
+
+function durableResponse(
+  username: string,
+  resolution: Exclude<PublicScanResolution, { status: "complete" }>,
+  headers: Record<string, string>,
+) {
+  if (resolution.status === "pending") {
+    kickPublicScanDrain();
+    return json(
+      {
+        error: "scan_enrichment_pending",
+        username,
+        run_id: resolution.run.id,
+        retry_after: resolution.retryAfterSeconds,
+      },
+      202,
+      MISS_CACHE,
+      { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
+    );
+  }
+  if (resolution.status === "queue_full" || resolution.status === "admission_limited") {
+    return json(
+      { error: resolution.status, username, retry_after: resolution.retryAfterSeconds },
+      429,
+      MISS_CACHE,
+      { ...headers, "Retry-After": String(resolution.retryAfterSeconds), "Cache-Control": "no-store" },
+    );
+  }
+  return json(
+    {
+      error: "durable_scan_unavailable",
+      username,
+      retry_after: resolution.retryAfterSeconds,
+    },
+    503,
+    MISS_CACHE,
+    { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
+  );
 }
 
 /**
@@ -81,7 +134,7 @@ export async function GET(
 
   // 1) Indexed (already roasted / scored) — richest payload, cheapest path.
   const detail = await getAccountDetail(handle);
-  if (detail) {
+  if (detail?.score_version === SCORE_CACHE_VERSION) {
     return json(
       {
         source: "indexed",
@@ -105,7 +158,41 @@ export async function GET(
   }
 
   // 2) Not indexed → score it live, deterministically (NO LLM).
+  const publicStatus = await getPublicScanStatus(handle);
+  if (publicStatus?.status === "complete") {
+    await setCachedScan(publicStatus.scan.metrics.username, publicStatus.scan);
+    const s = publicStatus.scan.scoring;
+    const m = publicStatus.scan.metrics;
+    const tier = s.tier as Tier;
+    return json(
+      {
+        source: "complete_public",
+        cached: true,
+        username: m.username,
+        display_name: m.name,
+        avatar_url: m.avatar_url,
+        profile_url: m.profile_url ?? `https://github.com/${m.username}`,
+        final_score: s.final_score,
+        tier,
+        tier_key: TIER_KEY[tier],
+        sub_scores: s.sub_scores,
+        base_score: s.base_score,
+        total_penalty: s.total_penalty,
+        red_flags: s.red_flags,
+        tags: null,
+        roast_line: null,
+        percentile: await percentileFor(s.final_score),
+        profile: `${SITE_URL}/u/${m.username}`,
+      },
+      200,
+      LIVE_CACHE,
+    );
+  }
+  if (publicStatus) {
+    return durableResponse(handle, publicStatus, {});
+  }
   const cached = await getCachedScan(handle);
+  const durableAdmission = publicScanAdmission(`ip:${clientIp(req)}`);
   let rlHeaders: Record<string, string> = {};
   if (!cached) {
     const limit = await checkRateLimit(clientIp(req));
@@ -136,6 +223,19 @@ export async function GET(
 
   if (!cached) {
     await recordAccountLookup(result.metrics.username, clientIp(req));
+  }
+
+  if (requiresDurablePublicScan(result)) {
+    const durable = await resolvePublicScanFromTrustedQuickScan(
+      result.metrics.username,
+      result,
+      durableAdmission,
+    );
+    if (durable.status === "complete") {
+      result = durable.scan;
+    } else {
+      return durableResponse(result.metrics.username, durable, rlHeaders);
+    }
   }
 
   const s = result.scoring;

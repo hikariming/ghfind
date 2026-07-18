@@ -104,6 +104,37 @@ export interface ChatEvent {
   text: string;
 }
 
+export interface ChatAttemptEvent {
+  attempt: number;
+  provider: string;
+  model: string;
+  phase: "start" | "first_event" | "first_content" | "success" | "failure";
+  elapsedMs: number;
+  emittedContent?: boolean;
+  error?: string;
+}
+
+export interface ChatStreamOptions {
+  temperature?: number;
+  connectTimeoutMs?: number;
+  idleTimeoutMs?: number;
+  deadlineMs?: number;
+  attemptBudgetMs?: number;
+  /** Non-secret lifecycle telemetry. Callers can aggregate this into one request log. */
+  onAttempt?: (event: ChatAttemptEvent) => void;
+}
+
+/** StepFun supports OpenAI's reasoning_effort field. Keep it provider-scoped:
+ * fallback and BYO OpenAI-compatible endpoints may reject unknown fields. */
+function isStepFunEndpoint(baseURL: string): boolean {
+  try {
+    const hostname = new URL(baseURL).hostname.toLowerCase();
+    return hostname === "stepfun.com" || hostname.endsWith(".stepfun.com");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Stream a chat completion as typed events. Reasoning deltas (`reasoning_content`
  * / `reasoning`, emitted by reasoning models like StepFun's flash tiers ahead of
@@ -113,28 +144,7 @@ export interface ChatEvent {
 export async function* chatStreamEvents(
   config: LlmConfig,
   messages: ChatMessage[],
-  opts?: {
-    temperature?: number;
-    connectTimeoutMs?: number;
-    idleTimeoutMs?: number;
-    /**
-     * Absolute wall-clock deadline (epoch ms) for the whole exchange. The idle
-     * timeout only bounds GAPS between tokens — a reasoning model that streams
-     * chain-of-thought deltas continuously never trips it, so without a total
-     * budget a long "thinking" run can exceed the platform's function ceiling
-     * and 504. Each arm() is clamped to the remaining budget; past it we abort
-     * (surfacing as {@link LlmTimeoutError}) so the caller fails fast and clean.
-     */
-    deadlineMs?: number;
-    /**
-     * Per-attempt wall-clock budget (ms), honoured only by
-     * {@link chatStreamEventsWithFallback}: it gives EACH provider attempt its
-     * own fresh window of this length (still clamped by {@link deadlineMs}), so a
-     * stalled primary can't consume the whole budget and starve the fallback.
-     * A single-provider stream ignores it.
-     */
-    attemptBudgetMs?: number;
-  },
+  opts?: ChatStreamOptions,
 ): AsyncGenerator<ChatEvent> {
   const base = config.baseURL.replace(/\/$/, "");
   const connectMs = opts?.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
@@ -175,6 +185,7 @@ export async function* chatStreamEvents(
         messages,
         stream: true,
         temperature: opts?.temperature ?? 0.85,
+        ...(isStepFunEndpoint(base) ? { reasoning_effort: "low" } : {}),
       }),
       signal: ctrl.signal,
     });
@@ -261,12 +272,36 @@ export async function* chatStreamEvents(
 export async function* chatStreamEventsWithFallback(
   configs: LlmConfig[],
   messages: ChatMessage[],
-  opts?: Parameters<typeof chatStreamEvents>[2],
+  opts?: ChatStreamOptions,
 ): AsyncGenerator<ChatEvent> {
   let lastErr: unknown;
   for (let i = 0; i < configs.length; i++) {
     const isLast = i === configs.length - 1;
     let emittedContent = false;
+    let emittedEvent = false;
+    const attemptStartedAt = Date.now();
+    const provider = (() => {
+      try {
+        return new URL(configs[i].baseURL).hostname;
+      } catch {
+        return "unknown";
+      }
+    })();
+    const emitAttempt = (phase: ChatAttemptEvent["phase"], extra: Partial<ChatAttemptEvent> = {}) => {
+      try {
+        opts?.onAttempt?.({
+          attempt: i + 1,
+          provider,
+          model: configs[i].model,
+          phase,
+          elapsedMs: Date.now() - attemptStartedAt,
+          ...extra,
+        });
+      } catch {
+        // Telemetry must never affect the model stream.
+      }
+    };
+    emitAttempt("start");
     // Fresh per-attempt deadline so each provider gets a full budget from the
     // moment its own attempt starts, still clamped by the overall deadlineMs.
     const attemptOpts =
@@ -281,12 +316,24 @@ export async function* chatStreamEventsWithFallback(
         : opts;
     try {
       for await (const ev of chatStreamEvents(configs[i], messages, attemptOpts)) {
-        if (ev.type === "content") emittedContent = true;
+        if (!emittedEvent) {
+          emittedEvent = true;
+          emitAttempt("first_event");
+        }
+        if (ev.type === "content" && !emittedContent) {
+          emittedContent = true;
+          emitAttempt("first_content");
+        }
         yield ev;
       }
+      emitAttempt("success", { emittedContent });
       return;
     } catch (e) {
       lastErr = e;
+      emitAttempt("failure", {
+        emittedContent,
+        error: e instanceof Error ? e.name : "unknown",
+      });
       // Can't restart on another provider once answer text is committed, and the
       // last provider has nowhere to fall over to — surface the error either way.
       if (emittedContent || isLast) throw e;

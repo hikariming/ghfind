@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoastJudgeMessages, buildRoastMessages } from "../prompt";
+import { buildRoastMessages } from "../prompt";
 import type { ScanResult } from "../types";
 
 const scan = {
@@ -38,12 +38,12 @@ describe("buildRoastMessages", () => {
   it("defaults to the Chinese system prompt", () => {
     const [sys] = buildRoastMessages(scan);
     expect(sys.role).toBe("system");
-    expect(sys.content).toContain("毒舌 GitHub 锐评写手");
+    expect(sys.content).toContain("事实校准员 + 毒舌锐评写手");
   });
 
   it("selects the English system prompt for lang=en", () => {
     const [sys, user] = buildRoastMessages(scan, "en");
-    expect(sys.content).toMatch(/savage GitHub report writer/i);
+    expect(sys.content).toMatch(/factual calibration judge and the savage report writer/i);
     expect(sys.content).not.toContain("毒舌 GitHub 锐评写手");
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
@@ -64,45 +64,29 @@ describe("buildRoastMessages", () => {
     }
   });
 
-  it("builds a separate factual judge prompt that returns JSON only", () => {
-    const [zhSys, zhUser] = buildRoastJudgeMessages(scan, "zh");
-    expect(zhSys.content).toContain("GitHub 评分校准员");
-    expect(zhSys.content).toContain("不要写报告，不要玩梗，不要毒舌");
-    expect(zhSys.content).toContain('"delta":0');
-    expect(zhSys.content).toContain("输出必须是纯 JSON");
-    expect(zhSys.content).toContain("学校、公司、雇主、组织 membership");
-    expect(zhSys.content).toContain("只能作为背景信息");
-    expect(zhSys.content).toContain("README 文本");
-    expect(zhSys.content).toContain("不能单独给正向 delta");
+  it("keeps factual judge guardrails inside the combined prompt", () => {
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("事实校准员 + 毒舌锐评写手");
+    expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
+    expect(zhSys.content).toContain("不要输出单独的 judge JSON");
     expect(zhUser.content).not.toContain('"judge_result"');
 
-    const [enSys] = buildRoastJudgeMessages(scan, "en");
-    expect(enSys.content).toContain("score calibration judge");
-    expect(enSys.content).toContain("do not write the report, do not roast");
-    expect(enSys.content).toContain("Output pure JSON only");
-    expect(enSys.content).toContain("School, company, employer, or organization membership");
-    expect(enSys.content).toContain("background context only");
-    expect(enSys.content).toContain("README text");
-    expect(enSys.content).toContain("must not produce a positive delta by itself");
+    const [enSys] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("factual calibration judge and the savage report writer");
+    expect(enSys.content).toContain("background context, not score evidence");
+    expect(enSys.content).toContain("Do not emit a separate judge JSON");
   });
 
-  it("makes the report writer consume fixed judge_result instead of deciding delta", () => {
-    const judge = {
-      delta: -2,
-      reason: "Docs-heavy contribution mix.",
-      verdict: "needs human review",
-      risk_notes: ["external PR quality is docs-heavy"],
-      final_score: 45.7,
-      tier: "NPC" as const,
-      tier_label: "普通账号 · 特征平庸存疑",
-    };
-    const [sys, user] = buildRoastMessages(scan, "zh", judge);
-    expect(sys.content).toContain("不是**重新决定 delta");
-    expect(sys.content).toContain("必须逐字使用 judge_result.delta");
-    expect(sys.content).toContain("judge_result 是唯一评分校准来源");
+  it("combines factual calibration and report writing in one response", () => {
+    const [sys, user] = buildRoastMessages(scan, "zh");
+    expect(sys.content).toContain("事实校准员 + 毒舌锐评写手");
+    expect(sys.content).toContain("同一次回复");
+    expect(sys.content).toContain("不要输出单独的 judge JSON");
+    expect(sys.content).toContain("没有充分证据就写 0");
     expect(sys.content).toContain("不能因为想嘴臭而改分");
     const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
-    expect(payload.judge_result).toMatchObject(judge);
+    expect(payload.judge_result).toBeUndefined();
+    expect(payload.calibration_contract).toContain("同一次回复");
   });
 
   it("keeps affiliations from becoming score evidence in judge and writer context", () => {
@@ -242,21 +226,41 @@ describe("buildRoastMessages", () => {
     const [zh] = buildRoastMessages(scan, "zh");
     expect(zh.content).not.toContain("通过率");
     expect(zh.content).toContain("维护者关闭未合并");
+    expect(zh.content).toContain("官方工作流已落地 PR");
     expect(zh.content).toContain("作者主动关闭外部 PR");
     expect(zh.content).toContain("作者主动关闭自有仓库 PR");
 
     const [en] = buildRoastMessages(scan, "en");
     expect(en.content).not.toContain("acceptance rate");
     expect(en.content).toContain("maintainer-closed unmerged");
+    expect(en.content).toContain("workflow-landed PRs");
     expect(en.content).toContain("author-closed external PRs");
     expect(en.content).toContain("author-closed own-repo PRs");
   });
 
+  it("keeps official workflow landings distinct from GitHub-native merges", () => {
+    const workflowScan = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        workflow_landed_pr_count: 3,
+        workflow_landed_impact_pr_count: 3,
+      },
+    } as ScanResult;
+    const [, zhUser] = buildRoastMessages(workflowScan, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes.workflow_landed_pr_count).toBe(3);
+    expect(zhPayload.context_notes.workflow_landing_scope).toContain("不得把官方工作流已落地 PR 写成 GitHub 合并");
+
+    const [, enUser] = buildRoastMessages(workflowScan, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes.workflow_landed_pr_count).toBe(3);
+    expect(enPayload.context_notes.workflow_landing_scope).toContain("Never call workflow-landed PRs GitHub merges");
+  });
+
   it("marks recent_prs as a sample in both the prompt and payload", () => {
-    const [zhSys] = buildRoastJudgeMessages(scan, "zh");
-    const [, zhUser] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("recent_prs 只是最近 merged PR 样本");
-    expect(zhSys.content).toContain("不代表全量 PR 分布");
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("不要从 recent_prs 推断全量分布");
     const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(zhPayload.context_notes).toMatchObject({
       recent_prs_sample_size: 50,
@@ -267,10 +271,8 @@ describe("buildRoastMessages", () => {
     expect(zhPayload.context_notes.account_time_scope).toContain("不要把它直接和 account_age_years 比较");
     expect(zhPayload.context_notes.no_sample_extrapolation).toContain("不要仅凭 recent_prs");
 
-    const [enSys] = buildRoastJudgeMessages(scan, "en");
-    const [, enUser] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("recent_prs is only a recent merged-PR sample");
-    expect(enSys.content).toContain("not the full PR distribution");
+    const [enSys, enUser] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("do not extrapolate all-time behavior from recent_prs");
     const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(enPayload.context_notes).toMatchObject({
       recent_prs_sample_size: 50,
@@ -283,11 +285,8 @@ describe("buildRoastMessages", () => {
   });
 
   it("keeps impact coverage neutral and includes verified high-star PR samples", () => {
-    const [zhSys] = buildRoastJudgeMessages(scan, "zh");
-    const [, zhUser] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("不是负面指标");
-    expect(zhSys.content).toContain("verified_impact_prs");
-    expect(zhSys.content).toContain("不能把样本数量写成长期高星贡献总量");
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("不能把样本数写成");
 
     const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.metrics.unverified_impact_pr_count).toBeUndefined();

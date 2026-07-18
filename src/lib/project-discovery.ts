@@ -2,6 +2,7 @@ import {
   getDeveloperCommonProjects,
   getProjects,
   getRelatedProjects,
+  getRepoLanguage,
   type ProjectListItem,
   type RelatedProject,
 } from "@/lib/db";
@@ -29,13 +30,13 @@ export function createCachedLoader<T>(deps: CacheLoaderDeps<T>) {
 
     const run = (async () => {
       const value = await deps.dbLoad(key);
-      const shouldCache = !Array.isArray(value) || value.length > 0;
-      if (shouldCache) {
-        try {
-          await deps.cacheSet(key, value);
-        } catch {
-          // Cache writes must never break a discovery page.
-        }
+      // Empty results are cached too: "no common projects" is the overwhelmingly
+      // common answer on profile pages, and skipping it meant every crawler hit
+      // went straight to the database (the 2026-07 rows_read incident).
+      try {
+        await deps.cacheSet(key, value);
+      } catch {
+        // Cache writes must never break a discovery page.
       }
       return value;
     })();
@@ -90,7 +91,30 @@ const relatedLoader = createCachedLoader<RelatedProject[]>({
   cacheSet: setCachedProjectValue,
   dbLoad: async (key) => {
     const options = relatedOptions.get(key);
-    return options ? getRelatedProjects(options.repoKey, options.limit) : [];
+    if (!options) return [];
+    const shared = await getRelatedProjects(options.repoKey, options.limit);
+    if (shared.length >= options.limit) return shared;
+    // Same-language filler for repos with few shared-contributor neighbors.
+    // Goes through the per-language list cache, so the whole-graph aggregation
+    // runs once per language per TTL — not once per repo page as before.
+    const language = await getRepoLanguage(options.repoKey);
+    if (!language) return shared;
+    const fallback = await getProjectsCached({
+      sort: "quality",
+      language,
+      limit: Math.max(options.limit * 2, 12),
+      offset: 0,
+    });
+    const seen = new Set([
+      options.repoKey.trim().toLowerCase(),
+      ...shared.map((item) => item.project.repo.repo_key),
+    ]);
+    return [
+      ...shared,
+      ...fallback
+        .filter((project) => !seen.has(project.repo.repo_key))
+        .map((project) => ({ project, sharedContributorCount: 0 })),
+    ].slice(0, options.limit);
   },
 });
 

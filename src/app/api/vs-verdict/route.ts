@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { getAccountDetail, recordMatchup, bumpMatchupView } from "@/lib/db";
 import { verdict } from "@/lib/verdict";
 import { normalizeUsername } from "@/lib/username";
@@ -35,10 +36,14 @@ function canonicalize(a: string, b: string): { a: string; b: string } | null {
 
 /**
  * Generate (or return the cached) bilingual LLM PK verdict + self-improvement
- * advice for a matchup. Called by the client on the /vs page (human-triggered,
- * so crawlers don't spend LLM credit). Guardrails: both sides must clear
- * VS_MIN_SCORE, per-IP rate limit, single-flight lock, and a ~5-day cache — so
- * one pair costs at most one LLM call per window. Always bumps the view count.
+ * advice for a matchup. Auto-fired by the /vs page on mount, so crawlers that
+ * run JS reach it too — BotID gates them before anything is written or spent
+ * (mirrors /api/roast: verified crawlers pass, headless farms are refused).
+ * Guardrails: both sides must clear VS_MIN_SCORE, per-IP rate limit,
+ * single-flight lock, and a ~5-day cache — so one pair costs at most one LLM
+ * call per window. The matchup row + view count are written only after the bot
+ * and floor gates: probe traffic and junk pairs used to cost two Turso writes
+ * per request before either check ran.
  */
 export async function POST(req: NextRequest) {
   let body: { a?: string; b?: string };
@@ -51,6 +56,17 @@ export async function POST(req: NextRequest) {
   const pair = canonicalize(body.a ?? "", body.b ?? "");
   if (!pair) return NextResponse.json({ error: "invalid_pair" }, { status: 400 });
   const { a, b } = pair;
+
+  const verification = await checkBotId();
+  if (verification.isBot && !verification.isVerifiedBot) {
+    return NextResponse.json(
+      {
+        error: "bot_detected",
+        hint: "Automated clients are welcome: use the documented API and MCP server at https://ghfind.com/docs (free, no headless browser required).",
+      },
+      { status: 403 },
+    );
+  }
 
   const [da, db] = await Promise.all([getAccountDetail(a), getAccountDetail(b)]);
   if (!da || !db) {
@@ -69,16 +85,17 @@ export async function POST(req: NextRequest) {
     scoreB: db.final_score,
   };
 
+  // Floor gate: below VS_MIN_SCORE we don't spend the model — page keeps the
+  // deterministic template line. Runs before the writes so junk pairs no longer
+  // mint matchup rows or view counts.
+  if (da.final_score < VS_MIN_SCORE || db.final_score < VS_MIN_SCORE) {
+    return NextResponse.json({ verdict: null, reason: "below_floor" });
+  }
+
   // Ensure a row exists (deterministic result) + count the human view. Never
   // overwrites an existing LLM verdict (recordMatchup COALESCEs).
   await recordMatchup({ ...base, source: "template" });
   await bumpMatchupView(a, b);
-
-  // Floor gate: below VS_MIN_SCORE we don't spend the model — page keeps the
-  // deterministic template line.
-  if (da.final_score < VS_MIN_SCORE || db.final_score < VS_MIN_SCORE) {
-    return NextResponse.json({ verdict: null, reason: "below_floor" });
-  }
 
   // Cache hit → no LLM.
   const cached = await getCachedVerdict(a, b);

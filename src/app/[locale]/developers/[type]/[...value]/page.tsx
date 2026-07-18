@@ -26,7 +26,13 @@ import { JsonLd, breadcrumbJsonLd } from "@/components/JsonLd";
 // already Redis-cached — the CDN should absorb repeat hits. The `?u=` pin is
 // the only per-request bit, and it's resolved client-side (FacetBoardPinFromQuery)
 // precisely so this page can stay static.
-export const revalidate = 600;
+//
+// 6h, not 10min: the URL space is ~10k buckets × 9 locales and AI crawlers do
+// full sweeps (claude-searchbot: 51k hits/24h after the 07-14 locale launch,
+// 82% MISS — cold entries get evicted and every re-crawl re-renders). A short
+// TTL buys nothing here: humans rarely land on these, and the live board is
+// /leaderboard. Long TTL keeps entries resident so repeat crawls hit the CDN.
+export const revalidate = 21600;
 
 // No pre-built paths — every bucket is generated on first hit, then cached for
 // `revalidate`. Without this export a dynamic-segment route is rendered per
@@ -109,6 +115,12 @@ export default async function FacetBucketPage({
     getDevelopersByFacetCached(type, value),
     type === "repo" ? getRelatedProjectsCached(value) : Promise.resolve([]),
   ]);
+
+  // An empty bucket (probed/garbage value, or one that lost all members) is
+  // thin content: rendering it would pay an ISR write per path × locale for a
+  // page nobody indexes. 404 instead; repo buckets with a real overview but no
+  // listed devs still render (the header is substance).
+  if (entries.length === 0 && !overview) notFound();
 
   const localePrefix = localePath(locale, "/").replace(/\/$/, "");
   const encodedPath = value.split("/").map(encodeURIComponent).join("/");

@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { fetchMe } from "@/lib/me-client";
 
 /** localStorage key remembering that the user dismissed (or used) the nudge. */
 const DISMISS_KEY = "gh-roast-login-nudge";
@@ -46,24 +47,16 @@ export function LoginNudge({ configured }: { configured: boolean }) {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Only nudge signed-out visitors; skip the prompt once a session exists.
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d: { user: unknown }) => {
-        if (!alive || d?.user) return;
-        timer = setTimeout(() => {
-          setMounted(true);
-          // Two frames so the initial (hidden) styles paint before we flip to visible.
-          requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-        }, SHOW_DELAY_MS);
-      })
-      .catch(() => {
-        // Probe failed — fall back to showing the nudge (signed-out is the norm).
-        if (!alive) return;
-        timer = setTimeout(() => {
-          setMounted(true);
-          requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-        }, SHOW_DELAY_MS);
-      });
+    // fetchMe shares the navbar's probe (one /api/me per pageview) and resolves
+    // signed-out on failure — signed-out is the norm, so we nudge either way.
+    fetchMe().then((d) => {
+      if (!alive || d.user) return;
+      timer = setTimeout(() => {
+        setMounted(true);
+        // Two frames so the initial (hidden) styles paint before we flip to visible.
+        requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+      }, SHOW_DELAY_MS);
+    });
     return () => {
       alive = false;
       clearTimeout(timer);

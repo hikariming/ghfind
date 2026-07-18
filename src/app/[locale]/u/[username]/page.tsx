@@ -11,12 +11,12 @@ import {
   getFacetRank,
   getProfileComments,
   getProfileSnapshot,
-  getRank,
   getSimilarAccounts,
   getUserMatchups,
   filterExistingRepoKeys,
 } from "@/lib/db";
 import { getCachedScan } from "@/lib/redis";
+import { getRankCached } from "@/lib/rank";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { PendingProfile } from "./PendingProfile";
 import { LiveRoast } from "@/components/LiveRoast";
@@ -234,7 +234,7 @@ export default async function AccountPage({
       getSimilarAccounts(d.username, d.final_score, d.sub_scores),
       getProfileComments(d.username),
       getProfileSnapshot(d.username),
-      getRank(d.final_score),
+      getRankCached(d.final_score),
       authConfigured() ? auth() : Promise.resolve(null),
       getUserMatchups(d.username),
       getFacetRank(d.username, d.final_score),

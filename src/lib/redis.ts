@@ -16,7 +16,12 @@ import {
   SCORE_CACHE_VERSION,
   VERDICT_CACHE_VERSION,
 } from "./cache-version";
-import type { FacetCategory, LeaderboardEntry, LeaderboardWindow } from "./db";
+import type {
+  FacetCategory,
+  LeaderboardEntry,
+  LeaderboardWindow,
+  ScoreHistogramRow,
+} from "./db";
 import type { FacetType } from "./facets";
 import type { Lang } from "./lang";
 import type { ProfileReactionCounts } from "./reactions";
@@ -45,6 +50,11 @@ function getRedis(): Redis | null {
 }
 
 const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
+// A full scan can cross 30s for prolific accounts, especially when GitHub
+// forces contribution-graph fallbacks. Keep the distributed lock longer than
+// the public route budget so a cold-account burst remains one GitHub crawl.
+const SCAN_SINGLE_FLIGHT_LOCK_SECONDS = 75;
+const SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS = 120; // 60s at 500ms per poll
 export const scanKey = (username: string) =>
   `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
 const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
@@ -73,6 +83,15 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
   }
 }
 
+/** Remove a bounded quick snapshot when a durable public-history run takes
+ * ownership. A partial score must never be replayed into the writer while the
+ * complete immutable snapshot is still collecting. */
+export async function clearCachedScan(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(scanKey(username)).catch(() => {});
+}
+
 /**
  * Single-flight a cold scan: when many requests hit the same username at once
  * (cache cold), only the first one calls GitHub; the rest wait for its result
@@ -95,7 +114,8 @@ export async function coalesceScan(
   const key = lockKey(username);
   let acquired = false;
   try {
-    acquired = (await r.set(key, "1", { nx: true, ex: 30 })) === "OK";
+    acquired =
+      (await r.set(key, "1", { nx: true, ex: SCAN_SINGLE_FLIGHT_LOCK_SECONDS })) === "OK";
   } catch {
     return producer(); // Redis hiccup — don't block the scan.
   }
@@ -110,8 +130,9 @@ export async function coalesceScan(
     }
   }
 
-  // Another request is producing — poll the cache for up to ~10s.
-  for (let i = 0; i < 20; i++) {
+  // Another request is producing — wait for the bounded scan route rather than
+  // starting a duplicate expensive crawl after the old ~10s window.
+  for (let i = 0; i < SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS; i++) {
     await sleep(500);
     const c = await getCachedScan(username);
     if (c) return c;
@@ -355,7 +376,11 @@ export async function setCachedRoastJudge(
 // requests arrive at once, only the lock holder runs the LLM; the rest wait for
 // its result via the cache. Without this, a viral account re-generates N times
 // per cold window instead of once.
-const ROAST_LOCK_TTL_SECONDS = 60; // long enough to cover a full report stream
+// Crash safety net only — the success/error paths release the lock explicitly.
+// Must exceed the route's 220s LLM deadline: at the old 60s the lock could expire
+// mid-generation, so under concurrency followers
+// saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
+const ROAST_LOCK_TTL_SECONDS = 270;
 const roastLockKey = (username: string, lang: Lang) =>
   `lock:roast:${lang}:${username.toLowerCase()}`;
 
@@ -397,7 +422,10 @@ export async function releaseRoastLock(username: string, lang: Lang): Promise<vo
 export async function waitForCachedRoast(
   username: string,
   lang: Lang,
-  timeoutMs = 60000,
+  // The loop exits the moment the leader releases the lock, so this ceiling is
+  // only reached when the leader is genuinely slow. Giving up too early merely
+  // duplicates its work.
+  timeoutMs = 120000,
 ): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
   const r = getRedis();
@@ -544,6 +572,32 @@ export async function checkVerdictRateLimit(ip: string): Promise<{ success: bool
   }
 }
 
+// Score histogram backing rank/percentile lookups (lib/rank.ts): one
+// whole-table aggregate per TTL serves every profile page, /api/score, share
+// card and MCP call, instead of an O(table) scan per request.
+const SCORE_HISTOGRAM_KEY = "score-hist:v1";
+const SCORE_HISTOGRAM_TTL_SECONDS = 300;
+
+export async function getCachedScoreHistogram(): Promise<ScoreHistogramRow[] | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return (await r.get<ScoreHistogramRow[]>(SCORE_HISTOGRAM_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedScoreHistogram(rows: ScoreHistogramRow[]): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(SCORE_HISTOGRAM_KEY, rows, { ex: SCORE_HISTOGRAM_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
 const STATS_KEY = "stats:count";
 const STATS_TTL_SECONDS = 60;
 
@@ -627,7 +681,10 @@ export async function clearCachedLeaderboards(): Promise<void> {
 // in-process single-flight (lib/developers.ts), the DB query runs at most once
 // per key per TTL even under a burst.
 const FACET_TTL_SECONDS = 600; // 10 min
-const PROJECT_DISCOVERY_TTL_SECONDS = 600;
+// The repo graph only changes on scans/backfills, and each cold miss on the
+// unfiltered /projects list is a whole-graph aggregation — so discovery reads
+// tolerate hours of staleness. Matches the facet boards' 6h ISR window.
+const PROJECT_DISCOVERY_TTL_SECONDS = 21600; // 6h
 
 // Bucket values are canonical (e.g. "Rust", "C++") and safe in a Redis key.
 const facetCategoriesKey = (type: FacetType) => `facets:cat:${type}`;

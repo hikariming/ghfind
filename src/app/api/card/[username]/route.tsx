@@ -1,10 +1,10 @@
 import {
   getAccountDetail,
-  getPercentile,
   getProfileSnapshot,
   getWeeklyBaselines,
   resolveWeeklyDelta,
 } from "@/lib/db";
+import { getPercentileCached } from "@/lib/rank";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
 import { USERNAME_RE } from "@/lib/username";
@@ -60,7 +60,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
 
   const tier = detail.tier as Tier;
   const color = BADGE_COLOR[tier];
-  const counts = await getPercentile(detail.final_score);
+  const counts = await getPercentileCached(detail.final_score);
   const beat = counts ? beatPercent(counts.below, counts.total) : null;
   // Weekly movement — the embed changes week to week, so a card pasted into a
   // README keeps pulling its owner (and their visitors) back.

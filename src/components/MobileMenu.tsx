@@ -12,6 +12,7 @@ import { NavLinks } from "./NavLinks";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearch } from "./GlobalSearch";
+import { fetchMe, type Me } from "@/lib/me-client";
 
 /**
  * Mobile hamburger + drawer (sm:hidden). Owns the open/close state.
@@ -20,8 +21,6 @@ import { GlobalSearch } from "./GlobalSearch";
  * (a positioned ancestor), so it spans the full bar width just below it. Closes
  * on Escape and on any nav-link tap.
  */
-type Me = { user: { login: string; image: string | null } | null; scored: boolean };
-
 function avatarFallback(login: string) {
   return login.trim().charAt(0).toUpperCase() || "G";
 }
@@ -46,14 +45,10 @@ export function MobileMenu({
   useEffect(() => {
     if (!configured || !open) return;
     let alive = true;
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((data: Me) => {
-        if (alive) setMe(data);
-      })
-      .catch(() => {
-        if (alive) setMe({ user: null, scored: false });
-      });
+    // Shared probe: reuses the navbar's already-resolved /api/me result.
+    fetchMe().then((data: Me) => {
+      if (alive) setMe(data);
+    });
     return () => {
       alive = false;
     };
