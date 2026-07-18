@@ -53,6 +53,7 @@ describe("collect", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
     else process.env.GITHUB_TOKEN = originalToken;
     vi.unstubAllGlobals();
@@ -98,6 +99,131 @@ describe("collect", () => {
     );
 
     await expect(collect("alice")).rejects.toBeInstanceOf(GitHubDataUnavailableError);
+  });
+
+  it("uses public events for activity recency when owned repo pushes are stale", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-18T12:00:00Z"));
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === "https://api.github.com/users/active") {
+          return jsonResponse({
+            login: "active",
+            id: 3,
+            html_url: "https://github.com/active",
+            avatar_url: null,
+            name: null,
+            bio: null,
+            company: null,
+            created_at: "2020-01-01T00:00:00Z",
+            followers: 0,
+            following: 0,
+            public_repos: 1,
+          });
+        }
+
+        if (url.includes("/users/active/repos")) {
+          return jsonResponse([
+            {
+              name: "old-fork",
+              full_name: "active/old-fork",
+              private: false,
+              fork: true,
+              size: 1,
+              stargazers_count: 0,
+              forks_count: 0,
+              open_issues_count: 0,
+              language: null,
+              description: null,
+              pushed_at: "2023-09-01T00:00:00Z",
+              owner: { login: "active" },
+              topics: [],
+            },
+          ]);
+        }
+
+        if (url === "https://api.github.com/users/active/events/public?per_page=30") {
+          return jsonResponse([
+            {
+              type: "IssueCommentEvent",
+              created_at: "2026-07-18T10:30:00Z",
+              repo: { name: "upstream/project" },
+            },
+          ]);
+        }
+
+        if (url === "https://api.github.com/graphql") {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
+          const query = body.query ?? "";
+
+          if (query.includes("organizations(first: 20)")) {
+            return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+          }
+
+          if (query.includes("pullRequests(first: $count, states: MERGED")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: {
+                    nodes: [],
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                  },
+                },
+              },
+            });
+          }
+
+          if (
+            query.includes("pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC})")
+          ) {
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          }
+
+          if (
+            query.includes("mergedPRs: pullRequests") &&
+            query.includes("pinnedItems(first: 6, types: REPOSITORY)")
+          ) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pinnedItems: { nodes: [] },
+                  mergedPRs: { totalCount: 0 },
+                  allPRs: { totalCount: 0 },
+                  closedPRs: { totalCount: 0, nodes: [] },
+                  issues: { totalCount: 0 },
+                  contributionsCollection: {
+                    totalCommitContributions: 0,
+                    totalPullRequestContributions: 0,
+                    totalIssueContributions: 1,
+                    totalPullRequestReviewContributions: 0,
+                    restrictedContributionsCount: 0,
+                    contributionCalendar: { totalContributions: 1 },
+                  },
+                  contributionYears: { contributionYears: [] },
+                },
+              },
+            });
+          }
+
+          return jsonResponse({ data: { user: null } });
+        }
+
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    const result = await collect("active");
+
+    expect(result.metrics.days_since_last_activity).toBe(0);
   });
 
   it("splits the contribution query when GitHub reports RESOURCE_LIMITS_EXCEEDED", async () => {
