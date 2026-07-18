@@ -373,7 +373,14 @@
     "variantContrib": "Đóng góp",
     "variantPr": "Thành tích PR",
     "variantPath": "Hành trình GitHub",
-    "variantWork": "Tác phẩm để đời"
+    "variantWork": "Tác phẩm để đời",
+    "materialTitle": "Nhận thẻ vật liệu tại sự kiện",
+    "materialBlurb": "Thiết kế ngang 76 × 50 mm dành cho ấn phẩm và sự kiện.",
+    "materialAlt": "Thẻ hồ sơ lập trình viên ghfind bằng tiếng Trung cho {username}",
+    "materialDownload": "Tải SVG",
+    "materialDownloadPng": "Tải PNG",
+    "materialOpen": "Mở liên kết",
+    "materialUrl": "URL thẻ"
   },
   "byok": {
     "title": "Dùng model của riêng bạn",

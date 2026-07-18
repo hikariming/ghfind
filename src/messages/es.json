@@ -373,7 +373,14 @@
     "variantContrib": "Contribuciones",
     "variantPr": "Historial de PRs",
     "variantPath": "Trayectoria en GitHub",
-    "variantWork": "Obra insignia"
+    "variantWork": "Obra insignia",
+    "materialTitle": "Recoge tu tarjeta en el evento",
+    "materialBlurb": "Diseño horizontal de 76 × 50 mm para impresión y eventos.",
+    "materialAlt": "Tarjeta china de perfil de desarrollador ghfind para {username}",
+    "materialDownload": "Descargar SVG",
+    "materialDownloadPng": "Descargar PNG",
+    "materialOpen": "Abrir enlace",
+    "materialUrl": "URL de la tarjeta"
   },
   "byok": {
     "title": "Usa tu propio modelo",

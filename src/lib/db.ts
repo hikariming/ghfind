@@ -452,6 +452,17 @@ function ensureSchema(db: Client): Promise<void> {
           // index-only, without touching the table.
           `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_counted_user
              ON account_lookup_limits(last_counted_at, username)`,
+          // Event cohorts are labels over the canonical score population, not a
+          // second score store. One account can join many campaigns while its
+          // latest score/profile continues to live in `scores`.
+          `CREATE TABLE IF NOT EXISTS campaign_participants (
+             campaign  TEXT NOT NULL,
+             username  TEXT NOT NULL,
+             joined_at INTEGER NOT NULL,
+             PRIMARY KEY (campaign, username)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_campaign_participants_user
+             ON campaign_participants(username, campaign)`,
           // Logged-in users (GitHub OAuth). Identity only for now; the lowercased
           // `login` lets us later link a user to their own `scores` row + comments.
           `CREATE TABLE IF NOT EXISTS users (
@@ -695,6 +706,30 @@ export interface LeaderboardEntry {
   prev_score?: number;
   /** final_score - prev_score — only set on the 进步榜 (progress) board. */
   delta?: number;
+}
+
+/**
+ * Attach an account to a public event cohort without duplicating its score.
+ * The relation may be written before a first-time account has finished its
+ * roast; it becomes visible on the event board as soon as `scores` is written.
+ */
+export async function recordCampaignParticipant(
+  campaign: string,
+  username: string,
+): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO campaign_participants (campaign, username, joined_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(campaign, username) DO NOTHING`,
+      args: [campaign, username.toLowerCase(), Date.now()],
+    });
+  } catch (e) {
+    console.error("recordCampaignParticipant failed:", e);
+  }
 }
 
 /**
@@ -2959,6 +2994,50 @@ export async function getLeaderboard(
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
   } catch (e) {
     console.error("getLeaderboard failed:", e);
+    return [];
+  }
+}
+
+/**
+ * Score board for one event cohort. Unlike the public hall of fame, this has no
+ * minimum-score floor: every on-site participant belongs on the event board.
+ * Scores and profile metadata still come from the canonical `scores` row.
+ */
+export async function getCampaignLeaderboard(
+  campaign: string,
+  limit = 500,
+): Promise<LeaderboardEntry[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const capped = Math.max(1, Math.min(500, limit));
+    const res = await db.execute({
+      sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
+                   s.final_score, s.tier, s.tags,
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
+                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   stats.last_lookup_at AS last_lookup_at
+            FROM campaign_participants AS participant
+            JOIN scores AS s ON s.username = participant.username
+            LEFT JOIN account_stats AS stats ON stats.username = s.username
+            LEFT JOIN (
+              SELECT username, COUNT(*) AS recent_lookup_count
+              FROM account_lookup_limits
+              WHERE last_counted_at >= ?
+              GROUP BY username
+            ) AS recent ON recent.username = s.username
+            WHERE participant.campaign = ? AND s.hidden = 0
+            ORDER BY s.final_score DESC, s.scanned_at DESC
+            LIMIT ?`,
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, capped],
+    });
+    const now = Date.now();
+    return res.rows.map((row) =>
+      toLeaderboardEntry(row as unknown as LeaderboardRow, now),
+    );
+  } catch (e) {
+    console.error("getCampaignLeaderboard failed:", e);
     return [];
   }
 }

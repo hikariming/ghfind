@@ -373,7 +373,14 @@
     "variantContrib": "المساهمات",
     "variantPr": "سجل الـ PR",
     "variantPath": "مسيرة GitHub",
-    "variantWork": "الأعمال المميزة"
+    "variantWork": "الأعمال المميزة",
+    "materialTitle": "استلم بطاقتك في موقع الفعالية",
+    "materialBlurb": "تصميم أفقي بمقاس 76 × 50 مم للطباعة ومواد الفعاليات.",
+    "materialAlt": "بطاقة ملف مطور ghfind باللغة الصينية لـ {username}",
+    "materialDownload": "تنزيل SVG",
+    "materialDownloadPng": "تنزيل PNG",
+    "materialOpen": "فتح الرابط",
+    "materialUrl": "رابط البطاقة"
   },
   "byok": {
     "title": "استخدم نموذجك الخاص",

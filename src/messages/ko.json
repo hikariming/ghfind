@@ -373,7 +373,14 @@
     "variantContrib": "기여 발자취",
     "variantPr": "PR 전적",
     "variantPath": "GitHub 궤적",
-    "variantWork": "대표작"
+    "variantWork": "대표작",
+    "materialTitle": "현장에서 소재 카드 받기",
+    "materialBlurb": "인쇄 및 행사 자료용 76 × 50 mm 가로형 디자인입니다.",
+    "materialAlt": "{username}의 ghfind 중국어 개발자 프로필 카드",
+    "materialDownload": "SVG 다운로드",
+    "materialDownloadPng": "PNG 다운로드",
+    "materialOpen": "링크 열기",
+    "materialUrl": "인쇄 카드 URL"
   },
   "byok": {
     "title": "내 모델 사용하기",

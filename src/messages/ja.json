@@ -373,7 +373,14 @@
     "variantContrib": "コントリビューション",
     "variantPr": "PR戦績",
     "variantPath": "GitHubの軌跡",
-    "variantWork": "代表作"
+    "variantWork": "代表作",
+    "materialTitle": "会場で素材カードを受け取る",
+    "materialBlurb": "印刷やイベント素材向けの 76 × 50 mm 横型デザインです。",
+    "materialAlt": "{username} の ghfind 中国語開発者プロフィールカード",
+    "materialDownload": "SVG をダウンロード",
+    "materialDownloadPng": "PNG をダウンロード",
+    "materialOpen": "リンクを開く",
+    "materialUrl": "素材カードの URL"
   },
   "byok": {
     "title": "自分のモデルを使う",

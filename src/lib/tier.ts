@@ -36,9 +36,33 @@ export type TierAvatarFramePlacement =
   | "top-left";
 
 export type TierAvatarFrameEmojiSize = "normal" | "large";
+export type TierAvatarFrameIcon = "crown" | "medal" | "thumbs-up" | "smile" | "poop";
+
+export interface TierAvatarFrameVector {
+  x: number;
+  y: number;
+}
+
+const DIAGONAL_FRAME_VECTOR = Math.SQRT1_2;
+
+/** Unit-circle vectors keep every decoration centered on the avatar ring. */
+export const TIER_AVATAR_FRAME_VECTORS: Record<
+  TierAvatarFramePlacement,
+  TierAvatarFrameVector
+> = {
+  top: { x: 0, y: -1 },
+  "top-right": { x: DIAGONAL_FRAME_VECTOR, y: -DIAGONAL_FRAME_VECTOR },
+  right: { x: 1, y: 0 },
+  "bottom-right": { x: DIAGONAL_FRAME_VECTOR, y: DIAGONAL_FRAME_VECTOR },
+  bottom: { x: 0, y: 1 },
+  "bottom-left": { x: -DIAGONAL_FRAME_VECTOR, y: DIAGONAL_FRAME_VECTOR },
+  left: { x: -1, y: 0 },
+  "top-left": { x: -DIAGONAL_FRAME_VECTOR, y: -DIAGONAL_FRAME_VECTOR },
+};
 
 export interface TierAvatarFrame {
   emoji: string;
+  icon: TierAvatarFrameIcon;
   placements: TierAvatarFramePlacement[];
   emojiSize: TierAvatarFrameEmojiSize;
   /** Tailwind ring color class for the avatar shell. */
@@ -52,6 +76,7 @@ export interface TierAvatarFrame {
 export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
   夯: {
     emoji: "👑",
+    icon: "crown",
     placements: ["top"],
     emojiSize: "large",
     ring: "ring-amber-300/70",
@@ -60,6 +85,7 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
   },
   顶级: {
     emoji: "🥇",
+    icon: "medal",
     placements: ["bottom"],
     emojiSize: "large",
     ring: "ring-yellow-300/70",
@@ -68,6 +94,7 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
   },
   人上人: {
     emoji: "👍",
+    icon: "thumbs-up",
     placements: ["top-left", "top-right", "bottom-right", "bottom-left"],
     emojiSize: "normal",
     ring: "ring-emerald-300/70",
@@ -76,14 +103,16 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
   },
   NPC: {
     emoji: "🙂",
+    icon: "smile",
     placements: ["bottom"],
     emojiSize: "normal",
-    ring: "ring-sky-300/55",
-    bg: "bg-sky-300/10",
-    glow: "rgba(125,211,252,0.35)",
+    ring: "ring-sky-300/70",
+    bg: "bg-sky-400/10",
+    glow: "rgba(56,189,248,0.45)",
   },
   拉完了: {
     emoji: "💩",
+    icon: "poop",
     placements: [
       "top",
       "top-right",
@@ -129,9 +158,9 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
   NPC: {
     tier: "NPC",
     emoji: "🫥",
-    text: "text-slate-300",
-    ring: "ring-slate-400/40",
-    glow: "rgba(148,163,184,0.25)",
+    text: "text-sky-300",
+    ring: "ring-sky-400/50",
+    glow: "rgba(56,189,248,0.28)",
     blurb: "普通账号 · 特征平庸存疑",
   },
   拉完了: {
@@ -150,4 +179,8 @@ export function tierStyle(tier: Tier): TierStyle {
 
 export function tierAvatarFrame(tier: Tier): TierAvatarFrame {
   return TIER_AVATAR_FRAMES[tier] ?? TIER_AVATAR_FRAMES.NPC;
+}
+
+export function tierAvatarFrameIconPath(icon: TierAvatarFrameIcon): string {
+  return `/tier-emoji/${icon}.svg`;
 }

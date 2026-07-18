@@ -45,8 +45,17 @@ interface Row {
   activate: () => void;
 }
 
+interface OmniboxProps {
+  value: string;
+  onChange: (next: string) => void;
+  onRoast: (username: string) => void;
+  busy: boolean;
+  placeholder?: string;
+  stackCtaOnMobile?: boolean;
+}
+
 /**
- * The homepage Omnibox: one input that resolves to roast / PK / language / org /
+ * The ghfind Omnibox: one input that resolves to roast / PK / language / org /
  * search. A bare handle stays an in-place roast (calls `onRoast`, preserving the
  * old behavior); `a vs b` and facet intents navigate. Typing ` vs ` locks the
  * first handle into a chip and switches to entering the opponent.
@@ -62,12 +71,9 @@ export function Omnibox({
   onChange,
   onRoast,
   busy,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  onRoast: (username: string) => void;
-  busy: boolean;
-}) {
+  placeholder,
+  stackCtaOnMobile = false,
+}: OmniboxProps) {
   const t = useTranslations("omnibox");
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -342,7 +348,9 @@ export function Omnibox({
 
   return (
     <div className="relative w-full">
-      <div className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60">
+      <div
+        className={`flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60 ${stackCtaOnMobile ? "flex-wrap sm:flex-nowrap" : ""}`}
+      >
         <span className="ps-3 text-lg leading-none text-zinc-400">{intentIcon(intent.kind)}</span>
         {pkA && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-500/15 py-1 ps-2.5 pe-1 text-sm font-medium text-orange-200 ring-1 ring-orange-400/30">
@@ -364,7 +372,9 @@ export function Omnibox({
           onKeyDown={onKeyDown}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
-          placeholder={pkA ? t("pkHalfHint") : t(`placeholder${phIndex}`)}
+          placeholder={
+            pkA ? t("pkHalfHint") : (placeholder ?? t(`placeholder${phIndex}`))
+          }
           role="combobox"
           aria-expanded={open && rows.length > 0}
           aria-autocomplete="list"
@@ -377,7 +387,7 @@ export function Omnibox({
           type="button"
           onClick={() => !busy && activateIntent(intent)}
           disabled={busy}
-          className="shrink-0 whitespace-nowrap bg-orange-600 text-white hover:bg-orange-500"
+          className={`shrink-0 whitespace-nowrap bg-orange-600 text-white hover:bg-orange-500 ${stackCtaOnMobile ? "basis-full sm:basis-auto" : ""}`}
         >
           {ctaLabel}
         </Button>

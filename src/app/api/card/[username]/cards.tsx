@@ -8,9 +8,10 @@
 import type { ProfileSnapshotView } from "@/lib/db";
 import { TIER_EN } from "@/lib/badge";
 import { SPONSOR } from "@/lib/sponsor";
-import { tierAvatarFrame } from "@/lib/tier";
+import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "@/lib/tier";
 import type { TierAvatarFramePlacement } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
+import { BrandMark } from "@/components/BrandMark";
 
 export const W = 1200;
 export const H = 630;
@@ -29,7 +30,6 @@ export interface CardPalette {
   handleBg: string;
   avatarBg: string;
   avatarBorder: string;
-  emojiBg: string;
   tagBg: string;
   tagBorder: string;
   tagText: string;
@@ -46,7 +46,6 @@ export const PALETTES: Record<CardTheme, CardPalette> = {
     handleBg: "rgba(0,0,0,0.35)",
     avatarBg: "#27272a",
     avatarBorder: "#050505",
-    emojiBg: DARK_BG,
     tagBg: "rgba(249,115,22,0.10)",
     tagBorder: "rgba(251,146,60,0.30)",
     tagText: "#fed7aa",
@@ -61,7 +60,6 @@ export const PALETTES: Record<CardTheme, CardPalette> = {
     handleBg: "rgba(255,255,255,0.86)",
     avatarBg: "#e5e7eb",
     avatarBorder: "#ffffff",
-    emojiBg: "#ffffff",
     tagBg: "rgba(249,115,22,0.10)",
     tagBorder: "rgba(234,88,12,0.24)",
     tagText: "#c2410c",
@@ -101,37 +99,78 @@ function repoLabel(repo: string): string {
   return repo.length <= 30 ? repo : `…${repo.slice(-29)}`;
 }
 
-/** Small scannable QR (of the profile URL) tucked into the card's bottom-right
- * corner. Transparent background — the modules are a tier-tinted color chosen
- * (light on dark cards, dark on light cards) to contrast with the card itself,
- * so it reads as part of the card rather than a pasted-on white sticker. */
-function QrPanel({ qr }: { qr: string }) {
+type QrPlacement = "top-right" | "inline";
+
+interface QrPanelProps {
+  qr: string;
+  palette: CardPalette;
+  placement: QrPlacement;
+}
+
+/** Small scannable QR (of the profile URL). Profile cards float it in the
+ * top-right corner so enabling it never changes the content width. The shared
+ * versus card can opt into the legacy inline placement until its combatant
+ * header has a dedicated overlay-safe corner. */
+function QrPanel({ qr, palette, placement }: QrPanelProps) {
+  const floating = placement === "top-right";
+  const placementStyle: React.CSSProperties = floating
+    ? {
+        position: "absolute",
+        top: 52,
+        right: 52,
+        alignItems: "flex-start",
+        marginLeft: 0,
+      }
+    : {
+        alignItems: "flex-end",
+        marginLeft: 28,
+      };
   return (
     <div
       style={{
+        position: "relative",
         display: "flex",
         flexShrink: 0,
-        alignItems: "flex-end",
-        marginLeft: 28,
+        width: 116,
+        height: 116,
+        ...placementStyle,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={qr} width={116} height={116} alt="" />
+      <div
+        style={{
+          position: "absolute",
+          left: 44,
+          top: 44,
+          display: "flex",
+          width: 28,
+          height: 28,
+          backgroundColor: palette.bg,
+          color: palette.fg,
+        }}
+      >
+        <BrandMark style={{ width: 28, height: 28 }} />
+      </div>
     </div>
   );
+}
+
+export interface ShellProps {
+  glow: string;
+  palette: CardPalette;
+  qr?: string | null;
+  qrPlacement?: QrPlacement;
+  children: React.ReactNode;
 }
 
 export function Shell({
   glow,
   palette,
   qr,
+  qrPlacement = "top-right",
   children,
-}: {
-  glow: string;
-  palette: CardPalette;
-  qr?: string | null;
-  children: React.ReactNode;
-}) {
+}: ShellProps) {
   const backgroundImage =
     palette.mode === "light"
       ? `radial-gradient(800px circle at 94% -10%, ${glow}, transparent 58%), linear-gradient(180deg, #ffffff 0%, ${palette.bg} 74%)`
@@ -141,6 +180,7 @@ export function Shell({
       style={{
         width: W,
         height: H,
+        position: "relative",
         display: "flex",
         flexDirection: "row",
         padding: 52,
@@ -162,7 +202,7 @@ export function Shell({
       >
         {children}
       </div>
-      {qr ? <QrPanel qr={qr} /> : null}
+      {qr ? <QrPanel qr={qr} palette={palette} placement={qrPlacement} /> : null}
     </div>
   );
 }
@@ -179,35 +219,37 @@ export function Brand({ palette }: { palette: CardPalette }) {
   );
 }
 
+function avatarFrameIconPosition(
+  placement: TierAvatarFramePlacement,
+  frameSize: number,
+  iconBoxSize: number,
+): React.CSSProperties {
+  const vector = TIER_AVATAR_FRAME_VECTORS[placement];
+  const radius = frameSize / 2;
+  return {
+    left: radius + vector.x * radius - iconBoxSize / 2,
+    top: radius + vector.y * radius - iconBoxSize / 2,
+  };
+}
+
 export function OgAvatarFrame({
   username,
   avatar,
   tier,
+  tierIcon,
   color,
   palette,
 }: {
   username: string;
   avatar: string | null;
   tier: Tier;
+  tierIcon: string;
   color: string;
   palette: CardPalette;
 }) {
   const frame = tierAvatarFrame(tier);
   const emojiBox = frame.emojiSize === "large" ? 48 : 34;
   const emojiFont = frame.emojiSize === "large" ? 32 : 22;
-  const center = (152 - emojiBox) / 2;
-  const side = -emojiBox / 2;
-  const corner = frame.emojiSize === "large" ? 0 : 6;
-  const positions: Record<TierAvatarFramePlacement, React.CSSProperties> = {
-    top: { left: center, top: side },
-    "top-right": { right: corner, top: corner },
-    right: { right: side, top: center },
-    "bottom-right": { right: corner, bottom: corner },
-    bottom: { left: center, bottom: side },
-    "bottom-left": { left: corner, bottom: corner },
-    left: { left: side, top: center },
-    "top-left": { left: corner, top: corner },
-  };
 
   return (
     <div
@@ -235,13 +277,13 @@ export function OgAvatarFrame({
             borderRadius: 9999,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: palette.emojiBg,
             fontSize: emojiFont,
             lineHeight: 1,
-            ...positions[placement],
+            ...avatarFrameIconPosition(placement, 152, emojiBox),
           }}
         >
-          {frame.emoji}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={tierIcon} width={emojiFont} height={emojiFont} alt="" />
         </div>
       ))}
       {avatar ? (
@@ -282,6 +324,8 @@ export interface Identity {
   displayName: string | null;
   avatar: string | null;
   tier: Tier;
+  /** Data-URL SVG without font side bearings. */
+  tierIcon: string;
   color: string;
   palette: CardPalette;
   /** Data-URL QR of the profile page, or null when the QR toggle is off. */
@@ -302,9 +346,9 @@ function rowSkin(palette: CardPalette) {
 /** Compact avatar (circle + colored ring + one tier emoji badge) for the
  * specialty cards, which need a smaller header than the centered score hero. */
 function HeaderAvatar({ id, size = 96 }: { id: Identity; size?: number }) {
-  const { username, avatar, tier, color, palette } = id;
-  const frame = tierAvatarFrame(tier);
+  const { username, avatar, tierIcon, color, palette } = id;
   const badge = Math.round(size * 0.36);
+  const badgeVector = TIER_AVATAR_FRAME_VECTORS["bottom-right"];
   return (
     <div style={{ position: "relative", display: "flex", width: size, height: size }}>
       {avatar ? (
@@ -338,21 +382,20 @@ function HeaderAvatar({ id, size = 96 }: { id: Identity; size?: number }) {
       <div
         style={{
           position: "absolute",
-          right: -4,
-          bottom: -4,
+          left: size / 2 + badgeVector.x * (size / 2) - badge / 2,
+          top: size / 2 + badgeVector.y * (size / 2) - badge / 2,
           display: "flex",
           width: badge,
           height: badge,
           borderRadius: 9999,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: palette.emojiBg,
-          border: `2px solid ${palette.bg}`,
           fontSize: badge * 0.62,
           lineHeight: 1,
         }}
       >
-        {frame.emoji}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={tierIcon} width={badge * 0.62} height={badge * 0.62} alt="" />
       </div>
     </div>
   );
@@ -378,6 +421,7 @@ function VariantHeader({ id }: { id: Identity }) {
         style={{
           display: "flex",
           marginLeft: "auto",
+          marginRight: id.qr ? 144 : 0,
           borderRadius: 9999,
           border: `2px solid ${color}80`,
           backgroundColor: palette.handleBg,

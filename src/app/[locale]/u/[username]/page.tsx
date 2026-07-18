@@ -28,6 +28,7 @@ import type { RoastMeta } from "@/lib/types";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
 import { SITE_URL, PUBLIC_INDEX_MIN_SCORE, localeAlternates, localePath, bcp47 } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
+import { MaterialCardPanel } from "@/components/MaterialCardPanel";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
@@ -202,6 +203,8 @@ export default async function AccountPage({
   const t = await getTranslations("detail");
   const tDim = await getTranslations("dimensions");
   const tTier = await getTranslations("tiers");
+  const query = await searchParams;
+  const isAdvxCampaign = query.campaign === "advx";
   const style = tierStyle(d.tier);
   const tierKey = TIER_KEY[d.tier];
   const lang = normLang(locale);
@@ -217,7 +220,7 @@ export default async function AccountPage({
   // when it's still fresh, or via a forced regeneration when it has gone stale
   // (the homepage's /api/scan call just re-scanned, so the score is current).
   // Direct visits / shared links (no param) keep the popup-free SSR page.
-  const fromHome = (await searchParams)?.roasting === "1";
+  const fromHome = query.roasting === "1";
   // eslint-disable-next-line react-hooks/purity -- force-dynamic Server Component: rendered per request, so wall-clock staleness here is intentional (and the server re-validates before spending LLM credit)
   const staleReroast = fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
   // Row exists but this language's roast is missing (e.g. an English visitor on a
@@ -257,7 +260,7 @@ export default async function AccountPage({
   // github.com) or an explicit ?ref=badge, looking at someone else's page, gets
   // nudged into a PK against the owner. Reading headers is free here — the page
   // is already force-dynamic. Suppressed for the owner (can't duel yourself).
-  const refParam = (await searchParams)?.ref;
+  const refParam = query.ref;
   const fromBadgeRef = refParam === "badge";
   const referer = (await headers()).get("referer");
   const fromGithub = isGithubReferer(referer);
@@ -345,8 +348,19 @@ export default async function AccountPage({
     notation: "compact",
     maximumFractionDigits: 1,
   });
+  const advxDivider =
+    "before:mx-4 before:mb-6 before:block before:h-px before:bg-white/10 before:content-['']";
+  const contentSectionClass = isAdvxCampaign
+    ? `mt-6 bg-transparent p-0 ${advxDivider}`
+    : "mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6";
+  const dimensionSectionClass = isAdvxCampaign
+    ? contentSectionClass
+    : "rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6";
+  const impactSectionClass = isAdvxCampaign
+    ? `mt-6 bg-transparent p-0 ${advxDivider}`
+    : "mb-6 rounded-2xl border border-amber-300/25 bg-amber-500/[0.05] p-5 sm:p-6";
   const similarSection = similar.length > 0 && (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className={contentSectionClass}>
       <h2 className="mb-1 text-base font-bold text-zinc-200">{t("similarHeading")}</h2>
       <p className="mb-4 text-xs text-zinc-400">{t("similarSub")}</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -358,7 +372,11 @@ export default async function AccountPage({
               key={s.username}
               href={`/u/${s.username}`}
               prefetch={false}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+              className={
+                isAdvxCampaign
+                  ? "flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3 hover:bg-white/[0.06]"
+                  : "flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+              }
             >
               {s.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -410,9 +428,23 @@ export default async function AccountPage({
             href: `/u/${encodeURIComponent(d.username)}`,
           }}
         />
-        <Link href="/leaderboard" prefetch={false} className="text-sm text-zinc-400 hover:text-zinc-200">
-          {t("back")}
-        </Link>
+        {isAdvxCampaign ? (
+          <Link
+            href="/advx"
+            prefetch={false}
+            className="text-sm text-zinc-400 hover:text-zinc-200"
+          >
+            ← 返回
+          </Link>
+        ) : (
+          <Link
+            href="/leaderboard"
+            prefetch={false}
+            className="text-sm text-zinc-400 hover:text-zinc-200"
+          >
+            {t("back")}
+          </Link>
+        )}
         {showBadgeBanner && (
           <BadgeReferralBanner owner={d.username} signal={badgeSignal!} />
         )}
@@ -422,15 +454,23 @@ export default async function AccountPage({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
-        className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-center ring-1 ${style.ring}`}
-        style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
+        className={`animate-pop flex flex-col items-center text-center ${
+          isAdvxCampaign
+            ? "bg-transparent p-0"
+            : "rounded-2xl border border-white/10 bg-white/[0.05] p-6 ring-1"
+        } ${style.ring}`}
+        style={isAdvxCampaign ? undefined : { boxShadow: `0 0 80px -20px ${style.glow}` }}
       >
         <h1 className="max-w-full">
           <a
             href={d.profile_url ?? `https://github.com/${d.username}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-block max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight ${style.text} ring-1 ${style.ring} hover:bg-black/45`}
+            className={`inline-block max-w-full break-all text-xl font-black leading-tight ${style.text} ${
+              isAdvxCampaign
+                ? ""
+                : `rounded-full bg-black/35 px-4 py-1.5 ring-1 ${style.ring} hover:bg-black/45`
+            }`}
             style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
           >
             @{d.username}
@@ -461,6 +501,15 @@ export default async function AccountPage({
         <div className="mt-1 text-sm font-medium text-zinc-300">
           {tTier(`${tierKey}.blurb`)}
         </div>
+
+        {isAdvxCampaign && roastLine && (
+          <p
+            data-advx-mobile-roast
+            className="mt-4 w-full border-s-2 border-orange-400/50 ps-4 text-start text-[0.95rem] leading-relaxed text-zinc-100 lg:hidden"
+          >
+            🔥 {roastLine}
+          </p>
+        )}
 
         {d.tags.zh.length + d.tags.en.length > 0 && (
           <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -507,10 +556,18 @@ export default async function AccountPage({
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next
           tier, and an inline re-detect button to refresh the score. */}
-      <div className="mt-5 rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center">
-        <div className="text-xs font-semibold uppercase tracking-wide text-orange-200/90">
-          {t("rankTitle")}
-        </div>
+      <div
+        className={
+          isAdvxCampaign
+            ? `mt-5 bg-transparent p-0 text-center ${advxDivider}`
+            : "mt-5 rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center"
+        }
+      >
+        {!isAdvxCampaign && (
+          <div className="text-xs font-semibold uppercase tracking-wide text-orange-200/90">
+            {t("rankTitle")}
+          </div>
+        )}
         {rank ? (
           <>
             <div className={`mt-1 text-4xl font-black tabular-nums ${style.text}`}>
@@ -574,6 +631,16 @@ export default async function AccountPage({
         )}
       </div>
 
+      {isAdvxCampaign && (
+        <div className={`lg:hidden ${advxDivider}`}>
+          <MaterialCardPanel
+            baseUrl={SITE_URL}
+            username={d.username}
+            version={d.scanned_at}
+          />
+        </div>
+      )}
+
       <Suspense
         fallback={
           <div className="h-28 animate-pulse rounded-2xl border border-orange-300/15 bg-orange-500/[0.035]" />
@@ -583,6 +650,7 @@ export default async function AccountPage({
           key={`reactions-${d.username}`}
           username={d.username}
           redirectTo={detailPath}
+          flat={isAdvxCampaign}
         />
       </Suspense>
 
@@ -596,11 +664,28 @@ export default async function AccountPage({
           beat={beat}
           tags={d.tags}
         />
-        <CopyBadge baseUrl={SITE_URL} username={d.username} version={d.scanned_at} surface="profile" />
+        {!isAdvxCampaign && (
+          <CopyBadge
+            baseUrl={SITE_URL}
+            username={d.username}
+            version={d.scanned_at}
+            surface="profile"
+          />
+        )}
         </aside>
 
         {/* Right: evidence + report */}
         <div className="flex min-w-0 flex-1 flex-col">
+
+      {isAdvxCampaign && (
+        <div className="mb-6 hidden lg:block">
+          <MaterialCardPanel
+            baseUrl={SITE_URL}
+            username={d.username}
+            version={d.scanned_at}
+          />
+        </div>
+      )}
 
       {/* Legacy profiles predate the evidence snapshot — fetch it on visit so the
           repo/language/contribution sections fill in instead of staying blank. */}
@@ -610,7 +695,7 @@ export default async function AccountPage({
           hardest evidence behind the ecosystem-impact dimension). Surfaced first
           as the strongest signal on the profile. */}
       {impactRepos.length > 0 && (
-        <section className="mb-6 rounded-2xl border border-amber-300/25 bg-amber-500/[0.05] p-5 sm:p-6">
+        <section className={impactSectionClass}>
           <h2 className="mb-1 text-base font-bold text-amber-200">{t("impactHeading")}</h2>
           <p className="mb-4 text-xs text-zinc-400">{t("impactSub")}</p>
           <div className="flex flex-col gap-2">
@@ -663,22 +748,28 @@ export default async function AccountPage({
       )}
 
       {/* Dimension breakdown */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <section className={dimensionSectionClass}>
         <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
-        <DimensionStarChart scores={d.sub_scores} labels={dimensionLabels} tier={d.tier} />
+        <DimensionStarChart
+          scores={d.sub_scores}
+          labels={dimensionLabels}
+          tier={d.tier}
+          compact={isAdvxCampaign}
+        />
       </section>
 
       {/* Featured work — the user's own popular repos, self-pinned floated up. */}
       {featuredRepos.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+        <section className={contentSectionClass}>
           <h2 className="mb-1 text-base font-bold text-zinc-200">{t("worksHeading")}</h2>
           <p className="mb-4 text-xs text-zinc-400">{t("worksSub")}</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {featuredRepos.map((r) => {
               const key = featuredKey(r);
               const internal = existingRepoKeys.has(key);
-              const cardClass =
-                "flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+              const cardClass = isAdvxCampaign
+                ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3 hover:bg-white/[0.06]"
+                : "flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
               const inner = (
                 <>
                   <div className="flex items-center justify-between gap-2">
@@ -723,13 +814,13 @@ export default async function AccountPage({
         </section>
       )}
 
-      <CommonProjects projects={commonProjects} />
+      <CommonProjects projects={commonProjects} flat={isAdvxCampaign} />
 
       {similarSection}
 
       {/* Stack & domains — aggregated language mix + topic tags. */}
       {(languages.length > 0 || topics.length > 0) && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+        <section className={contentSectionClass}>
           <h2 className="mb-4 text-base font-bold text-zinc-200">{t("stackHeading")}</h2>
           {languages.length > 0 && (
             <div className="mb-4">
@@ -772,7 +863,7 @@ export default async function AccountPage({
 
       {/* Battles — this dev's PK matchups (internal links + entertainment) */}
       {battles.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+        <section className={contentSectionClass}>
           <h2 className="mb-1 text-base font-bold text-zinc-200">{t("battlesHeading")}</h2>
           <p className="mb-4 text-xs text-zinc-400">{t("battlesSub")}</p>
           <div className="flex flex-col gap-2">
@@ -798,7 +889,11 @@ export default async function AccountPage({
                   key={`${m.handleA}-${m.handleB}`}
                   href={`/vs/${m.handleA}/${m.handleB}`}
                   prefetch={false}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+                  className={
+                    isAdvxCampaign
+                      ? "flex items-center gap-3 border-b border-white/10 py-3 last:border-b-0 hover:bg-white/[0.03]"
+                      : "flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+                  }
                 >
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.cls}`}>
                     {badge.text}
@@ -817,7 +912,13 @@ export default async function AccountPage({
       )}
 
       {/* Full roast report */}
-      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
+      <section
+        className={
+          isAdvxCampaign
+            ? `mt-6 bg-transparent p-0 ${advxDivider}`
+            : "mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7"
+        }
+      >
         <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
         {/* LLM content only exists in zh/en; a ja/ko visitor reads the English
             side, so tell them why the report language differs from the UI. */}
@@ -827,7 +928,9 @@ export default async function AccountPage({
         {/* Savage one-liner (current language) — shown above the full report.
             The stale re-roast stream renders its own line, so skip it there. */}
         {roastLine && !staleReroast && (
-          <p className="mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
+          <p
+            className={`${isAdvxCampaign ? "hidden lg:block" : ""} mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100`}
+          >
             🔥 {roastLine}
           </p>
         )}

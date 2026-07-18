@@ -8,6 +8,8 @@ import { getPercentileCached } from "@/lib/rank";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
 import { USERNAME_RE } from "@/lib/username";
+import { tierAvatarFrame } from "@/lib/tier";
+import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import type { Tier } from "@/lib/types";
 import {
   Brand,
@@ -69,7 +71,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     prevScore: detail.prev_score,
     prevScannedAt: detail.prev_scanned_at,
   });
-  const avatar = await avatarDataUrl(detail.avatar_url);
+  const [avatar, tierIcon] = await Promise.all([
+    avatarDataUrl(detail.avatar_url),
+    tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
+  ]);
   const displayName =
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
   const tags = (detail.tags.en ?? []).slice(0, 4);
@@ -77,7 +82,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const qr = parseQr(req)
     ? await qrDataUrl(`/u/${detail.username}?ref=badge`, qrModuleColor(color, theme))
     : null;
-  const id: Identity = { username: detail.username, displayName, avatar, tier, color, palette, qr };
+  const id: Identity = {
+    username: detail.username,
+    displayName,
+    avatar,
+    tier,
+    tierIcon,
+    color,
+    palette,
+    qr,
+  };
 
   // Specialty "brag cards" read the sedimented profile snapshot. If it's missing
   // or lacks the data this card needs (low-tier accounts are never backfilled),
@@ -119,6 +133,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             username={detail.username}
             avatar={avatar}
             tier={tier}
+            tierIcon={tierIcon}
             color={color}
             palette={palette}
           />

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200mm" height="550mm" viewBox="0 0 1200 550" role="img" aria-labelledby="title desc">
+  <title id="title">ghfind 120 x 55 cm desk mat</title>
+  <desc id="desc">Black desk mat with the slogan 测测你的 GitHub 是夯还是拉 and a ghfind.com search bar.</desc>
+
+  <defs>
+    <pattern id="dotGrid" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="1.4" cy="1.4" r="1.1" fill="#f7f4ed" opacity="0.055"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.6"/>
+    </filter>
+    <clipPath id="matClip">
+      <rect width="1200" height="550" rx="18"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#matClip)">
+    <!-- Full-bleed black base -->
+    <rect width="1200" height="550" fill="#050505"/>
+    <rect width="1200" height="550" fill="url(#dotGrid)"/>
+
+    <!-- Oversized code brackets become the visual signature -->
+    <g fill="none" stroke-linecap="square" stroke-linejoin="miter" stroke-width="18">
+      <path d="m275 204-42 71 42 71" stroke="#f7f4ed"/>
+      <path d="m925 204 42 71-42 71" stroke="#f97316"/>
+    </g>
+
+    <!-- Main message -->
+    <g font-family="Inter, 'SF Pro Display', 'PingFang SC', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif">
+      <text x="380" y="140" fill="#f7f4ed" font-size="56" font-weight="600" letter-spacing="2">测测你的</text>
+      <text x="626" y="140" fill="#f97316" font-size="56" font-weight="600">GitHub</text>
+      <text x="439" y="202" font-family="'Apple Color Emoji', 'Noto Color Emoji', sans-serif" font-size="58">👑</text>
+      <text x="746" y="202" font-family="'Apple Color Emoji', 'Noto Color Emoji', sans-serif" font-size="58">💩</text>
+      <text x="320" y="294" fill="#f7f4ed" font-size="108" font-weight="900" letter-spacing="-5">是</text>
+      <text x="421" y="294" fill="#f97316" font-size="108" font-weight="900" letter-spacing="-5">夯</text>
+      <text x="522" y="294" fill="#f7f4ed" font-size="108" font-weight="900" letter-spacing="-5">还是</text>
+      <text x="727" y="294" fill="#9a5a32" font-size="108" font-weight="900" letter-spacing="-5">拉？</text>
+      <rect x="330" y="321" width="166" height="7" rx="3.5" fill="#f97316"/>
+      <text x="514" y="330" fill="#6f6d69" font-size="16" font-weight="600" letter-spacing="4">0—100 · VALUE &amp; TRUST SCORE</text>
+    </g>
+
+    <!-- Search / URL bar -->
+    <g filter="url(#shadow)">
+      <rect x="248" y="379" width="704" height="104" rx="52" fill="#111111" stroke="#34322f" stroke-width="2"/>
+      <rect x="250" y="381" width="700" height="100" rx="50" fill="none" stroke="#f7f4ed" stroke-opacity="0.045"/>
+
+      <!-- Search icon -->
+      <g transform="translate(287 407)" fill="none" stroke="#a7a49e" stroke-width="5" stroke-linecap="round">
+        <circle cx="20" cy="20" r="15"/>
+        <path d="m31 31 14 14"/>
+      </g>
+
+      <path d="M359 400v62" stroke="#34322f" stroke-width="2"/>
+
+      <!-- Exact BrandMark.tsx geometry, inlined unchanged for standalone SVG rendering. -->
+      <g transform="translate(395 399) scale(2)" data-source="src/components/BrandMark.tsx">
+        <g fill="none" stroke="#f7f4ed" stroke-linecap="round" stroke-width="2.25">
+          <path d="M11.25 4.22A12.25 12.25 0 0 0 4.12 18.9"/>
+          <path d="M7.02 25.14a12.25 12.25 0 0 0 17.96 0"/>
+          <path d="M27.88 18.9a12.25 12.25 0 0 0-7.13-14.68"/>
+        </g>
+        <g fill="#f7f4ed">
+          <circle cx="16" cy="3.5" r="2.5"/>
+          <circle cx="5.25" cy="23.5" r="2.5"/>
+          <circle cx="26.75" cy="23.5" r="2.5"/>
+        </g>
+        <g fill="none" stroke-linecap="square" stroke-linejoin="miter" stroke-width="3.5">
+          <path d="m14.25 10.25-5.5 5.75 5.5 5.75" stroke="#f7f4ed"/>
+          <path d="m17.75 10.25 5.5 5.75-5.5 5.75" stroke="#f97316"/>
+        </g>
+      </g>
+
+      <text x="486" y="448" fill="#f7f4ed" font-family="Inter, 'SF Pro Display', Arial, sans-serif" font-size="40" font-weight="750" letter-spacing="-1">ghfind.com</text>
+
+      <!-- Enter key -->
+      <g transform="translate(862 404)">
+        <rect width="54" height="54" rx="27" fill="#f97316"/>
+        <path d="M17 27h20m-8-8 8 8-8 8" fill="none" stroke="#050505" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- 1 mm cut-line hint; remove if the printer adds bleed externally -->
+  <rect x="0.5" y="0.5" width="1199" height="549" rx="17.5" fill="none" stroke="#f97316" stroke-opacity="0.18"/>
+</svg>
