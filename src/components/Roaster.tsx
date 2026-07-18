@@ -30,6 +30,7 @@ import { DimensionStarChart } from "./DimensionStarChart";
 import { SITE_URL } from "@/lib/site";
 import { normLang } from "@/lib/lang";
 import { trackEvent } from "@/lib/track";
+import type { CampaignSlug } from "@/lib/campaigns";
 
 interface Display {
   score: number;
@@ -38,7 +39,17 @@ interface Display {
   delta: number;
 }
 
-export function Roaster() {
+interface RoasterProps {
+  campaign?: CampaignSlug;
+  analyticsSource?: "home" | CampaignSlug;
+  inputPlaceholder?: string;
+}
+
+export function Roaster({
+  campaign,
+  analyticsSource = "home",
+  inputPlaceholder,
+}: RoasterProps = {}) {
   const t = useTranslations("roaster");
   const tScan = useTranslations("scanErrors");
   const tTier = useTranslations("tiers");
@@ -185,12 +196,12 @@ export function Roaster() {
       setScanning(true);
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
-      trackEvent("scan_start", { source: "home" });
+      trackEvent("scan_start", { source: analyticsSource });
       try {
         const res = await fetch("/api/scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: uname, turnstileToken: token }),
+          body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -204,7 +215,7 @@ export function Roaster() {
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
         // Scan succeeded (score in hand, before the LLM roast streams). Tier is a
         // low-cardinality dimension — safe to slice the funnel by outcome.
-        trackEvent("scan_complete", { source: "home", tier: result.scoring.tier });
+        trackEvent("scan_complete", { source: analyticsSource, tier: result.scoring.tier });
         // Hand off to the profile page: stash the fresh scan so the inner page
         // can render its evidence and stream the roast in place (drives internal
         // traffic; the user reads their repos/score while the LLM works). Passing
@@ -219,7 +230,9 @@ export function Roaster() {
             /* storage unavailable (private mode / quota) — profile page falls
                back to the server-side cached scan, else shows a home link */
           }
-          router.push(`/u/${result.metrics.username}?roasting=1`);
+          const profileParams = new URLSearchParams({ roasting: "1" });
+          if (campaign) profileParams.set("campaign", campaign);
+          router.push(`/u/${result.metrics.username}?${profileParams.toString()}`);
           return; // keep `scanning` true so the skeleton persists until navigation
         }
         setScan(result);
@@ -242,7 +255,19 @@ export function Roaster() {
         setScanning(false);
       }
     },
-    [username, token, scanning, roasting, runRoast, router, searchParams, t, tScan],
+    [
+      analyticsSource,
+      campaign,
+      username,
+      token,
+      scanning,
+      roasting,
+      runRoast,
+      router,
+      searchParams,
+      t,
+      tScan,
+    ],
   );
 
   const beatValue = percentile?.beat == null ? null : percentile.beat.toFixed(1);
@@ -347,6 +372,8 @@ export function Roaster() {
           onChange={setUsername}
           onRoast={(u) => void submit(u)}
           busy={scanning || roasting}
+          placeholder={inputPlaceholder}
+          stackCtaOnMobile={Boolean(campaign)}
         />
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
@@ -354,18 +381,20 @@ export function Roaster() {
 
       <div className="mt-3 flex flex-col items-center gap-3">
         <SponsorPill large />
-        <Button
-          type="button"
-          onClick={() => {
-            setByoReason(undefined);
-            setByoOpen(true);
-          }}
-          variant="link"
-          size="sm"
-          className="h-auto px-0 text-xs text-zinc-500"
-        >
-          {t("byoLink")}
-        </Button>
+        {!campaign ? (
+          <Button
+            type="button"
+            onClick={() => {
+              setByoReason(undefined);
+              setByoOpen(true);
+            }}
+            variant="link"
+            size="sm"
+            className="h-auto px-0 text-xs text-zinc-500"
+          >
+            {t("byoLink")}
+          </Button>
+        ) : null}
       </div>
 
       {/* Scanning skeleton */}

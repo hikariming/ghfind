@@ -24,12 +24,14 @@ export function ProfileReactions({
   initialState,
   profileUsername,
   signInAction,
+  flat = false,
 }: {
   authenticated: boolean;
   authAvailable: boolean;
   initialState: ProfileReactionState;
   profileUsername: string;
   signInAction: () => Promise<void>;
+  flat?: boolean;
 }) {
   const t = useTranslations("reactions");
   const [state, setState] = useState(initialState);
@@ -107,10 +109,16 @@ export function ProfileReactions({
   );
 
   return (
-    <section className="mt-4 rounded-2xl border border-orange-300/15 bg-orange-500/[0.035] p-3 sm:p-4">
+    <section
+      className={
+        flat
+          ? "mt-4 bg-transparent p-0 before:mx-4 before:mb-6 before:block before:h-px before:bg-white/10 before:content-['']"
+          : "mt-4 rounded-2xl border border-orange-300/15 bg-orange-500/[0.035] p-3 sm:p-4"
+      }
+    >
       <div className="mb-2.5 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <h2 className="text-sm font-bold text-orange-100">{t("heading")}</h2>
-        <p className="text-[11px] text-zinc-500">{t("hint")}</p>
+        {!flat && <p className="text-[11px] text-zinc-500">{t("hint")}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">

@@ -27,6 +27,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   }
 
   const theme = parseTheme(req);
+  const isPreview = new URL(req.url).searchParams.get("preview") === "1";
   const score = detail.final_score;
   const tier = detail.tier;
   const tags = detail.tags.zh;
@@ -54,7 +55,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
 
   return new Response(svg, {
     headers: {
-      "Cache-Control": CDN_CACHE,
+      "Cache-Control": isPreview ? "no-store" : CDN_CACHE,
       "Content-Type": "image/svg+xml; charset=utf-8",
     },
   });

@@ -373,9 +373,13 @@
     "variantPr": "Rekam jejak PR",
     "variantPath": "Perjalanan GitHub",
     "variantWork": "Karya khas",
-    "materialTitle": "Kartu cetak berbahasa Mandarin",
+    "materialTitle": "Ambil kartu material di lokasi",
     "materialBlurb": "Desain lanskap 76 × 50 mm untuk materi cetak dan acara.",
-    "materialAlt": "Kartu profil developer ghfind berbahasa Mandarin untuk {username}"
+    "materialAlt": "Kartu profil developer ghfind berbahasa Mandarin untuk {username}",
+    "materialDownload": "Unduh SVG",
+    "materialDownloadPng": "Unduh PNG",
+    "materialOpen": "Buka tautan",
+    "materialUrl": "URL kartu"
   },
   "byok": {
     "title": "Pakai model sendiri",

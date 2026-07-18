@@ -188,7 +188,7 @@ export function RoastResultModal({
             {t("modalBadgeCta")}
           </button>
           {showBadge && (
-            <div className="min-w-0 overflow-x-hidden rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="min-w-0 overflow-x-hidden">
               <CopyBadge
                 baseUrl={SITE_URL}
                 username={username}

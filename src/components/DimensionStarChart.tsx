@@ -17,6 +17,7 @@ interface DimensionStarChartProps {
   labels: Record<SubScoreKey, string>;
   tier?: Tier;
   animate?: boolean;
+  compact?: boolean;
 }
 
 interface DimensionDatum {
@@ -41,6 +42,7 @@ interface AxisTickProps {
 
 const SCORE_DOMAIN = [0, 100] as const;
 const CHART_MARGIN = { top: 60, right: 92, bottom: 60, left: 92 };
+const COMPACT_CHART_MARGIN = { top: 36, right: 92, bottom: 36, left: 92 };
 
 function clampPct(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -102,6 +104,7 @@ export function DimensionStarChart({
   labels,
   tier,
   animate = true,
+  compact = false,
 }: DimensionStarChartProps) {
   const data: DimensionDatum[] = DIMENSIONS.map((key) => {
     const max = SUBSCORE_MAX[key];
@@ -174,12 +177,14 @@ export function DimensionStarChart({
       role="img"
       aria-label={ariaLabel}
       data-tone={toneKey}
-      className="dimension-star-radar mx-auto h-[23rem] w-full max-w-3xl sm:h-[26rem]"
+      className={`dimension-star-radar mx-auto w-full max-w-3xl ${
+        compact ? "h-[20rem] sm:h-[23rem]" : "h-[23rem] sm:h-[26rem]"
+      }`}
     >
       <RadarChart
         responsive
         data={data}
-        margin={CHART_MARGIN}
+        margin={compact ? COMPACT_CHART_MARGIN : CHART_MARGIN}
         style={{ width: "100%", height: "100%" }}
       >
         <PolarGrid

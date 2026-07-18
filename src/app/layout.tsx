@@ -36,6 +36,13 @@ try {
 
   var key = "github-roast-theme";
   var stored = localStorage.getItem(key);
+  var isAdvx =
+    window.location.pathname.split("/").indexOf("advx") !== -1 ||
+    new URLSearchParams(window.location.search).get("campaign") === "advx";
+  if (isAdvx) {
+    stored = "dark";
+    localStorage.setItem(key, stored);
+  }
   var mode = stored === "light" || stored === "dark" || stored === "auto"
     ? stored
     : "auto";

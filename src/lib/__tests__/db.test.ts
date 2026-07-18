@@ -246,6 +246,30 @@ describe("getTrendingLeaderboard", () => {
   });
 });
 
+describe("campaign leaderboard", () => {
+  it("filters an event cohort while keeping every participant in the main score table", async () => {
+    await db.recordScore({ ...entry, username: "advx-only", final_score: 82 });
+    await db.recordScore({ ...entry, username: "main-only", final_score: 81 });
+    await db.recordCampaignParticipant("advx", "ADVX-ONLY");
+    await db.recordCampaignParticipant("another-event", "main-only");
+
+    const campaignEntries = await db.getCampaignLeaderboard("advx");
+    const mainEntries = await db.getLeaderboard(500, 0);
+
+    expect(campaignEntries.map((item) => item.username)).toEqual(["advx-only"]);
+    expect(mainEntries.some((item) => item.username === "advx-only")).toBe(true);
+    expect(mainEntries.some((item) => item.username === "main-only")).toBe(true);
+  });
+
+  it("lets one account carry multiple event labels without duplicating its score", async () => {
+    await db.recordCampaignParticipant("second-event", "advx-only");
+
+    await expect(db.getCampaignLeaderboard("second-event")).resolves.toMatchObject([
+      { username: "advx-only", final_score: 82 },
+    ]);
+  });
+});
+
 describe("getRank", () => {
   it("ranks by score desc over a shared population", async () => {
     await db.recordScore({ ...entry, username: "rank-low", final_score: 11 });

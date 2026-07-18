@@ -373,9 +373,13 @@
     "variantPr": "PR 战绩",
     "variantPath": "GitHub 轨迹",
     "variantWork": "代表作",
-    "materialTitle": "中文物料卡",
+    "materialTitle": "现场领取物料卡",
     "materialBlurb": "76 × 50 mm 横版，可用于线下印刷与活动物料。",
-    "materialAlt": "{username} 的 ghfind 中文开发者实力卡"
+    "materialAlt": "{username} 的 ghfind 中文开发者实力卡",
+    "materialDownload": "下载 SVG",
+    "materialDownloadPng": "下载 PNG",
+    "materialOpen": "打开链接",
+    "materialUrl": "物料卡链接"
   },
   "byok": {
     "title": "用你自己的模型",

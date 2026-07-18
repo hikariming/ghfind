@@ -148,7 +148,6 @@ export function CopyBadge({
   const cardUrl = `${base}/api/card/${username}`;
   const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
   const cardPreviewUrl = `${previewBase}/api/card/${username}`;
-  const materialCardPreviewUrl = `${previewBase}/api/material-card/${username}`;
   const versionParam =
     version !== undefined && version !== null ? String(version) : undefined;
   const badgePreview = withQuery(badgePreviewUrl, { v: versionParam });
@@ -165,7 +164,6 @@ export function CopyBadge({
   if (qr) cardParams.qr = "1";
   const cardCurrentUrl = withQuery(cardUrl, cardParams);
   const cardCurrentPreview = withQuery(cardPreviewUrl, { ...cardParams, v: versionParam });
-  const materialCardPreview = withQuery(materialCardPreviewUrl, { theme, v: versionParam });
   const builderMd = `[![${cardAlt}](${cardCurrentUrl})](${pageUrl})`;
   const builderHtml = `<a href="${pageUrl}"><img src="${cardCurrentUrl}" alt="${cardAlt}" width="600" /></a>`;
 
@@ -259,21 +257,6 @@ export function CopyBadge({
           <img
             src={cardCurrentPreview}
             alt={cardAlt}
-            className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
-          />
-        </figure>
-
-        {/* Print-ready Chinese artwork. It follows the selected theme but keeps
-            its own fixed 76 mm x 50 mm landscape composition. */}
-        <figure className="mt-5 min-w-0">
-          <figcaption className="mb-2">
-            <div className="text-xs font-semibold text-zinc-300">{T("materialTitle")}</div>
-            <p className="mt-1 text-xs text-zinc-500">{T("materialBlurb")}</p>
-          </figcaption>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={materialCardPreview}
-            alt={T("materialAlt", { username })}
             className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
           />
         </figure>

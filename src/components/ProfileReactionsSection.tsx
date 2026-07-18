@@ -10,9 +10,11 @@ import { ProfileReactions } from "@/components/ProfileReactions";
 export async function ProfileReactionsSection({
   username,
   redirectTo,
+  flat = false,
 }: {
   username: string;
   redirectTo: string;
+  flat?: boolean;
 }) {
   const authAvailable = authConfigured();
   const session = authAvailable ? await auth() : null;
@@ -30,6 +32,7 @@ export async function ProfileReactionsSection({
       initialState={reactionState}
       profileUsername={username}
       signInAction={signInForReaction}
+      flat={flat}
     />
   );
 }

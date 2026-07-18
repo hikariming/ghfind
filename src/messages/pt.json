@@ -373,9 +373,13 @@
     "variantPr": "Histórico de PRs",
     "variantPath": "Trajetória no GitHub",
     "variantWork": "Trabalho de assinatura",
-    "materialTitle": "Card impresso em chinês",
+    "materialTitle": "Retire seu cartão no evento",
     "materialBlurb": "Arte horizontal de 76 × 50 mm para impressão e eventos.",
-    "materialAlt": "Card chinês de perfil de desenvolvedor ghfind para {username}"
+    "materialAlt": "Card chinês de perfil de desenvolvedor ghfind para {username}",
+    "materialDownload": "Baixar SVG",
+    "materialDownloadPng": "Baixar PNG",
+    "materialOpen": "Abrir link",
+    "materialUrl": "URL do card"
   },
   "byok": {
     "title": "Use seu próprio modelo",

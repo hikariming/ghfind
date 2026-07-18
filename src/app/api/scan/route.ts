@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordAccountLookup } from "@/lib/db";
+import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
+import { recordAccountLookup, recordCampaignParticipant } from "@/lib/db";
 import {
   checkRateLimit,
   coalesceScan,
@@ -27,7 +28,11 @@ function idempotencyHeaders(req: NextRequest): Record<string, string> {
   return key ? { "Idempotency-Key": key } : {};
 }
 
-async function recordSuccessfulLookup(username: string, ip: string): Promise<void> {
+async function recordSuccessfulLookup(
+  username: string,
+  ip: string,
+  campaign: CampaignSlug | null,
+): Promise<void> {
   // Record the lookup for heat/trending counts, but intentionally DON'T bust the
   // leaderboard cache here. Under real traffic this "counted" path fires
   // constantly (first lookup per IP per account per 24h), and clearing all 16
@@ -35,7 +40,10 @@ async function recordSuccessfulLookup(username: string, ip: string): Promise<voi
   // /leaderboard visit then ran the heavy 500-row triple JOIN and hammered Turso
   // (slow board + cascading DB timeouts elsewhere). A board that's up to one TTL
   // stale is perfectly fine; natural expiry refreshes it.
-  await recordAccountLookup(username, ip);
+  await Promise.all([
+    recordAccountLookup(username, ip),
+    campaign ? recordCampaignParticipant(campaign, username) : Promise.resolve(),
+  ]);
 }
 
 export async function POST(req: NextRequest) {
@@ -43,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   // Fields stay `unknown`: scripted clients send numbers/objects here, and the
   // validators must answer with a 400 rather than crash on a type assumption.
-  let body: { username?: unknown; turnstileToken?: unknown };
+  let body: { username?: unknown; turnstileToken?: unknown; campaign?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -53,6 +61,10 @@ export async function POST(req: NextRequest) {
   const username = normalizeUsername(body.username);
   if (!username) {
     return apiError("invalid_username", { status: 400, headers: idem });
+  }
+  const campaign = campaignSlug(body.campaign);
+  if (body.campaign !== undefined && !campaign) {
+    return apiError("invalid_body", { status: 400, headers: idem });
   }
 
   const ip = clientIp(req);
@@ -86,7 +98,7 @@ export async function POST(req: NextRequest) {
   // score), so the scan response stays purely the deterministic result.
   const cached = await getCachedScan(username);
   if (cached) {
-    await recordSuccessfulLookup(cached.metrics.username, ip);
+    await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
     return NextResponse.json(
       { ...cached, cached: true },
       { headers: { ...idem, ...rlHeaders } },
@@ -95,7 +107,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await coalesceScan(username, () => buildScanResult(username));
-    await recordSuccessfulLookup(result.metrics.username, ip);
+    await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     return NextResponse.json(
       { ...result, cached: false },
       { headers: { ...idem, ...rlHeaders } },
