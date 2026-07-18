@@ -5,10 +5,12 @@ import { Roaster } from "@/components/Roaster";
 import { Link } from "@/i18n/navigation";
 import { localeAlternates } from "@/lib/site";
 
-// The page shell stays static. The live board fetches the short-CDN-cached API
-// from the client, so a crowded event does not create one Turso-backed render
-// per visitor.
+// Keep the event page server-rendered for the first paint and crawler HTML, but
+// use the same bounded ISR window as the homepage. The route only has the nine
+// allow-listed locales from the parent layout, so this cannot create an
+// unbounded ISR key space from user input.
 export const dynamic = "force-static";
+export const revalidate = 60;
 
 const COPY = {
   zh: {

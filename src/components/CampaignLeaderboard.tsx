@@ -1,10 +1,7 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import type { CampaignSlug } from "@/lib/campaigns";
-import type { LeaderboardEntry } from "@/lib/db";
+import { getCampaignLeaderboard } from "@/lib/db";
 import { normLang } from "@/lib/lang";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 
@@ -16,42 +13,17 @@ interface CampaignLeaderboardProps {
   emptyLabel: string;
 }
 
-export function CampaignLeaderboard({
+export async function CampaignLeaderboard({
   campaign,
   locale,
   emptyLabel,
 }: CampaignLeaderboardProps) {
-  const tTier = useTranslations("tiers");
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/campaigns/${campaign}/leaderboard?limit=500`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error("campaign leaderboard unavailable");
-        const data = (await res.json()) as { entries?: LeaderboardEntry[] };
-        if (!controller.signal.aborted) setEntries(Array.isArray(data.entries) ? data.entries : []);
-      } catch {
-        if (!controller.signal.aborted) setEntries([]);
-      }
-    };
-    void load();
-    return () => controller.abort();
-  }, [campaign]);
+  const [entries, tTier] = await Promise.all([
+    getCampaignLeaderboard(campaign),
+    getTranslations({ locale, namespace: "tiers" }),
+  ]);
 
   const tagLocale = normLang(locale);
-
-  if (entries === null) {
-    return (
-      <div
-        aria-busy="true"
-        className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.02]"
-      />
-    );
-  }
 
   if (entries.length === 0) {
     return (
