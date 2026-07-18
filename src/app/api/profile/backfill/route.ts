@@ -11,7 +11,7 @@ import {
   GitHubRateLimitError,
   collect,
 } from "@/lib/github";
-import { checkRateLimit, coalesceScan, getCachedScan } from "@/lib/redis";
+import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
 import { score } from "@/lib/score";
 import type { ScanResult } from "@/lib/types";
 
@@ -57,6 +57,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_username" }, { status: 400 });
   }
 
+  // Gate before the score/snapshot existence reads. This is a public POST and
+  // callers can otherwise turn a legacy-profile retry into two Turso reads even
+  // after they have exhausted the expensive GitHub backfill budget.
+  const ip = clientIp(req);
+  const limit = await checkRateLimit(ip);
+  if (!limit.success) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" },
+      },
+    );
+  }
+
   // Only backfill real, visible scored profiles — never crawl arbitrary handles.
   const brief = await getScoreBrief(username);
   if (!brief) {
@@ -73,12 +88,6 @@ export async function POST(req: NextRequest) {
   if (cached) {
     await recordProfileSnapshot(cached);
     return NextResponse.json({ filled: true, cached: true });
-  }
-
-  const ip = clientIp(req);
-  const { success } = await checkRateLimit(ip);
-  if (!success) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   try {
