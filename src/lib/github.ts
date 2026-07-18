@@ -282,6 +282,8 @@ export interface PublicCommitSearchPage {
     repoKey: string;
     ownerLogin: string | null;
     stars: number;
+    isPrivate: boolean;
+    isFork: boolean;
     authoredAt: string | null;
   }[];
 }
@@ -294,6 +296,8 @@ interface RestCommitSearchResponse {
     repository?: {
       full_name?: string | null;
       stargazers_count?: number | null;
+      private?: boolean | null;
+      fork?: boolean | null;
       owner?: { login?: string | null } | null;
     } | null;
     commit?: { author?: { date?: string | null } | null } | null;
@@ -354,6 +358,8 @@ export async function searchPublicCommitCandidates(input: {
           repoKey: repo,
           ownerLogin: item.repository?.owner?.login ?? null,
           stars: Math.max(0, Number(item.repository?.stargazers_count) || 0),
+          isPrivate: Boolean(item.repository?.private),
+          isFork: Boolean(item.repository?.fork),
           authoredAt: item.commit?.author?.date ?? null,
         };
       })

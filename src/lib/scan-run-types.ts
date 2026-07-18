@@ -8,7 +8,7 @@
 // intentionally separate from SCORE_CACHE_VERSION: an old scan can be
 // re-scored, but it must not be treated as complete when its collector no
 // longer covers the current source contract.
-export const PUBLIC_SCAN_COLLECTION_VERSION = "v2";
+export const PUBLIC_SCAN_COLLECTION_VERSION = "v3";
 
 export const PUBLIC_SCAN_REQUIRED_SOURCES = [
   "quick",
@@ -104,6 +104,8 @@ export interface PublicScanCommitRepoFact {
   repoKey: string;
   ownerLogin: string | null;
   stars: number;
+  isPrivate: boolean;
+  isFork: boolean;
   commits: number;
   activeYears: number;
   firstCommittedAt: string | null;
@@ -117,6 +119,8 @@ export interface PublicScanCommitCandidate {
   repoKey: string;
   ownerLogin: string | null;
   stars: number;
+  isPrivate: boolean;
+  isFork: boolean;
   authoredAt: string | null;
 }
 
@@ -125,6 +129,8 @@ export interface PublicScanCommitVerificationWork {
   repoKey: string;
   ownerLogin: string | null;
   stars: number;
+  isPrivate: boolean;
+  isFork: boolean;
   from: string;
   to: string;
   page: number;

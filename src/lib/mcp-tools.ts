@@ -9,9 +9,14 @@ import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getLeaderboardCached } from "@/lib/leaderboard";
 import type { LeaderboardCacheView } from "@/lib/redis";
 import type { LeaderboardWindow } from "@/lib/db";
-import { clearCachedScan, coalesceScan, getCachedScan } from "@/lib/redis";
+import { coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
-import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import {
+  getPublicScanStatus,
+  publicScanAdmission,
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+} from "@/lib/public-scan";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -32,7 +37,10 @@ async function percentileFor(finalScore: number) {
 }
 
 /** Deterministic score for one account (indexed hit, else a live scan). */
-export async function scoreUser(rawUsername: string): Promise<Record<string, unknown> | ToolError> {
+export async function scoreUser(
+  rawUsername: string,
+  options?: { durablePrincipal?: string },
+): Promise<Record<string, unknown> | ToolError> {
   const handle = normalizeUsername(rawUsername ?? "");
   if (!handle) {
     return { error: "invalid_username", message: "username must be a valid GitHub login" };
@@ -56,20 +64,33 @@ export async function scoreUser(rawUsername: string): Promise<Record<string, unk
 
   let result: ScanResult;
   try {
-    const completed = await getCompletedPublicScan(handle);
-    const cached = completed ?? (await getCachedScan(handle));
-    result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    const status = await getPublicScanStatus(handle);
+    if (status?.status === "complete") {
+      result = status.scan;
+    } else {
+      if (status) {
+        return {
+          error: "scan_enrichment_pending",
+          message: `durable public-history scan for ${handle} is ${status.status}; retry after ${status.retryAfterSeconds}s`,
+        };
+      }
+      const cached = await getCachedScan(handle);
+      result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    }
   } catch (e) {
     const { error } = scanErrorResponse(e);
     return { error, message: `could not score ${handle}` };
   }
 
   if (requiresDurablePublicScan(result)) {
-    const durable = await resolvePublicScan(result.metrics.username, result);
+    const durable = await resolvePublicScanFromTrustedQuickScan(
+      result.metrics.username,
+      result,
+      options?.durablePrincipal ? publicScanAdmission(options.durablePrincipal) : undefined,
+    );
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
-      await clearCachedScan(result.metrics.username);
       return {
         error: "scan_enrichment_pending",
         message: `durable public-history scan for ${result.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
@@ -95,19 +116,32 @@ export async function scoreUser(rawUsername: string): Promise<Record<string, unk
 }
 
 /** Full deterministic scan payload for one account. */
-export async function scanUser(rawUsername: string): Promise<ScanResult | ToolError> {
+export async function scanUser(
+  rawUsername: string,
+  options?: { durablePrincipal?: string },
+): Promise<ScanResult | ToolError> {
   const handle = normalizeUsername(rawUsername ?? "");
   if (!handle) {
     return { error: "invalid_username", message: "username must be a valid GitHub login" };
   }
   try {
-    const completed = await getCompletedPublicScan(handle);
-    const cached = completed ?? (await getCachedScan(handle));
+    const status = await getPublicScanStatus(handle);
+    if (status?.status === "complete") return status.scan;
+    if (status) {
+      return {
+        error: "scan_enrichment_pending",
+        message: `durable public-history scan for ${handle} is ${status.status}; retry after ${status.retryAfterSeconds}s`,
+      };
+    }
+    const cached = await getCachedScan(handle);
     const scan = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
     if (requiresDurablePublicScan(scan)) {
-      const durable = await resolvePublicScan(scan.metrics.username, scan);
+      const durable = await resolvePublicScanFromTrustedQuickScan(
+        scan.metrics.username,
+        scan,
+        options?.durablePrincipal ? publicScanAdmission(options.durablePrincipal) : undefined,
+      );
       if (durable.status === "complete") return durable.scan;
-      await clearCachedScan(scan.metrics.username);
       return {
         error: "scan_enrichment_pending",
         message: `durable public-history scan for ${scan.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
@@ -121,8 +155,12 @@ export async function scanUser(rawUsername: string): Promise<ScanResult | ToolEr
 }
 
 /** Head-to-head: two deterministic scores side by side (no LLM verdict). */
-export async function compareUsers(rawA: string, rawB: string): Promise<Record<string, unknown> | ToolError> {
-  const [a, b] = await Promise.all([scoreUser(rawA), scoreUser(rawB)]);
+export async function compareUsers(
+  rawA: string,
+  rawB: string,
+  options?: { durablePrincipal?: string },
+): Promise<Record<string, unknown> | ToolError> {
+  const [a, b] = await Promise.all([scoreUser(rawA, options), scoreUser(rawB, options)]);
   if ("error" in a) return a;
   if ("error" in b) return b;
   const sa = a.final_score as number;

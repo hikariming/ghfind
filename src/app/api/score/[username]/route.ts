@@ -5,9 +5,15 @@ import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { checkRateLimit, clearCachedScan, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
+import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders, setCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
-import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import {
+  getPublicScanStatus,
+  publicScanAdmission,
+  type PublicScanResolution,
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+} from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult, Tier } from "@/lib/types";
@@ -54,6 +60,45 @@ async function percentileFor(finalScore: number) {
   return pct
     ? { beat: beatPercent(pct.below, pct.total), total: pct.total, rank: rank?.rank ?? null }
     : null;
+}
+
+function durableResponse(
+  username: string,
+  resolution: Exclude<PublicScanResolution, { status: "complete" }>,
+  headers: Record<string, string>,
+) {
+  if (resolution.status === "pending") {
+    kickPublicScanDrain();
+    return json(
+      {
+        error: "scan_enrichment_pending",
+        username,
+        run_id: resolution.run.id,
+        retry_after: resolution.retryAfterSeconds,
+      },
+      202,
+      MISS_CACHE,
+      { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
+    );
+  }
+  if (resolution.status === "queue_full" || resolution.status === "admission_limited") {
+    return json(
+      { error: resolution.status, username, retry_after: resolution.retryAfterSeconds },
+      429,
+      MISS_CACHE,
+      { ...headers, "Retry-After": String(resolution.retryAfterSeconds), "Cache-Control": "no-store" },
+    );
+  }
+  return json(
+    {
+      error: "durable_scan_unavailable",
+      username,
+      retry_after: resolution.retryAfterSeconds,
+    },
+    503,
+    MISS_CACHE,
+    { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
+  );
 }
 
 /**
@@ -113,11 +158,11 @@ export async function GET(
   }
 
   // 2) Not indexed → score it live, deterministically (NO LLM).
-  const completedPublicScan = await getCompletedPublicScan(handle);
-  if (completedPublicScan) {
-    await setCachedScan(completedPublicScan.metrics.username, completedPublicScan);
-    const s = completedPublicScan.scoring;
-    const m = completedPublicScan.metrics;
+  const publicStatus = await getPublicScanStatus(handle);
+  if (publicStatus?.status === "complete") {
+    await setCachedScan(publicStatus.scan.metrics.username, publicStatus.scan);
+    const s = publicStatus.scan.scoring;
+    const m = publicStatus.scan.metrics;
     const tier = s.tier as Tier;
     return json(
       {
@@ -143,7 +188,11 @@ export async function GET(
       LIVE_CACHE,
     );
   }
+  if (publicStatus) {
+    return durableResponse(handle, publicStatus, {});
+  }
   const cached = await getCachedScan(handle);
+  const durableAdmission = publicScanAdmission(`ip:${clientIp(req)}`);
   let rlHeaders: Record<string, string> = {};
   if (!cached) {
     const limit = await checkRateLimit(clientIp(req));
@@ -177,24 +226,15 @@ export async function GET(
   }
 
   if (requiresDurablePublicScan(result)) {
-    const durable = await resolvePublicScan(result.metrics.username, result);
+    const durable = await resolvePublicScanFromTrustedQuickScan(
+      result.metrics.username,
+      result,
+      durableAdmission,
+    );
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
-      await clearCachedScan(result.metrics.username);
-      if (durable.status === "pending") kickPublicScanDrain();
-      const status = durable.status === "pending" ? 202 : 503;
-      return json(
-        {
-          error: durable.status === "pending" ? "scan_enrichment_pending" : "durable_scan_unavailable",
-          username: result.metrics.username,
-          ...(durable.run ? { run_id: durable.run.id } : {}),
-          retry_after: durable.retryAfterSeconds,
-        },
-        status,
-        MISS_CACHE,
-        { ...rlHeaders, "Retry-After": String(durable.retryAfterSeconds) },
-      );
+      return durableResponse(result.metrics.username, durable, rlHeaders);
     }
   }
 

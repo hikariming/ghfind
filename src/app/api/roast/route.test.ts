@@ -23,6 +23,12 @@ const mocks = vi.hoisted(() => ({
   setCachedRoast: vi.fn(),
   waitForCachedRoast: vi.fn(),
   buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string) => []),
+  getPublicScanStatus: vi.fn(),
+  publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
+  requiresDurablePublicScan: vi.fn(),
+  resolvePublicScanFromTrustedQuickScan: vi.fn(),
+  startPublicScan: vi.fn(),
+  kickPublicScanDrain: vi.fn(),
 }));
 
 // Outside a real browser/Vercel request there is no BotID signal — treat every
@@ -145,6 +151,18 @@ vi.mock("@/lib/identity", () => ({
   ) => ({ tags, roastLine, report }),
 }));
 
+vi.mock("@/lib/public-scan", () => ({
+  getPublicScanStatus: mocks.getPublicScanStatus,
+  publicScanAdmission: mocks.publicScanAdmission,
+  requiresDurablePublicScan: mocks.requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
+  startPublicScan: mocks.startPublicScan,
+}));
+
+vi.mock("@/lib/public-scan-dispatcher", () => ({
+  kickPublicScanDrain: mocks.kickPublicScanDrain,
+}));
+
 vi.mock("@/lib/score", () => ({
   clampScore: (score: number) => Math.max(0, Math.min(100, score)),
   spamBotScore: () => 0,
@@ -234,6 +252,8 @@ beforeEach(() => {
   });
   mocks.fallbackLlmConfig.mockReturnValue(null);
   mocks.getCachedScan.mockResolvedValue(null);
+  mocks.getPublicScanStatus.mockResolvedValue(null);
+  mocks.requiresDurablePublicScan.mockReturnValue(false);
   mocks.getCachedRoast.mockResolvedValue(null);
     mocks.getArchivedRoast.mockResolvedValue(null);
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
@@ -262,6 +282,32 @@ beforeEach(() => {
 });
 
 describe("roast API persistence", () => {
+  it("never seeds a durable scan from an untrusted roast request body", async () => {
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "server-authored-run" },
+      retryAfterSeconds: 5,
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "scan_enrichment_pending",
+      run_id: "server-authored-run",
+    });
+    expect(mocks.startPublicScan).toHaveBeenCalledWith("DemoDev", expect.any(Object));
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.recordScore).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
   it("emits one structured summary with request, stream, lock, and provider timings", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     try {

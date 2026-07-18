@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordAccountLookup } from "@/lib/db";
 import {
   checkRateLimit,
-  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -11,7 +10,13 @@ import {
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
-import { getCompletedPublicScan, requiresDurablePublicScan, resolvePublicScan } from "@/lib/public-scan";
+import {
+  getPublicScanStatus,
+  publicScanAdmission,
+  type PublicScanResolution,
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+} from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
@@ -43,47 +48,71 @@ async function recordSuccessfulLookup(username: string, ip: string): Promise<voi
   await recordAccountLookup(username, ip);
 }
 
-async function durableResponse(input: {
+function durableStatusResponse(input: {
   username: string;
-  scan: import("@/lib/types").ScanResult;
+  resolution: Exclude<PublicScanResolution, { status: "complete" }>;
   headers: Record<string, string>;
 }) {
-  const resolution = await resolvePublicScan(input.username, input.scan);
-  if (resolution.status === "complete") {
-    return NextResponse.json(
-      { ...resolution.scan, cached: true, coverage: "complete_public" },
-      { headers: input.headers },
-    );
-  }
-  if (resolution.status === "pending") {
-    await clearCachedScan(input.username);
+  if (input.resolution.status === "pending") {
     kickPublicScanDrain();
     return NextResponse.json(
       {
         error: "scan_enrichment_pending",
         status: "collecting_public_history",
         username: input.username,
-        run_id: resolution.run.id,
-        retry_after: resolution.retryAfterSeconds,
+        run_id: input.resolution.run.id,
+        retry_after: input.resolution.retryAfterSeconds,
       },
       {
         status: 202,
         headers: {
           ...input.headers,
           "Cache-Control": "no-store",
-          "Retry-After": String(resolution.retryAfterSeconds),
+          "Retry-After": String(input.resolution.retryAfterSeconds),
         },
       },
     );
   }
-  const retryAfterSeconds = resolution.retryAfterSeconds;
-  await clearCachedScan(input.username);
+  if (input.resolution.status === "queue_full" || input.resolution.status === "admission_limited") {
+    return apiError(input.resolution.status, {
+      status: 429,
+      headers: {
+        ...input.headers,
+        "Cache-Control": "no-store",
+        "Retry-After": String(input.resolution.retryAfterSeconds),
+      },
+    });
+  }
   return apiError("github_unavailable", {
     status: 503,
     headers: {
       ...input.headers,
-      "Retry-After": String(retryAfterSeconds),
+      "Retry-After": String(input.resolution.retryAfterSeconds),
     },
+  });
+}
+
+async function durableResponse(input: {
+  username: string;
+  scan: import("@/lib/types").ScanResult;
+  headers: Record<string, string>;
+  admission: ReturnType<typeof publicScanAdmission>;
+}) {
+  const resolution = await resolvePublicScanFromTrustedQuickScan(
+    input.username,
+    input.scan,
+    input.admission,
+  );
+  if (resolution.status === "complete") {
+    return NextResponse.json(
+      { ...resolution.scan, cached: true, coverage: "complete_public" },
+      { headers: input.headers },
+    );
+  }
+  return durableStatusResponse({
+    username: input.username,
+    resolution,
+    headers: input.headers,
   });
 }
 
@@ -119,6 +148,9 @@ export async function POST(req: NextRequest) {
       return apiError("turnstile_failed", { status: 403, headers: idem });
     }
   }
+  const durableAdmission = publicScanAdmission(
+    auth === "valid" ? `bearer:${req.headers.get("authorization") ?? ""}` : `ip:${ip}`,
+  );
 
   // Rate-limit BEFORE the cache lookup. The cached path used to skip the
   // limiter as "cheap", but it still recorded a lookup per request — a bot
@@ -137,10 +169,26 @@ export async function POST(req: NextRequest) {
   if (cached) {
     await recordSuccessfulLookup(cached.metrics.username, ip);
     if (requiresDurablePublicScan(cached)) {
+      const status = await getPublicScanStatus(cached.metrics.username);
+      if (status?.status === "complete") {
+        await setCachedScan(status.scan.metrics.username, status.scan);
+        return NextResponse.json(
+          { ...status.scan, cached: true, coverage: "complete_public" },
+          { headers: { ...idem, ...rlHeaders } },
+        );
+      }
+      if (status) {
+        return durableStatusResponse({
+          username: cached.metrics.username,
+          resolution: status,
+          headers: { ...idem, ...rlHeaders },
+        });
+      }
       return durableResponse({
         username: cached.metrics.username,
         scan: cached,
         headers: { ...idem, ...rlHeaders },
+        admission: durableAdmission,
       });
     }
     return NextResponse.json(
@@ -149,17 +197,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // The 24h Redis cache is only an accelerator. Once it expires, reuse the
-  // immutable current-version public snapshot from Turso instead of re-running
-  // a quick crawl for the same high-history account on every daily visit.
-  const completed = await getCompletedPublicScan(username);
-  if (completed) {
-    await setCachedScan(completed.metrics.username, completed);
-    await recordSuccessfulLookup(completed.metrics.username, ip);
+  // When a durable job already owns this account, never run another quick
+  // crawl. The status read is cheap and prevents daily Redis expiry from
+  // turning one pending historical scan into repeated GitHub collection.
+  const status = await getPublicScanStatus(username);
+  if (status?.status === "complete") {
+    await setCachedScan(status.scan.metrics.username, status.scan);
+    await recordSuccessfulLookup(status.scan.metrics.username, ip);
     return NextResponse.json(
-      { ...completed, cached: true, coverage: "complete_public" },
+      { ...status.scan, cached: true, coverage: "complete_public" },
       { headers: { ...idem, ...rlHeaders } },
     );
+  }
+  if (status) {
+    return durableStatusResponse({
+      username,
+      resolution: status,
+      headers: { ...idem, ...rlHeaders },
+    });
   }
 
   try {
@@ -170,6 +225,7 @@ export async function POST(req: NextRequest) {
         username: result.metrics.username,
         scan: result,
         headers: { ...idem, ...rlHeaders },
+        admission: durableAdmission,
       });
     }
     return NextResponse.json(

@@ -207,6 +207,10 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
           repoKey: repo.repo,
           ownerLogin: repo.repo.split("/", 1)[0] ?? null,
           stars: repo.stars,
+          // `impact_repos` already passed the GraphQL collector's visibility
+          // filtering. Commit-search recovery carries its own REST flags below.
+          isPrivate: false,
+          isFork: false,
           commits: repo.commits,
           activeYears: 0,
           firstCommittedAt: null,

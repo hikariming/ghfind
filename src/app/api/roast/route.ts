@@ -20,9 +20,11 @@ import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import { sanitizeIdentityClaims } from "@/lib/identity";
 import {
-  getCompletedPublicScan,
+  getPublicScanStatus,
+  publicScanAdmission,
   requiresDurablePublicScan,
-  resolvePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+  startPublicScan,
 } from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import {
@@ -430,14 +432,16 @@ export async function POST(req: NextRequest) {
   let lockWaitMs = 0;
   let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
 
-  // Prefer the server's cached scan (authoritative — the client cannot fabricate
-  // metrics to inflate the prompt or the score). Fall back to the sanitized
-  // client scan when there is no cache (e.g. Redis unconfigured).
-  const [completedPublicScan, cachedScan] = await Promise.all([
-    getCompletedPublicScan(username),
+  // Prefer a durable/current server snapshot. The request body remains a
+  // compatibility fallback for an immediate BYO roast, but it is never allowed
+  // to seed durable facts or a future public-history scan.
+  const [publicStatus, cachedScan] = await Promise.all([
+    getPublicScanStatus(username),
     getCachedScan(username),
   ]);
-  let scan = completedPublicScan ?? cachedScan ?? (body.scan ? sanitizeScan(body.scan) : null);
+  const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
+  const serverScan = completedPublicScan ?? cachedScan;
+  let scan = serverScan ?? (body.scan ? sanitizeScan(body.scan) : null);
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
@@ -445,22 +449,32 @@ export async function POST(req: NextRequest) {
   // A large public history cannot be truthfully represented by the quick
   // sample. Never spend LLM credit or persist a leaderboard row from it: start
   // (or resume) the durable collector and require its complete snapshot.
-  if (!completedPublicScan && requiresDurablePublicScan(scan)) {
-    const resolution = await resolvePublicScan(username, scan);
+  if (!completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
+    const durableAdmission = publicScanAdmission(
+      auth === "valid"
+        ? `bearer:${req.headers.get("authorization") ?? ""}`
+        : `ip:${clientIp(req)}`,
+    );
+    const resolution = publicStatus && publicStatus.status !== "complete"
+      ? publicStatus
+      : serverScan
+        ? await resolvePublicScanFromTrustedQuickScan(username, serverScan, durableAdmission)
+        : await startPublicScan(username, durableAdmission);
     if (resolution.status === "complete") {
       scan = resolution.scan;
     } else {
       if (resolution.status === "pending") kickPublicScanDrain();
       const retryAfterSeconds = resolution.retryAfterSeconds;
+      const busy = resolution.status === "queue_full" || resolution.status === "admission_limited";
       return NextResponse.json(
         {
-          error: "scan_enrichment_pending",
+          error: busy ? resolution.status : "scan_enrichment_pending",
           username,
           ...(resolution.status === "pending" ? { run_id: resolution.run.id } : {}),
           retry_after: retryAfterSeconds,
         },
         {
-          status: 409,
+          status: busy ? 429 : 409,
           headers: { "Retry-After": String(retryAfterSeconds), "Cache-Control": "no-store" },
         },
       );

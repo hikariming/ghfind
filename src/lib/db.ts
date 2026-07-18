@@ -352,6 +352,8 @@ function ensureSchema(db: Client): Promise<void> {
              repo_key           TEXT NOT NULL,
              owner_login        TEXT,
              stars              INTEGER NOT NULL DEFAULT 0,
+             is_private         INTEGER NOT NULL DEFAULT 0,
+             is_fork            INTEGER NOT NULL DEFAULT 0,
              commits            INTEGER NOT NULL DEFAULT 0,
              active_years       INTEGER NOT NULL DEFAULT 0,
              first_committed_at TEXT,
@@ -371,6 +373,8 @@ function ensureSchema(db: Client): Promise<void> {
              repo_key     TEXT NOT NULL,
              owner_login  TEXT,
              stars        INTEGER NOT NULL DEFAULT 0,
+             is_private   INTEGER NOT NULL DEFAULT 0,
+             is_fork      INTEGER NOT NULL DEFAULT 0,
              authored_at  TEXT,
              PRIMARY KEY(run_id, sha, repo_key)
            )`,
@@ -387,6 +391,8 @@ function ensureSchema(db: Client): Promise<void> {
              range_to            TEXT NOT NULL,
              owner_login         TEXT,
              stars               INTEGER NOT NULL DEFAULT 0,
+             is_private          INTEGER NOT NULL DEFAULT 0,
+             is_fork             INTEGER NOT NULL DEFAULT 0,
              page                INTEGER NOT NULL DEFAULT 1,
              state               TEXT NOT NULL CHECK(state IN ('queued', 'complete', 'superseded')),
              commit_count        INTEGER NOT NULL DEFAULT 0,
@@ -621,6 +627,20 @@ function ensureSchema(db: Client): Promise<void> {
         );
       } catch {
         // Existing durable scan work rows can safely start with no year detail.
+      }
+      for (const table of [
+        "public_scan_commit_repo_facts",
+        "public_scan_commit_candidates",
+        "public_scan_commit_verification_work",
+      ]) {
+        for (const column of ["is_private", "is_fork"]) {
+          try {
+            await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
+          } catch {
+            // New databases receive these fields in CREATE TABLE. Existing
+            // tables may already have been migrated by an earlier invocation.
+          }
+        }
       }
       // One durable collection invocation is intentionally conservative. Each
       // invocation is bounded, then a later request-after task or Cron run
@@ -932,6 +952,23 @@ export interface EnqueuedPublicScan {
   created: boolean;
 }
 
+/** Cost admission applies only when a request would create new durable work.
+ * The bucket is already a one-way hash at every HTTP/MCP boundary. */
+export interface PublicScanAdmission {
+  bucket: string;
+  limit: number;
+  windowMs: number;
+  maxActiveJobs: number;
+}
+
+export interface RejectedPublicScanEnqueue {
+  created: false;
+  rejection: "queue_full" | "admission_limited";
+  retryAt: number;
+}
+
+export type PublicScanEnqueueResult = EnqueuedPublicScan | RejectedPublicScanEnqueue;
+
 /**
  * Create one durable public-history scan per username/collection version. Score
  * versions are stored for audit, but changing score formulas must re-evaluate
@@ -939,8 +976,12 @@ export interface EnqueuedPublicScan {
  */
 export async function enqueuePublicScan(
   username: string,
-  input: { scoreVersion: string; collectionVersion: string },
-): Promise<EnqueuedPublicScan | null> {
+  input: {
+    scoreVersion: string;
+    collectionVersion: string;
+    admission?: PublicScanAdmission;
+  },
+): Promise<PublicScanEnqueueResult | null> {
   const db = getClient();
   if (!db) return null;
   const normalized = username.toLowerCase();
@@ -969,6 +1010,39 @@ export async function enqueuePublicScan(
         const runRow = runResult.rows[0];
         if (!runRow) return null;
         return { run: mapPublicScanRun(runRow as Record<string, unknown>), job, created: false };
+      }
+
+      const admission = input.admission;
+      if (admission) {
+        const active = await tx.execute({
+          sql: `SELECT COUNT(*) AS count FROM public_scan_jobs
+                WHERE state IN ('queued', 'running')`,
+          args: [],
+        });
+        const activeCount = Number((active.rows[0] as Record<string, unknown> | undefined)?.count) || 0;
+        const maxActiveJobs = Math.max(1, Math.floor(admission.maxActiveJobs));
+        if (activeCount >= maxActiveJobs) {
+          await tx.commit();
+          return { created: false, rejection: "queue_full", retryAt: now + 60_000 };
+        }
+
+        const windowMs = Math.max(1_000, Math.floor(admission.windowMs));
+        const windowStarted = Math.floor(now / windowMs) * windowMs;
+        const rate = await tx.execute({
+          sql: `INSERT INTO public_scan_rate_windows (bucket, window_started, count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(bucket, window_started) DO UPDATE SET count = count + 1
+                  WHERE public_scan_rate_windows.count < ?`,
+          args: [admission.bucket, windowStarted, Math.max(1, Math.floor(admission.limit))],
+        });
+        if (Number(rate.rowsAffected ?? 0) !== 1) {
+          await tx.commit();
+          return {
+            created: false,
+            rejection: "admission_limited",
+            retryAt: windowStarted + windowMs,
+          };
+        }
       }
 
       const runId = randomUUID();
@@ -1576,12 +1650,14 @@ export async function upsertPublicScanCommitRepoFacts(input: {
     await db.batch(
       input.facts.map((fact) => ({
         sql: `INSERT INTO public_scan_commit_repo_facts
-                (run_id, repo_key, owner_login, stars, commits, first_committed_at,
-                 last_committed_at, active_years, source, evidence_shas)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (run_id, repo_key, owner_login, stars, is_private, is_fork, commits,
+                 first_committed_at, last_committed_at, active_years, source, evidence_shas)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(run_id, repo_key) DO UPDATE SET
                 owner_login        = COALESCE(excluded.owner_login, public_scan_commit_repo_facts.owner_login),
                 stars              = MAX(public_scan_commit_repo_facts.stars, excluded.stars),
+                is_private         = MAX(public_scan_commit_repo_facts.is_private, excluded.is_private),
+                is_fork            = MAX(public_scan_commit_repo_facts.is_fork, excluded.is_fork),
                 commits            = MAX(public_scan_commit_repo_facts.commits, excluded.commits),
                 active_years       = MAX(public_scan_commit_repo_facts.active_years, excluded.active_years),
                 first_committed_at = CASE
@@ -1601,6 +1677,8 @@ export async function upsertPublicScanCommitRepoFacts(input: {
           fact.repoKey,
           fact.ownerLogin,
           Math.max(0, Math.round(fact.stars)),
+          fact.isPrivate ? 1 : 0,
+          fact.isFork ? 1 : 0,
           Math.max(0, Math.round(fact.commits)),
           fact.firstCommittedAt,
           fact.lastCommittedAt,
@@ -1633,11 +1711,13 @@ export async function upsertPublicScanCommitCandidates(input: {
     await db.batch(
       input.candidates.map((candidate) => ({
         sql: `INSERT INTO public_scan_commit_candidates
-                (run_id, sha, repo_key, owner_login, stars, authored_at)
-              VALUES (?, ?, ?, ?, ?, ?)
+                (run_id, sha, repo_key, owner_login, stars, is_private, is_fork, authored_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(run_id, sha, repo_key) DO UPDATE SET
                 owner_login = COALESCE(excluded.owner_login, public_scan_commit_candidates.owner_login),
                 stars       = MAX(public_scan_commit_candidates.stars, excluded.stars),
+                is_private  = MAX(public_scan_commit_candidates.is_private, excluded.is_private),
+                is_fork     = MAX(public_scan_commit_candidates.is_fork, excluded.is_fork),
                 authored_at = COALESCE(excluded.authored_at, public_scan_commit_candidates.authored_at)`,
         args: [
           input.runId,
@@ -1645,6 +1725,8 @@ export async function upsertPublicScanCommitCandidates(input: {
           candidate.repoKey,
           candidate.ownerLogin,
           Math.max(0, Math.round(candidate.stars)),
+          candidate.isPrivate ? 1 : 0,
+          candidate.isFork ? 1 : 0,
           candidate.authoredAt,
         ] as (string | number | null)[],
       })),
@@ -1766,13 +1848,15 @@ export async function preparePublicScanCommitVerificationWork(input: {
     if (!(await hasPublicScanLease(db, input))) return false;
     await db.execute({
       sql: `INSERT OR IGNORE INTO public_scan_commit_verification_work
-              (run_id, repo_key, range_from, range_to, owner_login, stars, state)
+              (run_id, repo_key, range_from, range_to, owner_login, stars, is_private, is_fork, state)
             SELECT run_id,
                    repo_key,
                    MIN(authored_at),
                    MAX(authored_at),
                    MAX(owner_login),
                    MAX(stars),
+                   MAX(is_private),
+                   MAX(is_fork),
                    'queued'
             FROM public_scan_commit_candidates
             WHERE run_id = ? AND authored_at IS NOT NULL
@@ -1824,6 +1908,8 @@ function mapPublicScanCommitVerificationWork(
     repoKey: String(row.repo_key),
     ownerLogin: typeof row.owner_login === "string" ? row.owner_login : null,
     stars: Number(row.stars) || 0,
+    isPrivate: Number(row.is_private) === 1,
+    isFork: Number(row.is_fork) === 1,
     from: String(row.range_from),
     to: String(row.range_to),
     page: Number(row.page) || 1,
@@ -1966,8 +2052,8 @@ export async function splitPublicScanCommitVerificationWork(input: {
       await tx.batch(
         [input.left, input.right].map((range) => ({
           sql: `INSERT OR IGNORE INTO public_scan_commit_verification_work
-                  (run_id, repo_key, range_from, range_to, owner_login, stars, state)
-                VALUES (?, ?, ?, ?, ?, ?, 'queued')`,
+                  (run_id, repo_key, range_from, range_to, owner_login, stars, is_private, is_fork, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
           args: [
             input.runId,
             input.work.repoKey,
@@ -1975,6 +2061,8 @@ export async function splitPublicScanCommitVerificationWork(input: {
             range.to,
             input.work.ownerLogin,
             input.work.stars,
+            input.work.isPrivate ? 1 : 0,
+            input.work.isFork ? 1 : 0,
           ] as (string | number | null)[],
         })),
       );
@@ -2009,12 +2097,14 @@ export async function materializePublicScanCommitRepoFacts(input: {
     if (unfinished.rows[0]) return false;
     await db.execute({
       sql: `INSERT INTO public_scan_commit_repo_facts
-              (run_id, repo_key, owner_login, stars, commits, active_years,
+              (run_id, repo_key, owner_login, stars, is_private, is_fork, commits, active_years,
                first_committed_at, last_committed_at, source, evidence_shas)
             SELECT run_id,
                    repo_key,
                    MAX(owner_login),
                    MAX(stars),
+                   MAX(is_private),
+                   MAX(is_fork),
                    SUM(commit_count),
                    (SELECT COUNT(DISTINCT years.value)
                     FROM public_scan_commit_verification_work AS year_rows,
@@ -2032,6 +2122,8 @@ export async function materializePublicScanCommitRepoFacts(input: {
             ON CONFLICT(run_id, repo_key) DO UPDATE SET
               owner_login        = excluded.owner_login,
               stars              = excluded.stars,
+              is_private         = MAX(public_scan_commit_repo_facts.is_private, excluded.is_private),
+              is_fork            = MAX(public_scan_commit_repo_facts.is_fork, excluded.is_fork),
               commits            = excluded.commits,
               active_years       = excluded.active_years,
               first_committed_at = excluded.first_committed_at,
@@ -2127,6 +2219,8 @@ export async function getPublicScanContributionAggregates(
               SELECT repo_key,
                      MAX(owner_login) AS owner_login,
                      MAX(stars) AS stars,
+                     MAX(is_private) AS is_private,
+                     MAX(is_fork) AS is_fork,
                      SUM(commits) AS commits,
                      MAX(active_years) AS active_years
               FROM public_scan_commit_repo_facts
@@ -2138,8 +2232,8 @@ export async function getPublicScanContributionAggregates(
             SELECT keys.repo_key,
                    COALESCE(pr.owner_login, commits.owner_login, substr(keys.repo_key, 1, instr(keys.repo_key, '/') - 1)) AS owner_login,
                    MAX(COALESCE(pr.stars, 0), COALESCE(commits.stars, 0)) AS stars,
-                   COALESCE(pr.is_private, 0) AS is_private,
-                   COALESCE(pr.is_fork, 0) AS is_fork,
+                   MAX(COALESCE(pr.is_private, 0), COALESCE(commits.is_private, 0)) AS is_private,
+                   MAX(COALESCE(pr.is_fork, 0), COALESCE(commits.is_fork, 0)) AS is_fork,
                    COALESCE(commits.commits, 0) AS commits,
                    COALESCE(pr.prs, 0) AS prs,
                    MAX(COALESCE(pr.active_years, 0), COALESCE(commits.active_years, 0)) AS active_years

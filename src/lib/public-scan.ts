@@ -3,6 +3,7 @@ import {
   enqueuePublicScan,
   getLatestPublicScanRun,
   seedPublicScanQuickResult,
+  type PublicScanAdmission,
 } from "./db";
 import { SCORE_CACHE_VERSION } from "./cache-version";
 import {
@@ -14,6 +15,9 @@ import { score } from "./score";
 import type { ScanResult } from "./types";
 
 const FAILED_RUN_RETRY_MS = 15 * 60 * 1_000;
+const PUBLIC_SCAN_ADMISSION_WINDOW_MS = 60 * 60 * 1_000;
+const PUBLIC_SCAN_ADMISSION_LIMIT = 2;
+const PUBLIC_SCAN_MAX_ACTIVE_JOBS = 24;
 
 const REQUIRED_NUMERIC_METRICS = [
   "account_age_years",
@@ -62,8 +66,27 @@ function hasUsableSnapshotShape(scan: Partial<ScanResult>): scan is ScanResult {
 export type PublicScanResolution =
   | { status: "complete"; run: PublicScanRun; scan: ScanResult }
   | { status: "pending"; run: PublicScanRun; retryAfterSeconds: number }
+  | { status: "queue_full" | "admission_limited"; run: null; retryAfterSeconds: number }
   | { status: "storage_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
   | { status: "failed"; run: PublicScanRun; retryAfterSeconds: number };
+
+/**
+ * Build a privacy-preserving, persistent admission key for *new* durable jobs.
+ * Raw IP addresses and Bearer credentials never reach the database; cache hits,
+ * completed scans, and status reads do not consume this budget.
+ */
+export function publicScanAdmission(principal: string): PublicScanAdmission {
+  const normalized = principal.trim() || "anonymous";
+  const digest = createHash("sha256")
+    .update(`ghfind-public-scan-admission-v1\0${normalized}`)
+    .digest("hex");
+  return {
+    bucket: `durable-admission:${digest}`,
+    limit: PUBLIC_SCAN_ADMISSION_LIMIT,
+    windowMs: PUBLIC_SCAN_ADMISSION_WINDOW_MS,
+    maxActiveJobs: PUBLIC_SCAN_MAX_ACTIVE_JOBS,
+  };
+}
 
 function parseCompleteSnapshot(run: PublicScanRun): ScanResult | null {
   if (
@@ -118,9 +141,10 @@ function retryAfter(run: PublicScanRun): number {
  * enqueue/resume one durable job. The database remains both the source of truth
  * and the queue; request after-work and the deployment Cron drain it server-side.
  */
-export async function resolvePublicScan(
+async function resolvePublicScan(
   username: string,
   quickScan?: ScanResult,
+  admission?: PublicScanAdmission,
 ): Promise<PublicScanResolution> {
   const versions = {
     scoreVersion: SCORE_CACHE_VERSION,
@@ -135,10 +159,17 @@ export async function resolvePublicScan(
     }
   }
 
-  const enqueued = await enqueuePublicScan(username, versions);
+  const enqueued = await enqueuePublicScan(username, { ...versions, admission });
   if (!enqueued) {
     // Turso itself is unavailable. Do not pretend a durable queue exists.
     return { status: "storage_unavailable", run: existing ?? null, retryAfterSeconds: 30 };
+  }
+  if ("rejection" in enqueued) {
+    return {
+      status: enqueued.rejection,
+      run: null,
+      retryAfterSeconds: Math.max(1, Math.ceil((enqueued.retryAt - Date.now()) / 1_000)),
+    };
   }
   if (quickScan && enqueued.created) {
     await seedPublicScanQuickResult({
@@ -155,6 +186,31 @@ export async function resolvePublicScan(
     });
   }
   return { status: "pending", run: enqueued.run, retryAfterSeconds: retryAfter(enqueued.run) };
+}
+
+/**
+ * Start durable collection without accepting any caller-supplied scan data.
+ * Use this from routes that only have an untrusted request body; the worker's
+ * quick phase will collect the first server-authored snapshot itself.
+ */
+export async function startPublicScan(
+  username: string,
+  admission?: PublicScanAdmission,
+): Promise<PublicScanResolution> {
+  return resolvePublicScan(username, undefined, admission);
+}
+
+/**
+ * Reuse a scan only when it was collected by this server in the current request
+ * or loaded from its own cache. This function is intentionally separate from
+ * {@link startPublicScan}: HTTP request bodies must never seed durable facts.
+ */
+export async function resolvePublicScanFromTrustedQuickScan(
+  username: string,
+  quickScan: ScanResult,
+  admission?: PublicScanAdmission,
+): Promise<PublicScanResolution> {
+  return resolvePublicScan(username, quickScan, admission);
 }
 
 export async function getCompletedPublicScan(username: string): Promise<ScanResult | null> {
@@ -174,6 +230,13 @@ export async function getPublicScanStatus(username: string): Promise<PublicScanR
   if (!run) return null;
   const scan = parseCompleteSnapshot(run);
   if (scan) return { status: "complete", run, scan };
-  if (run.state === "failed") return { status: "failed", run, retryAfterSeconds: retryAfter(run) };
-  return { status: "pending", run, retryAfterSeconds: retryAfter(run) };
+  if (run.state === "failed" && Date.now() - run.updatedAt < FAILED_RUN_RETRY_MS) {
+    return { status: "failed", run, retryAfterSeconds: retryAfter(run) };
+  }
+  if (run.state === "queued" || run.state === "running") {
+    return { status: "pending", run, retryAfterSeconds: retryAfter(run) };
+  }
+  // Corrupt/legacy terminal rows must be repaired by resolvePublicScan rather
+  // than reported as endlessly pending when no active job remains.
+  return null;
 }

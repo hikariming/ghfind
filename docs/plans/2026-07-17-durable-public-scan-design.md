@@ -39,13 +39,17 @@ make a factual claim the collector has not earned.
 4. Only accounts without a complete current snapshot run the bounded quick
    collector.
 
+When a durable run is already `queued` or `running`, every entry point returns
+its pending status directly. It does not clear the quick Redis entry or repeat
+the bounded GitHub collector while waiting for the historical job.
+
 Therefore, Redis expiry is an accelerator expiry, not permission to repeat a
 full historical scan. Score-formula changes also recompute from the durable
 facts instead of crawling GitHub again.
 
 ### Snapshot integrity, legacy data, and refresh boundaries
 
-The current collection contract is `PUBLIC_SCAN_COLLECTION_VERSION = v2`.
+The current collection contract is `PUBLIC_SCAN_COLLECTION_VERSION = v3`.
 A stored run is accepted as `complete_public` only when all of the following
 are true:
 
@@ -58,9 +62,11 @@ are true:
 Missing hash, invalid JSON, incomplete source state, or a hash mismatch is
 treated as incomplete data, never as a valid old score. The next eligible
 request creates a new current-version job; it does not publish the suspect
-snapshot. The `v2` collection-version bump similarly makes pre-v2 historical
-snapshots eligible for one on-demand recollection. A future collector-semantic
-change must bump the collection version again.
+snapshot. The `v3` collection-version bump similarly makes pre-v3 historical
+snapshots eligible for one on-demand recollection. v3 persists public
+`fork/private` metadata for commit-only recovery so those repositories cannot be
+mistaken for eligible external impact. A future collector-semantic change must
+bump the collection version again.
 
 There are two distinct meanings of incremental here:
 
@@ -96,6 +102,12 @@ While no complete snapshot exists, `/api/scan`, `/api/score/:username`, and
 `/api/roast` return a pending response rather than a partial final result. The
 browser may poll scan status, but it does not execute collection work.
 
+Only server-collected quick scans (the current request's GitHub result or the
+server Redis cache) may seed the durable job's quick phase. A client-supplied
+`/api/roast` body can be used for its immediate compatibility response, but it
+never becomes a durable fact: when it needs public-history collection, the job
+starts with its own server-side quick phase.
+
 ## Durable Queue and Server Execution
 
 Turso is both the durable queue and the source of truth.
@@ -106,6 +118,14 @@ Turso is both the durable queue and the source of truth.
 | `public_scan_jobs` | One active resumable job per username and collection version; stores phase, cursor payload, retry time, and lease. |
 | `public_scan_*_facts` | Durable raw PR, owned-repository, commit-candidate, and verified commit facts. |
 | execution lease table | One process-wide worker slot, so concurrent requests and Cron invocations cannot multiply GitHub usage. |
+| admission window table | Atomic per-source job budget and global active-job ceiling for new historical jobs. |
+
+Creating a new durable job is protected in the same Turso write transaction as
+job insertion. Existing jobs are reused without consuming a new budget. New
+jobs have a maximum of 24 active runs globally and two admissions per hashed
+request source per hour. The database stores a one-way hash of the source, not
+the raw IP address or Bearer credential. Reads, completed snapshots, ordinary
+Redis cache hits, and status polling are never charged against this budget.
 
 ### Dispatch
 
@@ -148,8 +168,8 @@ states defer `next_run_at`. Replays are idempotent through run-scoped uniqueness
 keys and the execution lease.
 
 1. **Quick facts**: bounded profile, contribution totals, recent samples, and
-   current repository overview. A public route can seed this already-paid input
-   into the durable run; otherwise the worker collects it once.
+   current repository overview. A route may seed only an already-paid,
+   server-authored GitHub result; otherwise the worker collects it once.
 2. **Original repositories**: REST-page every public, non-fork owned repository.
    These are fed through the existing original-project-quality filters; full
    inventory does not make empty, profile-config, WIP, blog, or other low-signal
@@ -163,7 +183,9 @@ keys and the execution lease.
 5. **Commit-only recovery**: if GitHub rejects the contribution graph, discover
    public commit candidates with `author:<login>` and date windows, split ranges
    above the Search result cap, then verify only default-branch commits before
-   counting them.
+   counting them. Public fork/private metadata is carried from candidate through
+   verification and aggregation, so the existing scorer excludes ineligible
+   repositories consistently with PR-derived evidence.
 6. **Publication**: only after every required source is complete, materialize a
    `complete_public` snapshot, cache it in Redis, and make it available to the
    normal scan/score/roast routes.
@@ -175,6 +197,9 @@ writer style cannot affect collection or deterministic scoring.
 ## Quotas, Retries, and Failure Semantics
 
 - One active job per username and collection version prevents duplicate scans.
+- New jobs are admitted atomically with a global active-job ceiling and a
+  source-hashed hourly budget. If Turso cannot enforce either guard, no new
+  durable job is created.
 - One global execution slot serializes durable work across server instances.
 - Commit Search reserves a Turso-backed bucket of 20 requests per minute before
   each page; Redis is not required for that safeguard.

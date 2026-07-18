@@ -15,7 +15,11 @@ vi.mock("@/lib/db", () => ({
   seedPublicScanQuickResult: mocks.seedPublicScanQuickResult,
 }));
 
-import { requiresDurablePublicScan, resolvePublicScan } from "../public-scan";
+import {
+  requiresDurablePublicScan,
+  resolvePublicScanFromTrustedQuickScan,
+  startPublicScan,
+} from "../public-scan";
 
 function scan(overrides: Partial<ScanResult["metrics"]> = {}): ScanResult {
   return {
@@ -112,7 +116,7 @@ describe("durable public scan admission", () => {
     });
     const quick = scan({ merged_pr_count: 301 });
 
-    await expect(resolvePublicScan("durable-case", quick)).resolves.toMatchObject({
+    await expect(resolvePublicScanFromTrustedQuickScan("durable-case", quick)).resolves.toMatchObject({
       status: "pending",
       run: { id: "run-id" },
     });
@@ -133,7 +137,7 @@ describe("durable public scan admission", () => {
       snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
     });
 
-    await expect(resolvePublicScan("durable-case")).resolves.toMatchObject({
+    await expect(startPublicScan("durable-case")).resolves.toMatchObject({
       status: "complete",
       scan: { metrics: { username: "durable-case" } },
     });
@@ -157,7 +161,9 @@ describe("durable public scan admission", () => {
       created: true,
     });
 
-    await expect(resolvePublicScan("durable-case", scan({ merged_pr_count: 301 }))).resolves.toMatchObject({
+    await expect(
+      resolvePublicScanFromTrustedQuickScan("durable-case", scan({ merged_pr_count: 301 })),
+    ).resolves.toMatchObject({
       status: "pending",
       run: { id: "run-id" },
     });
@@ -186,7 +192,18 @@ describe("durable public scan admission", () => {
       created: true,
     });
 
-    await expect(resolvePublicScan("durable-case")).resolves.toMatchObject({ status: "pending" });
+    await expect(startPublicScan("durable-case")).resolves.toMatchObject({ status: "pending" });
     expect(mocks.enqueuePublicScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not seed a durable run when a route only has untrusted request data", async () => {
+    mocks.enqueuePublicScan.mockResolvedValue({
+      run: pendingRun(),
+      job: { id: "job-id" },
+      created: true,
+    });
+
+    await expect(startPublicScan("durable-case")).resolves.toMatchObject({ status: "pending" });
+    expect(mocks.seedPublicScanQuickResult).not.toHaveBeenCalled();
   });
 });

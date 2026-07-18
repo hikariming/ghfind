@@ -127,9 +127,17 @@ describe("score snapshots", () => {
 describe("durable public scan jobs", () => {
   const versions = { scoreVersion: "test-score-v1", collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION };
 
+  async function enqueue(username: string) {
+    const result = await db.enqueuePublicScan(username, versions);
+    if (!result || "rejection" in result) {
+      throw new Error(`expected durable job for ${username}`);
+    }
+    return result;
+  }
+
   it("dedupes active work, persists progress, and publishes only with its lease", async () => {
-    const first = await db.enqueuePublicScan("history-heavy", versions);
-    const second = await db.enqueuePublicScan("HISTORY-HEAVY", versions);
+    const first = await enqueue("history-heavy");
+    const second = await enqueue("HISTORY-HEAVY");
 
     expect(first?.created).toBe(true);
     expect(second).toMatchObject({ created: false, run: { id: first?.run.id }, job: { id: first?.job.id } });
@@ -218,7 +226,7 @@ describe("durable public scan jobs", () => {
   });
 
   it("reclaims an expired lease instead of starting a second active job", async () => {
-    const queued = await db.enqueuePublicScan("expired-lease", versions);
+    const queued = await enqueue("expired-lease");
     const lease = await db.claimPublicScanJob(queued?.job.id);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({
@@ -239,9 +247,42 @@ describe("durable public scan jobs", () => {
     ).resolves.toBe(true);
   });
 
+  it("admits new durable work atomically without charging an existing job", async () => {
+    const admission = {
+      bucket: "durable-admission-test",
+      limit: 1,
+      windowMs: 60_000,
+      maxActiveJobs: 100,
+    };
+    const first = await db.enqueuePublicScan("admission-first", { ...versions, admission });
+    expect(first && !("rejection" in first) && first.created).toBe(true);
+
+    const duplicate = await db.enqueuePublicScan("admission-first", { ...versions, admission });
+    expect(duplicate).toMatchObject({ created: false, run: { id: (first as { run: { id: string } }).run.id } });
+
+    await expect(
+      db.enqueuePublicScan("admission-second", { ...versions, admission }),
+    ).resolves.toMatchObject({ created: false, rejection: "admission_limited" });
+  });
+
+  it("rejects new durable work when the global active-job ceiling is full", async () => {
+    const first = await db.enqueuePublicScan("queue-cap-first", {
+      ...versions,
+      admission: { bucket: "queue-cap-first", limit: 10, windowMs: 60_000, maxActiveJobs: 1_000 },
+    });
+    expect(first && !("rejection" in first)).toBe(true);
+
+    await expect(
+      db.enqueuePublicScan("queue-cap-second", {
+        ...versions,
+        admission: { bucket: "queue-cap-second", limit: 10, windowMs: 60_000, maxActiveJobs: 1 },
+      }),
+    ).resolves.toMatchObject({ created: false, rejection: "queue_full" });
+  });
+
   it("uses a Turso execution slot and rate window when Redis is unavailable", async () => {
-    const one = await db.enqueuePublicScan("slot-one", versions);
-    const two = await db.enqueuePublicScan("slot-two", versions);
+    const one = await enqueue("slot-one");
+    const two = await enqueue("slot-two");
     const leaseOne = await db.claimPublicScanJob(one!.job.id);
     const leaseTwo = await db.claimPublicScanJob(two!.job.id);
 
@@ -279,8 +320,49 @@ describe("durable public scan jobs", () => {
     ).resolves.toMatchObject({ granted: false });
   });
 
+  it("carries commit-candidate fork metadata through verification and aggregation", async () => {
+    const queued = await enqueue("fork-candidate-facts");
+    const lease = await db.claimPublicScanJob(queued.job.id);
+    const leaseInput = {
+      jobId: queued.job.id,
+      runId: queued.run.id,
+      leaseToken: lease!.leaseToken,
+    };
+    await expect(
+      db.upsertPublicScanCommitCandidates({
+        ...leaseInput,
+        candidates: [
+          {
+            sha: "candidate-sha",
+            repoKey: "forked/large-project",
+            ownerLogin: "forked",
+            stars: 20_000,
+            isPrivate: false,
+            isFork: true,
+            authoredAt: "2025-01-01T00:00:00Z",
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(db.preparePublicScanCommitVerificationWork(leaseInput)).resolves.toBe(true);
+    const work = await db.getNextPublicScanCommitVerificationWork(queued.run.id);
+    expect(work).toMatchObject({ repoKey: "forked/large-project", isFork: true });
+    await expect(
+      db.recordPublicScanCommitVerificationPage({
+        ...leaseInput,
+        work: work!,
+        commits: [{ sha: "verified-sha", committedAt: "2025-01-01T00:00:00Z" }],
+        complete: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(db.materializePublicScanCommitRepoFacts(leaseInput)).resolves.toBe(true);
+    await expect(db.getPublicScanContributionAggregates(queued.run.id)).resolves.toEqual([
+      expect.objectContaining({ repo: "forked/large-project", isFork: true, prs: 0, commits: 1 }),
+    ]);
+  });
+
   it("aggregates lease-guarded PR and commit facts without double-counting replayed pages", async () => {
-    const queued = await db.enqueuePublicScan("fact-aggregate", versions);
+    const queued = await enqueue("fact-aggregate");
     const lease = await db.claimPublicScanJob(queued!.job.id);
     const leaseInput = {
       jobId: queued!.job.id,
@@ -333,6 +415,8 @@ describe("durable public scan jobs", () => {
             repoKey: "big/project",
             ownerLogin: "big",
             stars: 550,
+            isPrivate: false,
+            isFork: false,
             commits: 8,
             activeYears: 3,
             firstCommittedAt: "2023-01-01T00:00:00Z",
@@ -343,7 +427,37 @@ describe("durable public scan jobs", () => {
         ],
       }),
     ).resolves.toBe(true);
+    await expect(
+      db.upsertPublicScanCommitRepoFacts({
+        ...leaseInput,
+        facts: [
+          {
+            repoKey: "forked/project",
+            ownerLogin: "forked",
+            stars: 5_000,
+            isPrivate: false,
+            isFork: true,
+            commits: 12,
+            activeYears: 2,
+            firstCommittedAt: "2024-01-01T00:00:00Z",
+            lastCommittedAt: "2025-01-01T00:00:00Z",
+            source: "default_branch_rest",
+            evidenceShas: ["def"],
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
     await expect(db.getPublicScanContributionAggregates(queued!.run.id)).resolves.toEqual([
+      {
+        repo: "forked/project",
+        ownerLogin: "forked",
+        stars: 5000,
+        isPrivate: false,
+        isFork: true,
+        commits: 12,
+        prs: 0,
+        activeYears: 2,
+      },
       {
         repo: "big/project",
         ownerLogin: "big",
