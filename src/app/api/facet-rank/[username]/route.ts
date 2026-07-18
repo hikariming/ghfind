@@ -1,8 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getFacetRank, getScoreBrief } from "@/lib/db";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
+
+function clientIp(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
+}
 
 /**
  * Language-bucket rank for a freshly-roasted user, read client-side by the roast
@@ -12,13 +19,29 @@ export const dynamic = "force-dynamic";
  * hides the CTA.
  */
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ username: string }> },
 ) {
+  // This legacy public endpoint is no longer part of the rendered profile flow,
+  // but it remains API-compatible. Limit before the two database reads so a
+  // direct username sweep cannot turn into unbounded Turso work.
+  const limit = await checkRateLimit(clientIp(req));
+  if (!limit.success) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" },
+      },
+    );
+  }
+
   const { username } = await params;
   const decoded = decodeURIComponent(username);
   const brief = await getScoreBrief(decoded);
-  if (!brief) return NextResponse.json({ facetRank: null });
+  if (!brief) {
+    return NextResponse.json({ facetRank: null }, { headers: { "Cache-Control": CACHE_CONTROL } });
+  }
   const facetRank = await getFacetRank(brief.username, brief.final_score);
-  return NextResponse.json({ facetRank });
+  return NextResponse.json({ facetRank }, { headers: { "Cache-Control": CACHE_CONTROL } });
 }
