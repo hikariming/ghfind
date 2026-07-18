@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   recordProfileSnapshot: vi.fn(),
   updateRoast: vi.fn(),
   chatStreamEvents: vi.fn(),
+  checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
   defaultLlmConfig: vi.fn(),
   fallbackLlmConfig: vi.fn(),
   acquireRoastLock: vi.fn(),
@@ -26,7 +27,7 @@ const mocks = vi.hoisted(() => ({
 // Outside a real browser/Vercel request there is no BotID signal — treat every
 // test request as a verified human so the gate is transparent to these suites.
 vi.mock("botid/server", () => ({
-  checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
+  checkBotId: mocks.checkBotId,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -452,5 +453,54 @@ describe("roast API persistence", () => {
     const passedScan = mocks.buildRoastMessages.mock.calls[0]![0];
     expect(passedScan.top_repos[0].readme).toBeUndefined();
     expect(passedScan.top_repos[0].readme_excerpt).toBe("Fallback summary");
+  });
+});
+
+describe("roast API human gate", () => {
+  // The gate must key on the RESOLVED config: an incomplete byoKey falls back
+  // to the operator-paid default, so it has to pass BotID exactly like no key.
+  it("runs the BotID check when byoKey is present but incomplete (falls back to default)", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", byoKey: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(mocks.checkBotId).toHaveBeenCalledOnce();
+  });
+
+  it("refuses an unverified bot carrying an empty byoKey instead of spending default credit", async () => {
+    mocks.checkBotId.mockResolvedValueOnce({ isBot: true, isVerifiedBot: false });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh", byoKey: {} }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "bot_detected" });
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
+  it("skips the BotID check for a complete byoKey (the user pays their own bill)", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({
+          scan,
+          lang: "zh",
+          byoKey: { apiKey: "user-key", baseURL: "https://user-llm.test/v1", model: "m" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(mocks.checkBotId).not.toHaveBeenCalled();
   });
 });

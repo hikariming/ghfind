@@ -387,7 +387,20 @@ export async function POST(req: NextRequest) {
   if (auth === "invalid") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (auth === "absent" && !body.byoKey) {
+
+  const lang = normLang(body.lang);
+
+  const resolved = resolveConfig(body.byoKey);
+  if (!resolved) {
+    return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
+  }
+  const { config, isDefault } = resolved;
+
+  // The gate keys on the RESOLVED config, not on whether a byoKey field was
+  // sent: an empty/partial byoKey (e.g. `byoKey: {}`) falls back to the
+  // default config in resolveConfig, so checking `body.byoKey` here would let
+  // it skip BotID and burn the operator's credit anyway.
+  if (auth === "absent" && isDefault) {
     const verification = await checkBotId();
     if (verification.isBot && !verification.isVerifiedBot) {
       return NextResponse.json(
@@ -399,14 +412,6 @@ export async function POST(req: NextRequest) {
       );
     }
   }
-
-  const lang = normLang(body.lang);
-
-  const resolved = resolveConfig(body.byoKey);
-  if (!resolved) {
-    return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
-  }
-  const { config, isDefault } = resolved;
   // Default path fails over to the operator's fallback provider (DeepSeek) when
   // the primary drops/queues the connection before any answer text. BYO keys
   // never fail over — the user supplied a single key and pays their own way.

@@ -8,9 +8,10 @@ import { HTML_LANG, routing } from "@/i18n/routing";
 
 // Generate at request time, not at build: the profile query is a full scan of
 // the `scores` table and can exceed Next's 60s build-time prerender limit,
-// which aborts the whole production build. Cache the response for an hour so
-// crawlers don't hit the DB on every fetch.
-export const dynamic = "force-dynamic";
+// which aborts the whole production build. `revalidate` makes this an ISR
+// route (like robots.txt) so crawlers hit the edge cache instead of the DB —
+// force-dynamic here would defeat it and bill a full scan per crawler fetch.
+// The withTimeout fallback below also covers the build-time prerender attempt.
 export const revalidate = 3600;
 
 // Hard ceiling on the profile query so a slow/unreachable DB can never hang the

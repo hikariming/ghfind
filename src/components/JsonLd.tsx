@@ -12,8 +12,11 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
     <script
       type="application/ld+json"
-      // Schema is built from our own typed data, not user free-text HTML.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      // display_name/org buckets ARE user free-text (GitHub names allow any
+      // characters), so escape `<`: JSON.stringify alone lets a `</script>`
+      // in a profile name break out of the tag (stored XSS), while < in
+      // JSON still parses back as the same string.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
     />
   );
 }

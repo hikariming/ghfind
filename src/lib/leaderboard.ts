@@ -53,7 +53,9 @@ export async function getLeaderboardCached(
 
   const run = (async () => {
     const entries = await fetchers[view](LEADERBOARD_LIMIT, window);
-    await setCachedLeaderboard(entries, view, window);
+    // The db fetchers degrade to [] on error — never cache that, or one Turso
+    // hiccup blanks every board for a full TTL (developers/rank do the same).
+    if (entries.length > 0) await setCachedLeaderboard(entries, view, window);
     return { entries, cached: false };
   })();
   inflight.set(key, run);
