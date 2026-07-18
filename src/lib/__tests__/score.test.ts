@@ -23,6 +23,7 @@ import {
   logRatio,
   score,
   spamBotScore,
+  starEngagementMultiplier,
   tierFor,
 } from "../score";
 import type { RawMetrics, RecentPr, TopRepo } from "../types";
@@ -686,6 +687,41 @@ describe("isEcosystemImpactPr (dimension 4 qualification)", () => {
   });
 });
 
+describe("starEngagementMultiplier (viral-but-hollow star gate)", () => {
+  it("maps engagement ratio to the discount tiers", () => {
+    expect(starEngagementMultiplier(undefined)).toBe(1); // not measured → no penalty
+    expect(starEngagementMultiplier(0.19)).toBe(1); // llama.cpp-class flagship
+    expect(starEngagementMultiplier(0.04)).toBe(1);
+    expect(starEngagementMultiplier(0.035)).toBe(0.85); // tutorial-repo territory
+    expect(starEngagementMultiplier(0.015)).toBe(0.7);
+    expect(starEngagementMultiplier(0.0097)).toBe(0.5); // archify-class: audience, not community
+  });
+
+  it("halves star points for a viral repo with no community, leaving substance intact", () => {
+    const viral: RawMetrics = {
+      ...NEUTRAL,
+      total_stars: 6815,
+      max_stars: 5667,
+      top_starred_original_repo_quality_score: 1,
+      best_original_repo_quality_score: 1,
+    };
+    const engaged = score({ ...viral, top_repo_engagement_ratio: 0.2 });
+    const hollow = score({ ...viral, top_repo_engagement_ratio: 0.0097 });
+    const unmeasured = score(viral);
+    // Unmeasured behaves exactly like healthy engagement.
+    expect(unmeasured.sub_scores.original_project_quality).toBe(
+      engaged.sub_scores.original_project_quality,
+    );
+    // Star points (≈12 here) halve; the 6 substance points are untouched.
+    const drop =
+      engaged.sub_scores.original_project_quality -
+      hollow.sub_scores.original_project_quality;
+    expect(drop).toBeGreaterThan(5);
+    expect(drop).toBeLessThan(7);
+    expect(hollow.sub_scores.original_project_quality).toBeGreaterThanOrEqual(6);
+  });
+});
+
 describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   const me = "contributor";
   const agg = (over: Partial<ContribRepoAgg>): ContribRepoAgg => ({
@@ -763,6 +799,37 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     const m = computeImpactFromContribMap([agg({ commits: 1, prs: 0 })], me);
     expect(m.impact_repo_count).toBe(0);
     expect(m.max_impact_repo_stars).toBe(0);
+  });
+
+  it("does not let drive-by work anchor prestige (max_impact_repo_stars)", () => {
+    // 4 commits + 1 merged PR into a 200k★ repo counts as impact, but the
+    // prestige anchor needs ≥10 commits or ≥3 merged PRs there.
+    const m = computeImpactFromContribMap(
+      [
+        agg({ repo: "mega/agent", owner_login: "mega", stars: 216457, commits: 4, prs: 1 }),
+        agg({ repo: "org/workplace", owner_login: "org", stars: 26085, commits: 163, prs: 159 }),
+      ],
+      me,
+    );
+    expect(m.impact_repo_count).toBe(2); // both still count as impact
+    expect(m.max_impact_repo_stars).toBe(26085); // prestige anchors where real work landed
+  });
+
+  it("anchors prestige at zero when ALL impact work is drive-by", () => {
+    const m = computeImpactFromContribMap(
+      [agg({ repo: "mega/agent", owner_login: "mega", stars: 216457, commits: 4, prs: 1 })],
+      me,
+    );
+    expect(m.impact_repo_count).toBe(1);
+    expect(m.max_impact_repo_stars).toBe(0);
+  });
+
+  it("lets sustained merged-PR work anchor prestige without a commit trail", () => {
+    const m = computeImpactFromContribMap(
+      [agg({ repo: "org/tooling", owner_login: "org", stars: 40000, commits: 0, prs: 3 })],
+      me,
+    );
+    expect(m.max_impact_repo_stars).toBe(40000);
   });
 
   it("credits one git/git default-branch commit despite its non-GitHub merge workflow", () => {

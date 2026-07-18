@@ -46,6 +46,22 @@ export function logRatio(value: number, fullAt: number): number {
 }
 
 /** Clamp a score to [0, 100] and round to 2 decimals. */
+/**
+ * Discount star points when the top-starred repo's community engagement
+ * ((watchers + issues + PRs) / stars) says the stars are an audience, not a
+ * community. Viral listicle / agent-skill repos run <1% (archify: 5.7k★, 18
+ * issues ever, 2 contributors → 0.97%); every top-30 heavyweight flagship
+ * measured ≥5% (2026-07 regression, zero false positives at these cutoffs).
+ * undefined = not measured (repo <500★ or fetch failed) → no penalty.
+ */
+export function starEngagementMultiplier(ratio: number | undefined): number {
+  if (ratio === undefined) return 1;
+  if (ratio >= 0.04) return 1;
+  if (ratio >= 0.02) return 0.85;
+  if (ratio >= 0.01) return 0.7;
+  return 0.5;
+}
+
 export function clampScore(value: number): number {
   return round(Math.max(0, Math.min(value, 100)), 2);
 }
@@ -249,7 +265,9 @@ export function score(m: RawMetrics): Scoring {
         ? Math.max(0, Math.min(m.top_starred_original_repo_quality_score ?? 1, 1))
         : 1;
     const starPts =
-      (logRatio(m.total_stars, 5000) * 7 + logRatio(m.max_stars, 2000) * 5) * starQuality;
+      (logRatio(m.total_stars, 5000) * 7 + logRatio(m.max_stars, 2000) * 5) *
+      starQuality *
+      starEngagementMultiplier(m.top_repo_engagement_ratio);
     const projectSubstance = Math.max(
       0,
       Math.min(m.best_original_repo_quality_score ?? 0, 1),

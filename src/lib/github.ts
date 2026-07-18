@@ -28,6 +28,11 @@ export class GitHubRateLimitError extends Error {}
 /** Raised when the app cannot collect GraphQL-only scoring dimensions safely. */
 export class GitHubAuthRequiredError extends Error {}
 export class GitHubDataUnavailableError extends Error {}
+/** GitHub rejected the query because resolving it exceeded its per-query
+ * resource budget (errors[].type RESOURCE_LIMITS_EXCEEDED). Data-dependent, not
+ * transient: hyperactive accounts hit it deterministically, so callers should
+ * degrade the query rather than retry it. */
+export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 
 /** The GitHub PAT pool. `GITHUB_TOKEN` may hold a single token or a
  *  comma-separated list (`ghp_a,ghp_b,ghp_c`); each token multiplies the
@@ -244,14 +249,18 @@ async function graphql<T>(
   if (!res.ok) {
     throw new GitHubDataUnavailableError(`GitHub GraphQL HTTP ${res.status}.`);
   }
-  let json: { data?: T; errors?: { message?: string }[] };
+  let json: { data?: T; errors?: { message?: string; type?: string }[] };
   try {
-    json = (await res.json()) as { data?: T; errors?: { message?: string }[] };
+    json = (await res.json()) as { data?: T; errors?: { message?: string; type?: string }[] };
   } catch {
     throw new GitHubDataUnavailableError("GitHub GraphQL returned invalid JSON.");
   }
   if (json.errors?.length) {
-    const message = json.errors[0]?.message ?? "GitHub GraphQL error.";
+    const first = json.errors[0];
+    const message = first?.message ?? "GitHub GraphQL error.";
+    if (first?.type === "RESOURCE_LIMITS_EXCEEDED") {
+      throw new GitHubResourceLimitError(message);
+    }
     throw /rate.?limit/i.test(message)
       ? new GitHubRateLimitError(message)
       : new GitHubDataUnavailableError(message);
@@ -1287,6 +1296,13 @@ export interface ImpactMetrics {
 export const IMPACT_YEAR_CAP = 6;
 /** Min landed commits for a repo to qualify on commits alone (avoids drive-bys). */
 export const IMPACT_COMMIT_MIN = 2;
+/** Min work in ONE repo before it may anchor the prestige component
+ * (max_impact_repo_stars). Qualifying for the impact list is deliberately loose
+ * (one merged PR counts as real work), but prestige reads "the biggest project
+ * they truly work in" — two drive-by commits into a 200k★ repo were maxing the
+ * 9-pt prestige term (2026-07 regression). Depth already weights by work. */
+export const PRESTIGE_COMMIT_MIN = 10;
+export const PRESTIGE_MERGED_PR_MIN = 3;
 // GitHub only includes commits in commitContributionsByRepository after they
 // land on the upstream default branch (or gh-pages). For canonical projects
 // whose official patch flow never marks the corresponding GitHub PR as MERGED,
@@ -1327,7 +1343,9 @@ export function computeImpactFromContribMap(
     return r.commits >= defaultBranchCommitMin(r.repo) || r.prs >= 1;
   });
 
-  const maxImpactRepoStars = qualifying.reduce((a, r) => Math.max(a, r.stars), 0);
+  const maxImpactRepoStars = qualifying
+    .filter((r) => r.commits >= PRESTIGE_COMMIT_MIN || r.prs >= PRESTIGE_MERGED_PR_MIN)
+    .reduce((a, r) => Math.max(a, r.stars), 0);
   const impactDepthRaw =
     Math.round(
       qualifying.reduce((a, r) => {
@@ -1369,28 +1387,22 @@ interface YearContribs {
   commitContributionsByRepository: ContribByRepoNode[];
 }
 
-/**
- * Fetch all-time per-repo commit contributions by aliasing one
- * `contributionsCollection(from,to)` per year (GraphQL caps each to a 1-year
- * span), capped to the most recent {@link IMPACT_YEAR_CAP} years.
- */
-async function fetchCommitContribReposByYear(
+/** One aliased `contributionsCollection(from,to)` query per entry in `years`;
+ * returns the per-year results aligned to the input order. */
+async function fetchYearContribsBatch(
   username: string,
   years: number[],
-): Promise<ContribRepoAgg[] | null> {
-  const capped = [...years].sort((a, b) => b - a).slice(0, IMPACT_YEAR_CAP);
-  if (capped.length === 0) return null;
-
+): Promise<(YearContribs | null)[]> {
   const fragment = `fragment RepoContribs on ContributionsCollection {
     commitContributionsByRepository(maxRepositories: 100) {
       contributions { totalCount }
       repository { nameWithOwner stargazerCount isPrivate isFork owner { login } }
     }
   }`;
-  const varDecls = capped
+  const varDecls = years
     .map((_, i) => `$from${i}: DateTime!, $to${i}: DateTime!`)
     .join(", ");
-  const aliases = capped
+  const aliases = years
     .map((_, i) => `y${i}: contributionsCollection(from: $from${i}, to: $to${i}) { ...RepoContribs }`)
     .join("\n        ");
   const query = `query($login: String!, ${varDecls}) {
@@ -1401,9 +1413,9 @@ async function fetchCommitContribReposByYear(
     ${fragment}`;
 
   const variables: Record<string, unknown> = { login: username };
-  for (let i = 0; i < capped.length; i++) {
-    variables[`from${i}`] = `${capped[i]}-01-01T00:00:00Z`;
-    variables[`to${i}`] = `${capped[i]}-12-31T23:59:59Z`;
+  for (let i = 0; i < years.length; i++) {
+    variables[`from${i}`] = `${years[i]}-01-01T00:00:00Z`;
+    variables[`to${i}`] = `${years[i]}-12-31T23:59:59Z`;
   }
 
   const data = await graphql<{ user: Record<string, YearContribs> | null }>(
@@ -1411,6 +1423,44 @@ async function fetchCommitContribReposByYear(
     variables,
   );
   if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
+  const user = data.user;
+  return years.map((_, i) => user[`y${i}`] ?? null);
+}
+
+/**
+ * Fetch all-time per-repo commit contributions by aliasing one
+ * `contributionsCollection(from,to)` per year (GraphQL caps each to a 1-year
+ * span), capped to the most recent {@link IMPACT_YEAR_CAP} years.
+ *
+ * Hyperactive accounts can trip GitHub's per-query resource budget on the
+ * batched query (same failure mode as {@link fetchContribOverview}); the
+ * fallback re-runs one year per query and skips any single year that is still
+ * unqueryable, so one pathological year degrades impact data instead of
+ * failing the whole scan.
+ */
+async function fetchCommitContribReposByYear(
+  username: string,
+  years: number[],
+): Promise<ContribRepoAgg[] | null> {
+  const capped = [...years].sort((a, b) => b - a).slice(0, IMPACT_YEAR_CAP);
+  if (capped.length === 0) return null;
+
+  let perYear: (YearContribs | null)[];
+  try {
+    perYear = await fetchYearContribsBatch(username, capped);
+  } catch (e) {
+    if (!(e instanceof GitHubResourceLimitError) || capped.length <= 1) throw e;
+    perYear = await Promise.all(
+      capped.map(async (year) => {
+        try {
+          return (await fetchYearContribsBatch(username, [year]))[0];
+        } catch (e2) {
+          if (e2 instanceof GitHubResourceLimitError) return null;
+          throw e2;
+        }
+      }),
+    );
+  }
 
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
   const map = new Map<string, ContribRepoAgg>();
@@ -1439,7 +1489,7 @@ async function fetchCommitContribReposByYear(
     yearsByRepo.set(key, years);
   };
   for (let i = 0; i < capped.length; i++) {
-    const yc = data.user[`y${i}`];
+    const yc = perYear[i];
     if (!yc) continue;
     for (const n of yc.commitContributionsByRepository ?? []) ingest(n, capped[i]);
   }
@@ -1564,6 +1614,188 @@ export function mergeContribRepoAggs(groups: ContribRepoAgg[][]): ContribRepoAgg
   return [...map.values()];
 }
 
+/** Stars at which a repo is popular enough for the engagement gate to apply. */
+export const ENGAGEMENT_MIN_STARS = 500;
+
+/**
+ * Community-engagement ratio of a repo: (watchers + issues ever + PRs ever) /
+ * stars. Viral-but-hollow repos (trending listicles, agent-skill drops) show
+ * <1% — thousands of bookmark-stars, near-zero people filing issues or PRs —
+ * while genuinely used projects run ≥5% (2026-07 top-30 regression: every
+ * heavyweight flagship scored 0.05–1.39). Best-effort: any failure returns
+ * undefined, which the scorer treats as "no data, no penalty" — a GitHub
+ * hiccup must not tank a score.
+ */
+async function fetchRepoEngagementRatio(
+  owner: string,
+  name: string,
+): Promise<number | undefined> {
+  try {
+    const data = await graphql<{
+      repository: {
+        stargazerCount: number;
+        hasIssuesEnabled: boolean;
+        isMirror: boolean;
+        watchers: { totalCount: number };
+        issues: { totalCount: number };
+        pullRequests: { totalCount: number };
+      } | null;
+    }>(
+      `query($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+          stargazerCount
+          hasIssuesEnabled
+          isMirror
+          watchers { totalCount }
+          issues { totalCount }
+          pullRequests { totalCount }
+        }
+      }`,
+      { owner, name },
+    );
+    const repo = data.repository;
+    if (!repo || !repo.stargazerCount) return undefined;
+    // Mirrors and issues-disabled repos (e.g. torvalds/linux) suppress
+    // engagement by POLICY, not by lack of community — not measurable fairly.
+    if (repo.isMirror || !repo.hasIssuesEnabled) return undefined;
+    const engaged =
+      (repo.watchers?.totalCount ?? 0) +
+      (repo.issues?.totalCount ?? 0) +
+      (repo.pullRequests?.totalCount ?? 0);
+    return Math.round((engaged / repo.stargazerCount) * 10000) / 10000;
+  } catch {
+    return undefined;
+  }
+}
+
+interface ContribStatTotals {
+  totalCommitContributions: number;
+  totalPullRequestContributions: number;
+  totalIssueContributions: number;
+  totalPullRequestReviewContributions: number;
+}
+
+interface ContribOverview {
+  pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
+  mergedPRs: { totalCount: number };
+  allPRs: { totalCount: number };
+  closedPRs: { totalCount: number; nodes: ClosedPrNode[] };
+  issues: { totalCount: number };
+  contributionYears: { contributionYears: number[] };
+}
+
+const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
+          nodes { ... on Repository { nameWithOwner } }
+        }
+        mergedPRs: pullRequests(states: MERGED) { totalCount }
+        allPRs: pullRequests { totalCount }
+        closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+          totalCount
+          nodes {
+            author { login }
+            repository { owner { login } }
+            timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
+              nodes {
+                ... on ClosedEvent {
+                  actor { login }
+                }
+              }
+            }
+          }
+        }
+        issues { totalCount }
+        contributionYears: contributionsCollection { contributionYears }`;
+
+/**
+ * PR / issue counts + contribution signals, normally in a single GraphQL call.
+ * Counts come from `pullRequests`/`issues` totalCount (5000-point/hr GraphQL
+ * bucket) rather than the REST Search API (30/min) — Search was the binding
+ * rate-limit bottleneck, so moving these off it raises sustained throughput.
+ *
+ * Degraded fallback: GitHub prices the contributionsCollection stat
+ * aggregations per account, and for hyperactive accounts (~10k+ contributions
+ * in the trailing year) combining ANY two stat fields in one query trips its
+ * per-query resource budget even though each field resolves fine alone
+ * (observed 2026-07 on tt-a1i). On RESOURCE_LIMITS_EXCEEDED, refetch the
+ * overview without the stats block, plus the calendar total — the one stat
+ * scoring depends on — in its own call. The per-type totals stay null and
+ * activity diversity is approximated by the caller.
+ */
+async function fetchContribOverview(username: string): Promise<{
+  overview: ContribOverview;
+  statTotals: ContribStatTotals | null;
+  lastYearContributions: number;
+}> {
+  try {
+    const data = await graphql<{
+      user:
+        | (ContribOverview & {
+            contributionsCollection: ContribStatTotals & {
+              contributionCalendar: { totalContributions: number };
+            };
+          })
+        | null;
+    }>(
+      `query($login: String!) {
+      user(login: $login) {
+        ${CONTRIB_OVERVIEW_FIELDS}
+        contributionsCollection {
+          totalCommitContributions
+          totalPullRequestContributions
+          totalIssueContributions
+          totalPullRequestReviewContributions
+          contributionCalendar { totalContributions }
+        }
+      }
+    }`,
+      { login: username },
+    );
+    if (!data.user) {
+      throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
+    }
+    const cc = data.user.contributionsCollection;
+    return {
+      overview: data.user,
+      statTotals: cc ?? null,
+      lastYearContributions: cc?.contributionCalendar?.totalContributions ?? 0,
+    };
+  } catch (e) {
+    if (!(e instanceof GitHubResourceLimitError)) throw e;
+  }
+
+  const [rest, calendar] = await Promise.all([
+    graphql<{ user: ContribOverview | null }>(
+      `query($login: String!) {
+      user(login: $login) {
+        ${CONTRIB_OVERVIEW_FIELDS}
+      }
+    }`,
+      { login: username },
+    ),
+    graphql<{
+      user: {
+        contributionsCollection: { contributionCalendar: { totalContributions: number } } | null;
+      } | null;
+    }>(
+      `query($login: String!) {
+      user(login: $login) {
+        contributionsCollection { contributionCalendar { totalContributions } }
+      }
+    }`,
+      { login: username },
+    ),
+  ]);
+  if (!rest.user) {
+    throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
+  }
+  return {
+    overview: rest.user,
+    statTotals: null,
+    lastYearContributions:
+      calendar.user?.contributionsCollection?.contributionCalendar?.totalContributions ?? 0,
+  };
+}
+
 export async function collect(username: string): Promise<{
   metrics: RawMetrics;
   top_repos: TopRepo[];
@@ -1603,69 +1835,9 @@ export async function collect(username: string): Promise<{
   const empty = repos.filter((r) => (r.size ?? 0) === 0 && !r.fork);
   const nonemptyOriginal = original.filter((r) => (r.size ?? 0) > 0);
 
-  // PR / issue counts + contribution signals in a single GraphQL call.
-  // Counts come from `pullRequests`/`issues` totalCount (5000-point/hr GraphQL
-  // bucket) rather than the REST Search API (30/min) — Search was the binding
-  // rate-limit bottleneck, so moving these off it raises sustained throughput.
-  const contrib = await graphql<{
-    user: {
-      mergedPRs: { totalCount: number };
-      allPRs: { totalCount: number };
-      closedPRs: { totalCount: number; nodes: ClosedPrNode[] };
-      issues: { totalCount: number };
-      contributionsCollection: {
-        totalCommitContributions: number;
-        totalPullRequestContributions: number;
-        totalIssueContributions: number;
-        totalPullRequestReviewContributions: number;
-        restrictedContributionsCount: number;
-        contributionCalendar: { totalContributions: number };
-      };
-      contributionYears: { contributionYears: number[] };
-      pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
-    } | null;
-  }>(
-    `query($login: String!) {
-      user(login: $login) {
-        pinnedItems(first: 6, types: REPOSITORY) {
-          nodes { ... on Repository { nameWithOwner } }
-        }
-        mergedPRs: pullRequests(states: MERGED) { totalCount }
-        allPRs: pullRequests { totalCount }
-        closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
-          totalCount
-          nodes {
-            author { login }
-            repository { owner { login } }
-            timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
-              nodes {
-                ... on ClosedEvent {
-                  actor { login }
-                }
-              }
-            }
-          }
-        }
-        issues { totalCount }
-        contributionsCollection {
-          totalCommitContributions
-          totalPullRequestContributions
-          totalIssueContributions
-          totalPullRequestReviewContributions
-          restrictedContributionsCount
-          contributionCalendar { totalContributions }
-        }
-        contributionYears: contributionsCollection { contributionYears }
-      }
-    }`,
-    { login: username },
-  );
-  if (!contrib.user) {
-    throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
-  }
-  const cc = contrib.user.contributionsCollection;
-  const contributionYears = contrib.user.contributionYears?.contributionYears ?? [];
-  const pinnedRepos = (contrib.user.pinnedItems?.nodes ?? [])
+  const { overview, statTotals, lastYearContributions } = await fetchContribOverview(username);
+  const contributionYears = overview.contributionYears?.contributionYears ?? [];
+  const pinnedRepos = (overview.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
     .filter((s): s is string => typeof s === "string");
   const [commitContribRepos, mergedPrContribRepos] = await Promise.all([
@@ -1677,14 +1849,14 @@ export async function collect(username: string): Promise<{
     mergedPrContribRepos,
   ]);
   const organizations = await fetchOrganizations(login);
-  const mergedPrCount = contrib.user.mergedPRs?.totalCount ?? 0;
-  const totalPrCount = contrib.user.allPRs?.totalCount ?? 0;
+  const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
+  const totalPrCount = overview.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
-    contrib.user.closedPRs?.nodes ?? [],
-    contrib.user.closedPRs?.totalCount ?? 0,
+    overview.closedPRs?.nodes ?? [],
+    overview.closedPRs?.totalCount ?? 0,
     loginLower,
   );
-  const issuesCreated = contrib.user.issues?.totalCount ?? 0;
+  const issuesCreated = overview.issues?.totalCount ?? 0;
   const decidedPrCount = mergedPrCount + closedPrBreakdown.maintainer_closed_unmerged_pr_count;
   const prRejectionRate =
     decidedPrCount > 0
@@ -1712,12 +1884,14 @@ export async function collect(username: string): Promise<{
   const followers = user.followers ?? 0;
   const following = user.following ?? 0;
 
-  const lastYearContributions = cc?.contributionCalendar?.totalContributions ?? 0;
-  const activityTypes = cc
+  const activityTypes = statTotals
     ? (["totalCommitContributions", "totalPullRequestContributions", "totalIssueContributions", "totalPullRequestReviewContributions"] as const).filter(
-        (k) => (cc[k] ?? 0) > 0,
+        (k) => (statTotals[k] ?? 0) > 0,
       ).length
-    : 0;
+    : // Degraded contrib fetch: per-type totals were unqueryable, so approximate
+      // diversity from signals already in hand. Review activity is unknowable
+      // here, so a hyperactive reviewer loses at most that one type (≤1.125 pts).
+      [lastYearContributions > 0, totalPrCount > 0, issuesCreated > 0].filter(Boolean).length;
 
   const personalOriginalRepos = original.map((r) => repoToTopRepo(r, login));
   const attributedOriginalRepos = contribRepos
@@ -1749,9 +1923,15 @@ export async function collect(username: string): Promise<{
     .slice(0, 10);
 
   // README excerpts + language breakdown for the top original repos (capped to
-  // limit API calls — same top-6 budget as the README fetch).
-  await Promise.all(
-    topRepos.slice(0, 6).map(async (repo) => {
+  // limit API calls — same top-6 budget as the README fetch). The engagement
+  // ratio of the top-starred repo (gates star points in score.ts) rides along
+  // in the same parallel batch.
+  const topStarred = topRepos[0];
+  const [topRepoEngagementRatio] = await Promise.all([
+    topStarred && topStarred.stars >= ENGAGEMENT_MIN_STARS
+      ? fetchRepoEngagementRatio(topStarred.owner_login ?? login, topStarred.name)
+      : Promise.resolve(undefined),
+    ...topRepos.slice(0, 6).map(async (repo) => {
       const owner = repo.owner_login ?? login;
       const [readme, languages] = await Promise.all([
         fetchReadmeDocument(owner, repo.name),
@@ -1761,7 +1941,7 @@ export async function collect(username: string): Promise<{
       repo.readme_excerpt = readme?.features.prompt_summary ?? null;
       repo.languages = languages;
     }),
-  );
+  ]);
   const bestOriginalQuality = bestOriginalRepoQuality(topRepos, loginLower, now);
   const topStarredOriginalQuality = topStarredOriginalRepoQuality(topRepos, loginLower, now);
 
@@ -1843,6 +2023,7 @@ export async function collect(username: string): Promise<{
     empty_original_repo_count: empty.length,
     total_stars: scoredOriginalRepos.reduce((a, r) => a + (r.stars ?? 0), 0),
     max_stars: scoredOriginalRepos.reduce((a, r) => Math.max(a, r.stars ?? 0), 0),
+    top_repo_engagement_ratio: topRepoEngagementRatio,
     attributed_original_repo_count: attributedOriginalRepos.length,
     attributed_original_repo_stars: attributedOriginalRepoStars,
     attributed_original_repos: attributedOriginalRepoNames,

@@ -100,6 +100,11 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
+  /** (watchers + issues ever + PRs ever) / stars for the top-starred original
+   * repo. Only measured at ≥500★; undefined = not measured or fetch failed
+   * (scored as "no penalty"). Viral-but-hollow repos run <1%, genuinely used
+   * projects ≥5%. */
+  top_repo_engagement_ratio?: number;
   attributed_original_repo_count?: number;
   attributed_original_repo_stars?: number;
   attributed_original_repos?: string[];
