@@ -206,6 +206,10 @@ interface RestUser {
   public_repos: number;
 }
 
+interface RestPublicEvent {
+  created_at?: string | null;
+}
+
 async function restGet<T>(path: string): Promise<T | null> {
   let res: Response;
   try {
@@ -536,6 +540,23 @@ function parseTs(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+async function fetchLatestPublicEvent(username: string): Promise<Date | null> {
+  try {
+    const events = await restGet<RestPublicEvent[]>(
+      `users/${encodeURIComponent(username)}/events/public?per_page=30`,
+    );
+    if (!events) return null;
+    let latest: Date | null = null;
+    for (const event of events) {
+      const ts = parseTs(event.created_at);
+      if (ts && (latest === null || ts > latest)) latest = ts;
+    }
+    return latest;
+  } catch {
+    return null;
+  }
 }
 
 export function boundedContributionYearsActive(
@@ -2388,7 +2409,8 @@ export async function collect(username: string): Promise<{
   const empty = repos.filter((r) => (r.size ?? 0) === 0 && !r.fork);
   const nonemptyOriginal = original.filter((r) => (r.size ?? 0) > 0);
 
-  const { overview, statTotals, lastYearContributions } = await fetchContribOverview(username);
+  const [{ overview, statTotals, lastYearContributions }, latestPublicEvent] =
+    await Promise.all([fetchContribOverview(username), fetchLatestPublicEvent(username)]);
   const contributionYears = overview.contributionYears?.contributionYears ?? [];
   const pinnedRepos = (overview.pinnedItems?.nodes ?? [])
     .map((n) => n?.nameWithOwner)
@@ -2452,14 +2474,15 @@ export async function collect(username: string): Promise<{
     ? Math.round(((now.getTime() - created.getTime()) / dayMs / 365.25) * 100) / 100
     : 0.0;
 
-  // Most recent push across repos
-  let lastPush: Date | null = null;
+  // Most recent public activity. Repository pushes cover owned repos, while
+  // public events cover org/external contributions and issue/comment activity.
+  let lastActivity: Date | null = latestPublicEvent;
   for (const r of repos) {
     const ts = parseTs(r.pushed_at);
-    if (ts && (lastPush === null || ts > lastPush)) lastPush = ts;
+    if (ts && (lastActivity === null || ts > lastActivity)) lastActivity = ts;
   }
-  const daysSinceActive = lastPush
-    ? Math.floor((now.getTime() - lastPush.getTime()) / dayMs)
+  const daysSinceActive = lastActivity
+    ? Math.max(0, Math.floor((now.getTime() - lastActivity.getTime()) / dayMs))
     : null;
 
   const followers = user.followers ?? 0;
