@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Languages, LogOut, Menu, Palette, UserRound, Users, X } from "lucide-react";
+import { ArrowUpRight, LogOut, Menu, Palette, UserRound, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { signIn, signOut } from "next-auth/react";
@@ -9,7 +9,6 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { NavLinks } from "./NavLinks";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearch } from "./GlobalSearch";
 import { fetchMe, type Me } from "@/lib/me-client";
@@ -35,7 +34,6 @@ export function MobileMenu({
   const t = useTranslations("nav");
   const tHeader = useTranslations("header");
   const tFollow = useTranslations("follow");
-  const tLang = useTranslations("langSwitch");
   const tTheme = useTranslations("themeSwitch");
   const tRepo = useTranslations("repoLink");
   const [open, setOpen] = useState(false);
@@ -198,18 +196,6 @@ export function MobileMenu({
                 </div>
                 <div className="shrink-0">
                   <ThemeToggle />
-                </div>
-              </div>
-
-              <div className="h-px bg-white/10" />
-
-              <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-3">
-                <div className="flex min-w-0 items-center gap-3 text-sm text-zinc-300">
-                  <Languages className="h-4 w-4 shrink-0 text-zinc-400" />
-                  <span className="truncate">{tLang("label")}</span>
-                </div>
-                <div className="shrink-0">
-                  <LanguageSwitcher />
                 </div>
               </div>
 

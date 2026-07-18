@@ -54,6 +54,14 @@ export async function Navbar() {
             />
           </div>
 
+          {/* On mobile the locale switcher gets its own always-visible control
+              next to the hamburger. Previously it lived only at the bottom of
+              the (now long) mobile drawer, where the growing nav pushed it out
+              of easy reach. */}
+          <div className="md:hidden">
+            <LanguageSwitcher />
+          </div>
+
           <div className="md:hidden">
             <MobileMenu configured={oauthConfigured} repoHref={repoHref} />
           </div>
