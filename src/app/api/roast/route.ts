@@ -29,11 +29,13 @@ import {
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import {
   acquireRoastLock,
+  checkRoastRequestRateLimit,
   checkRoastRateLimit,
   clearCachedRoast,
   getCachedRoast,
   getCachedScan,
   releaseRoastLock,
+  rateLimitHeaders,
   setCachedRoast,
   waitForCachedRoast,
 } from "@/lib/redis";
@@ -394,6 +396,20 @@ export async function POST(req: NextRequest) {
   const auth = machineAuth(req);
   if (auth === "invalid") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // This protects every path, including BYO: it runs before the durable-status
+  // and scan-cache reads below, while the later roast limiter remains dedicated
+  // to operator-paid model generation.
+  const requestLimit = await checkRoastRequestRateLimit(clientIp(req));
+  if (!requestLimit.success) {
+    return NextResponse.json(
+      { error: "rate_limited", useByoKey: true },
+      {
+        status: 429,
+        headers: { ...rateLimitHeaders(requestLimit), "Cache-Control": "no-store" },
+      },
+    );
   }
 
   const lang = normLang(body.lang);

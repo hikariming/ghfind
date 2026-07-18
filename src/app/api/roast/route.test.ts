@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   updateRoast: vi.fn(),
   chatStreamEvents: vi.fn(),
   checkBotId: vi.fn(async () => ({ isBot: false, isVerifiedBot: false })),
+  checkRoastRequestRateLimit: vi.fn(),
   defaultLlmConfig: vi.fn(),
   fallbackLlmConfig: vi.fn(),
   acquireRoastLock: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   clearCachedRoast: vi.fn(),
   getCachedRoast: vi.fn(),
   getCachedScan: vi.fn(),
+  rateLimitHeaders: vi.fn(),
   releaseRoastLock: vi.fn(),
   setCachedRoast: vi.fn(),
   waitForCachedRoast: vi.fn(),
@@ -121,11 +123,13 @@ vi.mock("@/lib/llm", () => {
 
 vi.mock("@/lib/redis", () => ({
   acquireRoastLock: mocks.acquireRoastLock,
+  checkRoastRequestRateLimit: mocks.checkRoastRequestRateLimit,
   checkRoastRateLimit: mocks.checkRoastRateLimit,
   clearCachedRoast: mocks.clearCachedRoast,
   getCachedRoast: mocks.getCachedRoast,
   getCachedScan: mocks.getCachedScan,
   releaseRoastLock: mocks.releaseRoastLock,
+  rateLimitHeaders: mocks.rateLimitHeaders,
   setCachedRoast: mocks.setCachedRoast,
   waitForCachedRoast: mocks.waitForCachedRoast,
 }));
@@ -258,8 +262,10 @@ beforeEach(() => {
     mocks.getArchivedRoast.mockResolvedValue(null);
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
   mocks.getScoreScannedAt.mockResolvedValue(null);
+  mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: true });
   mocks.clearCachedRoast.mockResolvedValue(undefined);
   mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
+  mocks.rateLimitHeaders.mockReturnValue({});
   mocks.acquireRoastLock.mockResolvedValue(true);
   mocks.waitForCachedRoast.mockResolvedValue(null);
   mocks.getRank.mockResolvedValue({ rank: 4, below: 5, total: 10 });
@@ -282,6 +288,27 @@ beforeEach(() => {
 });
 
 describe("roast API persistence", () => {
+  it("limits every roast path before durable-status and scan-cache reads", async () => {
+    mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: false });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "60" });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({
+          scan,
+          lang: "zh",
+          byoKey: { baseURL: "https://llm.example.test/v1", apiKey: "user-key", model: "test" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+  });
+
   it("never seeds a durable scan from an untrusted roast request body", async () => {
     mocks.requiresDurablePublicScan.mockReturnValue(true);
     mocks.startPublicScan.mockResolvedValue({

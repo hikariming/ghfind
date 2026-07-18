@@ -5,7 +5,10 @@ import { Roaster } from "@/components/Roaster";
 import { Link } from "@/i18n/navigation";
 import { localeAlternates } from "@/lib/site";
 
-export const dynamic = "force-dynamic";
+// The page shell stays static. The live board fetches the short-CDN-cached API
+// from the client, so a crowded event does not create one Turso-backed render
+// per visitor.
+export const dynamic = "force-static";
 
 const COPY = {
   zh: {

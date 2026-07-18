@@ -31,6 +31,7 @@ let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let publicScanStatusLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
+let roastRequestLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
 let roastDayLimiter: Ratelimit | null = null;
 let verdictMinuteLimiter: Ratelimit | null = null;
@@ -238,6 +239,30 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
   }
   try {
     const { success, limit, remaining, reset } = await publicScanStatusLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch {
+    return { success: true };
+  }
+}
+
+/**
+ * Gate every roast request before it reads a durable run or scan cache. This is
+ * separate from the stricter default-model credit limiter: BYO requests do not
+ * spend our model credit, but they still invoke a function and read Turso.
+ */
+export async function checkRoastRequestRateLimit(ip: string): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) return { success: true };
+  if (!roastRequestLimiter) {
+    roastRequestLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(20, "60 s"),
+      prefix: "rl:roast-request",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } = await roastRequestLimiter.limit(ip);
     return { success, limit, remaining, reset };
   } catch {
     return { success: true };

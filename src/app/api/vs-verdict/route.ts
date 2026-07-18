@@ -57,6 +57,17 @@ export async function POST(req: NextRequest) {
   if (!pair) return NextResponse.json({ error: "invalid_pair" }, { status: 400 });
   const { a, b } = pair;
 
+  // Enforce the request budget before BotID and every Turso read/write. The
+  // cached verdict is already present in the SSR page, so a retry that exceeds
+  // the budget can safely keep rendering the deterministic fallback.
+  const { success } = await checkVerdictRateLimit(clientIp(req));
+  if (!success) {
+    return NextResponse.json(
+      { verdict: null, reason: "rate_limited" },
+      { status: 429, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const verification = await checkBotId();
   if (verification.isBot && !verification.isVerifiedBot) {
     return NextResponse.json(
@@ -112,9 +123,6 @@ export async function POST(req: NextRequest) {
     (c): c is LlmConfig => c !== null,
   );
   if (!configs.length) return NextResponse.json({ verdict: null, reason: "no_llm" });
-
-  const { success } = await checkVerdictRateLimit(clientIp(req));
-  if (!success) return NextResponse.json({ verdict: null, reason: "rate_limited" });
 
   // Single-flight: only the leader spends the LLM; others wait for its result.
   const leader = await acquireVerdictLock(a, b);

@@ -1,0 +1,52 @@
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  checkBotId: vi.fn(),
+  checkVerdictRateLimit: vi.fn(),
+  getAccountDetail: vi.fn(),
+  recordMatchup: vi.fn(),
+  bumpMatchupView: vi.fn(),
+}));
+
+vi.mock("botid/server", () => ({ checkBotId: mocks.checkBotId }));
+
+vi.mock("@/lib/db", () => ({
+  getAccountDetail: mocks.getAccountDetail,
+  recordMatchup: mocks.recordMatchup,
+  bumpMatchupView: mocks.bumpMatchupView,
+}));
+
+vi.mock("@/lib/redis", () => ({
+  checkVerdictRateLimit: mocks.checkVerdictRateLimit,
+  acquireVerdictLock: vi.fn(),
+  getCachedVerdict: vi.fn(),
+  releaseVerdictLock: vi.fn(),
+  setCachedVerdict: vi.fn(),
+  waitForCachedVerdict: vi.fn(),
+}));
+
+import { POST } from "./route";
+
+describe("vs verdict cost guardrail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.checkVerdictRateLimit.mockResolvedValue({ success: false });
+  });
+
+  it("rate-limits before BotID and all Turso reads or writes", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/vs-verdict", {
+        method: "POST",
+        body: JSON.stringify({ a: "alice", b: "bob" }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ verdict: null, reason: "rate_limited" });
+    expect(mocks.checkBotId).not.toHaveBeenCalled();
+    expect(mocks.getAccountDetail).not.toHaveBeenCalled();
+    expect(mocks.recordMatchup).not.toHaveBeenCalled();
+    expect(mocks.bumpMatchupView).not.toHaveBeenCalled();
+  });
+});
