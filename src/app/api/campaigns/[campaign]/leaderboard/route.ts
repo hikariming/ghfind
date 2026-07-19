@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug } from "@/lib/campaigns";
 import { getCampaignLeaderboard } from "@/lib/db";
 import { paginate, parsePagination } from "@/lib/pagination";
-import { checkRateLimit, rateLimitHeaders } from "@/lib/redis";
+import {
+  checkCampaignLeaderboardReadRateLimit,
+  checkRateLimit,
+  rateLimitHeaders,
+} from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,9 +43,12 @@ export async function GET(
     return NextResponse.json({ error: "campaign_not_found" }, { status: 404 });
   }
 
+  const live = req.nextUrl.searchParams.get("live") === "1";
   // The API is not used by the page renderer, but remains a public compatibility
   // surface. Keep cache-busting probes from reaching the 500-row Turso query.
-  const limit = await checkRateLimit(clientIp(req));
+  const limit = await (live
+    ? checkCampaignLeaderboardReadRateLimit
+    : checkRateLimit)(clientIp(req));
   if (!limit.success) {
     return NextResponse.json(
       { error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
@@ -53,7 +60,6 @@ export async function GET(
   }
 
   const page = parsePagination(req, { defaultLimit: 100, maxLimit: 500 });
-  const live = req.nextUrl.searchParams.get("live") === "1";
   if (page.offset >= 500) {
     return NextResponse.json(
       { error: "invalid_pagination" },

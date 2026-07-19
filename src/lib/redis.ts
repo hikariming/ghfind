@@ -30,6 +30,7 @@ import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let publicScanStatusLimiter: Ratelimit | null = null;
+let campaignLeaderboardReadLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
@@ -288,6 +289,40 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
   } catch (error) {
     return unavailableRateLimitResult(
       "public_scan_status",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/**
+ * Public event leaderboard refreshes fan out from many browsers that may share
+ * one venue NAT. Keep them off the scan budget while still bounding origin reads.
+ */
+export async function checkCampaignLeaderboardReadRateLimit(
+  ip: string,
+): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
+      "missing_redis_config",
+    );
+  }
+  if (!campaignLeaderboardReadLimiter) {
+    campaignLeaderboardReadLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(600, "60 s"),
+      prefix: "rl:campaign-leaderboard-read",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } =
+      await campaignLeaderboardReadLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
