@@ -1683,9 +1683,20 @@ function isDocLikePath(path: string): boolean {
   );
 }
 
+function isPresentationOnlyPath(path: string): boolean {
+  const p = path.toLowerCase();
+  return (
+    /\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp)$/i.test(p) ||
+    /(^|\/)(__snapshots__|demo|demos|examples?|templates?|storybook|screenshots?|assets?|public)(\/|$)/.test(
+      p,
+    ) ||
+    /(^|\/)(site|website|docs?|pages\/home|components\/homepage)(\/|$)/.test(p)
+  );
+}
+
 function isCoreCodePath(path: string): boolean {
   const p = path.toLowerCase();
-  if (isDocLikePath(p)) return false;
+  if (isDocLikePath(p) || isPresentationOnlyPath(p)) return false;
   return /\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|mm|php|py|rb|rs|scala|swift|ts|tsx)$/i.test(
     p,
   );
@@ -1700,7 +1711,7 @@ export function isDocLikeImpactPr(pr: RecentPr): boolean {
 
   const files = pr.files ?? [];
   if (files.length === 0) return false;
-  const docLike = files.filter(isDocLikePath).length;
+  const docLike = files.filter((file) => isDocLikePath(file) || isPresentationOnlyPath(file)).length;
   const coreCode = files.filter(isCoreCodePath).length;
   return docLike > 0 && (coreCode === 0 || docLike / files.length >= 0.6);
 }
@@ -1711,6 +1722,26 @@ export interface ImpactQualitySignals {
   doc_like_impact_pr_count: number;
   unverified_impact_pr_count: number;
   impact_quality_cap?: number;
+}
+
+function lowQualityImpactCap(input: {
+  verifiedCount: number;
+  docLikeCount: number;
+  coreCount: number;
+  impactPrCount: number;
+}): number | undefined {
+  if (input.verifiedCount <= 0 || input.docLikeCount <= input.coreCount) {
+    return undefined;
+  }
+
+  const dominance = (input.docLikeCount - input.coreCount) / input.verifiedCount;
+  const confidence = Math.sqrt(
+    logRatio(input.verifiedCount, 10) *
+      logRatio(Math.max(input.impactPrCount, input.verifiedCount), 10),
+  );
+  const severity = Math.max(0, Math.min(1, dominance * confidence));
+  const cap = 20 - severity * 36;
+  return Math.round(Math.max(4, Math.min(20, cap)) * 10) / 10;
 }
 
 export function computeImpactQualitySignals(
@@ -1730,12 +1761,12 @@ export function computeImpactQualitySignals(
     impactPrCount - verifiedImpactPrs.length - workflowLandedImpactPrCount,
   );
 
-  let impactQualityCap: number | undefined;
-  if (impactPrCount >= 10 && coreCount <= 2 && docLikeCount > coreCount) {
-    impactQualityCap = 4;
-  } else if (impactPrCount >= 10 && docLikeCount > coreCount) {
-    impactQualityCap = 8;
-  }
+  const impactQualityCap = lowQualityImpactCap({
+    verifiedCount: verifiedImpactPrs.length,
+    docLikeCount,
+    coreCount,
+    impactPrCount,
+  });
 
   return {
     verified_impact_pr_count: verifiedImpactPrs.length,
@@ -1853,6 +1884,7 @@ export function computeOrgRepoAttribution(input: {
 /** Derived ecosystem-impact metrics (the fields `score.ts` consumes plus extras). */
 export interface ImpactMetrics {
   max_impact_repo_stars: number;
+  impact_prestige_score: number;
   impact_depth_raw: number;
   impact_quality_cap?: number;
   verified_impact_pr_count?: number;
@@ -1869,13 +1901,10 @@ export interface ImpactMetrics {
 export const IMPACT_YEAR_CAP = 6;
 /** Min landed commits for a repo to qualify on commits alone (avoids drive-bys). */
 export const IMPACT_COMMIT_MIN = 2;
-/** Min work in ONE repo before it may anchor the prestige component
- * (max_impact_repo_stars). Qualifying for the impact list is deliberately loose
- * (one merged PR counts as real work), but prestige reads "the biggest project
- * they truly work in" — two drive-by commits into a 200k★ repo were maxing the
- * 9-pt prestige term (2026-07 regression). Depth already weights by work. */
-export const PRESTIGE_COMMIT_MIN = 10;
-export const PRESTIGE_MERGED_PR_MIN = 3;
+/** Work levels at which a repo gets full prestige credit. Below these levels,
+ * credit follows a concave log curve instead of falling off a cliff. */
+export const PRESTIGE_COMMIT_FULL_AT = 10;
+export const PRESTIGE_MERGED_PR_FULL_AT = 3;
 // GitHub only includes commits in commitContributionsByRepository after they
 // land on the upstream default branch (or gh-pages). For canonical projects
 // whose official patch flow never marks the corresponding GitHub PR as MERGED,
@@ -1886,6 +1915,15 @@ function defaultBranchCommitMin(nameWithOwner: string): number {
   return SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS.has(nameWithOwner.trim().toLowerCase())
     ? 1
     : IMPACT_COMMIT_MIN;
+}
+
+export function prestigeWorkMultiplier(commits: number, prs: number): number {
+  const commitSignal = Math.max(0, commits) / PRESTIGE_COMMIT_FULL_AT;
+  const prSignal = Math.max(0, prs) / PRESTIGE_MERGED_PR_FULL_AT;
+  const workSignal = Math.max(commitSignal, prSignal);
+  if (workSignal <= 0) return 0;
+  if (workSignal >= 1) return 1;
+  return Math.log10(1 + workSignal * 9) / Math.log10(10);
 }
 
 /**
@@ -1916,9 +1954,15 @@ export function computeImpactFromContribMap(
     return r.commits >= defaultBranchCommitMin(r.repo) || r.prs >= 1;
   });
 
-  const maxImpactRepoStars = qualifying
-    .filter((r) => r.commits >= PRESTIGE_COMMIT_MIN || r.prs >= PRESTIGE_MERGED_PR_MIN)
-    .reduce((a, r) => Math.max(a, r.stars), 0);
+  const maxImpactRepoStars = qualifying.reduce((a, r) => Math.max(a, r.stars), 0);
+  const impactPrestigeScore =
+    Math.round(
+      qualifying.reduce((a, r) => {
+        const repoPrestige =
+          logRatio(r.stars, 100_000) * prestigeWorkMultiplier(r.commits, r.prs);
+        return Math.max(a, repoPrestige);
+      }, 0) * 10_000,
+    ) / 10_000;
   const impactDepthRaw =
     Math.round(
       qualifying.reduce((a, r) => {
@@ -1930,13 +1974,28 @@ export function computeImpactFromContribMap(
       }, 0) * 100,
     ) / 100;
 
-  const impactRepos: ImpactRepo[] = qualifying
-    .map((r) => ({ repo: r.repo, stars: r.stars, commits: r.commits, prs: r.prs }))
-    .sort((a, b) => b.stars - a.stars)
+  const toImpactRepo = (r: ContribRepoAgg): ImpactRepo => ({
+    repo: r.repo,
+    stars: r.stars,
+    commits: r.commits,
+    prs: r.prs,
+  });
+  const byStars = [...qualifying].sort((a, b) => b.stars - a.stars).slice(0, 6);
+  const byWork = [...qualifying]
+    .sort((a, b) => {
+      const aWork = a.prs * 4 + a.commits;
+      const bWork = b.prs * 4 + b.commits;
+      return bWork - aWork || b.stars - a.stars;
+    })
     .slice(0, 8);
+  const impactRepos: ImpactRepo[] = [...byStars, ...byWork]
+    .filter((repo, idx, arr) => arr.findIndex((r) => r.repo === repo.repo) === idx)
+    .slice(0, 12)
+    .map(toImpactRepo);
 
   return {
     max_impact_repo_stars: maxImpactRepoStars,
+    impact_prestige_score: impactPrestigeScore,
     impact_depth_raw: impactDepthRaw,
     impact_repo_count: qualifying.length,
     impact_commit_count: qualifying.reduce((a, r) => a + r.commits, 0),
@@ -2661,6 +2720,7 @@ export async function collect(username: string): Promise<{
     recent_external_doc_like_pr_count: externalDocLikePrCount,
     recent_external_doc_like_pr_ratio: externalDocLikePrRatio,
     max_impact_repo_stars: maxImpactRepoStars,
+    impact_prestige_score: impact.impact_prestige_score,
     impact_pr_count: impact.impact_pr_count,
     workflow_landed_impact_pr_count: workflowLandedImpactPrCount,
     impact_depth_raw: impactDepthRaw,

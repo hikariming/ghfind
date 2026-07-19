@@ -46,6 +46,7 @@ import type {
   ImpactRepo,
   RoastLine,
   ScanResult,
+  SignatureWork,
   SubScores,
   Tags,
   Tier,
@@ -250,6 +251,7 @@ function ensureSchema(db: Client): Promise<void> {
              metrics       TEXT,
              pinned_repos  TEXT,
              organizations TEXT,
+             signature_work TEXT,
              scan_version  TEXT
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
@@ -653,6 +655,12 @@ function ensureSchema(db: Client): Promise<void> {
           }
         }
       }
+      try {
+        await db.execute(`ALTER TABLE profile_snapshots ADD COLUMN signature_work TEXT`);
+      } catch {
+        // New databases receive this field in CREATE TABLE. Existing profile
+        // archives may already have been migrated by an earlier invocation.
+      }
       // One durable collection invocation is intentionally conservative. Each
       // invocation is bounded, then a later request-after task or Cron run
       // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
@@ -875,8 +883,8 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
     await db.execute({
       sql: `INSERT INTO profile_snapshots
               (id, username, scanned_at, top_repos, impact_repos, verified_prs,
-               metrics, pinned_repos, organizations, scan_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               metrics, pinned_repos, organizations, signature_work, scan_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         randomUUID(),
         username,
@@ -887,6 +895,7 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
         JSON.stringify(scan.metrics),
         JSON.stringify(scan.pinned_repos ?? []),
         JSON.stringify(scan.organizations ?? []),
+        JSON.stringify(scan.signature_work ?? null),
         SCORE_CACHE_VERSION,
       ],
     });
@@ -2224,6 +2233,67 @@ export async function getPublicScanPrSummary(
   }
 }
 
+export async function getPublicScanSignaturePrFacts(runId: string): Promise<PublicScanPrFact[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT pull_request_id, source, repo_key, owner_login, stars,
+                   is_private, is_fork, created_at, merged_at, closed_at,
+                   title, additions, deletions, changed_files, labels
+            FROM public_scan_pr_facts
+            WHERE run_id = ?
+              AND (
+                source IN ('native_merged', 'workflow_landed')
+                OR (source = 'closed' AND lower(COALESCE(labels, '')) LIKE '%"merged"%')
+              )
+              AND repo_key IS NOT NULL
+            ORDER BY COALESCE(merged_at, closed_at, created_at) DESC`,
+      args: [runId],
+    });
+    return result.rows.map((row) => {
+      const value = row as Record<string, unknown>;
+      let labels: string[] = [];
+      if (typeof value.labels === "string" && value.labels) {
+        try {
+          const parsed = JSON.parse(value.labels) as unknown;
+          labels = Array.isArray(parsed)
+            ? parsed.filter((label): label is string => typeof label === "string")
+            : [];
+        } catch {
+          labels = [];
+        }
+      }
+      return {
+        pullRequestId: String(value.pull_request_id),
+        source:
+          value.source === "workflow_landed"
+            ? "workflow_landed"
+            : value.source === "closed"
+              ? "closed"
+              : "native_merged",
+        repoKey: typeof value.repo_key === "string" ? value.repo_key : null,
+        ownerLogin: typeof value.owner_login === "string" ? value.owner_login : null,
+        stars: Number(value.stars) || 0,
+        isPrivate: Number(value.is_private) === 1,
+        isFork: Number(value.is_fork) === 1,
+        createdAt: typeof value.created_at === "string" ? value.created_at : null,
+        mergedAt: typeof value.merged_at === "string" ? value.merged_at : null,
+        closedAt: typeof value.closed_at === "string" ? value.closed_at : null,
+        title: typeof value.title === "string" ? value.title : null,
+        additions: value.additions == null ? null : Number(value.additions),
+        deletions: value.deletions == null ? null : Number(value.deletions),
+        changedFiles: value.changed_files == null ? null : Number(value.changed_files),
+        labels,
+      };
+    });
+  } catch (error) {
+    console.error("getPublicScanSignaturePrFacts failed:", error);
+    return [];
+  }
+}
+
 /**
  * Aggregate durable PR and commit facts into the exact per-repository shape the
  * existing impact scorer consumes. The scorer remains unchanged; only its input
@@ -2490,6 +2560,7 @@ export interface ProfileCardMetrics {
 export interface ProfileSnapshotView {
   top_repos: TopRepo[];
   impact_repos: ImpactRepo[];
+  signature_work: SignatureWork | null;
   pinned_repos: string[];
   organizations: string[];
   bio: string | null;
@@ -2508,6 +2579,37 @@ function parseJsonArray<T>(raw: unknown): T[] {
   }
 }
 
+function parseJsonObject<T>(raw: unknown): T | null {
+  if (typeof raw !== "string" || !raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getLatestPublicScanSignatureWork(
+  db: Client,
+  username: string,
+): Promise<SignatureWork | null> {
+  try {
+    const res = await db.execute({
+      sql: `SELECT snapshot
+            FROM public_scan_runs
+            WHERE username = ?
+              AND snapshot IS NOT NULL
+            ORDER BY completed_at DESC, updated_at DESC
+            LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const snapshot = parseJsonObject<ScanResult>(res.rows[0]?.snapshot);
+    return snapshot?.signature_work ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Latest sedimented profile snapshot for an account, or null if none exists
  * (low-score/old accounts never backfilled). Fire-and-forget tolerant. */
 export async function getProfileSnapshot(
@@ -2518,7 +2620,7 @@ export async function getProfileSnapshot(
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT top_repos, impact_repos, pinned_repos, organizations, metrics, scanned_at
+      sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
             WHERE username = ?
             ORDER BY scanned_at DESC
@@ -2555,9 +2657,13 @@ export async function getProfileSnapshot(
       last_year_contributions: num(m.last_year_contributions),
       contribution_years_active: num(m.contribution_years_active),
     };
+    const signatureWork =
+      parseJsonObject<SignatureWork>(r.signature_work) ??
+      (await getLatestPublicScanSignatureWork(db, username));
     return {
       top_repos: parseJsonArray<TopRepo>(r.top_repos),
       impact_repos: parseJsonArray<ImpactRepo>(r.impact_repos),
+      signature_work: signatureWork,
       pinned_repos: parseJsonArray<string>(r.pinned_repos),
       organizations: parseJsonArray<string>(r.organizations),
       bio,

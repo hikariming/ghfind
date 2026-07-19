@@ -129,6 +129,7 @@ export function requiresDurablePublicScan(scan: ScanResult): boolean {
   return Boolean(
     metrics.commit_contribution_aggregation_unavailable ||
       metrics.merged_pr_contribution_aggregation_incomplete ||
+      metrics.merged_pr_count > metrics.recent_merged_pr_sample ||
       metrics.merged_pr_count > 300 ||
       metrics.total_pr_count > 600 ||
       metrics.public_repos > metrics.fetched_repo_count,

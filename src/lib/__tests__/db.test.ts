@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
+import type { ScanResult } from "../types";
 
 let db: typeof import("../db");
 let tmpDir: string;
@@ -469,6 +470,133 @@ describe("durable public scan jobs", () => {
         activeYears: 3,
       },
     ]);
+  });
+
+  it("uses all signature PR facts while excluding ordinary closed PRs", async () => {
+    const queued = await enqueue("signature-facts");
+    const lease = await db.claimPublicScanJob(queued!.job.id);
+    const leaseInput = {
+      jobId: queued!.job.id,
+      runId: queued!.run.id,
+      leaseToken: lease!.leaseToken,
+    };
+    await expect(
+      db.upsertPublicScanPrFacts({
+        ...leaseInput,
+        facts: [
+          {
+            pullRequestId: "sig-native",
+            source: "native_merged",
+            repoKey: "big/native",
+            ownerLogin: "big",
+            stars: 500,
+            isPrivate: false,
+            isFork: false,
+            createdAt: "2024-01-01T00:00:00Z",
+            mergedAt: "2024-01-03T00:00:00Z",
+            closedAt: "2024-01-03T00:00:00Z",
+            title: "fix native path",
+            additions: 10,
+            deletions: 2,
+            changedFiles: 2,
+            labels: [],
+          },
+          {
+            pullRequestId: "sig-labeled",
+            source: "closed",
+            repoKey: "big/label-merged",
+            ownerLogin: "big",
+            stars: 700,
+            isPrivate: false,
+            isFork: false,
+            createdAt: "2024-02-01T00:00:00Z",
+            mergedAt: null,
+            closedAt: "2024-02-03T00:00:00Z",
+            title: "fix closed path marked merged",
+            additions: 20,
+            deletions: 3,
+            changedFiles: 4,
+            labels: ["Merged"],
+          },
+          {
+            pullRequestId: "sig-ordinary-closed",
+            source: "closed",
+            repoKey: "big/rejected",
+            ownerLogin: "big",
+            stars: 900,
+            isPrivate: false,
+            isFork: false,
+            createdAt: "2024-03-01T00:00:00Z",
+            mergedAt: null,
+            closedAt: "2024-03-03T00:00:00Z",
+            title: "ordinary closed path",
+            additions: 1,
+            deletions: 1,
+            changedFiles: 1,
+            labels: [],
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+
+    await expect(db.getPublicScanSignaturePrFacts(queued!.run.id)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pullRequestId: "sig-native", source: "native_merged" }),
+        expect.objectContaining({ pullRequestId: "sig-labeled", source: "closed" }),
+      ]),
+    );
+    const signatureFacts = await db.getPublicScanSignaturePrFacts(queued!.run.id);
+    expect(signatureFacts.map((fact) => fact.pullRequestId)).not.toContain("sig-ordinary-closed");
+  });
+});
+
+describe("profile snapshots", () => {
+  it("persists signature work for profile representative work", async () => {
+    const scan = {
+      metrics: {
+        username: "signature-profile",
+        followers: 0,
+        total_stars: 0,
+      } as ScanResult["metrics"],
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      impact_repos: [],
+      verified_impact_prs: [],
+      pinned_repos: [],
+      organizations: [],
+      signature_work: {
+        source: "all_history_public_scan",
+        impact_repo_representatives: [],
+        work_clusters: [
+          {
+            repo: "org/small-runtime",
+            stars: 20,
+            all_time_prs: 9,
+            quality_keyword_hits: 7,
+            examples: ["fix: preserve ledger consistency"],
+            org_context_repo: "org/platform",
+            org_context_stars: 100000,
+            substantive_low_star_signal: true,
+          },
+        ],
+      },
+      scoring: {} as ScanResult["scoring"],
+    } as ScanResult;
+
+    await db.recordProfileSnapshot(scan);
+
+    await expect(db.getProfileSnapshot("Signature-Profile")).resolves.toMatchObject({
+      signature_work: {
+        source: "all_history_public_scan",
+        work_clusters: [
+          expect.objectContaining({
+            repo: "org/small-runtime",
+            org_context_repo: "org/platform",
+          }),
+        ],
+      },
+    });
   });
 });
 

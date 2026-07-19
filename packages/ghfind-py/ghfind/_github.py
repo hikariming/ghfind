@@ -30,6 +30,8 @@ README_PROMPT_SUMMARY_LIMIT = 1500
 
 IMPACT_YEAR_CAP = 6
 IMPACT_COMMIT_MIN = 2
+PRESTIGE_COMMIT_FULL_AT = 10
+PRESTIGE_MERGED_PR_FULL_AT = 3
 # ``commitContributionsByRepository`` only reports commits after they land on
 # the upstream default branch (or gh-pages). This is sufficient landing evidence
 # for canonical projects whose official flow does not mark a GitHub PR MERGED.
@@ -658,9 +660,18 @@ def _is_doc_like_path(path: str) -> bool:
 
 def _is_core_code_path(path: str) -> bool:
     p = path.lower()
-    if _is_doc_like_path(p):
+    if _is_doc_like_path(p) or _is_presentation_only_path(p):
         return False
     return bool(re.search(r"\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|mm|php|py|rb|rs|scala|swift|ts|tsx)$", p, re.I))
+
+
+def _is_presentation_only_path(path: str) -> bool:
+    p = path.lower()
+    return bool(
+        re.search(r"\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp)$", p, re.I)
+        or re.search(r"(^|/)(__snapshots__|demo|demos|examples?|templates?|storybook|screenshots?|assets?|public)(/|$)", p)
+        or re.search(r"(^|/)(site|website|docs?|pages/home|components/homepage)(/|$)", p)
+    )
 
 
 def is_doc_like_impact_pr(pr: Dict[str, Any]) -> bool:
@@ -675,7 +686,7 @@ def is_doc_like_impact_pr(pr: Dict[str, Any]) -> bool:
     files = pr.get("files") or []
     if len(files) == 0:
         return False
-    doc_like = sum(1 for f in files if _is_doc_like_path(f))
+    doc_like = sum(1 for f in files if _is_doc_like_path(f) or _is_presentation_only_path(f))
     core_code = sum(1 for f in files if _is_core_code_path(f))
     return doc_like > 0 and (core_code == 0 or doc_like / len(files) >= 0.6)
 
@@ -685,11 +696,7 @@ def compute_impact_quality_signals(recent_prs: List[Dict[str, Any]], impact_pr_c
     doc_like_count = sum(1 for p in verified if is_doc_like_impact_pr(p))
     core_count = len(verified) - doc_like_count
     unverified = max(0, impact_pr_count - len(verified))
-    cap = None
-    if impact_pr_count >= 10 and core_count <= 2 and doc_like_count > core_count:
-        cap = 4
-    elif impact_pr_count >= 10 and doc_like_count > core_count:
-        cap = 8
+    cap = _low_quality_impact_cap(len(verified), doc_like_count, core_count, impact_pr_count)
     return {
         "verified_impact_pr_count": len(verified),
         "core_impact_pr_count": core_count,
@@ -697,6 +704,19 @@ def compute_impact_quality_signals(recent_prs: List[Dict[str, Any]], impact_pr_c
         "unverified_impact_pr_count": unverified,
         "impact_quality_cap": cap,
     }
+
+
+def _low_quality_impact_cap(verified_count: int, doc_like_count: int, core_count: int, impact_pr_count: int) -> Optional[float]:
+    if verified_count <= 0 or doc_like_count <= core_count:
+        return None
+    dominance = (doc_like_count - core_count) / verified_count
+    confidence = math.sqrt(
+        log_ratio(verified_count, 10)
+        * log_ratio(max(impact_pr_count, verified_count), 10)
+    )
+    severity = max(0.0, min(1.0, dominance * confidence))
+    cap = 20 - severity * 36
+    return _math_round(max(4.0, min(20.0, cap)) * 10) / 10
 
 
 def _repo_name(name_with_owner: Optional[str]) -> str:
@@ -785,24 +805,63 @@ def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: st
             qualifying.append(r)
 
     max_impact_repo_stars = max((r["stars"] for r in qualifying), default=0)
+    impact_prestige_score = (
+        _math_round(
+            max(
+                (
+                    log_ratio(r["stars"], 100_000)
+                    * prestige_work_multiplier(r["commits"], r["prs"])
+                    for r in qualifying
+                ),
+                default=0,
+            )
+            * 10_000
+        )
+        / 10_000
+    )
     depth_sum = 0.0
     for r in qualifying:
         weight = min(1 + math.log10(r["commits"] + r["prs"]), 2.5)
         depth_sum += log_ratio(r["stars"], 5000) * weight
     impact_depth_raw = _math_round(depth_sum * 100) / 100
 
-    impact_repos = sorted(
-        [{"repo": r["repo"], "stars": r["stars"], "commits": r["commits"], "prs": r["prs"]} for r in qualifying],
-        key=lambda x: x["stars"], reverse=True,
+    by_stars = sorted(qualifying, key=lambda r: r["stars"], reverse=True)[:6]
+    by_work = sorted(
+        qualifying,
+        key=lambda r: (r["prs"] * 4 + r["commits"], r["stars"]),
+        reverse=True,
     )[:8]
+    seen = set()
+    impact_repos = []
+    for r in by_stars + by_work:
+        if r["repo"] in seen:
+            continue
+        seen.add(r["repo"])
+        impact_repos.append(
+            {"repo": r["repo"], "stars": r["stars"], "commits": r["commits"], "prs": r["prs"]}
+        )
+        if len(impact_repos) >= 12:
+            break
     return {
         "max_impact_repo_stars": max_impact_repo_stars,
+        "impact_prestige_score": impact_prestige_score,
         "impact_depth_raw": impact_depth_raw,
         "impact_repo_count": len(qualifying),
         "impact_commit_count": sum(r["commits"] for r in qualifying),
         "impact_pr_count": sum(r["prs"] for r in qualifying),
         "impact_repos": impact_repos,
     }
+
+
+def prestige_work_multiplier(commits: int, prs: int) -> float:
+    commit_signal = max(0, commits) / PRESTIGE_COMMIT_FULL_AT
+    pr_signal = max(0, prs) / PRESTIGE_MERGED_PR_FULL_AT
+    work_signal = max(commit_signal, pr_signal)
+    if work_signal <= 0:
+        return 0.0
+    if work_signal >= 1:
+        return 1.0
+    return math.log10(1 + work_signal * 9) / math.log10(10)
 
 
 # --- async-equivalent fetchers ---------------------------------------------
@@ -1138,6 +1197,13 @@ def collect(username: str) -> Dict[str, Any]:
         impact_prs = [p for p in recent_prs if is_ecosystem_impact_pr(p, login_lower)]
         impact = {
             "max_impact_repo_stars": max((p["repo_stars"] for p in impact_prs), default=0),
+            "impact_prestige_score": max(
+                (
+                    log_ratio(p["repo_stars"], 100_000) * prestige_work_multiplier(0, 1)
+                    for p in impact_prs
+                ),
+                default=0,
+            ),
             "impact_depth_raw": _math_round(sum(log_ratio(p["repo_stars"], 5000) for p in impact_prs) * 100) / 100,
             "impact_repo_count": len(impact_prs),
             "impact_commit_count": 0,
@@ -1203,6 +1269,7 @@ def collect(username: str) -> Dict[str, Any]:
         "recent_external_doc_like_pr_count": external_doc_like_pr_count,
         "recent_external_doc_like_pr_ratio": external_doc_like_pr_ratio,
         "max_impact_repo_stars": max_impact_repo_stars,
+        "impact_prestige_score": impact["impact_prestige_score"],
         "impact_pr_count": impact["impact_pr_count"],
         "impact_depth_raw": impact_depth_raw,
         "impact_quality_cap": impact["impact_quality_cap"],

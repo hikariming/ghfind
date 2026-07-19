@@ -8,7 +8,7 @@
 // intentionally separate from SCORE_CACHE_VERSION: an old scan can be
 // re-scored, but it must not be treated as complete when its collector no
 // longer covers the current source contract.
-export const PUBLIC_SCAN_COLLECTION_VERSION = "v3";
+export const PUBLIC_SCAN_COLLECTION_VERSION = "v5";
 
 export const PUBLIC_SCAN_REQUIRED_SOURCES = [
   "quick",

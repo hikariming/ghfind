@@ -6,6 +6,7 @@ import {
   computeImpactFromContribMap,
   computeImpactQualitySignals,
   computeOrgRepoAttribution,
+  prestigeWorkMultiplier,
   isWorkflowLandedPr,
   isDocLikeImpactPr,
   isEcosystemImpactPr,
@@ -20,6 +21,7 @@ import {
   contributionQualityCap,
   docLikePrVolumeDiscount,
   highImpactCorePrBonus,
+  impactPrestigeSignal,
   lowPrestigeBulkContributionCap,
   logRatio,
   score,
@@ -133,22 +135,28 @@ describe("spam-PR red flags", () => {
     expect(score(NEUTRAL).red_flags).toHaveLength(0);
   });
 
-  it("flags templated_pr_flooding and scales the penalty 12→30 by severity", () => {
-    const mk = (share: number, templated: number): RawMetrics => ({
+  it("flags templated_pr_flooding with light penalties unless low-quality evidence corroborates it", () => {
+    const mk = (share: number, templated: number, over: Partial<RawMetrics> = {}): RawMetrics => ({
       ...NEUTRAL,
       pr_flood_suspect: true,
       recent_pr_sample: 18,
       top_repo_pr_target: "org/target",
       top_repo_pr_share: share,
       templated_pr_ratio: templated,
+      ...over,
     });
     const pen = (m: RawMetrics) =>
       score(m).red_flags.find((f) => f.flag === "templated_pr_flooding")?.penalty;
-    expect(pen(mk(0.5, 0.5))).toBe(12); // just-suspect → min
-    expect(pen(mk(1.0, 1.0))).toBe(30); // egregious one-repo bot → max
-    const cq = pen(mk(1.0, 0.67))!; // all PRs to one repo, 67% templated
-    expect(cq).toBeGreaterThanOrEqual(20);
-    expect(cq).toBeLessThanOrEqual(26);
+    expect(pen(mk(0.5, 0.5))).toBe(4); // just-suspect → light risk
+    expect(pen(mk(1.0, 1.0))).toBe(10); // extreme concentration alone is still moderate
+    expect(pen(mk(0.6, 0.6))).toBe(5);
+    expect(
+      pen(mk(1.0, 0.9, {
+        recent_merged_pr_sample: 30,
+        recent_external_doc_like_pr_ratio: 0.7,
+        pr_rejection_rate: 0.4,
+      })),
+    ).toBeGreaterThanOrEqual(18);
   });
 
   it("flags high_pr_rejection when most decided PRs were rejected", () => {
@@ -936,9 +944,12 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.max_impact_repo_stars).toBe(0);
   });
 
-  it("does not let drive-by work anchor prestige (max_impact_repo_stars)", () => {
-    // 4 commits + 1 merged PR into a 200k★ repo counts as impact, but the
-    // prestige anchor needs ≥10 commits or ≥3 merged PRs there.
+  it("weights prestige continuously by landed work instead of using a hard cliff", () => {
+    expect(prestigeWorkMultiplier(0, 1)).toBeGreaterThan(0);
+    expect(prestigeWorkMultiplier(0, 2)).toBeGreaterThan(prestigeWorkMultiplier(0, 1));
+    expect(prestigeWorkMultiplier(0, 3)).toBe(1);
+    expect(prestigeWorkMultiplier(10, 0)).toBe(1);
+
     const m = computeImpactFromContribMap(
       [
         agg({ repo: "mega/agent", owner_login: "mega", stars: 216457, commits: 4, prs: 1 }),
@@ -946,17 +957,47 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
       ],
       me,
     );
-    expect(m.impact_repo_count).toBe(2); // both still count as impact
-    expect(m.max_impact_repo_stars).toBe(26085); // prestige anchors where real work landed
+    expect(m.impact_repo_count).toBe(2);
+    expect(m.max_impact_repo_stars).toBe(216457);
+    expect(m.impact_prestige_score).toBeGreaterThan(0);
+    expect(m.impact_prestige_score).toBeLessThanOrEqual(1);
   });
 
-  it("anchors prestige at zero when ALL impact work is drive-by", () => {
+  it("keeps high-work impact repos visible even when they are not top by stars", () => {
+    const highStarRepos = Array.from({ length: 7 }, (_, i) =>
+      agg({
+        repo: `mega/project-${i}`,
+        owner_login: "mega",
+        stars: 100_000 - i * 5_000,
+        prs: 1,
+      }),
+    );
+    const m = computeImpactFromContribMap(
+      [
+        ...highStarRepos,
+        agg({
+          repo: "runtime/heavy-core",
+          owner_login: "runtime",
+          stars: 12_000,
+          prs: 11,
+        }),
+      ],
+      me,
+    );
+
+    expect(m.impact_repos.length).toBeLessThanOrEqual(12);
+    expect(m.impact_repos.map((r) => r.repo)).toContain("runtime/heavy-core");
+  });
+
+  it("gives partial prestige when all impact work is shallow", () => {
     const m = computeImpactFromContribMap(
       [agg({ repo: "mega/agent", owner_login: "mega", stars: 216457, commits: 4, prs: 1 })],
       me,
     );
     expect(m.impact_repo_count).toBe(1);
-    expect(m.max_impact_repo_stars).toBe(0);
+    expect(m.max_impact_repo_stars).toBe(216457);
+    expect(m.impact_prestige_score).toBeGreaterThan(0);
+    expect(m.impact_prestige_score).toBeLessThan(1);
   });
 
   it("lets sustained merged-PR work anchor prestige without a commit trail", () => {
@@ -965,6 +1006,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
       me,
     );
     expect(m.max_impact_repo_stars).toBe(40000);
+    expect(m.impact_prestige_score).toBeCloseTo(logRatio(40000, 100000), 4);
   });
 
   it("credits one git/git default-branch commit despite its non-GitHub merge workflow", () => {
@@ -1058,8 +1100,8 @@ describe("impact quality caps", () => {
       pr({ title: "feat: add company template", repo: "ui-org/components", repo_stars: 13000 }),
     ];
     const signals = computeImpactQualitySignals(recentPrs, 23, "docsheavyuser");
-    expect(signals.core_impact_pr_count).toBe(2);
-    expect(signals.doc_like_impact_pr_count).toBe(3);
+    expect(signals.core_impact_pr_count).toBe(1);
+    expect(signals.doc_like_impact_pr_count).toBe(4);
     expect(signals.unverified_impact_pr_count).toBe(18);
     expect(signals.impact_quality_cap).toBe(4);
 
@@ -1085,6 +1127,48 @@ describe("impact quality caps", () => {
     });
     expect(s.sub_scores.ecosystem_impact).toBe(4);
     expect(s.final_score).toBeLessThanOrEqual(60);
+  });
+
+  it("caps small-sample high-star impact when docs/site/template work dominates", () => {
+    const recentPrs = [
+      pr({
+        title: "fix(frontend): avoid stale chat route state",
+        repo: "mega-ai/workflow",
+        repo_stars: 77000,
+        files: ["frontend/src/app/workspace/chats/[thread_id]/layout.tsx"],
+      }),
+      pr({
+        title: "feat(site-templates): add company template",
+        repo: "ui-foundation/components",
+        repo_stars: 13000,
+        files: ["packages/site-templates/src/pages/company.tsx"],
+      }),
+      pr({
+        title: "Fix: Resolve dual scrollbar issue and flickering on initial load",
+        repo: "design-system/widgets",
+        repo_stars: 4600,
+        files: [
+          "components/attachments/__tests__/__snapshots__/demo.test.tsx.snap",
+          "components/conversations/demo/infinite-load.tsx",
+        ],
+      }),
+      pr({
+        title: "Feat: integrate chat/image/audio frontend example",
+        repo: "ai-framework/examples",
+        repo_stars: 2800,
+        files: ["framework-integration-example/frontend/src/App.tsx"],
+      }),
+      pr({
+        title: "Doc: Added contribution guidelines document",
+        repo: "ai-framework/runtime",
+        repo_stars: 10000,
+        files: ["CONTRIBUTING.md", "README.md"],
+      }),
+    ];
+    const signals = computeImpactQualitySignals(recentPrs, 5, "docsheavyuser");
+    expect(signals.core_impact_pr_count).toBe(1);
+    expect(signals.doc_like_impact_pr_count).toBe(4);
+    expect(signals.impact_quality_cap).toBe(4);
   });
 
   it("does not cap old high-star code PRs just because they are outside the recent 50", () => {
@@ -1184,7 +1268,83 @@ describe("doc-like PR contribution-quality discount", () => {
     expect(score(m).sub_scores.contribution_quality).toBe(12);
   });
 
-  it("does not cap contribution quality just because external PRs were author-closed", () => {
+  it("keeps low-quality external PR profiles below 50", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      username: "DocsHeavyUser",
+      account_age_years: 2.34,
+      contribution_years_active: 3,
+      nonempty_original_repo_count: 16,
+      total_stars: 157,
+      max_stars: 83,
+      best_original_repo_quality_score: 0.77,
+      top_starred_original_repo_quality_score: 0.39,
+      merged_pr_count: 38,
+      total_pr_count: 69,
+      issues_created: 65,
+      followers: 1040,
+      following: 36,
+      last_year_contributions: 370,
+      activity_type_count: 2,
+      recent_merged_pr_sample: 38,
+      recent_external_pr_sample: 37,
+      recent_external_doc_like_pr_count: 22,
+      recent_external_doc_like_pr_ratio: 0.59,
+      max_impact_repo_stars: 77347,
+      impact_prestige_score: 0.9777,
+      impact_pr_count: 5,
+      impact_depth_raw: 7.49,
+      impact_quality_cap: 4,
+      core_impact_pr_count: 1,
+      doc_like_impact_pr_count: 4,
+      self_closed_external_pr_count: 22,
+    };
+    const s = score(m);
+    expect(contributionQualityCap(m)).toBe(12);
+    expect(s.final_score).toBeLessThan(50);
+  });
+
+  it("does not heavily penalize templated high-impact core contribution by title pattern alone", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      account_age_years: 9,
+      contribution_years_active: 10,
+      total_stars: 508,
+      max_stars: 190,
+      top_starred_original_repo_quality_score: 0.22,
+      merged_pr_count: 1018,
+      total_pr_count: 1803,
+      issues_created: 100,
+      followers: 580,
+      following: 259,
+      last_year_contributions: 4180,
+      activity_type_count: 4,
+      recent_pr_sample: 30,
+      recent_merged_pr_sample: 30,
+      recent_external_doc_like_pr_ratio: 0,
+      max_impact_repo_stars: 222_859,
+      impact_prestige_score: 1,
+      impact_pr_count: 315,
+      impact_depth_raw: 80,
+      core_impact_pr_count: 50,
+      doc_like_impact_pr_count: 0,
+      maintainer_closed_unmerged_pr_count: 91,
+      self_closed_external_pr_count: 9,
+      pr_rejection_rate: 91 / (1018 + 91),
+      pr_flood_suspect: true,
+      top_repo_pr_target: "foundation/workflow",
+      top_repo_pr_share: 0.6,
+      templated_pr_ratio: 0.6,
+    };
+    const s = score(m);
+    const flag = s.red_flags.find((f) => f.flag === "templated_pr_flooding");
+    expect(flag?.penalty).toBe(5);
+    expect(flag?.detail).toContain("模式化批量贡献风险");
+    expect(s.tier).toBe("人上人");
+    expect(s.final_score).toBeGreaterThanOrEqual(78);
+  });
+
+  it("does not cap contribution quality for low-volume author-closed external PRs", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 38,
@@ -1202,9 +1362,33 @@ describe("doc-like PR contribution-quality discount", () => {
       core_impact_pr_count: 2,
       doc_like_impact_pr_count: 3,
       top_starred_original_repo_quality_score: 0.8,
-      self_closed_external_pr_count: 21,
+      self_closed_external_pr_count: 4,
     };
     expect(contributionQualityCap(m)).toBeUndefined();
+  });
+
+  it("uses heavy author-closed external PRs as combined evidence with low-trust impact", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 38,
+      total_pr_count: 69,
+      issues_created: 65,
+      total_stars: 600,
+      max_stars: 300,
+      recent_merged_pr_sample: 38,
+      recent_external_pr_sample: 37,
+      recent_external_doc_like_pr_count: 22,
+      recent_external_doc_like_pr_ratio: 0.59,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 5,
+      impact_depth_raw: 7.49,
+      impact_quality_cap: 4,
+      core_impact_pr_count: 1,
+      doc_like_impact_pr_count: 4,
+      top_starred_original_repo_quality_score: 0.8,
+      self_closed_external_pr_count: 22,
+    };
+    expect(contributionQualityCap(m)).toBe(12);
   });
 
   it("does not discount normal histories with a small docs share", () => {
@@ -1286,6 +1470,40 @@ describe("doc-like PR contribution-quality discount", () => {
     expect(score(bulkSmallRepoHistory).sub_scores.contribution_quality).toBe(22);
     expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)).toBeUndefined();
     expect(score(sameVolumeHighImpact).sub_scores.contribution_quality).toBeGreaterThan(24);
+  });
+
+  it("does not cliff a two-PR high-impact account into the low-prestige bulk cap", () => {
+    const impact = computeImpactFromContribMap(
+      [
+        {
+          repo: "foundation/platform",
+          owner_login: "foundation",
+          stars: 149244,
+          is_private: false,
+          is_fork: false,
+          commits: 2,
+          prs: 2,
+          active_years: 1,
+        },
+      ],
+      "contributor",
+    );
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 109,
+      total_pr_count: 139,
+      issues_created: 45,
+      max_stars: 1,
+      max_impact_repo_stars: impact.max_impact_repo_stars,
+      impact_prestige_score: impact.impact_prestige_score,
+      impact_pr_count: impact.impact_pr_count,
+      impact_depth_raw: 7.7,
+      core_impact_pr_count: 5,
+    };
+
+    expect(impactPrestigeSignal(m)).toBeGreaterThan(logRatio(10_000, 100_000));
+    expect(lowPrestigeBulkContributionCap(m)).toBeUndefined();
+    expect(score(m).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 });
 

@@ -81,6 +81,28 @@ export interface ImpactRepo {
   prs: number;
 }
 
+export type SignatureImpactRepo = ImpactRepo;
+
+export interface SignatureWorkCluster {
+  repo: string;
+  stars: number;
+  all_time_prs?: number;
+  recent_merged_prs_in_sample?: number;
+  quality_keyword_hits: number;
+  examples: string[];
+  org_context_repo?: string;
+  org_context_stars?: number;
+  substantive_low_star_signal?: boolean;
+}
+
+export interface SignatureWork {
+  /** High-work representative contributed repos, not just the highest-star ones. */
+  impact_repo_representatives: SignatureImpactRepo[];
+  /** All-history or sample-derived clusters of concrete work by repo/title. */
+  work_clusters: SignatureWorkCluster[];
+  source: "all_history_public_scan" | "recent_sample";
+}
+
 export interface RawMetrics {
   username: string;
   profile_url: string | null;
@@ -131,6 +153,10 @@ export interface RawMetrics {
   recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
+  /** 0..1 prestige signal after weighting the biggest contributed repos by
+   * landed work volume. Optional so older cached snapshots fall back to
+   * max_impact_repo_stars. */
+  impact_prestige_score?: number;
   impact_pr_count: number;
   /** Subset of impact PRs credited through a repository workflow rather than
    * GitHub's native merged state. */
@@ -207,6 +233,8 @@ export interface ScanResult {
   impact_repos?: ImpactRepo[];
   /** Verified popular-repo PR samples with file paths, for LLM qualitative review. */
   verified_impact_prs?: RecentPr[];
+  /** Representative concrete work examples for report generation. */
+  signature_work?: SignatureWork;
   /** "owner/name" of the user's pinned repos — their self-selected best work, a
    * strong signal of the direction they identify with. Optional for back-compat. */
   pinned_repos?: string[];

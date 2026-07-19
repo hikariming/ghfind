@@ -3,8 +3,8 @@
  *
  * Direct port of `score()` + `_log_ratio()` from the canonical Python skill
  * (`github-account-value/scripts/fetch_github_profile.py`). The formula is the
- * single source of truth for the number; the LLM only adds a bounded ±10
- * qualitative adjustment and the prose/roast on top of this output.
+ * single source of truth for the number; the LLM only writes prose/roast on top
+ * of this output.
  *
  * See `github-account-value/references/scoring_rubric.md` for the rubric.
  */
@@ -73,7 +73,8 @@ export function clampScore(value: number): number {
  * Designed to separate genuine solo devs from farmers: self-PRs into one's own
  * ~0-star repo count LESS when those PRs are substantial (real solo-dev workflow)
  * and MORE when they are trivial (count padding). Templated PR flooding (one-repo
- * AI batches) is the strongest single signal.
+ * batchy/concentrated PR activity is one signal, but heavy penalties require
+ * corroborating evidence.
  */
 export function spamBotScore(m: RawMetrics): number {
   let s = 0;
@@ -155,7 +156,18 @@ export function contributionQualityCap(m: RawMetrics): number | undefined {
     (m.core_impact_pr_count ?? 0) <= 2;
   const weakTopStarProject =
     (m.top_starred_original_repo_quality_score ?? 1) < 0.3 && m.total_stars > 0;
-  if (lowTrustImpact && weakTopStarProject) return 12;
+  const selfClosedExternal = m.self_closed_external_pr_count ?? 0;
+  const totalExternalish =
+    m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosedExternal;
+  const heavySelfClosedExternal =
+    totalExternalish >= 20 && selfClosedExternal / totalExternalish >= 0.25;
+  const weakOwnProjectSignal =
+    m.max_stars < 100 &&
+    m.total_stars < 300 &&
+    (m.top_starred_original_repo_quality_score ?? 1) < 0.6;
+  if (lowTrustImpact && (weakTopStarProject || weakOwnProjectSignal || heavySelfClosedExternal)) {
+    return 12;
+  }
   return undefined;
 }
 
@@ -168,11 +180,21 @@ export function contributionQualityCap(m: RawMetrics): number | undefined {
  */
 export function highImpactCorePrBonus(m: RawMetrics): number {
   const core = m.core_impact_pr_count ?? 0;
-  if (core < 2 || m.max_impact_repo_stars < 50_000) return 0;
+  const starSignal = impactPrestigeSignal(m);
+  if (core < 2 || starSignal < 0.5) return 0;
 
-  const starSignal = logRatio(m.max_impact_repo_stars, 100_000);
   const coreSignal = Math.min(core / 5, 1);
   return Math.min(2, starSignal * 0.8 + coreSignal * 1.2);
+}
+
+export function impactPrestigeSignal(m: RawMetrics): number {
+  return Math.max(
+    0,
+    Math.min(
+      m.impact_prestige_score ?? logRatio(m.max_impact_repo_stars, 100_000),
+      1,
+    ),
+  );
 }
 
 /**
@@ -184,9 +206,53 @@ export function highImpactCorePrBonus(m: RawMetrics): number {
  */
 export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefined {
   if (m.merged_pr_count < 80) return undefined;
-  if (m.max_impact_repo_stars >= 10_000) return undefined;
+  if (impactPrestigeSignal(m) >= logRatio(10_000, 100_000)) return undefined;
   if (m.max_stars >= 1000) return undefined;
   return 22;
+}
+
+export function templatedPrFloodPenalty(m: RawMetrics): number | undefined {
+  if (!(m.pr_flood_suspect ?? false)) return undefined;
+
+  const share = m.top_repo_pr_share ?? 0;
+  const templated = m.templated_pr_ratio ?? 0;
+  const concentrationSeverity = Math.max(
+    0,
+    Math.min(1, ((share - 0.5) / 0.5) * 0.5 + ((templated - 0.5) / 0.5) * 0.5),
+  );
+  const sample = m.recent_merged_pr_sample ?? m.recent_pr_sample ?? 0;
+  const docLikeRatio =
+    m.recent_external_doc_like_pr_ratio ??
+    m.recent_doc_like_pr_ratio ??
+    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
+      ? m.recent_external_doc_like_pr_count / sample
+      : sample > 0 && m.recent_doc_like_pr_count !== undefined
+        ? m.recent_doc_like_pr_count / sample
+        : 0);
+  const rejection = m.pr_rejection_rate ?? 0;
+  const hasPopularImpactSignal =
+    (m.impact_pr_count ?? 0) > 0 || (m.max_impact_repo_stars ?? 0) >= 10_000;
+  const lowCoreImpact =
+    hasPopularImpactSignal &&
+    (m.core_impact_pr_count ?? 0) <= 2 &&
+    (m.impact_quality_cap !== undefined || (m.max_impact_repo_stars ?? 0) >= 10_000);
+  const weakOwnProject =
+    m.total_stars < 300 &&
+    (m.top_starred_original_repo_quality_score ?? 1) < 0.5;
+  const lowQualityEvidence =
+    (sample >= 20 && docLikeRatio >= 0.55 ? 1 : 0) +
+    (rejection >= 0.35 ? 1 : 0) +
+    (lowCoreImpact ? 1 : 0) +
+    (weakOwnProject ? 1 : 0);
+  const extremeFlood = share >= 0.85 && templated >= 0.75;
+
+  if (lowQualityEvidence >= 2 || (extremeFlood && lowQualityEvidence >= 1)) {
+    return 10 + Math.round(10 * concentrationSeverity);
+  }
+  if (lowQualityEvidence === 1 || extremeFlood) {
+    return 6 + Math.round(4 * concentrationSeverity);
+  }
+  return 4 + Math.round(4 * concentrationSeverity);
 }
 
 /**
@@ -321,7 +387,7 @@ export function score(m: RawMetrics): Scoring {
   // whether contributing to others' projects or actively maintaining one's own
   // popular repo. Hardest signal to fake; captures both contributor and
   // creator/maintainer value.
-  const prestige = logRatio(m.max_impact_repo_stars, 100000) * 9;
+  const prestige = impactPrestigeSignal(m) * 9;
   const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
   const ecosystemRaw = prestige + depth;
   sub.ecosystem_impact = round(
@@ -442,26 +508,22 @@ export function score(m: RawMetrics): Scoring {
         "≥200★ repos — garbage PR farming into popular community projects.",
     );
   }
-  // Templated-PR flooding: many recent PRs blasted at one repo with near-identical
-  // titles — the AI-batch / spam-flood pattern (caught even with high merge rate).
-  if (m.pr_flood_suspect ?? false) {
+  // Templated-PR flooding: title/concentration alone is a pattern risk, not
+  // proof of low quality or AI abuse. Heavy penalties require corroborating
+  // evidence such as doc-like/trivial work, low core impact, weak own projects,
+  // or high maintainer rejection.
+  const floodPenalty = templatedPrFloodPenalty(m);
+  if (floodPenalty !== undefined) {
     const floodSample = m.recent_pr_sample ?? 0;
     const repo = m.top_repo_pr_target ?? "one repo";
     const share = m.top_repo_pr_share ?? 0;
     const templated = m.templated_pr_ratio ?? 0;
-    // Scale the penalty 12→30 by how concentrated (share) AND how templated the
-    // flood is — a one-repo wall of identical AI-batch PRs gets hit hardest.
-    const severity = Math.max(
-      0,
-      Math.min(1, ((share - 0.5) / 0.5) * 0.5 + ((templated - 0.5) / 0.5) * 0.5),
-    );
-    const floodPenalty = 12 + Math.round(18 * severity);
     flag(
       "templated_pr_flooding",
       floodPenalty,
       `近期 ${Math.round(share * 100)}% 的 PR 集中刷向 ${repo}，` +
         `${Math.round(templated * 100)}% 标题高度模板化（${floodSample} 个样本）` +
-        ` — 疑似 AI 批量生成 / 刷量洪水。`,
+        ` — 模式化批量贡献风险，需结合 diff 质量人工复核。`,
     );
   }
   // High PR rejection: maintainer-closed unmerged PRs, not self-closed cleanup.

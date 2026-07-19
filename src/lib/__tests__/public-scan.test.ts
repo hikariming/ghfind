@@ -100,6 +100,7 @@ describe("durable public scan admission", () => {
 
   it("only diverts bounded-coverage cases", () => {
     expect(requiresDurablePublicScan(scan())).toBe(false);
+    expect(requiresDurablePublicScan(scan({ merged_pr_count: 51, recent_merged_pr_sample: 50 }))).toBe(true);
     expect(requiresDurablePublicScan(scan({ merged_pr_count: 301 }))).toBe(true);
     expect(requiresDurablePublicScan(scan({ total_pr_count: 601 }))).toBe(true);
     expect(requiresDurablePublicScan(scan({ public_repos: 5, fetched_repo_count: 2 }))).toBe(true);

@@ -9,6 +9,7 @@ import {
   getPublicScanContributionAggregates,
   getPublicScanOwnedRepoFacts,
   getPublicScanPrSummary,
+  getPublicScanSignaturePrFacts,
   getPublicScanRun,
   materializePublicScanCommitRepoFacts,
   preparePublicScanCommitVerificationWork,
@@ -511,10 +512,11 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
       if (!sourceComplete(sources)) {
         throw new Error("cannot publish a partial public scan");
       }
-      const [aggregates, summary, ownedFacts] = await Promise.all([
+      const [aggregates, summary, ownedFacts, signaturePrFacts] = await Promise.all([
         getPublicScanContributionAggregates(job.runId),
         getPublicScanPrSummary(job.runId, job.username),
         getPublicScanOwnedRepoFacts(job.runId),
+        getPublicScanSignaturePrFacts(job.runId),
       ]);
       const owned = ownedFacts.map(toTopRepo);
       const candidates = [
@@ -539,7 +541,7 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
       const completed = applyPublicContributionAggregate(withOriginalInventory, contributionRepos, {
         total: summary.workflowLandedPrs,
         impact: summary.workflowLandedImpactPrs,
-      });
+      }, signaturePrFacts);
       const snapshot = JSON.stringify(completed);
       const published = await completePublicScanRun({
         jobId: job.id,

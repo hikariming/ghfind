@@ -1,7 +1,8 @@
 """Deterministic 0-100 value/trust scorer — faithful Python port of the website's
 ``src/lib/score.ts`` (itself a port of the canonical Python skill).
 
-The number is the single source of truth; the LLM only adds a bounded ±10.
+The number is the single source of truth; the LLM only writes prose/roast on top
+of this output.
 
 Parity notes (why this reproduces the TS output bit-for-bit):
 - TS reimplemented Python's ``round()`` (round-half-to-even / banker's) as its own
@@ -128,28 +129,100 @@ def contribution_quality_cap(m: Mapping[str, Any]) -> Optional[float]:
     weak_top_star_project = (
         _nz(m.get("top_starred_original_repo_quality_score"), 1) < 0.3 and m["total_stars"] > 0
     )
-    if low_trust_impact and weak_top_star_project:
+    self_closed_external = _nz(m.get("self_closed_external_pr_count"), 0)
+    total_externalish = (
+        m["merged_pr_count"] + _nz(m.get("maintainer_closed_unmerged_pr_count"), 0) + self_closed_external
+    )
+    heavy_self_closed_external = (
+        total_externalish >= 20 and self_closed_external / total_externalish >= 0.25
+    )
+    weak_own_project_signal = (
+        m["max_stars"] < 100
+        and m["total_stars"] < 300
+        and _nz(m.get("top_starred_original_repo_quality_score"), 1) < 0.6
+    )
+    if low_trust_impact and (weak_top_star_project or weak_own_project_signal or heavy_self_closed_external):
         return 12
     return None
 
 
 def high_impact_core_pr_bonus(m: Mapping[str, Any]) -> float:
     core = _nz(m.get("core_impact_pr_count"), 0)
-    if core < 2 or m["max_impact_repo_stars"] < 50_000:
+    star_signal = impact_prestige_signal(m)
+    if core < 2 or star_signal < 0.5:
         return 0
-    star_signal = log_ratio(m["max_impact_repo_stars"], 100_000)
     core_signal = min(core / 5, 1)
     return min(2, star_signal * 0.8 + core_signal * 1.2)
+
+
+def impact_prestige_signal(m: Mapping[str, Any]) -> float:
+    return max(
+        0.0,
+        min(
+            _nz(m.get("impact_prestige_score"), log_ratio(m["max_impact_repo_stars"], 100_000)),
+            1.0,
+        ),
+    )
 
 
 def low_prestige_bulk_contribution_cap(m: Mapping[str, Any]) -> Optional[float]:
     if m["merged_pr_count"] < 80:
         return None
-    if m["max_impact_repo_stars"] >= 10_000:
+    if impact_prestige_signal(m) >= log_ratio(10_000, 100_000):
         return None
     if m["max_stars"] >= 1000:
         return None
     return 22
+
+
+def templated_pr_flood_penalty(m: Mapping[str, Any]) -> Optional[int]:
+    if not _nz(m.get("pr_flood_suspect"), False):
+        return None
+
+    share = _nz(m.get("top_repo_pr_share"), 0)
+    templated = _nz(m.get("templated_pr_ratio"), 0)
+    concentration_severity = max(
+        0.0,
+        min(1.0, ((share - 0.5) / 0.5) * 0.5 + ((templated - 0.5) / 0.5) * 0.5),
+    )
+    sample = _nz(m.get("recent_merged_pr_sample"), _nz(m.get("recent_pr_sample"), 0))
+    if m.get("recent_external_doc_like_pr_ratio") is not None:
+        doc_like_ratio = m["recent_external_doc_like_pr_ratio"]
+    elif m.get("recent_doc_like_pr_ratio") is not None:
+        doc_like_ratio = m["recent_doc_like_pr_ratio"]
+    elif sample > 0 and m.get("recent_external_doc_like_pr_count") is not None:
+        doc_like_ratio = m["recent_external_doc_like_pr_count"] / sample
+    elif sample > 0 and m.get("recent_doc_like_pr_count") is not None:
+        doc_like_ratio = m["recent_doc_like_pr_count"] / sample
+    else:
+        doc_like_ratio = 0
+    rejection = _nz(m.get("pr_rejection_rate"), 0)
+    has_popular_impact_signal = (
+        _nz(m.get("impact_pr_count"), 0) > 0
+        or _nz(m.get("max_impact_repo_stars"), 0) >= 10_000
+    )
+    low_core_impact = (
+        has_popular_impact_signal
+        and _nz(m.get("core_impact_pr_count"), 0) <= 2
+        and (m.get("impact_quality_cap") is not None or _nz(m.get("max_impact_repo_stars"), 0) >= 10_000)
+    )
+    weak_own_project = (
+        m["total_stars"] < 300
+        and _nz(m.get("top_starred_original_repo_quality_score"), 1) < 0.5
+    )
+    low_quality_evidence = (
+        (1 if sample >= 20 and doc_like_ratio >= 0.55 else 0)
+        + (1 if rejection >= 0.35 else 0)
+        + (1 if low_core_impact else 0)
+        + (1 if weak_own_project else 0)
+    )
+    extreme_flood = share >= 0.85 and templated >= 0.75
+
+    if low_quality_evidence >= 2 or (extreme_flood and low_quality_evidence >= 1):
+        return 10 + _math_round(10 * concentration_severity)
+    if low_quality_evidence == 1 or extreme_flood:
+        return 6 + _math_round(4 * concentration_severity)
+    return 4 + _math_round(4 * concentration_severity)
 
 
 def author_self_closed_external_penalty(m: Mapping[str, Any]) -> float:
@@ -261,7 +334,7 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub["contribution_quality"] = round(min(contribution_quality_raw, contribution_cap), 1)
 
     # 4. Ecosystem & Maintainer Impact (20)
-    prestige = log_ratio(m["max_impact_repo_stars"], 100000) * 9
+    prestige = impact_prestige_signal(m) * 9
     depth = min(m["impact_depth_raw"] / 8.0, 1.0) * 11
     ecosystem_raw = prestige + depth
     sub["ecosystem_impact"] = round(
@@ -343,19 +416,18 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
             f"{external_trivial}/{sample} recent merged PRs are ≤5-line changes into others' "
             "≥200★ repos — garbage PR farming into popular community projects.",
         )
-    if _nz(m.get("pr_flood_suspect"), False):
+    flood_penalty = templated_pr_flood_penalty(m)
+    if flood_penalty is not None:
         flood_sample = _nz(m.get("recent_pr_sample"), 0)
         repo = _nz(m.get("top_repo_pr_target"), "one repo")
         share = _nz(m.get("top_repo_pr_share"), 0)
         templated = _nz(m.get("templated_pr_ratio"), 0)
-        severity = max(0.0, min(1.0, ((share - 0.5) / 0.5) * 0.5 + ((templated - 0.5) / 0.5) * 0.5))
-        flood_penalty = 12 + _math_round(18 * severity)
         flag(
             "templated_pr_flooding",
             flood_penalty,
             f"近期 {_math_round(share * 100)}% 的 PR 集中刷向 {repo}，"
             f"{_math_round(templated * 100)}% 标题高度模板化（{flood_sample} 个样本）"
-            " — 疑似 AI 批量生成 / 刷量洪水。",
+            " — 模式化批量贡献风险，需结合 diff 质量人工复核。",
         )
     rejected_prs = _nz(m.get("maintainer_closed_unmerged_pr_count"), _nz(m.get("closed_unmerged_pr_count"), 0))
     decided_prs = m["merged_pr_count"] + rejected_prs
