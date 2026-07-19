@@ -1,5 +1,5 @@
 import "./_env.mjs";
-import { readFileSync, appendFileSync, existsSync } from "node:fs";
+import { readFileSync, appendFileSync } from "node:fs";
 import { createClient } from "@libsql/client";
 import { collect } from "../src/lib/github";
 import { score, spamBotScore, tierFor } from "../src/lib/score";

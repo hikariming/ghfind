@@ -47,7 +47,7 @@ const scoreRows = lower.length
       sql: `SELECT username, final_score, hidden FROM scores WHERE username IN (${placeholders})`,
       args: lower,
     })
-  : { rows: [] as any[] };
+  : { rows: [] as Record<string, unknown>[] };
 const scored = new Map(scoreRows.rows.map((r) => [String(r.username), r]));
 
 const missing: string[] = [];
