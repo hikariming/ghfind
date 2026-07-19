@@ -13,6 +13,10 @@ describe("ADVX group QR", () => {
     expect(source).not.toContain("advx-wordmark");
   });
 
+  it("keeps the dark-theme tag on event-page refreshes", () => {
+    expect(source).toContain('href="/advx?theme=dark"');
+  });
+
   it("places the cropped QR after the campaign leaderboard", () => {
     const leaderboard = source.indexOf("<CampaignLeaderboard");
     const qr = source.indexOf('src="/advx-wechat-group-qr-source.jpg"');

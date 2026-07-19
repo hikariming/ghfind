@@ -140,7 +140,7 @@ export default async function AdventureXPage({
             <p className="mt-1 text-sm text-zinc-500">{copy.live}</p>
           </div>
           <Link
-            href="/advx"
+            href="/advx?theme=dark"
             className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
           >
             ↻ {copy.refresh}

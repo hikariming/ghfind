@@ -427,7 +427,7 @@ export default async function AccountPage({
         />
         {isAdvxCampaign ? (
           <Link
-            href="/advx"
+            href="/advx?theme=dark"
             prefetch={false}
             className="text-sm text-zinc-400 hover:text-zinc-200"
           >
