@@ -234,13 +234,3 @@ TURSO_DATABASE_URL=file:./local.db
 - 评分核心移植自开源 Claude 技能 `github-account-value`,保持单一事实来源。
 
 > **商标声明:** 「ghfind / 毒舌 GitHub 评分」名称、Logo 及域名**不在本开源协议授权范围内**,版权保留。你可以基于本代码自部署,但请勿使用本项目的名称/品牌冒充官方或制造混淆。
-
-## 星标历史
-
-<a href="https://www.star-history.com/?repos=hikariming%2Fghfind&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hikariming/ghfind&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hikariming/ghfind&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hikariming/ghfind&type=date&legend=top-left" />
- </picture>
-</a>
