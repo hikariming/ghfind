@@ -313,6 +313,28 @@ describe("roast API persistence", () => {
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
   });
 
+  it("fails closed for BYO roast requests before durable-status and scan-cache reads", async () => {
+    mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({
+          scan,
+          lang: "zh",
+          byoKey: { baseURL: "https://llm.example.test/v1", apiKey: "user-key", model: "test" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toMatchObject({ error: "rate_limit_unavailable", useByoKey: true });
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+  });
+
   it("never seeds a durable scan from an untrusted roast request body", async () => {
     mocks.requiresDurablePublicScan.mockReturnValue(true);
     mocks.startPublicScan.mockResolvedValue({

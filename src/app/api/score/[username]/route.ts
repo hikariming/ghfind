@@ -168,8 +168,12 @@ export async function GET(
   const statusHeaders = rateLimitHeaders(statusLimit);
   if (!statusLimit.success) {
     return json(
-      { error: "rate_limited", message: "too many status requests", hint: "retry after the Retry-After interval" },
-      429,
+      {
+        error: statusLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+        message: statusLimit.unavailable ? "request protection temporarily unavailable" : "too many status requests",
+        hint: "retry after the Retry-After interval",
+      },
+      statusLimit.unavailable ? 503 : 429,
       "no-store",
       statusHeaders,
     );
@@ -215,9 +219,13 @@ export async function GET(
     rlHeaders = rateLimitHeaders(limit);
     if (!limit.success) {
       return json(
-        { error: "rate_limited", message: "too many requests", hint: "retry after the Retry-After interval" },
-        429,
-        MISS_CACHE,
+        {
+          error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+          message: limit.unavailable ? "request protection temporarily unavailable" : "too many requests",
+          hint: "retry after the Retry-After interval",
+        },
+        limit.unavailable ? 503 : 429,
+        "no-store",
         rlHeaders,
       );
     }

@@ -27,7 +27,7 @@ export function GET() {
         "stable machine code, `message`/`hint` are human-readable. See the `Error` schema.\n\n" +
         "## Rate limits\n" +
         "Responses carry `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` headers; a " +
-        "`429` also carries `Retry-After`. Write calls accept an `Idempotency-Key` request header " +
+        "`429` and temporary request-protection `503` responses carry `Retry-After`. Write calls accept an `Idempotency-Key` request header " +
         "(scans are idempotent per username).\n\n" +
         "## Versioning & stability\n" +
         "The API is unversioned (`/api/*`) and evolves additively: new fields may be added, but " +
@@ -90,7 +90,7 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "503": { description: "GitHub temporarily unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -148,7 +148,7 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "503": { description: "GitHub temporarily unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -186,8 +186,9 @@ export function GET() {
               },
             },
             "202": { description: "Collection remains in progress", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "429": { description: "Status polling rate limited", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "404": { description: "No durable scan has been requested", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "503": { description: "Durable run failed or its queue is unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Durable run or request protection unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -236,6 +237,11 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
+            "503": {
+              description: "Request protection temporarily unavailable",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
           },
         },
       },
@@ -272,6 +278,16 @@ export function GET() {
             "404": {
               description: "One or both accounts not scored",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
+            "429": {
+              description: "Verdict generation rate limited",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/VsVerdictResponse" } } },
+            },
+            "503": {
+              description: "Request protection temporarily unavailable",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/VsVerdictResponse" } } },
             },
           },
         },
@@ -398,7 +414,7 @@ export function GET() {
         "RateLimit-Limit": { description: "Request quota for the window", schema: { type: "integer" } },
         "RateLimit-Remaining": { description: "Requests remaining in the window", schema: { type: "integer" } },
         "RateLimit-Reset": { description: "Seconds until the window resets", schema: { type: "integer" } },
-        "Retry-After": { description: "Seconds to wait before retrying (on 429)", schema: { type: "integer" } },
+        "Retry-After": { description: "Seconds to wait before retrying (on retryable 429/503 responses)", schema: { type: "integer" } },
       },
       schemas: {
         Error: {
@@ -414,6 +430,7 @@ export function GET() {
                 "invalid_username",
                 "turnstile_failed",
                 "rate_limited",
+                "rate_limit_unavailable",
                 "account_not_found",
                 "github_rate_limited",
                 "github_unavailable",

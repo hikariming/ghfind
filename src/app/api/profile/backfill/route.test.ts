@@ -72,4 +72,22 @@ describe("profile backfill rate-limit ordering", () => {
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
     expect(mocks.collect).not.toHaveBeenCalled();
   });
+
+  it("fails closed before any database read when request protection is unavailable", async () => {
+    mocks.checkRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/profile/backfill", {
+        method: "POST",
+        body: JSON.stringify({ username: "DemoDev" }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toEqual({ error: "rate_limit_unavailable" });
+    expect(mocks.getScoreBrief).not.toHaveBeenCalled();
+    expect(mocks.hasProfileSnapshot).not.toHaveBeenCalled();
+  });
 });

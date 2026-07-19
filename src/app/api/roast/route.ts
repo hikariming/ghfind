@@ -652,9 +652,9 @@ export async function POST(req: NextRequest) {
   const requestLimit = await checkRoastRequestRateLimit(clientIp(req));
   if (!requestLimit.success) {
     return NextResponse.json(
-      { error: "rate_limited", useByoKey: true },
+      { error: requestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
       {
-        status: 429,
+        status: requestLimit.unavailable ? 503 : 429,
         headers: { ...rateLimitHeaders(requestLimit), "Cache-Control": "no-store" },
       },
     );
@@ -810,11 +810,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { success } = await checkRoastRateLimit(clientIp(req));
-    if (!success) {
+    const generationLimit = await checkRoastRateLimit(clientIp(req));
+    if (!generationLimit.success) {
       return NextResponse.json(
-        { error: "rate_limited", useByoKey: true },
-        { status: 429 },
+        { error: generationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
+        {
+          status: generationLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(generationLimit), "Cache-Control": "no-store" },
+        },
       );
     }
     // Single-flight: become the lone generator, or wait for whoever already is.

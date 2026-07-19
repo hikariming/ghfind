@@ -183,7 +183,7 @@ facts.
 
 ## Environment variables
 
-See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, and the leaderboard **degrade silently** when unconfigured (fine for local). Configure everything for production.
+See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, and the leaderboard **degrade silently** when unconfigured in local development. Production requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`: when the limiter is unavailable, only protected uncached cost-bearing routes return `503` with `Retry-After`; edge-cached responses and ordinary browsing continue. `RATE_LIMIT_FAIL_OPEN=1` is an emergency operator override and should not be set during normal operation.
 
 ## Leaderboard + percentile (Turso, optional)
 

@@ -60,6 +60,18 @@ describe("durable scan status API", () => {
     expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
   });
 
+  it("returns a retryable 503 before Turso when request protection is unavailable", async () => {
+    mocks.checkPublicScanStatusRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await request("durable-status-case");
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toEqual({ error: "rate_limit_unavailable", retry_after: 15 });
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+  });
+
   it("returns a complete snapshot only after public collection finishes", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "complete",

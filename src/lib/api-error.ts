@@ -12,6 +12,7 @@ export type ApiErrorCode =
   | "invalid_username"
   | "turnstile_failed"
   | "rate_limited"
+  | "rate_limit_unavailable"
   | "account_not_found"
   | "github_rate_limited"
   | "github_unavailable"
@@ -29,6 +30,7 @@ const HINTS: Partial<Record<ApiErrorCode, string>> = {
   invalid_username: "Pass a valid GitHub login (letters, digits, single hyphens).",
   turnstile_failed: "Complete the browser verification, or call with a Bearer API key.",
   rate_limited: "Slow down and retry after the Retry-After interval.",
+  rate_limit_unavailable: "Request protection is temporarily unavailable — retry after the Retry-After interval.",
   account_not_found: "That GitHub login does not exist.",
   github_rate_limited: "GitHub's API is rate limited right now — retry shortly.",
   github_unavailable: "GitHub is temporarily unavailable — retry later.",

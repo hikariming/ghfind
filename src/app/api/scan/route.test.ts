@@ -186,6 +186,19 @@ describe("scan route machine auth", () => {
     expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
   });
 
+  it("fails closed before cache and lookup work when production rate limiting is unavailable", async () => {
+    mocks.checkRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toMatchObject({ error: "rate_limit_unavailable" });
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
+  });
+
   it("serves cache hits with RateLimit headers once the limiter passes", async () => {
     mocks.rateLimitHeaders.mockReturnValue({ "RateLimit-Remaining": "9" });
     mocks.getCachedScan.mockResolvedValue({ metrics, scoring });

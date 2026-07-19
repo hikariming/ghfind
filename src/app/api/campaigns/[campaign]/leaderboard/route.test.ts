@@ -44,6 +44,21 @@ describe("campaign leaderboard public guardrails", () => {
     expect(mocks.getCampaignLeaderboard).not.toHaveBeenCalled();
   });
 
+  it("fails closed before the leaderboard database query when request protection is unavailable", async () => {
+    mocks.checkRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await GET(
+      new NextRequest("https://example.test/api/campaigns/advx/leaderboard"),
+      context,
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toEqual({ error: "rate_limit_unavailable" });
+    expect(mocks.getCampaignLeaderboard).not.toHaveBeenCalled();
+  });
+
   it("canonicalizes cache-busting query strings before Turso", async () => {
     const response = await GET(
       new NextRequest("https://example.test/api/campaigns/advx/leaderboard?limit=0100&utm=x"),

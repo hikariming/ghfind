@@ -119,6 +119,18 @@ describe("score durable scan guardrails", () => {
     expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
   });
 
+  it("fails closed before a durable status lookup when request protection is unavailable", async () => {
+    mocks.checkPublicScanStatusRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await request();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toMatchObject({ error: "rate_limit_unavailable" });
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+  });
+
   it("starts one response-side step only for a newly created durable job", async () => {
     mocks.getCachedScan.mockResolvedValue(quickScan);
     mocks.requiresDurablePublicScan.mockReturnValue(true);

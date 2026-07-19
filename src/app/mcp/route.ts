@@ -48,8 +48,13 @@ async function guarded(
   extra: Extra,
   run: () => Promise<unknown>,
 ): Promise<ReturnType<typeof jsonResult>> {
-  const { success } = await checkMcpRateLimit(ipFrom(extra));
-  if (!success) {
+  const limit = await checkMcpRateLimit(ipFrom(extra));
+  if (!limit.success) {
+    if (limit.unavailable) {
+      return errorResult(
+        `rate_limit_unavailable: request protection is temporarily unavailable; retry in ${limit.retryAfter ?? 15} seconds`,
+      );
+    }
     return errorResult("rate_limited: too many requests, slow down and retry in a minute");
   }
   return jsonResult(await run());

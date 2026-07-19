@@ -46,6 +46,19 @@ describe("facet-rank public guardrails", () => {
     expect(mocks.getFacetRank).not.toHaveBeenCalled();
   });
 
+  it("fails closed before both database reads when request protection is unavailable", async () => {
+    mocks.checkRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await GET(new NextRequest("https://example.test/api/facet-rank/DemoDev"), context);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toEqual({ error: "rate_limit_unavailable" });
+    expect(mocks.getScoreBrief).not.toHaveBeenCalled();
+    expect(mocks.getFacetRank).not.toHaveBeenCalled();
+  });
+
   it("CDN-caches null ranks after the limiter passes", async () => {
     mocks.getScoreBrief.mockResolvedValue(null);
 

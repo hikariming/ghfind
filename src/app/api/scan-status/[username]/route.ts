@@ -34,8 +34,11 @@ export async function GET(
   const headers = rateLimitHeaders(limit);
   if (!limit.success) {
     return NextResponse.json(
-      { error: "rate_limited", retry_after: Number(headers["Retry-After"] ?? 1) },
-      { status: 429, headers: { ...headers, "Cache-Control": "no-store" } },
+      {
+        error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+        retry_after: Number(headers["Retry-After"] ?? 1),
+      },
+      { status: limit.unavailable ? 503 : 429, headers: { ...headers, "Cache-Control": "no-store" } },
     );
   }
 

@@ -11,6 +11,7 @@ import {
   acquireVerdictLock,
   checkVerdictRateLimit,
   getCachedVerdict,
+  rateLimitHeaders,
   releaseVerdictLock,
   setCachedVerdict,
   waitForCachedVerdict,
@@ -60,11 +61,14 @@ export async function POST(req: NextRequest) {
   // Enforce the request budget before BotID and every Turso read/write. The
   // cached verdict is already present in the SSR page, so a retry that exceeds
   // the budget can safely keep rendering the deterministic fallback.
-  const { success } = await checkVerdictRateLimit(clientIp(req));
-  if (!success) {
+  const limit = await checkVerdictRateLimit(clientIp(req));
+  if (!limit.success) {
     return NextResponse.json(
-      { verdict: null, reason: "rate_limited" },
-      { status: 429, headers: { "Cache-Control": "no-store" } },
+      { verdict: null, reason: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
+      {
+        status: limit.unavailable ? 503 : 429,
+        headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" },
+      },
     );
   }
 

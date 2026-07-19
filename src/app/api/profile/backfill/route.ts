@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
   const limit = await checkRateLimit(ip);
   if (!limit.success) {
     return NextResponse.json(
-      { error: "rate_limited" },
+      { error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
       {
-        status: 429,
+        status: limit.unavailable ? 503 : 429,
         headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" },
       },
     );

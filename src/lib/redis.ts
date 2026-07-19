@@ -1,11 +1,11 @@
 /**
  * Upstash Redis cache + rate limiting.
  *
- * Both are optional: if the env vars are absent (e.g. local dev), caching and
- * rate limiting silently no-op so the app still runs. Caching scan results by
- * username is the primary cost lever — popular accounts get scanned repeatedly
- * when a report is shared, and a cache hit avoids both GitHub API calls and an
- * LLM call.
+ * Cache reads are always best-effort. Rate limiting also no-ops locally, but a
+ * production deployment fails closed for protected cost-bearing routes when its
+ * Redis limiter is unavailable. Caching scan results by username is the primary
+ * cost lever — popular accounts get scanned repeatedly when a report is shared,
+ * and a cache hit avoids both GitHub API calls and an LLM call.
  */
 
 import { Ratelimit } from "@upstash/ratelimit";
@@ -36,6 +36,39 @@ let roastMinuteLimiter: Ratelimit | null = null;
 let roastDayLimiter: Ratelimit | null = null;
 let verdictMinuteLimiter: Ratelimit | null = null;
 let verdictDayLimiter: Ratelimit | null = null;
+
+export const RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS = 15;
+const LIMITER_UNAVAILABLE_LOG_INTERVAL_MS = 60_000;
+const limiterUnavailableLogAt = new Map<string, number>();
+
+function isProductionDeployment(): boolean {
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
+  );
+}
+
+function logRateLimitUnavailable(limiter: string, reason: string): void {
+  const now = Date.now();
+  const last = limiterUnavailableLogAt.get(limiter) ?? 0;
+  if (now - last < LIMITER_UNAVAILABLE_LOG_INTERVAL_MS) return;
+  limiterUnavailableLogAt.set(limiter, now);
+  console.error("rate_limit_unavailable", { limiter, reason });
+}
+
+function unavailableRateLimitResult(limiter: string, reason: string): RateLimitResult {
+  if (!isProductionDeployment()) return { success: true };
+  if (process.env.RATE_LIMIT_FAIL_OPEN === "1") {
+    logRateLimitUnavailable(limiter, "operator_fail_open_override");
+    return { success: true };
+  }
+  logRateLimitUnavailable(limiter, reason);
+  return {
+    success: false,
+    unavailable: true,
+    retryAfter: RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS,
+  };
+}
 
 function getRedis(): Redis | null {
   if (redis) return redis;
@@ -181,6 +214,10 @@ export interface RateLimitResult {
   limit?: number;
   remaining?: number;
   reset?: number;
+  /** The limiter infrastructure could not be used, distinct from a spent budget. */
+  unavailable?: boolean;
+  /** A short retry interval for an unavailable limiter. */
+  retryAfter?: number;
 }
 
 /**
@@ -189,6 +226,11 @@ export interface RateLimitResult {
  * limiter no-op'd (no Redis), so it's safe to always spread into headers.
  */
 export function rateLimitHeaders(result: RateLimitResult): Record<string, string> {
+  if (result.unavailable) {
+    return {
+      "Retry-After": String(result.retryAfter ?? RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS),
+    };
+  }
   if (result.limit === undefined || result.reset === undefined) return {};
   const resetSeconds = Math.max(0, Math.ceil((result.reset - Date.now()) / 1000));
   const headers: Record<string, string> = {
@@ -200,10 +242,10 @@ export function rateLimitHeaders(result: RateLimitResult): Record<string, string
   return headers;
 }
 
-/** Per-IP sliding-window limiter for scans. No-ops when Redis is unconfigured. */
+/** Per-IP sliding-window limiter for scan and bounded public-read routes. */
 export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("scan", "missing_redis_config");
   if (!scanLimiter) {
     scanLimiter = new Ratelimit({
       redis: r,
@@ -215,8 +257,11 @@ export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
   try {
     const { success, limit, remaining, reset } = await scanLimiter.limit(ip);
     return { success, limit, remaining, reset };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "scan",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 
@@ -228,7 +273,7 @@ export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
  */
 export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("public_scan_status", "missing_redis_config");
   if (!publicScanStatusLimiter) {
     publicScanStatusLimiter = new Ratelimit({
       redis: r,
@@ -240,8 +285,11 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
   try {
     const { success, limit, remaining, reset } = await publicScanStatusLimiter.limit(ip);
     return { success, limit, remaining, reset };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "public_scan_status",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 
@@ -252,7 +300,7 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
  */
 export async function checkRoastRequestRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("roast_request", "missing_redis_config");
   if (!roastRequestLimiter) {
     roastRequestLimiter = new Ratelimit({
       redis: r,
@@ -264,19 +312,22 @@ export async function checkRoastRequestRateLimit(ip: string): Promise<RateLimitR
   try {
     const { success, limit, remaining, reset } = await roastRequestLimiter.limit(ip);
     return { success, limit, remaining, reset };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "roast_request",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 
 /**
  * Per-IP limiter for the MCP server. Tighter than the web scan limiter — the
  * tools are unauthenticated and callable in a loop by an autonomous agent, so we
- * cap harder to protect the GitHub token and DB. No-ops when Redis is absent.
+ * cap harder to protect the GitHub token and DB.
  */
-export async function checkMcpRateLimit(ip: string): Promise<{ success: boolean }> {
+export async function checkMcpRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("mcp", "missing_redis_config");
   if (!mcpLimiter) {
     mcpLimiter = new Ratelimit({
       redis: r,
@@ -288,8 +339,11 @@ export async function checkMcpRateLimit(ip: string): Promise<{ success: boolean 
   try {
     const { success } = await mcpLimiter.limit(ip);
     return { success };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "mcp",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 
@@ -298,9 +352,9 @@ export async function checkMcpRateLimit(ip: string): Promise<{ success: boolean 
  * operator's credit, so it's limited tighter than scans: a burst window and a
  * daily cap. Only gates the default model; BYO keys are not limited.
  */
-export async function checkRoastRateLimit(ip: string): Promise<{ success: boolean }> {
+export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("roast_generation", "missing_redis_config");
   if (!roastMinuteLimiter) {
     roastMinuteLimiter = new Ratelimit({
       redis: r,
@@ -323,8 +377,11 @@ export async function checkRoastRateLimit(ip: string): Promise<{ success: boolea
       roastDayLimiter.limit(ip),
     ]);
     return { success: minute.success && day.success };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "roast_generation",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 
@@ -593,9 +650,9 @@ export async function waitForCachedVerdict(
 }
 
 /** Per-IP limiter for the PK verdict LLM call (operator credit). Burst + daily. */
-export async function checkVerdictRateLimit(ip: string): Promise<{ success: boolean }> {
+export async function checkVerdictRateLimit(ip: string): Promise<RateLimitResult> {
   const r = getRedis();
-  if (!r) return { success: true };
+  if (!r) return unavailableRateLimitResult("vs_verdict", "missing_redis_config");
   if (!verdictMinuteLimiter) {
     verdictMinuteLimiter = new Ratelimit({
       redis: r,
@@ -618,8 +675,11 @@ export async function checkVerdictRateLimit(ip: string): Promise<{ success: bool
       verdictDayLimiter.limit(ip),
     ]);
     return { success: minute.success && day.success };
-  } catch {
-    return { success: true };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "vs_verdict",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
   }
 }
 

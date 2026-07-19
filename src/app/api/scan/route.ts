@@ -173,7 +173,10 @@ export async function POST(req: NextRequest) {
   const limit = await checkRateLimit(ip);
   const rlHeaders = rateLimitHeaders(limit);
   if (!limit.success) {
-    return apiError("rate_limited", { status: 429, headers: { ...idem, ...rlHeaders } });
+    return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
+      status: limit.unavailable ? 503 : 429,
+      headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
+    });
   }
 
   // Cache hit short-circuits both GitHub and (later) the LLM. The leaderboard
