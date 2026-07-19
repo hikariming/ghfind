@@ -357,11 +357,12 @@ describe("roast API persistence", () => {
     });
     expect(mocks.startPublicScan).toHaveBeenCalledWith("DemoDev", expect.any(Object));
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
     expect(mocks.recordScore).not.toHaveBeenCalled();
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
   });
 
-  it("does not advance an existing durable scan when a roast is retried", async () => {
+  it("advances an existing durable scan when a roast is retried", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "pending",
       run: { id: "active-run", username: "DemoDev" },
@@ -377,7 +378,7 @@ describe("roast API persistence", () => {
     );
 
     expect(response.status).toBe(409);
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
   });
 

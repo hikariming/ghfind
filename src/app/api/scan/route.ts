@@ -62,6 +62,7 @@ function durableStatusResponse(input: {
   headers: Record<string, string>;
 }) {
   if (input.resolution.status === "pending") {
+    kickPublicScanDrain();
     return NextResponse.json(
       {
         error: "scan_enrichment_pending",
@@ -110,9 +111,6 @@ async function durableResponse(input: {
     input.scan,
     input.admission,
   );
-  if (resolution.status === "pending" && resolution.shouldDrain) {
-    kickPublicScanDrain();
-  }
   if (resolution.status === "complete") {
     return NextResponse.json(
       { ...resolution.scan, cached: true, coverage: "complete_public" },

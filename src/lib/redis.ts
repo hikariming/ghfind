@@ -741,7 +741,7 @@ const LEADERBOARD_WINDOWS: LeaderboardWindow[] = ["24h", "7d", "30d", "all"];
 // One Redis entry per (view, window) pair — 4 × 4 = 16 keys, each a slow-moving
 // 500-row payload. A hit skips the triple-LEFT-JOIN DB read entirely.
 const leaderboardKey = (view: LeaderboardCacheView, window: LeaderboardWindow) =>
-  `leaderboard:${view}:${window}`;
+  `leaderboard:${SCORE_CACHE_VERSION}:${view}:${window}`;
 const LEADERBOARD_TTL_SECONDS = 300; // 5 min — board moves slowly; fewer DB reads
 
 export async function getCachedLeaderboard(
