@@ -104,6 +104,13 @@ export default function proxy(req: NextRequest) {
     (l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`),
   );
 
+  if (pathname === "/zh" || pathname.startsWith("/zh/")) {
+    const res = NextResponse.next();
+    ensureCookie(res, "zh");
+    appendAgentLink(res);
+    return res;
+  }
+
   // Already on a locale-prefixed path: render it and remember the choice so a
   // later visit to the bare root honors it.
   if (pathLocale) {
@@ -129,7 +136,9 @@ export default function proxy(req: NextRequest) {
     return res;
   }
 
-  const res = handleI18n(req);
+  const rewriteUrl = req.nextUrl.clone();
+  rewriteUrl.pathname = pathname === "/" ? "/zh" : `/zh${pathname}`;
+  const res = NextResponse.rewrite(rewriteUrl);
   ensureCookie(res, "zh");
   appendAgentLink(res);
   if (isHome) appendVaryAccept(res);
