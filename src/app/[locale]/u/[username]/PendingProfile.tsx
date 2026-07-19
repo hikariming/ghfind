@@ -10,6 +10,7 @@ import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { bcp47 } from "@/lib/site";
+import { rankProfileWorks } from "@/lib/profile-work";
 import type { RoastMeta, ScanResult, SubScoreKey } from "@/lib/types";
 
 /**
@@ -107,7 +108,13 @@ export function PendingProfile({
   const impactRepos = [...(scan.impact_repos ?? [])]
     .sort((a, b) => b.stars - a.stars)
     .slice(0, 6);
-  const featuredRepos = [...scan.top_repos].sort((a, b) => b.stars - a.stars).slice(0, 6);
+  const representativeWorks = rankProfileWorks({
+    username: metrics.username,
+    topRepos: scan.top_repos,
+    impactRepos: scan.impact_repos,
+    pinnedRepos: scan.pinned_repos,
+    signatureWork: scan.signature_work,
+  });
   const organizations = scan.organizations ?? [];
 
   return (
@@ -232,35 +239,41 @@ export function PendingProfile({
               />
             </section>
 
-            {featuredRepos.length > 0 && (
+            {representativeWorks.length > 0 && (
               <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
                 <h2 className="mb-1 text-base font-bold text-zinc-200">{t("worksHeading")}</h2>
                 <p className="mb-4 text-xs text-zinc-400">{t("worksSub")}</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {featuredRepos.map((r) => (
-                    <a
-                      key={r.name}
-                      href={`https://github.com/${metrics.username}/${r.name}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
-                          {r.name}
-                        </span>
-                        <span className="shrink-0 text-xs tabular-nums text-zinc-400">
-                          ⭐ {nf.format(r.stars)}
-                        </span>
-                      </div>
-                      {r.description && (
-                        <p className="line-clamp-2 text-xs text-zinc-400">{r.description}</p>
-                      )}
-                      {r.language && (
-                        <span className="text-[11px] text-zinc-400">{r.language}</span>
-                      )}
-                    </a>
-                  ))}
+                  {representativeWorks.map((work) => {
+                    const evidence = work.examples?.[0] ?? work.description;
+                    return (
+                      <a
+                        key={work.repo}
+                        href={`https://github.com/${work.repo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
+                            {work.repo}
+                          </span>
+                          <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                            ⭐ {nf.format(work.stars)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-zinc-500">
+                          {work.prs ? <span>{nf.format(work.prs)} {t("prs")}</span> : null}
+                          {work.commits ? <span>{nf.format(work.commits)} {t("commits")}</span> : null}
+                          {work.orgContextRepo ? <span>↔ {work.orgContextRepo}</span> : null}
+                          {work.language ? <span>{work.language}</span> : null}
+                        </div>
+                        {evidence && (
+                          <p className="line-clamp-2 text-xs text-zinc-400">{evidence}</p>
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
               </section>
             )}

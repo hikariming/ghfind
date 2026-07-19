@@ -51,6 +51,7 @@ import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { auth, authConfigured } from "@/lib/auth";
 import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
+import { rankProfileWorks } from "@/lib/profile-work";
 
 /** True when a Referer header points at github.com (or a subdomain). GitHub sends
  *  `strict-origin-when-cross-origin`, so we only ever see the bare origin — enough
@@ -301,25 +302,18 @@ export default async function AccountPage({
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<(typeof DIMENSIONS)[number], string>;
 
-  // Evidence blocks (only when a sedimented snapshot exists). Featured work =
-  // the user's own top repos, with self-pinned repos floated to the front.
+  // Evidence blocks (only when a sedimented snapshot exists).
   const impactRepos = snap
     ? [...snap.impact_repos].sort((a, b) => b.stars - a.stars).slice(0, 6)
     : [];
-  const pinnedNames = new Set(
-    (snap?.pinned_repos ?? [])
-      .map((p) => p.split("/").pop()?.toLowerCase())
-      .filter((n): n is string => Boolean(n)),
-  );
-  const featuredRepos = snap
-    ? [...snap.top_repos]
-        .sort((a, b) => {
-          const ap = pinnedNames.has(a.name.toLowerCase()) ? 1 : 0;
-          const bp = pinnedNames.has(b.name.toLowerCase()) ? 1 : 0;
-          if (ap !== bp) return bp - ap;
-          return b.stars - a.stars;
-        })
-        .slice(0, 6)
+  const representativeWorks = snap
+    ? rankProfileWorks({
+        username: d.username,
+        topRepos: snap.top_repos,
+        impactRepos: snap.impact_repos,
+        pinnedRepos: snap.pinned_repos,
+        signatureWork: snap.signature_work,
+      })
     : [];
   const languages = snap ? aggregateLanguages(snap.top_repos) : [];
   const topics = snap ? collectTopics(snap.top_repos) : [];
@@ -327,14 +321,12 @@ export default async function AccountPage({
   // Repo cards route into their internal project page (reclaiming the click that
   // otherwise leaks to github.com) — but only where a project page has content,
   // i.e. the repo exists as a first-class `repos` row. One indexed lookup over
-  // both featured (own) and impact (contributed) repos; failure → empty set → all
+  // both representative and impact repos; failure → empty set → all
   // cards keep their external GitHub links (pre-Phase-B behavior).
-  const featuredKey = (r: (typeof featuredRepos)[number]) =>
-    (r.name_with_owner ?? `${d.username}/${r.name}`).toLowerCase();
   const existingRepoKeys = snap
     ? await filterExistingRepoKeys([
-        ...featuredRepos.map(featuredKey),
         ...impactRepos.map((r) => r.repo.toLowerCase()),
+        ...representativeWorks.map((r) => r.repo.toLowerCase()),
       ])
     : new Set<string>();
   /** Locale-relative internal project page path for an "owner/name" key. */
@@ -758,39 +750,43 @@ export default async function AccountPage({
         />
       </section>
 
-      {/* Featured work — the user's own popular repos, self-pinned floated up. */}
-      {featuredRepos.length > 0 && (
+      {/* Representative work: concrete contribution first, stars second. */}
+      {representativeWorks.length > 0 && (
         <section className={contentSectionClass}>
           <h2 className="mb-1 text-base font-bold text-zinc-200">{t("worksHeading")}</h2>
           <p className="mb-4 text-xs text-zinc-400">{t("worksSub")}</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {featuredRepos.map((r) => {
-              const key = featuredKey(r);
+            {representativeWorks.map((work) => {
+              const key = work.repo.toLowerCase();
               const internal = existingRepoKeys.has(key);
               const cardClass = isAdvxCampaign
                 ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-3 hover:bg-white/[0.06]"
                 : "flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+              const evidence = work.examples?.[0] ?? work.description;
               const inner = (
                 <>
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
-                      {r.name}
+                      {work.repo}
                     </span>
                     <span className="shrink-0 text-xs tabular-nums text-zinc-400">
-                      ⭐ {nf.format(r.stars)}
+                      ⭐ {nf.format(work.stars)}
                     </span>
                   </div>
-                  {r.description && (
-                    <p className="line-clamp-2 text-xs text-zinc-400">{r.description}</p>
-                  )}
-                  {r.language && (
-                    <span className="text-[11px] text-zinc-400">{r.language}</span>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-zinc-500">
+                    {work.prs ? <span>{nf.format(work.prs)} {t("prs")}</span> : null}
+                    {work.commits ? <span>{nf.format(work.commits)} {t("commits")}</span> : null}
+                    {work.orgContextRepo ? <span>↔ {work.orgContextRepo}</span> : null}
+                    {work.language ? <span>{work.language}</span> : null}
+                  </div>
+                  {evidence && (
+                    <p className="line-clamp-2 text-xs text-zinc-400">{evidence}</p>
                   )}
                 </>
               );
               return internal ? (
                 <RepoCardLink
-                  key={r.name}
+                  key={work.repo}
                   href={repoHref(key)}
                   repo={key}
                   surface="featured"
@@ -800,8 +796,8 @@ export default async function AccountPage({
                 </RepoCardLink>
               ) : (
                 <a
-                  key={r.name}
-                  href={`https://github.com/${d.username}/${r.name}`}
+                  key={work.repo}
+                  href={`https://github.com/${work.repo}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cardClass}

@@ -7,6 +7,7 @@
  */
 import type { ProfileSnapshotView } from "@/lib/db";
 import { TIER_EN } from "@/lib/badge";
+import { rankProfileWorks } from "@/lib/profile-work";
 import { SPONSOR } from "@/lib/sponsor";
 import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "@/lib/tier";
 import type { TierAvatarFramePlacement } from "@/lib/tier";
@@ -668,26 +669,32 @@ function PathCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
   );
 }
 
-/** #5 代表作卡 — your own highest-star original repos. */
+/** #5 signature-work card — concrete contribution first, stars second. */
 function WorkCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
   const { palette } = id;
-  const repos = [...snap.top_repos].sort((a, b) => b.stars - a.stars).slice(0, 4);
-  const count = snap.metrics.original_repo_count || snap.top_repos.length;
+  const repos = rankProfileWorks({
+    username: id.username,
+    topRepos: snap.top_repos,
+    impactRepos: snap.impact_repos,
+    pinnedRepos: snap.pinned_repos,
+    signatureWork: snap.signature_work,
+  }, 4);
+  const count = snap.signature_work?.work_clusters.length || snap.metrics.impact_repo_count || snap.top_repos.length;
   return (
     <Shell glow={glowFor(id)} palette={palette} qr={id.qr}>
       <VariantHeader id={id} />
       <div style={{ display: "flex", flexDirection: "column" }}>
         <BodyTitle
           title="Signature work"
-          subtitle={`⭐${fmtNum(snap.metrics.total_stars)} total · ${fmtNum(count)} original repos`}
+          subtitle={`${fmtNum(count)} representative repos · contribution-first`}
           palette={palette}
         />
         <div style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>
           {repos.map((r) => (
             <ListRow
-              key={r.name_with_owner || r.name}
-              left={r.name}
-              right={`⭐ ${fmtNum(r.stars)}${r.language ? `   ·   ${r.language}` : ""}`}
+              key={r.repo}
+              left={r.repo}
+              right={`⭐ ${fmtNum(r.stars)}${r.prs ? `   ·   ${fmtNum(r.prs)} PRs` : ""}`}
               palette={palette}
             />
           ))}
@@ -713,7 +720,11 @@ export function variantHasData(
     case "path":
       return snap.metrics.account_age_years > 0 || snap.metrics.created_at !== null;
     case "work":
-      return snap.top_repos.length > 0;
+      return (
+        snap.top_repos.length > 0 ||
+        snap.impact_repos.length > 0 ||
+        (snap.signature_work?.work_clusters.length ?? 0) > 0
+      );
     default:
       return false;
   }

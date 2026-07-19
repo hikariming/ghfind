@@ -243,7 +243,7 @@
     "impactHeading": "🏆 Notable contributions",
     "impactSub": "Popular open-source repos they've shipped to (commits + PRs)",
     "worksHeading": "🛠 Featured work",
-    "worksSub": "Their own popular and pinned repositories",
+    "worksSub": "Representative repos ranked by concrete contribution first, stars second",
     "stackHeading": "🧬 Stack & domains",
     "stackLangLabel": "Top languages",
     "stackTopicsLabel": "Domains",
