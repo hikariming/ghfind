@@ -182,6 +182,10 @@ async function* streamText(text: string): AsyncGenerator<{ type: "content"; text
   yield { type: "content", text };
 }
 
+async function* streamChunks(chunks: string[]): AsyncGenerator<{ type: "content"; text: string }> {
+  for (const text of chunks) yield { type: "content", text };
+}
+
 const scan: ScanResult = {
   metrics: {
     username: "DemoDev",
@@ -404,8 +408,8 @@ describe("roast API persistence", () => {
     expect(mocks.recordScore).toHaveBeenCalledWith(
       expect.objectContaining({
         username: "DemoDev",
-        final_score: 71,
-        tier: "人上人",
+        final_score: 68,
+        tier: "NPC",
         tags: { zh: ["进步", "维护者"], en: ["improving", "maintainer"] },
         roast_line: { zh: "稳步进步。", en: "Steady improvement." },
       }),
@@ -418,7 +422,249 @@ describe("roast API persistence", () => {
     expect(mocks.chatStreamEvents).toHaveBeenCalledTimes(1);
   });
 
-  it("calibrates and writes an English roast in one model call", async () => {
+  it("softens unsupported farming claims for strong core-impact accounts", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=PR刷子,AI代笔|en=PR Spammer,PR Farmer@@",
+          "@@ROAST zh=靠刷PR混到顶级档位，水分很大。|en=PR Spammer with ghostwriting.@@",
+          "## 毒舌点评",
+          "这是低质量贡献刷量，含水量不低，有水分，模板化刷测试覆盖率，批量刷向目标仓库，刷存在感，蹭外部项目，KPI味很重，没混上提交权限，没混上写源码的权限，没有提交权限，没有commit权限，没有commit贡献记录，贡献深度存疑，还AI代笔不嫌丢人。",
+        ].join("\n"),
+      ),
+    );
+    const strongCoreScan: ScanResult = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        core_impact_pr_count: 50,
+        doc_like_impact_pr_count: 0,
+        impact_pr_count: 600,
+        impact_commit_count: 0,
+        recent_external_doc_like_pr_ratio: 0,
+        pr_rejection_rate: 0.08,
+      },
+      scoring: {
+        ...scan.scoring,
+        final_score: 82.4,
+        tier: "顶级",
+        tier_label: "顶级开发者 · 一线水准",
+      },
+    };
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan: strongCoreScan, lang: "zh" }),
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).toContain("模式化贡献");
+    expect(body).toContain("争议点");
+    expect(body).toContain("批量投向目标仓库");
+    expect(body).toContain("借外部项目做曝光");
+    expect(body).toContain("依赖外部项目");
+    expect(body).toContain("没有直接 commit 信号");
+    expect(body).toContain("但 PR 贡献样本足够扎实");
+    expect(body).toContain("AI辅助");
+    expect(body).not.toContain("PR刷子");
+    expect(body).not.toContain("刷");
+    expect(body).not.toContain("刷量");
+    expect(body).not.toContain("批量刷向");
+    expect(body).not.toContain("含水量");
+    expect(body).not.toContain("水分");
+    expect(body).not.toContain("刷存在感");
+    expect(body).not.toContain("蹭外部项目");
+    expect(body).not.toContain("蹭");
+    expect(body).not.toContain("KPI");
+    expect(body).not.toContain("没混上提交权限");
+    expect(body).not.toContain("没混上写源码的权限");
+    expect(body).not.toContain("没有提交权限");
+    expect(body).not.toContain("没有commit权限");
+    expect(body).not.toContain("没有commit贡献记录");
+    expect(body).not.toContain("贡献深度存疑");
+    expect(body).not.toContain("不嫌丢人");
+    expect(mocks.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tags: { zh: ["模式PR工", "AI辅助"], en: ["Pattern PR"] },
+        roast_line: {
+          zh: "靠批量提PR站到顶级档位，争议点很大。",
+          en: "Pattern PR with AI assistance.",
+        },
+      }),
+    );
+    expect(mocks.updateRoast).toHaveBeenCalledWith(
+      "DemoDev",
+      expect.not.stringContaining("刷量"),
+      "zh",
+    );
+  });
+
+  it("removes internal score-cap phrasing from generated reports", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=普通账号|en=average@@",
+          "@@ROAST zh=生态证据偏弱。|en=Weak ecosystem evidence.@@",
+          "## 毒舌点评",
+          "高星仓库生态影响被硬压到4/20，生态影响被压4/20，按规则扣分，被评分引擎压到了4分，被评分引擎直接压到4/20，被评分引擎压，被评分引擎封顶到低档。",
+        ].join("\n"),
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).toContain("高星仓库生态影响只有4/20");
+    expect(body).toContain("数据上吃亏");
+    expect(body).toContain("这项表现偏弱");
+    expect(body).not.toContain("硬压到");
+    expect(body).not.toContain("被压到");
+    expect(body).not.toContain("压到了");
+    expect(body).not.toContain("按规则扣分");
+    expect(body).not.toContain("评分引擎");
+    expect(body).not.toContain("被压4/20");
+    expect(body).not.toContain("被评分现偏弱");
+    expect(body).not.toContain("被有4/20");
+    expect(mocks.updateRoast).toHaveBeenCalledWith(
+      "DemoDev",
+      expect.not.stringMatching(/硬压到|按规则扣分|评分引擎/u),
+      "zh",
+    );
+  });
+
+  it("removes internal score-cap phrasing when streamed across chunks", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamChunks([
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=普通账号|en=average@@",
+          "@@ROAST zh=生态证据偏弱。|en=Weak ecosystem evidence.@@",
+          "## 毒舌点评",
+          "生态影响被评分引擎压",
+        ].join("\n"),
+        "到了4分，按规则扣分。",
+      ]),
+    );
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).toContain("生态影响只有4分");
+    expect(body).toContain("数据上吃亏");
+    expect(body).not.toContain("评分引擎");
+    expect(body).not.toContain("被压到");
+    expect(body).not.toContain("压到了");
+    expect(body).not.toContain("按规则扣分");
+  });
+
+  it("expands popular-repo shorthand to full owner/repo names in report text", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=生态,贡献|en=ecosystem,impact@@",
+          "@@ROAST zh=生态贡献很广。|en=Wide ecosystem work.@@",
+          "## 毒舌点评",
+          "向15万星的dify和11万星的rust长期提交PR，别再写成裸仓库简称。",
+        ].join("\n"),
+      ),
+    );
+    const shorthandScan: ScanResult = {
+      ...scan,
+      impact_repos: [
+        { repo: "langgenius/dify", stars: 149_000, prs: 3, commits: 0 },
+        { repo: "rust-lang/rust", stars: 114_000, prs: 2, commits: 0 },
+      ],
+    };
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan: shorthandScan, lang: "zh" }),
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).toContain("15万星的langgenius/dify");
+    expect(body).toContain("11万星的rust-lang/rust");
+    expect(body).not.toContain("15万星的dify");
+    expect(body).not.toMatch(/11万星的rust(?!-lang\/rust)/u);
+  });
+
+  it("appends varied signature evidence for same-owner small repos", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=生态,修复|en=ecosystem,fixes@@",
+          "@@ROAST zh=生态贡献有细节。|en=Concrete ecosystem work.@@",
+          "## 毒舌点评",
+          "只写了一个普通报告，故意漏掉具体 signature work。",
+        ].join("\n"),
+      ),
+    );
+    const signatureScan: ScanResult = {
+      ...scan,
+      signature_work: {
+        source: "all_history_public_scan",
+        impact_repo_representatives: [],
+        work_clusters: [
+          {
+            repo: "demo/main-tool",
+            stars: 120,
+            all_time_prs: 8,
+            quality_keyword_hits: 2,
+            examples: ["fix(runtime): clean stale state"],
+          },
+          {
+            repo: "demo/control-plane",
+            stars: 39,
+            all_time_prs: 5,
+            quality_keyword_hits: 4,
+            examples: ["fix(api): revoke bound deployment capabilities"],
+            org_context_repo: "demo/main-platform",
+            org_context_stars: 100_000,
+            substantive_low_star_signal: true,
+          },
+        ],
+      },
+    };
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan: signatureScan, lang: "zh" }),
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).toContain("**补充证据**");
+    expect(body).toContain("额外可核对的活动还包括 demo/main-tool");
+    expect(body).toContain("demo/control-plane: 5 个 PR 不是孤立小仓库劳动");
+    expect(body).toContain("demo/main-platform");
+    expect(body).not.toContain("全量公开扫描还抓到");
+  });
+
+  it("writes an English roast in one model call without accepting model score changes", async () => {
     mocks.chatStreamEvents.mockReset();
     mocks.chatStreamEvents.mockReturnValueOnce(
       streamText(
@@ -449,10 +695,42 @@ describe("roast API persistence", () => {
     expect(mocks.recordScore).toHaveBeenCalledWith(
       expect.objectContaining({
         username: "DemoDev",
-        final_score: 71,
-        tier: "人上人",
+        final_score: 68,
+        tier: "NPC",
       }),
     );
+  });
+
+  it("clamps overlong top-roast lines without cutting English mid-word", async () => {
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValueOnce(
+      streamText(
+        [
+          "@@ADJUST 0@@",
+          "@@TAGS zh=进步,维护者|en=improving,maintainer@@",
+          "@@ROAST zh=外部贡献很勤快，但自家项目像没人认领。|en=38 followers versus 81 following, 109 PRs live in other people's repos before 相关仓库贡献者s can reject, while the home project has 1 star and an ‘unmistakablyunfinishedword at the cutoff.@@",
+          "## 毒舌点评",
+          "开源活跃度在上升。",
+        ].join("\n"),
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    await response.text();
+    expect(response.status).toBe(200);
+    const recorded = mocks.recordScore.mock.calls[0][0];
+    const en = recorded.roast_line.en;
+    expect(Array.from(en).length).toBeLessThanOrEqual(180);
+    expect(en).toMatch(/[.!?…]$/u);
+    expect(en).not.toMatch(/\p{Script=Han}/u);
+    expect(en).toContain("maintainers");
+    expect(en).not.toContain("‘");
   });
 
   it("ignores refresh for a still-fresh roast and replays the cache instead", async () => {
@@ -515,7 +793,7 @@ describe("roast API persistence", () => {
     expect(mocks.getArchivedRoast).not.toHaveBeenCalled();
     expect(mocks.clearCachedRoast).toHaveBeenCalledWith("DemoDev", "zh");
     expect(mocks.recordScore).toHaveBeenCalledWith(
-      expect.objectContaining({ username: "DemoDev", final_score: 71 }),
+      expect.objectContaining({ username: "DemoDev", final_score: 68, tier: "NPC" }),
     );
   });
 

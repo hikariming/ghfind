@@ -39,14 +39,15 @@ import {
   setCachedRoast,
   waitForCachedRoast,
 } from "@/lib/redis";
-import { clampScore, spamBotScore, tierFor } from "@/lib/score";
+import { spamBotScore, tierFor } from "@/lib/score";
 import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// One LLM call performs factual calibration and writes the streamed report. The
-// ceiling remains generous for provider failover, while the inner deadline keeps
-// failures inside the in-band protocol instead of letting the platform 504.
+// One LLM call writes the streamed report. Scores are deterministic API data, so
+// the model never gets to adjust them. The ceiling remains generous for provider
+// failover, while the inner deadline keeps failures inside the in-band protocol
+// instead of letting the platform 504.
 // The ceiling is 240s (well under Vercel's 300s max) so a stalled primary can
 // fail over to DeepSeek and STILL have a fresh budget to finish — the old 120s
 // cap physically couldn't fit primary + fallback, so the fallback got ~0s and
@@ -56,7 +57,7 @@ export const dynamic = "force-dynamic";
 // (roast_failed) instead of the platform 504'ing. Keep the inner budget below it.
 export const maxDuration = 240;
 
-/** Response header carrying the AI-adjusted score (base64'd JSON; it contains CJK). */
+/** Response header carrying the score meta (base64'd JSON; it contains CJK). */
 export const ROAST_META_HEADER = "X-Roast-Meta";
 
 const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
@@ -115,15 +116,6 @@ function resolveConfig(byo?: ByoKey): { config: LlmConfig; isDefault: boolean } 
   return config ? { config, isDefault: true } : null;
 }
 
-/** Parse `@@ADJUST <int>@@` from the model's leading line; clamp to [-10, 10]. */
-function parseDelta(head: string): number {
-  const m = head.match(/@@ADJUST\s*([+-]?\d+(?:\.\d+)?)\s*@@/);
-  if (!m) return 0;
-  const n = Math.round(parseFloat(m[1]));
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(-10, Math.min(10, n));
-}
-
 /** Parse the `@@TAGS zh=...|en=...@@` control line into clean, capped tag lists. */
 function parseTags(head: string): Tags {
   const m = head.match(/@@TAGS\s*([^@]*?)@@/);
@@ -146,6 +138,65 @@ function parseTags(head: string): Tags {
   return { zh: clean(grab("zh"), 10), en: clean(grab("en"), 24) };
 }
 
+const ROAST_LINE_MAX_CHARS = 180;
+
+function tidyRoastLine(text: string): string {
+  let out = text.trim().replace(/\s+([.!?。！？…])/gu, "$1");
+  for (const [open, close] of [
+    ["“", "”"],
+    ["‘", "’"],
+  ] as const) {
+    const openCount = Array.from(out.matchAll(new RegExp(open, "gu"))).length;
+    const closeCount = Array.from(out.matchAll(new RegExp(close, "gu"))).length;
+    if (openCount > closeCount) out = out.replace(new RegExp(`${open}(?!.*${open})`, "u"), "");
+    if (closeCount > openCount) out = out.replace(new RegExp(close, "u"), "");
+  }
+  if ((out.match(/"/g)?.length ?? 0) % 2 === 1) {
+    out = out.replace(/"([^"]*)$/u, "$1");
+  }
+  return out.trim();
+}
+
+function clampRoastLine(raw: string, lang?: "zh" | "en"): string {
+  const withoutControlChars = raw.replace(/[#@]/g, "");
+  const languageCleaned =
+    lang === "en"
+      ? withoutControlChars.replace(/\p{Script=Han}+s?/gu, "maintainers")
+      : withoutControlChars;
+  const text = languageCleaned.replace(/\s+/g, " ").trim();
+  if (Array.from(text).length <= ROAST_LINE_MAX_CHARS) return tidyRoastLine(text);
+
+  const bodyMax = ROAST_LINE_MAX_CHARS - 1;
+  let cut = Array.from(text).slice(0, bodyMax).join("").trimEnd();
+  const minUsefulCut = Math.floor(ROAST_LINE_MAX_CHARS * 0.55);
+  const sentenceEnd = Math.max(
+    cut.lastIndexOf("."),
+    cut.lastIndexOf("!"),
+    cut.lastIndexOf("?"),
+    cut.lastIndexOf("。"),
+    cut.lastIndexOf("！"),
+    cut.lastIndexOf("？"),
+  );
+  if (sentenceEnd >= minUsefulCut) {
+    return tidyRoastLine(cut.slice(0, sentenceEnd + 1));
+  }
+
+  const wordBoundary = Math.max(
+    cut.lastIndexOf(" "),
+    cut.lastIndexOf(","),
+    cut.lastIndexOf(";"),
+    cut.lastIndexOf(":"),
+    cut.lastIndexOf("，"),
+    cut.lastIndexOf("；"),
+    cut.lastIndexOf("："),
+    cut.lastIndexOf("、"),
+  );
+  if (wordBoundary >= minUsefulCut) {
+    cut = cut.slice(0, wordBoundary).replace(/[\s,;:，；：、-]+$/u, "").trimEnd();
+  }
+  return tidyRoastLine(`${cut}…`);
+}
+
 /**
  * Parse the `@@ROAST zh=...|en=...@@` control line into the bilingual one-liner.
  * Unlike {@link parseTags} this must NOT split on commas — a roast sentence
@@ -157,9 +208,215 @@ function parseRoast(head: string): RoastLine {
   const body = m[1];
   const grab = (key: string): string => {
     const mm = body.match(new RegExp(`${key}=([\\s\\S]*?)(?=\\||$)`));
-    return (mm?.[1] ?? "").trim().slice(0, 200);
+    return clampRoastLine(mm?.[1] ?? "", key === "en" ? "en" : "zh");
   };
   return { zh: grab("zh"), en: grab("en") };
+}
+
+function isStrongCoreImpact(scan: ScanResult): boolean {
+  const m = scan.metrics;
+  return (
+    (m.core_impact_pr_count ?? 0) >= 10 &&
+    (m.impact_pr_count ?? 0) >= 50 &&
+    (m.recent_external_doc_like_pr_ratio ?? m.recent_doc_like_pr_ratio ?? 0) < 0.25 &&
+    (m.pr_rejection_rate ?? 0) < 0.2
+  );
+}
+
+function sanitizeStrongCoreText(scan: ScanResult, text: string): string {
+  if (!isStrongCoreImpact(scan) || !text) return text;
+  return text
+    .replace(/PR\s*刷子/giu, "模式PR工")
+    .replace(/PR\s*Spammer/giu, "Pattern PR")
+    .replace(/PR\s*Farmer/giu, "Pattern PR")
+    .replace(/批量刷测试类\s*PR/gu, "批量提交测试类PR")
+    .replace(/模板化刷/gu, "模板化提交")
+    .replace(/刷测试\s*PR/gu, "批量提交同类测试PR")
+    .replace(/刷测试用例/gu, "批量提交测试用例")
+    .replace(/批量刷的/gu, "批量提交的")
+    .replace(/批量刷向/gu, "批量投向")
+    .replace(/集中刷向/gu, "集中投向")
+    .replace(/集中刷([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)/gu, "集中投向$1")
+    .replace(/集中刷([A-Za-z0-9_.-]+)/gu, "集中投向$1")
+    .replace(/给([^，。；,\s]+)刷的/gu, "给$1提交的")
+    .replace(/刷\s*PR/gu, "批量提PR")
+    .replace(/刷\s*KPI/giu, "做同类迁移")
+    .replace(/刷存在感/gu, "借外部项目做曝光")
+    .replace(/KPI\s*刷分场/giu, "同类改动集中场")
+    .replace(/KPI\s*味/giu, "模式化味")
+    .replace(/KPI/giu, "同类改动")
+    .replace(/把个人项目的星刷上去/gu, "把个人项目做出星标")
+    .replace(/刷量/gu, "模式化贡献")
+    .replace(/刷/gu, "提交")
+    .replace(/蹭外部项目/gu, "依赖外部项目")
+    .replace(/蹭大厂|蹭大项目/gu, "依赖大项目")
+    .replace(/蹭/gu, "依赖")
+    .replace(/混到顶级档位/gu, "站到顶级档位")
+    .replace(/含水量/gu, "争议点")
+    .replace(/有水分/gu, "有争议")
+    .replace(/水分/gu, "争议点")
+    .replace(/含水/gu, "需复核")
+    .replace(/低质量贡献/gu, "需复核贡献")
+    .replace(/垃圾贡献/gu, "需复核贡献")
+    .replace(/凑\s*KPI/giu, "做同类迁移")
+    .replace(/凑数/gu, "需复核")
+    .replace(/没混上提交权限/gu, "没有直接 commit 信号")
+    .replace(/没混上写源码的权限/gu, "没有直接 commit 信号")
+    .replace(/没(?:混上|拿到)[^。；，,]{0,12}(?:commit|提交|写源码)[^。；，,]{0,8}(?:权限|资格)/giu, "没有直接 commit 信号")
+    .replace(/没有[^。；，,]{0,12}(?:commit|提交|写源码)[^。；，,]{0,8}(?:权限|资格)/giu, "没有直接 commit 信号")
+    .replace(/没有提交权限/gu, "没有直接 commit 信号")
+    .replace(/没有\s*commit\s*权限/giu, "没有直接 commit 信号")
+    .replace(/没拿到\s*commit\s*权限/giu, "没有直接 commit 信号")
+    .replace(/没有\s*commit\s*贡献记录/giu, "未检测到直接 commit 信号")
+    .replace(/贡献深度存疑/gu, "但 PR 贡献样本足够扎实")
+    .replace(/不被信任/gu, "没有直接 commit 信号")
+    .replace(/AI\s*代笔/giu, "AI辅助")
+    .replace(/AI\s*生成的玩具/giu, "AI辅助的小工具")
+    .replace(/AI\s*生成/giu, "AI辅助")
+    .replace(/ghostwriting/giu, "AI assistance")
+    .replace(/ChatGPT-written/giu, "ChatGPT-assisted")
+    .replace(/不嫌丢人/gu, "有原创性争议")
+    .replace(/丢不有原创性争议/gu, "有原创性争议")
+    .replace(/作弊|丢人|懒/gu, "有原创性争议");
+}
+
+function sanitizeInternalScoringText(text: string): string {
+  return text
+    .replace(/commit\s*数为\s*0[^。；\n]*(?:权限|permission)[^。；\n]*/giu, "commit 数为 0，只说明检测到的高星影响来自 PR")
+    .replace(/((?:高星仓库|高星)?生态影响力?)被(?:评分引擎)?(?:硬?压(?:到(?:了)?)?|封顶到|裁定为)\s*([0-9.]+(?:\/20|分)?)/gu, "$1只有$2")
+    .replace(/((?:生态影响|生态影响力|贡献质量|原创项目质量|活跃真实性|社区影响力|账号成熟度))被(?:硬?压(?:到(?:了)?)?|封顶到|裁定为)\s*分/gu, "$1偏弱")
+    .replace(/((?:生态影响|生态影响力|贡献质量|原创项目质量|活跃真实性|社区影响力|账号成熟度))被(?:硬?压(?:到(?:了)?)?|封顶到|裁定为)\s*([0-9.]+(?:\/[0-9.]+|分)?)/gu, "$1只有$2")
+    .replace(/被评分引擎(?:硬?压(?:到(?:了)?)?|封顶|裁定)[^，。；\n]*/gu, "这项表现偏弱")
+    .replace(/被评分引擎[^，。；\n]*/gu, "这项表现偏弱")
+    .replace(/被(?:硬?压(?:到(?:了)?)?|封顶到|裁定为)\s*分/gu, "偏弱")
+    .replace(/被(?:硬?压(?:到(?:了)?)?|封顶到|裁定为)\s*([0-9.]+(?:\/[0-9.]+|分)?)/gu, "只有$1")
+    .replace(/被评分现偏弱/gu, "表现偏弱")
+    .replace(/被有\s*([0-9.]+(?:\/[0-9.]+|分)?)/gu, "只有$1")
+    .replace(/评分已封顶/gu, "这项表现偏弱")
+    .replace(/按规则扣分/gu, "数据上吃亏")
+    .replace(/没混进核心组/gu, "没进入太多核心改动区")
+    .replace(/scoring engine (?:capped|decided)[^,.;\n]*/giu, "the evidence is weak here")
+    .replace(/score cap/giu, "weak evidence")
+    .replace(/rules deducted/giu, "the data hurts here");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function repoEvidenceSources(scan: ScanResult): string[] {
+  const repos = [
+    ...(scan.impact_repos ?? []).map((repo) => repo.repo),
+    ...(scan.signature_work?.impact_repo_representatives ?? []).map((repo) => repo.repo),
+    ...(scan.signature_work?.work_clusters ?? []).map((cluster) => cluster.repo),
+  ];
+  return [...new Set(repos.filter((repo) => /^[^/\s]+\/[^/\s]+$/u.test(repo)))];
+}
+
+function sanitizeRepoShorthandText(scan: ScanResult, text: string): string {
+  if (!text) return text;
+  const aliases = new Map<string, string | null>();
+  for (const full of repoEvidenceSources(scan)) {
+    const alias = full.split("/").pop();
+    if (!alias || alias.length < 3) continue;
+    const key = alias.toLowerCase();
+    const existing = aliases.get(key);
+    aliases.set(key, existing && existing !== full ? null : full);
+  }
+
+  let out = text;
+  for (const [alias, full] of aliases) {
+    if (!full) continue;
+    const escaped = escapeRegExp(alias);
+    const starPrefix =
+      String.raw`((?:[★☆]\s*)?(?:\d+(?:\.\d+)?|[\d,]+)(?:\s*(?:k|K|万))?\s*(?:star|stars|星)(?:的)?\s*)`;
+    out = out.replace(
+      new RegExp(`${starPrefix}${escaped}(?![A-Za-z0-9_/-])`, "giu"),
+      (_match, prefix: string) => `${prefix}${full}`,
+    );
+    out = out.replace(
+      new RegExp(`(向\\s*)${escaped}(?=[\\s、，。；,.!?)）]*(?:贡献|提交|投|塞|发|提))`, "giu"),
+      (_match, prefix: string) => `${prefix}${full}`,
+    );
+  }
+  return out;
+}
+
+function sanitizeOutputText(scan: ScanResult, text: string): string {
+  return sanitizeStrongCoreText(
+    scan,
+    sanitizeRepoShorthandText(scan, sanitizeInternalScoringText(text)),
+  );
+}
+
+function signatureWorkAppendix(scan: ScanResult, lang: Lang, report: string): string {
+  const clusters = scan.signature_work?.work_clusters ?? [];
+  if (clusters.length === 0) return "";
+  const mentioned = (repo: string) => report.toLowerCase().includes(repo.toLowerCase());
+  const top = clusters[0];
+  const orgContext = clusters.find((cluster) => cluster.org_context_repo);
+  const candidateMap = new Map<string, (typeof clusters)[number]>();
+  if (top) candidateMap.set(top.repo, top);
+  if (orgContext) candidateMap.set(orgContext.repo, orgContext);
+  const candidates = [...candidateMap.values()];
+  const missing = candidates.filter((cluster) => !mentioned(cluster.repo)).slice(0, 2);
+  if (missing.length === 0) return "";
+
+  const source =
+    scan.signature_work?.source === "all_history_public_scan"
+      ? lang === "en"
+        ? "all-history scan"
+        : "全量历史"
+      : lang === "en"
+        ? "recent sample"
+        : "近期样本";
+  const lines = missing.map((cluster, index) => {
+    const count = cluster.all_time_prs ?? cluster.recent_merged_prs_in_sample ?? 0;
+    const examples = cluster.examples.slice(0, 2).filter(Boolean).join("；");
+    if (lang === "en") {
+      if (cluster.org_context_repo) {
+        return `- ${cluster.repo}: ${count} PRs in the same owner ecosystem as ${cluster.org_context_repo}; low stars are not enough to dismiss it${examples ? `, with examples like "${examples}"` : ""}.`;
+      }
+      if (cluster.substantive_low_star_signal) {
+        return `- ${cluster.repo}: a low-star but core-looking ${source} work cluster with ${count} PRs${examples ? `, including "${examples}"` : ""}.`;
+      }
+      return index === 0
+        ? `- Additional auditable activity includes ${cluster.repo}: ${count} PRs${examples ? `, for example "${examples}"` : ""}; docs/site/example work is maintenance evidence, not proof of core fixes.`
+        : `- Another auditable thread is ${cluster.repo}: ${count} PRs in the ${source}${examples ? `, e.g. "${examples}"` : ""}; docs/site/example work should be read as maintenance evidence, not core fixes.`;
+    }
+    if (cluster.org_context_repo) {
+      return `- ${cluster.repo}: ${count} 个 PR 不是孤立小仓库劳动；它和 ${cluster.org_context_repo} 同属 owner 生态，不能只按 star 当边角料${examples ? `，代表标题如「${examples}」` : ""}。`;
+    }
+    if (cluster.substantive_low_star_signal) {
+      return `- ${cluster.repo}: 虽然 star 不高，但 ${source}里有 ${count} 个 PR 且标题指向核心修复或边界/一致性工作${examples ? `，例如「${examples}」` : ""}。`;
+    }
+    return index === 0
+      ? `- 额外可核对的活动还包括 ${cluster.repo}: ${count} 个 PR${examples ? `，例如「${examples}」` : ""}；docs/site/example 类标题只能当维护或样例工作看，不能证明核心修复。`
+      : `- 另一个可核对的贡献线程是 ${cluster.repo}: ${source}显示 ${count} 个 PR${examples ? `，如「${examples}」` : ""}；若是 docs/site/example 类标题，只能当维护或样例工作看。`;
+  });
+  return lang === "en"
+    ? `\n\n**Additional evidence**\n${lines.join("\n")}`
+    : `\n\n**补充证据**\n${lines.join("\n")}`;
+}
+
+function sanitizeStrongCoreRoast(
+  scan: ScanResult,
+  tags: Tags,
+  roastLine: RoastLine,
+  report: string,
+): { tags: Tags; roastLine: RoastLine; report: string } {
+  if (!isStrongCoreImpact(scan)) return { tags, roastLine, report };
+  return {
+    tags: {
+      zh: Array.from(new Set(tags.zh.map((tag) => sanitizeOutputText(scan, tag)))),
+      en: Array.from(new Set(tags.en.map((tag) => sanitizeOutputText(scan, tag)))),
+    },
+    roastLine: {
+      zh: sanitizeOutputText(scan, roastLine.zh),
+      en: sanitizeOutputText(scan, roastLine.en),
+    },
+    report: sanitizeOutputText(scan, report),
+  };
 }
 
 /** Strip the leading control lines so they never reach the rendered report. */
@@ -205,6 +462,16 @@ function sanitizeScan(scan: ScanResult): ScanResult {
       title: p.title?.slice(0, 200) ?? null,
       files: (p.files ?? []).slice(0, 20).map((f) => f.slice(0, 200)),
     })),
+    signature_work: scan.signature_work
+      ? {
+          source: scan.signature_work.source,
+          impact_repo_representatives: (scan.signature_work.impact_repo_representatives ?? []).slice(0, 12),
+          work_clusters: (scan.signature_work.work_clusters ?? []).slice(0, 16).map((cluster) => ({
+            ...cluster,
+            examples: cluster.examples.slice(0, 5).map((example) => example.slice(0, 200)),
+          })),
+        }
+      : undefined,
     scoring: scan.scoring,
   };
 }
@@ -258,46 +525,27 @@ function errorFrame(enc: TextEncoder, obj: unknown): Uint8Array {
   return enc.encode(FRAME + "E" + JSON.stringify(obj) + "\n");
 }
 
-function adjustedScoreSummary(
+function scoreSummary(
   scan: ScanResult,
-  delta: number,
   lang: Lang,
 ): Pick<RoastMeta, "final_score" | "tier" | "tier_label" | "delta"> {
-  const requested = clampScore(scan.scoring.final_score + delta);
-  const cap = adjustedScoreCap(scan);
-  const adjusted = clampScore(
-    cap !== null && delta > 0 && requested > cap
-      ? Math.max(scan.scoring.final_score, cap)
-      : requested,
-  );
-  const effectiveDelta = Math.round((adjusted - scan.scoring.final_score) * 100) / 100;
-  const { tier, tier_label: zhLabel } = tierFor(adjusted);
+  const finalScore = scan.scoring.final_score;
+  const { tier, tier_label: zhLabel } = tierFor(finalScore);
   const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
-  return { final_score: adjusted, tier, tier_label, delta: effectiveDelta };
+  return { final_score: finalScore, tier, tier_label, delta: 0 };
 }
 
-function adjustedScoreCap(scan: ScanResult): number | null {
-  if (
-    scan.metrics.impact_quality_cap !== undefined &&
-    scan.metrics.impact_quality_cap <= 4 &&
-    scan.metrics.impact_pr_count >= 10
-  ) {
-    return 60;
-  }
-  return null;
-}
-
-/** Adjusted score + tier + fresh percentile. Records to the leaderboard only on a
+/** Deterministic score + tier + fresh percentile. Records to the leaderboard only on a
  * fresh (non-replayed) default-model roast. */
 async function computeMeta(
   scan: ScanResult,
-  delta: number,
+  _delta: number,
   tags: Tags,
   roastLine: RoastLine,
   record: boolean,
   lang: Lang,
 ): Promise<RoastMeta> {
-  const summary = adjustedScoreSummary(scan, delta, lang);
+  const summary = scoreSummary(scan, lang);
   if (record) {
     await recordScore({
       username: scan.metrics.username,
@@ -605,8 +853,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // One model stream performs factual calibration and writes the report. Progress
-  // frames keep the client alive while the reasoning model prepares its controls.
+  // One model stream writes the report. Progress frames keep the client alive
+  // while the model prepares its controls.
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -628,7 +876,7 @@ export async function POST(req: NextRequest) {
       };
       // Surface "still working" without leaking the model's chain-of-thought:
       // a curated stage label plus elapsed seconds, throttled so reasoning's
-      // hundreds of deltas don't spam the wire.
+      // reasoning traces don't spam the wire.
       const t0 = Date.now();
       // Overall hard wall-clock ceiling for ALL LLM work, kept ~20s under the
       // 240s function ceiling (leaving room for meta DB writes + caching + margin).
@@ -652,7 +900,7 @@ export async function POST(req: NextRequest) {
         const secs = Math.round((now - t0) / 1000);
         push(thinkingFrame(enc, `${label} (${secs}s)`));
       };
-      const generating = lang === "en" ? "Calibrating and writing…" : "正在校准并撰写锐评…";
+      const generating = lang === "en" ? "Writing roast…" : "正在撰写锐评…";
       const summaryFields = () => ({
         u: username,
         lang,
@@ -680,6 +928,7 @@ export async function POST(req: NextRequest) {
       const events = chatStreamEventsWithFallback(llmConfigs, buildRoastMessages(scan, lang), {
         deadlineMs: llmDeadlineMs,
         attemptBudgetMs: GENERATION_ATTEMPT_MS,
+        temperature: 0.55,
         onAttempt(event) {
           attempts.push(event);
           if (event.phase === "first_event" && firstEventMs === null) {
@@ -712,15 +961,21 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const delta = parseDelta(head);
+      const delta = 0;
       const parsedTags = parseTags(head);
       const parsedRoastLine = parseRoast(head);
       const parsedReport = extractReport(head);
-      const { tags, roastLine, report } = sanitizeIdentityClaims(
+      const identitySafe = sanitizeIdentityClaims(
         scan,
         parsedTags,
         parsedRoastLine,
         parsedReport,
+      );
+      const { tags, roastLine, report } = sanitizeStrongCoreRoast(
+        scan,
+        identitySafe.tags,
+        identitySafe.roastLine,
+        identitySafe.report,
       );
 
       let meta: RoastMeta;
@@ -735,17 +990,40 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // End of control phase: ship the AI-adjusted meta, then the report body.
+      // End of control phase: ship deterministic meta, then the report body.
       push(metaFrame(enc, meta));
 
-      let full = report;
+      let full = "";
+      let rawFull = "";
+      let emittedCleanLength = 0;
+      let pendingText = report;
+      const flushPendingText = (force = false) => {
+        if (!pendingText) return;
+        const keep = force ? 0 : 600;
+        if (!force && pendingText.length <= keep) return;
+        const raw = force ? pendingText : pendingText.slice(0, -keep);
+        rawFull += raw;
+        pendingText = force ? "" : pendingText.slice(-keep);
+        const cleanFull = sanitizeOutputText(scan, rawFull);
+        const text = cleanFull.slice(emittedCleanLength);
+        if (!text) return;
+        full += text;
+        emittedCleanLength = cleanFull.length;
+        push(enc.encode(text));
+      };
       try {
-        if (report) push(enc.encode(report));
+        flushPendingText();
         // Drain the rest of the generation (resumes where head-reading left off).
         for await (const ev of events) {
           if (ev.type !== "content") continue;
-          full += ev.text;
-          push(enc.encode(ev.text));
+          pendingText += ev.text;
+          flushPendingText();
+        }
+        flushPendingText(true);
+        const appendix = signatureWorkAppendix(scan, lang, full);
+        if (appendix) {
+          full += appendix;
+          push(enc.encode(appendix));
         }
         // Cache the finished roast so repeat views don't re-spend LLM credit,
         // and persist it to the account row for the leaderboard detail view.

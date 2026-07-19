@@ -38,12 +38,13 @@ describe("buildRoastMessages", () => {
   it("defaults to the Chinese system prompt", () => {
     const [sys] = buildRoastMessages(scan);
     expect(sys.role).toBe("system");
-    expect(sys.content).toContain("事实校准员 + 毒舌锐评写手");
+    expect(sys.content).toContain("GitHub 毒舌锐评写手");
+    expect(sys.content).toContain("分数、档位、六维分和质量风险都已由确定性评分引擎给出");
   });
 
   it("selects the English system prompt for lang=en", () => {
     const [sys, user] = buildRoastMessages(scan, "en");
-    expect(sys.content).toMatch(/factual calibration judge and the savage report writer/i);
+    expect(sys.content).toMatch(/savage GitHub report writer/i);
     expect(sys.content).not.toContain("毒舌 GitHub 锐评写手");
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
@@ -56,7 +57,7 @@ describe("buildRoastMessages", () => {
   it("keeps the @@ADJUST@@ / @@TAGS@@ / @@ROAST@@ control lines and bilingual fields in both languages", () => {
     for (const lang of ["zh", "en"] as const) {
       const [sys] = buildRoastMessages(scan, lang);
-      expect(sys.content).toContain("@@ADJUST");
+      expect(sys.content).toContain("@@ADJUST 0@@");
       expect(sys.content).toContain("@@TAGS");
       expect(sys.content).toContain("@@ROAST");
       expect(sys.content).toContain("zh=");
@@ -64,44 +65,43 @@ describe("buildRoastMessages", () => {
     }
   });
 
-  it("keeps factual judge guardrails inside the combined prompt", () => {
+  it("keeps deterministic-score guardrails inside the combined prompt", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("事实校准员 + 毒舌锐评写手");
+    expect(zhSys.content).toContain("分数来自评分引擎，不是你的判断");
     expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
-    expect(zhSys.content).toContain("不要输出单独的 judge JSON");
+    expect(zhSys.content).toContain("不得重算、四舍五入到别的分、升降档");
     expect(zhUser.content).not.toContain('"judge_result"');
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("factual calibration judge and the savage report writer");
+    expect(enSys.content).toContain("The score comes from the scoring engine");
     expect(enSys.content).toContain("background context, not score evidence");
-    expect(enSys.content).toContain("Do not emit a separate judge JSON");
+    expect(enSys.content).toContain("Do not recompute, round into another score, move tiers");
   });
 
-  it("combines factual calibration and report writing in one response", () => {
+  it("keeps the LLM out of scoring while preserving one-response report generation", () => {
     const [sys, user] = buildRoastMessages(scan, "zh");
-    expect(sys.content).toContain("事实校准员 + 毒舌锐评写手");
-    expect(sys.content).toContain("同一次回复");
-    expect(sys.content).toContain("不要输出单独的 judge JSON");
-    expect(sys.content).toContain("没有充分证据就写 0");
-    expect(sys.content).toContain("不能因为想嘴臭而改分");
+    expect(sys.content).toContain("第一行必须严格写 `@@ADJUST 0@@`");
+    expect(sys.content).toContain("不能改分、不能暗示模型另有裁决");
+    expect(sys.content).toContain("标题最终分直接使用 scoring.final_score");
     const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.judge_result).toBeUndefined();
-    expect(payload.calibration_contract).toContain("同一次回复");
+    expect(payload.calibration_contract).toBeUndefined();
+    expect(payload.score_contract).toContain("@@ADJUST 0@@");
   });
 
-  it("keeps affiliations from becoming score evidence in judge and writer context", () => {
+  it("keeps affiliations from becoming score evidence in writer context", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
     expect(zhSys.content).toContain("不是分数背书");
     const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
-    expect(zhPayload.context_notes.affiliation_scope).toContain("不能作为正向 delta");
+    expect(zhPayload.context_notes.affiliation_scope).toContain("不能作为夸奖或背书理由");
     expect(zhPayload.context_notes.affiliation_scope).toContain("README 文本");
 
     const [enSys, enUser] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("School, company, employer, or organization membership is background context");
     expect(enSys.content).toContain("not score evidence");
     const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
-    expect(enPayload.context_notes.affiliation_scope).toContain("must not justify positive delta");
+    expect(enPayload.context_notes.affiliation_scope).toContain("must not justify praise");
     expect(enPayload.context_notes.affiliation_scope).toContain("README text");
   });
 
@@ -138,28 +138,35 @@ describe("buildRoastMessages", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("展示层脱敏");
     expect(zhSys.content).toContain("报告正文禁止出现内部字段名或调试词");
-    expect(zhSys.content).toContain("禁止写 judge_result、delta、verdict");
+    expect(zhSys.content).toContain("不要写 judge_result、delta、verdict");
+    expect(zhSys.content).toContain("被评分引擎压到/封顶/裁定");
+    expect(zhSys.content).toContain("仓库证据必须使用完整");
+    expect(zhSys.content).toContain("owner/small-repo 与 owner/flagship");
     expect(zhSys.content).toContain("外部 PR 里将近六成");
     expect(zhSys.content).toContain("别只写审计结论");
 
     const [enSys] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("Presentation hygiene and roast strength");
     expect(enSys.content).toContain("Never expose internal field names");
-    expect(enSys.content).toContain("never write judge_result, delta, or verdict");
+    expect(enSys.content).toContain("do not write judge_result, delta, verdict");
+    expect(enSys.content).toContain("scoring engine capped/decided");
+    expect(enSys.content).toContain("Repository evidence must use full");
     expect(enSys.content).toContain("do not merely list audit facts");
   });
 
-  it("keeps the report footer as separated user-facing blocks", () => {
+  it("keeps the report footer user-facing without score-calibration boilerplate", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("报告尾部必须分块输出");
-    expect(zhSys.content).toContain("**评分校准**");
-    expect(zhSys.content).toContain('简短写"无额外修正"');
+    expect(zhSys.content).toContain("不要把“风险标记 / 建议”挤在同一段里");
+    expect(zhSys.content).not.toContain("**评分校准**");
+    expect(zhSys.content).not.toContain("分数由确定性规则给出，本次不做额外修正");
     expect(zhSys.content).not.toContain("**人工复核**:");
 
     const [enSys] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("separated blocks with blank lines");
-    expect(enSys.content).toContain("**Score calibration**");
-    expect(enSys.content).toContain("No extra adjustment");
+    expect(enSys.content).toContain("Red flags / Verdict");
+    expect(enSys.content).not.toContain("**Score calibration**");
+    expect(enSys.content).not.toContain("Score is determined by the deterministic rules");
     expect(enSys.content).not.toContain("**Manual review**:");
   });
 
@@ -202,14 +209,14 @@ describe("buildRoastMessages", () => {
     expect(zhSys.content).toContain("页面顶部卡片的主毒舌");
     expect(zhSys.content).toContain("必须承担最强攻击和传播梗");
     expect(zhSys.content).toContain("不能把火力留到正文“一句话结论”");
-    expect(zhSys.content).toContain("每边 ≤180 字");
+    expect(zhSys.content).toContain("英文 ≤140 chars");
     expect(zhSys.content).toContain("正文一句话结论负责价值判断和补刀，不能比顶部更狠");
 
     const [enSys] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("top-card main roast");
     expect(enSys.content).toContain("must carry the strongest attack");
     expect(enSys.content).toContain("Do not save the sharpest hit for the report TL;DR");
-    expect(enSys.content).toContain("Each side ≤180 chars");
+    expect(enSys.content).toContain("English ≤140 chars");
     expect(enSys.content).toContain("must not outgun the top roast");
   });
 
@@ -329,6 +336,7 @@ describe("buildRoastMessages", () => {
       ...scan,
       metrics: {
         ...scan.metrics,
+        total_stars: 157,
         impact_quality_cap: 4,
         recent_external_doc_like_pr_ratio: 0.59,
         top_starred_original_repo_quality_score: 0.14,
@@ -338,9 +346,248 @@ describe("buildRoastMessages", () => {
     const [, zhUser] = buildRoastMessages(lowTrust, "zh");
     const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(zhPayload.context_notes.required_verdict).toContain("需人工复核");
+    expect(zhPayload.risk_notes).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("文档/站点/示例/样式类工作"),
+        expect.stringContaining("高星仓库生态影响"),
+        expect.stringContaining("最高星原创"),
+      ]),
+    );
 
     const [, enUser] = buildRoastMessages(lowTrust, "en");
     const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(enPayload.context_notes.required_verdict).toContain("needs human review");
+    expect(enPayload.risk_notes).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("docs/site/examples/style work"),
+        expect.stringContaining("Popular-repo impact"),
+        expect.stringContaining("top-starred original signal"),
+      ]),
+    );
+  });
+
+  it("builds display risks for docs-heavy social-profile accounts without relying on red_flags", () => {
+    const docsHeavy = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        followers: 1040,
+        total_stars: 157,
+        max_stars: 83,
+        merged_pr_count: 38,
+        maintainer_closed_unmerged_pr_count: 8,
+        recent_merged_pr_sample: 38,
+        recent_external_pr_sample: 37,
+        recent_external_doc_like_pr_ratio: 0.62,
+        impact_quality_cap: 4,
+        core_impact_pr_count: 1,
+        doc_like_impact_pr_count: 4,
+        top_starred_original_repo_quality_score: 0.39,
+        top_starred_original_repo_quality_repo: "docs-heavy/profile",
+        self_closed_external_pr_count: 22,
+      },
+      scoring: {
+        ...scan.scoring,
+        red_flags: [],
+      },
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(docsHeavy, "zh");
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(payload.scoring.red_flags).toEqual([]);
+    expect(payload.risk_notes).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("约 62%"),
+        expect.stringContaining("高星仓库生态影响"),
+        expect.stringContaining("docs-heavy/profile"),
+        expect.stringContaining("followers"),
+        expect.stringContaining("22 个外部 PR 由作者主动关闭"),
+      ]),
+    );
+  });
+
+  it("does not turn small author-closed external PR volume into a display risk by itself", () => {
+    const healthyExternal = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        merged_pr_count: 109,
+        maintainer_closed_unmerged_pr_count: 0,
+        self_closed_external_pr_count: 13,
+        recent_merged_pr_sample: 50,
+        recent_external_pr_sample: 50,
+        recent_external_doc_like_pr_ratio: 0.08,
+        impact_quality_cap: undefined,
+        core_impact_pr_count: 5,
+        doc_like_impact_pr_count: 0,
+        top_starred_original_repo_quality_score: 0.8,
+      },
+      scoring: {
+        ...scan.scoring,
+        red_flags: [],
+      },
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(healthyExternal, "zh");
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(payload.risk_notes).toEqual([]);
+  });
+
+  it("marks high-core templated contributors as substantive rather than low-quality farming", () => {
+    const strongCore = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        merged_pr_count: 1000,
+        impact_pr_count: 600,
+        impact_commit_count: 0,
+        recent_merged_pr_sample: 30,
+        recent_external_doc_like_pr_ratio: 0,
+        core_impact_pr_count: 50,
+        doc_like_impact_pr_count: 0,
+        pr_rejection_rate: 0.08,
+        pr_flood_suspect: true,
+        top_repo_pr_target: "foundation/workflow",
+        top_repo_pr_share: 0.6,
+        templated_pr_ratio: 0.6,
+      },
+      scoring: {
+        ...scan.scoring,
+        red_flags: [
+          {
+            flag: "templated_pr_flooding",
+            penalty: 5,
+            detail:
+              "近期 60% 的 PR 集中刷向 foundation/workflow，60% 标题高度模板化（30 个样本） — 模式化批量贡献风险，需结合 diff 质量人工复核。",
+          },
+        ],
+      },
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(strongCore, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes.strong_core_impact).toContain("实质高星贡献账号");
+    expect(zhPayload.context_notes.strong_core_impact).toContain("不得定性为低质量刷量");
+    expect(zhPayload.factual_guardrails).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("强核心事实"),
+        expect.stringContaining("不得写成主要是测试/文档/模板工作"),
+        expect.stringContaining("不得外推成 AI 使用"),
+        expect.stringContaining("不得推断没有提交权限"),
+      ]),
+    );
+
+    const [, enUser] = buildRoastMessages(strongCore, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes.strong_core_impact).toContain("substantive popular-repo contributor");
+    expect(enPayload.context_notes.strong_core_impact).toContain("low-quality farming");
+    expect(enPayload.factual_guardrails).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Strong-core fact"),
+        expect.stringContaining("mostly test/doc/template work"),
+        expect.stringContaining("AI-use"),
+        expect.stringContaining("missing commit access"),
+      ]),
+    );
+  });
+
+  it("surfaces signature work clusters even when the repo is not high-star impact", () => {
+    const withSignatureWork = {
+      ...scan,
+      impact_repos: [
+        { repo: "mega/popular", stars: 100_000, prs: 1, commits: 0 },
+        { repo: "rust/tooling", stars: 15_000, prs: 9, commits: 0 },
+      ],
+      recent_prs: [
+        {
+          title: "fix(api): revoke bound deployment capabilities",
+          repo: "org/control-plane",
+          repo_stars: 40,
+          churn: 200,
+          changed_files: 5,
+          trivial: false,
+        },
+        {
+          title: "fix(cost): atomically persist usage ledger",
+          repo: "org/control-plane",
+          repo_stars: 40,
+          churn: 140,
+          changed_files: 4,
+          trivial: false,
+        },
+        {
+          title: "feat(api): persist bound capability run provenance",
+          repo: "org/control-plane",
+          repo_stars: 40,
+          churn: 180,
+          changed_files: 6,
+          trivial: false,
+        },
+      ],
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(withSignatureWork, "zh");
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(payload.signature_work.instruction).toContain("样本推导");
+    expect(payload.signature_work.instruction).toContain("不得");
+    expect(payload.signature_work.impact_repo_representatives).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ repo: "rust/tooling", prs: 9 }),
+      ]),
+    );
+    expect(payload.signature_work.work_clusters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          repo: "org/control-plane",
+          recent_merged_prs_in_sample: 3,
+          quality_keyword_hits: 3,
+        }),
+      ]),
+    );
+  });
+
+  it("explains all-history low-star signature work with owner-ecosystem context", () => {
+    const withAllHistorySignatureWork = {
+      ...scan,
+      signature_work: {
+        source: "all_history_public_scan",
+        impact_repo_representatives: [
+          { repo: "org/main-platform", stars: 100_000, prs: 1, commits: 0 },
+        ],
+        work_clusters: [
+          {
+            repo: "org/control-plane",
+            stars: 39,
+            all_time_prs: 3,
+            quality_keyword_hits: 3,
+            examples: [
+              "fix(api): revoke bound deployment capabilities",
+              "fix(cost): atomically persist usage ledger",
+              "feat(api): persist bound capability run provenance",
+            ],
+            org_context_repo: "org/main-platform",
+            org_context_stars: 100_000,
+            substantive_low_star_signal: true,
+          },
+        ],
+      },
+    } as unknown as ScanResult;
+
+    const [zhSys, zhUser] = buildRoastMessages(withAllHistorySignatureWork, "zh");
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhSys.content).toContain("低 star 仓库不是自动低价值");
+    expect(payload.signature_work.instruction).toContain("全量历史");
+    expect(payload.signature_work.instruction).toContain("至少点名一个");
+    expect(payload.signature_work.instruction).toContain("生态/维护影响力行");
+    expect(payload.signature_work.org_ecosystem_repositories).toEqual([
+      expect.objectContaining({
+        repo: "org/control-plane",
+        org_context_repo: "org/main-platform",
+        prs: 3,
+      }),
+    ]);
+    expect(payload.signature_work.work_clusters[0].note).toContain("不能因为 star 低就当低价值");
+    expect(payload.signature_work.work_clusters[0].note).toContain("org/main-platform");
+    expect(payload.signature_work.work_clusters[0].note).toContain("不要因为这个仓库 star 少");
   });
 });
