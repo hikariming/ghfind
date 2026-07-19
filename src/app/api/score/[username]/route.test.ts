@@ -105,7 +105,7 @@ describe("score durable scan guardrails", () => {
 
     expect(response.status).toBe(202);
     expect(await response.json()).toMatchObject({ run_id: "active-run" });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
   });
 

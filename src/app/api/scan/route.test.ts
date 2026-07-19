@@ -229,7 +229,7 @@ describe("scan route machine auth", () => {
     });
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
   });
 
   it("starts one response-side step only when this request created the durable job", async () => {
