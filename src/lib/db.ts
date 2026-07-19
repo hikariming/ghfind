@@ -2896,8 +2896,9 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND s.score_version = ?
                   AND s.final_score >= ?`,
-          args: [score, facetValue, FACET_MIN_SCORE],
+          args: [score, facetValue, SCORE_CACHE_VERSION, FACET_MIN_SCORE],
         },
         {
           sql: `SELECT s.username, s.final_score
@@ -2906,10 +2907,11 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND s.score_version = ?
                   AND s.final_score > ?
                 ORDER BY s.final_score ASC
                 LIMIT 1`,
-          args: [facetValue, score],
+          args: [facetValue, SCORE_CACHE_VERSION, score],
         },
       ],
       "read",
@@ -3013,9 +3015,9 @@ export async function getTrendingLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}`,
-      args: [recentCutoff, minScore],
+      args: [recentCutoff, SCORE_CACHE_VERSION, minScore],
     });
     return rankTrending(
       res.rows.map((r) => ({
@@ -3051,9 +3053,9 @@ export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfil
     const res = await db.execute({
       sql: `SELECT username, scanned_at
             FROM scores
-            WHERE hidden = 0 AND final_score >= ?
+            WHERE hidden = 0 AND score_version = ? AND final_score >= ?
             ORDER BY final_score DESC`,
-      args: [minScore],
+      args: [SCORE_CACHE_VERSION, minScore],
     });
     return res.rows.map((r) => ({
       username: String(r.username),
@@ -3090,11 +3092,11 @@ export async function getLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, minScore, limit],
+      args: [recentCutoff, SCORE_CACHE_VERSION, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3133,10 +3135,10 @@ export async function getCampaignLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE participant.campaign = ? AND s.hidden = 0
+            WHERE participant.campaign = ? AND s.hidden = 0 AND s.score_version = ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, capped],
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, SCORE_CACHE_VERSION, capped],
     });
     const now = Date.now();
     return res.rows.map((row) =>
@@ -3176,11 +3178,11 @@ export async function getHeatLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY ${heatOrder}, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, minScore, limit],
+      args: [recentCutoff, SCORE_CACHE_VERSION, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3216,12 +3218,13 @@ export async function getProgressLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0
+              AND s.score_version = ?
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
               ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, limit],
+      args: [recentCutoff, SCORE_CACHE_VERSION, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => {
@@ -3269,11 +3272,17 @@ export async function getFacetCategories(
             JOIN scores AS s ON s.username = f.username
             WHERE f.facet_type = ?
               AND s.hidden = 0
+              AND s.score_version = ?
               AND s.final_score >= ?
             GROUP BY f.facet_value
             ORDER BY count DESC, f.facet_value ASC
             LIMIT ?`,
-      args: [facetType, FACET_MIN_SCORE, Math.max(1, Math.min(500, limit))],
+      args: [
+        facetType,
+        SCORE_CACHE_VERSION,
+        FACET_MIN_SCORE,
+        Math.max(1, Math.min(500, limit)),
+      ],
     });
     return res.rows.map((r) => ({ value: String(r.value), count: Number(r.count) }));
   } catch (e) {
@@ -3312,10 +3321,11 @@ export async function getDevelopersByFacet(
             WHERE f.facet_type = ?
               AND f.facet_value = ?
               AND s.hidden = 0
+              AND s.score_version = ?
               AND s.final_score >= ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [facetType, facetValue, FACET_MIN_SCORE, capped],
+      args: [facetType, facetValue, SCORE_CACHE_VERSION, FACET_MIN_SCORE, capped],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3411,9 +3421,9 @@ async function attachTopContributors(
               WHERE repo_key IN (${placeholders})
             ) AS edges
             JOIN scores AS s ON s.username = edges.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
             ORDER BY edges.repo_key ASC, s.final_score DESC, s.username ASC`,
-      args: [...keys, FACET_MIN_SCORE],
+      args: [...keys, SCORE_CACHE_VERSION, FACET_MIN_SCORE],
     });
     for (const row of contributors.rows) {
       const key = String(row.repo_key);
@@ -3488,12 +3498,13 @@ async function queryProjectItems(
             FROM edges
             CROSS JOIN repos AS r ON r.repo_key = edges.repo_key
             CROSS JOIN scores AS s ON s.username = edges.username
-              AND s.hidden = 0 AND s.final_score >= ?
+              AND s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
             ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
             GROUP BY r.repo_key`,
       args: [
         ...options.repoKeys,
         cutoff,
+        SCORE_CACHE_VERSION,
         FACET_MIN_SCORE,
         ...(options.language ? [options.language] : []),
       ],
@@ -3519,12 +3530,13 @@ async function queryProjectItems(
           FROM repos AS r
           JOIN edges ON edges.repo_key = r.repo_key
           JOIN scores AS s ON s.username = edges.username
-            AND s.hidden = 0 AND s.final_score >= ?
+            AND s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
           LEFT JOIN recent ON recent.username = edges.username
           ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
           GROUP BY r.repo_key`,
       args: [
         cutoff,
+        SCORE_CACHE_VERSION,
         FACET_MIN_SCORE,
         ...(options.language ? [options.language] : []),
       ],
@@ -3738,15 +3750,16 @@ export async function getRepoOverview(repoKey: string): Promise<RepoOverview | n
     const [ownerRes, contribRes] = await Promise.all([
       db.execute({
         sql: `SELECT username, display_name, avatar_url, final_score, tier
-              FROM scores WHERE username = ? AND hidden = 0`,
-        args: [repo.owner_login],
+              FROM scores
+              WHERE username = ? AND hidden = 0 AND score_version = ?`,
+        args: [repo.owner_login, SCORE_CACHE_VERSION],
       }),
       db.execute({
         sql: `SELECT s.tier AS tier, s.final_score AS final_score
               FROM repo_developers AS rd
               JOIN scores AS s ON s.username = rd.username
-              WHERE rd.repo_key = ? AND s.hidden = 0`,
-        args: [key],
+              WHERE rd.repo_key = ? AND s.hidden = 0 AND s.score_version = ?`,
+        args: [key, SCORE_CACHE_VERSION],
       }),
     ]);
 
@@ -3861,9 +3874,9 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
     const res = await db.execute({
       sql: `SELECT username, display_name, final_score, tier, prev_score, prev_scanned_at
             FROM scores
-            WHERE username = ? AND hidden = 0
+            WHERE username = ? AND hidden = 0 AND score_version = ?
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -3911,10 +3924,10 @@ export async function searchScoredUsers(
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, final_score, tier
             FROM scores
-            WHERE hidden = 0 AND username LIKE ? ESCAPE '\\'
+            WHERE hidden = 0 AND score_version = ? AND username LIKE ? ESCAPE '\\'
             ORDER BY final_score DESC
             LIMIT ?`,
-      args: [like, limit],
+      args: [SCORE_CACHE_VERSION, like, limit],
     });
     return res.rows.map((r) => ({
       username: String(r.username),
@@ -4146,9 +4159,9 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
                    tags, roast_line, sub_scores, roast, roast_en, score_version, scanned_at,
                    prev_score, prev_scanned_at
             FROM scores
-            WHERE username = ? AND hidden = 0
+            WHERE username = ? AND hidden = 0 AND score_version = ?
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -4186,8 +4199,11 @@ export async function getScoreScannedAt(username: string): Promise<number | null
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT scanned_at FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`,
-      args: [username.toLowerCase()],
+      sql: `SELECT scanned_at
+            FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
     });
     const r = res.rows[0];
     return r ? Number(r.scanned_at) : null;
@@ -4270,11 +4286,13 @@ export async function getSimilarAccounts(
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0
+              AND s.score_version = ?
               AND s.username != ?
               AND s.final_score BETWEEN ? AND ?
             ORDER BY s.final_score DESC
             LIMIT ?`,
       args: [
+        SCORE_CACHE_VERSION,
         username.toLowerCase(),
         finalScore - SIMILAR_SCORE_BAND,
         finalScore + SIMILAR_SCORE_BAND,
@@ -4771,11 +4789,14 @@ export async function listFollowedAccounts(
                    s.display_name, s.avatar_url, s.final_score, s.tier,
                    s.prev_score, s.prev_scanned_at
             FROM follows f
-            LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0
+            LEFT JOIN scores s
+              ON s.username = f.target_username
+              AND s.hidden = 0
+              AND s.score_version = ?
             WHERE f.follower_github_id = ?
             ORDER BY f.created_at DESC
             LIMIT ?`,
-      args: [followerGithubId, MAX_FOLLOWS],
+      args: [SCORE_CACHE_VERSION, followerGithubId, MAX_FOLLOWS],
     });
     const scored = res.rows.filter((r) => r.final_score !== null).map((r) => String(r.username));
     const baselines = await getWeeklyBaselines(scored);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPublicScanStatus } from "@/lib/public-scan";
+import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { checkPublicScanStatusRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { normalizeUsername } from "@/lib/username";
 
@@ -48,6 +49,9 @@ export async function GET(
       { status: "complete_public", username: status.run.username, run_id: status.run.id, scan: status.scan },
       { headers: { ...headers, "Cache-Control": COMPLETE_CACHE } },
     );
+  }
+  if (status.status === "pending") {
+    kickPublicScanDrain();
   }
   return NextResponse.json(
     {

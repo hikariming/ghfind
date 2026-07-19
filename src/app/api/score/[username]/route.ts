@@ -75,6 +75,7 @@ function durableResponse(
   headers: Record<string, string>,
 ) {
   if (resolution.status === "pending") {
+    kickPublicScanDrain();
     return json(
       {
         error: "scan_enrichment_pending",
@@ -83,7 +84,7 @@ function durableResponse(
         retry_after: resolution.retryAfterSeconds,
       },
       202,
-      MISS_CACHE,
+      "no-store",
       { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
     );
   }
@@ -250,9 +251,6 @@ export async function GET(
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
-      if (durable.status === "pending" && durable.shouldDrain) {
-        kickPublicScanDrain();
-      }
       return durableResponse(result.metrics.username, durable, { ...statusHeaders, ...rlHeaders });
     }
   }

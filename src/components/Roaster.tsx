@@ -61,6 +61,17 @@ function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+const PENDING_SCAN_MAX_WAIT_MS = 15 * 60 * 1_000;
+const PENDING_SCAN_MIN_RETRY_SECONDS = 5;
+const PENDING_SCAN_MAX_RETRY_SECONDS = 30;
+
+function pendingRetrySeconds(value: unknown): number {
+  return Math.max(
+    PENDING_SCAN_MIN_RETRY_SECONDS,
+    Math.min(PENDING_SCAN_MAX_RETRY_SECONDS, Number(value) || 10),
+  );
+}
+
 export function Roaster({
   campaign,
   analyticsSource = "home",
@@ -256,19 +267,20 @@ export function Roaster({
         const data = await res.json();
         if (res.status === 202 && data?.error === "scan_enrichment_pending") {
           setError(t("errScanPending"));
-          const retrySeconds = Math.max(10, Math.min(30, Number(data.retry_after) || 10));
+          let retrySeconds = pendingRetrySeconds(data.retry_after);
           const runId = typeof data.run_id === "string" ? data.run_id : "";
           if (!runId) {
             setError(t("errScanFailed"));
             setScanning(false);
             return;
           }
-          const deadline = Date.now() + 2 * 60 * 1_000;
+          const deadline = Date.now() + PENDING_SCAN_MAX_WAIT_MS;
           const controller = new AbortController();
           pollAbortRef.current?.abort();
           pollAbortRef.current = controller;
           const poll = async () => {
             let completed = false;
+            let terminalError = false;
             try {
               while (Date.now() < deadline) {
                 await abortableDelay(retrySeconds * 1_000, controller.signal);
@@ -285,14 +297,29 @@ export function Roaster({
                     presentScan(status.scan as ScanResult);
                     return;
                   }
-                  if (statusRes.status >= 500 || status?.status === "failed") break;
+                  if (statusRes.status === 202 && status?.retry_after) {
+                    retrySeconds = pendingRetrySeconds(status.retry_after);
+                    continue;
+                  }
+                  if (statusRes.status === 429 && status?.retry_after) {
+                    retrySeconds = pendingRetrySeconds(status.retry_after);
+                    continue;
+                  }
+                  if (statusRes.status >= 500 || status?.status === "failed") {
+                    terminalError = true;
+                    setError(t("errScanFailed"));
+                    break;
+                  }
                 } catch {
                   if (controller.signal.aborted) return;
                   break;
                 }
               }
             } finally {
-              if (!controller.signal.aborted && !completed) setScanning(false);
+              if (!controller.signal.aborted && !completed) {
+                if (!terminalError) setError(t("errScanPending"));
+                setScanning(false);
+              }
               if (pollAbortRef.current === controller) pollAbortRef.current = null;
             }
           };

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ROAST_CACHE_VERSION } from "../cache-version";
+import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry } from "../db";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 import type { ScanResult } from "../types";
@@ -122,6 +122,33 @@ describe("score snapshots", () => {
     expect(Number(res.rows[0]?.first_generated_at)).toBeGreaterThanOrEqual(before);
     expect(Number(res.rows[0]?.last_generated_at)).toBeLessThanOrEqual(after);
     expect(String(res.rows[0]?.langs).split(",").sort()).toEqual(["en", "zh"]);
+  });
+});
+
+describe("current score version reads", () => {
+  it("hides stale score rows from public current-score surfaces", async () => {
+    const currentUsername = "current-score-row";
+    const staleUsername = "stale-score-row";
+    await db.recordScore({ ...entry, username: currentUsername, final_score: 72 });
+    await db.recordScore({ ...entry, username: staleUsername, final_score: 99 });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
+      args: [`${SCORE_CACHE_VERSION}-old`, staleUsername],
+    });
+
+    await expect(db.getAccountDetail(currentUsername)).resolves.toMatchObject({
+      username: currentUsername,
+      final_score: 72,
+    });
+    await expect(db.getAccountDetail(staleUsername)).resolves.toBeNull();
+    await expect(db.getScoreBrief(staleUsername)).resolves.toBeNull();
+    await expect(db.searchScoredUsers("stale-score")).resolves.toEqual([]);
+
+    const board = await db.getLeaderboard(500, 0);
+    expect(board.some((row) => row.username === currentUsername)).toBe(true);
+    expect(board.some((row) => row.username === staleUsername)).toBe(false);
   });
 });
 
