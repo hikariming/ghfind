@@ -743,6 +743,40 @@ const LEADERBOARD_WINDOWS: LeaderboardWindow[] = ["24h", "7d", "30d", "all"];
 const leaderboardKey = (view: LeaderboardCacheView, window: LeaderboardWindow) =>
   `leaderboard:${SCORE_CACHE_VERSION}:${view}:${window}`;
 const LEADERBOARD_TTL_SECONDS = 300; // 5 min — board moves slowly; fewer DB reads
+const CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const localCampaignLeaderboardRevisions = new Map<string, number>();
+const campaignLeaderboardRevisionKey = (campaign: string) =>
+  `campaign-leaderboard:${campaign}:revision`;
+
+/** Signal that a campaign board's persisted membership or score changed. */
+export async function bumpCampaignLeaderboardRevision(campaign: string): Promise<void> {
+  const r = getRedis();
+  if (!r) {
+    localCampaignLeaderboardRevisions.set(
+      campaign,
+      (localCampaignLeaderboardRevisions.get(campaign) ?? 0) + 1,
+    );
+    return;
+  }
+  try {
+    const key = campaignLeaderboardRevisionKey(campaign);
+    await r.incr(key);
+    await r.expire(key, CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS);
+  } catch {
+    // Best-effort live signal. The client keeps its periodic refresh fallback.
+  }
+}
+
+/** Current cross-instance revision consumed by the campaign SSE endpoint. */
+export async function getCampaignLeaderboardRevision(campaign: string): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return localCampaignLeaderboardRevisions.get(campaign) ?? 0;
+  try {
+    return (await r.get<number>(campaignLeaderboardRevisionKey(campaign))) ?? 0;
+  } catch {
+    return null;
+  }
+}
 
 export async function getCachedLeaderboard(
   view: LeaderboardCacheView = "trending",

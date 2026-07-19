@@ -185,6 +185,8 @@ export default async function AccountPage({
 }) {
   const { locale, username } = await params;
   setRequestLocale(locale);
+  const query = await searchParams;
+  const isAdvxCampaign = query.campaign === "advx";
   const decoded = decodeURIComponent(username);
   const d = await getDetail(decoded);
   if (!d) {
@@ -194,18 +196,21 @@ export default async function AccountPage({
     // stashed in sessionStorage). LiveRoast refreshes into the full profile on
     // completion. Otherwise it's a genuine unknown handle → 404.
     const scan = await getLiveScan(decoded);
-    const roasting = (await searchParams)?.roasting === "1";
+    const roasting = query.roasting === "1";
     if (!scan && !roasting) notFound();
     return (
-      <PendingProfile username={decoded} initialScan={scan ?? null} fromHome={roasting} />
+      <PendingProfile
+        username={decoded}
+        initialScan={scan ?? null}
+        fromHome={roasting}
+        advx={isAdvxCampaign}
+      />
     );
   }
 
   const t = await getTranslations("detail");
   const tDim = await getTranslations("dimensions");
   const tTier = await getTranslations("tiers");
-  const query = await searchParams;
-  const isAdvxCampaign = query.campaign === "advx";
   const style = tierStyle(d.tier);
   const tierKey = TIER_KEY[d.tier];
   const lang = normLang(locale);
@@ -946,6 +951,8 @@ export default async function AccountPage({
               profileName={d.display_name}
               profileAvatarUrl={d.avatar_url}
               orgs={organizations}
+              advx={isAdvxCampaign}
+              materialVersion={d.scanned_at}
             />
           ) : (
             <>
@@ -958,6 +965,8 @@ export default async function AccountPage({
                   avatarUrl={d.avatar_url}
                   meta={revealMeta}
                   orgs={organizations}
+                  advx={isAdvxCampaign}
+                  materialVersion={d.scanned_at}
                 />
               )}
               <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
@@ -974,6 +983,8 @@ export default async function AccountPage({
             profileName={d.display_name}
             profileAvatarUrl={d.avatar_url}
             orgs={organizations}
+            advx={isAdvxCampaign}
+            materialVersion={d.scanned_at}
           />
         ) : (
           <p className="text-sm text-zinc-400">

@@ -752,6 +752,19 @@ describe("getTrendingLeaderboard", () => {
 });
 
 describe("campaign leaderboard", () => {
+  it("bumps the live revision for membership and score writes", async () => {
+    const { getCampaignLeaderboardRevision } = await import("../redis");
+    const before = await getCampaignLeaderboardRevision("live-refresh-event");
+
+    await db.recordCampaignParticipant("live-refresh-event", "live-refresh-user");
+    const afterMembership = await getCampaignLeaderboardRevision("live-refresh-event");
+    await db.recordScore({ ...entry, username: "live-refresh-user", final_score: 77 });
+    const afterScore = await getCampaignLeaderboardRevision("live-refresh-event");
+
+    expect(afterMembership).toBe((before ?? 0) + 1);
+    expect(afterScore).toBe((afterMembership ?? 0) + 1);
+  });
+
   it("filters an event cohort while keeping every participant in the main score table", async () => {
     await db.recordScore({ ...entry, username: "advx-only", final_score: 82 });
     await db.recordScore({ ...entry, username: "main-only", final_score: 81 });

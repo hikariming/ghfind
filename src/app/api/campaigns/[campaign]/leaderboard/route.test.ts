@@ -71,4 +71,19 @@ describe("campaign leaderboard public guardrails", () => {
     );
     expect(mocks.getCampaignLeaderboard).not.toHaveBeenCalled();
   });
+
+  it("serves live refreshes without CDN caching", async () => {
+    mocks.getCampaignLeaderboard.mockResolvedValue([]);
+
+    const response = await GET(
+      new NextRequest(
+        "https://example.test/api/campaigns/advx/leaderboard?limit=500&live=1",
+      ),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.getCampaignLeaderboard).toHaveBeenCalledWith("advx", 500);
+  });
 });

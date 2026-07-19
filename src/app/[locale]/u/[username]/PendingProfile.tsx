@@ -26,6 +26,7 @@ export function PendingProfile({
   username,
   initialScan,
   fromHome = false,
+  advx = false,
 }: {
   username: string;
   initialScan: ScanResult | null;
@@ -33,6 +34,7 @@ export function PendingProfile({
    * immediately, seeded with the deterministic scan score; the AI-adjusted
    * score and one-liner stream into it in place. */
   fromHome?: boolean;
+  advx?: boolean;
 }) {
   const t = useTranslations("detail");
   const tDim = useTranslations("dimensions");
@@ -286,6 +288,8 @@ export function PendingProfile({
                 scan={scan}
                 openModalOnMount={fromHome}
                 fallbackMeta={fromHome ? scanMeta : undefined}
+                advx={advx}
+                materialVersion={scoring.final_score}
               />
             </section>
           </div>

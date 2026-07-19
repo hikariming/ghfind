@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tags, Tier } from "@/lib/types";
@@ -27,6 +28,7 @@ export function ProfileShare({
   tierLabel,
   beat,
   tags,
+  saveAction,
 }: {
   username: string;
   name: string | null;
@@ -36,6 +38,8 @@ export function ProfileShare({
   tierLabel: string;
   beat: number | null;
   tags: Tags;
+  /** Optional campaign-specific replacement for the default flex-image save button. */
+  saveAction?: ReactNode;
 }) {
   const t = useTranslations("roaster");
   const tTier = useTranslations("tiers");
@@ -104,13 +108,15 @@ export function ProfileShare({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <button
-        onClick={saveImage}
-        disabled={savingImg}
-        className="rounded-full bg-orange-600/90 px-4 py-1.5 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
-      >
-        {savingImg ? t("saving") : t("saveImage")}
-      </button>
+      {saveAction ?? (
+        <button
+          onClick={saveImage}
+          disabled={savingImg}
+          className="rounded-full bg-orange-600/90 px-4 py-1.5 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+        >
+          {savingImg ? t("saving") : t("saveImage")}
+        </button>
+      )}
       <ShareMenu link={link} text={shareText} onShareImage={shareImage} />
 
       <ShareCardExportHost>

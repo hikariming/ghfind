@@ -16,6 +16,7 @@ function clientIp(req: NextRequest): string {
 function canonicalPaginationUrl(
   req: NextRequest,
   page: { limit: number; offset: number },
+  live: boolean,
 ): URL | null {
   // The API is CDN-cached. Collapse syntactic variants such as `limit=0100`,
   // reordered params and tracking query strings before querying Turso, or each
@@ -24,6 +25,7 @@ function canonicalPaginationUrl(
   url.search = "";
   if (page.limit !== 100) url.searchParams.set("limit", String(page.limit));
   if (page.offset !== 0) url.searchParams.set("offset", String(page.offset));
+  if (live) url.searchParams.set("live", "1");
   return url.search === req.nextUrl.search ? null : url;
 }
 
@@ -51,13 +53,14 @@ export async function GET(
   }
 
   const page = parsePagination(req, { defaultLimit: 100, maxLimit: 500 });
+  const live = req.nextUrl.searchParams.get("live") === "1";
   if (page.offset >= 500) {
     return NextResponse.json(
       { error: "invalid_pagination" },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
-  const canonicalUrl = canonicalPaginationUrl(req, page);
+  const canonicalUrl = canonicalPaginationUrl(req, page, live);
   if (canonicalUrl) {
     return NextResponse.redirect(canonicalUrl, 308);
   }
@@ -65,6 +68,6 @@ export async function GET(
   const entries = await getCampaignLeaderboard(campaign, 500);
   return NextResponse.json(
     { ...paginate(entries, page), campaign },
-    { headers: { "Cache-Control": CACHE_CONTROL } },
+    { headers: { "Cache-Control": live ? "no-store" : CACHE_CONTROL } },
   );
 }

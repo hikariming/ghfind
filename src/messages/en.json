@@ -379,6 +379,7 @@
     "materialAlt": "ghfind Chinese developer profile card for {username}",
     "materialDownload": "Download SVG",
     "materialDownloadPng": "Download PNG",
+    "materialSave": "📸 Save material card",
     "materialOpen": "Open link",
     "materialUrl": "Material card URL"
   },
