@@ -2,8 +2,8 @@ import "./_env.mjs";
 import { readFileSync, appendFileSync } from "node:fs";
 import { createClient } from "@libsql/client";
 import { collect } from "../src/lib/github";
-import { score, spamBotScore, tierFor } from "../src/lib/score";
-import { recordScore, recordProfileSnapshot, updateRoast } from "../src/lib/db";
+import { score, tierFor } from "../src/lib/score";
+import { publishCompleteQuickScan, updateRoast } from "../src/lib/db";
 import type { ScanResult } from "../src/lib/types";
 import { buildCtx, buildTags, buildRoastLine, buildRoastReport } from "./roast-gen.mts";
 
@@ -93,22 +93,10 @@ for (let i = 0; i < finalUsernames.length; i++) {
     const reportZh = buildRoastReport(ctx, "zh");
     const reportEn = buildRoastReport(ctx, "en");
 
-    await recordScore({
-      username: collected.metrics.username,
-      display_name: collected.metrics.name,
-      avatar_url: collected.metrics.avatar_url,
-      profile_url: collected.metrics.profile_url,
-      final_score: scoring.final_score,
-      tier,
-      tags,
-      roast_line: roastLine,
-      bot_score: spamBotScore(collected.metrics),
-      sub_scores: scoring.sub_scores,
-      scanned_at: Date.now(),
-    });
-    await recordProfileSnapshot(scan);
-    await updateRoast(collected.metrics.username, reportZh, "zh");
-    await updateRoast(collected.metrics.username, reportEn, "en");
+    const scoreWrite = await publishCompleteQuickScan(scan);
+    if (!scoreWrite) throw new Error("scan requires durable collection or storage is unavailable");
+    await updateRoast(collected.metrics.username, reportZh, "zh", scoreWrite, { tags, roastLine });
+    await updateRoast(collected.metrics.username, reportEn, "en", scoreWrite, { tags, roastLine });
 
     ok++;
     const line = { u: collected.metrics.username, score: scoring.final_score, tier, org: orgDisplay, orgs: realOrgs };

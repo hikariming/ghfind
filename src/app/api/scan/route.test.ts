@@ -5,12 +5,15 @@ const mocks = vi.hoisted(() => ({
   collect: vi.fn(),
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
+  ensureCanonicalScoreForPublicRun: vi.fn(),
+  publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
   getLatestPublicScanRun: vi.fn(),
   checkRateLimit: vi.fn(),
   rateLimitHeaders: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  clearCachedScan: vi.fn(),
   setCachedScan: vi.fn(),
   getPublicScanStatus: vi.fn(),
   publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
@@ -20,6 +23,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
+  publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
   getLatestPublicScanRun: mocks.getLatestPublicScanRun,
 }));
@@ -42,6 +47,7 @@ vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
   rateLimitHeaders: mocks.rateLimitHeaders,
   coalesceScan: mocks.coalesceScan,
+  clearCachedScan: mocks.clearCachedScan,
   getCachedScan: mocks.getCachedScan,
   setCachedScan: mocks.setCachedScan,
 }));
@@ -118,6 +124,15 @@ describe("scan route machine auth", () => {
     });
     mocks.score.mockReturnValue(scoring);
     mocks.verifyTurnstile.mockResolvedValue(false);
+    mocks.publishCompleteQuickScan.mockResolvedValue({
+      scannedAt: 1_800_000_000_000,
+      token: "score-write-token",
+    });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue({
+      scannedAt: 1_800_000_000_000,
+      token: "score-write-token",
+    });
+    mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.recordAccountLookup.mockResolvedValue(true);
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ success: true });
@@ -158,6 +173,10 @@ describe("scan route machine auth", () => {
     expect(body.cached).toBe(false);
     expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
     expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(
+      expect.objectContaining({ metrics: expect.objectContaining({ username: "DemoDev" }) }),
+      expect.any(Number),
+    );
   });
 
   it("rejects a non-string username with a 400 instead of crashing", async () => {
@@ -199,16 +218,67 @@ describe("scan route machine auth", () => {
     expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
   });
 
-  it("serves cache hits with RateLimit headers once the limiter passes", async () => {
+  it("serves a complete persisted run with RateLimit headers once the limiter passes", async () => {
     mocks.rateLimitHeaders.mockReturnValue({ "RateLimit-Remaining": "9" });
     mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
+    const run = { id: "complete-run" };
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run,
+      scan: { metrics, scoring },
+    });
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(200);
     expect((await response.json()).cached).toBe(true);
     expect(response.headers.get("RateLimit-Remaining")).toBe("9");
+    expect(mocks.ensureCanonicalScoreForPublicRun).toHaveBeenCalledWith(run);
     expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("discards an orphaned scan cache and publishes a fresh trusted quick scan", async () => {
+    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).cached).toBe(false);
+    expect(mocks.clearCachedScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when a complete run cannot materialize its canonical score", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run: { id: "complete-run" },
+      scan: { metrics, scoring },
+    });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue(null);
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.setCachedScan).not.toHaveBeenCalled();
+  });
+
+  it("does not republish a scan returned by the single-flight cache race", async () => {
+    mocks.coalesceScan.mockResolvedValue({
+      metrics,
+      scoring,
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
   it("does not rerun a quick GitHub scan while a durable job is pending", async () => {
@@ -230,6 +300,7 @@ describe("scan route machine auth", () => {
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
     expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
   it("starts one response-side step only when this request created the durable job", async () => {
@@ -246,5 +317,31 @@ describe("scan route machine auth", () => {
     expect(response.status).toBe(202);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 instead of claiming a fresh quick scan succeeded when persistence returns null", async () => {
+    mocks.publishCompleteQuickScan.mockResolvedValue(null);
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Retry-After")).toBe("5");
+    await expect(response.json()).resolves.toMatchObject({
+      error: "scan_failed",
+      message: "score persistence is temporarily unavailable",
+    });
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 503 instead of claiming a fresh quick scan succeeded when persistence throws", async () => {
+    mocks.publishCompleteQuickScan.mockRejectedValue(new Error("storage unavailable"));
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "scan_failed" });
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
   });
 });

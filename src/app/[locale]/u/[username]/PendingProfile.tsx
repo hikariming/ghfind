@@ -12,15 +12,17 @@ import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { bcp47 } from "@/lib/site";
 import { rankProfileWorks } from "@/lib/profile-work";
 import type { RoastMeta, ScanResult, SubScoreKey } from "@/lib/types";
+import {
+  ProfileArtifactStatus,
+  shouldStartProfileRoast,
+} from "./ProfileArtifactStatus";
 
 /**
- * Slim profile shell shown while a first-time username is roasted live (no
- * persisted `scores` row yet). The scan comes from the homepage handoff via
- * sessionStorage, or from the server-side cache (`initialScan`) on a direct
- * visit / shared link. Built entirely from that scan — identity, deterministic
- * score, dimension chart, top repos — plus the <LiveRoast> stream. Once the
- * roast finishes and persists, LiveRoast refreshes the page and the full
- * server-rendered profile (rank, reactions, share, badge) takes over.
+ * Slim profile shell for a first-time username with no persisted `scores` row.
+ * The scan comes from the homepage handoff via sessionStorage, or from the
+ * server-side cache (`initialScan`) on a direct/shared visit. Only the explicit
+ * homepage handoff mounts <LiveRoast>; ordinary reads keep the deterministic
+ * scan visible without starting optional LLM work.
  */
 export function PendingProfile({
   username,
@@ -30,8 +32,8 @@ export function PendingProfile({
   username: string;
   initialScan: ScanResult | null;
   /** Arrived via the homepage `?roasting=1` handoff → the share popup opens
-   * immediately, seeded with the deterministic scan score; the AI-adjusted
-   * score and one-liner stream into it in place. */
+   * immediately, seeded with the deterministic scan score. LLM tags, one-liner,
+   * and report stream in place; the score remains deterministic. */
   fromHome?: boolean;
 }) {
   const t = useTranslations("detail");
@@ -93,9 +95,9 @@ export function PendingProfile({
     notation: "compact",
     maximumFractionDigits: 1,
   });
-  // Seed for the mount-time share popup: the deterministic scan score. The
-  // AI-adjusted meta (score delta, tags, one-liner) streams into the popup
-  // in place once the roast's meta frame arrives.
+  // Seed for the mount-time share popup: the deterministic scan score. LLM
+  // metadata (tags and one-liner) streams into the popup once its meta frame
+  // arrives; delta stays fixed at zero.
   const scanMeta: RoastMeta = {
     final_score: scoring.final_score,
     tier: scoring.tier,
@@ -116,6 +118,11 @@ export function PendingProfile({
     signatureWork: scan.signature_work,
   });
   const organizations = scan.organizations ?? [];
+  const shouldStreamRoast = shouldStartProfileRoast({
+    explicitHandoff: fromHome,
+    hasReport: false,
+    staleReport: false,
+  });
 
   return (
     <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
@@ -187,13 +194,21 @@ export function PendingProfile({
               )}
             </div>
 
-            {/* Roast-in-progress banner (replaces the rank card until persisted) */}
-            <div className="rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center">
-              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-orange-200/90">
-                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-orange-300/40 border-t-orange-200" />
-                {t("livePendingBanner")}
+            {/* Only an explicit homepage handoff starts the optional LLM report. */}
+            {shouldStreamRoast ? (
+              <div className="rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center">
+                <div className="flex items-center justify-center gap-2 text-sm font-semibold text-orange-200/90">
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-orange-300/40 border-t-orange-200" />
+                  {t("livePendingBanner")}
+                </div>
               </div>
-            </div>
+            ) : (
+              <ProfileArtifactStatus
+                state="stale-score"
+                title={t("scoreStateStaleTitle")}
+                body={t("scoreStateStaleBody")}
+              />
+            )}
           </aside>
 
           {/* Right: evidence + live roast */}
@@ -278,15 +293,27 @@ export function PendingProfile({
               </section>
             )}
 
-            {/* Live roast — streams in place, then refreshes into the full profile */}
+            {/* Direct profile reads remain read-only; the homepage handoff streams. */}
             <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
               <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
-              <LiveRoast
-                username={metrics.username}
-                scan={scan}
-                openModalOnMount={fromHome}
-                fallbackMeta={fromHome ? scanMeta : undefined}
-              />
+              {shouldStreamRoast ? (
+                <LiveRoast
+                  username={metrics.username}
+                  scan={scan}
+                  openModalOnMount
+                  fallbackMeta={scanMeta}
+                />
+              ) : (
+                <p className="text-sm text-zinc-400">
+                  {t.rich("roastEmpty", {
+                    a: (chunks) => (
+                      <Link href="/" className="text-orange-400 hover:underline">
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </p>
+              )}
             </section>
           </div>
         </div>

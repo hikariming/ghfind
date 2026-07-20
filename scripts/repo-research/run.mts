@@ -9,15 +9,15 @@
  *
  * Output: scripts/repo-research/out/<owner>__<name>/{contributors.json,data.json}
  * Read-only against GitHub except the scoring scans; DB writes go through the
- * same recordScore/recordProfileSnapshot path as the website.
+ * same canonical quick-scan publication path as the website.
  */
 import "../_env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@libsql/client";
 import { collect } from "../../src/lib/github";
-import { score, spamBotScore, tierFor } from "../../src/lib/score";
-import { recordScore, recordProfileSnapshot } from "../../src/lib/db";
+import { score, tierFor } from "../../src/lib/score";
+import { publishCompleteQuickScan } from "../../src/lib/db";
 import type { RawMetrics, ScanResult } from "../../src/lib/types";
 
 const repoArg = process.argv[2];
@@ -105,7 +105,6 @@ console.log(`[check] in DB fresh: ${humans.length - toScan.length}/${humans.leng
 
 // ---------- phase 3: ingest (same retry/backoff discipline as _ingest-openclaw) ----------
 if (!NO_INGEST && toScan.length) {
-  const EMPTY = { zh: [] as string[], en: [] as string[] };
   const SPACING = 8000;
   const BACKOFFS = [15000, 40000, 90000];
   for (let i = 0; i < toScan.length; i++) {
@@ -118,17 +117,10 @@ if (!NO_INGEST && toScan.length) {
         const scoring = score(collected.metrics);
         const scan: ScanResult = { ...collected, scoring };
         const { tier } = tierFor(scoring.final_score);
-        await recordScore({
-          username: collected.metrics.username,
-          display_name: collected.metrics.name,
-          avatar_url: collected.metrics.avatar_url,
-          profile_url: collected.metrics.profile_url,
-          final_score: scoring.final_score, tier, tags: EMPTY,
-          roast_line: { zh: "", en: "" },
-          bot_score: spamBotScore(collected.metrics),
-          sub_scores: scoring.sub_scores, scanned_at: Date.now(),
-        });
-        await recordProfileSnapshot(scan);
+        const scoreWrite = await publishCompleteQuickScan(scan);
+        if (!scoreWrite) {
+          throw new Error("scan requires durable collection or storage is unavailable");
+        }
         line = `OK  ${collected.metrics.username.padEnd(20)} score=${String(scoring.final_score).padStart(5)} ${tier}`;
         break;
       } catch (e) {

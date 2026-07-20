@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
-import { recordAccountLookup, recordCampaignParticipant } from "@/lib/db";
+import {
+  ensureCanonicalScoreForPublicRun,
+  publishCompleteQuickScan,
+  recordAccountLookup,
+  recordCampaignParticipant,
+} from "@/lib/db";
 import {
   checkRateLimit,
+  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -36,6 +42,33 @@ function clientIp(req: NextRequest): string {
 function idempotencyHeaders(req: NextRequest): Record<string, string> {
   const key = req.headers.get("idempotency-key");
   return key ? { "Idempotency-Key": key } : {};
+}
+
+function scorePersistenceUnavailable(headers: Record<string, string>) {
+  return apiError("scan_failed", {
+    status: 503,
+    message: "score persistence is temporarily unavailable",
+    hint: "Retry later; no incomplete score was published.",
+    headers: {
+      ...headers,
+      "Cache-Control": "no-store",
+      "Retry-After": "5",
+    },
+  });
+}
+
+class ScorePersistenceError extends Error {}
+
+async function persistFreshQuickScan(
+  scan: import("@/lib/types").ScanResult,
+  scannedAt: number,
+): Promise<boolean> {
+  try {
+    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
+  } catch {
+    console.error("publishCompleteQuickScan failed");
+    return false;
+  }
 }
 
 async function recordSuccessfulLookup(
@@ -179,46 +212,14 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Cache hit short-circuits both GitHub and (later) the LLM. The leaderboard
-  // row + percentile are produced by /api/roast (which has the AI-adjusted final
-  // score), so the scan response stays purely the deterministic result.
+  // A cache entry is readable only when Turso has the matching complete run and
+  // canonical score. Pre-deployment quick cache entries have neither a trusted
+  // scan time nor provenance, so they are discarded and collected afresh.
   const cached = await getCachedScan(username);
-  if (cached) {
-    await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
-    if (requiresDurablePublicScan(cached)) {
-      const status = await getPublicScanStatus(cached.metrics.username);
-      if (status?.status === "complete") {
-        await setCachedScan(status.scan.metrics.username, status.scan);
-        return NextResponse.json(
-          { ...status.scan, cached: true, coverage: "complete_public" },
-          { headers: { ...idem, ...rlHeaders } },
-        );
-      }
-      if (status) {
-        return durableStatusResponse({
-          username: cached.metrics.username,
-          resolution: status,
-          headers: { ...idem, ...rlHeaders },
-        });
-      }
-      return durableResponse({
-        username: cached.metrics.username,
-        scan: cached,
-        headers: { ...idem, ...rlHeaders },
-        admission: durableAdmission,
-      });
-    }
-    return NextResponse.json(
-      { ...cached, cached: true },
-      { headers: { ...idem, ...rlHeaders } },
-    );
-  }
-
-  // When a durable job already owns this account, never run another quick
-  // crawl. The status read is cheap and prevents daily Redis expiry from
-  // turning one pending historical scan into repeated GitHub collection.
   const status = await getPublicScanStatus(username);
   if (status?.status === "complete") {
+    const scoreWrite = await ensureCanonicalScoreForPublicRun(status.run);
+    if (!scoreWrite) return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     await setCachedScan(status.scan.metrics.username, status.scan);
     await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
     return NextResponse.json(
@@ -234,9 +235,20 @@ export async function POST(req: NextRequest) {
       headers: { ...idem, ...rlHeaders },
     });
   }
+  if (cached) await clearCachedScan(cached.metrics.username);
 
   try {
-    const result = await coalesceScan(username, () => buildScanResult(username));
+    const result = await coalesceScan(username, async () => {
+      const freshScanStartedAt = Date.now();
+      const freshResult = await buildScanResult(username);
+      if (
+        !requiresDurablePublicScan(freshResult) &&
+        !(await persistFreshQuickScan(freshResult, freshScanStartedAt))
+      ) {
+        throw new ScorePersistenceError();
+      }
+      return freshResult;
+    });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     if (requiresDurablePublicScan(result)) {
       return durableResponse({
@@ -251,6 +263,9 @@ export async function POST(req: NextRequest) {
       { headers: { ...idem, ...rlHeaders } },
     );
   } catch (e) {
+    if (e instanceof ScorePersistenceError) {
+      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
+    }
     const { error, status, retry_after } = scanErrorResponse(e);
     return apiError(error as Parameters<typeof apiError>[0], {
       status,

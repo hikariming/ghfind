@@ -25,6 +25,8 @@ function acct(username: string, final: number, sub: Partial<SubScores> = {}): Ac
     roast_line: { zh: "", en: "" },
     roast: null,
     roast_en: null,
+    score_source_collection_version: null,
+    score_source_snapshot_hash: null,
     scanned_at: 0,
     prev_score: null,
     prev_scanned_at: null,

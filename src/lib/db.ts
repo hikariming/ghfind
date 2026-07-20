@@ -10,7 +10,7 @@
  * layer only persists the result for cross-account ranking.
  */
 
-import { Client, createClient } from "@libsql/client";
+import { Client, createClient, type Transaction } from "@libsql/client";
 import { createHash, randomUUID } from "node:crypto";
 import {
   bypassGeneratedCaches,
@@ -45,6 +45,10 @@ import {
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
 import { RELEASE_VERSION_MANIFEST } from "./release-versions";
+import {
+  materializeCanonicalScore,
+  type CanonicalScoreMaterialization,
+} from "./score-materialization";
 import type {
   ImpactRepo,
   RoastLine,
@@ -92,6 +96,23 @@ function logPublicScanDbFailure(operation: string, error: unknown): void {
       errorType: error instanceof Error ? error.constructor.name : "Unknown",
     }),
   );
+}
+
+function isDuplicateColumnError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /duplicate column name|column .* already exists/i.test(message);
+}
+
+async function addColumnIfMissing(
+  db: Client,
+  table: string,
+  definition: string,
+): Promise<void> {
+  try {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) throw error;
+  }
 }
 
 export class PublicScanStorageError extends Error {
@@ -244,6 +265,8 @@ function ensureSchema(db: Client): Promise<void> {
              roast        TEXT,
              roast_line   TEXT,
              score_write_token TEXT,
+             score_source_collection_version TEXT,
+             score_source_snapshot_hash TEXT,
              hidden       INTEGER NOT NULL DEFAULT 0,
              scanned_at   INTEGER NOT NULL
            )`,
@@ -322,6 +345,8 @@ function ensureSchema(db: Client): Promise<void> {
           // historical GitHub crawl for every prolific account.
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection
              ON public_scan_runs(username, collection_version, updated_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection_started
+             ON public_scan_runs(username, collection_version, started_at DESC, id DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_state
              ON public_scan_runs(state, updated_at)`,
           `CREATE TABLE IF NOT EXISTS public_scan_jobs (
@@ -666,6 +691,8 @@ function ensureSchema(db: Client): Promise<void> {
         "roast_line TEXT",
         "score_version TEXT",
         "score_write_token TEXT",
+        "score_source_collection_version TEXT",
+        "score_source_snapshot_hash TEXT",
         "roast_version TEXT",
         "roast_en_version TEXT",
         // Previous scan's score + timestamp, kept for the 进步榜 (progress board).
@@ -678,49 +705,28 @@ function ensureSchema(db: Client): Promise<void> {
         "followers INTEGER",
         "total_stars INTEGER",
       ]) {
-        try {
-          await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
-        } catch {
-          // column already exists — ignore
-        }
+        await addColumnIfMissing(db, "scores", col);
       }
-      try {
-        await db.execute(
-          `ALTER TABLE public_scan_commit_repo_facts
-           ADD COLUMN active_years INTEGER NOT NULL DEFAULT 0`,
-        );
-      } catch {
-        // New databases receive this field in CREATE TABLE. Existing durable
-        // scan tables may have been created by an earlier deployment.
-      }
-      try {
-        await db.execute(
-          `ALTER TABLE public_scan_commit_verification_work
-           ADD COLUMN active_years TEXT NOT NULL DEFAULT '[]'`,
-        );
-      } catch {
-        // Existing durable scan work rows can safely start with no year detail.
-      }
+      await addColumnIfMissing(
+        db,
+        "public_scan_commit_repo_facts",
+        "active_years INTEGER NOT NULL DEFAULT 0",
+      );
+      await addColumnIfMissing(
+        db,
+        "public_scan_commit_verification_work",
+        "active_years TEXT NOT NULL DEFAULT '[]'",
+      );
       for (const table of [
         "public_scan_commit_repo_facts",
         "public_scan_commit_candidates",
         "public_scan_commit_verification_work",
       ]) {
         for (const column of ["is_private", "is_fork"]) {
-          try {
-            await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
-          } catch {
-            // New databases receive these fields in CREATE TABLE. Existing
-            // tables may already have been migrated by an earlier invocation.
-          }
+          await addColumnIfMissing(db, table, `${column} INTEGER NOT NULL DEFAULT 0`);
         }
       }
-      try {
-        await db.execute(`ALTER TABLE profile_snapshots ADD COLUMN signature_work TEXT`);
-      } catch {
-        // New databases receive this field in CREATE TABLE. Existing profile
-        // archives may already have been migrated by an earlier invocation.
-      }
+      await addColumnIfMissing(db, "profile_snapshots", "signature_work TEXT");
       // One durable collection invocation is intentionally conservative. Each
       // invocation is bounded, then a later request-after task or Cron run
       // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
@@ -873,6 +879,193 @@ export interface ScoreWriteIdentity {
   token: string;
 }
 
+export interface RoastArtifacts {
+  tags: Tags;
+  roastLine: RoastLine;
+}
+
+type CanonicalScoreUpsertResult =
+  | { status: "written" | "same"; identity: ScoreWriteIdentity }
+  | { status: "superseded"; identity: null };
+
+function isCanonicalSnapshotHash(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function scoreWriteIdentity(row: Record<string, unknown>): ScoreWriteIdentity | null {
+  const scannedAt = Number(row.scanned_at);
+  const token = typeof row.score_write_token === "string" ? row.score_write_token : "";
+  return Number.isSafeInteger(scannedAt) && scannedAt > 0 && token
+    ? { scannedAt, token }
+    : null;
+}
+
+async function ensureAccountStatsTx(
+  tx: Transaction,
+  username: string,
+  scannedAt: number,
+): Promise<void> {
+  await tx.execute({
+    sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(username) DO UPDATE SET
+            lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
+    args: [username, MIN_RECORDED_LOOKUP_COUNT, scannedAt, scannedAt],
+  });
+}
+
+async function upsertCanonicalScoreTx(
+  tx: Transaction,
+  materialized: CanonicalScoreMaterialization,
+): Promise<CanonicalScoreUpsertResult> {
+  const entry = materialized.scoreEntry;
+  const provenance = materialized.provenance;
+  const username = entry.username.toLowerCase();
+  const tags = JSON.stringify(entry.tags ?? EMPTY_TAGS);
+  const roastLine = JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE);
+  const subScores = JSON.stringify(entry.sub_scores);
+  const current = await tx.execute({
+    sql: `SELECT username, final_score, tier, sub_scores, score_version,
+                 score_write_token, score_source_collection_version,
+                 score_source_snapshot_hash, scanned_at
+          FROM scores WHERE username = ? LIMIT 1`,
+    args: [username],
+  });
+  const row = current.rows[0] as Record<string, unknown> | undefined;
+  const token = randomUUID();
+
+  if (!row) {
+    await tx.execute({
+      sql: `INSERT INTO scores
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags,
+               roast_line, score_version, score_write_token,
+               score_source_collection_version, score_source_snapshot_hash,
+               bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        username,
+        entry.display_name,
+        entry.avatar_url,
+        entry.profile_url,
+        entry.final_score,
+        entry.tier,
+        tags,
+        roastLine,
+        provenance.scoreVersion,
+        token,
+        provenance.collectionVersion,
+        provenance.snapshotHash,
+        entry.bot_score,
+        subScores,
+        entry.scanned_at,
+      ],
+    });
+    await ensureAccountStatsTx(tx, username, entry.scanned_at);
+    return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
+  }
+
+  const existingIdentity = scoreWriteIdentity(row);
+  const previousScannedAt = Number(row.scanned_at);
+  const existingIsCanonical =
+    row.score_version === provenance.scoreVersion &&
+    row.score_source_collection_version === provenance.collectionVersion &&
+    isCanonicalSnapshotHash(row.score_source_snapshot_hash);
+  const sameSnapshot =
+    existingIsCanonical &&
+    row.score_source_snapshot_hash === provenance.snapshotHash;
+  if (sameSnapshot) {
+    if (!Number.isSafeInteger(previousScannedAt) || previousScannedAt <= 0) {
+      throw new Error("invalid canonical score timestamp");
+    }
+    if (entry.scanned_at > previousScannedAt) {
+      await tx.execute({
+        sql: `UPDATE scores SET score_write_token = ?, scanned_at = ?
+              WHERE username = ? AND score_version = ?
+                AND score_source_collection_version = ?
+                AND score_source_snapshot_hash = ?`,
+        args: [
+          token,
+          entry.scanned_at,
+          username,
+          provenance.scoreVersion,
+          provenance.collectionVersion,
+          provenance.snapshotHash,
+        ],
+      });
+      await ensureAccountStatsTx(tx, username, entry.scanned_at);
+      return {
+        status: "written",
+        identity: { scannedAt: entry.scanned_at, token },
+      };
+    }
+    if (existingIdentity) return { status: "same", identity: existingIdentity };
+    await tx.execute({
+      sql: `UPDATE scores SET score_write_token = ?
+            WHERE username = ? AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?`,
+      args: [
+        token,
+        username,
+        provenance.scoreVersion,
+        provenance.collectionVersion,
+        provenance.snapshotHash,
+      ],
+    });
+    return {
+      status: "same",
+      identity: { scannedAt: previousScannedAt, token },
+    };
+  }
+
+  // Only a newer canonical row may reject this write. A legacy/current-version
+  // row without complete provenance is not evidence and must never block a
+  // trusted v4 snapshot merely because its request timestamp is later.
+  if (existingIsCanonical) {
+    if (!Number.isSafeInteger(previousScannedAt) || previousScannedAt <= 0) {
+      throw new Error("invalid canonical score timestamp");
+    }
+    if (entry.scanned_at <= previousScannedAt) {
+      return { status: "superseded", identity: null };
+    }
+  }
+
+  await tx.execute({
+    sql: `UPDATE scores SET
+            prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
+            prev_scanned_at = CASE WHEN ? - scanned_at >= ? THEN scanned_at ELSE prev_scanned_at END,
+            display_name = ?, avatar_url = ?, profile_url = ?, final_score = ?, tier = ?,
+            tags = ?, roast_line = ?, score_version = ?, score_write_token = ?,
+            score_source_collection_version = ?, score_source_snapshot_hash = ?,
+            bot_score = ?, sub_scores = ?, scanned_at = ?,
+            roast = NULL, roast_version = NULL, roast_en = NULL, roast_en_version = NULL
+          WHERE username = ?`,
+    args: [
+      entry.scanned_at,
+      PROGRESS_MIN_GAP_MS,
+      entry.scanned_at,
+      PROGRESS_MIN_GAP_MS,
+      entry.display_name,
+      entry.avatar_url,
+      entry.profile_url,
+      entry.final_score,
+      entry.tier,
+      tags,
+      roastLine,
+      provenance.scoreVersion,
+      token,
+      provenance.collectionVersion,
+      provenance.snapshotHash,
+      entry.bot_score,
+      subScores,
+      entry.scanned_at,
+      username,
+    ],
+  });
+  await ensureAccountStatsTx(tx, username, entry.scanned_at);
+  return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
+}
+
 /**
  * Upsert an account's latest score and return the identity required to attach
  * its generated report. Older writes are ignored instead of replacing newer
@@ -920,6 +1113,8 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
               roast_line   = excluded.roast_line,
               score_version = excluded.score_version,
               score_write_token = excluded.score_write_token,
+              score_source_collection_version = NULL,
+              score_source_snapshot_hash = NULL,
               bot_score    = excluded.bot_score,
               sub_scores   = excluded.sub_scores,
               scanned_at   = excluded.scanned_at
@@ -1023,6 +1218,9 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
 const PUBLIC_SCAN_PENDING_SOURCES: PublicScanSourceStatus = Object.fromEntries(
   PUBLIC_SCAN_REQUIRED_SOURCES.map((source) => [source, "pending"]),
 ) as PublicScanSourceStatus;
+const PUBLIC_SCAN_COMPLETE_SOURCES: PublicScanSourceStatus = Object.fromEntries(
+  PUBLIC_SCAN_REQUIRED_SOURCES.map((source) => [source, "complete"]),
+) as PublicScanSourceStatus;
 
 function parsePublicScanSourceStatus(raw: unknown): PublicScanSourceStatus {
   if (typeof raw !== "string" || !raw) return { ...PUBLIC_SCAN_PENDING_SOURCES };
@@ -1081,6 +1279,399 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
+}
+
+/**
+ * Atomically publish a complete bounded quick scan and its deterministic score.
+ * Large/partial scans are rejected by the materializer and must use the durable
+ * worker path instead.
+ */
+export async function publishCompleteQuickScan(
+  scan: ScanResult,
+  scannedAt = Date.now(),
+): Promise<ScoreWriteIdentity | null> {
+  const snapshot = JSON.stringify(scan);
+  const snapshotHash = createHash("sha256").update(snapshot).digest("hex");
+  const materialized = materializeCanonicalScore({
+    snapshot,
+    snapshotHash,
+    username: scan.metrics.username,
+    scoreVersion: SCORE_CACHE_VERSION,
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    scannedAt,
+    mode: "quick",
+    sourceStatus: PUBLIC_SCAN_COMPLETE_SOURCES,
+  });
+  if (!materialized) return null;
+
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const tx = await db.transaction("write");
+    try {
+      const existingRun = await tx.execute({
+        sql: `SELECT id FROM public_scan_runs
+              WHERE username = ? AND score_version = ? AND collection_version = ?
+                AND state = 'complete_public' AND snapshot_hash = ? AND started_at = ?
+              LIMIT 1`,
+        args: [
+          materialized.scoreEntry.username,
+          SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
+          snapshotHash,
+          scannedAt,
+        ],
+      });
+      if (!existingRun.rows[0]) {
+        await tx.execute({
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, quick_scan, snapshot, snapshot_hash,
+                   started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            randomUUID(),
+            materialized.scoreEntry.username,
+            SCORE_CACHE_VERSION,
+            PUBLIC_SCAN_COLLECTION_VERSION,
+            JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
+            snapshot,
+            snapshot,
+            snapshotHash,
+            scannedAt,
+            scannedAt,
+            scannedAt,
+          ],
+        });
+      }
+      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+      if (scoreWrite.status === "superseded") {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      await recordProfileSnapshot(materialized.scan);
+      return scoreWrite.identity;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    logPublicScanDbFailure("publish_quick_score", error);
+    return null;
+  }
+}
+
+/**
+ * Idempotently materialize the current deterministic score from an already
+ * persisted complete v4 run. This repairs pre-deployment runs without another
+ * GitHub crawl; non-canonical collections and partial/corrupt snapshots fail
+ * closed.
+ */
+export async function ensureCanonicalScoreForPublicRun(
+  run: PublicScanRun,
+): Promise<ScoreWriteIdentity | null> {
+  if (
+    run.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION ||
+    run.state !== "complete_public" ||
+    run.coverage !== "complete_public" ||
+    !run.snapshot ||
+    !run.snapshotHash ||
+    !hasCompletePublicScanSources(run.sourceStatus)
+  ) {
+    return null;
+  }
+  const materialized = materializeCanonicalScore({
+    snapshot: run.snapshot,
+    snapshotHash: run.snapshotHash,
+    username: run.username,
+    scoreVersion: SCORE_CACHE_VERSION,
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    scannedAt: run.startedAt,
+    mode: "durable",
+    sourceStatus: run.sourceStatus,
+  });
+  if (!materialized) return null;
+
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    // Healthy cache hits should not serialize behind a write transaction. A
+    // strictly older identity still enters the transaction so the canonical
+    // scan timestamp and CAS token can advance together.
+    const existing = await db.execute({
+      sql: `SELECT scanned_at, score_write_token
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?
+            LIMIT 1`,
+      args: [
+        run.username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        run.snapshotHash,
+      ],
+    });
+    const existingIdentity = existing.rows[0]
+      ? scoreWriteIdentity(existing.rows[0] as Record<string, unknown>)
+      : null;
+    if (existingIdentity && existingIdentity.scannedAt >= run.startedAt) {
+      return existingIdentity;
+    }
+
+    const tx = await db.transaction("write");
+    try {
+      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+      if (scoreWrite.status === "superseded") {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      if (scoreWrite.status === "written") {
+        await recordProfileSnapshot(materialized.scan);
+      }
+      return scoreWrite.identity;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    logPublicScanDbFailure("ensure_run_score", error);
+    return null;
+  }
+}
+
+export interface BackfillCanonicalScoresPageInput {
+  apply: boolean;
+  limit: number;
+  cursor: string | null;
+}
+
+export interface BackfillCanonicalScoresPageResult {
+  dryRun: boolean;
+  processed: number;
+  eligible: number;
+  materialized: number;
+  skipped: number;
+  rejected: number;
+  failed: number;
+  nextCursor: string | null;
+}
+
+interface CanonicalScoreBackfillCursor {
+  completedAt: number;
+  runId: string;
+  watermark: number;
+}
+
+function encodeCanonicalScoreBackfillCursor(
+  cursor: CanonicalScoreBackfillCursor,
+): string {
+  return `bfs1.${Buffer.from(JSON.stringify(cursor)).toString("base64url")}`;
+}
+
+function decodeCanonicalScoreBackfillCursor(
+  raw: string | null,
+): CanonicalScoreBackfillCursor | null | undefined {
+  if (raw === null) return null;
+  if (!raw.startsWith("bfs1.") || raw.length > 512) return undefined;
+  try {
+    const value = JSON.parse(
+      Buffer.from(raw.slice("bfs1.".length), "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    if (
+      !Number.isSafeInteger(value.completedAt) ||
+      Number(value.completedAt) < 0 ||
+      !Number.isSafeInteger(value.watermark) ||
+      Number(value.watermark) <= 0 ||
+      typeof value.runId !== "string" ||
+      !/^[a-zA-Z0-9-]{0,128}$/.test(value.runId) ||
+      (Number(value.completedAt) === 0) !== (value.runId === "")
+    ) {
+      return undefined;
+    }
+    return {
+      completedAt: Number(value.completedAt),
+      runId: value.runId,
+      watermark: Number(value.watermark),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Recompute the current deterministic score from the latest complete canonical
+ * collection snapshot for each account. The cursor contains only completion
+ * time, a fixed page watermark, and a run UUID; account identifiers never leave
+ * this storage boundary.
+ */
+export async function backfillCanonicalScoresPage(
+  input: BackfillCanonicalScoresPageInput,
+): Promise<BackfillCanonicalScoresPageResult | null> {
+  const db = getClient();
+  if (!db) return null;
+  if (
+    typeof input.apply !== "boolean" ||
+    !Number.isSafeInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > 100 ||
+    (input.cursor !== null && typeof input.cursor !== "string")
+  ) {
+    throw new Error("invalid canonical score backfill input");
+  }
+  const limit = input.limit;
+  const decodedCursor = decodeCanonicalScoreBackfillCursor(input.cursor);
+  if (decodedCursor === undefined) {
+    throw new Error("invalid canonical score backfill cursor");
+  }
+  const cursor: CanonicalScoreBackfillCursor = decodedCursor ?? {
+    completedAt: 0,
+    runId: "",
+    watermark: Date.now(),
+  };
+
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT r.id, r.username, r.snapshot, r.snapshot_hash, r.source_status,
+                 r.started_at, r.completed_at
+          FROM public_scan_runs r
+          WHERE r.collection_version = ?
+            AND r.state = 'complete_public'
+            AND r.coverage = 'complete_public'
+            AND r.snapshot IS NOT NULL
+            AND r.snapshot_hash IS NOT NULL
+            AND r.completed_at IS NOT NULL
+            AND r.completed_at <= ?
+            AND NOT EXISTS (
+              SELECT 1 FROM public_scan_runs newer
+              WHERE newer.username = r.username
+                AND newer.collection_version = r.collection_version
+                AND newer.state = 'complete_public'
+                AND newer.coverage = 'complete_public'
+                AND newer.snapshot IS NOT NULL
+                AND newer.snapshot_hash IS NOT NULL
+                AND newer.completed_at IS NOT NULL
+                AND newer.completed_at <= ?
+                AND (
+                  newer.started_at > r.started_at OR
+                  (newer.started_at = r.started_at AND newer.id > r.id)
+                )
+            )
+            AND (
+              r.completed_at > ? OR
+              (r.completed_at = ? AND r.id > ?)
+            )
+          ORDER BY r.completed_at ASC, r.id ASC
+          LIMIT ?`,
+    args: [
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      cursor.watermark,
+      cursor.watermark,
+      cursor.completedAt,
+      cursor.completedAt,
+      cursor.runId,
+      limit + 1,
+    ],
+  });
+  const pageRows = result.rows.slice(0, limit) as Record<string, unknown>[];
+  const response: BackfillCanonicalScoresPageResult = {
+    dryRun: !input.apply,
+    processed: 0,
+    eligible: 0,
+    materialized: 0,
+    skipped: 0,
+    rejected: 0,
+    failed: 0,
+    nextCursor: null,
+  };
+  let lastProcessedCursor = cursor;
+  let stoppedOnFailure = false;
+
+  for (const row of pageRows) {
+    response.processed += 1;
+    const rowCursor: CanonicalScoreBackfillCursor = {
+      completedAt: Number(row.completed_at),
+      runId: String(row.id),
+      watermark: cursor.watermark,
+    };
+    const materialized = materializeCanonicalScore({
+      snapshot: String(row.snapshot ?? ""),
+      snapshotHash: String(row.snapshot_hash ?? ""),
+      username: String(row.username ?? ""),
+      scoreVersion: SCORE_CACHE_VERSION,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      scannedAt: Number(row.started_at),
+      mode: "durable",
+      sourceStatus: parsePublicScanSourceStatus(row.source_status),
+    });
+    if (!materialized) {
+      response.rejected += 1;
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+    response.eligible += 1;
+
+    const existing = await db.execute({
+      sql: `SELECT score_version, score_source_collection_version,
+                   score_source_snapshot_hash, scanned_at
+            FROM scores WHERE username = ? LIMIT 1`,
+      args: [materialized.scoreEntry.username],
+    });
+    const existingRow = existing.rows[0] as Record<string, unknown> | undefined;
+    const alreadyMaterialized =
+      existingRow?.score_version === SCORE_CACHE_VERSION &&
+      existingRow.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      existingRow.score_source_snapshot_hash === materialized.provenance.snapshotHash &&
+      Number(existingRow.scanned_at) >= materialized.scoreEntry.scanned_at;
+    const protectedByNewerCanonical =
+      existingRow?.score_version === SCORE_CACHE_VERSION &&
+      existingRow.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      isCanonicalSnapshotHash(existingRow.score_source_snapshot_hash) &&
+      Number(existingRow.scanned_at) >= materialized.scoreEntry.scanned_at;
+    if (alreadyMaterialized || protectedByNewerCanonical) {
+      response.skipped += 1;
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+    if (!input.apply) {
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+
+    try {
+      const tx = await db.transaction("write");
+      try {
+        const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+        if (scoreWrite.status === "superseded") {
+          await tx.rollback();
+          response.skipped += 1;
+          lastProcessedCursor = rowCursor;
+          continue;
+        }
+        await tx.commit();
+        response.materialized += 1;
+        lastProcessedCursor = rowCursor;
+      } catch (error) {
+        await tx.rollback().catch(() => {});
+        throw error;
+      }
+    } catch {
+      response.failed += 1;
+      stoppedOnFailure = true;
+      break;
+    }
+  }
+
+  if (stoppedOnFailure || result.rows.length > limit) {
+    response.nextCursor = encodeCanonicalScoreBackfillCursor(lastProcessedCursor);
+  }
+  return response;
 }
 
 export interface EnqueuedPublicScan {
@@ -1257,7 +1848,7 @@ export async function getLatestPublicScanRun(
     const result = await db.execute({
       sql: `SELECT * FROM public_scan_runs
             WHERE username = ? AND collection_version = ?
-            ORDER BY updated_at DESC
+            ORDER BY started_at DESC, id DESC
             LIMIT 1`,
       args: [username.toLowerCase(), input.collectionVersion],
     });
@@ -2186,25 +2777,60 @@ export async function completePublicScanRun(input: {
     const tx = await db.transaction("write");
     try {
       const job = await tx.execute({
-        sql: `SELECT id FROM public_scan_jobs
-              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-                AND lease_expires_at > ?`,
+        sql: `SELECT j.id, j.username, j.score_version, j.collection_version,
+                     r.username AS run_username, r.score_version AS run_score_version,
+                     r.collection_version AS run_collection_version,
+                     r.started_at AS run_started_at
+              FROM public_scan_jobs j
+              JOIN public_scan_runs r ON r.id = j.run_id
+              WHERE j.id = ? AND j.run_id = ? AND j.state = 'running'
+                AND j.lease_token = ? AND j.lease_expires_at > ?
+                AND r.state = 'running'`,
         args: [input.jobId, input.runId, input.leaseToken, Date.now()],
       });
-      if (!job.rows[0]) {
+      const jobRow = job.rows[0] as Record<string, unknown> | undefined;
+      if (
+        !jobRow ||
+        jobRow.username !== jobRow.run_username ||
+        jobRow.score_version !== jobRow.run_score_version ||
+        jobRow.collection_version !== jobRow.run_collection_version
+      ) {
         await tx.rollback();
         return false;
       }
+
+      const isCanonical =
+        jobRow.score_version === SCORE_CACHE_VERSION &&
+        jobRow.collection_version === PUBLIC_SCAN_COLLECTION_VERSION;
+      if (isCanonical) {
+        const materialized = materializeCanonicalScore({
+          snapshot: input.snapshot,
+          snapshotHash: input.snapshotHash,
+          username: String(jobRow.username),
+          scoreVersion: String(jobRow.score_version),
+          collectionVersion: String(jobRow.collection_version),
+          scannedAt: Number(jobRow.run_started_at),
+          mode: "durable",
+          sourceStatus: input.sourceStatus,
+        });
+        if (!materialized) {
+          await tx.rollback();
+          return false;
+        }
+        // A newer canonical score may win while this older run still completes
+        // as immutable historical evidence. Invalid state throws and rolls the
+        // whole completion back.
+        await upsertCanonicalScoreTx(tx, materialized);
+      }
+
       const now = Date.now();
-      const state: PublicScanRunState =
-        input.coverage === "complete_public" ? "complete_public" : "partial_public";
       await tx.execute({
         sql: `UPDATE public_scan_runs
               SET state = ?, coverage = ?, source_status = ?, snapshot = ?, snapshot_hash = ?,
                   completed_at = ?, updated_at = ?, last_error = NULL
               WHERE id = ?`,
         args: [
-          state,
+          "complete_public" satisfies PublicScanRunState,
           input.coverage,
           JSON.stringify(input.sourceStatus),
           input.snapshot,
@@ -3394,6 +4020,7 @@ export async function updateRoast(
   roast: string,
   lang: Lang,
   scoreWrite: ScoreWriteIdentity,
+  artifacts?: RoastArtifacts,
 ): Promise<boolean> {
   const db = getClient();
   if (!db) return false;
@@ -3408,16 +4035,23 @@ export async function updateRoast(
     try {
       const updated = await tx.execute({
         sql: `UPDATE scores
-              SET ${col} = ?, ${versionCol} = ?
+              SET ${col} = ?, ${versionCol} = ?,
+                  tags = COALESCE(?, tags), roast_line = COALESCE(?, roast_line)
               WHERE username = ?
                 AND score_version = ?
+                AND score_source_collection_version = ?
+                AND length(score_source_snapshot_hash) = 64
+                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
                 AND score_write_token = ?
                 AND scanned_at = ?`,
         args: [
           roast,
           ROAST_CACHE_VERSION,
+          artifacts ? JSON.stringify(artifacts.tags) : null,
+          artifacts ? JSON.stringify(artifacts.roastLine) : null,
           normalizedUsername,
           SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
           scoreWrite.token,
           scoreWrite.scannedAt,
         ],
@@ -3436,6 +4070,9 @@ export async function updateRoast(
               FROM scores
               WHERE username = ?
                 AND score_version = ?
+                AND score_source_collection_version = ?
+                AND length(score_source_snapshot_hash) = 64
+                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
                 AND score_write_token = ?
                 AND scanned_at = ?
                 AND ${versionCol} = ?
@@ -3447,6 +4084,7 @@ export async function updateRoast(
           generatedAt,
           normalizedUsername,
           SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
           scoreWrite.token,
           scoreWrite.scannedAt,
           ROAST_CACHE_VERSION,
@@ -4549,6 +5187,10 @@ export interface AccountDetail {
   roast_en: string | null;
   /** Score formula version that produced this persisted profile. */
   score_version?: string | null;
+  /** Canonical collection provenance; null for historical/legacy score rows. */
+  score_source_collection_version: string | null;
+  /** SHA-256 identity of the complete source snapshot; null for legacy rows. */
+  score_source_snapshot_hash: string | null;
   scanned_at: number;
   /** Previous scan's score/time (progress-board columns); NULL until a re-scan. */
   prev_score: number | null;
@@ -4866,6 +5508,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
                    tags, roast_line, sub_scores, roast, roast_en, score_version,
+                   score_source_collection_version, score_source_snapshot_hash,
                    roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
@@ -4874,7 +5517,11 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     });
     const r = res.rows[0];
     if (!r) return null;
-    const canonicalScore = r.score_version === SCORE_CACHE_VERSION;
+    const canonicalScore =
+      r.score_version === SCORE_CACHE_VERSION &&
+      r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      typeof r.score_source_snapshot_hash === "string" &&
+      /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -4894,6 +5541,12 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
           ? ((r.roast_en as string | null) ?? null)
           : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
+      score_source_collection_version:
+        typeof r.score_source_collection_version === "string"
+          ? r.score_source_collection_version
+          : null,
+      score_source_snapshot_hash:
+        typeof r.score_source_snapshot_hash === "string" ? r.score_source_snapshot_hash : null,
       scanned_at: Number(r.scanned_at),
       prev_score: r.prev_score === null ? null : Number(r.prev_score),
       prev_scanned_at: r.prev_scanned_at === null ? null : Number(r.prev_scanned_at),
@@ -4926,6 +5579,40 @@ export async function getScoreScannedAt(username: string): Promise<number | null
   }
 }
 
+/** Exact write identity for attaching a report to one canonical scan snapshot. */
+export async function getCanonicalScoreWriteIdentity(
+  username: string,
+  snapshotHash: string,
+): Promise<ScoreWriteIdentity | null> {
+  if (!/^[a-f0-9]{64}$/.test(snapshotHash)) return null;
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT scanned_at, score_write_token
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?
+            LIMIT 1`,
+      args: [
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        snapshotHash,
+      ],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return row ? scoreWriteIdentity(row) : null;
+  } catch (error) {
+    console.error("getCanonicalScoreWriteIdentity failed:", error);
+    return null;
+  }
+}
+
 /**
  * Stored roast report for replaying a previous default-model generation. The
  * language column is fixed by allowlist, so the SQL never uses user input for a
@@ -4948,11 +5635,19 @@ export async function getArchivedRoast(
             WHERE username = ?
               AND hidden = 0
               AND score_version = ?
+              AND score_source_collection_version = ?
+              AND length(score_source_snapshot_hash) = 64
+              AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
               AND ${versionCol} = ?
               AND ${col} IS NOT NULL
               AND ${col} != ''
             LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION, ROAST_CACHE_VERSION],
+      args: [
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        ROAST_CACHE_VERSION,
+      ],
     });
     const r = res.rows[0];
     if (!r) return null;
