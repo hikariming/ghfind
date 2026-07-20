@@ -689,6 +689,19 @@ export async function POST(req: NextRequest) {
     getPublicScanStatus(username),
     getCachedScan(username),
   ]);
+  if (publicStatus?.status === "stale") {
+    return NextResponse.json(
+      {
+        error: "scan_enrichment_pending",
+        username,
+        stale: true,
+        refresh_pending: publicStatus.refreshPending,
+        served_collection_version: publicStatus.servedCollectionVersion,
+        target_collection_version: publicStatus.targetCollectionVersion,
+      },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   let completedPublicRun = publicStatus?.status === "complete" ? publicStatus.run : null;
   const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
   const serverScan = completedPublicScan ?? cachedScan;
@@ -706,7 +719,7 @@ export async function POST(req: NextRequest) {
         ? `bearer:${req.headers.get("authorization") ?? ""}`
         : `ip:${clientIp(req)}`,
     );
-    const resolution = publicStatus && publicStatus.status !== "complete"
+    const resolution = publicStatus?.status === "pending" || publicStatus?.status === "failed"
       ? publicStatus
       : serverScan
         ? await resolvePublicScanFromTrustedQuickScan(username, serverScan, durableAdmission)

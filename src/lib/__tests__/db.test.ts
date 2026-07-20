@@ -925,6 +925,78 @@ describe("durable public scan jobs", () => {
     ).resolves.toBe(true);
   });
 
+  it("returns only requested complete collection snapshots in completion order", async () => {
+    const username = "collection-read-order-fixture";
+    const serialized = serializeScan(syntheticScan(username));
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const sources = JSON.stringify(COMPLETE_PUBLIC_SOURCES);
+    const completedAt = Date.now();
+    await client.batch(
+      [
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-v3-older",
+            username,
+            "legacy-score-fixture",
+            "v3",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt - 2,
+            completedAt - 2,
+            completedAt - 2,
+          ],
+        },
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-v3-newer",
+            username,
+            "legacy-score-fixture",
+            "v3",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt - 1,
+            completedAt - 1,
+            completedAt - 1,
+          ],
+        },
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-non-formal",
+            username,
+            "non-formal-score-fixture",
+            "v5",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt,
+            completedAt,
+            completedAt,
+          ],
+        },
+      ],
+      "write",
+    );
+
+    await expect(db.getCompletePublicScanRuns(username, "v3")).resolves.toMatchObject([
+      { id: "collection-read-v3-newer", collectionVersion: "v3" },
+      { id: "collection-read-v3-older", collectionVersion: "v3" },
+    ]);
+  });
+
   it("dry-runs and applies obsolete-job quarantine in bounded aggregate-only batches", async () => {
     const obsoleteCollection = "obsolete-collection-quarantine-fixture";
     const obsoleteJobs = [];

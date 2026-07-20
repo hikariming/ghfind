@@ -91,6 +91,31 @@ describe("durable scan status API", () => {
     });
   });
 
+  it("keeps a v3 snapshot readable while polling its v4 refresh run", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "durable-status-case", collectionVersion: "v3" },
+      scan: { metrics: { username: "durable-status-case" } },
+      refreshPending: true,
+      refreshRun: { id: "run-id", username: "durable-status-case", collectionVersion: "v4" },
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    const response = await request("durable-status-case");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=5");
+    await expect(response.json()).resolves.toMatchObject({
+      status: "stale_public",
+      run_id: "run-id",
+      stale: true,
+      refresh_pending: true,
+      served_collection_version: "v3",
+      target_collection_version: "v4",
+    });
+  });
+
   it("uses retryable pending and failed states without publishing a partial scan", async () => {
     mocks.getPublicScanStatus.mockResolvedValueOnce({
       status: "pending",

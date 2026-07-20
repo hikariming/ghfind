@@ -173,6 +173,34 @@ describe("score durable scan guardrails", () => {
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
   });
 
+  it("serves a v3 score as stale without writing v9 or creating a refresh", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
+      scan: quickScan,
+      refreshPending: false,
+      refreshRun: null,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      source: "stale_public",
+      stale: true,
+      refresh_pending: false,
+      served_collection_version: "v3",
+      target_collection_version: "v4",
+    });
+    expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
   it("limits status reads before a durable lookup", async () => {
     mocks.checkPublicScanStatusRateLimit.mockResolvedValue({ success: false });
     mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "60" });

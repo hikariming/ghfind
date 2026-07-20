@@ -102,7 +102,7 @@ async function percentileFor(finalScore: number) {
 
 function durableResponse(
   username: string,
-  resolution: Exclude<PublicScanResolution, { status: "complete" }>,
+  resolution: Exclude<PublicScanResolution, { status: "complete" | "stale" }>,
   headers: Record<string, string>,
 ) {
   if (resolution.status === "pending") {
@@ -245,6 +245,38 @@ export async function GET(
       },
       200,
       LIVE_CACHE,
+    );
+  }
+  if (publicStatus?.status === "stale") {
+    const s = publicStatus.scan.scoring;
+    const m = publicStatus.scan.metrics;
+    const tier = s.tier as Tier;
+    return json(
+      {
+        source: "stale_public",
+        cached: true,
+        stale: true,
+        refresh_pending: publicStatus.refreshPending,
+        served_collection_version: publicStatus.servedCollectionVersion,
+        target_collection_version: publicStatus.targetCollectionVersion,
+        username: m.username,
+        display_name: m.name,
+        avatar_url: m.avatar_url,
+        profile_url: m.profile_url ?? `https://github.com/${m.username}`,
+        final_score: s.final_score,
+        tier,
+        tier_key: TIER_KEY[tier],
+        sub_scores: s.sub_scores,
+        base_score: s.base_score,
+        total_penalty: s.total_penalty,
+        red_flags: s.red_flags,
+        tags: null,
+        roast_line: null,
+        percentile: await percentileFor(s.final_score),
+        profile: `${SITE_URL}/u/${m.username}`,
+      },
+      200,
+      "no-store",
     );
   }
   if (publicStatus) {

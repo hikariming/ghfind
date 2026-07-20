@@ -68,6 +68,26 @@ export async function scoreUser(
     const status = await getPublicScanStatus(handle);
     if (status?.status === "complete") {
       result = status.scan;
+    } else if (status?.status === "stale") {
+      const s = status.scan.scoring;
+      const m = status.scan.metrics;
+      const tier = s.tier as Tier;
+      return {
+        source: "stale_public",
+        stale: true,
+        refresh_pending: status.refreshPending,
+        served_collection_version: status.servedCollectionVersion,
+        target_collection_version: status.targetCollectionVersion,
+        username: m.username,
+        display_name: m.name,
+        final_score: s.final_score,
+        tier,
+        tier_key: TIER_KEY[tier],
+        sub_scores: s.sub_scores,
+        red_flags: s.red_flags,
+        percentile: await percentileFor(s.final_score),
+        profile: `${SITE_URL}/u/${m.username}`,
+      };
     } else {
       if (status) {
         return {
@@ -128,6 +148,16 @@ export async function scanUser(
   try {
     const status = await getPublicScanStatus(handle);
     if (status?.status === "complete") return status.scan;
+    if (status?.status === "stale") {
+      const staleScan: ScanResult = { ...status.scan };
+      Object.assign(staleScan, {
+        stale: true,
+        refresh_pending: status.refreshPending,
+        served_collection_version: status.servedCollectionVersion,
+        target_collection_version: status.targetCollectionVersion,
+      });
+      return staleScan;
+    }
     if (status) {
       return {
         error: "scan_enrichment_pending",
