@@ -43,7 +43,8 @@ export async function GET(
   }
 
   const status = await getPublicScanStatus(handle);
-  if (!status || !status.run || status.run.id !== runId) {
+  const activeRun = status?.status === "stale" ? status.refreshRun ?? status.run : status?.run;
+  if (!status || !activeRun || activeRun.id !== runId) {
     return NextResponse.json({ error: "scan_not_found" }, { status: 404, headers });
   }
   if (status.status === "complete") {
@@ -52,11 +53,31 @@ export async function GET(
       { headers: { ...headers, "Cache-Control": COMPLETE_CACHE } },
     );
   }
+  if (status.status === "stale") {
+    return NextResponse.json(
+      {
+        status: "stale_public",
+        username: status.run.username,
+        run_id: activeRun.id,
+        scan: status.scan,
+        stale: true,
+        refresh_pending: status.refreshPending,
+        served_collection_version: status.servedCollectionVersion,
+        target_collection_version: status.targetCollectionVersion,
+      },
+      {
+        headers: {
+          ...headers,
+          "Cache-Control": status.refreshPending ? PENDING_CACHE : COMPLETE_CACHE,
+        },
+      },
+    );
+  }
   return NextResponse.json(
     {
       status: status.status,
-      username: status.run.username,
-      run_id: status.run.id,
+      username: status.run?.username ?? handle,
+      run_id: activeRun.id,
       retry_after: status.retryAfterSeconds,
       ...(status.status === "failed" ? { error: "durable_scan_failed" } : {}),
     },

@@ -69,6 +69,20 @@ text is detached. A roast write is accepted only while the account row still has
 the exact score-write token and timestamp, preventing both cross-release and
 same-release late reports from attaching to a newer scan.
 
+## v3 stale-read fallback
+
+When no valid complete v4 snapshot exists, public scan status may serve the
+newest complete v3 snapshot only after its hash, account identity, coverage,
+required sources, payload shape, and stored-score shape all validate. The
+response marks `stale`, `served_collection_version=v3`, and
+`target_collection_version=v4`. It never materializes a v9 score or report
+from v3 evidence.
+
+Passive profile, score, search, leaderboard, facet, sitemap, and MCP reads do
+not create a refresh. An explicit scan may create at most one v4 job and keeps
+returning the v3 snapshot while that refresh is pending or failed. v5 and every
+other non-formal collection remain ineligible for this path.
+
 ## Obsolete-job quarantine
 
 The operator endpoint returns aggregate counts only:

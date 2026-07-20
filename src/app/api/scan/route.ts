@@ -23,6 +23,7 @@ import {
   type PublicScanResolution,
   requiresDurablePublicScan,
   resolvePublicScanFromTrustedQuickScan,
+  startPublicScan,
 } from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -91,7 +92,7 @@ async function recordSuccessfulLookup(
 
 function durableStatusResponse(input: {
   username: string;
-  resolution: Exclude<PublicScanResolution, { status: "complete" }>;
+  resolution: Exclude<PublicScanResolution, { status: "complete" | "stale" }>;
   headers: Record<string, string>;
 }) {
   if (input.resolution.status === "pending") {
@@ -130,6 +131,35 @@ function durableStatusResponse(input: {
       "Retry-After": String(input.resolution.retryAfterSeconds),
     },
   });
+}
+
+async function staleSnapshotResponse(input: {
+  username: string;
+  status: Extract<PublicScanResolution, { status: "stale" }>;
+  admission: ReturnType<typeof publicScanAdmission>;
+  headers: Record<string, string>;
+}) {
+  const refresh = input.status.refreshPending
+    ? null
+    : await startPublicScan(input.username, input.admission);
+  const refreshRun = refresh && "run" in refresh ? refresh.run : input.status.refreshRun;
+  const refreshPending = input.status.refreshPending || refresh?.status === "pending";
+  if (refresh?.status === "pending" && refresh.headStartJobId) {
+    kickPublicScanDrain(refresh.headStartJobId);
+  }
+  return NextResponse.json(
+    {
+      ...input.status.scan,
+      cached: true,
+      coverage: "complete_public",
+      stale: true,
+      refresh_pending: refreshPending,
+      served_collection_version: input.status.servedCollectionVersion,
+      target_collection_version: input.status.targetCollectionVersion,
+      ...(refreshRun ? { run_id: refreshRun.id } : {}),
+    },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
+  );
 }
 
 async function durableResponse(input: {
@@ -226,6 +256,15 @@ export async function POST(req: NextRequest) {
       { ...status.scan, cached: true, coverage: "complete_public" },
       { headers: { ...idem, ...rlHeaders } },
     );
+  }
+  if (status?.status === "stale") {
+    await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
+    return staleSnapshotResponse({
+      username: status.scan.metrics.username,
+      status,
+      admission: durableAdmission,
+      headers: { ...idem, ...rlHeaders },
+    });
   }
   if (status) {
     await recordSuccessfulLookup(username, ip, campaign);

@@ -78,4 +78,28 @@ describe("MCP stored score guardrail", () => {
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
   });
+
+  it("returns stale v3 evidence without starting a canonical refresh", async () => {
+    mocks.getAccountDetail.mockResolvedValue(null);
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "mcp-stored-fixture", collectionVersion: "v3" },
+      scan: {
+        metrics: { username: "mcp-stored-fixture", name: "MCP Stored Fixture" },
+        scoring: { final_score: 82, tier: "人上人", sub_scores: {}, red_flags: [] },
+      },
+      refreshPending: false,
+      refreshRun: null,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    await expect(scoreUser("mcp-stored-fixture")).resolves.toMatchObject({
+      source: "stale_public",
+      stale: true,
+      served_collection_version: "v3",
+    });
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+  });
 });

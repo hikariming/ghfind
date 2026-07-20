@@ -347,6 +347,11 @@ function ensureSchema(db: Client): Promise<void> {
              ON public_scan_runs(username, collection_version, updated_at DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection_started
              ON public_scan_runs(username, collection_version, started_at DESC, id DESC)`,
+          // Stale-read fallback selects the last valid completed snapshot for
+          // one exact collection contract. Keep that read bounded even when an
+          // account has accumulated several historical runs.
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection_completed
+             ON public_scan_runs(username, collection_version, completed_at DESC, id DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_state
              ON public_scan_runs(state, updated_at)`,
           `CREATE TABLE IF NOT EXISTS public_scan_jobs (
@@ -1857,6 +1862,38 @@ export async function getLatestPublicScanRun(
   } catch (error) {
     logPublicScanDbFailure("get_latest_run", error);
     return null;
+  }
+}
+
+/**
+ * Return complete snapshots in newest-first order for one exact collection
+ * contract. Callers must validate hash and payload shape before serving a row;
+ * this query deliberately never crosses collection versions.
+ */
+export async function getCompletePublicScanRuns(
+  username: string,
+  collectionVersion: string,
+): Promise<PublicScanRun[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_runs
+            WHERE username = ?
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
+              AND snapshot IS NOT NULL
+              AND snapshot_hash IS NOT NULL
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC, id DESC`,
+      args: [username.toLowerCase(), collectionVersion],
+    });
+    return result.rows.map((row) => mapPublicScanRun(row as Record<string, unknown>));
+  } catch (error) {
+    logPublicScanDbFailure("get_complete_runs", error);
+    return [];
   }
 }
 

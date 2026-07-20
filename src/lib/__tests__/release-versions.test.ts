@@ -44,6 +44,10 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
+  it("allows only the formal v3 collection as the v4 stale-read fallback", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4", "v3"]);
+  });
+
   it("rejects aliases and accidental-version replay paths", () => {
     const aliasManifest = manifestCopy();
     aliasManifest.aliases = [{ from: "local", to: "formal" }];

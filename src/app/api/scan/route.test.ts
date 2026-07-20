@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
   requiresDurablePublicScan: vi.fn(),
   resolvePublicScanFromTrustedQuickScan: vi.fn(),
+  startPublicScan: vi.fn(),
   kickPublicScanDrain: vi.fn(),
 }));
 
@@ -57,6 +58,7 @@ vi.mock("@/lib/public-scan", () => ({
   publicScanAdmission: mocks.publicScanAdmission,
   requiresDurablePublicScan: mocks.requiresDurablePublicScan,
   resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
+  startPublicScan: mocks.startPublicScan,
 }));
 
 vi.mock("@/lib/public-scan-dispatcher", () => ({
@@ -236,6 +238,69 @@ describe("scan route machine auth", () => {
     expect(mocks.ensureCanonicalScoreForPublicRun).toHaveBeenCalledWith(run);
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("serves a v3 snapshot and starts only one explicit v4 refresh", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
+      scan: { metrics, scoring, top_repos: [], recent_prs: [], flood_pr_titles: [] },
+      refreshPending: false,
+      refreshRun: null,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "refresh-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: "refresh-job",
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      stale: true,
+      refresh_pending: true,
+      run_id: "refresh-run",
+      served_collection_version: "v3",
+      target_collection_version: "v4",
+    });
+    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("refresh-job");
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("lets an explicit scan retry after a failed v4 refresh while serving v3", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
+      scan: { metrics, scoring, top_repos: [], recent_prs: [], flood_pr_titles: [] },
+      refreshPending: false,
+      refreshRun: { id: "failed-refresh", username: "DemoDev", collectionVersion: "v4" },
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "retry-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: "retry-job",
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      stale: true,
+      refresh_pending: true,
+      run_id: "retry-run",
+    });
+    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("retry-job");
   });
 
   it("discards an orphaned scan cache and publishes a fresh trusted quick scan", async () => {

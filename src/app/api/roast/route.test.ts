@@ -309,6 +309,36 @@ beforeEach(() => {
 });
 
 describe("roast API persistence", () => {
+  it("does not generate or queue a report from stale v3 evidence", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
+      scan,
+      refreshPending: false,
+      refreshRun: null,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "scan_enrichment_pending",
+      stale: true,
+      served_collection_version: "v3",
+      target_collection_version: "v4",
+    });
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
   it("limits every roast path before durable-status and scan-cache reads", async () => {
     mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: false });
     mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "60" });
