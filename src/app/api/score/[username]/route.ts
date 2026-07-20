@@ -259,8 +259,8 @@ export async function GET(
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
-      if (durable.status === "pending" && durable.shouldDrain) {
-        kickPublicScanDrain();
+      if (durable.status === "pending" && durable.headStartJobId) {
+        kickPublicScanDrain(durable.headStartJobId);
       }
       return durableResponse(result.metrics.username, durable, { ...statusHeaders, ...rlHeaders });
     }

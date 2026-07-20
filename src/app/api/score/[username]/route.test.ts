@@ -139,7 +139,7 @@ describe("score durable scan guardrails", () => {
       status: "pending",
       run: { id: "active-run", username: "DemoDev" },
       retryAfterSeconds: 5,
-      shouldDrain: false,
+      headStartJobId: null,
     });
 
     const response = await request();
@@ -179,12 +179,13 @@ describe("score durable scan guardrails", () => {
       status: "pending",
       run: { id: "new-run", username: "DemoDev" },
       retryAfterSeconds: 5,
-      shouldDrain: true,
+      headStartJobId: "new-job-id",
     });
 
     const response = await request();
 
     expect(response.status).toBe(202);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
   });
 });

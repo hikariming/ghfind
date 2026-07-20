@@ -1,9 +1,11 @@
 /**
  * Turso (libSQL) persistence for the leaderboard + percentile.
  *
- * Optional, like {@link ./redis}: if `TURSO_DATABASE_URL` is unset, every function
- * no-ops (returns null/empty) so the app runs fine without it. Stores one latest
- * row per scanned account plus append-only score snapshots for long-term progress.
+ * Optional, like {@link ./redis}: most passive persistence functions no-op when
+ * `TURSO_DATABASE_URL` is unset so the app can run without it. Durable public-scan
+ * worker operations are the exception: they fail closed so Cron health cannot
+ * report an unavailable queue as empty. Stores one latest row per scanned account
+ * plus append-only score snapshots for long-term progress.
  * The score itself is still computed deterministically by `lib/score.ts`; this
  * layer only persists the result for cross-account ranking.
  */
@@ -72,6 +74,7 @@ import type {
   PublicScanRun,
   PublicScanRunState,
   PublicScanSourceStatus,
+  PublicScanStepOutcome,
 } from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
@@ -80,6 +83,35 @@ const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+
+function logPublicScanDbFailure(operation: string, error: unknown): void {
+  console.error(
+    "public_scan.db_failure",
+    JSON.stringify({
+      operation,
+      errorType: error instanceof Error ? error.constructor.name : "Unknown",
+    }),
+  );
+}
+
+export class PublicScanStorageError extends Error {
+  constructor(readonly operation: string) {
+    super("public scan storage unavailable");
+    this.name = "PublicScanStorageError";
+  }
+}
+
+function throwPublicScanStorageFailure(operation: string, error: unknown): never {
+  if (error instanceof PublicScanStorageError) throw error;
+  logPublicScanDbFailure(operation, error);
+  throw new PublicScanStorageError(operation);
+}
+
+function requirePublicScanDb(operation: string): Client {
+  const db = getClient();
+  if (!db) throwPublicScanStorageFailure(operation, new Error("DatabaseUnavailable"));
+  return db;
+}
 
 // User-selectable leaderboard time window. Every board shares one meaning: the
 // candidate pool is "accounts looked up within this window" (and the recent-heat
@@ -334,6 +366,26 @@ function ensureSchema(db: Client): Promise<void> {
              window_started   INTEGER NOT NULL,
              count            INTEGER NOT NULL DEFAULT 0,
              PRIMARY KEY(bucket, window_started)
+           )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_step_metrics (
+             collection_version TEXT NOT NULL,
+             phase              TEXT NOT NULL,
+             outcome            TEXT NOT NULL CHECK(outcome IN ('continued', 'complete', 'failed_retrying', 'failed_terminal', 'slot_busy')),
+             step_count         INTEGER NOT NULL DEFAULT 0,
+             total_duration_ms  INTEGER NOT NULL DEFAULT 0,
+             max_duration_ms    INTEGER NOT NULL DEFAULT 0,
+             updated_at         INTEGER NOT NULL,
+             PRIMARY KEY(collection_version, phase, outcome)
+           )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_cron_metrics (
+             singleton            INTEGER PRIMARY KEY CHECK(singleton = 1),
+             last_started_at       INTEGER,
+             last_success_at       INTEGER,
+             last_duration_ms      INTEGER,
+             last_processed        INTEGER NOT NULL DEFAULT 0,
+             last_failed_steps     INTEGER NOT NULL DEFAULT 0,
+             consecutive_failures  INTEGER NOT NULL DEFAULT 0,
+             updated_at            INTEGER NOT NULL
            )`,
           `CREATE TABLE IF NOT EXISTS public_scan_pr_facts (
              run_id             TEXT NOT NULL,
@@ -1189,7 +1241,7 @@ export async function enqueuePublicScan(
       throw error;
     }
   } catch (error) {
-    console.error("enqueuePublicScan failed:", error);
+    logPublicScanDbFailure("enqueue", error);
     return null;
   }
 }
@@ -1212,14 +1264,13 @@ export async function getLatestPublicScanRun(
     const row = result.rows[0];
     return row ? mapPublicScanRun(row as Record<string, unknown>) : null;
   } catch (error) {
-    console.error("getLatestPublicScanRun failed:", error);
+    logPublicScanDbFailure("get_latest_run", error);
     return null;
   }
 }
 
 export async function getPublicScanRun(runId: string): Promise<PublicScanRun | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("get_run");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1230,8 +1281,7 @@ export async function getPublicScanRun(runId: string): Promise<PublicScanRun | n
       ? mapPublicScanRun(result.rows[0] as Record<string, unknown>)
       : null;
   } catch (error) {
-    console.error("getPublicScanRun failed:", error);
-    return null;
+    throwPublicScanStorageFailure("get_run", error);
   }
 }
 
@@ -1275,7 +1325,7 @@ export async function getPublicScanJobVersionSummary(): Promise<
       count: Number(row.count),
     }));
   } catch (error) {
-    console.error("getPublicScanJobVersionSummary failed:", error);
+    logPublicScanDbFailure("version_summary", error);
     return null;
   }
 }
@@ -1418,7 +1468,7 @@ export async function quarantineObsoletePublicScanJobs(input: {
       throw error;
     }
   } catch (error) {
-    console.error("quarantineObsoletePublicScanJobs failed:", error);
+    logPublicScanDbFailure("quarantine_obsolete", error);
     return null;
   }
 }
@@ -1435,8 +1485,7 @@ export async function claimPublicScanJob(
     leaseMs?: number;
   },
 ): Promise<PublicScanJobLease | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("claim_job");
   try {
     await ensureSchema(db);
     const now = Date.now();
@@ -1486,8 +1535,7 @@ export async function claimPublicScanJob(
         args: [leaseToken, leaseExpiresAt, now, candidateJob.id, input.collectionVersion],
       });
       if (Number(claimed.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return null;
+        throw new Error("public scan claim candidate changed inside write transaction");
       }
       const run = await tx.execute({
         sql: `UPDATE public_scan_runs
@@ -1496,8 +1544,7 @@ export async function claimPublicScanJob(
         args: [now, candidateJob.runId, input.collectionVersion],
       });
       if (Number(run.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return null;
+        throw new Error("public scan run missing while claiming job");
       }
       await tx.commit();
       return {
@@ -1515,8 +1562,54 @@ export async function claimPublicScanJob(
       throw error;
     }
   } catch (error) {
-    console.error("claimPublicScanJob failed:", error);
-    return null;
+    throwPublicScanStorageFailure("claim_job", error);
+  }
+}
+
+/**
+ * Return a claimed job to the ready queue when the process-wide execution slot
+ * is busy. The lease CAS prevents an old worker from releasing a newer claim;
+ * attempt_count and next_run_at are deliberately untouched so Cron can claim it
+ * immediately after capacity becomes available.
+ */
+export async function releasePublicScanJobClaim(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+}): Promise<boolean> {
+  const db = requirePublicScanDb("release_claim");
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      const released = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+        args: [now, input.jobId, input.runId, input.leaseToken],
+      });
+      if (Number(released.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = 'queued', updated_at = ?
+              WHERE id = ? AND state = 'running'`,
+        args: [now, input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while releasing claim");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("release_claim", error);
   }
 }
 
@@ -1532,8 +1625,7 @@ export async function acquirePublicScanExecutionLease(input: {
   leaseToken: string;
   leaseMs?: number;
 }): Promise<number | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("acquire_execution_slot");
   try {
     await ensureSchema(db);
     const now = Date.now();
@@ -1541,14 +1633,17 @@ export async function acquirePublicScanExecutionLease(input: {
     const tx = await db.transaction("write");
     try {
       const candidate = await tx.execute({
-        sql: `SELECT slot FROM public_scan_execution_leases
-              WHERE lease_expires_at <= ?
-              ORDER BY slot
+        sql: `SELECT slot, lease_expires_at
+              FROM public_scan_execution_leases
+              WHERE slot = 1
               LIMIT 1`,
-        args: [now],
+        args: [],
       });
       const slot = candidate.rows[0]?.slot;
       if (typeof slot !== "number") {
+        throw new Error("public scan execution slot is missing");
+      }
+      if (Number(candidate.rows[0]?.lease_expires_at ?? 0) > now) {
         await tx.rollback();
         return null;
       }
@@ -1559,8 +1654,7 @@ export async function acquirePublicScanExecutionLease(input: {
         args: [input.jobId, input.leaseToken, leaseExpiresAt, slot, now],
       });
       if (Number(update.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return null;
+        throw new Error("public scan execution slot changed inside write transaction");
       }
       await tx.commit();
       return slot;
@@ -1569,8 +1663,7 @@ export async function acquirePublicScanExecutionLease(input: {
       throw error;
     }
   } catch (error) {
-    console.error("acquirePublicScanExecutionLease failed:", error);
-    return null;
+    throwPublicScanStorageFailure("acquire_execution_slot", error);
   }
 }
 
@@ -1579,8 +1672,7 @@ export async function releasePublicScanExecutionLease(input: {
   jobId: string;
   leaseToken: string;
 }): Promise<void> {
-  const db = getClient();
-  if (!db) return;
+  const db = requirePublicScanDb("release_execution_slot");
   try {
     await ensureSchema(db);
     await db.execute({
@@ -1590,7 +1682,7 @@ export async function releasePublicScanExecutionLease(input: {
       args: [input.slot, input.jobId, input.leaseToken],
     });
   } catch (error) {
-    console.error("releasePublicScanExecutionLease failed:", error);
+    throwPublicScanStorageFailure("release_execution_slot", error);
   }
 }
 
@@ -1604,12 +1696,11 @@ export async function acquirePublicScanRateWindow(input: {
   limit: number;
   windowMs: number;
 }): Promise<{ granted: boolean; retryAt: number }> {
-  const db = getClient();
   const now = Date.now();
   const safeWindow = Math.max(1_000, Math.floor(input.windowMs));
   const startedAt = Math.floor(now / safeWindow) * safeWindow;
   const retryAt = startedAt + safeWindow;
-  if (!db) return { granted: false, retryAt };
+  const db = requirePublicScanDb("acquire_rate_window");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1622,8 +1713,307 @@ export async function acquirePublicScanRateWindow(input: {
     // `rowsAffected` is 0 when a full existing window rejected the increment.
     return { granted: Number(result.rowsAffected ?? 0) === 1, retryAt };
   } catch (error) {
-    console.error("acquirePublicScanRateWindow failed:", error);
-    return { granted: false, retryAt };
+    throwPublicScanStorageFailure("acquire_rate_window", error);
+  }
+}
+
+export interface PublicScanStepObservation {
+  phase: PublicScanJobPhase;
+  outcome: PublicScanStepOutcome;
+  durationMs: number;
+}
+
+/** Persist aggregate-only worker observations; job and account IDs never enter this table. */
+export async function recordPublicScanStepMetrics(input: {
+  collectionVersion: string;
+  observations: PublicScanStepObservation[];
+}): Promise<boolean> {
+  if (input.observations.length === 0) return true;
+  const db = requirePublicScanDb("metrics_write");
+  const aggregated = new Map<
+    string,
+    { phase: PublicScanJobPhase; outcome: PublicScanStepOutcome; count: number; total: number; max: number }
+  >();
+  for (const observation of input.observations) {
+    const duration = Number.isFinite(observation.durationMs)
+      ? Math.max(0, Math.floor(observation.durationMs))
+      : 0;
+    const key = `${observation.phase}\0${observation.outcome}`;
+    const current = aggregated.get(key);
+    if (current) {
+      current.count += 1;
+      current.total += duration;
+      current.max = Math.max(current.max, duration);
+    } else {
+      aggregated.set(key, {
+        phase: observation.phase,
+        outcome: observation.outcome,
+        count: 1,
+        total: duration,
+        max: duration,
+      });
+    }
+  }
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      for (const metric of aggregated.values()) {
+        await tx.execute({
+          sql: `INSERT INTO public_scan_step_metrics
+                  (collection_version, phase, outcome, step_count, total_duration_ms, max_duration_ms, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(collection_version, phase, outcome) DO UPDATE SET
+                  step_count = public_scan_step_metrics.step_count + excluded.step_count,
+                  total_duration_ms = public_scan_step_metrics.total_duration_ms + excluded.total_duration_ms,
+                  max_duration_ms = MAX(public_scan_step_metrics.max_duration_ms, excluded.max_duration_ms),
+                  updated_at = excluded.updated_at`,
+          args: [
+            input.collectionVersion,
+            metric.phase,
+            metric.outcome,
+            metric.count,
+            metric.total,
+            metric.max,
+            now,
+          ],
+        });
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("metrics_write", error);
+  }
+}
+
+export async function recordPublicScanCronMetrics(input: {
+  startedAt: number;
+  completedAt: number;
+  processed: number;
+  failedSteps: number;
+  success: boolean;
+}): Promise<boolean> {
+  const db = requirePublicScanDb("cron_metrics_write");
+  try {
+    await ensureSchema(db);
+    const durationMs = Math.max(0, Math.floor(input.completedAt - input.startedAt));
+    const values = [
+      1,
+      input.startedAt,
+      input.success ? input.completedAt : null,
+      durationMs,
+      Math.max(0, Math.floor(input.processed)),
+      Math.max(0, Math.floor(input.failedSteps)),
+      input.success ? 0 : 1,
+      input.completedAt,
+    ];
+    await db.execute({
+      sql: `INSERT INTO public_scan_cron_metrics
+              (singleton, last_started_at, last_success_at, last_duration_ms,
+               last_processed, last_failed_steps, consecutive_failures, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(singleton) DO UPDATE SET
+              last_started_at = excluded.last_started_at,
+              last_success_at = CASE WHEN ? = 1
+                                     THEN excluded.last_success_at
+                                     ELSE public_scan_cron_metrics.last_success_at END,
+              last_duration_ms = excluded.last_duration_ms,
+              last_processed = excluded.last_processed,
+              last_failed_steps = excluded.last_failed_steps,
+              consecutive_failures = CASE WHEN ? = 1
+                                          THEN 0
+                                          ELSE public_scan_cron_metrics.consecutive_failures + 1 END,
+              updated_at = excluded.updated_at`,
+      args: [...values, input.success ? 1 : 0, input.success ? 1 : 0],
+    });
+    return true;
+  } catch (error) {
+    throwPublicScanStorageFailure("cron_metrics_write", error);
+  }
+}
+
+export interface PublicScanOperationalMetrics {
+  generatedAt: number;
+  canonicalCollectionVersion: string;
+  queue: {
+    depth: number;
+    queued: number;
+    running: number;
+    ready: number;
+    deferred: number;
+    retrying: number;
+    oldestAgeMs: number | null;
+    byPhase: Array<{ phase: string; queued: number; running: number }>;
+  };
+  failures: {
+    currentFailedJobs: number;
+    retryingSteps: number;
+    terminalSteps: number;
+  };
+  execution: {
+    activeSlots: number;
+    capacity: number;
+    contentionSteps: number;
+  };
+  obsoleteActiveJobs: number;
+  steps: Array<{
+    phase: string;
+    outcome: PublicScanStepOutcome;
+    count: number;
+    averageDurationMs: number;
+    maxDurationMs: number;
+  }>;
+  cron: {
+    lastStartedAt: number | null;
+    lastSuccessAt: number | null;
+    lastDurationMs: number | null;
+    lastProcessed: number;
+    lastFailedSteps: number;
+    consecutiveFailures: number;
+  };
+}
+
+/** Aggregate operational state for the authenticated release-operations endpoint. */
+export async function getPublicScanOperationalMetrics(
+  canonicalCollectionVersion: string,
+): Promise<PublicScanOperationalMetrics | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const [active, failureState, obsolete, slots, steps, cron] = await db.batch(
+      [
+        {
+          sql: `SELECT state, phase, COUNT(*) AS count, MIN(created_at) AS oldest_created_at,
+                       SUM(CASE WHEN state = 'queued' AND next_run_at <= ? THEN 1 ELSE 0 END) AS ready_count,
+                       SUM(CASE WHEN state = 'queued' AND next_run_at > ? THEN 1 ELSE 0 END) AS deferred_count
+                FROM public_scan_jobs
+                WHERE collection_version = ? AND state IN ('queued', 'running')
+                GROUP BY state, phase`,
+          args: [now, now, canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT
+                  SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) AS failed_jobs,
+                  SUM(CASE WHEN state = 'queued' AND attempt_count > 0 THEN 1 ELSE 0 END) AS retrying_jobs
+                FROM public_scan_jobs
+                WHERE collection_version = ?`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_jobs
+                WHERE collection_version <> ? AND state IN ('queued', 'running')`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_execution_leases
+                WHERE lease_expires_at > ?`,
+          args: [now],
+        },
+        {
+          sql: `SELECT phase, outcome, step_count, total_duration_ms, max_duration_ms
+                FROM public_scan_step_metrics
+                WHERE collection_version = ?
+                ORDER BY phase, outcome`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT last_started_at, last_success_at, last_duration_ms, last_processed,
+                       last_failed_steps, consecutive_failures
+                FROM public_scan_cron_metrics
+                WHERE singleton = 1`,
+          args: [],
+        },
+      ],
+      "read",
+    );
+    const phases = new Map<string, { phase: string; queued: number; running: number }>();
+    let queued = 0;
+    let running = 0;
+    let ready = 0;
+    let deferred = 0;
+    let oldestCreatedAt: number | null = null;
+    for (const row of active.rows) {
+      const phase = String(row.phase);
+      const count = Number(row.count ?? 0);
+      const item = phases.get(phase) ?? { phase, queued: 0, running: 0 };
+      if (row.state === "queued") {
+        item.queued += count;
+        queued += count;
+        ready += Number(row.ready_count ?? 0);
+        deferred += Number(row.deferred_count ?? 0);
+      } else if (row.state === "running") {
+        item.running += count;
+        running += count;
+      }
+      phases.set(phase, item);
+      const candidate = Number(row.oldest_created_at);
+      if (Number.isFinite(candidate)) {
+        oldestCreatedAt = oldestCreatedAt === null ? candidate : Math.min(oldestCreatedAt, candidate);
+      }
+    }
+    const stepMetrics = steps.rows.map((row) => {
+      const count = Math.max(0, Number(row.step_count ?? 0));
+      const total = Math.max(0, Number(row.total_duration_ms ?? 0));
+      return {
+        phase: String(row.phase),
+        outcome: String(row.outcome) as PublicScanStepOutcome,
+        count,
+        averageDurationMs: count > 0 ? Math.round(total / count) : 0,
+        maxDurationMs: Math.max(0, Number(row.max_duration_ms ?? 0)),
+      };
+    });
+    const countOutcome = (outcome: PublicScanStepOutcome) =>
+      stepMetrics
+        .filter((metric) => metric.outcome === outcome)
+        .reduce((total, metric) => total + metric.count, 0);
+    const failureRow = failureState.rows[0];
+    const cronRow = cron.rows[0];
+    return {
+      generatedAt: now,
+      canonicalCollectionVersion,
+      queue: {
+        depth: queued + running,
+        queued,
+        running,
+        ready,
+        deferred,
+        retrying: Number(failureRow?.retrying_jobs ?? 0),
+        oldestAgeMs: oldestCreatedAt === null ? null : Math.max(0, now - oldestCreatedAt),
+        byPhase: [...phases.values()].sort((left, right) => left.phase.localeCompare(right.phase)),
+      },
+      failures: {
+        currentFailedJobs: Number(failureRow?.failed_jobs ?? 0),
+        retryingSteps: countOutcome("failed_retrying"),
+        terminalSteps: countOutcome("failed_terminal"),
+      },
+      execution: {
+        activeSlots: Number(slots.rows[0]?.count ?? 0),
+        capacity: 1,
+        contentionSteps: countOutcome("slot_busy"),
+      },
+      obsoleteActiveJobs: Number(obsolete.rows[0]?.count ?? 0),
+      steps: stepMetrics,
+      cron: {
+        lastStartedAt: cronRow?.last_started_at == null ? null : Number(cronRow.last_started_at),
+        lastSuccessAt: cronRow?.last_success_at == null ? null : Number(cronRow.last_success_at),
+        lastDurationMs: cronRow?.last_duration_ms == null ? null : Number(cronRow.last_duration_ms),
+        lastProcessed: Number(cronRow?.last_processed ?? 0),
+        lastFailedSteps: Number(cronRow?.last_failed_steps ?? 0),
+        consecutiveFailures: Number(cronRow?.consecutive_failures ?? 0),
+      },
+    };
+  } catch {
+    console.error("public_scan.metrics_read_failed");
+    return null;
   }
 }
 
@@ -1636,40 +2026,51 @@ export async function savePublicScanJobProgress(input: {
   sourceStatus?: PublicScanSourceStatus;
   nextRunAt?: number;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("save_job_progress");
   try {
     await ensureSchema(db);
     const now = Date.now();
     const nextRunAt = input.nextRunAt ?? now;
-    const update = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
-                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [
-        input.phase,
-        input.payload,
-        nextRunAt,
-        now,
-        input.jobId,
-        input.runId,
-        input.leaseToken,
-        now,
-      ],
-    });
-    if (Number(update.rowsAffected ?? 0) !== 1) return false;
-    if (input.sourceStatus) {
-      await db.execute({
-        sql: `UPDATE public_scan_runs SET source_status = ?, updated_at = ? WHERE id = ?`,
-        args: [JSON.stringify(input.sourceStatus), now, input.runId],
+    const tx = await db.transaction("write");
+    try {
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
+                  lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [
+          input.phase,
+          input.payload,
+          nextRunAt,
+          now,
+          input.jobId,
+          input.runId,
+          input.leaseToken,
+          now,
+        ],
       });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      if (input.sourceStatus) {
+        const run = await tx.execute({
+          sql: `UPDATE public_scan_runs SET source_status = ?, updated_at = ? WHERE id = ?`,
+          args: [JSON.stringify(input.sourceStatus), now, input.runId],
+        });
+        if (Number(run.rowsAffected ?? 0) !== 1) {
+          throw new Error("public scan run missing while saving progress");
+        }
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
     }
-    return true;
   } catch (error) {
-    console.error("savePublicScanJobProgress failed:", error);
-    return false;
+    throwPublicScanStorageFailure("save_job_progress", error);
   }
 }
 
@@ -1680,27 +2081,39 @@ export async function savePublicScanQuickResult(input: {
   quickScan: string;
   sourceStatus: PublicScanSourceStatus;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("save_quick_result");
   try {
     await ensureSchema(db);
-    const job = await db.execute({
-      sql: `SELECT id FROM public_scan_jobs
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [input.jobId, input.runId, input.leaseToken, Date.now()],
-    });
-    if (!job.rows[0]) return false;
-    await db.execute({
-      sql: `UPDATE public_scan_runs
-            SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
-            WHERE id = ?`,
-      args: [input.quickScan, JSON.stringify(input.sourceStatus), Date.now(), input.runId],
-    });
-    return true;
+    const tx = await db.transaction("write");
+    try {
+      const now = Date.now();
+      const job = await tx.execute({
+        sql: `SELECT id FROM public_scan_jobs
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [input.jobId, input.runId, input.leaseToken, now],
+      });
+      if (!job.rows[0]) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
+              WHERE id = ?`,
+        args: [input.quickScan, JSON.stringify(input.sourceStatus), now, input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while saving quick result");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
-    console.error("savePublicScanQuickResult failed:", error);
-    return false;
+    throwPublicScanStorageFailure("save_quick_result", error);
   }
 }
 
@@ -1745,7 +2158,7 @@ export async function seedPublicScanQuickResult(input: {
       throw error;
     }
   } catch (error) {
-    console.error("seedPublicScanQuickResult failed:", error);
+    logPublicScanDbFailure("seed_quick_result", error);
     return false;
   }
 }
@@ -1767,8 +2180,7 @@ export async function completePublicScanRun(input: {
   ) {
     return false;
   }
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("complete_run");
   try {
     await ensureSchema(db);
     const tx = await db.transaction("write");
@@ -1815,8 +2227,7 @@ export async function completePublicScanRun(input: {
       throw error;
     }
   } catch (error) {
-    console.error("completePublicScanRun failed:", error);
-    return false;
+    throwPublicScanStorageFailure("complete_run", error);
   }
 }
 
@@ -1827,38 +2238,49 @@ export async function failPublicScanJob(input: {
   error: string;
   retryAt?: number;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("fail_job");
   try {
     await ensureSchema(db);
     const now = Date.now();
     const retry = input.retryAt != null;
-    const update = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
-                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [
-        retry ? "queued" : "failed",
-        input.retryAt ?? now,
-        now,
-        input.jobId,
-        input.runId,
-        input.leaseToken,
-        now,
-      ],
-    });
-    if (Number(update.rowsAffected ?? 0) !== 1) return false;
-    await db.execute({
-      sql: `UPDATE public_scan_runs
-            SET state = ?, updated_at = ?, last_error = ? WHERE id = ?`,
-      args: [retry ? "queued" : "failed", now, input.error.slice(0, 2_000), input.runId],
-    });
-    return true;
+    const tx = await db.transaction("write");
+    try {
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
+                  lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [
+          retry ? "queued" : "failed",
+          input.retryAt ?? now,
+          now,
+          input.jobId,
+          input.runId,
+          input.leaseToken,
+          now,
+        ],
+      });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = ?, updated_at = ?, last_error = ? WHERE id = ?`,
+        args: [retry ? "queued" : "failed", now, input.error.slice(0, 2_000), input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while recording failure");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
-    console.error("failPublicScanJob failed:", error);
-    return false;
+    throwPublicScanStorageFailure("fail_job", error);
   }
 }
 
@@ -1887,8 +2309,7 @@ export async function upsertPublicScanPrFacts(input: {
   facts: PublicScanPrFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_pr_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1937,8 +2358,7 @@ export async function upsertPublicScanPrFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanPrFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_pr_facts", error);
   }
 }
 
@@ -1950,8 +2370,7 @@ export async function upsertPublicScanCommitRepoFacts(input: {
   facts: PublicScanCommitRepoFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_commit_repo_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1999,8 +2418,7 @@ export async function upsertPublicScanCommitRepoFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanCommitRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_commit_repo_facts", error);
   }
 }
 
@@ -2011,8 +2429,7 @@ export async function upsertPublicScanCommitCandidates(input: {
   candidates: PublicScanCommitCandidate[];
 }): Promise<boolean> {
   if (input.candidates.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_commit_candidates");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2042,8 +2459,7 @@ export async function upsertPublicScanCommitCandidates(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanCommitCandidates failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_commit_candidates", error);
   }
 }
 
@@ -2054,8 +2470,7 @@ export async function upsertPublicScanOwnedRepoFacts(input: {
   facts: PublicScanOwnedRepoFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_owned_repo_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2095,14 +2510,12 @@ export async function upsertPublicScanOwnedRepoFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanOwnedRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_owned_repo_facts", error);
   }
 }
 
 export async function getPublicScanOwnedRepoFacts(runId: string): Promise<PublicScanOwnedRepoFact[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_owned_repo_facts");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2138,8 +2551,7 @@ export async function getPublicScanOwnedRepoFacts(runId: string): Promise<Public
       };
     });
   } catch (error) {
-    console.error("getPublicScanOwnedRepoFacts failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_owned_repo_facts", error);
   }
 }
 
@@ -2149,8 +2561,7 @@ export async function preparePublicScanCommitVerificationWork(input: {
   runId: string;
   leaseToken: string;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("prepare_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2173,8 +2584,7 @@ export async function preparePublicScanCommitVerificationWork(input: {
     });
     return true;
   } catch (error) {
-    console.error("preparePublicScanCommitVerificationWork failed:", error);
-    return false;
+    throwPublicScanStorageFailure("prepare_commit_verification", error);
   }
 }
 
@@ -2234,8 +2644,7 @@ function mapPublicScanCommitVerificationWork(
 export async function getNextPublicScanCommitVerificationWork(
   runId: string,
 ): Promise<PublicScanCommitVerificationWork | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("get_commit_verification");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2249,8 +2658,7 @@ export async function getNextPublicScanCommitVerificationWork(
       ? mapPublicScanCommitVerificationWork(result.rows[0] as Record<string, unknown>)
       : null;
   } catch (error) {
-    console.error("getNextPublicScanCommitVerificationWork failed:", error);
-    return null;
+    throwPublicScanStorageFailure("get_commit_verification", error);
   }
 }
 
@@ -2267,8 +2675,7 @@ export async function recordPublicScanCommitVerificationPage(input: {
   commits: { sha: string; committedAt: string | null }[];
   complete: boolean;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("record_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2326,8 +2733,7 @@ export async function recordPublicScanCommitVerificationPage(input: {
     });
     return Number(update.rowsAffected ?? 0) === 1;
   } catch (error) {
-    console.error("recordPublicScanCommitVerificationPage failed:", error);
-    return false;
+    throwPublicScanStorageFailure("record_commit_verification", error);
   }
 }
 
@@ -2339,8 +2745,7 @@ export async function splitPublicScanCommitVerificationWork(input: {
   left: { from: string; to: string };
   right: { from: string; to: string };
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("split_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2381,8 +2786,7 @@ export async function splitPublicScanCommitVerificationWork(input: {
       throw error;
     }
   } catch (error) {
-    console.error("splitPublicScanCommitVerificationWork failed:", error);
-    return false;
+    throwPublicScanStorageFailure("split_commit_verification", error);
   }
 }
 
@@ -2392,8 +2796,7 @@ export async function materializePublicScanCommitRepoFacts(input: {
   runId: string;
   leaseToken: string;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("materialize_commit_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2442,8 +2845,7 @@ export async function materializePublicScanCommitRepoFacts(input: {
     });
     return true;
   } catch (error) {
-    console.error("materializePublicScanCommitRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("materialize_commit_facts", error);
   }
 }
 
@@ -2468,8 +2870,7 @@ export async function getPublicScanPrSummary(
   runId: string,
   username: string,
 ): Promise<PublicScanPrSummary> {
-  const db = getClient();
-  if (!db) return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+  const db = requirePublicScanDb("get_pr_summary");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2492,14 +2893,12 @@ export async function getPublicScanPrSummary(
       workflowLandedImpactPrs: Number(row?.workflow_landed_impact_prs) || 0,
     };
   } catch (error) {
-    console.error("getPublicScanPrSummary failed:", error);
-    return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+    throwPublicScanStorageFailure("get_pr_summary", error);
   }
 }
 
 export async function getPublicScanSignaturePrFacts(runId: string): Promise<PublicScanPrFact[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_signature_pr_facts");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2553,8 +2952,7 @@ export async function getPublicScanSignaturePrFacts(runId: string): Promise<Publ
       };
     });
   } catch (error) {
-    console.error("getPublicScanSignaturePrFacts failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_signature_pr_facts", error);
   }
 }
 
@@ -2566,8 +2964,7 @@ export async function getPublicScanSignaturePrFacts(runId: string): Promise<Publ
 export async function getPublicScanContributionAggregates(
   runId: string,
 ): Promise<PublicScanContributionAggregate[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_contribution_aggregates");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2630,8 +3027,7 @@ export async function getPublicScanContributionAggregates(
       };
     });
   } catch (error) {
-    console.error("getPublicScanContributionAggregates failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_contribution_aggregates", error);
   }
 }
 

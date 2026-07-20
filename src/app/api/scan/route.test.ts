@@ -238,12 +238,13 @@ describe("scan route machine auth", () => {
       status: "pending",
       run: { id: "new-run" },
       retryAfterSeconds: 5,
-      shouldDrain: true,
+      headStartJobId: "new-job-id",
     });
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(202);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
   });
 });

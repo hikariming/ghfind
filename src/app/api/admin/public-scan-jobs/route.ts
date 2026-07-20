@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getPublicScanJobVersionSummary,
+  getPublicScanOperationalMetrics,
   quarantineObsoletePublicScanJobs,
 } from "@/lib/db";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
@@ -40,11 +41,15 @@ function boundedLimit(value: unknown): number {
 /** Aggregate inventory only; no account or job identifiers leave this endpoint. */
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return json({ error: "forbidden" }, 403);
-  const versions = await getPublicScanJobVersionSummary();
-  if (!versions) return json({ error: "storage_unavailable" }, 503);
+  const [versions, metrics] = await Promise.all([
+    getPublicScanJobVersionSummary(),
+    getPublicScanOperationalMetrics(PUBLIC_SCAN_COLLECTION_VERSION),
+  ]);
+  if (!versions || !metrics) return json({ error: "storage_unavailable" }, 503);
   return json({
     canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     versions,
+    metrics,
   });
 }
 

@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getPublicScanJobVersionSummary: vi.fn(),
+  getPublicScanOperationalMetrics: vi.fn(),
   quarantineObsoletePublicScanJobs: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   getPublicScanJobVersionSummary: mocks.getPublicScanJobVersionSummary,
+  getPublicScanOperationalMetrics: mocks.getPublicScanOperationalMetrics,
   quarantineObsoletePublicScanJobs: mocks.quarantineObsoletePublicScanJobs,
 }));
 
@@ -15,6 +17,32 @@ import { GET, POST } from "./route";
 
 const originalAdminSecret = process.env.ADMIN_SECRET;
 const originalQuarantineSwitch = process.env.PUBLIC_SCAN_QUARANTINE_ENABLED;
+const aggregateMetrics = {
+  generatedAt: 1_800_000_000_000,
+  canonicalCollectionVersion: "v4",
+  queue: {
+    depth: 2,
+    queued: 1,
+    running: 1,
+    ready: 1,
+    deferred: 0,
+    retrying: 0,
+    oldestAgeMs: 30_000,
+    byPhase: [{ phase: "merged_prs", queued: 1, running: 1 }],
+  },
+  failures: { currentFailedJobs: 0, retryingSteps: 1, terminalSteps: 0 },
+  execution: { activeSlots: 1, capacity: 1, contentionSteps: 2 },
+  obsoleteActiveJobs: 1,
+  steps: [],
+  cron: {
+    lastStartedAt: 1_799_999_999_000,
+    lastSuccessAt: 1_800_000_000_000,
+    lastDurationMs: 250,
+    lastProcessed: 2,
+    lastFailedSteps: 0,
+    consecutiveFailures: 0,
+  },
+};
 
 function request(method: "GET" | "POST", body?: unknown, authorized = true) {
   return new NextRequest("https://example.test/api/admin/public-scan-jobs", {
@@ -32,6 +60,7 @@ describe("public scan job release operations", () => {
     process.env.ADMIN_SECRET = "synthetic-admin-secret";
     delete process.env.PUBLIC_SCAN_QUARANTINE_ENABLED;
     mocks.getPublicScanJobVersionSummary.mockResolvedValue([]);
+    mocks.getPublicScanOperationalMetrics.mockResolvedValue(aggregateMetrics);
     mocks.quarantineObsoletePublicScanJobs.mockResolvedValue({
       dryRun: true,
       selected: 2,
@@ -65,7 +94,11 @@ describe("public scan job release operations", () => {
     await expect(response.json()).resolves.toEqual({
       canonicalCollectionVersion: "v4",
       versions: [],
+      metrics: aggregateMetrics,
     });
+    expect(mocks.getPublicScanOperationalMetrics).toHaveBeenCalledWith("v4");
+    const serialized = JSON.stringify(await (await GET(request("GET"))).json());
+    expect(serialized).not.toMatch(/username|payload|leaseToken|secret|error/i);
   });
 
   it("defaults to a bounded dry-run", async () => {

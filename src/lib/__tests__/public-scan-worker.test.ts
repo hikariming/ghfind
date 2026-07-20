@@ -3,12 +3,19 @@ import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 import type { ScanResult } from "../types";
 
 const mocks = vi.hoisted(() => ({
+  PublicScanStorageError: class PublicScanStorageError extends Error {
+    constructor(readonly operation: string) {
+      super("public scan storage unavailable");
+      this.name = "PublicScanStorageError";
+    }
+  },
   claimPublicScanJob: vi.fn(),
   acquirePublicScanExecutionLease: vi.fn(),
   getPublicScanRun: vi.fn(),
   savePublicScanQuickResult: vi.fn(),
   savePublicScanJobProgress: vi.fn(),
   releasePublicScanExecutionLease: vi.fn(),
+  releasePublicScanJobClaim: vi.fn(),
   buildScanResult: vi.fn(),
   fetchDurablePullRequestPage: vi.fn(),
   failPublicScanJob: vi.fn(),
@@ -17,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  PublicScanStorageError: mocks.PublicScanStorageError,
   acquirePublicScanExecutionLease: mocks.acquirePublicScanExecutionLease,
   acquirePublicScanRateWindow: vi.fn(),
   claimPublicScanJob: mocks.claimPublicScanJob,
@@ -38,6 +46,7 @@ vi.mock("@/lib/db", () => ({
   upsertPublicScanPrFacts: mocks.upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage: vi.fn(),
   releasePublicScanExecutionLease: mocks.releasePublicScanExecutionLease,
+  releasePublicScanJobClaim: mocks.releasePublicScanJobClaim,
 }));
 
 vi.mock("@/lib/github", () => ({
@@ -92,6 +101,8 @@ describe("public scan worker", () => {
     mocks.buildScanResult.mockResolvedValue(quickScan);
     mocks.savePublicScanQuickResult.mockResolvedValue(true);
     mocks.savePublicScanJobProgress.mockResolvedValue(true);
+    mocks.failPublicScanJob.mockResolvedValue(true);
+    mocks.releasePublicScanJobClaim.mockResolvedValue(true);
     mocks.fetchDurablePullRequestPage.mockResolvedValue({ facts: [], hasNextPage: false, endCursor: null });
     mocks.upsertPublicScanPrFacts.mockResolvedValue(true);
     mocks.upsertPublicScanCommitRepoFacts.mockResolvedValue(true);
@@ -101,6 +112,7 @@ describe("public scan worker", () => {
     await expect(processPublicScanJob("job-id")).resolves.toEqual({
       status: "continued",
       jobId: "job-id",
+      runId: "run-id",
       phase: "original_repos",
     });
     expect(mocks.savePublicScanQuickResult).toHaveBeenCalledWith(
@@ -145,16 +157,86 @@ describe("public scan worker", () => {
     await expect(processPublicScanJob("obsolete-job-id")).resolves.toEqual({
       status: "failed",
       jobId: "obsolete-job-id",
+      runId: "obsolete-run-id",
+      phase: "quick",
+      retryScheduled: false,
     });
     expect(mocks.acquirePublicScanExecutionLease).not.toHaveBeenCalled();
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
     expect(mocks.failPublicScanJob).toHaveBeenCalledWith(
       expect.objectContaining({
         jobId: "obsolete-job-id",
+        error: "worker_non_canonical",
         retryAt: undefined,
       }),
     );
+    expect(consoleError.mock.calls.flat().join(" ")).not.toContain("synthetic-worker-case");
     consoleError.mockRestore();
+  });
+
+  it("returns a slot-busy claim to the immediately ready queue", async () => {
+    mocks.acquirePublicScanExecutionLease.mockResolvedValue(null);
+
+    await expect(processPublicScanJob("job-id")).resolves.toEqual({
+      status: "slot_busy",
+      jobId: "job-id",
+      runId: "run-id",
+      phase: "quick",
+    });
+    expect(mocks.releasePublicScanJobClaim).toHaveBeenCalledWith({
+      jobId: "job-id",
+      runId: "run-id",
+      leaseToken: "lease-token",
+    });
+    expect(mocks.getPublicScanRun).not.toHaveBeenCalled();
+    expect(mocks.savePublicScanJobProgress).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+  });
+
+  it("surfaces durable storage failures instead of reporting an idle queue", async () => {
+    mocks.claimPublicScanJob.mockRejectedValue(
+      new mocks.PublicScanStorageError("claim_job"),
+    );
+
+    await expect(processPublicScanJob("job-id")).rejects.toMatchObject({
+      name: "PublicScanStorageError",
+      operation: "claim_job",
+    });
+    expect(mocks.acquirePublicScanExecutionLease).not.toHaveBeenCalled();
+    expect(mocks.failPublicScanJob).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+  });
+
+  it("allows only one synthetic concurrent job to reach GitHub work", async () => {
+    mocks.claimPublicScanJob.mockImplementation(async ({ jobId }: { jobId?: string }) => ({
+      leaseToken: `lease-${jobId}`,
+      job: {
+        id: jobId,
+        runId: `run-${jobId}`,
+        username: `synthetic-${jobId}`,
+        phase: "quick",
+        payload: "{}",
+        attemptCount: 0,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      },
+    }));
+    mocks.acquirePublicScanExecutionLease
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(null);
+
+    const results = await Promise.all([
+      processPublicScanJob("job-a"),
+      processPublicScanJob("job-b"),
+    ]);
+
+    expect(results.map((result) => result.status).sort()).toEqual(["continued", "slot_busy"]);
+    expect(mocks.buildScanResult).toHaveBeenCalledOnce();
+    expect(mocks.releasePublicScanJobClaim).toHaveBeenCalledOnce();
+    expect(mocks.releasePublicScanJobClaim).toHaveBeenCalledWith({
+      jobId: "job-b",
+      runId: "run-job-b",
+      leaseToken: "lease-job-b",
+    });
   });
 
   it("persists successful contribution-graph commits before collecting complete PR history", async () => {
@@ -213,6 +295,7 @@ describe("public scan worker", () => {
     await expect(processPublicScanJob("job-id")).resolves.toEqual({
       status: "continued",
       jobId: "job-id",
+      runId: "run-id",
       phase: "publish",
     });
     expect(mocks.savePublicScanJobProgress).toHaveBeenCalledWith(

@@ -129,7 +129,7 @@ describe("durable public scan admission", () => {
     await expect(resolvePublicScanFromTrustedQuickScan("durable-case", quick)).resolves.toMatchObject({
       status: "pending",
       run: { id: "run-id" },
-      shouldDrain: true,
+      headStartJobId: "job-id",
     });
     expect(mocks.seedPublicScanQuickResult).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: "job-id", runId: "run-id" }),
@@ -228,7 +228,7 @@ describe("durable public scan admission", () => {
 
     await expect(startPublicScan("durable-case")).resolves.toMatchObject({
       status: "pending",
-      shouldDrain: false,
+      headStartJobId: null,
     });
   });
 });
