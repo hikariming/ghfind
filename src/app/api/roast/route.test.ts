@@ -74,6 +74,7 @@ vi.mock("@/lib/lang", () => ({
 }));
 
 vi.mock("@/lib/llm", () => {
+  class LlmTimeoutError extends Error {}
   class LlmQuotaError extends Error {
     constructor(
       message: string,
@@ -83,6 +84,7 @@ vi.mock("@/lib/llm", () => {
     }
   }
   return {
+    LlmTimeoutError,
     LlmQuotaError,
     // The route calls the fallback wrapper; delegate to the per-call stream mock
     // using the primary config.
@@ -184,6 +186,14 @@ async function* streamText(text: string): AsyncGenerator<{ type: "content"; text
 
 async function* streamChunks(chunks: string[]): AsyncGenerator<{ type: "content"; text: string }> {
   for (const text of chunks) yield { type: "content", text };
+}
+
+async function* streamThenFail(
+  text: string,
+  error: Error,
+): AsyncGenerator<{ type: "content"; text: string }> {
+  yield { type: "content", text };
+  throw error;
 }
 
 const scan: ScanResult = {
@@ -413,7 +423,7 @@ describe("roast API persistence", () => {
       status: "pending",
       run: { id: "active-run", username: "DemoDev" },
       retryAfterSeconds: 5,
-      shouldDrain: false,
+      headStartJobId: null,
     });
 
     const response = await POST(
@@ -425,6 +435,28 @@ describe("roast API persistence", () => {
 
     expect(response.status).toBe(409);
     expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
+  it("head-starts only the durable job created by this roast request", async () => {
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "new-run-id", username: "DemoDev" },
+      retryAfterSeconds: 5,
+      headStartJobId: "new-job-id",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledOnce();
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
   });
 
@@ -447,7 +479,10 @@ describe("roast API persistence", () => {
         source: "generate",
         generationPath: "leader",
         lockWaitMs: 0,
+        requestId: expect.any(String),
       });
+      expect(summary.u).toBeUndefined();
+      expect(JSON.stringify(summary)).not.toContain("DemoDev");
       expect(summary.requestTotalMs).toEqual(expect.any(Number));
       expect(summary.streamMs).toEqual(expect.any(Number));
       expect(summary.firstEventMs).toEqual(expect.any(Number));
@@ -459,6 +494,33 @@ describe("roast API persistence", () => {
         "first_content",
         "success",
       ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("does not log partial model text, account names, or raw generation errors", async () => {
+    const rawMarker = "sensitive-upstream-marker";
+    mocks.chatStreamEvents.mockReset();
+    mocks.chatStreamEvents.mockReturnValue(
+      streamThenFail(`partial output for ${scan.metrics.username}`, new Error(rawMarker)),
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const response = await POST(
+        new NextRequest("https://example.test/api/roast", {
+          method: "POST",
+          body: JSON.stringify({ scan, lang: "zh" }),
+        }),
+      );
+      await response.text();
+
+      const summaryCall = log.mock.calls.find(([name]) => name === "roast.summary");
+      expect(summaryCall).toBeDefined();
+      const serialized = String(summaryCall![1]);
+      expect(serialized).not.toContain(scan.metrics.username);
+      expect(serialized).not.toContain(rawMarker);
+      expect(JSON.parse(serialized)).not.toHaveProperty("head");
     } finally {
       log.mockRestore();
     }

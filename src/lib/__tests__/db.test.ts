@@ -508,6 +508,149 @@ describe("durable public scan jobs", () => {
     ).resolves.toBe(true);
   });
 
+  it("releases a slot-blocked claim without changing attempt or schedule", async () => {
+    const queued = await enqueue("slot-release-fixture");
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const before = await client.execute({
+      sql: `SELECT attempt_count, next_run_at FROM public_scan_jobs WHERE id = ?`,
+      args: [queued.job.id],
+    });
+    const firstLease = await claim(queued.job.id);
+
+    await expect(
+      db.releasePublicScanJobClaim({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: firstLease!.leaseToken,
+      }),
+    ).resolves.toBe(true);
+    const released = await client.execute({
+      sql: `SELECT state, attempt_count, next_run_at, lease_token, lease_expires_at
+            FROM public_scan_jobs WHERE id = ?`,
+      args: [queued.job.id],
+    });
+    expect(released.rows[0]).toMatchObject({
+      state: "queued",
+      attempt_count: before.rows[0]?.attempt_count,
+      next_run_at: before.rows[0]?.next_run_at,
+      lease_token: null,
+      lease_expires_at: null,
+    });
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({ state: "queued" });
+
+    const secondLease = await claim(queued.job.id);
+    expect(secondLease?.leaseToken).not.toBe(firstLease?.leaseToken);
+    await expect(
+      db.releasePublicScanJobClaim({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: firstLease!.leaseToken,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: secondLease!.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("returns aggregate queue, step, slot, obsolete, and Cron metrics only", async () => {
+    const canonical = await enqueue("metrics-canonical-fixture");
+    const obsoleteCollection = "obsolete-metrics-collection";
+    const obsolete = await db.enqueuePublicScan("metrics-obsolete-fixture", {
+      scoreVersion: "obsolete-score-fixture",
+      collectionVersion: obsoleteCollection,
+    });
+    if (!obsolete || "rejection" in obsolete) throw new Error("expected obsolete metrics fixture");
+
+    await expect(
+      db.recordPublicScanStepMetrics({
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        observations: [
+          { phase: "merged_prs", outcome: "continued", durationMs: 10 },
+          { phase: "merged_prs", outcome: "continued", durationMs: 30 },
+          { phase: "merged_prs", outcome: "failed_retrying", durationMs: 40 },
+          { phase: "quick", outcome: "slot_busy", durationMs: 5 },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.recordPublicScanCronMetrics({
+        startedAt: 1_000,
+        completedAt: 1_050,
+        processed: 2,
+        failedSteps: 1,
+        success: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.recordPublicScanCronMetrics({
+        startedAt: 2_000,
+        completedAt: 2_025,
+        processed: 0,
+        failedSteps: 0,
+        success: false,
+      }),
+    ).resolves.toBe(true);
+
+    const metrics = await db.getPublicScanOperationalMetrics(PUBLIC_SCAN_COLLECTION_VERSION);
+    expect(metrics).toMatchObject({
+      canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      queue: {
+        depth: expect.any(Number),
+        queued: expect.any(Number),
+        running: expect.any(Number),
+        oldestAgeMs: expect.any(Number),
+      },
+      failures: { retryingSteps: 1, terminalSteps: 0 },
+      execution: { capacity: 1, contentionSteps: 1 },
+      obsoleteActiveJobs: expect.any(Number),
+      cron: {
+        lastStartedAt: 2_000,
+        lastSuccessAt: 1_050,
+        lastDurationMs: 25,
+        lastProcessed: 0,
+        consecutiveFailures: 1,
+      },
+    });
+    expect(metrics!.queue.depth).toBeGreaterThanOrEqual(1);
+    expect(metrics!.obsoleteActiveJobs).toBeGreaterThanOrEqual(1);
+    expect(metrics!.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phase: "merged_prs",
+          outcome: "continued",
+          count: 2,
+          averageDurationMs: 20,
+          maxDurationMs: 30,
+        }),
+      ]),
+    );
+    const serialized = JSON.stringify(metrics);
+    expect(serialized).not.toContain("metrics-canonical-fixture");
+    expect(serialized).not.toContain("metrics-obsolete-fixture");
+    expect(serialized).not.toContain(canonical.job.id);
+    expect(serialized).not.toContain(obsolete.job.id);
+
+    const canonicalLease = await claim(canonical.job.id);
+    await db.failPublicScanJob({
+      jobId: canonical.job.id,
+      runId: canonical.run.id,
+      leaseToken: canonicalLease!.leaseToken,
+      error: "synthetic cleanup",
+    });
+    const obsoleteLease = await claim(obsolete.job.id, obsoleteCollection);
+    await db.failPublicScanJob({
+      jobId: obsolete.job.id,
+      runId: obsolete.run.id,
+      leaseToken: obsoleteLease!.leaseToken,
+      error: "synthetic cleanup",
+    });
+  });
+
   it("stores a complete v3 snapshot as historical data without aliasing it as current", async () => {
     const username = "previous-collection-fixture";
     const queued = await db.enqueuePublicScan(username, {
@@ -619,12 +762,16 @@ describe("durable public scan jobs", () => {
       jobId: one!.job.id,
       leaseToken: leaseOne!.leaseToken,
     });
-    await expect(
-      db.acquirePublicScanExecutionLease({
-        jobId: two!.job.id,
-        leaseToken: leaseTwo!.leaseToken,
-      }),
-    ).resolves.toBe(1);
+    const reacquiredSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(reacquiredSlot).toBe(1);
+    await db.releasePublicScanExecutionLease({
+      slot: reacquiredSlot!,
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
 
     await expect(
       db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
@@ -635,6 +782,57 @@ describe("durable public scan jobs", () => {
     await expect(
       db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
     ).resolves.toMatchObject({ granted: false });
+  });
+
+  it("fails closed when a queued job has lost its durable run", async () => {
+    const queued = await enqueue("orphaned-job-fixture");
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `DELETE FROM public_scan_runs WHERE id = ?`,
+      args: [queued.run.id],
+    });
+
+    try {
+      await expect(claim(queued.job.id)).rejects.toMatchObject({
+        name: "PublicScanStorageError",
+        operation: "claim_job",
+      });
+    } finally {
+      await client.execute({
+        sql: `DELETE FROM public_scan_jobs WHERE id = ?`,
+        args: [queued.job.id],
+      });
+    }
+  });
+
+  it("fails closed when the execution-slot singleton is missing", async () => {
+    const queued = await enqueue("missing-slot-fixture");
+    const lease = await claim(queued.job.id);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute(`DELETE FROM public_scan_execution_leases WHERE slot = 1`);
+
+    try {
+      await expect(
+        db.acquirePublicScanExecutionLease({
+          jobId: queued.job.id,
+          leaseToken: lease!.leaseToken,
+        }),
+      ).rejects.toMatchObject({
+        name: "PublicScanStorageError",
+        operation: "acquire_execution_slot",
+      });
+    } finally {
+      await client.execute(
+        `INSERT OR IGNORE INTO public_scan_execution_leases (slot, lease_expires_at)
+         VALUES (1, 0)`,
+      );
+      await db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease!.leaseToken,
+        error: "synthetic cleanup",
+      });
+    }
   });
 
   it("carries commit-candidate fork metadata through verification and aggregation", async () => {

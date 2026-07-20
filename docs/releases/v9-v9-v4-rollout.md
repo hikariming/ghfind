@@ -54,6 +54,10 @@ multi-component bump, and release history cannot be rewritten in place.
   collection, score, and roast contracts together.
 - No global rescore, recollection, or roast regeneration runs during promotion.
 
+Queue metrics, privacy-safe structured logs, alert thresholds, and owner-only
+Vercel steps are documented in
+[`docs/operations/public-scan-monitoring.md`](../operations/public-scan-monitoring.md).
+
 ## #126 normalization boundary
 
 This normalization does not persist a score when a durable scan completes. #118

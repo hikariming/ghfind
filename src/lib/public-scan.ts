@@ -69,8 +69,8 @@ export type PublicScanResolution =
       status: "pending";
       run: PublicScanRun;
       retryAfterSeconds: number;
-      /** Only the request that created a job may start one response-side step. */
-      shouldDrain: boolean;
+      /** Present only for the request that atomically created this job. */
+      headStartJobId: string | null;
     }
   | { status: "queue_full" | "admission_limited"; run: null; retryAfterSeconds: number }
   | { status: "storage_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
@@ -198,7 +198,7 @@ async function resolvePublicScan(
     status: "pending",
     run: enqueued.run,
     retryAfterSeconds: retryAfter(enqueued.run),
-    shouldDrain: enqueued.created,
+    headStartJobId: enqueued.created ? enqueued.job.id : null,
   };
 }
 
@@ -248,7 +248,7 @@ export async function getPublicScanStatus(username: string): Promise<PublicScanR
     return { status: "failed", run, retryAfterSeconds: retryAfter(run) };
   }
   if (run.state === "queued" || run.state === "running") {
-    return { status: "pending", run, retryAfterSeconds: retryAfter(run), shouldDrain: false };
+    return { status: "pending", run, retryAfterSeconds: retryAfter(run), headStartJobId: null };
   }
   // Corrupt/legacy terminal rows must be repaired by resolvePublicScan rather
   // than reported as endlessly pending when no active job remains.

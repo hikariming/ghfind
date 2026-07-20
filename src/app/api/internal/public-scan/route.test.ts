@@ -20,7 +20,14 @@ describe("durable scan Cron worker", () => {
     mocks.drainPublicScanJobsFromCron.mockResolvedValue({
       processed: 2,
       exhaustedBudget: false,
-      results: [{ status: "continued", jobId: "job-id", phase: "merged_prs" }],
+      results: [
+        {
+          status: "continued",
+          jobId: "job-id",
+          runId: "run-id",
+          phase: "merged_prs",
+        },
+      ],
     });
   });
 
@@ -35,11 +42,30 @@ describe("durable scan Cron worker", () => {
 
     const accepted = await GET(
       new NextRequest("https://example.test/api/internal/public-scan", {
-        headers: { authorization: "Bearer cron-test-secret" },
+        headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
       }),
     );
     expect(accepted.status).toBe(200);
     await expect(accepted.json()).resolves.toMatchObject({ status: "ok", processed: 2 });
     expect(mocks.drainPublicScanJobsFromCron).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 503 instead of a healthy response when durable storage fails", async () => {
+    mocks.drainPublicScanJobsFromCron.mockRejectedValue(
+      new Error("synthetic-sensitive-storage-marker"),
+    );
+
+    const response = await GET(
+      new NextRequest("https://example.test/api/internal/public-scan", {
+        headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      status: "error",
+      error: "public_scan_unavailable",
+    });
   });
 });

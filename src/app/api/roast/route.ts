@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
@@ -627,6 +628,7 @@ export async function POST(req: NextRequest) {
   // computed from stream start would let wait + generation overrun the 240s
   // function ceiling — the platform then kills the stream mid-roast.
   const reqT0 = Date.now();
+  const requestId = randomUUID();
   let body: RoastBody;
   try {
     body = await req.json();
@@ -732,7 +734,9 @@ export async function POST(req: NextRequest) {
     if (resolution.status === "complete") {
       scan = resolution.scan;
     } else {
-      if (resolution.status === "pending" && resolution.shouldDrain) kickPublicScanDrain();
+      if (resolution.status === "pending" && resolution.headStartJobId) {
+        kickPublicScanDrain(resolution.headStartJobId);
+      }
       const retryAfterSeconds = resolution.retryAfterSeconds;
       const busy = resolution.status === "queue_full" || resolution.status === "admission_limited";
       return NextResponse.json(
@@ -779,7 +783,7 @@ export async function POST(req: NextRequest) {
               )
             : (await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang)).meta;
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "redis_cache",
+          requestId, lang, path, ok: true, source: "redis_cache",
           requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(cachedRoast.report, meta);
@@ -804,7 +808,7 @@ export async function POST(req: NextRequest) {
           archivedRoast.tier,
         );
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "archive",
+          requestId, lang, path, ok: true, source: "archive",
           requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(archivedRoast.report, meta);
@@ -846,7 +850,7 @@ export async function POST(req: NextRequest) {
               )
             : (await computeMeta(scan, shared.delta, tags, roastLine, false, lang)).meta;
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "singleflight_shared",
+          requestId, lang, path, ok: true, source: "singleflight_shared",
           lockWaitMs, requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(shared.report, meta);
@@ -905,7 +909,7 @@ export async function POST(req: NextRequest) {
       };
       const generating = lang === "en" ? "Writing roast…" : "正在撰写锐评…";
       const summaryFields = () => ({
-        u: username,
+        requestId,
         lang,
         path,
         source: "generate",
@@ -954,13 +958,12 @@ export async function POST(req: NextRequest) {
         if (e instanceof LlmQuotaError) {
           return failAndClose(
             { error: "llm_quota", useByoKey: true, status: e.status },
-            { stage: "generation", kind: "quota", head: head.slice(0, 200) },
+            { stage: "generation", kind: "quota" },
           );
         }
-        console.error("roast failed:", e);
         return failAndClose(
           { error: "roast_failed" },
-          { stage: "generation", kind: classifyLlmError(e), head: head.slice(0, 200) },
+          { stage: "generation", kind: classifyLlmError(e) },
         );
       }
 
@@ -989,7 +992,6 @@ export async function POST(req: NextRequest) {
         scoreWrite = computed.scoreWrite;
         metaMs = Date.now() - reqT0;
       } catch (e) {
-        console.error("roast meta failed:", e);
         return failAndClose(
           { error: "roast_failed" },
           { stage: "meta", kind: classifyLlmError(e) },
@@ -1058,7 +1060,6 @@ export async function POST(req: NextRequest) {
           ...summaryFields(), ok: false, stage: "stream",
           kind: classifyLlmError(e), chars: full.length,
         });
-        console.error("roast stream error:", e);
         push(errorFrame(enc, { error: "roast_failed" }));
       } finally {
         if (isLeader) await releaseRoastLock(username, lang);

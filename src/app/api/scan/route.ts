@@ -110,8 +110,8 @@ async function durableResponse(input: {
     input.scan,
     input.admission,
   );
-  if (resolution.status === "pending" && resolution.shouldDrain) {
-    kickPublicScanDrain();
+  if (resolution.status === "pending" && resolution.headStartJobId) {
+    kickPublicScanDrain(resolution.headStartJobId);
   }
   if (resolution.status === "complete") {
     return NextResponse.json(

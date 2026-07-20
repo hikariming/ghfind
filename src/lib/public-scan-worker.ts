@@ -13,6 +13,7 @@ import {
   getPublicScanRun,
   materializePublicScanCommitRepoFacts,
   preparePublicScanCommitVerificationWork,
+  PublicScanStorageError,
   savePublicScanJobProgress,
   savePublicScanQuickResult,
   splitPublicScanCommitVerificationWork,
@@ -22,6 +23,7 @@ import {
   upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage,
   releasePublicScanExecutionLease,
+  releasePublicScanJobClaim,
 } from "./db";
 import {
   fetchDurableOwnedRepositoryPage,
@@ -62,11 +64,36 @@ interface WorkerPayload {
 
 class NonCanonicalPublicScanError extends Error {}
 
+function publicScanErrorKind(error: unknown):
+  | "non_canonical"
+  | "rate_limited"
+  | "timeout"
+  | "upstream"
+  | "invalid_state"
+  | "unknown" {
+  if (error instanceof NonCanonicalPublicScanError) return "non_canonical";
+  const message = error instanceof Error ? error.message : "";
+  if (/rate.?limit|secondary rate|quota/i.test(message)) return "rate_limited";
+  if (/timeout|timed out|abort/i.test(message)) return "timeout";
+  if (/github|graphql|http|fetch|upstream/i.test(message)) return "upstream";
+  if (/missing|malformed|unsupported|disappeared|cannot be split/i.test(message)) {
+    return "invalid_state";
+  }
+  return "unknown";
+}
+
 export type PublicScanWorkerResult =
   | { status: "idle" }
-  | { status: "continued"; jobId: string; phase: PublicScanJobPhase }
-  | { status: "complete"; runId: string }
-  | { status: "failed"; jobId: string };
+  | { status: "slot_busy"; jobId: string; runId: string; phase: PublicScanJobPhase }
+  | { status: "continued"; jobId: string; runId: string; phase: PublicScanJobPhase }
+  | { status: "complete"; jobId: string; runId: string; phase: "publish" }
+  | {
+      status: "failed";
+      jobId: string;
+      runId: string;
+      phase: PublicScanJobPhase;
+      retryScheduled: boolean;
+    };
 
 function parsePayload(raw: string): WorkerPayload {
   try {
@@ -156,7 +183,12 @@ async function continueJob(input: {
         : undefined,
   });
   if (!saved) return { status: "idle" };
-  return { status: "continued", jobId: input.jobId, phase: input.phase };
+  return {
+    status: "continued",
+    jobId: input.jobId,
+    runId: input.runId,
+    phase: input.phase,
+  };
 }
 
 /**
@@ -183,17 +215,14 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
       leaseToken,
     });
     if (executionSlot === null) {
-      const run = await getPublicScanRun(job.runId);
-      if (!run) throw new Error("durable scan run disappeared before execution");
-      return continueJob({
+      const released = await releasePublicScanJobClaim({
         jobId: job.id,
         runId: job.runId,
         leaseToken,
-        phase: job.phase,
-        payload: parsePayload(job.payload),
-        sources: sourceStatus(run.sourceStatus),
-        delaySeconds: 10,
       });
+      return released
+        ? { status: "slot_busy", jobId: job.id, runId: job.runId, phase: job.phase }
+        : { status: "idle" };
     }
     const run = await getPublicScanRun(job.runId);
     if (!run) throw new Error("durable scan run disappeared");
@@ -575,25 +604,42 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
       });
       if (!published) return { status: "idle" };
       await setCachedScan(completed.metrics.username, completed);
-      return { status: "complete", runId: job.runId };
+      return { status: "complete", jobId: job.id, runId: job.runId, phase: "publish" };
     }
 
     throw new Error(`unsupported durable scan phase: ${job.phase}`);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "durable public scan failed";
+    if (error instanceof PublicScanStorageError) throw error;
+    const kind = publicScanErrorKind(error);
     const retryAt =
       !(error instanceof NonCanonicalPublicScanError) && job.attemptCount < 4
         ? Date.now() + 5_000 * 2 ** job.attemptCount
         : undefined;
-    await failPublicScanJob({
+    const failed = await failPublicScanJob({
       jobId: job.id,
       runId: job.runId,
       leaseToken,
-      error: detail,
+      error: `worker_${kind}`,
       retryAt,
     });
-    console.error("processPublicScanJob failed:", error);
-    return { status: "failed", jobId: job.id };
+    if (!failed) return { status: "idle" };
+    console.error(
+      "public_scan.step_failed",
+      JSON.stringify({
+        jobId: job.id,
+        runId: job.runId,
+        phase: job.phase,
+        kind,
+        retryScheduled: retryAt !== undefined,
+      }),
+    );
+    return {
+      status: "failed",
+      jobId: job.id,
+      runId: job.runId,
+      phase: job.phase,
+      retryScheduled: retryAt !== undefined,
+    };
   } finally {
     if (executionSlot !== null) {
       await releasePublicScanExecutionLease({

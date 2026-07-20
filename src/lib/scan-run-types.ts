@@ -35,6 +35,13 @@ export type PublicScanJobPhase =
   | "commit_recovery"
   | "publish";
 
+export type PublicScanStepOutcome =
+  | "continued"
+  | "complete"
+  | "failed_retrying"
+  | "failed_terminal"
+  | "slot_busy";
+
 export type PublicScanSourceState = "pending" | "complete" | "unavailable" | "failed";
 
 export type PublicScanSourceStatus = Record<string, PublicScanSourceState>;
