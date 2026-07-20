@@ -302,6 +302,10 @@ describe("getArchivedRoast", () => {
     await expect(db.getLegacyReadFallbackRoast(username, "en")).resolves.toMatchObject({
       report: "## Legacy English roast\nRead-only replay.",
     });
+    await expect(db.getLegacyReadFallbackScan(username)).resolves.toMatchObject({
+      metrics: { username },
+      scoring: { final_score: entry.final_score },
+    });
   });
 
   it("rejects a v5 report when its v3 snapshot no longer proves the exact tuple", async () => {
@@ -320,6 +324,7 @@ describe("getArchivedRoast", () => {
       roast_en: null,
     });
     await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
   it("rejects a v5 report when its v3 snapshot score differs from the score row", async () => {
@@ -341,6 +346,7 @@ describe("getArchivedRoast", () => {
       roast_en: null,
     });
     await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
   it("clears generated reports when the deterministic score identity changes", async () => {
