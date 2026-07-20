@@ -16,6 +16,8 @@ import {
   SCORE_CACHE_VERSION,
   VERDICT_CACHE_VERSION,
 } from "./cache-version";
+import { score } from "./score";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
 import type {
   FacetCategory,
   LeaderboardEntry,
@@ -91,8 +93,9 @@ const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
 const SCAN_SINGLE_FLIGHT_LOCK_SECONDS = 75;
 const SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS = 120; // 60s at 500ms per poll
 export const scanKey = (username: string) =>
-  `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
-const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
+  `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+const lockKey = (username: string) =>
+  `lock:scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -101,7 +104,8 @@ export async function getCachedScan(username: string): Promise<ScanResult | null
   const r = getRedis();
   if (!r) return null;
   try {
-    return (await r.get<ScanResult>(scanKey(username))) ?? null;
+    const cached = (await r.get<ScanResult>(scanKey(username))) ?? null;
+    return cached ? { ...cached, scoring: score(cached.metrics) } : null;
   } catch {
     return null;
   }
@@ -385,12 +389,12 @@ export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> 
   }
 }
 
-/** Cached roast: the LLM-written report + its ±delta + tags, keyed by
- * language + username (24h). The roast text differs by language, so the cache
- * key carries the lang; the scan cache stays language-neutral (deterministic). */
+/** Cached roast: the LLM-written report + deterministic score metadata, keyed
+ * by every input contract plus language and username (24h). */
 export interface CachedRoast {
   report: string;
-  delta: number;
+  /** Retained in the wire shape for compatibility; deterministic scoring fixes it at zero. */
+  delta: 0;
   tags: import("./types").Tags;
   /** Persisted final score for archived/cache replay. Older cache entries omit it. */
   final_score?: number;
@@ -402,7 +406,7 @@ export interface CachedRoast {
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
 export const roastKey = (username: string, lang: Lang) =>
-  `roast:${ROAST_CACHE_VERSION}:${lang}:${username.toLowerCase()}`;
+  `roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 
 export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
@@ -452,7 +456,7 @@ export interface CachedRoastJudge {
 }
 
 export const roastJudgeKey = (username: string) =>
-  `roast-judge:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
+  `roast-judge:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 
 export async function getCachedRoastJudge(username: string): Promise<CachedRoastJudge | null> {
   if (bypassGeneratedCaches()) return null;
@@ -490,7 +494,7 @@ export async function setCachedRoastJudge(
 // saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
 const ROAST_LOCK_TTL_SECONDS = 270;
 const roastLockKey = (username: string, lang: Lang) =>
-  `lock:roast:${lang}:${username.toLowerCase()}`;
+  `lock:roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 
 /** Try to become the sole generator for (username, lang). `true` = leader.
  *  Without Redis there's no coordination, so everyone leads (behavior unchanged). */

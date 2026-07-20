@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
 import { machineAuth } from "@/lib/machine-auth";
-import { getArchivedRoast, getScoreScannedAt, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
+import {
+  getArchivedRoast,
+  getScoreScannedAt,
+  recordProfileSnapshot,
+  recordScore,
+  updateRoast,
+  type ScoreWriteIdentity,
+} from "@/lib/db";
 import { getRankCached } from "@/lib/rank";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
@@ -544,10 +551,11 @@ async function computeMeta(
   roastLine: RoastLine,
   record: boolean,
   lang: Lang,
-): Promise<RoastMeta> {
+): Promise<{ meta: RoastMeta; scoreWrite: ScoreWriteIdentity | null }> {
   const summary = scoreSummary(scan, lang);
+  let scoreWrite: ScoreWriteIdentity | null = null;
   if (record) {
-    await recordScore({
+    scoreWrite = await recordScore({
       username: scan.metrics.username,
       display_name: scan.metrics.name,
       avatar_url: scan.metrics.avatar_url,
@@ -560,12 +568,15 @@ async function computeMeta(
       sub_scores: scan.scoring.sub_scores,
       scanned_at: Date.now(),
     });
-    // Sediment the raw developer profile (the data moat) alongside the score.
-    // Fire-and-forget inside recordProfileSnapshot; never blocks the roast.
-    await recordProfileSnapshot(scan);
+    // Keep the evidence snapshot aligned with the score write. A late request
+    // that lost the score CAS must not become the newest profile snapshot.
+    if (scoreWrite) await recordProfileSnapshot(scan);
   }
   const percentile = await percentileFor(summary.final_score);
-  return { ...summary, percentile, tags, roast_line: roastLine };
+  return {
+    meta: { ...summary, percentile, tags, roast_line: roastLine },
+    scoreWrite,
+  };
 }
 
 async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
@@ -582,24 +593,18 @@ async function metaForStoredRoast(
   tier: Tier,
   tags: Tags,
   roastLine: RoastLine,
-  delta: number,
   lang: Lang,
 ): Promise<RoastMeta> {
   const { tier_label: zhLabel } = tierFor(finalScore);
   const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
   const percentile = await percentileFor(finalScore);
-  return { final_score: finalScore, tier, tier_label, delta, percentile, tags, roast_line: roastLine };
-}
-
-function inferredDelta(scan: ScanResult, finalScore: number): number {
-  return Math.round((finalScore - scan.scoring.final_score) * 100) / 100;
+  return { final_score: finalScore, tier, tier_label, delta: 0, percentile, tags, roast_line: roastLine };
 }
 
 async function cacheRoastReplay(
   username: string,
   lang: Lang,
   report: string,
-  delta: number,
   tags: Tags,
   roastLine: RoastLine,
   finalScore: number,
@@ -607,7 +612,7 @@ async function cacheRoastReplay(
 ): Promise<void> {
   await setCachedRoast(username, lang, {
     report,
-    delta,
+    delta: 0,
     tags,
     roast_line: roastLine,
     final_score: finalScore,
@@ -696,16 +701,16 @@ export async function POST(req: NextRequest) {
   let lockWaitMs = 0;
   let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
 
-  // Prefer a durable/current server snapshot. The request body remains a
-  // compatibility fallback for an immediate BYO roast, but it is never allowed
-  // to seed durable facts or a future public-history scan.
+  // Prefer a durable/current server snapshot. A request-body scan is accepted
+  // only for an immediate BYO roast. Default-model generation and every durable
+  // write require facts previously produced by a server-side collector.
   const [publicStatus, cachedScan] = await Promise.all([
     getPublicScanStatus(username),
     getCachedScan(username),
   ]);
   const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
   const serverScan = completedPublicScan ?? cachedScan;
-  let scan = serverScan ?? (body.scan ? sanitizeScan(body.scan) : null);
+  let scan = serverScan ?? (!isDefault && body.scan ? sanitizeScan(body.scan) : null);
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
@@ -713,7 +718,7 @@ export async function POST(req: NextRequest) {
   // A large public history cannot be truthfully represented by the quick
   // sample. Never spend LLM credit or persist a leaderboard row from it: start
   // (or resume) the durable collector and require its complete snapshot.
-  if (!completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
+  if (serverScan && !completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
     const durableAdmission = publicScanAdmission(
       auth === "valid"
         ? `bearer:${req.headers.get("authorization") ?? ""}`
@@ -770,10 +775,9 @@ export async function POST(req: NextRequest) {
                 cachedRoast.tier,
                 tags,
                 roastLine,
-                cachedRoast.delta,
                 lang,
               )
-            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
+            : (await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang)).meta;
         logRoastSummary({
           u: username, lang, path, ok: true, source: "redis_cache",
           requestTotalMs: Date.now() - reqT0,
@@ -783,20 +787,17 @@ export async function POST(req: NextRequest) {
 
       const archivedRoast = await getArchivedRoast(username, lang);
       if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
-        const delta = inferredDelta(scan, archivedRoast.final_score);
         const meta = await metaForStoredRoast(
           archivedRoast.final_score,
           archivedRoast.tier,
           archivedRoast.tags,
           archivedRoast.roast_line,
-          delta,
           lang,
         );
         await cacheRoastReplay(
           username,
           lang,
           archivedRoast.report,
-          delta,
           archivedRoast.tags,
           archivedRoast.roast_line,
           archivedRoast.final_score,
@@ -841,10 +842,9 @@ export async function POST(req: NextRequest) {
                 shared.tier,
                 tags,
                 roastLine,
-                shared.delta,
                 lang,
               )
-            : await computeMeta(scan, shared.delta, tags, roastLine, false, lang);
+            : (await computeMeta(scan, shared.delta, tags, roastLine, false, lang)).meta;
         logRoastSummary({
           u: username, lang, path, ok: true, source: "singleflight_shared",
           lockWaitMs, requestTotalMs: Date.now() - reqT0,
@@ -982,8 +982,11 @@ export async function POST(req: NextRequest) {
       );
 
       let meta: RoastMeta;
+      let scoreWrite: ScoreWriteIdentity | null = null;
       try {
-        meta = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
+        const computed = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
+        meta = computed.meta;
+        scoreWrite = computed.scoreWrite;
         metaMs = Date.now() - reqT0;
       } catch (e) {
         console.error("roast meta failed:", e);
@@ -1028,20 +1031,23 @@ export async function POST(req: NextRequest) {
           full += appendix;
           push(enc.encode(appendix));
         }
-        // Cache the finished roast so repeat views don't re-spend LLM credit,
-        // and persist it to the account row for the leaderboard detail view.
+        // Persist under the exact score-write identity before warming replay.
+        // A late report that loses the CAS must not enter either storage layer.
         if (isDefault && reportMatchesLang(full, lang)) {
-          await cacheRoastReplay(
-            username,
-            lang,
-            full,
-            delta,
-            tags,
-            roastLine,
-            meta.final_score,
-            meta.tier,
-          );
-          await updateRoast(username, full, lang);
+          const persisted = scoreWrite
+            ? await updateRoast(username, full, lang, scoreWrite)
+            : false;
+          if (persisted) {
+            await cacheRoastReplay(
+              username,
+              lang,
+              full,
+              tags,
+              roastLine,
+              meta.final_score,
+              meta.tier,
+            );
+          }
         }
         logRoastSummary({
           ...summaryFields(), ok: true,
