@@ -44,6 +44,7 @@ import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
 import { ChallengeCta } from "@/components/ChallengeCta";
+import { CanonicalProfileUpgrade } from "@/components/CanonicalProfileUpgrade";
 import { FollowButton } from "@/components/FollowButton";
 import { FacetRankLink } from "@/components/FacetRankLink";
 import { CommonProjects } from "@/components/CommonProjects";
@@ -52,6 +53,7 @@ import { auth, authConfigured } from "@/lib/auth";
 import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
 import { rankProfileWorks } from "@/lib/profile-work";
 import { ROAST_CACHE_VERSION } from "@/lib/cache-version";
+import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
 import {
   ProfileArtifactStatus,
   resolveProfileArtifactState,
@@ -232,8 +234,10 @@ export default async function AccountPage({
   // (the homepage's /api/scan call just re-scanned, so the score is current).
   // Direct visits / shared links (no param) keep the popup-free SSR page.
   const fromHome = query.roasting === "1";
+  const refreshRunId = typeof query.refresh_run_id === "string" ? query.refresh_run_id : null;
+  const legacyReadFallback = d.score_version === LEGACY_READ_FALLBACK.score;
   // eslint-disable-next-line react-hooks/purity -- force-dynamic Server Component: rendered per request, so wall-clock staleness here is intentional (and the server re-validates before spending LLM credit)
-  const staleReroast = fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
+  const staleReroast = !legacyReadFallback && fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
   // A profile read must stay read-only. Only the explicit homepage handoff may
   // mount LiveRoast and spend LLM credit; direct/shared profile visits show a
   // stable pending state even if a scan happens to remain in Redis.
@@ -436,6 +440,9 @@ export default async function AccountPage({
         profileUsername={d.username}
         initialComments={comments}
       />
+      {legacyReadFallback && refreshRunId && (
+        <CanonicalProfileUpgrade username={d.username} runId={refreshRunId} locale={locale} />
+      )}
       <div className="relative z-10 flex w-full max-w-4xl flex-col">
         <JsonLd
           data={profileJsonLd({

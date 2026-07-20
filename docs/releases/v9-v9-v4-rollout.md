@@ -100,6 +100,12 @@ result into a waiting screen. It never reconstructs a report from
 `score_snapshots`: those rows do not contain report markdown. Missing,
 mismatched, corrupt, or incomplete tuple members fail closed.
 
+When that explicit handoff has a durable refresh run, the profile polls only the
+opaque run id already issued by the server. On complete v4 publication it makes
+one user-initiated v9 report request, then refreshes to the current v9/v9/v4
+profile. Cron never generates reports, and passive/shared profile visits do not
+poll, enqueue, or spend model credit.
+
 ## Obsolete-job quarantine
 
 The operator endpoint returns aggregate counts only:
