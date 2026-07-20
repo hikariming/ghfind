@@ -40,7 +40,6 @@ import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 import { RescanButton } from "@/components/RescanButton";
-import { ProfileBackfill } from "@/components/ProfileBackfill";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -678,10 +677,6 @@ export default async function AccountPage({
           />
         </div>
       )}
-
-      {/* Legacy profiles predate the evidence snapshot — fetch it on visit so the
-          repo/language/contribution sections fill in instead of staying blank. */}
-      {!snap && <ProfileBackfill username={d.username} />}
 
       {/* Notable contributions — popular repos the user has shipped to (the
           hardest evidence behind the ecosystem-impact dimension). Surfaced first

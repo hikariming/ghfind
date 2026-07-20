@@ -41,7 +41,10 @@ import type {
   PublicScanJobPhase,
   PublicScanSourceStatus,
 } from "./scan-run-types";
-import { hasCompletePublicScanSources } from "./scan-run-types";
+import {
+  PUBLIC_SCAN_COLLECTION_VERSION,
+  hasCompletePublicScanSources,
+} from "./scan-run-types";
 import type { ScanResult, TopRepo } from "./types";
 
 interface DiscoveryRange {
@@ -56,6 +59,8 @@ interface WorkerPayload {
   mode?: "discover" | "verify";
   ranges?: DiscoveryRange[];
 }
+
+class NonCanonicalPublicScanError extends Error {}
 
 export type PublicScanWorkerResult =
   | { status: "idle" }
@@ -160,11 +165,19 @@ async function continueJob(input: {
  * treat a stale/no-op delivery as successful.
  */
 export async function processPublicScanJob(jobId?: string): Promise<PublicScanWorkerResult> {
-  const lease = await claimPublicScanJob(jobId);
+  const lease = await claimPublicScanJob({
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    jobId,
+  });
   if (!lease) return { status: "idle" };
   const { job, leaseToken } = lease;
   let executionSlot: number | null = null;
   try {
+    if (job.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION) {
+      throw new NonCanonicalPublicScanError(
+        "durable scan job uses a non-canonical collection version",
+      );
+    }
     executionSlot = await acquirePublicScanExecutionLease({
       jobId: job.id,
       leaseToken,
@@ -184,6 +197,14 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
     }
     const run = await getPublicScanRun(job.runId);
     if (!run) throw new Error("durable scan run disappeared");
+    if (
+      run.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION ||
+      run.collectionVersion !== job.collectionVersion
+    ) {
+      throw new NonCanonicalPublicScanError(
+        "durable scan run uses a non-canonical collection version",
+      );
+    }
     const payload = parsePayload(job.payload);
     const sources = sourceStatus(run.sourceStatus);
 
@@ -560,7 +581,10 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
     throw new Error(`unsupported durable scan phase: ${job.phase}`);
   } catch (error) {
     const detail = error instanceof Error ? error.message : "durable public scan failed";
-    const retryAt = job.attemptCount < 4 ? Date.now() + 5_000 * 2 ** job.attemptCount : undefined;
+    const retryAt =
+      !(error instanceof NonCanonicalPublicScanError) && job.attemptCount < 4
+        ? Date.now() + 5_000 * 2 ** job.attemptCount
+        : undefined;
     await failPublicScanJob({
       jobId: job.id,
       runId: job.runId,

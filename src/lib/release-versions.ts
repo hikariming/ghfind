@@ -74,6 +74,63 @@ export function changedVersionComponents(
   return RELEASE_COMPONENTS.filter((component) => before[component] !== after[component]);
 }
 
+/** Validate one release transition independently of GitHub event plumbing. */
+export function releaseTransitionErrors(input: {
+  beforeManifest: ReleaseVersionManifest;
+  afterManifest: ReleaseVersionManifest;
+  beforeRuntime: ReleaseVersionSet;
+  afterRuntime: ReleaseVersionSet;
+}): string[] {
+  const errors: string[] = [];
+  const targetChanges = changedVersionComponents(
+    input.beforeManifest.targetRelease,
+    input.afterManifest.targetRelease,
+  );
+  const runtimeChanges = changedVersionComponents(input.beforeRuntime, input.afterRuntime);
+  const previousChanges = changedVersionComponents(
+    input.beforeManifest.previousRelease,
+    input.afterManifest.previousRelease,
+  );
+  const isTrackedNormalization =
+    input.beforeManifest.runtimeEnforcement.state === "source_changes_only" &&
+    input.afterManifest.runtimeEnforcement.state === "canonical" &&
+    input.beforeManifest.runtimeEnforcement.trackingIssue === 126 &&
+    input.afterManifest.runtimeEnforcement.trackingIssue === null &&
+    targetChanges.length === 0 &&
+    previousChanges.length === 0 &&
+    runtimeChanges.length === RELEASE_COMPONENTS.length;
+
+  if (
+    runtimeChanges.length > 0 &&
+    !sameVersions(input.afterRuntime, input.afterManifest.targetRelease)
+  ) {
+    errors.push("changed runtime constants must exactly match the formal target release");
+  }
+  if (targetChanges.length > 1) {
+    errors.push(
+      `formal release changes ${targetChanges.join(", ")}; multi-component bumps are forbidden`,
+    );
+  }
+  if (targetChanges.length > 0 && runtimeChanges.length === 0) {
+    errors.push("a formal target change must include its isolated runtime version change");
+  }
+  if (runtimeChanges.length > 1 && !isTrackedNormalization) {
+    errors.push(
+      `runtime changes ${runtimeChanges.join(", ")}; multi-component changes are forbidden`,
+    );
+  }
+  if (targetChanges.length === 0 && previousChanges.length > 0) {
+    errors.push("previousRelease cannot change without advancing the formal target");
+  }
+  if (
+    targetChanges.length > 0 &&
+    !sameVersions(input.afterManifest.previousRelease, input.beforeManifest.targetRelease)
+  ) {
+    errors.push("a new release must carry the prior target forward as previousRelease");
+  }
+  return errors;
+}
+
 /**
  * Validate the checked-in release contract against the actual runtime constants.
  * Public reads use the compatibility matrix; rejected local values are never
@@ -157,6 +214,9 @@ export function releaseVersionErrors(
   }
   if (typed.changeControl?.maxComponentsPerPullRequest !== 1) {
     errors.push("version changes must default to one component per pull request");
+  }
+  if (typed.changeControl?.approvedMultiComponentIssue !== null) {
+    errors.push("multi-component version changes are forbidden after normalization");
   }
   if (!/^docs\/releases\/[a-z0-9][a-z0-9-]*\.md$/.test(typed.releasePlan)) {
     errors.push("releasePlan must point to a versioned document under docs/releases");

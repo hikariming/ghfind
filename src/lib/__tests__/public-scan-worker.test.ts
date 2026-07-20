@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 import type { ScanResult } from "../types";
 
 const mocks = vi.hoisted(() => ({
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   releasePublicScanExecutionLease: vi.fn(),
   buildScanResult: vi.fn(),
   fetchDurablePullRequestPage: vi.fn(),
+  failPublicScanJob: vi.fn(),
   upsertPublicScanPrFacts: vi.fn(),
   upsertPublicScanCommitRepoFacts: vi.fn(),
 }));
@@ -19,7 +21,7 @@ vi.mock("@/lib/db", () => ({
   acquirePublicScanRateWindow: vi.fn(),
   claimPublicScanJob: mocks.claimPublicScanJob,
   completePublicScanRun: vi.fn(),
-  failPublicScanJob: vi.fn(),
+  failPublicScanJob: mocks.failPublicScanJob,
   getNextPublicScanCommitVerificationWork: vi.fn(),
   getPublicScanContributionAggregates: vi.fn(),
   getPublicScanOwnedRepoFacts: vi.fn(),
@@ -77,6 +79,7 @@ describe("public scan worker", () => {
         phase: "quick",
         payload: "{}",
         attemptCount: 0,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
       },
     });
     mocks.acquirePublicScanExecutionLease.mockResolvedValue(1);
@@ -84,6 +87,7 @@ describe("public scan worker", () => {
       id: "run-id",
       sourceStatus: {},
       quickScan: null,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     });
     mocks.buildScanResult.mockResolvedValue(quickScan);
     mocks.savePublicScanQuickResult.mockResolvedValue(true);
@@ -117,6 +121,40 @@ describe("public scan worker", () => {
       jobId: "job-id",
       leaseToken: "lease-token",
     });
+    expect(mocks.claimPublicScanJob).toHaveBeenCalledWith({
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      jobId: "job-id",
+    });
+  });
+
+  it("rejects a non-canonical job before acquiring quota or calling GitHub", async () => {
+    mocks.claimPublicScanJob.mockResolvedValue({
+      leaseToken: "lease-token",
+      job: {
+        id: "obsolete-job-id",
+        runId: "obsolete-run-id",
+        username: "synthetic-worker-case",
+        phase: "quick",
+        payload: "{}",
+        attemptCount: 0,
+        collectionVersion: "obsolete-collection",
+      },
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(processPublicScanJob("obsolete-job-id")).resolves.toEqual({
+      status: "failed",
+      jobId: "obsolete-job-id",
+    });
+    expect(mocks.acquirePublicScanExecutionLease).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.failPublicScanJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "obsolete-job-id",
+        retryAt: undefined,
+      }),
+    );
+    consoleError.mockRestore();
   });
 
   it("persists successful contribution-graph commits before collecting complete PR history", async () => {
@@ -153,6 +191,7 @@ describe("public scan worker", () => {
         phase: "workflow_landings",
         payload: "{}",
         attemptCount: 0,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
       },
     });
     mocks.getPublicScanRun.mockResolvedValue({
@@ -168,6 +207,7 @@ describe("public scan worker", () => {
         ...quickScan,
         metrics: { username: "worker-case", commit_contribution_aggregation_unavailable: false },
       }),
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     });
 
     await expect(processPublicScanJob("job-id")).resolves.toEqual({

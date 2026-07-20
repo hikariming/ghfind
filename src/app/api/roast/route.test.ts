@@ -251,6 +251,11 @@ const scan: ScanResult = {
   },
 };
 
+const scoreWrite = {
+  scannedAt: 1_800_000_000_000,
+  token: "synthetic-score-write-token",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.defaultLlmConfig.mockReturnValue({
@@ -259,12 +264,12 @@ beforeEach(() => {
     model: "test-model",
   });
   mocks.fallbackLlmConfig.mockReturnValue(null);
-  mocks.getCachedScan.mockResolvedValue(null);
+  mocks.getCachedScan.mockResolvedValue(scan);
   mocks.getPublicScanStatus.mockResolvedValue(null);
   mocks.requiresDurablePublicScan.mockReturnValue(false);
   mocks.getCachedRoast.mockResolvedValue(null);
-    mocks.getArchivedRoast.mockResolvedValue(null);
-    mocks.getLatestPublicScanRun.mockResolvedValue(null);
+  mocks.getArchivedRoast.mockResolvedValue(null);
+  mocks.getLatestPublicScanRun.mockResolvedValue(null);
   mocks.getScoreScannedAt.mockResolvedValue(null);
   mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: true });
   mocks.clearCachedRoast.mockResolvedValue(undefined);
@@ -273,9 +278,9 @@ beforeEach(() => {
   mocks.acquireRoastLock.mockResolvedValue(true);
   mocks.waitForCachedRoast.mockResolvedValue(null);
   mocks.getRank.mockResolvedValue({ rank: 4, below: 5, total: 10 });
-  mocks.recordScore.mockResolvedValue(undefined);
+  mocks.recordScore.mockResolvedValue(scoreWrite);
   mocks.recordProfileSnapshot.mockResolvedValue(undefined);
-  mocks.updateRoast.mockResolvedValue(undefined);
+  mocks.updateRoast.mockResolvedValue(true);
   mocks.setCachedRoast.mockResolvedValue(undefined);
   mocks.releaseRoastLock.mockResolvedValue(undefined);
   mocks.chatStreamEvents.mockReturnValueOnce(
@@ -335,13 +340,9 @@ describe("roast API persistence", () => {
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
   });
 
-  it("never seeds a durable scan from an untrusted roast request body", async () => {
+  it("rejects an untrusted body scan on the default model without creating work", async () => {
+    mocks.getCachedScan.mockResolvedValue(null);
     mocks.requiresDurablePublicScan.mockReturnValue(true);
-    mocks.startPublicScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "server-authored-run" },
-      retryAfterSeconds: 5,
-    });
 
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -350,15 +351,61 @@ describe("roast API persistence", () => {
       }),
     );
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      error: "scan_enrichment_pending",
-      run_id: "server-authored-run",
-    });
-    expect(mocks.startPublicScan).toHaveBeenCalledWith("DemoDev", expect.any(Object));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "missing_scan" });
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
     expect(mocks.recordScore).not.toHaveBeenCalled();
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
+  it("ignores a forged body scan when a trusted server scan is available", async () => {
+    const forgedScan: ScanResult = {
+      ...scan,
+      scoring: {
+        ...scan.scoring,
+        final_score: 99,
+        tier: "夯",
+        tier_label: "夯到爆表",
+      },
+    };
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan: forgedScan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(mocks.buildRoastMessages).toHaveBeenCalledWith(scan, "zh");
+    expect(mocks.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "DemoDev", final_score: 68, tier: "NPC" }),
+    );
+  });
+
+  it("allows a BYO body scan only as an immediate non-persistent roast", async () => {
+    mocks.getCachedScan.mockResolvedValue(null);
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({
+          scan,
+          lang: "zh",
+          byoKey: { baseURL: "https://llm.example.test/v1", apiKey: "user-key", model: "test" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("开源活跃度在上升");
+    expect(mocks.recordScore).not.toHaveBeenCalled();
+    expect(mocks.recordProfileSnapshot).not.toHaveBeenCalled();
+    expect(mocks.updateRoast).not.toHaveBeenCalled();
+    expect(mocks.setCachedRoast).not.toHaveBeenCalled();
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
   });
 
   it("does not advance an existing durable scan when a roast is retried", async () => {
@@ -440,8 +487,25 @@ describe("roast API persistence", () => {
       "DemoDev",
       expect.stringContaining("## 毒舌点评"),
       "zh",
+      scoreWrite,
     );
     expect(mocks.chatStreamEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not persist evidence or a report when the score write loses its CAS", async () => {
+    mocks.recordScore.mockResolvedValue(null);
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(mocks.recordProfileSnapshot).not.toHaveBeenCalled();
+    expect(mocks.updateRoast).not.toHaveBeenCalled();
+    expect(mocks.setCachedRoast).not.toHaveBeenCalled();
   });
 
   it("softens unsupported farming claims for strong core-impact accounts", async () => {
@@ -475,6 +539,7 @@ describe("roast API persistence", () => {
         tier_label: "顶级开发者 · 一线水准",
       },
     };
+    mocks.getCachedScan.mockResolvedValue(strongCoreScan);
 
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -522,6 +587,7 @@ describe("roast API persistence", () => {
       "DemoDev",
       expect.not.stringContaining("刷量"),
       "zh",
+      scoreWrite,
     );
   });
 
@@ -562,6 +628,7 @@ describe("roast API persistence", () => {
       "DemoDev",
       expect.not.stringMatching(/硬压到|按规则扣分|评分引擎/u),
       "zh",
+      scoreWrite,
     );
   });
 
@@ -616,6 +683,7 @@ describe("roast API persistence", () => {
         { repo: "rust-lang/rust", stars: 114_000, prs: 2, commits: 0 },
       ],
     };
+    mocks.getCachedScan.mockResolvedValue(shorthandScan);
 
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -670,6 +738,7 @@ describe("roast API persistence", () => {
         ],
       },
     };
+    mocks.getCachedScan.mockResolvedValue(signatureScan);
 
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -755,6 +824,37 @@ describe("roast API persistence", () => {
     expect(en).not.toContain("‘");
   });
 
+  it("replays a canonical archive with deterministic zero delta", async () => {
+    mocks.getArchivedRoast.mockResolvedValue({
+      username: "demodev",
+      final_score: 79,
+      tier: "人上人",
+      tags: { zh: ["存档"], en: ["archived"] },
+      roast_line: { zh: "存档锐评。", en: "Archived roast." },
+      report: "## 存档点评\n正式版本内容。",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("正式版本内容");
+    const encodedMeta = response.headers.get("X-Roast-Meta");
+    expect(encodedMeta).not.toBeNull();
+    const meta = JSON.parse(Buffer.from(encodedMeta!, "base64").toString("utf8"));
+    expect(meta).toMatchObject({ final_score: 79, delta: 0 });
+    expect(mocks.setCachedRoast).toHaveBeenCalledWith(
+      "DemoDev",
+      "zh",
+      expect.objectContaining({ final_score: 79, delta: 0 }),
+    );
+    expect(mocks.recordScore).not.toHaveBeenCalled();
+  });
+
   it("ignores refresh for a still-fresh roast and replays the cache instead", async () => {
     mocks.getScoreScannedAt.mockResolvedValue(Date.now() - 60 * 60 * 1000); // 1h ago
     mocks.getCachedRoast.mockResolvedValue({
@@ -820,6 +920,7 @@ describe("roast API persistence", () => {
   });
 
   it("drops malformed nested README summaries from client fallback scans", async () => {
+    mocks.getCachedScan.mockResolvedValue(null);
     const malformedScan = {
       ...scan,
       top_repos: [
@@ -837,7 +938,11 @@ describe("roast API persistence", () => {
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
         method: "POST",
-        body: JSON.stringify({ scan: malformedScan, lang: "zh" }),
+        body: JSON.stringify({
+          scan: malformedScan,
+          lang: "zh",
+          byoKey: { baseURL: "https://llm.example.test/v1", apiKey: "user-key", model: "test" },
+        }),
       }),
     );
 

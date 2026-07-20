@@ -50,10 +50,10 @@ jobs:
 
       - name: Verify release versions
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
         run: |
-          if [ -n "$BASE_REF" ]; then
-            pnpm versions:check --base-ref "origin/$BASE_REF"
+          if [ -n "$BASE_REF" ] && [ "$BASE_REF" != "0000000000000000000000000000000000000000" ]; then
+            pnpm versions:check --base-ref "$BASE_REF"
           else
             pnpm versions:check
           fi

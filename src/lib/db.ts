@@ -42,6 +42,7 @@ import {
 } from "./redis";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
+import { RELEASE_VERSION_MANIFEST } from "./release-versions";
 import type {
   ImpactRepo,
   RoastLine,
@@ -54,6 +55,7 @@ import type {
 } from "./types";
 import type { LeaderboardWindow } from "./leaderboardWindow";
 import {
+  PUBLIC_SCAN_COLLECTION_VERSION,
   PUBLIC_SCAN_REQUIRED_SOURCES,
   hasCompletePublicScanSources,
 } from "./scan-run-types";
@@ -73,6 +75,8 @@ import type {
 } from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
+const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
+  .publicScoreReadOrder as [string, string];
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
@@ -207,6 +211,7 @@ function ensureSchema(db: Client): Promise<void> {
              sub_scores   TEXT,
              roast        TEXT,
              roast_line   TEXT,
+             score_write_token TEXT,
              hidden       INTEGER NOT NULL DEFAULT 0,
              scanned_at   INTEGER NOT NULL
            )`,
@@ -313,6 +318,8 @@ function ensureSchema(db: Client): Promise<void> {
              WHERE state IN ('queued', 'running')`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_ready
              ON public_scan_jobs(state, next_run_at)`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_collection_ready
+             ON public_scan_jobs(collection_version, state, next_run_at)`,
           // Process-wide execution slots and API budgets live in Turso rather
           // than Redis. A Redis outage must never turn a deployment or a queue
           // replay into an unbounded GitHub crawl.
@@ -606,6 +613,7 @@ function ensureSchema(db: Client): Promise<void> {
         // roast shows in the visitor's language regardless of report language.
         "roast_line TEXT",
         "score_version TEXT",
+        "score_write_token TEXT",
         "roast_version TEXT",
         "roast_en_version TEXT",
         // Previous scan's score + timestamp, kept for the 进步榜 (progress board).
@@ -808,22 +816,49 @@ export async function recordAccountLookup(username: string, ip: string): Promise
   }
 }
 
-/** Upsert an account's latest score. Best-effort; never throws to the caller. */
-export async function recordScore(entry: ScoreEntry): Promise<void> {
+export interface ScoreWriteIdentity {
+  scannedAt: number;
+  token: string;
+}
+
+/**
+ * Upsert an account's latest score and return the identity required to attach
+ * its generated report. Older writes are ignored instead of replacing newer
+ * scans. Best-effort; never throws to the caller.
+ */
+export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity | null> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const username = entry.username.toLowerCase();
-    await db.execute({
+    const token = randomUUID();
+    const written = await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, score_version, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags,
+               roast_line, score_version, score_write_token, bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
               prev_score      = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.final_score ELSE scores.prev_score END,
               prev_scanned_at = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.scanned_at ELSE scores.prev_scanned_at END,
+              roast         = CASE WHEN scores.score_version = excluded.score_version
+                                        AND scores.final_score = excluded.final_score
+                                        AND scores.sub_scores = excluded.sub_scores
+                                   THEN scores.roast ELSE NULL END,
+              roast_version = CASE WHEN scores.score_version = excluded.score_version
+                                        AND scores.final_score = excluded.final_score
+                                        AND scores.sub_scores = excluded.sub_scores
+                                   THEN scores.roast_version ELSE NULL END,
+              roast_en         = CASE WHEN scores.score_version = excluded.score_version
+                                           AND scores.final_score = excluded.final_score
+                                           AND scores.sub_scores = excluded.sub_scores
+                                      THEN scores.roast_en ELSE NULL END,
+              roast_en_version = CASE WHEN scores.score_version = excluded.score_version
+                                           AND scores.final_score = excluded.final_score
+                                           AND scores.sub_scores = excluded.sub_scores
+                                      THEN scores.roast_en_version ELSE NULL END,
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
               profile_url  = excluded.profile_url,
@@ -832,9 +867,11 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               tags         = excluded.tags,
               roast_line   = excluded.roast_line,
               score_version = excluded.score_version,
+              score_write_token = excluded.score_write_token,
               bot_score    = excluded.bot_score,
               sub_scores   = excluded.sub_scores,
-              scanned_at   = excluded.scanned_at`,
+              scanned_at   = excluded.scanned_at
+            WHERE excluded.scanned_at > scores.scanned_at`,
       args: [
         username,
         entry.display_name,
@@ -845,6 +882,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         JSON.stringify(entry.tags ?? EMPTY_TAGS),
         JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE),
         SCORE_CACHE_VERSION,
+        token,
         entry.bot_score,
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
@@ -852,6 +890,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         PROGRESS_MIN_GAP_MS,
       ],
     });
+    if (Number(written.rowsAffected ?? 0) !== 1) return null;
     await db.execute({
       sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
             VALUES (?, ?, ?, ?)
@@ -859,8 +898,10 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
       args: [username, MIN_RECORDED_LOOKUP_COUNT, entry.scanned_at, entry.scanned_at],
     });
+    return { scannedAt: entry.scanned_at, token };
   } catch (e) {
     console.error("recordScore failed:", e);
+    return null;
   }
 }
 
@@ -1060,8 +1101,9 @@ export async function enqueuePublicScan(
       if (admission) {
         const active = await tx.execute({
           sql: `SELECT COUNT(*) AS count FROM public_scan_jobs
-                WHERE state IN ('queued', 'running')`,
-          args: [],
+                WHERE collection_version = ?
+                  AND state IN ('queued', 'running')`,
+          args: [input.collectionVersion],
         });
         const activeCount = Number((active.rows[0] as Record<string, unknown> | undefined)?.count) || 0;
         const maxActiveJobs = Math.max(1, Math.floor(admission.maxActiveJobs));
@@ -1193,63 +1235,285 @@ export async function getPublicScanRun(runId: string): Promise<PublicScanRun | n
   }
 }
 
+export interface PublicScanJobVersionCount {
+  scoreVersion: string;
+  collectionVersion: string;
+  state: PublicScanJob["state"];
+  count: number;
+}
+
+export interface PublicScanQuarantineResult {
+  dryRun: boolean;
+  selected: number;
+  quarantined: number;
+  remainingActive: number;
+  deferredActive: number;
+}
+
+const MAX_PUBLIC_SCAN_QUARANTINE_BATCH = 100;
+const OBSOLETE_PUBLIC_SCAN_ERROR = "obsolete collection version quarantined";
+
+/** Aggregate-only inventory for release operations. Never returns job IDs or accounts. */
+export async function getPublicScanJobVersionSummary(): Promise<
+  PublicScanJobVersionCount[] | null
+> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT score_version, collection_version, state, COUNT(*) AS count
+            FROM public_scan_jobs
+            GROUP BY score_version, collection_version, state
+            ORDER BY collection_version, score_version, state`,
+      args: [],
+    });
+    return result.rows.map((row) => ({
+      scoreVersion: String(row.score_version),
+      collectionVersion: String(row.collection_version),
+      state: String(row.state) as PublicScanJob["state"],
+      count: Number(row.count),
+    }));
+  } catch (error) {
+    console.error("getPublicScanJobVersionSummary failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Stop a bounded batch of non-canonical collection jobs from consuming quota.
+ * The operation is a dry-run unless apply=true and returns counts only so an
+ * operator cannot accidentally expose account or job identifiers.
+ */
+export async function quarantineObsoletePublicScanJobs(input: {
+  canonicalCollectionVersion: string;
+  apply?: boolean;
+  limit?: number;
+}): Promise<PublicScanQuarantineResult | null> {
+  const db = getClient();
+  if (!db) return null;
+  const requestedLimit = Number(input.limit ?? 25);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(MAX_PUBLIC_SCAN_QUARANTINE_BATCH, Math.floor(requestedLimit)))
+    : 25;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    if (!input.apply) {
+      const [selected, remaining, deferred] = await db.batch(
+        [
+          {
+            sql: `SELECT id
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND (
+                      state = 'queued'
+                      OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                    )
+                  ORDER BY created_at ASC
+                  LIMIT ?`,
+            args: [input.canonicalCollectionVersion, now, limit],
+          },
+          {
+            sql: `SELECT COUNT(*) AS count
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND state IN ('queued', 'running')`,
+            args: [input.canonicalCollectionVersion],
+          },
+          {
+            sql: `SELECT COUNT(*) AS count
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND state = 'running'
+                    AND lease_expires_at > ?`,
+            args: [input.canonicalCollectionVersion, now],
+          },
+        ],
+        "read",
+      );
+      return {
+        dryRun: true,
+        selected: selected.rows.length,
+        quarantined: 0,
+        remainingActive: Number(remaining.rows[0]?.count ?? 0),
+        deferredActive: Number(deferred.rows[0]?.count ?? 0),
+      };
+    }
+
+    const tx = await db.transaction("write");
+    try {
+      const selected = await tx.execute({
+        sql: `SELECT id, run_id
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND (
+                  state = 'queued'
+                  OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                )
+              ORDER BY created_at ASC
+              LIMIT ?`,
+        args: [input.canonicalCollectionVersion, now, limit],
+      });
+      const jobIds = selected.rows.map((row) => String(row.id));
+      const runIds = selected.rows.map((row) => String(row.run_id));
+      let quarantined = 0;
+
+      if (jobIds.length > 0) {
+        const jobPlaceholders = jobIds.map(() => "?").join(", ");
+        const runPlaceholders = runIds.map(() => "?").join(", ");
+        const updated = await tx.execute({
+          sql: `UPDATE public_scan_jobs
+                SET state = 'failed', lease_token = NULL, lease_expires_at = NULL,
+                    updated_at = ?
+                WHERE id IN (${jobPlaceholders})
+                  AND collection_version <> ?
+                  AND (
+                    state = 'queued'
+                    OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                  )`,
+          args: [now, ...jobIds, input.canonicalCollectionVersion, now],
+        });
+        quarantined = Number(updated.rowsAffected ?? 0);
+        await tx.execute({
+          sql: `UPDATE public_scan_runs
+                SET state = 'failed', last_error = ?, updated_at = ?
+                WHERE id IN (${runPlaceholders})
+                  AND collection_version <> ?
+                  AND state IN ('queued', 'running', 'partial_public')`,
+          args: [
+            OBSOLETE_PUBLIC_SCAN_ERROR,
+            now,
+            ...runIds,
+            input.canonicalCollectionVersion,
+          ],
+        });
+      }
+
+      const remaining = await tx.execute({
+        sql: `SELECT COUNT(*) AS count
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND state IN ('queued', 'running')`,
+        args: [input.canonicalCollectionVersion],
+      });
+      const deferred = await tx.execute({
+        sql: `SELECT COUNT(*) AS count
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND state = 'running'
+                AND lease_expires_at > ?`,
+        args: [input.canonicalCollectionVersion, now],
+      });
+      await tx.commit();
+      return {
+        dryRun: false,
+        selected: jobIds.length,
+        quarantined,
+        remainingActive: Number(remaining.rows[0]?.count ?? 0),
+        deferredActive: Number(deferred.rows[0]?.count ?? 0),
+      };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    console.error("quarantineObsoletePublicScanJobs failed:", error);
+    return null;
+  }
+}
+
 /**
  * Claim a ready job with a database lease. A stale delivery can be recovered
  * after its lease expires; the next worker receives a fresh token and the old
  * worker can no longer publish progress or a final snapshot.
  */
 export async function claimPublicScanJob(
-  jobId?: string,
-  leaseMs = 55_000,
+  input: {
+    collectionVersion: string;
+    jobId?: string;
+    leaseMs?: number;
+  },
 ): Promise<PublicScanJobLease | null> {
   const db = getClient();
   if (!db) return null;
   try {
     await ensureSchema(db);
     const now = Date.now();
-    // Recover work abandoned by an interrupted serverless invocation first.
-    await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE state = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`,
-      args: [now, now],
-    });
-    const candidate = await db.execute({
-      sql: jobId
-        ? `SELECT * FROM public_scan_jobs
-           WHERE id = ? AND state = 'queued' AND next_run_at <= ? LIMIT 1`
-        : `SELECT * FROM public_scan_jobs
-           WHERE state = 'queued' AND next_run_at <= ?
-           ORDER BY next_run_at ASC, created_at ASC
-           LIMIT 1`,
-      args: jobId ? [jobId, now] : [now],
-    });
-    const row = candidate.rows[0];
-    if (!row) return null;
-    const candidateJob = mapPublicScanJob(row as Record<string, unknown>);
-    const leaseToken = randomUUID();
-    const leaseExpiresAt = now + leaseMs;
-    const claimed = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
-            WHERE id = ? AND state = 'queued'`,
-      args: [leaseToken, leaseExpiresAt, now, candidateJob.id],
-    });
-    if (Number(claimed.rowsAffected ?? 0) !== 1) return null;
-    await db.execute({
-      sql: `UPDATE public_scan_runs SET state = 'running', updated_at = ? WHERE id = ?`,
-      args: [now, candidateJob.runId],
-    });
-    return {
-      leaseToken,
-      job: {
-        ...candidateJob,
-        state: "running",
+    const leaseMs = input.leaseMs ?? 55_000;
+    const tx = await db.transaction("write");
+    try {
+      // Recover work abandoned by an interrupted serverless invocation first.
+      await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE collection_version = ?
+                AND state = 'running'
+                AND lease_expires_at IS NOT NULL
+                AND lease_expires_at <= ?`,
+        args: [now, input.collectionVersion, now],
+      });
+      const candidate = await tx.execute({
+        sql: input.jobId
+          ? `SELECT * FROM public_scan_jobs
+             WHERE id = ?
+               AND collection_version = ?
+               AND state = 'queued'
+               AND next_run_at <= ?
+             LIMIT 1`
+          : `SELECT * FROM public_scan_jobs
+             WHERE collection_version = ?
+               AND state = 'queued'
+               AND next_run_at <= ?
+             ORDER BY next_run_at ASC, created_at ASC
+             LIMIT 1`,
+        args: input.jobId
+          ? [input.jobId, input.collectionVersion, now]
+          : [input.collectionVersion, now],
+      });
+      const row = candidate.rows[0];
+      if (!row) {
+        await tx.rollback();
+        return null;
+      }
+      const candidateJob = mapPublicScanJob(row as Record<string, unknown>);
+      const leaseToken = randomUUID();
+      const leaseExpiresAt = now + leaseMs;
+      const claimed = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
+              WHERE id = ? AND collection_version = ? AND state = 'queued'`,
+        args: [leaseToken, leaseExpiresAt, now, candidateJob.id, input.collectionVersion],
+      });
+      if (Number(claimed.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return null;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = 'running', updated_at = ?
+              WHERE id = ? AND collection_version = ?`,
+        args: [now, candidateJob.runId, input.collectionVersion],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      return {
         leaseToken,
-        leaseExpiresAt,
-        updatedAt: now,
-      },
-    };
+        job: {
+          ...candidateJob,
+          state: "running",
+          leaseToken,
+          leaseExpiresAt,
+          updatedAt: now,
+        },
+      };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
     console.error("claimPublicScanJob failed:", error);
     return null;
@@ -2522,8 +2786,11 @@ export async function hasProfileSnapshot(username: string): Promise<boolean> {
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT 1 FROM profile_snapshots WHERE username = ? LIMIT 1`,
-      args: [username.toLowerCase()],
+      sql: `SELECT 1
+            FROM profile_snapshots
+            WHERE username = ? AND scan_version IN (?, ?)
+            LIMIT 1`,
+      args: [username.toLowerCase(), ...PUBLIC_PROFILE_SCORE_VERSIONS],
     });
     return res.rows.length > 0;
   } catch (e) {
@@ -2595,15 +2862,27 @@ async function getLatestPublicScanSignatureWork(
 ): Promise<SignatureWork | null> {
   try {
     const res = await db.execute({
-      sql: `SELECT snapshot
+      sql: `SELECT snapshot, snapshot_hash, source_status
             FROM public_scan_runs
             WHERE username = ?
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
               AND snapshot IS NOT NULL
             ORDER BY completed_at DESC, updated_at DESC
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [username.toLowerCase(), PUBLIC_SCAN_COLLECTION_VERSION],
     });
-    const snapshot = parseJsonObject<ScanResult>(res.rows[0]?.snapshot);
+    const row = res.rows[0];
+    const rawSnapshot = typeof row?.snapshot === "string" ? row.snapshot : null;
+    if (
+      !rawSnapshot ||
+      row?.snapshot_hash !== createHash("sha256").update(rawSnapshot).digest("hex") ||
+      !hasCompletePublicScanSources(parsePublicScanSourceStatus(row.source_status))
+    ) {
+      return null;
+    }
+    const snapshot = parseJsonObject<ScanResult>(rawSnapshot);
     return snapshot?.signature_work ?? null;
   } catch {
     return null;
@@ -2622,10 +2901,14 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ?
-            ORDER BY scanned_at DESC
+            WHERE username = ? AND scan_version IN (?, ?)
+            ORDER BY CASE WHEN scan_version = ? THEN 0 ELSE 1 END, scanned_at DESC
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [
+        username.toLowerCase(),
+        ...PUBLIC_PROFILE_SCORE_VERSIONS,
+        PUBLIC_PROFILE_SCORE_VERSIONS[0],
+      ],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -2710,9 +2993,14 @@ export async function listSnapshotUsernames(
  * runs before streaming so the percentile reflects this scan). No-op if the row
  * doesn't exist yet (e.g. a BYO-key roast that was never recorded).
  */
-export async function updateRoast(username: string, roast: string, lang: Lang): Promise<void> {
+export async function updateRoast(
+  username: string,
+  roast: string,
+  lang: Lang,
+  scoreWrite: ScoreWriteIdentity,
+): Promise<boolean> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return false;
   // Column name comes from a fixed allowlist (never from user input).
   const col = lang === "en" ? "roast_en" : "roast";
   const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
@@ -2720,31 +3008,68 @@ export async function updateRoast(username: string, roast: string, lang: Lang): 
     await ensureSchema(db);
     const normalizedUsername = username.toLowerCase();
     const generatedAt = Date.now();
-    await db.execute({
-      sql: `UPDATE scores SET ${col} = ?, ${versionCol} = ? WHERE username = ?`,
-      args: [roast, ROAST_CACHE_VERSION, normalizedUsername],
-    });
-    await db.execute({
-      sql: `INSERT INTO score_snapshots
-              (id, username, display_name, avatar_url, profile_url, final_score, tier,
-               tags, roast_line, score_version, roast_version, roast_lang, bot_score,
-               sub_scores, generated_at)
-            SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, roast_line, COALESCE(score_version, ?), ?, ?, bot_score,
-                   sub_scores, ?
-            FROM scores
-            WHERE username = ?`,
-      args: [
-        randomUUID(),
-        SCORE_CACHE_VERSION,
-        ROAST_CACHE_VERSION,
-        lang,
-        generatedAt,
-        normalizedUsername,
-      ],
-    });
+    const tx = await db.transaction("write");
+    try {
+      const updated = await tx.execute({
+        sql: `UPDATE scores
+              SET ${col} = ?, ${versionCol} = ?
+              WHERE username = ?
+                AND score_version = ?
+                AND score_write_token = ?
+                AND scanned_at = ?`,
+        args: [
+          roast,
+          ROAST_CACHE_VERSION,
+          normalizedUsername,
+          SCORE_CACHE_VERSION,
+          scoreWrite.token,
+          scoreWrite.scannedAt,
+        ],
+      });
+      if (Number(updated.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const snapshot = await tx.execute({
+        sql: `INSERT INTO score_snapshots
+                (id, username, display_name, avatar_url, profile_url, final_score, tier,
+                 tags, roast_line, score_version, roast_version, roast_lang, bot_score,
+                 sub_scores, generated_at)
+              SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
+                     tags, roast_line, score_version, ?, ?, bot_score, sub_scores, ?
+              FROM scores
+              WHERE username = ?
+                AND score_version = ?
+                AND score_write_token = ?
+                AND scanned_at = ?
+                AND ${versionCol} = ?
+                AND ${col} = ?`,
+        args: [
+          randomUUID(),
+          ROAST_CACHE_VERSION,
+          lang,
+          generatedAt,
+          normalizedUsername,
+          SCORE_CACHE_VERSION,
+          scoreWrite.token,
+          scoreWrite.scannedAt,
+          ROAST_CACHE_VERSION,
+          roast,
+        ],
+      });
+      if (Number(snapshot.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (e) {
     console.error("updateRoast failed:", e);
+    return false;
   }
 }
 
@@ -2959,6 +3284,7 @@ interface LeaderboardRow {
   final_score: unknown;
   tier: unknown;
   tags: unknown;
+  score_version: unknown;
   lookup_count: unknown;
   recent_lookup_count?: unknown;
   last_lookup_at?: unknown;
@@ -2977,7 +3303,7 @@ function toLeaderboardEntry(r: LeaderboardRow, now = Date.now()): LeaderboardEnt
     profile_url: r.profile_url as string | null,
     final_score,
     tier: String(r.tier) as Tier,
-    tags: parseTags(r.tags),
+    tags: r.score_version === SCORE_CACHE_VERSION ? parseTags(r.tags) : EMPTY_TAGS,
     lookup_count,
     recent_lookup_count,
     trending_score: computeTrendingScore(
@@ -3001,7 +3327,7 @@ export async function getTrendingLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, now);
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3078,7 +3404,7 @@ export async function getLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3120,7 +3446,7 @@ export async function getCampaignLeaderboard(
     const capped = Math.max(1, Math.min(500, limit));
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3164,7 +3490,7 @@ export async function getHeatLeaderboard(
     const heatOrder = activeOnly ? "recent_lookup_count DESC" : "lookup_count DESC";
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3203,7 +3529,7 @@ export async function getProgressLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags, s.prev_score,
+                   s.final_score, s.tier, s.tags, s.score_version, s.prev_score,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3303,7 +3629,7 @@ export async function getDevelopersByFacet(
     const capped = Math.max(1, Math.min(DEVELOPERS_PER_FACET_LIMIT, limit));
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    stats.last_lookup_at AS last_lookup_at
             FROM developer_facets AS f
@@ -4143,8 +4469,8 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, roast_line, sub_scores, roast, roast_en, score_version, scanned_at,
-                   prev_score, prev_scanned_at
+                   tags, roast_line, sub_scores, roast, roast_en, score_version,
+                   roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
             LIMIT 1`,
@@ -4152,6 +4478,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     });
     const r = res.rows[0];
     if (!r) return null;
+    const canonicalScore = r.score_version === SCORE_CACHE_VERSION;
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -4159,11 +4486,17 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       profile_url: r.profile_url as string | null,
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
-      tags: parseTags(r.tags),
-      roast_line: parseRoastLine(r.roast_line),
+      tags: canonicalScore ? parseTags(r.tags) : EMPTY_TAGS,
+      roast_line: canonicalScore ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
-      roast: (r.roast as string | null) ?? null,
-      roast_en: (r.roast_en as string | null) ?? null,
+      roast:
+        canonicalScore && r.roast_version === ROAST_CACHE_VERSION
+          ? ((r.roast as string | null) ?? null)
+          : null,
+      roast_en:
+        canonicalScore && r.roast_en_version === ROAST_CACHE_VERSION
+          ? ((r.roast_en as string | null) ?? null)
+          : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
       scanned_at: Number(r.scanned_at),
       prev_score: r.prev_score === null ? null : Number(r.prev_score),
@@ -4265,7 +4598,7 @@ export async function getSimilarAccounts(
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags, s.sub_scores,
+                   s.final_score, s.tier, s.tags, s.score_version, s.sub_scores,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username

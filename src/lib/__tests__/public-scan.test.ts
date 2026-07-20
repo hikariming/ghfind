@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  publicScanAdmission,
   requiresDurablePublicScan,
   resolvePublicScanFromTrustedQuickScan,
   startPublicScan,
@@ -96,6 +97,14 @@ describe("durable public scan admission", () => {
     vi.clearAllMocks();
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.seedPublicScanQuickResult.mockResolvedValue(true);
+  });
+
+  it("namespaces admission buckets by the canonical collection version", () => {
+    const admission = publicScanAdmission("synthetic-principal");
+    expect(admission.bucket).toMatch(
+      new RegExp(`^durable-admission:${PUBLIC_SCAN_COLLECTION_VERSION}:[a-f0-9]{64}$`),
+    );
+    expect(admission.bucket).not.toContain("synthetic-principal");
   });
 
   it("only diverts bounded-coverage cases", () => {

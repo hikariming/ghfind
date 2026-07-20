@@ -11,8 +11,8 @@
     "collection": "v4"
   },
   "runtimeEnforcement": {
-    "state": "source_changes_only",
-    "trackingIssue": 126
+    "state": "canonical",
+    "trackingIssue": null
   },
   "compatibility": {
     "publicScoreReadOrder": ["v9", "v8"],

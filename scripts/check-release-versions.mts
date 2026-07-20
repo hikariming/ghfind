@@ -4,9 +4,8 @@ import { resolve } from "node:path";
 import ts from "typescript";
 import {
   RELEASE_VERSION_MANIFEST,
-  RUNTIME_RELEASE_VERSIONS,
-  changedVersionComponents,
   releaseVersionErrors,
+  releaseTransitionErrors,
   type ReleaseVersionManifest,
 } from "../src/lib/release-versions";
 
@@ -30,6 +29,15 @@ function git(...args: string[]): string {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function changedFilesSince(baseRef: string): Set<string> {
+  const outputs = [
+    git("diff", "--name-only", `${baseRef}...HEAD`),
+    git("diff", "--name-only"),
+    git("diff", "--cached", "--name-only"),
+  ];
+  return new Set(outputs.flatMap((output) => output.split("\n")).filter(Boolean));
 }
 
 function baseManifest(ref: string): ReleaseVersionManifest | null {
@@ -78,55 +86,31 @@ function versionsAt(ref?: string) {
 
 function versionChangeErrors(baseRef: string): string[] {
   const base = baseManifest(baseRef);
-  if (!base) return [];
+  if (!base) return [`cannot read release manifest from base ref ${baseRef}`];
 
   const errors: string[] = [];
-  const targetChanges = changedVersionComponents(
-    base.targetRelease,
-    RELEASE_VERSION_MANIFEST.targetRelease,
+  const baseRuntime = versionsAt(baseRef);
+  const currentRuntime = versionsAt();
+  errors.push(
+    ...releaseTransitionErrors({
+      beforeManifest: base,
+      afterManifest: RELEASE_VERSION_MANIFEST,
+      beforeRuntime: baseRuntime,
+      afterRuntime: currentRuntime,
+    }),
   );
-  const runtimeChanges = changedVersionComponents(versionsAt(baseRef), versionsAt());
-  const approvedIssue = RELEASE_VERSION_MANIFEST.changeControl.approvedMultiComponentIssue;
-  const hasApproval = Number.isInteger(approvedIssue) && Number(approvedIssue) > 0;
-  const isTrackedNormalization =
-    base.runtimeEnforcement.state === "source_changes_only" &&
-    RELEASE_VERSION_MANIFEST.runtimeEnforcement.state === "canonical" &&
-    base.runtimeEnforcement.trackingIssue === 126 &&
-    RELEASE_VERSION_MANIFEST.runtimeEnforcement.trackingIssue === null &&
-    runtimeChanges.length > 0;
 
-  if (runtimeChanges.length > 0 && !sameTarget(versionsAt(), RELEASE_VERSION_MANIFEST.targetRelease)) {
-    errors.push("changed runtime constants must exactly match the formal target release");
-  }
-
-  if (targetChanges.length > 1 && !hasApproval) {
-    errors.push(
-      `formal release changes ${targetChanges.join(", ")}; multi-component bumps require an approved issue`,
-    );
-  }
-  if (targetChanges.length > 0 && runtimeChanges.length === 0) {
-    errors.push("a formal target change must include its isolated runtime version change");
-  }
-  if (runtimeChanges.length > 1 && !hasApproval && !isTrackedNormalization) {
-    errors.push(
-      `runtime changes ${runtimeChanges.join(", ")}; multi-component changes require an approved issue`,
-    );
-  }
-
-  if (targetChanges.length > 0 || runtimeChanges.length > 0) {
-    const changedFiles = git("diff", "--name-only", `${baseRef}...HEAD`).split("\n");
-    if (!changedFiles.includes(RELEASE_VERSION_MANIFEST.releasePlan)) {
+  if (
+    JSON.stringify(base.targetRelease) !==
+      JSON.stringify(RELEASE_VERSION_MANIFEST.targetRelease) ||
+    JSON.stringify(baseRuntime) !== JSON.stringify(currentRuntime)
+  ) {
+    const changedFiles = changedFilesSince(baseRef);
+    if (!changedFiles.has(RELEASE_VERSION_MANIFEST.releasePlan)) {
       errors.push("a version change must update its checked-in release and rollback plan");
     }
   }
   return errors;
-}
-
-function sameTarget(
-  actual: typeof RUNTIME_RELEASE_VERSIONS,
-  target: typeof RELEASE_VERSION_MANIFEST.targetRelease,
-): boolean {
-  return changedVersionComponents(actual, target).length === 0;
 }
 
 const errors = releaseVersionErrors();

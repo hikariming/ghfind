@@ -84,10 +84,12 @@ export type PublicScanResolution =
 export function publicScanAdmission(principal: string): PublicScanAdmission {
   const normalized = principal.trim() || "anonymous";
   const digest = createHash("sha256")
-    .update(`ghfind-public-scan-admission-v1\0${normalized}`)
+    .update(
+      `ghfind-public-scan-admission-v1\0${PUBLIC_SCAN_COLLECTION_VERSION}\0${normalized}`,
+    )
     .digest("hex");
   return {
-    bucket: `durable-admission:${digest}`,
+    bucket: `durable-admission:${PUBLIC_SCAN_COLLECTION_VERSION}:${digest}`,
     limit: PUBLIC_SCAN_ADMISSION_LIMIT,
     windowMs: PUBLIC_SCAN_ADMISSION_WINDOW_MS,
     maxActiveJobs: PUBLIC_SCAN_MAX_ACTIVE_JOBS,

@@ -3,6 +3,7 @@ import {
   RELEASE_VERSION_MANIFEST,
   changedVersionComponents,
   releaseVersionErrors,
+  releaseTransitionErrors,
   type ReleaseVersionManifest,
 } from "../release-versions";
 
@@ -25,11 +26,11 @@ describe("release version contract", () => {
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
 
-  it("keeps runtime enforcement scoped to version-file changes until normalization", () => {
+  it("requires the runtime to remain on the canonical release after normalization", () => {
     expect(releaseVersionErrors()).toEqual([]);
     expect(RELEASE_VERSION_MANIFEST.runtimeEnforcement).toEqual({
-      state: "source_changes_only",
-      trackingIssue: 126,
+      state: "canonical",
+      trackingIssue: null,
     });
   });
 
@@ -62,5 +63,62 @@ describe("release version contract", () => {
         { score: "v10", roast: "v10", collection: "v4" },
       ),
     ).toEqual(["score", "roast"]);
+  });
+
+  it("does not allow an approval field to bypass isolated version changes", () => {
+    const manifest = manifestCopy();
+    manifest.changeControl.approvedMultiComponentIssue = 999;
+    expect(releaseVersionErrors(manifest)).toContain(
+      "multi-component version changes are forbidden after normalization",
+    );
+  });
+
+  it("allows only the tracked one-time normalization to change all runtime constants", () => {
+    const before = manifestCopy();
+    before.runtimeEnforcement = { state: "source_changes_only", trackingIssue: 126 };
+    expect(
+      releaseTransitionErrors({
+        beforeManifest: before,
+        afterManifest: manifestCopy(),
+        beforeRuntime: { score: "v99", roast: "v99", collection: "v99" },
+        afterRuntime: { score: "v9", roast: "v9", collection: "v4" },
+      }),
+    ).toEqual([]);
+  });
+
+  it("rejects a future three-component bump even when manifest and runtime agree", () => {
+    const before = manifestCopy();
+    before.previousRelease = { score: "v20", roast: "v20", collection: "v20" };
+    before.targetRelease = { score: "v21", roast: "v21", collection: "v21" };
+    const after = structuredClone(before);
+    after.previousRelease = { ...before.targetRelease };
+    after.targetRelease = { score: "v22", roast: "v22", collection: "v22" };
+    expect(
+      releaseTransitionErrors({
+        beforeManifest: before,
+        afterManifest: after,
+        beforeRuntime: { ...before.targetRelease },
+        afterRuntime: { ...after.targetRelease },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("multi-component bumps are forbidden"),
+        expect.stringContaining("multi-component changes are forbidden"),
+      ]),
+    );
+  });
+
+  it("rejects rewriting release history without advancing the target", () => {
+    const before = manifestCopy();
+    const after = manifestCopy();
+    after.previousRelease.score = "v7";
+    expect(
+      releaseTransitionErrors({
+        beforeManifest: before,
+        afterManifest: after,
+        beforeRuntime: { ...before.targetRelease },
+        afterRuntime: { ...after.targetRelease },
+      }),
+    ).toContain("previousRelease cannot change without advancing the formal target");
   });
 });
