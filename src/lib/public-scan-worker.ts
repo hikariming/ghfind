@@ -13,6 +13,7 @@ import {
   getPublicScanRun,
   materializePublicScanCommitRepoFacts,
   preparePublicScanCommitVerificationWork,
+  PublicScanStorageError,
   savePublicScanJobProgress,
   savePublicScanQuickResult,
   splitPublicScanCommitVerificationWork,
@@ -22,6 +23,7 @@ import {
   upsertPublicScanPrFacts,
   recordPublicScanCommitVerificationPage,
   releasePublicScanExecutionLease,
+  releasePublicScanJobClaim,
 } from "./db";
 import {
   fetchDurableOwnedRepositoryPage,
@@ -41,7 +43,10 @@ import type {
   PublicScanJobPhase,
   PublicScanSourceStatus,
 } from "./scan-run-types";
-import { hasCompletePublicScanSources } from "./scan-run-types";
+import {
+  PUBLIC_SCAN_COLLECTION_VERSION,
+  hasCompletePublicScanSources,
+} from "./scan-run-types";
 import type { ScanResult, TopRepo } from "./types";
 
 interface DiscoveryRange {
@@ -57,11 +62,38 @@ interface WorkerPayload {
   ranges?: DiscoveryRange[];
 }
 
+class NonCanonicalPublicScanError extends Error {}
+
+function publicScanErrorKind(error: unknown):
+  | "non_canonical"
+  | "rate_limited"
+  | "timeout"
+  | "upstream"
+  | "invalid_state"
+  | "unknown" {
+  if (error instanceof NonCanonicalPublicScanError) return "non_canonical";
+  const message = error instanceof Error ? error.message : "";
+  if (/rate.?limit|secondary rate|quota/i.test(message)) return "rate_limited";
+  if (/timeout|timed out|abort/i.test(message)) return "timeout";
+  if (/github|graphql|http|fetch|upstream/i.test(message)) return "upstream";
+  if (/missing|malformed|unsupported|disappeared|cannot be split/i.test(message)) {
+    return "invalid_state";
+  }
+  return "unknown";
+}
+
 export type PublicScanWorkerResult =
   | { status: "idle" }
-  | { status: "continued"; jobId: string; phase: PublicScanJobPhase }
-  | { status: "complete"; runId: string }
-  | { status: "failed"; jobId: string };
+  | { status: "slot_busy"; jobId: string; runId: string; phase: PublicScanJobPhase }
+  | { status: "continued"; jobId: string; runId: string; phase: PublicScanJobPhase }
+  | { status: "complete"; jobId: string; runId: string; phase: "publish" }
+  | {
+      status: "failed";
+      jobId: string;
+      runId: string;
+      phase: PublicScanJobPhase;
+      retryScheduled: boolean;
+    };
 
 function parsePayload(raw: string): WorkerPayload {
   try {
@@ -151,7 +183,12 @@ async function continueJob(input: {
         : undefined,
   });
   if (!saved) return { status: "idle" };
-  return { status: "continued", jobId: input.jobId, phase: input.phase };
+  return {
+    status: "continued",
+    jobId: input.jobId,
+    runId: input.runId,
+    phase: input.phase,
+  };
 }
 
 /**
@@ -160,30 +197,43 @@ async function continueJob(input: {
  * treat a stale/no-op delivery as successful.
  */
 export async function processPublicScanJob(jobId?: string): Promise<PublicScanWorkerResult> {
-  const lease = await claimPublicScanJob(jobId);
+  const lease = await claimPublicScanJob({
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    jobId,
+  });
   if (!lease) return { status: "idle" };
   const { job, leaseToken } = lease;
   let executionSlot: number | null = null;
   try {
+    if (job.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION) {
+      throw new NonCanonicalPublicScanError(
+        "durable scan job uses a non-canonical collection version",
+      );
+    }
     executionSlot = await acquirePublicScanExecutionLease({
       jobId: job.id,
       leaseToken,
     });
     if (executionSlot === null) {
-      const run = await getPublicScanRun(job.runId);
-      if (!run) throw new Error("durable scan run disappeared before execution");
-      return continueJob({
+      const released = await releasePublicScanJobClaim({
         jobId: job.id,
         runId: job.runId,
         leaseToken,
-        phase: job.phase,
-        payload: parsePayload(job.payload),
-        sources: sourceStatus(run.sourceStatus),
-        delaySeconds: 10,
       });
+      return released
+        ? { status: "slot_busy", jobId: job.id, runId: job.runId, phase: job.phase }
+        : { status: "idle" };
     }
     const run = await getPublicScanRun(job.runId);
     if (!run) throw new Error("durable scan run disappeared");
+    if (
+      run.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION ||
+      run.collectionVersion !== job.collectionVersion
+    ) {
+      throw new NonCanonicalPublicScanError(
+        "durable scan run uses a non-canonical collection version",
+      );
+    }
     const payload = parsePayload(job.payload);
     const sources = sourceStatus(run.sourceStatus);
 
@@ -554,22 +604,42 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
       });
       if (!published) return { status: "idle" };
       await setCachedScan(completed.metrics.username, completed);
-      return { status: "complete", runId: job.runId };
+      return { status: "complete", jobId: job.id, runId: job.runId, phase: "publish" };
     }
 
     throw new Error(`unsupported durable scan phase: ${job.phase}`);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "durable public scan failed";
-    const retryAt = job.attemptCount < 4 ? Date.now() + 5_000 * 2 ** job.attemptCount : undefined;
-    await failPublicScanJob({
+    if (error instanceof PublicScanStorageError) throw error;
+    const kind = publicScanErrorKind(error);
+    const retryAt =
+      !(error instanceof NonCanonicalPublicScanError) && job.attemptCount < 4
+        ? Date.now() + 5_000 * 2 ** job.attemptCount
+        : undefined;
+    const failed = await failPublicScanJob({
       jobId: job.id,
       runId: job.runId,
       leaseToken,
-      error: detail,
+      error: `worker_${kind}`,
       retryAt,
     });
-    console.error("processPublicScanJob failed:", error);
-    return { status: "failed", jobId: job.id };
+    if (!failed) return { status: "idle" };
+    console.error(
+      "public_scan.step_failed",
+      JSON.stringify({
+        jobId: job.id,
+        runId: job.runId,
+        phase: job.phase,
+        kind,
+        retryScheduled: retryAt !== undefined,
+      }),
+    );
+    return {
+      status: "failed",
+      jobId: job.id,
+      runId: job.runId,
+      phase: job.phase,
+      retryScheduled: retryAt !== undefined,
+    };
   } finally {
     if (executionSlot !== null) {
       await releasePublicScanExecutionLease({

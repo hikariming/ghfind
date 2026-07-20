@@ -30,8 +30,18 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const result = await drainPublicScanJobsFromCron();
-  return NextResponse.json({ status: "ok", ...result }, { headers: { "Cache-Control": "no-store" } });
+  try {
+    const result = await drainPublicScanJobsFromCron();
+    return NextResponse.json(
+      { status: "ok", ...result },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return NextResponse.json(
+      { status: "error", error: "public_scan_unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 }
 
 // Vercel Cron issues a GET request with Authorization: Bearer $CRON_SECRET.

@@ -8,7 +8,7 @@
 // intentionally separate from SCORE_CACHE_VERSION: an old scan can be
 // re-scored, but it must not be treated as complete when its collector no
 // longer covers the current source contract.
-export const PUBLIC_SCAN_COLLECTION_VERSION = "v5";
+export const PUBLIC_SCAN_COLLECTION_VERSION = "v4";
 
 export const PUBLIC_SCAN_REQUIRED_SOURCES = [
   "quick",
@@ -34,6 +34,13 @@ export type PublicScanJobPhase =
   | "workflow_landings"
   | "commit_recovery"
   | "publish";
+
+export type PublicScanStepOutcome =
+  | "continued"
+  | "complete"
+  | "failed_retrying"
+  | "failed_terminal"
+  | "slot_busy";
 
 export type PublicScanSourceState = "pending" | "complete" | "unavailable" | "failed";
 

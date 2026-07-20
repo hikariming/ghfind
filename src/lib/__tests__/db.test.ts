@@ -5,18 +5,19 @@ import { join } from "node:path";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
-import type { ScoreEntry } from "../db";
-import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
-import type { ScanResult } from "../types";
+import type { ScoreEntry, ScoreWriteIdentity } from "../db";
+import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
+import { score } from "../score";
+import type { RawMetrics, ScanResult } from "../types";
 
 let db: typeof import("../db");
 let tmpDir: string;
 
 const entry: ScoreEntry = {
-  username: "RockChinQ",
-  display_name: "Rock",
+  username: "archive-fixture",
+  display_name: "Archive Fixture",
   avatar_url: null,
-  profile_url: "https://github.com/RockChinQ",
+  profile_url: "https://profiles.example.invalid/archive-fixture",
   final_score: 95.2,
   tier: "夯",
   tags: { zh: ["开源狠人"], en: ["oss beast"] },
@@ -33,6 +34,108 @@ const entry: ScoreEntry = {
   scanned_at: 1_800_000_000_000,
 };
 
+const COMPLETE_PUBLIC_SOURCES: PublicScanSourceStatus = {
+  quick: "complete",
+  original_repos: "complete",
+  native_prs: "complete",
+  workflow_landings: "complete",
+  commit_recovery: "complete",
+};
+
+function syntheticMetrics(
+  username: string,
+  overrides: Partial<RawMetrics> = {},
+): RawMetrics {
+  return {
+    username,
+    profile_url: `https://profiles.example.invalid/${username}`,
+    avatar_url: "https://assets.example.invalid/avatar.png",
+    name: "Synthetic Account",
+    bio: "Synthetic database fixture",
+    company: null,
+    account_age_years: 4,
+    created_at: "2022-01-01T00:00:00.000Z",
+    followers: 20,
+    following: 10,
+    public_repos: 4,
+    fetched_repo_count: 4,
+    original_repo_count: 3,
+    nonempty_original_repo_count: 3,
+    fork_repo_count: 1,
+    empty_original_repo_count: 0,
+    total_stars: 80,
+    max_stars: 50,
+    merged_pr_count: 8,
+    total_pr_count: 10,
+    issues_created: 3,
+    last_year_contributions: 320,
+    activity_type_count: 3,
+    contribution_years_active: 3,
+    days_since_last_activity: 4,
+    recent_merged_pr_sample: 8,
+    recent_trivial_pr_count: 1,
+    external_trivial_pr_count: 0,
+    max_impact_repo_stars: 1_000,
+    impact_pr_count: 2,
+    impact_depth_raw: 1,
+    star_inflation_suspect: false,
+    closed_unmerged_pr_count: 2,
+    pr_rejection_rate: 0.2,
+    recent_pr_sample: 10,
+    top_repo_pr_target: "fixture-owner/fixture-repository",
+    top_repo_pr_share: 0.25,
+    templated_pr_ratio: 0.1,
+    pr_flood_suspect: false,
+    ...overrides,
+  };
+}
+
+function syntheticScan(
+  username: string,
+  metricOverrides: Partial<RawMetrics> = {},
+): ScanResult {
+  const metrics = syntheticMetrics(username, metricOverrides);
+  return {
+    metrics,
+    top_repos: [],
+    recent_prs: [],
+    flood_pr_titles: [],
+    impact_repos: [],
+    verified_impact_prs: [],
+    pinned_repos: [],
+    organizations: [],
+    scoring: score(metrics),
+  };
+}
+
+function serializeScan(scan: ScanResult): { snapshot: string; snapshotHash: string } {
+  const snapshot = JSON.stringify(scan);
+  return {
+    snapshot,
+    snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+  };
+}
+
+function canonicalBackfillCursor(input: {
+  completedAt: number;
+  runId: string;
+  watermark: number;
+}): string {
+  return `bfs1.${Buffer.from(JSON.stringify(input)).toString("base64url")}`;
+}
+
+async function readScoreRow(username: string) {
+  const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+  const result = await client.execute({
+      sql: `SELECT username, final_score, score_version, score_source_collection_version,
+                   score_source_snapshot_hash, scanned_at, score_write_token,
+                   roast, roast_en, roast_version, roast_en_version
+          FROM scores WHERE username = ? LIMIT 1`,
+    args: [username.toLowerCase()],
+  });
+  return result.rows[0] ?? null;
+}
+
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), "ghroast-db-"));
   process.env.TURSO_DATABASE_URL = `file:${join(tmpDir, "test.db")}`;
@@ -45,27 +148,49 @@ afterAll(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
+async function writeScore(scoreEntry: ScoreEntry): Promise<ScoreWriteIdentity> {
+  const identity = await db.recordScore(scoreEntry);
+  if (!identity) throw new Error("expected synthetic score write");
+  const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+  const snapshotHash = createHash("sha256")
+    .update(`${scoreEntry.username}:${scoreEntry.scanned_at}:${scoreEntry.final_score}`)
+    .digest("hex");
+  await client.execute({
+    sql: `UPDATE scores
+          SET score_source_collection_version = ?, score_source_snapshot_hash = ?
+          WHERE username = ? AND score_write_token = ? AND scanned_at = ?`,
+    args: [
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      snapshotHash,
+      scoreEntry.username.toLowerCase(),
+      identity.token,
+      identity.scannedAt,
+    ],
+  });
+  return identity;
+}
+
 describe("getArchivedRoast", () => {
   it("replays archived reports by username and language", async () => {
-    await db.recordScore(entry);
-    await db.updateRoast("RockChinQ", "## 中文报告", "zh");
-    await db.updateRoast("RockChinQ", "## English report", "en");
+    const scoreWrite = await writeScore(entry);
+    await db.updateRoast("archive-fixture", "## 中文报告", "zh", scoreWrite);
+    await db.updateRoast("archive-fixture", "## English report", "en", scoreWrite);
 
-    await expect(db.getArchivedRoast("rockchinq", "zh")).resolves.toMatchObject({
-      username: "rockchinq",
+    await expect(db.getArchivedRoast("ARCHIVE-FIXTURE", "zh")).resolves.toMatchObject({
+      username: "archive-fixture",
       final_score: 95.2,
       tier: "夯",
       tags: entry.tags,
       report: "## 中文报告",
     });
-    await expect(db.getArchivedRoast("RockChinQ", "en")).resolves.toMatchObject({
+    await expect(db.getArchivedRoast("archive-fixture", "en")).resolves.toMatchObject({
       report: "## English report",
     });
   });
 
   it("does not replay archived reports from a stale roast version", async () => {
-    await db.recordScore({ ...entry, username: "stale-roast" });
-    await db.updateRoast("stale-roast", "## stale report", "zh");
+    const scoreWrite = await writeScore({ ...entry, username: "stale-roast" });
+    await db.updateRoast("stale-roast", "## stale report", "zh", scoreWrite);
 
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({
@@ -77,8 +202,8 @@ describe("getArchivedRoast", () => {
   });
 
   it("does not replay archived reports from rows without cache versions", async () => {
-    await db.recordScore({ ...entry, username: "legacy-roast" });
-    await db.updateRoast("legacy-roast", "## legacy report", "zh");
+    const scoreWrite = await writeScore({ ...entry, username: "legacy-roast" });
+    await db.updateRoast("legacy-roast", "## legacy report", "zh", scoreWrite);
 
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({
@@ -90,21 +215,118 @@ describe("getArchivedRoast", () => {
 
     await expect(db.getArchivedRoast("legacy-roast", "zh")).resolves.toBeNull();
   });
+
+  it("does not attach a previous-release roast to a target-release score", async () => {
+    const username = "mixed-version-roast-fixture";
+    const scoreWrite = await writeScore({ ...entry, username });
+    await db.updateRoast(username, "## previous release report", "zh", scoreWrite);
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = 'v9', roast_version = 'v8'
+            WHERE username = ?`,
+      args: [username],
+    });
+
+    await expect(db.getArchivedRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
+  });
+
+  it("clears generated reports when the deterministic score identity changes", async () => {
+    const username = "score-change-fixture";
+    const scoreWrite = await writeScore({ ...entry, username, final_score: 91 });
+    await db.updateRoast(username, "## report before score change", "zh", scoreWrite);
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      roast: "## report before score change",
+    });
+
+    await db.recordScore({
+      ...entry,
+      username,
+      final_score: 92,
+      scanned_at: entry.scanned_at + 1,
+    });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: 92,
+      roast: null,
+      roast_en: null,
+    });
+  });
+
+  it("rejects a late roast when the persisted score is not canonical", async () => {
+    const username = "late-report-fixture";
+    const scoreWrite = await writeScore({ ...entry, username });
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = ?, roast = NULL, roast_version = NULL
+            WHERE username = ?`,
+      args: [`${SCORE_CACHE_VERSION}-previous`, username],
+    });
+
+    await expect(db.updateRoast(username, "## late report", "zh", scoreWrite)).resolves.toBe(false);
+    const stored = await client.execute({
+      sql: `SELECT roast, roast_version FROM scores WHERE username = ?`,
+      args: [username],
+    });
+    const snapshots = await client.execute({
+      sql: `SELECT COUNT(*) AS count FROM score_snapshots WHERE username = ?`,
+      args: [username],
+    });
+    expect(stored.rows[0]).toMatchObject({ roast: null, roast_version: null });
+    expect(Number(snapshots.rows[0]?.count)).toBe(0);
+  });
+
+  it("rejects same-version reports and scores that arrive out of order", async () => {
+    const username = "same-version-race-fixture";
+    const firstWrite = await writeScore({
+      ...entry,
+      username,
+      final_score: 80,
+      scanned_at: entry.scanned_at + 10,
+    });
+    const secondWrite = await writeScore({
+      ...entry,
+      username,
+      final_score: 90,
+      scanned_at: entry.scanned_at + 20,
+    });
+
+    await expect(
+      db.updateRoast(username, "## report from older scan", "zh", firstWrite),
+    ).resolves.toBe(false);
+    await expect(
+      db.updateRoast(username, "## report from latest scan", "zh", secondWrite),
+    ).resolves.toBe(true);
+    await expect(
+      db.recordScore({
+        ...entry,
+        username,
+        final_score: 70,
+        scanned_at: entry.scanned_at + 15,
+      }),
+    ).resolves.toBeNull();
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: 90,
+      roast: "## report from latest scan",
+    });
+  });
 });
 
 describe("score snapshots", () => {
   it("stores one generated-at stub when a completed roast is persisted", async () => {
     const username = "roast-snapshot";
     const before = Date.now();
-    await db.recordScore({ ...entry, username, final_score: 90 });
-    await db.updateRoast(username, "## first report", "zh");
-    await db.recordScore({
+    const firstWrite = await writeScore({ ...entry, username, final_score: 90 });
+    await db.updateRoast(username, "## first report", "zh", firstWrite);
+    const secondWrite = await writeScore({
       ...entry,
       username,
       final_score: 96.1,
       scanned_at: entry.scanned_at + 2 * 60 * 60 * 1000,
     });
-    await db.updateRoast(username, "## second report", "en");
+    await db.updateRoast(username, "## second report", "en", secondWrite);
     const after = Date.now();
 
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -125,30 +347,517 @@ describe("score snapshots", () => {
   });
 });
 
-describe("current score version reads", () => {
-  it("hides stale score rows from public current-score surfaces", async () => {
-    const currentUsername = "current-score-row";
-    const staleUsername = "stale-score-row";
-    await db.recordScore({ ...entry, username: currentUsername, final_score: 72 });
-    await db.recordScore({ ...entry, username: staleUsername, final_score: 99 });
+describe("canonical score materialization", () => {
+  async function enqueueAndClaim(
+    username: string,
+    versions: { scoreVersion: string; collectionVersion: string } = {
+      scoreVersion: SCORE_CACHE_VERSION,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    },
+  ) {
+    const queued = await db.enqueuePublicScan(username, versions);
+    if (!queued || "rejection" in queued) {
+      throw new Error(`expected a synthetic durable job for ${username}`);
+    }
+    const lease = await db.claimPublicScanJob({
+      jobId: queued.job.id,
+      collectionVersion: versions.collectionVersion,
+    });
+    if (!lease) throw new Error(`expected a synthetic lease for ${username}`);
+    return { queued, lease };
+  }
+
+  it("publishes a complete quick result with canonical score provenance", async () => {
+    const username = "quick-materialization-fixture";
+    const scannedAt = 1_910_000_000_000;
+    const scan = syntheticScan(username);
+    const { snapshotHash } = serializeScan(scan);
+
+    await expect(db.publishCompleteQuickScan(scan, scannedAt)).resolves.toMatchObject({
+      scannedAt,
+      token: expect.any(String),
+    });
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      username,
+      final_score: score(scan.metrics).final_score,
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
+      score_source_snapshot_hash: snapshotHash,
+      scanned_at: scannedAt,
+    });
+  });
+
+  it("reuses the same score identity and run for a repeated quick snapshot", async () => {
+    const username = "quick-idempotency-fixture";
+    const scannedAt = 1_910_000_010_000;
+    const scan = syntheticScan(username);
+    const { snapshotHash } = serializeScan(scan);
+
+    const first = await db.publishCompleteQuickScan(scan, scannedAt);
+    const second = await db.publishCompleteQuickScan(scan, scannedAt);
+    expect(second).toEqual(first);
 
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const runs = await client.execute({
+      sql: `SELECT COUNT(*) AS count FROM public_scan_runs
+            WHERE username = ? AND collection_version = ? AND snapshot_hash = ?`,
+      args: [username, PUBLIC_SCAN_COLLECTION_VERSION, snapshotHash],
+    });
+    expect(Number(runs.rows[0]?.count)).toBe(1);
+  });
+
+  it("publishes a repeated snapshot as the latest run after an intervening snapshot", async () => {
+    const username = "quick-snapshot-ordering-fixture";
+    const firstScan = syntheticScan(username, { followers: 10 });
+    const interveningScan = syntheticScan(username, { followers: 20 });
+    const first = serializeScan(firstScan);
+    const firstScannedAt = 1_910_000_011_000;
+    const interveningScannedAt = firstScannedAt + 1_000;
+    const repeatedScannedAt = interveningScannedAt + 1_000;
+
+    await expect(db.publishCompleteQuickScan(firstScan, firstScannedAt)).resolves.toBeTruthy();
+    await expect(
+      db.publishCompleteQuickScan(interveningScan, interveningScannedAt),
+    ).resolves.toBeTruthy();
+    await expect(db.publishCompleteQuickScan(firstScan, repeatedScannedAt)).resolves.toMatchObject({
+      scannedAt: repeatedScannedAt,
+    });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const repeatedRuns = await client.execute({
+      sql: `SELECT COUNT(*) AS count FROM public_scan_runs
+            WHERE username = ? AND collection_version = ? AND snapshot_hash = ?`,
+      args: [username, PUBLIC_SCAN_COLLECTION_VERSION, first.snapshotHash],
+    });
+    expect(Number(repeatedRuns.rows[0]?.count)).toBe(2);
+    await expect(
+      db.getLatestPublicScanRun(username, {
+        scoreVersion: SCORE_CACHE_VERSION,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toMatchObject({
+      snapshotHash: first.snapshotHash,
+      startedAt: repeatedScannedAt,
+    });
+  });
+
+  it("atomically completes a canonical durable run and materializes its score", async () => {
+    const username = "durable-materialization-fixture";
+    const scan = syntheticScan(username, {
+      merged_pr_count: 12,
+      recent_merged_pr_sample: 8,
+      total_pr_count: 14,
+    });
+    const serialized = serializeScan(scan);
+    const { queued, lease } = await enqueueAndClaim(username);
+
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...serialized,
+      }),
+    ).resolves.toBe(true);
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({
+      state: "complete_public",
+      coverage: "complete_public",
+      snapshotHash: serialized.snapshotHash,
+    });
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
+      score_source_snapshot_hash: serialized.snapshotHash,
+      scanned_at: queued.run.startedAt,
+    });
+  });
+
+  it("rolls back durable completion when canonical score materialization cannot commit", async () => {
+    const username = "atomic-rollback-fixture";
+    const serialized = serializeScan(
+      syntheticScan(username, {
+        merged_pr_count: 12,
+        recent_merged_pr_sample: 8,
+        total_pr_count: 14,
+      }),
+    );
+    const { queued, lease } = await enqueueAndClaim(username);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute(`CREATE TRIGGER reject_synthetic_score_insert
+      BEFORE INSERT ON scores
+      WHEN NEW.username = '${username}'
+      BEGIN
+        SELECT RAISE(ABORT, 'synthetic score insert rejection');
+      END`);
+
+    try {
+      await expect(
+        db.completePublicScanRun({
+          jobId: queued.job.id,
+          runId: queued.run.id,
+          leaseToken: lease.leaseToken,
+          coverage: "complete_public",
+          sourceStatus: COMPLETE_PUBLIC_SOURCES,
+          ...serialized,
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await client.execute("DROP TRIGGER reject_synthetic_score_insert");
+    }
+
+    await expect(readScoreRow(username)).resolves.toBeNull();
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({
+      state: "running",
+      coverage: "partial_public",
+      snapshot: null,
+      snapshotHash: null,
+    });
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("rejects partial or damaged durable publication without writing a score", async () => {
+    const username = "rejected-materialization-fixture";
+    const validScan = syntheticScan(username, {
+      merged_pr_count: 12,
+      recent_merged_pr_sample: 8,
+      total_pr_count: 14,
+    });
+    const valid = serializeScan(validScan);
+    const { queued, lease } = await enqueueAndClaim(username);
+
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        coverage: "partial_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...valid,
+      }),
+    ).resolves.toBe(false);
+    await expect(readScoreRow(username)).resolves.toBeNull();
+
+    const damaged = serializeScan({
+      ...validScan,
+      recent_prs: [{ title: "damaged synthetic fixture" }] as ScanResult["recent_prs"],
+    });
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...damaged,
+      }),
+    ).resolves.toBe(false);
+    await expect(readScoreRow(username)).resolves.toBeNull();
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({
+      state: "running",
+      coverage: "partial_public",
+      snapshot: null,
+      snapshotHash: null,
+    });
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("does not let an older canonical run overwrite a newer quick score", async () => {
+    const username = "late-canonical-fixture";
+    const olderScan = syntheticScan(username, {
+      followers: 5,
+      merged_pr_count: 12,
+      recent_merged_pr_sample: 8,
+      total_pr_count: 14,
+    });
+    const older = serializeScan(olderScan);
+    const { queued, lease } = await enqueueAndClaim(username);
+    const newerScan = syntheticScan(username, { followers: 200, total_stars: 500 });
+    const newer = serializeScan(newerScan);
+    const newerScannedAt = queued.run.startedAt + 10_000;
+
+    await expect(db.publishCompleteQuickScan(newerScan, newerScannedAt)).resolves.toMatchObject({
+      scannedAt: newerScannedAt,
+    });
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...older,
+      }),
+    ).resolves.toBe(true);
+
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      score_source_snapshot_hash: newer.snapshotHash,
+      scanned_at: newerScannedAt,
+    });
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({
+      state: "complete_public",
+      snapshotHash: older.snapshotHash,
+    });
+    await expect(
+      db.getLatestPublicScanRun(username, {
+        scoreVersion: SCORE_CACHE_VERSION,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toMatchObject({ snapshotHash: newer.snapshotHash });
+  });
+
+  it("replaces a newer-timestamp legacy row with a trusted canonical snapshot", async () => {
+    const username = "legacy-does-not-block-canonical-fixture";
+    const canonicalScannedAt = 1_910_000_020_000;
+    const scan = syntheticScan(username, { followers: 120, total_stars: 350 });
+    const serialized = serializeScan(scan);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+
+    await db.recordScore({
+      ...entry,
+      username,
+      final_score: 4,
+      scanned_at: canonicalScannedAt + 60_000,
+    });
     await client.execute({
-      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
-      args: [`${SCORE_CACHE_VERSION}-old`, staleUsername],
+      sql: `UPDATE scores
+            SET roast = 'legacy report', roast_en = 'legacy report',
+                roast_version = 'legacy', roast_en_version = 'legacy'
+            WHERE username = ?`,
+      args: [username],
     });
 
-    await expect(db.getAccountDetail(currentUsername)).resolves.toMatchObject({
-      username: currentUsername,
-      final_score: 72,
+    await expect(db.publishCompleteQuickScan(scan, canonicalScannedAt)).resolves.toMatchObject({
+      scannedAt: canonicalScannedAt,
     });
-    await expect(db.getAccountDetail(staleUsername)).resolves.toBeNull();
-    await expect(db.getScoreBrief(staleUsername)).resolves.toBeNull();
-    await expect(db.searchScoredUsers("stale-score")).resolves.toEqual([]);
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      final_score: scan.scoring.final_score,
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
+      score_source_snapshot_hash: serialized.snapshotHash,
+      scanned_at: canonicalScannedAt,
+      roast: null,
+      roast_en: null,
+      roast_version: null,
+      roast_en_version: null,
+    });
+  });
 
-    const board = await db.getLeaderboard(500, 0);
-    expect(board.some((row) => row.username === currentUsername)).toBe(true);
-    expect(board.some((row) => row.username === staleUsername)).toBe(false);
+  it("dry-runs and idempotently applies only the latest complete canonical snapshot", async () => {
+    const username = "backfill-materialization-fixture";
+    const historicalVersions = {
+      scoreVersion: `${SCORE_CACHE_VERSION}-previous`,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    };
+    const backfillStartedAt = 2_100_000_000_000;
+    const older = serializeScan(
+      syntheticScan(username, {
+        followers: 5,
+        merged_pr_count: 12,
+        recent_merged_pr_sample: 8,
+        total_pr_count: 14,
+      }),
+    );
+    const newer = serializeScan(
+      syntheticScan(username, {
+        followers: 250,
+        total_stars: 600,
+        merged_pr_count: 16,
+        recent_merged_pr_sample: 8,
+        total_pr_count: 18,
+      }),
+    );
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+
+    const first = await enqueueAndClaim(username, historicalVersions);
+    await client.execute({
+      sql: "UPDATE public_scan_runs SET started_at = ? WHERE id = ?",
+      args: [backfillStartedAt, first.queued.run.id],
+    });
+    await expect(
+      db.completePublicScanRun({
+        jobId: first.queued.job.id,
+        runId: first.queued.run.id,
+        leaseToken: first.lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...older,
+      }),
+    ).resolves.toBe(true);
+
+    const second = await enqueueAndClaim(username, historicalVersions);
+    await client.execute({
+      sql: "UPDATE public_scan_runs SET started_at = ? WHERE id = ?",
+      args: [backfillStartedAt + 1_000, second.queued.run.id],
+    });
+    await expect(
+      db.completePublicScanRun({
+        jobId: second.queued.job.id,
+        runId: second.queued.run.id,
+        leaseToken: second.lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...newer,
+      }),
+    ).resolves.toBe(true);
+
+    const firstCompletedAt = 2_110_000_000_000;
+    const secondCompletedAt = firstCompletedAt + 1_000;
+    await client.batch([
+      {
+        sql: "UPDATE public_scan_runs SET completed_at = ? WHERE id = ?",
+        args: [firstCompletedAt, first.queued.run.id],
+      },
+      {
+        sql: "UPDATE public_scan_runs SET completed_at = ? WHERE id = ?",
+        args: [secondCompletedAt, second.queued.run.id],
+      },
+    ]);
+    const cursor = canonicalBackfillCursor({
+      completedAt: firstCompletedAt - 1,
+      runId: "synthetic-cursor",
+      watermark: secondCompletedAt + 1_000,
+    });
+    await expect(readScoreRow(username)).resolves.toBeNull();
+    await expect(
+      db.backfillCanonicalScoresPage({ apply: false, limit: 10, cursor }),
+    ).resolves.toEqual({
+      dryRun: true,
+      processed: 1,
+      eligible: 1,
+      materialized: 0,
+      skipped: 0,
+      rejected: 0,
+      failed: 0,
+      nextCursor: null,
+    });
+    await expect(readScoreRow(username)).resolves.toBeNull();
+
+    await expect(
+      db.backfillCanonicalScoresPage({ apply: true, limit: 10, cursor }),
+    ).resolves.toMatchObject({
+      dryRun: false,
+      processed: 1,
+      eligible: 1,
+      materialized: 1,
+      skipped: 0,
+      rejected: 0,
+      failed: 0,
+    });
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
+      score_source_snapshot_hash: newer.snapshotHash,
+      scanned_at: backfillStartedAt + 1_000,
+    });
+
+    await expect(
+      db.backfillCanonicalScoresPage({ apply: true, limit: 10, cursor }),
+    ).resolves.toMatchObject({
+      processed: 1,
+      eligible: 1,
+      materialized: 0,
+      skipped: 1,
+      rejected: 0,
+      failed: 0,
+    });
+  });
+
+  it("returns a retry cursor that does not skip a failed backfill row", async () => {
+    const username = "backfill-retry-fixture";
+    const historicalVersions = {
+      scoreVersion: `${SCORE_CACHE_VERSION}-previous-retry`,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    };
+    const startedAt = 2_120_000_000_000;
+    const completedAt = startedAt + 1_000;
+    const serialized = serializeScan(
+      syntheticScan(username, {
+        merged_pr_count: 12,
+        recent_merged_pr_sample: 8,
+        total_pr_count: 14,
+      }),
+    );
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const { queued, lease } = await enqueueAndClaim(username, historicalVersions);
+    await client.execute({
+      sql: "UPDATE public_scan_runs SET started_at = ? WHERE id = ?",
+      args: [startedAt, queued.run.id],
+    });
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease.leaseToken,
+        coverage: "complete_public",
+        sourceStatus: COMPLETE_PUBLIC_SOURCES,
+        ...serialized,
+      }),
+    ).resolves.toBe(true);
+    await client.execute({
+      sql: "UPDATE public_scan_runs SET completed_at = ? WHERE id = ?",
+      args: [completedAt, queued.run.id],
+    });
+
+    const cursor = canonicalBackfillCursor({
+      completedAt: completedAt - 1,
+      runId: "retry-cursor",
+      watermark: completedAt + 1_000,
+    });
+    await client.execute(`CREATE TRIGGER reject_backfill_retry_fixture
+      BEFORE INSERT ON scores
+      WHEN NEW.username = '${username}'
+      BEGIN
+        SELECT RAISE(ABORT, 'synthetic backfill rejection');
+      END`);
+
+    let retryCursor: string | null = null;
+    try {
+      const failed = await db.backfillCanonicalScoresPage({
+        apply: true,
+        limit: 10,
+        cursor,
+      });
+      expect(failed).toMatchObject({
+        processed: 1,
+        eligible: 1,
+        materialized: 0,
+        failed: 1,
+        nextCursor: expect.any(String),
+      });
+      retryCursor = failed?.nextCursor ?? null;
+    } finally {
+      await client.execute("DROP TRIGGER reject_backfill_retry_fixture");
+    }
+
+    expect(retryCursor).not.toBeNull();
+    await expect(
+      db.backfillCanonicalScoresPage({ apply: true, limit: 10, cursor: retryCursor }),
+    ).resolves.toMatchObject({
+      processed: 1,
+      eligible: 1,
+      materialized: 1,
+      failed: 0,
+    });
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      score_source_snapshot_hash: serialized.snapshotHash,
+      scanned_at: startedAt,
+    });
   });
 });
 
@@ -163,6 +872,235 @@ describe("durable public scan jobs", () => {
     return result;
   }
 
+  async function claim(
+    jobId: string | undefined,
+    collectionVersion = PUBLIC_SCAN_COLLECTION_VERSION,
+  ) {
+    return db.claimPublicScanJob({ jobId, collectionVersion });
+  }
+
+  it("isolates admission and claim by collection version", async () => {
+    const obsoleteCollection = "obsolete-collection-capacity-fixture";
+    const obsolete = await db.enqueuePublicScan("obsolete-capacity-fixture", {
+      scoreVersion: "obsolete-score-fixture",
+      collectionVersion: obsoleteCollection,
+    });
+    if (!obsolete || "rejection" in obsolete) throw new Error("expected obsolete fixture job");
+
+    const canonical = await db.enqueuePublicScan("canonical-capacity-fixture", {
+      ...versions,
+      admission: {
+        bucket: "canonical-capacity-fixture",
+        limit: 1,
+        windowMs: 60_000,
+        maxActiveJobs: 1,
+      },
+    });
+    expect(canonical && !("rejection" in canonical) && canonical.created).toBe(true);
+    await expect(
+      db.claimPublicScanJob({
+        jobId: obsolete.job.id,
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toBeNull();
+
+    const obsoleteLease = await claim(obsolete.job.id, obsoleteCollection);
+    await expect(
+      db.failPublicScanJob({
+        jobId: obsolete.job.id,
+        runId: obsolete.run.id,
+        leaseToken: obsoleteLease!.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+    if (!canonical || "rejection" in canonical) throw new Error("expected canonical fixture job");
+    const canonicalLease = await claim(canonical.job.id);
+    await expect(
+      db.failPublicScanJob({
+        jobId: canonical.job.id,
+        runId: canonical.run.id,
+        leaseToken: canonicalLease!.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("returns only requested complete collection snapshots in completion order", async () => {
+    const username = "collection-read-order-fixture";
+    const serialized = serializeScan(syntheticScan(username));
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const sources = JSON.stringify(COMPLETE_PUBLIC_SOURCES);
+    const completedAt = Date.now();
+    await client.batch(
+      [
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-v3-older",
+            username,
+            "legacy-score-fixture",
+            "v3",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt - 2,
+            completedAt - 2,
+            completedAt - 2,
+          ],
+        },
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-v3-newer",
+            username,
+            "legacy-score-fixture",
+            "v3",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt - 1,
+            completedAt - 1,
+            completedAt - 1,
+          ],
+        },
+        {
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+          args: [
+            "collection-read-non-formal",
+            username,
+            "non-formal-score-fixture",
+            "v5",
+            sources,
+            serialized.snapshot,
+            serialized.snapshotHash,
+            completedAt,
+            completedAt,
+            completedAt,
+          ],
+        },
+      ],
+      "write",
+    );
+
+    await expect(db.getCompletePublicScanRuns(username, "v3")).resolves.toMatchObject([
+      { id: "collection-read-v3-newer", collectionVersion: "v3" },
+      { id: "collection-read-v3-older", collectionVersion: "v3" },
+    ]);
+  });
+
+  it("dry-runs and applies obsolete-job quarantine in bounded aggregate-only batches", async () => {
+    const obsoleteCollection = "obsolete-collection-quarantine-fixture";
+    const obsoleteJobs = [];
+    for (let index = 0; index < 3; index++) {
+      const queued = await db.enqueuePublicScan(`obsolete-quarantine-${index}`, {
+        scoreVersion: "obsolete-score-fixture",
+        collectionVersion: obsoleteCollection,
+      });
+      if (!queued || "rejection" in queued) throw new Error("expected obsolete fixture job");
+      obsoleteJobs.push(queued);
+    }
+    const running = await claim(obsoleteJobs[0].job.id, obsoleteCollection);
+    const slot = await db.acquirePublicScanExecutionLease({
+      jobId: obsoleteJobs[0].job.id,
+      leaseToken: running!.leaseToken,
+    });
+    expect(slot).toBe(1);
+
+    await expect(
+      db.quarantineObsoletePublicScanJobs({
+        canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      dryRun: true,
+      selected: 2,
+      quarantined: 0,
+      remainingActive: 3,
+      deferredActive: 1,
+    });
+    await expect(db.getPublicScanRun(obsoleteJobs[0].run.id)).resolves.toMatchObject({
+      state: "running",
+    });
+
+    const applied = await db.quarantineObsoletePublicScanJobs({
+      canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      apply: true,
+      limit: 2,
+    });
+    expect(applied).toEqual({
+      dryRun: false,
+      selected: 2,
+      quarantined: 2,
+      remainingActive: 1,
+      deferredActive: 1,
+    });
+    expect(Object.keys(applied!).sort()).toEqual([
+      "deferredActive",
+      "dryRun",
+      "quarantined",
+      "remainingActive",
+      "selected",
+    ]);
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const leaseRow = await client.execute({
+      sql: `SELECT job_id, lease_token, lease_expires_at
+            FROM public_scan_execution_leases
+            WHERE slot = ?`,
+      args: [slot!],
+    });
+    expect(leaseRow.rows[0]).toMatchObject({
+      job_id: obsoleteJobs[0].job.id,
+      lease_token: running!.leaseToken,
+    });
+
+    const summary = await db.getPublicScanJobVersionSummary();
+    expect(summary).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          collectionVersion: obsoleteCollection,
+          state: "failed",
+          count: 2,
+        }),
+        expect.objectContaining({
+          collectionVersion: obsoleteCollection,
+          state: "running",
+          count: 1,
+        }),
+      ]),
+    );
+    await client.execute({
+      sql: `UPDATE public_scan_jobs SET lease_expires_at = ? WHERE id = ?`,
+      args: [Date.now() - 1, obsoleteJobs[0].job.id],
+    });
+    await expect(
+      db.quarantineObsoletePublicScanJobs({
+        canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        apply: true,
+        limit: 1_000,
+      }),
+    ).resolves.toMatchObject({ quarantined: 1, remainingActive: 0, deferredActive: 0 });
+    const heldLease = await client.execute({
+      sql: `SELECT job_id FROM public_scan_execution_leases WHERE slot = ?`,
+      args: [slot!],
+    });
+    expect(heldLease.rows[0]?.job_id).toBe(obsoleteJobs[0].job.id);
+    await db.releasePublicScanExecutionLease({
+      slot: slot!,
+      jobId: obsoleteJobs[0].job.id,
+      leaseToken: running!.leaseToken,
+    });
+  });
+
   it("dedupes active work, persists progress, and publishes only with its lease", async () => {
     const first = await enqueue("history-heavy");
     const second = await enqueue("HISTORY-HEAVY");
@@ -170,7 +1108,7 @@ describe("durable public scan jobs", () => {
     expect(first?.created).toBe(true);
     expect(second).toMatchObject({ created: false, run: { id: first?.run.id }, job: { id: first?.job.id } });
 
-    const firstLease = await db.claimPublicScanJob(first?.job.id);
+    const firstLease = await claim(first?.job.id);
     expect(firstLease).toMatchObject({ job: { phase: "quick", state: "running" } });
     expect(firstLease?.leaseToken).toBeTruthy();
 
@@ -201,7 +1139,7 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
 
-    const secondLease = await db.claimPublicScanJob(first!.job.id);
+    const secondLease = await claim(first!.job.id);
     expect(secondLease).toMatchObject({ job: { phase: "merged_prs" } });
     await expect(
       db.completePublicScanRun({
@@ -255,14 +1193,14 @@ describe("durable public scan jobs", () => {
 
   it("reclaims an expired lease instead of starting a second active job", async () => {
     const queued = await enqueue("expired-lease");
-    const lease = await db.claimPublicScanJob(queued?.job.id);
+    const lease = await claim(queued?.job.id);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({
       sql: `UPDATE public_scan_jobs SET lease_expires_at = ? WHERE id = ?`,
       args: [Date.now() - 1, queued!.job.id],
     });
 
-    const recovered = await db.claimPublicScanJob(queued!.job.id);
+    const recovered = await claim(queued!.job.id);
     expect(recovered?.job.id).toBe(queued?.job.id);
     expect(recovered?.leaseToken).not.toBe(lease?.leaseToken);
     await expect(
@@ -274,6 +1212,200 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
   });
+
+  it("releases a slot-blocked claim without changing attempt or schedule", async () => {
+    const queued = await enqueue("slot-release-fixture");
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const before = await client.execute({
+      sql: `SELECT attempt_count, next_run_at FROM public_scan_jobs WHERE id = ?`,
+      args: [queued.job.id],
+    });
+    const firstLease = await claim(queued.job.id);
+
+    await expect(
+      db.releasePublicScanJobClaim({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: firstLease!.leaseToken,
+      }),
+    ).resolves.toBe(true);
+    const released = await client.execute({
+      sql: `SELECT state, attempt_count, next_run_at, lease_token, lease_expires_at
+            FROM public_scan_jobs WHERE id = ?`,
+      args: [queued.job.id],
+    });
+    expect(released.rows[0]).toMatchObject({
+      state: "queued",
+      attempt_count: before.rows[0]?.attempt_count,
+      next_run_at: before.rows[0]?.next_run_at,
+      lease_token: null,
+      lease_expires_at: null,
+    });
+    await expect(db.getPublicScanRun(queued.run.id)).resolves.toMatchObject({ state: "queued" });
+
+    const secondLease = await claim(queued.job.id);
+    expect(secondLease?.leaseToken).not.toBe(firstLease?.leaseToken);
+    await expect(
+      db.releasePublicScanJobClaim({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: firstLease!.leaseToken,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: secondLease!.leaseToken,
+        error: "synthetic cleanup",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("returns aggregate queue, step, slot, obsolete, and Cron metrics only", async () => {
+    const canonical = await enqueue("metrics-canonical-fixture");
+    const obsoleteCollection = "obsolete-metrics-collection";
+    const obsolete = await db.enqueuePublicScan("metrics-obsolete-fixture", {
+      scoreVersion: "obsolete-score-fixture",
+      collectionVersion: obsoleteCollection,
+    });
+    if (!obsolete || "rejection" in obsolete) throw new Error("expected obsolete metrics fixture");
+
+    await expect(
+      db.recordPublicScanStepMetrics({
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        observations: [
+          { phase: "merged_prs", outcome: "continued", durationMs: 10 },
+          { phase: "merged_prs", outcome: "continued", durationMs: 30 },
+          { phase: "merged_prs", outcome: "failed_retrying", durationMs: 40 },
+          { phase: "quick", outcome: "slot_busy", durationMs: 5 },
+        ],
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.recordPublicScanCronMetrics({
+        startedAt: 1_000,
+        completedAt: 1_050,
+        processed: 2,
+        failedSteps: 1,
+        success: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.recordPublicScanCronMetrics({
+        startedAt: 2_000,
+        completedAt: 2_025,
+        processed: 0,
+        failedSteps: 0,
+        success: false,
+      }),
+    ).resolves.toBe(true);
+
+    const metrics = await db.getPublicScanOperationalMetrics(PUBLIC_SCAN_COLLECTION_VERSION);
+    expect(metrics).toMatchObject({
+      canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      queue: {
+        depth: expect.any(Number),
+        queued: expect.any(Number),
+        running: expect.any(Number),
+        oldestAgeMs: expect.any(Number),
+      },
+      failures: { retryingSteps: 1, terminalSteps: 0 },
+      execution: { capacity: 1, contentionSteps: 1 },
+      obsoleteActiveJobs: expect.any(Number),
+      cron: {
+        lastStartedAt: 2_000,
+        lastSuccessAt: 1_050,
+        lastDurationMs: 25,
+        lastProcessed: 0,
+        consecutiveFailures: 1,
+      },
+    });
+    expect(metrics!.queue.depth).toBeGreaterThanOrEqual(1);
+    expect(metrics!.obsoleteActiveJobs).toBeGreaterThanOrEqual(1);
+    expect(metrics!.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phase: "merged_prs",
+          outcome: "continued",
+          count: 2,
+          averageDurationMs: 20,
+          maxDurationMs: 30,
+        }),
+      ]),
+    );
+    const serialized = JSON.stringify(metrics);
+    expect(serialized).not.toContain("metrics-canonical-fixture");
+    expect(serialized).not.toContain("metrics-obsolete-fixture");
+    expect(serialized).not.toContain(canonical.job.id);
+    expect(serialized).not.toContain(obsolete.job.id);
+
+    const canonicalLease = await claim(canonical.job.id);
+    await db.failPublicScanJob({
+      jobId: canonical.job.id,
+      runId: canonical.run.id,
+      leaseToken: canonicalLease!.leaseToken,
+      error: "synthetic cleanup",
+    });
+    const obsoleteLease = await claim(obsolete.job.id, obsoleteCollection);
+    await db.failPublicScanJob({
+      jobId: obsolete.job.id,
+      runId: obsolete.run.id,
+      leaseToken: obsoleteLease!.leaseToken,
+      error: "synthetic cleanup",
+    });
+  });
+
+  it.each(["previous", "future"])(
+    "stores a complete %s-collection snapshot as historical data without writing a canonical score",
+    async (direction) => {
+      const username = `historical-collection-${direction}-fixture`;
+      const scoreVersion = `${SCORE_CACHE_VERSION}-${direction}`;
+      const collectionVersion = `${PUBLIC_SCAN_COLLECTION_VERSION}-${direction}`;
+      const queued = await db.enqueuePublicScan(username, {
+        scoreVersion,
+        collectionVersion,
+      });
+      if (!queued || "rejection" in queued) {
+        throw new Error("expected a synthetic historical job");
+      }
+      const lease = await claim(queued.job.id, collectionVersion);
+      const serialized = serializeScan(syntheticScan(username));
+
+      await expect(
+        db.completePublicScanRun({
+          jobId: queued.job.id,
+          runId: queued.run.id,
+          leaseToken: lease!.leaseToken,
+          coverage: "complete_public",
+          sourceStatus: COMPLETE_PUBLIC_SOURCES,
+          ...serialized,
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        db.getLatestPublicScanRun(username, { scoreVersion, collectionVersion }),
+      ).resolves.toMatchObject({
+        state: "complete_public",
+        collectionVersion,
+      });
+      await expect(
+        db.getLatestPublicScanRun(username, {
+          scoreVersion: SCORE_CACHE_VERSION,
+          collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        }),
+      ).resolves.toBeNull();
+      await expect(readScoreRow(username)).resolves.toBeNull();
+
+      await db.quarantineObsoletePublicScanJobs({
+        canonicalCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+        apply: true,
+        limit: 100,
+      });
+      await expect(
+        db.getLatestPublicScanRun(username, { scoreVersion, collectionVersion }),
+      ).resolves.toMatchObject({ state: "complete_public", snapshot: serialized.snapshot });
+    },
+  );
 
   it("admits new durable work atomically without charging an existing job", async () => {
     const admission = {
@@ -293,7 +1425,7 @@ describe("durable public scan jobs", () => {
     ).resolves.toMatchObject({ created: false, rejection: "admission_limited" });
   });
 
-  it("rejects new durable work when the global active-job ceiling is full", async () => {
+  it("rejects new durable work when its collection active-job ceiling is full", async () => {
     const first = await db.enqueuePublicScan("queue-cap-first", {
       ...versions,
       admission: { bucket: "queue-cap-first", limit: 10, windowMs: 60_000, maxActiveJobs: 1_000 },
@@ -311,8 +1443,8 @@ describe("durable public scan jobs", () => {
   it("uses a Turso execution slot and rate window when Redis is unavailable", async () => {
     const one = await enqueue("slot-one");
     const two = await enqueue("slot-two");
-    const leaseOne = await db.claimPublicScanJob(one!.job.id);
-    const leaseTwo = await db.claimPublicScanJob(two!.job.id);
+    const leaseOne = await claim(one!.job.id);
+    const leaseTwo = await claim(two!.job.id);
 
     const firstSlot = await db.acquirePublicScanExecutionLease({
       jobId: one!.job.id,
@@ -330,12 +1462,16 @@ describe("durable public scan jobs", () => {
       jobId: one!.job.id,
       leaseToken: leaseOne!.leaseToken,
     });
-    await expect(
-      db.acquirePublicScanExecutionLease({
-        jobId: two!.job.id,
-        leaseToken: leaseTwo!.leaseToken,
-      }),
-    ).resolves.toBe(1);
+    const reacquiredSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(reacquiredSlot).toBe(1);
+    await db.releasePublicScanExecutionLease({
+      slot: reacquiredSlot!,
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
 
     await expect(
       db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
@@ -348,9 +1484,60 @@ describe("durable public scan jobs", () => {
     ).resolves.toMatchObject({ granted: false });
   });
 
+  it("fails closed when a queued job has lost its durable run", async () => {
+    const queued = await enqueue("orphaned-job-fixture");
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `DELETE FROM public_scan_runs WHERE id = ?`,
+      args: [queued.run.id],
+    });
+
+    try {
+      await expect(claim(queued.job.id)).rejects.toMatchObject({
+        name: "PublicScanStorageError",
+        operation: "claim_job",
+      });
+    } finally {
+      await client.execute({
+        sql: `DELETE FROM public_scan_jobs WHERE id = ?`,
+        args: [queued.job.id],
+      });
+    }
+  });
+
+  it("fails closed when the execution-slot singleton is missing", async () => {
+    const queued = await enqueue("missing-slot-fixture");
+    const lease = await claim(queued.job.id);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute(`DELETE FROM public_scan_execution_leases WHERE slot = 1`);
+
+    try {
+      await expect(
+        db.acquirePublicScanExecutionLease({
+          jobId: queued.job.id,
+          leaseToken: lease!.leaseToken,
+        }),
+      ).rejects.toMatchObject({
+        name: "PublicScanStorageError",
+        operation: "acquire_execution_slot",
+      });
+    } finally {
+      await client.execute(
+        `INSERT OR IGNORE INTO public_scan_execution_leases (slot, lease_expires_at)
+         VALUES (1, 0)`,
+      );
+      await db.failPublicScanJob({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease!.leaseToken,
+        error: "synthetic cleanup",
+      });
+    }
+  });
+
   it("carries commit-candidate fork metadata through verification and aggregation", async () => {
     const queued = await enqueue("fork-candidate-facts");
-    const lease = await db.claimPublicScanJob(queued.job.id);
+    const lease = await claim(queued.job.id);
     const leaseInput = {
       jobId: queued.job.id,
       runId: queued.run.id,
@@ -391,7 +1578,7 @@ describe("durable public scan jobs", () => {
 
   it("aggregates lease-guarded PR and commit facts without double-counting replayed pages", async () => {
     const queued = await enqueue("fact-aggregate");
-    const lease = await db.claimPublicScanJob(queued!.job.id);
+    const lease = await claim(queued!.job.id);
     const leaseInput = {
       jobId: queued!.job.id,
       runId: queued!.run.id,
@@ -501,7 +1688,7 @@ describe("durable public scan jobs", () => {
 
   it("uses all signature PR facts while excluding ordinary closed PRs", async () => {
     const queued = await enqueue("signature-facts");
-    const lease = await db.claimPublicScanJob(queued!.job.id);
+    const lease = await claim(queued!.job.id);
     const leaseInput = {
       jobId: queued!.job.id,
       runId: queued!.run.id,
@@ -624,6 +1811,50 @@ describe("profile snapshots", () => {
         ],
       },
     });
+  });
+
+  it("prefers v9, falls back to v8, and ignores non-release snapshots", async () => {
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const username = "profile-version-fixture";
+    const rows = [
+      ["profile-v8", username, 300, JSON.stringify({ followers: 8 }), "v8"],
+      ["profile-local", username, 400, JSON.stringify({ followers: 99 }), "local-fixture"],
+      ["profile-v9", username, 200, JSON.stringify({ followers: 9 }), "v9"],
+    ];
+    for (const row of rows) {
+      await client.execute({
+        sql: `INSERT INTO profile_snapshots (id, username, scanned_at, metrics, scan_version)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: row,
+      });
+    }
+
+    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
+      metrics: { followers: 9 },
+      scanned_at: 200,
+    });
+    await client.execute({
+      sql: `DELETE FROM profile_snapshots WHERE id = ?`,
+      args: ["profile-v9"],
+    });
+    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
+      metrics: { followers: 8 },
+      scanned_at: 300,
+    });
+
+    await client.execute({
+      sql: `INSERT INTO profile_snapshots (id, username, scanned_at, metrics, scan_version)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [
+        "profile-local-only",
+        "profile-local-only-fixture",
+        500,
+        JSON.stringify({ followers: 77 }),
+        "local-fixture",
+      ],
+    });
+    await expect(db.hasProfileSnapshot("profile-local-only-fixture")).resolves.toBe(false);
+    await expect(db.getProfileSnapshot("profile-local-only-fixture")).resolves.toBeNull();
   });
 });
 
@@ -956,6 +2187,137 @@ describe("getRepoOverview + filterExistingRepoKeys", () => {
     const found = await db.filterExistingRepoKeys(["Acme/Widget", "ghost/missing"]);
     expect(found.has("acme/widget")).toBe(true);
     expect(found.has("ghost/missing")).toBe(false);
+  });
+});
+
+describe("legacy public score release guardrail", () => {
+  it("keeps a synthetic v8 row on every passive public surface without creating work", async () => {
+    const username = "legacy-public-fixture";
+    const peer = "legacy-peer-fixture";
+    const repoKey = `${username}/public-fixture`;
+    const followerId = 9_100_001;
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+
+    await db.recordScore({ ...entry, username, final_score: 86 });
+    await db.recordScore({ ...entry, username: peer, final_score: 84 });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = 'v8', roast = 'legacy report', roast_version = 'v8'
+            WHERE username IN (?, ?)`,
+      args: [username, peer],
+    });
+    await db.recordDeveloperFacets(username, [
+      { type: "language", value: "FixtureLang", weight: 1 },
+    ]);
+    await db.recordRepoGraph(username, {
+      repos: [
+        {
+          repo_key: repoKey,
+          name_with_owner: `${username}/PublicFixture`,
+          owner_login: username,
+          name: "PublicFixture",
+          description: "Synthetic release fixture",
+          stars: 100,
+          forks: 5,
+          language: "FixtureLang",
+          topics: ["release-fixture"],
+        },
+      ],
+      links: [
+        {
+          repo_key: repoKey,
+          relation: "owner",
+          commits: null,
+          prs: null,
+          weight: 100,
+        },
+      ],
+    });
+    await expect(db.setFollow(followerId, username)).resolves.toBe("ok");
+
+    const jobsBefore = await client.execute(
+      "SELECT COUNT(*) AS count FROM public_scan_jobs",
+    );
+    const runsBefore = await client.execute(
+      "SELECT COUNT(*) AS count FROM public_scan_runs",
+    );
+
+    const [
+      detail,
+      brief,
+      suggestions,
+      leaderboard,
+      trending,
+      heat,
+      facets,
+      facetDevelopers,
+      sitemapProfiles,
+      repo,
+      similar,
+      following,
+      archivedRoast,
+    ] = await Promise.all([
+      db.getAccountDetail(username),
+      db.getScoreBrief(username),
+      db.searchScoredUsers("legacy-public"),
+      db.getLeaderboard(500, 0),
+      db.getTrendingLeaderboard(500, 0),
+      db.getHeatLeaderboard(500, 0),
+      db.getFacetCategories("language"),
+      db.getDevelopersByFacet("language", "FixtureLang"),
+      db.getAllPublicUsernames(0),
+      db.getRepoOverview(repoKey),
+      db.getSimilarAccounts(username, 86, entry.sub_scores, 100),
+      db.listFollowedAccounts(followerId),
+      db.getArchivedRoast(username, "zh"),
+    ]);
+
+    expect(detail).toMatchObject({
+      username,
+      final_score: 86,
+      score_version: "v8",
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "", en: "" },
+      roast: null,
+      roast_en: null,
+    });
+    expect(brief).toMatchObject({ username, final_score: 86 });
+    expect(suggestions).toEqual(expect.arrayContaining([expect.objectContaining({ username })]));
+    for (const entries of [leaderboard, trending, heat]) {
+      expect(entries.some((item) => item.username === username)).toBe(true);
+      expect(entries.find((item) => item.username === username)?.tags).toEqual({ zh: [], en: [] });
+    }
+    expect(facets).toEqual(
+      expect.arrayContaining([expect.objectContaining({ value: "FixtureLang" })]),
+    );
+    expect(facetDevelopers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ username, tags: { zh: [], en: [] } }),
+      ]),
+    );
+    expect(sitemapProfiles).toEqual(
+      expect.arrayContaining([expect.objectContaining({ username })]),
+    );
+    expect(repo).toMatchObject({ owner: { username }, summary: { count: 1 } });
+    expect(similar).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ username: peer, tags: { zh: [], en: [] } }),
+      ]),
+    );
+    expect(following).toEqual(
+      expect.arrayContaining([expect.objectContaining({ username, final_score: 86 })]),
+    );
+    expect(archivedRoast).toBeNull();
+
+    const jobsAfter = await client.execute("SELECT COUNT(*) AS count FROM public_scan_jobs");
+    const runsAfter = await client.execute("SELECT COUNT(*) AS count FROM public_scan_runs");
+    const persisted = await client.execute({
+      sql: "SELECT score_version FROM scores WHERE username = ?",
+      args: [username],
+    });
+    expect(Number(jobsAfter.rows[0]?.count)).toBe(Number(jobsBefore.rows[0]?.count));
+    expect(Number(runsAfter.rows[0]?.count)).toBe(Number(runsBefore.rows[0]?.count));
+    expect(persisted.rows[0]?.score_version).toBe("v8");
   });
 });
 

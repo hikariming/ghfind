@@ -1,14 +1,16 @@
 /**
  * Turso (libSQL) persistence for the leaderboard + percentile.
  *
- * Optional, like {@link ./redis}: if `TURSO_DATABASE_URL` is unset, every function
- * no-ops (returns null/empty) so the app runs fine without it. Stores one latest
- * row per scanned account plus append-only score snapshots for long-term progress.
+ * Optional, like {@link ./redis}: most passive persistence functions no-op when
+ * `TURSO_DATABASE_URL` is unset so the app can run without it. Durable public-scan
+ * worker operations are the exception: they fail closed so Cron health cannot
+ * report an unavailable queue as empty. Stores one latest row per scanned account
+ * plus append-only score snapshots for long-term progress.
  * The score itself is still computed deterministically by `lib/score.ts`; this
  * layer only persists the result for cross-account ranking.
  */
 
-import { Client, createClient } from "@libsql/client";
+import { Client, createClient, type Transaction } from "@libsql/client";
 import { createHash, randomUUID } from "node:crypto";
 import {
   bypassGeneratedCaches,
@@ -43,6 +45,11 @@ import {
 } from "./redis";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
+import { RELEASE_VERSION_MANIFEST } from "./release-versions";
+import {
+  materializeCanonicalScore,
+  type CanonicalScoreMaterialization,
+} from "./score-materialization";
 import type {
   ImpactRepo,
   RoastLine,
@@ -55,6 +62,7 @@ import type {
 } from "./types";
 import type { LeaderboardWindow } from "./leaderboardWindow";
 import {
+  PUBLIC_SCAN_COLLECTION_VERSION,
   PUBLIC_SCAN_REQUIRED_SOURCES,
   hasCompletePublicScanSources,
 } from "./scan-run-types";
@@ -71,12 +79,61 @@ import type {
   PublicScanRun,
   PublicScanRunState,
   PublicScanSourceStatus,
+  PublicScanStepOutcome,
 } from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
+const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
+  .publicScoreReadOrder as [string, string];
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+
+function logPublicScanDbFailure(operation: string, error: unknown): void {
+  console.error(
+    "public_scan.db_failure",
+    JSON.stringify({
+      operation,
+      errorType: error instanceof Error ? error.constructor.name : "Unknown",
+    }),
+  );
+}
+
+function isDuplicateColumnError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /duplicate column name|column .* already exists/i.test(message);
+}
+
+async function addColumnIfMissing(
+  db: Client,
+  table: string,
+  definition: string,
+): Promise<void> {
+  try {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) throw error;
+  }
+}
+
+export class PublicScanStorageError extends Error {
+  constructor(readonly operation: string) {
+    super("public scan storage unavailable");
+    this.name = "PublicScanStorageError";
+  }
+}
+
+function throwPublicScanStorageFailure(operation: string, error: unknown): never {
+  if (error instanceof PublicScanStorageError) throw error;
+  logPublicScanDbFailure(operation, error);
+  throw new PublicScanStorageError(operation);
+}
+
+function requirePublicScanDb(operation: string): Client {
+  const db = getClient();
+  if (!db) throwPublicScanStorageFailure(operation, new Error("DatabaseUnavailable"));
+  return db;
+}
 
 // User-selectable leaderboard time window. Every board shares one meaning: the
 // candidate pool is "accounts looked up within this window" (and the recent-heat
@@ -208,6 +265,9 @@ function ensureSchema(db: Client): Promise<void> {
              sub_scores   TEXT,
              roast        TEXT,
              roast_line   TEXT,
+             score_write_token TEXT,
+             score_source_collection_version TEXT,
+             score_source_snapshot_hash TEXT,
              hidden       INTEGER NOT NULL DEFAULT 0,
              scanned_at   INTEGER NOT NULL
            )`,
@@ -286,6 +346,13 @@ function ensureSchema(db: Client): Promise<void> {
           // historical GitHub crawl for every prolific account.
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection
              ON public_scan_runs(username, collection_version, updated_at DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection_started
+             ON public_scan_runs(username, collection_version, started_at DESC, id DESC)`,
+          // Stale-read fallback selects the last valid completed snapshot for
+          // one exact collection contract. Keep that read bounded even when an
+          // account has accumulated several historical runs.
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_user_collection_completed
+             ON public_scan_runs(username, collection_version, completed_at DESC, id DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_runs_state
              ON public_scan_runs(state, updated_at)`,
           `CREATE TABLE IF NOT EXISTS public_scan_jobs (
@@ -314,6 +381,8 @@ function ensureSchema(db: Client): Promise<void> {
              WHERE state IN ('queued', 'running')`,
           `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_ready
              ON public_scan_jobs(state, next_run_at)`,
+          `CREATE INDEX IF NOT EXISTS idx_public_scan_jobs_collection_ready
+             ON public_scan_jobs(collection_version, state, next_run_at)`,
           // Process-wide execution slots and API budgets live in Turso rather
           // than Redis. A Redis outage must never turn a deployment or a queue
           // replay into an unbounded GitHub crawl.
@@ -328,6 +397,26 @@ function ensureSchema(db: Client): Promise<void> {
              window_started   INTEGER NOT NULL,
              count            INTEGER NOT NULL DEFAULT 0,
              PRIMARY KEY(bucket, window_started)
+           )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_step_metrics (
+             collection_version TEXT NOT NULL,
+             phase              TEXT NOT NULL,
+             outcome            TEXT NOT NULL CHECK(outcome IN ('continued', 'complete', 'failed_retrying', 'failed_terminal', 'slot_busy')),
+             step_count         INTEGER NOT NULL DEFAULT 0,
+             total_duration_ms  INTEGER NOT NULL DEFAULT 0,
+             max_duration_ms    INTEGER NOT NULL DEFAULT 0,
+             updated_at         INTEGER NOT NULL,
+             PRIMARY KEY(collection_version, phase, outcome)
+           )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_cron_metrics (
+             singleton            INTEGER PRIMARY KEY CHECK(singleton = 1),
+             last_started_at       INTEGER,
+             last_success_at       INTEGER,
+             last_duration_ms      INTEGER,
+             last_processed        INTEGER NOT NULL DEFAULT 0,
+             last_failed_steps     INTEGER NOT NULL DEFAULT 0,
+             consecutive_failures  INTEGER NOT NULL DEFAULT 0,
+             updated_at            INTEGER NOT NULL
            )`,
           `CREATE TABLE IF NOT EXISTS public_scan_pr_facts (
              run_id             TEXT NOT NULL,
@@ -607,6 +696,9 @@ function ensureSchema(db: Client): Promise<void> {
         // roast shows in the visitor's language regardless of report language.
         "roast_line TEXT",
         "score_version TEXT",
+        "score_write_token TEXT",
+        "score_source_collection_version TEXT",
+        "score_source_snapshot_hash TEXT",
         "roast_version TEXT",
         "roast_en_version TEXT",
         // Previous scan's score + timestamp, kept for the 进步榜 (progress board).
@@ -619,49 +711,28 @@ function ensureSchema(db: Client): Promise<void> {
         "followers INTEGER",
         "total_stars INTEGER",
       ]) {
-        try {
-          await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
-        } catch {
-          // column already exists — ignore
-        }
+        await addColumnIfMissing(db, "scores", col);
       }
-      try {
-        await db.execute(
-          `ALTER TABLE public_scan_commit_repo_facts
-           ADD COLUMN active_years INTEGER NOT NULL DEFAULT 0`,
-        );
-      } catch {
-        // New databases receive this field in CREATE TABLE. Existing durable
-        // scan tables may have been created by an earlier deployment.
-      }
-      try {
-        await db.execute(
-          `ALTER TABLE public_scan_commit_verification_work
-           ADD COLUMN active_years TEXT NOT NULL DEFAULT '[]'`,
-        );
-      } catch {
-        // Existing durable scan work rows can safely start with no year detail.
-      }
+      await addColumnIfMissing(
+        db,
+        "public_scan_commit_repo_facts",
+        "active_years INTEGER NOT NULL DEFAULT 0",
+      );
+      await addColumnIfMissing(
+        db,
+        "public_scan_commit_verification_work",
+        "active_years TEXT NOT NULL DEFAULT '[]'",
+      );
       for (const table of [
         "public_scan_commit_repo_facts",
         "public_scan_commit_candidates",
         "public_scan_commit_verification_work",
       ]) {
         for (const column of ["is_private", "is_fork"]) {
-          try {
-            await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
-          } catch {
-            // New databases receive these fields in CREATE TABLE. Existing
-            // tables may already have been migrated by an earlier invocation.
-          }
+          await addColumnIfMissing(db, table, `${column} INTEGER NOT NULL DEFAULT 0`);
         }
       }
-      try {
-        await db.execute(`ALTER TABLE profile_snapshots ADD COLUMN signature_work TEXT`);
-      } catch {
-        // New databases receive this field in CREATE TABLE. Existing profile
-        // archives may already have been migrated by an earlier invocation.
-      }
+      await addColumnIfMissing(db, "profile_snapshots", "signature_work TEXT");
       // One durable collection invocation is intentionally conservative. Each
       // invocation is bounded, then a later request-after task or Cron run
       // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
@@ -812,22 +883,236 @@ export async function recordAccountLookup(username: string, ip: string): Promise
   }
 }
 
-/** Upsert an account's latest score. Best-effort; never throws to the caller. */
-export async function recordScore(entry: ScoreEntry): Promise<void> {
+export interface ScoreWriteIdentity {
+  scannedAt: number;
+  token: string;
+}
+
+export interface RoastArtifacts {
+  tags: Tags;
+  roastLine: RoastLine;
+}
+
+type CanonicalScoreUpsertResult =
+  | { status: "written" | "same"; identity: ScoreWriteIdentity }
+  | { status: "superseded"; identity: null };
+
+function isCanonicalSnapshotHash(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function scoreWriteIdentity(row: Record<string, unknown>): ScoreWriteIdentity | null {
+  const scannedAt = Number(row.scanned_at);
+  const token = typeof row.score_write_token === "string" ? row.score_write_token : "";
+  return Number.isSafeInteger(scannedAt) && scannedAt > 0 && token
+    ? { scannedAt, token }
+    : null;
+}
+
+async function ensureAccountStatsTx(
+  tx: Transaction,
+  username: string,
+  scannedAt: number,
+): Promise<void> {
+  await tx.execute({
+    sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(username) DO UPDATE SET
+            lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
+    args: [username, MIN_RECORDED_LOOKUP_COUNT, scannedAt, scannedAt],
+  });
+}
+
+async function upsertCanonicalScoreTx(
+  tx: Transaction,
+  materialized: CanonicalScoreMaterialization,
+): Promise<CanonicalScoreUpsertResult> {
+  const entry = materialized.scoreEntry;
+  const provenance = materialized.provenance;
+  const username = entry.username.toLowerCase();
+  const tags = JSON.stringify(entry.tags ?? EMPTY_TAGS);
+  const roastLine = JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE);
+  const subScores = JSON.stringify(entry.sub_scores);
+  const current = await tx.execute({
+    sql: `SELECT username, final_score, tier, sub_scores, score_version,
+                 score_write_token, score_source_collection_version,
+                 score_source_snapshot_hash, scanned_at
+          FROM scores WHERE username = ? LIMIT 1`,
+    args: [username],
+  });
+  const row = current.rows[0] as Record<string, unknown> | undefined;
+  const token = randomUUID();
+
+  if (!row) {
+    await tx.execute({
+      sql: `INSERT INTO scores
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags,
+               roast_line, score_version, score_write_token,
+               score_source_collection_version, score_source_snapshot_hash,
+               bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        username,
+        entry.display_name,
+        entry.avatar_url,
+        entry.profile_url,
+        entry.final_score,
+        entry.tier,
+        tags,
+        roastLine,
+        provenance.scoreVersion,
+        token,
+        provenance.collectionVersion,
+        provenance.snapshotHash,
+        entry.bot_score,
+        subScores,
+        entry.scanned_at,
+      ],
+    });
+    await ensureAccountStatsTx(tx, username, entry.scanned_at);
+    return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
+  }
+
+  const existingIdentity = scoreWriteIdentity(row);
+  const previousScannedAt = Number(row.scanned_at);
+  const existingIsCanonical =
+    row.score_version === provenance.scoreVersion &&
+    row.score_source_collection_version === provenance.collectionVersion &&
+    isCanonicalSnapshotHash(row.score_source_snapshot_hash);
+  const sameSnapshot =
+    existingIsCanonical &&
+    row.score_source_snapshot_hash === provenance.snapshotHash;
+  if (sameSnapshot) {
+    if (!Number.isSafeInteger(previousScannedAt) || previousScannedAt <= 0) {
+      throw new Error("invalid canonical score timestamp");
+    }
+    if (entry.scanned_at > previousScannedAt) {
+      await tx.execute({
+        sql: `UPDATE scores SET score_write_token = ?, scanned_at = ?
+              WHERE username = ? AND score_version = ?
+                AND score_source_collection_version = ?
+                AND score_source_snapshot_hash = ?`,
+        args: [
+          token,
+          entry.scanned_at,
+          username,
+          provenance.scoreVersion,
+          provenance.collectionVersion,
+          provenance.snapshotHash,
+        ],
+      });
+      await ensureAccountStatsTx(tx, username, entry.scanned_at);
+      return {
+        status: "written",
+        identity: { scannedAt: entry.scanned_at, token },
+      };
+    }
+    if (existingIdentity) return { status: "same", identity: existingIdentity };
+    await tx.execute({
+      sql: `UPDATE scores SET score_write_token = ?
+            WHERE username = ? AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?`,
+      args: [
+        token,
+        username,
+        provenance.scoreVersion,
+        provenance.collectionVersion,
+        provenance.snapshotHash,
+      ],
+    });
+    return {
+      status: "same",
+      identity: { scannedAt: previousScannedAt, token },
+    };
+  }
+
+  // Only a newer canonical row may reject this write. A legacy/current-version
+  // row without complete provenance is not evidence and must never block a
+  // trusted v4 snapshot merely because its request timestamp is later.
+  if (existingIsCanonical) {
+    if (!Number.isSafeInteger(previousScannedAt) || previousScannedAt <= 0) {
+      throw new Error("invalid canonical score timestamp");
+    }
+    if (entry.scanned_at <= previousScannedAt) {
+      return { status: "superseded", identity: null };
+    }
+  }
+
+  await tx.execute({
+    sql: `UPDATE scores SET
+            prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
+            prev_scanned_at = CASE WHEN ? - scanned_at >= ? THEN scanned_at ELSE prev_scanned_at END,
+            display_name = ?, avatar_url = ?, profile_url = ?, final_score = ?, tier = ?,
+            tags = ?, roast_line = ?, score_version = ?, score_write_token = ?,
+            score_source_collection_version = ?, score_source_snapshot_hash = ?,
+            bot_score = ?, sub_scores = ?, scanned_at = ?,
+            roast = NULL, roast_version = NULL, roast_en = NULL, roast_en_version = NULL
+          WHERE username = ?`,
+    args: [
+      entry.scanned_at,
+      PROGRESS_MIN_GAP_MS,
+      entry.scanned_at,
+      PROGRESS_MIN_GAP_MS,
+      entry.display_name,
+      entry.avatar_url,
+      entry.profile_url,
+      entry.final_score,
+      entry.tier,
+      tags,
+      roastLine,
+      provenance.scoreVersion,
+      token,
+      provenance.collectionVersion,
+      provenance.snapshotHash,
+      entry.bot_score,
+      subScores,
+      entry.scanned_at,
+      username,
+    ],
+  });
+  await ensureAccountStatsTx(tx, username, entry.scanned_at);
+  return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
+}
+
+/**
+ * Upsert an account's latest score and return the identity required to attach
+ * its generated report. Older writes are ignored instead of replacing newer
+ * scans. Best-effort; never throws to the caller.
+ */
+export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity | null> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const username = entry.username.toLowerCase();
-    await db.execute({
+    const token = randomUUID();
+    const written = await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, score_version, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (username, display_name, avatar_url, profile_url, final_score, tier, tags,
+               roast_line, score_version, score_write_token, bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
               prev_score      = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.final_score ELSE scores.prev_score END,
               prev_scanned_at = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.scanned_at ELSE scores.prev_scanned_at END,
+              roast         = CASE WHEN scores.score_version = excluded.score_version
+                                        AND scores.final_score = excluded.final_score
+                                        AND scores.sub_scores = excluded.sub_scores
+                                   THEN scores.roast ELSE NULL END,
+              roast_version = CASE WHEN scores.score_version = excluded.score_version
+                                        AND scores.final_score = excluded.final_score
+                                        AND scores.sub_scores = excluded.sub_scores
+                                   THEN scores.roast_version ELSE NULL END,
+              roast_en         = CASE WHEN scores.score_version = excluded.score_version
+                                           AND scores.final_score = excluded.final_score
+                                           AND scores.sub_scores = excluded.sub_scores
+                                      THEN scores.roast_en ELSE NULL END,
+              roast_en_version = CASE WHEN scores.score_version = excluded.score_version
+                                           AND scores.final_score = excluded.final_score
+                                           AND scores.sub_scores = excluded.sub_scores
+                                      THEN scores.roast_en_version ELSE NULL END,
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
               profile_url  = excluded.profile_url,
@@ -836,9 +1121,13 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               tags         = excluded.tags,
               roast_line   = excluded.roast_line,
               score_version = excluded.score_version,
+              score_write_token = excluded.score_write_token,
+              score_source_collection_version = NULL,
+              score_source_snapshot_hash = NULL,
               bot_score    = excluded.bot_score,
               sub_scores   = excluded.sub_scores,
-              scanned_at   = excluded.scanned_at`,
+              scanned_at   = excluded.scanned_at
+            WHERE excluded.scanned_at > scores.scanned_at`,
       args: [
         username,
         entry.display_name,
@@ -849,6 +1138,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         JSON.stringify(entry.tags ?? EMPTY_TAGS),
         JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE),
         SCORE_CACHE_VERSION,
+        token,
         entry.bot_score,
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
@@ -856,6 +1146,7 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         PROGRESS_MIN_GAP_MS,
       ],
     });
+    if (Number(written.rowsAffected ?? 0) !== 1) return null;
     await db.execute({
       sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
             VALUES (?, ?, ?, ?)
@@ -870,8 +1161,10 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
     await Promise.all(
       campaigns.rows.map((row) => bumpCampaignLeaderboardRevision(String(row.campaign))),
     );
+    return { scannedAt: entry.scanned_at, token };
   } catch (e) {
     console.error("recordScore failed:", e);
+    return null;
   }
 }
 
@@ -941,6 +1234,9 @@ export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
 const PUBLIC_SCAN_PENDING_SOURCES: PublicScanSourceStatus = Object.fromEntries(
   PUBLIC_SCAN_REQUIRED_SOURCES.map((source) => [source, "pending"]),
 ) as PublicScanSourceStatus;
+const PUBLIC_SCAN_COMPLETE_SOURCES: PublicScanSourceStatus = Object.fromEntries(
+  PUBLIC_SCAN_REQUIRED_SOURCES.map((source) => [source, "complete"]),
+) as PublicScanSourceStatus;
 
 function parsePublicScanSourceStatus(raw: unknown): PublicScanSourceStatus {
   if (typeof raw !== "string" || !raw) return { ...PUBLIC_SCAN_PENDING_SOURCES };
@@ -999,6 +1295,399 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
+}
+
+/**
+ * Atomically publish a complete bounded quick scan and its deterministic score.
+ * Large/partial scans are rejected by the materializer and must use the durable
+ * worker path instead.
+ */
+export async function publishCompleteQuickScan(
+  scan: ScanResult,
+  scannedAt = Date.now(),
+): Promise<ScoreWriteIdentity | null> {
+  const snapshot = JSON.stringify(scan);
+  const snapshotHash = createHash("sha256").update(snapshot).digest("hex");
+  const materialized = materializeCanonicalScore({
+    snapshot,
+    snapshotHash,
+    username: scan.metrics.username,
+    scoreVersion: SCORE_CACHE_VERSION,
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    scannedAt,
+    mode: "quick",
+    sourceStatus: PUBLIC_SCAN_COMPLETE_SOURCES,
+  });
+  if (!materialized) return null;
+
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const tx = await db.transaction("write");
+    try {
+      const existingRun = await tx.execute({
+        sql: `SELECT id FROM public_scan_runs
+              WHERE username = ? AND score_version = ? AND collection_version = ?
+                AND state = 'complete_public' AND snapshot_hash = ? AND started_at = ?
+              LIMIT 1`,
+        args: [
+          materialized.scoreEntry.username,
+          SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
+          snapshotHash,
+          scannedAt,
+        ],
+      });
+      if (!existingRun.rows[0]) {
+        await tx.execute({
+          sql: `INSERT INTO public_scan_runs
+                  (id, username, score_version, collection_version, state, coverage,
+                   source_status, quick_scan, snapshot, snapshot_hash,
+                   started_at, completed_at, updated_at)
+                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            randomUUID(),
+            materialized.scoreEntry.username,
+            SCORE_CACHE_VERSION,
+            PUBLIC_SCAN_COLLECTION_VERSION,
+            JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
+            snapshot,
+            snapshot,
+            snapshotHash,
+            scannedAt,
+            scannedAt,
+            scannedAt,
+          ],
+        });
+      }
+      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+      if (scoreWrite.status === "superseded") {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      await recordProfileSnapshot(materialized.scan);
+      return scoreWrite.identity;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    logPublicScanDbFailure("publish_quick_score", error);
+    return null;
+  }
+}
+
+/**
+ * Idempotently materialize the current deterministic score from an already
+ * persisted complete v4 run. This repairs pre-deployment runs without another
+ * GitHub crawl; non-canonical collections and partial/corrupt snapshots fail
+ * closed.
+ */
+export async function ensureCanonicalScoreForPublicRun(
+  run: PublicScanRun,
+): Promise<ScoreWriteIdentity | null> {
+  if (
+    run.collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION ||
+    run.state !== "complete_public" ||
+    run.coverage !== "complete_public" ||
+    !run.snapshot ||
+    !run.snapshotHash ||
+    !hasCompletePublicScanSources(run.sourceStatus)
+  ) {
+    return null;
+  }
+  const materialized = materializeCanonicalScore({
+    snapshot: run.snapshot,
+    snapshotHash: run.snapshotHash,
+    username: run.username,
+    scoreVersion: SCORE_CACHE_VERSION,
+    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    scannedAt: run.startedAt,
+    mode: "durable",
+    sourceStatus: run.sourceStatus,
+  });
+  if (!materialized) return null;
+
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    // Healthy cache hits should not serialize behind a write transaction. A
+    // strictly older identity still enters the transaction so the canonical
+    // scan timestamp and CAS token can advance together.
+    const existing = await db.execute({
+      sql: `SELECT scanned_at, score_write_token
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?
+            LIMIT 1`,
+      args: [
+        run.username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        run.snapshotHash,
+      ],
+    });
+    const existingIdentity = existing.rows[0]
+      ? scoreWriteIdentity(existing.rows[0] as Record<string, unknown>)
+      : null;
+    if (existingIdentity && existingIdentity.scannedAt >= run.startedAt) {
+      return existingIdentity;
+    }
+
+    const tx = await db.transaction("write");
+    try {
+      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+      if (scoreWrite.status === "superseded") {
+        await tx.rollback();
+        return null;
+      }
+      await tx.commit();
+      if (scoreWrite.status === "written") {
+        await recordProfileSnapshot(materialized.scan);
+      }
+      return scoreWrite.identity;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    logPublicScanDbFailure("ensure_run_score", error);
+    return null;
+  }
+}
+
+export interface BackfillCanonicalScoresPageInput {
+  apply: boolean;
+  limit: number;
+  cursor: string | null;
+}
+
+export interface BackfillCanonicalScoresPageResult {
+  dryRun: boolean;
+  processed: number;
+  eligible: number;
+  materialized: number;
+  skipped: number;
+  rejected: number;
+  failed: number;
+  nextCursor: string | null;
+}
+
+interface CanonicalScoreBackfillCursor {
+  completedAt: number;
+  runId: string;
+  watermark: number;
+}
+
+function encodeCanonicalScoreBackfillCursor(
+  cursor: CanonicalScoreBackfillCursor,
+): string {
+  return `bfs1.${Buffer.from(JSON.stringify(cursor)).toString("base64url")}`;
+}
+
+function decodeCanonicalScoreBackfillCursor(
+  raw: string | null,
+): CanonicalScoreBackfillCursor | null | undefined {
+  if (raw === null) return null;
+  if (!raw.startsWith("bfs1.") || raw.length > 512) return undefined;
+  try {
+    const value = JSON.parse(
+      Buffer.from(raw.slice("bfs1.".length), "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    if (
+      !Number.isSafeInteger(value.completedAt) ||
+      Number(value.completedAt) < 0 ||
+      !Number.isSafeInteger(value.watermark) ||
+      Number(value.watermark) <= 0 ||
+      typeof value.runId !== "string" ||
+      !/^[a-zA-Z0-9-]{0,128}$/.test(value.runId) ||
+      (Number(value.completedAt) === 0) !== (value.runId === "")
+    ) {
+      return undefined;
+    }
+    return {
+      completedAt: Number(value.completedAt),
+      runId: value.runId,
+      watermark: Number(value.watermark),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Recompute the current deterministic score from the latest complete canonical
+ * collection snapshot for each account. The cursor contains only completion
+ * time, a fixed page watermark, and a run UUID; account identifiers never leave
+ * this storage boundary.
+ */
+export async function backfillCanonicalScoresPage(
+  input: BackfillCanonicalScoresPageInput,
+): Promise<BackfillCanonicalScoresPageResult | null> {
+  const db = getClient();
+  if (!db) return null;
+  if (
+    typeof input.apply !== "boolean" ||
+    !Number.isSafeInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > 100 ||
+    (input.cursor !== null && typeof input.cursor !== "string")
+  ) {
+    throw new Error("invalid canonical score backfill input");
+  }
+  const limit = input.limit;
+  const decodedCursor = decodeCanonicalScoreBackfillCursor(input.cursor);
+  if (decodedCursor === undefined) {
+    throw new Error("invalid canonical score backfill cursor");
+  }
+  const cursor: CanonicalScoreBackfillCursor = decodedCursor ?? {
+    completedAt: 0,
+    runId: "",
+    watermark: Date.now(),
+  };
+
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT r.id, r.username, r.snapshot, r.snapshot_hash, r.source_status,
+                 r.started_at, r.completed_at
+          FROM public_scan_runs r
+          WHERE r.collection_version = ?
+            AND r.state = 'complete_public'
+            AND r.coverage = 'complete_public'
+            AND r.snapshot IS NOT NULL
+            AND r.snapshot_hash IS NOT NULL
+            AND r.completed_at IS NOT NULL
+            AND r.completed_at <= ?
+            AND NOT EXISTS (
+              SELECT 1 FROM public_scan_runs newer
+              WHERE newer.username = r.username
+                AND newer.collection_version = r.collection_version
+                AND newer.state = 'complete_public'
+                AND newer.coverage = 'complete_public'
+                AND newer.snapshot IS NOT NULL
+                AND newer.snapshot_hash IS NOT NULL
+                AND newer.completed_at IS NOT NULL
+                AND newer.completed_at <= ?
+                AND (
+                  newer.started_at > r.started_at OR
+                  (newer.started_at = r.started_at AND newer.id > r.id)
+                )
+            )
+            AND (
+              r.completed_at > ? OR
+              (r.completed_at = ? AND r.id > ?)
+            )
+          ORDER BY r.completed_at ASC, r.id ASC
+          LIMIT ?`,
+    args: [
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      cursor.watermark,
+      cursor.watermark,
+      cursor.completedAt,
+      cursor.completedAt,
+      cursor.runId,
+      limit + 1,
+    ],
+  });
+  const pageRows = result.rows.slice(0, limit) as Record<string, unknown>[];
+  const response: BackfillCanonicalScoresPageResult = {
+    dryRun: !input.apply,
+    processed: 0,
+    eligible: 0,
+    materialized: 0,
+    skipped: 0,
+    rejected: 0,
+    failed: 0,
+    nextCursor: null,
+  };
+  let lastProcessedCursor = cursor;
+  let stoppedOnFailure = false;
+
+  for (const row of pageRows) {
+    response.processed += 1;
+    const rowCursor: CanonicalScoreBackfillCursor = {
+      completedAt: Number(row.completed_at),
+      runId: String(row.id),
+      watermark: cursor.watermark,
+    };
+    const materialized = materializeCanonicalScore({
+      snapshot: String(row.snapshot ?? ""),
+      snapshotHash: String(row.snapshot_hash ?? ""),
+      username: String(row.username ?? ""),
+      scoreVersion: SCORE_CACHE_VERSION,
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      scannedAt: Number(row.started_at),
+      mode: "durable",
+      sourceStatus: parsePublicScanSourceStatus(row.source_status),
+    });
+    if (!materialized) {
+      response.rejected += 1;
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+    response.eligible += 1;
+
+    const existing = await db.execute({
+      sql: `SELECT score_version, score_source_collection_version,
+                   score_source_snapshot_hash, scanned_at
+            FROM scores WHERE username = ? LIMIT 1`,
+      args: [materialized.scoreEntry.username],
+    });
+    const existingRow = existing.rows[0] as Record<string, unknown> | undefined;
+    const alreadyMaterialized =
+      existingRow?.score_version === SCORE_CACHE_VERSION &&
+      existingRow.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      existingRow.score_source_snapshot_hash === materialized.provenance.snapshotHash &&
+      Number(existingRow.scanned_at) >= materialized.scoreEntry.scanned_at;
+    const protectedByNewerCanonical =
+      existingRow?.score_version === SCORE_CACHE_VERSION &&
+      existingRow.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      isCanonicalSnapshotHash(existingRow.score_source_snapshot_hash) &&
+      Number(existingRow.scanned_at) >= materialized.scoreEntry.scanned_at;
+    if (alreadyMaterialized || protectedByNewerCanonical) {
+      response.skipped += 1;
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+    if (!input.apply) {
+      lastProcessedCursor = rowCursor;
+      continue;
+    }
+
+    try {
+      const tx = await db.transaction("write");
+      try {
+        const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
+        if (scoreWrite.status === "superseded") {
+          await tx.rollback();
+          response.skipped += 1;
+          lastProcessedCursor = rowCursor;
+          continue;
+        }
+        await tx.commit();
+        response.materialized += 1;
+        lastProcessedCursor = rowCursor;
+      } catch (error) {
+        await tx.rollback().catch(() => {});
+        throw error;
+      }
+    } catch {
+      response.failed += 1;
+      stoppedOnFailure = true;
+      break;
+    }
+  }
+
+  if (stoppedOnFailure || result.rows.length > limit) {
+    response.nextCursor = encodeCanonicalScoreBackfillCursor(lastProcessedCursor);
+  }
+  return response;
 }
 
 export interface EnqueuedPublicScan {
@@ -1071,8 +1760,9 @@ export async function enqueuePublicScan(
       if (admission) {
         const active = await tx.execute({
           sql: `SELECT COUNT(*) AS count FROM public_scan_jobs
-                WHERE state IN ('queued', 'running')`,
-          args: [],
+                WHERE collection_version = ?
+                  AND state IN ('queued', 'running')`,
+          args: [input.collectionVersion],
         });
         const activeCount = Number((active.rows[0] as Record<string, unknown> | undefined)?.count) || 0;
         const maxActiveJobs = Math.max(1, Math.floor(admission.maxActiveJobs));
@@ -1158,7 +1848,7 @@ export async function enqueuePublicScan(
       throw error;
     }
   } catch (error) {
-    console.error("enqueuePublicScan failed:", error);
+    logPublicScanDbFailure("enqueue", error);
     return null;
   }
 }
@@ -1174,21 +1864,52 @@ export async function getLatestPublicScanRun(
     const result = await db.execute({
       sql: `SELECT * FROM public_scan_runs
             WHERE username = ? AND collection_version = ?
-            ORDER BY updated_at DESC
+            ORDER BY started_at DESC, id DESC
             LIMIT 1`,
       args: [username.toLowerCase(), input.collectionVersion],
     });
     const row = result.rows[0];
     return row ? mapPublicScanRun(row as Record<string, unknown>) : null;
   } catch (error) {
-    console.error("getLatestPublicScanRun failed:", error);
+    logPublicScanDbFailure("get_latest_run", error);
     return null;
   }
 }
 
-export async function getPublicScanRun(runId: string): Promise<PublicScanRun | null> {
+/**
+ * Return complete snapshots in newest-first order for one exact collection
+ * contract. Callers must validate hash and payload shape before serving a row;
+ * this query deliberately never crosses collection versions.
+ */
+export async function getCompletePublicScanRuns(
+  username: string,
+  collectionVersion: string,
+): Promise<PublicScanRun[]> {
   const db = getClient();
-  if (!db) return null;
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_runs
+            WHERE username = ?
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
+              AND snapshot IS NOT NULL
+              AND snapshot_hash IS NOT NULL
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC, id DESC`,
+      args: [username.toLowerCase(), collectionVersion],
+    });
+    return result.rows.map((row) => mapPublicScanRun(row as Record<string, unknown>));
+  } catch (error) {
+    logPublicScanDbFailure("get_complete_runs", error);
+    return [];
+  }
+}
+
+export async function getPublicScanRun(runId: string): Promise<PublicScanRun | null> {
+  const db = requirePublicScanDb("get_run");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1199,7 +1920,194 @@ export async function getPublicScanRun(runId: string): Promise<PublicScanRun | n
       ? mapPublicScanRun(result.rows[0] as Record<string, unknown>)
       : null;
   } catch (error) {
-    console.error("getPublicScanRun failed:", error);
+    throwPublicScanStorageFailure("get_run", error);
+  }
+}
+
+export interface PublicScanJobVersionCount {
+  scoreVersion: string;
+  collectionVersion: string;
+  state: PublicScanJob["state"];
+  count: number;
+}
+
+export interface PublicScanQuarantineResult {
+  dryRun: boolean;
+  selected: number;
+  quarantined: number;
+  remainingActive: number;
+  deferredActive: number;
+}
+
+const MAX_PUBLIC_SCAN_QUARANTINE_BATCH = 100;
+const OBSOLETE_PUBLIC_SCAN_ERROR = "obsolete collection version quarantined";
+
+/** Aggregate-only inventory for release operations. Never returns job IDs or accounts. */
+export async function getPublicScanJobVersionSummary(): Promise<
+  PublicScanJobVersionCount[] | null
+> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT score_version, collection_version, state, COUNT(*) AS count
+            FROM public_scan_jobs
+            GROUP BY score_version, collection_version, state
+            ORDER BY collection_version, score_version, state`,
+      args: [],
+    });
+    return result.rows.map((row) => ({
+      scoreVersion: String(row.score_version),
+      collectionVersion: String(row.collection_version),
+      state: String(row.state) as PublicScanJob["state"],
+      count: Number(row.count),
+    }));
+  } catch (error) {
+    logPublicScanDbFailure("version_summary", error);
+    return null;
+  }
+}
+
+/**
+ * Stop a bounded batch of non-canonical collection jobs from consuming quota.
+ * The operation is a dry-run unless apply=true and returns counts only so an
+ * operator cannot accidentally expose account or job identifiers.
+ */
+export async function quarantineObsoletePublicScanJobs(input: {
+  canonicalCollectionVersion: string;
+  apply?: boolean;
+  limit?: number;
+}): Promise<PublicScanQuarantineResult | null> {
+  const db = getClient();
+  if (!db) return null;
+  const requestedLimit = Number(input.limit ?? 25);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(MAX_PUBLIC_SCAN_QUARANTINE_BATCH, Math.floor(requestedLimit)))
+    : 25;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    if (!input.apply) {
+      const [selected, remaining, deferred] = await db.batch(
+        [
+          {
+            sql: `SELECT id
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND (
+                      state = 'queued'
+                      OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                    )
+                  ORDER BY created_at ASC
+                  LIMIT ?`,
+            args: [input.canonicalCollectionVersion, now, limit],
+          },
+          {
+            sql: `SELECT COUNT(*) AS count
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND state IN ('queued', 'running')`,
+            args: [input.canonicalCollectionVersion],
+          },
+          {
+            sql: `SELECT COUNT(*) AS count
+                  FROM public_scan_jobs
+                  WHERE collection_version <> ?
+                    AND state = 'running'
+                    AND lease_expires_at > ?`,
+            args: [input.canonicalCollectionVersion, now],
+          },
+        ],
+        "read",
+      );
+      return {
+        dryRun: true,
+        selected: selected.rows.length,
+        quarantined: 0,
+        remainingActive: Number(remaining.rows[0]?.count ?? 0),
+        deferredActive: Number(deferred.rows[0]?.count ?? 0),
+      };
+    }
+
+    const tx = await db.transaction("write");
+    try {
+      const selected = await tx.execute({
+        sql: `SELECT id, run_id
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND (
+                  state = 'queued'
+                  OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                )
+              ORDER BY created_at ASC
+              LIMIT ?`,
+        args: [input.canonicalCollectionVersion, now, limit],
+      });
+      const jobIds = selected.rows.map((row) => String(row.id));
+      const runIds = selected.rows.map((row) => String(row.run_id));
+      let quarantined = 0;
+
+      if (jobIds.length > 0) {
+        const jobPlaceholders = jobIds.map(() => "?").join(", ");
+        const runPlaceholders = runIds.map(() => "?").join(", ");
+        const updated = await tx.execute({
+          sql: `UPDATE public_scan_jobs
+                SET state = 'failed', lease_token = NULL, lease_expires_at = NULL,
+                    updated_at = ?
+                WHERE id IN (${jobPlaceholders})
+                  AND collection_version <> ?
+                  AND (
+                    state = 'queued'
+                    OR (state = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+                  )`,
+          args: [now, ...jobIds, input.canonicalCollectionVersion, now],
+        });
+        quarantined = Number(updated.rowsAffected ?? 0);
+        await tx.execute({
+          sql: `UPDATE public_scan_runs
+                SET state = 'failed', last_error = ?, updated_at = ?
+                WHERE id IN (${runPlaceholders})
+                  AND collection_version <> ?
+                  AND state IN ('queued', 'running', 'partial_public')`,
+          args: [
+            OBSOLETE_PUBLIC_SCAN_ERROR,
+            now,
+            ...runIds,
+            input.canonicalCollectionVersion,
+          ],
+        });
+      }
+
+      const remaining = await tx.execute({
+        sql: `SELECT COUNT(*) AS count
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND state IN ('queued', 'running')`,
+        args: [input.canonicalCollectionVersion],
+      });
+      const deferred = await tx.execute({
+        sql: `SELECT COUNT(*) AS count
+              FROM public_scan_jobs
+              WHERE collection_version <> ?
+                AND state = 'running'
+                AND lease_expires_at > ?`,
+        args: [input.canonicalCollectionVersion, now],
+      });
+      await tx.commit();
+      return {
+        dryRun: false,
+        selected: jobIds.length,
+        quarantined,
+        remainingActive: Number(remaining.rows[0]?.count ?? 0),
+        deferredActive: Number(deferred.rows[0]?.count ?? 0),
+      };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    logPublicScanDbFailure("quarantine_obsolete", error);
     return null;
   }
 }
@@ -1210,60 +2118,137 @@ export async function getPublicScanRun(runId: string): Promise<PublicScanRun | n
  * worker can no longer publish progress or a final snapshot.
  */
 export async function claimPublicScanJob(
-  jobId?: string,
-  leaseMs = 55_000,
+  input: {
+    collectionVersion: string;
+    jobId?: string;
+    leaseMs?: number;
+  },
 ): Promise<PublicScanJobLease | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("claim_job");
   try {
     await ensureSchema(db);
     const now = Date.now();
-    // Recover work abandoned by an interrupted serverless invocation first.
-    await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE state = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`,
-      args: [now, now],
-    });
-    const candidate = await db.execute({
-      sql: jobId
-        ? `SELECT * FROM public_scan_jobs
-           WHERE id = ? AND state = 'queued' AND next_run_at <= ? LIMIT 1`
-        : `SELECT * FROM public_scan_jobs
-           WHERE state = 'queued' AND next_run_at <= ?
-           ORDER BY next_run_at ASC, created_at ASC
-           LIMIT 1`,
-      args: jobId ? [jobId, now] : [now],
-    });
-    const row = candidate.rows[0];
-    if (!row) return null;
-    const candidateJob = mapPublicScanJob(row as Record<string, unknown>);
-    const leaseToken = randomUUID();
-    const leaseExpiresAt = now + leaseMs;
-    const claimed = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
-            WHERE id = ? AND state = 'queued'`,
-      args: [leaseToken, leaseExpiresAt, now, candidateJob.id],
-    });
-    if (Number(claimed.rowsAffected ?? 0) !== 1) return null;
-    await db.execute({
-      sql: `UPDATE public_scan_runs SET state = 'running', updated_at = ? WHERE id = ?`,
-      args: [now, candidateJob.runId],
-    });
-    return {
-      leaseToken,
-      job: {
-        ...candidateJob,
-        state: "running",
+    const leaseMs = input.leaseMs ?? 55_000;
+    const tx = await db.transaction("write");
+    try {
+      // Recover work abandoned by an interrupted serverless invocation first.
+      await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE collection_version = ?
+                AND state = 'running'
+                AND lease_expires_at IS NOT NULL
+                AND lease_expires_at <= ?`,
+        args: [now, input.collectionVersion, now],
+      });
+      const candidate = await tx.execute({
+        sql: input.jobId
+          ? `SELECT * FROM public_scan_jobs
+             WHERE id = ?
+               AND collection_version = ?
+               AND state = 'queued'
+               AND next_run_at <= ?
+             LIMIT 1`
+          : `SELECT * FROM public_scan_jobs
+             WHERE collection_version = ?
+               AND state = 'queued'
+               AND next_run_at <= ?
+             ORDER BY next_run_at ASC, created_at ASC
+             LIMIT 1`,
+        args: input.jobId
+          ? [input.jobId, input.collectionVersion, now]
+          : [input.collectionVersion, now],
+      });
+      const row = candidate.rows[0];
+      if (!row) {
+        await tx.rollback();
+        return null;
+      }
+      const candidateJob = mapPublicScanJob(row as Record<string, unknown>);
+      const leaseToken = randomUUID();
+      const leaseExpiresAt = now + leaseMs;
+      const claimed = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
+              WHERE id = ? AND collection_version = ? AND state = 'queued'`,
+        args: [leaseToken, leaseExpiresAt, now, candidateJob.id, input.collectionVersion],
+      });
+      if (Number(claimed.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan claim candidate changed inside write transaction");
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = 'running', updated_at = ?
+              WHERE id = ? AND collection_version = ?`,
+        args: [now, candidateJob.runId, input.collectionVersion],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while claiming job");
+      }
+      await tx.commit();
+      return {
         leaseToken,
-        leaseExpiresAt,
-        updatedAt: now,
-      },
-    };
+        job: {
+          ...candidateJob,
+          state: "running",
+          leaseToken,
+          leaseExpiresAt,
+          updatedAt: now,
+        },
+      };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
-    console.error("claimPublicScanJob failed:", error);
-    return null;
+    throwPublicScanStorageFailure("claim_job", error);
+  }
+}
+
+/**
+ * Return a claimed job to the ready queue when the process-wide execution slot
+ * is busy. The lease CAS prevents an old worker from releasing a newer claim;
+ * attempt_count and next_run_at are deliberately untouched so Cron can claim it
+ * immediately after capacity becomes available.
+ */
+export async function releasePublicScanJobClaim(input: {
+  jobId: string;
+  runId: string;
+  leaseToken: string;
+}): Promise<boolean> {
+  const db = requirePublicScanDb("release_claim");
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      const released = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?`,
+        args: [now, input.jobId, input.runId, input.leaseToken],
+      });
+      if (Number(released.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = 'queued', updated_at = ?
+              WHERE id = ? AND state = 'running'`,
+        args: [now, input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while releasing claim");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("release_claim", error);
   }
 }
 
@@ -1279,8 +2264,7 @@ export async function acquirePublicScanExecutionLease(input: {
   leaseToken: string;
   leaseMs?: number;
 }): Promise<number | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("acquire_execution_slot");
   try {
     await ensureSchema(db);
     const now = Date.now();
@@ -1288,14 +2272,17 @@ export async function acquirePublicScanExecutionLease(input: {
     const tx = await db.transaction("write");
     try {
       const candidate = await tx.execute({
-        sql: `SELECT slot FROM public_scan_execution_leases
-              WHERE lease_expires_at <= ?
-              ORDER BY slot
+        sql: `SELECT slot, lease_expires_at
+              FROM public_scan_execution_leases
+              WHERE slot = 1
               LIMIT 1`,
-        args: [now],
+        args: [],
       });
       const slot = candidate.rows[0]?.slot;
       if (typeof slot !== "number") {
+        throw new Error("public scan execution slot is missing");
+      }
+      if (Number(candidate.rows[0]?.lease_expires_at ?? 0) > now) {
         await tx.rollback();
         return null;
       }
@@ -1306,8 +2293,7 @@ export async function acquirePublicScanExecutionLease(input: {
         args: [input.jobId, input.leaseToken, leaseExpiresAt, slot, now],
       });
       if (Number(update.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return null;
+        throw new Error("public scan execution slot changed inside write transaction");
       }
       await tx.commit();
       return slot;
@@ -1316,8 +2302,7 @@ export async function acquirePublicScanExecutionLease(input: {
       throw error;
     }
   } catch (error) {
-    console.error("acquirePublicScanExecutionLease failed:", error);
-    return null;
+    throwPublicScanStorageFailure("acquire_execution_slot", error);
   }
 }
 
@@ -1326,8 +2311,7 @@ export async function releasePublicScanExecutionLease(input: {
   jobId: string;
   leaseToken: string;
 }): Promise<void> {
-  const db = getClient();
-  if (!db) return;
+  const db = requirePublicScanDb("release_execution_slot");
   try {
     await ensureSchema(db);
     await db.execute({
@@ -1337,7 +2321,7 @@ export async function releasePublicScanExecutionLease(input: {
       args: [input.slot, input.jobId, input.leaseToken],
     });
   } catch (error) {
-    console.error("releasePublicScanExecutionLease failed:", error);
+    throwPublicScanStorageFailure("release_execution_slot", error);
   }
 }
 
@@ -1351,12 +2335,11 @@ export async function acquirePublicScanRateWindow(input: {
   limit: number;
   windowMs: number;
 }): Promise<{ granted: boolean; retryAt: number }> {
-  const db = getClient();
   const now = Date.now();
   const safeWindow = Math.max(1_000, Math.floor(input.windowMs));
   const startedAt = Math.floor(now / safeWindow) * safeWindow;
   const retryAt = startedAt + safeWindow;
-  if (!db) return { granted: false, retryAt };
+  const db = requirePublicScanDb("acquire_rate_window");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1369,8 +2352,307 @@ export async function acquirePublicScanRateWindow(input: {
     // `rowsAffected` is 0 when a full existing window rejected the increment.
     return { granted: Number(result.rowsAffected ?? 0) === 1, retryAt };
   } catch (error) {
-    console.error("acquirePublicScanRateWindow failed:", error);
-    return { granted: false, retryAt };
+    throwPublicScanStorageFailure("acquire_rate_window", error);
+  }
+}
+
+export interface PublicScanStepObservation {
+  phase: PublicScanJobPhase;
+  outcome: PublicScanStepOutcome;
+  durationMs: number;
+}
+
+/** Persist aggregate-only worker observations; job and account IDs never enter this table. */
+export async function recordPublicScanStepMetrics(input: {
+  collectionVersion: string;
+  observations: PublicScanStepObservation[];
+}): Promise<boolean> {
+  if (input.observations.length === 0) return true;
+  const db = requirePublicScanDb("metrics_write");
+  const aggregated = new Map<
+    string,
+    { phase: PublicScanJobPhase; outcome: PublicScanStepOutcome; count: number; total: number; max: number }
+  >();
+  for (const observation of input.observations) {
+    const duration = Number.isFinite(observation.durationMs)
+      ? Math.max(0, Math.floor(observation.durationMs))
+      : 0;
+    const key = `${observation.phase}\0${observation.outcome}`;
+    const current = aggregated.get(key);
+    if (current) {
+      current.count += 1;
+      current.total += duration;
+      current.max = Math.max(current.max, duration);
+    } else {
+      aggregated.set(key, {
+        phase: observation.phase,
+        outcome: observation.outcome,
+        count: 1,
+        total: duration,
+        max: duration,
+      });
+    }
+  }
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      for (const metric of aggregated.values()) {
+        await tx.execute({
+          sql: `INSERT INTO public_scan_step_metrics
+                  (collection_version, phase, outcome, step_count, total_duration_ms, max_duration_ms, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(collection_version, phase, outcome) DO UPDATE SET
+                  step_count = public_scan_step_metrics.step_count + excluded.step_count,
+                  total_duration_ms = public_scan_step_metrics.total_duration_ms + excluded.total_duration_ms,
+                  max_duration_ms = MAX(public_scan_step_metrics.max_duration_ms, excluded.max_duration_ms),
+                  updated_at = excluded.updated_at`,
+          args: [
+            input.collectionVersion,
+            metric.phase,
+            metric.outcome,
+            metric.count,
+            metric.total,
+            metric.max,
+            now,
+          ],
+        });
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("metrics_write", error);
+  }
+}
+
+export async function recordPublicScanCronMetrics(input: {
+  startedAt: number;
+  completedAt: number;
+  processed: number;
+  failedSteps: number;
+  success: boolean;
+}): Promise<boolean> {
+  const db = requirePublicScanDb("cron_metrics_write");
+  try {
+    await ensureSchema(db);
+    const durationMs = Math.max(0, Math.floor(input.completedAt - input.startedAt));
+    const values = [
+      1,
+      input.startedAt,
+      input.success ? input.completedAt : null,
+      durationMs,
+      Math.max(0, Math.floor(input.processed)),
+      Math.max(0, Math.floor(input.failedSteps)),
+      input.success ? 0 : 1,
+      input.completedAt,
+    ];
+    await db.execute({
+      sql: `INSERT INTO public_scan_cron_metrics
+              (singleton, last_started_at, last_success_at, last_duration_ms,
+               last_processed, last_failed_steps, consecutive_failures, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(singleton) DO UPDATE SET
+              last_started_at = excluded.last_started_at,
+              last_success_at = CASE WHEN ? = 1
+                                     THEN excluded.last_success_at
+                                     ELSE public_scan_cron_metrics.last_success_at END,
+              last_duration_ms = excluded.last_duration_ms,
+              last_processed = excluded.last_processed,
+              last_failed_steps = excluded.last_failed_steps,
+              consecutive_failures = CASE WHEN ? = 1
+                                          THEN 0
+                                          ELSE public_scan_cron_metrics.consecutive_failures + 1 END,
+              updated_at = excluded.updated_at`,
+      args: [...values, input.success ? 1 : 0, input.success ? 1 : 0],
+    });
+    return true;
+  } catch (error) {
+    throwPublicScanStorageFailure("cron_metrics_write", error);
+  }
+}
+
+export interface PublicScanOperationalMetrics {
+  generatedAt: number;
+  canonicalCollectionVersion: string;
+  queue: {
+    depth: number;
+    queued: number;
+    running: number;
+    ready: number;
+    deferred: number;
+    retrying: number;
+    oldestAgeMs: number | null;
+    byPhase: Array<{ phase: string; queued: number; running: number }>;
+  };
+  failures: {
+    currentFailedJobs: number;
+    retryingSteps: number;
+    terminalSteps: number;
+  };
+  execution: {
+    activeSlots: number;
+    capacity: number;
+    contentionSteps: number;
+  };
+  obsoleteActiveJobs: number;
+  steps: Array<{
+    phase: string;
+    outcome: PublicScanStepOutcome;
+    count: number;
+    averageDurationMs: number;
+    maxDurationMs: number;
+  }>;
+  cron: {
+    lastStartedAt: number | null;
+    lastSuccessAt: number | null;
+    lastDurationMs: number | null;
+    lastProcessed: number;
+    lastFailedSteps: number;
+    consecutiveFailures: number;
+  };
+}
+
+/** Aggregate operational state for the authenticated release-operations endpoint. */
+export async function getPublicScanOperationalMetrics(
+  canonicalCollectionVersion: string,
+): Promise<PublicScanOperationalMetrics | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const [active, failureState, obsolete, slots, steps, cron] = await db.batch(
+      [
+        {
+          sql: `SELECT state, phase, COUNT(*) AS count, MIN(created_at) AS oldest_created_at,
+                       SUM(CASE WHEN state = 'queued' AND next_run_at <= ? THEN 1 ELSE 0 END) AS ready_count,
+                       SUM(CASE WHEN state = 'queued' AND next_run_at > ? THEN 1 ELSE 0 END) AS deferred_count
+                FROM public_scan_jobs
+                WHERE collection_version = ? AND state IN ('queued', 'running')
+                GROUP BY state, phase`,
+          args: [now, now, canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT
+                  SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) AS failed_jobs,
+                  SUM(CASE WHEN state = 'queued' AND attempt_count > 0 THEN 1 ELSE 0 END) AS retrying_jobs
+                FROM public_scan_jobs
+                WHERE collection_version = ?`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_jobs
+                WHERE collection_version <> ? AND state IN ('queued', 'running')`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_execution_leases
+                WHERE lease_expires_at > ?`,
+          args: [now],
+        },
+        {
+          sql: `SELECT phase, outcome, step_count, total_duration_ms, max_duration_ms
+                FROM public_scan_step_metrics
+                WHERE collection_version = ?
+                ORDER BY phase, outcome`,
+          args: [canonicalCollectionVersion],
+        },
+        {
+          sql: `SELECT last_started_at, last_success_at, last_duration_ms, last_processed,
+                       last_failed_steps, consecutive_failures
+                FROM public_scan_cron_metrics
+                WHERE singleton = 1`,
+          args: [],
+        },
+      ],
+      "read",
+    );
+    const phases = new Map<string, { phase: string; queued: number; running: number }>();
+    let queued = 0;
+    let running = 0;
+    let ready = 0;
+    let deferred = 0;
+    let oldestCreatedAt: number | null = null;
+    for (const row of active.rows) {
+      const phase = String(row.phase);
+      const count = Number(row.count ?? 0);
+      const item = phases.get(phase) ?? { phase, queued: 0, running: 0 };
+      if (row.state === "queued") {
+        item.queued += count;
+        queued += count;
+        ready += Number(row.ready_count ?? 0);
+        deferred += Number(row.deferred_count ?? 0);
+      } else if (row.state === "running") {
+        item.running += count;
+        running += count;
+      }
+      phases.set(phase, item);
+      const candidate = Number(row.oldest_created_at);
+      if (Number.isFinite(candidate)) {
+        oldestCreatedAt = oldestCreatedAt === null ? candidate : Math.min(oldestCreatedAt, candidate);
+      }
+    }
+    const stepMetrics = steps.rows.map((row) => {
+      const count = Math.max(0, Number(row.step_count ?? 0));
+      const total = Math.max(0, Number(row.total_duration_ms ?? 0));
+      return {
+        phase: String(row.phase),
+        outcome: String(row.outcome) as PublicScanStepOutcome,
+        count,
+        averageDurationMs: count > 0 ? Math.round(total / count) : 0,
+        maxDurationMs: Math.max(0, Number(row.max_duration_ms ?? 0)),
+      };
+    });
+    const countOutcome = (outcome: PublicScanStepOutcome) =>
+      stepMetrics
+        .filter((metric) => metric.outcome === outcome)
+        .reduce((total, metric) => total + metric.count, 0);
+    const failureRow = failureState.rows[0];
+    const cronRow = cron.rows[0];
+    return {
+      generatedAt: now,
+      canonicalCollectionVersion,
+      queue: {
+        depth: queued + running,
+        queued,
+        running,
+        ready,
+        deferred,
+        retrying: Number(failureRow?.retrying_jobs ?? 0),
+        oldestAgeMs: oldestCreatedAt === null ? null : Math.max(0, now - oldestCreatedAt),
+        byPhase: [...phases.values()].sort((left, right) => left.phase.localeCompare(right.phase)),
+      },
+      failures: {
+        currentFailedJobs: Number(failureRow?.failed_jobs ?? 0),
+        retryingSteps: countOutcome("failed_retrying"),
+        terminalSteps: countOutcome("failed_terminal"),
+      },
+      execution: {
+        activeSlots: Number(slots.rows[0]?.count ?? 0),
+        capacity: 1,
+        contentionSteps: countOutcome("slot_busy"),
+      },
+      obsoleteActiveJobs: Number(obsolete.rows[0]?.count ?? 0),
+      steps: stepMetrics,
+      cron: {
+        lastStartedAt: cronRow?.last_started_at == null ? null : Number(cronRow.last_started_at),
+        lastSuccessAt: cronRow?.last_success_at == null ? null : Number(cronRow.last_success_at),
+        lastDurationMs: cronRow?.last_duration_ms == null ? null : Number(cronRow.last_duration_ms),
+        lastProcessed: Number(cronRow?.last_processed ?? 0),
+        lastFailedSteps: Number(cronRow?.last_failed_steps ?? 0),
+        consecutiveFailures: Number(cronRow?.consecutive_failures ?? 0),
+      },
+    };
+  } catch {
+    console.error("public_scan.metrics_read_failed");
+    return null;
   }
 }
 
@@ -1383,40 +2665,51 @@ export async function savePublicScanJobProgress(input: {
   sourceStatus?: PublicScanSourceStatus;
   nextRunAt?: number;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("save_job_progress");
   try {
     await ensureSchema(db);
     const now = Date.now();
     const nextRunAt = input.nextRunAt ?? now;
-    const update = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
-                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [
-        input.phase,
-        input.payload,
-        nextRunAt,
-        now,
-        input.jobId,
-        input.runId,
-        input.leaseToken,
-        now,
-      ],
-    });
-    if (Number(update.rowsAffected ?? 0) !== 1) return false;
-    if (input.sourceStatus) {
-      await db.execute({
-        sql: `UPDATE public_scan_runs SET source_status = ?, updated_at = ? WHERE id = ?`,
-        args: [JSON.stringify(input.sourceStatus), now, input.runId],
+    const tx = await db.transaction("write");
+    try {
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = 'queued', phase = ?, payload = ?, next_run_at = ?,
+                  lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [
+          input.phase,
+          input.payload,
+          nextRunAt,
+          now,
+          input.jobId,
+          input.runId,
+          input.leaseToken,
+          now,
+        ],
       });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      if (input.sourceStatus) {
+        const run = await tx.execute({
+          sql: `UPDATE public_scan_runs SET source_status = ?, updated_at = ? WHERE id = ?`,
+          args: [JSON.stringify(input.sourceStatus), now, input.runId],
+        });
+        if (Number(run.rowsAffected ?? 0) !== 1) {
+          throw new Error("public scan run missing while saving progress");
+        }
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
     }
-    return true;
   } catch (error) {
-    console.error("savePublicScanJobProgress failed:", error);
-    return false;
+    throwPublicScanStorageFailure("save_job_progress", error);
   }
 }
 
@@ -1427,27 +2720,39 @@ export async function savePublicScanQuickResult(input: {
   quickScan: string;
   sourceStatus: PublicScanSourceStatus;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("save_quick_result");
   try {
     await ensureSchema(db);
-    const job = await db.execute({
-      sql: `SELECT id FROM public_scan_jobs
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [input.jobId, input.runId, input.leaseToken, Date.now()],
-    });
-    if (!job.rows[0]) return false;
-    await db.execute({
-      sql: `UPDATE public_scan_runs
-            SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
-            WHERE id = ?`,
-      args: [input.quickScan, JSON.stringify(input.sourceStatus), Date.now(), input.runId],
-    });
-    return true;
+    const tx = await db.transaction("write");
+    try {
+      const now = Date.now();
+      const job = await tx.execute({
+        sql: `SELECT id FROM public_scan_jobs
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [input.jobId, input.runId, input.leaseToken, now],
+      });
+      if (!job.rows[0]) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET quick_scan = ?, source_status = ?, updated_at = ?, last_error = NULL
+              WHERE id = ?`,
+        args: [input.quickScan, JSON.stringify(input.sourceStatus), now, input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while saving quick result");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
-    console.error("savePublicScanQuickResult failed:", error);
-    return false;
+    throwPublicScanStorageFailure("save_quick_result", error);
   }
 }
 
@@ -1492,7 +2797,7 @@ export async function seedPublicScanQuickResult(input: {
       throw error;
     }
   } catch (error) {
-    console.error("seedPublicScanQuickResult failed:", error);
+    logPublicScanDbFailure("seed_quick_result", error);
     return false;
   }
 }
@@ -1514,32 +2819,66 @@ export async function completePublicScanRun(input: {
   ) {
     return false;
   }
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("complete_run");
   try {
     await ensureSchema(db);
     const tx = await db.transaction("write");
     try {
       const job = await tx.execute({
-        sql: `SELECT id FROM public_scan_jobs
-              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-                AND lease_expires_at > ?`,
+        sql: `SELECT j.id, j.username, j.score_version, j.collection_version,
+                     r.username AS run_username, r.score_version AS run_score_version,
+                     r.collection_version AS run_collection_version,
+                     r.started_at AS run_started_at
+              FROM public_scan_jobs j
+              JOIN public_scan_runs r ON r.id = j.run_id
+              WHERE j.id = ? AND j.run_id = ? AND j.state = 'running'
+                AND j.lease_token = ? AND j.lease_expires_at > ?
+                AND r.state = 'running'`,
         args: [input.jobId, input.runId, input.leaseToken, Date.now()],
       });
-      if (!job.rows[0]) {
+      const jobRow = job.rows[0] as Record<string, unknown> | undefined;
+      if (
+        !jobRow ||
+        jobRow.username !== jobRow.run_username ||
+        jobRow.score_version !== jobRow.run_score_version ||
+        jobRow.collection_version !== jobRow.run_collection_version
+      ) {
         await tx.rollback();
         return false;
       }
+
+      const isCanonical =
+        jobRow.score_version === SCORE_CACHE_VERSION &&
+        jobRow.collection_version === PUBLIC_SCAN_COLLECTION_VERSION;
+      if (isCanonical) {
+        const materialized = materializeCanonicalScore({
+          snapshot: input.snapshot,
+          snapshotHash: input.snapshotHash,
+          username: String(jobRow.username),
+          scoreVersion: String(jobRow.score_version),
+          collectionVersion: String(jobRow.collection_version),
+          scannedAt: Number(jobRow.run_started_at),
+          mode: "durable",
+          sourceStatus: input.sourceStatus,
+        });
+        if (!materialized) {
+          await tx.rollback();
+          return false;
+        }
+        // A newer canonical score may win while this older run still completes
+        // as immutable historical evidence. Invalid state throws and rolls the
+        // whole completion back.
+        await upsertCanonicalScoreTx(tx, materialized);
+      }
+
       const now = Date.now();
-      const state: PublicScanRunState =
-        input.coverage === "complete_public" ? "complete_public" : "partial_public";
       await tx.execute({
         sql: `UPDATE public_scan_runs
               SET state = ?, coverage = ?, source_status = ?, snapshot = ?, snapshot_hash = ?,
                   completed_at = ?, updated_at = ?, last_error = NULL
               WHERE id = ?`,
         args: [
-          state,
+          "complete_public" satisfies PublicScanRunState,
           input.coverage,
           JSON.stringify(input.sourceStatus),
           input.snapshot,
@@ -1562,8 +2901,7 @@ export async function completePublicScanRun(input: {
       throw error;
     }
   } catch (error) {
-    console.error("completePublicScanRun failed:", error);
-    return false;
+    throwPublicScanStorageFailure("complete_run", error);
   }
 }
 
@@ -1574,38 +2912,49 @@ export async function failPublicScanJob(input: {
   error: string;
   retryAt?: number;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("fail_job");
   try {
     await ensureSchema(db);
     const now = Date.now();
     const retry = input.retryAt != null;
-    const update = await db.execute({
-      sql: `UPDATE public_scan_jobs
-            SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
-                lease_token = NULL, lease_expires_at = NULL, updated_at = ?
-            WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
-              AND lease_expires_at > ?`,
-      args: [
-        retry ? "queued" : "failed",
-        input.retryAt ?? now,
-        now,
-        input.jobId,
-        input.runId,
-        input.leaseToken,
-        now,
-      ],
-    });
-    if (Number(update.rowsAffected ?? 0) !== 1) return false;
-    await db.execute({
-      sql: `UPDATE public_scan_runs
-            SET state = ?, updated_at = ?, last_error = ? WHERE id = ?`,
-      args: [retry ? "queued" : "failed", now, input.error.slice(0, 2_000), input.runId],
-    });
-    return true;
+    const tx = await db.transaction("write");
+    try {
+      const update = await tx.execute({
+        sql: `UPDATE public_scan_jobs
+              SET state = ?, attempt_count = attempt_count + 1, next_run_at = ?,
+                  lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+              WHERE id = ? AND run_id = ? AND state = 'running' AND lease_token = ?
+                AND lease_expires_at > ?`,
+        args: [
+          retry ? "queued" : "failed",
+          input.retryAt ?? now,
+          now,
+          input.jobId,
+          input.runId,
+          input.leaseToken,
+          now,
+        ],
+      });
+      if (Number(update.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const run = await tx.execute({
+        sql: `UPDATE public_scan_runs
+              SET state = ?, updated_at = ?, last_error = ? WHERE id = ?`,
+        args: [retry ? "queued" : "failed", now, input.error.slice(0, 2_000), input.runId],
+      });
+      if (Number(run.rowsAffected ?? 0) !== 1) {
+        throw new Error("public scan run missing while recording failure");
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (error) {
-    console.error("failPublicScanJob failed:", error);
-    return false;
+    throwPublicScanStorageFailure("fail_job", error);
   }
 }
 
@@ -1634,8 +2983,7 @@ export async function upsertPublicScanPrFacts(input: {
   facts: PublicScanPrFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_pr_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1684,8 +3032,7 @@ export async function upsertPublicScanPrFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanPrFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_pr_facts", error);
   }
 }
 
@@ -1697,8 +3044,7 @@ export async function upsertPublicScanCommitRepoFacts(input: {
   facts: PublicScanCommitRepoFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_commit_repo_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1746,8 +3092,7 @@ export async function upsertPublicScanCommitRepoFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanCommitRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_commit_repo_facts", error);
   }
 }
 
@@ -1758,8 +3103,7 @@ export async function upsertPublicScanCommitCandidates(input: {
   candidates: PublicScanCommitCandidate[];
 }): Promise<boolean> {
   if (input.candidates.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_commit_candidates");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1789,8 +3133,7 @@ export async function upsertPublicScanCommitCandidates(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanCommitCandidates failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_commit_candidates", error);
   }
 }
 
@@ -1801,8 +3144,7 @@ export async function upsertPublicScanOwnedRepoFacts(input: {
   facts: PublicScanOwnedRepoFact[];
 }): Promise<boolean> {
   if (input.facts.length === 0) return true;
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("upsert_owned_repo_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1842,14 +3184,12 @@ export async function upsertPublicScanOwnedRepoFacts(input: {
     );
     return true;
   } catch (error) {
-    console.error("upsertPublicScanOwnedRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("upsert_owned_repo_facts", error);
   }
 }
 
 export async function getPublicScanOwnedRepoFacts(runId: string): Promise<PublicScanOwnedRepoFact[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_owned_repo_facts");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1885,8 +3225,7 @@ export async function getPublicScanOwnedRepoFacts(runId: string): Promise<Public
       };
     });
   } catch (error) {
-    console.error("getPublicScanOwnedRepoFacts failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_owned_repo_facts", error);
   }
 }
 
@@ -1896,8 +3235,7 @@ export async function preparePublicScanCommitVerificationWork(input: {
   runId: string;
   leaseToken: string;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("prepare_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -1920,8 +3258,7 @@ export async function preparePublicScanCommitVerificationWork(input: {
     });
     return true;
   } catch (error) {
-    console.error("preparePublicScanCommitVerificationWork failed:", error);
-    return false;
+    throwPublicScanStorageFailure("prepare_commit_verification", error);
   }
 }
 
@@ -1981,8 +3318,7 @@ function mapPublicScanCommitVerificationWork(
 export async function getNextPublicScanCommitVerificationWork(
   runId: string,
 ): Promise<PublicScanCommitVerificationWork | null> {
-  const db = getClient();
-  if (!db) return null;
+  const db = requirePublicScanDb("get_commit_verification");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -1996,8 +3332,7 @@ export async function getNextPublicScanCommitVerificationWork(
       ? mapPublicScanCommitVerificationWork(result.rows[0] as Record<string, unknown>)
       : null;
   } catch (error) {
-    console.error("getNextPublicScanCommitVerificationWork failed:", error);
-    return null;
+    throwPublicScanStorageFailure("get_commit_verification", error);
   }
 }
 
@@ -2014,8 +3349,7 @@ export async function recordPublicScanCommitVerificationPage(input: {
   commits: { sha: string; committedAt: string | null }[];
   complete: boolean;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("record_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2073,8 +3407,7 @@ export async function recordPublicScanCommitVerificationPage(input: {
     });
     return Number(update.rowsAffected ?? 0) === 1;
   } catch (error) {
-    console.error("recordPublicScanCommitVerificationPage failed:", error);
-    return false;
+    throwPublicScanStorageFailure("record_commit_verification", error);
   }
 }
 
@@ -2086,8 +3419,7 @@ export async function splitPublicScanCommitVerificationWork(input: {
   left: { from: string; to: string };
   right: { from: string; to: string };
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("split_commit_verification");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2128,8 +3460,7 @@ export async function splitPublicScanCommitVerificationWork(input: {
       throw error;
     }
   } catch (error) {
-    console.error("splitPublicScanCommitVerificationWork failed:", error);
-    return false;
+    throwPublicScanStorageFailure("split_commit_verification", error);
   }
 }
 
@@ -2139,8 +3470,7 @@ export async function materializePublicScanCommitRepoFacts(input: {
   runId: string;
   leaseToken: string;
 }): Promise<boolean> {
-  const db = getClient();
-  if (!db) return false;
+  const db = requirePublicScanDb("materialize_commit_facts");
   try {
     await ensureSchema(db);
     if (!(await hasPublicScanLease(db, input))) return false;
@@ -2189,8 +3519,7 @@ export async function materializePublicScanCommitRepoFacts(input: {
     });
     return true;
   } catch (error) {
-    console.error("materializePublicScanCommitRepoFacts failed:", error);
-    return false;
+    throwPublicScanStorageFailure("materialize_commit_facts", error);
   }
 }
 
@@ -2215,8 +3544,7 @@ export async function getPublicScanPrSummary(
   runId: string,
   username: string,
 ): Promise<PublicScanPrSummary> {
-  const db = getClient();
-  if (!db) return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+  const db = requirePublicScanDb("get_pr_summary");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2239,14 +3567,12 @@ export async function getPublicScanPrSummary(
       workflowLandedImpactPrs: Number(row?.workflow_landed_impact_prs) || 0,
     };
   } catch (error) {
-    console.error("getPublicScanPrSummary failed:", error);
-    return { nativeMergedPrs: 0, workflowLandedPrs: 0, workflowLandedImpactPrs: 0 };
+    throwPublicScanStorageFailure("get_pr_summary", error);
   }
 }
 
 export async function getPublicScanSignaturePrFacts(runId: string): Promise<PublicScanPrFact[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_signature_pr_facts");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2300,8 +3626,7 @@ export async function getPublicScanSignaturePrFacts(runId: string): Promise<Publ
       };
     });
   } catch (error) {
-    console.error("getPublicScanSignaturePrFacts failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_signature_pr_facts", error);
   }
 }
 
@@ -2313,8 +3638,7 @@ export async function getPublicScanSignaturePrFacts(runId: string): Promise<Publ
 export async function getPublicScanContributionAggregates(
   runId: string,
 ): Promise<PublicScanContributionAggregate[]> {
-  const db = getClient();
-  if (!db) return [];
+  const db = requirePublicScanDb("get_contribution_aggregates");
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -2377,8 +3701,7 @@ export async function getPublicScanContributionAggregates(
       };
     });
   } catch (error) {
-    console.error("getPublicScanContributionAggregates failed:", error);
-    return [];
+    throwPublicScanStorageFailure("get_contribution_aggregates", error);
   }
 }
 
@@ -2533,8 +3856,11 @@ export async function hasProfileSnapshot(username: string): Promise<boolean> {
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT 1 FROM profile_snapshots WHERE username = ? LIMIT 1`,
-      args: [username.toLowerCase()],
+      sql: `SELECT 1
+            FROM profile_snapshots
+            WHERE username = ? AND scan_version IN (?, ?)
+            LIMIT 1`,
+      args: [username.toLowerCase(), ...PUBLIC_PROFILE_SCORE_VERSIONS],
     });
     return res.rows.length > 0;
   } catch (e) {
@@ -2606,15 +3932,27 @@ async function getLatestPublicScanSignatureWork(
 ): Promise<SignatureWork | null> {
   try {
     const res = await db.execute({
-      sql: `SELECT snapshot
+      sql: `SELECT snapshot, snapshot_hash, source_status
             FROM public_scan_runs
             WHERE username = ?
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
               AND snapshot IS NOT NULL
             ORDER BY completed_at DESC, updated_at DESC
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [username.toLowerCase(), PUBLIC_SCAN_COLLECTION_VERSION],
     });
-    const snapshot = parseJsonObject<ScanResult>(res.rows[0]?.snapshot);
+    const row = res.rows[0];
+    const rawSnapshot = typeof row?.snapshot === "string" ? row.snapshot : null;
+    if (
+      !rawSnapshot ||
+      row?.snapshot_hash !== createHash("sha256").update(rawSnapshot).digest("hex") ||
+      !hasCompletePublicScanSources(parsePublicScanSourceStatus(row.source_status))
+    ) {
+      return null;
+    }
+    const snapshot = parseJsonObject<ScanResult>(rawSnapshot);
     return snapshot?.signature_work ?? null;
   } catch {
     return null;
@@ -2633,10 +3971,14 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ?
-            ORDER BY scanned_at DESC
+            WHERE username = ? AND scan_version IN (?, ?)
+            ORDER BY CASE WHEN scan_version = ? THEN 0 ELSE 1 END, scanned_at DESC
             LIMIT 1`,
-      args: [username.toLowerCase()],
+      args: [
+        username.toLowerCase(),
+        ...PUBLIC_PROFILE_SCORE_VERSIONS,
+        PUBLIC_PROFILE_SCORE_VERSIONS[0],
+      ],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -2721,9 +4063,15 @@ export async function listSnapshotUsernames(
  * runs before streaming so the percentile reflects this scan). No-op if the row
  * doesn't exist yet (e.g. a BYO-key roast that was never recorded).
  */
-export async function updateRoast(username: string, roast: string, lang: Lang): Promise<void> {
+export async function updateRoast(
+  username: string,
+  roast: string,
+  lang: Lang,
+  scoreWrite: ScoreWriteIdentity,
+  artifacts?: RoastArtifacts,
+): Promise<boolean> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return false;
   // Column name comes from a fixed allowlist (never from user input).
   const col = lang === "en" ? "roast_en" : "roast";
   const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
@@ -2731,31 +4079,79 @@ export async function updateRoast(username: string, roast: string, lang: Lang): 
     await ensureSchema(db);
     const normalizedUsername = username.toLowerCase();
     const generatedAt = Date.now();
-    await db.execute({
-      sql: `UPDATE scores SET ${col} = ?, ${versionCol} = ? WHERE username = ?`,
-      args: [roast, ROAST_CACHE_VERSION, normalizedUsername],
-    });
-    await db.execute({
-      sql: `INSERT INTO score_snapshots
-              (id, username, display_name, avatar_url, profile_url, final_score, tier,
-               tags, roast_line, score_version, roast_version, roast_lang, bot_score,
-               sub_scores, generated_at)
-            SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, roast_line, COALESCE(score_version, ?), ?, ?, bot_score,
-                   sub_scores, ?
-            FROM scores
-            WHERE username = ?`,
-      args: [
-        randomUUID(),
-        SCORE_CACHE_VERSION,
-        ROAST_CACHE_VERSION,
-        lang,
-        generatedAt,
-        normalizedUsername,
-      ],
-    });
+    const tx = await db.transaction("write");
+    try {
+      const updated = await tx.execute({
+        sql: `UPDATE scores
+              SET ${col} = ?, ${versionCol} = ?,
+                  tags = COALESCE(?, tags), roast_line = COALESCE(?, roast_line)
+              WHERE username = ?
+                AND score_version = ?
+                AND score_source_collection_version = ?
+                AND length(score_source_snapshot_hash) = 64
+                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
+                AND score_write_token = ?
+                AND scanned_at = ?`,
+        args: [
+          roast,
+          ROAST_CACHE_VERSION,
+          artifacts ? JSON.stringify(artifacts.tags) : null,
+          artifacts ? JSON.stringify(artifacts.roastLine) : null,
+          normalizedUsername,
+          SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
+          scoreWrite.token,
+          scoreWrite.scannedAt,
+        ],
+      });
+      if (Number(updated.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      const snapshot = await tx.execute({
+        sql: `INSERT INTO score_snapshots
+                (id, username, display_name, avatar_url, profile_url, final_score, tier,
+                 tags, roast_line, score_version, roast_version, roast_lang, bot_score,
+                 sub_scores, generated_at)
+              SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
+                     tags, roast_line, score_version, ?, ?, bot_score, sub_scores, ?
+              FROM scores
+              WHERE username = ?
+                AND score_version = ?
+                AND score_source_collection_version = ?
+                AND length(score_source_snapshot_hash) = 64
+                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
+                AND score_write_token = ?
+                AND scanned_at = ?
+                AND ${versionCol} = ?
+                AND ${col} = ?`,
+        args: [
+          randomUUID(),
+          ROAST_CACHE_VERSION,
+          lang,
+          generatedAt,
+          normalizedUsername,
+          SCORE_CACHE_VERSION,
+          PUBLIC_SCAN_COLLECTION_VERSION,
+          scoreWrite.token,
+          scoreWrite.scannedAt,
+          ROAST_CACHE_VERSION,
+          roast,
+        ],
+      });
+      if (Number(snapshot.rowsAffected ?? 0) !== 1) {
+        await tx.rollback();
+        return false;
+      }
+      await tx.commit();
+      return true;
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
   } catch (e) {
     console.error("updateRoast failed:", e);
+    return false;
   }
 }
 
@@ -2907,9 +4303,8 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
-                  AND s.score_version = ?
                   AND s.final_score >= ?`,
-          args: [score, facetValue, SCORE_CACHE_VERSION, FACET_MIN_SCORE],
+          args: [score, facetValue, FACET_MIN_SCORE],
         },
         {
           sql: `SELECT s.username, s.final_score
@@ -2918,11 +4313,10 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
-                  AND s.score_version = ?
                   AND s.final_score > ?
                 ORDER BY s.final_score ASC
                 LIMIT 1`,
-          args: [facetValue, SCORE_CACHE_VERSION, score],
+          args: [facetValue, score],
         },
       ],
       "read",
@@ -2972,6 +4366,7 @@ interface LeaderboardRow {
   final_score: unknown;
   tier: unknown;
   tags: unknown;
+  score_version: unknown;
   lookup_count: unknown;
   recent_lookup_count?: unknown;
   last_lookup_at?: unknown;
@@ -2990,7 +4385,7 @@ function toLeaderboardEntry(r: LeaderboardRow, now = Date.now()): LeaderboardEnt
     profile_url: r.profile_url as string | null,
     final_score,
     tier: String(r.tier) as Tier,
-    tags: parseTags(r.tags),
+    tags: r.score_version === SCORE_CACHE_VERSION ? parseTags(r.tags) : EMPTY_TAGS,
     lookup_count,
     recent_lookup_count,
     trending_score: computeTrendingScore(
@@ -3014,7 +4409,7 @@ export async function getTrendingLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, now);
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3026,9 +4421,9 @@ export async function getTrendingLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}`,
-      args: [recentCutoff, SCORE_CACHE_VERSION, minScore],
+      args: [recentCutoff, minScore],
     });
     return rankTrending(
       res.rows.map((r) => ({
@@ -3064,9 +4459,9 @@ export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfil
     const res = await db.execute({
       sql: `SELECT username, scanned_at
             FROM scores
-            WHERE hidden = 0 AND score_version = ? AND final_score >= ?
+            WHERE hidden = 0 AND final_score >= ?
             ORDER BY final_score DESC`,
-      args: [SCORE_CACHE_VERSION, minScore],
+      args: [minScore],
     });
     return res.rows.map((r) => ({
       username: String(r.username),
@@ -3091,7 +4486,7 @@ export async function getLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3103,11 +4498,11 @@ export async function getLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, SCORE_CACHE_VERSION, minScore, limit],
+      args: [recentCutoff, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3133,7 +4528,7 @@ export async function getCampaignLeaderboard(
     const capped = Math.max(1, Math.min(500, limit));
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3146,10 +4541,10 @@ export async function getCampaignLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE participant.campaign = ? AND s.hidden = 0 AND s.score_version = ?
+            WHERE participant.campaign = ? AND s.hidden = 0
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, SCORE_CACHE_VERSION, capped],
+      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, capped],
     });
     const now = Date.now();
     return res.rows.map((row) =>
@@ -3177,7 +4572,7 @@ export async function getHeatLeaderboard(
     const heatOrder = activeOnly ? "recent_lookup_count DESC" : "lookup_count DESC";
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3189,11 +4584,11 @@ export async function getHeatLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY ${heatOrder}, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, SCORE_CACHE_VERSION, minScore, limit],
+      args: [recentCutoff, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3216,7 +4611,7 @@ export async function getProgressLeaderboard(
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags, s.prev_score,
+                   s.final_score, s.tier, s.tags, s.score_version, s.prev_score,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
@@ -3229,13 +4624,12 @@ export async function getProgressLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0
-              AND s.score_version = ?
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
               ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [recentCutoff, SCORE_CACHE_VERSION, limit],
+      args: [recentCutoff, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => {
@@ -3283,17 +4677,11 @@ export async function getFacetCategories(
             JOIN scores AS s ON s.username = f.username
             WHERE f.facet_type = ?
               AND s.hidden = 0
-              AND s.score_version = ?
               AND s.final_score >= ?
             GROUP BY f.facet_value
             ORDER BY count DESC, f.facet_value ASC
             LIMIT ?`,
-      args: [
-        facetType,
-        SCORE_CACHE_VERSION,
-        FACET_MIN_SCORE,
-        Math.max(1, Math.min(500, limit)),
-      ],
+      args: [facetType, FACET_MIN_SCORE, Math.max(1, Math.min(500, limit))],
     });
     return res.rows.map((r) => ({ value: String(r.value), count: Number(r.count) }));
   } catch (e) {
@@ -3323,7 +4711,7 @@ export async function getDevelopersByFacet(
     const capped = Math.max(1, Math.min(DEVELOPERS_PER_FACET_LIMIT, limit));
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags,
+                   s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    stats.last_lookup_at AS last_lookup_at
             FROM developer_facets AS f
@@ -3332,11 +4720,10 @@ export async function getDevelopersByFacet(
             WHERE f.facet_type = ?
               AND f.facet_value = ?
               AND s.hidden = 0
-              AND s.score_version = ?
               AND s.final_score >= ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [facetType, facetValue, SCORE_CACHE_VERSION, FACET_MIN_SCORE, capped],
+      args: [facetType, facetValue, FACET_MIN_SCORE, capped],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -3432,9 +4819,9 @@ async function attachTopContributors(
               WHERE repo_key IN (${placeholders})
             ) AS edges
             JOIN scores AS s ON s.username = edges.username
-            WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+            WHERE s.hidden = 0 AND s.final_score >= ?
             ORDER BY edges.repo_key ASC, s.final_score DESC, s.username ASC`,
-      args: [...keys, SCORE_CACHE_VERSION, FACET_MIN_SCORE],
+      args: [...keys, FACET_MIN_SCORE],
     });
     for (const row of contributors.rows) {
       const key = String(row.repo_key);
@@ -3509,13 +4896,12 @@ async function queryProjectItems(
             FROM edges
             CROSS JOIN repos AS r ON r.repo_key = edges.repo_key
             CROSS JOIN scores AS s ON s.username = edges.username
-              AND s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+              AND s.hidden = 0 AND s.final_score >= ?
             ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
             GROUP BY r.repo_key`,
       args: [
         ...options.repoKeys,
         cutoff,
-        SCORE_CACHE_VERSION,
         FACET_MIN_SCORE,
         ...(options.language ? [options.language] : []),
       ],
@@ -3541,13 +4927,12 @@ async function queryProjectItems(
           FROM repos AS r
           JOIN edges ON edges.repo_key = r.repo_key
           JOIN scores AS s ON s.username = edges.username
-            AND s.hidden = 0 AND s.score_version = ? AND s.final_score >= ?
+            AND s.hidden = 0 AND s.final_score >= ?
           LEFT JOIN recent ON recent.username = edges.username
           ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
           GROUP BY r.repo_key`,
       args: [
         cutoff,
-        SCORE_CACHE_VERSION,
         FACET_MIN_SCORE,
         ...(options.language ? [options.language] : []),
       ],
@@ -3761,16 +5146,15 @@ export async function getRepoOverview(repoKey: string): Promise<RepoOverview | n
     const [ownerRes, contribRes] = await Promise.all([
       db.execute({
         sql: `SELECT username, display_name, avatar_url, final_score, tier
-              FROM scores
-              WHERE username = ? AND hidden = 0 AND score_version = ?`,
-        args: [repo.owner_login, SCORE_CACHE_VERSION],
+              FROM scores WHERE username = ? AND hidden = 0`,
+        args: [repo.owner_login],
       }),
       db.execute({
         sql: `SELECT s.tier AS tier, s.final_score AS final_score
               FROM repo_developers AS rd
               JOIN scores AS s ON s.username = rd.username
-              WHERE rd.repo_key = ? AND s.hidden = 0 AND s.score_version = ?`,
-        args: [key, SCORE_CACHE_VERSION],
+              WHERE rd.repo_key = ? AND s.hidden = 0`,
+        args: [key],
       }),
     ]);
 
@@ -3851,6 +5235,10 @@ export interface AccountDetail {
   roast_en: string | null;
   /** Score formula version that produced this persisted profile. */
   score_version?: string | null;
+  /** Canonical collection provenance; null for historical/legacy score rows. */
+  score_source_collection_version: string | null;
+  /** SHA-256 identity of the complete source snapshot; null for legacy rows. */
+  score_source_snapshot_hash: string | null;
   scanned_at: number;
   /** Previous scan's score/time (progress-board columns); NULL until a re-scan. */
   prev_score: number | null;
@@ -3885,9 +5273,9 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
     const res = await db.execute({
       sql: `SELECT username, display_name, final_score, tier, prev_score, prev_scanned_at
             FROM scores
-            WHERE username = ? AND hidden = 0 AND score_version = ?
+            WHERE username = ? AND hidden = 0
             LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -3935,10 +5323,10 @@ export async function searchScoredUsers(
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, final_score, tier
             FROM scores
-            WHERE hidden = 0 AND score_version = ? AND username LIKE ? ESCAPE '\\'
+            WHERE hidden = 0 AND username LIKE ? ESCAPE '\\'
             ORDER BY final_score DESC
             LIMIT ?`,
-      args: [SCORE_CACHE_VERSION, like, limit],
+      args: [like, limit],
     });
     return res.rows.map((r) => ({
       username: String(r.username),
@@ -4167,15 +5555,21 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-                   tags, roast_line, sub_scores, roast, roast_en, score_version, scanned_at,
-                   prev_score, prev_scanned_at
+                   tags, roast_line, sub_scores, roast, roast_en, score_version,
+                   score_source_collection_version, score_source_snapshot_hash,
+                   roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at
             FROM scores
-            WHERE username = ? AND hidden = 0 AND score_version = ?
+            WHERE username = ? AND hidden = 0
             LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     if (!r) return null;
+    const canonicalScore =
+      r.score_version === SCORE_CACHE_VERSION &&
+      r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      typeof r.score_source_snapshot_hash === "string" &&
+      /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -4183,12 +5577,24 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       profile_url: r.profile_url as string | null,
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
-      tags: parseTags(r.tags),
-      roast_line: parseRoastLine(r.roast_line),
+      tags: canonicalScore ? parseTags(r.tags) : EMPTY_TAGS,
+      roast_line: canonicalScore ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
-      roast: (r.roast as string | null) ?? null,
-      roast_en: (r.roast_en as string | null) ?? null,
+      roast:
+        canonicalScore && r.roast_version === ROAST_CACHE_VERSION
+          ? ((r.roast as string | null) ?? null)
+          : null,
+      roast_en:
+        canonicalScore && r.roast_en_version === ROAST_CACHE_VERSION
+          ? ((r.roast_en as string | null) ?? null)
+          : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
+      score_source_collection_version:
+        typeof r.score_source_collection_version === "string"
+          ? r.score_source_collection_version
+          : null,
+      score_source_snapshot_hash:
+        typeof r.score_source_snapshot_hash === "string" ? r.score_source_snapshot_hash : null,
       scanned_at: Number(r.scanned_at),
       prev_score: r.prev_score === null ? null : Number(r.prev_score),
       prev_scanned_at: r.prev_scanned_at === null ? null : Number(r.prev_scanned_at),
@@ -4210,16 +5616,47 @@ export async function getScoreScannedAt(username: string): Promise<number | null
   try {
     await ensureSchema(db);
     const res = await db.execute({
-      sql: `SELECT scanned_at
-            FROM scores
-            WHERE username = ? AND hidden = 0 AND score_version = ?
-            LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION],
+      sql: `SELECT scanned_at FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`,
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     return r ? Number(r.scanned_at) : null;
   } catch (e) {
     console.error("getScoreScannedAt failed:", e);
+    return null;
+  }
+}
+
+/** Exact write identity for attaching a report to one canonical scan snapshot. */
+export async function getCanonicalScoreWriteIdentity(
+  username: string,
+  snapshotHash: string,
+): Promise<ScoreWriteIdentity | null> {
+  if (!/^[a-f0-9]{64}$/.test(snapshotHash)) return null;
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT scanned_at, score_write_token
+            FROM scores
+            WHERE username = ?
+              AND hidden = 0
+              AND score_version = ?
+              AND score_source_collection_version = ?
+              AND score_source_snapshot_hash = ?
+            LIMIT 1`,
+      args: [
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        snapshotHash,
+      ],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return row ? scoreWriteIdentity(row) : null;
+  } catch (error) {
+    console.error("getCanonicalScoreWriteIdentity failed:", error);
     return null;
   }
 }
@@ -4246,11 +5683,19 @@ export async function getArchivedRoast(
             WHERE username = ?
               AND hidden = 0
               AND score_version = ?
+              AND score_source_collection_version = ?
+              AND length(score_source_snapshot_hash) = 64
+              AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
               AND ${versionCol} = ?
               AND ${col} IS NOT NULL
               AND ${col} != ''
             LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION, ROAST_CACHE_VERSION],
+      args: [
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        ROAST_CACHE_VERSION,
+      ],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -4292,18 +5737,16 @@ export async function getSimilarAccounts(
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags, s.sub_scores,
+                   s.final_score, s.tier, s.tags, s.score_version, s.sub_scores,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0
-              AND s.score_version = ?
               AND s.username != ?
               AND s.final_score BETWEEN ? AND ?
             ORDER BY s.final_score DESC
             LIMIT ?`,
       args: [
-        SCORE_CACHE_VERSION,
         username.toLowerCase(),
         finalScore - SIMILAR_SCORE_BAND,
         finalScore + SIMILAR_SCORE_BAND,
@@ -4800,14 +6243,11 @@ export async function listFollowedAccounts(
                    s.display_name, s.avatar_url, s.final_score, s.tier,
                    s.prev_score, s.prev_scanned_at
             FROM follows f
-            LEFT JOIN scores s
-              ON s.username = f.target_username
-              AND s.hidden = 0
-              AND s.score_version = ?
+            LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0
             WHERE f.follower_github_id = ?
             ORDER BY f.created_at DESC
             LIMIT ?`,
-      args: [SCORE_CACHE_VERSION, followerGithubId, MAX_FOLLOWS],
+      args: [followerGithubId, MAX_FOLLOWS],
     });
     const scored = res.rows.filter((r) => r.final_score !== null).map((r) => String(r.username));
     const baselines = await getWeeklyBaselines(scored);

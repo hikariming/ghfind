@@ -277,9 +277,9 @@ export interface RoastJudgeResult {
 }
 
 /**
- * Metadata the roast stream emits on its first line, after the AI applies its
- * bounded ±10 qualitative adjustment. `final_score` is the deterministic score
- * plus `delta` (clamped 0-100, 2 decimals) and is the authoritative final score.
+ * Metadata the roast stream emits on its first line. `final_score` is the
+ * authoritative deterministic score; `delta` remains zero because the model
+ * generates report text only.
  */
 export interface RoastMeta {
   final_score: number;

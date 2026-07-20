@@ -207,7 +207,7 @@ TURSO_DATABASE_URL=file:./local.db
 4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and resumable public-history scans.
 5. For resumable public-history scans in Vercel, set `CRON_SECRET`. The included `vercel.json` invokes the authenticated internal worker every five minutes; Turso is the durable queue and no additional queue SaaS is required. This cadence requires a Vercel plan that permits sub-daily Cron jobs; Vercel Hobby deployments reject the five-minute schedule at deployment time.
 6. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
-7. (Optional) set `PUBLIC_SITE_URL` when deploying under a custom domain so metadata, sitemap, cards, and LLM attribution use the right origin.
+7. Set both `NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. Vercel Production rejects a missing, local, HTTP, malformed, or mismatched value during the build so metadata, sitemap, API profile URLs, cards, and LLM attribution cannot drift.
 8. Deploy.
 
 ## Bring your own model / API key
