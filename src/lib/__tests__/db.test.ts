@@ -6,6 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry, ScoreWriteIdentity } from "../db";
+import { LEGACY_READ_FALLBACK } from "../release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
 import { score } from "../score";
 import type { RawMetrics, ScanResult } from "../types";
@@ -170,6 +171,54 @@ async function writeScore(scoreEntry: ScoreEntry): Promise<ScoreWriteIdentity> {
   return identity;
 }
 
+async function writeLegacyReadFallback(username: string): Promise<void> {
+  const identity = await db.recordScore({ ...entry, username });
+  if (!identity) throw new Error("expected synthetic legacy score write");
+  const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+  const scan = syntheticScan(username);
+  scan.scoring.final_score = entry.final_score;
+  const serialized = serializeScan(scan);
+  const now = entry.scanned_at;
+  await client.batch(
+    [
+      {
+        sql: `UPDATE scores
+              SET score_version = ?, score_source_collection_version = NULL,
+                  score_source_snapshot_hash = NULL, roast = ?, roast_version = ?,
+                  roast_en = ?, roast_en_version = ?
+              WHERE username = ?`,
+        args: [
+          LEGACY_READ_FALLBACK.score,
+          "## 旧版中文点评\n只读回放。",
+          LEGACY_READ_FALLBACK.roast,
+          "## Legacy English roast\nRead-only replay.",
+          LEGACY_READ_FALLBACK.roast,
+          username,
+        ],
+      },
+      {
+        sql: `INSERT INTO public_scan_runs
+                (id, username, score_version, collection_version, state, coverage,
+                 source_status, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+              VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?)`,
+        args: [
+          `legacy-read-${username}`,
+          username,
+          LEGACY_READ_FALLBACK.score,
+          LEGACY_READ_FALLBACK.collection,
+          JSON.stringify(COMPLETE_PUBLIC_SOURCES),
+          serialized.snapshot,
+          serialized.snapshotHash,
+          now,
+          now,
+          now,
+        ],
+      },
+    ],
+    "write",
+  );
+}
+
 describe("getArchivedRoast", () => {
   it("replays archived reports by username and language", async () => {
     const scoreWrite = await writeScore(entry);
@@ -231,6 +280,67 @@ describe("getArchivedRoast", () => {
 
     await expect(db.getArchivedRoast(username, "zh")).resolves.toBeNull();
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
+  });
+
+  it("serves an exact v5/v5/v3 artifact as a stale read without changing its score", async () => {
+    const username = "legacy-read-fixture";
+    await writeLegacyReadFallback(username);
+
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      username,
+      final_score: entry.final_score,
+      score_version: LEGACY_READ_FALLBACK.score,
+      tags: entry.tags,
+      roast: "## 旧版中文点评\n只读回放。",
+      roast_en: "## Legacy English roast\nRead-only replay.",
+    });
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      username,
+      final_score: entry.final_score,
+      report: "## 旧版中文点评\n只读回放。",
+    });
+    await expect(db.getLegacyReadFallbackRoast(username, "en")).resolves.toMatchObject({
+      report: "## Legacy English roast\nRead-only replay.",
+    });
+  });
+
+  it("rejects a v5 report when its v3 snapshot no longer proves the exact tuple", async () => {
+    const username = "legacy-fallback-mismatch";
+    await writeLegacyReadFallback(username);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE public_scan_runs SET score_version = ? WHERE username = ?`,
+      args: ["v6", username],
+    });
+
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: entry.final_score,
+      tags: { zh: [], en: [] },
+      roast: null,
+      roast_en: null,
+    });
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+  });
+
+  it("rejects a v5 report when its v3 snapshot score differs from the score row", async () => {
+    const username = "legacy-fallback-score-mismatch";
+    await writeLegacyReadFallback(username);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const tamperedSnapshot = syntheticScan(username);
+    tamperedSnapshot.scoring.final_score = entry.final_score + 1;
+    const serialized = serializeScan(tamperedSnapshot);
+    await client.execute({
+      sql: `UPDATE public_scan_runs SET snapshot = ?, snapshot_hash = ? WHERE username = ?`,
+      args: [serialized.snapshot, serialized.snapshotHash, username],
+    });
+
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: entry.final_score,
+      tags: { zh: [], en: [] },
+      roast: null,
+      roast_en: null,
+    });
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
   });
 
   it("clears generated reports when the deterministic score identity changes", async () => {

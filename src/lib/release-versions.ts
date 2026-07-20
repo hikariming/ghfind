@@ -24,6 +24,11 @@ export interface ReleaseVersionManifest {
     roastReplay: { score: string; roast: string }[];
     collectionReadOrder: string[];
   };
+  /**
+   * A read-only emergency artifact tuple. It is never a canonical version,
+   * replay alias, migration source, or queue target.
+   */
+  legacyReadFallback: ReleaseVersionSet;
   changeControl: {
     maxComponentsPerPullRequest: number;
     approvedMultiComponentIssue: number | null;
@@ -33,6 +38,19 @@ export interface ReleaseVersionManifest {
 }
 
 export const RELEASE_VERSION_MANIFEST = manifestJson as ReleaseVersionManifest;
+
+/**
+ * The only historical artifact tuple permitted for emergency reads. Keep this
+ * separate from `compatibility`: normal reads remain v9 -> v8 and v4 -> v3.
+ */
+export const LEGACY_READ_FALLBACK: ReleaseVersionSet =
+  RELEASE_VERSION_MANIFEST.legacyReadFallback;
+
+const EXPECTED_LEGACY_READ_FALLBACK: ReleaseVersionSet = {
+  score: "v5",
+  roast: "v5",
+  collection: "v3",
+};
 
 export const RUNTIME_RELEASE_VERSIONS: ReleaseVersionSet = {
   score: SCORE_CACHE_VERSION,
@@ -207,6 +225,13 @@ export function releaseVersionErrors(
     ) {
       errors.push("roast replay must require the canonical score and roast pair");
     }
+  }
+
+  if (
+    !isVersionSet(typed.legacyReadFallback) ||
+    !sameVersions(typed.legacyReadFallback, EXPECTED_LEGACY_READ_FALLBACK)
+  ) {
+    errors.push("legacy read fallback must remain the exact v5/v5/v3 artifact tuple");
   }
 
   if (!Array.isArray(typed.aliases) || typed.aliases.length !== 0) {

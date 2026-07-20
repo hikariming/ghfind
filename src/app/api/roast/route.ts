@@ -6,6 +6,7 @@ import { machineAuth } from "@/lib/machine-auth";
 import {
   getArchivedRoast,
   getCanonicalScoreWriteIdentity,
+  getLegacyReadFallbackRoast,
   getScoreScannedAt,
   updateRoast,
   type ScoreWriteIdentity,
@@ -646,6 +647,32 @@ export async function POST(req: NextRequest) {
   }
 
   const lang = normLang(body.lang);
+
+  // A verified v5/v5/v3 artifact is a read-only continuity path for a stalled
+  // v9 collector. It is intentionally checked before resolving an LLM config:
+  // replaying already-persisted public text must not depend on model capacity or
+  // spend credit. `refresh` explicitly opts out and continues toward v9 work.
+  if (body.refresh !== true) {
+    const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
+    if (legacyRoast && reportMatchesLang(legacyRoast.report, lang)) {
+      const meta = await metaForStoredRoast(
+        legacyRoast.final_score,
+        legacyRoast.tier,
+        legacyRoast.tags,
+        legacyRoast.roast_line,
+        lang,
+      );
+      logRoastSummary({
+        requestId,
+        lang,
+        path: "legacy_read_fallback",
+        ok: true,
+        source: "legacy_v5_v5_v3",
+        requestTotalMs: Date.now() - reqT0,
+      });
+      return roastResponse(legacyRoast.report, meta);
+    }
+  }
 
   const resolved = resolveConfig(body.byoKey);
   if (!resolved) {
