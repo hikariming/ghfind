@@ -12,6 +12,10 @@ If the quick collector cannot complete, a verified `v5/v5/v3` artifact may be
 served as a read-only emergency fallback. A successful quick scan always takes
 precedence and overwrites the current profile atomically.
 
+`v8` is not a public read fallback. Public pages, score APIs, search, rankings,
+badges, and profile snapshots serve only v9 artifacts; a v5 response is allowed
+only after the synchronous quick collector has failed.
+
 ## Deployment Checks
 
 1. Run `pnpm versions:check`, `pnpm typecheck`, `pnpm lint`, and `pnpm test`.

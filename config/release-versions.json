@@ -15,7 +15,7 @@
     "trackingIssue": null
   },
   "compatibility": {
-    "publicScoreReadOrder": ["v9", "v8"],
+    "publicScoreReadOrder": ["v9"],
     "roastReplay": [
       {
         "score": "v9",

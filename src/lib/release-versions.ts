@@ -41,7 +41,7 @@ export const RELEASE_VERSION_MANIFEST = manifestJson as ReleaseVersionManifest;
 
 /**
  * The only historical artifact tuple permitted for emergency reads. Keep this
- * separate from `compatibility`: normal reads remain v9 -> v8 and v4 -> v3.
+ * separate from `compatibility`: normal public score reads serve v9 only.
  */
 export const LEGACY_READ_FALLBACK: ReleaseVersionSet =
   RELEASE_VERSION_MANIFEST.legacyReadFallback;
@@ -200,13 +200,8 @@ export function releaseVersionErrors(
   if (!isRecord(typed.compatibility)) {
     errors.push("compatibility matrix is missing");
   } else {
-    if (
-      !exactList(typed.compatibility.publicScoreReadOrder, [
-        targetRelease.score,
-        previousRelease.score,
-      ])
-    ) {
-      errors.push("public score reads must prefer target and fall back to the previous release");
+    if (!exactList(typed.compatibility.publicScoreReadOrder, [targetRelease.score])) {
+      errors.push("public score reads must only serve the canonical target release");
     }
     if (
       !exactList(typed.compatibility.collectionReadOrder, [

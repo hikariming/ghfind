@@ -3,6 +3,7 @@ import {
   getAccountDetail,
   publishCompleteQuickScan,
   recordAccountLookup,
+  type AccountDetail,
 } from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { normalizeUsername } from "@/lib/username";
@@ -109,6 +110,44 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
   );
 }
 
+function isCanonicalDetail(detail: AccountDetail): boolean {
+  return (
+    detail.score_version === SCORE_CACHE_VERSION &&
+    detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+    typeof detail.score_source_snapshot_hash === "string" &&
+    /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)
+  );
+}
+
+async function persistedScoreResponse(
+  detail: AccountDetail,
+  options: { source: "indexed" | "legacy_v5_v5_v3"; current: boolean; headers?: Record<string, string> },
+) {
+  return json(
+    {
+      source: options.source,
+      coverage: options.current ? "quick" : "legacy",
+      stale: !options.current,
+      username: detail.username,
+      display_name: detail.display_name,
+      avatar_url: detail.avatar_url,
+      profile_url: detail.profile_url ?? `https://github.com/${detail.username}`,
+      final_score: detail.final_score,
+      tier: detail.tier,
+      tier_key: TIER_KEY[detail.tier],
+      sub_scores: detail.sub_scores,
+      tags: detail.tags,
+      roast_line: detail.roast_line,
+      percentile: await percentileFor(detail.final_score),
+      scanned_at: detail.scanned_at,
+      profile: `${SITE_URL}/u/${detail.username}`,
+    },
+    200,
+    options.current ? RATED_CACHE : LIVE_CACHE,
+    options.headers,
+  );
+}
+
 /** Public deterministic score: bounded quick collection only, never queue work. */
 export async function GET(
   req: NextRequest,
@@ -129,34 +168,8 @@ export async function GET(
   }
 
   const detail = await getAccountDetail(handle);
-  if (detail) {
-    const currentScore =
-      detail.score_version === SCORE_CACHE_VERSION &&
-      detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
-      typeof detail.score_source_snapshot_hash === "string" &&
-      /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash);
-    return json(
-      {
-        source: "indexed",
-        coverage: "quick",
-        stale: !currentScore,
-        username: detail.username,
-        display_name: detail.display_name,
-        avatar_url: detail.avatar_url,
-        profile_url: detail.profile_url ?? `https://github.com/${detail.username}`,
-        final_score: detail.final_score,
-        tier: detail.tier,
-        tier_key: TIER_KEY[detail.tier],
-        sub_scores: detail.sub_scores,
-        tags: detail.tags,
-        roast_line: detail.roast_line,
-        percentile: await percentileFor(detail.final_score),
-        scanned_at: detail.scanned_at,
-        profile: `${SITE_URL}/u/${detail.username}`,
-      },
-      200,
-      currentScore ? RATED_CACHE : LIVE_CACHE,
-    );
+  if (detail && isCanonicalDetail(detail)) {
+    return persistedScoreResponse(detail, { source: "indexed", current: true });
   }
 
   const limit = await checkRateLimit(clientIp(req));
@@ -190,6 +203,13 @@ export async function GET(
     }
   } catch (error) {
     if (error instanceof ScorePersistenceError) return scorePersistenceUnavailable(headers);
+    if (detail?.legacy_read_fallback) {
+      return persistedScoreResponse(detail, {
+        source: "legacy_v5_v5_v3",
+        current: false,
+        headers,
+      });
+    }
     const { error: code, status, retry_after } = scanErrorResponse(error);
     return json(
       { error: code, message: code.replace(/_/g, " "), ...(retry_after ? { retry_after } : {}) },

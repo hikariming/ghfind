@@ -1993,7 +1993,7 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("prefers v9, falls back to v8, and ignores non-release snapshots", async () => {
+  it("reads only v9 profile snapshots and ignores legacy snapshots", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     const username = "profile-version-fixture";
     const rows = [
@@ -2017,10 +2017,7 @@ describe("profile snapshots", () => {
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
       args: ["profile-v9"],
     });
-    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
-      metrics: { followers: 8 },
-      scanned_at: 300,
-    });
+    await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 
     await client.execute({
       sql: `INSERT INTO profile_snapshots (id, username, scanned_at, metrics, scan_version)
@@ -2370,8 +2367,8 @@ describe("getRepoOverview + filterExistingRepoKeys", () => {
   });
 });
 
-describe("legacy public score release guardrail", () => {
-  it("keeps a synthetic v8 row on every passive public surface without creating work", async () => {
+describe("legacy public score exclusion", () => {
+  it("never serves a v8 row on passive public surfaces or creates background work", async () => {
     const username = "legacy-public-fixture";
     const peer = "legacy-peer-fixture";
     const repoKey = `${username}/public-fixture`;
@@ -2452,40 +2449,19 @@ describe("legacy public score release guardrail", () => {
       db.getArchivedRoast(username, "zh"),
     ]);
 
-    expect(detail).toMatchObject({
-      username,
-      final_score: 86,
-      score_version: "v8",
-      tags: { zh: [], en: [] },
-      roast_line: { zh: "", en: "" },
-      roast: null,
-      roast_en: null,
-    });
-    expect(brief).toMatchObject({ username, final_score: 86 });
-    expect(suggestions).toEqual(expect.arrayContaining([expect.objectContaining({ username })]));
+    expect(detail).toBeNull();
+    expect(brief).toBeNull();
+    expect(suggestions.some((item) => item.username === username)).toBe(false);
     for (const entries of [leaderboard, trending, heat]) {
-      expect(entries.some((item) => item.username === username)).toBe(true);
-      expect(entries.find((item) => item.username === username)?.tags).toEqual({ zh: [], en: [] });
+      expect(entries.some((item) => item.username === username)).toBe(false);
     }
-    expect(facets).toEqual(
-      expect.arrayContaining([expect.objectContaining({ value: "FixtureLang" })]),
-    );
-    expect(facetDevelopers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ username, tags: { zh: [], en: [] } }),
-      ]),
-    );
-    expect(sitemapProfiles).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username })]),
-    );
-    expect(repo).toMatchObject({ owner: { username }, summary: { count: 1 } });
-    expect(similar).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ username: peer, tags: { zh: [], en: [] } }),
-      ]),
-    );
+    expect(facets.some((facet) => facet.value === "FixtureLang")).toBe(false);
+    expect(facetDevelopers.some((item) => item.username === username)).toBe(false);
+    expect(sitemapProfiles.some((item) => item.username === username)).toBe(false);
+    expect(repo).toMatchObject({ owner: null, summary: { count: 0 } });
+    expect(similar.some((item) => item.username === peer)).toBe(false);
     expect(following).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username, final_score: 86 })]),
+      expect.arrayContaining([expect.objectContaining({ username, final_score: null })]),
     );
     expect(archivedRoast).toBeNull();
 
