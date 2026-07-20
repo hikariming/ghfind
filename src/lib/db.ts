@@ -101,11 +101,11 @@ function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
   );
 }
 
-function isVerifiedLegacyReadFallbackRun(
+function parseVerifiedLegacyReadFallbackRun(
   run: PublicScanRun,
   username: string,
   finalScore: number,
-): boolean {
+): ScanResult | null {
   if (
     run.scoreVersion !== LEGACY_READ_FALLBACK.score ||
     run.collectionVersion !== LEGACY_READ_FALLBACK.collection ||
@@ -114,19 +114,25 @@ function isVerifiedLegacyReadFallbackRun(
     !hasCompletePublicScanSources(run.sourceStatus) ||
     createHash("sha256").update(run.snapshot).digest("hex") !== run.snapshotHash
   ) {
-    return false;
+    return null;
   }
   try {
     const snapshot = JSON.parse(run.snapshot) as Partial<ScanResult>;
-    return (
-      typeof snapshot.metrics?.username === "string" &&
-      snapshot.metrics.username.trim().toLowerCase() === username &&
-      typeof snapshot.scoring?.final_score === "number" &&
-      Number.isFinite(snapshot.scoring.final_score) &&
-      snapshot.scoring.final_score === finalScore
-    );
+    if (
+      typeof snapshot.metrics?.username !== "string" ||
+      snapshot.metrics.username.trim().toLowerCase() !== username ||
+      typeof snapshot.scoring?.final_score !== "number" ||
+      !Number.isFinite(snapshot.scoring.final_score) ||
+      snapshot.scoring.final_score !== finalScore ||
+      !Array.isArray(snapshot.top_repos) ||
+      !Array.isArray(snapshot.recent_prs) ||
+      !Array.isArray(snapshot.flood_pr_titles)
+    ) {
+      return null;
+    }
+    return snapshot as ScanResult;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -135,14 +141,14 @@ function isVerifiedLegacyReadFallbackRun(
  * snapshot agree on the same account/version contract. This is read-only: it
  * never upgrades, queues, re-scores, or invokes an LLM.
  */
-async function isVerifiedLegacyReadFallback(
+async function getVerifiedLegacyReadFallbackScan(
   db: Client,
   row: Record<string, unknown>,
-): Promise<boolean> {
-  if (!hasLegacyReadFallbackReport(row)) return false;
+): Promise<ScanResult | null> {
+  if (!hasLegacyReadFallbackReport(row)) return null;
   const username = typeof row.username === "string" ? row.username.trim().toLowerCase() : "";
   const finalScore = Number(row.final_score);
-  if (!username || !Number.isFinite(finalScore)) return false;
+  if (!username || !Number.isFinite(finalScore)) return null;
   try {
     const result = await db.execute({
       sql: `SELECT * FROM public_scan_runs
@@ -162,16 +168,25 @@ async function isVerifiedLegacyReadFallback(
         LEGACY_READ_FALLBACK.collection,
       ],
     });
-    return result.rows.some((run) =>
-      isVerifiedLegacyReadFallbackRun(
+    for (const run of result.rows) {
+      const scan = parseVerifiedLegacyReadFallbackRun(
         mapPublicScanRun(run as Record<string, unknown>),
         username,
         finalScore,
-      ),
-    );
+      );
+      if (scan) return scan;
+    }
+    return null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function isVerifiedLegacyReadFallback(
+  db: Client,
+  row: Record<string, unknown>,
+): Promise<boolean> {
+  return Boolean(await getVerifiedLegacyReadFallbackScan(db, row));
 }
 
 function logPublicScanDbFailure(operation: string, error: unknown): void {
@@ -5696,6 +5711,33 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     };
   } catch (e) {
     console.error("getAccountDetail failed:", e);
+    return null;
+  }
+}
+
+/**
+ * Return the complete stored v3 snapshot that proves a v5/v5 emergency read
+ * fallback. This is deliberately read-only: callers may display it immediately
+ * while separately requesting canonical v9/v4 collection, but must never cache
+ * it as current or use it to materialize a score.
+ */
+export async function getLegacyReadFallbackScan(username: string): Promise<ScanResult | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT username, final_score, score_version, roast, roast_en,
+                   roast_version, roast_en_version
+            FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return row ? await getVerifiedLegacyReadFallbackScan(db, row) : null;
+  } catch (error) {
+    console.error("getLegacyReadFallbackScan failed:", error);
     return null;
   }
 }

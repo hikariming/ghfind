@@ -217,7 +217,7 @@ export function Roaster({
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
-      const presentScan = (result: ScanResult) => {
+      const presentScan = (result: ScanResult, refreshRunId?: string) => {
         const byoKey = loadByoKey();
         const forceProfileHandoff =
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
@@ -230,6 +230,7 @@ export function Roaster({
           }
           const profileParams = new URLSearchParams({ roasting: "1" });
           if (campaign) profileParams.set("campaign", campaign);
+          if (refreshRunId) profileParams.set("refresh_run_id", refreshRunId);
           router.push(`/u/${result.metrics.username}?${profileParams.toString()}`);
           return; // keep `scanning` true so the skeleton persists until navigation
         }
@@ -305,7 +306,8 @@ export function Roaster({
           return;
         }
         const result = data as ScanResult;
-        presentScan(result);
+        const refreshRunId = typeof data?.run_id === "string" ? data.run_id : undefined;
+        presentScan(result, refreshRunId);
       } catch {
         setError(t("errNetworkScan"));
         setScanning(false);

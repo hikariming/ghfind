@@ -92,11 +92,19 @@ version v5. This exact v5/v5/v3 tuple is not an alias, a formal compatibility
 target, a queue target, or a write/migration source.
 
 The fallback serves existing profile and score reads as stale and can replay the
-stored report without an LLM configuration, Cron run, cache write, scan, score
-materialization, or refresh job. It never reconstructs a report from
-`score_snapshots`: those rows do not contain report markdown. A caller that
-explicitly requests refresh bypasses the fallback and continues toward canonical
-v9 work. Missing, mismatched, corrupt, or incomplete tuple members fail closed.
+stored report without an LLM configuration, Cron run, cache write, scan, or score
+materialization. A home-page explicit scan first returns the verified v5/v5/v3
+profile and report handoff, then best-effort starts or resumes only its canonical
+v9/v4 refresh; queue admission or storage failure cannot turn that readable
+result into a waiting screen. It never reconstructs a report from
+`score_snapshots`: those rows do not contain report markdown. Missing,
+mismatched, corrupt, or incomplete tuple members fail closed.
+
+When that explicit handoff has a durable refresh run, the profile polls only the
+opaque run id already issued by the server. On complete v4 publication it makes
+one user-initiated v9 report request, then refreshes to the current v9/v9/v4
+profile. Cron never generates reports, and passive/shared profile visits do not
+poll, enqueue, or spend model credit.
 
 ## Obsolete-job quarantine
 
