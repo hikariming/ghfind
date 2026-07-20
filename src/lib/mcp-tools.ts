@@ -47,9 +47,10 @@ export async function scoreUser(
   }
 
   const detail = await getAccountDetail(handle);
-  if (detail?.score_version === SCORE_CACHE_VERSION) {
+  if (detail) {
     return {
       source: "indexed",
+      stale: detail.score_version !== SCORE_CACHE_VERSION,
       username: detail.username,
       display_name: detail.display_name,
       final_score: detail.final_score,

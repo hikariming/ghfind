@@ -13,10 +13,10 @@ let db: typeof import("../db");
 let tmpDir: string;
 
 const entry: ScoreEntry = {
-  username: "RockChinQ",
-  display_name: "Rock",
+  username: "archive-fixture",
+  display_name: "Archive Fixture",
   avatar_url: null,
-  profile_url: "https://github.com/RockChinQ",
+  profile_url: "https://profiles.example.invalid/archive-fixture",
   final_score: 95.2,
   tier: "夯",
   tags: { zh: ["开源狠人"], en: ["oss beast"] },
@@ -48,17 +48,17 @@ afterAll(() => {
 describe("getArchivedRoast", () => {
   it("replays archived reports by username and language", async () => {
     await db.recordScore(entry);
-    await db.updateRoast("RockChinQ", "## 中文报告", "zh");
-    await db.updateRoast("RockChinQ", "## English report", "en");
+    await db.updateRoast("archive-fixture", "## 中文报告", "zh");
+    await db.updateRoast("archive-fixture", "## English report", "en");
 
-    await expect(db.getArchivedRoast("rockchinq", "zh")).resolves.toMatchObject({
-      username: "rockchinq",
+    await expect(db.getArchivedRoast("ARCHIVE-FIXTURE", "zh")).resolves.toMatchObject({
+      username: "archive-fixture",
       final_score: 95.2,
       tier: "夯",
       tags: entry.tags,
       report: "## 中文报告",
     });
-    await expect(db.getArchivedRoast("RockChinQ", "en")).resolves.toMatchObject({
+    await expect(db.getArchivedRoast("archive-fixture", "en")).resolves.toMatchObject({
       report: "## English report",
     });
   });
@@ -89,6 +89,22 @@ describe("getArchivedRoast", () => {
     });
 
     await expect(db.getArchivedRoast("legacy-roast", "zh")).resolves.toBeNull();
+  });
+
+  it("does not attach a previous-release roast to a target-release score", async () => {
+    const username = "mixed-version-roast-fixture";
+    await db.recordScore({ ...entry, username });
+    await db.updateRoast(username, "## previous release report", "zh");
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = 'v9', roast_version = 'v8'
+            WHERE username = ?`,
+      args: [username],
+    });
+
+    await expect(db.getArchivedRoast(username, "zh")).resolves.toBeNull();
   });
 });
 
@@ -246,6 +262,51 @@ describe("durable public scan jobs", () => {
         error: "test complete",
       }),
     ).resolves.toBe(true);
+  });
+
+  it("stores a complete v3 snapshot as historical data without aliasing it as current", async () => {
+    const username = "previous-collection-fixture";
+    const queued = await db.enqueuePublicScan(username, {
+      scoreVersion: "v8",
+      collectionVersion: "v3",
+    });
+    if (!queued || "rejection" in queued) throw new Error("expected a synthetic v3 job");
+    const lease = await db.claimPublicScanJob(queued.job.id);
+    const snapshot = '{"fixture":"complete-v3"}';
+    const sourceStatus = {
+      quick: "complete",
+      original_repos: "complete",
+      native_prs: "complete",
+      workflow_landings: "complete",
+      commit_recovery: "complete",
+    } as const;
+
+    await expect(
+      db.completePublicScanRun({
+        jobId: queued.job.id,
+        runId: queued.run.id,
+        leaseToken: lease!.leaseToken,
+        coverage: "complete_public",
+        sourceStatus,
+        snapshot,
+        snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.getLatestPublicScanRun(username, {
+        scoreVersion: "v8",
+        collectionVersion: "v3",
+      }),
+    ).resolves.toMatchObject({
+      state: "complete_public",
+      collectionVersion: "v3",
+    });
+    await expect(
+      db.getLatestPublicScanRun(username, {
+        scoreVersion: "v8",
+        collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      }),
+    ).resolves.toBeNull();
   });
 
   it("admits new durable work atomically without charging an existing job", async () => {
@@ -916,6 +977,122 @@ describe("getRepoOverview + filterExistingRepoKeys", () => {
     const found = await db.filterExistingRepoKeys(["Acme/Widget", "ghost/missing"]);
     expect(found.has("acme/widget")).toBe(true);
     expect(found.has("ghost/missing")).toBe(false);
+  });
+});
+
+describe("legacy public score release guardrail", () => {
+  it("keeps a synthetic v8 row on every passive public surface without creating work", async () => {
+    const username = "legacy-public-fixture";
+    const peer = "legacy-peer-fixture";
+    const repoKey = `${username}/public-fixture`;
+    const followerId = 9_100_001;
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+
+    await db.recordScore({ ...entry, username, final_score: 86 });
+    await db.recordScore({ ...entry, username: peer, final_score: 84 });
+    await client.execute({
+      sql: `UPDATE scores
+            SET score_version = 'v8', roast = 'legacy report', roast_version = 'v8'
+            WHERE username IN (?, ?)`,
+      args: [username, peer],
+    });
+    await db.recordDeveloperFacets(username, [
+      { type: "language", value: "FixtureLang", weight: 1 },
+    ]);
+    await db.recordRepoGraph(username, {
+      repos: [
+        {
+          repo_key: repoKey,
+          name_with_owner: `${username}/PublicFixture`,
+          owner_login: username,
+          name: "PublicFixture",
+          description: "Synthetic release fixture",
+          stars: 100,
+          forks: 5,
+          language: "FixtureLang",
+          topics: ["release-fixture"],
+        },
+      ],
+      links: [
+        {
+          repo_key: repoKey,
+          relation: "owner",
+          commits: null,
+          prs: null,
+          weight: 100,
+        },
+      ],
+    });
+    await expect(db.setFollow(followerId, username)).resolves.toBe("ok");
+
+    const jobsBefore = await client.execute(
+      "SELECT COUNT(*) AS count FROM public_scan_jobs",
+    );
+    const runsBefore = await client.execute(
+      "SELECT COUNT(*) AS count FROM public_scan_runs",
+    );
+
+    const [
+      detail,
+      brief,
+      suggestions,
+      leaderboard,
+      trending,
+      heat,
+      facets,
+      facetDevelopers,
+      sitemapProfiles,
+      repo,
+      similar,
+      following,
+      archivedRoast,
+    ] = await Promise.all([
+      db.getAccountDetail(username),
+      db.getScoreBrief(username),
+      db.searchScoredUsers("legacy-public"),
+      db.getLeaderboard(500, 0),
+      db.getTrendingLeaderboard(500, 0),
+      db.getHeatLeaderboard(500, 0),
+      db.getFacetCategories("language"),
+      db.getDevelopersByFacet("language", "FixtureLang"),
+      db.getAllPublicUsernames(0),
+      db.getRepoOverview(repoKey),
+      db.getSimilarAccounts(username, 86, entry.sub_scores, 100),
+      db.listFollowedAccounts(followerId),
+      db.getArchivedRoast(username, "zh"),
+    ]);
+
+    expect(detail).toMatchObject({ username, final_score: 86, score_version: "v8" });
+    expect(brief).toMatchObject({ username, final_score: 86 });
+    expect(suggestions).toEqual(expect.arrayContaining([expect.objectContaining({ username })]));
+    for (const entries of [leaderboard, trending, heat]) {
+      expect(entries.some((item) => item.username === username)).toBe(true);
+    }
+    expect(facets).toEqual(
+      expect.arrayContaining([expect.objectContaining({ value: "FixtureLang" })]),
+    );
+    expect(facetDevelopers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ username })]),
+    );
+    expect(sitemapProfiles).toEqual(
+      expect.arrayContaining([expect.objectContaining({ username })]),
+    );
+    expect(repo).toMatchObject({ owner: { username }, summary: { count: 1 } });
+    expect(similar.some((item) => item.username === peer)).toBe(true);
+    expect(following).toEqual(
+      expect.arrayContaining([expect.objectContaining({ username, final_score: 86 })]),
+    );
+    expect(archivedRoast).toBeNull();
+
+    const jobsAfter = await client.execute("SELECT COUNT(*) AS count FROM public_scan_jobs");
+    const runsAfter = await client.execute("SELECT COUNT(*) AS count FROM public_scan_runs");
+    const persisted = await client.execute({
+      sql: "SELECT score_version FROM scores WHERE username = ?",
+      args: [username],
+    });
+    expect(Number(jobsAfter.rows[0]?.count)).toBe(Number(jobsBefore.rows[0]?.count));
+    expect(Number(runsAfter.rows[0]?.count)).toBe(Number(runsBefore.rows[0]?.count));
+    expect(persisted.rows[0]?.score_version).toBe("v8");
   });
 });
 

@@ -140,10 +140,11 @@ export async function GET(
 
   // 1) Indexed (already roasted / scored) — richest payload, cheapest path.
   const detail = await getAccountDetail(handle);
-  if (detail?.score_version === SCORE_CACHE_VERSION) {
+  if (detail) {
     return json(
       {
         source: "indexed",
+        stale: detail.score_version !== SCORE_CACHE_VERSION,
         username: detail.username,
         display_name: detail.display_name,
         avatar_url: detail.avatar_url,
@@ -159,11 +160,11 @@ export async function GET(
         profile: `${SITE_URL}/u/${detail.username}`,
       },
       200,
-      RATED_CACHE,
+      detail.score_version === SCORE_CACHE_VERSION ? RATED_CACHE : LIVE_CACHE,
     );
   }
 
-  // 2) Not indexed → score it live, deterministically (NO LLM).
+  // 2) Not indexed at all → score it live, deterministically (NO LLM).
   const statusLimit = await checkPublicScanStatusRateLimit(clientIp(req));
   const statusHeaders = rateLimitHeaders(statusLimit);
   if (!statusLimit.success) {
