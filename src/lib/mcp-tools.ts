@@ -1,5 +1,5 @@
 /** Shared deterministic MCP tool implementations. */
-import { getAccountDetail, searchScoredUsers } from "@/lib/db";
+import { getAccountDetail, publishCompleteQuickScan, searchScoredUsers } from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getLeaderboardCached } from "@/lib/leaderboard";
 import type { LeaderboardCacheView } from "@/lib/redis";
@@ -7,6 +7,7 @@ import type { LeaderboardWindow } from "@/lib/db";
 import { coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
@@ -27,7 +28,20 @@ async function percentileFor(finalScore: number) {
 
 async function quickScan(handle: string): Promise<ScanResult> {
   const cached = await getCachedScan(handle);
-  return cached ?? coalesceScan(handle, () => buildScanResult(handle));
+  const scan = cached ?? await coalesceScan(handle, () => buildScanResult(handle));
+  if (!(await publishCompleteQuickScan(scan))) {
+    throw new Error("score persistence unavailable");
+  }
+  return scan;
+}
+
+function isCanonicalDetail(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>): boolean {
+  return (
+    detail.score_version === SCORE_CACHE_VERSION &&
+    detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+    typeof detail.score_source_snapshot_hash === "string" &&
+    /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)
+  );
 }
 
 /** Deterministic score for one account, with no asynchronous collection state. */
@@ -40,7 +54,7 @@ export async function scoreUser(
   }
 
   const detail = await getAccountDetail(handle);
-  if (detail) {
+  if (detail && isCanonicalDetail(detail)) {
     return {
       source: "indexed",
       coverage: "quick",
@@ -76,6 +90,22 @@ export async function scoreUser(
       profile: `${SITE_URL}/u/${metrics.username}`,
     };
   } catch (error) {
+    if (detail?.legacy_read_fallback) {
+      return {
+        source: "legacy_v5_v5_v3",
+        coverage: "legacy",
+        stale: true,
+        username: detail.username,
+        display_name: detail.display_name,
+        final_score: detail.final_score,
+        tier: detail.tier,
+        tier_key: TIER_KEY[detail.tier],
+        sub_scores: detail.sub_scores,
+        percentile: await percentileFor(detail.final_score),
+        scanned_at: detail.scanned_at,
+        profile: `${SITE_URL}/u/${detail.username}`,
+      };
+    }
     const { error: code } = scanErrorResponse(error);
     return { error: code, message: `could not score ${handle}` };
   }

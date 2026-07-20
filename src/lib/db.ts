@@ -83,12 +83,23 @@ import type {
 } from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
-const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
-  .publicScoreReadOrder as [string, string];
+const PUBLIC_PROFILE_SCORE_VERSION = RELEASE_VERSION_MANIFEST.compatibility
+  .publicScoreReadOrder[0];
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
 const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
+
+/**
+ * Public reads must never surface a score merely because it is the newest row.
+ * A row is readable only after the current quick collector has materialized the
+ * current formal v9 score. The roast route separately requires an exact v9/v4
+ * snapshot hash before it generates or replays text. The v5 emergency path is
+ * handled explicitly by the profile/roast readers and never joins rankings.
+ */
+function canonicalPublicScorePredicate(alias: string): string {
+  return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
+}
 
 function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
   return (
@@ -4119,9 +4130,9 @@ export async function hasProfileSnapshot(username: string): Promise<boolean> {
     const res = await db.execute({
       sql: `SELECT 1
             FROM profile_snapshots
-            WHERE username = ? AND scan_version IN (?, ?)
+            WHERE username = ? AND scan_version = ?
             LIMIT 1`,
-      args: [username.toLowerCase(), ...PUBLIC_PROFILE_SCORE_VERSIONS],
+      args: [username.toLowerCase(), PUBLIC_PROFILE_SCORE_VERSION],
     });
     return res.rows.length > 0;
   } catch (e) {
@@ -4232,13 +4243,12 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ? AND scan_version IN (?, ?)
-            ORDER BY CASE WHEN scan_version = ? THEN 0 ELSE 1 END, scanned_at DESC
+            WHERE username = ? AND scan_version = ?
+            ORDER BY scanned_at DESC
             LIMIT 1`,
       args: [
         username.toLowerCase(),
-        ...PUBLIC_PROFILE_SCORE_VERSIONS,
-        PUBLIC_PROFILE_SCORE_VERSIONS[0],
+        PUBLIC_PROFILE_SCORE_VERSION,
       ],
     });
     const r = res.rows[0];
@@ -4426,8 +4436,10 @@ export async function getPercentile(
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT
-              (SELECT COUNT(*) FROM scores WHERE final_score < ?) AS below,
-              (SELECT COUNT(*) FROM scores) AS total`,
+              (SELECT COUNT(*) FROM scores
+                WHERE final_score < ? AND ${canonicalPublicScorePredicate("scores")}) AS below,
+              (SELECT COUNT(*) FROM scores
+                WHERE ${canonicalPublicScorePredicate("scores")}) AS total`,
       args: [score],
     });
     const row = res.rows[0];
@@ -4460,7 +4472,7 @@ export async function getRank(
               SUM(CASE WHEN final_score > ? THEN 1 ELSE 0 END) AS above,
               SUM(CASE WHEN final_score < ? THEN 1 ELSE 0 END) AS below,
               COUNT(*) AS total
-            FROM scores WHERE hidden = 0`,
+            FROM scores WHERE hidden = 0 AND ${canonicalPublicScorePredicate("scores")}`,
       args: [score, score],
     });
     const row = res.rows[0];
@@ -4496,7 +4508,9 @@ export async function getScoreHistogram(): Promise<ScoreHistogramRow[]> {
     await ensureSchema(db);
     const res = await db.execute(
       `SELECT hidden, CAST(ROUND(final_score * 10) AS INTEGER) AS bucket, COUNT(*) AS n
-       FROM scores GROUP BY hidden, bucket`,
+       FROM scores
+       WHERE ${canonicalPublicScorePredicate("scores")}
+       GROUP BY hidden, bucket`,
     );
     return res.rows.map((r) => ({
       hidden: Number(r.hidden),
@@ -4564,6 +4578,7 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND ${canonicalPublicScorePredicate("s")}
                   AND s.final_score >= ?`,
           args: [score, facetValue, FACET_MIN_SCORE],
         },
@@ -4574,6 +4589,7 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND ${canonicalPublicScorePredicate("s")}
                   AND s.final_score > ?
                 ORDER BY s.final_score ASC
                 LIMIT 1`,
@@ -4611,7 +4627,9 @@ export async function getScoreCount(): Promise<number | null> {
   if (!db) return null;
   try {
     await ensureSchema(db);
-    const res = await db.execute("SELECT COUNT(*) AS n FROM scores");
+    const res = await db.execute(
+      `SELECT COUNT(*) AS n FROM scores WHERE ${canonicalPublicScorePredicate("scores")}`,
+    );
     return Number(res.rows[0]?.n ?? 0);
   } catch (e) {
     console.error("getScoreCount failed:", e);
@@ -4682,7 +4700,9 @@ export async function getTrendingLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}`,
       args: [recentCutoff, minScore],
     });
@@ -4720,7 +4740,9 @@ export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfil
     const res = await db.execute({
       sql: `SELECT username, scanned_at
             FROM scores
-            WHERE hidden = 0 AND final_score >= ?
+            WHERE hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
+              AND final_score >= ?
             ORDER BY final_score DESC`,
       args: [minScore],
     });
@@ -4759,7 +4781,9 @@ export async function getLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -4802,7 +4826,9 @@ export async function getCampaignLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE participant.campaign = ? AND s.hidden = 0
+            WHERE participant.campaign = ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
       args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, capped],
@@ -4845,7 +4871,9 @@ export async function getHeatLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY ${heatOrder}, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -4885,6 +4913,7 @@ export async function getProgressLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
               ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
@@ -4938,6 +4967,7 @@ export async function getFacetCategories(
             JOIN scores AS s ON s.username = f.username
             WHERE f.facet_type = ?
               AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?
             GROUP BY f.facet_value
             ORDER BY count DESC, f.facet_value ASC
@@ -4981,6 +5011,7 @@ export async function getDevelopersByFacet(
             WHERE f.facet_type = ?
               AND f.facet_value = ?
               AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -5080,7 +5111,9 @@ async function attachTopContributors(
               WHERE repo_key IN (${placeholders})
             ) AS edges
             JOIN scores AS s ON s.username = edges.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ORDER BY edges.repo_key ASC, s.final_score DESC, s.username ASC`,
       args: [...keys, FACET_MIN_SCORE],
     });
@@ -5157,7 +5190,9 @@ async function queryProjectItems(
             FROM edges
             CROSS JOIN repos AS r ON r.repo_key = edges.repo_key
             CROSS JOIN scores AS s ON s.username = edges.username
-              AND s.hidden = 0 AND s.final_score >= ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
             GROUP BY r.repo_key`,
       args: [
@@ -5188,7 +5223,9 @@ async function queryProjectItems(
           FROM repos AS r
           JOIN edges ON edges.repo_key = r.repo_key
           JOIN scores AS s ON s.username = edges.username
-            AND s.hidden = 0 AND s.final_score >= ?
+            AND s.hidden = 0
+            AND ${canonicalPublicScorePredicate("s")}
+            AND s.final_score >= ?
           LEFT JOIN recent ON recent.username = edges.username
           ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
           GROUP BY r.repo_key`,
@@ -5407,14 +5444,16 @@ export async function getRepoOverview(repoKey: string): Promise<RepoOverview | n
     const [ownerRes, contribRes] = await Promise.all([
       db.execute({
         sql: `SELECT username, display_name, avatar_url, final_score, tier
-              FROM scores WHERE username = ? AND hidden = 0`,
+              FROM scores WHERE username = ? AND hidden = 0
+                AND ${canonicalPublicScorePredicate("scores")}`,
         args: [repo.owner_login],
       }),
       db.execute({
         sql: `SELECT s.tier AS tier, s.final_score AS final_score
               FROM repo_developers AS rd
               JOIN scores AS s ON s.username = rd.username
-              WHERE rd.repo_key = ? AND s.hidden = 0`,
+              WHERE rd.repo_key = ? AND s.hidden = 0
+                AND ${canonicalPublicScorePredicate("s")}`,
         args: [key],
       }),
     ]);
@@ -5537,6 +5576,7 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
       sql: `SELECT username, display_name, final_score, tier, prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
             LIMIT 1`,
       args: [username.toLowerCase()],
     });
@@ -5586,7 +5626,9 @@ export async function searchScoredUsers(
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, final_score, tier
             FROM scores
-            WHERE hidden = 0 AND username LIKE ? ESCAPE '\\'
+            WHERE hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
+              AND username LIKE ? ESCAPE '\\'
             ORDER BY final_score DESC
             LIMIT ?`,
       args: [like, limit],
@@ -5828,14 +5870,16 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     });
     const r = res.rows[0];
     if (!r) return null;
+    const currentScore = r.score_version === SCORE_CACHE_VERSION;
     const canonicalScore =
-      r.score_version === SCORE_CACHE_VERSION &&
+      currentScore &&
       r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
       typeof r.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
     const legacyReadFallback =
-      !canonicalScore && isLegacyReadFallbackProfile(r as Record<string, unknown>);
-    const readableArtifacts = canonicalScore || legacyReadFallback;
+      !currentScore && isLegacyReadFallbackProfile(r as Record<string, unknown>);
+    const readableArtifacts = currentScore || legacyReadFallback;
+    if (!readableArtifacts) return null;
     const artifactRoastVersion = canonicalScore
       ? ROAST_CACHE_VERSION
       : legacyReadFallback
@@ -6113,6 +6157,7 @@ export async function getSimilarAccounts(
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.username != ?
               AND s.final_score BETWEEN ? AND ?
             ORDER BY s.final_score DESC
@@ -6614,7 +6659,9 @@ export async function listFollowedAccounts(
                    s.display_name, s.avatar_url, s.final_score, s.tier,
                    s.prev_score, s.prev_scanned_at
             FROM follows f
-            LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0
+            LEFT JOIN scores s ON s.username = f.target_username
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
             WHERE f.follower_github_id = ?
             ORDER BY f.created_at DESC
             LIMIT ?`,
