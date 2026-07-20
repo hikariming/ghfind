@@ -10,7 +10,6 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
-  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -25,7 +24,6 @@ import {
   type PublicScanResolution,
   requiresDurablePublicScan,
   resolvePublicScanFromTrustedQuickScan,
-  startPublicScan,
 } from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
@@ -93,73 +91,20 @@ async function recordSuccessfulLookup(
   ]);
 }
 
-function durableStatusResponse(input: {
-  username: string;
-  resolution: Exclude<PublicScanResolution, { status: "complete" | "stale" }>;
-  headers: Record<string, string>;
-}) {
-  if (input.resolution.status === "pending") {
-    return NextResponse.json(
-      {
-        error: "scan_enrichment_pending",
-        status: "collecting_public_history",
-        username: input.username,
-        run_id: input.resolution.run.id,
-        retry_after: input.resolution.retryAfterSeconds,
-      },
-      {
-        status: 202,
-        headers: {
-          ...input.headers,
-          "Cache-Control": "no-store",
-          "Retry-After": String(input.resolution.retryAfterSeconds),
-        },
-      },
-    );
-  }
-  if (input.resolution.status === "queue_full" || input.resolution.status === "admission_limited") {
-    return apiError(input.resolution.status, {
-      status: 429,
-      headers: {
-        ...input.headers,
-        "Cache-Control": "no-store",
-        "Retry-After": String(input.resolution.retryAfterSeconds),
-      },
-    });
-  }
-  return apiError("github_unavailable", {
-    status: 503,
-    headers: {
-      ...input.headers,
-      "Retry-After": String(input.resolution.retryAfterSeconds),
-    },
-  });
-}
-
 async function staleSnapshotResponse(input: {
-  username: string;
   status: Extract<PublicScanResolution, { status: "stale" }>;
-  admission: ReturnType<typeof publicScanAdmission>;
   headers: Record<string, string>;
 }) {
-  const refresh = input.status.refreshPending
-    ? null
-    : await startPublicScan(input.username, input.admission);
-  const refreshRun = refresh && "run" in refresh ? refresh.run : input.status.refreshRun;
-  const refreshPending = input.status.refreshPending || refresh?.status === "pending";
-  if (refresh?.status === "pending" && refresh.headStartJobId) {
-    kickPublicScanDrain(refresh.headStartJobId);
-  }
   return NextResponse.json(
     {
       ...input.status.scan,
       cached: true,
       coverage: "complete_public",
       stale: true,
-      refresh_pending: refreshPending,
+      refresh_pending: input.status.refreshPending,
       served_collection_version: input.status.servedCollectionVersion,
       target_collection_version: input.status.targetCollectionVersion,
-      ...(refreshRun ? { run_id: refreshRun.id } : {}),
+      ...(input.status.refreshRun ? { run_id: input.status.refreshRun.id } : {}),
     },
     { headers: { ...input.headers, "Cache-Control": "no-store" } },
   );
@@ -167,28 +112,14 @@ async function staleSnapshotResponse(input: {
 
 /**
  * An explicit scan may ask for canonical v9/v4 work, but a verified v5/v5/v3
- * artifact is still immediately useful to the visitor. The refresh attempt is
- * intentionally best-effort: queue or storage pressure must never turn a
- * readable historical profile back into a waiting screen.
+ * artifact is still immediately useful to the visitor. Reading it never starts
+ * full-history work: only a newly collected quick scan can prove that a full
+ * collection is required.
  */
 async function legacyReadFallbackResponse(input: {
-  username: string;
   scan: import("@/lib/types").ScanResult;
-  admission: ReturnType<typeof publicScanAdmission>;
   headers: Record<string, string>;
 }) {
-  let refresh: PublicScanResolution | null = null;
-  try {
-    refresh = await startPublicScan(input.username, input.admission);
-    if (refresh.status === "pending" && refresh.headStartJobId) {
-      kickPublicScanDrain(refresh.headStartJobId);
-    }
-  } catch {
-    // The fallback has already passed provenance validation. A failed refresh
-    // attempt must not withhold it from the visitor.
-    console.error("legacyReadFallback refresh start failed");
-  }
-  const refreshRun = refresh && "run" in refresh ? refresh.run : null;
   return NextResponse.json(
     {
       ...input.scan,
@@ -196,14 +127,13 @@ async function legacyReadFallbackResponse(input: {
       coverage: "complete_public",
       stale: true,
       legacy_read_fallback: true,
-      refresh_pending: refresh?.status === "pending",
+      refresh_pending: false,
       served_score_version: LEGACY_READ_FALLBACK.score,
       served_roast_version: LEGACY_READ_FALLBACK.roast,
       served_collection_version: LEGACY_READ_FALLBACK.collection,
       target_score_version: RUNTIME_RELEASE_VERSIONS.score,
       target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
       target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
-      ...(refreshRun ? { run_id: refreshRun.id } : {}),
     },
     { headers: { ...input.headers, "Cache-Control": "no-store" } },
   );
@@ -212,25 +142,13 @@ async function legacyReadFallbackResponse(input: {
 /**
  * A v5/v5 profile can be useful even when the old v3 ScanResult has expired.
  * Return a dedicated handoff rather than inventing a partial scan payload; the
- * profile page reads the persisted artifact while the canonical v9/v4 job runs.
+ * profile page reads the persisted artifact. A later explicit scan collects a
+ * fresh quick result before deciding whether to enqueue canonical v9/v9/v4.
  */
 async function legacyReadFallbackProfileResponse(input: {
   username: string;
-  admission: ReturnType<typeof publicScanAdmission>;
   headers: Record<string, string>;
 }) {
-  let refresh: PublicScanResolution | null = null;
-  try {
-    refresh = await startPublicScan(input.username, input.admission);
-    if (refresh.status === "pending" && refresh.headStartJobId) {
-      kickPublicScanDrain(refresh.headStartJobId);
-    }
-  } catch {
-    // A persisted read-only profile remains useful when the refresh queue is
-    // temporarily unavailable.
-    console.error("legacyReadFallback profile refresh start failed");
-  }
-  const refreshRun = refresh && "run" in refresh ? refresh.run : null;
   return NextResponse.json(
     {
       username: input.username,
@@ -238,22 +156,28 @@ async function legacyReadFallbackProfileResponse(input: {
       stale: true,
       legacy_read_fallback: true,
       legacy_profile: true,
-      refresh_pending: refresh?.status === "pending",
+      refresh_pending: false,
       served_score_version: LEGACY_READ_FALLBACK.score,
       served_roast_version: LEGACY_READ_FALLBACK.roast,
       served_collection_version: LEGACY_READ_FALLBACK.collection,
       target_score_version: RUNTIME_RELEASE_VERSIONS.score,
       target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
       target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
-      ...(refreshRun ? { run_id: refreshRun.id } : {}),
     },
     { headers: { ...input.headers, "Cache-Control": "no-store" } },
   );
 }
 
-async function durableResponse(input: {
+/**
+ * Deliver the trusted bounded result immediately, then let the server worker
+ * complete the evidence only when its metrics prove the bounded history is
+ * incomplete. This response is deliberately not a canonical artifact: formal
+ * v9/v9/v4 storage is written only by a complete quick scan or the durable run.
+ */
+async function provisionalQuickResponse(input: {
   username: string;
   scan: import("@/lib/types").ScanResult;
+  cached: boolean;
   headers: Record<string, string>;
   admission: ReturnType<typeof publicScanAdmission>;
 }) {
@@ -266,16 +190,28 @@ async function durableResponse(input: {
     kickPublicScanDrain(resolution.headStartJobId);
   }
   if (resolution.status === "complete") {
+    const scoreWrite = await ensureCanonicalScoreForPublicRun(resolution.run);
+    if (!scoreWrite) return scorePersistenceUnavailable(input.headers);
+    await setCachedScan(resolution.scan.metrics.username, resolution.scan);
     return NextResponse.json(
       { ...resolution.scan, cached: true, coverage: "complete_public" },
       { headers: input.headers },
     );
   }
-  return durableStatusResponse({
-    username: input.username,
-    resolution,
-    headers: input.headers,
-  });
+  return NextResponse.json(
+    {
+      ...input.scan,
+      cached: input.cached,
+      coverage: "quick",
+      provisional: true,
+      refresh_pending: resolution.status === "pending",
+      enrichment_status: resolution.status,
+      ...(resolution.status === "pending"
+        ? { run_id: resolution.run.id, retry_after: resolution.retryAfterSeconds }
+        : { retry_after: resolution.retryAfterSeconds }),
+    },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -345,55 +281,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // The home flow starts here, before the profile page and /api/roast have a
-  // chance to replay a report. Without this handoff, a known-good v5/v5/v3
-  // artifact was hidden behind a v9/v4 collection wait. An explicit request
-  // may start canonical work, but only after this verified legacy result has
-  // been selected; it is never written into current caches or scores.
-  const legacyScan = await getLegacyReadFallbackScan(username);
-  if (legacyScan) {
-    return legacyReadFallbackResponse({
-      username: legacyScan.metrics.username,
-      scan: legacyScan,
-      admission: durableAdmission,
-      headers: { ...idem, ...rlHeaders },
-    });
-  }
-
-  // A complete old ScanResult is optional for continuity. The normal v5
-  // profile path below has an exact stored v5 score/report but no longer has
-  // its full v3 snapshot, so hand the browser to the profile instead of making
-  // it wait for a v9/v4 crawl or fabricating a scan payload.
-  if (await hasLegacyReadFallbackProfile(username)) {
-    return legacyReadFallbackProfileResponse({
-      username,
-      admission: durableAdmission,
-      headers: { ...idem, ...rlHeaders },
-    });
-  }
-
-  // A cache entry is readable only when Turso has the matching complete run and
-  // canonical score. Pre-deployment quick cache entries have neither a trusted
-  // scan time nor provenance, so they are discarded and collected afresh.
+  // A current-release quick cache is a server-authored bounded snapshot. It is
+  // valid for an immediate provisional roast even while a durable run is
+  // pending; the worker replaces it atomically with the complete v9/v9/v4
+  // snapshot when all evidence arrives.
   const cached = await getCachedScan(username);
-  if (status?.status === "stale") {
-    await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
-    return staleSnapshotResponse({
-      username: status.scan.metrics.username,
-      status,
-      admission: durableAdmission,
-      headers: { ...idem, ...rlHeaders },
-    });
+  if (cached) {
+    await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
+    if (requiresDurablePublicScan(cached)) {
+      return provisionalQuickResponse({
+        username: cached.metrics.username,
+        scan: cached,
+        cached: true,
+        headers: { ...idem, ...rlHeaders },
+        admission: durableAdmission,
+      });
+    }
+    return NextResponse.json(
+      { ...cached, cached: true, coverage: "complete_public" },
+      { headers: { ...idem, ...rlHeaders } },
+    );
   }
-  if (status) {
-    await recordSuccessfulLookup(username, ip, campaign);
-    return durableStatusResponse({
-      username,
-      resolution: status,
-      headers: { ...idem, ...rlHeaders },
-    });
-  }
-  if (cached) await clearCachedScan(cached.metrics.username);
 
   try {
     const result = await coalesceScan(username, async () => {
@@ -409,9 +317,10 @@ export async function POST(req: NextRequest) {
     });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     if (requiresDurablePublicScan(result)) {
-      return durableResponse({
+      return provisionalQuickResponse({
         username: result.metrics.username,
         scan: result,
+        cached: false,
         headers: { ...idem, ...rlHeaders },
         admission: durableAdmission,
       });
@@ -424,9 +333,32 @@ export async function POST(req: NextRequest) {
     if (e instanceof ScorePersistenceError) {
       return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     }
-    const { error, status, retry_after } = scanErrorResponse(e);
+    // A failed fresh quick scan must not hide a verified v5/v5/v3 artifact,
+    // but serving the fallback alone never schedules canonical work. A future
+    // successful quick scan will decide whether the account actually needs it.
+    const legacyScan = await getLegacyReadFallbackScan(username);
+    if (legacyScan) {
+      return legacyReadFallbackResponse({
+        scan: legacyScan,
+        headers: { ...idem, ...rlHeaders },
+      });
+    }
+    if (await hasLegacyReadFallbackProfile(username)) {
+      return legacyReadFallbackProfileResponse({
+        username,
+        headers: { ...idem, ...rlHeaders },
+      });
+    }
+    if (status?.status === "stale") {
+      await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
+      return staleSnapshotResponse({
+        status,
+        headers: { ...idem, ...rlHeaders },
+      });
+    }
+    const { error, status: responseStatus, retry_after } = scanErrorResponse(e);
     return apiError(error as Parameters<typeof apiError>[0], {
-      status,
+      status: responseStatus,
       headers: {
         ...idem,
         ...rlHeaders,

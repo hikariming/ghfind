@@ -205,8 +205,9 @@ function previousCollectionVersion(): string | null {
 
 /**
  * The quick collector is intentionally bounded. These signals mean it cannot
- * honestly describe the full public history, so callers must wait for the
- * durable run rather than send a partial score to the writer or leaderboard.
+ * honestly describe the full public history. Callers may show its deterministic
+ * score as a transient quick result, but must wait for the durable run before
+ * writing a formal score, report, or leaderboard row.
  */
 export function requiresDurablePublicScan(scan: ScanResult): boolean {
   const metrics = scan.metrics;
