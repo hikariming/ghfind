@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   collect: vi.fn(),
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
+  ensureCanonicalScoreForPublicRun: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
   getLatestPublicScanRun: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   rateLimitHeaders: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  clearCachedScan: vi.fn(),
   setCachedScan: vi.fn(),
   getPublicScanStatus: vi.fn(),
   publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
@@ -21,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
   getLatestPublicScanRun: mocks.getLatestPublicScanRun,
@@ -44,6 +47,7 @@ vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
   rateLimitHeaders: mocks.rateLimitHeaders,
   coalesceScan: mocks.coalesceScan,
+  clearCachedScan: mocks.clearCachedScan,
   getCachedScan: mocks.getCachedScan,
   setCachedScan: mocks.setCachedScan,
 }));
@@ -124,6 +128,11 @@ describe("scan route machine auth", () => {
       scannedAt: 1_800_000_000_000,
       token: "score-write-token",
     });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue({
+      scannedAt: 1_800_000_000_000,
+      token: "score-write-token",
+    });
+    mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.recordAccountLookup.mockResolvedValue(true);
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ success: true });
@@ -209,17 +218,51 @@ describe("scan route machine auth", () => {
     expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
   });
 
-  it("serves cache hits with RateLimit headers once the limiter passes", async () => {
+  it("serves a complete persisted run with RateLimit headers once the limiter passes", async () => {
     mocks.rateLimitHeaders.mockReturnValue({ "RateLimit-Remaining": "9" });
     mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
+    const run = { id: "complete-run" };
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run,
+      scan: { metrics, scoring },
+    });
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(200);
     expect((await response.json()).cached).toBe(true);
     expect(response.headers.get("RateLimit-Remaining")).toBe("9");
+    expect(mocks.ensureCanonicalScoreForPublicRun).toHaveBeenCalledWith(run);
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("discards an orphaned scan cache and publishes a fresh trusted quick scan", async () => {
+    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).cached).toBe(false);
+    expect(mocks.clearCachedScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when a complete run cannot materialize its canonical score", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run: { id: "complete-run" },
+      scan: { metrics, scoring },
+    });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue(null);
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.setCachedScan).not.toHaveBeenCalled();
   });
 
   it("does not republish a scan returned by the single-flight cache race", async () => {

@@ -393,6 +393,8 @@ export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> 
  * by every input contract plus language and username (24h). */
 export interface CachedRoast {
   report: string;
+  /** Exact canonical scan identity. Missing on pre-migration cache entries. */
+  snapshot_hash?: string;
   /** Retained in the wire shape for compatibility; deterministic scoring fixes it at zero. */
   delta: 0;
   tags: import("./types").Tags;

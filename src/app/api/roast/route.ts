@@ -5,9 +5,8 @@ import { TIER_LABEL_EN } from "@/lib/badge";
 import { machineAuth } from "@/lib/machine-auth";
 import {
   getArchivedRoast,
+  getCanonicalScoreWriteIdentity,
   getScoreScannedAt,
-  recordProfileSnapshot,
-  recordScore,
   updateRoast,
   type ScoreWriteIdentity,
 } from "@/lib/db";
@@ -47,7 +46,7 @@ import {
   setCachedRoast,
   waitForCachedRoast,
 } from "@/lib/redis";
-import { spamBotScore, tierFor } from "@/lib/score";
+import { tierFor } from "@/lib/score";
 import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -543,41 +542,18 @@ function scoreSummary(
   return { final_score: finalScore, tier, tier_label, delta: 0 };
 }
 
-/** Deterministic score + tier + fresh percentile. Records to the leaderboard only on a
- * fresh (non-replayed) default-model roast. */
+/** Deterministic score + tier + fresh percentile. Score persistence belongs to
+ * the trusted scan-completion path and is intentionally independent of LLM work. */
 async function computeMeta(
   scan: ScanResult,
   _delta: number,
   tags: Tags,
   roastLine: RoastLine,
-  record: boolean,
   lang: Lang,
-): Promise<{ meta: RoastMeta; scoreWrite: ScoreWriteIdentity | null }> {
+): Promise<RoastMeta> {
   const summary = scoreSummary(scan, lang);
-  let scoreWrite: ScoreWriteIdentity | null = null;
-  if (record) {
-    scoreWrite = await recordScore({
-      username: scan.metrics.username,
-      display_name: scan.metrics.name,
-      avatar_url: scan.metrics.avatar_url,
-      profile_url: scan.metrics.profile_url,
-      final_score: summary.final_score,
-      tier: summary.tier,
-      tags,
-      roast_line: roastLine,
-      bot_score: spamBotScore(scan.metrics),
-      sub_scores: scan.scoring.sub_scores,
-      scanned_at: Date.now(),
-    });
-    // Keep the evidence snapshot aligned with the score write. A late request
-    // that lost the score CAS must not become the newest profile snapshot.
-    if (scoreWrite) await recordProfileSnapshot(scan);
-  }
   const percentile = await percentileFor(summary.final_score);
-  return {
-    meta: { ...summary, percentile, tags, roast_line: roastLine },
-    scoreWrite,
-  };
+  return { ...summary, percentile, tags, roast_line: roastLine };
 }
 
 async function percentileFor(score: number): Promise<RoastMeta["percentile"]> {
@@ -605,6 +581,7 @@ async function metaForStoredRoast(
 async function cacheRoastReplay(
   username: string,
   lang: Lang,
+  snapshotHash: string,
   report: string,
   tags: Tags,
   roastLine: RoastLine,
@@ -613,6 +590,7 @@ async function cacheRoastReplay(
 ): Promise<void> {
   await setCachedRoast(username, lang, {
     report,
+    snapshot_hash: snapshotHash,
     delta: 0,
     tags,
     roast_line: roastLine,
@@ -702,6 +680,7 @@ export async function POST(req: NextRequest) {
   let isLeader = false;
   let lockWaitMs = 0;
   let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
+  let scoreIdentity: ScoreWriteIdentity | null = null;
 
   // Prefer a durable/current server snapshot. A request-body scan is accepted
   // only for an immediate BYO roast. Default-model generation and every durable
@@ -710,6 +689,7 @@ export async function POST(req: NextRequest) {
     getPublicScanStatus(username),
     getCachedScan(username),
   ]);
+  let completedPublicRun = publicStatus?.status === "complete" ? publicStatus.run : null;
   const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
   const serverScan = completedPublicScan ?? cachedScan;
   let scan = serverScan ?? (!isDefault && body.scan ? sanitizeScan(body.scan) : null);
@@ -733,6 +713,7 @@ export async function POST(req: NextRequest) {
         : await startPublicScan(username, durableAdmission);
     if (resolution.status === "complete") {
       scan = resolution.scan;
+      completedPublicRun = resolution.run;
     } else {
       if (resolution.status === "pending" && resolution.headStartJobId) {
         kickPublicScanDrain(resolution.headStartJobId);
@@ -757,6 +738,28 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
+    // Every replay and new report must belong to the deterministic score from
+    // this exact canonical snapshot. This also prevents pre-migration Redis
+    // entries (whose cache key has no snapshot hash) from bypassing provenance.
+    const snapshotHash = completedPublicRun?.snapshotHash;
+    if (!snapshotHash) {
+      return NextResponse.json(
+        { error: "score_materialization_pending" },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    try {
+      scoreIdentity = await getCanonicalScoreWriteIdentity(username, snapshotHash);
+    } catch {
+      scoreIdentity = null;
+    }
+    if (!scoreIdentity) {
+      return NextResponse.json(
+        { error: "score_materialization_pending" },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     // A validated `refresh` (homepage handoff onto a stale profile, or the
     // owner's rescan) skips both replay paths below and regenerates. Server-
     // checked against the row's scanned_at — without this, the DB archive
@@ -769,7 +772,10 @@ export async function POST(req: NextRequest) {
 
     if (!refreshHonored) {
       const cachedRoast = await getCachedRoast(username, lang);
-      if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
+      if (
+        cachedRoast?.snapshot_hash === snapshotHash &&
+        reportMatchesLang(cachedRoast.report, lang)
+      ) {
         const tags = cachedRoast.tags ?? { zh: [], en: [] };
         const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
         const meta =
@@ -781,13 +787,17 @@ export async function POST(req: NextRequest) {
                 roastLine,
                 lang,
               )
-            : (await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang)).meta;
+            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, lang);
         logRoastSummary({
           requestId, lang, path, ok: true, source: "redis_cache",
           requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(cachedRoast.report, meta);
       }
+      // Old cache entries have no snapshot identity. Clear any rejected replay
+      // before single-flight acquisition so followers wait for the new report
+      // instead of immediately fanning out into duplicate generations.
+      if (cachedRoast) await clearCachedRoast(username, lang);
 
       const archivedRoast = await getArchivedRoast(username, lang);
       if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
@@ -801,6 +811,7 @@ export async function POST(req: NextRequest) {
         await cacheRoastReplay(
           username,
           lang,
+          snapshotHash,
           archivedRoast.report,
           archivedRoast.tags,
           archivedRoast.roast_line,
@@ -836,7 +847,10 @@ export async function POST(req: NextRequest) {
       const lockWaitStartedAt = Date.now();
       const shared = await waitForCachedRoast(username, lang);
       lockWaitMs = Date.now() - lockWaitStartedAt;
-      if (shared && reportMatchesLang(shared.report, lang)) {
+      if (
+        shared?.snapshot_hash === snapshotHash &&
+        reportMatchesLang(shared.report, lang)
+      ) {
         const tags = shared.tags ?? { zh: [], en: [] };
         const roastLine = shared.roast_line ?? EMPTY_ROAST_LINE;
         const meta =
@@ -848,7 +862,7 @@ export async function POST(req: NextRequest) {
                 roastLine,
                 lang,
               )
-            : (await computeMeta(scan, shared.delta, tags, roastLine, false, lang)).meta;
+            : await computeMeta(scan, shared.delta, tags, roastLine, lang);
         logRoastSummary({
           requestId, lang, path, ok: true, source: "singleflight_shared",
           lockWaitMs, requestTotalMs: Date.now() - reqT0,
@@ -985,11 +999,8 @@ export async function POST(req: NextRequest) {
       );
 
       let meta: RoastMeta;
-      let scoreWrite: ScoreWriteIdentity | null = null;
       try {
-        const computed = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
-        meta = computed.meta;
-        scoreWrite = computed.scoreWrite;
+        meta = await computeMeta(scan, delta, tags, roastLine, lang);
         metaMs = Date.now() - reqT0;
       } catch (e) {
         return failAndClose(
@@ -1036,13 +1047,14 @@ export async function POST(req: NextRequest) {
         // Persist under the exact score-write identity before warming replay.
         // A late report that loses the CAS must not enter either storage layer.
         if (isDefault && reportMatchesLang(full, lang)) {
-          const persisted = scoreWrite
-            ? await updateRoast(username, full, lang, scoreWrite)
+          const persisted = scoreIdentity
+            ? await updateRoast(username, full, lang, scoreIdentity, { tags, roastLine })
             : false;
           if (persisted) {
             await cacheRoastReplay(
               username,
               lang,
+              completedPublicRun!.snapshotHash!,
               full,
               tags,
               roastLine,

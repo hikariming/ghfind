@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 
 const mocks = vi.hoisted(() => ({
   getAccountDetail: vi.fn(),
+  ensureCanonicalScoreForPublicRun: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
   getPercentileCached: vi.fn(),
@@ -11,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  clearCachedScan: vi.fn(),
   rateLimitHeaders: vi.fn(),
   setCachedScan: vi.fn(),
   buildScanResult: vi.fn(),
@@ -23,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
   getAccountDetail: mocks.getAccountDetail,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
@@ -37,6 +42,7 @@ vi.mock("@/lib/redis", () => ({
   checkPublicScanStatusRateLimit: mocks.checkPublicScanStatusRateLimit,
   checkRateLimit: mocks.checkRateLimit,
   coalesceScan: mocks.coalesceScan,
+  clearCachedScan: mocks.clearCachedScan,
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
   setCachedScan: mocks.setCachedScan,
@@ -92,8 +98,13 @@ describe("score durable scan guardrails", () => {
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getPublicScanStatus.mockResolvedValue(null);
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.requiresDurablePublicScan.mockReturnValue(false);
     mocks.publishCompleteQuickScan.mockResolvedValue({
+      scannedAt: 1_800_000_000_000,
+      token: "score-write-token",
+    });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue({
       scannedAt: 1_800_000_000_000,
       token: "score-write-token",
     });
@@ -114,7 +125,9 @@ describe("score durable scan guardrails", () => {
       sub_scores: {},
       roast: null,
       roast_en: null,
-      score_version: "v8",
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: null,
+      score_source_snapshot_hash: null,
       scanned_at: 1_800_000_000_000,
       prev_score: null,
       prev_scanned_at: null,
@@ -214,7 +227,7 @@ describe("score durable scan guardrails", () => {
     );
   });
 
-  it("keeps cached quick scans readable without republishing unverified cache data", async () => {
+  it("discards cached quick scans without a persisted run and publishes fresh data", async () => {
     mocks.getCachedScan.mockResolvedValue(quickScan);
 
     const response = await request();
@@ -222,10 +235,79 @@ describe("score durable scan guardrails", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       source: "live",
+      cached: false,
+    });
+    expect(mocks.clearCachedScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.buildScanResult).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(
+      quickScan,
+      expect.any(Number),
+    );
+  });
+
+  it("serves a complete persisted run only after its canonical score exists", async () => {
+    const run = { id: "complete-run" };
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run,
+      scan: quickScan,
+    });
+
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      source: "complete_public",
       cached: true,
     });
+    expect(mocks.ensureCanonicalScoreForPublicRun).toHaveBeenCalledWith(run);
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when a complete run cannot materialize its canonical score", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "complete",
+      run: { id: "complete-run" },
+      scan: quickScan,
+    });
+    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue(null);
+
+    const response = await request();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.setCachedScan).not.toHaveBeenCalled();
+  });
+
+  it("uses the long cache only for exact v9/v4 score provenance", async () => {
+    mocks.getAccountDetail.mockResolvedValue({
+      username: "canonical-fixture",
+      display_name: null,
+      avatar_url: null,
+      profile_url: null,
+      final_score: 84,
+      tier: "人上人",
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "", en: "" },
+      sub_scores: {},
+      roast: null,
+      roast_en: null,
+      score_version: SCORE_CACHE_VERSION,
+      score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
+      score_source_snapshot_hash: "a".repeat(64),
+      scanned_at: 1_800_000_000_000,
+      prev_score: null,
+      prev_scanned_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest("https://example.test/api/score/canonical-fixture"),
+      { params: Promise.resolve({ username: "canonical-fixture" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=3600");
+    await expect(response.json()).resolves.toMatchObject({ stale: false });
   });
 
   it("does not republish a quick scan returned by the single-flight cache race", async () => {
