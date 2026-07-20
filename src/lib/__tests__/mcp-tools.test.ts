@@ -1,105 +1,108 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AccountDetail } from "@/lib/db";
+import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
+  buildScanResult: vi.fn(),
+  coalesceScan: vi.fn(),
   getAccountDetail: vi.fn(),
-  searchScoredUsers: vi.fn(),
+  getCachedScan: vi.fn(),
   getPercentileCached: vi.fn(),
   getRankCached: vi.fn(),
-  getLeaderboardCached: vi.fn(),
-  coalesceScan: vi.fn(),
-  getCachedScan: vi.fn(),
-  buildScanResult: vi.fn(),
+  publishCompleteQuickScan: vi.fn(),
   scanErrorResponse: vi.fn(),
-  getPublicScanStatus: vi.fn(),
-  publicScanAdmission: vi.fn(),
-  requiresDurablePublicScan: vi.fn(),
-  resolvePublicScanFromTrustedQuickScan: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   getAccountDetail: mocks.getAccountDetail,
-  searchScoredUsers: mocks.searchScoredUsers,
+  publishCompleteQuickScan: mocks.publishCompleteQuickScan,
+  searchScoredUsers: vi.fn(),
 }));
-
 vi.mock("@/lib/rank", () => ({
   getPercentileCached: mocks.getPercentileCached,
   getRankCached: mocks.getRankCached,
 }));
-
-vi.mock("@/lib/leaderboard", () => ({
-  getLeaderboardCached: mocks.getLeaderboardCached,
-}));
-
+vi.mock("@/lib/leaderboard", () => ({ getLeaderboardCached: vi.fn() }));
 vi.mock("@/lib/redis", () => ({
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
 }));
-
 vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
   scanErrorResponse: mocks.scanErrorResponse,
 }));
 
-vi.mock("@/lib/public-scan", () => ({
-  getPublicScanStatus: mocks.getPublicScanStatus,
-  publicScanAdmission: mocks.publicScanAdmission,
-  requiresDurablePublicScan: mocks.requiresDurablePublicScan,
-  resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
-}));
+import { scoreUser } from "@/lib/mcp-tools";
 
-import { scoreUser } from "../mcp-tools";
+const quickScan = {
+  metrics: { username: "fixture-user", name: "Fixture User" },
+  scoring: {
+    final_score: 71,
+    tier: "人上人",
+    sub_scores: {},
+    red_flags: [],
+  },
+} as unknown as ScanResult;
 
-describe("MCP stored score guardrail", () => {
+const subScores = {
+  account_maturity: 10,
+  original_project_quality: 10,
+  contribution_quality: 10,
+  ecosystem_impact: 10,
+  community_influence: 10,
+  activity_authenticity: 10,
+};
+
+const legacyFallback = {
+  username: "fixture-user",
+  display_name: "Fixture User",
+  avatar_url: null,
+  profile_url: "https://github.com/fixture-user",
+  final_score: 64,
+  tier: "人上人",
+  tags: { zh: [], en: [] },
+  sub_scores: subScores,
+  roast_line: { zh: "", en: "" },
+  roast: "legacy report",
+  roast_en: "legacy report",
+  score_version: "v5",
+  legacy_read_fallback: true,
+  score_source_collection_version: null,
+  score_source_snapshot_hash: null,
+  scanned_at: 1,
+  prev_score: null,
+  prev_scanned_at: null,
+} as AccountDetail;
+
+describe("MCP score release reads", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.getAccountDetail.mockResolvedValue({
-      username: "mcp-stored-fixture",
-      display_name: "MCP Stored Fixture",
-      final_score: 82,
-      tier: "人上人",
-      sub_scores: {},
-      score_version: "v8",
-      scanned_at: 1_800_000_000_000,
-    });
-    mocks.getPercentileCached.mockResolvedValue({ below: 8, total: 10 });
-    mocks.getRankCached.mockResolvedValue({ rank: 2, total: 10, below: 8 });
+    mocks.getAccountDetail.mockResolvedValue(legacyFallback);
+    mocks.getCachedScan.mockResolvedValue(null);
+    mocks.coalesceScan.mockImplementation(async (_handle: string, producer: () => unknown) => producer());
+    mocks.buildScanResult.mockResolvedValue(quickScan);
+    mocks.publishCompleteQuickScan.mockResolvedValue(true);
+    mocks.getPercentileCached.mockResolvedValue(null);
+    mocks.getRankCached.mockResolvedValue(null);
+    mocks.scanErrorResponse.mockReturnValue({ error: "scan_failed", status: 503 });
   });
 
-  it("returns a stale stored score without entering any scan path", async () => {
-    await expect(scoreUser("mcp-stored-fixture")).resolves.toMatchObject({
-      source: "indexed",
-      stale: true,
-      username: "mcp-stored-fixture",
-      final_score: 82,
+  it("materializes v9 from quick scan before exposing a v5 fallback", async () => {
+    await expect(scoreUser("fixture-user")).resolves.toMatchObject({
+      source: "quick",
+      coverage: "quick",
+      final_score: 71,
     });
-
-    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
-    expect(mocks.getCachedScan).not.toHaveBeenCalled();
-    expect(mocks.buildScanResult).not.toHaveBeenCalled();
-    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan);
   });
 
-  it("returns stale v3 evidence without starting a canonical refresh", async () => {
-    mocks.getAccountDetail.mockResolvedValue(null);
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "stale",
-      run: { id: "legacy-run", username: "mcp-stored-fixture", collectionVersion: "v3" },
-      scan: {
-        metrics: { username: "mcp-stored-fixture", name: "MCP Stored Fixture" },
-        scoring: { final_score: 82, tier: "人上人", sub_scores: {}, red_flags: [] },
-      },
-      refreshPending: false,
-      refreshRun: null,
-      servedCollectionVersion: "v3",
-      targetCollectionVersion: "v4",
-    });
+  it("returns v5 only after quick scan fails", async () => {
+    mocks.buildScanResult.mockRejectedValue(new Error("upstream unavailable"));
 
-    await expect(scoreUser("mcp-stored-fixture")).resolves.toMatchObject({
-      source: "stale_public",
+    await expect(scoreUser("fixture-user")).resolves.toMatchObject({
+      source: "legacy_v5_v5_v3",
+      coverage: "legacy",
       stale: true,
-      served_collection_version: "v3",
+      final_score: 64,
     });
-    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
-    expect(mocks.buildScanResult).not.toHaveBeenCalled();
   });
 });

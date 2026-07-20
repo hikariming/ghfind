@@ -45,22 +45,6 @@ interface RoasterProps {
   inputPlaceholder?: string;
 }
 
-function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve();
-      return;
-    }
-    const done = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", done);
-      resolve();
-    };
-    const timer = setTimeout(done, ms);
-    signal.addEventListener("abort", done, { once: true });
-  });
-}
-
 export function Roaster({
   campaign,
   analyticsSource = "home",
@@ -99,9 +83,6 @@ export function Roaster({
   const [metaRoast, setMetaRoast] = useState<RoastLine | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const lastPrefillRef = useRef<string | null>(null);
-  const pollAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => () => pollAbortRef.current?.abort(), []);
 
   // Deep-link prefill (?username=): seed the Omnibox; it renders the value and
   // the user hits Enter to roast. (Focus/scroll now live inside the Omnibox.)
@@ -118,7 +99,6 @@ export function Roaster({
       setReport("");
       setMetaRoast(null);
       setThinking("");
-      pollAbortRef.current?.abort();
 
       // Apply a decoded RoastMeta (header fast path or in-band M-frame) to the
       // score card / tags / one-liner.
@@ -217,7 +197,7 @@ export function Roaster({
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
-      const presentScan = (result: ScanResult, refreshRunId?: string) => {
+      const presentScan = (result: ScanResult) => {
         const byoKey = loadByoKey();
         const forceProfileHandoff =
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
@@ -230,7 +210,6 @@ export function Roaster({
           }
           const profileParams = new URLSearchParams({ roasting: "1" });
           if (campaign) profileParams.set("campaign", campaign);
-          if (refreshRunId) profileParams.set("refresh_run_id", refreshRunId);
           router.push(`/u/${result.metrics.username}?${profileParams.toString()}`);
           return; // keep `scanning` true so the skeleton persists until navigation
         }
@@ -248,6 +227,11 @@ export function Roaster({
           100,
         );
       };
+      const presentLegacyProfile = (handle: string) => {
+        const profileParams = new URLSearchParams({ roasting: "1" });
+        if (campaign) profileParams.set("campaign", campaign);
+        router.push(`/u/${handle}?${profileParams.toString()}`);
+      };
       try {
         const res = await fetch("/api/scan", {
           method: "POST",
@@ -255,59 +239,16 @@ export function Roaster({
           body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
         const data = await res.json();
-        if (res.status === 202 && data?.error === "scan_enrichment_pending") {
-          setError(t("errScanPending"));
-          const retrySeconds = Math.max(10, Math.min(30, Number(data.retry_after) || 10));
-          const runId = typeof data.run_id === "string" ? data.run_id : "";
-          if (!runId) {
-            setError(t("errScanFailed"));
-            setScanning(false);
-            return;
-          }
-          const deadline = Date.now() + 2 * 60 * 1_000;
-          const controller = new AbortController();
-          pollAbortRef.current?.abort();
-          pollAbortRef.current = controller;
-          const poll = async () => {
-            let completed = false;
-            try {
-              while (Date.now() < deadline) {
-                await abortableDelay(retrySeconds * 1_000, controller.signal);
-                if (controller.signal.aborted) return;
-                try {
-                  const statusRes = await fetch(
-                    `/api/scan-status/${encodeURIComponent(String(data.username ?? uname))}?run_id=${encodeURIComponent(runId)}`,
-                    { signal: controller.signal },
-                  );
-                  const status = await statusRes.json();
-                  if (statusRes.ok && status?.status === "complete_public" && status.scan) {
-                    completed = true;
-                    setError("");
-                    presentScan(status.scan as ScanResult);
-                    return;
-                  }
-                  if (statusRes.status >= 500 || status?.status === "failed") break;
-                } catch {
-                  if (controller.signal.aborted) return;
-                  break;
-                }
-              }
-            } finally {
-              if (!controller.signal.aborted && !completed) setScanning(false);
-              if (pollAbortRef.current === controller) pollAbortRef.current = null;
-            }
-          };
-          void poll();
-          return;
-        }
         if (!res.ok) {
           setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
           setScanning(false);
           return;
         }
-        const result = data as ScanResult;
-        const refreshRunId = typeof data?.run_id === "string" ? data.run_id : undefined;
-        presentScan(result, refreshRunId);
+        if (data?.legacy_profile === true && typeof data.username === "string") {
+          presentLegacyProfile(data.username);
+          return;
+        }
+        presentScan(data as ScanResult);
       } catch {
         setError(t("errNetworkScan"));
         setScanning(false);

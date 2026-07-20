@@ -290,6 +290,7 @@ describe("getArchivedRoast", () => {
       username,
       final_score: entry.final_score,
       score_version: LEGACY_READ_FALLBACK.score,
+      legacy_read_fallback: true,
       tags: entry.tags,
       roast: "## 旧版中文点评\n只读回放。",
       roast_en: "## Legacy English roast\nRead-only replay.",
@@ -308,7 +309,7 @@ describe("getArchivedRoast", () => {
     });
   });
 
-  it("rejects a v5 report when its v3 snapshot no longer proves the exact tuple", async () => {
+  it("keeps a v5 profile readable when its old v3 snapshot is no longer usable", async () => {
     const username = "legacy-fallback-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -317,17 +318,21 @@ describe("getArchivedRoast", () => {
       args: ["v6", username],
     });
 
+    await expect(db.hasLegacyReadFallbackProfile(username)).resolves.toBe(true);
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({
       final_score: entry.final_score,
-      tags: { zh: [], en: [] },
-      roast: null,
-      roast_en: null,
+      legacy_read_fallback: true,
+      tags: entry.tags,
+      roast: "## 旧版中文点评\n只读回放。",
+      roast_en: "## Legacy English roast\nRead-only replay.",
     });
-    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      report: "## 旧版中文点评\n只读回放。",
+    });
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
-  it("rejects a v5 report when its v3 snapshot score differs from the score row", async () => {
+  it("does not turn a mismatched v3 snapshot into a complete scan", async () => {
     const username = "legacy-fallback-score-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -341,11 +346,14 @@ describe("getArchivedRoast", () => {
 
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({
       final_score: entry.final_score,
-      tags: { zh: [], en: [] },
-      roast: null,
-      roast_en: null,
+      legacy_read_fallback: true,
+      tags: entry.tags,
+      roast: "## 旧版中文点评\n只读回放。",
+      roast_en: "## Legacy English roast\nRead-only replay.",
     });
-    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      report: "## 旧版中文点评\n只读回放。",
+    });
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
@@ -501,6 +509,25 @@ describe("canonical score materialization", () => {
       score_source_snapshot_hash: snapshotHash,
       scanned_at: scannedAt,
     });
+  });
+
+  it("returns only the quick snapshot that backs the current canonical score", async () => {
+    const username = "current-quick-snapshot-fixture";
+    const scan = syntheticScan(username);
+    const { snapshotHash } = serializeScan(scan);
+
+    await expect(db.publishCompleteQuickScan(scan, 1_910_000_005_000)).resolves.toBeTruthy();
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toMatchObject({
+      snapshotHash,
+      scan: { metrics: { username } },
+    });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_source_snapshot_hash = ? WHERE username = ?`,
+      args: ["0".repeat(64), username],
+    });
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
   });
 
   it("reuses the same score identity and run for a repeated quick snapshot", async () => {
@@ -1399,7 +1426,7 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
     await expect(
-      db.recordPublicScanCronMetrics({
+      db.recordPublicScanWorkerMetrics({
         startedAt: 1_000,
         completedAt: 1_050,
         processed: 2,
@@ -1408,7 +1435,7 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
     await expect(
-      db.recordPublicScanCronMetrics({
+      db.recordPublicScanWorkerMetrics({
         startedAt: 2_000,
         completedAt: 2_025,
         processed: 0,
@@ -1429,7 +1456,7 @@ describe("durable public scan jobs", () => {
       failures: { retryingSteps: 1, terminalSteps: 0 },
       execution: { capacity: 1, contentionSteps: 1 },
       obsoleteActiveJobs: expect.any(Number),
-      cron: {
+      worker: {
         lastStartedAt: 2_000,
         lastSuccessAt: 1_050,
         lastDurationMs: 25,
@@ -1598,6 +1625,43 @@ describe("durable public scan jobs", () => {
     await expect(
       db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
     ).resolves.toMatchObject({ granted: false });
+  });
+
+  it("shares a bounded worker-configured execution capacity across claims", async () => {
+    const one = await enqueue("capacity-slot-one");
+    const two = await enqueue("capacity-slot-two");
+    const leaseOne = await claim(one!.job.id);
+    const leaseTwo = await claim(two!.job.id);
+
+    await expect(db.configurePublicScanExecutionCapacity({ capacity: 2 })).resolves.toEqual({
+      capacity: 2,
+      changed: true,
+    });
+    const firstSlot = await db.acquirePublicScanExecutionLease({
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    const secondSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(firstSlot).toBe(1);
+    expect(secondSlot).toBe(2);
+
+    await db.releasePublicScanExecutionLease({
+      slot: firstSlot!,
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    await db.releasePublicScanExecutionLease({
+      slot: secondSlot!,
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    await expect(db.configurePublicScanExecutionCapacity({ capacity: 1 })).resolves.toEqual({
+      capacity: 1,
+      changed: true,
+    });
   });
 
   it("fails closed when a queued job has lost its durable run", async () => {
@@ -1929,7 +1993,7 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("prefers v9, falls back to v8, and ignores non-release snapshots", async () => {
+  it("reads only v9 profile snapshots and ignores legacy snapshots", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     const username = "profile-version-fixture";
     const rows = [
@@ -1953,10 +2017,7 @@ describe("profile snapshots", () => {
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
       args: ["profile-v9"],
     });
-    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
-      metrics: { followers: 8 },
-      scanned_at: 300,
-    });
+    await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 
     await client.execute({
       sql: `INSERT INTO profile_snapshots (id, username, scanned_at, metrics, scan_version)
@@ -2306,8 +2367,8 @@ describe("getRepoOverview + filterExistingRepoKeys", () => {
   });
 });
 
-describe("legacy public score release guardrail", () => {
-  it("keeps a synthetic v8 row on every passive public surface without creating work", async () => {
+describe("legacy public score exclusion", () => {
+  it("never serves a v8 row on passive public surfaces or creates background work", async () => {
     const username = "legacy-public-fixture";
     const peer = "legacy-peer-fixture";
     const repoKey = `${username}/public-fixture`;
@@ -2388,40 +2449,19 @@ describe("legacy public score release guardrail", () => {
       db.getArchivedRoast(username, "zh"),
     ]);
 
-    expect(detail).toMatchObject({
-      username,
-      final_score: 86,
-      score_version: "v8",
-      tags: { zh: [], en: [] },
-      roast_line: { zh: "", en: "" },
-      roast: null,
-      roast_en: null,
-    });
-    expect(brief).toMatchObject({ username, final_score: 86 });
-    expect(suggestions).toEqual(expect.arrayContaining([expect.objectContaining({ username })]));
+    expect(detail).toBeNull();
+    expect(brief).toBeNull();
+    expect(suggestions.some((item) => item.username === username)).toBe(false);
     for (const entries of [leaderboard, trending, heat]) {
-      expect(entries.some((item) => item.username === username)).toBe(true);
-      expect(entries.find((item) => item.username === username)?.tags).toEqual({ zh: [], en: [] });
+      expect(entries.some((item) => item.username === username)).toBe(false);
     }
-    expect(facets).toEqual(
-      expect.arrayContaining([expect.objectContaining({ value: "FixtureLang" })]),
-    );
-    expect(facetDevelopers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ username, tags: { zh: [], en: [] } }),
-      ]),
-    );
-    expect(sitemapProfiles).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username })]),
-    );
-    expect(repo).toMatchObject({ owner: { username }, summary: { count: 1 } });
-    expect(similar).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ username: peer, tags: { zh: [], en: [] } }),
-      ]),
-    );
+    expect(facets.some((facet) => facet.value === "FixtureLang")).toBe(false);
+    expect(facetDevelopers.some((item) => item.username === username)).toBe(false);
+    expect(sitemapProfiles.some((item) => item.username === username)).toBe(false);
+    expect(repo).toMatchObject({ owner: null, summary: { count: 0 } });
+    expect(similar.some((item) => item.username === peer)).toBe(false);
     expect(following).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username, final_score: 86 })]),
+      expect.arrayContaining([expect.objectContaining({ username, final_score: null })]),
     );
     expect(archivedRoast).toBeNull();
 

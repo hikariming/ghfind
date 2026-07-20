@@ -149,15 +149,10 @@ describe("materializeCanonicalScore", () => {
     expect(result?.scoreEntry.username).toBe("synthetic-user");
   });
 
-  it("accepts a durable-required snapshot only in durable mode with complete sources", () => {
+  it("accepts bounded quick snapshots even when history is sampled", () => {
     const durable = scan({ merged_pr_count: 12, recent_merged_pr_sample: 8 });
 
-    expect(materializeCanonicalScore(input(durable))).toBeNull();
-    expect(
-      materializeCanonicalScore(
-        input(durable, { mode: "durable", sourceStatus: COMPLETE_SOURCES }),
-      ),
-    ).not.toBeNull();
+    expect(materializeCanonicalScore(input(durable))).not.toBeNull();
   });
 
   it.each([
@@ -168,16 +163,16 @@ describe("materializeCanonicalScore", () => {
     { commit_contribution_aggregation_unavailable: true },
     { merged_pr_contribution_aggregation_incomplete: true },
   ] satisfies Partial<RawMetrics>[])(
-    "rejects an incomplete quick scan %#",
+    "materializes a bounded quick scan %#",
     (overrides) => {
-      expect(materializeCanonicalScore(input(scan(overrides)))).toBeNull();
+      expect(materializeCanonicalScore(input(scan(overrides)))).not.toBeNull();
     },
   );
 
-  it("requires every durable source to be complete", () => {
+  it("accepts a durable-mode snapshot without requiring a worker source map", () => {
     const durable = scan({ merged_pr_count: 12, recent_merged_pr_sample: 8 });
 
-    expect(materializeCanonicalScore(input(durable, { mode: "durable" }))).toBeNull();
+    expect(materializeCanonicalScore(input(durable, { mode: "durable" }))).not.toBeNull();
     expect(
       materializeCanonicalScore(
         input(durable, {
@@ -185,17 +180,17 @@ describe("materializeCanonicalScore", () => {
           sourceStatus: { ...COMPLETE_SOURCES, native_prs: "pending" },
         }),
       ),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
-  it("rejects an explicitly partial source set in quick mode", () => {
+  it("accepts an explicitly partial source set in quick mode", () => {
     expect(
       materializeCanonicalScore(
         input(scan(), {
           sourceStatus: { ...COMPLETE_SOURCES, original_repos: "unavailable" },
         }),
       ),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it.each([

@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/internal/public-scan",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}

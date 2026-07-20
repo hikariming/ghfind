@@ -27,7 +27,6 @@ jobs:
       TURSO_AUTH_TOKEN: ""
       UPSTASH_REDIS_REST_URL: ""
       UPSTASH_REDIS_REST_TOKEN: ""
-      CRON_SECRET: ""
     steps:
       - name: Check out full history
         uses: actions/checkout@v4

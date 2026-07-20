@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
@@ -6,6 +6,7 @@ import { machineAuth } from "@/lib/machine-auth";
 import {
   getArchivedRoast,
   getCanonicalScoreWriteIdentity,
+  getCurrentCanonicalQuickScan,
   getLegacyReadFallbackRoast,
   getScoreScannedAt,
   updateRoast,
@@ -27,14 +28,6 @@ import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
 import { sanitizeIdentityClaims } from "@/lib/identity";
-import {
-  getPublicScanStatus,
-  publicScanAdmission,
-  requiresDurablePublicScan,
-  resolvePublicScanFromTrustedQuickScan,
-  startPublicScan,
-} from "@/lib/public-scan";
-import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import {
   acquireRoastLock,
   checkRoastRequestRateLimit,
@@ -632,8 +625,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // This protects every path, including BYO: it runs before the durable-status
-  // and scan-cache reads below, while the later roast limiter remains dedicated
+  // This protects every path, including BYO: it runs before the snapshot and
+  // scan-cache reads below, while the later roast limiter remains dedicated
   // to operator-paid model generation.
   const requestLimit = await checkRoastRequestRateLimit(clientIp(req));
   if (!requestLimit.success) {
@@ -648,11 +641,11 @@ export async function POST(req: NextRequest) {
 
   const lang = normLang(body.lang);
 
-  // A verified v5/v5/v3 artifact is a read-only continuity path for a stalled
-  // v9 collector. It is intentionally checked before resolving an LLM config:
+  // A verified v5/v5/v3 artifact is a read-only continuity path when the quick
+  // collector is unavailable. It is intentionally checked before resolving an LLM config:
   // replaying already-persisted public text must not depend on model capacity or
   // spend credit. `refresh` explicitly opts out and continues toward v9 work.
-  if (body.refresh !== true) {
+  if (body.refresh !== true && !body.scan) {
     const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
     if (legacyRoast && reportMatchesLang(legacyRoast.report, lang)) {
       const meta = await metaForStoredRoast(
@@ -706,88 +699,32 @@ export async function POST(req: NextRequest) {
   // know to release it. Only the default model coalesces (BYO keys self-serve).
   let isLeader = false;
   let lockWaitMs = 0;
-  let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
+  let generationPath: "leader" | "follower_fallback" | "byo" = isDefault
+    ? "leader"
+    : "byo";
   let scoreIdentity: ScoreWriteIdentity | null = null;
 
-  // Prefer a durable/current server snapshot. A request-body scan is accepted
-  // only for an immediate BYO roast. Default-model generation and every durable
-  // write require facts previously produced by a server-side collector.
-  const [publicStatus, cachedScan] = await Promise.all([
-    getPublicScanStatus(username),
+  // `/api/scan` materializes the bounded quick snapshot before the client gets
+  // it. Default-model reports always prefer the exact server snapshot joined to
+  // the currently served v9 score. There is no background-job dependency.
+  const [canonicalQuick, cachedScan] = await Promise.all([
+    getCurrentCanonicalQuickScan(username),
     getCachedScan(username),
   ]);
-  if (publicStatus?.status === "stale") {
-    return NextResponse.json(
-      {
-        error: "scan_enrichment_pending",
-        username,
-        stale: true,
-        refresh_pending: publicStatus.refreshPending,
-        served_collection_version: publicStatus.servedCollectionVersion,
-        target_collection_version: publicStatus.targetCollectionVersion,
-      },
-      { status: 409, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-  let completedPublicRun = publicStatus?.status === "complete" ? publicStatus.run : null;
-  const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
-  const serverScan = completedPublicScan ?? cachedScan;
-  let scan = serverScan ?? (!isDefault && body.scan ? sanitizeScan(body.scan) : null);
+  const scan = canonicalQuick?.scan ?? cachedScan ?? (body.scan ? sanitizeScan(body.scan) : null);
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
-
-  // A large public history cannot be truthfully represented by the quick
-  // sample. Never spend LLM credit or persist a leaderboard row from it: start
-  // (or resume) the durable collector and require its complete snapshot.
-  if (serverScan && !completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
-    const durableAdmission = publicScanAdmission(
-      auth === "valid"
-        ? `bearer:${req.headers.get("authorization") ?? ""}`
-        : `ip:${clientIp(req)}`,
-    );
-    const resolution = publicStatus?.status === "pending" || publicStatus?.status === "failed"
-      ? publicStatus
-      : serverScan
-        ? await resolvePublicScanFromTrustedQuickScan(username, serverScan, durableAdmission)
-        : await startPublicScan(username, durableAdmission);
-    if (resolution.status === "complete") {
-      scan = resolution.scan;
-      completedPublicRun = resolution.run;
-    } else {
-      if (resolution.status === "pending" && resolution.headStartJobId) {
-        kickPublicScanDrain(resolution.headStartJobId);
-      }
-      const retryAfterSeconds = resolution.retryAfterSeconds;
-      const busy = resolution.status === "queue_full" || resolution.status === "admission_limited";
-      return NextResponse.json(
-        {
-          error: busy ? resolution.status : "scan_enrichment_pending",
-          username,
-          ...(resolution.status === "pending" ? { run_id: resolution.run.id } : {}),
-          retry_after: retryAfterSeconds,
-        },
-        {
-          status: busy ? 429 : 409,
-          headers: { "Retry-After": String(retryAfterSeconds), "Cache-Control": "no-store" },
-        },
-      );
-    }
-  }
+  const snapshotHash =
+    canonicalQuick?.snapshotHash ?? createHash("sha256").update(JSON.stringify(scan)).digest("hex");
 
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
-    // Every replay and new report must belong to the deterministic score from
-    // this exact canonical snapshot. This also prevents pre-migration Redis
-    // entries (whose cache key has no snapshot hash) from bypassing provenance.
-    const snapshotHash = completedPublicRun?.snapshotHash;
-    if (!snapshotHash) {
-      return NextResponse.json(
-        { error: "score_materialization_pending" },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
-      );
-    }
+    let refreshHonored = false;
+    // Every replay and new report belongs to the deterministic v9 score from
+    // this exact quick snapshot. A forged request body cannot produce a report
+    // because it has no matching score write identity.
     try {
       scoreIdentity = await getCanonicalScoreWriteIdentity(username, snapshotHash);
     } catch {
@@ -800,11 +737,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // A validated `refresh` (homepage handoff onto a stale profile, or the
-    // owner's rescan) skips both replay paths below and regenerates. Server-
-    // checked against the row's scanned_at — without this, the DB archive
-    // replays a version-matched roast forever, no matter its age.
-    let refreshHonored = false;
+    // A validated `refresh` skips canonical replay paths only when the
+    // stored report is actually stale.
     if (body.refresh === true) {
       const scannedAt = await getScoreScannedAt(username);
       refreshHonored = scannedAt == null || Date.now() - scannedAt > ROAST_FRESH_MS;
@@ -834,9 +768,6 @@ export async function POST(req: NextRequest) {
         });
         return roastResponse(cachedRoast.report, meta);
       }
-      // Old cache entries have no snapshot identity. Clear any rejected replay
-      // before single-flight acquisition so followers wait for the new report
-      // instead of immediately fanning out into duplicate generations.
       if (cachedRoast) await clearCachedRoast(username, lang);
 
       const archivedRoast = await getArchivedRoast(username, lang);
@@ -865,7 +796,6 @@ export async function POST(req: NextRequest) {
         return roastResponse(archivedRoast.report, meta);
       }
     }
-
     const generationLimit = await checkRoastRateLimit(clientIp(req));
     if (!generationLimit.success) {
       return NextResponse.json(
@@ -876,12 +806,8 @@ export async function POST(req: NextRequest) {
         },
       );
     }
-    // Single-flight: become the lone generator, or wait for whoever already is.
-    // Collapses a viral account's concurrent cold-cache requests into ONE LLM call.
     isLeader = await acquireRoastLock(username, lang);
     if (isLeader) {
-      // Regeneration leader: drop the (possibly archive-re-warmed) cached roast
-      // so single-flight followers wait for the NEW report, not the old one.
       if (refreshHonored) await clearCachedRoast(username, lang);
     } else {
       const lockWaitStartedAt = Date.now();
@@ -909,7 +835,6 @@ export async function POST(req: NextRequest) {
         });
         return roastResponse(shared.report, meta);
       }
-      // Leader failed or timed out — self-generate (we hold no lock).
       generationPath = "follower_fallback";
     }
   }
@@ -1094,7 +1019,7 @@ export async function POST(req: NextRequest) {
             await cacheRoastReplay(
               username,
               lang,
-              completedPublicRun!.snapshotHash!,
+              snapshotHash,
               full,
               tags,
               roastLine,

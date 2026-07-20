@@ -35,6 +35,7 @@ describe("release version contract", () => {
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
       { score: "v9", roast: "v9" },
     ]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v9"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -68,6 +69,12 @@ describe("release version contract", () => {
     replayManifest.compatibility.roastReplay = [{ score: "local", roast: "local" }];
     expect(releaseVersionErrors(replayManifest)).toContain(
       "roast replay must require the canonical score and roast pair",
+    );
+
+    const stalePublicRead = manifestCopy();
+    stalePublicRead.compatibility.publicScoreReadOrder = ["v9", "v8"];
+    expect(releaseVersionErrors(stalePublicRead)).toContain(
+      "public score reads must only serve the canonical target release",
     );
 
     const changedFallback = manifestCopy();

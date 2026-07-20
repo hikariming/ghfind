@@ -17,13 +17,6 @@ function required(name: string): string {
   return value;
 }
 
-function optionalPair(left: string, right: string): [string, string] | null {
-  const a = process.env[left]?.trim();
-  const b = process.env[right]?.trim();
-  if (Boolean(a) !== Boolean(b)) throw new Error(`${left} and ${right} must be configured together`);
-  return a && b ? [a, b] : null;
-}
-
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("response must be a JSON object");
@@ -86,16 +79,6 @@ async function main(): Promise<void> {
     throw new Error("SMOKE_FACET_TYPE must be language, org, or repo");
   }
   const facetValue = required("SMOKE_FACET_VALUE");
-  const completeHandle = handle(
-    required("SMOKE_COMPLETE_HANDLE"),
-    "SMOKE_COMPLETE_HANDLE",
-  );
-  const completeRun = required("SMOKE_COMPLETE_RUN_ID");
-  const pending = optionalPair("SMOKE_PENDING_HANDLE", "SMOKE_PENDING_RUN_ID");
-  if (!pending && process.env.SMOKE_REQUIRE_PENDING === "1") {
-    throw new Error("pending scan canary is required for this promotion");
-  }
-
   const expectedOrigin = base.origin;
   const checks: Check[] = [
     {
@@ -142,31 +125,7 @@ async function main(): Promise<void> {
         if (!Array.isArray(record(body).entries)) throw new Error("facet entries are missing");
       },
     },
-    {
-      label: "complete scan status",
-      path: `/api/scan-status/${encodeURIComponent(completeHandle)}?run_id=${encodeURIComponent(completeRun)}`,
-      status: 200,
-      validate(body) {
-        if (record(body).status !== "complete_public") {
-          throw new Error("complete scan canary is not complete_public");
-        }
-      },
-    },
   ];
-
-  if (pending) {
-    const [pendingHandle, pendingRun] = pending;
-    checks.push({
-      label: "pending scan status",
-      path: `/api/scan-status/${encodeURIComponent(handle(pendingHandle, "SMOKE_PENDING_HANDLE"))}?run_id=${encodeURIComponent(pendingRun)}`,
-      status: 202,
-      validate(body) {
-        if (record(body).status !== "pending") {
-          throw new Error("pending scan canary is not pending");
-        }
-      },
-    });
-  }
 
   for (const check of checks) await runCheck(base, check);
   console.log(`PASS deployment smoke (${checks.length} checks)`);

@@ -85,7 +85,7 @@ const handler = createMcpHandler(
         inputSchema: { username: z.string().describe("GitHub login (case-insensitive)") },
         annotations: LIVE_READONLY,
       },
-      (args, extra) => guarded(extra, () => scoreUser(args.username, { durablePrincipal: `mcp:${ipFrom(extra)}` })),
+      (args, extra) => guarded(extra, () => scoreUser(args.username)),
     );
 
     server.registerTool(
@@ -97,7 +97,7 @@ const handler = createMcpHandler(
         inputSchema: { username: z.string().describe("GitHub login") },
         annotations: LIVE_READONLY,
       },
-      (args, extra) => guarded(extra, () => scanUser(args.username, { durablePrincipal: `mcp:${ipFrom(extra)}` })),
+      (args, extra) => guarded(extra, () => scanUser(args.username)),
     );
 
     server.registerTool(
@@ -112,7 +112,7 @@ const handler = createMcpHandler(
         },
         annotations: LIVE_READONLY,
       },
-      (args, extra) => guarded(extra, () => compareUsers(args.a, args.b, { durablePrincipal: `mcp:${ipFrom(extra)}` })),
+      (args, extra) => guarded(extra, () => compareUsers(args.a, args.b)),
     );
 
     server.registerTool(

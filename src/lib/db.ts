@@ -2,10 +2,10 @@
  * Turso (libSQL) persistence for the leaderboard + percentile.
  *
  * Optional, like {@link ./redis}: most passive persistence functions no-op when
- * `TURSO_DATABASE_URL` is unset so the app can run without it. Durable public-scan
- * worker operations are the exception: they fail closed so Cron health cannot
- * report an unavailable queue as empty. Stores one latest row per scanned account
- * plus append-only score snapshots for long-term progress.
+ * `TURSO_DATABASE_URL` is unset so the app can run without it. Stores one latest
+ * row per synchronously scanned account plus append-only score snapshots for
+ * long-term progress. Historical queue records are retained for data safety but
+ * are not part of the runtime request path.
  * The score itself is still computed deterministically by `lib/score.ts`; this
  * layer only persists the result for cross-account ranking.
  */
@@ -83,11 +83,23 @@ import type {
 } from "./scan-run-types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
-const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
-  .publicScoreReadOrder as [string, string];
+const PUBLIC_PROFILE_SCORE_VERSION = RELEASE_VERSION_MANIFEST.compatibility
+  .publicScoreReadOrder[0];
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
+
+/**
+ * Public reads must never surface a score merely because it is the newest row.
+ * A row is readable only after the current quick collector has materialized the
+ * current formal v9 score. The roast route separately requires an exact v9/v4
+ * snapshot hash before it generates or replays text. The v5 emergency path is
+ * handled explicitly by the profile/roast readers and never joins rankings.
+ */
+function canonicalPublicScorePredicate(alias: string): string {
+  return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
+}
 
 function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
   return (
@@ -99,6 +111,16 @@ function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
         typeof row.roast_en === "string" &&
         row.roast_en.length > 0))
   );
+}
+
+/**
+ * A stored v5/v5 score/report pair is safe to show as a stale profile even
+ * when its old collector snapshot is no longer retained. This deliberately
+ * proves only the persisted presentation artifact. Callers that need a full
+ * ScanResult must use the stricter snapshot verifier below.
+ */
+function isLegacyReadFallbackProfile(row: Record<string, unknown>): boolean {
+  return hasLegacyReadFallbackReport(row);
 }
 
 function parseVerifiedLegacyReadFallbackRun(
@@ -137,9 +159,9 @@ function parseVerifiedLegacyReadFallbackRun(
 }
 
 /**
- * A v5 report may be served only when its score row and a complete v3 factual
- * snapshot agree on the same account/version contract. This is read-only: it
- * never upgrades, queues, re-scores, or invokes an LLM.
+ * A full v5 scan payload may be served only when its score row and a complete
+ * v3 factual snapshot agree on the same account/version contract. This is
+ * read-only: it never upgrades, queues, re-scores, or invokes an LLM.
  */
 async function getVerifiedLegacyReadFallbackScan(
   db: Client,
@@ -180,13 +202,6 @@ async function getVerifiedLegacyReadFallbackScan(
   } catch {
     return null;
   }
-}
-
-async function isVerifiedLegacyReadFallback(
-  db: Client,
-  row: Record<string, unknown>,
-): Promise<boolean> {
-  return Boolean(await getVerifiedLegacyReadFallbackScan(db, row));
 }
 
 function logPublicScanDbFailure(operation: string, error: unknown): void {
@@ -492,6 +507,11 @@ function ensureSchema(db: Client): Promise<void> {
              lease_token      TEXT,
              lease_expires_at INTEGER NOT NULL DEFAULT 0
            )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_execution_settings (
+             singleton         INTEGER PRIMARY KEY CHECK(singleton = 1),
+             capacity          INTEGER NOT NULL CHECK(capacity BETWEEN 1 AND ${MAX_PUBLIC_SCAN_EXECUTION_CAPACITY}),
+             updated_at        INTEGER NOT NULL
+           )`,
           `CREATE TABLE IF NOT EXISTS public_scan_rate_windows (
              bucket           TEXT NOT NULL,
              window_started   INTEGER NOT NULL,
@@ -508,7 +528,7 @@ function ensureSchema(db: Client): Promise<void> {
              updated_at         INTEGER NOT NULL,
              PRIMARY KEY(collection_version, phase, outcome)
            )`,
-          `CREATE TABLE IF NOT EXISTS public_scan_cron_metrics (
+          `CREATE TABLE IF NOT EXISTS public_scan_worker_metrics (
              singleton            INTEGER PRIMARY KEY CHECK(singleton = 1),
              last_started_at       INTEGER,
              last_success_at       INTEGER,
@@ -833,17 +853,23 @@ function ensureSchema(db: Client): Promise<void> {
         }
       }
       await addColumnIfMissing(db, "profile_snapshots", "signature_work TEXT");
-      // One durable collection invocation is intentionally conservative. Each
-      // invocation is bounded, then a later request-after task or Cron run
-      // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
-      // predictable when many stale profiles are discovered after a version
-      // bump.
+      // Start from one persisted execution slot. The independent worker service
+      // may raise capacity through configurePublicScanExecutionCapacity; request
+      // head starts share the same cap and can never bypass it.
+      const now = Date.now();
       await db.batch(
-        [{
-          sql: `INSERT OR IGNORE INTO public_scan_execution_leases
-                (slot, lease_expires_at) VALUES (1, 0)`,
-          args: [],
-        }],
+        [
+          {
+            sql: `INSERT OR IGNORE INTO public_scan_execution_settings
+                  (singleton, capacity, updated_at) VALUES (1, 1, ?)`,
+            args: [now],
+          },
+          {
+            sql: `INSERT OR IGNORE INTO public_scan_execution_leases
+                  (slot, lease_expires_at) VALUES (1, 0)`,
+            args: [],
+          },
+        ],
         "write",
       );
     })().catch((e) => {
@@ -1398,9 +1424,8 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
 }
 
 /**
- * Atomically publish a complete bounded quick scan and its deterministic score.
- * Large/partial scans are rejected by the materializer and must use the durable
- * worker path instead.
+ * Atomically publish a bounded quick scan and its deterministic score.
+ * The quick snapshot is the production score contract for every account.
  */
 export async function publishCompleteQuickScan(
   scan: ScanResult,
@@ -1977,6 +2002,71 @@ export async function getLatestPublicScanRun(
 }
 
 /**
+ * The exact quick snapshot backing the current canonical score. The roast path
+ * reads this instead of reconstructing a hash from a client handoff, whose
+ * response-only fields and prompt truncation would otherwise change the JSON
+ * bytes. Historical queue rows are ignored unless their fingerprint is still
+ * the score row currently served to users.
+ */
+export async function getCurrentCanonicalQuickScan(
+  username: string,
+): Promise<{ scan: ScanResult; snapshotHash: string } | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT r.snapshot, r.snapshot_hash
+            FROM public_scan_runs r
+            INNER JOIN scores s
+              ON s.username = r.username
+             AND s.hidden = 0
+             AND s.score_version = ?
+             AND s.score_source_collection_version = ?
+             AND s.score_source_snapshot_hash = r.snapshot_hash
+            WHERE r.username = ?
+              AND r.score_version = ?
+              AND r.collection_version = ?
+              AND r.state = 'complete_public'
+              AND r.snapshot IS NOT NULL
+              AND r.snapshot_hash IS NOT NULL
+            ORDER BY s.scanned_at DESC, r.completed_at DESC, r.id DESC
+            LIMIT 1`,
+      args: [
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+      ],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    const snapshot = typeof row?.snapshot === "string" ? row.snapshot : null;
+    const snapshotHash = typeof row?.snapshot_hash === "string" ? row.snapshot_hash : null;
+    if (
+      !snapshot ||
+      !snapshotHash ||
+      !/^[a-f0-9]{64}$/.test(snapshotHash) ||
+      createHash("sha256").update(snapshot).digest("hex") !== snapshotHash
+    ) {
+      return null;
+    }
+    const scan = JSON.parse(snapshot) as Partial<ScanResult>;
+    if (
+      typeof scan.metrics?.username !== "string" ||
+      scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
+      !scan.scoring
+    ) {
+      return null;
+    }
+    return { scan: scan as ScanResult, snapshotHash };
+  } catch (error) {
+    console.error("getCurrentCanonicalQuickScan failed:", error);
+    return null;
+  }
+}
+
+/**
  * Return complete snapshots in newest-first order for one exact collection
  * contract. Callers must validate hash and payload shape before serving a row;
  * this query deliberately never crosses collection versions.
@@ -2353,11 +2443,73 @@ export async function releasePublicScanJobClaim(input: {
 }
 
 /**
- * A database-backed, process-wide execution lease. Request-after work and
- * overlapping Cron invocations may land in different serverless instances, so
- * per-process mutexes and Redis-only locks are insufficient. The single slot
- * deliberately favors predictable GitHub quota use over throughput; each
- * worker invocation is short and continues through the queue.
+ * Set the process-wide execution capacity used by the dedicated worker service.
+ * The cap is persisted in Turso so request head starts share it. Shrinking is
+ * refused until high-numbered slots are idle, preventing an in-flight job from
+ * being invalidated by a service restart.
+ */
+export async function configurePublicScanExecutionCapacity(input: {
+  capacity: number;
+}): Promise<{ capacity: number; changed: boolean }> {
+  if (!Number.isFinite(input.capacity)) {
+    throw new Error("public scan execution capacity must be finite");
+  }
+  const capacity = Math.max(1, Math.min(MAX_PUBLIC_SCAN_EXECUTION_CAPACITY, Math.floor(input.capacity)));
+  const db = requirePublicScanDb("configure_execution_capacity");
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      const settings = await tx.execute({
+        sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
+        args: [],
+      });
+      const current = Number(settings.rows[0]?.capacity ?? 1);
+      if (!Number.isInteger(current) || current < 1 || current > MAX_PUBLIC_SCAN_EXECUTION_CAPACITY) {
+        throw new Error("public scan execution capacity is invalid");
+      }
+      if (capacity < current) {
+        const active = await tx.execute({
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_execution_leases
+                WHERE slot > ? AND lease_expires_at > ?`,
+          args: [capacity, now],
+        });
+        if (Number(active.rows[0]?.count ?? 0) > 0) {
+          throw new Error("public scan execution capacity cannot shrink while slots are active");
+        }
+      }
+      for (let slot = 1; slot <= capacity; slot += 1) {
+        await tx.execute({
+          sql: `INSERT OR IGNORE INTO public_scan_execution_leases (slot, lease_expires_at)
+                VALUES (?, 0)`,
+          args: [slot],
+        });
+      }
+      if (capacity !== current) {
+        await tx.execute({
+          sql: `UPDATE public_scan_execution_settings SET capacity = ?, updated_at = ?
+                WHERE singleton = 1`,
+          args: [capacity, now],
+        });
+      }
+      await tx.commit();
+      return { capacity, changed: capacity !== current };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("configure_execution_capacity", error);
+  }
+}
+
+/**
+ * A database-backed, process-wide execution lease. Request head starts and
+ * worker instances may land in different processes, so per-process mutexes and
+ * Redis-only locks are insufficient. Capacity is configured by the dedicated
+ * worker service and shared through Turso.
  */
 export async function acquirePublicScanExecutionLease(input: {
   jobId: string;
@@ -2371,18 +2523,32 @@ export async function acquirePublicScanExecutionLease(input: {
     const leaseExpiresAt = now + (input.leaseMs ?? 55_000);
     const tx = await db.transaction("write");
     try {
+      const configured = await tx.execute({
+        sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
+        args: [],
+      });
+      const capacity = Number(configured.rows[0]?.capacity);
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_PUBLIC_SCAN_EXECUTION_CAPACITY) {
+        throw new Error("public scan execution capacity is missing or invalid");
+      }
+      const slots = await tx.execute({
+        sql: `SELECT COUNT(*) AS count FROM public_scan_execution_leases WHERE slot <= ?`,
+        args: [capacity],
+      });
+      if (Number(slots.rows[0]?.count ?? 0) !== capacity) {
+        throw new Error("public scan execution slots are missing");
+      }
       const candidate = await tx.execute({
         sql: `SELECT slot, lease_expires_at
               FROM public_scan_execution_leases
-              WHERE slot = 1
+              WHERE slot <= (SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1)
+                AND lease_expires_at <= ?
+              ORDER BY slot ASC
               LIMIT 1`,
-        args: [],
+        args: [now],
       });
       const slot = candidate.rows[0]?.slot;
       if (typeof slot !== "number") {
-        throw new Error("public scan execution slot is missing");
-      }
-      if (Number(candidate.rows[0]?.lease_expires_at ?? 0) > now) {
         await tx.rollback();
         return null;
       }
@@ -2530,14 +2696,14 @@ export async function recordPublicScanStepMetrics(input: {
   }
 }
 
-export async function recordPublicScanCronMetrics(input: {
+export async function recordPublicScanWorkerMetrics(input: {
   startedAt: number;
   completedAt: number;
   processed: number;
   failedSteps: number;
   success: boolean;
 }): Promise<boolean> {
-  const db = requirePublicScanDb("cron_metrics_write");
+  const db = requirePublicScanDb("worker_metrics_write");
   try {
     await ensureSchema(db);
     const durationMs = Math.max(0, Math.floor(input.completedAt - input.startedAt));
@@ -2552,7 +2718,7 @@ export async function recordPublicScanCronMetrics(input: {
       input.completedAt,
     ];
     await db.execute({
-      sql: `INSERT INTO public_scan_cron_metrics
+      sql: `INSERT INTO public_scan_worker_metrics
               (singleton, last_started_at, last_success_at, last_duration_ms,
                last_processed, last_failed_steps, consecutive_failures, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -2560,19 +2726,19 @@ export async function recordPublicScanCronMetrics(input: {
               last_started_at = excluded.last_started_at,
               last_success_at = CASE WHEN ? = 1
                                      THEN excluded.last_success_at
-                                     ELSE public_scan_cron_metrics.last_success_at END,
+                                     ELSE public_scan_worker_metrics.last_success_at END,
               last_duration_ms = excluded.last_duration_ms,
               last_processed = excluded.last_processed,
               last_failed_steps = excluded.last_failed_steps,
               consecutive_failures = CASE WHEN ? = 1
                                           THEN 0
-                                          ELSE public_scan_cron_metrics.consecutive_failures + 1 END,
+                                          ELSE public_scan_worker_metrics.consecutive_failures + 1 END,
               updated_at = excluded.updated_at`,
       args: [...values, input.success ? 1 : 0, input.success ? 1 : 0],
     });
     return true;
   } catch (error) {
-    throwPublicScanStorageFailure("cron_metrics_write", error);
+    throwPublicScanStorageFailure("worker_metrics_write", error);
   }
 }
 
@@ -2607,7 +2773,7 @@ export interface PublicScanOperationalMetrics {
     averageDurationMs: number;
     maxDurationMs: number;
   }>;
-  cron: {
+  worker: {
     lastStartedAt: number | null;
     lastSuccessAt: number | null;
     lastDurationMs: number | null;
@@ -2626,7 +2792,7 @@ export async function getPublicScanOperationalMetrics(
   try {
     await ensureSchema(db);
     const now = Date.now();
-    const [active, failureState, obsolete, slots, steps, cron] = await db.batch(
+    const [active, failureState, obsolete, slots, steps, worker, capacity] = await db.batch(
       [
         {
           sql: `SELECT state, phase, COUNT(*) AS count, MIN(created_at) AS oldest_created_at,
@@ -2654,7 +2820,8 @@ export async function getPublicScanOperationalMetrics(
         {
           sql: `SELECT COUNT(*) AS count
                 FROM public_scan_execution_leases
-                WHERE lease_expires_at > ?`,
+                WHERE lease_expires_at > ?
+                  AND slot <= (SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1)`,
           args: [now],
         },
         {
@@ -2667,8 +2834,12 @@ export async function getPublicScanOperationalMetrics(
         {
           sql: `SELECT last_started_at, last_success_at, last_duration_ms, last_processed,
                        last_failed_steps, consecutive_failures
-                FROM public_scan_cron_metrics
+                FROM public_scan_worker_metrics
                 WHERE singleton = 1`,
+          args: [],
+        },
+        {
+          sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
           args: [],
         },
       ],
@@ -2715,7 +2886,8 @@ export async function getPublicScanOperationalMetrics(
         .filter((metric) => metric.outcome === outcome)
         .reduce((total, metric) => total + metric.count, 0);
     const failureRow = failureState.rows[0];
-    const cronRow = cron.rows[0];
+    const workerRow = worker.rows[0];
+    const capacityRow = capacity.rows[0];
     return {
       generatedAt: now,
       canonicalCollectionVersion,
@@ -2736,18 +2908,18 @@ export async function getPublicScanOperationalMetrics(
       },
       execution: {
         activeSlots: Number(slots.rows[0]?.count ?? 0),
-        capacity: 1,
+        capacity: Number(capacityRow?.capacity ?? 1),
         contentionSteps: countOutcome("slot_busy"),
       },
       obsoleteActiveJobs: Number(obsolete.rows[0]?.count ?? 0),
       steps: stepMetrics,
-      cron: {
-        lastStartedAt: cronRow?.last_started_at == null ? null : Number(cronRow.last_started_at),
-        lastSuccessAt: cronRow?.last_success_at == null ? null : Number(cronRow.last_success_at),
-        lastDurationMs: cronRow?.last_duration_ms == null ? null : Number(cronRow.last_duration_ms),
-        lastProcessed: Number(cronRow?.last_processed ?? 0),
-        lastFailedSteps: Number(cronRow?.last_failed_steps ?? 0),
-        consecutiveFailures: Number(cronRow?.consecutive_failures ?? 0),
+      worker: {
+        lastStartedAt: workerRow?.last_started_at == null ? null : Number(workerRow.last_started_at),
+        lastSuccessAt: workerRow?.last_success_at == null ? null : Number(workerRow.last_success_at),
+        lastDurationMs: workerRow?.last_duration_ms == null ? null : Number(workerRow.last_duration_ms),
+        lastProcessed: Number(workerRow?.last_processed ?? 0),
+        lastFailedSteps: Number(workerRow?.last_failed_steps ?? 0),
+        consecutiveFailures: Number(workerRow?.consecutive_failures ?? 0),
       },
     };
   } catch {
@@ -3958,9 +4130,9 @@ export async function hasProfileSnapshot(username: string): Promise<boolean> {
     const res = await db.execute({
       sql: `SELECT 1
             FROM profile_snapshots
-            WHERE username = ? AND scan_version IN (?, ?)
+            WHERE username = ? AND scan_version = ?
             LIMIT 1`,
-      args: [username.toLowerCase(), ...PUBLIC_PROFILE_SCORE_VERSIONS],
+      args: [username.toLowerCase(), PUBLIC_PROFILE_SCORE_VERSION],
     });
     return res.rows.length > 0;
   } catch (e) {
@@ -4071,13 +4243,12 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ? AND scan_version IN (?, ?)
-            ORDER BY CASE WHEN scan_version = ? THEN 0 ELSE 1 END, scanned_at DESC
+            WHERE username = ? AND scan_version = ?
+            ORDER BY scanned_at DESC
             LIMIT 1`,
       args: [
         username.toLowerCase(),
-        ...PUBLIC_PROFILE_SCORE_VERSIONS,
-        PUBLIC_PROFILE_SCORE_VERSIONS[0],
+        PUBLIC_PROFILE_SCORE_VERSION,
       ],
     });
     const r = res.rows[0];
@@ -4265,8 +4436,10 @@ export async function getPercentile(
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT
-              (SELECT COUNT(*) FROM scores WHERE final_score < ?) AS below,
-              (SELECT COUNT(*) FROM scores) AS total`,
+              (SELECT COUNT(*) FROM scores
+                WHERE final_score < ? AND ${canonicalPublicScorePredicate("scores")}) AS below,
+              (SELECT COUNT(*) FROM scores
+                WHERE ${canonicalPublicScorePredicate("scores")}) AS total`,
       args: [score],
     });
     const row = res.rows[0];
@@ -4299,7 +4472,7 @@ export async function getRank(
               SUM(CASE WHEN final_score > ? THEN 1 ELSE 0 END) AS above,
               SUM(CASE WHEN final_score < ? THEN 1 ELSE 0 END) AS below,
               COUNT(*) AS total
-            FROM scores WHERE hidden = 0`,
+            FROM scores WHERE hidden = 0 AND ${canonicalPublicScorePredicate("scores")}`,
       args: [score, score],
     });
     const row = res.rows[0];
@@ -4335,7 +4508,9 @@ export async function getScoreHistogram(): Promise<ScoreHistogramRow[]> {
     await ensureSchema(db);
     const res = await db.execute(
       `SELECT hidden, CAST(ROUND(final_score * 10) AS INTEGER) AS bucket, COUNT(*) AS n
-       FROM scores GROUP BY hidden, bucket`,
+       FROM scores
+       WHERE ${canonicalPublicScorePredicate("scores")}
+       GROUP BY hidden, bucket`,
     );
     return res.rows.map((r) => ({
       hidden: Number(r.hidden),
@@ -4403,6 +4578,7 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND ${canonicalPublicScorePredicate("s")}
                   AND s.final_score >= ?`,
           args: [score, facetValue, FACET_MIN_SCORE],
         },
@@ -4413,6 +4589,7 @@ export async function getFacetRank(
                 WHERE f.facet_type = 'language'
                   AND f.facet_value = ?
                   AND s.hidden = 0
+                  AND ${canonicalPublicScorePredicate("s")}
                   AND s.final_score > ?
                 ORDER BY s.final_score ASC
                 LIMIT 1`,
@@ -4450,7 +4627,9 @@ export async function getScoreCount(): Promise<number | null> {
   if (!db) return null;
   try {
     await ensureSchema(db);
-    const res = await db.execute("SELECT COUNT(*) AS n FROM scores");
+    const res = await db.execute(
+      `SELECT COUNT(*) AS n FROM scores WHERE ${canonicalPublicScorePredicate("scores")}`,
+    );
     return Number(res.rows[0]?.n ?? 0);
   } catch (e) {
     console.error("getScoreCount failed:", e);
@@ -4521,7 +4700,9 @@ export async function getTrendingLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}`,
       args: [recentCutoff, minScore],
     });
@@ -4559,7 +4740,9 @@ export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfil
     const res = await db.execute({
       sql: `SELECT username, scanned_at
             FROM scores
-            WHERE hidden = 0 AND final_score >= ?
+            WHERE hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
+              AND final_score >= ?
             ORDER BY final_score DESC`,
       args: [minScore],
     });
@@ -4598,7 +4781,9 @@ export async function getLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -4641,7 +4826,9 @@ export async function getCampaignLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE participant.campaign = ? AND s.hidden = 0
+            WHERE participant.campaign = ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
       args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, campaign, capped],
@@ -4684,7 +4871,9 @@ export async function getHeatLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY ${heatOrder}, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -4724,6 +4913,7 @@ export async function getProgressLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
               ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
@@ -4777,6 +4967,7 @@ export async function getFacetCategories(
             JOIN scores AS s ON s.username = f.username
             WHERE f.facet_type = ?
               AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?
             GROUP BY f.facet_value
             ORDER BY count DESC, f.facet_value ASC
@@ -4820,6 +5011,7 @@ export async function getDevelopersByFacet(
             WHERE f.facet_type = ?
               AND f.facet_value = ?
               AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
@@ -4919,7 +5111,9 @@ async function attachTopContributors(
               WHERE repo_key IN (${placeholders})
             ) AS edges
             JOIN scores AS s ON s.username = edges.username
-            WHERE s.hidden = 0 AND s.final_score >= ?
+            WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ORDER BY edges.repo_key ASC, s.final_score DESC, s.username ASC`,
       args: [...keys, FACET_MIN_SCORE],
     });
@@ -4996,7 +5190,9 @@ async function queryProjectItems(
             FROM edges
             CROSS JOIN repos AS r ON r.repo_key = edges.repo_key
             CROSS JOIN scores AS s ON s.username = edges.username
-              AND s.hidden = 0 AND s.final_score >= ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
             ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
             GROUP BY r.repo_key`,
       args: [
@@ -5027,7 +5223,9 @@ async function queryProjectItems(
           FROM repos AS r
           JOIN edges ON edges.repo_key = r.repo_key
           JOIN scores AS s ON s.username = edges.username
-            AND s.hidden = 0 AND s.final_score >= ?
+            AND s.hidden = 0
+            AND ${canonicalPublicScorePredicate("s")}
+            AND s.final_score >= ?
           LEFT JOIN recent ON recent.username = edges.username
           ${options.language ? "WHERE lower(r.language) = lower(?)" : ""}
           GROUP BY r.repo_key`,
@@ -5246,14 +5444,16 @@ export async function getRepoOverview(repoKey: string): Promise<RepoOverview | n
     const [ownerRes, contribRes] = await Promise.all([
       db.execute({
         sql: `SELECT username, display_name, avatar_url, final_score, tier
-              FROM scores WHERE username = ? AND hidden = 0`,
+              FROM scores WHERE username = ? AND hidden = 0
+                AND ${canonicalPublicScorePredicate("scores")}`,
         args: [repo.owner_login],
       }),
       db.execute({
         sql: `SELECT s.tier AS tier, s.final_score AS final_score
               FROM repo_developers AS rd
               JOIN scores AS s ON s.username = rd.username
-              WHERE rd.repo_key = ? AND s.hidden = 0`,
+              WHERE rd.repo_key = ? AND s.hidden = 0
+                AND ${canonicalPublicScorePredicate("s")}`,
         args: [key],
       }),
     ]);
@@ -5335,6 +5535,8 @@ export interface AccountDetail {
   roast_en: string | null;
   /** Score formula version that produced this persisted profile. */
   score_version?: string | null;
+  /** True only for the explicit read-only v5/v5/v3 continuity path. */
+  legacy_read_fallback: boolean;
   /** Canonical collection provenance; null for historical/legacy score rows. */
   score_source_collection_version: string | null;
   /** SHA-256 identity of the complete source snapshot; null for legacy rows. */
@@ -5374,6 +5576,7 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
       sql: `SELECT username, display_name, final_score, tier, prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
             LIMIT 1`,
       args: [username.toLowerCase()],
     });
@@ -5423,7 +5626,9 @@ export async function searchScoredUsers(
     const res = await db.execute({
       sql: `SELECT username, display_name, avatar_url, final_score, tier
             FROM scores
-            WHERE hidden = 0 AND username LIKE ? ESCAPE '\\'
+            WHERE hidden = 0
+              AND ${canonicalPublicScorePredicate("scores")}
+              AND username LIKE ? ESCAPE '\\'
             ORDER BY final_score DESC
             LIMIT ?`,
       args: [like, limit],
@@ -5665,16 +5870,16 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     });
     const r = res.rows[0];
     if (!r) return null;
+    const currentScore = r.score_version === SCORE_CACHE_VERSION;
     const canonicalScore =
-      r.score_version === SCORE_CACHE_VERSION &&
+      currentScore &&
       r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
       typeof r.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
-    const legacyReadFallback = !canonicalScore && await isVerifiedLegacyReadFallback(
-      db,
-      r as Record<string, unknown>,
-    );
-    const readableArtifacts = canonicalScore || legacyReadFallback;
+    const legacyReadFallback =
+      !currentScore && isLegacyReadFallbackProfile(r as Record<string, unknown>);
+    const readableArtifacts = currentScore || legacyReadFallback;
+    if (!readableArtifacts) return null;
     const artifactRoastVersion = canonicalScore
       ? ROAST_CACHE_VERSION
       : legacyReadFallback
@@ -5699,6 +5904,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
           ? ((r.roast_en as string | null) ?? null)
           : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
+      legacy_read_fallback: legacyReadFallback,
       score_source_collection_version:
         typeof r.score_source_collection_version === "string"
           ? r.score_source_collection_version
@@ -5716,10 +5922,35 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
 }
 
 /**
+ * Whether an account has a stored v5/v5 profile that can be shown immediately
+ * while a current quick scan is unavailable. This does not assert that a full
+ * historical snapshot exists, so it must never be used as a score source.
+ */
+export async function hasLegacyReadFallbackProfile(username: string): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT score_version, roast, roast_en, roast_version, roast_en_version
+            FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return Boolean(row && isLegacyReadFallbackProfile(row));
+  } catch (error) {
+    console.error("hasLegacyReadFallbackProfile failed:", error);
+    return false;
+  }
+}
+
+/**
  * Return the complete stored v3 snapshot that proves a v5/v5 emergency read
  * fallback. This is deliberately read-only: callers may display it immediately
- * while separately requesting canonical v9/v4 collection, but must never cache
- * it as current or use it to materialize a score.
+ * when the current quick collector fails, but must never cache it as current or
+ * use it to materialize a score.
  */
 export async function getLegacyReadFallbackScan(username: string): Promise<ScanResult | null> {
   const db = getClient();
@@ -5743,9 +5974,10 @@ export async function getLegacyReadFallbackScan(username: string): Promise<ScanR
 }
 
 /**
- * Read one verified v5/v5/v3 report without requiring a current scan or LLM
- * configuration. The caller must treat it as stale and must never cache it as
- * a canonical v9 report.
+ * Read one v5/v5 report without requiring a current scan or LLM configuration.
+ * The caller must treat it as stale and must never cache it as a canonical v9
+ * report. Full v3 snapshot provenance is intentionally not required here: a
+ * profile replay does not claim to be a complete scan result.
  */
 export async function getLegacyReadFallbackRoast(
   username: string,
@@ -5766,7 +5998,7 @@ export async function getLegacyReadFallbackRoast(
       args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
     });
     const row = result.rows[0] as Record<string, unknown> | undefined;
-    if (!row || !(await isVerifiedLegacyReadFallback(db, row))) return null;
+    if (!row || !isLegacyReadFallbackProfile(row)) return null;
     if (
       row[versionCol] !== LEGACY_READ_FALLBACK.roast ||
       typeof row[col] !== "string" ||
@@ -5925,6 +6157,7 @@ export async function getSimilarAccounts(
             FROM scores AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
               AND s.username != ?
               AND s.final_score BETWEEN ? AND ?
             ORDER BY s.final_score DESC
@@ -6426,7 +6659,9 @@ export async function listFollowedAccounts(
                    s.display_name, s.avatar_url, s.final_score, s.tier,
                    s.prev_score, s.prev_scanned_at
             FROM follows f
-            LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0
+            LEFT JOIN scores s ON s.username = f.target_username
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
             WHERE f.follower_github_id = ?
             ORDER BY f.created_at DESC
             LIMIT ?`,
