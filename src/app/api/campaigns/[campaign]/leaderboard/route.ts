@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug } from "@/lib/campaigns";
 import { getCampaignLeaderboard } from "@/lib/db";
 import { paginate, parsePagination } from "@/lib/pagination";
-import { checkRateLimit, rateLimitHeaders } from "@/lib/redis";
+import {
+  checkCampaignLeaderboardReadRateLimit,
+  checkRateLimit,
+  rateLimitHeaders,
+} from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +20,7 @@ function clientIp(req: NextRequest): string {
 function canonicalPaginationUrl(
   req: NextRequest,
   page: { limit: number; offset: number },
+  live: boolean,
 ): URL | null {
   // The API is CDN-cached. Collapse syntactic variants such as `limit=0100`,
   // reordered params and tracking query strings before querying Turso, or each
@@ -24,6 +29,7 @@ function canonicalPaginationUrl(
   url.search = "";
   if (page.limit !== 100) url.searchParams.set("limit", String(page.limit));
   if (page.offset !== 0) url.searchParams.set("offset", String(page.offset));
+  if (live) url.searchParams.set("live", "1");
   return url.search === req.nextUrl.search ? null : url;
 }
 
@@ -37,9 +43,12 @@ export async function GET(
     return NextResponse.json({ error: "campaign_not_found" }, { status: 404 });
   }
 
+  const live = req.nextUrl.searchParams.get("live") === "1";
   // The API is not used by the page renderer, but remains a public compatibility
   // surface. Keep cache-busting probes from reaching the 500-row Turso query.
-  const limit = await checkRateLimit(clientIp(req));
+  const limit = await (live
+    ? checkCampaignLeaderboardReadRateLimit
+    : checkRateLimit)(clientIp(req));
   if (!limit.success) {
     return NextResponse.json(
       { error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
@@ -57,7 +66,7 @@ export async function GET(
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
-  const canonicalUrl = canonicalPaginationUrl(req, page);
+  const canonicalUrl = canonicalPaginationUrl(req, page, live);
   if (canonicalUrl) {
     return NextResponse.redirect(canonicalUrl, 308);
   }
@@ -65,6 +74,6 @@ export async function GET(
   const entries = await getCampaignLeaderboard(campaign, 500);
   return NextResponse.json(
     { ...paginate(entries, page), campaign },
-    { headers: { "Cache-Control": CACHE_CONTROL } },
+    { headers: { "Cache-Control": live ? "no-store" : CACHE_CONTROL } },
   );
 }

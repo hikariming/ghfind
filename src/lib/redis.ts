@@ -32,6 +32,7 @@ import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let publicScanStatusLimiter: Ratelimit | null = null;
+let campaignLeaderboardReadLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
@@ -292,6 +293,40 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
   } catch (error) {
     return unavailableRateLimitResult(
       "public_scan_status",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/**
+ * Public event leaderboard refreshes fan out from many browsers that may share
+ * one venue NAT. Keep them off the scan budget while still bounding origin reads.
+ */
+export async function checkCampaignLeaderboardReadRateLimit(
+  ip: string,
+): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
+      "missing_redis_config",
+    );
+  }
+  if (!campaignLeaderboardReadLimiter) {
+    campaignLeaderboardReadLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(600, "60 s"),
+      prefix: "rl:campaign-leaderboard-read",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } =
+      await campaignLeaderboardReadLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
@@ -749,6 +784,40 @@ const LEADERBOARD_WINDOWS: LeaderboardWindow[] = ["24h", "7d", "30d", "all"];
 const leaderboardKey = (view: LeaderboardCacheView, window: LeaderboardWindow) =>
   `leaderboard:${view}:${window}`;
 const LEADERBOARD_TTL_SECONDS = 300; // 5 min — board moves slowly; fewer DB reads
+const CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const localCampaignLeaderboardRevisions = new Map<string, number>();
+const campaignLeaderboardRevisionKey = (campaign: string) =>
+  `campaign-leaderboard:${campaign}:revision`;
+
+/** Signal that a campaign board's persisted membership or score changed. */
+export async function bumpCampaignLeaderboardRevision(campaign: string): Promise<void> {
+  const r = getRedis();
+  if (!r) {
+    localCampaignLeaderboardRevisions.set(
+      campaign,
+      (localCampaignLeaderboardRevisions.get(campaign) ?? 0) + 1,
+    );
+    return;
+  }
+  try {
+    const key = campaignLeaderboardRevisionKey(campaign);
+    await r.incr(key);
+    await r.expire(key, CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS);
+  } catch {
+    // Best-effort live signal. The client keeps its periodic refresh fallback.
+  }
+}
+
+/** Current cross-instance revision consumed by the campaign SSE endpoint. */
+export async function getCampaignLeaderboardRevision(campaign: string): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return localCampaignLeaderboardRevisions.get(campaign) ?? 0;
+  try {
+    return (await r.get<number>(campaignLeaderboardRevisionKey(campaign))) ?? 0;
+  } catch {
+    return null;
+  }
+}
 
 export async function getCachedLeaderboard(
   view: LeaderboardCacheView = "trending",

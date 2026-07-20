@@ -28,6 +28,7 @@ export function PendingProfile({
   username,
   initialScan,
   fromHome = false,
+  advx = false,
 }: {
   username: string;
   initialScan: ScanResult | null;
@@ -35,6 +36,7 @@ export function PendingProfile({
    * immediately, seeded with the deterministic scan score. LLM tags, one-liner,
    * and report stream in place; the score remains deterministic. */
   fromHome?: boolean;
+  advx?: boolean;
 }) {
   const t = useTranslations("detail");
   const tDim = useTranslations("dimensions");
@@ -302,6 +304,8 @@ export function PendingProfile({
                   scan={scan}
                   openModalOnMount
                   fallbackMeta={scanMeta}
+                  advx={advx}
+                  materialVersion={scoring.final_score}
                 />
               ) : (
                 <p className="text-sm text-zinc-400">

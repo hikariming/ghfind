@@ -36,6 +36,7 @@ import {
 import { computeTrendingScore, rankTrending } from "./hotness";
 import { VS_MIN_SCORE } from "./site";
 import {
+  bumpCampaignLeaderboardRevision,
   clearCachedReactionCounts,
   getCachedReactionCounts,
   releaseLookupGate,
@@ -800,12 +801,15 @@ export async function recordCampaignParticipant(
   if (!db) return;
   try {
     await ensureSchema(db);
-    await db.execute({
+    const result = await db.execute({
       sql: `INSERT INTO campaign_participants (campaign, username, joined_at)
             VALUES (?, ?, ?)
             ON CONFLICT(campaign, username) DO NOTHING`,
       args: [campaign, username.toLowerCase(), Date.now()],
     });
+    if (Number(result.rowsAffected ?? 0) === 1) {
+      await bumpCampaignLeaderboardRevision(campaign);
+    }
   } catch (e) {
     console.error("recordCampaignParticipant failed:", e);
   }
@@ -1150,6 +1154,13 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
               lookup_count = MAX(account_stats.lookup_count, excluded.lookup_count)`,
       args: [username, MIN_RECORDED_LOOKUP_COUNT, entry.scanned_at, entry.scanned_at],
     });
+    const campaigns = await db.execute({
+      sql: `SELECT campaign FROM campaign_participants WHERE username = ?`,
+      args: [username],
+    });
+    await Promise.all(
+      campaigns.rows.map((row) => bumpCampaignLeaderboardRevision(String(row.campaign))),
+    );
     return { scannedAt: entry.scanned_at, token };
   } catch (e) {
     console.error("recordScore failed:", e);

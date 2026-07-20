@@ -28,6 +28,8 @@ const COPY = {
     live: "现场榜单在 ghfind 摊位大屏实时播报",
     refresh: "刷新榜单",
     empty: "还没有参赛者，输入第一个 GitHub 用户名开榜吧。",
+    groupQrLabel: "Ghfind x ADVX 现场交流群",
+    groupQrAlt: "ghfind × AdventureX 现场群二维码",
   },
   en: {
     title: "AdventureX Live Developer Leaderboard",
@@ -44,6 +46,8 @@ const COPY = {
     live: "Live leaderboard updates",
     refresh: "Refresh board",
     empty: "No participants yet. Enter the first GitHub username to open the board.",
+    groupQrLabel: "Ghfind x ADVX on-site community",
+    groupQrAlt: "QR code for the ghfind × AdventureX on-site group",
   },
 } as const;
 
@@ -99,13 +103,9 @@ export default async function AdventureXPage({
               aria-label={copy.officialSite}
               className="transition-opacity hover:opacity-75"
             >
-              {/* Official AdventureX wordmark from the event website. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://adventure-x.org/adventure-x.svg"
-                alt="AdventureX"
-                className="advx-wordmark h-5 w-auto sm:h-6"
-              />
+              <span className="text-xl font-black tracking-tight text-zinc-100 sm:text-2xl">
+                AdventureX
+              </span>
             </a>
           </div>
           <h1 className="mt-8 max-w-none whitespace-nowrap text-[clamp(0.625rem,3vw,2.625rem)] font-black leading-none tracking-[-0.04em] text-zinc-100">
@@ -140,13 +140,29 @@ export default async function AdventureXPage({
             <p className="mt-1 text-sm text-zinc-500">{copy.live}</p>
           </div>
           <Link
-            href="/advx"
+            href="/advx?theme=dark"
             className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
           >
             ↻ {copy.refresh}
           </Link>
         </div>
-        <CampaignLeaderboard campaign="advx" locale={locale} emptyLabel={copy.empty} />
+        <CampaignLeaderboard campaign="advx" emptyLabel={copy.empty} />
+      </section>
+
+      <section className="mx-auto mt-14 w-full max-w-[11rem] text-center sm:mt-20">
+        <h2 className="mb-3 whitespace-nowrap text-sm font-bold tracking-wide text-zinc-200">
+          {copy.groupQrLabel}
+        </h2>
+        <div className="relative aspect-square overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/25 ring-1 ring-white/10">
+          {/* Preserve the original QR pixels; the container crops away the group header and expiry note. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/advx-wechat-group-qr-source.jpg"
+            alt={copy.groupQrAlt}
+            className="absolute max-w-none select-none"
+            style={{ width: "149.42%", left: "-25.8%", top: "-71.74%" }}
+          />
+        </div>
       </section>
     </main>
   );
