@@ -1,11 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { SCORE_CACHE_VERSION } from "./cache-version";
-import {
-  PUBLIC_SCAN_COLLECTION_VERSION,
-  hasCompletePublicScanSources,
-  type PublicScanSourceStatus,
-} from "./scan-run-types";
+import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "./scan-run-types";
 import { score, spamBotScore } from "./score";
 import type {
   ImpactRepo,
@@ -350,18 +346,6 @@ function hasValidScanResult(value: unknown): value is ScanResult {
   return optionalMatches(value, "organizations", isStringArray);
 }
 
-function quickScanRequiresDurableCollection(scan: ScanResult): boolean {
-  const metrics = scan.metrics;
-  return Boolean(
-    metrics.commit_contribution_aggregation_unavailable ||
-      metrics.merged_pr_contribution_aggregation_incomplete ||
-      metrics.merged_pr_count > metrics.recent_merged_pr_sample ||
-      metrics.merged_pr_count > 300 ||
-      metrics.total_pr_count > 600 ||
-      metrics.public_repos > metrics.fetched_repo_count,
-  );
-}
-
 /**
  * Validate one immutable scan snapshot and derive its current deterministic score.
  * No caller-provided score, report, tag, or roast text is retained.
@@ -384,19 +368,6 @@ export function materializeCanonicalScore(
     return null;
   }
 
-  if (
-    input.mode === "durable" &&
-    (!input.sourceStatus || !hasCompletePublicScanSources(input.sourceStatus))
-  ) {
-    return null;
-  }
-  if (
-    input.sourceStatus &&
-    !hasCompletePublicScanSources(input.sourceStatus)
-  ) {
-    return null;
-  }
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(input.snapshot);
@@ -408,8 +379,6 @@ export function materializeCanonicalScore(
   const requestedUsername = normalizeUsername(input.username)?.toLowerCase();
   const snapshotUsername = normalizeUsername(parsed.metrics.username)?.toLowerCase();
   if (!requestedUsername || requestedUsername !== snapshotUsername) return null;
-  if (input.mode === "quick" && quickScanRequiresDurableCollection(parsed)) return null;
-
   const scoring = score(parsed.metrics);
   const scan: ScanResult = { ...parsed, scoring };
   return {

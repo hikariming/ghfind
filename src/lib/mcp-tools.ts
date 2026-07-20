@@ -1,9 +1,4 @@
-/**
- * Shared logic for the MCP tools (src/app/api/[transport]/route.ts). Each function
- * calls the internal libs directly — never an HTTP self-call — and returns a plain
- * JS object. Deterministic, read-only, and routed through the same caches the REST
- * endpoints use, so an agent looping over these can't amplify GitHub/DB load.
- */
+/** Shared deterministic MCP tool implementations. */
 import { getAccountDetail, searchScoredUsers } from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getLeaderboardCached } from "@/lib/leaderboard";
@@ -11,12 +6,6 @@ import type { LeaderboardCacheView } from "@/lib/redis";
 import type { LeaderboardWindow } from "@/lib/db";
 import { coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
-import {
-  getPublicScanStatus,
-  publicScanAdmission,
-  requiresDurablePublicScan,
-  resolvePublicScanFromTrustedQuickScan,
-} from "@/lib/public-scan";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -36,10 +25,14 @@ async function percentileFor(finalScore: number) {
     : null;
 }
 
-/** Deterministic score for one account (indexed hit, else a live scan). */
+async function quickScan(handle: string): Promise<ScanResult> {
+  const cached = await getCachedScan(handle);
+  return cached ?? coalesceScan(handle, () => buildScanResult(handle));
+}
+
+/** Deterministic score for one account, with no asynchronous collection state. */
 export async function scoreUser(
   rawUsername: string,
-  options?: { durablePrincipal?: string },
 ): Promise<Record<string, unknown> | ToolError> {
   const handle = normalizeUsername(rawUsername ?? "");
   if (!handle) {
@@ -50,6 +43,7 @@ export async function scoreUser(
   if (detail) {
     return {
       source: "indexed",
+      coverage: "quick",
       stale: detail.score_version !== SCORE_CACHE_VERSION,
       username: detail.username,
       display_name: detail.display_name,
@@ -63,125 +57,43 @@ export async function scoreUser(
     };
   }
 
-  let result: ScanResult;
   try {
-    const status = await getPublicScanStatus(handle);
-    if (status?.status === "complete") {
-      result = status.scan;
-    } else if (status?.status === "stale") {
-      const s = status.scan.scoring;
-      const m = status.scan.metrics;
-      const tier = s.tier as Tier;
-      return {
-        source: "stale_public",
-        stale: true,
-        refresh_pending: status.refreshPending,
-        served_collection_version: status.servedCollectionVersion,
-        target_collection_version: status.targetCollectionVersion,
-        username: m.username,
-        display_name: m.name,
-        final_score: s.final_score,
-        tier,
-        tier_key: TIER_KEY[tier],
-        sub_scores: s.sub_scores,
-        red_flags: s.red_flags,
-        percentile: await percentileFor(s.final_score),
-        profile: `${SITE_URL}/u/${m.username}`,
-      };
-    } else {
-      if (status) {
-        return {
-          error: "scan_enrichment_pending",
-          message: `durable public-history scan for ${handle} is ${status.status}; retry after ${status.retryAfterSeconds}s`,
-        };
-      }
-      const cached = await getCachedScan(handle);
-      result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
-    }
-  } catch (e) {
-    const { error } = scanErrorResponse(e);
-    return { error, message: `could not score ${handle}` };
+    const result = await quickScan(handle);
+    const scoring = result.scoring;
+    const metrics = result.metrics;
+    const tier = scoring.tier as Tier;
+    return {
+      source: "quick",
+      coverage: "quick",
+      username: metrics.username,
+      display_name: metrics.name,
+      final_score: scoring.final_score,
+      tier,
+      tier_key: TIER_KEY[tier],
+      sub_scores: scoring.sub_scores,
+      red_flags: scoring.red_flags,
+      percentile: await percentileFor(scoring.final_score),
+      profile: `${SITE_URL}/u/${metrics.username}`,
+    };
+  } catch (error) {
+    const { error: code } = scanErrorResponse(error);
+    return { error: code, message: `could not score ${handle}` };
   }
-
-  if (requiresDurablePublicScan(result)) {
-    const durable = await resolvePublicScanFromTrustedQuickScan(
-      result.metrics.username,
-      result,
-      options?.durablePrincipal ? publicScanAdmission(options.durablePrincipal) : undefined,
-    );
-    if (durable.status === "complete") {
-      result = durable.scan;
-    } else {
-      return {
-        error: "scan_enrichment_pending",
-        message: `durable public-history scan for ${result.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
-      };
-    }
-  }
-
-  const s = result.scoring;
-  const m = result.metrics;
-  const tier = s.tier as Tier;
-  return {
-    source: "live",
-    username: m.username,
-    display_name: m.name,
-    final_score: s.final_score,
-    tier,
-    tier_key: TIER_KEY[tier],
-    sub_scores: s.sub_scores,
-    red_flags: s.red_flags,
-    percentile: await percentileFor(s.final_score),
-    profile: `${SITE_URL}/u/${m.username}`,
-  };
 }
 
-/** Full deterministic scan payload for one account. */
+/** Full bounded quick-scan payload for one account. */
 export async function scanUser(
   rawUsername: string,
-  options?: { durablePrincipal?: string },
 ): Promise<ScanResult | ToolError> {
   const handle = normalizeUsername(rawUsername ?? "");
   if (!handle) {
     return { error: "invalid_username", message: "username must be a valid GitHub login" };
   }
   try {
-    const status = await getPublicScanStatus(handle);
-    if (status?.status === "complete") return status.scan;
-    if (status?.status === "stale") {
-      const staleScan: ScanResult = { ...status.scan };
-      Object.assign(staleScan, {
-        stale: true,
-        refresh_pending: status.refreshPending,
-        served_collection_version: status.servedCollectionVersion,
-        target_collection_version: status.targetCollectionVersion,
-      });
-      return staleScan;
-    }
-    if (status) {
-      return {
-        error: "scan_enrichment_pending",
-        message: `durable public-history scan for ${handle} is ${status.status}; retry after ${status.retryAfterSeconds}s`,
-      };
-    }
-    const cached = await getCachedScan(handle);
-    const scan = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
-    if (requiresDurablePublicScan(scan)) {
-      const durable = await resolvePublicScanFromTrustedQuickScan(
-        scan.metrics.username,
-        scan,
-        options?.durablePrincipal ? publicScanAdmission(options.durablePrincipal) : undefined,
-      );
-      if (durable.status === "complete") return durable.scan;
-      return {
-        error: "scan_enrichment_pending",
-        message: `durable public-history scan for ${scan.metrics.username} is ${durable.status}; retry after ${durable.retryAfterSeconds}s`,
-      };
-    }
-    return scan;
-  } catch (e) {
-    const { error } = scanErrorResponse(e);
-    return { error, message: `could not scan ${handle}` };
+    return await quickScan(handle);
+  } catch (error) {
+    const { error: code } = scanErrorResponse(error);
+    return { error: code, message: `could not scan ${handle}` };
   }
 }
 
@@ -189,9 +101,8 @@ export async function scanUser(
 export async function compareUsers(
   rawA: string,
   rawB: string,
-  options?: { durablePrincipal?: string },
 ): Promise<Record<string, unknown> | ToolError> {
-  const [a, b] = await Promise.all([scoreUser(rawA, options), scoreUser(rawB, options)]);
+  const [a, b] = await Promise.all([scoreUser(rawA), scoreUser(rawB)]);
   if ("error" in a) return a;
   if ("error" in b) return b;
   const sa = a.final_score as number;
@@ -206,7 +117,6 @@ export async function compareUsers(
   };
 }
 
-/** Ranked developers. `limit` keeps the payload agent-sized (the full board is 500). */
 export async function getLeaderboard(
   view: LeaderboardCacheView = "trending",
   window: LeaderboardWindow = "all",
@@ -217,7 +127,6 @@ export async function getLeaderboard(
   return { view, window, cached, count: page.length, total: entries.length, entries: page };
 }
 
-/** Prefix search over scored accounts. */
 export async function searchUsers(q: string): Promise<Record<string, unknown>> {
   const query = (q ?? "").trim();
   if (query.length < 1) return { query, users: [] };

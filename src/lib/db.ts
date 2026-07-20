@@ -2,10 +2,10 @@
  * Turso (libSQL) persistence for the leaderboard + percentile.
  *
  * Optional, like {@link ./redis}: most passive persistence functions no-op when
- * `TURSO_DATABASE_URL` is unset so the app can run without it. Durable public-scan
- * worker operations are the exception: they fail closed so Cron health cannot
- * report an unavailable queue as empty. Stores one latest row per scanned account
- * plus append-only score snapshots for long-term progress.
+ * `TURSO_DATABASE_URL` is unset so the app can run without it. Stores one latest
+ * row per synchronously scanned account plus append-only score snapshots for
+ * long-term progress. Historical queue records are retained for data safety but
+ * are not part of the runtime request path.
  * The score itself is still computed deterministically by `lib/score.ts`; this
  * layer only persists the result for cross-account ranking.
  */
@@ -1413,9 +1413,8 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
 }
 
 /**
- * Atomically publish a complete bounded quick scan and its deterministic score.
- * Large/partial scans are rejected by the materializer and must use the durable
- * worker path instead.
+ * Atomically publish a bounded quick scan and its deterministic score.
+ * The quick snapshot is the production score contract for every account.
  */
 export async function publishCompleteQuickScan(
   scan: ScanResult,
@@ -1987,6 +1986,71 @@ export async function getLatestPublicScanRun(
     return row ? mapPublicScanRun(row as Record<string, unknown>) : null;
   } catch (error) {
     logPublicScanDbFailure("get_latest_run", error);
+    return null;
+  }
+}
+
+/**
+ * The exact quick snapshot backing the current canonical score. The roast path
+ * reads this instead of reconstructing a hash from a client handoff, whose
+ * response-only fields and prompt truncation would otherwise change the JSON
+ * bytes. Historical queue rows are ignored unless their fingerprint is still
+ * the score row currently served to users.
+ */
+export async function getCurrentCanonicalQuickScan(
+  username: string,
+): Promise<{ scan: ScanResult; snapshotHash: string } | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT r.snapshot, r.snapshot_hash
+            FROM public_scan_runs r
+            INNER JOIN scores s
+              ON s.username = r.username
+             AND s.hidden = 0
+             AND s.score_version = ?
+             AND s.score_source_collection_version = ?
+             AND s.score_source_snapshot_hash = r.snapshot_hash
+            WHERE r.username = ?
+              AND r.score_version = ?
+              AND r.collection_version = ?
+              AND r.state = 'complete_public'
+              AND r.snapshot IS NOT NULL
+              AND r.snapshot_hash IS NOT NULL
+            ORDER BY s.scanned_at DESC, r.completed_at DESC, r.id DESC
+            LIMIT 1`,
+      args: [
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        username.toLowerCase(),
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+      ],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    const snapshot = typeof row?.snapshot === "string" ? row.snapshot : null;
+    const snapshotHash = typeof row?.snapshot_hash === "string" ? row.snapshot_hash : null;
+    if (
+      !snapshot ||
+      !snapshotHash ||
+      !/^[a-f0-9]{64}$/.test(snapshotHash) ||
+      createHash("sha256").update(snapshot).digest("hex") !== snapshotHash
+    ) {
+      return null;
+    }
+    const scan = JSON.parse(snapshot) as Partial<ScanResult>;
+    if (
+      typeof scan.metrics?.username !== "string" ||
+      scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
+      !scan.scoring
+    ) {
+      return null;
+    }
+    return { scan: scan as ScanResult, snapshotHash };
+  } catch (error) {
+    console.error("getCurrentCanonicalQuickScan failed:", error);
     return null;
   }
 }
@@ -5815,8 +5879,8 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
 
 /**
  * Whether an account has a stored v5/v5 profile that can be shown immediately
- * while canonical v9/v9/v4 collection runs. This does not assert that a full
- * historical scan snapshot exists, so it must never be used as a score source.
+ * while a current quick scan is unavailable. This does not assert that a full
+ * historical snapshot exists, so it must never be used as a score source.
  */
 export async function hasLegacyReadFallbackProfile(username: string): Promise<boolean> {
   const db = getClient();
@@ -5841,8 +5905,8 @@ export async function hasLegacyReadFallbackProfile(username: string): Promise<bo
 /**
  * Return the complete stored v3 snapshot that proves a v5/v5 emergency read
  * fallback. This is deliberately read-only: callers may display it immediately
- * while separately requesting canonical v9/v4 collection, but must never cache
- * it as current or use it to materialize a score.
+ * when the current quick collector fails, but must never cache it as current or
+ * use it to materialize a score.
  */
 export async function getLegacyReadFallbackScan(username: string): Promise<ScanResult | null> {
   const db = getClient();

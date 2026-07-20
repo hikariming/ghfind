@@ -31,7 +31,6 @@ import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
-let publicScanStatusLimiter: Ratelimit | null = null;
 let campaignLeaderboardReadLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
@@ -123,9 +122,7 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
   }
 }
 
-/** Remove a bounded quick snapshot when it is corrupt or superseded. A durable
- * run intentionally keeps its trusted quick snapshot available for immediate
- * provisional responses; formal writes still require the complete snapshot. */
+/** Remove a bounded quick snapshot when it is corrupt or superseded. */
 export async function clearCachedScan(username: string): Promise<void> {
   const r = getRedis();
   if (!r) return;
@@ -265,34 +262,6 @@ export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
   } catch (error) {
     return unavailableRateLimitResult(
       "scan",
-      error instanceof Error ? error.name : "redis_request_failed",
-    );
-  }
-}
-
-/**
- * Durable scan status is polled by the browser while historical collection is
- * pending. Keep its budget separate from new scan admission: polling must not
- * consume the user's scan allowance, but it also must not become a free Turso
- * and Function invocation amplifier.
- */
-export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("public_scan_status", "missing_redis_config");
-  if (!publicScanStatusLimiter) {
-    publicScanStatusLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(20, "60 s"),
-      prefix: "rl:public-scan-status",
-      analytics: false,
-    });
-  }
-  try {
-    const { success, limit, remaining, reset } = await publicScanStatusLimiter.limit(ip);
-    return { success, limit, remaining, reset };
-  } catch (error) {
-    return unavailableRateLimitResult(
-      "public_scan_status",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }

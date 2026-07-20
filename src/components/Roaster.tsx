@@ -39,33 +39,10 @@ interface Display {
   delta: number;
 }
 
-interface ScanResponse extends ScanResult {
-  /** A bounded server-authored scan that is usable now but still collecting
-   * evidence for the formal v9/v9/v4 artifact. */
-  provisional?: boolean;
-  run_id?: string;
-}
-
 interface RoasterProps {
   campaign?: CampaignSlug;
   analyticsSource?: "home" | CampaignSlug;
   inputPlaceholder?: string;
-}
-
-function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve();
-      return;
-    }
-    const done = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", done);
-      resolve();
-    };
-    const timer = setTimeout(done, ms);
-    signal.addEventListener("abort", done, { once: true });
-  });
 }
 
 export function Roaster({
@@ -92,7 +69,6 @@ export function Roaster({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
-  const [pendingMessage, setPendingMessage] = useState("");
   const [byoOpen, setByoOpen] = useState(false);
   const [byoReason, setByoReason] = useState<string | undefined>();
   const [percentile, setPercentile] = useState<{
@@ -107,16 +83,6 @@ export function Roaster({
   const [metaRoast, setMetaRoast] = useState<RoastLine | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const lastPrefillRef = useRef<string | null>(null);
-  const pollAbortRef = useRef<AbortController | null>(null);
-  const upgradeAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(
-    () => () => {
-      pollAbortRef.current?.abort();
-      upgradeAbortRef.current?.abort();
-    },
-    [],
-  );
 
   // Deep-link prefill (?username=): seed the Omnibox; it renders the value and
   // the user hits Enter to roast. (Focus/scroll now live inside the Omnibox.)
@@ -133,7 +99,6 @@ export function Roaster({
       setReport("");
       setMetaRoast(null);
       setThinking("");
-      pollAbortRef.current?.abort();
 
       // Apply a decoded RoastMeta (header fast path or in-band M-frame) to the
       // score card / tags / one-liner.
@@ -221,7 +186,6 @@ export function Roaster({
         return;
       }
       setError("");
-      setPendingMessage("");
       setScan(null);
       setReport("");
       setPercentile(null);
@@ -230,33 +194,10 @@ export function Roaster({
       setMetaRoast(null);
       setThinking("");
       setScanning(true);
-      upgradeAbortRef.current?.abort();
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
-      const presentScan = (result: ScanResponse, refreshRunId?: string) => {
-        if (result.provisional) {
-          // The bounded server scan already uses the current formula, so let
-          // the visitor see its score and roast now. It is never stored as a
-          // profile artifact; the active page quietly upgrades after the full
-          // scan has atomically materialized formal v9/v9/v4 evidence.
-          trackEvent("scan_complete", { source: analyticsSource, tier: result.scoring.tier });
-          setScan(result);
-          setDisplay({
-            score: result.scoring.final_score,
-            tier: result.scoring.tier,
-            tierLabel: result.scoring.tier_label,
-            delta: 0,
-          });
-          setScanning(false);
-          void runRoast(result);
-          if (refreshRunId) void followCanonicalUpgrade(result.metrics.username, refreshRunId);
-          setTimeout(
-            () => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-            100,
-          );
-          return;
-        }
+      const presentScan = (result: ScanResult) => {
         const byoKey = loadByoKey();
         const forceProfileHandoff =
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
@@ -269,7 +210,6 @@ export function Roaster({
           }
           const profileParams = new URLSearchParams({ roasting: "1" });
           if (campaign) profileParams.set("campaign", campaign);
-          if (refreshRunId) profileParams.set("refresh_run_id", refreshRunId);
           router.push(`/u/${result.metrics.username}?${profileParams.toString()}`);
           return; // keep `scanning` true so the skeleton persists until navigation
         }
@@ -287,43 +227,9 @@ export function Roaster({
           100,
         );
       };
-      const followCanonicalUpgrade = async (handle: string, runId: string) => {
-        const controller = new AbortController();
-        upgradeAbortRef.current?.abort();
-        upgradeAbortRef.current = controller;
-        let retrySeconds = 15;
-        try {
-          while (!controller.signal.aborted) {
-            await abortableDelay(retrySeconds * 1_000, controller.signal);
-            if (controller.signal.aborted) return;
-            try {
-              const statusRes = await fetch(
-                `/api/scan-status/${encodeURIComponent(handle)}?run_id=${encodeURIComponent(runId)}`,
-                { signal: controller.signal },
-              );
-              const status = await statusRes.json();
-              if (statusRes.ok && status?.status === "complete_public" && status.scan) {
-                setError("");
-                setPendingMessage("");
-                presentScan(status.scan as ScanResponse);
-                return;
-              }
-              if (status?.status === "failed" || statusRes.status === 404) return;
-              retrySeconds = Math.max(10, Math.min(30, Number(status?.retry_after) || retrySeconds));
-            } catch {
-              if (controller.signal.aborted) return;
-              // The provisional result remains visible while a transient
-              // network failure is retried on this still-open page.
-            }
-          }
-        } finally {
-          if (upgradeAbortRef.current === controller) upgradeAbortRef.current = null;
-        }
-      };
-      const presentLegacyProfile = (handle: string, refreshRunId?: string) => {
+      const presentLegacyProfile = (handle: string) => {
         const profileParams = new URLSearchParams({ roasting: "1" });
         if (campaign) profileParams.set("campaign", campaign);
-        if (refreshRunId) profileParams.set("refresh_run_id", refreshRunId);
         router.push(`/u/${handle}?${profileParams.toString()}`);
       };
       try {
@@ -333,85 +239,17 @@ export function Roaster({
           body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
         const data = await res.json();
-        if (res.status === 202 && data?.error === "scan_enrichment_pending") {
-          setPendingMessage(t("errScanPending"));
-          let retrySeconds = Math.max(10, Math.min(30, Number(data.retry_after) || 10));
-          const runId = typeof data.run_id === "string" ? data.run_id : "";
-          if (!runId) {
-            setPendingMessage("");
-            setError(t("errScanFailed"));
-            setScanning(false);
-            return;
-          }
-          const controller = new AbortController();
-          pollAbortRef.current?.abort();
-          pollAbortRef.current = controller;
-          const poll = async () => {
-            let completed = false;
-            let failed = false;
-            try {
-              // The durable run can legitimately outlive a browser request by
-              // many minutes. Keep observing this specific run until it reaches
-              // a terminal state; the component cleanup aborts on navigation.
-              while (!controller.signal.aborted) {
-                await abortableDelay(retrySeconds * 1_000, controller.signal);
-                if (controller.signal.aborted) return;
-                try {
-                  const statusRes = await fetch(
-                    `/api/scan-status/${encodeURIComponent(String(data.username ?? uname))}?run_id=${encodeURIComponent(runId)}`,
-                    { signal: controller.signal },
-                  );
-                  const status = await statusRes.json();
-                  if (statusRes.ok && status?.status === "complete_public" && status.scan) {
-                    completed = true;
-                    setError("");
-                    setPendingMessage("");
-                    presentScan(status.scan as ScanResponse);
-                    return;
-                  }
-                  if (status?.status === "failed" || statusRes.status === 404) {
-                    failed = true;
-                    break;
-                  }
-                  retrySeconds = Math.max(
-                    10,
-                    Math.min(30, Number(status?.retry_after) || retrySeconds),
-                  );
-                } catch {
-                  if (controller.signal.aborted) return;
-                  // A transient network failure must not abandon a durable run.
-                }
-              }
-            } finally {
-              if (!controller.signal.aborted && !completed && failed) {
-                setPendingMessage("");
-                setError(t("errScanFailed"));
-                setScanning(false);
-              }
-              if (pollAbortRef.current === controller) pollAbortRef.current = null;
-            }
-          };
-          void poll();
-          return;
-        }
         if (!res.ok) {
-          setPendingMessage("");
           setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
           setScanning(false);
           return;
         }
         if (data?.legacy_profile === true && typeof data.username === "string") {
-          presentLegacyProfile(
-            data.username,
-            typeof data?.run_id === "string" ? data.run_id : undefined,
-          );
+          presentLegacyProfile(data.username);
           return;
         }
-        const result = data as ScanResponse;
-        const refreshRunId = typeof data?.run_id === "string" ? data.run_id : undefined;
-        presentScan(result, refreshRunId);
+        presentScan(data as ScanResult);
       } catch {
-        setPendingMessage("");
         setError(t("errNetworkScan"));
         setScanning(false);
       }
@@ -538,7 +376,6 @@ export function Roaster({
         />
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
-        {pendingMessage && <p className="text-sm text-amber-300">{pendingMessage}</p>}
       </div>
 
       <div className="mt-3 flex flex-col items-center gap-3">

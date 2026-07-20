@@ -1156,7 +1156,7 @@ export interface DurablePullRequestPage {
 }
 
 /**
- * Fetch one deliberately small, cursor-addressable page for durable scan jobs.
+ * Fetch one deliberately small, cursor-addressable contribution page.
  * This is separate from the UI's recent-PR sample: its records are persisted and
  * eventually form the all-history native merge / workflow landing aggregate.
  */

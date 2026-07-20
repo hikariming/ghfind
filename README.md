@@ -204,11 +204,10 @@ TURSO_DATABASE_URL=file:./local.db
 1. Push to GitHub, import in Vercel.
 2. Configure environment variables (as above). `UPSTASH_*` can be provisioned in one click via Vercel's Upstash integration.
 3. Grab a Cloudflare Turnstile site/secret key pair; set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`.
-4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and resumable public-history scans.
-5. Run `pnpm public-scan:worker` as a supervised service on a server with the same `TURSO_*` and GitHub API environment variables. It continuously claims the Turso-backed public-scan queue; Vercel Cron is not used. The default is two globally leased lanes, with `PUBLIC_SCAN_WORKER_CONCURRENCY=1..4` for controlled tuning.
-6. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
-7. Set both `NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. Vercel Production rejects a missing, local, HTTP, malformed, or mismatched value during the build so metadata, sitemap, API profile URLs, cards, and LLM attribution cannot drift.
-8. Deploy the web application and the worker service independently.
+4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and persisted quick-scan profiles.
+5. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
+6. Set both `NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. Vercel Production rejects a missing, local, HTTP, malformed, or mismatched value during the build so metadata, sitemap, API profile URLs, cards, and LLM attribution cannot drift.
+7. Deploy the web application.
 
 ## Bring your own model / API key
 

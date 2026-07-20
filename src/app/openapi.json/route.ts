@@ -85,11 +85,6 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "202": {
-              description: "Large public history is collecting; poll /api/scan-status/{username}?run_id={run_id} before using a score as final evidence",
-              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
-              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
-            },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
@@ -98,10 +93,10 @@ export function GET() {
         post: {
           tags: ["scoring"],
           operationId: "scan",
-          summary: "Crawl GitHub and compute the full deterministic scan + score",
+          summary: "Run a bounded GitHub scan and compute the deterministic score",
           description:
-            "Authoritative factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
-            "final_score. Deterministic — no LLM. In production, machine callers send " +
+            "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
+            "final_score. Deterministic — no LLM and no background scan queue. In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
           parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -143,52 +138,7 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "202": {
-              description: "Durable public-history collection started; poll /api/scan-status/{username}?run_id={run_id}",
-              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
-              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
-            },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          },
-        },
-      },
-      "/api/scan-status/{username}": {
-        get: {
-          tags: ["scoring"],
-          operationId: "scanStatus",
-          summary: "Read durable public-history scan progress without starting work",
-          parameters: [
-            { $ref: "#/components/parameters/Username" },
-            {
-              name: "run_id",
-              in: "query",
-              required: true,
-              description: "Opaque durable run id returned by the initiating scan response",
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": {
-              description: "Complete immutable public scan snapshot",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    required: ["status", "username", "run_id", "scan"],
-                    properties: {
-                      status: { type: "string", enum: ["complete_public"] },
-                      username: { type: "string" },
-                      run_id: { type: "string" },
-                      scan: { $ref: "#/components/schemas/ScanResult" },
-                    },
-                  },
-                },
-              },
-            },
-            "202": { description: "Collection remains in progress", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "429": { description: "Status polling rate limited", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "404": { description: "No durable scan has been requested", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "503": { description: "Durable run or request protection unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -231,7 +181,7 @@ export function GET() {
           responses: {
             "200": { description: "Streamed roast report", content: { "text/plain": { schema: { type: "string" } } } },
             "400": { description: "Missing scan / no LLM configured", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "409": { description: "Large public history is still collecting; roast is intentionally deferred", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "409": { description: "The supplied scan does not match a persisted current score", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "429": {
               description: "Rate limited",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },

@@ -1,512 +1,98 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
-  collect: vi.fn(),
-  score: vi.fn(),
-  verifyTurnstile: vi.fn(),
-  ensureCanonicalScoreForPublicRun: vi.fn(),
-  hasLegacyReadFallbackProfile: vi.fn(),
-  getLegacyReadFallbackScan: vi.fn(),
-  publishCompleteQuickScan: vi.fn(),
-  recordAccountLookup: vi.fn(),
-  getLatestPublicScanRun: vi.fn(),
+  buildScanResult: vi.fn(),
   checkRateLimit: vi.fn(),
-  rateLimitHeaders: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
-  clearCachedScan: vi.fn(),
-  setCachedScan: vi.fn(),
-  getPublicScanStatus: vi.fn(),
-  publicScanAdmission: vi.fn(() => ({ bucket: "test", limit: 2, windowMs: 60_000, maxActiveJobs: 24 })),
-  requiresDurablePublicScan: vi.fn(),
-  resolvePublicScanFromTrustedQuickScan: vi.fn(),
-  startPublicScan: vi.fn(),
-  kickPublicScanDrain: vi.fn(),
+  getLegacyReadFallbackScan: vi.fn(),
+  hasLegacyReadFallbackProfile: vi.fn(),
+  publishCompleteQuickScan: vi.fn(),
+  rateLimitHeaders: vi.fn(),
+  recordAccountLookup: vi.fn(),
+  recordCampaignParticipant: vi.fn(),
+  verifyTurnstile: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
-  ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
-  hasLegacyReadFallbackProfile: mocks.hasLegacyReadFallbackProfile,
   getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
+  hasLegacyReadFallbackProfile: mocks.hasLegacyReadFallbackProfile,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
-  getLatestPublicScanRun: mocks.getLatestPublicScanRun,
+  recordCampaignParticipant: mocks.recordCampaignParticipant,
 }));
-
-vi.mock("@/lib/github", () => {
-  class AccountNotFoundError extends Error {}
-  class GitHubAuthRequiredError extends Error {}
-  class GitHubDataUnavailableError extends Error {}
-  class GitHubRateLimitError extends Error {}
-  return {
-    AccountNotFoundError,
-    GitHubAuthRequiredError,
-    GitHubDataUnavailableError,
-    GitHubRateLimitError,
-    collect: mocks.collect,
-  };
-});
-
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
-  rateLimitHeaders: mocks.rateLimitHeaders,
   coalesceScan: mocks.coalesceScan,
-  clearCachedScan: mocks.clearCachedScan,
   getCachedScan: mocks.getCachedScan,
-  setCachedScan: mocks.setCachedScan,
+  rateLimitHeaders: mocks.rateLimitHeaders,
 }));
-
-vi.mock("@/lib/public-scan", () => ({
-  getPublicScanStatus: mocks.getPublicScanStatus,
-  publicScanAdmission: mocks.publicScanAdmission,
-  requiresDurablePublicScan: mocks.requiresDurablePublicScan,
-  resolvePublicScanFromTrustedQuickScan: mocks.resolvePublicScanFromTrustedQuickScan,
-  startPublicScan: mocks.startPublicScan,
-}));
-
-vi.mock("@/lib/public-scan-dispatcher", () => ({
-  kickPublicScanDrain: mocks.kickPublicScanDrain,
-}));
-
-vi.mock("@/lib/score", () => ({
-  score: mocks.score,
-}));
-
-vi.mock("@/lib/turnstile", () => ({
-  verifyTurnstile: mocks.verifyTurnstile,
-}));
+vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult }));
+vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 
 import { POST } from "./route";
 
-const originalCliKey = process.env.GITHUB_ROAST_CLI_API_KEY;
+const quickScan = {
+  metrics: { username: "DemoDev", profile_url: "https://github.com/DemoDev", avatar_url: null },
+  scoring: { final_score: 71, tier: "人上人", tier_label: "trusted", sub_scores: {}, base_score: 71, total_penalty: 0, red_flags: [] },
+} as unknown as ScanResult;
 
-const metrics = {
-  username: "DemoDev",
-  profile_url: "https://github.com/DemoDev",
-  avatar_url: "https://avatars.githubusercontent.com/u/1",
-};
-
-const scoring = {
-  sub_scores: {
-    account_maturity: 1,
-    original_project_quality: 2,
-    contribution_quality: 3,
-    ecosystem_impact: 4,
-    community_influence: 5,
-    activity_authenticity: 6,
-  },
-  base_score: 21,
-  red_flags: [],
-  total_penalty: 0,
-  final_score: 21,
-  tier: "NPC",
-  tier_label: "普通账号 · 特征平庸存疑",
-};
-
-function request(init?: { token?: string; auth?: string }): NextRequest {
+function request() {
   return new NextRequest("https://example.test/api/scan", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(init?.auth ? { authorization: init.auth } : {}),
-    },
-    body: JSON.stringify({ username: "DemoDev", turnstileToken: init?.token }),
+    headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+    body: JSON.stringify({ username: "DemoDev" }),
   });
 }
 
-describe("scan route machine auth", () => {
+describe("POST /api/scan immediate quick contract", () => {
   beforeEach(() => {
-    process.env.GITHUB_ROAST_CLI_API_KEY = "cli-secret";
-    mocks.collect.mockResolvedValue({
-      metrics,
-      top_repos: [],
-      recent_prs: [],
-      flood_pr_titles: [],
-      impact_repos: [],
-      verified_impact_prs: [],
-      pinned_repos: [],
-      organizations: [],
-    });
-    mocks.score.mockReturnValue(scoring);
-    mocks.verifyTurnstile.mockResolvedValue(false);
-    mocks.publishCompleteQuickScan.mockResolvedValue({
-      scannedAt: 1_800_000_000_000,
-      token: "score-write-token",
-    });
-    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue({
-      scannedAt: 1_800_000_000_000,
-      token: "score-write-token",
-    });
-    mocks.hasLegacyReadFallbackProfile.mockResolvedValue(false);
-    mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
-    mocks.clearCachedScan.mockResolvedValue(undefined);
-    mocks.recordAccountLookup.mockResolvedValue(true);
-    mocks.getLatestPublicScanRun.mockResolvedValue(null);
+    process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
-    mocks.coalesceScan.mockImplementation(async (_username: string, fn: () => unknown) => fn());
     mocks.getCachedScan.mockResolvedValue(null);
-    mocks.getPublicScanStatus.mockResolvedValue(null);
-    mocks.requiresDurablePublicScan.mockReturnValue(false);
+    mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
+    mocks.buildScanResult.mockResolvedValue(quickScan);
+    mocks.publishCompleteQuickScan.mockResolvedValue(true);
+    mocks.recordAccountLookup.mockResolvedValue(undefined);
+    mocks.recordCampaignParticipant.mockResolvedValue(undefined);
+    mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
+    mocks.hasLegacyReadFallbackProfile.mockResolvedValue(false);
   });
 
   afterEach(() => {
-    if (originalCliKey === undefined) delete process.env.GITHUB_ROAST_CLI_API_KEY;
-    else process.env.GITHUB_ROAST_CLI_API_KEY = originalCliKey;
+    delete process.env.GITHUB_ROAST_CLI_API_KEY;
     vi.clearAllMocks();
   });
 
-  it("keeps requiring Turnstile when machine auth is missing", async () => {
+  it("persists and returns the current v9 quick result without a queue response", async () => {
     const response = await POST(request());
 
-    expect(response.status).toBe(403);
-    // Structured error shape: stable machine code plus human-readable fields.
-    expect(await response.json()).toEqual({
-      error: "turnstile_failed",
-      message: "turnstile failed",
-      hint: "Complete the browser verification, or call with a Bearer API key.",
-    });
-    expect(mocks.verifyTurnstile).toHaveBeenCalledWith(null, "0.0.0.0");
-    expect(mocks.collect).not.toHaveBeenCalled();
-  });
-
-  it("allows the same scan API to be called by CLI with a bearer token", async () => {
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.metrics.username).toBe("DemoDev");
-    expect(body.scoring.final_score).toBe(21);
-    expect(body.cached).toBe(false);
-    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(
-      expect.objectContaining({ metrics: expect.objectContaining({ username: "DemoDev" }) }),
-      expect.any(Number),
-    );
-  });
-
-  it("rejects a non-string username with a 400 instead of crashing", async () => {
-    const response = await POST(
-      new NextRequest("https://example.test/api/scan", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: 12345 }),
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe("invalid_username");
-  });
-
-  it("rate-limits before the cache lookup so cached hits can't bypass the limiter", async () => {
-    mocks.checkRateLimit.mockResolvedValue({ success: false, limit: 10, remaining: 0, reset: Date.now() + 60_000 });
-    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "60" });
-    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(429);
-    expect(response.headers.get("Retry-After")).toBe("60");
-    expect(mocks.getCachedScan).not.toHaveBeenCalled();
-    expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
-  });
-
-  it("fails closed before cache and lookup work when production rate limiting is unavailable", async () => {
-    mocks.checkRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
-    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(503);
-    expect(response.headers.get("Retry-After")).toBe("15");
-    await expect(response.json()).resolves.toMatchObject({ error: "rate_limit_unavailable" });
-    expect(mocks.getCachedScan).not.toHaveBeenCalled();
-    expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
-  });
-
-  it("serves a complete persisted run with RateLimit headers once the limiter passes", async () => {
-    mocks.rateLimitHeaders.mockReturnValue({ "RateLimit-Remaining": "9" });
-    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
-    const run = { id: "complete-run" };
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "complete",
-      run,
-      scan: { metrics, scoring },
-    });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).cached).toBe(true);
-    expect(response.headers.get("RateLimit-Remaining")).toBe("9");
-    expect(mocks.ensureCanonicalScoreForPublicRun).toHaveBeenCalledWith(run);
-    expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("runs a fresh quick scan before using a stale v3 snapshot", async () => {
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "stale",
-      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
-      scan: { metrics, scoring, top_repos: [], recent_prs: [], flood_pr_titles: [] },
-      refreshPending: false,
-      refreshRun: null,
-      servedCollectionVersion: "v3",
-      targetCollectionVersion: "v4",
-    });
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      metrics: { username: "DemoDev" },
       cached: false,
-    });
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.startPublicScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-    expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
-  });
-
-  it("serves a verified v5/v5/v3 scan only when the fresh quick scan fails", async () => {
-    const legacyScan = {
-      metrics,
-      scoring,
-      top_repos: [],
-      recent_prs: [],
-      flood_pr_titles: [],
-      impact_repos: [],
-      verified_impact_prs: [],
-      pinned_repos: [],
-      organizations: [],
-    };
-    mocks.getLegacyReadFallbackScan.mockResolvedValue(legacyScan);
-    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+      coverage: "quick",
       metrics: { username: "DemoDev" },
-      cached: true,
-      stale: true,
+      scoring: { final_score: 71 },
+    });
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
+  });
+
+  it("serves v5 only after the quick collector fails", async () => {
+    mocks.buildScanResult.mockRejectedValue(new Error("github unavailable"));
+    mocks.getLegacyReadFallbackScan.mockResolvedValue(quickScan);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      coverage: "legacy",
       legacy_read_fallback: true,
-      refresh_pending: false,
       served_score_version: "v5",
       served_roast_version: "v5",
       served_collection_version: "v3",
-      target_score_version: "v9",
-      target_roast_version: "v9",
-      target_collection_version: "v4",
     });
-    expect(mocks.startPublicScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-    expect(mocks.getCachedScan).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("hands a stored v5 profile to the browser only after a quick-scan failure", async () => {
-    mocks.hasLegacyReadFallbackProfile.mockResolvedValue(true);
-    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      username: "DemoDev",
-      cached: true,
-      stale: true,
-      legacy_read_fallback: true,
-      legacy_profile: true,
-      refresh_pending: false,
-      served_score_version: "v5",
-      served_roast_version: "v5",
-      served_collection_version: "v3",
-      target_score_version: "v9",
-      target_roast_version: "v9",
-      target_collection_version: "v4",
-    });
-    expect(mocks.getLegacyReadFallbackScan).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.startPublicScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-  });
-
-  it("does not enqueue a durable job merely by serving a v5 fallback", async () => {
-    mocks.getLegacyReadFallbackScan.mockResolvedValue({
-      metrics,
-      scoring,
-      top_repos: [],
-      recent_prs: [],
-      flood_pr_titles: [],
-      impact_repos: [],
-      verified_impact_prs: [],
-      pinned_repos: [],
-      organizations: [],
-    });
-    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      legacy_read_fallback: true,
-      refresh_pending: false,
-    });
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
-    expect(mocks.startPublicScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-  });
-
-  it("uses a stale snapshot only when the current quick scan and v5 fallback are unavailable", async () => {
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "stale",
-      run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
-      scan: { metrics, scoring, top_repos: [], recent_prs: [], flood_pr_titles: [] },
-      refreshPending: false,
-      refreshRun: { id: "failed-refresh", username: "DemoDev", collectionVersion: "v4" },
-      servedCollectionVersion: "v3",
-      targetCollectionVersion: "v4",
-    });
-    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      stale: true,
-      refresh_pending: false,
-      run_id: "failed-refresh",
-    });
-    expect(mocks.startPublicScan).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-  });
-
-  it("uses a current-release quick cache without republishing or recollecting", async () => {
-    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).cached).toBe(true);
-    expect(mocks.clearCachedScan).not.toHaveBeenCalled();
-    expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when a complete run cannot materialize its canonical score", async () => {
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "complete",
-      run: { id: "complete-run" },
-      scan: { metrics, scoring },
-    });
-    mocks.ensureCanonicalScoreForPublicRun.mockResolvedValue(null);
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(503);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(mocks.setCachedScan).not.toHaveBeenCalled();
-  });
-
-  it("does not republish a scan returned by the single-flight cache race", async () => {
-    mocks.coalesceScan.mockResolvedValue({
-      metrics,
-      scoring,
-      top_repos: [],
-      recent_prs: [],
-      flood_pr_titles: [],
-    });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("serves a cached quick result while its durable job is pending", async () => {
-    mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
-    mocks.requiresDurablePublicScan.mockReturnValue(true);
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "pending",
-      run: { id: "active-run" },
-      retryAfterSeconds: 5,
-    });
-    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "active-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: null,
-    });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      provisional: true,
-      coverage: "quick",
-      run_id: "active-run",
-    });
-    expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.resolvePublicScanFromTrustedQuickScan).toHaveBeenCalledWith(
-      "DemoDev",
-      expect.objectContaining({ metrics: expect.objectContaining({ username: "DemoDev" }) }),
-      expect.anything(),
-    );
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("starts one response-side worker step after returning a provisional quick result", async () => {
-    mocks.requiresDurablePublicScan.mockReturnValue(true);
-    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "new-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: "new-job-id",
-    });
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      provisional: true,
-      coverage: "quick",
-      run_id: "new-run",
-    });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-  });
-
-  it("returns 503 instead of claiming a fresh quick scan succeeded when persistence returns null", async () => {
-    mocks.publishCompleteQuickScan.mockResolvedValue(null);
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(503);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(response.headers.get("Retry-After")).toBe("5");
-    await expect(response.json()).resolves.toMatchObject({
-      error: "scan_failed",
-      message: "score persistence is temporarily unavailable",
-    });
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
-  });
-
-  it("returns 503 instead of claiming a fresh quick scan succeeded when persistence throws", async () => {
-    mocks.publishCompleteQuickScan.mockRejectedValue(new Error("storage unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({ error: "scan_failed" });
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
   });
 });

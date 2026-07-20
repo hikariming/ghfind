@@ -511,6 +511,25 @@ describe("canonical score materialization", () => {
     });
   });
 
+  it("returns only the quick snapshot that backs the current canonical score", async () => {
+    const username = "current-quick-snapshot-fixture";
+    const scan = syntheticScan(username);
+    const { snapshotHash } = serializeScan(scan);
+
+    await expect(db.publishCompleteQuickScan(scan, 1_910_000_005_000)).resolves.toBeTruthy();
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toMatchObject({
+      snapshotHash,
+      scan: { metrics: { username } },
+    });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_source_snapshot_hash = ? WHERE username = ?`,
+      args: ["0".repeat(64), username],
+    });
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
+  });
+
   it("reuses the same score identity and run for a repeated quick snapshot", async () => {
     const username = "quick-idempotency-fixture";
     const scannedAt = 1_910_000_010_000;
