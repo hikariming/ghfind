@@ -43,15 +43,21 @@ describe("production rate-limit availability", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { checkRateLimit, rateLimitHeaders } = await loadRedis();
+    const { checkRateLimit, checkScanNetworkRateLimit, rateLimitHeaders } = await loadRedis();
 
     const result = await checkRateLimit("198.51.100.10");
+    const networkResult = await checkScanNetworkRateLimit("198.51.100.10");
 
     expect(result).toMatchObject({ success: false, unavailable: true, retryAfter: 15 });
+    expect(networkResult).toMatchObject({ success: false, unavailable: true, retryAfter: 15 });
     expect(rateLimitHeaders(result)).toEqual({ "Retry-After": "15" });
     expect(error).toHaveBeenCalledWith(
       "rate_limit_unavailable",
       expect.objectContaining({ limiter: "scan", reason: "missing_redis_config" }),
+    );
+    expect(error).toHaveBeenCalledWith(
+      "rate_limit_unavailable",
+      expect.objectContaining({ limiter: "scan_network", reason: "missing_redis_config" }),
     );
   });
 

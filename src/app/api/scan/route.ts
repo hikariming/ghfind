@@ -9,10 +9,16 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
+  checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
 } from "@/lib/redis";
+import {
+  attachAnonymousSession,
+  establishAnonymousSession,
+  type AnonymousSession,
+} from "@/lib/anonymous-session";
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
@@ -157,19 +163,29 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const auth = machineAuth(req);
   if (auth === "invalid") return apiError("unauthorized", { status: 401, headers: idem });
+  let anonymousSession: AnonymousSession | null = null;
   if (auth === "absent") {
     const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
     if (!(await verifyTurnstile(token, ip))) {
       return apiError("turnstile_failed", { status: 403, headers: idem });
     }
+    anonymousSession = establishAnonymousSession(req);
   }
 
-  const limit = await checkRateLimit(ip);
+  const principal = auth === "absent" && anonymousSession ? `anon:${anonymousSession.id}` : ip;
+  const limit = await checkRateLimit(principal);
   const rlHeaders = rateLimitHeaders(limit);
   if (!limit.success) {
     return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
       status: limit.unavailable ? 503 : 429,
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
+    });
+  }
+  const networkLimit = await checkScanNetworkRateLimit(ip);
+  if (!networkLimit.success) {
+    return apiError(networkLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
+      status: networkLimit.unavailable ? 503 : 429,
+      headers: { ...idem, ...rateLimitHeaders(networkLimit), "Cache-Control": "no-store" },
     });
   }
 
@@ -179,7 +195,10 @@ export async function POST(req: NextRequest) {
       return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     }
     await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
-    return immediateResponse({ scan: cached, cached: true, headers: { ...idem, ...rlHeaders } });
+    return attachAnonymousSession(
+      immediateResponse({ scan: cached, cached: true, headers: { ...idem, ...rlHeaders } }),
+      anonymousSession,
+    );
   }
 
   try {
@@ -190,17 +209,26 @@ export async function POST(req: NextRequest) {
       return quickScan;
     });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
-    return immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } });
+    return attachAnonymousSession(
+      immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),
+      anonymousSession,
+    );
   } catch (error) {
     if (error instanceof ScorePersistenceError) {
       return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     }
     const legacyScan = await getLegacyReadFallbackScan(username);
     if (legacyScan) {
-      return legacyReadFallbackResponse({ scan: legacyScan, headers: { ...idem, ...rlHeaders } });
+      return attachAnonymousSession(
+        await legacyReadFallbackResponse({ scan: legacyScan, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
     }
     if (await hasLegacyReadFallbackProfile(username)) {
-      return legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } });
+      return attachAnonymousSession(
+        await legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
     }
     const { error: code, status, retry_after } = scanErrorResponse(error);
     return apiError(code as Parameters<typeof apiError>[0], {

@@ -5,6 +5,7 @@ import type { ScanResult } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
   checkRateLimit: vi.fn(),
+  checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   recordAccountLookup: vi.fn(),
   recordCampaignParticipant: vi.fn(),
   verifyTurnstile: vi.fn(),
+  anonymousSessionPrincipal: vi.fn(),
+  attachAnonymousSession: vi.fn(),
+  establishAnonymousSession: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -25,12 +29,18 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
+  checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
 vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
+vi.mock("@/lib/anonymous-session", () => ({
+  anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
+  attachAnonymousSession: mocks.attachAnonymousSession,
+  establishAnonymousSession: mocks.establishAnonymousSession,
+}));
 
 import { POST } from "./route";
 
@@ -51,6 +61,7 @@ describe("POST /api/scan immediate quick contract", () => {
   beforeEach(() => {
     process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
     mocks.checkRateLimit.mockResolvedValue({ success: true });
+    mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
     mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
@@ -60,6 +71,10 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.recordCampaignParticipant.mockResolvedValue(undefined);
     mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
     mocks.hasLegacyReadFallbackProfile.mockResolvedValue(false);
+    mocks.verifyTurnstile.mockResolvedValue(true);
+    mocks.anonymousSessionPrincipal.mockReturnValue(null);
+    mocks.establishAnonymousSession.mockReturnValue(null);
+    mocks.attachAnonymousSession.mockImplementation((response) => response);
   });
 
   afterEach(() => {
@@ -78,6 +93,7 @@ describe("POST /api/scan immediate quick contract", () => {
       scoring: { final_score: 71 },
     });
     expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
   });
 
   it("serves v5 only after the quick collector fails", async () => {
@@ -94,5 +110,24 @@ describe("POST /api/scan immediate quick contract", () => {
       served_roast_version: "v5",
       served_collection_version: "v3",
     });
+  });
+
+  it("uses a Turnstile-issued browser session before the shared network budget", async () => {
+    delete process.env.GITHUB_ROAST_CLI_API_KEY;
+    mocks.establishAnonymousSession.mockReturnValue({ id: "session-fixture", issued: true });
+
+    const response = await POST(new NextRequest("https://example.test/api/scan", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.10" },
+      body: JSON.stringify({ username: "DemoDev", turnstileToken: "token" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("anon:session-fixture");
+    expect(mocks.checkScanNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
+    expect(mocks.attachAnonymousSession).toHaveBeenCalledWith(
+      expect.any(Response),
+      { id: "session-fixture", issued: true },
+    );
   });
 });

@@ -6,7 +6,9 @@ const mocks = vi.hoisted(() => ({
   acquireRoastLock: vi.fn(),
   buildRoastMessages: vi.fn(),
   checkRoastRateLimit: vi.fn(),
+  checkRoastNetworkRateLimit: vi.fn(),
   checkRoastRequestRateLimit: vi.fn(),
+  checkRoastRequestNetworkRateLimit: vi.fn(),
   chat: vi.fn(),
   defaultLlmConfig: vi.fn(),
   fallbackLlmConfig: vi.fn(),
@@ -23,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   setCachedRoast: vi.fn(),
   updateRoast: vi.fn(),
   waitForCachedRoast: vi.fn(),
+  anonymousSessionPrincipal: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -37,7 +40,9 @@ vi.mock("@/lib/rank", () => ({ getRankCached: mocks.getRankCached }));
 vi.mock("@/lib/redis", () => ({
   acquireRoastLock: mocks.acquireRoastLock,
   checkRoastRateLimit: mocks.checkRoastRateLimit,
+  checkRoastNetworkRateLimit: mocks.checkRoastNetworkRateLimit,
   checkRoastRequestRateLimit: mocks.checkRoastRequestRateLimit,
+  checkRoastRequestNetworkRateLimit: mocks.checkRoastRequestNetworkRateLimit,
   clearCachedRoast: vi.fn(),
   getCachedRoast: mocks.getCachedRoast,
   getCachedScan: mocks.getCachedScan,
@@ -45,6 +50,9 @@ vi.mock("@/lib/redis", () => ({
   releaseRoastLock: mocks.releaseRoastLock,
   setCachedRoast: mocks.setCachedRoast,
   waitForCachedRoast: mocks.waitForCachedRoast,
+}));
+vi.mock("@/lib/anonymous-session", () => ({
+  anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
 }));
 vi.mock("@/lib/prompt", () => ({ buildRoastMessages: mocks.buildRoastMessages }));
 vi.mock("@/lib/llm", () => ({
@@ -68,7 +76,10 @@ describe("POST /api/roast quick score contract", () => {
   beforeEach(() => {
     mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: true });
     mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
+    mocks.checkRoastRequestNetworkRateLimit.mockResolvedValue({ success: true });
+    mocks.checkRoastNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
+    mocks.anonymousSessionPrincipal.mockReturnValue(null);
     mocks.defaultLlmConfig.mockReturnValue({ baseURL: "https://llm.example.test", apiKey: "key", model: "model" });
     mocks.fallbackLlmConfig.mockReturnValue(null);
     mocks.getCachedScan.mockResolvedValue(null);
@@ -110,6 +121,42 @@ describe("POST /api/roast quick score contract", () => {
     await new Response(response.body).text();
     expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalled();
     expect(mocks.checkRoastRateLimit).toHaveBeenCalled();
+  });
+
+  it("uses the signed browser session while retaining the shared network budgets", async () => {
+    mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.10" },
+      body: JSON.stringify({ scan, lang: "zh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await new Response(response.body).text();
+    expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalledWith("anon:session-fixture");
+    expect(mocks.checkRoastRequestNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
+    expect(mocks.checkRoastRateLimit).toHaveBeenCalledWith("anon:session-fixture");
+    expect(mocks.checkRoastNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
+  });
+
+  it("keeps machine-authenticated callers on their IP budget", async () => {
+    process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
+    mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
+
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-key",
+        "content-type": "application/json",
+        "x-forwarded-for": "198.51.100.10",
+      },
+      body: JSON.stringify({ scan, lang: "zh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await new Response(response.body).text();
+    expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalledWith("198.51.100.10");
+    expect(mocks.checkRoastRateLimit).toHaveBeenCalledWith("198.51.100.10");
   });
 
   it("uses the exact server quick snapshot instead of a client handoff", async () => {

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
+import { anonymousSessionPrincipal } from "@/lib/anonymous-session";
 import { machineAuth } from "@/lib/machine-auth";
 import {
   getArchivedRoast,
@@ -31,6 +32,8 @@ import {
   acquireRoastLock,
   checkRoastRequestRateLimit,
   checkRoastRateLimit,
+  checkRoastNetworkRateLimit,
+  checkRoastRequestNetworkRateLimit,
   clearCachedRoast,
   getCachedRoast,
   getCachedScan,
@@ -619,17 +622,34 @@ export async function POST(req: NextRequest) {
   if (auth === "invalid") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const ip = clientIp(req);
+  // CLI/MCP callers retain their IP budget. Only an interactive browser that
+  // completed Turnstile can exchange its shared-NAT IP key for a signed session.
+  const principal = auth === "absent" ? anonymousSessionPrincipal(req) ?? ip : ip;
 
   // This protects every path, including BYO: it runs before the snapshot and
   // scan-cache reads below, while the later roast limiter remains dedicated
   // to operator-paid model generation.
-  const requestLimit = await checkRoastRequestRateLimit(clientIp(req));
+  const requestLimit = await checkRoastRequestRateLimit(principal);
   if (!requestLimit.success) {
     return NextResponse.json(
       { error: requestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
       {
         status: requestLimit.unavailable ? 503 : 429,
         headers: { ...rateLimitHeaders(requestLimit), "Cache-Control": "no-store" },
+      },
+    );
+  }
+  const networkRequestLimit = await checkRoastRequestNetworkRateLimit(ip);
+  if (!networkRequestLimit.success) {
+    return NextResponse.json(
+      {
+        error: networkRequestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+        useByoKey: true,
+      },
+      {
+        status: networkRequestLimit.unavailable ? 503 : 429,
+        headers: { ...rateLimitHeaders(networkRequestLimit), "Cache-Control": "no-store" },
       },
     );
   }
@@ -775,13 +795,26 @@ export async function POST(req: NextRequest) {
         return roastResponse(archivedRoast.report, meta);
       }
     }
-    const generationLimit = await checkRoastRateLimit(clientIp(req));
+    const generationLimit = await checkRoastRateLimit(principal);
     if (!generationLimit.success) {
       return NextResponse.json(
         { error: generationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
         {
           status: generationLimit.unavailable ? 503 : 429,
           headers: { ...rateLimitHeaders(generationLimit), "Cache-Control": "no-store" },
+        },
+      );
+    }
+    const networkGenerationLimit = await checkRoastNetworkRateLimit(ip);
+    if (!networkGenerationLimit.success) {
+      return NextResponse.json(
+        {
+          error: networkGenerationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+          useByoKey: true,
+        },
+        {
+          status: networkGenerationLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(networkGenerationLimit), "Cache-Control": "no-store" },
         },
       );
     }

@@ -31,11 +31,15 @@ import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
+let scanNetworkLimiter: Ratelimit | null = null;
 let campaignLeaderboardReadLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
+let roastRequestNetworkLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
 let roastDayLimiter: Ratelimit | null = null;
+let roastNetworkMinuteLimiter: Ratelimit | null = null;
+let roastNetworkDayLimiter: Ratelimit | null = null;
 let verdictMinuteLimiter: Ratelimit | null = null;
 let verdictDayLimiter: Ratelimit | null = null;
 
@@ -244,8 +248,8 @@ export function rateLimitHeaders(result: RateLimitResult): Record<string, string
   return headers;
 }
 
-/** Per-IP sliding-window limiter for scan and bounded public-read routes. */
-export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
+/** Per-principal sliding-window limiter for scan and bounded public-read routes. */
+export async function checkRateLimit(principal: string): Promise<RateLimitResult> {
   const r = getRedis();
   if (!r) return unavailableRateLimitResult("scan", "missing_redis_config");
   if (!scanLimiter) {
@@ -257,11 +261,34 @@ export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
     });
   }
   try {
-    const { success, limit, remaining, reset } = await scanLimiter.limit(ip);
+    const { success, limit, remaining, reset } = await scanLimiter.limit(principal);
     return { success, limit, remaining, reset };
   } catch (error) {
     return unavailableRateLimitResult(
       "scan",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/** Wider second-line scan budget for browsers sharing one public network. */
+export async function checkScanNetworkRateLimit(ip: string): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) return unavailableRateLimitResult("scan_network", "missing_redis_config");
+  if (!scanNetworkLimiter) {
+    scanNetworkLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(60, "60 s"),
+      prefix: "rl:scan-network",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } = await scanNetworkLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "scan_network",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
@@ -306,7 +333,7 @@ export async function checkCampaignLeaderboardReadRateLimit(
  * separate from the stricter default-model credit limiter: BYO requests do not
  * spend our model credit, but they still invoke a function and read Turso.
  */
-export async function checkRoastRequestRateLimit(ip: string): Promise<RateLimitResult> {
+export async function checkRoastRequestRateLimit(principal: string): Promise<RateLimitResult> {
   const r = getRedis();
   if (!r) return unavailableRateLimitResult("roast_request", "missing_redis_config");
   if (!roastRequestLimiter) {
@@ -318,11 +345,34 @@ export async function checkRoastRequestRateLimit(ip: string): Promise<RateLimitR
     });
   }
   try {
-    const { success, limit, remaining, reset } = await roastRequestLimiter.limit(ip);
+    const { success, limit, remaining, reset } = await roastRequestLimiter.limit(principal);
     return { success, limit, remaining, reset };
   } catch (error) {
     return unavailableRateLimitResult(
       "roast_request",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/** Wider second-line request budget for browsers sharing one public network. */
+export async function checkRoastRequestNetworkRateLimit(ip: string): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) return unavailableRateLimitResult("roast_request_network", "missing_redis_config");
+  if (!roastRequestNetworkLimiter) {
+    roastRequestNetworkLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(120, "60 s"),
+      prefix: "rl:roast-request-network",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } = await roastRequestNetworkLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "roast_request_network",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
@@ -356,11 +406,11 @@ export async function checkMcpRateLimit(ip: string): Promise<RateLimitResult> {
 }
 
 /**
- * Per-IP limiter for the (expensive) roast endpoint — the LLM call burns the
+ * Per-principal limiter for the (expensive) roast endpoint — the LLM call burns the
  * operator's credit, so it's limited tighter than scans: a burst window and a
  * daily cap. Only gates the default model; BYO keys are not limited.
  */
-export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> {
+export async function checkRoastRateLimit(principal: string): Promise<RateLimitResult> {
   const r = getRedis();
   if (!r) return unavailableRateLimitResult("roast_generation", "missing_redis_config");
   if (!roastMinuteLimiter) {
@@ -381,13 +431,47 @@ export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> 
   }
   try {
     const [minute, day] = await Promise.all([
-      roastMinuteLimiter.limit(ip),
-      roastDayLimiter.limit(ip),
+      roastMinuteLimiter.limit(principal),
+      roastDayLimiter.limit(principal),
     ]);
     return { success: minute.success && day.success };
   } catch (error) {
     return unavailableRateLimitResult(
       "roast_generation",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/** Wider network-level generation budget, separate from each signed browser. */
+export async function checkRoastNetworkRateLimit(ip: string): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) return unavailableRateLimitResult("roast_generation_network", "missing_redis_config");
+  if (!roastNetworkMinuteLimiter) {
+    roastNetworkMinuteLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(48, "60 s"),
+      prefix: "rl:roast-network:m",
+      analytics: false,
+    });
+  }
+  if (!roastNetworkDayLimiter) {
+    roastNetworkDayLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(480, "1 d"),
+      prefix: "rl:roast-network:d",
+      analytics: false,
+    });
+  }
+  try {
+    const [minute, day] = await Promise.all([
+      roastNetworkMinuteLimiter.limit(ip),
+      roastNetworkDayLimiter.limit(ip),
+    ]);
+    return { success: minute.success && day.success };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "roast_generation_network",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
