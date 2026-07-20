@@ -248,6 +248,12 @@ export function Roaster({
           100,
         );
       };
+      const presentLegacyProfile = (handle: string, refreshRunId?: string) => {
+        const profileParams = new URLSearchParams({ roasting: "1" });
+        if (campaign) profileParams.set("campaign", campaign);
+        if (refreshRunId) profileParams.set("refresh_run_id", refreshRunId);
+        router.push(`/u/${handle}?${profileParams.toString()}`);
+      };
       try {
         const res = await fetch("/api/scan", {
           method: "POST",
@@ -303,6 +309,13 @@ export function Roaster({
         if (!res.ok) {
           setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
           setScanning(false);
+          return;
+        }
+        if (data?.legacy_profile === true && typeof data.username === "string") {
+          presentLegacyProfile(
+            data.username,
+            typeof data?.run_id === "string" ? data.run_id : undefined,
+          );
           return;
         }
         const result = data as ScanResult;

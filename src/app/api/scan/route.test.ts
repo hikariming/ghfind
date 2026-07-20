@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
   ensureCanonicalScoreForPublicRun: vi.fn(),
+  hasLegacyReadFallbackProfile: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
@@ -26,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
+  hasLegacyReadFallbackProfile: mocks.hasLegacyReadFallbackProfile,
   getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
@@ -136,6 +138,7 @@ describe("scan route machine auth", () => {
       scannedAt: 1_800_000_000_000,
       token: "score-write-token",
     });
+    mocks.hasLegacyReadFallbackProfile.mockResolvedValue(false);
     mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
     mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.recordAccountLookup.mockResolvedValue(true);
@@ -327,6 +330,45 @@ describe("scan route machine auth", () => {
     expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
     expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
+  });
+
+  it("hands a stored v5 profile to the browser without fabricating a v3 scan", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "pending",
+      run: { id: "canonical-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: null,
+    });
+    mocks.hasLegacyReadFallbackProfile.mockResolvedValue(true);
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "canonical-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: "canonical-job",
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      username: "DemoDev",
+      cached: true,
+      stale: true,
+      legacy_read_fallback: true,
+      legacy_profile: true,
+      refresh_pending: true,
+      run_id: "canonical-run",
+      served_score_version: "v5",
+      served_roast_version: "v5",
+      served_collection_version: "v3",
+      target_score_version: "v9",
+      target_roast_version: "v9",
+      target_collection_version: "v4",
+    });
+    expect(mocks.getLegacyReadFallbackScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("canonical-job");
+    expect(mocks.collect).not.toHaveBeenCalled();
   });
 
   it("keeps the verified v5/v5/v3 profile readable when v9 admission is full", async () => {

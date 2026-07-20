@@ -235,22 +235,28 @@ export default async function AccountPage({
   // Direct visits / shared links (no param) keep the popup-free SSR page.
   const fromHome = query.roasting === "1";
   const refreshRunId = typeof query.refresh_run_id === "string" ? query.refresh_run_id : null;
-  const legacyReadFallback = d.score_version === LEGACY_READ_FALLBACK.score;
+  const legacyReadFallback = d.legacy_read_fallback;
   // eslint-disable-next-line react-hooks/purity -- force-dynamic Server Component: rendered per request, so wall-clock staleness here is intentional (and the server re-validates before spending LLM credit)
   const staleReroast = !legacyReadFallback && fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
   // A profile read must stay read-only. Only the explicit homepage handoff may
   // mount LiveRoast and spend LLM credit; direct/shared profile visits show a
   // stable pending state even if a scan happens to remain in Redis.
-  const shouldStreamRoast = shouldStartProfileRoast({
-    explicitHandoff: fromHome,
-    hasReport: Boolean(roast),
-    staleReport: staleReroast,
-  });
+  const shouldStreamRoast =
+    !legacyReadFallback &&
+    shouldStartProfileRoast({
+      explicitHandoff: fromHome,
+      hasReport: Boolean(roast),
+      staleReport: staleReroast,
+    });
   const liveScan = shouldStreamRoast ? await getLiveScan(d.username) : null;
   // getAccountDetail only exposes report text after both its score and the
   // selected-language roast pass the canonical version checks. Preserve that
   // boundary here instead of guessing compatibility from report contents.
-  const selectedRoastVersion = roast ? ROAST_CACHE_VERSION : null;
+  const selectedRoastVersion = roast
+    ? legacyReadFallback
+      ? LEGACY_READ_FALLBACK.roast
+      : ROAST_CACHE_VERSION
+    : null;
   const artifactState = resolveProfileArtifactState({
     scoreVersion: d.score_version,
     sourceCollectionVersion: d.score_source_collection_version,

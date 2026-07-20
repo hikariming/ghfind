@@ -7,7 +7,10 @@ import {
   isCanonicalProfileUpgradeComplete,
 } from "@/lib/canonical-profile-upgrade";
 
-const MAX_WAIT_MS = 10 * 60 * 1_000;
+// Large public histories can take tens of minutes. The legacy profile is
+// already visible, so continue observing its single explicit refresh long
+// enough to switch to canonical data without starting another job.
+const MAX_WAIT_MS = 45 * 60 * 1_000;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {

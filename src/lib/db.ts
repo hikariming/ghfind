@@ -101,6 +101,16 @@ function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
   );
 }
 
+/**
+ * A stored v5/v5 score/report pair is safe to show as a stale profile even
+ * when its old collector snapshot is no longer retained. This deliberately
+ * proves only the persisted presentation artifact. Callers that need a full
+ * ScanResult must use the stricter snapshot verifier below.
+ */
+function isLegacyReadFallbackProfile(row: Record<string, unknown>): boolean {
+  return hasLegacyReadFallbackReport(row);
+}
+
 function parseVerifiedLegacyReadFallbackRun(
   run: PublicScanRun,
   username: string,
@@ -137,9 +147,9 @@ function parseVerifiedLegacyReadFallbackRun(
 }
 
 /**
- * A v5 report may be served only when its score row and a complete v3 factual
- * snapshot agree on the same account/version contract. This is read-only: it
- * never upgrades, queues, re-scores, or invokes an LLM.
+ * A full v5 scan payload may be served only when its score row and a complete
+ * v3 factual snapshot agree on the same account/version contract. This is
+ * read-only: it never upgrades, queues, re-scores, or invokes an LLM.
  */
 async function getVerifiedLegacyReadFallbackScan(
   db: Client,
@@ -180,13 +190,6 @@ async function getVerifiedLegacyReadFallbackScan(
   } catch {
     return null;
   }
-}
-
-async function isVerifiedLegacyReadFallback(
-  db: Client,
-  row: Record<string, unknown>,
-): Promise<boolean> {
-  return Boolean(await getVerifiedLegacyReadFallbackScan(db, row));
 }
 
 function logPublicScanDbFailure(operation: string, error: unknown): void {
@@ -5335,6 +5338,8 @@ export interface AccountDetail {
   roast_en: string | null;
   /** Score formula version that produced this persisted profile. */
   score_version?: string | null;
+  /** True only for the explicit read-only v5/v5/v3 continuity path. */
+  legacy_read_fallback: boolean;
   /** Canonical collection provenance; null for historical/legacy score rows. */
   score_source_collection_version: string | null;
   /** SHA-256 identity of the complete source snapshot; null for legacy rows. */
@@ -5670,10 +5675,8 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
       typeof r.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
-    const legacyReadFallback = !canonicalScore && await isVerifiedLegacyReadFallback(
-      db,
-      r as Record<string, unknown>,
-    );
+    const legacyReadFallback =
+      !canonicalScore && isLegacyReadFallbackProfile(r as Record<string, unknown>);
     const readableArtifacts = canonicalScore || legacyReadFallback;
     const artifactRoastVersion = canonicalScore
       ? ROAST_CACHE_VERSION
@@ -5699,6 +5702,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
           ? ((r.roast_en as string | null) ?? null)
           : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
+      legacy_read_fallback: legacyReadFallback,
       score_source_collection_version:
         typeof r.score_source_collection_version === "string"
           ? r.score_source_collection_version
@@ -5712,6 +5716,31 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
   } catch (e) {
     console.error("getAccountDetail failed:", e);
     return null;
+  }
+}
+
+/**
+ * Whether an account has a stored v5/v5 profile that can be shown immediately
+ * while canonical v9/v9/v4 collection runs. This does not assert that a full
+ * historical scan snapshot exists, so it must never be used as a score source.
+ */
+export async function hasLegacyReadFallbackProfile(username: string): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT score_version, roast, roast_en, roast_version, roast_en_version
+            FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    return Boolean(row && isLegacyReadFallbackProfile(row));
+  } catch (error) {
+    console.error("hasLegacyReadFallbackProfile failed:", error);
+    return false;
   }
 }
 
@@ -5743,9 +5772,10 @@ export async function getLegacyReadFallbackScan(username: string): Promise<ScanR
 }
 
 /**
- * Read one verified v5/v5/v3 report without requiring a current scan or LLM
- * configuration. The caller must treat it as stale and must never cache it as
- * a canonical v9 report.
+ * Read one v5/v5 report without requiring a current scan or LLM configuration.
+ * The caller must treat it as stale and must never cache it as a canonical v9
+ * report. Full v3 snapshot provenance is intentionally not required here: a
+ * profile replay does not claim to be a complete scan result.
  */
 export async function getLegacyReadFallbackRoast(
   username: string,
@@ -5766,7 +5796,7 @@ export async function getLegacyReadFallbackRoast(
       args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
     });
     const row = result.rows[0] as Record<string, unknown> | undefined;
-    if (!row || !(await isVerifiedLegacyReadFallback(db, row))) return null;
+    if (!row || !isLegacyReadFallbackProfile(row)) return null;
     if (
       row[versionCol] !== LEGACY_READ_FALLBACK.roast ||
       typeof row[col] !== "string" ||

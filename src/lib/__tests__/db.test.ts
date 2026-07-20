@@ -290,6 +290,7 @@ describe("getArchivedRoast", () => {
       username,
       final_score: entry.final_score,
       score_version: LEGACY_READ_FALLBACK.score,
+      legacy_read_fallback: true,
       tags: entry.tags,
       roast: "## 旧版中文点评\n只读回放。",
       roast_en: "## Legacy English roast\nRead-only replay.",
@@ -308,7 +309,7 @@ describe("getArchivedRoast", () => {
     });
   });
 
-  it("rejects a v5 report when its v3 snapshot no longer proves the exact tuple", async () => {
+  it("keeps a v5 profile readable when its old v3 snapshot is no longer usable", async () => {
     const username = "legacy-fallback-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -317,17 +318,21 @@ describe("getArchivedRoast", () => {
       args: ["v6", username],
     });
 
+    await expect(db.hasLegacyReadFallbackProfile(username)).resolves.toBe(true);
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({
       final_score: entry.final_score,
-      tags: { zh: [], en: [] },
-      roast: null,
-      roast_en: null,
+      legacy_read_fallback: true,
+      tags: entry.tags,
+      roast: "## 旧版中文点评\n只读回放。",
+      roast_en: "## Legacy English roast\nRead-only replay.",
     });
-    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      report: "## 旧版中文点评\n只读回放。",
+    });
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
-  it("rejects a v5 report when its v3 snapshot score differs from the score row", async () => {
+  it("does not turn a mismatched v3 snapshot into a complete scan", async () => {
     const username = "legacy-fallback-score-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -341,11 +346,14 @@ describe("getArchivedRoast", () => {
 
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({
       final_score: entry.final_score,
-      tags: { zh: [], en: [] },
-      roast: null,
-      roast_en: null,
+      legacy_read_fallback: true,
+      tags: entry.tags,
+      roast: "## 旧版中文点评\n只读回放。",
+      roast_en: "## Legacy English roast\nRead-only replay.",
     });
-    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toBeNull();
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      report: "## 旧版中文点评\n只读回放。",
+    });
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 

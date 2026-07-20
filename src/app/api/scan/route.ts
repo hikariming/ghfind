@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
   ensureCanonicalScoreForPublicRun,
+  hasLegacyReadFallbackProfile,
   getLegacyReadFallbackScan,
   publishCompleteQuickScan,
   recordAccountLookup,
@@ -208,6 +209,48 @@ async function legacyReadFallbackResponse(input: {
   );
 }
 
+/**
+ * A v5/v5 profile can be useful even when the old v3 ScanResult has expired.
+ * Return a dedicated handoff rather than inventing a partial scan payload; the
+ * profile page reads the persisted artifact while the canonical v9/v4 job runs.
+ */
+async function legacyReadFallbackProfileResponse(input: {
+  username: string;
+  admission: ReturnType<typeof publicScanAdmission>;
+  headers: Record<string, string>;
+}) {
+  let refresh: PublicScanResolution | null = null;
+  try {
+    refresh = await startPublicScan(input.username, input.admission);
+    if (refresh.status === "pending" && refresh.headStartJobId) {
+      kickPublicScanDrain(refresh.headStartJobId);
+    }
+  } catch {
+    // A persisted read-only profile remains useful when the refresh queue is
+    // temporarily unavailable.
+    console.error("legacyReadFallback profile refresh start failed");
+  }
+  const refreshRun = refresh && "run" in refresh ? refresh.run : null;
+  return NextResponse.json(
+    {
+      username: input.username,
+      cached: true,
+      stale: true,
+      legacy_read_fallback: true,
+      legacy_profile: true,
+      refresh_pending: refresh?.status === "pending",
+      served_score_version: LEGACY_READ_FALLBACK.score,
+      served_roast_version: LEGACY_READ_FALLBACK.roast,
+      served_collection_version: LEGACY_READ_FALLBACK.collection,
+      target_score_version: RUNTIME_RELEASE_VERSIONS.score,
+      target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
+      target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
+      ...(refreshRun ? { run_id: refreshRun.id } : {}),
+    },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
+  );
+}
+
 async function durableResponse(input: {
   username: string;
   scan: import("@/lib/types").ScanResult;
@@ -312,6 +355,18 @@ export async function POST(req: NextRequest) {
     return legacyReadFallbackResponse({
       username: legacyScan.metrics.username,
       scan: legacyScan,
+      admission: durableAdmission,
+      headers: { ...idem, ...rlHeaders },
+    });
+  }
+
+  // A complete old ScanResult is optional for continuity. The normal v5
+  // profile path below has an exact stored v5 score/report but no longer has
+  // its full v3 snapshot, so hand the browser to the profile instead of making
+  // it wait for a v9/v4 crawl or fabricating a scan payload.
+  if (await hasLegacyReadFallbackProfile(username)) {
+    return legacyReadFallbackProfileResponse({
+      username,
       admission: durableAdmission,
       headers: { ...idem, ...rlHeaders },
     });
