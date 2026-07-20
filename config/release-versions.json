@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "previousRelease": {
+    "score": "v8",
+    "roast": "v8",
+    "collection": "v3"
+  },
+  "targetRelease": {
+    "score": "v9",
+    "roast": "v9",
+    "collection": "v4"
+  },
+  "runtimeEnforcement": {
+    "state": "source_changes_only",
+    "trackingIssue": 126
+  },
+  "compatibility": {
+    "publicScoreReadOrder": ["v9", "v8"],
+    "roastReplay": [
+      {
+        "score": "v9",
+        "roast": "v9"
+      }
+    ],
+    "collectionReadOrder": ["v4", "v3"]
+  },
+  "changeControl": {
+    "maxComponentsPerPullRequest": 1,
+    "approvedMultiComponentIssue": null
+  },
+  "aliases": [],
+  "releasePlan": "docs/releases/v9-v9-v4-rollout.md"
+}

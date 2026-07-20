@@ -93,6 +93,47 @@ describe("score durable scan guardrails", () => {
     mocks.requiresDurablePublicScan.mockReturnValue(false);
   });
 
+  it("serves a stored stale score without touching GitHub or the durable queue", async () => {
+    mocks.getAccountDetail.mockResolvedValue({
+      username: "stored-fixture",
+      display_name: "Stored Fixture",
+      avatar_url: null,
+      profile_url: "https://profiles.example.invalid/stored-fixture",
+      final_score: 84,
+      tier: "人上人",
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "", en: "" },
+      sub_scores: {},
+      roast: null,
+      roast_en: null,
+      score_version: "v8",
+      scanned_at: 1_800_000_000_000,
+      prev_score: null,
+      prev_scanned_at: null,
+    });
+    mocks.getPercentileCached.mockResolvedValue({ below: 8, total: 10 });
+    mocks.getRankCached.mockResolvedValue({ rank: 2, total: 10, below: 8 });
+
+    const response = await GET(
+      new NextRequest("https://example.test/api/score/stored-fixture"),
+      { params: Promise.resolve({ username: "stored-fixture" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=600");
+    await expect(response.json()).resolves.toMatchObject({
+      source: "indexed",
+      stale: true,
+      username: "stored-fixture",
+      final_score: 84,
+    });
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+  });
+
   it("keeps an existing durable job passive when the public score is read", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "pending",
