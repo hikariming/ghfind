@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   getPublicScanStatus: vi.fn(),
   checkPublicScanStatusRateLimit: vi.fn(),
   rateLimitHeaders: vi.fn(),
-  kickPublicScanDrain: vi.fn(),
 }));
 
 vi.mock("@/lib/public-scan", () => ({
@@ -15,10 +14,6 @@ vi.mock("@/lib/public-scan", () => ({
 vi.mock("@/lib/redis", () => ({
   checkPublicScanStatusRateLimit: mocks.checkPublicScanStatusRateLimit,
   rateLimitHeaders: mocks.rateLimitHeaders,
-}));
-
-vi.mock("@/lib/public-scan-dispatcher", () => ({
-  kickPublicScanDrain: mocks.kickPublicScanDrain,
 }));
 
 import { GET } from "./route";
@@ -107,7 +102,6 @@ describe("durable scan status API", () => {
     expect(pending.headers.get("Retry-After")).toBe("7");
     expect(pending.headers.get("Cache-Control")).toContain("s-maxage=5");
     await expect(pending.json()).resolves.toMatchObject({ status: "pending", run_id: "run-id" });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
 
     mocks.getPublicScanStatus.mockResolvedValueOnce({
       status: "failed",
@@ -117,6 +111,5 @@ describe("durable scan status API", () => {
     const failed = await request("durable-status-case");
     expect(failed.status).toBe(503);
     await expect(failed.json()).resolves.toMatchObject({ error: "durable_scan_failed" });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
   });
 });
