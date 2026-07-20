@@ -40,7 +40,6 @@ import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 import { RescanButton } from "@/components/RescanButton";
-import { ProfileBackfill } from "@/components/ProfileBackfill";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -52,6 +51,12 @@ import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { auth, authConfigured } from "@/lib/auth";
 import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
 import { rankProfileWorks } from "@/lib/profile-work";
+import { ROAST_CACHE_VERSION } from "@/lib/cache-version";
+import {
+  ProfileArtifactStatus,
+  resolveProfileArtifactState,
+  shouldStartProfileRoast,
+} from "./ProfileArtifactStatus";
 
 /** True when a Referer header points at github.com (or a subdomain). GitHub sends
  *  `strict-origin-when-cross-origin`, so we only ever see the bare origin — enough
@@ -185,6 +190,8 @@ export default async function AccountPage({
 }) {
   const { locale, username } = await params;
   setRequestLocale(locale);
+  const query = await searchParams;
+  const isAdvxCampaign = query.campaign === "advx";
   const decoded = decodeURIComponent(username);
   const d = await getDetail(decoded);
   if (!d) {
@@ -194,18 +201,21 @@ export default async function AccountPage({
     // stashed in sessionStorage). LiveRoast refreshes into the full profile on
     // completion. Otherwise it's a genuine unknown handle → 404.
     const scan = await getLiveScan(decoded);
-    const roasting = (await searchParams)?.roasting === "1";
+    const roasting = query.roasting === "1";
     if (!scan && !roasting) notFound();
     return (
-      <PendingProfile username={decoded} initialScan={scan ?? null} fromHome={roasting} />
+      <PendingProfile
+        username={decoded}
+        initialScan={scan ?? null}
+        fromHome={roasting}
+        advx={isAdvxCampaign}
+      />
     );
   }
 
   const t = await getTranslations("detail");
   const tDim = await getTranslations("dimensions");
   const tTier = await getTranslations("tiers");
-  const query = await searchParams;
-  const isAdvxCampaign = query.campaign === "advx";
   const style = tierStyle(d.tier);
   const tierKey = TIER_KEY[d.tier];
   const lang = normLang(locale);
@@ -224,12 +234,40 @@ export default async function AccountPage({
   const fromHome = query.roasting === "1";
   // eslint-disable-next-line react-hooks/purity -- force-dynamic Server Component: rendered per request, so wall-clock staleness here is intentional (and the server re-validates before spending LLM credit)
   const staleReroast = fromHome && Boolean(roast) && Date.now() - d.scanned_at > ROAST_FRESH_MS;
-  // Row exists but this language's roast is missing (e.g. an English visitor on a
-  // zh-only roast). If the scan is still cached, stream a live roast in the
-  // report slot instead of the "run a roast" empty state. The stale re-roast
-  // needs the cached scan too (the handoff just wrote it).
-  const liveScan =
-    (!roast && !roastLine) || staleReroast ? await getLiveScan(d.username) : null;
+  // A profile read must stay read-only. Only the explicit homepage handoff may
+  // mount LiveRoast and spend LLM credit; direct/shared profile visits show a
+  // stable pending state even if a scan happens to remain in Redis.
+  const shouldStreamRoast = shouldStartProfileRoast({
+    explicitHandoff: fromHome,
+    hasReport: Boolean(roast),
+    staleReport: staleReroast,
+  });
+  const liveScan = shouldStreamRoast ? await getLiveScan(d.username) : null;
+  // getAccountDetail only exposes report text after both its score and the
+  // selected-language roast pass the canonical version checks. Preserve that
+  // boundary here instead of guessing compatibility from report contents.
+  const selectedRoastVersion = roast ? ROAST_CACHE_VERSION : null;
+  const artifactState = resolveProfileArtifactState({
+    scoreVersion: d.score_version,
+    sourceCollectionVersion: d.score_source_collection_version,
+    sourceSnapshotHash: d.score_source_snapshot_hash,
+    roastVersion: selectedRoastVersion,
+  });
+  const artifactCopy =
+    artifactState === "stale-score"
+      ? {
+          title: t("scoreStateStaleTitle"),
+          body: t("scoreStateStaleBody"),
+        }
+      : artifactState === "report-pending"
+        ? {
+            title: t("scoreStatePendingTitle"),
+            body: t("scoreStatePendingBody"),
+          }
+        : {
+            title: t("scoreStateReadyTitle"),
+            body: t("scoreStateReadyBody"),
+          };
   const [similar, comments, snap, rank, session, battles, facetRank] =
     await Promise.all([
       getSimilarAccounts(d.username, d.final_score, d.sub_scores),
@@ -422,7 +460,7 @@ export default async function AccountPage({
         />
         {isAdvxCampaign ? (
           <Link
-            href="/advx"
+            href="/advx?theme=dark"
             prefetch={false}
             className="text-sm text-zinc-400 hover:text-zinc-200"
           >
@@ -545,6 +583,12 @@ export default async function AccountPage({
           </div>
         )}
       </div>
+
+      <ProfileArtifactStatus
+        state={artifactState}
+        title={artifactCopy.title}
+        body={artifactCopy.body}
+      />
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next
           tier, and an inline re-detect button to refresh the score. */}
@@ -678,10 +722,6 @@ export default async function AccountPage({
           />
         </div>
       )}
-
-      {/* Legacy profiles predate the evidence snapshot — fetch it on visit so the
-          repo/language/contribution sections fill in instead of staying blank. */}
-      {!snap && <ProfileBackfill username={d.username} />}
 
       {/* Notable contributions — popular repos the user has shipped to (the
           hardest evidence behind the ecosystem-impact dimension). Surfaced first
@@ -923,7 +963,7 @@ export default async function AccountPage({
         )}
         {/* Savage one-liner (current language) — shown above the full report.
             The stale re-roast stream renders its own line, so skip it there. */}
-        {roastLine && !staleReroast && (
+        {roastLine && !shouldStreamRoast && (
           <p
             className={`${isAdvxCampaign ? "hidden lg:block" : ""} mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100`}
           >
@@ -946,6 +986,8 @@ export default async function AccountPage({
               profileName={d.display_name}
               profileAvatarUrl={d.avatar_url}
               orgs={organizations}
+              advx={isAdvxCampaign}
+              materialVersion={d.scanned_at}
             />
           ) : (
             <>
@@ -958,6 +1000,8 @@ export default async function AccountPage({
                   avatarUrl={d.avatar_url}
                   meta={revealMeta}
                   orgs={organizations}
+                  advx={isAdvxCampaign}
+                  materialVersion={d.scanned_at}
                 />
               )}
               <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
@@ -965,7 +1009,7 @@ export default async function AccountPage({
               </div>
             </>
           )
-        ) : roastLine ? null : liveScan ? (
+        ) : shouldStreamRoast ? (
           <LiveRoast
             username={d.username}
             scan={liveScan}
@@ -974,6 +1018,8 @@ export default async function AccountPage({
             profileName={d.display_name}
             profileAvatarUrl={d.avatar_url}
             orgs={organizations}
+            advx={isAdvxCampaign}
+            materialVersion={d.scanned_at}
           />
         ) : (
           <p className="text-sm text-zinc-400">

@@ -1,3 +1,5 @@
+import { SITE_URL } from "@/lib/site";
+
 /**
  * Minimal OpenAI-compatible streaming chat client.
  *
@@ -177,7 +179,7 @@ export async function* chatStreamEvents(
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
         // OpenRouter attribution headers (ignored by other providers).
-        "HTTP-Referer": process.env.PUBLIC_SITE_URL || "https://ghfind.com",
+        "HTTP-Referer": SITE_URL,
         "X-Title": "GitHub Roast",
       },
       body: JSON.stringify({

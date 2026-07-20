@@ -6,7 +6,7 @@ const source = readFileSync(new URL("../HomeEventBanner.tsx", import.meta.url), 
 describe("HomeEventBanner", () => {
   it("shows the requested Chinese campaign copy and links to the event page", () => {
     expect(source).toContain('zh: "🔥ADVX2026现场一决高下🔥"');
-    expect(source).toContain('href="/advx"');
+    expect(source).toContain('href="/advx?theme=dark"');
   });
 
   it("uses English campaign copy on other locales", () => {

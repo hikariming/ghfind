@@ -6,6 +6,7 @@ import {
 } from "../cache-version";
 import { normLang } from "../lang";
 import { roastKey, scanKey } from "../redis";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
 
 describe("normLang", () => {
   it("returns en only for the exact 'en' value", () => {
@@ -20,18 +21,18 @@ describe("normLang", () => {
 });
 
 describe("roastKey", () => {
-  it("namespaces scan keys by score cache version", () => {
+  it("namespaces factual scan keys only by collection version", () => {
     expect(scanKey("SampleUser")).toBe(
-      `scan:${SCORE_CACHE_VERSION}:sampleuser`,
+      `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:sampleuser`,
     );
   });
 
-  it("namespaces the cache key by language and lowercases the username", () => {
+  it("namespaces reports by roast, score, collection, language, and username", () => {
     expect(roastKey("SampleUser", "en")).toBe(
-      `roast:${ROAST_CACHE_VERSION}:en:sampleuser`,
+      `roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:en:sampleuser`,
     );
     expect(roastKey("SampleUser", "zh")).toBe(
-      `roast:${ROAST_CACHE_VERSION}:zh:sampleuser`,
+      `roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:zh:sampleuser`,
     );
   });
 

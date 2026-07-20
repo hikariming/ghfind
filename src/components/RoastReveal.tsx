@@ -20,12 +20,16 @@ export function RoastReveal({
   avatarUrl,
   meta,
   orgs,
+  advx = false,
+  materialVersion,
 }: {
   username: string;
   name: string | null;
   avatarUrl: string | null;
   meta: RoastMeta;
   orgs?: string[];
+  advx?: boolean;
+  materialVersion?: string | number;
 }) {
   // Opened via effect (not initial state) so the SSR payload stays popup-free
   // and the open happens strictly after the handoff marker is consumed.
@@ -47,6 +51,8 @@ export function RoastReveal({
       avatarUrl={avatarUrl}
       meta={meta}
       orgs={orgs}
+      advx={advx}
+      materialVersion={materialVersion}
     />
   );
 }

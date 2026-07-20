@@ -16,6 +16,8 @@ import {
   SCORE_CACHE_VERSION,
   VERDICT_CACHE_VERSION,
 } from "./cache-version";
+import { score } from "./score";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
 import type {
   FacetCategory,
   LeaderboardEntry,
@@ -30,6 +32,7 @@ import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let publicScanStatusLimiter: Ratelimit | null = null;
+let campaignLeaderboardReadLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
 let roastMinuteLimiter: Ratelimit | null = null;
@@ -91,8 +94,9 @@ const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
 const SCAN_SINGLE_FLIGHT_LOCK_SECONDS = 75;
 const SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS = 120; // 60s at 500ms per poll
 export const scanKey = (username: string) =>
-  `scan:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
-const lockKey = (username: string) => `lock:scan:${username.toLowerCase()}`;
+  `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+const lockKey = (username: string) =>
+  `lock:scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -101,7 +105,8 @@ export async function getCachedScan(username: string): Promise<ScanResult | null
   const r = getRedis();
   if (!r) return null;
   try {
-    return (await r.get<ScanResult>(scanKey(username))) ?? null;
+    const cached = (await r.get<ScanResult>(scanKey(username))) ?? null;
+    return cached ? { ...cached, scoring: score(cached.metrics) } : null;
   } catch {
     return null;
   }
@@ -294,6 +299,40 @@ export async function checkPublicScanStatusRateLimit(ip: string): Promise<RateLi
 }
 
 /**
+ * Public event leaderboard refreshes fan out from many browsers that may share
+ * one venue NAT. Keep them off the scan budget while still bounding origin reads.
+ */
+export async function checkCampaignLeaderboardReadRateLimit(
+  ip: string,
+): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
+      "missing_redis_config",
+    );
+  }
+  if (!campaignLeaderboardReadLimiter) {
+    campaignLeaderboardReadLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(600, "60 s"),
+      prefix: "rl:campaign-leaderboard-read",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } =
+      await campaignLeaderboardReadLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "campaign_leaderboard_read",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/**
  * Gate every roast request before it reads a durable run or scan cache. This is
  * separate from the stricter default-model credit limiter: BYO requests do not
  * spend our model credit, but they still invoke a function and read Turso.
@@ -385,12 +424,14 @@ export async function checkRoastRateLimit(ip: string): Promise<RateLimitResult> 
   }
 }
 
-/** Cached roast: the LLM-written report + its ±delta + tags, keyed by
- * language + username (24h). The roast text differs by language, so the cache
- * key carries the lang; the scan cache stays language-neutral (deterministic). */
+/** Cached roast: the LLM-written report + deterministic score metadata, keyed
+ * by every input contract plus language and username (24h). */
 export interface CachedRoast {
   report: string;
-  delta: number;
+  /** Exact canonical scan identity. Missing on pre-migration cache entries. */
+  snapshot_hash?: string;
+  /** Retained in the wire shape for compatibility; deterministic scoring fixes it at zero. */
+  delta: 0;
   tags: import("./types").Tags;
   /** Persisted final score for archived/cache replay. Older cache entries omit it. */
   final_score?: number;
@@ -402,7 +443,7 @@ export interface CachedRoast {
 
 const ROAST_TTL_SECONDS = 60 * 60 * 24;
 export const roastKey = (username: string, lang: Lang) =>
-  `roast:${ROAST_CACHE_VERSION}:${lang}:${username.toLowerCase()}`;
+  `roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 
 export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
@@ -452,7 +493,7 @@ export interface CachedRoastJudge {
 }
 
 export const roastJudgeKey = (username: string) =>
-  `roast-judge:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${username.toLowerCase()}`;
+  `roast-judge:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 
 export async function getCachedRoastJudge(username: string): Promise<CachedRoastJudge | null> {
   if (bypassGeneratedCaches()) return null;
@@ -490,7 +531,7 @@ export async function setCachedRoastJudge(
 // saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
 const ROAST_LOCK_TTL_SECONDS = 270;
 const roastLockKey = (username: string, lang: Lang) =>
-  `lock:roast:${lang}:${username.toLowerCase()}`;
+  `lock:roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 
 /** Try to become the sole generator for (username, lang). `true` = leader.
  *  Without Redis there's no coordination, so everyone leads (behavior unchanged). */
@@ -741,8 +782,42 @@ const LEADERBOARD_WINDOWS: LeaderboardWindow[] = ["24h", "7d", "30d", "all"];
 // One Redis entry per (view, window) pair — 4 × 4 = 16 keys, each a slow-moving
 // 500-row payload. A hit skips the triple-LEFT-JOIN DB read entirely.
 const leaderboardKey = (view: LeaderboardCacheView, window: LeaderboardWindow) =>
-  `leaderboard:${SCORE_CACHE_VERSION}:${view}:${window}`;
+  `leaderboard:${view}:${window}`;
 const LEADERBOARD_TTL_SECONDS = 300; // 5 min — board moves slowly; fewer DB reads
+const CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const localCampaignLeaderboardRevisions = new Map<string, number>();
+const campaignLeaderboardRevisionKey = (campaign: string) =>
+  `campaign-leaderboard:${campaign}:revision`;
+
+/** Signal that a campaign board's persisted membership or score changed. */
+export async function bumpCampaignLeaderboardRevision(campaign: string): Promise<void> {
+  const r = getRedis();
+  if (!r) {
+    localCampaignLeaderboardRevisions.set(
+      campaign,
+      (localCampaignLeaderboardRevisions.get(campaign) ?? 0) + 1,
+    );
+    return;
+  }
+  try {
+    const key = campaignLeaderboardRevisionKey(campaign);
+    await r.incr(key);
+    await r.expire(key, CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS);
+  } catch {
+    // Best-effort live signal. The client keeps its periodic refresh fallback.
+  }
+}
+
+/** Current cross-instance revision consumed by the campaign SSE endpoint. */
+export async function getCampaignLeaderboardRevision(campaign: string): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return localCampaignLeaderboardRevisions.get(campaign) ?? 0;
+  try {
+    return (await r.get<number>(campaignLeaderboardRevisionKey(campaign))) ?? 0;
+  } catch {
+    return null;
+  }
+}
 
 export async function getCachedLeaderboard(
   view: LeaderboardCacheView = "trending",

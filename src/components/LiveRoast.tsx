@@ -31,6 +31,8 @@ export function LiveRoast({
   profileName,
   profileAvatarUrl,
   orgs,
+  advx = false,
+  materialVersion,
 }: {
   username: string;
   /** Fresh scan from the homepage handoff. Sent in the request body so the roast
@@ -56,6 +58,9 @@ export function LiveRoast({
   profileAvatarUrl?: string | null;
   /** Org handles forwarded to the popup's flex card. */
   orgs?: string[];
+  /** Use the ADVX material-card treatment in the result popup. */
+  advx?: boolean;
+  materialVersion?: string | number;
 }) {
   const t = useTranslations("detail");
   const locale = useLocale();
@@ -199,6 +204,8 @@ export function LiveRoast({
       meta={modalMeta}
       orgs={orgs ?? effScan?.organizations ?? undefined}
       pendingLine={!settled}
+      advx={advx}
+      materialVersion={materialVersion}
     />
   ) : null;
 

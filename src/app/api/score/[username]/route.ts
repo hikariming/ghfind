@@ -1,5 +1,10 @@
 import { NextRequest } from "next/server";
-import { getAccountDetail, recordAccountLookup } from "@/lib/db";
+import {
+  ensureCanonicalScoreForPublicRun,
+  getAccountDetail,
+  publishCompleteQuickScan,
+  recordAccountLookup,
+} from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -8,6 +13,7 @@ import { SITE_URL } from "@/lib/site";
 import {
   checkPublicScanStatusRateLimit,
   checkRateLimit,
+  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -23,6 +29,7 @@ import {
 } from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -57,6 +64,30 @@ function json(
   });
 }
 
+function scorePersistenceUnavailable(headers: Record<string, string>): Response {
+  return json(
+    {
+      error: "scan_failed",
+      message: "score persistence is temporarily unavailable",
+      hint: "Retry later; no incomplete score was published.",
+    },
+    503,
+    "no-store",
+    { ...headers, "Retry-After": "5" },
+  );
+}
+
+class ScorePersistenceError extends Error {}
+
+async function persistFreshQuickScan(scan: ScanResult, scannedAt: number): Promise<boolean> {
+  try {
+    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
+  } catch {
+    console.error("publishCompleteQuickScan failed");
+    return false;
+  }
+}
+
 /** Deterministic global percentile/rank for a score, computed against the scored
  * population WITHOUT requiring the account to be in it. */
 async function percentileFor(finalScore: number) {
@@ -71,11 +102,10 @@ async function percentileFor(finalScore: number) {
 
 function durableResponse(
   username: string,
-  resolution: Exclude<PublicScanResolution, { status: "complete" }>,
+  resolution: Exclude<PublicScanResolution, { status: "complete" | "stale" }>,
   headers: Record<string, string>,
 ) {
   if (resolution.status === "pending") {
-    kickPublicScanDrain();
     return json(
       {
         error: "scan_enrichment_pending",
@@ -84,7 +114,7 @@ function durableResponse(
         retry_after: resolution.retryAfterSeconds,
       },
       202,
-      "no-store",
+      MISS_CACHE,
       { ...headers, "Retry-After": String(resolution.retryAfterSeconds) },
     );
   }
@@ -141,10 +171,16 @@ export async function GET(
 
   // 1) Indexed (already roasted / scored) — richest payload, cheapest path.
   const detail = await getAccountDetail(handle);
-  if (detail?.score_version === SCORE_CACHE_VERSION) {
+  if (detail) {
+    const canonicalScore =
+      detail.score_version === SCORE_CACHE_VERSION &&
+      detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      typeof detail.score_source_snapshot_hash === "string" &&
+      /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash);
     return json(
       {
         source: "indexed",
+        stale: !canonicalScore,
         username: detail.username,
         display_name: detail.display_name,
         avatar_url: detail.avatar_url,
@@ -160,11 +196,11 @@ export async function GET(
         profile: `${SITE_URL}/u/${detail.username}`,
       },
       200,
-      RATED_CACHE,
+      canonicalScore ? RATED_CACHE : LIVE_CACHE,
     );
   }
 
-  // 2) Not indexed → score it live, deterministically (NO LLM).
+  // 2) Not indexed at all → score it live, deterministically (NO LLM).
   const statusLimit = await checkPublicScanStatusRateLimit(clientIp(req));
   const statusHeaders = rateLimitHeaders(statusLimit);
   if (!statusLimit.success) {
@@ -181,6 +217,8 @@ export async function GET(
   }
   const publicStatus = await getPublicScanStatus(handle);
   if (publicStatus?.status === "complete") {
+    const scoreWrite = await ensureCanonicalScoreForPublicRun(publicStatus.run);
+    if (!scoreWrite) return scorePersistenceUnavailable(statusHeaders);
     await setCachedScan(publicStatus.scan.metrics.username, publicStatus.scan);
     const s = publicStatus.scan.scoring;
     const m = publicStatus.scan.metrics;
@@ -209,10 +247,48 @@ export async function GET(
       LIVE_CACHE,
     );
   }
+  if (publicStatus?.status === "stale") {
+    const s = publicStatus.scan.scoring;
+    const m = publicStatus.scan.metrics;
+    const tier = s.tier as Tier;
+    return json(
+      {
+        source: "stale_public",
+        cached: true,
+        stale: true,
+        refresh_pending: publicStatus.refreshPending,
+        served_collection_version: publicStatus.servedCollectionVersion,
+        target_collection_version: publicStatus.targetCollectionVersion,
+        username: m.username,
+        display_name: m.name,
+        avatar_url: m.avatar_url,
+        profile_url: m.profile_url ?? `https://github.com/${m.username}`,
+        final_score: s.final_score,
+        tier,
+        tier_key: TIER_KEY[tier],
+        sub_scores: s.sub_scores,
+        base_score: s.base_score,
+        total_penalty: s.total_penalty,
+        red_flags: s.red_flags,
+        tags: null,
+        roast_line: null,
+        percentile: await percentileFor(s.final_score),
+        profile: `${SITE_URL}/u/${m.username}`,
+      },
+      200,
+      "no-store",
+    );
+  }
   if (publicStatus) {
     return durableResponse(handle, publicStatus, statusHeaders);
   }
-  const cached = await getCachedScan(handle);
+  let cached = await getCachedScan(handle);
+  if (cached) {
+    // A cache entry without a canonical run predates atomic publication. Its
+    // collection time is unknowable, so discard it and produce a fresh scan.
+    await clearCachedScan(handle);
+    cached = null;
+  }
   const durableAdmission = publicScanAdmission(`ip:${clientIp(req)}`);
   let rlHeaders: Record<string, string> = {};
   if (!cached) {
@@ -234,8 +310,21 @@ export async function GET(
 
   let result: ScanResult;
   try {
-    result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    result = cached ?? (await coalesceScan(handle, async () => {
+      const freshScanStartedAt = Date.now();
+      const freshResult = await buildScanResult(handle);
+      if (
+        !requiresDurablePublicScan(freshResult) &&
+        !(await persistFreshQuickScan(freshResult, freshScanStartedAt))
+      ) {
+        throw new ScorePersistenceError();
+      }
+      return freshResult;
+    }));
   } catch (e) {
+    if (e instanceof ScorePersistenceError) {
+      return scorePersistenceUnavailable({ ...statusHeaders, ...rlHeaders });
+    }
     const { error, status, retry_after } = scanErrorResponse(e);
     // account_not_found stays a 404 — the GitHub user genuinely doesn't exist.
     return json(
@@ -259,6 +348,9 @@ export async function GET(
     if (durable.status === "complete") {
       result = durable.scan;
     } else {
+      if (durable.status === "pending" && durable.headStartJobId) {
+        kickPublicScanDrain(durable.headStartJobId);
+      }
       return durableResponse(result.metrics.username, durable, { ...statusHeaders, ...rlHeaders });
     }
   }

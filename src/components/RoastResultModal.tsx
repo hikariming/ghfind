@@ -11,6 +11,7 @@ import { trackEvent } from "@/lib/track";
 import type { RoastLine, RoastMeta } from "@/lib/types";
 import { ChallengeCta } from "./ChallengeCta";
 import { CopyBadge } from "./CopyBadge";
+import { MaterialCardPreview, MaterialCardSaveButton } from "./MaterialCardPanel";
 import { ProfileShare } from "./ProfileShare";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 
@@ -32,6 +33,8 @@ export function RoastResultModal({
   meta,
   orgs,
   pendingLine = false,
+  advx = false,
+  materialVersion,
 }: {
   open: boolean;
   onClose: () => void;
@@ -45,6 +48,10 @@ export function RoastResultModal({
   /** True while a roast is still streaming and no one-liner has arrived yet —
    * shows a small "warming up" row where the 辣评 will land. */
   pendingLine?: boolean;
+  /** ADVX handoff: show the event material card and save it instead of the flex image. */
+  advx?: boolean;
+  /** Cache-busting version for the generated material card. */
+  materialVersion?: string | number;
 }) {
   const t = useTranslations("detail");
   const tTier = useTranslations("tiers");
@@ -147,6 +154,14 @@ export function RoastResultModal({
           </div>
         ) : null}
 
+        {advx && !pendingLine && (
+          <MaterialCardPreview
+            baseUrl={SITE_URL}
+            username={username}
+            version={materialVersion ?? meta.final_score}
+          />
+        )}
+
         {/* Share actions: save image + share menu, then the badge builder.
             min-w-0: the builder's <pre> snippets are long unbreakable lines —
             without it their min-content width blows the dialog's grid track
@@ -161,6 +176,21 @@ export function RoastResultModal({
             tierLabel={tTier(`${tierKey}.blurb`)}
             beat={beat}
             tags={meta.tags ?? { zh: [], en: [] }}
+            saveAction={
+              advx && !pendingLine ? (
+                <MaterialCardSaveButton
+                  baseUrl={SITE_URL}
+                  username={username}
+                  version={materialVersion ?? meta.final_score}
+                  surface="modal"
+                  appearance="pill"
+                />
+              ) : advx ? (
+                <span className="rounded-full bg-orange-600/40 px-4 py-1.5 text-xs font-medium text-orange-100/60">
+                  {t("livePending")}
+                </span>
+              ) : undefined
+            }
           />
           {/* PK entry — "查别人" is the fastest-growing intent (search &gt; roast
               in the funnel), so the share-first popup routes it straight into

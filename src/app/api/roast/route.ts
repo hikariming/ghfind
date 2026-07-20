@@ -1,8 +1,16 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
 import { machineAuth } from "@/lib/machine-auth";
-import { getArchivedRoast, getScoreScannedAt, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
+import {
+  getArchivedRoast,
+  getCanonicalScoreWriteIdentity,
+  getLegacyReadFallbackRoast,
+  getScoreScannedAt,
+  updateRoast,
+  type ScoreWriteIdentity,
+} from "@/lib/db";
 import { getRankCached } from "@/lib/rank";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
@@ -39,7 +47,7 @@ import {
   setCachedRoast,
   waitForCachedRoast,
 } from "@/lib/redis";
-import { spamBotScore, tierFor } from "@/lib/score";
+import { tierFor } from "@/lib/score";
 import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -535,35 +543,16 @@ function scoreSummary(
   return { final_score: finalScore, tier, tier_label, delta: 0 };
 }
 
-/** Deterministic score + tier + fresh percentile. Records to the leaderboard only on a
- * fresh (non-replayed) default-model roast. */
+/** Deterministic score + tier + fresh percentile. Score persistence belongs to
+ * the trusted scan-completion path and is intentionally independent of LLM work. */
 async function computeMeta(
   scan: ScanResult,
   _delta: number,
   tags: Tags,
   roastLine: RoastLine,
-  record: boolean,
   lang: Lang,
 ): Promise<RoastMeta> {
   const summary = scoreSummary(scan, lang);
-  if (record) {
-    await recordScore({
-      username: scan.metrics.username,
-      display_name: scan.metrics.name,
-      avatar_url: scan.metrics.avatar_url,
-      profile_url: scan.metrics.profile_url,
-      final_score: summary.final_score,
-      tier: summary.tier,
-      tags,
-      roast_line: roastLine,
-      bot_score: spamBotScore(scan.metrics),
-      sub_scores: scan.scoring.sub_scores,
-      scanned_at: Date.now(),
-    });
-    // Sediment the raw developer profile (the data moat) alongside the score.
-    // Fire-and-forget inside recordProfileSnapshot; never blocks the roast.
-    await recordProfileSnapshot(scan);
-  }
   const percentile = await percentileFor(summary.final_score);
   return { ...summary, percentile, tags, roast_line: roastLine };
 }
@@ -582,24 +571,19 @@ async function metaForStoredRoast(
   tier: Tier,
   tags: Tags,
   roastLine: RoastLine,
-  delta: number,
   lang: Lang,
 ): Promise<RoastMeta> {
   const { tier_label: zhLabel } = tierFor(finalScore);
   const tier_label = lang === "en" ? TIER_LABEL_EN[tier] : zhLabel;
   const percentile = await percentileFor(finalScore);
-  return { final_score: finalScore, tier, tier_label, delta, percentile, tags, roast_line: roastLine };
-}
-
-function inferredDelta(scan: ScanResult, finalScore: number): number {
-  return Math.round((finalScore - scan.scoring.final_score) * 100) / 100;
+  return { final_score: finalScore, tier, tier_label, delta: 0, percentile, tags, roast_line: roastLine };
 }
 
 async function cacheRoastReplay(
   username: string,
   lang: Lang,
+  snapshotHash: string,
   report: string,
-  delta: number,
   tags: Tags,
   roastLine: RoastLine,
   finalScore: number,
@@ -607,7 +591,8 @@ async function cacheRoastReplay(
 ): Promise<void> {
   await setCachedRoast(username, lang, {
     report,
-    delta,
+    snapshot_hash: snapshotHash,
+    delta: 0,
     tags,
     roast_line: roastLine,
     final_score: finalScore,
@@ -622,6 +607,7 @@ export async function POST(req: NextRequest) {
   // computed from stream start would let wait + generation overrun the 240s
   // function ceiling — the platform then kills the stream mid-roast.
   const reqT0 = Date.now();
+  const requestId = randomUUID();
   let body: RoastBody;
   try {
     body = await req.json();
@@ -662,6 +648,32 @@ export async function POST(req: NextRequest) {
 
   const lang = normLang(body.lang);
 
+  // A verified v5/v5/v3 artifact is a read-only continuity path for a stalled
+  // v9 collector. It is intentionally checked before resolving an LLM config:
+  // replaying already-persisted public text must not depend on model capacity or
+  // spend credit. `refresh` explicitly opts out and continues toward v9 work.
+  if (body.refresh !== true) {
+    const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
+    if (legacyRoast && reportMatchesLang(legacyRoast.report, lang)) {
+      const meta = await metaForStoredRoast(
+        legacyRoast.final_score,
+        legacyRoast.tier,
+        legacyRoast.tags,
+        legacyRoast.roast_line,
+        lang,
+      );
+      logRoastSummary({
+        requestId,
+        lang,
+        path: "legacy_read_fallback",
+        ok: true,
+        source: "legacy_v5_v5_v3",
+        requestTotalMs: Date.now() - reqT0,
+      });
+      return roastResponse(legacyRoast.report, meta);
+    }
+  }
+
   const resolved = resolveConfig(body.byoKey);
   if (!resolved) {
     return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
@@ -695,17 +707,32 @@ export async function POST(req: NextRequest) {
   let isLeader = false;
   let lockWaitMs = 0;
   let generationPath: "leader" | "follower_fallback" | "byo" = isDefault ? "leader" : "byo";
+  let scoreIdentity: ScoreWriteIdentity | null = null;
 
-  // Prefer a durable/current server snapshot. The request body remains a
-  // compatibility fallback for an immediate BYO roast, but it is never allowed
-  // to seed durable facts or a future public-history scan.
+  // Prefer a durable/current server snapshot. A request-body scan is accepted
+  // only for an immediate BYO roast. Default-model generation and every durable
+  // write require facts previously produced by a server-side collector.
   const [publicStatus, cachedScan] = await Promise.all([
     getPublicScanStatus(username),
     getCachedScan(username),
   ]);
+  if (publicStatus?.status === "stale") {
+    return NextResponse.json(
+      {
+        error: "scan_enrichment_pending",
+        username,
+        stale: true,
+        refresh_pending: publicStatus.refreshPending,
+        served_collection_version: publicStatus.servedCollectionVersion,
+        target_collection_version: publicStatus.targetCollectionVersion,
+      },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  let completedPublicRun = publicStatus?.status === "complete" ? publicStatus.run : null;
   const completedPublicScan = publicStatus?.status === "complete" ? publicStatus.scan : null;
   const serverScan = completedPublicScan ?? cachedScan;
-  let scan = serverScan ?? (body.scan ? sanitizeScan(body.scan) : null);
+  let scan = serverScan ?? (!isDefault && body.scan ? sanitizeScan(body.scan) : null);
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
@@ -713,21 +740,24 @@ export async function POST(req: NextRequest) {
   // A large public history cannot be truthfully represented by the quick
   // sample. Never spend LLM credit or persist a leaderboard row from it: start
   // (or resume) the durable collector and require its complete snapshot.
-  if (!completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
+  if (serverScan && !completedPublicScan && (publicStatus || requiresDurablePublicScan(scan))) {
     const durableAdmission = publicScanAdmission(
       auth === "valid"
         ? `bearer:${req.headers.get("authorization") ?? ""}`
         : `ip:${clientIp(req)}`,
     );
-    const resolution = publicStatus && publicStatus.status !== "complete"
+    const resolution = publicStatus?.status === "pending" || publicStatus?.status === "failed"
       ? publicStatus
       : serverScan
         ? await resolvePublicScanFromTrustedQuickScan(username, serverScan, durableAdmission)
         : await startPublicScan(username, durableAdmission);
     if (resolution.status === "complete") {
       scan = resolution.scan;
+      completedPublicRun = resolution.run;
     } else {
-      if (resolution.status === "pending") kickPublicScanDrain();
+      if (resolution.status === "pending" && resolution.headStartJobId) {
+        kickPublicScanDrain(resolution.headStartJobId);
+      }
       const retryAfterSeconds = resolution.retryAfterSeconds;
       const busy = resolution.status === "queue_full" || resolution.status === "admission_limited";
       return NextResponse.json(
@@ -748,6 +778,28 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
+    // Every replay and new report must belong to the deterministic score from
+    // this exact canonical snapshot. This also prevents pre-migration Redis
+    // entries (whose cache key has no snapshot hash) from bypassing provenance.
+    const snapshotHash = completedPublicRun?.snapshotHash;
+    if (!snapshotHash) {
+      return NextResponse.json(
+        { error: "score_materialization_pending" },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    try {
+      scoreIdentity = await getCanonicalScoreWriteIdentity(username, snapshotHash);
+    } catch {
+      scoreIdentity = null;
+    }
+    if (!scoreIdentity) {
+      return NextResponse.json(
+        { error: "score_materialization_pending" },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     // A validated `refresh` (homepage handoff onto a stale profile, or the
     // owner's rescan) skips both replay paths below and regenerates. Server-
     // checked against the row's scanned_at — without this, the DB archive
@@ -760,7 +812,10 @@ export async function POST(req: NextRequest) {
 
     if (!refreshHonored) {
       const cachedRoast = await getCachedRoast(username, lang);
-      if (cachedRoast && reportMatchesLang(cachedRoast.report, lang)) {
+      if (
+        cachedRoast?.snapshot_hash === snapshotHash &&
+        reportMatchesLang(cachedRoast.report, lang)
+      ) {
         const tags = cachedRoast.tags ?? { zh: [], en: [] };
         const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
         const meta =
@@ -770,40 +825,41 @@ export async function POST(req: NextRequest) {
                 cachedRoast.tier,
                 tags,
                 roastLine,
-                cachedRoast.delta,
                 lang,
               )
-            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, false, lang);
+            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, lang);
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "redis_cache",
+          requestId, lang, path, ok: true, source: "redis_cache",
           requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(cachedRoast.report, meta);
       }
+      // Old cache entries have no snapshot identity. Clear any rejected replay
+      // before single-flight acquisition so followers wait for the new report
+      // instead of immediately fanning out into duplicate generations.
+      if (cachedRoast) await clearCachedRoast(username, lang);
 
       const archivedRoast = await getArchivedRoast(username, lang);
       if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
-        const delta = inferredDelta(scan, archivedRoast.final_score);
         const meta = await metaForStoredRoast(
           archivedRoast.final_score,
           archivedRoast.tier,
           archivedRoast.tags,
           archivedRoast.roast_line,
-          delta,
           lang,
         );
         await cacheRoastReplay(
           username,
           lang,
+          snapshotHash,
           archivedRoast.report,
-          delta,
           archivedRoast.tags,
           archivedRoast.roast_line,
           archivedRoast.final_score,
           archivedRoast.tier,
         );
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "archive",
+          requestId, lang, path, ok: true, source: "archive",
           requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(archivedRoast.report, meta);
@@ -831,7 +887,10 @@ export async function POST(req: NextRequest) {
       const lockWaitStartedAt = Date.now();
       const shared = await waitForCachedRoast(username, lang);
       lockWaitMs = Date.now() - lockWaitStartedAt;
-      if (shared && reportMatchesLang(shared.report, lang)) {
+      if (
+        shared?.snapshot_hash === snapshotHash &&
+        reportMatchesLang(shared.report, lang)
+      ) {
         const tags = shared.tags ?? { zh: [], en: [] };
         const roastLine = shared.roast_line ?? EMPTY_ROAST_LINE;
         const meta =
@@ -841,12 +900,11 @@ export async function POST(req: NextRequest) {
                 shared.tier,
                 tags,
                 roastLine,
-                shared.delta,
                 lang,
               )
-            : await computeMeta(scan, shared.delta, tags, roastLine, false, lang);
+            : await computeMeta(scan, shared.delta, tags, roastLine, lang);
         logRoastSummary({
-          u: username, lang, path, ok: true, source: "singleflight_shared",
+          requestId, lang, path, ok: true, source: "singleflight_shared",
           lockWaitMs, requestTotalMs: Date.now() - reqT0,
         });
         return roastResponse(shared.report, meta);
@@ -905,7 +963,7 @@ export async function POST(req: NextRequest) {
       };
       const generating = lang === "en" ? "Writing roast…" : "正在撰写锐评…";
       const summaryFields = () => ({
-        u: username,
+        requestId,
         lang,
         path,
         source: "generate",
@@ -954,13 +1012,12 @@ export async function POST(req: NextRequest) {
         if (e instanceof LlmQuotaError) {
           return failAndClose(
             { error: "llm_quota", useByoKey: true, status: e.status },
-            { stage: "generation", kind: "quota", head: head.slice(0, 200) },
+            { stage: "generation", kind: "quota" },
           );
         }
-        console.error("roast failed:", e);
         return failAndClose(
           { error: "roast_failed" },
-          { stage: "generation", kind: classifyLlmError(e), head: head.slice(0, 200) },
+          { stage: "generation", kind: classifyLlmError(e) },
         );
       }
 
@@ -983,10 +1040,9 @@ export async function POST(req: NextRequest) {
 
       let meta: RoastMeta;
       try {
-        meta = await computeMeta(scan, delta, tags, roastLine, isDefault, lang);
+        meta = await computeMeta(scan, delta, tags, roastLine, lang);
         metaMs = Date.now() - reqT0;
       } catch (e) {
-        console.error("roast meta failed:", e);
         return failAndClose(
           { error: "roast_failed" },
           { stage: "meta", kind: classifyLlmError(e) },
@@ -1028,20 +1084,24 @@ export async function POST(req: NextRequest) {
           full += appendix;
           push(enc.encode(appendix));
         }
-        // Cache the finished roast so repeat views don't re-spend LLM credit,
-        // and persist it to the account row for the leaderboard detail view.
+        // Persist under the exact score-write identity before warming replay.
+        // A late report that loses the CAS must not enter either storage layer.
         if (isDefault && reportMatchesLang(full, lang)) {
-          await cacheRoastReplay(
-            username,
-            lang,
-            full,
-            delta,
-            tags,
-            roastLine,
-            meta.final_score,
-            meta.tier,
-          );
-          await updateRoast(username, full, lang);
+          const persisted = scoreIdentity
+            ? await updateRoast(username, full, lang, scoreIdentity, { tags, roastLine })
+            : false;
+          if (persisted) {
+            await cacheRoastReplay(
+              username,
+              lang,
+              completedPublicRun!.snapshotHash!,
+              full,
+              tags,
+              roastLine,
+              meta.final_score,
+              meta.tier,
+            );
+          }
         }
         logRoastSummary({
           ...summaryFields(), ok: true,
@@ -1052,7 +1112,6 @@ export async function POST(req: NextRequest) {
           ...summaryFields(), ok: false, stage: "stream",
           kind: classifyLlmError(e), chars: full.length,
         });
-        console.error("roast stream error:", e);
         push(errorFrame(enc, { error: "roast_failed" }));
       } finally {
         if (isLeader) await releaseRoastLock(username, lang);

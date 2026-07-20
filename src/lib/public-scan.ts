@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import {
   enqueuePublicScan,
+  getCompletePublicScanRuns,
   getLatestPublicScanRun,
   seedPublicScanQuickResult,
   type PublicScanAdmission,
 } from "./db";
 import { SCORE_CACHE_VERSION } from "./cache-version";
+import { RELEASE_VERSION_MANIFEST } from "./release-versions";
 import {
   PUBLIC_SCAN_COLLECTION_VERSION,
   hasCompletePublicScanSources,
@@ -50,6 +52,17 @@ const REQUIRED_NUMERIC_METRICS = [
   "templated_pr_ratio",
 ] as const;
 
+const REQUIRED_SUB_SCORE_KEYS = [
+  "account_maturity",
+  "original_project_quality",
+  "contribution_quality",
+  "ecosystem_impact",
+  "community_influence",
+  "activity_authenticity",
+] as const;
+
+const VALID_TIERS = new Set(["夯", "顶级", "人上人", "NPC", "拉完了"]);
+
 function hasUsableSnapshotShape(scan: Partial<ScanResult>): scan is ScanResult {
   if (
     !scan.metrics ||
@@ -63,18 +76,55 @@ function hasUsableSnapshotShape(scan: Partial<ScanResult>): scan is ScanResult {
   return REQUIRED_NUMERIC_METRICS.every((key) => Number.isFinite(scan.metrics![key]));
 }
 
+function hasStoredSnapshotScore(scan: Partial<ScanResult>): scan is ScanResult {
+  const scoring = scan.scoring;
+  return Boolean(
+    scoring &&
+      Number.isFinite(scoring.final_score) &&
+      Number.isFinite(scoring.base_score) &&
+      Number.isFinite(scoring.total_penalty) &&
+      VALID_TIERS.has(scoring.tier) &&
+      typeof scoring.tier_label === "string" &&
+      scoring.sub_scores &&
+      typeof scoring.sub_scores === "object" &&
+      REQUIRED_SUB_SCORE_KEYS.every((key) => Number.isFinite(scoring.sub_scores[key])) &&
+      Array.isArray(scoring.red_flags) &&
+      scoring.red_flags.every(
+        (flag) =>
+          flag &&
+          typeof flag.flag === "string" &&
+          typeof flag.detail === "string" &&
+          Number.isFinite(flag.penalty),
+      ),
+  );
+}
+
 export type PublicScanResolution =
   | { status: "complete"; run: PublicScanRun; scan: ScanResult }
+  | {
+      status: "stale";
+      run: PublicScanRun;
+      scan: ScanResult;
+      refreshPending: boolean;
+      refreshRun: PublicScanRun | null;
+      servedCollectionVersion: string;
+      targetCollectionVersion: string;
+    }
   | {
       status: "pending";
       run: PublicScanRun;
       retryAfterSeconds: number;
-      /** Only the request that created a job may start one response-side step. */
-      shouldDrain: boolean;
+      /** Present only for the request that atomically created this job. */
+      headStartJobId: string | null;
     }
   | { status: "queue_full" | "admission_limited"; run: null; retryAfterSeconds: number }
   | { status: "storage_unavailable"; run: PublicScanRun | null; retryAfterSeconds: number }
   | { status: "failed"; run: PublicScanRun; retryAfterSeconds: number };
+
+export type CanonicalPublicScanResolution = Exclude<
+  PublicScanResolution,
+  { status: "stale" }
+>;
 
 /**
  * Build a privacy-preserving, persistent admission key for *new* durable jobs.
@@ -84,18 +134,25 @@ export type PublicScanResolution =
 export function publicScanAdmission(principal: string): PublicScanAdmission {
   const normalized = principal.trim() || "anonymous";
   const digest = createHash("sha256")
-    .update(`ghfind-public-scan-admission-v1\0${normalized}`)
+    .update(
+      `ghfind-public-scan-admission-v1\0${PUBLIC_SCAN_COLLECTION_VERSION}\0${normalized}`,
+    )
     .digest("hex");
   return {
-    bucket: `durable-admission:${digest}`,
+    bucket: `durable-admission:${PUBLIC_SCAN_COLLECTION_VERSION}:${digest}`,
     limit: PUBLIC_SCAN_ADMISSION_LIMIT,
     windowMs: PUBLIC_SCAN_ADMISSION_WINDOW_MS,
     maxActiveJobs: PUBLIC_SCAN_MAX_ACTIVE_JOBS,
   };
 }
 
-function parseCompleteSnapshot(run: PublicScanRun): ScanResult | null {
+function parseCompleteSnapshot(
+  run: PublicScanRun,
+  expectedCollectionVersion: string,
+  recomputeScore: boolean,
+): ScanResult | null {
   if (
+    run.collectionVersion !== expectedCollectionVersion ||
     run.state !== "complete_public" ||
     run.coverage !== "complete_public" ||
     !run.snapshot ||
@@ -109,14 +166,41 @@ function parseCompleteSnapshot(run: PublicScanRun): ScanResult | null {
   try {
     const scan = JSON.parse(run.snapshot) as Partial<ScanResult>;
     if (!hasUsableSnapshotShape(scan)) return null;
+    if (!recomputeScore && !hasStoredSnapshotScore(scan)) return null;
+    if (scan.metrics.username.trim().toLowerCase() !== run.username.trim().toLowerCase()) return null;
     // A complete public-history snapshot is a durable factual input. Score
     // formulas deliberately evolve faster than collectors, so recompute the
     // deterministic result at read time instead of forcing another historical
     // GitHub crawl solely because SCORE_CACHE_VERSION changed.
-    return { ...scan, scoring: score(scan.metrics) };
+    return recomputeScore ? { ...scan, scoring: score(scan.metrics) } : (scan as ScanResult);
   } catch {
     return null;
   }
+}
+
+async function latestCompleteSnapshot(
+  username: string,
+  collectionVersion: string,
+  recomputeScore: boolean,
+): Promise<{ run: PublicScanRun; scan: ScanResult } | null> {
+  const runs = await getCompletePublicScanRuns(username, collectionVersion);
+  for (const run of runs) {
+    const scan = parseCompleteSnapshot(run, collectionVersion, recomputeScore);
+    if (scan) return { run, scan };
+  }
+  return null;
+}
+
+function previousCollectionVersion(): string | null {
+  const [target, previous] = RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder;
+  if (
+    target !== PUBLIC_SCAN_COLLECTION_VERSION ||
+    previous !== RELEASE_VERSION_MANIFEST.previousRelease.collection ||
+    previous === PUBLIC_SCAN_COLLECTION_VERSION
+  ) {
+    return null;
+  }
+  return previous;
 }
 
 /**
@@ -152,15 +236,25 @@ async function resolvePublicScan(
   username: string,
   quickScan?: ScanResult,
   admission?: PublicScanAdmission,
-): Promise<PublicScanResolution> {
+): Promise<CanonicalPublicScanResolution> {
   const versions = {
     scoreVersion: SCORE_CACHE_VERSION,
     collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
   };
   const existing = await getLatestPublicScanRun(username, versions);
   if (existing) {
-    const complete = parseCompleteSnapshot(existing);
+    const complete = parseCompleteSnapshot(existing, PUBLIC_SCAN_COLLECTION_VERSION, true);
     if (complete) return { status: "complete", run: existing, scan: complete };
+  }
+  const canonicalComplete = await latestCompleteSnapshot(
+    username,
+    PUBLIC_SCAN_COLLECTION_VERSION,
+    true,
+  );
+  if (canonicalComplete) {
+    return { status: "complete", ...canonicalComplete };
+  }
+  if (existing) {
     if (existing.state === "failed" && Date.now() - existing.updatedAt < FAILED_RUN_RETRY_MS) {
       return { status: "failed", run: existing, retryAfterSeconds: retryAfter(existing) };
     }
@@ -196,7 +290,7 @@ async function resolvePublicScan(
     status: "pending",
     run: enqueued.run,
     retryAfterSeconds: retryAfter(enqueued.run),
-    shouldDrain: enqueued.created,
+    headStartJobId: enqueued.created ? enqueued.job.id : null,
   };
 }
 
@@ -208,7 +302,7 @@ async function resolvePublicScan(
 export async function startPublicScan(
   username: string,
   admission?: PublicScanAdmission,
-): Promise<PublicScanResolution> {
+): Promise<CanonicalPublicScanResolution> {
   return resolvePublicScan(username, undefined, admission);
 }
 
@@ -221,16 +315,17 @@ export async function resolvePublicScanFromTrustedQuickScan(
   username: string,
   quickScan: ScanResult,
   admission?: PublicScanAdmission,
-): Promise<PublicScanResolution> {
+): Promise<CanonicalPublicScanResolution> {
   return resolvePublicScan(username, quickScan, admission);
 }
 
 export async function getCompletedPublicScan(username: string): Promise<ScanResult | null> {
-  const run = await getLatestPublicScanRun(username, {
-    scoreVersion: SCORE_CACHE_VERSION,
-    collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
-  });
-  return run ? parseCompleteSnapshot(run) : null;
+  const complete = await latestCompleteSnapshot(
+    username,
+    PUBLIC_SCAN_COLLECTION_VERSION,
+    true,
+  );
+  return complete?.scan ?? null;
 }
 
 /** Read-only status probe for a job already requested through POST /api/scan. */
@@ -239,14 +334,39 @@ export async function getPublicScanStatus(username: string): Promise<PublicScanR
     scoreVersion: SCORE_CACHE_VERSION,
     collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
   });
+  const scan = run
+    ? parseCompleteSnapshot(run, PUBLIC_SCAN_COLLECTION_VERSION, true)
+    : null;
+  if (scan && run) return { status: "complete", run, scan };
+  const canonicalComplete = await latestCompleteSnapshot(
+    username,
+    PUBLIC_SCAN_COLLECTION_VERSION,
+    true,
+  );
+  if (canonicalComplete) return { status: "complete", ...canonicalComplete };
+
+  const fallbackVersion = previousCollectionVersion();
+  if (fallbackVersion) {
+    const stale = await latestCompleteSnapshot(username, fallbackVersion, false);
+    if (stale) {
+      const refreshPending = run?.state === "queued" || run?.state === "running";
+      return {
+        status: "stale",
+        ...stale,
+        refreshPending,
+        refreshRun: run ?? null,
+        servedCollectionVersion: fallbackVersion,
+        targetCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      };
+    }
+  }
+
   if (!run) return null;
-  const scan = parseCompleteSnapshot(run);
-  if (scan) return { status: "complete", run, scan };
   if (run.state === "failed" && Date.now() - run.updatedAt < FAILED_RUN_RETRY_MS) {
     return { status: "failed", run, retryAfterSeconds: retryAfter(run) };
   }
   if (run.state === "queued" || run.state === "running") {
-    return { status: "pending", run, retryAfterSeconds: retryAfter(run), shouldDrain: false };
+    return { status: "pending", run, retryAfterSeconds: retryAfter(run), headStartJobId: null };
   }
   // Corrupt/legacy terminal rows must be repaired by resolvePublicScan rather
   // than reported as endlessly pending when no active job remains.

@@ -13,8 +13,10 @@
     "start:prod": "next start",
     "build/start": "next build && next start",
     "lint": "eslint",
+    "smoke:deployment": "tsx scripts/smoke-deployment.mts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.release.json",
+    "versions:check": "tsx scripts/check-release-versions.mts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -61,5 +63,6 @@
   },
   "workspaces": [
     "."
-  ]
+  ],
+  "packageManager": "pnpm@9.12.1"
 }

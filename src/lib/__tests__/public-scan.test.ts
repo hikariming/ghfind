@@ -5,17 +5,21 @@ import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanRun } from "../scan-run-
 
 const mocks = vi.hoisted(() => ({
   enqueuePublicScan: vi.fn(),
+  getCompletePublicScanRuns: vi.fn(),
   getLatestPublicScanRun: vi.fn(),
   seedPublicScanQuickResult: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   enqueuePublicScan: mocks.enqueuePublicScan,
+  getCompletePublicScanRuns: mocks.getCompletePublicScanRuns,
   getLatestPublicScanRun: mocks.getLatestPublicScanRun,
   seedPublicScanQuickResult: mocks.seedPublicScanQuickResult,
 }));
 
 import {
+  getPublicScanStatus,
+  publicScanAdmission,
   requiresDurablePublicScan,
   resolvePublicScanFromTrustedQuickScan,
   startPublicScan,
@@ -58,7 +62,22 @@ function scan(overrides: Partial<ScanResult["metrics"]> = {}): ScanResult {
     top_repos: [],
     recent_prs: [],
     flood_pr_titles: [],
-    scoring: {} as ScanResult["scoring"],
+    scoring: {
+      final_score: 61,
+      base_score: 61,
+      total_penalty: 0,
+      tier: "NPC",
+      tier_label: "fixture",
+      sub_scores: {
+        account_maturity: 0,
+        original_project_quality: 0,
+        contribution_quality: 0,
+        ecosystem_impact: 0,
+        community_influence: 0,
+        activity_authenticity: 0,
+      },
+      red_flags: [],
+    },
   } as ScanResult;
 }
 
@@ -91,11 +110,35 @@ function completedSources() {
   } as const;
 }
 
+function completeRun(collectionVersion = "v3", overrides: Partial<PublicScanRun> = {}): PublicScanRun {
+  const snapshot = JSON.stringify(scan({ merged_pr_count: 301 }));
+  return {
+    ...pendingRun(),
+    collectionVersion,
+    state: "complete_public",
+    coverage: "complete_public",
+    sourceStatus: completedSources(),
+    snapshot,
+    snapshotHash: createHash("sha256").update(snapshot).digest("hex"),
+    completedAt: Date.now(),
+    ...overrides,
+  };
+}
+
 describe("durable public scan admission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
+    mocks.getCompletePublicScanRuns.mockResolvedValue([]);
     mocks.seedPublicScanQuickResult.mockResolvedValue(true);
+  });
+
+  it("namespaces admission buckets by the canonical collection version", () => {
+    const admission = publicScanAdmission("synthetic-principal");
+    expect(admission.bucket).toMatch(
+      new RegExp(`^durable-admission:${PUBLIC_SCAN_COLLECTION_VERSION}:[a-f0-9]{64}$`),
+    );
+    expect(admission.bucket).not.toContain("synthetic-principal");
   });
 
   it("only diverts bounded-coverage cases", () => {
@@ -120,7 +163,7 @@ describe("durable public scan admission", () => {
     await expect(resolvePublicScanFromTrustedQuickScan("durable-case", quick)).resolves.toMatchObject({
       status: "pending",
       run: { id: "run-id" },
-      shouldDrain: true,
+      headStartJobId: "job-id",
     });
     expect(mocks.seedPublicScanQuickResult).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: "job-id", runId: "run-id" }),
@@ -143,6 +186,48 @@ describe("durable public scan admission", () => {
       status: "complete",
       scan: { metrics: { username: "durable-case" } },
     });
+    expect(mocks.enqueuePublicScan).not.toHaveBeenCalled();
+  });
+
+  it("serves only a validated v3 snapshot while a v4 refresh is pending", async () => {
+    const refresh = pendingRun();
+    const legacy = completeRun();
+    mocks.getLatestPublicScanRun.mockResolvedValue(refresh);
+    mocks.getCompletePublicScanRuns.mockImplementation(
+      async (_username: string, collectionVersion: string) =>
+        collectionVersion === "v3" ? [legacy] : [],
+    );
+
+    await expect(getPublicScanStatus("durable-case")).resolves.toMatchObject({
+      status: "stale",
+      run: { collectionVersion: "v3" },
+      refreshRun: { id: "run-id", collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION },
+      refreshPending: true,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+    });
+    expect(mocks.enqueuePublicScan).not.toHaveBeenCalled();
+    expect(mocks.getCompletePublicScanRuns).toHaveBeenCalledWith("durable-case", "v3");
+  });
+
+  it("rejects corrupt and non-v3 complete rows as stale fallbacks", async () => {
+    const corrupt = completeRun("v3", { snapshotHash: "not-a-hash" });
+    const incompleteScoreSnapshot = JSON.stringify({
+      ...scan(),
+      scoring: { ...scan().scoring, sub_scores: {} },
+    });
+    const incompleteScore = completeRun("v3", {
+      snapshot: incompleteScoreSnapshot,
+      snapshotHash: createHash("sha256").update(incompleteScoreSnapshot).digest("hex"),
+    });
+    const nonCanonical = completeRun("v5");
+    mocks.getCompletePublicScanRuns.mockImplementation(
+      async (_username: string, collectionVersion: string) =>
+        collectionVersion === "v3" ? [corrupt, incompleteScore, nonCanonical] : [],
+    );
+
+    await expect(getPublicScanStatus("durable-case")).resolves.toBeNull();
+    expect(mocks.getCompletePublicScanRuns).not.toHaveBeenCalledWith("durable-case", "v5");
     expect(mocks.enqueuePublicScan).not.toHaveBeenCalled();
   });
 
@@ -219,7 +304,7 @@ describe("durable public scan admission", () => {
 
     await expect(startPublicScan("durable-case")).resolves.toMatchObject({
       status: "pending",
-      shouldDrain: false,
+      headStartJobId: null,
     });
   });
 });

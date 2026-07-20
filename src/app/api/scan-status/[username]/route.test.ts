@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   getPublicScanStatus: vi.fn(),
   checkPublicScanStatusRateLimit: vi.fn(),
   rateLimitHeaders: vi.fn(),
-  kickPublicScanDrain: vi.fn(),
 }));
 
 vi.mock("@/lib/public-scan", () => ({
@@ -15,10 +14,6 @@ vi.mock("@/lib/public-scan", () => ({
 vi.mock("@/lib/redis", () => ({
   checkPublicScanStatusRateLimit: mocks.checkPublicScanStatusRateLimit,
   rateLimitHeaders: mocks.rateLimitHeaders,
-}));
-
-vi.mock("@/lib/public-scan-dispatcher", () => ({
-  kickPublicScanDrain: mocks.kickPublicScanDrain,
 }));
 
 import { GET } from "./route";
@@ -96,6 +91,31 @@ describe("durable scan status API", () => {
     });
   });
 
+  it("keeps a v3 snapshot readable while polling its v4 refresh run", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "durable-status-case", collectionVersion: "v3" },
+      scan: { metrics: { username: "durable-status-case" } },
+      refreshPending: true,
+      refreshRun: { id: "run-id", username: "durable-status-case", collectionVersion: "v4" },
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    const response = await request("durable-status-case");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=5");
+    await expect(response.json()).resolves.toMatchObject({
+      status: "stale_public",
+      run_id: "run-id",
+      stale: true,
+      refresh_pending: true,
+      served_collection_version: "v3",
+      target_collection_version: "v4",
+    });
+  });
+
   it("uses retryable pending and failed states without publishing a partial scan", async () => {
     mocks.getPublicScanStatus.mockResolvedValueOnce({
       status: "pending",
@@ -107,7 +127,6 @@ describe("durable scan status API", () => {
     expect(pending.headers.get("Retry-After")).toBe("7");
     expect(pending.headers.get("Cache-Control")).toContain("s-maxage=5");
     await expect(pending.json()).resolves.toMatchObject({ status: "pending", run_id: "run-id" });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
 
     mocks.getPublicScanStatus.mockResolvedValueOnce({
       status: "failed",
@@ -117,6 +136,5 @@ describe("durable scan status API", () => {
     const failed = await request("durable-status-case");
     expect(failed.status).toBe(503);
     await expect(failed.json()).resolves.toMatchObject({ error: "durable_scan_failed" });
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
   });
 });
