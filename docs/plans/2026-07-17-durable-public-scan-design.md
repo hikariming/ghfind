@@ -134,38 +134,35 @@ Redis cache hits, and status polling are never charged against this budget.
    worker step or 10 seconds. This gives a new job a server-side head start
    without making the initiating high-history request wait behind multiple
    GitHub pages; it is not browser work and does not rely on process memory.
-3. `vercel.json` invokes `GET /api/internal/public-scan` every five minutes.
-   The route drains at most 24 steps or 50 seconds, always resuming from the
-   cursor persisted before the previous step returned.
-4. Every invocation claims a database lease. An interrupted invocation expires
-   after 55 seconds; a later request or Cron run safely resumes it.
+3. A supervised server process runs `pnpm public-scan:worker` continuously.
+   It claims one persisted Turso queue step per lane, resuming from the cursor
+   written by the prior step without any Vercel scheduling dependency.
+4. Every invocation claims a database lease. Request-side head starts retain a
+   short lease; the dedicated worker uses a longer lease so a normal page of
+   GitHub evidence cannot be terminated by a serverless runtime limit.
 
-There is no QStash client, callback URL, signing key, or external queue
-credential. `CRON_SECRET` only authenticates Vercel's existing Cron request
-using `Authorization: Bearer <secret>`.
+There is no QStash client, callback URL, signing key, or Vercel Cron
+credential. Turso is the durable queue and the supervised worker is its sole
+continuous consumer.
 
 ### Deployment prerequisite
 
-The five-minute schedule needs a Vercel plan that permits sub-daily Cron jobs.
-Vercel Hobby rejects this schedule at deployment rather than silently reducing
-the cadence. This is a limitation of the existing hosting plan, not a new SaaS
-dependency. The deployment must provide:
+The web deployment and worker service both require:
 
 ```text
 TURSO_DATABASE_URL=
 TURSO_AUTH_TOKEN=
-CRON_SECRET=
 ```
 
-`PUBLIC_SCAN_WORKER_SECRET` is only for local, non-production route tests.
+The worker service also requires the existing GitHub API credentials. It must
+run under a process supervisor and restart on failure.
 
 ## Collection Phases
 
 Each phase persists its result and next cursor before returning. Normal
-continuations are immediately eligible for the same bounded Cron drain, so one
-five-minute invocation can advance several pages. Only explicit quota/backoff
-states defer `next_run_at`. Replays are idempotent through run-scoped uniqueness
-keys and the execution lease.
+continuations are immediately eligible for the next worker iteration. Only
+explicit quota/backoff states defer `next_run_at`. Replays are idempotent
+through run-scoped uniqueness keys and the execution lease.
 
 1. **Quick facts**: bounded profile, contribution totals, recent samples, and
    current repository overview. A route may seed only an already-paid,
@@ -241,8 +238,8 @@ These are intentionally not part of the current implementation:
    failed-run diagnostics.
 3. Retention/compaction policy for high-volume raw commit-discovery rows after
    their verified per-repository aggregate has been retained.
-4. A self-hosted always-on worker alternative for deployments that cannot use a
-   sub-daily Vercel Cron schedule.
+4. Adaptive per-phase concurrency and GitHub quota tuning beyond the current
+   bounded server-worker capacity.
 
 ## Acceptance Checks
 
@@ -250,10 +247,10 @@ These are intentionally not part of the current implementation:
 - A 300+ merged-PR account returns `collecting_public_history` instead of
   failing in the bounded aggregate query.
 - Restarting the server between phases resumes from the persisted cursor.
-- Concurrent API and Cron drains never run two collection steps at once.
+- Concurrent API and worker drains never exceed the persisted execution capacity.
 - A contribution-graph resource limit reaches verified commit recovery rather
   than producing zero commit-only impact as a final result.
 - No final score, leaderboard fact, or writer report is generated from a
   partial run.
-- `CRON_SECRET` is accepted only by the internal worker route; no credential is
-  exposed to the browser or CLI.
+- The worker service accepts no request credential; public scan requests create
+  jobs only and cannot command the worker.

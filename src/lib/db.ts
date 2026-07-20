@@ -88,6 +88,7 @@ const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
 
 function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
   return (
@@ -495,6 +496,11 @@ function ensureSchema(db: Client): Promise<void> {
              lease_token      TEXT,
              lease_expires_at INTEGER NOT NULL DEFAULT 0
            )`,
+          `CREATE TABLE IF NOT EXISTS public_scan_execution_settings (
+             singleton         INTEGER PRIMARY KEY CHECK(singleton = 1),
+             capacity          INTEGER NOT NULL CHECK(capacity BETWEEN 1 AND ${MAX_PUBLIC_SCAN_EXECUTION_CAPACITY}),
+             updated_at        INTEGER NOT NULL
+           )`,
           `CREATE TABLE IF NOT EXISTS public_scan_rate_windows (
              bucket           TEXT NOT NULL,
              window_started   INTEGER NOT NULL,
@@ -511,7 +517,7 @@ function ensureSchema(db: Client): Promise<void> {
              updated_at         INTEGER NOT NULL,
              PRIMARY KEY(collection_version, phase, outcome)
            )`,
-          `CREATE TABLE IF NOT EXISTS public_scan_cron_metrics (
+          `CREATE TABLE IF NOT EXISTS public_scan_worker_metrics (
              singleton            INTEGER PRIMARY KEY CHECK(singleton = 1),
              last_started_at       INTEGER,
              last_success_at       INTEGER,
@@ -836,17 +842,23 @@ function ensureSchema(db: Client): Promise<void> {
         }
       }
       await addColumnIfMissing(db, "profile_snapshots", "signature_work TEXT");
-      // One durable collection invocation is intentionally conservative. Each
-      // invocation is bounded, then a later request-after task or Cron run
-      // resumes it; a single slot keeps the GitHub Search and GraphQL quotas
-      // predictable when many stale profiles are discovered after a version
-      // bump.
+      // Start from one persisted execution slot. The independent worker service
+      // may raise capacity through configurePublicScanExecutionCapacity; request
+      // head starts share the same cap and can never bypass it.
+      const now = Date.now();
       await db.batch(
-        [{
-          sql: `INSERT OR IGNORE INTO public_scan_execution_leases
-                (slot, lease_expires_at) VALUES (1, 0)`,
-          args: [],
-        }],
+        [
+          {
+            sql: `INSERT OR IGNORE INTO public_scan_execution_settings
+                  (singleton, capacity, updated_at) VALUES (1, 1, ?)`,
+            args: [now],
+          },
+          {
+            sql: `INSERT OR IGNORE INTO public_scan_execution_leases
+                  (slot, lease_expires_at) VALUES (1, 0)`,
+            args: [],
+          },
+        ],
         "write",
       );
     })().catch((e) => {
@@ -2356,11 +2368,73 @@ export async function releasePublicScanJobClaim(input: {
 }
 
 /**
- * A database-backed, process-wide execution lease. Request-after work and
- * overlapping Cron invocations may land in different serverless instances, so
- * per-process mutexes and Redis-only locks are insufficient. The single slot
- * deliberately favors predictable GitHub quota use over throughput; each
- * worker invocation is short and continues through the queue.
+ * Set the process-wide execution capacity used by the dedicated worker service.
+ * The cap is persisted in Turso so request head starts share it. Shrinking is
+ * refused until high-numbered slots are idle, preventing an in-flight job from
+ * being invalidated by a service restart.
+ */
+export async function configurePublicScanExecutionCapacity(input: {
+  capacity: number;
+}): Promise<{ capacity: number; changed: boolean }> {
+  if (!Number.isFinite(input.capacity)) {
+    throw new Error("public scan execution capacity must be finite");
+  }
+  const capacity = Math.max(1, Math.min(MAX_PUBLIC_SCAN_EXECUTION_CAPACITY, Math.floor(input.capacity)));
+  const db = requirePublicScanDb("configure_execution_capacity");
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    const tx = await db.transaction("write");
+    try {
+      const settings = await tx.execute({
+        sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
+        args: [],
+      });
+      const current = Number(settings.rows[0]?.capacity ?? 1);
+      if (!Number.isInteger(current) || current < 1 || current > MAX_PUBLIC_SCAN_EXECUTION_CAPACITY) {
+        throw new Error("public scan execution capacity is invalid");
+      }
+      if (capacity < current) {
+        const active = await tx.execute({
+          sql: `SELECT COUNT(*) AS count
+                FROM public_scan_execution_leases
+                WHERE slot > ? AND lease_expires_at > ?`,
+          args: [capacity, now],
+        });
+        if (Number(active.rows[0]?.count ?? 0) > 0) {
+          throw new Error("public scan execution capacity cannot shrink while slots are active");
+        }
+      }
+      for (let slot = 1; slot <= capacity; slot += 1) {
+        await tx.execute({
+          sql: `INSERT OR IGNORE INTO public_scan_execution_leases (slot, lease_expires_at)
+                VALUES (?, 0)`,
+          args: [slot],
+        });
+      }
+      if (capacity !== current) {
+        await tx.execute({
+          sql: `UPDATE public_scan_execution_settings SET capacity = ?, updated_at = ?
+                WHERE singleton = 1`,
+          args: [capacity, now],
+        });
+      }
+      await tx.commit();
+      return { capacity, changed: capacity !== current };
+    } catch (error) {
+      await tx.rollback().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    throwPublicScanStorageFailure("configure_execution_capacity", error);
+  }
+}
+
+/**
+ * A database-backed, process-wide execution lease. Request head starts and
+ * worker instances may land in different processes, so per-process mutexes and
+ * Redis-only locks are insufficient. Capacity is configured by the dedicated
+ * worker service and shared through Turso.
  */
 export async function acquirePublicScanExecutionLease(input: {
   jobId: string;
@@ -2374,18 +2448,32 @@ export async function acquirePublicScanExecutionLease(input: {
     const leaseExpiresAt = now + (input.leaseMs ?? 55_000);
     const tx = await db.transaction("write");
     try {
+      const configured = await tx.execute({
+        sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
+        args: [],
+      });
+      const capacity = Number(configured.rows[0]?.capacity);
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_PUBLIC_SCAN_EXECUTION_CAPACITY) {
+        throw new Error("public scan execution capacity is missing or invalid");
+      }
+      const slots = await tx.execute({
+        sql: `SELECT COUNT(*) AS count FROM public_scan_execution_leases WHERE slot <= ?`,
+        args: [capacity],
+      });
+      if (Number(slots.rows[0]?.count ?? 0) !== capacity) {
+        throw new Error("public scan execution slots are missing");
+      }
       const candidate = await tx.execute({
         sql: `SELECT slot, lease_expires_at
               FROM public_scan_execution_leases
-              WHERE slot = 1
+              WHERE slot <= (SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1)
+                AND lease_expires_at <= ?
+              ORDER BY slot ASC
               LIMIT 1`,
-        args: [],
+        args: [now],
       });
       const slot = candidate.rows[0]?.slot;
       if (typeof slot !== "number") {
-        throw new Error("public scan execution slot is missing");
-      }
-      if (Number(candidate.rows[0]?.lease_expires_at ?? 0) > now) {
         await tx.rollback();
         return null;
       }
@@ -2533,14 +2621,14 @@ export async function recordPublicScanStepMetrics(input: {
   }
 }
 
-export async function recordPublicScanCronMetrics(input: {
+export async function recordPublicScanWorkerMetrics(input: {
   startedAt: number;
   completedAt: number;
   processed: number;
   failedSteps: number;
   success: boolean;
 }): Promise<boolean> {
-  const db = requirePublicScanDb("cron_metrics_write");
+  const db = requirePublicScanDb("worker_metrics_write");
   try {
     await ensureSchema(db);
     const durationMs = Math.max(0, Math.floor(input.completedAt - input.startedAt));
@@ -2555,7 +2643,7 @@ export async function recordPublicScanCronMetrics(input: {
       input.completedAt,
     ];
     await db.execute({
-      sql: `INSERT INTO public_scan_cron_metrics
+      sql: `INSERT INTO public_scan_worker_metrics
               (singleton, last_started_at, last_success_at, last_duration_ms,
                last_processed, last_failed_steps, consecutive_failures, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -2563,19 +2651,19 @@ export async function recordPublicScanCronMetrics(input: {
               last_started_at = excluded.last_started_at,
               last_success_at = CASE WHEN ? = 1
                                      THEN excluded.last_success_at
-                                     ELSE public_scan_cron_metrics.last_success_at END,
+                                     ELSE public_scan_worker_metrics.last_success_at END,
               last_duration_ms = excluded.last_duration_ms,
               last_processed = excluded.last_processed,
               last_failed_steps = excluded.last_failed_steps,
               consecutive_failures = CASE WHEN ? = 1
                                           THEN 0
-                                          ELSE public_scan_cron_metrics.consecutive_failures + 1 END,
+                                          ELSE public_scan_worker_metrics.consecutive_failures + 1 END,
               updated_at = excluded.updated_at`,
       args: [...values, input.success ? 1 : 0, input.success ? 1 : 0],
     });
     return true;
   } catch (error) {
-    throwPublicScanStorageFailure("cron_metrics_write", error);
+    throwPublicScanStorageFailure("worker_metrics_write", error);
   }
 }
 
@@ -2610,7 +2698,7 @@ export interface PublicScanOperationalMetrics {
     averageDurationMs: number;
     maxDurationMs: number;
   }>;
-  cron: {
+  worker: {
     lastStartedAt: number | null;
     lastSuccessAt: number | null;
     lastDurationMs: number | null;
@@ -2629,7 +2717,7 @@ export async function getPublicScanOperationalMetrics(
   try {
     await ensureSchema(db);
     const now = Date.now();
-    const [active, failureState, obsolete, slots, steps, cron] = await db.batch(
+    const [active, failureState, obsolete, slots, steps, worker, capacity] = await db.batch(
       [
         {
           sql: `SELECT state, phase, COUNT(*) AS count, MIN(created_at) AS oldest_created_at,
@@ -2657,7 +2745,8 @@ export async function getPublicScanOperationalMetrics(
         {
           sql: `SELECT COUNT(*) AS count
                 FROM public_scan_execution_leases
-                WHERE lease_expires_at > ?`,
+                WHERE lease_expires_at > ?
+                  AND slot <= (SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1)`,
           args: [now],
         },
         {
@@ -2670,8 +2759,12 @@ export async function getPublicScanOperationalMetrics(
         {
           sql: `SELECT last_started_at, last_success_at, last_duration_ms, last_processed,
                        last_failed_steps, consecutive_failures
-                FROM public_scan_cron_metrics
+                FROM public_scan_worker_metrics
                 WHERE singleton = 1`,
+          args: [],
+        },
+        {
+          sql: `SELECT capacity FROM public_scan_execution_settings WHERE singleton = 1`,
           args: [],
         },
       ],
@@ -2718,7 +2811,8 @@ export async function getPublicScanOperationalMetrics(
         .filter((metric) => metric.outcome === outcome)
         .reduce((total, metric) => total + metric.count, 0);
     const failureRow = failureState.rows[0];
-    const cronRow = cron.rows[0];
+    const workerRow = worker.rows[0];
+    const capacityRow = capacity.rows[0];
     return {
       generatedAt: now,
       canonicalCollectionVersion,
@@ -2739,18 +2833,18 @@ export async function getPublicScanOperationalMetrics(
       },
       execution: {
         activeSlots: Number(slots.rows[0]?.count ?? 0),
-        capacity: 1,
+        capacity: Number(capacityRow?.capacity ?? 1),
         contentionSteps: countOutcome("slot_busy"),
       },
       obsoleteActiveJobs: Number(obsolete.rows[0]?.count ?? 0),
       steps: stepMetrics,
-      cron: {
-        lastStartedAt: cronRow?.last_started_at == null ? null : Number(cronRow.last_started_at),
-        lastSuccessAt: cronRow?.last_success_at == null ? null : Number(cronRow.last_success_at),
-        lastDurationMs: cronRow?.last_duration_ms == null ? null : Number(cronRow.last_duration_ms),
-        lastProcessed: Number(cronRow?.last_processed ?? 0),
-        lastFailedSteps: Number(cronRow?.last_failed_steps ?? 0),
-        consecutiveFailures: Number(cronRow?.consecutive_failures ?? 0),
+      worker: {
+        lastStartedAt: workerRow?.last_started_at == null ? null : Number(workerRow.last_started_at),
+        lastSuccessAt: workerRow?.last_success_at == null ? null : Number(workerRow.last_success_at),
+        lastDurationMs: workerRow?.last_duration_ms == null ? null : Number(workerRow.last_duration_ms),
+        lastProcessed: Number(workerRow?.last_processed ?? 0),
+        lastFailedSteps: Number(workerRow?.last_failed_steps ?? 0),
+        consecutiveFailures: Number(workerRow?.consecutive_failures ?? 0),
       },
     };
   } catch {

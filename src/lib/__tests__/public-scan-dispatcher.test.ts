@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   processPublicScanJob: vi.fn(),
-  recordPublicScanCronMetrics: vi.fn(),
+  recordPublicScanWorkerMetrics: vi.fn(),
   recordPublicScanStepMetrics: vi.fn(),
 }));
 
@@ -11,23 +11,23 @@ vi.mock("@/lib/public-scan-worker", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  recordPublicScanCronMetrics: mocks.recordPublicScanCronMetrics,
+  recordPublicScanWorkerMetrics: mocks.recordPublicScanWorkerMetrics,
   recordPublicScanStepMetrics: mocks.recordPublicScanStepMetrics,
 }));
 
 import {
   drainPublicScanJobs,
-  drainPublicScanJobsFromCron,
+  drainPublicScanJobsFromWorker,
 } from "../public-scan-dispatcher";
 
 describe("public scan dispatcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.recordPublicScanCronMetrics.mockResolvedValue(true);
+    mocks.recordPublicScanWorkerMetrics.mockResolvedValue(true);
     mocks.recordPublicScanStepMetrics.mockResolvedValue(true);
   });
 
-  it("drains canonical Cron work until the durable queue is idle", async () => {
+  it("drains canonical worker work until the durable queue is idle", async () => {
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     mocks.processPublicScanJob
       .mockResolvedValueOnce({
@@ -48,7 +48,7 @@ describe("public scan dispatcher", () => {
       drainPublicScanJobs({
         maxSteps: 8,
         maxDurationMs: 10_000,
-        source: "cron",
+        source: "worker",
       }),
     ).resolves.toEqual({
       processed: 2,
@@ -70,7 +70,7 @@ describe("public scan dispatcher", () => {
     log.mockRestore();
   });
 
-  it("caps one Cron invocation before it can monopolize server runtime", async () => {
+  it("caps one worker drain call at its requested number of steps", async () => {
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     mocks.processPublicScanJob.mockResolvedValue({
       status: "continued",
@@ -83,7 +83,7 @@ describe("public scan dispatcher", () => {
       drainPublicScanJobs({
         maxSteps: 2,
         maxDurationMs: 10_000,
-        source: "cron",
+        source: "worker",
       }),
     ).resolves.toMatchObject({ processed: 2, exhaustedBudget: true });
     expect(mocks.processPublicScanJob).toHaveBeenCalledTimes(2);
@@ -125,7 +125,7 @@ describe("public scan dispatcher", () => {
       drainPublicScanJobs({
         maxSteps: 24,
         maxDurationMs: 50_000,
-        source: "cron",
+        source: "worker",
       }),
     ).resolves.toMatchObject({ processed: 0, exhaustedBudget: false });
     expect(mocks.processPublicScanJob).toHaveBeenCalledOnce();
@@ -136,38 +136,54 @@ describe("public scan dispatcher", () => {
     log.mockRestore();
   });
 
-  it("records a successful Cron heartbeat even when the queue is empty", async () => {
+  it("records a successful worker heartbeat even when the queue is empty", async () => {
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     mocks.processPublicScanJob.mockResolvedValue({ status: "idle" });
 
-    await expect(drainPublicScanJobsFromCron()).resolves.toMatchObject({ processed: 0 });
-    expect(mocks.recordPublicScanCronMetrics).toHaveBeenCalledWith(
+    await expect(drainPublicScanJobsFromWorker({ leaseMs: 300_000 })).resolves.toMatchObject({ processed: 0 });
+    expect(mocks.processPublicScanJob).toHaveBeenCalledWith({
+      jobId: undefined,
+      leaseMs: 300_000,
+    });
+    expect(mocks.recordPublicScanWorkerMetrics).toHaveBeenCalledWith(
       expect.objectContaining({ processed: 0, failedSteps: 0, success: true }),
     );
     log.mockRestore();
   });
 
-  it("records a failed Cron heartbeat without logging the raw exception", async () => {
+  it("does not persist an explicitly throttled idle heartbeat", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mocks.processPublicScanJob.mockResolvedValue({ status: "idle" });
+
+    await expect(
+      drainPublicScanJobsFromWorker({ leaseMs: 300_000, recordIdleHeartbeat: false }),
+    ).resolves.toMatchObject({ processed: 0 });
+    expect(mocks.recordPublicScanWorkerMetrics).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalledWith("public_scan.worker", expect.any(String));
+    log.mockRestore();
+  });
+
+  it("records a failed worker heartbeat without logging the raw exception", async () => {
     const rawMarker = "sensitive-upstream-marker";
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.processPublicScanJob.mockRejectedValue(new Error(rawMarker));
 
-    await expect(drainPublicScanJobsFromCron()).rejects.toThrow("public scan Cron drain failed");
-    expect(mocks.recordPublicScanCronMetrics).toHaveBeenCalledWith(
+    await expect(drainPublicScanJobsFromWorker({ leaseMs: 300_000 })).rejects.toThrow("public scan worker drain failed");
+    expect(mocks.recordPublicScanWorkerMetrics).toHaveBeenCalledWith(
       expect.objectContaining({ success: false }),
     );
     expect(log.mock.calls.flat().join(" ")).not.toContain(rawMarker);
     log.mockRestore();
   });
 
-  it("fails Cron when its durable heartbeat cannot be persisted", async () => {
+  it("fails the worker when its durable heartbeat cannot be persisted", async () => {
     const rawMarker = "sensitive-metrics-marker";
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.processPublicScanJob.mockResolvedValue({ status: "idle" });
-    mocks.recordPublicScanCronMetrics.mockRejectedValue(new Error(rawMarker));
+    mocks.recordPublicScanWorkerMetrics.mockRejectedValue(new Error(rawMarker));
 
-    await expect(drainPublicScanJobsFromCron()).rejects.toThrow("public scan Cron drain failed");
-    expect(mocks.recordPublicScanCronMetrics).toHaveBeenCalledTimes(2);
+    await expect(drainPublicScanJobsFromWorker({ leaseMs: 300_000 })).rejects.toThrow("public scan worker drain failed");
+    expect(mocks.recordPublicScanWorkerMetrics).toHaveBeenCalledTimes(2);
     expect(log.mock.calls.flat().join(" ")).not.toContain(rawMarker);
     log.mockRestore();
   });

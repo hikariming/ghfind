@@ -85,6 +85,7 @@ export function Roaster({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
+  const [pendingMessage, setPendingMessage] = useState("");
   const [byoOpen, setByoOpen] = useState(false);
   const [byoReason, setByoReason] = useState<string | undefined>();
   const [percentile, setPercentile] = useState<{
@@ -206,6 +207,7 @@ export function Roaster({
         return;
       }
       setError("");
+      setPendingMessage("");
       setScan(null);
       setReport("");
       setPercentile(null);
@@ -262,22 +264,26 @@ export function Roaster({
         });
         const data = await res.json();
         if (res.status === 202 && data?.error === "scan_enrichment_pending") {
-          setError(t("errScanPending"));
-          const retrySeconds = Math.max(10, Math.min(30, Number(data.retry_after) || 10));
+          setPendingMessage(t("errScanPending"));
+          let retrySeconds = Math.max(10, Math.min(30, Number(data.retry_after) || 10));
           const runId = typeof data.run_id === "string" ? data.run_id : "";
           if (!runId) {
+            setPendingMessage("");
             setError(t("errScanFailed"));
             setScanning(false);
             return;
           }
-          const deadline = Date.now() + 2 * 60 * 1_000;
           const controller = new AbortController();
           pollAbortRef.current?.abort();
           pollAbortRef.current = controller;
           const poll = async () => {
             let completed = false;
+            let failed = false;
             try {
-              while (Date.now() < deadline) {
+              // The durable run can legitimately outlive a browser request by
+              // many minutes. Keep observing this specific run until it reaches
+              // a terminal state; the component cleanup aborts on navigation.
+              while (!controller.signal.aborted) {
                 await abortableDelay(retrySeconds * 1_000, controller.signal);
                 if (controller.signal.aborted) return;
                 try {
@@ -289,17 +295,29 @@ export function Roaster({
                   if (statusRes.ok && status?.status === "complete_public" && status.scan) {
                     completed = true;
                     setError("");
+                    setPendingMessage("");
                     presentScan(status.scan as ScanResult);
                     return;
                   }
-                  if (statusRes.status >= 500 || status?.status === "failed") break;
+                  if (status?.status === "failed" || statusRes.status === 404) {
+                    failed = true;
+                    break;
+                  }
+                  retrySeconds = Math.max(
+                    10,
+                    Math.min(30, Number(status?.retry_after) || retrySeconds),
+                  );
                 } catch {
                   if (controller.signal.aborted) return;
-                  break;
+                  // A transient network failure must not abandon a durable run.
                 }
               }
             } finally {
-              if (!controller.signal.aborted && !completed) setScanning(false);
+              if (!controller.signal.aborted && !completed && failed) {
+                setPendingMessage("");
+                setError(t("errScanFailed"));
+                setScanning(false);
+              }
               if (pollAbortRef.current === controller) pollAbortRef.current = null;
             }
           };
@@ -307,6 +325,7 @@ export function Roaster({
           return;
         }
         if (!res.ok) {
+          setPendingMessage("");
           setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
           setScanning(false);
           return;
@@ -322,6 +341,7 @@ export function Roaster({
         const refreshRunId = typeof data?.run_id === "string" ? data.run_id : undefined;
         presentScan(result, refreshRunId);
       } catch {
+        setPendingMessage("");
         setError(t("errNetworkScan"));
         setScanning(false);
       }
@@ -448,6 +468,7 @@ export function Roaster({
         />
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
+        {pendingMessage && <p className="text-sm text-amber-300">{pendingMessage}</p>}
       </div>
 
       <div className="mt-3 flex flex-col items-center gap-3">

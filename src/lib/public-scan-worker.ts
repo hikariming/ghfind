@@ -193,13 +193,18 @@ async function continueJob(input: {
 
 /**
  * Execute exactly one bounded collection step. The database job lease makes the
- * method safe under Cron overlap and request after-work; the caller can safely
- * treat a stale/no-op delivery as successful.
+ * method safe across the dedicated worker service and request after-work; the
+ * caller can safely treat a stale/no-op delivery as successful.
  */
-export async function processPublicScanJob(jobId?: string): Promise<PublicScanWorkerResult> {
+export async function processPublicScanJob(
+  input?: string | { jobId?: string; leaseMs?: number },
+): Promise<PublicScanWorkerResult> {
+  const jobId = typeof input === "string" ? input : input?.jobId;
+  const leaseMs = typeof input === "string" ? undefined : input?.leaseMs;
   const lease = await claimPublicScanJob({
     collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     jobId,
+    ...(leaseMs === undefined ? {} : { leaseMs }),
   });
   if (!lease) return { status: "idle" };
   const { job, leaseToken } = lease;
@@ -213,6 +218,7 @@ export async function processPublicScanJob(jobId?: string): Promise<PublicScanWo
     executionSlot = await acquirePublicScanExecutionLease({
       jobId: job.id,
       leaseToken,
+      ...(leaseMs === undefined ? {} : { leaseMs }),
     });
     if (executionSlot === null) {
       const released = await releasePublicScanJobClaim({

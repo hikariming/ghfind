@@ -139,6 +139,22 @@ describe("public scan worker", () => {
     });
   });
 
+  it("uses the dedicated worker lease without changing request-side defaults", async () => {
+    await expect(processPublicScanJob({ jobId: "job-id", leaseMs: 300_000 })).resolves.toMatchObject({
+      status: "continued",
+    });
+    expect(mocks.claimPublicScanJob).toHaveBeenCalledWith({
+      collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
+      jobId: "job-id",
+      leaseMs: 300_000,
+    });
+    expect(mocks.acquirePublicScanExecutionLease).toHaveBeenCalledWith({
+      jobId: "job-id",
+      leaseToken: "lease-token",
+      leaseMs: 300_000,
+    });
+  });
+
   it("rejects a non-canonical job before acquiring quota or calling GitHub", async () => {
     mocks.claimPublicScanJob.mockResolvedValue({
       leaseToken: "lease-token",

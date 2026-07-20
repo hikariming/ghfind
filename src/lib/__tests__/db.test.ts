@@ -1407,7 +1407,7 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
     await expect(
-      db.recordPublicScanCronMetrics({
+      db.recordPublicScanWorkerMetrics({
         startedAt: 1_000,
         completedAt: 1_050,
         processed: 2,
@@ -1416,7 +1416,7 @@ describe("durable public scan jobs", () => {
       }),
     ).resolves.toBe(true);
     await expect(
-      db.recordPublicScanCronMetrics({
+      db.recordPublicScanWorkerMetrics({
         startedAt: 2_000,
         completedAt: 2_025,
         processed: 0,
@@ -1437,7 +1437,7 @@ describe("durable public scan jobs", () => {
       failures: { retryingSteps: 1, terminalSteps: 0 },
       execution: { capacity: 1, contentionSteps: 1 },
       obsoleteActiveJobs: expect.any(Number),
-      cron: {
+      worker: {
         lastStartedAt: 2_000,
         lastSuccessAt: 1_050,
         lastDurationMs: 25,
@@ -1606,6 +1606,43 @@ describe("durable public scan jobs", () => {
     await expect(
       db.acquirePublicScanRateWindow({ bucket: "commit-search-test", limit: 2, windowMs: 60_000 }),
     ).resolves.toMatchObject({ granted: false });
+  });
+
+  it("shares a bounded worker-configured execution capacity across claims", async () => {
+    const one = await enqueue("capacity-slot-one");
+    const two = await enqueue("capacity-slot-two");
+    const leaseOne = await claim(one!.job.id);
+    const leaseTwo = await claim(two!.job.id);
+
+    await expect(db.configurePublicScanExecutionCapacity({ capacity: 2 })).resolves.toEqual({
+      capacity: 2,
+      changed: true,
+    });
+    const firstSlot = await db.acquirePublicScanExecutionLease({
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    const secondSlot = await db.acquirePublicScanExecutionLease({
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    expect(firstSlot).toBe(1);
+    expect(secondSlot).toBe(2);
+
+    await db.releasePublicScanExecutionLease({
+      slot: firstSlot!,
+      jobId: one!.job.id,
+      leaseToken: leaseOne!.leaseToken,
+    });
+    await db.releasePublicScanExecutionLease({
+      slot: secondSlot!,
+      jobId: two!.job.id,
+      leaseToken: leaseTwo!.leaseToken,
+    });
+    await expect(db.configurePublicScanExecutionCapacity({ capacity: 1 })).resolves.toEqual({
+      capacity: 1,
+      changed: true,
+    });
   });
 
   it("fails closed when a queued job has lost its durable run", async () => {

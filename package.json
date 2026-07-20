@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "public-scan:worker": "tsx scripts/public-scan-worker.mts",
     "cli:build": "make cli-build",
     "cli:build-all": "make cli-build-all",
     "cli:test": "make cli-test",

@@ -34,7 +34,7 @@ const aggregateMetrics = {
   execution: { activeSlots: 1, capacity: 1, contentionSteps: 2 },
   obsoleteActiveJobs: 1,
   steps: [],
-  cron: {
+  worker: {
     lastStartedAt: 1_799_999_999_000,
     lastSuccessAt: 1_800_000_000_000,
     lastDurationMs: 250,
