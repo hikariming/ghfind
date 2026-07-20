@@ -62,6 +62,7 @@ describe("chatStreamEvents request options", () => {
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({ reasoning_effort: "low" });
+    expect(new Headers(request.headers).get("HTTP-Referer")).toBe("https://ghfind.com");
   });
 
   it("does not send StepFun-only fields to other compatible providers", async () => {

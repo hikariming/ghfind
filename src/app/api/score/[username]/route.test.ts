@@ -147,6 +147,7 @@ describe("score durable scan guardrails", () => {
       stale: true,
       username: "stored-fixture",
       final_score: 84,
+      profile: "https://ghfind.com/u/stored-fixture",
     });
     expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
