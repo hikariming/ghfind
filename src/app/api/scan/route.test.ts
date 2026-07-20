@@ -246,7 +246,7 @@ describe("scan route machine auth", () => {
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
-  it("serves a v3 snapshot and starts only one explicit v4 refresh", async () => {
+  it("runs a fresh quick scan before using a stale v3 snapshot", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "stale",
       run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
@@ -256,31 +256,21 @@ describe("scan route machine auth", () => {
       servedCollectionVersion: "v3",
       targetCollectionVersion: "v4",
     });
-    mocks.startPublicScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "refresh-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: "refresh-job",
-    });
-
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      stale: true,
-      refresh_pending: true,
-      run_id: "refresh-run",
-      served_collection_version: "v3",
-      target_collection_version: "v4",
+      metrics: { username: "DemoDev" },
+      cached: false,
     });
-    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("refresh-job");
-    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
     expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
   });
 
-  it("hands a verified v5/v5/v3 profile to the home flow while v9/v4 refreshes", async () => {
+  it("serves a verified v5/v5/v3 scan only when the fresh quick scan fails", async () => {
     const legacyScan = {
       metrics,
       scoring,
@@ -292,19 +282,8 @@ describe("scan route machine auth", () => {
       pinned_repos: [],
       organizations: [],
     };
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "pending",
-      run: { id: "canonical-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: null,
-    });
     mocks.getLegacyReadFallbackScan.mockResolvedValue(legacyScan);
-    mocks.startPublicScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "canonical-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: "canonical-job",
-    });
+    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
@@ -314,8 +293,7 @@ describe("scan route machine auth", () => {
       cached: true,
       stale: true,
       legacy_read_fallback: true,
-      refresh_pending: true,
-      run_id: "canonical-run",
+      refresh_pending: false,
       served_score_version: "v5",
       served_roast_version: "v5",
       served_collection_version: "v3",
@@ -323,29 +301,17 @@ describe("scan route machine auth", () => {
       target_roast_version: "v9",
       target_collection_version: "v4",
     });
-    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("canonical-job");
-    expect(mocks.getCachedScan).not.toHaveBeenCalled();
-    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.getCachedScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
     expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-    expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
   });
 
-  it("hands a stored v5 profile to the browser without fabricating a v3 scan", async () => {
-    mocks.getPublicScanStatus.mockResolvedValue({
-      status: "pending",
-      run: { id: "canonical-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: null,
-    });
+  it("hands a stored v5 profile to the browser only after a quick-scan failure", async () => {
     mocks.hasLegacyReadFallbackProfile.mockResolvedValue(true);
-    mocks.startPublicScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "canonical-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: "canonical-job",
-    });
+    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
@@ -356,8 +322,7 @@ describe("scan route machine auth", () => {
       stale: true,
       legacy_read_fallback: true,
       legacy_profile: true,
-      refresh_pending: true,
-      run_id: "canonical-run",
+      refresh_pending: false,
       served_score_version: "v5",
       served_roast_version: "v5",
       served_collection_version: "v3",
@@ -366,12 +331,12 @@ describe("scan route machine auth", () => {
       target_collection_version: "v4",
     });
     expect(mocks.getLegacyReadFallbackScan).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("canonical-job");
-    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
   });
 
-  it("keeps the verified v5/v5/v3 profile readable when v9 admission is full", async () => {
+  it("does not enqueue a durable job merely by serving a v5 fallback", async () => {
     mocks.getLegacyReadFallbackScan.mockResolvedValue({
       metrics,
       scoring,
@@ -383,11 +348,7 @@ describe("scan route machine auth", () => {
       pinned_repos: [],
       organizations: [],
     });
-    mocks.startPublicScan.mockResolvedValue({
-      status: "queue_full",
-      run: null,
-      retryAfterSeconds: 60,
-    });
+    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
@@ -396,36 +357,13 @@ describe("scan route machine auth", () => {
       legacy_read_fallback: true,
       refresh_pending: false,
     });
-    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
     expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
   });
 
-  it("keeps the verified v5/v5/v3 profile readable when starting v9 refresh throws", async () => {
-    mocks.getLegacyReadFallbackScan.mockResolvedValue({
-      metrics,
-      scoring,
-      top_repos: [],
-      recent_prs: [],
-      flood_pr_titles: [],
-      impact_repos: [],
-      verified_impact_prs: [],
-      pinned_repos: [],
-      organizations: [],
-    });
-    mocks.startPublicScan.mockRejectedValue(new Error("storage unavailable"));
-
-    const response = await POST(request({ auth: "Bearer cli-secret" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      legacy_read_fallback: true,
-      refresh_pending: false,
-    });
-    expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
-  });
-
-  it("lets an explicit scan retry after a failed v4 refresh while serving v3", async () => {
+  it("uses a stale snapshot only when the current quick scan and v5 fallback are unavailable", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "stale",
       run: { id: "legacy-run", username: "DemoDev", collectionVersion: "v3" },
@@ -435,35 +373,30 @@ describe("scan route machine auth", () => {
       servedCollectionVersion: "v3",
       targetCollectionVersion: "v4",
     });
-    mocks.startPublicScan.mockResolvedValue({
-      status: "pending",
-      run: { id: "retry-run" },
-      retryAfterSeconds: 5,
-      headStartJobId: "retry-job",
-    });
+    mocks.collect.mockRejectedValueOnce(new Error("GitHub unavailable"));
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       stale: true,
-      refresh_pending: true,
-      run_id: "retry-run",
+      refresh_pending: false,
+      run_id: "failed-refresh",
     });
-    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("retry-job");
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
   });
 
-  it("discards an orphaned scan cache and publishes a fresh trusted quick scan", async () => {
+  it("uses a current-release quick cache without republishing or recollecting", async () => {
     mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
     expect(response.status).toBe(200);
-    expect((await response.json()).cached).toBe(false);
-    expect(mocks.clearCachedScan).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.collect).toHaveBeenCalledWith("DemoDev");
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledTimes(1);
+    expect((await response.json()).cached).toBe(true);
+    expect(mocks.clearCachedScan).not.toHaveBeenCalled();
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
   it("fails closed when a complete run cannot materialize its canonical score", async () => {
@@ -497,7 +430,7 @@ describe("scan route machine auth", () => {
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
-  it("does not rerun a quick GitHub scan while a durable job is pending", async () => {
+  it("serves a cached quick result while its durable job is pending", async () => {
     mocks.getCachedScan.mockResolvedValue({ metrics, scoring });
     mocks.requiresDurablePublicScan.mockReturnValue(true);
     mocks.getPublicScanStatus.mockResolvedValue({
@@ -505,21 +438,32 @@ describe("scan route machine auth", () => {
       run: { id: "active-run" },
       retryAfterSeconds: 5,
     });
+    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "active-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: null,
+    });
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      error: "scan_enrichment_pending",
+      provisional: true,
+      coverage: "quick",
       run_id: "active-run",
     });
     expect(mocks.collect).not.toHaveBeenCalled();
-    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).toHaveBeenCalledWith(
+      "DemoDev",
+      expect.objectContaining({ metrics: expect.objectContaining({ username: "DemoDev" }) }),
+      expect.anything(),
+    );
     expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
-  it("starts one response-side step only when this request created the durable job", async () => {
+  it("starts one response-side worker step after returning a provisional quick result", async () => {
     mocks.requiresDurablePublicScan.mockReturnValue(true);
     mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
       status: "pending",
@@ -530,7 +474,12 @@ describe("scan route machine auth", () => {
 
     const response = await POST(request({ auth: "Bearer cli-secret" }));
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      provisional: true,
+      coverage: "quick",
+      run_id: "new-run",
+    });
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();

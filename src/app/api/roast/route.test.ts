@@ -339,6 +339,37 @@ describe("roast API persistence", () => {
     expect(mocks.setCachedRoast).not.toHaveBeenCalled();
   });
 
+  it("uses the current trusted quick scan instead of replaying v5 for a new roast request", async () => {
+    mocks.getLegacyReadFallbackRoast.mockResolvedValue({
+      username: "DemoDev",
+      final_score: 73,
+      tier: "人上人",
+      tags: { zh: ["旧版"], en: ["legacy"] },
+      roast_line: { zh: "旧版锐评。", en: "Legacy roast." },
+      report: "## 旧版点评\n只读回放。",
+    });
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "pending",
+      run: { id: "active-run", username: "DemoDev" },
+      retryAfterSeconds: 5,
+      headStartJobId: null,
+    });
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("开源活跃度在上升");
+    expect(mocks.getLegacyReadFallbackRoast).not.toHaveBeenCalled();
+    expect(mocks.getCanonicalScoreWriteIdentity).not.toHaveBeenCalled();
+    expect(mocks.updateRoast).not.toHaveBeenCalled();
+  });
+
   it("skips the legacy artifact when refresh explicitly requests v9 work", async () => {
     mocks.getLegacyReadFallbackRoast.mockResolvedValue({
       username: "legacy-read-fixture",
@@ -533,15 +564,14 @@ describe("roast API persistence", () => {
     expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
   });
 
-  it("head-starts only the durable job created by this roast request", async () => {
-    mocks.getPublicScanStatus.mockResolvedValue(null);
-    mocks.requiresDurablePublicScan.mockReturnValue(true);
-    mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
+  it("streams a trusted provisional quick roast without creating durable work or a canonical report", async () => {
+    mocks.getPublicScanStatus.mockResolvedValue({
       status: "pending",
-      run: { id: "new-run-id", username: "DemoDev" },
+      run: { id: "active-run", username: "DemoDev" },
       retryAfterSeconds: 5,
-      headStartJobId: "new-job-id",
+      headStartJobId: null,
     });
+    mocks.requiresDurablePublicScan.mockReturnValue(true);
 
     const response = await POST(
       new NextRequest("https://example.test/api/roast", {
@@ -550,10 +580,14 @@ describe("roast API persistence", () => {
       }),
     );
 
-    expect(response.status).toBe(409);
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledOnce();
-    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
-    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("开源活跃度在上升");
+    expect(mocks.getCanonicalScoreWriteIdentity).not.toHaveBeenCalled();
+    expect(mocks.updateRoast).not.toHaveBeenCalled();
+    expect(mocks.setCachedRoast).not.toHaveBeenCalled();
+    expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
+    expect(mocks.startPublicScan).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
   });
 
   it("fails closed before LLM work when the canonical score identity is missing", async () => {

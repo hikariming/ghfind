@@ -123,9 +123,9 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
   }
 }
 
-/** Remove a bounded quick snapshot when a durable public-history run takes
- * ownership. A partial score must never be replayed into the writer while the
- * complete immutable snapshot is still collecting. */
+/** Remove a bounded quick snapshot when it is corrupt or superseded. A durable
+ * run intentionally keeps its trusted quick snapshot available for immediate
+ * provisional responses; formal writes still require the complete snapshot. */
 export async function clearCachedScan(username: string): Promise<void> {
   const r = getRedis();
   if (!r) return;
