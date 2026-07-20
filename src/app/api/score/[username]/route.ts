@@ -1,5 +1,9 @@
 import { NextRequest } from "next/server";
-import { getAccountDetail, recordAccountLookup } from "@/lib/db";
+import {
+  getAccountDetail,
+  publishCompleteQuickScan,
+  recordAccountLookup,
+} from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -55,6 +59,28 @@ function json(
       ...(extra ?? {}),
     },
   });
+}
+
+function scorePersistenceUnavailable(headers: Record<string, string>): Response {
+  return json(
+    {
+      error: "scan_failed",
+      message: "score persistence is temporarily unavailable",
+      hint: "Retry later; no incomplete score was published.",
+    },
+    503,
+    "no-store",
+    { ...headers, "Retry-After": "5" },
+  );
+}
+
+async function persistFreshQuickScan(scan: ScanResult, scannedAt: number): Promise<boolean> {
+  try {
+    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
+  } catch {
+    console.error("publishCompleteQuickScan failed");
+    return false;
+  }
 }
 
 /** Deterministic global percentile/rank for a score, computed against the scored
@@ -233,8 +259,12 @@ export async function GET(
   }
 
   let result: ScanResult;
+  let freshScanStartedAt: number | null = null;
   try {
-    result = cached ?? (await coalesceScan(handle, () => buildScanResult(handle)));
+    result = cached ?? (await coalesceScan(handle, () => {
+      freshScanStartedAt = Date.now();
+      return buildScanResult(handle);
+    }));
   } catch (e) {
     const { error, status, retry_after } = scanErrorResponse(e);
     // account_not_found stays a 404 — the GitHub user genuinely doesn't exist.
@@ -264,6 +294,13 @@ export async function GET(
       }
       return durableResponse(result.metrics.username, durable, { ...statusHeaders, ...rlHeaders });
     }
+  }
+
+  if (
+    freshScanStartedAt !== null &&
+    !(await persistFreshQuickScan(result, freshScanStartedAt))
+  ) {
+    return scorePersistenceUnavailable({ ...statusHeaders, ...rlHeaders });
   }
 
   const s = result.scoring;

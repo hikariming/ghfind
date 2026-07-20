@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getAccountDetail: vi.fn(),
+  publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
   getPercentileCached: vi.fn(),
   getRankCached: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   getAccountDetail: mocks.getAccountDetail,
+  publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
 }));
 
@@ -91,6 +93,12 @@ describe("score durable scan guardrails", () => {
     mocks.getPublicScanStatus.mockResolvedValue(null);
     mocks.getCachedScan.mockResolvedValue(null);
     mocks.requiresDurablePublicScan.mockReturnValue(false);
+    mocks.publishCompleteQuickScan.mockResolvedValue({
+      scannedAt: 1_800_000_000_000,
+      token: "score-write-token",
+    });
+    mocks.coalesceScan.mockImplementation(async (_username: string, producer: () => unknown) => producer());
+    mocks.buildScanResult.mockResolvedValue(quickScan);
   });
 
   it("serves a stored stale score without touching GitHub or the durable queue", async () => {
@@ -132,6 +140,7 @@ describe("score durable scan guardrails", () => {
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
     expect(mocks.resolvePublicScanFromTrustedQuickScan).not.toHaveBeenCalled();
     expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });
 
   it("keeps an existing durable job passive when the public score is read", async () => {
@@ -173,7 +182,6 @@ describe("score durable scan guardrails", () => {
   });
 
   it("starts one response-side step only for a newly created durable job", async () => {
-    mocks.getCachedScan.mockResolvedValue(quickScan);
     mocks.requiresDurablePublicScan.mockReturnValue(true);
     mocks.resolvePublicScanFromTrustedQuickScan.mockResolvedValue({
       status: "pending",
@@ -187,5 +195,71 @@ describe("score durable scan guardrails", () => {
     expect(response.status).toBe(202);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledTimes(1);
     expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("new-job-id");
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("publishes a fresh trusted quick scan before returning its live score", async () => {
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      source: "live",
+      cached: false,
+      username: "DemoDev",
+      final_score: 21,
+    });
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(
+      quickScan,
+      expect.any(Number),
+    );
+  });
+
+  it("keeps cached quick scans readable without republishing unverified cache data", async () => {
+    mocks.getCachedScan.mockResolvedValue(quickScan);
+
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      source: "live",
+      cached: true,
+    });
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("does not republish a quick scan returned by the single-flight cache race", async () => {
+    mocks.coalesceScan.mockResolvedValue(quickScan);
+
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 instead of publishing a fresh score response when persistence returns null", async () => {
+    mocks.publishCompleteQuickScan.mockResolvedValue(null);
+
+    const response = await request();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Retry-After")).toBe("5");
+    await expect(response.json()).resolves.toMatchObject({
+      error: "scan_failed",
+      message: "score persistence is temporarily unavailable",
+    });
+  });
+
+  it("returns 503 instead of publishing a fresh score response when persistence throws", async () => {
+    mocks.publishCompleteQuickScan.mockRejectedValue(new Error("storage unavailable"));
+
+    const response = await request();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "scan_failed",
+    });
   });
 });

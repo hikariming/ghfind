@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
-import { recordAccountLookup, recordCampaignParticipant } from "@/lib/db";
+import {
+  publishCompleteQuickScan,
+  recordAccountLookup,
+  recordCampaignParticipant,
+} from "@/lib/db";
 import {
   checkRateLimit,
   coalesceScan,
@@ -36,6 +40,31 @@ function clientIp(req: NextRequest): string {
 function idempotencyHeaders(req: NextRequest): Record<string, string> {
   const key = req.headers.get("idempotency-key");
   return key ? { "Idempotency-Key": key } : {};
+}
+
+function scorePersistenceUnavailable(headers: Record<string, string>) {
+  return apiError("scan_failed", {
+    status: 503,
+    message: "score persistence is temporarily unavailable",
+    hint: "Retry later; no incomplete score was published.",
+    headers: {
+      ...headers,
+      "Cache-Control": "no-store",
+      "Retry-After": "5",
+    },
+  });
+}
+
+async function persistFreshQuickScan(
+  scan: import("@/lib/types").ScanResult,
+  scannedAt: number,
+): Promise<boolean> {
+  try {
+    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
+  } catch {
+    console.error("publishCompleteQuickScan failed");
+    return false;
+  }
 }
 
 async function recordSuccessfulLookup(
@@ -236,7 +265,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await coalesceScan(username, () => buildScanResult(username));
+    let freshScanStartedAt: number | null = null;
+    const result = await coalesceScan(username, () => {
+      freshScanStartedAt = Date.now();
+      return buildScanResult(username);
+    });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     if (requiresDurablePublicScan(result)) {
       return durableResponse({
@@ -245,6 +278,12 @@ export async function POST(req: NextRequest) {
         headers: { ...idem, ...rlHeaders },
         admission: durableAdmission,
       });
+    }
+    if (
+      freshScanStartedAt !== null &&
+      !(await persistFreshQuickScan(result, freshScanStartedAt))
+    ) {
+      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     }
     return NextResponse.json(
       { ...result, cached: false },
