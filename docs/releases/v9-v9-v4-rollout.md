@@ -83,6 +83,21 @@ not create a refresh. An explicit scan may create at most one v4 job and keeps
 returning the v3 snapshot while that refresh is pending or failed. v5 and every
 other non-formal collection remain ineligible for this path.
 
+## v5 emergency artifact fallback
+
+The canonical runtime remains v9/v9/v4. Separately, a read-only continuity
+path may expose an already-persisted v5 score and v5 roast only when the same
+account has a complete, hash-validated v3 public snapshot recorded with score
+version v5. This exact v5/v5/v3 tuple is not an alias, a formal compatibility
+target, a queue target, or a write/migration source.
+
+The fallback serves existing profile and score reads as stale and can replay the
+stored report without an LLM configuration, Cron run, cache write, scan, score
+materialization, or refresh job. It never reconstructs a report from
+`score_snapshots`: those rows do not contain report markdown. A caller that
+explicitly requests refresh bypasses the fallback and continues toward canonical
+v9 work. Missing, mismatched, corrupt, or incomplete tuple members fail closed.
+
 ## Obsolete-job quarantine
 
 The operator endpoint returns aggregate counts only:

@@ -45,7 +45,7 @@ import {
 } from "./redis";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
-import { RELEASE_VERSION_MANIFEST } from "./release-versions";
+import { LEGACY_READ_FALLBACK, RELEASE_VERSION_MANIFEST } from "./release-versions";
 import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
@@ -88,6 +88,91 @@ const PUBLIC_PROFILE_SCORE_VERSIONS = RELEASE_VERSION_MANIFEST.compatibility
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+
+function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
+  return (
+    row.score_version === LEGACY_READ_FALLBACK.score &&
+    ((row.roast_version === LEGACY_READ_FALLBACK.roast &&
+      typeof row.roast === "string" &&
+      row.roast.length > 0) ||
+      (row.roast_en_version === LEGACY_READ_FALLBACK.roast &&
+        typeof row.roast_en === "string" &&
+        row.roast_en.length > 0))
+  );
+}
+
+function isVerifiedLegacyReadFallbackRun(
+  run: PublicScanRun,
+  username: string,
+  finalScore: number,
+): boolean {
+  if (
+    run.scoreVersion !== LEGACY_READ_FALLBACK.score ||
+    run.collectionVersion !== LEGACY_READ_FALLBACK.collection ||
+    !run.snapshot ||
+    !run.snapshotHash ||
+    !hasCompletePublicScanSources(run.sourceStatus) ||
+    createHash("sha256").update(run.snapshot).digest("hex") !== run.snapshotHash
+  ) {
+    return false;
+  }
+  try {
+    const snapshot = JSON.parse(run.snapshot) as Partial<ScanResult>;
+    return (
+      typeof snapshot.metrics?.username === "string" &&
+      snapshot.metrics.username.trim().toLowerCase() === username &&
+      typeof snapshot.scoring?.final_score === "number" &&
+      Number.isFinite(snapshot.scoring.final_score) &&
+      snapshot.scoring.final_score === finalScore
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A v5 report may be served only when its score row and a complete v3 factual
+ * snapshot agree on the same account/version contract. This is read-only: it
+ * never upgrades, queues, re-scores, or invokes an LLM.
+ */
+async function isVerifiedLegacyReadFallback(
+  db: Client,
+  row: Record<string, unknown>,
+): Promise<boolean> {
+  if (!hasLegacyReadFallbackReport(row)) return false;
+  const username = typeof row.username === "string" ? row.username.trim().toLowerCase() : "";
+  const finalScore = Number(row.final_score);
+  if (!username || !Number.isFinite(finalScore)) return false;
+  try {
+    const result = await db.execute({
+      sql: `SELECT * FROM public_scan_runs
+            WHERE username = ?
+              AND score_version = ?
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
+              AND snapshot IS NOT NULL
+              AND snapshot_hash IS NOT NULL
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC, id DESC
+            LIMIT 8`,
+      args: [
+        username,
+        LEGACY_READ_FALLBACK.score,
+        LEGACY_READ_FALLBACK.collection,
+      ],
+    });
+    return result.rows.some((run) =>
+      isVerifiedLegacyReadFallbackRun(
+        mapPublicScanRun(run as Record<string, unknown>),
+        username,
+        finalScore,
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
 
 function logPublicScanDbFailure(operation: string, error: unknown): void {
   console.error(
@@ -5570,6 +5655,16 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
       typeof r.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
+    const legacyReadFallback = !canonicalScore && await isVerifiedLegacyReadFallback(
+      db,
+      r as Record<string, unknown>,
+    );
+    const readableArtifacts = canonicalScore || legacyReadFallback;
+    const artifactRoastVersion = canonicalScore
+      ? ROAST_CACHE_VERSION
+      : legacyReadFallback
+        ? LEGACY_READ_FALLBACK.roast
+        : null;
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -5577,15 +5672,15 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       profile_url: r.profile_url as string | null,
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
-      tags: canonicalScore ? parseTags(r.tags) : EMPTY_TAGS,
-      roast_line: canonicalScore ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
+      tags: readableArtifacts ? parseTags(r.tags) : EMPTY_TAGS,
+      roast_line: readableArtifacts ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
       roast:
-        canonicalScore && r.roast_version === ROAST_CACHE_VERSION
+        artifactRoastVersion && r.roast_version === artifactRoastVersion
           ? ((r.roast as string | null) ?? null)
           : null,
       roast_en:
-        canonicalScore && r.roast_en_version === ROAST_CACHE_VERSION
+        artifactRoastVersion && r.roast_en_version === artifactRoastVersion
           ? ((r.roast_en as string | null) ?? null)
           : null,
       score_version: typeof r.score_version === "string" ? r.score_version : null,
@@ -5601,6 +5696,52 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     };
   } catch (e) {
     console.error("getAccountDetail failed:", e);
+    return null;
+  }
+}
+
+/**
+ * Read one verified v5/v5/v3 report without requiring a current scan or LLM
+ * configuration. The caller must treat it as stale and must never cache it as
+ * a canonical v9 report.
+ */
+export async function getLegacyReadFallbackRoast(
+  username: string,
+  lang: Lang,
+): Promise<ArchivedRoast | null> {
+  const db = getClient();
+  if (!db) return null;
+  const col = lang === "en" ? "roast_en" : "roast";
+  const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT username, final_score, tier, tags, roast_line, score_version,
+                   roast, roast_en, roast_version, roast_en_version
+            FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
+    });
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    if (!row || !(await isVerifiedLegacyReadFallback(db, row))) return null;
+    if (
+      row[versionCol] !== LEGACY_READ_FALLBACK.roast ||
+      typeof row[col] !== "string" ||
+      !row[col]
+    ) {
+      return null;
+    }
+    return {
+      username: String(row.username),
+      final_score: Number(row.final_score),
+      tier: String(row.tier) as Tier,
+      tags: parseTags(row.tags),
+      roast_line: parseRoastLine(row.roast_line),
+      report: row[col],
+    };
+  } catch (error) {
+    console.error("getLegacyReadFallbackRoast failed:", error);
     return null;
   }
 }

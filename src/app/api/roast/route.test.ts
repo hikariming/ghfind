@@ -5,6 +5,7 @@ import type { ScanResult } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   getArchivedRoast: vi.fn(),
   getCanonicalScoreWriteIdentity: vi.fn(),
+  getLegacyReadFallbackRoast: vi.fn(),
   getScoreScannedAt: vi.fn(),
   getRank: vi.fn(),
   updateRoast: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("botid/server", () => ({
 vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
   getCanonicalScoreWriteIdentity: mocks.getCanonicalScoreWriteIdentity,
+  getLegacyReadFallbackRoast: mocks.getLegacyReadFallbackRoast,
   getScoreScannedAt: mocks.getScoreScannedAt,
   updateRoast: mocks.updateRoast,
 }));
@@ -283,6 +285,7 @@ beforeEach(() => {
   mocks.requiresDurablePublicScan.mockReturnValue(false);
   mocks.getCachedRoast.mockResolvedValue(null);
   mocks.getArchivedRoast.mockResolvedValue(null);
+  mocks.getLegacyReadFallbackRoast.mockResolvedValue(null);
   mocks.getScoreScannedAt.mockResolvedValue(null);
   mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: true });
   mocks.clearCachedRoast.mockResolvedValue(undefined);
@@ -309,6 +312,64 @@ beforeEach(() => {
 });
 
 describe("roast API persistence", () => {
+  it("replays a verified v5/v5/v3 artifact before any LLM or durable-scan work", async () => {
+    mocks.getLegacyReadFallbackRoast.mockResolvedValue({
+      username: "legacy-read-fixture",
+      final_score: 73,
+      tier: "人上人",
+      tags: { zh: ["旧版"], en: ["legacy"] },
+      roast_line: { zh: "旧版锐评。", en: "Legacy roast." },
+      report: "## 旧版点评\nCron 不可用时仍可阅读。",
+    });
+    mocks.defaultLlmConfig.mockReturnValue(null);
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ username: "legacy-read-fixture", lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("Cron 不可用时仍可阅读。");
+    expect(mocks.defaultLlmConfig).not.toHaveBeenCalled();
+    expect(mocks.getPublicScanStatus).not.toHaveBeenCalled();
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+    expect(mocks.setCachedRoast).not.toHaveBeenCalled();
+  });
+
+  it("skips the legacy artifact when refresh explicitly requests v9 work", async () => {
+    mocks.getLegacyReadFallbackRoast.mockResolvedValue({
+      username: "legacy-read-fixture",
+      final_score: 73,
+      tier: "人上人",
+      tags: { zh: ["旧版"], en: ["legacy"] },
+      roast_line: { zh: "旧版锐评。", en: "Legacy roast." },
+      report: "## 旧版点评\n只读回放。",
+    });
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "stale",
+      run: { id: "legacy-run", username: "legacy-read-fixture", collectionVersion: "v3" },
+      scan,
+      refreshPending: false,
+      refreshRun: null,
+      servedCollectionVersion: "v3",
+      targetCollectionVersion: "v4",
+    });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ username: "legacy-read-fixture", lang: "zh", refresh: true }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.getLegacyReadFallbackRoast).not.toHaveBeenCalled();
+    expect(mocks.chatStreamEvents).not.toHaveBeenCalled();
+  });
+
   it("does not generate or queue a report from stale v3 evidence", async () => {
     mocks.getPublicScanStatus.mockResolvedValue({
       status: "stale",

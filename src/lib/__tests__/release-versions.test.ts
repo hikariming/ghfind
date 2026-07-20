@@ -26,6 +26,17 @@ describe("release version contract", () => {
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
 
+  it("keeps the v5/v5/v3 emergency reader outside the formal lineage", () => {
+    expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual({
+      score: "v5",
+      roast: "v5",
+      collection: "v3",
+    });
+    expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
+      { score: "v9", roast: "v9" },
+    ]);
+  });
+
   it("requires the runtime to remain on the canonical release after normalization", () => {
     expect(releaseVersionErrors()).toEqual([]);
     expect(RELEASE_VERSION_MANIFEST.runtimeEnforcement).toEqual({
@@ -57,6 +68,12 @@ describe("release version contract", () => {
     replayManifest.compatibility.roastReplay = [{ score: "local", roast: "local" }];
     expect(releaseVersionErrors(replayManifest)).toContain(
       "roast replay must require the canonical score and roast pair",
+    );
+
+    const changedFallback = manifestCopy();
+    changedFallback.legacyReadFallback.score = "v6";
+    expect(releaseVersionErrors(changedFallback)).toContain(
+      "legacy read fallback must remain the exact v5/v5/v3 artifact tuple",
     );
   });
 

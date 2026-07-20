@@ -24,6 +24,11 @@
     ],
     "collectionReadOrder": ["v4", "v3"]
   },
+  "legacyReadFallback": {
+    "score": "v5",
+    "roast": "v5",
+    "collection": "v3"
+  },
   "changeControl": {
     "maxComponentsPerPullRequest": 1,
     "approvedMultiComponentIssue": null
