@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
   ensureCanonicalScoreForPublicRun,
+  getLegacyReadFallbackScan,
   publishCompleteQuickScan,
   recordAccountLookup,
   recordCampaignParticipant,
@@ -26,6 +27,7 @@ import {
   startPublicScan,
 } from "@/lib/public-scan";
 import { kickPublicScanDrain } from "@/lib/public-scan-dispatcher";
+import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
 
@@ -162,6 +164,50 @@ async function staleSnapshotResponse(input: {
   );
 }
 
+/**
+ * An explicit scan may ask for canonical v9/v4 work, but a verified v5/v5/v3
+ * artifact is still immediately useful to the visitor. The refresh attempt is
+ * intentionally best-effort: queue or storage pressure must never turn a
+ * readable historical profile back into a waiting screen.
+ */
+async function legacyReadFallbackResponse(input: {
+  username: string;
+  scan: import("@/lib/types").ScanResult;
+  admission: ReturnType<typeof publicScanAdmission>;
+  headers: Record<string, string>;
+}) {
+  let refresh: PublicScanResolution | null = null;
+  try {
+    refresh = await startPublicScan(input.username, input.admission);
+    if (refresh.status === "pending" && refresh.headStartJobId) {
+      kickPublicScanDrain(refresh.headStartJobId);
+    }
+  } catch {
+    // The fallback has already passed provenance validation. A failed refresh
+    // attempt must not withhold it from the visitor.
+    console.error("legacyReadFallback refresh start failed");
+  }
+  const refreshRun = refresh && "run" in refresh ? refresh.run : null;
+  return NextResponse.json(
+    {
+      ...input.scan,
+      cached: true,
+      coverage: "complete_public",
+      stale: true,
+      legacy_read_fallback: true,
+      refresh_pending: refresh?.status === "pending",
+      served_score_version: LEGACY_READ_FALLBACK.score,
+      served_roast_version: LEGACY_READ_FALLBACK.roast,
+      served_collection_version: LEGACY_READ_FALLBACK.collection,
+      target_score_version: RUNTIME_RELEASE_VERSIONS.score,
+      target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
+      target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
+      ...(refreshRun ? { run_id: refreshRun.id } : {}),
+    },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
+  );
+}
+
 async function durableResponse(input: {
   username: string;
   scan: import("@/lib/types").ScanResult;
@@ -242,10 +288,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // A cache entry is readable only when Turso has the matching complete run and
-  // canonical score. Pre-deployment quick cache entries have neither a trusted
-  // scan time nor provenance, so they are discarded and collected afresh.
-  const cached = await getCachedScan(username);
+  // Check the canonical durable state first. It always wins over the emergency
+  // read fallback if a v9/v4 result already exists.
   const status = await getPublicScanStatus(username);
   if (status?.status === "complete") {
     const scoreWrite = await ensureCanonicalScoreForPublicRun(status.run);
@@ -257,6 +301,26 @@ export async function POST(req: NextRequest) {
       { headers: { ...idem, ...rlHeaders } },
     );
   }
+
+  // The home flow starts here, before the profile page and /api/roast have a
+  // chance to replay a report. Without this handoff, a known-good v5/v5/v3
+  // artifact was hidden behind a v9/v4 collection wait. An explicit request
+  // may start canonical work, but only after this verified legacy result has
+  // been selected; it is never written into current caches or scores.
+  const legacyScan = await getLegacyReadFallbackScan(username);
+  if (legacyScan) {
+    return legacyReadFallbackResponse({
+      username: legacyScan.metrics.username,
+      scan: legacyScan,
+      admission: durableAdmission,
+      headers: { ...idem, ...rlHeaders },
+    });
+  }
+
+  // A cache entry is readable only when Turso has the matching complete run and
+  // canonical score. Pre-deployment quick cache entries have neither a trusted
+  // scan time nor provenance, so they are discarded and collected afresh.
+  const cached = await getCachedScan(username);
   if (status?.status === "stale") {
     await recordSuccessfulLookup(status.scan.metrics.username, ip, campaign);
     return staleSnapshotResponse({

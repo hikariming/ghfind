@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   score: vi.fn(),
   verifyTurnstile: vi.fn(),
   ensureCanonicalScoreForPublicRun: vi.fn(),
+  getLegacyReadFallbackScan: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
   recordAccountLookup: vi.fn(),
   getLatestPublicScanRun: vi.fn(),
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   ensureCanonicalScoreForPublicRun: mocks.ensureCanonicalScoreForPublicRun,
+  getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
   getLatestPublicScanRun: mocks.getLatestPublicScanRun,
@@ -134,6 +136,7 @@ describe("scan route machine auth", () => {
       scannedAt: 1_800_000_000_000,
       token: "score-write-token",
     });
+    mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
     mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.recordAccountLookup.mockResolvedValue(true);
     mocks.getLatestPublicScanRun.mockResolvedValue(null);
@@ -272,6 +275,112 @@ describe("scan route machine auth", () => {
     expect(mocks.collect).not.toHaveBeenCalled();
     expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("hands a verified v5/v5/v3 profile to the home flow while v9/v4 refreshes", async () => {
+    const legacyScan = {
+      metrics,
+      scoring,
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      impact_repos: [],
+      verified_impact_prs: [],
+      pinned_repos: [],
+      organizations: [],
+    };
+    mocks.getPublicScanStatus.mockResolvedValue({
+      status: "pending",
+      run: { id: "canonical-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: null,
+    });
+    mocks.getLegacyReadFallbackScan.mockResolvedValue(legacyScan);
+    mocks.startPublicScan.mockResolvedValue({
+      status: "pending",
+      run: { id: "canonical-run" },
+      retryAfterSeconds: 5,
+      headStartJobId: "canonical-job",
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      metrics: { username: "DemoDev" },
+      cached: true,
+      stale: true,
+      legacy_read_fallback: true,
+      refresh_pending: true,
+      run_id: "canonical-run",
+      served_score_version: "v5",
+      served_roast_version: "v5",
+      served_collection_version: "v3",
+      target_score_version: "v9",
+      target_roast_version: "v9",
+      target_collection_version: "v4",
+    });
+    expect(mocks.startPublicScan).toHaveBeenCalledTimes(1);
+    expect(mocks.kickPublicScanDrain).toHaveBeenCalledWith("canonical-job");
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.ensureCanonicalScoreForPublicRun).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+    expect(mocks.recordAccountLookup).not.toHaveBeenCalled();
+  });
+
+  it("keeps the verified v5/v5/v3 profile readable when v9 admission is full", async () => {
+    mocks.getLegacyReadFallbackScan.mockResolvedValue({
+      metrics,
+      scoring,
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      impact_repos: [],
+      verified_impact_prs: [],
+      pinned_repos: [],
+      organizations: [],
+    });
+    mocks.startPublicScan.mockResolvedValue({
+      status: "queue_full",
+      run: null,
+      retryAfterSeconds: 60,
+    });
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      legacy_read_fallback: true,
+      refresh_pending: false,
+    });
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
+  });
+
+  it("keeps the verified v5/v5/v3 profile readable when starting v9 refresh throws", async () => {
+    mocks.getLegacyReadFallbackScan.mockResolvedValue({
+      metrics,
+      scoring,
+      top_repos: [],
+      recent_prs: [],
+      flood_pr_titles: [],
+      impact_repos: [],
+      verified_impact_prs: [],
+      pinned_repos: [],
+      organizations: [],
+    });
+    mocks.startPublicScan.mockRejectedValue(new Error("storage unavailable"));
+
+    const response = await POST(request({ auth: "Bearer cli-secret" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      legacy_read_fallback: true,
+      refresh_pending: false,
+    });
+    expect(mocks.collect).not.toHaveBeenCalled();
+    expect(mocks.kickPublicScanDrain).not.toHaveBeenCalled();
   });
 
   it("lets an explicit scan retry after a failed v4 refresh while serving v3", async () => {
