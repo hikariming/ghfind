@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "previousRelease": {
-    "score": "v8",
-    "roast": "v8",
-    "collection": "v3"
+    "score": "v9",
+    "roast": "v9",
+    "collection": "v4"
   },
   "targetRelease": {
     "score": "v9",
-    "roast": "v9",
+    "roast": "v10",
     "collection": "v4"
   },
   "runtimeEnforcement": {
@@ -19,10 +19,10 @@
     "roastReplay": [
       {
         "score": "v9",
-        "roast": "v9"
+        "roast": "v10"
       }
     ],
-    "collectionReadOrder": ["v4", "v3"]
+    "collectionReadOrder": ["v4", "v4"]
   },
   "legacyReadFallback": {
     "score": "v5",
@@ -34,5 +34,5 @@
     "approvedMultiComponentIssue": null
   },
   "aliases": [],
-  "releasePlan": "docs/releases/v9-v9-v4-rollout.md"
+  "releasePlan": "docs/releases/v9-v10-v4-rollout.md"
 }

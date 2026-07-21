@@ -1060,6 +1060,55 @@ function repoToTopRepo(
   };
 }
 
+/**
+ * `open_issues_count` from GitHub's REST repository payload includes pull
+ * requests. Fetch the real open-Issue count only for the bounded top-repo
+ * prompt surface; on a best-effort failure we leave the value absent rather
+ * than turning the REST aggregate into false Issue evidence.
+ */
+async function hydrateOpenIssueCounts(repos: TopRepo[]): Promise<void> {
+  const selected = repos
+    .slice(0, 10)
+    .map((repo, index) => ({
+      repo,
+      index,
+      owner: repo.owner_login,
+      name: repo.name,
+    }))
+    .filter((entry): entry is typeof entry & { owner: string } => Boolean(entry.owner && entry.name));
+  if (selected.length === 0) return;
+
+  const variables: Record<string, string> = {};
+  const declarations: string[] = [];
+  const selections: string[] = [];
+  for (const entry of selected) {
+    const ownerKey = `owner${entry.index}`;
+    const nameKey = `name${entry.index}`;
+    variables[ownerKey] = entry.owner;
+    variables[nameKey] = entry.name;
+    declarations.push(`$${ownerKey}: String!, $${nameKey}: String!`);
+    selections.push(
+      `r${entry.index}: repository(owner: $${ownerKey}, name: $${nameKey}) { issues(states: OPEN) { totalCount } }`,
+    );
+  }
+
+  try {
+    const data = await graphql<Record<string, { issues?: { totalCount?: number } | null } | null>>(
+      `query(${declarations.join(", ")}) { ${selections.join(" ")} }`,
+      variables,
+    );
+    for (const entry of selected) {
+      const count = data[`r${entry.index}`]?.issues?.totalCount;
+      if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+        entry.repo.open_issue_count = Math.floor(count);
+      }
+    }
+  } catch {
+    // Issue counts are copy-only enrichment. A GraphQL hiccup must not block a
+    // deterministic scan or encourage the writer to guess from REST's PR mix.
+  }
+}
+
 function hasDocLikeTopic(repo: RestRepo): boolean {
   return (repo.topics ?? []).some((topic) =>
     /^(docs?|documentation|website|blog|examples?|templates?|tutorials?|guides?|manual)$/i.test(
@@ -2594,6 +2643,7 @@ export async function collect(username: string): Promise<{
     topStarred && topStarred.stars >= ENGAGEMENT_MIN_STARS
       ? fetchRepoEngagementRatio(topStarred.owner_login ?? login, topStarred.name)
       : Promise.resolve(undefined),
+    hydrateOpenIssueCounts(topRepos),
     ...topRepos.slice(0, 6).map(async (repo) => {
       const owner = repo.owner_login ?? login;
       const [readme, languages] = await Promise.all([

@@ -12,15 +12,15 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("records only the formal v8/v8/v3 to v9/v9/v4 lineage", () => {
+  it("records the isolated v9/v9/v4 to v9/v10/v4 roast release", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
-      score: "v8",
-      roast: "v8",
-      collection: "v3",
+      score: "v9",
+      roast: "v9",
+      collection: "v4",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
       score: "v9",
-      roast: "v9",
+      roast: "v10",
       collection: "v4",
     });
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
@@ -33,7 +33,7 @@ describe("release version contract", () => {
       collection: "v3",
     });
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v9", roast: "v9" },
+      { score: "v9", roast: "v10" },
     ]);
     expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v9"]);
   });
@@ -56,8 +56,8 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("allows only the formal v3 collection as the v4 stale-read fallback", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4", "v3"]);
+  it("keeps the unchanged v4 collection in both isolated-release read slots", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4", "v4"]);
   });
 
   it("rejects aliases and accidental-version replay paths", () => {
@@ -109,7 +109,7 @@ describe("release version contract", () => {
         beforeManifest: before,
         afterManifest: manifestCopy(),
         beforeRuntime: { score: "v99", roast: "v99", collection: "v99" },
-        afterRuntime: { score: "v9", roast: "v9", collection: "v4" },
+        afterRuntime: manifestCopy().targetRelease,
       }),
     ).toEqual([]);
   });

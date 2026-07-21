@@ -35,6 +35,32 @@ const scan = {
 } as unknown as ScanResult;
 
 describe("buildRoastMessages", () => {
+  it("exposes only verified Issue counts to the writer", () => {
+    const withRestIssueAggregate = {
+      ...scan,
+      top_repos: [
+        {
+          ...scan.top_repos[0],
+          name: "Tour-Pass",
+          owner_login: "4evour",
+          name_with_owner: "4evour/Tour-Pass",
+          // GitHub REST's aggregate can be five open PRs and zero Issues.
+          open_issues: 5,
+          open_issue_count: 0,
+        },
+      ],
+    } as ScanResult;
+
+    for (const lang of ["zh", "en"] as const) {
+      const [system, user] = buildRoastMessages(withRestIssueAggregate, lang);
+      const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
+      expect(payload.top_repos[0].open_issues).toBeUndefined();
+      expect(payload.top_repos[0].open_issue_count).toBe(0);
+      expect(system.content).toContain("open_issue_count");
+      expect(system.content).toMatch(/open pull requests|开放 PR/);
+    }
+  });
+
   it("defaults to the Chinese system prompt", () => {
     const [sys] = buildRoastMessages(scan);
     expect(sys.role).toBe("system");

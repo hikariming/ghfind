@@ -10,7 +10,7 @@
 // #111 scoring behavior is unchanged by this normalization.
 export const SCORE_CACHE_VERSION = "v9";
 // Formal successor to the previous production report contract.
-export const ROAST_CACHE_VERSION = "v9";
+export const ROAST_CACHE_VERSION = "v10";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */
 export const VERDICT_CACHE_VERSION = "v1";
 
