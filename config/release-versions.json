@@ -22,7 +22,7 @@
         "roast": "v10"
       }
     ],
-    "collectionReadOrder": ["v4", "v4"]
+    "collectionReadOrder": ["v4"]
   },
   "legacyReadFallback": {
     "score": "v5",

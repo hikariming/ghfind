@@ -10,10 +10,10 @@ that count is absent or zero.
 ## Rollout
 
 1. Deploy with roast cache version `v10`.
-2. Confirm `/api/score/4evour` remains a canonical v9/v4 score and a new roast
-   does not replay the previous v9 report.
-3. Re-roast `4evour`; `Tour-Pass` must not receive Issue-cleanup advice when
-   its verified open-Issue count is zero.
+2. Confirm the affected account remains a canonical v9/v4 score and a new
+   roast does not replay the previous v9 report.
+3. Re-roast the affected account; a repository with zero verified open Issues
+   must not receive Issue-cleanup advice.
 
 ## Rollback
 

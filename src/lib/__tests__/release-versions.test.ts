@@ -56,8 +56,18 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("keeps the unchanged v4 collection in both isolated-release read slots", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4", "v4"]);
+  it("keeps the unchanged v4 collection in one canonical read slot", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4"]);
+  });
+
+  it("includes the previous collection only after a collection-version change", () => {
+    const manifest = manifestCopy();
+    manifest.targetRelease.collection = "v5";
+    manifest.compatibility.collectionReadOrder = ["v5", "v4"];
+
+    expect(
+      releaseVersionErrors(manifest, { ...manifest.targetRelease }),
+    ).toEqual([]);
   });
 
   it("rejects aliases and accidental-version replay paths", () => {

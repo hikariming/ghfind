@@ -203,13 +203,14 @@ export function releaseVersionErrors(
     if (!exactList(typed.compatibility.publicScoreReadOrder, [targetRelease.score])) {
       errors.push("public score reads must only serve the canonical target release");
     }
-    if (
-      !exactList(typed.compatibility.collectionReadOrder, [
-        targetRelease.collection,
-        previousRelease.collection,
-      ])
-    ) {
-      errors.push("collection reads must prefer target and fall back to the previous release");
+    const collectionReadOrder =
+      targetRelease.collection === previousRelease.collection
+        ? [targetRelease.collection]
+        : [targetRelease.collection, previousRelease.collection];
+    if (!exactList(typed.compatibility.collectionReadOrder, collectionReadOrder)) {
+      errors.push(
+        "collection reads must prefer target and include the previous release only after a collection-version change",
+      );
     }
     const roastReplay = typed.compatibility.roastReplay;
     if (
