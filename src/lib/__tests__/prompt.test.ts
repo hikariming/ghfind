@@ -41,9 +41,9 @@ describe("buildRoastMessages", () => {
       top_repos: [
         {
           ...scan.top_repos[0],
-          name: "Tour-Pass",
-          owner_login: "4evour",
-          name_with_owner: "4evour/Tour-Pass",
+          name: "example-repo",
+          owner_login: "example-owner",
+          name_with_owner: "example-owner/example-repo",
           // GitHub REST's aggregate can be five open PRs and zero Issues.
           open_issues: 5,
           open_issue_count: 0,
