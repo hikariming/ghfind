@@ -38,7 +38,16 @@ export interface TopRepo {
   name_with_owner?: string;
   stars: number;
   forks: number;
+  /**
+   * GitHub REST's `open_issues_count`, which includes open pull requests.
+   * Retained for snapshot compatibility only; never use it as Issue evidence.
+   */
   open_issues: number;
+  /**
+   * Exact number of currently open GitHub Issues, excluding pull requests.
+   * Undefined means the bounded GraphQL enrichment was unavailable, not zero.
+   */
+  open_issue_count?: number;
   size: number;
   language: string | null;
   description: string | null;

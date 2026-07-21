@@ -388,7 +388,8 @@ describe("collect", () => {
           size: 5000,
           stargazers_count: 12345,
           forks_count: 100,
-          open_issues_count: 12,
+          // REST combines open Issues and open PRs in this aggregate.
+          open_issues_count: 5,
           language: "Rust",
           description: "Production sync engine with API and tests",
           pushed_at: "2026-06-01T00:00:00Z",
@@ -478,6 +479,10 @@ ${"Useful project detail. ".repeat(50)}
           return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
         }
 
+        if (query.includes("issues(states: OPEN)")) {
+          return jsonResponse({ data: { r0: { issues: { totalCount: 0 } } } });
+        }
+
         if (query.includes("pullRequests(first:")) {
           return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
         }
@@ -536,6 +541,7 @@ ${"Useful project detail. ".repeat(50)}
       owner_login: "acme",
       name_with_owner: "acme/core",
       attributed_original: true,
+      open_issue_count: 0,
     });
     expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain("75 commits");
     expect(fetchMock).toHaveBeenCalledWith(
