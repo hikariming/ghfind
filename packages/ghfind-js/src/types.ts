@@ -41,7 +41,11 @@ export interface TopRepo {
   name_with_owner?: string;
   stars: number;
   forks: number;
+  /** GitHub REST's aggregate, which includes open pull requests. */
   open_issues: number;
+  /** Verified open GitHub Issues only; excludes pull requests and may be absent
+   * when bounded enrichment is unavailable. */
+  open_issue_count?: number;
   size: number;
   language: string | null;
   description: string | null;
