@@ -9,7 +9,6 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
-  checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -181,14 +180,6 @@ export async function POST(req: NextRequest) {
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
     });
   }
-  const networkLimit = await checkScanNetworkRateLimit(ip);
-  if (!networkLimit.success) {
-    return apiError(networkLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
-      status: networkLimit.unavailable ? 503 : 429,
-      headers: { ...idem, ...rateLimitHeaders(networkLimit), "Cache-Control": "no-store" },
-    });
-  }
-
   const cached = await getCachedScan(username);
   if (cached) {
     if (!(await persistQuickScan(cached, Date.now()))) {
