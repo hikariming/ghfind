@@ -8,6 +8,15 @@ describe("normalizeUsername", () => {
     expect(normalizeUsername("https://github.com/octocat?tab=repos")).toBe("octocat");
   });
 
+  // New signups can't take underscores, but legacy accounts and Enterprise
+  // Managed Users (`login_shortcode`) have them — they must scan like anyone.
+  it("accepts underscores in legacy/EMU logins", () => {
+    expect(normalizeUsername("mona_lisa")).toBe("mona_lisa");
+    expect(normalizeUsername("@octo_cat_corp")).toBe("octo_cat_corp");
+    expect(normalizeUsername("https://github.com/octo_cat")).toBe("octo_cat");
+    expect(normalizeUsername("under_score-hyphen")).toBe("under_score-hyphen");
+  });
+
   it("rejects invalid logins", () => {
     expect(normalizeUsername("")).toBeNull();
     expect(normalizeUsername("-leading")).toBeNull();

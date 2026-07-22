@@ -81,6 +81,15 @@ describe("parseOmnibox — user (P5) & freetext (P6)", () => {
     });
   });
 
+  it("treats legacy/EMU logins with underscores as a user, not freetext", () => {
+    expect(parseOmnibox("mona_lisa")).toEqual({ kind: "user", username: "mona_lisa" });
+    expect(parseOmnibox("mona_lisa vs torvalds")).toEqual({
+      kind: "pk",
+      a: "mona_lisa",
+      b: "torvalds",
+    });
+  });
+
   it("falls back to freetext for unparseable input", () => {
     expect(parseOmnibox("做图像处理的大佬")).toEqual({
       kind: "freetext",

@@ -1,6 +1,6 @@
-export const COMMENT_MAX_LENGTH = 80;
+import { USERNAME_RE } from "@/lib/username";
 
-const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+export const COMMENT_MAX_LENGTH = 80;
 
 export type ProfileCommentAuthor =
   | { type: "anonymous" }

@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
 import { getScoreBrief, getWeeklyBaselines, resolveWeeklyDelta } from "@/lib/db";
 import { buildBadge, type BadgeLang } from "@/lib/badge";
+import { USERNAME_RE } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
 
 // 6h at the edge with a day of stale-while-revalidate — README views are served
 // from the CDN (and GitHub's camo cache), so the function barely runs.

@@ -3,10 +3,12 @@
  *
  * Extracted from the scan route so the omnibox parser, the /vs page, and the
  * card routes all validate handles identically. GitHub logins are 1-39 chars,
- * alphanumeric or single hyphens (no leading/trailing/double hyphen).
+ * alphanumeric or single hyphens (no leading/trailing/double hyphen). Underscores
+ * are accepted too: new signups can't use them, but legacy accounts and
+ * Enterprise Managed Users (`login_shortcode`) have them, and those users exist.
  */
 
-export const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+export const USERNAME_RE = /^[a-zA-Z0-9_](?:[a-zA-Z0-9_]|-(?=[a-zA-Z0-9_])){0,38}$/;
 
 /** Extract a bare handle from a raw username, `@handle`, or profile URL.
  * Returns the normalized handle, or `null` if it isn't a valid GitHub login.

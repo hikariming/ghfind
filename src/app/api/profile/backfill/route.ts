@@ -14,19 +14,10 @@ import {
 import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
 import { score } from "@/lib/score";
 import type { ScanResult } from "@/lib/types";
+import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
-
-function normalizeUsername(input: string): string | null {
-  let s = input.trim();
-  const m = s.match(/github\.com\/([^/?#]+)/i);
-  if (m) s = m[1];
-  s = s.replace(/^@/, "");
-  return USERNAME_RE.test(s) ? s : null;
-}
 
 function clientIp(req: NextRequest): string {
   const fwd = req.headers.get("x-forwarded-for");
