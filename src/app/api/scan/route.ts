@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { notifyCampaignCardGenerated } from "@/lib/campaign-notify";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
   hasLegacyReadFallbackProfile,
@@ -72,10 +73,15 @@ async function recordSuccessfulLookup(
   ip: string,
   campaign: CampaignSlug | null,
 ): Promise<void> {
-  await Promise.all([
+  const [, newlyJoined] = await Promise.all([
     recordAccountLookup(username, ip),
-    campaign ? recordCampaignParticipant(campaign, username) : Promise.resolve(),
+    campaign ? recordCampaignParticipant(campaign, username) : Promise.resolve(false),
   ]);
+  if (campaign && newlyJoined) {
+    // Operator mail rides after the response; a slow SMTP hop must not add
+    // latency to the scan result the participant is staring at.
+    after(() => notifyCampaignCardGenerated(campaign, username));
+  }
 }
 
 /**

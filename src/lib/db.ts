@@ -918,13 +918,16 @@ export interface LeaderboardEntry {
  * Attach an account to a public event cohort without duplicating its score.
  * The relation may be written before a first-time account has finished its
  * roast; it becomes visible on the event board as soon as `scores` is written.
+ *
+ * Resolves true only when the account newly joined the cohort (first insert),
+ * so callers can trigger one-time side effects like operator notifications.
  */
 export async function recordCampaignParticipant(
   campaign: string,
   username: string,
-): Promise<void> {
+): Promise<boolean> {
   const db = getClient();
-  if (!db) return;
+  if (!db) return false;
   try {
     await ensureSchema(db);
     const result = await db.execute({
@@ -935,10 +938,12 @@ export async function recordCampaignParticipant(
     });
     if (Number(result.rowsAffected ?? 0) === 1) {
       await bumpCampaignLeaderboardRevision(campaign);
+      return true;
     }
   } catch (e) {
     console.error("recordCampaignParticipant failed:", e);
   }
+  return false;
 }
 
 /**
