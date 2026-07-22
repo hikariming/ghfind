@@ -708,14 +708,12 @@ export default async function AccountPage({
           beat={beat}
           tags={d.tags}
         />
-        {!isAdvxCampaign && (
-          <CopyBadge
-            baseUrl={SITE_URL}
-            username={d.username}
-            version={d.scanned_at}
-            surface="profile"
-          />
-        )}
+        <CopyBadge
+          baseUrl={SITE_URL}
+          username={d.username}
+          version={d.scanned_at}
+          surface={isAdvxCampaign ? "profile_advx" : "profile"}
+        />
         </aside>
 
         {/* Right: evidence + report */}
