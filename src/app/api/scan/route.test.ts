@@ -5,7 +5,6 @@ import type { ScanResult } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
   checkRateLimit: vi.fn(),
-  checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
@@ -29,7 +28,6 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
-  checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
@@ -61,7 +59,6 @@ describe("POST /api/scan immediate quick contract", () => {
   beforeEach(() => {
     process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
     mocks.checkRateLimit.mockResolvedValue({ success: true });
-    mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
     mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
@@ -112,7 +109,7 @@ describe("POST /api/scan immediate quick contract", () => {
     });
   });
 
-  it("uses a Turnstile-issued browser session before the shared network budget", async () => {
+  it("uses a Turnstile-issued browser session without a shared-NAT budget", async () => {
     delete process.env.GITHUB_ROAST_CLI_API_KEY;
     mocks.establishAnonymousSession.mockReturnValue({ id: "session-fixture", issued: true });
 
@@ -124,7 +121,6 @@ describe("POST /api/scan immediate quick contract", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("anon:session-fixture");
-    expect(mocks.checkScanNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
     expect(mocks.attachAnonymousSession).toHaveBeenCalledWith(
       expect.any(Response),
       { id: "session-fixture", issued: true },

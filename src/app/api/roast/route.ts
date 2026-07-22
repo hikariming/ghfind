@@ -32,8 +32,6 @@ import {
   acquireRoastLock,
   checkRoastRequestRateLimit,
   checkRoastRateLimit,
-  checkRoastNetworkRateLimit,
-  checkRoastRequestNetworkRateLimit,
   clearCachedRoast,
   getCachedRoast,
   getCachedScan,
@@ -624,7 +622,7 @@ export async function POST(req: NextRequest) {
   }
   const ip = clientIp(req);
   // CLI/MCP callers retain their IP budget. Only an interactive browser that
-  // completed Turnstile can exchange its shared-NAT IP key for a signed session.
+  // completed Turnstile receives a signed session with its own budget.
   const principal = auth === "absent" ? anonymousSessionPrincipal(req) ?? ip : ip;
 
   // This protects every path, including BYO: it runs before the snapshot and
@@ -640,20 +638,6 @@ export async function POST(req: NextRequest) {
       },
     );
   }
-  const networkRequestLimit = await checkRoastRequestNetworkRateLimit(ip);
-  if (!networkRequestLimit.success) {
-    return NextResponse.json(
-      {
-        error: networkRequestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
-        useByoKey: true,
-      },
-      {
-        status: networkRequestLimit.unavailable ? 503 : 429,
-        headers: { ...rateLimitHeaders(networkRequestLimit), "Cache-Control": "no-store" },
-      },
-    );
-  }
-
   const lang = normLang(body.lang);
 
   // A verified v5/v5/v3 artifact is a read-only continuity path when the quick
@@ -802,19 +786,6 @@ export async function POST(req: NextRequest) {
         {
           status: generationLimit.unavailable ? 503 : 429,
           headers: { ...rateLimitHeaders(generationLimit), "Cache-Control": "no-store" },
-        },
-      );
-    }
-    const networkGenerationLimit = await checkRoastNetworkRateLimit(ip);
-    if (!networkGenerationLimit.success) {
-      return NextResponse.json(
-        {
-          error: networkGenerationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
-          useByoKey: true,
-        },
-        {
-          status: networkGenerationLimit.unavailable ? 503 : 429,
-          headers: { ...rateLimitHeaders(networkGenerationLimit), "Cache-Control": "no-store" },
         },
       );
     }
