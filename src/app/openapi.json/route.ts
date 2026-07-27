@@ -328,8 +328,48 @@ export function GET() {
           tags: ["images"],
           operationId: "card",
           summary: "1200x630 OG PNG card for an account",
-          parameters: [{ name: "username", in: "path", required: true, schema: { type: "string" } }],
+          parameters: [
+            { name: "username", in: "path", required: true, schema: { type: "string" } },
+            { name: "theme", in: "query", schema: { type: "string", enum: ["dark", "light"] } },
+            {
+              name: "variant",
+              in: "query",
+              description: "Specialty brag card; omit for the score card.",
+              schema: { type: "string", enum: ["score", "contrib", "pr", "path", "work"] },
+            },
+            { name: "qr", in: "query", description: "Set to 1 for a scannable QR.", schema: { type: "string" } },
+          ],
           responses: { "200": { description: "PNG image", content: { "image/png": {} } } },
+        },
+      },
+      "/api/card/mini/{username}": {
+        get: {
+          tags: ["images"],
+          operationId: "miniCard",
+          summary: "README-sized SVG card (440x200, or 420x88 for the strip)",
+          description:
+            "Always 200: an unrated or unknown account renders a placeholder card at the same size, so an embedded image never breaks.",
+          parameters: [
+            { name: "username", in: "path", required: true, schema: { type: "string" } },
+            {
+              name: "variant",
+              in: "query",
+              description: "bars/radar are 440x200; strip is 420x88.",
+              schema: { type: "string", enum: ["bars", "radar", "strip"], default: "bars" },
+            },
+            {
+              name: "theme",
+              in: "query",
+              description: "auto embeds a prefers-color-scheme block so one URL suits both GitHub themes.",
+              schema: { type: "string", enum: ["auto", "dark", "light"], default: "auto" },
+            },
+            {
+              name: "lang",
+              in: "query",
+              schema: { type: "string", enum: ["en", "zh"], default: "en" },
+            },
+          ],
+          responses: { "200": { description: "SVG image", content: { "image/svg+xml": {} } } },
         },
       },
     },

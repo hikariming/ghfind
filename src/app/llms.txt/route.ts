@@ -47,6 +47,11 @@ ${urlGrammarMd()}
 - User card: ${SITE_URL}/api/card/{username}
 - Versus card: ${SITE_URL}/api/card/vs/{a}/{b}
 
+## Embeddable cards (SVG, for a README or personal site)
+
+- Mini card: ${SITE_URL}/api/card/mini/{username}?variant=bars|radar|strip&theme=auto|dark|light&lang=en|zh
+- Score badge: ${SITE_URL}/api/badge/{username}?lang=en|zh
+
 ${apiSummaryMd()}
 
 ${mcpSummaryMd()}

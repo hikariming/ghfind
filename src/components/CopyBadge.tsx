@@ -1,7 +1,9 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useSyncExternalStore } from "react";
+import { normLang, type Lang } from "@/lib/lang";
+import { MINI_CARD_SIZES } from "@/lib/mini-card-sizes";
 import { trackEvent } from "@/lib/track";
 
 // Stable no-op subscribe: the origin never changes after load, so we only need
@@ -10,11 +12,37 @@ const subscribeNoop = () => () => {};
 const getOriginSnapshot = () => window.location.origin;
 const getOriginServerSnapshot = () => null;
 
-type CardTheme = "dark" | "light";
+/**
+ * `auto` (mini card only) embeds a prefers-color-scheme block, so one URL reads
+ * correctly in both GitHub themes. The 1200×630 PNG can't do that.
+ */
+type CardTheme = "auto" | "dark" | "light";
 
-// Card types offered by the builder. `score` is the classic tier card; the rest
-// are the specialty "brag cards". Keys map to `?variant=` (except `score`, which
-// is the default) and to `<key>` i18n labels.
+/**
+ * The size axis, widest decision first. Users were reaching for the 1200×630
+ * card because it was the builder's only card — it swallows a README — while the
+ * 20px badge carries no evidence. `bars` is the default for that reason.
+ */
+const SIZES = ["badge", "bars", "radar", "strip", "large"] as const;
+type Size = (typeof SIZES)[number];
+type MiniSize = Extract<Size, "bars" | "radar" | "strip">;
+
+const SIZE_KEY: Record<Size, string> = {
+  badge: "sizeBadge",
+  bars: "sizeMiniBars",
+  radar: "sizeMiniRadar",
+  strip: "sizeMiniStrip",
+  large: "sizeLarge",
+};
+
+const LARGE_WIDTH = 600;
+
+function isMini(size: Size): size is MiniSize {
+  return size !== "badge" && size !== "large";
+}
+
+// Specialty variants of the large card. Keys map to `?variant=` (except `score`,
+// which is the default) and to `<key>` i18n labels.
 const BUILDER_TYPES = ["score", "contrib", "pr", "path", "work"] as const;
 type BuilderType = (typeof BUILDER_TYPES)[number];
 const TYPE_KEY: Record<BuilderType, string> = {
@@ -62,6 +90,18 @@ function ChipGroup<T extends string>({
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** A labelled chip row. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        {label}
+      </div>
+      {children}
     </div>
   );
 }
@@ -118,18 +158,21 @@ export function CopyBadge({
   /**
    * Cache-buster for the on-page previews. The card/badge images are served with
    * a long CDN cache (README/camo views stay cheap), so without this the preview
-   * shown right after a re-score would keep displaying the stale PNG. Keying it on
-   * the current score forces a fresh fetch so the on-page card updates in real
+   * shown right after a re-score would keep displaying the stale image. Keying it
+   * on the current score forces a fresh fetch so the on-page card updates in real
    * time. The copyable README snippets intentionally stay clean (no `?v`) — those
    * embeds refresh via the CDN window, which is acceptable off-site.
    */
   version?: string | number;
 }) {
   const T = useTranslations("badge");
+  const locale = useLocale();
   const [copied, setCopied] = useState<string | null>(null);
   // Builder selections.
+  const [size, setSize] = useState<Size>("bars");
+  const [theme, setTheme] = useState<CardTheme>("auto");
+  const [lang, setLang] = useState<Lang>(() => normLang(locale));
   const [type, setType] = useState<BuilderType>("score");
-  const [theme, setTheme] = useState<CardTheme>("dark");
   const [qr, setQr] = useState(false);
   const previewOrigin = useSyncExternalStore(
     subscribeNoop,
@@ -144,150 +187,180 @@ export function CopyBadge({
   // which GitHub camo strips down to a bare origin. The canonical <link> on the
   // profile page still points at the clean /u/{username}, so no SEO duplicate.
   const pageUrl = `${base}/u/${username}?ref=badge`;
-  const badgeUrl = `${base}/api/badge/${username}`;
-  const cardUrl = `${base}/api/card/${username}`;
-  const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
-  const cardPreviewUrl = `${previewBase}/api/card/${username}`;
   const versionParam =
     version !== undefined && version !== null ? String(version) : undefined;
-  const badgePreview = withQuery(badgePreviewUrl, { v: versionParam });
 
-  const badgeAlt = T("badgeAlt");
-  const cardAlt = T("cardAlt");
-  const badgeMd = `[![${badgeAlt}](${badgeUrl})](${pageUrl})`;
-  const badgeHtml = `<a href="${pageUrl}"><img src="${badgeUrl}" alt="${badgeAlt}" /></a>`;
+  // Only non-default params land in the URL — a clean link is the common case.
+  const imageUrl = (
+    origin: string,
+    extra: Record<string, string | undefined> = {},
+  ): string => {
+    if (size === "badge") {
+      return withQuery(`${origin}/api/badge/${username}`, {
+        lang: lang === "zh" ? "zh" : undefined,
+        ...extra,
+      });
+    }
+    if (size === "large") {
+      return withQuery(`${origin}/api/card/${username}`, {
+        // The large card has no `auto`; the chip row hides it, but a stale
+        // selection must never leak an unsupported value into a README.
+        theme: theme === "auto" ? "dark" : theme,
+        variant: type === "score" ? undefined : type,
+        qr: qr ? "1" : undefined,
+        ...extra,
+      });
+    }
+    return withQuery(`${origin}/api/card/mini/${username}`, {
+      variant: size === "bars" ? undefined : size,
+      theme: theme === "auto" ? undefined : theme,
+      lang: lang === "en" ? undefined : lang,
+      ...extra,
+    });
+  };
 
-  // Builder → the query params selected right now. `variant` is omitted for the
-  // default score card; `qr` only when toggled on — keeps clean URLs the common case.
-  const cardParams: Record<string, string | undefined> = { theme };
-  if (type !== "score") cardParams.variant = type;
-  if (qr) cardParams.qr = "1";
-  const cardCurrentUrl = withQuery(cardUrl, cardParams);
-  const cardCurrentPreview = withQuery(cardPreviewUrl, { ...cardParams, v: versionParam });
-  const builderMd = `[![${cardAlt}](${cardCurrentUrl})](${pageUrl})`;
-  const builderHtml = `<a href="${pageUrl}"><img src="${cardCurrentUrl}" alt="${cardAlt}" width="600" /></a>`;
+  const alt = T(size === "badge" ? "badgeAlt" : isMini(size) ? "miniAlt" : "cardAlt");
+  const url = imageUrl(base);
+  const previewUrl = imageUrl(previewBase, { v: versionParam });
+  const embedWidth = size === "large" ? LARGE_WIDTH : isMini(size) ? MINI_CARD_SIZES[size].w : null;
+  const widthAttr = embedWidth ? ` width="${embedWidth}"` : "";
 
-  const typeOptions = BUILDER_TYPES.map((t) => ({ key: t, label: T(TYPE_KEY[t]) }));
+  const markdown = `[![${alt}](${url})](${pageUrl})`;
+  const html = `<a href="${pageUrl}"><img src="${url}" alt="${alt}"${widthAttr} /></a>`;
+  // `theme=auto` resolves against the viewer's OS, which is wrong for anyone who
+  // pins a GitHub theme independently. <picture> is the escape hatch: GitHub
+  // honors `media` on <source>, so each theme gets its own pinned URL.
+  const picture = isMini(size)
+    ? [
+        `<a href="${pageUrl}">`,
+        `  <picture>`,
+        `    <source media="(prefers-color-scheme: dark)" srcset="${imageUrl(base, { theme: "dark" })}" />`,
+        `    <img src="${imageUrl(base, { theme: "light" })}" alt="${alt}" width="${embedWidth}" />`,
+        `  </picture>`,
+        `</a>`,
+      ].join("\n")
+    : null;
+
+  const sizeOptions = SIZES.map((s) => ({ key: s, label: T(SIZE_KEY[s]) }));
   const themeOptions: { key: CardTheme; label: string }[] = [
+    ...(isMini(size) ? [{ key: "auto" as const, label: T("themeAuto") }] : []),
     { key: "dark", label: T("themeDark") },
     { key: "light", label: T("themeLight") },
   ];
+  const langOptions: { key: Lang; label: string }[] = [
+    { key: "en", label: T("langEn") },
+    { key: "zh", label: T("langZh") },
+  ];
+  const typeOptions = BUILDER_TYPES.map((t) => ({ key: t, label: T(TYPE_KEY[t]) }));
   const qrOptions: { key: "on" | "off"; label: string }[] = [
     { key: "off", label: T("qrOff") },
     { key: "on", label: T("qrOn") },
   ];
 
-  const copy = async (text: string, key: string) => {
+  const changeSize = (next: Size) => {
+    setSize(next);
+    // The large card only renders dark/light.
+    if (next === "large" && theme === "auto") setTheme("dark");
+  };
+
+  const copy = async (text: string, kind: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(key);
-      // `key` (badge-md / builder-html / …) is the snippet variant; low cardinality.
-      trackEvent("badge_copy", { kind: key, surface });
-      setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+      setCopied(kind);
+      // `kind` is `<size>-<snippet>` (badge-md / bars-html / …); low cardinality.
+      trackEvent("badge_copy", { kind, surface });
+      setTimeout(() => setCopied((c) => (c === kind ? null : c)), 2000);
     } catch {
       /* clipboard blocked */
     }
   };
+
+  const snippets: { key: string; label: string; value: string }[] = [
+    ...(size === "badge" ? [] : [{ key: "url", label: T("fieldUrl"), value: url }]),
+    { key: "md", label: T("markdown"), value: markdown },
+    { key: "html", label: T("html"), value: html },
+    ...(picture ? [{ key: "picture", label: T("picture"), value: picture }] : []),
+  ];
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
       <h2 className="text-base font-bold text-zinc-200">{T("heading")}</h2>
       <p className="mt-1 text-xs text-zinc-500">{T("blurb")}</p>
 
-      {/* Small badge */}
-      <div className="mt-5">
-        <div className="mb-2 text-xs font-semibold text-zinc-300">{T("badgeTitle")}</div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={badgePreview} alt={badgeAlt} className="h-5" />
-        <div className="mt-3 flex flex-col gap-3">
-          <SnippetRow
-            label={T("markdown")}
-            value={badgeMd}
-            copied={copied === "badge-md"}
-            onCopy={() => copy(badgeMd, "badge-md")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-          <SnippetRow
-            label={T("html")}
-            value={badgeHtml}
-            copied={copied === "badge-html"}
-            onCopy={() => copy(badgeHtml, "badge-html")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-        </div>
-      </div>
+      <div className="mt-5 flex flex-col gap-4">
+        <Field label={T("fieldSize")}>
+          <ChipGroup options={sizeOptions} value={size} onChange={changeSize} />
+        </Field>
 
-      {/* Card builder */}
-      <div className="mt-6 border-t border-white/10 pt-5">
-        <div className="mb-1 text-xs font-semibold text-zinc-300">{T("builderTitle")}</div>
-        <p className="mb-4 text-xs text-zinc-500">{T("builderBlurb")}</p>
-
-        <div className="flex flex-col gap-4">
-          <div>
-            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-              {T("fieldType")}
-            </div>
-            <ChipGroup options={typeOptions} value={type} onChange={setType} />
-          </div>
-          <div className="flex flex-wrap gap-x-8 gap-y-4">
-            <div>
-              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                {T("fieldTheme")}
-              </div>
+        <div className="flex flex-wrap gap-x-8 gap-y-4">
+          {size !== "badge" && (
+            <Field label={T("fieldTheme")}>
               <ChipGroup options={themeOptions} value={theme} onChange={setTheme} />
-            </div>
-            <div>
-              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                {T("fieldQr")}
-              </div>
+            </Field>
+          )}
+          {size !== "large" && (
+            <Field label={T("fieldLang")}>
+              <ChipGroup options={langOptions} value={lang} onChange={setLang} />
+            </Field>
+          )}
+          {size === "large" && (
+            <Field label={T("fieldQr")}>
               <ChipGroup
                 options={qrOptions}
                 value={qr ? "on" : "off"}
                 onChange={(v) => setQr(v === "on")}
               />
-            </div>
-          </div>
+            </Field>
+          )}
         </div>
 
-        {/* Live preview */}
-        <figure className="mt-4 min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={cardCurrentPreview}
-            alt={cardAlt}
-            className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
-          />
-        </figure>
+        {size === "large" && (
+          <Field label={T("fieldType")}>
+            <ChipGroup options={typeOptions} value={type} onChange={setType} />
+          </Field>
+        )}
 
-        {/* Generated snippets for the current selection */}
-        <div className="mt-3 flex flex-col gap-3">
-          <SnippetRow
-            label={T("fieldUrl")}
-            value={cardCurrentUrl}
-            copied={copied === "builder-url"}
-            onCopy={() => copy(cardCurrentUrl, "builder-url")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-          <SnippetRow
-            label={T("markdown")}
-            value={builderMd}
-            copied={copied === "builder-md"}
-            onCopy={() => copy(builderMd, "builder-md")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-          <SnippetRow
-            label={T("html")}
-            value={builderHtml}
-            copied={copied === "builder-html"}
-            onCopy={() => copy(builderHtml, "builder-html")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-        </div>
+        {isMini(size) && <p className="text-[11px] leading-relaxed text-zinc-500">{T("miniHint")}</p>}
+      </div>
+
+      {/* Live preview. The mini card is pinned to its intrinsic width — stretching
+          a 440px card to the container misrepresents how it lands in a README. */}
+      <figure className="mt-4 min-w-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={alt}
+          className={
+            size === "badge"
+              ? "h-5"
+              : "rounded-xl border border-white/10 bg-white/[0.02]"
+          }
+          style={
+            isMini(size)
+              ? { width: MINI_CARD_SIZES[size].w, maxWidth: "100%" }
+              : size === "large"
+                ? { width: "100%" }
+                : undefined
+          }
+        />
+      </figure>
+
+      {/* Generated snippets for the current selection */}
+      <div className="mt-3 flex flex-col gap-3">
+        {snippets.map((s) => {
+          const kind = `${size}-${s.key}`;
+          return (
+            <SnippetRow
+              key={s.key}
+              label={s.label}
+              value={s.value}
+              copied={copied === kind}
+              onCopy={() => copy(s.value, kind)}
+              copyLabel={T("copy")}
+              copiedLabel={T("copied")}
+            />
+          );
+        })}
       </div>
     </section>
   );

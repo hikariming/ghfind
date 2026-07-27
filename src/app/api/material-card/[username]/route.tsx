@@ -4,18 +4,12 @@ import { renderMaterialCardSvg } from "@/lib/material-card";
 import { tierFor } from "@/lib/score";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
-import { USERNAME_RE } from "@/lib/username";
+import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE, qrDataUrl, qrModuleColor } from "../../card/shared";
 import { parseTheme } from "../../card/[username]/cards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function publicDisplayName(displayName: string | null): string | null {
-  if (!displayName) return null;
-  const cleaned = displayName.replace(/\s*[（(]mock[）)]\s*$/i, "").trim();
-  return cleaned || null;
-}
 
 export async function GET(req: Request, ctx: { params: Promise<{ username: string }> }) {
   const { username } = await ctx.params;

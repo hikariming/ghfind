@@ -31,11 +31,21 @@ export async function fonts(): Promise<FontList> {
   return fontCache;
 }
 
-/** Pre-fetch an avatar to a data URL so a flaky fetch can't break rendering. */
-export async function avatarDataUrl(url: string | null): Promise<string | null> {
+/**
+ * Pre-fetch an avatar to a data URL so a flaky fetch can't break rendering.
+ *
+ * `size` asks GitHub for a downscaled avatar (`?s=`). The SVG cards inline the
+ * bytes as base64 into every response, so a 96px avatar (~5KB) instead of the
+ * default (~40KB) is most of the payload on those endpoints.
+ */
+export async function avatarDataUrl(
+  url: string | null,
+  size?: number,
+): Promise<string | null> {
   if (!url) return null;
   try {
-    const res = await fetch(url);
+    const src = size ? `${url}${url.includes("?") ? "&" : "?"}s=${size}` : url;
+    const res = await fetch(src);
     if (!res.ok) return null;
     const ct = res.headers.get("content-type") || "image/png";
     const buf = Buffer.from(await res.arrayBuffer());

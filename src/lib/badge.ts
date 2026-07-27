@@ -40,6 +40,19 @@ export const BADGE_COLOR: Record<Tier, string> = {
   拉完了: "#F43F5E",
 };
 
+/**
+ * Same hues at the -600 step, for tier-colored *text* on a light background.
+ * The -500 shades above are tuned for white-on-color fills; as small type on
+ * white (the light-theme mini card) amber/sky fall below readable contrast.
+ */
+export const BADGE_COLOR_LIGHT: Record<Tier, string> = {
+  夯: "#D97706",
+  顶级: "#7C3AED",
+  人上人: "#059669",
+  NPC: "#0284C7",
+  拉完了: "#E11D48",
+};
+
 const LABEL = "GitHub Roast";
 const NEUTRAL = "#9CA3AF"; // gray for unrated
 const LEFT_BG = "#555";
@@ -57,7 +70,8 @@ export function estimateTextWidth(str: string, fontSize = FONT_SIZE): number {
   return Math.ceil(w);
 }
 
-function escapeXml(s: string): string {
+/** Exported so the sibling SVG renderers (mini card) escape identically. */
+export function escapeXml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

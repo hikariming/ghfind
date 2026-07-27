@@ -27,3 +27,11 @@ export function normalizeUsername(input: unknown): string | null {
 export function isValidUsername(input: string): boolean {
   return normalizeUsername(input) !== null;
 }
+
+/** Display name as it should appear on a shareable card: the internal "(mock)"
+ *  suffix on seeded fixtures is stripped so it never ships in someone's README. */
+export function publicDisplayName(displayName: string | null): string | null {
+  if (!displayName) return null;
+  const cleaned = displayName.replace(/\s*[（(]mock[）)]\s*$/i, "").trim();
+  return cleaned || null;
+}

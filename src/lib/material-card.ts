@@ -150,7 +150,14 @@ function tagWidth(tag: string): number {
   return Math.min(TAG_MAX_WIDTH, 42 + Array.from(tag).length * 22);
 }
 
-function brandMark(x: number, y: number, size: number, color: string): string {
+/** The ghfind orbit mark as standalone SVG, scaled from its 32×32 viewBox.
+ *  Exported so the mini card stamps an identical mark instead of a copy. */
+export function brandMarkSvg(
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+): string {
   const scale = size / 32;
   const orbits = BRAND_MARK_PATHS.orbit
     .map((path) => `<path d="${path}"/>`)
@@ -220,7 +227,7 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   const avatarGlowOpacity = options.theme === "dark" ? 0.42 : 0.32;
   const watermarkOpacity = options.theme === "dark" ? 0.14 : 0.1;
   const qr = options.qr
-    ? `<image href="${options.qr}" x="768" y="34" width="110" height="110"/><rect x="810" y="76" width="26" height="26" fill="${palette.bg}"/>${brandMark(810, 76, 26, palette.fg)}`
+    ? `<image href="${options.qr}" x="768" y="34" width="110" height="110"/><rect x="810" y="76" width="26" height="26" fill="${palette.bg}"/>${brandMarkSvg(810, 76, 26, palette.fg)}`
     : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -233,14 +240,14 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
     <filter id="material-avatar-shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="${options.color}" flood-opacity="${avatarGlowOpacity}"/></filter>
     <style>text{font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif}</style>
   </defs>
-  <rect width="912" height="600" rx="28" fill="${palette.bg}"/><rect width="912" height="600" rx="28" fill="url(#material-glow)"/><rect width="912" height="600" rx="28" fill="url(#material-glow-opposite)"/><g data-decoration="ghfind-watermark" opacity="${watermarkOpacity}">${brandMark(366, 170, 180, palette.fg)}</g><rect x="24" y="24" width="864" height="552" rx="20" fill="none" stroke="${options.color}" stroke-opacity="0.18"/>
+  <rect width="912" height="600" rx="28" fill="${palette.bg}"/><rect width="912" height="600" rx="28" fill="url(#material-glow)"/><rect width="912" height="600" rx="28" fill="url(#material-glow-opposite)"/><g data-decoration="ghfind-watermark" opacity="${watermarkOpacity}">${brandMarkSvg(366, 170, 180, palette.fg)}</g><rect x="24" y="24" width="864" height="552" rx="20" fill="none" stroke="${options.color}" stroke-opacity="0.18"/>
   <circle cx="${AVATAR_CENTER.x}" cy="${AVATAR_CENTER.y}" r="${AVATAR_FRAME_RADIUS}" fill="${palette.panel}" stroke="${options.color}" stroke-width="3" filter="url(#material-avatar-shadow)"/>${avatar}${avatarFrame}
   <text x="${PROFILE_TEXT_X}" y="${PROFILE_USERNAME_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.username}" font-weight="800">@${username}</text>${displayName ? `<text x="${PROFILE_TEXT_X}" y="${PROFILE_DISPLAY_NAME_Y}" fill="${palette.muted}" font-size="${MATERIAL_TEXT_SIZE.displayName}">${displayName}</text>` : ""}
   <text x="${SCORE_X}" y="${SCORE_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.score}" font-weight="800" letter-spacing="-3">${options.score.toFixed(2)}</text>
   <text x="52" y="${TIER_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.tier}" font-weight="800">${escapeXml(options.tier)}</text><text x="52" y="${TIER_LABEL_Y}" fill="${palette.muted}" font-size="${MATERIAL_TEXT_SIZE.tierLabel}" font-weight="600">${tierLabel}</text>
   ${tags.join("")}
   ${radarGrid}${radarAxes}<polygon points="${pointList(radarPoints)}" fill="url(#radar-fill)" stroke="${options.color}" stroke-width="4" stroke-linejoin="round"/>${radarDots}${radarLabels}${qr}
-  <line x1="48" y1="505" x2="864" y2="505" stroke="${palette.grid}" stroke-opacity="0.62"/>${brandMark(48, 530, 28, palette.fg)}
+  <line x1="48" y1="505" x2="864" y2="505" stroke="${palette.grid}" stroke-opacity="0.62"/>${brandMarkSvg(48, 530, 28, palette.fg)}
   <text x="87" y="553" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.brand}" font-weight="800">ghfind.com</text><text x="240" y="553" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">GitHub 开发者实力认证</text><text x="864" y="553" text-anchor="end" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">Powered by Lubehub, Dify and Mosoo.</text>
 </svg>`;
 }
