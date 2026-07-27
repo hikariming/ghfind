@@ -4626,15 +4626,17 @@ export async function getFacetRank(
   }
 }
 
-/** Total number of accounts ever evaluated (for the "N developers" counter). */
+/**
+ * Total number of GitHub accounts ever evaluated (for the homepage's
+ * "N developers" counter). This is an all-time adoption metric, unlike public
+ * ranking reads, so it must include accounts retained from prior releases.
+ */
 export async function getScoreCount(): Promise<number | null> {
   const db = getClient();
   if (!db) return null;
   try {
     await ensureSchema(db);
-    const res = await db.execute(
-      `SELECT COUNT(*) AS n FROM scores WHERE ${canonicalPublicScorePredicate("scores")}`,
-    );
+    const res = await db.execute("SELECT COUNT(*) AS n FROM scores");
     return Number(res.rows[0]?.n ?? 0);
   } catch (e) {
     console.error("getScoreCount failed:", e);

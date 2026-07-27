@@ -2226,6 +2226,25 @@ describe("getRank", () => {
   });
 });
 
+describe("getScoreCount", () => {
+  it("counts every evaluated account, including accounts from prior score versions", async () => {
+    const before = await db.getScoreCount();
+    expect(before).not.toBeNull();
+    if (before === null) throw new Error("expected a configured test database");
+
+    await db.recordScore({ ...entry, username: "all-time-count-current" });
+    await db.recordScore({ ...entry, username: "all-time-count-legacy" });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: "UPDATE scores SET score_version = ? WHERE username = ?",
+      args: [`${SCORE_CACHE_VERSION}-previous`, "all-time-count-legacy"],
+    });
+
+    await expect(db.getScoreCount()).resolves.toBe(before + 2);
+  });
+});
+
 describe("recordRepoGraph + updateInfluenceStats", () => {
   const raw = () => createClient({ url: process.env.TURSO_DATABASE_URL! });
 
