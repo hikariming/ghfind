@@ -1,6 +1,8 @@
 import { BRAND_MARK_PATHS } from "@/components/BrandMark";
+import { estimateTextWidth } from "./badge";
 import { DIMENSIONS } from "./dimensions";
 import { SUBSCORE_MAX } from "./score";
+import { SPONSOR } from "./sponsor";
 import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "./tier";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
@@ -28,6 +30,12 @@ export interface MaterialCardSvgOptions {
   theme: MaterialCardTheme;
   qr: string | null;
   tierIcon: string;
+  /**
+   * Sponsor logo as a data URL (`sponsorLogoDataUrl()`). Null renders the credit
+   * as text alone — this card is a print/export asset, so it takes the full-size
+   * mark rather than the 32px one the SVG embeds use.
+   */
+  sponsorLogo: string | null;
 }
 
 interface Point {
@@ -77,6 +85,10 @@ const MATERIAL_TEXT_SIZE = {
   brand: 27,
   footer: 20,
 } as const;
+
+const FOOTER_RIGHT_X = 864;
+const FOOTER_BASELINE_Y = 553;
+const SPONSOR_LOGO_SIZE = 26;
 
 const SCORE_X = 48;
 const SCORE_Y = 255;
@@ -230,6 +242,16 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
     ? `<image href="${options.qr}" x="768" y="34" width="110" height="110"/><rect x="810" y="76" width="26" height="26" fill="${palette.bg}"/>${brandMarkSvg(810, 76, 26, palette.fg)}`
     : "";
 
+  // Sponsor credit, right-anchored in the footer: the text hangs off x=864 and
+  // the logo is laid back from its measured width, so a renamed sponsor stays
+  // aligned without touching the geometry.
+  const sponsorText = `Powered by ${SPONSOR.name}`;
+  const sponsorLogo = options.sponsorLogo
+    ? `<image href="${options.sponsorLogo}" x="${
+        FOOTER_RIGHT_X - estimateTextWidth(sponsorText, MATERIAL_TEXT_SIZE.footer) - SPONSOR_LOGO_SIZE - 10
+      }" y="${FOOTER_BASELINE_Y - 20}" width="${SPONSOR_LOGO_SIZE}" height="${SPONSOR_LOGO_SIZE}"/>`
+    : "";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${MATERIAL_CARD_EXPORT_WIDTH}" height="${MATERIAL_CARD_EXPORT_HEIGHT}" viewBox="0 0 ${MATERIAL_CARD_WIDTH} ${MATERIAL_CARD_HEIGHT}" data-print-width="76mm" data-print-height="50mm" role="img" aria-label="${username} 的 ghfind 中文开发者实力卡">
   <defs>
@@ -248,6 +270,6 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   ${tags.join("")}
   ${radarGrid}${radarAxes}<polygon points="${pointList(radarPoints)}" fill="url(#radar-fill)" stroke="${options.color}" stroke-width="4" stroke-linejoin="round"/>${radarDots}${radarLabels}${qr}
   <line x1="48" y1="505" x2="864" y2="505" stroke="${palette.grid}" stroke-opacity="0.62"/>${brandMarkSvg(48, 530, 28, palette.fg)}
-  <text x="87" y="553" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.brand}" font-weight="800">ghfind.com</text><text x="240" y="553" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">GitHub 开发者实力认证</text><text x="864" y="553" text-anchor="end" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">Powered by Lubehub, Dify and Mosoo.</text>
+  <text x="87" y="553" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.brand}" font-weight="800">ghfind.com</text><text x="240" y="553" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">GitHub 开发者实力认证</text>${sponsorLogo}<text x="${FOOTER_RIGHT_X}" y="${FOOTER_BASELINE_Y}" text-anchor="end" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">${escapeXml(sponsorText)}</text>
 </svg>`;
 }

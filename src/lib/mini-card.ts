@@ -34,6 +34,7 @@ import { DIMENSIONS } from "./dimensions";
 import { brandMarkSvg, gradeForDimension } from "./material-card";
 import { MINI_CARD_SIZES, type MiniCardVariant } from "./mini-card-sizes";
 import { SUBSCORE_MAX } from "./score";
+import { SPONSOR } from "./sponsor";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
 export { MINI_CARD_SIZES, type MiniCardVariant };
@@ -59,6 +60,11 @@ export interface MiniCardOptions {
   beat: number | null;
   /** Week-over-week score change. Only positive values render. */
   delta: number | null;
+  /**
+   * Sponsor logo as a data URL (`sponsorLogoDataUrl("small")`). Null renders the
+   * credit as text alone. `strip` ignores it — see `renderStrip`.
+   */
+  sponsorLogo: string | null;
   variant: MiniCardVariant;
   theme: MiniCardTheme;
   lang: MiniCardLang;
@@ -294,6 +300,53 @@ function tierChip(rightX: number, y: number, h: number, word: string, p: Palette
   )}`;
 }
 
+/**
+ * `[logo] Powered by <name>`, laid out from `x` and reporting its own width so
+ * the footer can subtract it from the slot left for the language list.
+ *
+ * A null logo drops the mark but keeps the wordmark — the credit is the part
+ * that's owed, and a missing asset shouldn't silently retract it.
+ */
+function sponsorGroup(
+  x: number,
+  y: number,
+  logo: string | null,
+  size: number,
+  fontSize: number,
+  p: Palette,
+): { svg: string; width: number } {
+  const label = "Powered by ";
+  const labelWidth = estimateTextWidth(label, fontSize);
+  const mark = logo
+    ? `<image href="${logo}" x="${x}" y="${y - Math.round(size * 0.78)}" width="${size}" height="${size}"/>`
+    : "";
+  const markWidth = logo ? size + 4 : 0;
+  const textX = x + markWidth;
+  const svg = [
+    mark,
+    t(textX, y, label.trimEnd(), { size: fontSize, fill: p.muted }),
+    t(textX + labelWidth, y, escapeXml(SPONSOR.name), {
+      size: fontSize,
+      fill: p.fg,
+      weight: 600,
+    }),
+  ].join("");
+  return {
+    svg,
+    width: markWidth + labelWidth + estimateTextWidth(SPONSOR.name, fontSize),
+  };
+}
+
+/**
+ * `[mark] ghfind.com  [logo] Powered by <sponsor>` on the left, `right` (the
+ * language list) anchored to `rightX` and clipped to whatever survives.
+ *
+ * The sponsor sits beside the ghfind lock-up rather than opposite it: both are
+ * site-level credits, while the right slot carries the account's own data.
+ *
+ * `sponsor: null` drops the credit outright (the strip has no room for it) —
+ * distinct from `{ logo: null }`, which keeps the credit minus its mark.
+ */
 function footer(
   y: number,
   leftX: number,
@@ -303,11 +356,16 @@ function footer(
   right: string,
   p: Palette,
   c: Copy,
+  sponsorCredit: { logo: string | null } | null,
 ): string {
   const markY = y - Math.round(markSize * 0.78);
   const wordX = leftX + markSize + 3;
   const brandWidth = estimateTextWidth(c.brand, fontSize);
-  const rightMax = rightX - (wordX + brandWidth) - 12;
+  const sponsor = sponsorCredit
+    ? sponsorGroup(wordX + brandWidth + 12, y, sponsorCredit.logo, markSize, fontSize, p)
+    : null;
+  const leftEnd = wordX + brandWidth + (sponsor ? 12 + sponsor.width : 0);
+  const rightMax = rightX - leftEnd - 12;
   const trailing =
     right && rightMax > 24
       ? t(rightX, y, escapeXml(clipText(right, rightMax, fontSize)), {
@@ -320,7 +378,7 @@ function footer(
     size: fontSize,
     fill: p.fg,
     weight: 700,
-  })}${trailing}`;
+  })}${sponsor?.svg ?? ""}${trailing}`;
 }
 
 function svgRoot(
@@ -417,7 +475,7 @@ function renderBars(o: MiniCardOptions, p: Palette, c: Copy): string {
       barGroup(BAR_COLUMN_X[i % 2], BAR_ROW_Y[Math.floor(i / 2)], key, o, p),
     ).join(""),
     `<line x1="18" y1="180" x2="422" y2="180" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c),
+    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
   ].join("");
 }
 
@@ -524,12 +582,17 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
       .join(""),
     grades,
     `<line x1="18" y1="164" x2="422" y2="164" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c),
+    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
   ].join("");
 }
 
 // ---------------------------------------------------------------------------
 // strip — 420×88: two dense rows, sized to sit in a shields badge row
+//
+// The only variant with no sponsor credit: its footer is already brand +
+// languages inside 392px, and a third run would leave every slot clipped to
+// nothing. The sponsor is better served by a legible slot on bars/radar (the
+// default, and what the builder leads with) than a squeezed one here.
 // ---------------------------------------------------------------------------
 
 function renderStrip(o: MiniCardOptions, p: Palette, c: Copy): string {
@@ -556,7 +619,7 @@ function renderStrip(o: MiniCardOptions, p: Palette, c: Copy): string {
       : "",
     t(406, 52, escapeXml(tail), { size: 10, fill: p.accent, weight: 700, anchor: "end" }),
     `<line x1="14" y1="59" x2="406" y2="59" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(72, 14, 406, 11, 9.5, o.languages.join(" · "), p, c),
+    footer(72, 14, 406, 11, 9.5, o.languages.join(" · "), p, c, null),
   ].join("");
 }
 

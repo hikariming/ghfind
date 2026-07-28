@@ -208,14 +208,34 @@ export function Shell({
   );
 }
 
-export function Brand({ palette }: { palette: CardPalette }) {
+/** `sponsorLogo` is a data URL (`sponsorLogoDataUrl()`); without it the credit
+ *  still renders as text, so a missing asset never costs the card its footer. */
+export function Brand({
+  palette,
+  sponsorLogo,
+}: {
+  palette: CardPalette;
+  sponsorLogo?: string | null;
+}) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
       <div style={{ display: "flex", color: palette.subtle }}>
         GitHub Roast ·{" "}
         <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>ghfind.com</span>
       </div>
-      <div style={{ display: "flex", color: palette.subtle }}>Powered by {SPONSOR.name}</div>
+      <div style={{ display: "flex", alignItems: "center", color: palette.subtle }}>
+        {sponsorLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={sponsorLogo}
+            width={26}
+            height={26}
+            alt=""
+            style={{ borderRadius: 6, marginRight: 9 }}
+          />
+        ) : null}
+        Powered by {SPONSOR.name}
+      </div>
     </div>
   );
 }
@@ -331,6 +351,8 @@ export interface Identity {
   palette: CardPalette;
   /** Data-URL QR of the profile page, or null when the QR toggle is off. */
   qr: string | null;
+  /** Data-URL sponsor logo for the footer credit. */
+  sponsorLogo: string | null;
 }
 
 function glowFor(id: Identity): string {
@@ -521,7 +543,7 @@ function ContribCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) 
           ))}
         </div>
       </div>
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
     </Shell>
   );
 }
@@ -588,7 +610,7 @@ function PrCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           </div>
         )}
       </div>
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
     </Shell>
   );
 }
@@ -664,7 +686,7 @@ function PathCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           ))}
         </div>
       </div>
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
     </Shell>
   );
 }
@@ -700,7 +722,7 @@ function WorkCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           ))}
         </div>
       </div>
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
     </Shell>
   );
 }

@@ -27,6 +27,7 @@ import { beatPercent } from "@/lib/percentile";
 import { aggregateLanguages } from "@/lib/profile-insights";
 import { getRankCached } from "@/lib/rank";
 import { tierFor } from "@/lib/score";
+import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE } from "../../shared";
 
@@ -75,11 +76,13 @@ export async function GET(
   // Rank and percentile both come off getRankCached so the two halves of the
   // meta line ("Top 0.8% · #128 / 21,384") share one denominator. getRank /
   // getPercentile in db.ts aggregate the whole table — never call those here.
-  const [rank, avatar, baselines, snap] = await Promise.all([
+  const [rank, avatar, baselines, snap, sponsorLogo] = await Promise.all([
     getRankCached(detail.final_score),
     avatarDataUrl(detail.avatar_url, AVATAR_PX),
     getWeeklyBaselines([detail.username]),
     getProfileSnapshot(detail.username),
+    // `small`: this is the other half of the payload budget the avatar spends.
+    sponsorLogoDataUrl("small"),
   ]);
 
   const delta = resolveWeeklyDelta({
@@ -110,6 +113,7 @@ export async function GET(
       total: rank?.total ?? null,
       beat: rank ? beatPercent(rank.below, rank.total) : null,
       delta,
+      sponsorLogo,
       variant,
       theme,
       lang,

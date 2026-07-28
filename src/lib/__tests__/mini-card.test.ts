@@ -35,6 +35,7 @@ const base: MiniCardOptions = {
   total: 21384,
   beat: 99.2,
   delta: 2.3,
+  sponsorLogo: "data:image/png;base64,sponsor",
   variant: "bars",
   theme: "dark",
   lang: "en",
@@ -158,6 +159,36 @@ describe("mini card", () => {
       expect(svg).not.toContain("undefined");
       expect(svg).toContain("ghfind.com");
     }
+  });
+
+  it("credits the sponsor on bars and radar, but not on the strip", () => {
+    for (const variant of ["bars", "radar"] as const) {
+      const svg = renderMiniCardSvg({ ...base, variant });
+      expect(svg).toContain('<image href="data:image/png;base64,sponsor"');
+      expect(svg).toContain("Powered by");
+      expect(svg).toContain("LobeHub");
+    }
+    // 420×88 has no room for a third footer run — see renderStrip.
+    const strip = renderMiniCardSvg({ ...base, variant: "strip" });
+    expect(strip).not.toContain("base64,sponsor");
+    expect(strip).not.toContain("Powered by");
+  });
+
+  it("keeps the language slot alongside the sponsor credit", () => {
+    // Both live in the footer, so the sponsor must not squeeze the languages out.
+    const svg = renderMiniCardSvg({ ...base, variant: "bars" });
+    expect(svg).toContain("Python · Go · TypeScript");
+    expect(svg).toContain("LobeHub");
+  });
+
+  it("falls back to a text-only credit when the sponsor logo is missing", () => {
+    // sponsorLogoDataUrl resolves null on a missing asset. The mark goes, the
+    // credit stays — that's the part that's owed.
+    const svg = renderMiniCardSvg({ ...base, sponsorLogo: null });
+    expect(svg).not.toContain("base64,sponsor");
+    expect(svg).toContain("Powered by");
+    expect(svg).toContain("LobeHub");
+    expect(svg).toContain("Python · Go · TypeScript");
   });
 
   it("clips overlong handles and names instead of overflowing the frame", () => {

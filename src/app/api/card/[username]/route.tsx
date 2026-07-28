@@ -7,6 +7,7 @@ import {
 import { getPercentileCached } from "@/lib/rank";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
+import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { USERNAME_RE } from "@/lib/username";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
@@ -35,6 +36,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const { username } = await ctx.params;
   const name = decodeURIComponent(username ?? "").trim();
 
+  // Satori rasterizes this away, so the full-size mark costs the response nothing.
+  const sponsorLogo = await sponsorLogoDataUrl();
   const detail = USERNAME_RE.test(name) ? await getAccountDetail(name) : null;
 
   // Unrated placeholder — keeps READMEs from showing a broken image.
@@ -52,7 +55,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             Get roasted at ghfind.com
           </div>
         </div>
-        <Brand palette={palette} />
+        <Brand palette={palette} sponsorLogo={sponsorLogo} />
       </Shell>,
       fontList,
     );
@@ -91,6 +94,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     color,
     palette,
     qr,
+    sponsorLogo,
   };
 
   // Specialty "brag cards" read the sedimented profile snapshot. If it's missing
@@ -213,7 +217,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
         <div style={{ display: "flex" }} />
       )}
 
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={sponsorLogo} />
     </Shell>,
     fontList,
   );

@@ -33,6 +33,7 @@ describe("material card", () => {
       theme: "dark",
       qr: "data:image/png;base64,qr",
       tierIcon: "data:image/svg+xml;base64,crown",
+      sponsorLogo: "data:image/png;base64,sponsor",
     });
 
     expect(svg).toContain('width="1824" height="1200"');
@@ -61,7 +62,16 @@ describe("material card", () => {
     expect(svg).toContain('<text x="178" y="136" fill="#d4d4d8" font-size="29">Codex Showcase</text>');
     expect(svg).toContain("封神 · 殿堂级标杆");
     expect(svg.match(/ghfind\.com/g)).toHaveLength(1);
-    expect(svg).toContain("Powered by Lubehub, Dify and Mosoo.");
+    // Credit line and logo are laid out from the same right edge (x=864): the
+    // text hangs off it, the logo sits back by the text's measured width.
+    expect(svg).toContain(
+      '<text x="864" y="553" text-anchor="end" fill="#d4d4d8" font-size="20">Powered by LobeHub</text>',
+    );
+    expect(svg).toContain(
+      '<image href="data:image/png;base64,sponsor" x="612" y="533" width="26" height="26"/>',
+    );
+    expect(svg).not.toContain("Lubehub");
+    expect(svg).not.toContain("Mosoo");
     expect(svg).toContain('data-decoration="ghfind-watermark"');
     expect(svg).toContain('stop-color="#f59e0b" stop-opacity="0.5"');
     expect(svg).toContain('flood-color="#f59e0b" flood-opacity="0.42"');

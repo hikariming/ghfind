@@ -4,6 +4,7 @@ import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
 import { normalizeUsername } from "@/lib/username";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
+import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { verdict } from "@/lib/verdict";
 import type { AccountDetail } from "@/lib/db";
 import { Brand, OgAvatarFrame, PALETTES, Shell, parseQr, parseTheme } from "../../../[username]/cards";
@@ -115,11 +116,12 @@ export async function GET(
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
 
-  const [avA, avB, tierIconA, tierIconB] = await Promise.all([
+  const [avA, avB, tierIconA, tierIconB, sponsorLogo] = await Promise.all([
     avatarDataUrl(da?.avatar_url ?? null),
     avatarDataUrl(db?.avatar_url ?? null),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(da?.tier ?? "NPC").icon),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(db?.tier ?? "NPC").icon),
+    sponsorLogoDataUrl(),
   ]);
 
   const vsColor = BUCKET_COLOR[v.bucket] ?? "#f97316";
@@ -191,7 +193,7 @@ export async function GET(
         {line}
       </div>
 
-      <Brand palette={palette} />
+      <Brand palette={palette} sponsorLogo={sponsorLogo} />
     </Shell>,
     fontList,
   );
