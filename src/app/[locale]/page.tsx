@@ -45,7 +45,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         <p className="mb-3 text-sm font-bold tracking-wide text-zinc-400">
           {t("brand")} <span className="text-orange-500">GitHub</span>
         </p>
-        <h1 className="max-w-2xl text-balance text-4xl font-black tracking-tight sm:text-5xl">
+        <h1 className="max-w-2xl whitespace-pre-line text-balance text-3xl font-black tracking-tight sm:text-5xl">
           {t("headline")}
         </h1>
         <p className="mt-3 max-w-md text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">

@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 /**
- * "已经有 N 名开发者参与战斗 ⚔️" — fetches the evaluated-account count and counts
+ * "已经有 N 名开发者惨遭锐评。" — fetches the evaluated-account count and counts
  * up from 0 to N on mount. Renders nothing until there is a positive count (so a
  * cold / DB-less environment shows no broken state).
  */

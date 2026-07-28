@@ -73,8 +73,8 @@
   },
   "home": {
     "brand": "毒舌",
-    "headline": "发现最佳开发者，也成为其中之一",
-    "subtitle": "先来一发 0–100 分的毒舌成色检测，看清你在哪，知道往哪走。",
+    "headline": "让“我为人人”的开发者\n被人人看见",
+    "subtitle": "从夯到拉锐评 GitHub 账号",
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
@@ -410,7 +410,7 @@
     "cancel": "取消",
     "saveContinue": "保存并继续"
   },
-  "developerCount": "已经有 <n>{count, number}</n> 名开发者参与战斗 ⚔️",
+  "developerCount": "已经有 <n>{count, number}</n> 名开发者惨遭锐评。",
   "shareCard": {
     "beatLabel": "超越的开发者",
     "brand": "🔥 ghfind · 来测测你的含金量"
