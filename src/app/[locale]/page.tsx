@@ -6,7 +6,6 @@ import { HomeLeaderboard } from "@/components/HomeLeaderboard";
 import { Roaster } from "@/components/Roaster";
 import { HomeFaq, getFaqItems } from "@/components/HomeFaq";
 import { HomeIntro } from "@/components/HomeIntro";
-import { HomeEventBanner } from "@/components/HomeEventBanner";
 import { JsonLd, faqJsonLd } from "@/components/JsonLd";
 import type { TierKey } from "@/lib/tier";
 
@@ -42,7 +41,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   return (
     <main className="flex flex-1 flex-col items-center px-5 pb-14 pt-2 sm:px-6 sm:pb-20 sm:pt-3">
       <JsonLd data={faqJsonLd(faqItems)} />
-      <HomeEventBanner locale={locale} />
       <header className="mb-10 flex w-full max-w-4xl flex-col items-center text-center">
         <p className="mb-3 text-sm font-bold tracking-wide text-zinc-400">
           {t("brand")} <span className="text-orange-500">GitHub</span>
