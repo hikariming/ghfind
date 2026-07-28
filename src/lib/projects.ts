@@ -1,7 +1,7 @@
-export type ProjectSort = "quality" | "momentum" | "stars";
-export type ProjectReason = "elite" | "momentum" | "quality" | "popular";
+export type ProjectSort = "community" | "attention" | "stars";
+export type ProjectReason = "elite" | "attention" | "community" | "popular";
 
-export function projectQualityScore(avgScore: number, contributorCount: number): number {
+export function communityStrengthScore(avgScore: number, contributorCount: number): number {
   if (!Number.isFinite(avgScore) || !Number.isFinite(contributorCount) || contributorCount <= 0) {
     return 0;
   }
@@ -10,17 +10,17 @@ export function projectQualityScore(avgScore: number, contributorCount: number):
 
 export function projectRecommendationReason(input: {
   eliteCount: number;
-  momentum: number;
+  contributorAttention: number;
   avgScore: number;
 }): ProjectReason {
   if (input.eliteCount >= 2) return "elite";
-  if (input.momentum >= 10) return "momentum";
-  if (input.avgScore >= 85) return "quality";
+  if (input.contributorAttention >= 10) return "attention";
+  if (input.avgScore >= 85) return "community";
   return "popular";
 }
 
 export function parseProjectSort(value: unknown): ProjectSort {
-  return value === "momentum" || value === "stars" ? value : "quality";
+  return value === "attention" || value === "stars" ? value : "community";
 }
 
 export function parseProjectPage(value: unknown): number {
@@ -42,7 +42,7 @@ export function buildProjectListHref(options: {
   page: number;
 }): string {
   const search = new URLSearchParams();
-  if (options.sort !== "quality") search.set("sort", options.sort);
+  if (options.sort !== "community") search.set("sort", options.sort);
   if (options.language) search.set("language", options.language);
   if (options.page > 1) search.set("page", String(options.page));
   const query = search.toString();

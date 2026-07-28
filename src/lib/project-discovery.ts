@@ -100,7 +100,7 @@ const relatedLoader = createCachedLoader<RelatedProject[]>({
     const language = await getRepoLanguage(options.repoKey);
     if (!language) return shared;
     const fallback = await getProjectsCached({
-      sort: "quality",
+      sort: "community",
       language,
       limit: Math.max(options.limit * 2, 12),
       offset: 0,

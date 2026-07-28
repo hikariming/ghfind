@@ -15,8 +15,8 @@ export function projectCardViewModel(project: ProjectListItem) {
     topics: project.repo.topics,
     contributorCount: project.contributorCount,
     avgScore: project.avgScore,
-    momentum: project.momentum,
-    qualityScore: project.qualityScore,
+    contributorAttention: project.contributorAttention,
+    communityStrength: project.communityStrength,
     reason: projectRecommendationReason(project),
     contributors: project.topContributors.map((contributor) => ({
       username: contributor.username,

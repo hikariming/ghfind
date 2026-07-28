@@ -40,12 +40,12 @@ beforeEach(() => {
 
 describe("project discovery cache", () => {
   it("builds deterministic cache keys", () => {
-    expect(projectListCacheKey({ sort: "quality", language: null, limit: 24, offset: 0 })).toBe(
-      "projects:list:quality:all:24:0",
+    expect(projectListCacheKey({ sort: "community", language: null, limit: 24, offset: 0 })).toBe(
+      "projects:list:community:all:24:0",
     );
     expect(
-      projectListCacheKey({ sort: "momentum", language: "TypeScript", limit: 12, offset: 24 }),
-    ).toBe("projects:list:momentum:typescript:12:24");
+      projectListCacheKey({ sort: "attention", language: "TypeScript", limit: 12, offset: 24 }),
+    ).toBe("projects:list:attention:typescript:12:24");
     expect(relatedProjectsCacheKey("OpenAI/SDK", 6)).toBe("projects:related:openai/sdk:6");
   });
 
@@ -115,9 +115,9 @@ describe("getRelatedProjectsCached", () => {
     // The filler goes through the language-keyed list loader, so its cost is
     // once per language per TTL — assert it hit that cache namespace.
     expect(getProjects).toHaveBeenCalledWith(
-      expect.objectContaining({ sort: "quality", language: "Rust", offset: 0 }),
+      expect.objectContaining({ sort: "community", language: "Rust", offset: 0 }),
     );
-    expect(store.has("projects:list:quality:rust:12:0")).toBe(true);
+    expect(store.has("projects:list:community:rust:12:0")).toBe(true);
     expect(store.get("projects:related:x/y:4")).toEqual(result);
   });
 

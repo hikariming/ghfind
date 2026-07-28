@@ -19,7 +19,7 @@ export function ProjectControls({
   languages: string[];
 }) {
   const t = useTranslations("projects");
-  const sorts: ProjectSort[] = ["quality", "momentum", "stars"];
+  const sorts: ProjectSort[] = ["community", "attention", "stars"];
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
       <div className="flex flex-wrap gap-2" aria-label={t("sortLabel")}> 

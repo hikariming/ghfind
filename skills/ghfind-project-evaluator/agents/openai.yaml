@@ -1,0 +1,4 @@
+interface:
+  display_name: "GHFind Project Evaluator"
+  short_description: "Evaluate open-source product value with runtime evidence"
+  default_prompt: "Use $ghfind-project-evaluator to evaluate this GitHub repository and produce validated project analysis artifacts."

@@ -61,8 +61,8 @@ export function ProjectCard({ project, position }: { project: ProjectListItem; p
           <div className="text-[10px] uppercase tracking-wide text-zinc-500">{t("avgScore")}</div>
         </div>
         <div>
-          <div className="text-sm font-bold tabular-nums text-orange-300">{model.momentum}</div>
-          <div className="text-[10px] uppercase tracking-wide text-zinc-500">{t("momentum")}</div>
+          <div className="text-sm font-bold tabular-nums text-orange-300">{model.contributorAttention}</div>
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">{t("contributorAttention")}</div>
         </div>
       </div>
 

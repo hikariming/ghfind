@@ -12,8 +12,21 @@ import { RepoOverviewCard, type RepoOverviewLabels } from "@/components/RepoOver
 import { RepoPageBeacon } from "@/components/RepoPageBeacon";
 import { ProjectRecommendations } from "@/components/ProjectRecommendations";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
+import {
+  ProjectAssessmentCard,
+  type ProjectAssessmentCardLabels,
+} from "@/components/ProjectAssessmentCard";
+import {
+  ProjectAssessmentDetails,
+  type ProjectAssessmentDetailsLabels,
+} from "@/components/ProjectAssessmentDetails";
 import { getDevelopersByFacetCached } from "@/lib/developers";
 import { DEVELOPERS_PER_FACET_LIMIT, getRepoOverview } from "@/lib/db";
+import {
+  getProjectAssessment,
+  listTreasureHistory,
+  ProjectAnalysisDatabaseError,
+} from "@/lib/project-analysis-db";
 import { getRelatedProjectsCached } from "@/lib/project-discovery";
 import type { FacetType } from "@/lib/facets";
 import { TIER_KEY } from "@/lib/tier";
@@ -58,6 +71,20 @@ function bucketHeadingKey(type: FacetType): BucketHeadingKey {
   return "languageBucketHeading";
 }
 
+async function optionalProjectAssessment(type: FacetType, value: string) {
+  if (type !== "repo") return { assessment: null, treasureHistory: [] };
+  try {
+    const assessment = await getProjectAssessment(value);
+    const treasureHistory = assessment ? await listTreasureHistory(value) : [];
+    return { assessment, treasureHistory };
+  } catch (error) {
+    if (error instanceof ProjectAnalysisDatabaseError) {
+      return { assessment: null, treasureHistory: [] };
+    }
+    throw error;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -94,15 +121,18 @@ export default async function FacetBucketPage({
   const t = await getTranslations("developers");
   const tl = await getTranslations("leaderboard");
   const tTier = await getTranslations("tiers");
+  const tProjects = await getTranslations("projects");
 
   // Project pages lead with a repo header + contributor-quality summary. Only
   // repo buckets have a repo entity; language/org buckets skip it. Null when the
   // repo isn't in the graph yet — the page then degrades to the plain list.
-  const [overview, entries, relatedProjects] = await Promise.all([
+  const [overview, entries, relatedProjects, projectAnalysis] = await Promise.all([
     type === "repo" ? getRepoOverview(value) : Promise.resolve(null),
     getDevelopersByFacetCached(type, value),
     type === "repo" ? getRelatedProjectsCached(value) : Promise.resolve([]),
+    optionalProjectAssessment(type, value),
   ]);
+  const { assessment, treasureHistory } = projectAnalysis;
 
   // An empty bucket (probed/garbage value, or one that lost all members) is
   // thin content: rendering it would pay an ISR write per path × locale for a
@@ -136,6 +166,43 @@ export default async function FacetBucketPage({
     heatLabel: tl("heatLabel"),
     heatTitle: tl("heatTitle"),
     vsButton: tl("vsButton"),
+  };
+  const assessmentLabels: ProjectAssessmentCardLabels = {
+    productScore: tProjects("productScore"),
+    confidence: tProjects("confidence"),
+    communityStrength: tProjects("communityStrength"),
+    viewReport: tProjects("viewReport"),
+    treasure: tProjects("boards.treasure"),
+    classic: tProjects("boards.classic"),
+    unranked: tProjects("boards.unranked"),
+  };
+  const assessmentDetailLabels: ProjectAssessmentDetailsLabels = {
+    productScore: tProjects("productScore"),
+    pain: tProjects("details.pain"),
+    effectiveness: tProjects("details.effectiveness"),
+    experience: tProjects("details.experience"),
+    valueDensity: tProjects("details.valueDensity"),
+    confidence: tProjects("confidence"),
+    communityStrength: tProjects("communityStrength"),
+    exposure: tProjects("details.exposure"),
+    stars: tProjects("details.stars"),
+    commit: tProjects("details.commit"),
+    analysisTime: tProjects("details.analysisTime"),
+    productContract: tProjects("details.productContract"),
+    targetUsers: tProjects("details.targetUsers"),
+    painStatement: tProjects("details.painStatement"),
+    dimensionEvidence: tProjects("details.dimensionEvidence"),
+    unknowns: tProjects("details.unknowns"),
+    risks: tProjects("details.risks"),
+    none: tProjects("details.none"),
+    treasureHistory: tProjects("details.treasureHistory"),
+    selectedAt: tProjects("details.selectedAt"),
+    report: tProjects("details.report"),
+    historyStatus: {
+      active: tProjects("details.historyStatus.active"),
+      graduated: tProjects("details.historyStatus.graduated"),
+      removed: tProjects("details.historyStatus.removed"),
+    },
   };
 
   return (
@@ -183,6 +250,22 @@ export default async function FacetBucketPage({
             }}
           />
         </>
+      )}
+
+      {assessment && (
+        <section className="mb-8 space-y-6" aria-label={tProjects("viewReport")}>
+          <ProjectAssessmentCard
+            assessment={assessment}
+            labels={assessmentLabels}
+            locale={locale}
+          />
+          <ProjectAssessmentDetails
+            assessment={assessment}
+            treasureHistory={treasureHistory}
+            labels={assessmentDetailLabels}
+            locale={locale}
+          />
+        </section>
       )}
 
       <Suspense fallback={null}>

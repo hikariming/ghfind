@@ -17,8 +17,8 @@ const project: ProjectListItem = {
   contributorCount: 3,
   avgScore: 91.2,
   eliteCount: 2,
-  momentum: 5,
-  qualityScore: 182.4,
+  contributorAttention: 5,
+  communityStrength: 182.4,
   topContributors: [
     {
       username: "alice",
@@ -42,8 +42,8 @@ describe("projectCardViewModel", () => {
       topics: ["tooling", "developer-tools"],
       contributorCount: 3,
       avgScore: 91.2,
-      momentum: 5,
-      qualityScore: 182.4,
+      contributorAttention: 5,
+      communityStrength: 182.4,
       reason: "elite",
       contributors: [{ username: "alice", href: "/u/alice", score: 96, tier: "夯" }],
     });

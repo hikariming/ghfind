@@ -21,8 +21,8 @@ const project = (key: string): ProjectListItem => ({
   contributorCount: 2,
   avgScore: 90,
   eliteCount: 1,
-  momentum: 3,
-  qualityScore: 140,
+  contributorAttention: 3,
+  communityStrength: 140,
   topContributors: [],
 });
 

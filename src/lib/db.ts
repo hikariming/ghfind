@@ -25,7 +25,7 @@ import {
 } from "./comments";
 import { extractFacets, type FacetType } from "./facets";
 import { extractRepoGraph, type RepoGraph } from "./repo-graph";
-import { projectQualityScore, type ProjectSort } from "./projects";
+import { communityStrengthScore, type ProjectSort } from "./projects";
 import {
   emptyReactionCounts,
   isProfileReaction,
@@ -5078,8 +5078,8 @@ export interface ProjectListItem {
   contributorCount: number;
   avgScore: number;
   eliteCount: number;
-  momentum: number;
-  qualityScore: number;
+  contributorAttention: number;
+  communityStrength: number;
   topContributors: RepoOwnerRef[];
 }
 
@@ -5146,13 +5146,13 @@ async function attachTopContributors(
       contributorCount,
       avgScore,
       eliteCount: Number(row.elite_count ?? 0),
-      momentum:
+      contributorAttention:
         contributorCount > 0
           ? Math.round(
               (Number(row.recent_lookup_count ?? 0) / Math.sqrt(contributorCount)) * 10,
             ) / 10
           : 0,
-      qualityScore: projectQualityScore(avgScore, contributorCount),
+      communityStrength: communityStrengthScore(avgScore, contributorCount),
       topContributors: topByRepo.get(String(row.repo_key)) ?? [],
     };
   });
@@ -5247,9 +5247,9 @@ async function queryProjectItems(
   const metric = (row: Record<string, unknown>) => {
     const count = Number(row.contributor_count ?? 0);
     const avg = Number(row.avg_score ?? 0);
-    const quality = projectQualityScore(avg, count);
-    const momentum = count > 0 ? Number(row.recent_lookup_count ?? 0) / Math.sqrt(count) : 0;
-    return { quality, momentum };
+    const community = communityStrengthScore(avg, count);
+    const attention = count > 0 ? Number(row.recent_lookup_count ?? 0) / Math.sqrt(count) : 0;
+    return { community, attention };
   };
   rows.sort((a, b) => {
     const aMetric = metric(a);
@@ -5257,9 +5257,9 @@ async function queryProjectItems(
     const primary =
       options.sort === "stars"
         ? Number(b.stars ?? 0) - Number(a.stars ?? 0)
-        : options.sort === "momentum"
-          ? bMetric.momentum - aMetric.momentum || bMetric.quality - aMetric.quality
-          : bMetric.quality - aMetric.quality || Number(b.stars ?? 0) - Number(a.stars ?? 0);
+        : options.sort === "attention"
+          ? bMetric.attention - aMetric.attention || bMetric.community - aMetric.community
+          : bMetric.community - aMetric.community || Number(b.stars ?? 0) - Number(a.stars ?? 0);
     return primary || String(a.repo_key).localeCompare(String(b.repo_key));
   });
   const offset = Math.max(0, options.offset ?? 0);
@@ -5278,7 +5278,7 @@ export async function getProjects(options: {
   try {
     await ensureSchema(db);
     return await queryProjectItems(db, {
-      sort: options.sort ?? "quality",
+      sort: options.sort ?? "community",
       language: options.language,
       limit: options.limit ?? 24,
       offset: options.offset,
@@ -5342,7 +5342,7 @@ export async function getRelatedProjects(repoKey: string, limit = 6): Promise<Re
     );
     const keys = [...sharedCounts.keys()];
     const sharedProjects = await queryProjectItems(db, {
-      sort: "quality",
+      sort: "community",
       repoKeys: keys,
       limit: keys.length || 1,
     });
@@ -5351,7 +5351,7 @@ export async function getRelatedProjects(repoKey: string, limit = 6): Promise<Re
         (a, b) =>
           (sharedCounts.get(b.repo.repo_key) ?? 0) -
             (sharedCounts.get(a.repo.repo_key) ?? 0) ||
-          b.qualityScore - a.qualityScore,
+          b.communityStrength - a.communityStrength,
       )
       .slice(0, limit)
       .map((project) => ({
@@ -5405,7 +5405,7 @@ export async function getDeveloperCommonProjects(
       args: [a, b, Math.max(1, Math.min(50, limit))],
     });
     return await queryProjectItems(db, {
-      sort: "quality",
+      sort: "community",
       repoKeys: result.rows.map((row) => String(row.repo_key)),
       limit,
     });

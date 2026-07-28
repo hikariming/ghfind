@@ -13,7 +13,7 @@
     "leaderboard": "랭킹",
     "discover": "발견",
     "developers": "개발자",
-    "projects": "프로젝트",
+    "projects": "프로젝트 α 테스트",
     "languages": "언어",
     "organizations": "조직",
     "versus": "대결",
@@ -139,34 +139,107 @@
     "repoAvgScore": "평균 점수"
   },
   "projects": {
-    "metaTitle": "고품질 GitHub 프로젝트 발견 · ghfind",
-    "metaDescription": "프로젝트 뒤에 있는 개발자들의 퀄리티와 기세로 GitHub 프로젝트를 발견하세요.",
-    "eyebrow": "프로젝트 발견",
-    "heading": "누가 만드는지로 프로젝트 찾기",
-    "subtitle": "스타는 인기를 보여줄 뿐. ghfind는 기여자 퀄리티, 팀의 깊이, 최근 관심도라는 빠진 층을 더합니다.",
-    "sortLabel": "프로젝트 정렬",
-    "languageLabel": "프로젝트 언어",
-    "sort": {
-      "quality": "기여자 퀄리티",
-      "momentum": "최근 기세",
-      "stars": "스타"
+    "metaTitle": "주목할 오픈소스 프로젝트 · ghfind",
+    "metaDescription": "실제 문제를 해결하고 더 많은 관심을 받을 가치가 있는 오픈소스 프로젝트를 찾아보세요.",
+    "eyebrow": "오픈소스 프로젝트 평가",
+    "heading": "더 주목받아야 할 프로젝트 찾기",
+    "subtitle": "스타, 회사 규모, 코드 양을 넘어 문제, 해결 효과, 시작 경험, 제공 가치를 기준으로 공개 GitHub 프로젝트를 평가합니다.",
+    "boardLabel": "프로젝트 보드",
+    "boards": { "treasure": "보물 프로젝트", "classic": "클래식 프로젝트", "unranked": "현재 순위 밖" },
+    "boardDescriptions": {
+      "treasure": "높은 제품 가치, 신뢰 가능한 검증, 낮은 노출을 충족한 프로젝트입니다.",
+      "classic": "장기간 사용되었고 지금도 유용한 성숙 프로젝트입니다."
     },
-    "allLanguages": "전체 언어",
+    "productScore": "제품 가치",
+    "communityStrength": "커뮤니티 강도",
+    "contributorAttention": "기여자 관심도",
     "contributors": "기여자",
-    "avgScore": "평균 점수",
-    "momentum": "기세",
-    "reason": {
-      "elite": "상위권 개발자 여럿이 참여",
-      "momentum": "이번 주 관심도 상승 중",
-      "quality": "기여자 퀄리티 선두",
-      "popular": "인기 오픈소스 프로젝트"
+    "avgScore": "기여자 평균 점수",
+    "sortLabel": "커뮤니티 발견 정렬",
+    "languageLabel": "언어 필터",
+    "allLanguages": "모든 언어",
+    "sort": {
+      "community": "커뮤니티 강도",
+      "attention": "기여자 관심도",
+      "stars": "Stars"
     },
+    "reason": {
+      "elite": "높은 평가의 기여자 그룹",
+      "attention": "관심받는 기여자",
+      "community": "높은 기여자 평균",
+      "popular": "커뮤니티 신호"
+    },
+    "confidence": "신뢰도",
+    "verification": "검증 수준",
+    "details": {
+      "pain": "문제의 심각도",
+      "effectiveness": "해결 효과",
+      "experience": "도입 및 핵심 경험",
+      "valueDensity": "범위와 가치 밀도",
+      "exposure": "노출 수준",
+      "stars": "Stars",
+      "rubric": "평가 기준",
+      "commit": "평가 커밋",
+      "analysisTime": "평가 시각",
+      "productContract": "제품 계약",
+      "targetUsers": "대상 사용자",
+      "painStatement": "핵심 문제",
+      "dimensionEvidence": "4개 차원의 평가 근거",
+      "unknowns": "미확인 사항",
+      "risks": "도입 위험",
+      "none": "기록 없음.",
+      "treasureHistory": "보물 발견 이력",
+      "selectedAt": "선정 시각",
+      "report": "전체 평가 보고서",
+      "historyStatus": {
+        "active": "현재 보물 프로젝트",
+        "graduated": "보물 단계 졸업",
+        "removed": "제거됨"
+      }
+    },
+    "viewReport": "전체 평가 보기",
+    "databaseUnavailable": "프로젝트 데이터를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     "prev": "← 이전",
     "next": "다음 →",
     "page": "{page}페이지",
     "listLabel": "프로젝트 결과",
-    "emptyTitle": "아직 프로젝트 그래프가 없어요",
-    "emptyBody": "로컬에서 저장소 백필을 실행하거나 현재 필터를 해제하세요."
+    "emptyTitle": "이 보드에는 아직 프로젝트가 없습니다",
+    "emptyBody": {
+      "treasure": "첫 공개 저장소를 제출하세요. 기준을 충족한 프로젝트는 평가 후 여기에 표시됩니다.",
+      "classic": "장기 채택과 현재 유용성이 확인된 성숙 프로젝트가 표시됩니다."
+    },
+    "analysisForm": {
+      "repositoryLabel": "GitHub 저장소",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "브랜치, 태그 또는 커밋(선택)",
+      "refPlaceholder": "기본 브랜치",
+      "submit": "평가 시작",
+      "submitting": "작업 생성 중…",
+      "safetyHint": "모든 공개 GitHub 저장소를 지원합니다. 일부 프로젝트는 설치, 빌드, 핵심 흐름도 함께 검증합니다.",
+      "unknownError": "프로젝트 평가를 만들 수 없습니다."
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "프로젝트 평가 상태 · ghfind",
+    "pollFailed": "상태 새로고침 실패. 다시 시도합니다.",
+    "requestedRef": "지정 버전",
+    "duration": "경과 시간",
+    "retry": "돌아가서 다시 제출",
+    "confidence": "신뢰도",
+    "verification": "검증 수준",
+    "exposure": "노출",
+    "communityStrength": "커뮤니티 강도",
+    "errors": {
+      "invalidArtifact": "생성된 평가 결과가 불완전합니다. 돌아가서 다시 제출해 주세요.",
+      "generic": "이번 프로젝트 평가를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    },
+    "unknowns": "미확인 항목",
+    "risks": "도입 위험",
+    "none": "기록 없음.",
+    "viewProject": "프로젝트 페이지 보기",
+    "scores": { "product": "제품 가치", "pain": "문제", "effectiveness": "해결 효과", "experience": "온보딩과 핵심 경험", "valueDensity": "범위와 가치 밀도" },
+    "status": { "queued": "분석 대기", "creating_thread": "평가 준비 중", "running": "분석 중", "finalizing": "검증 및 저장 중", "completed": "평가 완료", "failed": "평가 실패", "cancelled": "평가 취소", "expired": "평가 만료" },
+    "phase": { "queued": "실행 대기", "creating_thread": "평가 작업 준비", "classifying": "제품 계약과 유형 식별", "cloning": "저장소 버전 가져오기", "inspecting": "소스와 문서 검사", "installing": "의존성 설치", "building": "빌드", "exercising": "핵심 흐름 실행", "evaluating": "증거 정리 및 채점", "writing_report": "결과와 보고서 작성", "persisting": "평가 결과 검증 및 저장", "completed": "결과 저장 완료" }
   },
   "discoveryNext": {
     "relatedTitle": "계속 탐색하기",

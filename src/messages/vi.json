@@ -13,7 +13,7 @@
     "leaderboard": "Bảng xếp hạng",
     "discover": "Khám phá",
     "developers": "Lập trình viên",
-    "projects": "Dự án",
+    "projects": "Dự án · Thử nghiệm α",
     "languages": "Ngôn ngữ",
     "organizations": "Tổ chức",
     "versus": "Solo",
@@ -144,29 +144,134 @@
     "eyebrow": "Khám phá dự án",
     "heading": "Tìm dự án qua người xây nên chúng",
     "subtitle": "Star chỉ nói lên độ phổ biến. ghfind bổ sung lớp còn thiếu: chất lượng người đóng góp, độ dày đội ngũ và sự chú ý gần đây.",
-    "sortLabel": "Sắp xếp dự án",
-    "languageLabel": "Ngôn ngữ dự án",
-    "sort": {
-      "quality": "Chất lượng người đóng góp",
-      "momentum": "Đà gần đây",
-      "stars": "Star"
+    "boardLabel": "Project boards",
+    "boards": {
+      "treasure": "Treasure projects",
+      "classic": "Classic projects",
+      "unranked": "Not currently ranked"
     },
-    "allLanguages": "Mọi ngôn ngữ",
+    "boardDescriptions": {
+      "treasure": "Giá trị sản phẩm cao, bằng chứng đáng tin cậy và mức độ phổ biến còn thấp. Star chỉ phản ánh độ phổ biến.",
+      "classic": "Các dự án trưởng thành, được sử dụng lâu dài và vẫn hữu ích đến hôm nay."
+    },
+    "productScore": "product value",
+    "communityStrength": "community strength",
+    "contributorAttention": "contributor attention",
     "contributors": "người đóng góp",
     "avgScore": "điểm trung bình",
-    "momentum": "đà tăng",
+    "sortLabel": "Sắp xếp dự án",
+    "languageLabel": "Ngôn ngữ dự án",
+    "allLanguages": "Mọi ngôn ngữ",
+    "sort": {
+      "community": "Community strength",
+      "attention": "Contributor attention",
+      "stars": "Star"
+    },
     "reason": {
       "elite": "Được xây bởi nhiều dev hàng đầu",
-      "momentum": "Sự chú ý đang tăng tuần này",
-      "quality": "Dẫn đầu về chất lượng người đóng góp",
+      "attention": "Contributors receiving attention",
+      "community": "High contributor average",
       "popular": "Dự án mã nguồn mở nổi tiếng"
     },
+    "confidence": "confidence",
+    "verification": "verification",
+    "details": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density",
+      "exposure": "Exposure",
+      "stars": "Stars",
+      "rubric": "Rubric",
+      "commit": "Evaluated commit",
+      "analysisTime": "Evaluation time",
+      "productContract": "Product contract",
+      "targetUsers": "Target users",
+      "painStatement": "Core pain",
+      "dimensionEvidence": "Dimension evidence",
+      "unknowns": "Unknowns",
+      "risks": "Adoption risks",
+      "none": "None recorded.",
+      "treasureHistory": "Treasure discovery history",
+      "selectedAt": "Selected",
+      "report": "Full evaluation report",
+      "historyStatus": {
+        "active": "Active treasure project",
+        "graduated": "Graduated from treasure status",
+        "removed": "Removed"
+      }
+    },
+    "viewReport": "View full evaluation",
+    "databaseUnavailable": "Dữ liệu dự án tạm thời không khả dụng. Vui lòng thử lại sau.",
     "prev": "← Trước",
     "next": "Sau →",
     "page": "Trang {page}",
     "listLabel": "Kết quả dự án",
     "emptyTitle": "Chưa có dữ liệu dự án ở đây",
-    "emptyBody": "Chạy backfill kho mã ở máy bạn hoặc bỏ bộ lọc hiện tại."
+    "emptyBody": {
+      "treasure": "Gửi kho GitHub công khai đầu tiên. Dự án đáp ứng tiêu chí sẽ xuất hiện tại đây sau khi đánh giá.",
+      "classic": "Mature projects appear here after evaluation confirms lasting adoption and current usefulness."
+    },
+    "analysisForm": {
+      "repositoryLabel": "GitHub repository",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "Branch, tag, or commit (optional)",
+      "refPlaceholder": "default branch",
+      "submit": "Bắt đầu đánh giá",
+      "submitting": "Creating task…",
+      "safetyHint": "Hỗ trợ mọi kho GitHub công khai. Một số dự án còn được kiểm tra cài đặt, build và luồng sử dụng chính.",
+      "unknownError": "Project evaluation could not be created."
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "Project evaluation status · ghfind",
+    "pollFailed": "Status refresh failed; another attempt will follow.",
+    "requestedRef": "requested ref",
+    "duration": "elapsed",
+    "retry": "Return and submit again",
+    "confidence": "confidence",
+    "verification": "verification",
+    "exposure": "exposure",
+    "communityStrength": "community strength",
+    "errors": {
+      "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
+      "generic": "This project assessment could not be completed. Please try again later."
+    },
+    "unknowns": "Unknowns",
+    "risks": "Adoption risks",
+    "none": "None recorded.",
+    "viewProject": "View project page",
+    "scores": {
+      "product": "Product value",
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density"
+    },
+    "status": {
+      "queued": "Waiting for analysis",
+      "creating_thread": "Preparing the assessment",
+      "running": "Analyzing project",
+      "finalizing": "Validating and saving results",
+      "completed": "Project evaluation complete",
+      "failed": "Project evaluation failed",
+      "cancelled": "Project evaluation cancelled",
+      "expired": "Project evaluation expired"
+    },
+    "phase": {
+      "queued": "Waiting for execution capacity",
+      "creating_thread": "Preparing the assessment task",
+      "classifying": "Identifying the product contract and project type",
+      "cloning": "Resolving the requested repository version",
+      "inspecting": "Inspecting source, docs, and configuration",
+      "installing": "Installing required dependencies",
+      "building": "Building the project",
+      "exercising": "Running a representative core flow",
+      "evaluating": "Organizing evidence and scoring",
+      "writing_report": "Writing structured results and report",
+      "persisting": "Validating and saving the assessment",
+      "completed": "Score, evidence, and report are saved"
+    }
   },
   "discoveryNext": {
     "relatedTitle": "Khám phá tiếp",

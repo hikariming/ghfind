@@ -2603,13 +2603,13 @@ describe("project discovery queries", () => {
     await db.recordAccountLookup("discover-hot", "203.0.113.12");
   });
 
-  it("orders projects by contributor quality and excludes hidden or low scores", async () => {
-    const projects = await db.getProjects({ sort: "quality", limit: 20 });
+  it("orders projects by community strength and excludes hidden or low scores", async () => {
+    const projects = await db.getProjects({ sort: "community", limit: 20 });
     const quality = projects.find((p) => p.repo.repo_key === "discover/quality");
     const scale = projects.find((p) => p.repo.repo_key === "discover/scale");
 
     expect(quality).toMatchObject({ contributorCount: 2, avgScore: 93, eliteCount: 2 });
-    expect(quality!.qualityScore).toBeGreaterThan(scale!.qualityScore);
+    expect(quality!.communityStrength).toBeGreaterThan(scale!.communityStrength);
     expect(projects.indexOf(quality!)).toBeLessThan(projects.indexOf(scale!));
     expect(quality!.topContributors.map((c) => c.username)).toEqual([
       "discover-alice",
@@ -2617,15 +2617,15 @@ describe("project discovery queries", () => {
     ]);
   });
 
-  it("supports momentum, stars, language, and stable pagination", async () => {
-    const momentum = await db.getProjects({ sort: "momentum", limit: 20 });
-    expect(momentum[0]?.repo.repo_key).toBe("discover/momentum");
-    expect(momentum[0]?.momentum).toBeGreaterThan(0);
+  it("supports contributor attention, stars, language, and stable pagination", async () => {
+    const attention = await db.getProjects({ sort: "attention", limit: 20 });
+    expect(attention[0]?.repo.repo_key).toBe("discover/momentum");
+    expect(attention[0]?.contributorAttention).toBeGreaterThan(0);
 
     const stars = await db.getProjects({ sort: "stars", limit: 20 });
     expect(stars[0]?.repo.repo_key).toBe("discover/stars");
 
-    const rust = await db.getProjects({ sort: "quality", language: "Rust", limit: 20 });
+    const rust = await db.getProjects({ sort: "community", language: "Rust", limit: 20 });
     expect(rust.map((p) => p.repo.repo_key)).toEqual([
       "discover/stars",
       "discover/rust-peer",

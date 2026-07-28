@@ -13,7 +13,7 @@
     "leaderboard": "ランキング",
     "discover": "発見",
     "developers": "開発者",
-    "projects": "プロジェクト",
+    "projects": "プロジェクト αテスト",
     "languages": "言語",
     "organizations": "組織",
     "versus": "対戦",
@@ -139,34 +139,107 @@
     "repoAvgScore": "平均スコア"
   },
   "projects": {
-    "metaTitle": "良質なGitHubプロジェクトを発見 · ghfind",
-    "metaDescription": "作っている開発者の質と勢いでランク付けしたGitHubプロジェクトを発見できます。",
-    "eyebrow": "プロジェクト発見",
-    "heading": "「誰が作っているか」でプロジェクトを探す",
-    "subtitle": "スターは人気の証。ghfind はその先——コントリビューターの質、チームの厚み、直近の注目度——を可視化します。",
-    "sortLabel": "プロジェクトの並び順",
-    "languageLabel": "プロジェクトの言語",
-    "sort": {
-      "quality": "コントリビューターの質",
-      "momentum": "直近の勢い",
-      "stars": "スター"
+    "metaTitle": "注目すべきオープンソースプロジェクト · ghfind",
+    "metaDescription": "実際の課題を解決し、もっと注目されるべきオープンソースプロジェクトを見つけます。",
+    "eyebrow": "オープンソース評価",
+    "heading": "もっと見られるべきプロジェクトを発見",
+    "subtitle": "Star、企業規模、コード量だけでなく、課題、解決力、導入体験、提供価値から公開 GitHub プロジェクトを評価します。",
+    "boardLabel": "プロジェクトボード",
+    "boards": { "treasure": "宝藏プロジェクト", "classic": "クラシックプロジェクト", "unranked": "現在ランク外" },
+    "boardDescriptions": {
+      "treasure": "高いプロダクト価値、信頼できる検証、低い露出を満たすプロジェクト。",
+      "classic": "長期的に利用され、現在も有用な成熟プロジェクト。"
     },
-    "allLanguages": "すべての言語",
+    "productScore": "プロダクト価値",
+    "communityStrength": "コミュニティ強度",
+    "contributorAttention": "コントリビューター注目度",
     "contributors": "コントリビューター",
-    "avgScore": "平均スコア",
-    "momentum": "勢い",
-    "reason": {
-      "elite": "複数のトップ開発者が参加",
-      "momentum": "今週注目度が上昇中",
-      "quality": "コントリビューターの質がリード",
-      "popular": "人気のオープンソースプロジェクト"
+    "avgScore": "平均コントリビューター評価",
+    "sortLabel": "コミュニティ発見順",
+    "languageLabel": "言語フィルター",
+    "allLanguages": "すべての言語",
+    "sort": {
+      "community": "コミュニティ強度",
+      "attention": "コントリビューター注目度",
+      "stars": "Stars"
     },
+    "reason": {
+      "elite": "高評価コントリビューター層",
+      "attention": "注目されるコントリビューター",
+      "community": "高いコントリビューター平均",
+      "popular": "コミュニティシグナル"
+    },
+    "confidence": "信頼度",
+    "verification": "検証レベル",
+    "details": {
+      "pain": "課題の深刻度",
+      "effectiveness": "解決効果",
+      "experience": "導入とコア体験",
+      "valueDensity": "範囲と価値密度",
+      "exposure": "露出度",
+      "stars": "Stars",
+      "rubric": "評価基準",
+      "commit": "評価コミット",
+      "analysisTime": "評価日時",
+      "productContract": "プロダクト契約",
+      "targetUsers": "対象ユーザー",
+      "painStatement": "中心課題",
+      "dimensionEvidence": "4軸の評価根拠",
+      "unknowns": "未確認事項",
+      "risks": "導入リスク",
+      "none": "記録なし。",
+      "treasureHistory": "宝藏発見履歴",
+      "selectedAt": "選出日時",
+      "report": "完全な評価レポート",
+      "historyStatus": {
+        "active": "現在の宝藏プロジェクト",
+        "graduated": "宝藏ステータスを卒業",
+        "removed": "削除済み"
+      }
+    },
+    "viewReport": "評価レポートを見る",
+    "databaseUnavailable": "プロジェクトデータを一時的に利用できません。しばらくしてから再度お試しください。",
     "prev": "← 前へ",
     "next": "次へ →",
     "page": "{page} ページ目",
     "listLabel": "プロジェクト一覧",
-    "emptyTitle": "ここにはまだプロジェクトグラフがありません",
-    "emptyBody": "ローカルでリポジトリのバックフィルを実行するか、現在のフィルタを外してください。"
+    "emptyTitle": "このボードにはまだプロジェクトがありません",
+    "emptyBody": {
+      "treasure": "最初の公開リポジトリを送信してください。条件を満たすプロジェクトは評価後にここへ表示されます。",
+      "classic": "長期利用と現在の有用性が確認された成熟プロジェクトが掲載されます。"
+    },
+    "analysisForm": {
+      "repositoryLabel": "GitHubリポジトリ",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "Branch、Tag、Commit（任意）",
+      "refPlaceholder": "デフォルトブランチ",
+      "submit": "評価を開始",
+      "submitting": "タスク作成中…",
+      "safetyHint": "すべての公開 GitHub リポジトリに対応しています。一部のプロジェクトでは、インストール、ビルド、主要フローも検証します。",
+      "unknownError": "プロジェクト評価を作成できませんでした。"
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "プロジェクト評価状況 · ghfind",
+    "pollFailed": "状態更新に失敗しました。再試行します。",
+    "requestedRef": "指定バージョン",
+    "duration": "経過時間",
+    "retry": "戻って再送信",
+    "confidence": "信頼度",
+    "verification": "検証レベル",
+    "exposure": "露出",
+    "communityStrength": "コミュニティ強度",
+    "errors": {
+      "invalidArtifact": "生成された評価結果が不完全です。戻って再送信してください。",
+      "generic": "今回のプロジェクト評価を完了できませんでした。しばらくしてから再試行してください。"
+    },
+    "unknowns": "未確認事項",
+    "risks": "導入リスク",
+    "none": "記録なし。",
+    "viewProject": "プロジェクトページを見る",
+    "scores": { "product": "プロダクト価値", "pain": "課題", "effectiveness": "解決効果", "experience": "導入とコア体験", "valueDensity": "範囲と価値密度" },
+    "status": { "queued": "分析待ち", "creating_thread": "評価を準備中", "running": "分析中", "finalizing": "検証・保存中", "completed": "評価完了", "failed": "評価失敗", "cancelled": "評価キャンセル", "expired": "評価期限切れ" },
+    "phase": { "queued": "実行待ち", "creating_thread": "評価タスクを準備", "classifying": "製品契約と種類を識別", "cloning": "リポジトリ版を取得", "inspecting": "ソースと文書を確認", "installing": "依存関係をインストール", "building": "ビルド中", "exercising": "コアフローを実行", "evaluating": "証拠整理と採点", "writing_report": "結果とレポートを生成", "persisting": "評価結果を検証・保存", "completed": "結果を保存済み" }
   },
   "discoveryNext": {
     "relatedTitle": "さらに探索する",

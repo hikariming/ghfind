@@ -17,10 +17,10 @@ export function GET() {
     openapi: "3.1.0",
     info: {
       title: "ghfind API",
-      version: "1.2.0",
+      version: "1.3.0",
       description:
         "Score any GitHub account 0-100 for value and trustworthiness with a deterministic engine, " +
-        "plus roasts, head-to-head battles, leaderboards, and developer discovery. " +
+        "plus open-source project evaluations, roasts, head-to-head battles, leaderboards, and developer discovery. " +
         "Official SDKs: `@hikariming/ghfind` on npm and `ghfind` on PyPI.\n\n" +
         "## Errors\n" +
         "All errors return `application/json` shaped as `{ error, message, hint }` — `error` is a " +
@@ -45,6 +45,7 @@ export function GET() {
       { name: "roast", description: "LLM-written roast report (bring-your-own key supported)" },
       { name: "battle", description: "Head-to-head PK; deterministic winner, optional LLM commentary" },
       { name: "discovery", description: "Leaderboards, developer directory, search, stats" },
+      { name: "projects", description: "Asynchronous Mosoo Cattle Agent evaluation of open-source projects" },
       { name: "images", description: "SVG badge and OG card images" },
     ],
     paths: {
@@ -139,6 +140,62 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/project-analyses": {
+        post: {
+          tags: ["projects"],
+          operationId: "createProjectAnalysis",
+          summary: "Start an evidence-backed open-source project evaluation",
+          description:
+            "Creates an asynchronous Mosoo Cattle Agent task. Product value is scored independently " +
+            "from Stars, company backing, code volume, and contributor count. Unknown public repositories " +
+            "receive source inspection only; code execution is restricted to a server allowlist.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["repositoryUrl"],
+                  properties: {
+                    repositoryUrl: { type: "string", description: "Public GitHub URL or owner/repository" },
+                    ref: { type: ["string", "null"], description: "Optional branch, tag, or commit" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "202": {
+              description: "Task created or deduplicated against an active task",
+              headers: {
+                Location: { description: "Polling endpoint for this analysis", schema: { type: "string" } },
+                "Idempotency-Key": { description: "Stable Mosoo task key", schema: { type: "string" } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisAccepted" } } },
+            },
+            "400": { description: "Invalid repository, ref, or request body", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "429": { description: "Per-IP project-analysis quota exceeded", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Persistence or Mosoo execution layer unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/project-analyses/{analysisId}": {
+        get: {
+          tags: ["projects"],
+          operationId: "getProjectAnalysis",
+          summary: "Read project-evaluation progress or the persisted result",
+          parameters: [
+            { name: "analysisId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            "200": {
+              description: "Curated status; completed tasks include the current assessment and treasure history",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisView" } } },
+            },
+            "404": { description: "Analysis not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -428,6 +485,14 @@ export function GET() {
                 "not_scored",
                 "unauthorized",
                 "invalid_type",
+                "invalid_repository",
+                "invalid_ref",
+                "analysis_not_found",
+                "analysis_timeout",
+                "artifact_missing",
+                "artifact_invalid",
+                "unexpected_input_request",
+                "mosoo_unavailable",
               ],
             },
             message: { type: "string" },
@@ -497,6 +562,69 @@ export function GET() {
           properties: {
             total: { type: "integer", nullable: true, description: "Number of scored accounts" },
             cached: { type: "boolean" },
+          },
+        },
+        ProjectAnalysisAccepted: {
+          type: "object",
+          required: ["analysisId", "repoKey", "status", "phase", "progress", "retry", "statusUrl"],
+          properties: {
+            analysisId: { type: "string", format: "uuid" },
+            repoKey: { type: "string", example: "owner/repository" },
+            status: { $ref: "#/components/schemas/ProjectAnalysisStatus" },
+            phase: { type: "string" },
+            progress: { type: "integer", minimum: 0, maximum: 100 },
+            retry: { $ref: "#/components/schemas/ProjectAnalysisRetry" },
+            statusUrl: { type: "string" },
+          },
+        },
+        ProjectAnalysisStatus: {
+          type: "string",
+          enum: ["queued", "creating_thread", "running", "finalizing", "completed", "failed", "cancelled", "expired"],
+        },
+        ProjectAnalysisRetry: {
+          anyOf: [
+            {
+              type: "object",
+              required: ["attempt", "maxAttempts", "nextAttemptAt"],
+              properties: {
+                attempt: { type: "integer", minimum: 1 },
+                maxAttempts: { type: "integer", minimum: 1 },
+                nextAttemptAt: { type: "integer", description: "Epoch milliseconds" },
+              },
+            },
+            { type: "null" },
+          ],
+        },
+        ProjectAnalysisView: {
+          type: "object",
+          required: ["analysisId", "repoKey", "canonicalUrl", "status", "phase", "progress", "retry", "createdAt", "updatedAt"],
+          properties: {
+            analysisId: { type: "string", format: "uuid" },
+            repoKey: { type: "string" },
+            canonicalUrl: { type: "string", format: "uri" },
+            requestedRef: { type: ["string", "null"] },
+            status: { $ref: "#/components/schemas/ProjectAnalysisStatus" },
+            phase: { type: "string" },
+            progress: { type: "integer", minimum: 0, maximum: 100 },
+            retry: { $ref: "#/components/schemas/ProjectAnalysisRetry" },
+            error: {
+              anyOf: [
+                {
+                  type: "object",
+                  required: ["code", "message"],
+                  properties: { code: { type: "string" }, message: { type: "string" } },
+                },
+                { type: "null" },
+              ],
+            },
+            createdAt: { type: "integer", description: "Epoch milliseconds" },
+            updatedAt: { type: "integer", description: "Epoch milliseconds" },
+            completedAt: { type: ["integer", "null"] },
+            assessment: {
+              type: ["object", "null"],
+              description: "Validated product score, four dimensions, confidence, verification, community strength, exposure, risks, report, and exact commit identity.",
+            },
+            treasureHistory: { type: "array", items: { type: "object" } },
           },
         },
         VsVerdictResponse: {
