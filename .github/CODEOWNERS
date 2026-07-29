@@ -1,11 +1,14 @@
-# Code owners for github-roast.
+# Code owners for ghfind.
 #
-# Every pull request targeting a protected branch (main) requires review from
-# the owner(s) listed here, because the branch ruleset enables
-# "Require review from Code Owners". This enforces "only I decide what lands on
-# main" while collaborators work on feature branches + PRs.
+# Every pull request targeting a protected branch (main) requires an approval
+# from one of the owners listed here, because the branch ruleset enables
+# "Require review from Code Owners" with 1 required approval.
+#
+# GitHub never counts a pull request author's own approval, so listing all
+# three core maintainers means every PR has to be cross-reviewed by one of the
+# other two: whoever opens it cannot be the one who unblocks it.
 #
 # Syntax: <path pattern>  <@owner ...>   (last matching line wins)
 
-# Default: the whole repository is owned by @hikariming.
-*       @hikariming
+# Default: the whole repository is owned by the three core maintainers.
+*       @hikariming @KurosawaGeeker @AsperforMias
