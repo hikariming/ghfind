@@ -57,6 +57,19 @@ describe("project analysis persistence", () => {
       threadId: "01KTESTTHREAD000000000000000",
       runId: "01KTESTRUN00000000000000000",
     });
+    await db.updateProjectAnalysisState({
+      analysisId: "analysis-1",
+      status: "running",
+      phase: "inspecting",
+      progress: 40,
+      activities: [
+        {
+          id: "event-1",
+          kind: "inspecting_docs",
+          occurredAt: "2026-07-30T14:00:00.000Z",
+        },
+      ],
+    });
 
     const completed = await db.finalizeProjectAnalysis({
       analysisId: "analysis-1",
@@ -73,6 +86,7 @@ describe("project analysis persistence", () => {
 
     expect(completed.status).toBe("completed");
     expect(completed.mosooThreadId).toBe("01KTESTTHREAD000000000000000");
+    expect(completed.activities).toMatchObject([{ kind: "inspecting_docs" }]);
 
     const assessment = await db.getProjectAssessment("OWNER/USEFUL-TOOL");
     expect(assessment).toMatchObject({

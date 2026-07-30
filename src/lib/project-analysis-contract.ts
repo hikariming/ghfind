@@ -4,7 +4,7 @@ export const LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v
 export const PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v2";
 export const PROJECT_RUBRIC_VERSION = "project-value-v1";
 export const PROJECT_AGENT_VERSION = "project-evaluator-v2";
-export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v2";
+export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v3";
 
 export const projectAnalysisStatusSchema = z.enum([
   "queued",
@@ -31,6 +31,26 @@ export const projectAnalysisPhaseSchema = z.enum([
   "persisting",
   "completed",
 ]);
+
+export const projectAnalysisActivityKindSchema = z.enum([
+  "started",
+  "inspecting_source",
+  "inspecting_docs",
+  "inspecting_history",
+  "checking_community",
+  "evaluating",
+  "writing",
+  "validating",
+  "saving",
+  "completed",
+  "failed",
+]);
+
+export const projectAnalysisActivitySchema = z.object({
+  id: z.string().min(1),
+  kind: projectAnalysisActivityKindSchema,
+  occurredAt: z.string().datetime(),
+});
 
 export const projectTypeSchema = z.enum([
   "micro_tool",
@@ -241,6 +261,10 @@ export const currentRuntimeEvidenceArtifactSchema = runtimeEvidenceArtifactSchem
 
 export type ProjectAnalysisStatus = z.infer<typeof projectAnalysisStatusSchema>;
 export type ProjectAnalysisPhase = z.infer<typeof projectAnalysisPhaseSchema>;
+export type ProjectAnalysisActivity = z.infer<typeof projectAnalysisActivitySchema>;
+export type ProjectAnalysisActivityKind = z.infer<
+  typeof projectAnalysisActivityKindSchema
+>;
 export type ProjectAnalysisArtifact = z.infer<typeof projectAnalysisArtifactSchema>;
 export type RuntimeEvidenceArtifact = z.infer<typeof runtimeEvidenceArtifactSchema>;
 export type ProjectType = z.infer<typeof projectTypeSchema>;

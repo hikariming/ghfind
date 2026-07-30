@@ -233,6 +233,20 @@
     "verification": "verification",
     "exposure": "exposure",
     "communityStrength": "community strength",
+    "activityTitle": "Actividad reciente",
+    "activity": {
+      "started": "Análisis iniciado",
+      "inspecting_source": "Revisando código y configuración",
+      "inspecting_docs": "Leyendo la documentación",
+      "inspecting_history": "Revisando versiones e historial",
+      "checking_community": "Revisando comunidad y versiones",
+      "evaluating": "Organizando evidencias y puntuando",
+      "writing": "Generando resultados",
+      "validating": "Validando resultados",
+      "saving": "Guardando resultados",
+      "completed": "Análisis completado",
+      "failed": "Análisis detenido"
+    },
     "errors": {
       "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
       "generic": "This project assessment could not be completed. Please try again later."

@@ -13,7 +13,16 @@ from urllib.parse import urlparse
 
 
 SCHEMA_VERSION = "ghfind.project-analysis.v2"
+SKILL_VERSION = "ghfind-project-evaluator-v3"
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
+CHINESE_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+JAPANESE_PATTERN = re.compile(r"[\u3040-\u30ff]")
+KOREAN_PATTERN = re.compile(r"[\uac00-\ud7af]")
+ARABIC_PATTERN = re.compile(r"[\u0600-\u06ff]")
+LATIN_PATTERN = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]")
+LOCALE_PATTERN = re.compile(
+    r"^(?P<language>[A-Za-z]{2,3})(?:-[A-Za-z]{4})?(?:-(?P<region>[A-Za-z]{2}|\d{3}))?(?:-[A-Za-z0-9]{5,8})*$"
+)
 DIMENSIONS = {
     "pain": 25,
     "effectiveness": 30,
@@ -66,6 +75,37 @@ def read_json(path: Path) -> dict[str, Any]:
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
+
+
+def locale_language(locale: str) -> str:
+    match = LOCALE_PATTERN.fullmatch(locale)
+    require(match is not None, "locale must be a well-formed BCP 47 language tag")
+    return match.group("language").lower()
+
+
+def language_pattern(language: str) -> re.Pattern[str] | None:
+    if language == "zh":
+        return CHINESE_PATTERN
+    if language == "ja":
+        return JAPANESE_PATTERN
+    if language == "ko":
+        return KOREAN_PATTERN
+    if language == "ar":
+        return ARABIC_PATTERN
+    if language in {"en", "es", "pt", "id", "vi"}:
+        return LATIN_PATTERN
+    return None
+
+
+def require_locale_text(value: Any, path: str, language: str) -> None:
+    pattern = language_pattern(language)
+    if pattern is None:
+        require(isinstance(value, str) and bool(value.strip()), f"{path} must not be empty")
+        return
+    require(
+        isinstance(value, str) and pattern.search(value) is not None,
+        f"{path} must contain evaluation text in locale language {language}",
+    )
 
 
 def type_matches(value: Any, expected: str) -> bool:
@@ -159,16 +199,18 @@ def validate_schema(value: dict[str, Any], schema_name: str, label: str) -> None
     validate_schema_value(value, schema, label)
 
 
-def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> None:
+def validate(analysis_path: Path, evidence_path: Path, report_path: Path, locale: str) -> None:
     analysis = read_json(analysis_path)
     evidence = read_json(evidence_path)
     report = report_path.read_text(encoding="utf-8")
+    language = locale_language(locale)
 
     validate_schema(analysis, "project-analysis.schema.json", "analysis")
     validate_schema(evidence, "runtime-evidence.schema.json", "evidence")
 
     require(analysis.get("schema_version") == SCHEMA_VERSION, "invalid analysis schema")
     require(evidence.get("schema_version") == SCHEMA_VERSION, "invalid evidence schema")
+    require(analysis.get("skill_version") == SKILL_VERSION, "invalid project evaluator skill version")
     require(analysis.get("analysis_id") == evidence.get("analysis_id"), "analysis id mismatch")
 
     repository = analysis.get("repository")
@@ -182,6 +224,9 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> Non
     require(isinstance(entries, list) and len(entries) > 0, "evidence entries are required")
     evidence_ids = {entry.get("id") for entry in entries if isinstance(entry, dict)}
     require(None not in evidence_ids and len(evidence_ids) == len(entries), "evidence ids must be unique")
+    for index, entry in enumerate(entries):
+        require(isinstance(entry, dict), f"evidence.entries[{index}] must be an object")
+        require_locale_text(entry.get("summary"), f"evidence.entries[{index}].summary", language)
 
     scores = analysis.get("scores")
     require(isinstance(scores, dict), "scores must be an object")
@@ -193,6 +238,9 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> Non
         score = dimension.get("score")
         require(isinstance(score, int) and 0 <= score <= maximum, f"invalid {name} score")
         require(dimension.get("max_score") == maximum, f"invalid {name} maximum")
+        require_locale_text(
+            dimension.get("rationale"), f"analysis.scores.{name}.rationale", language
+        )
         refs = dimension.get("evidence_ids")
         require(isinstance(refs, list) and len(refs) > 0, f"{name} requires evidence")
         referenced.update(str(item) for item in refs)
@@ -208,11 +256,21 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> Non
         isinstance(community_score, (int, float)) and 0 <= community_score <= 100,
         "invalid community strength score",
     )
+    require_locale_text(
+        community.get("rationale"), "analysis.community_strength.rationale", language
+    )
+    require_locale_text(exposure.get("rationale"), "analysis.exposure.rationale", language)
     referenced.update(str(item) for item in community.get("evidence_ids", []))
     referenced.update(str(item) for item in exposure.get("evidence_ids", []))
 
     project = analysis.get("project")
     require(isinstance(project, dict), "project must be an object")
+    require_locale_text(project.get("summary"), "analysis.project.summary", language)
+    require_locale_text(project.get("pain_statement"), "analysis.project.pain_statement", language)
+    for index, target_user in enumerate(project.get("target_users", [])):
+        require_locale_text(target_user, f"analysis.project.target_users[{index}]", language)
+    for index, unknown in enumerate(analysis.get("unknowns", [])):
+        require_locale_text(unknown, f"analysis.unknowns[{index}]", language)
     product_tags = project.get("product_tags")
     require(isinstance(product_tags, list) and 3 <= len(product_tags) <= 5, "project requires 3-5 product tags")
     slugs: set[str] = set()
@@ -226,9 +284,17 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> Non
         slugs.add(slug)
         labels = tag.get("labels")
         require(isinstance(labels, dict), f"product tag {slug} requires labels")
-        for language, seen in (("zh", zh_labels), ("en", en_labels)):
-            label = labels.get(language)
-            require(isinstance(label, str), f"product tag {slug} requires {language} label")
+        for label_language, seen in (("zh", zh_labels), ("en", en_labels)):
+            label = labels.get(label_language)
+            require(
+                isinstance(label, str),
+                f"product tag {slug} requires {label_language} label",
+            )
+            if label_language == "zh":
+                require(
+                    CHINESE_PATTERN.search(label) is not None,
+                    f"analysis.project.product_tags[{slug}].labels.zh must contain Chinese text",
+                )
             normalized = label.strip().lower()
             require(normalized not in seen, f"duplicate product tag label: {label}")
             require(normalized not in GENERIC_PRODUCT_TAG_LABELS, f"product tag is too generic: {label}")
@@ -239,10 +305,22 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path) -> Non
 
     for risk in analysis.get("risks", []):
         if isinstance(risk, dict):
+            require_locale_text(risk.get("summary"), "analysis.risks[].summary", language)
             referenced.update(str(item) for item in risk.get("evidence_ids", []))
     missing = referenced - evidence_ids
     require(not missing, f"missing evidence ids: {sorted(missing)}")
     require(bool(report.strip()), "report must not be empty")
+    report_pattern = language_pattern(language)
+    if report_pattern is None:
+        require(
+            len(report.strip()) >= 500,
+            f"report must be a complete evaluation in locale language {language}",
+        )
+    else:
+        require(
+            len(report_pattern.findall(report)) >= 100,
+            f"report must be a complete evaluation in locale language {language}, not a short translated summary",
+        )
 
 
 def main() -> None:
@@ -250,8 +328,9 @@ def main() -> None:
     parser.add_argument("--analysis", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--locale", required=True)
     args = parser.parse_args()
-    validate(args.analysis, args.evidence, args.report)
+    validate(args.analysis, args.evidence, args.report, args.locale)
     print("artifacts valid")
 
 

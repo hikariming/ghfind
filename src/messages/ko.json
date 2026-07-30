@@ -229,6 +229,20 @@
     "verification": "검증 수준",
     "exposure": "노출",
     "communityStrength": "커뮤니티 강도",
+    "activityTitle": "최근 활동",
+    "activity": {
+      "started": "분석 시작",
+      "inspecting_source": "소스와 설정 확인",
+      "inspecting_docs": "프로젝트 문서 확인",
+      "inspecting_history": "버전과 커밋 기록 확인",
+      "checking_community": "커뮤니티와 릴리스 확인",
+      "evaluating": "근거 정리 및 평가",
+      "writing": "분석 결과 생성",
+      "validating": "결과 검증",
+      "saving": "결과 저장",
+      "completed": "분석 완료",
+      "failed": "분석 중단"
+    },
     "errors": {
       "invalidArtifact": "생성된 평가 결과가 불완전합니다. 돌아가서 다시 제출해 주세요.",
       "generic": "이번 프로젝트 평가를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."

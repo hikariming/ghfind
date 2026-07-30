@@ -22,6 +22,14 @@ function durationLabel(milliseconds: number): string {
   return minutes > 0 ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
+function activityTimeLabel(occurredAt: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(occurredAt));
+}
+
 export function ProjectAnalysisStatus({ initial }: { initial: PublicProjectAnalysisView }) {
   const t = useTranslations("projectAnalysis");
   const locale = useLocale();
@@ -92,6 +100,40 @@ export function ProjectAnalysisStatus({ initial }: { initial: PublicProjectAnaly
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div className="h-full bg-orange-500" style={{ width: `${view.progress}%` }} />
         </div>
+        {view.activities.length > 0 && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              {t("activityTitle")}
+            </h2>
+            <ol className="mt-3 space-y-2">
+              {view.activities.slice(-6).map((activity, index, activities) => {
+                const isLatest = index === activities.length - 1;
+                return (
+                  <li
+                    key={activity.id}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-3 text-sm"
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-2 w-2 rounded-full ${
+                        isLatest ? "bg-orange-400" : "bg-zinc-600"
+                      }`}
+                    />
+                    <span className={isLatest ? "text-zinc-200" : "text-zinc-500"}>
+                      {t(`activity.${activity.kind}`)}
+                    </span>
+                    <time
+                      dateTime={activity.occurredAt}
+                      className="font-mono text-xs tabular-nums text-zinc-600"
+                    >
+                      {activityTimeLabel(activity.occurredAt, locale)}
+                    </time>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
         {pollError && <p className="mt-3 text-sm text-amber-300">{pollError}</p>}
         {view.error && (
           <div

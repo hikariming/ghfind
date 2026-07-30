@@ -233,6 +233,20 @@
     "verification": "verification",
     "exposure": "exposure",
     "communityStrength": "community strength",
+    "activityTitle": "النشاط الأخير",
+    "activity": {
+      "started": "بدأ التحليل",
+      "inspecting_source": "فحص الشفرة والإعدادات",
+      "inspecting_docs": "قراءة وثائق المشروع",
+      "inspecting_history": "فحص الإصدارات وسجل الالتزامات",
+      "checking_community": "فحص المجتمع والإصدارات",
+      "evaluating": "تنظيم الأدلة والتقييم",
+      "writing": "إنشاء نتائج التحليل",
+      "validating": "التحقق من النتائج",
+      "saving": "حفظ النتائج",
+      "completed": "اكتمل التحليل",
+      "failed": "توقف التحليل"
+    },
     "errors": {
       "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
       "generic": "This project assessment could not be completed. Please try again later."

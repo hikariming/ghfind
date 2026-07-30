@@ -21,18 +21,19 @@ export function ProjectAssessmentCard({
   labels: ProjectAssessmentCardLabels;
   locale: string;
 }) {
-  const encodedRepo = assessment.repoKey.split("/").map(encodeURIComponent).join("/");
   const analysis = assessment.analysis;
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link
-            href={`/developers/repo/${encodedRepo}`}
+          <a
+            href={analysis.repository.canonical_url}
+            target="_blank"
+            rel="noopener noreferrer"
             className="break-all text-lg font-black text-zinc-100 hover:text-white hover:underline"
           >
             {assessment.repoKey}
-          </Link>
+          </a>
           <p className="mt-1 text-sm leading-relaxed text-zinc-400">
             {analysis.project.summary}
           </p>

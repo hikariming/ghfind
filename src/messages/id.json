@@ -233,6 +233,20 @@
     "verification": "verification",
     "exposure": "exposure",
     "communityStrength": "community strength",
+    "activityTitle": "Aktivitas terbaru",
+    "activity": {
+      "started": "Analisis dimulai",
+      "inspecting_source": "Memeriksa kode dan konfigurasi",
+      "inspecting_docs": "Membaca dokumentasi proyek",
+      "inspecting_history": "Memeriksa versi dan riwayat commit",
+      "checking_community": "Memeriksa komunitas dan rilis",
+      "evaluating": "Menyusun bukti dan memberi skor",
+      "writing": "Membuat hasil analisis",
+      "validating": "Memvalidasi hasil",
+      "saving": "Menyimpan hasil",
+      "completed": "Analisis selesai",
+      "failed": "Analisis dihentikan"
+    },
     "errors": {
       "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
       "generic": "This project assessment could not be completed. Please try again later."

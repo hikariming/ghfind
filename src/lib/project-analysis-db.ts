@@ -3,6 +3,7 @@ import { createClient, type Client, type InValue } from "@libsql/client";
 import {
   projectAnalysisArtifactSchema,
   type ProjectAnalysisArtifact,
+  type ProjectAnalysisActivity,
   type ProjectAnalysisPhase,
   type ProjectAnalysisStatus,
   type VerificationLevel,
@@ -40,6 +41,7 @@ export interface ProjectAnalysisRun {
   status: ProjectAnalysisStatus;
   phase: ProjectAnalysisPhase;
   progress: number;
+  activities: ProjectAnalysisActivity[];
   mosooAgentId: string | null;
   mosooThreadId: string | null;
   mosooRunId: string | null;
@@ -153,6 +155,7 @@ function ensureSchema(db: Client): Promise<void> {
              status TEXT NOT NULL,
              phase TEXT NOT NULL,
              progress INTEGER NOT NULL DEFAULT 0,
+             activities_json TEXT NOT NULL DEFAULT '[]',
              mosoo_agent_id TEXT,
              mosoo_thread_id TEXT UNIQUE,
              mosoo_run_id TEXT,
@@ -237,6 +240,7 @@ function ensureSchema(db: Client): Promise<void> {
           "ALTER TABLE project_assessments ADD COLUMN community_strength REAL NOT NULL DEFAULT 0",
           "ALTER TABLE project_analysis_runs ADD COLUMN create_attempts INTEGER NOT NULL DEFAULT 0",
           "ALTER TABLE project_analysis_runs ADD COLUMN create_retry_at INTEGER",
+          "ALTER TABLE project_analysis_runs ADD COLUMN activities_json TEXT NOT NULL DEFAULT '[]'",
         ]) {
           try {
             await db.execute(statement);
@@ -272,6 +276,13 @@ function nullableNumber(value: unknown): number | null {
 }
 
 function mapRun(row: Record<string, unknown>): ProjectAnalysisRun {
+  let activities: ProjectAnalysisActivity[] = [];
+  try {
+    const parsed = JSON.parse(rowString(row.activities_json) || "[]");
+    if (Array.isArray(parsed)) activities = parsed as ProjectAnalysisActivity[];
+  } catch {
+    activities = [];
+  }
   return {
     id: rowString(row.id),
     repoKey: rowString(row.repo_key),
@@ -282,6 +293,7 @@ function mapRun(row: Record<string, unknown>): ProjectAnalysisRun {
     status: rowString(row.status) as ProjectAnalysisStatus,
     phase: rowString(row.phase) as ProjectAnalysisPhase,
     progress: Number(row.progress ?? 0),
+    activities,
     mosooAgentId: nullableString(row.mosoo_agent_id),
     mosooThreadId: nullableString(row.mosoo_thread_id),
     mosooRunId: nullableString(row.mosoo_run_id),
@@ -463,6 +475,7 @@ export async function prepareProjectAnalysisRetry(
               phase = 'queued', progress = 0,
               create_attempts = 0, create_retry_at = NULL,
               mosoo_thread_id = NULL, mosoo_run_id = NULL,
+              activities_json = '[]',
               error_code = NULL, error_message = NULL, completed_at = NULL,
               updated_at = ?
           WHERE id = ? AND mosoo_thread_id = ?
@@ -484,6 +497,7 @@ export interface UpdateProjectAnalysisStateInput {
   phase: ProjectAnalysisPhase;
   progress: number;
   runId?: string;
+  activities?: ProjectAnalysisActivity[];
 }
 
 export async function updateProjectAnalysisState(
@@ -494,16 +508,32 @@ export async function updateProjectAnalysisState(
   await db.execute({
     sql: `UPDATE project_analysis_runs
           SET status = ?, phase = ?, progress = ?,
-              mosoo_run_id = COALESCE(?, mosoo_run_id), updated_at = ?
+              mosoo_run_id = COALESCE(?, mosoo_run_id),
+              activities_json = COALESCE(?, activities_json), updated_at = ?
           WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
     args: [
       input.status,
       input.phase,
       Math.max(0, Math.min(100, Math.round(input.progress))),
       input.runId ?? null,
+      input.activities ? JSON.stringify(input.activities) : null,
       Date.now(),
       input.analysisId,
     ],
+  });
+}
+
+export async function updateProjectAnalysisActivities(
+  analysisId: string,
+  activities: ProjectAnalysisActivity[],
+): Promise<void> {
+  const db = database();
+  await ensureSchema(db);
+  await db.execute({
+    sql: `UPDATE project_analysis_runs
+          SET activities_json = ?, updated_at = ?
+          WHERE id = ?`,
+    args: [JSON.stringify(activities), Date.now(), analysisId],
   });
 }
 
@@ -512,6 +542,7 @@ export async function failProjectAnalysis(
   errorCode: string,
   errorMessage: string,
   status: "failed" | "cancelled" | "expired" = "failed",
+  activities?: ProjectAnalysisActivity[],
 ): Promise<void> {
   const db = database();
   await ensureSchema(db);
@@ -519,9 +550,18 @@ export async function failProjectAnalysis(
   await db.execute({
     sql: `UPDATE project_analysis_runs
           SET status = ?, active_key = NULL, error_code = ?, error_message = ?,
+              activities_json = COALESCE(?, activities_json),
               create_retry_at = NULL, completed_at = ?, updated_at = ?
           WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
-    args: [status, errorCode, errorMessage.slice(0, 2_000), now, now, analysisId],
+    args: [
+      status,
+      errorCode,
+      errorMessage.slice(0, 2_000),
+      activities ? JSON.stringify(activities) : null,
+      now,
+      now,
+      analysisId,
+    ],
   });
 }
 

@@ -33,7 +33,7 @@ const analysis = {
   },
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v2",
-  skill_version: "ghfind-project-evaluator-v2",
+  skill_version: "ghfind-project-evaluator-v3",
   project: {
     name: "useful-tool",
     summary: "Converts one format into another.",

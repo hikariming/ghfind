@@ -7,6 +7,7 @@ import {
   normalizeGitHubRepository,
   parseProjectAnalysisArtifacts,
   type ProjectAnalysisPhase,
+  type ProjectAnalysisActivity,
 } from "./project-analysis-contract";
 import {
   attachMosooThread,
@@ -21,6 +22,7 @@ import {
   reserveProjectAnalysisExecutionSlot,
   scheduleProjectAnalysisCreateRetry,
   updateProjectAnalysisState,
+  updateProjectAnalysisActivities,
   type ProjectAnalysisRun,
 } from "./project-analysis-db";
 import {
@@ -64,6 +66,7 @@ export interface PublicProjectAnalysisView {
   status: ProjectAnalysisRun["status"];
   phase: ProjectAnalysisRun["phase"];
   progress: number;
+  activities: ProjectAnalysisActivity[];
   error: { code: string; message: string } | null;
   createdAt: number;
   updatedAt: number;
@@ -315,6 +318,24 @@ function runningPhase(snapshot: MosooThreadSnapshot): {
   phase: ProjectAnalysisPhase;
   progress: number;
 } {
+  const latestActivity = snapshot.activities.at(-1)?.kind;
+  const activityPhase = {
+    started: { phase: "classifying", progress: 15 },
+    inspecting_source: { phase: "inspecting", progress: 30 },
+    inspecting_docs: { phase: "inspecting", progress: 40 },
+    inspecting_history: { phase: "inspecting", progress: 50 },
+    checking_community: { phase: "inspecting", progress: 60 },
+    evaluating: { phase: "evaluating", progress: 70 },
+    writing: { phase: "writing_report", progress: 80 },
+    validating: { phase: "persisting", progress: 88 },
+    saving: { phase: "persisting", progress: 92 },
+    completed: { phase: "persisting", progress: 95 },
+    failed: { phase: "evaluating", progress: 65 },
+  } satisfies Record<ProjectAnalysisActivity["kind"], {
+    phase: ProjectAnalysisPhase;
+    progress: number;
+  }>;
+  if (latestActivity) return activityPhase[latestActivity];
   if (
     snapshot.eventTypes.includes("file.changed") ||
     snapshot.eventTypes.includes("session_files.updated")
@@ -469,7 +490,20 @@ export async function reconcileProjectAnalysis(
       404,
     );
   }
-  if (["completed", "failed", "cancelled", "expired"].includes(run.status)) return run;
+  if (["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+    if (run.activities.length === 0 && run.mosooThreadId) {
+      try {
+        const snapshot = await getMosooProjectAnalysisSnapshot(run.mosooThreadId);
+        if (snapshot.activities.length > 0) {
+          await updateProjectAnalysisActivities(run.id, snapshot.activities);
+          return (await getProjectAnalysisRun(run.id)) ?? run;
+        }
+      } catch {
+        // Historical terminal results remain readable when Mosoo is unavailable.
+      }
+    }
+    return run;
+  }
   if (run.startedAt && Date.now() - run.startedAt > analysisTimeoutMs()) {
     await failProjectAnalysis(
       run.id,
@@ -518,6 +552,7 @@ export async function reconcileProjectAnalysis(
       `mosoo_run_${snapshot.runStatus}`,
       `Mosoo project analysis ended with ${snapshot.runStatus}.`,
       terminalStatus,
+      snapshot.activities,
     );
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
@@ -530,6 +565,7 @@ export async function reconcileProjectAnalysis(
     phase: phase.phase,
     progress: phase.progress,
     runId: snapshot.runId,
+    activities: snapshot.activities,
   });
   run = (await getProjectAnalysisRun(run.id)) ?? run;
   return run;
@@ -586,6 +622,7 @@ export async function getPublicProjectAnalysisView(
     status: run.status,
     phase: run.phase,
     progress: run.progress,
+    activities: run.activities,
     error:
       run.errorCode && run.errorMessage
         ? {

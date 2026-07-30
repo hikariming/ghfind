@@ -12,7 +12,7 @@ analysis_id
 repository { repo_key, canonical_url, requested_ref, resolved_commit_sha }
 rubric_version
 agent_version = project-evaluator-v2
-skill_version = ghfind-project-evaluator-v2
+skill_version = ghfind-project-evaluator-v3
 project { name, summary, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
 scores { pain, effectiveness, experience, value_density, product_score }
 confidence
@@ -68,6 +68,18 @@ Use `summary`; do not emit `title` or `description` fields.
 
 Use JSON `null` for unavailable `requested_ref`, `stars`, `dependents`, or `downloads`.
 
+## Human-facing locale
+
+The task carries a BCP 47 locale. Write all human-facing evaluation prose in the requested language and regional convention:
+
+- Analysis JSON: `project.summary`, every `project.target_users` item, `project.pain_statement`, all score `rationale` values, all `unknowns` items, every risk `summary`, `community_strength.rationale`, and `exposure.rationale`.
+- Evidence JSON: every entry `summary`.
+- Markdown: the complete report, including headings and all explanatory prose.
+
+Use the primary language subtag for language and the region subtag for script, spelling, terminology, and formatting. For example, `zh-CN` uses Simplified Chinese, `zh-TW` uses Traditional Chinese, `en-US` uses US English, and `en-GB` uses British English.
+
+Keep product/repository names, proper nouns, URLs, paths, commands, commit SHAs, API names, code identifiers, and machine enum values unchanged. Product tags stay bilingual under the current schema: `labels.zh` is Chinese and `labels.en` is English.
+
 ## Evidence JSON
 
 Required fields:
@@ -94,7 +106,7 @@ Keep excerpts short and redact secret-shaped values. Every referenced evidence I
 
 ## Report Markdown
 
-Use this order:
+Write the complete report in the requested locale and use this order:
 
 1. Verdict and product score.
 2. Product contract and pain.

@@ -229,6 +229,20 @@
     "verification": "検証レベル",
     "exposure": "露出",
     "communityStrength": "コミュニティ強度",
+    "activityTitle": "最近のアクティビティ",
+    "activity": {
+      "started": "分析を開始",
+      "inspecting_source": "ソースと設定を確認",
+      "inspecting_docs": "プロジェクト文書を確認",
+      "inspecting_history": "バージョンとコミット履歴を確認",
+      "checking_community": "コミュニティとリリースを確認",
+      "evaluating": "根拠を整理して採点",
+      "writing": "分析結果を生成",
+      "validating": "結果を検証",
+      "saving": "結果を保存",
+      "completed": "分析完了",
+      "failed": "分析停止"
+    },
     "errors": {
       "invalidArtifact": "生成された評価結果が不完全です。戻って再送信してください。",
       "generic": "今回のプロジェクト評価を完了できませんでした。しばらくしてから再試行してください。"

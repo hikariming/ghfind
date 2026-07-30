@@ -233,6 +233,20 @@
     "verification": "verification",
     "exposure": "exposure",
     "communityStrength": "community strength",
+    "activityTitle": "Hoạt động gần đây",
+    "activity": {
+      "started": "Đã bắt đầu phân tích",
+      "inspecting_source": "Đang kiểm tra mã nguồn và cấu hình",
+      "inspecting_docs": "Đang đọc tài liệu dự án",
+      "inspecting_history": "Đang kiểm tra phiên bản và lịch sử commit",
+      "checking_community": "Đang kiểm tra cộng đồng và bản phát hành",
+      "evaluating": "Đang tổng hợp bằng chứng và chấm điểm",
+      "writing": "Đang tạo kết quả phân tích",
+      "validating": "Đang xác thực kết quả",
+      "saving": "Đang lưu kết quả",
+      "completed": "Phân tích hoàn tất",
+      "failed": "Phân tích đã dừng"
+    },
     "errors": {
       "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
       "generic": "This project assessment could not be completed. Please try again later."

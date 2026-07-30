@@ -1,5 +1,9 @@
 import { z } from "zod";
 import type { ProjectAnalysisRun } from "./project-analysis-db";
+import type {
+  ProjectAnalysisActivity,
+  ProjectAnalysisActivityKind,
+} from "./project-analysis-contract";
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8787/api/v1";
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
@@ -108,6 +112,7 @@ export interface MosooThreadSnapshot {
   runStatus: MosooRunStatus;
   kind: "pet" | "cattle";
   eventTypes: string[];
+  activities: ProjectAnalysisActivity[];
   runError: { code: string; message: string; retryable?: boolean } | null;
 }
 
@@ -115,6 +120,48 @@ export interface MosooProjectArtifactContents {
   analysisJson: string;
   evidenceJson: string;
   reportMarkdown: string;
+}
+
+type MosooThreadEvent = z.infer<typeof threadEventsSchema>["events"][number];
+
+function classifyActivity(event: MosooThreadEvent): ProjectAnalysisActivityKind | null {
+  const content = event.content.toLowerCase();
+  if (event.type === "run.started") return "started";
+  if (event.type === "run.completed") return "completed";
+  if (event.type === "run.failed") return "failed";
+  if (event.type === "file.changed" || event.type === "session_files.updated") {
+    return "saving";
+  }
+  if (event.type !== "tool.use.started") return null;
+  if (/(validate_artifacts|validate|schema|校验)/.test(content)) return "validating";
+  if (/(score|scoring|rubric|evidence|评分|证据)/.test(content)) return "evaluating";
+  if (/(project-report|project-analysis|runtime-evidence|\/outputs|mkdir.*outputs|\bwrite\b)/.test(content)) {
+    return "writing";
+  }
+  if (/(api\.github\.com|contributors|issues|pulls|releases|stars|forks)/.test(content)) {
+    return "checking_community";
+  }
+  if (/(git log|git shortlog|git branch|commit history|提交历史)/.test(content)) {
+    return "inspecting_history";
+  }
+  if (/(readme|\/docs\/|docs\/|spec\.md|architecture|contributing|license|prd)/.test(content)) {
+    return "inspecting_docs";
+  }
+  return "inspecting_source";
+}
+
+export function publicProjectAnalysisActivities(
+  events: MosooThreadEvent[],
+): ProjectAnalysisActivity[] {
+  const activities: ProjectAnalysisActivity[] = [];
+  for (const event of [...events].sort((left, right) =>
+    left.occurredAt.localeCompare(right.occurredAt),
+  )) {
+    const kind = classifyActivity(event);
+    if (!kind || activities.at(-1)?.kind === kind) continue;
+    activities.push({ id: event.id, kind, occurredAt: event.occurredAt });
+  }
+  return activities.slice(-8);
 }
 
 function projectAgentConfig(): MosooProjectAnalysisConfig {
@@ -270,6 +317,7 @@ export async function createMosooProjectAnalysisThread(
     runStatus: parsed.data.run.status,
     kind: parsed.data.thread.kind,
     eventTypes: [],
+    activities: [],
     runError: parsed.data.run.error ?? null,
   };
 }
@@ -297,6 +345,7 @@ export async function getMosooProjectAnalysisSnapshot(
     runStatus: thread.data.run.status,
     kind: thread.data.thread.kind,
     eventTypes: events.data.events.map((event) => event.type),
+    activities: publicProjectAnalysisActivities(events.data.events),
     runError: thread.data.run.error ?? null,
   };
 }

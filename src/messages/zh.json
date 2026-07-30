@@ -233,6 +233,20 @@
     "verification": "验证等级",
     "exposure": "曝光分层",
     "communityStrength": "社区强度",
+    "activityTitle": "最近活动",
+    "activity": {
+      "started": "开始分析",
+      "inspecting_source": "检查源码与配置",
+      "inspecting_docs": "阅读项目文档",
+      "inspecting_history": "检查版本与提交历史",
+      "checking_community": "检查社区与发布情况",
+      "evaluating": "整理证据并评分",
+      "writing": "生成分析结果",
+      "validating": "校验结果",
+      "saving": "保存结果",
+      "completed": "分析完成",
+      "failed": "分析中止"
+    },
     "errors": {
       "invalidArtifact": "生成的评估结果格式不完整，请返回后重新提交。",
       "generic": "本次项目评估未能完成，请稍后重试。"

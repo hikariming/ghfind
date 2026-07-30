@@ -4,6 +4,7 @@ import {
   createMosooProjectAnalysisThread,
   getMosooProjectAnalysisSnapshot,
   MosooProjectAnalysisError,
+  publicProjectAnalysisActivities,
   readMosooProjectAnalysisArtifacts,
 } from "../mosoo-project-analysis";
 
@@ -17,13 +18,14 @@ const run: ProjectAnalysisRun = {
   status: "queued",
   phase: "queued",
   progress: 0,
+  activities: [],
   mosooAgentId: null,
   mosooThreadId: null,
   mosooRunId: null,
   schemaVersion: "ghfind.project-analysis.v2",
   rubricVersion: "project-value-v1",
   agentVersion: "project-evaluator-v2",
-  skillVersion: "ghfind-project-evaluator-v2",
+  skillVersion: "ghfind-project-evaluator-v3",
   verificationLevel: null,
   errorCode: null,
   errorMessage: null,
@@ -75,6 +77,54 @@ afterEach(() => {
 });
 
 describe("Mosoo project analysis client", () => {
+  it("turns raw Mosoo events into deduplicated product-safe activities", () => {
+    const events = [
+      {
+        id: "event-1",
+        type: "tool.use.started",
+        status: "available" as const,
+        content: "git log --format='%H' && printenv SECRET_TOKEN",
+        occurredAt: "2026-07-15T00:00:01.000Z",
+        durationMs: null,
+        tokens: null,
+      },
+      {
+        id: "event-2",
+        type: "tool.use.completed",
+        status: "available" as const,
+        content: "git shortlog -sn",
+        occurredAt: "2026-07-15T00:00:02.000Z",
+        durationMs: 10,
+        tokens: null,
+      },
+      {
+        id: "event-3",
+        type: "tool.use.started",
+        status: "available" as const,
+        content: "python skills/ghfind-project-evaluator/scripts/validate_artifacts.py",
+        occurredAt: "2026-07-15T00:00:03.000Z",
+        durationMs: null,
+        tokens: null,
+      },
+    ];
+
+    expect(publicProjectAnalysisActivities(events)).toEqual([
+      {
+        id: "event-1",
+        kind: "inspecting_history",
+        occurredAt: "2026-07-15T00:00:01.000Z",
+      },
+      {
+        id: "event-3",
+        kind: "validating",
+        occurredAt: "2026-07-15T00:00:03.000Z",
+      },
+    ]);
+    expect(JSON.stringify(publicProjectAnalysisActivities(events))).not.toContain(
+      "SECRET_TOKEN",
+    );
+  });
+
   it("creates a cattle Thread with the versioned task and stable idempotency key", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("Idempotency-Key")).toBe(run.idempotencyKey);
@@ -176,6 +226,13 @@ describe("Mosoo project analysis client", () => {
         message: "Runtime session became inactive before the run completed.",
       },
       eventTypes: ["session_files.updated"],
+      activities: [
+        {
+          id: "event-1",
+          kind: "saving",
+          occurredAt: "2026-07-15T00:00:02.000Z",
+        },
+      ],
     });
     await expect(readMosooProjectAnalysisArtifacts("thread-1", "analysis-1")).resolves.toEqual({
       analysisJson: "{\"analysis\":true}",
