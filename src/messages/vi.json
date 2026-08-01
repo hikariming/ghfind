@@ -14,6 +14,7 @@
     "discover": "Khám phá",
     "developers": "Lập trình viên",
     "projects": "Dự án",
+    "collections": "Đề xuất",
     "languages": "Ngôn ngữ",
     "organizations": "Tổ chức",
     "versus": "Solo",
@@ -167,6 +168,29 @@
     "listLabel": "Kết quả dự án",
     "emptyTitle": "Chưa có dữ liệu dự án ở đây",
     "emptyBody": "Chạy backfill kho mã ở máy bạn hoặc bỏ bộ lọc hiện tại."
+  },
+  "collections": {
+    "metaTitle": "Biên tập viên đề xuất: dự án & lập trình viên · ghfind",
+    "metaDescription": "Bộ sưu tập tuyển chọn các dự án và lập trình viên GitHub nổi bật, dựa trên động cơ đánh giá chất lượng người đóng góp của ghfind.",
+    "eyebrow": "Biên tập viên đề xuất",
+    "heading": "Dự án & lập trình viên tuyển chọn",
+    "subtitle": "Không phải thêm một bảng xếp hạng sao — mỗi đề xuất đều kèm dữ liệu động cơ về ai đang xây dựng và trình độ ra sao.",
+    "empty": "Chưa có bộ sưu tập nào — hãy quay lại sau.",
+    "itemCount": "{count} đề xuất",
+    "publishedOn": "Đăng ngày {date}",
+    "type": {
+      "projects": "Dự án",
+      "developers": "Lập trình viên",
+      "mixed": "Dự án & lập trình viên"
+    },
+    "whyPick": "Lý do chúng tôi chọn",
+    "githubLink": "GitHub",
+    "scoreLabel": "điểm",
+    "avgScoreLabel": "điểm trung bình người đóng góp",
+    "followersLabel": "người theo dõi",
+    "totalStarsLabel": "tổng sao",
+    "backToCollections": "Tất cả bộ sưu tập",
+    "dataNote": "Điểm và hạng đến từ động cơ chấm điểm ghfind và được làm mới sau mỗi lần quét."
   },
   "discoveryNext": {
     "relatedTitle": "Khám phá tiếp",

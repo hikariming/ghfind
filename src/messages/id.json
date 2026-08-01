@@ -14,6 +14,7 @@
     "discover": "Jelajahi",
     "developers": "Developer",
     "projects": "Proyek",
+    "collections": "Pilihan",
     "languages": "Bahasa",
     "organizations": "Organisasi",
     "versus": "Duel",
@@ -167,6 +168,29 @@
     "listLabel": "Hasil proyek",
     "emptyTitle": "Belum ada graf proyek di sini",
     "emptyBody": "Jalankan backfill repositori secara lokal atau hapus filter yang sedang aktif."
+  },
+  "collections": {
+    "metaTitle": "Pilihan editor: proyek & developer · ghfind",
+    "metaDescription": "Koleksi kurasi proyek dan developer GitHub unggulan, didukung mesin kualitas kontributor ghfind.",
+    "eyebrow": "Pilihan editor",
+    "heading": "Proyek & developer pilihan",
+    "subtitle": "Bukan sekadar daftar bintang — setiap pilihan disertai data mesin tentang siapa yang membangun dan seberapa hebat mereka.",
+    "empty": "Belum ada koleksi — kunjungi lagi nanti.",
+    "itemCount": "{count} pilihan",
+    "publishedOn": "Diterbitkan {date}",
+    "type": {
+      "projects": "Proyek",
+      "developers": "Developer",
+      "mixed": "Proyek & developer"
+    },
+    "whyPick": "Alasan kami memilihnya",
+    "githubLink": "GitHub",
+    "scoreLabel": "skor",
+    "avgScoreLabel": "skor rata-rata kontributor",
+    "followersLabel": "pengikut",
+    "totalStarsLabel": "total bintang",
+    "backToCollections": "Semua koleksi",
+    "dataNote": "Skor dan tier berasal dari mesin penilaian ghfind dan diperbarui dengan setiap pemindaian baru."
   },
   "discoveryNext": {
     "relatedTitle": "Lanjut menjelajah",

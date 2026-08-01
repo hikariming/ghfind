@@ -32,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { key: "developers", href: "/developers" },
       { key: "projects", href: "/projects" },
+      { key: "collections", href: "/collections" },
       { key: "languages", href: "/developers#languages", exact: true },
       { key: "organizations", href: "/developers#organizations", exact: true },
     ],

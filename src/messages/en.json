@@ -14,6 +14,7 @@
     "discover": "Discover",
     "developers": "Developers",
     "projects": "Projects",
+    "collections": "Picks",
     "languages": "Languages",
     "organizations": "Organizations",
     "versus": "Versus",
@@ -167,6 +168,29 @@
     "listLabel": "Project results",
     "emptyTitle": "No project graph here yet",
     "emptyBody": "Run the repository backfill locally or remove the current filter."
+  },
+  "collections": {
+    "metaTitle": "Editor's picks: projects & developers · ghfind",
+    "metaDescription": "Hand-curated collections of standout GitHub projects and developers, backed by ghfind's contributor-quality engine.",
+    "eyebrow": "Editor's picks",
+    "heading": "Curated projects & developers",
+    "subtitle": "Not another star list — every pick ships with engine data on who builds it and how good they are.",
+    "empty": "No collections yet — check back soon.",
+    "itemCount": "{count} picks",
+    "publishedOn": "Published {date}",
+    "type": {
+      "projects": "Projects",
+      "developers": "Developers",
+      "mixed": "Projects & developers"
+    },
+    "whyPick": "Why we picked it",
+    "githubLink": "GitHub",
+    "scoreLabel": "score",
+    "avgScoreLabel": "avg contributor score",
+    "followersLabel": "followers",
+    "totalStarsLabel": "total stars",
+    "backToCollections": "All collections",
+    "dataNote": "Scores and tiers come from the ghfind scoring engine and refresh with every new scan."
   },
   "discoveryNext": {
     "relatedTitle": "Keep exploring",

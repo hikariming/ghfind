@@ -14,6 +14,7 @@
     "discover": "발견",
     "developers": "개발자",
     "projects": "프로젝트",
+    "collections": "추천",
     "languages": "언어",
     "organizations": "조직",
     "versus": "대결",
@@ -167,6 +168,29 @@
     "listLabel": "프로젝트 결과",
     "emptyTitle": "아직 프로젝트 그래프가 없어요",
     "emptyBody": "로컬에서 저장소 백필을 실행하거나 현재 필터를 해제하세요."
+  },
+  "collections": {
+    "metaTitle": "에디터 추천: 주목할 프로젝트와 개발자 · ghfind",
+    "metaDescription": "ghfind 기여자 품질 엔진이 뒷받침하는 뛰어난 GitHub 프로젝트와 개발자 큐레이션 컬렉션.",
+    "eyebrow": "에디터 추천",
+    "heading": "엄선한 프로젝트 & 개발자",
+    "subtitle": "또 하나의 스타 순위가 아닙니다 — 모든 추천에는 누가 만들고 실력이 어떤지 엔진 데이터가 함께합니다.",
+    "empty": "아직 컬렉션이 없습니다. 곧 공개됩니다.",
+    "itemCount": "추천 {count}개",
+    "publishedOn": "{date} 게시",
+    "type": {
+      "projects": "프로젝트",
+      "developers": "개발자",
+      "mixed": "프로젝트와 개발자"
+    },
+    "whyPick": "추천 이유",
+    "githubLink": "GitHub",
+    "scoreLabel": "점수",
+    "avgScoreLabel": "기여자 평균 점수",
+    "followersLabel": "팔로워",
+    "totalStarsLabel": "누적 스타",
+    "backToCollections": "전체 컬렉션",
+    "dataNote": "점수와 티어는 ghfind 스코어링 엔진에서 나오며 새 스캔마다 갱신됩니다."
   },
   "discoveryNext": {
     "relatedTitle": "계속 탐색하기",

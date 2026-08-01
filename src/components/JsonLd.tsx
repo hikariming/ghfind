@@ -245,6 +245,40 @@ export function datasetJsonLd(opts: {
   };
 }
 
+/** A curated editorial collection (CollectionPage + ItemList of repos/people). */
+export function curatedCollectionJsonLd(opts: {
+  slug: string;
+  locale: string;
+  name: string;
+  description: string;
+  datePublished: string;
+  items: Array<{ kind: "repo" | "developer"; name: string; path: string }>;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    url: `${SITE_URL}${localePath(opts.locale, `/collections/${opts.slug}`)}`,
+    name: opts.name,
+    description: opts.description,
+    datePublished: opts.datePublished,
+    inLanguage: bcp47(opts.locale),
+    publisher: organizationNode("ghfind"),
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: opts.items.length,
+      itemListElement: opts.items.map((item, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        item: {
+          "@type": item.kind === "repo" ? "SoftwareSourceCode" : "Person",
+          name: item.name,
+          url: `${SITE_URL}${item.path}`,
+        },
+      })),
+    },
+  };
+}
+
 /** The leaderboard as a ranked developer directory (CollectionPage + ItemList). */
 export function leaderboardJsonLd(opts: {
   name: string;

@@ -14,6 +14,7 @@
     "discover": "发现",
     "developers": "开发者",
     "projects": "项目",
+    "collections": "编辑推荐",
     "languages": "语言",
     "organizations": "组织",
     "versus": "对战",
@@ -167,6 +168,29 @@
     "listLabel": "项目结果",
     "emptyTitle": "这里还没有项目图谱",
     "emptyBody": "请先在本地运行项目回填，或移除当前筛选条件。"
+  },
+  "collections": {
+    "metaTitle": "编辑推荐：优质项目与开发者 · ghfind",
+    "metaDescription": "人工精选的 GitHub 优质项目与开发者合集，每个推荐都附带 ghfind 引擎的贡献者质量数据。",
+    "eyebrow": "编辑推荐",
+    "heading": "优质项目与开发者精选",
+    "subtitle": "不是又一个 star 榜——每个推荐都附带引擎数据：是谁在做、成色如何。",
+    "empty": "还没有合集，敬请期待。",
+    "itemCount": "{count} 个推荐",
+    "publishedOn": "发布于 {date}",
+    "type": {
+      "projects": "项目",
+      "developers": "开发者",
+      "mixed": "项目与开发者"
+    },
+    "whyPick": "推荐理由",
+    "githubLink": "GitHub",
+    "scoreLabel": "评分",
+    "avgScoreLabel": "贡献者平均分",
+    "followersLabel": "关注者",
+    "totalStarsLabel": "累计 star",
+    "backToCollections": "全部合集",
+    "dataNote": "评分与段位来自 ghfind 评分引擎，随每次新扫描持续刷新。"
   },
   "discoveryNext": {
     "relatedTitle": "继续探索",
