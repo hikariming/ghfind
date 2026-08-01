@@ -39,7 +39,8 @@ export type TrackEvent =
   | "project_sort_change"
   | "project_filter_change"
   | "discovery_recommendation_click"
-  | "continue_exploring_click";
+  // Homepage editor's-picks band: promo card → collection page.
+  | "home_collections_click";
 
 type VaWindow = Window & {
   va?: (...params: unknown[]) => void;

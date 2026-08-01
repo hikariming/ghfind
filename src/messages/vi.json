@@ -186,6 +186,7 @@
     "whyPick": "Lý do chúng tôi chọn",
     "viewProfile": "Xem hồ sơ ghfind",
     "notTranslated": "Nội dung này chưa được dịch sang ngôn ngữ của bạn — hiển thị bản gốc.",
+    "viewAll": "Xem tất cả",
     "githubLink": "GitHub",
     "scoreLabel": "điểm",
     "avgScoreLabel": "điểm trung bình người đóng góp",
@@ -211,12 +212,6 @@
       "body": "Tiếp tục dạo qua các đội nhóm và cộng đồng đứng sau bảng xếp hạng.",
       "cta": "Duyệt tổ chức"
     }
-  },
-  "continueExploring": {
-    "title": "Tiếp tục nơi bạn đã dừng",
-    "subtitle": "Những dev và dự án bạn vừa khám phá gần đây.",
-    "developer": "Lập trình viên",
-    "project": "Dự án"
   },
   "challenge": {
     "bannerTitle": "Vừa ghé từ trang của @{owner}? Xem bạn so kè với họ ra sao",

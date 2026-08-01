@@ -186,6 +186,7 @@
     "whyPick": "추천 이유",
     "viewProfile": "ghfind 프로필 보기",
     "notTranslated": "이 콘텐츠는 아직 번역되지 않았습니다. 원문을 표시합니다.",
+    "viewAll": "전체 보기",
     "githubLink": "GitHub",
     "scoreLabel": "점수",
     "avgScoreLabel": "기여자 평균 점수",
@@ -211,12 +212,6 @@
       "body": "랭킹 뒤에 있는 팀과 커뮤니티를 이어서 둘러보세요.",
       "cta": "조직 둘러보기"
     }
-  },
-  "continueExploring": {
-    "title": "지난 탐색 이어가기",
-    "subtitle": "최근에 본 개발자와 프로젝트.",
-    "developer": "개발자",
-    "project": "프로젝트"
   },
   "challenge": {
     "bannerTitle": "@{owner}의 프로필에서 오셨나요? 그 앞에서 내 성적은 어떤지 재보세요",

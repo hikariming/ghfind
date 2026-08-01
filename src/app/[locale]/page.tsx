@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DeveloperCount } from "@/components/DeveloperCount";
-import { ContinueExploring } from "@/components/ContinueExploring";
+import { HomeCollections } from "@/components/HomeCollections";
 import { HomeLeaderboard } from "@/components/HomeLeaderboard";
 import { Roaster } from "@/components/Roaster";
 import { HomeFaq, getFaqItems } from "@/components/HomeFaq";
@@ -66,7 +66,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
 
       <Roaster />
 
-      <ContinueExploring />
+      <HomeCollections locale={locale} />
 
       <Suspense
         fallback={

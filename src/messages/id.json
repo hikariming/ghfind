@@ -186,6 +186,7 @@
     "whyPick": "Alasan kami memilihnya",
     "viewProfile": "Lihat profil ghfind",
     "notTranslated": "Konten ini belum diterjemahkan ke bahasa Anda — menampilkan versi asli.",
+    "viewAll": "Lihat semua",
     "githubLink": "GitHub",
     "scoreLabel": "skor",
     "avgScoreLabel": "skor rata-rata kontributor",
@@ -211,12 +212,6 @@
       "body": "Lanjutkan menyusuri tim dan komunitas di balik papan peringkat.",
       "cta": "Telusuri organisasi"
     }
-  },
-  "continueExploring": {
-    "title": "Lanjutkan dari tempat terakhirmu",
-    "subtitle": "Developer dan proyek terbaru dari penjelajahanmu.",
-    "developer": "Developer",
-    "project": "Proyek"
   },
   "challenge": {
     "bannerTitle": "Datang dari profil @{owner}? Lihat seberapa jauh kamu dibanding dia",

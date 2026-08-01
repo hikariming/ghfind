@@ -186,6 +186,7 @@
     "whyPick": "推薦理由",
     "viewProfile": "ghfind プロフィールを見る",
     "notTranslated": "このコンテンツはまだ翻訳されていません。原文を表示しています。",
+    "viewAll": "すべて見る",
     "githubLink": "GitHub",
     "scoreLabel": "スコア",
     "avgScoreLabel": "貢献者平均スコア",
@@ -211,12 +212,6 @@
       "body": "ランキングの裏にいるチームとコミュニティをたどっていきましょう。",
       "cta": "組織を見る"
     }
-  },
-  "continueExploring": {
-    "title": "続きから探索する",
-    "subtitle": "最近見た開発者とプロジェクト。",
-    "developer": "開発者",
-    "project": "プロジェクト"
   },
   "challenge": {
     "bannerTitle": "@{owner} のページから来た？あの人と比べて自分がどの程度か、確かめてみよう",

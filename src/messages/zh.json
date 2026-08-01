@@ -186,6 +186,7 @@
     "whyPick": "推荐理由",
     "viewProfile": "查看 ghfind 档案",
     "notTranslated": "这篇内容还没有当前语言的版本，以下为原文。",
+    "viewAll": "查看全部",
     "githubLink": "GitHub",
     "scoreLabel": "评分",
     "avgScoreLabel": "贡献者平均分",
@@ -211,12 +212,6 @@
       "body": "沿着榜单探索开发者背后的团队与开源社区。",
       "cta": "浏览组织"
     }
-  },
-  "continueExploring": {
-    "title": "继续上次探索",
-    "subtitle": "回到你最近看过的开发者和项目。",
-    "developer": "开发者",
-    "project": "项目"
   },
   "challenge": {
     "bannerTitle": "从 @{owner} 的主页来的？测测你在 TA 面前是什么成色",

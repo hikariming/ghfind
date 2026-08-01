@@ -186,6 +186,7 @@
     "whyPick": "Por que escolhemos",
     "viewProfile": "Ver perfil no ghfind",
     "notTranslated": "Este conteúdo ainda não foi traduzido para o seu idioma; exibindo o original.",
+    "viewAll": "Ver tudo",
     "githubLink": "GitHub",
     "scoreLabel": "pontuação",
     "avgScoreLabel": "pontuação média dos contribuidores",
@@ -211,12 +212,6 @@
       "body": "Continue pelos times e comunidades por trás do ranking.",
       "cta": "Ver organizações"
     }
-  },
-  "continueExploring": {
-    "title": "Continue de onde parou",
-    "subtitle": "Desenvolvedores e projetos recentes da sua exploração.",
-    "developer": "Desenvolvedor",
-    "project": "Projeto"
   },
   "challenge": {
     "bannerTitle": "Veio do perfil de @{owner}? Veja como você se sai contra essa pessoa",
