@@ -65,6 +65,15 @@ export interface CreateProjectAnalysisRunResult {
   created: boolean;
 }
 
+export interface ReusableProjectAnalysisRunInput {
+  repoKey: string;
+  requestedRef: string | null;
+  schemaVersion: string;
+  rubricVersion: string;
+  agentVersion: string;
+  skillVersion: string;
+}
+
 export interface ProjectAssessment {
   repoKey: string;
   latestAnalysisId: string;
@@ -123,6 +132,7 @@ export interface FinalizeProjectAnalysisInput {
 
 let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
+let eligibilityReady: Promise<void> | null = null;
 
 function database(): Client {
   if (client) return client;
@@ -370,6 +380,41 @@ export async function getProjectAnalysisRun(
   return selectRun(db, analysisId);
 }
 
+export async function findReusableCompletedProjectAnalysisRun(
+  input: ReusableProjectAnalysisRunInput,
+): Promise<ProjectAnalysisRun | null> {
+  const db = database();
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT pr.*
+          FROM project_analysis_runs AS pr
+          JOIN project_assessments AS pa ON pa.latest_analysis_id = pr.id
+          WHERE pr.repo_key = ?
+            AND (pr.requested_ref = ? OR (pr.requested_ref IS NULL AND ? IS NULL))
+            AND pr.schema_version = ?
+            AND pr.rubric_version = ?
+            AND pr.agent_version = ?
+            AND pr.skill_version = ?
+            AND pr.status = 'completed'
+            AND pr.analysis_json IS NOT NULL
+            AND pr.report_markdown IS NOT NULL
+            AND pr.evidence_json IS NOT NULL
+          ORDER BY pr.completed_at DESC
+          LIMIT 1`,
+    args: [
+      input.repoKey.toLowerCase(),
+      input.requestedRef,
+      input.requestedRef,
+      input.schemaVersion,
+      input.rubricVersion,
+      input.agentVersion,
+      input.skillVersion,
+    ],
+  });
+  const row = result.rows[0];
+  return row ? mapRun(row as Record<string, unknown>) : null;
+}
+
 export async function reserveProjectAnalysisExecutionSlot(
   analysisId: string,
   maximumConcurrentRuns: number,
@@ -569,6 +614,97 @@ function treasureReason(analysis: ProjectAnalysisArtifact): string {
   return `${analysis.project.summary} 产品价值 ${analysis.scores.product_score}，${analysis.exposure.rationale}`;
 }
 
+async function reconcileStoredProjectEligibility(db: Client): Promise<void> {
+  const [assessmentRows, removedRows] = await Promise.all([
+    db.execute({
+      sql: `${ASSESSMENT_SELECT}
+            ORDER BY pa.updated_at ASC`,
+      args: [],
+    }),
+    db.execute({
+      sql: `SELECT repo_key, analysis_id
+            FROM treasure_entries
+            WHERE status = 'removed'`,
+      args: [],
+    }),
+  ]);
+  const removed = new Set(
+    removedRows.rows.map((row) => `${rowString(row.repo_key)}\0${rowString(row.analysis_id)}`),
+  );
+  const statements: Array<{ sql: string; args: InValue[] }> = [];
+  const now = Date.now();
+
+  for (const rawRow of assessmentRows.rows) {
+    const row = rawRow as Record<string, unknown>;
+    let analysis: ProjectAnalysisArtifact;
+    try {
+      analysis = projectAnalysisArtifactSchema.parse(JSON.parse(rowString(row.analysis_json)));
+    } catch {
+      continue;
+    }
+    const latestAnalysisId = rowString(row.latest_analysis_id);
+    const repoKey = rowString(row.repo_key);
+    const eligibility = deriveProjectBoardEligibility(analysis);
+    const manuallyRemoved = removed.has(`${repoKey}\0${latestAnalysisId}`);
+    const treasureEligible = eligibility.treasureEligible && !manuallyRemoved;
+    const classicEligible = eligibility.classicEligible;
+    if (
+      Number(row.treasure_eligible) !== Number(treasureEligible) ||
+      Number(row.classic_eligible) !== Number(classicEligible)
+    ) {
+      statements.push({
+        sql: `UPDATE project_assessments
+              SET treasure_eligible = ?, classic_eligible = ?, updated_at = ?
+              WHERE repo_key = ? AND latest_analysis_id = ?`,
+        args: [
+          treasureEligible ? 1 : 0,
+          classicEligible ? 1 : 0,
+          now,
+          repoKey,
+          latestAnalysisId,
+        ],
+      });
+    }
+    if (treasureEligible) {
+      statements.push({
+        sql: `INSERT OR IGNORE INTO treasure_entries (
+                id, repo_key, analysis_id, status, selected_at,
+                product_score_snapshot, confidence_snapshot,
+                verification_level_snapshot, stars_snapshot, exposure_snapshot,
+                reason, resolved_commit_sha
+              ) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          randomUUID(),
+          repoKey,
+          latestAnalysisId,
+          now,
+          analysis.scores.product_score,
+          analysis.confidence,
+          analysis.verification_level,
+          analysis.exposure.stars,
+          analysis.exposure.band,
+          treasureReason(analysis),
+          analysis.repository.resolved_commit_sha,
+        ],
+      });
+    }
+  }
+
+  if (statements.length > 0) {
+    await db.batch(statements, "write");
+  }
+}
+
+function ensureCurrentProjectEligibility(db: Client): Promise<void> {
+  if (!eligibilityReady) {
+    eligibilityReady = reconcileStoredProjectEligibility(db).catch((error) => {
+      eligibilityReady = null;
+      throw error;
+    });
+  }
+  return eligibilityReady;
+}
+
 export async function finalizeProjectAnalysis(
   input: FinalizeProjectAnalysisInput,
 ): Promise<ProjectAnalysisRun> {
@@ -752,6 +888,7 @@ const ASSESSMENT_SELECT = `
 export async function getProjectAssessment(repoKey: string): Promise<ProjectAssessment | null> {
   const db = database();
   await ensureSchema(db);
+  await ensureCurrentProjectEligibility(db);
   const result = await db.execute({
     sql: `${ASSESSMENT_SELECT} WHERE pa.repo_key = ? LIMIT 1`,
     args: [repoKey.toLowerCase()],
@@ -766,6 +903,7 @@ export async function listProjectBoard(
 ): Promise<ProjectAssessment[]> {
   const db = database();
   await ensureSchema(db);
+  await ensureCurrentProjectEligibility(db);
   const eligibilityColumn = board === "treasure" ? "treasure_eligible" : "classic_eligible";
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
   const offset = Math.max(0, Math.floor(options.offset));
@@ -862,4 +1000,5 @@ export function resetProjectAnalysisDbForTests(): void {
   client?.close();
   client = null;
   schemaReady = null;
+  eligibilityReady = null;
 }

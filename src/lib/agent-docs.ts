@@ -56,7 +56,7 @@ export const WHEN_TO_USE = [
   `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. It scores unseen accounts live on demand.`,
   `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the bounded evidence payload: raw metrics, top repos, recent PRs, red flags, and sub-scores. It scores and persists the account synchronously; no background scan queue is required.`,
   `Use POST ${SITE_URL}/api/roast (or the CLI) only when you want the human-facing prose roast — this is the one LLM path and it can spend model credit.`,
-  `Use POST ${SITE_URL}/api/project-analyses for an asynchronous repository product evaluation by a dedicated Mosoo Cattle Agent; poll the returned statusUrl for the report.`,
+  `Use POST ${SITE_URL}/api/project-analyses to reuse a matching persisted repository evaluation or start one with a dedicated Mosoo Cattle Agent; poll the returned statusUrl when it is still running.`,
   `Use the leaderboard / developers / stats endpoints for discovery and platform context, NOT as fresh per-user scoring evidence (they are ranked snapshots).`,
   "Do NOT treat a low score as a factual claim about a person — scores use public signals only; private-org work is invisible to them.",
 ];
@@ -83,7 +83,7 @@ Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · A
 - \`GET ${SITE_URL}/api/score/{username}\` — deterministic score, no auth, no LLM; scores unseen accounts with the bounded quick collector and persists the v9 result.
 - \`POST ${SITE_URL}/api/scan\` { "username": "..." } — bounded deterministic scan payload (metrics + repo/PR signals + red flags) and a persisted v9 score. It does not create or wait for a background scan job.
 - \`POST ${SITE_URL}/api/roast\` — LLM roast report (streaming); pass \`byoKey\` for your own model. The default path uses the exact persisted quick snapshot and does not wait for historical collection.
-- \`POST ${SITE_URL}/api/project-analyses\` { "repositoryUrl": "https://github.com/owner/repo" } — start an asynchronous product-value evaluation; poll the returned \`statusUrl\`.
+- \`POST ${SITE_URL}/api/project-analyses\` { "repositoryUrl": "https://github.com/owner/repo" } — reuse a matching persisted product-value evaluation or start one; poll the returned \`statusUrl\` when it is still running.
 - \`POST ${SITE_URL}/api/vs-verdict\` { "a": "...", "b": "..." } — head-to-head verdict.
 - \`GET ${SITE_URL}/api/leaderboard?view=trending|score|heat|progress&window=all|24h|7d|30d&limit={1-500}&offset={n}\` — paginated; walk pages via \`nextOffset\`.
 - \`GET ${SITE_URL}/api/developers?type=language|org|repo&value={facet}&limit={1-500}&offset={n}\`

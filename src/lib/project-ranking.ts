@@ -27,7 +27,7 @@ export function deriveProjectBoardEligibility(
   const criticalRisk = analysis.risks.some((risk) => risk.severity === "critical");
   if (criticalRisk) blockingReasons.push("critical_adoption_risk");
 
-  if (analysis.scores.product_score < 75) {
+  if (analysis.scores.product_score < 60) {
     blockingReasons.push("product_score_below_treasure_threshold");
   }
   if (analysis.confidence < 60) {
@@ -43,7 +43,7 @@ export function deriveProjectBoardEligibility(
   const treasureEligible = blockingReasons.length === 0;
   const classicEligible =
     !criticalRisk &&
-    analysis.scores.product_score >= 80 &&
+    analysis.scores.product_score >= 60 &&
     analysis.confidence >= 70 &&
     ["active_evolution", "stable_maintenance", "feature_complete"].includes(
       analysis.project.lifecycle,

@@ -100,6 +100,27 @@ describe("project analysis persistence", () => {
     const treasure = await db.listProjectBoard("treasure", { limit: 10, offset: 0 });
     expect(treasure).toHaveLength(1);
     expect(treasure[0]?.repoKey).toBe("owner/useful-tool");
+
+    await expect(
+      db.findReusableCompletedProjectAnalysisRun({
+        repoKey: "OWNER/USEFUL-TOOL",
+        requestedRef: null,
+        schemaVersion: "ghfind.project-analysis.v1",
+        rubricVersion: "project-value-v1",
+        agentVersion: "project-evaluator-v1",
+        skillVersion: "ghfind-project-evaluator-v1",
+      }),
+    ).resolves.toMatchObject({ id: "analysis-1", status: "completed" });
+    await expect(
+      db.findReusableCompletedProjectAnalysisRun({
+        repoKey: "owner/useful-tool",
+        requestedRef: "main",
+        schemaVersion: "ghfind.project-analysis.v1",
+        rubricVersion: "project-value-v1",
+        agentVersion: "project-evaluator-v1",
+        skillVersion: "ghfind-project-evaluator-v1",
+      }),
+    ).resolves.toBeNull();
   });
 
   it("keeps the treasure discovery record when a later assessment graduates", async () => {

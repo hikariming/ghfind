@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ProjectAnalysisDatabaseError } from "@/lib/project-analysis-db";
 import {
   createProjectAnalysis,
+  getReusableProjectAnalysis,
   projectAnalysisRetryState,
   ProjectAnalysisServiceError,
 } from "@/lib/project-analysis-service";
@@ -51,42 +52,69 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 export async function POST(req: NextRequest) {
-  const rateLimit = await checkProjectAnalysisRateLimit(clientIp(req));
-  const headers = rateLimitHeaders(rateLimit);
-  if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: "rate_limited", message: "Too many project analyses. Retry later." },
-      { status: 429, headers },
-    );
-  }
-
   let body: { repositoryUrl?: unknown; ref?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json(
       { error: "invalid_body", message: "Send a JSON request body." },
-      { status: 400, headers },
+      { status: 400 },
     );
   }
   if (typeof body.repositoryUrl !== "string") {
     return NextResponse.json(
       { error: "invalid_repository", message: "repositoryUrl must be a string." },
-      { status: 400, headers },
+      { status: 400 },
     );
   }
   if (body.ref !== undefined && body.ref !== null && typeof body.ref !== "string") {
     return NextResponse.json(
       { error: "invalid_ref", message: "ref must be a string when provided." },
-      { status: 400, headers },
+      { status: 400 },
     );
   }
 
+  let responseHeaders: Record<string, string> = {};
   try {
-    const run = await createProjectAnalysis({
+    const input = {
       repositoryUrl: body.repositoryUrl,
       requestedRef: body.ref as string | null | undefined,
-    });
+    };
+    const reusable = await getReusableProjectAnalysis(input);
+    if (reusable) {
+      const location = `/api/project-analyses/${reusable.id}`;
+      return NextResponse.json(
+        {
+          analysisId: reusable.id,
+          repoKey: reusable.repoKey,
+          status: reusable.status,
+          phase: reusable.phase,
+          progress: reusable.progress,
+          retry: projectAnalysisRetryState(reusable),
+          statusUrl: location,
+          reused: true,
+        },
+        {
+          status: 200,
+          headers: {
+            Location: location,
+            "Idempotency-Key": reusable.idempotencyKey,
+            "X-Project-Analysis-Reused": "true",
+          },
+        },
+      );
+    }
+
+    const rateLimit = await checkProjectAnalysisRateLimit(clientIp(req));
+    responseHeaders = rateLimitHeaders(rateLimit);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "rate_limited", message: "Too many project analyses. Retry later." },
+        { status: 429, headers: responseHeaders },
+      );
+    }
+
+    const run = await createProjectAnalysis(input);
     const location = `/api/project-analyses/${run.id}`;
     return NextResponse.json(
       {
@@ -100,12 +128,18 @@ export async function POST(req: NextRequest) {
       },
       {
         status: 202,
-        headers: { ...headers, Location: location, "Idempotency-Key": run.idempotencyKey },
+        headers: {
+          ...responseHeaders,
+          Location: location,
+          "Idempotency-Key": run.idempotencyKey,
+        },
       },
     );
   } catch (error) {
     const response = errorResponse(error);
-    for (const [key, value] of Object.entries(headers)) response.headers.set(key, value);
+    for (const [key, value] of Object.entries(responseHeaders)) {
+      response.headers.set(key, value);
+    }
     return response;
   }
 }

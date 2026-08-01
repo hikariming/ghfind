@@ -147,9 +147,10 @@ export function GET() {
         post: {
           tags: ["projects"],
           operationId: "createProjectAnalysis",
-          summary: "Start an evidence-backed open-source project evaluation",
+          summary: "Reuse or start an evidence-backed open-source project evaluation",
           description:
-            "Creates an asynchronous Mosoo Cattle Agent task. Product value is scored independently " +
+            "Returns a matching persisted result before creating an asynchronous Mosoo Cattle Agent task. " +
+            "Product value is scored independently " +
             "from Stars, company backing, code volume, and contributor count. Unknown public repositories " +
             "receive source inspection only; code execution is restricted to a server allowlist.",
           requestBody: {
@@ -168,6 +169,15 @@ export function GET() {
             },
           },
           responses: {
+            "200": {
+              description: "Matching completed result loaded from durable persistence",
+              headers: {
+                Location: { description: "Endpoint for the persisted analysis", schema: { type: "string" } },
+                "Idempotency-Key": { description: "Stable analysis task key", schema: { type: "string" } },
+                "X-Project-Analysis-Reused": { description: "Always true for a persisted replay", schema: { type: "string", enum: ["true"] } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisAccepted" } } },
+            },
             "202": {
               description: "Task created or deduplicated against an active task",
               headers: {
@@ -575,6 +585,7 @@ export function GET() {
             progress: { type: "integer", minimum: 0, maximum: 100 },
             retry: { $ref: "#/components/schemas/ProjectAnalysisRetry" },
             statusUrl: { type: "string" },
+            reused: { type: "boolean", description: "True when an existing completed result was replayed" },
           },
         },
         ProjectAnalysisStatus: {

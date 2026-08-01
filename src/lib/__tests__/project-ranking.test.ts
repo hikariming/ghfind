@@ -18,7 +18,7 @@ describe("project board eligibility", () => {
     });
   });
 
-  it("does not treat low exposure as a quality bonus", () => {
+  it("admits a score at the treasure threshold", () => {
     const result = deriveProjectBoardEligibility(
       artifact({
         scores: {
@@ -27,7 +27,25 @@ describe("project board eligibility", () => {
             ...(validProjectAnalysis as ProjectAnalysisArtifact).scores.pain,
             score: 5,
           },
-          product_score: 71,
+          product_score: 60,
+        },
+      }),
+    );
+
+    expect(result.treasureEligible).toBe(true);
+    expect(result.blockingReasons).not.toContain("product_score_below_treasure_threshold");
+  });
+
+  it("does not treat low exposure as a quality bonus below 60", () => {
+    const result = deriveProjectBoardEligibility(
+      artifact({
+        scores: {
+          ...(validProjectAnalysis as ProjectAnalysisArtifact).scores,
+          pain: {
+            ...(validProjectAnalysis as ProjectAnalysisArtifact).scores.pain,
+            score: 5,
+          },
+          product_score: 59,
         },
       }),
     );
@@ -36,10 +54,14 @@ describe("project board eligibility", () => {
     expect(result.blockingReasons).toContain("product_score_below_treasure_threshold");
   });
 
-  it("admits established, high-value mature projects to classic", () => {
+  it("admits established mature projects at the 60-point threshold to classic", () => {
     const result = deriveProjectBoardEligibility(
       artifact({
         confidence: 82,
+        scores: {
+          ...(validProjectAnalysis as ProjectAnalysisArtifact).scores,
+          product_score: 60,
+        },
         exposure: {
           ...(validProjectAnalysis as ProjectAnalysisArtifact).exposure,
           band: "established",
@@ -53,6 +75,29 @@ describe("project board eligibility", () => {
 
     expect(result.treasureEligible).toBe(false);
     expect(result.classicEligible).toBe(true);
+  });
+
+  it("keeps established mature projects below 60 off classic", () => {
+    const result = deriveProjectBoardEligibility(
+      artifact({
+        confidence: 82,
+        scores: {
+          ...(validProjectAnalysis as ProjectAnalysisArtifact).scores,
+          product_score: 59,
+        },
+        exposure: {
+          ...(validProjectAnalysis as ProjectAnalysisArtifact).exposure,
+          band: "established",
+        },
+        project: {
+          ...(validProjectAnalysis as ProjectAnalysisArtifact).project,
+          lifecycle: "stable_maintenance",
+        },
+      }),
+    );
+
+    expect(result.treasureEligible).toBe(false);
+    expect(result.classicEligible).toBe(false);
   });
 
   it("blocks both boards on a critical adoption risk", () => {

@@ -98,3 +98,33 @@ describe("production rate-limit availability", () => {
     );
   });
 });
+
+describe("project analysis completed-result cache", () => {
+  it("reads and writes only the durable analysis id index", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.test");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json([
+          { result: Buffer.from("analysis-persisted").toString("base64") },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        Response.json([{ result: Buffer.from("OK").toString("base64") }]),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const {
+      getCachedProjectAnalysisId,
+      setCachedProjectAnalysisId,
+    } = await loadRedis();
+
+    await expect(getCachedProjectAnalysisId("fingerprint")).resolves.toBe(
+      "analysis-persisted",
+    );
+    await expect(
+      setCachedProjectAnalysisId("fingerprint", "analysis-persisted"),
+    ).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});

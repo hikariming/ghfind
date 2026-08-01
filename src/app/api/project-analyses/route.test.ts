@@ -3,6 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ProjectAnalysisArtifact } from "@/lib/project-analysis-contract";
+import {
+  validProjectAnalysis,
+  validRuntimeEvidence,
+} from "@/lib/__tests__/project-analysis-contract.test";
 
 let route: typeof import("./route");
 let db: typeof import("@/lib/project-analysis-db");
@@ -95,5 +100,54 @@ describe("POST /api/project-analyses", () => {
       analysisId: firstBody.analysisId,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the persisted completed result before applying the generation limit", async () => {
+    const analysisId = "route-persisted-analysis";
+    const repoKey = "owner/route-persisted";
+    await db.createProjectAnalysisRun({
+      id: analysisId,
+      repoKey,
+      canonicalUrl: `https://github.com/${repoKey}`,
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v2",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v2",
+      skillVersion: "ghfind-project-evaluator-v3",
+    });
+    const analysis = {
+      ...(validProjectAnalysis as ProjectAnalysisArtifact),
+      analysis_id: analysisId,
+      repository: {
+        ...(validProjectAnalysis as ProjectAnalysisArtifact).repository,
+        repo_key: repoKey,
+        canonical_url: `https://github.com/${repoKey}`,
+      },
+    };
+    await db.finalizeProjectAnalysis({
+      analysisId,
+      analysis,
+      analysisJson: JSON.stringify(analysis),
+      evidenceJson: JSON.stringify({
+        ...validRuntimeEvidence,
+        analysis_id: analysisId,
+        repo_key: repoKey,
+      }),
+      reportMarkdown: "# Route Persisted",
+      hashes: { analysis: "analysis", evidence: "evidence", report: "report" },
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await route.POST(request({ repositoryUrl: repoKey }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-project-analysis-reused")).toBe("true");
+    await expect(response.json()).resolves.toMatchObject({
+      analysisId,
+      status: "completed",
+      reused: true,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

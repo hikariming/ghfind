@@ -2,6 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  validProjectAnalysis,
+  validRuntimeEvidence,
+} from "./project-analysis-contract.test";
+import type { ProjectAnalysisArtifact } from "../project-analysis-contract";
 let db: typeof import("../project-analysis-db");
 let service: typeof import("../project-analysis-service");
 let temporaryDirectory: string;
@@ -115,6 +120,57 @@ describe("project analysis reconciliation", () => {
     });
     await expect(db.getProjectAssessment("owner/useful-tool")).resolves.toBeNull();
     await expect(db.listTreasureHistory("owner/useful-tool")).resolves.toHaveLength(0);
+  });
+
+  it("reuses the durable completed result before creating another Mosoo Thread", async () => {
+    const persistedAnalysisId = "service-persisted-analysis";
+    const persistedRepoKey = "owner/persisted-tool";
+    await db.createProjectAnalysisRun({
+      id: persistedAnalysisId,
+      repoKey: persistedRepoKey,
+      canonicalUrl: `https://github.com/${persistedRepoKey}`,
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v2",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v2",
+      skillVersion: "ghfind-project-evaluator-v3",
+    });
+    const analysis = {
+      ...(validProjectAnalysis as ProjectAnalysisArtifact),
+      analysis_id: persistedAnalysisId,
+      repository: {
+        ...(validProjectAnalysis as ProjectAnalysisArtifact).repository,
+        repo_key: persistedRepoKey,
+        canonical_url: `https://github.com/${persistedRepoKey}`,
+      },
+    };
+    await db.finalizeProjectAnalysis({
+      analysisId: persistedAnalysisId,
+      analysis,
+      analysisJson: JSON.stringify(analysis),
+      evidenceJson: JSON.stringify({
+        ...validRuntimeEvidence,
+        analysis_id: persistedAnalysisId,
+        repo_key: persistedRepoKey,
+      }),
+      reportMarkdown: "# Persisted Tool",
+      hashes: {
+        analysis: "persisted-analysis-hash",
+        evidence: "persisted-evidence-hash",
+        report: "persisted-report-hash",
+      },
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      service.createProjectAnalysis({ repositoryUrl: persistedRepoKey }),
+    ).resolves.toMatchObject({
+      id: persistedAnalysisId,
+      repoKey: persistedRepoKey,
+      status: "completed",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("retries a runtime.inactive failure once with a fresh Thread", async () => {

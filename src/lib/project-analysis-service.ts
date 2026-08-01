@@ -14,6 +14,7 @@ import {
   createProjectAnalysisRun,
   failProjectAnalysis,
   finalizeProjectAnalysis,
+  findReusableCompletedProjectAnalysisRun,
   getProjectAnalysisRun,
   getProjectAssessment,
   listReconciliableProjectAnalysisRuns,
@@ -24,6 +25,7 @@ import {
   updateProjectAnalysisState,
   updateProjectAnalysisActivities,
   type ProjectAnalysisRun,
+  type ReusableProjectAnalysisRunInput,
 } from "./project-analysis-db";
 import {
   createMosooProjectAnalysisThread,
@@ -33,6 +35,11 @@ import {
   readMosooProjectAnalysisArtifacts,
   type MosooThreadSnapshot,
 } from "./mosoo-project-analysis";
+import {
+  clearCachedProjectAnalysisId,
+  getCachedProjectAnalysisId,
+  setCachedProjectAnalysisId,
+} from "./redis";
 
 export type ProjectAnalysisServiceErrorCode =
   | "invalid_repository"
@@ -56,6 +63,91 @@ export class ProjectAnalysisServiceError extends Error {
 export interface CreateProjectAnalysisInput {
   repositoryUrl: string;
   requestedRef?: string | null;
+}
+
+function reusableProjectAnalysisInput(
+  repoKey: string,
+  requestedRef: string | null,
+): ReusableProjectAnalysisRunInput {
+  return {
+    repoKey,
+    requestedRef,
+    schemaVersion: PROJECT_ANALYSIS_SCHEMA_VERSION,
+    rubricVersion: PROJECT_RUBRIC_VERSION,
+    agentVersion: PROJECT_AGENT_VERSION,
+    skillVersion: PROJECT_SKILL_VERSION,
+  };
+}
+
+function projectAnalysisResultFingerprint(
+  input: ReusableProjectAnalysisRunInput,
+): string {
+  return createHash("sha256")
+    .update(
+      [
+        input.repoKey.toLowerCase(),
+        input.requestedRef ?? "",
+        input.schemaVersion,
+        input.rubricVersion,
+        input.agentVersion,
+        input.skillVersion,
+      ].join("\0"),
+    )
+    .digest("hex");
+}
+
+async function findReusableProjectAnalysisByIdentity(
+  input: ReusableProjectAnalysisRunInput,
+): Promise<ProjectAnalysisRun | null> {
+  const fingerprint = projectAnalysisResultFingerprint(input);
+  const cachedAnalysisId = await getCachedProjectAnalysisId(fingerprint);
+  if (cachedAnalysisId) {
+    const cachedRun = await getProjectAnalysisRun(cachedAnalysisId);
+    const currentAssessment = await getProjectAssessment(input.repoKey);
+    if (
+      cachedRun?.status === "completed" &&
+      currentAssessment?.latestAnalysisId === cachedRun.id &&
+      cachedRun.repoKey === input.repoKey.toLowerCase() &&
+      cachedRun.requestedRef === input.requestedRef &&
+      cachedRun.schemaVersion === input.schemaVersion &&
+      cachedRun.rubricVersion === input.rubricVersion &&
+      cachedRun.agentVersion === input.agentVersion &&
+      cachedRun.skillVersion === input.skillVersion
+    ) {
+      return cachedRun;
+    }
+    await clearCachedProjectAnalysisId(fingerprint);
+  }
+
+  const persisted = await findReusableCompletedProjectAnalysisRun(input);
+  if (persisted) {
+    await setCachedProjectAnalysisId(fingerprint, persisted.id);
+  }
+  return persisted;
+}
+
+export async function getReusableProjectAnalysis(
+  input: CreateProjectAnalysisInput,
+): Promise<ProjectAnalysisRun | null> {
+  let repository;
+  try {
+    repository = normalizeGitHubRepository(input.repositoryUrl);
+  } catch {
+    throw new ProjectAnalysisServiceError(
+      "invalid_repository",
+      "Pass a public GitHub repository URL or owner/repository.",
+      400,
+    );
+  }
+  const requestedRef = normalizeRequestedRef(input.requestedRef);
+  return findReusableProjectAnalysisByIdentity(
+    reusableProjectAnalysisInput(repository.repoKey, requestedRef),
+  );
+}
+
+async function cacheCompletedProjectAnalysis(run: ProjectAnalysisRun): Promise<void> {
+  const input = reusableProjectAnalysisInput(run.repoKey, run.requestedRef);
+  await setCachedProjectAnalysisId(projectAnalysisResultFingerprint(input), run.id);
 }
 
 export interface PublicProjectAnalysisView {
@@ -300,6 +392,11 @@ export async function createProjectAnalysis(
     );
   }
   const requestedRef = normalizeRequestedRef(input.requestedRef);
+  const reusable = await findReusableProjectAnalysisByIdentity(
+    reusableProjectAnalysisInput(repository.repoKey, requestedRef),
+  );
+  if (reusable) return reusable;
+
   const created = await createProjectAnalysisRun({
     id: randomUUID(),
     repoKey: repository.repoKey,
@@ -451,6 +548,7 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
         report: sha256(artifacts.reportMarkdown),
       },
     });
+    await cacheCompletedProjectAnalysis(completed);
     console.info("project_analysis.completed", {
       analysisId: completed.id,
       repoKey: completed.repoKey,

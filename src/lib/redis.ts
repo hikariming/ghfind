@@ -46,6 +46,7 @@ let verdictDayLimiter: Ratelimit | null = null;
 const localProjectAnalysisWindows = new Map<string, { count: number; reset: number }>();
 const PROJECT_ANALYSIS_LIMIT = 5;
 const PROJECT_ANALYSIS_WINDOW_MS = 60 * 60 * 1_000;
+const PROJECT_ANALYSIS_RESULT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export const RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS = 15;
 const LIMITER_UNAVAILABLE_LOG_INTERVAL_MS = 60_000;
@@ -402,6 +403,45 @@ export async function checkProjectAnalysisRateLimit(ip: string): Promise<RateLim
   } catch {
     return localProjectAnalysisRateLimit(ip);
   }
+}
+
+const projectAnalysisResultKey = (fingerprint: string) =>
+  `project-analysis:completed:v1:${fingerprint}`;
+
+export async function getCachedProjectAnalysisId(
+  fingerprint: string,
+): Promise<string | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    const value = await r.get<string>(projectAnalysisResultKey(fingerprint));
+    return typeof value === "string" && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedProjectAnalysisId(
+  fingerprint: string,
+  analysisId: string,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(projectAnalysisResultKey(fingerprint), analysisId, {
+      ex: PROJECT_ANALYSIS_RESULT_TTL_SECONDS,
+    });
+  } catch {
+    // Best-effort index only. Durable project analysis remains the source of truth.
+  }
+}
+
+export async function clearCachedProjectAnalysisId(
+  fingerprint: string,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(projectAnalysisResultKey(fingerprint)).catch(() => {});
 }
 
 function localProjectAnalysisRateLimit(ip: string): RateLimitResult {
