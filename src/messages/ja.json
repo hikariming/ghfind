@@ -184,6 +184,8 @@
       "mixed": "プロジェクトと開発者"
     },
     "whyPick": "推薦理由",
+    "viewProfile": "ghfind プロフィールを見る",
+    "notTranslated": "このコンテンツはまだ翻訳されていません。原文を表示しています。",
     "githubLink": "GitHub",
     "scoreLabel": "スコア",
     "avgScoreLabel": "貢献者平均スコア",

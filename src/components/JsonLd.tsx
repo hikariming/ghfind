@@ -245,6 +245,45 @@ export function datasetJsonLd(opts: {
   };
 }
 
+/**
+ * A curated feature article about one developer/repo (the "编辑推荐" profile
+ * pieces). Article + `about` entity so search engines connect the piece to
+ * the person it covers.
+ */
+export function collectionFeatureJsonLd(opts: {
+  slug: string;
+  locale: string;
+  title: string;
+  description: string;
+  datePublished: string;
+  subject: { name: string; githubUrl: string; profilePath: string };
+}) {
+  const path = localePath(opts.locale, `/collections/${opts.slug}`);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: opts.title,
+    description: opts.description,
+    datePublished: opts.datePublished,
+    inLanguage: bcp47(opts.locale),
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}${path}` },
+    about: {
+      "@type": "Person",
+      name: opts.subject.name,
+      url: `${SITE_URL}${opts.subject.profilePath}`,
+      sameAs: [opts.subject.githubUrl],
+    },
+    author: {
+      "@type": "Person",
+      name: "hikariming",
+      url: "https://github.com/hikariming",
+      sameAs: ["https://github.com/hikariming"],
+    },
+    publisher: organizationNode("ghfind"),
+    speakable: { "@type": "SpeakableSpecification", cssSelector: ["h1"] },
+  };
+}
+
 /** A curated editorial collection (CollectionPage + ItemList of repos/people). */
 export function curatedCollectionJsonLd(opts: {
   slug: string;

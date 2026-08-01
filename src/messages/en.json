@@ -184,6 +184,8 @@
       "mixed": "Projects & developers"
     },
     "whyPick": "Why we picked it",
+    "viewProfile": "View ghfind profile",
+    "notTranslated": "This piece hasn't been translated into your language yet — showing the original.",
     "githubLink": "GitHub",
     "scoreLabel": "score",
     "avgScoreLabel": "avg contributor score",

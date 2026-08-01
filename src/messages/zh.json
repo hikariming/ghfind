@@ -184,6 +184,8 @@
       "mixed": "项目与开发者"
     },
     "whyPick": "推荐理由",
+    "viewProfile": "查看 ghfind 档案",
+    "notTranslated": "这篇内容还没有当前语言的版本，以下为原文。",
     "githubLink": "GitHub",
     "scoreLabel": "评分",
     "avgScoreLabel": "贡献者平均分",

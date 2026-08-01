@@ -5,10 +5,10 @@ import { pickText } from "@/lib/collections";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 
 /**
- * Server-rendered cards for curated collection items. Static phase: all
- * numbers come from the item's `mock` block; the real-data phase swaps the
- * stats source for live `repos`/`scores` lookups without touching markup.
- * Main links stay on-site (repo page / profile page) — GitHub is a corner link.
+ * Server-rendered cards for curated collection items. Numbers come from the
+ * item's static `stats` block; the real-data phase swaps the stats source for
+ * live `repos`/`scores` lookups without touching markup. Main links stay
+ * on-site (repo page / profile page) — GitHub is a corner link.
  */
 
 const compact = new Intl.NumberFormat("en-US", {
@@ -45,7 +45,7 @@ export async function RepoPickCard({
   position: number;
 }) {
   const t = await getTranslations("collections");
-  const stats: RepoPickStats = item.mock;
+  const stats: RepoPickStats = item.stats;
   const [owner, name] = item.id.split("/");
   const href = `/developers/repo/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   return (
@@ -125,7 +125,7 @@ export async function DeveloperPickCard({
 }) {
   const t = await getTranslations("collections");
   const tTiers = await getTranslations("tiers");
-  const stats: DeveloperPickStats = item.mock;
+  const stats: DeveloperPickStats = item.stats;
   const style = tierStyle(stats.tier);
   return (
     <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 sm:p-6">

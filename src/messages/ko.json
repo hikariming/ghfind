@@ -184,6 +184,8 @@
       "mixed": "프로젝트와 개발자"
     },
     "whyPick": "추천 이유",
+    "viewProfile": "ghfind 프로필 보기",
+    "notTranslated": "이 콘텐츠는 아직 번역되지 않았습니다. 원문을 표시합니다.",
     "githubLink": "GitHub",
     "scoreLabel": "점수",
     "avgScoreLabel": "기여자 평균 점수",
