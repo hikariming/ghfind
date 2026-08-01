@@ -44,7 +44,7 @@ export function DeveloperCount() {
   if (target === null || target <= 0) return null;
 
   return (
-    <div className="mt-4 text-sm text-zinc-300">
+    <div className="text-sm text-zinc-300">
       {t.rich("developerCount", {
         count: display,
         n: (c) => (

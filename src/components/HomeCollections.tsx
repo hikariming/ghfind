@@ -22,10 +22,10 @@ export async function HomeCollections({ locale }: { locale: string }) {
   });
 
   return (
-    <section className="mt-16 w-full max-w-6xl">
+    <section className="w-full">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-zinc-100 sm:text-3xl">
+          <h2 className="text-xl font-black tracking-tight text-zinc-100 sm:text-2xl">
             {t("eyebrow")}
           </h2>
           <p className="mt-1 text-sm text-zinc-500">{t("subtitle")}</p>
