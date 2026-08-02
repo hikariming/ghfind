@@ -5284,8 +5284,11 @@ export async function getProjects(options: {
       offset: options.offset,
     });
   } catch (e) {
+    // Rethrow so the project-discovery cache layer can tell a transient DB
+    // failure from a genuinely empty list — swallowing to [] here got the
+    // homepage/projects feed cached as empty for a full 6h TTL.
     console.error("getProjects failed:", e);
-    return [];
+    throw e;
   }
 }
 
@@ -5359,8 +5362,9 @@ export async function getRelatedProjects(repoKey: string, limit = 6): Promise<Re
         sharedContributorCount: sharedCounts.get(project.repo.repo_key) ?? 0,
       }));
   } catch (e) {
+    // Rethrow: the cache layer must not persist an error as "no neighbors".
     console.error("getRelatedProjects failed:", e);
-    return [];
+    throw e;
   }
 }
 
@@ -5410,8 +5414,9 @@ export async function getDeveloperCommonProjects(
       limit,
     });
   } catch (e) {
+    // Rethrow: the cache layer must not persist an error as "no common repos".
     console.error("getDeveloperCommonProjects failed:", e);
-    return [];
+    throw e;
   }
 }
 

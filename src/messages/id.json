@@ -170,9 +170,9 @@
     "emptyBody": "Jalankan backfill repositori secara lokal atau hapus filter yang sedang aktif."
   },
   "collections": {
-    "metaTitle": "Pilihan editor: proyek & developer · ghfind",
+    "metaTitle": "Pilihan pendiri: proyek & developer · ghfind",
     "metaDescription": "Koleksi kurasi proyek dan developer GitHub unggulan, didukung mesin kualitas kontributor ghfind.",
-    "eyebrow": "Pilihan editor",
+    "eyebrow": "Pilihan pendiri",
     "heading": "Proyek & developer pilihan",
     "subtitle": "Bukan sekadar daftar bintang — setiap pilihan disertai data mesin tentang siapa yang membangun dan seberapa hebat mereka.",
     "empty": "Belum ada koleksi — kunjungi lagi nanti.",

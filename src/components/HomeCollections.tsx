@@ -5,7 +5,7 @@ import { getCollectionArticle, listCollections, pickText } from "@/lib/collectio
 import { bcp47 } from "@/lib/site";
 
 /**
- * Homepage "editor's picks" band — sits between the scan form and the
+ * Homepage "site-owner picks" band — sits between the scan form and the
  * leaderboard (the slot the continue-exploring strip used to hold). Fully
  * static: collections are fs reads inside the force-static homepage shell, so
  * the editorial surface gets homepage distribution at zero runtime cost.
@@ -24,12 +24,9 @@ export async function HomeCollections({ locale }: { locale: string }) {
   return (
     <section className="w-full">
       <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-black tracking-tight text-zinc-100 sm:text-2xl">
-            {t("eyebrow")}
-          </h2>
-          <p className="mt-1 text-sm text-zinc-500">{t("subtitle")}</p>
-        </div>
+        <h2 className="text-xl font-black tracking-tight text-zinc-100 sm:text-2xl">
+          {t("eyebrow")}
+        </h2>
         <Link
           href="/collections"
           prefetch={false}

@@ -170,9 +170,9 @@
     "emptyBody": "로컬에서 저장소 백필을 실행하거나 현재 필터를 해제하세요."
   },
   "collections": {
-    "metaTitle": "에디터 추천: 주목할 프로젝트와 개발자 · ghfind",
+    "metaTitle": "운영자 추천: 주목할 프로젝트와 개발자 · ghfind",
     "metaDescription": "ghfind 기여자 품질 엔진이 뒷받침하는 뛰어난 GitHub 프로젝트와 개발자 큐레이션 컬렉션.",
-    "eyebrow": "에디터 추천",
+    "eyebrow": "운영자 추천",
     "heading": "엄선한 프로젝트 & 개발자",
     "subtitle": "또 하나의 스타 순위가 아닙니다 — 모든 추천에는 누가 만들고 실력이 어떤지 엔진 데이터가 함께합니다.",
     "empty": "아직 컬렉션이 없습니다. 곧 공개됩니다.",
