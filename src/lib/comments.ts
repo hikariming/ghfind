@@ -81,9 +81,10 @@ export function maskSensitiveCommentText(text: string): string {
   return text.replace(SENSITIVE_COMMENT_PATTERN, (match) => "*".repeat(Array.from(match).length));
 }
 
+/** Persistence keeps the original text; sensitive words are masked only when comments are read. */
 export function normalizeCommentText(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const compact = input.replace(/\s+/g, " ").trim();
   const text = Array.from(compact).slice(0, COMMENT_MAX_LENGTH).join("");
-  return text.length > 0 ? maskSensitiveCommentText(text) : null;
+  return text.length > 0 ? text : null;
 }

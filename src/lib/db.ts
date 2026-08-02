@@ -6372,7 +6372,7 @@ export async function createProfileComment(
       author: githubAuthor
         ? { type: "github", username: githubAuthor, avatarUrl: authorAvatarUrl }
         : { type: "anonymous" },
-      text,
+      text: maskSensitiveCommentText(text),
       createdAt: now,
     };
   } catch (e) {
@@ -6482,7 +6482,7 @@ export async function createBlogComment(
       author: githubAuthor
         ? { type: "github", username: githubAuthor, avatarUrl: authorAvatarUrl }
         : { type: "anonymous" },
-      text,
+      text: maskSensitiveCommentText(text),
       createdAt: now,
     };
   } catch (e) {
