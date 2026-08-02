@@ -2073,6 +2073,7 @@ describe("profile comments", () => {
       { author: { type: "github", username: "yyx990803" }, text: "Legend status" },
     ]);
   });
+
 });
 
 describe("blog comments", () => {
@@ -2113,6 +2114,7 @@ describe("blog comments", () => {
       { author: { type: "github", username: "yyx990803" }, text: "Great breakdown" },
     ]);
   });
+
 });
 
 describe("profile reactions", () => {
