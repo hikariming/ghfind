@@ -14,6 +14,12 @@ export interface ProfileWorkItem {
   description?: string | null;
   examples?: string[];
   orgContextRepo?: string;
+  /**
+   * Presentation-only marker for an organization repository that the collector
+   * has already conservatively credited through long-term maintenance evidence.
+   * It never changes scan inclusion or any deterministic score.
+   */
+  attributedOriginal?: boolean;
 }
 
 export interface ProfileWorkInput {
@@ -25,6 +31,7 @@ export interface ProfileWorkInput {
 }
 
 const MAX_EXAMPLES = 2;
+const ATTRIBUTED_ORG_WORK_SLOTS = 2;
 
 function repoKey(repo: string): string {
   return repo.trim().toLowerCase();
@@ -64,11 +71,15 @@ function mergeWork(
     commits: Math.max(prev.commits ?? 0, item.commits ?? 0) || undefined,
     examples: [...(prev.examples ?? []), ...(item.examples ?? [])].slice(0, MAX_EXAMPLES),
     orgContextRepo: prev.orgContextRepo ?? item.orgContextRepo,
+    attributedOriginal: prev.attributedOriginal || item.attributedOriginal,
   });
 }
 
 export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWorkItem[] {
   const works = new Map<string, ProfileWorkItem>();
+  const impactByRepo = new Map(
+    (input.impactRepos ?? []).map((repo) => [repoKey(repo.repo), repo]),
+  );
   const pinned = new Set(
     (input.pinnedRepos ?? [])
       .map((repo) => repo.split("/").pop()?.toLowerCase())
@@ -127,18 +138,38 @@ export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWor
   for (const repo of input.topRepos ?? []) {
     const fullName = topRepoFullName(input.username, repo);
     const isPinned = pinned.has(repo.name.toLowerCase());
+    const attributedOriginal = repo.attributed_original === true;
+    const impact = impactByRepo.get(repoKey(fullName));
+    const attributedWorkUnits = (impact?.prs ?? 0) * 2 + (impact?.commits ?? 0);
     mergeWork(works, {
       repo: fullName,
       name: repo.name,
       stars: repo.stars,
       source: "own",
-      score: (isPinned ? 8 : 0) + Math.log10(Math.max(0, repo.stars) + 10) * 5,
+      // A collector-verified org flagship should not disappear behind a list of
+      // high-star repositories that merely received a small external PR. This
+      // is a display priority only; computeOrgRepoAttribution remains the gate.
+      score:
+        (attributedOriginal ? 60 + Math.log1p(attributedWorkUnits) * 10 : 0) +
+        (isPinned ? 8 : 0) +
+        Math.log10(Math.max(0, repo.stars) + 10) * 5,
+      prs: impact?.prs || undefined,
+      commits: impact?.commits || undefined,
       language: repo.language,
       description: repo.description,
+      attributedOriginal,
     });
   }
 
-  return [...works.values()]
+  const ranked = [...works.values()]
     .sort((a, b) => b.score - a.score || b.stars - a.stars || a.repo.localeCompare(b.repo))
+  if (limit <= 0) return [];
+
+  // Reserve a small number of representative-work slots for repositories that
+  // already passed the attribution gate. This leaves the scoring pipeline and
+  // normal ranking intact while keeping an attributable org flagship visible.
+  const attributed = ranked.filter((work) => work.attributedOriginal);
+  const remaining = ranked.filter((work) => !work.attributedOriginal);
+  return [...attributed.slice(0, Math.min(ATTRIBUTED_ORG_WORK_SLOTS, limit)), ...remaining]
     .slice(0, limit);
 }

@@ -197,9 +197,9 @@ export async function POST(req: NextRequest) {
 
   const cached = await getCachedScan(username);
   if (cached) {
-    if (!(await persistQuickScan(cached, Date.now()))) {
-      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
-    }
+    // The cached snapshot was persisted by its producing quick scan. Replaying
+    // it must remain read-only: publishing it again with Date.now() would make
+    // an old score look freshly scanned and reset the UI's rescan cooldown.
     await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
     return attachAnonymousSession(
       immediateResponse({ scan: cached, cached: true, headers: { ...idem, ...rlHeaders } }),
