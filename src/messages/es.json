@@ -170,9 +170,9 @@
     "emptyBody": "Corre el backfill de repositorios en local o quita el filtro actual."
   },
   "collections": {
-    "metaTitle": "Selección del editor: proyectos y desarrolladores · ghfind",
+    "metaTitle": "Selección del fundador: proyectos y desarrolladores · ghfind",
     "metaDescription": "Colecciones curadas de proyectos y desarrolladores destacados de GitHub, respaldadas por el motor de calidad de contribuidores de ghfind.",
-    "eyebrow": "Selección del editor",
+    "eyebrow": "Selección del fundador",
     "heading": "Proyectos y desarrolladores seleccionados",
     "subtitle": "No es otra lista de estrellas: cada selección incluye datos del motor sobre quién lo construye y qué nivel tiene.",
     "empty": "Aún no hay colecciones; vuelve pronto.",

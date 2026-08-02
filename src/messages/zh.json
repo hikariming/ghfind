@@ -14,7 +14,7 @@
     "discover": "发现",
     "developers": "开发者",
     "projects": "项目",
-    "collections": "编辑推荐",
+    "collections": "站长推荐",
     "languages": "语言",
     "organizations": "组织",
     "versus": "对战",
@@ -170,9 +170,9 @@
     "emptyBody": "请先在本地运行项目回填，或移除当前筛选条件。"
   },
   "collections": {
-    "metaTitle": "编辑推荐：优质项目与开发者 · ghfind",
+    "metaTitle": "站长推荐：优质项目与开发者 · ghfind",
     "metaDescription": "人工精选的 GitHub 优质项目与开发者合集，每个推荐都附带 ghfind 引擎的贡献者质量数据。",
-    "eyebrow": "编辑推荐",
+    "eyebrow": "站长推荐",
     "heading": "优质项目与开发者精选",
     "subtitle": "不是又一个 star 榜——每个推荐都附带引擎数据：是谁在做、成色如何。",
     "empty": "还没有合集，敬请期待。",

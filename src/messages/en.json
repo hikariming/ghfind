@@ -170,9 +170,9 @@
     "emptyBody": "Run the repository backfill locally or remove the current filter."
   },
   "collections": {
-    "metaTitle": "Editor's picks: projects & developers · ghfind",
+    "metaTitle": "Founder's picks: projects & developers · ghfind",
     "metaDescription": "Hand-curated collections of standout GitHub projects and developers, backed by ghfind's contributor-quality engine.",
-    "eyebrow": "Editor's picks",
+    "eyebrow": "Founder's picks",
     "heading": "Curated projects & developers",
     "subtitle": "Not another star list — every pick ships with engine data on who builds it and how good they are.",
     "empty": "No collections yet — check back soon.",
