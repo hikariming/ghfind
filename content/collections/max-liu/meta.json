@@ -1,0 +1,29 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "刘德泽（Max Liu）：从奥克兰退学到 LobeHub 增长负责人，开源世界的另一半",
+    "en": "Max Liu: from Auckland dropout to Head of Growth at LobeHub — the other half of open source"
+  },
+  "intro": {
+    "zh": "他没有 GitHub 账号，却在把一个 8 万 star 的开源项目推向更多人。奇绩创坛、AI 教育公司 COO、ListenHub CMO（ARR 从 0 到 300 万美元）、AdventureX 黑客松组织者，再到放弃 Anthropic 加入 LobeHub——一个 00 后用三年高频试错，走出了工程师之外的另一条 AI 路径。",
+    "en": "He has no GitHub account, yet he is the one pushing an 80k-star open-source project to the world. MiraclePlus, COO of an AI-education startup, CMO of ListenHub (ARR $0 → $3M), organizer of the AdventureX hackathon, then turning down Anthropic to join LobeHub — three years of rapid iteration on a career path AI needs just as much as engineers."
+  },
+  "publishedAt": "2026-08-02",
+  "tags": ["founder-story", "growth", "hackathon"],
+  "items": [
+    {
+      "kind": "repo",
+      "id": "lobehub/lobehub",
+      "blurb": {
+        "zh": "他现在的主场：开源多 Agent 平台 LobeHub。ghfind 图谱里该仓库有 30 位已评分贡献者，平均 79.5 分——工程侧的成色，正是他选择加入的理由之一。",
+        "en": "His current home turf: LobeHub, the open-source multi-agent platform. In the ghfind graph the repo counts 30 scored contributors averaging 79.5 — the engineering calibre that convinced him to join."
+      },
+      "stats": {
+        "stars": 80986,
+        "language": "TypeScript",
+        "description": "Your Chief Agent Operator — open-source multi-agent AI platform",
+        "avgScore": 79.5
+      }
+    }
+  ]
+}
