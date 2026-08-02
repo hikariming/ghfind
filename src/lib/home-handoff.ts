@@ -7,6 +7,8 @@
 import { pendingScanKey } from "./roast-stream";
 import type { ScanResult } from "./types";
 
+const HANDOFF_CONSUMED_KEY = "__ghfindRoastingHandoffConsumed";
+
 /** Read the homepage-stashed scan for `username`; null during SSR or if absent. */
 export function readSessionScan(username: string): ScanResult | null {
   if (typeof window === "undefined") return null;
@@ -30,4 +32,38 @@ export function stripRoastingParam(): void {
   if (!url.searchParams.has("roasting")) return;
   url.searchParams.delete("roasting");
   window.history.replaceState(window.history.state, "", url);
+}
+
+/**
+ * Atomically spend the current homepage handoff. Removing the query parameter
+ * alone is not enough: a client component can remount while Next still holds
+ * the server-rendered `?roasting=1` search params. Marking the history entry
+ * makes that same navigation idempotent without suppressing a later, new
+ * homepage handoff for the same profile.
+ */
+export function consumeRoastingHandoff(): boolean {
+  if (typeof window === "undefined") return false;
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("roasting") !== "1") return false;
+
+  const state = window.history.state;
+  if (
+    state !== null &&
+    typeof state === "object" &&
+    (state as Record<string, unknown>)[HANDOFF_CONSUMED_KEY] === true
+  ) {
+    return false;
+  }
+
+  url.searchParams.delete("roasting");
+  window.history.replaceState(
+    {
+      ...(state !== null && typeof state === "object" ? state : {}),
+      [HANDOFF_CONSUMED_KEY]: true,
+    },
+    "",
+    url,
+  );
+  return true;
 }

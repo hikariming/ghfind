@@ -2075,6 +2075,46 @@ describe("profile comments", () => {
   });
 });
 
+describe("blog comments", () => {
+  it("stores anonymous and GitHub comments for a blog post", async () => {
+    const anonymous = await db.createBlogComment({
+      postSlug: "how-we-score-github-accounts",
+      text: "硬核 🔥",
+      author: { type: "anonymous" },
+    });
+    const github = await db.createBlogComment({
+      postSlug: "how-we-score-github-accounts",
+      text: "Great breakdown",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      authorGithubId: 499550,
+    });
+
+    expect(anonymous).toMatchObject({
+      postSlug: "how-we-score-github-accounts",
+      author: { type: "anonymous" },
+      text: "硬核 🔥",
+    });
+    expect(github).toMatchObject({
+      postSlug: "how-we-score-github-accounts",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      text: "Great breakdown",
+    });
+
+    await expect(db.getBlogComments("HOW-WE-SCORE-GITHUB-ACCOUNTS")).resolves.toMatchObject([
+      { author: { type: "anonymous" }, text: "硬核 🔥" },
+      { author: { type: "github", username: "yyx990803" }, text: "Great breakdown" },
+    ]);
+  });
+});
+
 describe("profile reactions", () => {
   it("stores one durable reaction per GitHub user and target profile", async () => {
     await db.setProfileReaction({

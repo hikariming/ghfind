@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { stripRoastingParam } from "@/lib/home-handoff";
+import { consumeRoastingHandoff } from "@/lib/home-handoff";
 import { trackEvent } from "@/lib/track";
 import type { RoastMeta } from "@/lib/types";
 import { RoastResultModal } from "./RoastResultModal";
@@ -35,7 +35,9 @@ export function RoastReveal({
   // and the open happens strictly after the handoff marker is consumed.
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    stripRoastingParam();
+    // A profile subtree can remount before Next observes the URL replacement.
+    // Only the first mount that spends this history entry may open the dialog.
+    if (!consumeRoastingHandoff()) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot open after the handoff marker is spent; runs exactly once
     setOpen(true);
     trackEvent("roast_reveal", { cached: true });
