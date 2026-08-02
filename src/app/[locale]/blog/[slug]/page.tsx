@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { JsonLd, articleJsonLd, datasetJsonLd } from "@/components/JsonLd";
+import { BlogCommentBubbles } from "@/components/BlogCommentBubbles";
 import { PostBody } from "@/components/blog/PostBody";
 import { getPost, getPostSlugs, postAlternates } from "@/lib/blog";
 import { bcp47, localePath } from "@/lib/site";
@@ -71,21 +72,23 @@ export default async function BlogPostPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:py-20">
-      <JsonLd data={articleJsonLd(post)} />
-      {post.tags.includes("data") && (
-        <JsonLd
-          data={datasetJsonLd({
-            slug,
-            locale,
-            name: post.title,
-            description: post.description,
-            date: post.date,
-            updated: post.updated,
-          })}
-        />
-      )}
-      <article>
+    <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
+      <BlogCommentBubbles lang={locale === "zh" ? "zh" : "en"} postSlug={slug} />
+      <div className="relative z-10 w-full max-w-3xl">
+        <JsonLd data={articleJsonLd(post)} />
+        {post.tags.includes("data") && (
+          <JsonLd
+            data={datasetJsonLd({
+              slug,
+              locale,
+              name: post.title,
+              description: post.description,
+              date: post.date,
+              updated: post.updated,
+            })}
+          />
+        )}
+        <article>
         <header>
           <Link
             href="/blog"
@@ -121,7 +124,8 @@ export default async function BlogPostPage({
         <div className="mt-8" dir={post.isFallback ? "ltr" : undefined}>
           <PostBody body={post.body} />
         </div>
-      </article>
+        </article>
+      </div>
     </main>
   );
 }

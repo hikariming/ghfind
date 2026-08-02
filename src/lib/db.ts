@@ -18,8 +18,12 @@ import {
   SCORE_CACHE_VERSION,
 } from "./cache-version";
 import {
+  normalizeBlogSlug,
   normalizeCommentText,
   normalizeGitHubUsername,
+  maskSensitiveCommentText,
+  type BlogComment,
+  type CommentAuthor,
   type ProfileComment,
   type ProfileCommentAuthor,
 } from "./comments";
@@ -699,6 +703,19 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_comments_target_created
              ON profile_comments(target_username, created_at DESC)`,
+          `CREATE TABLE IF NOT EXISTS blog_comments (
+             id                TEXT PRIMARY KEY,
+             post_slug         TEXT NOT NULL,
+             body              TEXT NOT NULL,
+             author_kind       TEXT NOT NULL,
+             author_github_id  INTEGER,
+             author_login      TEXT,
+             author_avatar_url TEXT,
+             hidden            INTEGER NOT NULL DEFAULT 0,
+             created_at        INTEGER NOT NULL
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_blog_comments_post_created
+             ON blog_comments(post_slug, created_at DESC)`,
           `CREATE TABLE IF NOT EXISTS profile_reactions (
              target_username  TEXT NOT NULL,
              voter_github_id  INTEGER NOT NULL,
@@ -6276,7 +6293,7 @@ function toProfileComment(row: Record<string, unknown>): ProfileComment {
     id: String(row.id),
     targetUsername: String(row.target_username),
     author,
-    text: String(row.body),
+    text: maskSensitiveCommentText(String(row.body)),
     createdAt: Number(row.created_at),
   };
 }
@@ -6360,6 +6377,116 @@ export async function createProfileComment(
     };
   } catch (e) {
     console.error("createProfileComment failed:", e);
+    return null;
+  }
+}
+
+interface CreateBlogCommentInput {
+  postSlug: string;
+  text: string;
+  author: CommentAuthor;
+  authorGithubId?: number;
+}
+
+function toBlogComment(row: Record<string, unknown>): BlogComment {
+  const authorLogin =
+    typeof row.author_login === "string" && row.author_login
+      ? row.author_login
+      : null;
+  const authorAvatarUrl =
+    typeof row.author_avatar_url === "string" && row.author_avatar_url
+      ? row.author_avatar_url
+      : null;
+
+  return {
+    id: String(row.id),
+    postSlug: String(row.post_slug),
+    author:
+      row.author_kind === "github" && authorLogin
+        ? { type: "github", username: authorLogin, avatarUrl: authorAvatarUrl }
+        : { type: "anonymous" },
+    text: maskSensitiveCommentText(String(row.body)),
+    createdAt: Number(row.created_at),
+  };
+}
+
+export async function getBlogComments(postSlug: string, limit = 24): Promise<BlogComment[]> {
+  const db = getClient();
+  if (!db) return [];
+  const slug = normalizeBlogSlug(postSlug);
+  if (!slug) return [];
+
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT id, post_slug, body, author_kind, author_login,
+                   author_avatar_url, created_at
+            FROM (
+              SELECT rowid AS sort_rowid, id, post_slug, body, author_kind,
+                     author_login, author_avatar_url, created_at
+              FROM blog_comments
+              WHERE post_slug = ? AND hidden = 0
+              ORDER BY created_at DESC, rowid DESC
+              LIMIT ?
+            )
+            ORDER BY created_at ASC, sort_rowid ASC`,
+      args: [slug, Math.max(1, Math.min(100, limit))],
+    });
+    return res.rows.map((row) => toBlogComment(row as Record<string, unknown>));
+  } catch (e) {
+    console.error("getBlogComments failed:", e);
+    return [];
+  }
+}
+
+export async function createBlogComment(
+  input: CreateBlogCommentInput,
+): Promise<BlogComment | null> {
+  const db = getClient();
+  if (!db) return null;
+  const slug = normalizeBlogSlug(input.postSlug);
+  const text = normalizeCommentText(input.text);
+  if (!slug || !text) return null;
+
+  const githubAuthor =
+    input.author.type === "github"
+      ? normalizeGitHubUsername(input.author.username)
+      : null;
+  const authorKind = githubAuthor ? "github" : "anonymous";
+  const authorAvatarUrl =
+    input.author.type === "github" ? input.author.avatarUrl ?? null : null;
+  const now = Date.now();
+  const id = randomUUID();
+
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO blog_comments
+              (id, post_slug, body, author_kind, author_github_id,
+               author_login, author_avatar_url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        id,
+        slug,
+        text,
+        authorKind,
+        authorKind === "github" ? input.authorGithubId ?? null : null,
+        githubAuthor,
+        authorKind === "github" ? authorAvatarUrl : null,
+        now,
+      ],
+    });
+    return {
+      id,
+      postSlug: slug,
+      author: githubAuthor
+        ? { type: "github", username: githubAuthor, avatarUrl: authorAvatarUrl }
+        : { type: "anonymous" },
+      text,
+      createdAt: now,
+    };
+  } catch (e) {
+    console.error("createBlogComment failed:", e);
     return null;
   }
 }
