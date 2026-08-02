@@ -14,6 +14,7 @@
     "discover": "Discover",
     "developers": "Developers",
     "projects": "Projects",
+    "collections": "Picks",
     "languages": "Languages",
     "organizations": "Organizations",
     "versus": "Versus",
@@ -168,6 +169,32 @@
     "emptyTitle": "No project graph here yet",
     "emptyBody": "Run the repository backfill locally or remove the current filter."
   },
+  "collections": {
+    "metaTitle": "Editor's picks: projects & developers · ghfind",
+    "metaDescription": "Hand-curated collections of standout GitHub projects and developers, backed by ghfind's contributor-quality engine.",
+    "eyebrow": "Editor's picks",
+    "heading": "Curated projects & developers",
+    "subtitle": "Not another star list — every pick ships with engine data on who builds it and how good they are.",
+    "empty": "No collections yet — check back soon.",
+    "itemCount": "{count} picks",
+    "publishedOn": "Published {date}",
+    "type": {
+      "projects": "Projects",
+      "developers": "Developers",
+      "mixed": "Projects & developers"
+    },
+    "whyPick": "Why we picked it",
+    "viewProfile": "View ghfind profile",
+    "notTranslated": "This piece hasn't been translated into your language yet — showing the original.",
+    "viewAll": "View all",
+    "githubLink": "GitHub",
+    "scoreLabel": "score",
+    "avgScoreLabel": "avg contributor score",
+    "followersLabel": "followers",
+    "totalStarsLabel": "total stars",
+    "backToCollections": "All collections",
+    "dataNote": "Scores and tiers come from the ghfind scoring engine and refresh with every new scan."
+  },
   "discoveryNext": {
     "relatedTitle": "Keep exploring",
     "relatedSubtitle": "Projects connected by contributors or language.",
@@ -185,12 +212,6 @@
       "body": "Continue through the teams and communities behind the leaderboard.",
       "cta": "Browse organizations"
     }
-  },
-  "continueExploring": {
-    "title": "Continue where you left off",
-    "subtitle": "Recent developers and projects from your exploration.",
-    "developer": "Developer",
-    "project": "Project"
   },
   "challenge": {
     "bannerTitle": "Came from @{owner}'s profile? See how you stack up against them",

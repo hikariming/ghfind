@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getAllPublicUsernames, getIndexableMatchups } from "@/lib/db";
 import { getPost, getPostSlugs } from "@/lib/blog";
+import { getCollection, getCollectionSlugs } from "@/lib/collections";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import { PUBLIC_INDEX_MIN_SCORE, SITE_URL, localePath } from "@/lib/site";
@@ -78,6 +79,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   ];
 
+  // Curated collections: synchronous fs reads, same shape as blog posts.
+  const collectionRoutes: MetadataRoute.Sitemap = [
+    entry("/collections", { changeFrequency: "weekly", priority: 0.8 }),
+    ...getCollectionSlugs().map((slug) => {
+      const collection = getCollection(slug);
+      return entry(`/collections/${slug}`, {
+        lastModified: collection ? new Date(collection.publishedAt) : undefined,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }),
+  ];
+
   // Directory buckets (top languages + projects + orgs). Reads the same cached
   // categories the /developers page uses — no extra DB load — behind the same
   // timeout guard so a cold cache can never hang the sitemap.
@@ -128,5 +142,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
-  return [...staticRoutes, ...blogRoutes, ...facetRoutes, ...profileRoutes, ...matchupRoutes];
+  return [
+    ...staticRoutes,
+    ...blogRoutes,
+    ...collectionRoutes,
+    ...facetRoutes,
+    ...profileRoutes,
+    ...matchupRoutes,
+  ];
 }

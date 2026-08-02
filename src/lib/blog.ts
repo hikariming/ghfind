@@ -90,7 +90,7 @@ export function listPosts(locale: string): PostMeta[] {
 }
 
 /** CJK-aware reading time: ideographs read per-char, latin per-word. */
-function readingMinutes(text: string): number {
+export function readingMinutes(text: string): number {
   const cjk = (text.match(/[一-鿿぀-ヿ가-힯]/g) ?? []).length;
   const words = text
     .replace(/[一-鿿぀-ヿ가-힯]/g, " ")

@@ -14,6 +14,7 @@
     "discover": "Descubrir",
     "developers": "Developers",
     "projects": "Proyectos",
+    "collections": "Selecciones",
     "languages": "Lenguajes",
     "organizations": "Organizaciones",
     "versus": "Versus",
@@ -168,6 +169,32 @@
     "emptyTitle": "Todavía no hay grafo de proyectos aquí",
     "emptyBody": "Corre el backfill de repositorios en local o quita el filtro actual."
   },
+  "collections": {
+    "metaTitle": "Selección del editor: proyectos y desarrolladores · ghfind",
+    "metaDescription": "Colecciones curadas de proyectos y desarrolladores destacados de GitHub, respaldadas por el motor de calidad de contribuidores de ghfind.",
+    "eyebrow": "Selección del editor",
+    "heading": "Proyectos y desarrolladores seleccionados",
+    "subtitle": "No es otra lista de estrellas: cada selección incluye datos del motor sobre quién lo construye y qué nivel tiene.",
+    "empty": "Aún no hay colecciones; vuelve pronto.",
+    "itemCount": "{count} selecciones",
+    "publishedOn": "Publicado el {date}",
+    "type": {
+      "projects": "Proyectos",
+      "developers": "Desarrolladores",
+      "mixed": "Proyectos y desarrolladores"
+    },
+    "whyPick": "Por qué lo elegimos",
+    "viewProfile": "Ver perfil en ghfind",
+    "notTranslated": "Este contenido aún no está traducido a tu idioma; se muestra el original.",
+    "viewAll": "Ver todo",
+    "githubLink": "GitHub",
+    "scoreLabel": "puntuación",
+    "avgScoreLabel": "puntuación media de contribuidores",
+    "followersLabel": "seguidores",
+    "totalStarsLabel": "estrellas totales",
+    "backToCollections": "Todas las colecciones",
+    "dataNote": "Las puntuaciones y los niveles provienen del motor de ghfind y se actualizan con cada nuevo escaneo."
+  },
   "discoveryNext": {
     "relatedTitle": "Sigue explorando",
     "relatedSubtitle": "Proyectos conectados por contributors o lenguaje.",
@@ -185,12 +212,6 @@
       "body": "Sigue el recorrido por los equipos y comunidades detrás del ranking.",
       "cta": "Ver organizaciones"
     }
-  },
-  "continueExploring": {
-    "title": "Continúa donde lo dejaste",
-    "subtitle": "Developers y proyectos recientes de tu exploración.",
-    "developer": "Developer",
-    "project": "Proyecto"
   },
   "challenge": {
     "bannerTitle": "¿Vienes del perfil de @{owner}? Mira cómo te comparas contra esa persona",

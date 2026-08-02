@@ -14,6 +14,7 @@
     "discover": "Descobrir",
     "developers": "Desenvolvedores",
     "projects": "Projetos",
+    "collections": "Seleções",
     "languages": "Linguagens",
     "organizations": "Organizações",
     "versus": "Versus",
@@ -168,6 +169,32 @@
     "emptyTitle": "Ainda não há grafo de projetos aqui",
     "emptyBody": "Rode o backfill de repositórios localmente ou remova o filtro atual."
   },
+  "collections": {
+    "metaTitle": "Seleção do editor: projetos e desenvolvedores · ghfind",
+    "metaDescription": "Coleções curadas de projetos e desenvolvedores de destaque no GitHub, com o respaldo do motor de qualidade de contribuidores do ghfind.",
+    "eyebrow": "Seleção do editor",
+    "heading": "Projetos e desenvolvedores selecionados",
+    "subtitle": "Não é mais uma lista de estrelas: cada escolha traz dados do motor sobre quem constrói e qual o nível.",
+    "empty": "Ainda não há coleções — volte em breve.",
+    "itemCount": "{count} escolhas",
+    "publishedOn": "Publicado em {date}",
+    "type": {
+      "projects": "Projetos",
+      "developers": "Desenvolvedores",
+      "mixed": "Projetos e desenvolvedores"
+    },
+    "whyPick": "Por que escolhemos",
+    "viewProfile": "Ver perfil no ghfind",
+    "notTranslated": "Este conteúdo ainda não foi traduzido para o seu idioma; exibindo o original.",
+    "viewAll": "Ver tudo",
+    "githubLink": "GitHub",
+    "scoreLabel": "pontuação",
+    "avgScoreLabel": "pontuação média dos contribuidores",
+    "followersLabel": "seguidores",
+    "totalStarsLabel": "estrelas totais",
+    "backToCollections": "Todas as coleções",
+    "dataNote": "Pontuações e níveis vêm do motor de pontuação do ghfind e são atualizados a cada novo escaneamento."
+  },
   "discoveryNext": {
     "relatedTitle": "Continue explorando",
     "relatedSubtitle": "Projetos conectados por contribuidores ou linguagem.",
@@ -185,12 +212,6 @@
       "body": "Continue pelos times e comunidades por trás do ranking.",
       "cta": "Ver organizações"
     }
-  },
-  "continueExploring": {
-    "title": "Continue de onde parou",
-    "subtitle": "Desenvolvedores e projetos recentes da sua exploração.",
-    "developer": "Desenvolvedor",
-    "project": "Projeto"
   },
   "challenge": {
     "bannerTitle": "Veio do perfil de @{owner}? Veja como você se sai contra essa pessoa",

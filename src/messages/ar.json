@@ -14,6 +14,7 @@
     "discover": "اكتشف",
     "developers": "المطورون",
     "projects": "المشاريع",
+    "collections": "مختارات",
     "languages": "اللغات",
     "organizations": "المنظمات",
     "versus": "المواجهات",
@@ -168,6 +169,32 @@
     "emptyTitle": "لا يوجد رسم بياني للمشاريع هنا بعد",
     "emptyBody": "شغّل التعبئة الرجعية للمستودعات محليًا أو أزل المرشّح الحالي."
   },
+  "collections": {
+    "metaTitle": "مختارات المحرر: مشاريع ومطورون · ghfind",
+    "metaDescription": "مجموعات منسّقة من مشاريع GitHub ومطورين بارزين، مدعومة بمحرك ghfind لجودة المساهمين.",
+    "eyebrow": "مختارات المحرر",
+    "heading": "مشاريع ومطورون مختارون",
+    "subtitle": "ليست قائمة نجوم أخرى — كل اختيار يأتي مع بيانات المحرك: من يبني المشروع وما مستواه.",
+    "empty": "لا توجد مجموعات بعد — عُد قريبًا.",
+    "itemCount": "{count} اختيارًا",
+    "publishedOn": "نُشر في {date}",
+    "type": {
+      "projects": "مشاريع",
+      "developers": "مطورون",
+      "mixed": "مشاريع ومطورون"
+    },
+    "whyPick": "لماذا اخترناه",
+    "viewProfile": "عرض الملف في ghfind",
+    "notTranslated": "لم يُترجم هذا المحتوى إلى لغتك بعد — يُعرض النص الأصلي.",
+    "viewAll": "عرض الكل",
+    "githubLink": "GitHub",
+    "scoreLabel": "النقاط",
+    "avgScoreLabel": "متوسط نقاط المساهمين",
+    "followersLabel": "متابعون",
+    "totalStarsLabel": "إجمالي النجوم",
+    "backToCollections": "كل المجموعات",
+    "dataNote": "النقاط والفئات تأتي من محرك تقييم ghfind وتتحدّث مع كل فحص جديد."
+  },
   "discoveryNext": {
     "relatedTitle": "واصل الاستكشاف",
     "relatedSubtitle": "مشاريع مترابطة عبر المساهمين أو اللغة.",
@@ -185,12 +212,6 @@
       "body": "تابع رحلتك عبر الفرق والمجتمعات التي تقف خلف لوحة الصدارة.",
       "cta": "تصفّح المنظمات"
     }
-  },
-  "continueExploring": {
-    "title": "أكمل من حيث توقفت",
-    "subtitle": "أحدث المطورين والمشاريع من جولات استكشافك.",
-    "developer": "مطور",
-    "project": "مشروع"
   },
   "challenge": {
     "bannerTitle": "قادم من ملف @{owner}؟ شاهد كيف تبدو مقارنةً به",

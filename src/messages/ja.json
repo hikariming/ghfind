@@ -14,6 +14,7 @@
     "discover": "発見",
     "developers": "開発者",
     "projects": "プロジェクト",
+    "collections": "おすすめ",
     "languages": "言語",
     "organizations": "組織",
     "versus": "対戦",
@@ -168,6 +169,32 @@
     "emptyTitle": "ここにはまだプロジェクトグラフがありません",
     "emptyBody": "ローカルでリポジトリのバックフィルを実行するか、現在のフィルタを外してください。"
   },
+  "collections": {
+    "metaTitle": "編集部おすすめ：注目プロジェクトと開発者 · ghfind",
+    "metaDescription": "ghfind の貢献者品質エンジンに裏付けられた、注目の GitHub プロジェクトと開発者の厳選コレクション。",
+    "eyebrow": "編集部おすすめ",
+    "heading": "厳選プロジェクト & 開発者",
+    "subtitle": "ただのスターランキングではありません——すべての推薦に「誰が作っているか、どれほどの実力か」のエンジンデータ付き。",
+    "empty": "コレクションはまだありません。近日公開予定です。",
+    "itemCount": "{count} 件のおすすめ",
+    "publishedOn": "{date} 公開",
+    "type": {
+      "projects": "プロジェクト",
+      "developers": "開発者",
+      "mixed": "プロジェクトと開発者"
+    },
+    "whyPick": "推薦理由",
+    "viewProfile": "ghfind プロフィールを見る",
+    "notTranslated": "このコンテンツはまだ翻訳されていません。原文を表示しています。",
+    "viewAll": "すべて見る",
+    "githubLink": "GitHub",
+    "scoreLabel": "スコア",
+    "avgScoreLabel": "貢献者平均スコア",
+    "followersLabel": "フォロワー",
+    "totalStarsLabel": "累計スター",
+    "backToCollections": "コレクション一覧",
+    "dataNote": "スコアとティアは ghfind スコアリングエンジンによるもので、新しいスキャンのたびに更新されます。"
+  },
   "discoveryNext": {
     "relatedTitle": "さらに探索する",
     "relatedSubtitle": "コントリビューターや言語でつながったプロジェクト。",
@@ -185,12 +212,6 @@
       "body": "ランキングの裏にいるチームとコミュニティをたどっていきましょう。",
       "cta": "組織を見る"
     }
-  },
-  "continueExploring": {
-    "title": "続きから探索する",
-    "subtitle": "最近見た開発者とプロジェクト。",
-    "developer": "開発者",
-    "project": "プロジェクト"
   },
   "challenge": {
     "bannerTitle": "@{owner} のページから来た？あの人と比べて自分がどの程度か、確かめてみよう",

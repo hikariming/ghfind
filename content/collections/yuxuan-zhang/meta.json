@@ -1,0 +1,22 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "张昱轩：00后AI开发者的成长之路与开源贡献之路",
+    "en": "Yuxuan Zhang: a Gen-Z developer's road from campus contests to core contributor at Z.ai"
+  },
+  "intro": {
+    "zh": "从小学接触 Logo 与 C++，到 RoboMaster 国家一等奖，再到智谱AI算法工程师、GLM-5 与 Open-AutoGLM 核心贡献者——zRzRzRzRzRzRzR 的成长轨迹，为开发者和在校大学生提供了一套可借鉴的成长范式。",
+    "en": "From childhood Logo and C++ to a national RoboMaster title, then core algorithm engineer at Z.ai contributing to GLM-5 and Open-AutoGLM — the trajectory of zRzRzRzRzRzRzR is a playbook young developers can actually follow."
+  },
+  "publishedAt": "2026-08-01",
+  "tags": ["developer-story", "glm", "open-source"],
+  "subject": {
+    "kind": "developer",
+    "id": "zRzRzRzRzRzRzR",
+    "name": "张昱轩 (Yuxuan Zhang)",
+    "headline": {
+      "zh": "智谱AI 算法工程师 · GLM-5 / Open-AutoGLM / CogVideoX 核心贡献者",
+      "en": "Algorithm engineer at Z.ai · core contributor to GLM-5, Open-AutoGLM and CogVideoX"
+    }
+  }
+}
