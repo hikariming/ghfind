@@ -13,6 +13,10 @@ type CacheLoaderDeps<T> = {
   cacheGet: (key: string) => Promise<T | null>;
   cacheSet: (key: string, value: T) => Promise<void>;
   dbLoad: (key: string) => Promise<T>;
+  /** Returned — and NOT cached — when dbLoad throws. A transient Turso/network
+   * failure must degrade this one render, not blank the surface for a full
+   * TTL (the homepage projects band vanished for 6h per hiccup). */
+  fallback: T;
 };
 
 export function createCachedLoader<T>(deps: CacheLoaderDeps<T>) {
@@ -29,10 +33,17 @@ export function createCachedLoader<T>(deps: CacheLoaderDeps<T>) {
     if (existing) return existing;
 
     const run = (async () => {
-      const value = await deps.dbLoad(key);
-      // Empty results are cached too: "no common projects" is the overwhelmingly
-      // common answer on profile pages, and skipping it meant every crawler hit
-      // went straight to the database (the 2026-07 rows_read incident).
+      let value: T;
+      try {
+        value = await deps.dbLoad(key);
+      } catch (e) {
+        console.error("project discovery dbLoad failed:", key, e);
+        return deps.fallback;
+      }
+      // Empty *successes* are cached too: "no common projects" is the
+      // overwhelmingly common answer on profile pages, and skipping it meant
+      // every crawler hit went straight to the database (the 2026-07 rows_read
+      // incident). Errors return the fallback above without caching.
       try {
         await deps.cacheSet(key, value);
       } catch {
@@ -73,6 +84,7 @@ const projectListLoader = createCachedLoader<ProjectListItem[]>({
     const options = listOptions.get(key);
     return options ? getProjects(options) : [];
   },
+  fallback: [],
 });
 
 export async function getProjectsCached(options: ProjectListCacheOptions) {
@@ -89,6 +101,7 @@ const relatedOptions = new Map<string, { repoKey: string; limit: number }>();
 const relatedLoader = createCachedLoader<RelatedProject[]>({
   cacheGet: getCachedProjectValue,
   cacheSet: setCachedProjectValue,
+  fallback: [],
   dbLoad: async (key) => {
     const options = relatedOptions.get(key);
     if (!options) return [];
@@ -139,6 +152,7 @@ export async function getDeveloperCommonProjectsCached(
     cacheGet: getCachedProjectValue,
     cacheSet: setCachedProjectValue,
     dbLoad: () => getDeveloperCommonProjects(a, b, limit),
+    fallback: [],
   });
   return load(key);
 }

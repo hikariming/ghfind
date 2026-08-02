@@ -58,6 +58,7 @@ describe("project discovery cache", () => {
       },
       cacheSet,
       dbLoad,
+      fallback: [],
     });
 
     await expect(load("key")).resolves.toEqual(["fresh"]);
@@ -73,6 +74,7 @@ describe("project discovery cache", () => {
       cacheGet: async () => null,
       cacheSet,
       dbLoad,
+      fallback: [],
     });
 
     const first = load("same");
@@ -88,9 +90,33 @@ describe("project discovery cache", () => {
       cacheGet: async () => null,
       cacheSet,
       dbLoad: async () => [],
+      fallback: [],
     });
     await emptyLoad("empty");
     expect(cacheSet).toHaveBeenCalledWith("empty", []);
+  });
+
+  it("returns the fallback without caching when the database load fails", async () => {
+    const cacheSet = vi.fn(async () => undefined);
+    const dbLoad = vi
+      .fn<() => Promise<string[]>>()
+      .mockRejectedValueOnce(new Error("turso unreachable"))
+      .mockResolvedValueOnce(["recovered"]);
+    const load = createCachedLoader<string[]>({
+      cacheGet: async () => null,
+      cacheSet,
+      dbLoad,
+      fallback: ["fallback"],
+    });
+
+    // A transient DB error degrades this one read — it must NOT be cached as
+    // an empty result for a full TTL (the homepage band vanished for 6h).
+    await expect(load("flaky")).resolves.toEqual(["fallback"]);
+    expect(cacheSet).not.toHaveBeenCalled();
+
+    // The next read goes back to the database and caches the real value.
+    await expect(load("flaky")).resolves.toEqual(["recovered"]);
+    expect(cacheSet).toHaveBeenCalledWith("flaky", ["recovered"]);
   });
 });
 
