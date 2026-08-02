@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@/i18n/navigation";
-import { readSessionScan, stripRoastingParam } from "@/lib/home-handoff";
+import { consumeRoastingHandoff, readSessionScan, stripRoastingParam } from "@/lib/home-handoff";
 import { splitReport } from "@/lib/report";
 import { normLang } from "@/lib/lang";
 import { consumeRoastStream } from "@/lib/roast-stream";
@@ -66,6 +66,7 @@ export function LiveRoast({
   const locale = useLocale();
   const router = useRouter();
   const started = useRef(false);
+  const openedHandoffPopupRef = useRef(false);
   // Popup lifecycle: `closedRef` remembers a user dismissal (never reopen on
   // late frames); `doneRef` gates the deferred page refresh — closing mid-stream
   // must NOT refresh, or the re-render would unmount this component and kill
@@ -82,9 +83,7 @@ export function LiveRoast({
   const [settled, setSettled] = useState(false);
   // The popup's current content. Seeded at mount for homepage handoffs; for
   // other visitors it opens only after a fresh LLM generation completes.
-  const [modalMeta, setModalMeta] = useState<RoastMeta | null>(() =>
-    openModalOnMount ? (fallbackMeta ?? null) : null,
-  );
+  const [modalMeta, setModalMeta] = useState<RoastMeta | null>(null);
   // Handoff fallback: on a hard reload the caller may have no scan prop, but the
   // homepage stash can still be in sessionStorage. Resolved once at mount.
   const [sessionScan] = useState(() => (scan ? null : readSessionScan(username)));
@@ -107,10 +106,12 @@ export function LiveRoast({
   useEffect(() => {
     if (started.current) return; // guard against StrictMode double-invoke
     started.current = true;
-    // A mount-time popup consumes the handoff marker right away: the popup has
-    // already delivered the moment, so reloads/back-nav must not repeat it (or
-    // re-trigger a stale regeneration).
-    if (openModalOnMount) stripRoastingParam();
+    // Spend the homepage handoff exactly once for this history entry. This
+    // guards a remounted profile subtree from opening a second result popup
+    // while its server-rendered props still say `openModalOnMount`.
+    openedHandoffPopupRef.current = openModalOnMount && consumeRoastingHandoff();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the handoff may open this modal exactly once after hydration
+    if (openedHandoffPopupRef.current && fallbackMeta) setModalMeta(fallbackMeta);
     // Failure downgrade: with fallback content the old report renders (and the
     // already-open popup keeps its stored content) instead of an error line —
     // the caller only passes it when a stored roast exists to fall back to.
@@ -157,7 +158,7 @@ export function LiveRoast({
             setMeta(m);
             // Mount-time popup: swap the seeded (old/deterministic) card for the
             // real result the moment the meta frame lands — unless dismissed.
-            if (openModalOnMount && !closedRef.current) setModalMeta(m);
+            if (openedHandoffPopupRef.current && !closedRef.current) setModalMeta(m);
           },
           onReport: setReport,
           onError: (data) => fail(mapError(data?.error)),
@@ -169,7 +170,10 @@ export function LiveRoast({
         if (closedRef.current) {
           // Popup already dismissed mid-stream — refresh into the full profile.
           refreshOnce();
-        } else if ((fresh || openModalOnMount) && latestMeta) {
+        } else if (
+          ((fresh && !openModalOnMount) || openedHandoffPopupRef.current) &&
+          latestMeta
+        ) {
           // Fresh generation (or a handoff popup that's already open): show the
           // final meta and hold the page refresh until the user closes it.
           setModalMeta(latestMeta);
