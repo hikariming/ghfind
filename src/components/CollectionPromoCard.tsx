@@ -34,27 +34,20 @@ export function CollectionPromoCard({
 
   return (
     <article className="group relative flex flex-col rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
-      <Link
-        href={`/collections/${slug}`}
-        prefetch={false}
-        onClick={() => trackEvent("home_collections_click", { slug, position })}
-        aria-label={title}
-        className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-300"
-      />
       {(avatarUrl || identityName) && (
-        <div className="relative z-10 flex min-w-0 items-center gap-3">
-        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/10 text-sm font-bold text-orange-300 ring-2 ring-orange-400/40">
-          <span aria-hidden="true">{avatarInitial}</span>
-          {avatarUrl && !avatarFailed && (
-            // eslint-disable-next-line @next/next/no-img-element -- GitHub avatar; the image optimizer would just add Vercel cost
-            <img
-              src={avatarUrl}
-              alt={`${githubUsername ?? identityName ?? "GitHub"} avatar`}
-              loading="lazy"
-              onError={() => setAvatarFailed(true)}
-              className="absolute inset-0 h-full w-full rounded-full bg-transparent"
-            />
-          )}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/10 text-sm font-bold text-orange-300 ring-2 ring-orange-400/40">
+            <span aria-hidden="true">{avatarInitial}</span>
+            {avatarUrl && !avatarFailed && (
+              // eslint-disable-next-line @next/next/no-img-element -- GitHub avatar; the image optimizer would just add Vercel cost
+              <img
+                src={avatarUrl}
+                alt={`${githubUsername ?? identityName ?? "GitHub"} avatar`}
+                loading="lazy"
+                onError={() => setAvatarFailed(true)}
+                className="absolute inset-0 h-full w-full rounded-full bg-transparent"
+              />
+            )}
           </span>
           {githubUsername ? (
             <a
@@ -75,13 +68,18 @@ export function CollectionPromoCard({
           )}
         </div>
       )}
-      <h3 className="pointer-events-none relative z-10 mt-3 line-clamp-2 text-lg font-bold text-zinc-100 group-hover:text-white">
-        {title}
+      <h3 className="mt-3 line-clamp-2 text-lg font-bold text-zinc-100">
+        <Link
+          href={`/collections/${slug}`}
+          prefetch={false}
+          onClick={() => trackEvent("home_collections_click", { slug, position })}
+          className="rounded-sm outline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-300"
+        >
+          {title}
+        </Link>
       </h3>
-      <p className="pointer-events-none relative z-10 mt-2 line-clamp-2 text-sm leading-relaxed text-zinc-400">
-        {intro}
-      </p>
-      <div className="pointer-events-none relative z-10 mt-auto flex items-center justify-between gap-3 pt-4 text-xs text-zinc-500">
+      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-zinc-400">{intro}</p>
+      <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs text-zinc-500">
         <span>{metaLine}</span>
         <span className="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 font-semibold text-orange-200">
           {typeLabel}
