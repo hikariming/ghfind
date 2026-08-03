@@ -82,7 +82,7 @@ async function SubjectCard({
           />
           <div className="min-w-0">
             <div className="break-all text-lg font-black text-zinc-100">
-              {subject.name ?? (isRepo ? subject.id : `@${subject.id}`)}
+              {subject.nickname ?? (isRepo ? subject.id : `@${subject.id}`)}
             </div>
             <div className="text-xs text-zinc-500">
               {isRepo ? subject.id : `@${subject.id}`}
@@ -151,7 +151,7 @@ export default async function CollectionPage({
             description: pickText(collection.intro, locale),
             datePublished: collection.publishedAt,
             subject: {
-              name: featureSubject.name ?? featureSubject.id,
+              name: featureSubject.nickname ?? featureSubject.id,
               githubUrl: `https://github.com/${featureSubject.id}`,
               profilePath: localePath(locale, `/u/${featureSubject.id}`),
             },

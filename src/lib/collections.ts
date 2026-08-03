@@ -48,8 +48,8 @@ export type CollectionSubject = {
   kind: "developer" | "repo";
   /** GitHub username or "owner/name". */
   id: string;
-  /** Display name, e.g. "张昱轩 (Yuxuan Zhang)". */
-  name?: string;
+  /** PR-editable display-name override, e.g. "张昱轩 (Yuxuan Zhang)". */
+  nickname?: string;
   headline?: LocalizedText;
 };
 
@@ -135,6 +135,33 @@ export function listCollections(): Collection[] {
 /** Editorial copy ships zh + en; zh readers get zh, everyone else gets en. */
 export function pickText(text: LocalizedText, locale: string): string {
   return locale === "zh" ? text.zh || text.en : text.en;
+}
+
+/**
+ * Public GitHub profile name used only when editorial metadata has no nickname.
+ * The result is revalidated daily, while a PR-supplied `subject.nickname` stays
+ * authoritative and avoids this request entirely.
+ */
+export async function getGitHubNickname(username: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://api.github.com/users/${encodeURIComponent(username)}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "ghfind",
+        },
+        next: { revalidate: 86_400 },
+      },
+    );
+    if (!response.ok) return null;
+    const profile = (await response.json()) as { name?: unknown };
+    return typeof profile.name === "string" && profile.name.trim()
+      ? profile.name.trim()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function collectionPath(locale: string, slug: string): string {
