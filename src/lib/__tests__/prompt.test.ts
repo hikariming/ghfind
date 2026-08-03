@@ -131,6 +131,26 @@ describe("buildRoastMessages", () => {
     expect(enPayload.context_notes.affiliation_scope).toContain("README text");
   });
 
+  it("provides and requires the exact verified follower-following relationship", () => {
+    const followerScan = {
+      ...scan,
+      metrics: { ...scan.metrics, followers: 19, following: 15 },
+    } as ScanResult;
+
+    const [zhSystem, zhUser] = buildRoastMessages(followerScan, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhSystem.content).toContain("context_notes.follower_following_fact");
+    expect(zhPayload.context_notes.follower_following_fact).toContain("粉丝数 > 关注数");
+    expect(zhPayload.context_notes.follower_following_fact).toContain("粉丝=19");
+
+    const [enSystem, enUser] = buildRoastMessages(followerScan, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enSystem.content).toContain("context_notes.follower_following_fact");
+    expect(enPayload.context_notes.follower_following_fact).toBe(
+      "followers=19; following=15; verified relation: followers > following.",
+    );
+  });
+
   it("does not duplicate structured README summaries in the prompt payload", () => {
     const [, user] = buildRoastMessages(
       {

@@ -96,6 +96,22 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
   });
 
+  it("serves a cached quick scan without republishing it as newly scanned", async () => {
+    mocks.getCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      cached: true,
+      coverage: "quick",
+      metrics: { username: "DemoDev" },
+    });
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.recordAccountLookup).toHaveBeenCalledWith("DemoDev", "0.0.0.0");
+  });
+
   it("serves v5 only after the quick collector fails", async () => {
     mocks.buildScanResult.mockRejectedValue(new Error("github unavailable"));
     mocks.getLegacyReadFallbackScan.mockResolvedValue(quickScan);

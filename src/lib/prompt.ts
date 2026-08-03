@@ -318,6 +318,7 @@ const SYSTEM_PROMPT_ZH = `你是「GitHub 毒舌锐评写手」。分数、档�
 
 ## 写作护栏
 - 分数来自评分引擎，不是你的判断。可以解释为什么这个分数显得合理，但不能改分、不能暗示模型另有裁决。
+- 任何“大于/小于/更多/更少/比例”结论都必须由 payload 的精确数字推出。粉丝与关注的关系必须遵循 context_notes.follower_following_fact；数值接近时优先直接写两个数字，不要臆造高低关系。
 - 学校、公司、雇主、组织 membership 只是背景，不是分数背书；即使这些信息写在 profile、bio、company 或 README 里，除非数据里有真实项目/PR/commit/维护证据，否则不要写成“因此更强/更可信/值得加分”。
 - AI 使用只是现代开发背景，不是扣分依据；即使 README 自述使用 ChatGPT，也只能在原创项目质量弱、代码/可用性证据也弱时写成原创性 caveat，不能写成作弊、丢人、懒、代笔定论。
 - recent_prs 只是最近 merged PR 样本，不要从 recent_prs 推断全量分布。
@@ -418,6 +419,7 @@ The Markdown report after the three control lines must be written in **English o
 
 ## Writing guardrails
 - The score comes from the scoring engine, not from your judgment. You may explain why the score fits the facts, but you must not modify it or imply a separate model ruling.
+- Every more/fewer, larger/smaller, or ratio claim must follow the exact payload numbers. For followers versus following, obey context_notes.follower_following_fact; when values are close, state the two counts rather than inventing a relationship.
 - School, company, employer, or organization membership is background context, not score evidence, even when it appears in the profile, bio, company field, or README text. Do not write it as "therefore stronger / more trustworthy / deserving a bump" unless the data ties it to real repo quality, PR/commit work, or maintainer evidence.
 - AI tool use is normal modern development context, not score evidence. Even if a README self-describes ChatGPT usage, mention it only as an originality caveat when repo quality/code/usability evidence is also weak; do not frame AI use as cheating, shameful, laziness, or ghostwriting by default.
 - recent_prs is only the most recent merged PR sample; do not extrapolate all-time behavior from recent_prs.
@@ -557,6 +559,18 @@ function buildPayload(scan: ScanResult, lang: Lang) {
           tier_label: TIER_LABEL_EN[scan.scoring.tier],
         }
       : scan.scoring;
+  const followerFollowingFact =
+    scan.metrics.followers > scan.metrics.following
+      ? lang === "en"
+        ? `followers=${scan.metrics.followers}; following=${scan.metrics.following}; verified relation: followers > following.`
+        : `粉丝=${scan.metrics.followers}；关注=${scan.metrics.following}；已验证关系：粉丝数 > 关注数。`
+      : scan.metrics.followers < scan.metrics.following
+        ? lang === "en"
+          ? `followers=${scan.metrics.followers}; following=${scan.metrics.following}; verified relation: followers < following.`
+          : `粉丝=${scan.metrics.followers}；关注=${scan.metrics.following}；已验证关系：粉丝数 < 关注数。`
+        : lang === "en"
+          ? `followers=${scan.metrics.followers}; following=${scan.metrics.following}; verified relation: followers = following.`
+          : `粉丝=${scan.metrics.followers}；关注=${scan.metrics.following}；已验证关系：粉丝数 = 关注数。`;
   const contextNotes =
     lang === "en"
       ? {
@@ -566,6 +580,7 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "contribution_years_active is the count of calendar years with contributions after account creation, not continuous elapsed active time. Do not compare it directly against account_age_years as a time-travel/future anomaly.",
           recent_prs_sample_size: scan.metrics.recent_merged_pr_sample,
           total_merged_pr_count: scan.metrics.merged_pr_count,
+          follower_following_fact: followerFollowingFact,
           workflow_landed_pr_count: scan.metrics.workflow_landed_pr_count ?? 0,
           impact_repos_scope:
             "impact_repos / metrics.impact_pr_count summarize all-time substantial PRs/commits into popular repos. workflow_landed_impact_pr_count is the subset verified by an official repository bot rather than GitHub's native merged state.",
@@ -617,6 +632,7 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "contribution_years_active 是账号创建后出现过贡献的自然年份数量，不是连续活跃时长；不要把它直接和 account_age_years 比较并写成穿越/来自未来。",
           recent_prs_sample_size: scan.metrics.recent_merged_pr_sample,
           total_merged_pr_count: scan.metrics.merged_pr_count,
+          follower_following_fact: followerFollowingFact,
           workflow_landed_pr_count: scan.metrics.workflow_landed_pr_count ?? 0,
           impact_repos_scope:
             "impact_repos / metrics.impact_pr_count 汇总的是长期高星仓库实质 PR/commit 贡献；workflow_landed_impact_pr_count 是其中经仓库官方机器人验证、但不是 GitHub 原生 merged 的部分。",
