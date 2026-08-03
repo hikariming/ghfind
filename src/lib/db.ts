@@ -24,6 +24,7 @@ import {
   maskSensitiveCommentText,
   type BlogComment,
   type CommentAuthor,
+  type CollectionComment,
   type ProfileComment,
   type ProfileCommentAuthor,
 } from "./comments";
@@ -6388,6 +6389,17 @@ interface CreateBlogCommentInput {
   authorGithubId?: number;
 }
 
+interface CreateCollectionCommentInput {
+  collectionSlug: string;
+  text: string;
+  author: CommentAuthor;
+  authorGithubId?: number;
+}
+
+function collectionCommentKey(slug: string): string {
+  return `collection:${slug}`;
+}
+
 function toBlogComment(row: Record<string, unknown>): BlogComment {
   const authorLogin =
     typeof row.author_login === "string" && row.author_login
@@ -6487,6 +6499,99 @@ export async function createBlogComment(
     };
   } catch (e) {
     console.error("createBlogComment failed:", e);
+    return null;
+  }
+}
+
+export async function getCollectionComments(
+  collectionSlug: string,
+  limit = 24,
+): Promise<CollectionComment[]> {
+  const db = getClient();
+  if (!db) return [];
+  const slug = normalizeBlogSlug(collectionSlug);
+  if (!slug) return [];
+
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT id, post_slug, body, author_kind, author_login,
+                   author_avatar_url, created_at
+            FROM (
+              SELECT rowid AS sort_rowid, id, post_slug, body, author_kind,
+                     author_login, author_avatar_url, created_at
+              FROM blog_comments
+              WHERE post_slug = ? AND hidden = 0
+              ORDER BY created_at DESC, rowid DESC
+              LIMIT ?
+            )
+            ORDER BY created_at ASC, sort_rowid ASC`,
+      args: [collectionCommentKey(slug), Math.max(1, Math.min(100, limit))],
+    });
+    return res.rows.map((row) => {
+      const comment = toBlogComment(row as Record<string, unknown>);
+      return {
+        id: comment.id,
+        collectionSlug: slug,
+        author: comment.author,
+        text: comment.text,
+        createdAt: comment.createdAt,
+      };
+    });
+  } catch (e) {
+    console.error("getCollectionComments failed:", e);
+    return [];
+  }
+}
+
+export async function createCollectionComment(
+  input: CreateCollectionCommentInput,
+): Promise<CollectionComment | null> {
+  const db = getClient();
+  if (!db) return null;
+  const slug = normalizeBlogSlug(input.collectionSlug);
+  const text = normalizeCommentText(input.text);
+  if (!slug || !text) return null;
+
+  const githubAuthor =
+    input.author.type === "github"
+      ? normalizeGitHubUsername(input.author.username)
+      : null;
+  const authorKind = githubAuthor ? "github" : "anonymous";
+  const authorAvatarUrl =
+    input.author.type === "github" ? input.author.avatarUrl ?? null : null;
+  const now = Date.now();
+  const id = randomUUID();
+
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO blog_comments
+              (id, post_slug, body, author_kind, author_github_id,
+               author_login, author_avatar_url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        id,
+        collectionCommentKey(slug),
+        text,
+        authorKind,
+        authorKind === "github" ? input.authorGithubId ?? null : null,
+        githubAuthor,
+        authorKind === "github" ? authorAvatarUrl : null,
+        now,
+      ],
+    });
+    return {
+      id,
+      collectionSlug: slug,
+      author: githubAuthor
+        ? { type: "github", username: githubAuthor, avatarUrl: authorAvatarUrl }
+        : { type: "anonymous" },
+      text,
+      createdAt: now,
+    };
+  } catch (e) {
+    console.error("createCollectionComment failed:", e);
     return null;
   }
 }

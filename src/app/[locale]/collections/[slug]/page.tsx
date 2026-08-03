@@ -8,6 +8,7 @@ import {
   collectionFeatureJsonLd,
   curatedCollectionJsonLd,
 } from "@/components/JsonLd";
+import { CollectionCommentBubbles } from "@/components/CollectionCommentBubbles";
 import { PostBody } from "@/components/blog/PostBody";
 import { CollectionItemCard } from "@/components/collections/CollectionItemCard";
 import {
@@ -141,7 +142,12 @@ export default async function CollectionPage({
       : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 py-14 sm:px-6 sm:py-20">
+    <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:px-6 sm:py-20">
+      <CollectionCommentBubbles
+        lang={locale === "zh" ? "zh" : "en"}
+        collectionSlug={slug}
+      />
+      <div className="relative z-10 flex w-full max-w-3xl flex-col">
       {featureSubject && article ? (
         <JsonLd
           data={collectionFeatureJsonLd({
@@ -263,6 +269,7 @@ export default async function CollectionPage({
           </p>
         </>
       )}
+      </div>
     </main>
   );
 }

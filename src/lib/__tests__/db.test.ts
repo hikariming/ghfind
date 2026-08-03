@@ -2115,6 +2115,47 @@ describe("blog comments", () => {
   });
 });
 
+describe("collection comments", () => {
+  it("uses a collection namespace without mixing in article comments", async () => {
+    const anonymous = await db.createCollectionComment({
+      collectionSlug: "lofisu",
+      text: "硬核 🔥",
+      author: { type: "anonymous" },
+    });
+    const github = await db.createCollectionComment({
+      collectionSlug: "LOFISU",
+      text: "Great collection",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      authorGithubId: 499550,
+    });
+
+    expect(anonymous).toMatchObject({
+      collectionSlug: "lofisu",
+      author: { type: "anonymous" },
+      text: "硬核 🔥",
+    });
+    expect(github).toMatchObject({
+      collectionSlug: "lofisu",
+      author: {
+        type: "github",
+        username: "yyx990803",
+        avatarUrl: "https://avatars.githubusercontent.com/u/499550",
+      },
+      text: "Great collection",
+    });
+
+    await expect(db.getCollectionComments("LOFISU")).resolves.toMatchObject([
+      { author: { type: "anonymous" }, text: "硬核 🔥" },
+      { author: { type: "github", username: "yyx990803" }, text: "Great collection" },
+    ]);
+    await expect(db.getBlogComments("lofisu")).resolves.toEqual([]);
+  });
+});
+
 describe("profile reactions", () => {
   it("stores one durable reaction per GitHub user and target profile", async () => {
     await db.setProfileReaction({

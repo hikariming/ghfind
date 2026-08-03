@@ -61,6 +61,22 @@ export interface CreateBlogCommentResponse {
   comment: BlogComment;
 }
 
+export interface CollectionComment {
+  id: string;
+  collectionSlug: string;
+  author: CommentAuthor;
+  text: string;
+  createdAt: number;
+}
+
+export interface CollectionCommentsResponse {
+  comments: CollectionComment[];
+}
+
+export interface CreateCollectionCommentResponse {
+  comment: CollectionComment;
+}
+
 export function normalizeGitHubUsername(input: string): string | null {
   let value = input.trim();
   const profileUrl = value.match(/github\.com\/([^/?#]+)/i);
