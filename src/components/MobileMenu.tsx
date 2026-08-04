@@ -85,7 +85,7 @@ export function MobileMenu({
           id="mobile-menu"
           side="top"
           overlayClassName="top-14"
-          className="top-14 rounded-b-lg border-b border-white/10 bg-popover/98 px-4 pb-5 pt-4 backdrop-blur-xl"
+          className="top-14 rounded-b-lg border-b border-white/10 bg-popover/98 px-4 pb-5 pt-4 backdrop-blur-xl overflow-y-auto max-h-[calc(100vh-55px)]"
         >
           <div className="space-y-4">
             <GlobalSearch mobile />
