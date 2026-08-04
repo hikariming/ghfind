@@ -55,7 +55,7 @@ export function WorkspaceUserMenu({
         <button
           type="button"
           aria-label={login}
-          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.03] shadow-sm transition-colors hover:bg-white/[0.06]"
+          className="navbar-action w-10 justify-center overflow-hidden"
         >
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element

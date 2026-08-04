@@ -75,7 +75,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
           className={
             mobile
               ? "h-11 w-full justify-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-zinc-300"
-              : "h-9 gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+              : "navbar-action gap-2 px-4"
           }
           aria-label={t("open")}
         >
