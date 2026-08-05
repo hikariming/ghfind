@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { DIMENSIONS, barColor } from "@/lib/dimensions";
-import { SUBSCORE_MAX } from "@/lib/score";
+import { SUBSCORE_MAX } from "@/lib/score-presentation";
 import type { SubScores, Tier } from "@/lib/types";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 

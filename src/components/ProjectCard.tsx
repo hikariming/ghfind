@@ -2,14 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import type { ProjectListItem } from "@/lib/db";
+import type { GoProjectListItem } from "@/lib/go-projects.server";
 import { projectCardViewModel } from "@/lib/project-card";
 import { tierStyle } from "@/lib/tier";
 import { trackEvent } from "@/lib/track";
 
 const number = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
-export function ProjectCard({ project, position }: { project: ProjectListItem; position: number }) {
+export function ProjectCard({ project, position }: { project: GoProjectListItem; position: number }) {
   const t = useTranslations("projects");
   const model = projectCardViewModel(project);
   return (

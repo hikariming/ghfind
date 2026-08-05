@@ -11,9 +11,9 @@ import {
   parseOmnibox,
   shouldAutoLockPkIntent,
 } from "@/lib/omnibox";
-import type { UserSuggestion } from "@/lib/db";
 import type { RepoSuggestion } from "@/lib/search";
 import { tierStyle } from "@/lib/tier";
+import type { Tier } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -23,6 +23,14 @@ const GROUP_ORDER: Record<OmniSuggestion["group"], number> = {
   pk: 1,
   user: 2,
   discover: 3,
+};
+
+type UserSuggestion = {
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  final_score: number;
+  tier: Tier;
 };
 
 /** Leading glyph that reflects the current intent — the "it heard you" cue. */

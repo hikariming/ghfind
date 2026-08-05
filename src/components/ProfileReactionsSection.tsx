@@ -1,6 +1,8 @@
-import { auth, authConfigured, signIn } from "@/lib/auth";
-import { getProfileReactionState } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { ProfileReactions } from "@/components/ProfileReactions";
+import { getGoPrivateData } from "@/lib/go-backend.server";
+import { oauthConfigured } from "@/lib/oauth-config";
+import { emptyReactionCounts, type ProfileReactionState } from "@/lib/reactions";
 
 /**
  * Server wrapper that resolves auth + reaction state for one profile. Kept
@@ -16,18 +18,23 @@ export async function ProfileReactionsSection({
   redirectTo: string;
   flat?: boolean;
 }) {
-  const authAvailable = authConfigured();
-  const session = authAvailable ? await auth() : null;
-  const reactionState = await getProfileReactionState(username, session?.user.githubId);
+  const authAvailable = oauthConfigured();
+  const session = authAvailable
+    ? await getGoPrivateData<{ user: { login: string; image: string | null } | null }>("/api/me")
+    : null;
+  const reactionState =
+    (await getGoPrivateData<ProfileReactionState>(
+      `/api/profile-reactions/${encodeURIComponent(username)}`,
+    )) ?? { counts: emptyReactionCounts(), viewerReaction: null };
 
   async function signInForReaction() {
     "use server";
-    await signIn("github", { redirectTo });
+    redirect(`/api/auth/github?callbackUrl=${encodeURIComponent(redirectTo)}`);
   }
 
   return (
     <ProfileReactions
-      authenticated={Boolean(session?.user.githubId)}
+      authenticated={Boolean(session?.user)}
       authAvailable={authAvailable}
       initialState={reactionState}
       profileUsername={username}

@@ -119,7 +119,7 @@ export function NavLinks({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="min-w-[12rem] border-white/10 bg-popover/98 p-1.5 backdrop-blur-xl"
+          className="min-w-[12rem] border-white/10 bg-popover p-1.5"
         >
           {children.map((c) => (
             <Link
@@ -128,10 +128,10 @@ export function NavLinks({
               prefetch={c.href === "/" ? undefined : false}
               onClick={onNavigate}
               aria-current={isActive(c) ? "page" : undefined}
-              className={`flex items-center rounded-xl px-3 py-2 text-sm transition-colors ${
+              className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
                 isActive(c)
-                  ? "bg-white/[0.06] font-medium text-zinc-100"
-                  : "text-zinc-300 hover:bg-white/[0.04] hover:text-zinc-100"
+                  ? "font-semibold text-zinc-100"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
               }`}
             >
               {t(c.key)}

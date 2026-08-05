@@ -1,7 +1,7 @@
 import { Link } from "@/i18n/navigation";
 import { tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
-import type { RepoOverview } from "@/lib/db";
+import type { GoProjectOverview } from "@/lib/go-projects.server";
 
 export interface RepoOverviewLabels {
   /** "Maintained by" / "作者" prefix for the author row. */
@@ -27,7 +27,7 @@ export function RepoOverviewCard({
   overview,
   labels,
 }: {
-  overview: RepoOverview;
+  overview: GoProjectOverview;
   labels: RepoOverviewLabels;
 }) {
   const { repo, owner, summary } = overview;

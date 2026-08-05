@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { ProjectCard } from "@/components/ProjectCard";
-import { getProjectsCached } from "@/lib/project-discovery";
+import { getGoProjects } from "@/lib/go-projects.server";
 
 const PREVIEW_LIMIT = 4;
 
@@ -15,7 +15,7 @@ const PREVIEW_LIMIT = 4;
 export async function HomeProjectsPreview() {
   const t = await getTranslations("projects");
   const tCollections = await getTranslations("collections");
-  const projects = await getProjectsCached({
+  const projects = await getGoProjects({
     sort: "momentum",
     language: null,
     limit: PREVIEW_LIMIT,
@@ -33,7 +33,7 @@ export async function HomeProjectsPreview() {
           <p className="mt-1 text-sm text-zinc-500">{t("subtitle")}</p>
         </div>
         <Link
-          href="/projects"
+          href="/projects/discovery"
           prefetch={false}
           className="shrink-0 text-sm text-zinc-400 underline-offset-4 transition-colors hover:text-zinc-200 hover:underline"
         >

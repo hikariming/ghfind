@@ -1,7 +1,7 @@
 "use client";
 
 import { DIMENSIONS } from "@/lib/dimensions";
-import { SUBSCORE_MAX } from "@/lib/score";
+import { SUBSCORE_MAX } from "@/lib/score-presentation";
 import { TIER_KEY } from "@/lib/tier";
 import type { SubScoreKey, SubScores, Tier } from "@/lib/types";
 import {

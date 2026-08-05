@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
+import { readScanResponse } from "@/lib/scan-job-client";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
@@ -66,7 +67,7 @@ export function RescanButton({
         setStatus("error");
         return;
       }
-      const scan = (await scanRes.json()) as ScanResult;
+      const scan = (await readScanResponse(scanRes)) as ScanResult;
       setStatus("roasting");
       const roastRes = await fetch("/api/roast", {
         method: "POST",
