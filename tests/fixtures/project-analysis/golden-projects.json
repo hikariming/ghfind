@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "policy": "Relative calibration only. Never hard-code absolute model scores.",
+  "projects": [
+    {
+      "repositoryUrl": "https://github.com/samzong/gofs",
+      "scenario": "high_value_low_exposure_micro_tool",
+      "expectedType": "micro_tool",
+      "executionMode": "source_only"
+    },
+    {
+      "repositoryUrl": "https://github.com/samzong/Recall",
+      "scenario": "active_low_exposure_developer_tool",
+      "expectedType": "desktop_app",
+      "executionMode": "source_only"
+    },
+    {
+      "repositoryUrl": "https://github.com/samzong/MacMusicPlayer",
+      "scenario": "small_focused_desktop_product",
+      "expectedType": "desktop_app",
+      "executionMode": "source_only"
+    },
+    {
+      "repositoryUrl": "https://github.com/jqlang/jq",
+      "scenario": "feature_complete_classic_tool",
+      "expectedType": "micro_tool",
+      "executionMode": "source_only"
+    },
+    {
+      "repositoryUrl": "https://github.com/langgenius/dify",
+      "scenario": "large_enterprise_system_requires_core_flow_evidence",
+      "expectedType": "enterprise_system",
+      "executionMode": "source_only"
+    },
+    {
+      "repositoryUrl": "https://github.com/samzong/hf-model-downloader",
+      "scenario": "onboarding_sensitive_end_user_tool",
+      "expectedType": "desktop_app",
+      "executionMode": "source_only"
+    }
+  ]
+}
