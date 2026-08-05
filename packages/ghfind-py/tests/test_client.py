@@ -44,6 +44,27 @@ def test_scan_posts_username_and_turnstile():
     assert body == {"username": "octocat", "turnstileToken": "tok"}
 
 
+def test_scan_follows_accepted_job_location():
+    def handler(method, url, headers, body):
+        if url.endswith("/api/scan"):
+            return (202, json.dumps({"id": "job_aaaaaaaaaaaaaaaa", "state": "queued"}),
+                    {"location": "/api/scan/jobs/job_aaaaaaaaaaaaaaaa"})
+        return (200, json.dumps({
+            "status": {"state": "completed"},
+            "result": {"metrics": {"username": "octocat"}, "scoring": {"final_score": 42}},
+        }), {})
+
+    rec = Recorder(handler)
+    gh = GhFind("https://ghfind.com", transport=rec)
+    result = gh.scan("octocat")
+
+    assert result["scoring"]["final_score"] == 42
+    assert [c["url"] for c in rec.calls] == [
+        "https://ghfind.com/api/scan",
+        "https://ghfind.com/api/scan/jobs/job_aaaaaaaaaaaaaaaa",
+    ]
+
+
 def test_score_returns_scoring_block():
     rec = Recorder(lambda *a: (200, json.dumps({"scoring": {"final_score": 42, "tier": "NPC"}}), {}))
     gh = GhFind(transport=rec)

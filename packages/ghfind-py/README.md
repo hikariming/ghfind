@@ -90,7 +90,8 @@ from ghfind import GhFind
 gh = GhFind()  # defaults to https://ghfind.com
 
 # Cheapest: deterministic score (no LLM). Works for ANY account —
-# unseen ones are scored live. s["source"] is "indexed" or "live".
+# unseen ones go through the Go quick-scan worker. s["source"] is
+# "indexed", "quick", or "legacy_v5_v5_v3".
 s = gh.get_score("torvalds")
 print(s["final_score"], s["tier"], s["percentile"], s["source"])
 
