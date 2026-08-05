@@ -1,26 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { searchDiscovery } from "@/lib/search";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Omnibox autocomplete: prefix-search already-scored accounts so the homepage can
- * offer a judged handle directly (with its score) for roast and PK. Read-only,
- * CDN-cached briefly — the DB set changes slowly relative to keystrokes.
- */
-export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q") ?? "";
-  if (q.trim().length < 1) {
-    return NextResponse.json({ users: [], repos: [], facets: [] });
-  }
-  const result = await searchDiscovery(q);
+/** Go-owned through the same-origin rewrite in next.config.ts. */
+export function GET() {
   return NextResponse.json(
-    result,
+    { error: "backend_not_configured" },
     {
-      headers: {
-        "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600",
-      },
+      status: 503,
+      headers: { "Cache-Control": "no-store", "Retry-After": "15" },
     },
   );
 }

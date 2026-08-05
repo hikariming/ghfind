@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { getScoreBrief, getWeeklyBaselines, resolveWeeklyDelta } from "@/lib/db";
-import { buildBadge, type BadgeLang } from "@/lib/badge";
+import { buildBadge, TIER_EN, type BadgeLang } from "@/lib/badge";
+import { getGoPublicData } from "@/lib/go-backend.server";
 import { USERNAME_RE } from "@/lib/username";
 
 export const runtime = "nodejs";
@@ -34,21 +34,21 @@ export async function GET(
     return svg(buildBadge({ score: null, tier: null, lang }), UNRATED_CACHE);
   }
 
-  const brief = await getScoreBrief(name);
-  if (!brief) {
+  const data = await getGoPublicData<{
+    final_score: number | null;
+    tier: string | null;
+    delta: number | null;
+  }>(`/api/embed/badge/${encodeURIComponent(name)}`);
+  if (!data || data.final_score === null || data.tier === null || !(data.tier in TIER_EN)) {
     return svg(buildBadge({ score: null, tier: null, lang }), UNRATED_CACHE);
   }
-  // Weekly movement makes the embedded badge a living stat instead of a static
-  // trophy — one indexed snapshot lookup, then served from the CDN for 6h.
-  const baselines = await getWeeklyBaselines([brief.username]);
-  const delta = resolveWeeklyDelta({
-    currentScore: brief.final_score,
-    snapshotBaseline: baselines.get(brief.username) ?? null,
-    prevScore: brief.prev_score,
-    prevScannedAt: brief.prev_scanned_at,
-  });
   return svg(
-    buildBadge({ score: brief.final_score, tier: brief.tier, lang, delta }),
+    buildBadge({
+      score: data.final_score,
+      tier: data.tier as keyof typeof TIER_EN,
+      lang,
+      delta: data.delta,
+    }),
     RATED_CACHE,
   );
 }

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { GET } from "./route";
 
-describe("facet-rank Go ownership guard", () => {
-  it("never falls back to a Next handler with direct Turso or Redis access", async () => {
+describe("scan job status Go ownership guard", () => {
+  it("fails closed instead of exposing internal job state from Next", async () => {
     const response = GET();
 
     expect(response.status).toBe(503);
