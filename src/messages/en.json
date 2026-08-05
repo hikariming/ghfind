@@ -13,6 +13,7 @@
     "leaderboard": "Leaderboard",
     "discover": "Discover",
     "developers": "Developers",
+    "projectBoards": "Project Boards",
     "projects": "Projects",
     "collections": "Picks",
     "languages": "Languages",
@@ -167,7 +168,17 @@
     "page": "Page {page}",
     "listLabel": "Project results",
     "emptyTitle": "No project graph here yet",
-    "emptyBody": "Run the repository backfill locally or remove the current filter."
+    "emptyBody": "Run the repository backfill locally or remove the current filter.",
+    "analysisForm": {
+      "repositoryLabel": "GitHub repository",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "Branch, tag, or commit (optional)",
+      "refPlaceholder": "default branch",
+      "submit": "Start evaluation",
+      "submitting": "Creating task…",
+      "safetyHint": "Any public GitHub repository is supported. Some projects also receive install, build, and core-flow verification.",
+      "unknownError": "Project evaluation could not be created."
+    }
   },
   "collections": {
     "metaTitle": "Founder's picks: projects & developers · ghfind",
@@ -836,6 +847,130 @@
       "5": "@{winner} leads by a hair, but @{loser} isn't fazed at all.",
       "6": "Split the difference — @{winner} just got {gap} points luckier.",
       "7": "Six of one, half a dozen of the other — @{winner} and @{loser} gained nothing on each other."
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "Project evaluation status · ghfind",
+    "pollFailed": "Status refresh failed; another attempt will follow.",
+    "requestedRef": "requested ref",
+    "duration": "elapsed",
+    "retry": "Return and submit again",
+    "confidence": "confidence",
+    "verification": "verification",
+    "exposure": "exposure",
+    "communityStrength": "community strength",
+    "activityTitle": "Recent activity",
+    "activity": {
+      "started": "Started analysis",
+      "inspecting_source": "Inspecting source and configuration",
+      "inspecting_docs": "Reading project documentation",
+      "inspecting_history": "Checking versions and commit history",
+      "checking_community": "Checking community and releases",
+      "evaluating": "Organizing evidence and scoring",
+      "writing": "Generating analysis results",
+      "validating": "Validating results",
+      "saving": "Saving results",
+      "completed": "Analysis complete",
+      "failed": "Analysis stopped"
+    },
+    "errors": {
+      "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
+      "generic": "This project assessment could not be completed. Please try again later."
+    },
+    "unknowns": "Open questions",
+    "risks": "Adoption risks",
+    "none": "None recorded.",
+    "viewProject": "View project page",
+    "scores": {
+      "product": "Product value",
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density"
+    },
+    "status": {
+      "queued": "Waiting for analysis",
+      "creating_thread": "Preparing the assessment",
+      "running": "Analyzing project",
+      "finalizing": "Validating and saving results",
+      "completed": "Project evaluation complete",
+      "failed": "Project evaluation failed",
+      "cancelled": "Project evaluation cancelled",
+      "expired": "Project evaluation expired"
+    },
+    "phase": {
+      "queued": "Waiting for execution capacity",
+      "creating_thread": "Preparing the assessment task",
+      "classifying": "Identifying the product contract and project type",
+      "cloning": "Resolving the requested repository version",
+      "inspecting": "Inspecting source, docs, and configuration",
+      "installing": "Installing required dependencies",
+      "building": "Building the project",
+      "exercising": "Running a representative core flow",
+      "evaluating": "Organizing evidence and scoring",
+      "writing_report": "Writing structured results and report",
+      "persisting": "Validating and saving the assessment",
+      "completed": "Score, evidence, and report are saved"
+    }
+  },
+  "projectBoards": {
+    "metaTitle": "Treasure open-source projects · ghfind",
+    "metaDescription": "Find useful open-source projects that solve real problems and deserve more attention.",
+    "eyebrow": "Open-source project evaluation",
+    "heading": "Find projects worth seeing",
+    "subtitle": "Go beyond stars, company backing, and code volume. Evaluate public GitHub projects by the problem, effectiveness, onboarding, and value they deliver.",
+    "boardLabel": "Project boards",
+    "boards": {
+      "treasure": "Treasure projects",
+      "classic": "Classic projects",
+      "unranked": "Not currently ranked",
+      "all": "All analyses"
+    },
+    "boardDescriptions": {
+      "treasure": "Strong product value, credible evidence, and relatively low exposure. Stars indicate exposure only.",
+      "classic": "Mature projects with sustained adoption that remain useful today.",
+      "all": "Every analyzed project, whether or not it made a board."
+    },
+    "databaseUnavailable": "Project data is temporarily unavailable. Please try again later.",
+    "listLabel": "Project results",
+    "emptyTitle": "No projects on this board yet",
+    "emptyBody": {
+      "treasure": "Submit the first public repository. Qualifying projects will appear here after evaluation.",
+      "classic": "Mature projects appear here after evaluation confirms lasting adoption and current usefulness.",
+      "all": "Completed analyses appear here, regardless of board eligibility."
+    },
+    "prev": "← Previous",
+    "page": "Page {page}",
+    "next": "Next →",
+    "productScore": "product value",
+    "confidence": "confidence",
+    "communityStrength": "community strength",
+    "viewReport": "View full evaluation",
+    "details": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density",
+      "exposure": "Exposure",
+      "stars": "Stars",
+      "rubric": "Rubric",
+      "commit": "Evaluated commit",
+      "analysisTime": "Evaluation time",
+      "productContract": "Product contract",
+      "targetUsers": "Target users",
+      "painStatement": "Core pain",
+      "dimensionEvidence": "Dimension evidence",
+      "unknowns": "Open questions",
+      "risks": "Adoption risks",
+      "none": "None recorded.",
+      "treasureHistory": "Treasure discovery history",
+      "selectedAt": "Selected",
+      "report": "Full evaluation report",
+      "historyStatus": {
+        "active": "Active treasure project",
+        "graduated": "Graduated from treasure status",
+        "removed": "Removed"
+      }
     }
   }
 }

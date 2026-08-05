@@ -13,6 +13,7 @@
     "leaderboard": "لوحة الصدارة",
     "discover": "اكتشف",
     "developers": "المطورون",
+    "projectBoards": "لوحات المشاريع",
     "projects": "المشاريع",
     "collections": "مختارات",
     "languages": "اللغات",
@@ -167,7 +168,17 @@
     "page": "صفحة {page}",
     "listLabel": "نتائج المشاريع",
     "emptyTitle": "لا يوجد رسم بياني للمشاريع هنا بعد",
-    "emptyBody": "شغّل التعبئة الرجعية للمستودعات محليًا أو أزل المرشّح الحالي."
+    "emptyBody": "شغّل التعبئة الرجعية للمستودعات محليًا أو أزل المرشّح الحالي.",
+    "analysisForm": {
+      "repositoryLabel": "GitHub repository",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "Branch, tag, or commit (optional)",
+      "refPlaceholder": "default branch",
+      "submit": "بدء التقييم",
+      "submitting": "Creating task…",
+      "safetyHint": "ندعم أي مستودع GitHub عام. وتخضع بعض المشاريع أيضًا للتحقق من التثبيت والبناء والمسار الأساسي.",
+      "unknownError": "Project evaluation could not be created."
+    }
   },
   "collections": {
     "metaTitle": "مختارات المؤسس: مشاريع ومطورون · ghfind",
@@ -836,6 +847,130 @@
       "5": "@{winner} يتقدم بشعرة، لكن @{loser} غير مبالٍ إطلاقًا.",
       "6": "اقسمها بالنصف — @{winner} كان أوفر حظًا بـ {gap} نقطة فحسب.",
       "7": "هذا بذاك — @{winner} و@{loser} لم يكسب أحدهما شيئًا على الآخر."
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "Project evaluation status · ghfind",
+    "pollFailed": "Status refresh failed; another attempt will follow.",
+    "requestedRef": "requested ref",
+    "duration": "elapsed",
+    "retry": "Return and submit again",
+    "confidence": "confidence",
+    "verification": "verification",
+    "exposure": "exposure",
+    "communityStrength": "community strength",
+    "activityTitle": "النشاط الأخير",
+    "activity": {
+      "started": "بدأ التحليل",
+      "inspecting_source": "فحص الشفرة والإعدادات",
+      "inspecting_docs": "قراءة وثائق المشروع",
+      "inspecting_history": "فحص الإصدارات وسجل الالتزامات",
+      "checking_community": "فحص المجتمع والإصدارات",
+      "evaluating": "تنظيم الأدلة والتقييم",
+      "writing": "إنشاء نتائج التحليل",
+      "validating": "التحقق من النتائج",
+      "saving": "حفظ النتائج",
+      "completed": "اكتمل التحليل",
+      "failed": "توقف التحليل"
+    },
+    "errors": {
+      "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
+      "generic": "This project assessment could not be completed. Please try again later."
+    },
+    "unknowns": "قيد التحقق",
+    "risks": "Adoption risks",
+    "none": "None recorded.",
+    "viewProject": "View project page",
+    "scores": {
+      "product": "Product value",
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density"
+    },
+    "status": {
+      "queued": "Waiting for analysis",
+      "creating_thread": "Preparing the assessment",
+      "running": "Analyzing project",
+      "finalizing": "Validating and saving results",
+      "completed": "Project evaluation complete",
+      "failed": "Project evaluation failed",
+      "cancelled": "Project evaluation cancelled",
+      "expired": "Project evaluation expired"
+    },
+    "phase": {
+      "queued": "Waiting for execution capacity",
+      "creating_thread": "Preparing the assessment task",
+      "classifying": "Identifying the product contract and project type",
+      "cloning": "Resolving the requested repository version",
+      "inspecting": "Inspecting source, docs, and configuration",
+      "installing": "Installing required dependencies",
+      "building": "Building the project",
+      "exercising": "Running a representative core flow",
+      "evaluating": "Organizing evidence and scoring",
+      "writing_report": "Writing structured results and report",
+      "persisting": "Validating and saving the assessment",
+      "completed": "Score, evidence, and report are saved"
+    }
+  },
+  "projectBoards": {
+    "metaTitle": "اكتشف مشاريع GitHub عالية الجودة · ghfind",
+    "metaDescription": "اكتشف مشاريع GitHub مرتّبة حسب جودة وزخم المطورين الذين يقفون خلفها.",
+    "eyebrow": "اكتشاف المشاريع",
+    "heading": "اعثر على المشاريع من خلال مَن يبنيها",
+    "subtitle": "النجوم تُظهر الشعبية. ويضيف ghfind الطبقة الناقصة: جودة المساهمين، وعمق الفريق، والاهتمام الحديث.",
+    "boardLabel": "Project boards",
+    "boards": {
+      "treasure": "Treasure projects",
+      "classic": "Classic projects",
+      "unranked": "Not currently ranked",
+      "all": "جميع التحليلات"
+    },
+    "boardDescriptions": {
+      "treasure": "قيمة منتج عالية وأدلة موثوقة وانتشار محدود نسبيًا. النجوم تعكس الانتشار فقط.",
+      "classic": "مشاريع ناضجة ذات استخدام مستمر وما زالت مفيدة اليوم.",
+      "all": "كل المشاريع التي تم تحليلها، سواء دخلت اللوحة أم لا."
+    },
+    "databaseUnavailable": "بيانات المشاريع غير متاحة مؤقتًا. يُرجى المحاولة لاحقًا.",
+    "listLabel": "نتائج المشاريع",
+    "emptyTitle": "لا يوجد رسم بياني للمشاريع هنا بعد",
+    "emptyBody": {
+      "treasure": "أرسل أول مستودع عام. ستظهر المشاريع المؤهلة هنا بعد اكتمال التقييم.",
+      "classic": "Mature projects appear here after evaluation confirms lasting adoption and current usefulness.",
+      "all": "تظهر التحليلات المكتملة هنا بغض النظر عن أهلية اللوحة."
+    },
+    "prev": "→ السابق",
+    "page": "صفحة {page}",
+    "next": "التالي ←",
+    "productScore": "product value",
+    "confidence": "confidence",
+    "communityStrength": "community strength",
+    "viewReport": "View full evaluation",
+    "details": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density",
+      "exposure": "Exposure",
+      "stars": "Stars",
+      "rubric": "Rubric",
+      "commit": "Evaluated commit",
+      "analysisTime": "Evaluation time",
+      "productContract": "Product contract",
+      "targetUsers": "Target users",
+      "painStatement": "Core pain",
+      "dimensionEvidence": "Dimension evidence",
+      "unknowns": "قيد التحقق",
+      "risks": "Adoption risks",
+      "none": "None recorded.",
+      "treasureHistory": "Treasure discovery history",
+      "selectedAt": "Selected",
+      "report": "Full evaluation report",
+      "historyStatus": {
+        "active": "Active treasure project",
+        "graduated": "Graduated from treasure status",
+        "removed": "Removed"
+      }
     }
   }
 }
