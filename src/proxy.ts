@@ -149,7 +149,7 @@ export const config = {
   // Run on everything EXCEPT API routes, the MCP transport, Next internals, and
   // static files (any path containing a dot). This keeps `/api/badge`, `/api/card`,
   // etc. — the README-embedded endpoints — prefix-free and untouched. `mcp` is
-  // excluded so the `/mcp` → `/api/mcp` rewrite in next.config isn't first
-  // captured and rewritten to `/zh/mcp` by next-intl.
+  // excluded so its same-origin backend rewrite is not captured and rewritten
+  // to `/zh/mcp` by next-intl.
   matcher: ["/((?!api|mcp|_next|_vercel|.*\\..*).*)"],
 };
