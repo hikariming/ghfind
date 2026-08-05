@@ -99,7 +99,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             <div className="mt-3 grid grid-cols-2 gap-2">
               {[
                 { href: "/developers", label: tNav("developers"), emoji: "🧑‍💻" },
-                { href: "/projects", label: tNav("projects"), emoji: "📦" },
+                { href: "/projects/discovery", label: tNav("projects"), emoji: "📦" },
                 { href: "/collections", label: tNav("collections"), emoji: "⭐" },
                 { href: "/vs", label: tNav("versus"), emoji: "⚔️" },
               ].map((item) => (

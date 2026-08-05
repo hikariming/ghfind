@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getTrendingMatchups } from "@/lib/db";
+import { getGoTrendingVsMatchups } from "@/lib/go-profile.server";
 import { localeAlternates } from "@/lib/site";
 import { normLang } from "@/lib/lang";
 import { VsBattleBox } from "@/components/VsBattleBox";
@@ -30,7 +30,7 @@ export default async function VsIndexPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("vs");
-  const matchups = await getTrendingMatchups(40);
+  const matchups = await getGoTrendingVsMatchups();
 
   return (
     <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">

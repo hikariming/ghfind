@@ -52,7 +52,7 @@ describe("discovery next-step models", () => {
 
   it("provides stable project and organization exits from the leaderboard", () => {
     expect(discoveryNextStepCards()).toEqual([
-      { kind: "projects", href: "/projects" },
+      { kind: "projects", href: "/projects/discovery" },
       { kind: "organizations", href: "/developers#organizations" },
     ]);
   });

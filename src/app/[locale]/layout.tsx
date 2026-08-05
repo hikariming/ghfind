@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { authConfigured } from "@/lib/auth";
+import { oauthConfigured } from "@/lib/oauth-config";
 import { Navbar } from "@/components/Navbar";
 import { LoginNudge } from "@/components/LoginNudge";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -74,7 +74,7 @@ export default async function LocaleLayout({
   // signed out, probed via /api/me). We deliberately do NOT read the session
   // here: a server-side auth() reads cookies, which would opt every page out of
   // static/ISR caching — the whole point of this refactor.
-  const oauthConfigured = authConfigured();
+  const oauthEnabled = oauthConfigured();
 
   return (
     <>
@@ -91,7 +91,7 @@ export default async function LocaleLayout({
         <Navbar />
         {children}
         <SiteFooter />
-        <LoginNudge configured={oauthConfigured} />
+        <LoginNudge configured={oauthEnabled} />
       </NextIntlClientProvider>
     </>
   );

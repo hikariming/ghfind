@@ -46,5 +46,5 @@ export function buildProjectListHref(options: {
   if (options.language) search.set("language", options.language);
   if (options.page > 1) search.set("page", String(options.page));
   const query = search.toString();
-  return query ? `/projects?${query}` : "/projects";
+  return query ? `/projects/discovery?${query}` : "/projects/discovery";
 }
