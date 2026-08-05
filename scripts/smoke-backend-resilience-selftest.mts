@@ -51,6 +51,25 @@ const QUEUES: QueueFixture[] = [
     },
   },
   { name: "ghfind.score-snapshot.dead.v1", kind: "score_snapshot.v1", role: "dead", arguments: {} },
+  {
+    name: "ghfind.project-analysis.v1",
+    kind: "project-analysis.v1",
+    role: "primary",
+    arguments: {
+      "x-dead-letter-exchange": "ghfind.jobs.dlx.v1",
+      "x-dead-letter-routing-key": "project-analysis.dead.v1",
+    },
+  },
+  {
+    name: "ghfind.project-analysis.retry.v1",
+    kind: "project-analysis.v1",
+    role: "retry",
+    arguments: {
+      "x-dead-letter-exchange": "ghfind.jobs.v1",
+      "x-dead-letter-routing-key": "project-analysis.v1",
+    },
+  },
+  { name: "ghfind.project-analysis.dead.v1", kind: "project-analysis.v1", role: "dead", arguments: {} },
 ];
 
 function writeJSON(response: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -232,7 +251,7 @@ async function main(): Promise<void> {
       restartJob?: { state?: string };
       rollback?: { mode?: string };
     };
-    if (evidence.queues?.length !== 6) {
+    if (evidence.queues?.length !== 9) {
       throw new Error("self-test evidence did not record all RabbitMQ queues");
     }
     if (evidence.restartJob?.state !== "completed") {
