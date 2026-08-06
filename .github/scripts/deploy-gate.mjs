@@ -98,7 +98,11 @@ async function railwayLatestSuccess(serviceId) {
 }
 
 async function commandAnchors() {
-  const beforeSha = env("BEFORE_SHA");
+  // workflow_dispatch runs have no event.before; the previous main commit is
+  // the first parent of the merge at HEAD.
+  const beforeSha =
+    process.env.BEFORE_SHA ||
+    execFileSync("git", ["rev-parse", "HEAD~1"]).toString().trim();
   const currentSha = env("GITHUB_SHA");
 
   // Staleness guard: queued runs execute FIFO, so an older run can start
@@ -144,11 +148,17 @@ async function commandAnchors() {
 }
 
 function railwayUp(serviceId) {
-  execFileSync(
-    "railway",
-    ["up", "--service", serviceId, "--environment", "production", "--ci", "-y"],
-    { stdio: "inherit", env: process.env },
-  );
+  const args = ["up", "--service", serviceId, "--environment", "production", "--ci", "-y"];
+  try {
+    execFileSync("railway", args, { stdio: "inherit", env: process.env });
+  } catch (first) {
+    // The CLI's built-in upload retry gives up after ~5 attempts; a Railway
+    // control-plane 503 can outlast that. One full retry absorbs it without
+    // masking persistent failures.
+    console.error(`railway up for ${serviceId} failed (${first.message}); retrying once in 30s`);
+    execFileSync("sleep", ["30"]);
+    execFileSync("railway", args, { stdio: "inherit", env: process.env });
+  }
 }
 
 async function waitRailwaySuccess(serviceId, previousId, timeoutMs) {
