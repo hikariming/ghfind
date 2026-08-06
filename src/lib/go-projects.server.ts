@@ -54,6 +54,7 @@ export async function getGoProjects(options: {
   language: string | null;
   limit: number;
   offset: number;
+  revalidate?: number;
 }) {
   const query = new URLSearchParams({
     sort: options.sort,
@@ -63,6 +64,7 @@ export async function getGoProjects(options: {
   if (options.language) query.set("language", options.language);
   const data = await getGoPublicData<{ projects: GoProjectListItem[] }>(
     `/api/projects?${query.toString()}`,
+    options.revalidate ? { revalidate: options.revalidate } : undefined,
   );
   return (data?.projects ?? []).map((project) => ({
     ...project,

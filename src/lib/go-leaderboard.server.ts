@@ -9,10 +9,12 @@ export async function getGoLeaderboard(
   view: LeaderboardView = "trending",
   window: LeaderboardWindow = "all",
   limit = 500,
+  revalidate?: number,
 ) {
   const query = new URLSearchParams({ view, window, limit: String(limit) });
   const data = await getGoPublicData<{ entries: PresentationLeaderboardEntry[] }>(
     `/api/leaderboard?${query.toString()}`,
+    revalidate ? { revalidate } : undefined,
   );
   return data?.entries ?? [];
 }
