@@ -23,6 +23,9 @@ name: Deploy production gate
 on:
   push:
     branches: [main]
+  # Manual escape hatch: when a push trigger is lost (e.g. an Actions outage)
+  # the gate for the current main head can be started by hand.
+  workflow_dispatch:
 
 permissions:
   contents: read
