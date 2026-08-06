@@ -93,10 +93,12 @@ jobs:
 
       - name: Deploy Railway services from this commit
         id: railway
+        if: steps.anchors.outputs.stale != 'true'
         run: node .github/scripts/deploy-gate.mjs railway-deploy
 
       - name: Wait for the Vercel production deployment of this commit
         id: vercel
+        if: steps.anchors.outputs.stale != 'true'
         run: node .github/scripts/deploy-gate.mjs vercel-wait
 
       - name: Read-only production smoke
