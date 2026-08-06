@@ -330,6 +330,32 @@ Staging pitfalls learned from bring-up:
 
 ## Production rollout and rollback
 
+### Automated deploy gate (main branch)
+
+`.github/workflows/deploy-production.yml` orchestrates every push to `main`:
+Vercel still builds automatically through its GitHub integration, while the
+workflow deploys `ghfind-api` and `ghfind-worker` from the same commit with
+`railway up`, waits for both platforms, and runs the read-only deployment
+smoke against `https://ghfind.com`. If either platform fails — or the smoke
+does — the workflow rolls **both** sides back to the anchors captured at the
+start of the run: `vercel rollback <previous deployment>` for the frontend,
+and an anchor-deployment redeploy (fallback: rebuild of the previous main
+commit) for the Railway services.
+
+Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+`VERCEL_PROJECT_ID` (team-scoped Vercel token) and `RAILWAY_TOKEN` (Railway
+project token bound to the backend project and its production environment).
+The gate logic lives in `.github/scripts/deploy-gate.mjs`; step state is kept
+in a workspace-local `.deploy-gate-state.json` that never leaves the runner.
+
+Environment-variable safety: the workflow never mutates Railway variables.
+They live on the service/environment layer, so redeploys and rollbacks keep
+them and fresh rebuilds inherit them. Operator snapshots of every service's
+variables and the deployment anchors are kept outside the repository under
+`~/.ghfind-ops/backups/` (local operator machine) as disaster recovery.
+
+### Manual rollout checklist
+
 1. The selected production target is **Railway**. Create three persistent
    Railway services: `ghfind-api`, `ghfind-worker`, and private `ghfind-rabbitmq`.
    Attach the API and worker to the same repository/branch and set

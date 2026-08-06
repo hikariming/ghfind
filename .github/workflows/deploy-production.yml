@@ -1,0 +1,116 @@
+name: Deploy production gate
+
+# Production deploy orchestration for the decoupled stack.
+#
+# A push to main makes Vercel build automatically through its GitHub
+# integration; this workflow deploys the Railway backend services from the same
+# commit, then gates both platforms: if either side fails (or the post-deploy
+# smoke fails), both sides are rolled back to the previous healthy anchors so
+# ghfind.com never serves a half-cutover state.
+#
+# Rollback safety contract:
+# - Railway variables live on the service/environment layer. This workflow
+#   never creates, updates or deletes Railway variables; redeploys and
+#   rollbacks therefore cannot lose them, and future rebuilds inherit them.
+# - Vercel rollback moves the production alias back to the previous healthy
+#   deployment (`vercel rollback <url>`); project env vars are untouched.
+#
+# Required GitHub secrets:
+# - VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID — token scoped to the
+#   Vercel team owning the frontend project.
+# - RAILWAY_TOKEN — Railway project token for the backend project+environment.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production-main
+  cancel-in-progress: false
+
+env:
+  RAILWAY_API_SERVICE: 023799da-f0bc-4d85-94c8-b6a1ef71c5f5
+  RAILWAY_WORKER_SERVICE: 5c56db45-47ed-4a1a-af37-0225885aadf2
+  RAILWAY_PROJECT_ID: 815ec3e1-679a-41b4-a7c0-6ba65b64db8e
+  RAILWAY_ENVIRONMENT_ID: b9d929d6-a1e4-4e74-b43f-38ed529cc6f1
+  SMOKE_BASE_URL: https://ghfind.com
+  SMOKE_CANARY_HANDLE: octocat
+  SMOKE_FACET_TYPE: language
+  SMOKE_FACET_VALUE: TypeScript
+
+jobs:
+  gate:
+    name: Deploy Railway, gate Vercel, rollback both on failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Check required secrets
+        run: |
+          missing=""
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID RAILWAY_TOKEN; do
+            if [ -z "${!v}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing GitHub secrets:$missing — see the header comment of this workflow."
+            exit 1
+          fi
+
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.1
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install deploy CLIs
+        run: npm install --global vercel@58 @railway/cli
+
+      - name: Capture rollback anchors
+        id: anchors
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node .github/scripts/deploy-gate.mjs anchors
+
+      - name: Deploy Railway services from this commit
+        id: railway
+        run: node .github/scripts/deploy-gate.mjs railway-deploy
+
+      - name: Wait for the Vercel production deployment of this commit
+        id: vercel
+        run: node .github/scripts/deploy-gate.mjs vercel-wait
+
+      - name: Read-only production smoke
+        id: smoke
+        if: steps.railway.outputs.ok == 'true' && steps.vercel.outputs.ok == 'true'
+        run: pnpm smoke:deployment
+
+      - name: Gate verdict
+        id: verdict
+        if: always()
+        env:
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: node .github/scripts/deploy-gate.mjs verdict
+
+      - name: Roll back both platforms to the anchors
+        if: always() && steps.verdict.outputs.rollback == 'needed'
+        run: node .github/scripts/deploy-gate.mjs rollback
