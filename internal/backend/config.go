@@ -24,7 +24,7 @@ const (
 	// Project analysis runs are concurrency-capped because each one holds a
 	// long-lived Cattle Agent thread.
 	defaultProjectAnalysisConcurrency       = 3
-	maxProjectAnalysisConcurrency           = 20
+	maxProjectAnalysisConcurrency           = 100
 	defaultProjectAnalysisCreateMaxAttempts = 3
 	maxProjectAnalysisCreateMaxAttempts     = 10
 	defaultProjectAnalysisCreateRetryBase   = 5 * time.Second

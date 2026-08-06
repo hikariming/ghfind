@@ -142,7 +142,7 @@ func TestProjectAnalysisConfigClampsAndExecutionMode(t *testing.T) {
 	t.Setenv("MOSOO_API_BASE", "https://mosoo.example/api/v1/")
 	t.Setenv("MOSOO_PROJECT_REQUEST_TIMEOUT_MS", "250")
 	t.Setenv("PROJECT_ANALYSIS_TIMEOUT_MS", "1000")
-	t.Setenv("GHFIND_PROJECT_ANALYSIS_CONCURRENCY", "99")
+	t.Setenv("GHFIND_PROJECT_ANALYSIS_CONCURRENCY", "999")
 	t.Setenv("PROJECT_ANALYSIS_CREATE_MAX_ATTEMPTS", "99")
 	t.Setenv("PROJECT_ANALYSIS_CREATE_RETRY_BASE_MS", "999999")
 	t.Setenv("PROJECT_ANALYSIS_RUNTIME_ALLOWLIST", " Owner/Trusted , other/repo ,")
@@ -156,7 +156,7 @@ func TestProjectAnalysisConfigClampsAndExecutionMode(t *testing.T) {
 	if config.ProjectAnalysisTimeout != 15*time.Minute {
 		t.Fatalf("ProjectAnalysisTimeout = %v", config.ProjectAnalysisTimeout)
 	}
-	if config.ProjectAnalysisConcurrency != 20 {
+	if config.ProjectAnalysisConcurrency != 100 {
 		t.Fatalf("ProjectAnalysisConcurrency = %d", config.ProjectAnalysisConcurrency)
 	}
 	if config.ProjectAnalysisCreateMaxAttempts != 10 {
