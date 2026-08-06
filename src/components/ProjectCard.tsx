@@ -22,7 +22,7 @@ export function ProjectCard({ project, position }: { project: GoProjectListItem;
             onClick={() =>
               trackEvent("project_card_click", { repo: model.repoKey, position })
             }
-            className="break-all text-lg font-black text-zinc-100 underline-offset-4 hover:text-white hover:underline"
+            className="break-words text-lg font-black text-zinc-100 underline-offset-4 hover:text-white hover:underline"
           >
             {model.title}
           </Link>
