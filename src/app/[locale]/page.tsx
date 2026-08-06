@@ -13,9 +13,9 @@ import type { TierKey } from "@/lib/tier";
 
 // ISR: the homepage shell is fully static (the scan form, tier pills and copy are
 // locale-only; DeveloperCount fetches client-side; the leaderboard rail and
-// projects preview read Redis-cached boards). Serving it from the CDN instead of
-// rendering a function on every visit is what frees the serverless pool for the
-// LLM scan/roast traffic.
+// projects preview read the Go API through ISR-cached fetches). Serving it
+// from the CDN instead of rendering a function on every visit is what frees
+// the serverless pool for the LLM scan/roast traffic.
 // Keep the durable snapshot for an hour: minute-level regeneration only creates
 // repeated ISR writes.
 // Pin the homepage to static + ISR. Next 16's "auto" heuristic otherwise renders
