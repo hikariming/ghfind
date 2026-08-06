@@ -124,7 +124,7 @@ func TestProjectAnalysisConfigDefaultsAndClamps(t *testing.T) {
 	if config.ProjectAnalysisTimeout != 15*time.Minute {
 		t.Fatalf("ProjectAnalysisTimeout = %v", config.ProjectAnalysisTimeout)
 	}
-	if config.ProjectAnalysisConcurrency != 3 {
+	if config.ProjectAnalysisConcurrency != 20 {
 		t.Fatalf("ProjectAnalysisConcurrency = %d", config.ProjectAnalysisConcurrency)
 	}
 	if config.ProjectAnalysisCreateMaxAttempts != 3 {
