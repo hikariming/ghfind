@@ -914,6 +914,7 @@
     }
   },
   "projectBoards": {
+    "homeEyebrow": "项目评测",
     "metaTitle": "宝藏开源项目 · ghfind",
     "metaDescription": "发现真正解决问题、值得更多关注的开源项目。",
     "eyebrow": "开源项目评估",

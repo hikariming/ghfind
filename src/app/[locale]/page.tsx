@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeCollections } from "@/components/HomeCollections";
+import { HomeProjectBoards } from "@/components/HomeProjectBoards";
 import { HomeProjectsPreview } from "@/components/HomeProjectsPreview";
 import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
@@ -116,6 +117,12 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             </div>
           </nav>
         </aside>
+      </div>
+
+      {/* Project assessment band: full-width strip between the directory
+          columns and the intro, previewing the treasure board top. */}
+      <div className="mt-16 w-full max-w-6xl">
+        <HomeProjectBoards locale={locale} />
       </div>
 
       <HomeIntro />

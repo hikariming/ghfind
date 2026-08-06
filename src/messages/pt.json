@@ -914,6 +914,7 @@
     }
   },
   "projectBoards": {
+    "homeEyebrow": "Avaliações de projetos",
     "metaTitle": "Descubra projetos de qualidade no GitHub · ghfind",
     "metaDescription": "Descubra projetos do GitHub ranqueados pela qualidade e pelo gás dos desenvolvedores por trás deles.",
     "eyebrow": "Descoberta de projetos",

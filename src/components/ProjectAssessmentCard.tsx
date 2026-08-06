@@ -23,7 +23,7 @@ export function ProjectAssessmentCard({
 }) {
   const analysis = assessment.analysis;
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+    <article className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <a
