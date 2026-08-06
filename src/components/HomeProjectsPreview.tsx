@@ -54,18 +54,30 @@ export async function HomeProjectsPreview() {
           {tCollections("viewAll")} →
         </Link>
       </div>
-      <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 sm:-mx-6 sm:px-6">
-        {projects.map((project, index) => (
-          <div
-            key={project.repo.repo_key}
-            className="flex w-[19rem] shrink-0 snap-start sm:w-[21rem]"
-          >
-            <ProjectCard
-              project={project}
-              position={index + 1}
-            />
-          </div>
-        ))}
+      <div className="relative -mx-5 mt-5 sm:-mx-6">
+        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 [scrollbar-color:var(--color-zinc-500)_transparent] [scrollbar-width:thin] sm:px-6 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-500/50 [&::-webkit-scrollbar-track]:bg-transparent">
+          {projects.map((project, index) => (
+            <div
+              key={project.repo.repo_key}
+              className="flex w-[19rem] shrink-0 snap-start sm:w-[21rem]"
+            >
+              <ProjectCard
+                project={project}
+                position={index + 1}
+              />
+            </div>
+          ))}
+        </div>
+        {/* Edge fades hint that the strip scrolls; they sit on the page
+            background so they track light/dark via --color-background. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-background to-transparent sm:w-6"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent sm:w-12"
+        />
       </div>
     </section>
   );
