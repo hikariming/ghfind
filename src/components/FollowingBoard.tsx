@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { signIn } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import { tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
+import { signInWithGitHub } from "@/lib/oauth-client";
 
 interface FollowedAccount {
   username: string;
@@ -74,7 +74,7 @@ export function FollowingBoard() {
         <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-400">{t("signInBody")}</p>
         <button
           type="button"
-          onClick={() => signIn("github")}
+          onClick={() => signInWithGitHub()}
           className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-zinc-200 shadow-sm transition-colors hover:bg-white/[0.06] hover:text-white"
         >
           <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 fill-current">

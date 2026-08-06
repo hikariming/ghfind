@@ -1,5 +1,5 @@
 import type { CampaignSlug } from "@/lib/campaigns";
-import { getCampaignLeaderboard } from "@/lib/db";
+import { getGoCampaignLeaderboard } from "@/lib/go-developers.server";
 import { CampaignLeaderboardClient } from "./CampaignLeaderboardClient";
 
 interface CampaignLeaderboardProps {
@@ -11,7 +11,7 @@ export async function CampaignLeaderboard({
   campaign,
   emptyLabel,
 }: CampaignLeaderboardProps) {
-  const entries = await getCampaignLeaderboard(campaign);
+  const entries = await getGoCampaignLeaderboard(campaign);
   return (
     <CampaignLeaderboardClient
       campaign={campaign}

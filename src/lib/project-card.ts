@@ -1,7 +1,7 @@
-import type { ProjectListItem } from "@/lib/db";
+import type { GoProjectListItem } from "@/lib/go-projects.server";
 import { projectRecommendationReason } from "@/lib/projects";
 
-export function projectCardViewModel(project: ProjectListItem) {
+export function projectCardViewModel(project: GoProjectListItem) {
   return {
     href: `/developers/repo/${project.repo.repo_key
       .split("/")
@@ -18,7 +18,7 @@ export function projectCardViewModel(project: ProjectListItem) {
     momentum: project.momentum,
     qualityScore: project.qualityScore,
     reason: projectRecommendationReason(project),
-    contributors: project.topContributors.map((contributor) => ({
+    contributors: (project.topContributors ?? []).map((contributor) => ({
       username: contributor.username,
       href: `/u/${contributor.username}`,
       score: contributor.final_score,

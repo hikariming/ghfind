@@ -190,6 +190,9 @@ export interface Percentile {
   rank: number | null;
 }
 
+export type ScoreSource = "indexed" | "quick" | "legacy_v5_v5_v3";
+export type ScoreCoverage = "quick" | "legacy";
+
 /** Meta emitted by the roast stream after the bounded ±10 LLM adjustment. */
 export interface RoastMeta {
   final_score: number;
@@ -203,10 +206,14 @@ export interface RoastMeta {
 
 /** Response shape of GET /api/score/{username}. */
 export interface ScorePayload {
-  /** `indexed` = stored (roasted) account; `live` = just crawled + scored
-   * deterministically (no LLM). */
-  source: "indexed" | "live";
-  /** live path only: served from the scan cache. */
+  /** `indexed` = current stored score; `quick` = worker-backed deterministic
+   * quick scan; `legacy_v5_v5_v3` = compatible stale fallback. */
+  source: ScoreSource;
+  /** `quick` for current Go collection; `legacy` for accepted old stored scores. */
+  coverage?: ScoreCoverage;
+  /** True only for compatible legacy fallback scores. */
+  stale?: boolean;
+  /** quick path only: served from the scan cache. */
   cached?: boolean;
   username: string;
   display_name: string | null;
@@ -216,11 +223,11 @@ export interface ScorePayload {
   tier: Tier;
   tier_key: TierKey;
   sub_scores: SubScores;
-  /** live path only: deterministic penalties. */
+  /** quick path only: deterministic penalties. */
   red_flags?: RedFlag[];
   base_score?: number;
   total_penalty?: number;
-  /** LLM-authored copy — null on the live (not-yet-roasted) path. */
+  /** LLM-authored copy — null on the quick (not-yet-roasted) path. */
   tags: Tags | null;
   roast_line: RoastLine | null;
   percentile: Percentile | null;

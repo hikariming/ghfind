@@ -1,9 +1,9 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { fetchMe } from "@/lib/me-client";
+import { signInWithGitHub } from "@/lib/oauth-client";
 
 /** localStorage key remembering that the user dismissed (or used) the nudge. */
 const DISMISS_KEY = "gh-roast-login-nudge";
@@ -23,7 +23,7 @@ const EXIT_MS = 300;
  * view. The outer card has a dedicated theme hook so its translucent panel can
  * stay dark in dark mode and become a real light surface in light mode.
  *
- * Sign-in runs client-side via `next-auth/react`'s `signIn("github")`. Visibility
+ * Sign-in redirects to Go's GitHub OAuth entrypoint. Visibility
  * is self-contained: `configured` gates OAuth availability, and we probe `/api/me`
  * so the nudge never shows to an already-signed-in visitor — the layout no longer
  * reads the session server-side (that would opt every page out of CDN caching).
@@ -101,7 +101,7 @@ export function LoginNudge({ configured }: { configured: boolean }) {
         <div className="mt-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => signIn("github")}
+            onClick={() => signInWithGitHub()}
             className="inline-flex items-center gap-2 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500"
           >
             <svg viewBox="0 0 16 16" aria-hidden className="h-[18px] w-[18px] fill-current">

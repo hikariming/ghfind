@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.23-alpine AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd ./cmd
+COPY internal ./internal
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-api ./cmd/ghfind-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-worker ./cmd/ghfind-worker && \
+    CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-healthcheck ./cmd/ghfind-healthcheck && \
+    CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-backend ./cmd/ghfind-backend && \
+    CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-mocks ./cmd/ghfind-mocks
+
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+COPY --from=build /out/ghfind-api /ghfind-api
+COPY --from=build /out/ghfind-worker /ghfind-worker
+COPY --from=build /out/ghfind-healthcheck /ghfind-healthcheck
+COPY --from=build /out/ghfind-backend /ghfind-backend
+COPY --from=build /out/ghfind-mocks /ghfind-mocks
+USER nonroot:nonroot
+
+FROM runtime AS api
+EXPOSE 8080
+ENV GHFIND_ROLE=api
+ENTRYPOINT ["/ghfind-backend"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/ghfind-healthcheck", "http://localhost:8080/healthz", "http://localhost:8080/readyz"]
+
+FROM runtime AS worker
+EXPOSE 9090
+ENV GHFIND_ROLE=worker
+ENTRYPOINT ["/ghfind-backend"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/ghfind-healthcheck", "http://localhost:9090/healthz", "http://localhost:9090/readyz"]
+
+# Railway's default Dockerfile build uses the final stage; every service runs
+# this image and selects its binary with GHFIND_ROLE (api|worker|mocks), so
+# one source revision produces every independently deployed service. The api
+# stage keeps the runbook's local-compose target intact.
+FROM runtime AS railway
+EXPOSE 8080
+ENV GHFIND_ROLE=api
+ENTRYPOINT ["/ghfind-backend"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/ghfind-healthcheck", "http://localhost:8080/healthz", "http://localhost:8080/readyz"]

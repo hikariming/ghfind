@@ -1,7 +1,7 @@
 import { BADGE_COLOR } from "@/lib/badge";
-import { getAccountDetail } from "@/lib/db";
+import { getGoProfilePresentation } from "@/lib/go-profile.server";
 import { renderMaterialCardSvg } from "@/lib/material-card";
-import { tierFor } from "@/lib/score";
+import { tierFor } from "@/lib/score-presentation";
 import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request, ctx: { params: Promise<{ username: string }> }) {
   const { username } = await ctx.params;
   const name = decodeURIComponent(username ?? "").trim();
-  const detail = USERNAME_RE.test(name) ? await getAccountDetail(name) : null;
+  const detail = USERNAME_RE.test(name)
+    ? (await getGoProfilePresentation(name))?.detail ?? null
+    : null;
 
   if (!detail) {
     return new Response("Not found", { status: 404 });

@@ -17,6 +17,8 @@ const ROAST_META_HEADER = "x-roast-meta";
 const FRAME = "\x1f";
 const DEFAULT_HOST = "https://ghfind.com";
 const GITHUB_API = "https://api.github.com";
+const SCAN_JOB_TIMEOUT_MS = 75_000;
+const SCAN_JOB_POLL_MS = 1_000;
 
 export type FetchLike = (
   input: string,
@@ -81,6 +83,10 @@ function decodeMeta(value: string | null): RoastMeta | null {
   } catch {
     return null;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -159,6 +165,40 @@ export class GhFind {
     return (await res.json()) as T;
   }
 
+  private absoluteURL(pathOrURL: string): string {
+    return new URL(pathOrURL, `${this.host}/`).toString();
+  }
+
+  private async pollScanJob(location: string): Promise<ScanResult> {
+    const deadline = Date.now() + SCAN_JOB_TIMEOUT_MS;
+    let last: { status?: { state?: string; error?: string }; result?: ScanResult } | null = null;
+    for (;;) {
+      const res = await this.fetchImpl(this.absoluteURL(location), { method: "GET" });
+      if (!res.ok) await this.readError(res);
+      const payload = (await res.json()) as {
+        status?: { state?: string; error?: string };
+        result?: ScanResult;
+      };
+      last = payload;
+      if (payload.result) return payload.result;
+      if (payload.status?.state === "failed") {
+        throw new GhFindError("Scan job failed", {
+          status: res.status,
+          code: payload.status.error || "scan_failed",
+          body: payload,
+        });
+      }
+      if (Date.now() >= deadline) {
+        throw new GhFindError("Scan job timed out", {
+          status: 202,
+          code: "scan_timeout",
+          body: last,
+        });
+      }
+      await sleep(SCAN_JOB_POLL_MS);
+    }
+  }
+
   // ---- GitHub existence check (client-side; does NOT touch ghfind) -----------
 
   /**
@@ -222,10 +262,26 @@ export class GhFind {
     opts: { verifyExists?: boolean; githubToken?: string } = {},
   ): Promise<ScanResult> {
     if (opts.verifyExists) await this.ensureExists(username, opts.githubToken);
-    return this.postJson<ScanResult>("/api/scan", {
-      username,
-      ...(this.turnstileToken ? { turnstileToken: this.turnstileToken } : {}),
+    const res = await this.fetchImpl(`${this.host}/api/scan`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...this.authHeaders() },
+      body: JSON.stringify({
+        username,
+        ...(this.turnstileToken ? { turnstileToken: this.turnstileToken } : {}),
+      }),
     });
+    if (!res.ok) await this.readError(res);
+    if (res.status === 202) {
+      const location = res.headers.get("location");
+      if (!location) {
+        throw new GhFindError("Scan job accepted without a status Location", {
+          status: 202,
+          code: "scan_status_missing",
+        });
+      }
+      return this.pollScanJob(location);
+    }
+    return (await res.json()) as ScanResult;
   }
 
   /** Just the `scoring` block of a fresh scan (numeric score, tier, sub-scores,
@@ -240,13 +296,15 @@ export class GhFind {
 
   /** Deterministic score via GET /api/score/{username}. No auth, cacheable, never
    * calls an LLM. Indexed accounts return the stored payload (with tags/roast_line);
-   * unseen accounts are scored live on demand (`source: "live"`, includes red_flags,
-   * no LLM copy). Throws {@link GhFindError} with status 404 only when the GitHub
-   * login does not exist. The cheapest way to get a score.
+   * unseen accounts are admitted to the Go quick-scan worker path (`source: "quick"`,
+   * includes red_flags, no LLM copy). A compatible old stored score may return
+   * `source: "legacy_v5_v5_v3"` with `stale: true`. Throws {@link GhFindError}
+   * with status 404 only when the GitHub login does not exist. The cheapest way
+   * to get a score.
    *
    * Pass `{ verifyExists: true }` to confirm the account is real (client-side
-   * GitHub check) before calling ghfind — avoids triggering a live server-side
-   * crawl for a handle that doesn't exist. */
+   * GitHub check) before calling ghfind — avoids admitting worker work for a
+   * handle that doesn't exist. */
   async getScore(
     username: string,
     opts: { verifyExists?: boolean; githubToken?: string } = {},

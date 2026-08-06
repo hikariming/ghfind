@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getLeaderboardCached } from "@/lib/leaderboard";
+import { getGoLeaderboard } from "@/lib/go-leaderboard.server";
 import { tierStyle } from "@/lib/tier";
 import type { LeaderboardClientEntry, LeaderboardView } from "./LeaderboardClient";
 import { LeaderboardRailTabs } from "./LeaderboardRailTabs";
@@ -88,7 +88,7 @@ export async function LeaderboardRail() {
   const tBoard = await getTranslations("leaderboard");
   const boards = await Promise.all(
     RAIL_VIEWS.map(async ({ view, labelKey }) => {
-      const { entries } = await getLeaderboardCached(view);
+      const entries = await getGoLeaderboard(view);
       const rows = withDevLeaderboardPreview(view, entries.slice(0, RAIL_LIMIT));
       return { view, label: tBoard(labelKey), rows };
     }),

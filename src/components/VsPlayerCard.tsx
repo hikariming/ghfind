@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
-import type { AccountDetail } from "@/lib/db";
+import type { AccountDetail } from "@/lib/profile-presentation";
 import { tierStyle } from "@/lib/tier";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 

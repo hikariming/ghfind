@@ -5,7 +5,7 @@
  * render test (route files may only export HTTP handlers + config). Everything
  * here is a pure component or helper — no DB / request access.
  */
-import type { ProfileSnapshotView } from "@/lib/db";
+import type { ProfileSnapshotView } from "@/lib/profile-presentation";
 import { TIER_EN } from "@/lib/badge";
 import { rankProfileWorks } from "@/lib/profile-work";
 import { SPONSOR } from "@/lib/sponsor";

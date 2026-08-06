@@ -9,7 +9,12 @@
   },
   "include": [
     "scripts/check-release-versions.mts",
+    "scripts/smoke-backend-async.mts",
+    "scripts/smoke-backend-async-selftest.mts",
+    "scripts/smoke-backend-resilience.mts",
+    "scripts/smoke-backend-resilience-selftest.mts",
     "scripts/smoke-deployment.mts",
+    "scripts/smoke-deployment-selftest.mts",
     "src/lib/release-versions.ts"
   ],
   "exclude": ["node_modules"]

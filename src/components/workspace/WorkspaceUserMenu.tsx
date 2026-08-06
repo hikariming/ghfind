@@ -2,7 +2,6 @@
 
 import { ArrowUpRight, LogOut, Palette, UserRound, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { signOut } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import {
   DropdownMenu,
@@ -12,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { signOutOfGitHub } from "@/lib/oauth-client";
 
 type WorkspaceUserMenuProps = {
   image: string | null;
@@ -146,7 +146,7 @@ export function WorkspaceUserMenu({
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault();
-            void signOut();
+            void signOutOfGitHub();
           }}
           className="rounded-xl px-3 py-2.5"
         >

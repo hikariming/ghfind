@@ -1,27 +1,23 @@
 import { NextResponse } from "next/server";
-import { getScoreCount } from "@/lib/db";
-import { getCachedStats, setCachedStats } from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The count is decorative homepage copy. Redis already refreshes it once per
-// minute at the origin; let the CDN share that same freshness window so every
-// homepage visitor does not invoke this dynamic route.
-const CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
-
-export async function GET() {
-  const cached = await getCachedStats();
-  if (cached !== null) {
-    return NextResponse.json(
-      { total: cached, cached: true },
-      { headers: { "Cache-Control": CACHE_CONTROL } },
-    );
-  }
-  const total = await getScoreCount();
-  if (total !== null) await setCachedStats(total);
+/**
+ * `/api/stats` is Go-owned. When `GHFIND_BACKEND_ORIGIN` is configured,
+ * next.config.ts transparently rewrites this path before this fallback can run.
+ * Keeping an explicit misconfiguration response avoids silently returning a
+ * stale Next implementation that still owns Turso/Redis access.
+ */
+export function GET() {
   return NextResponse.json(
-    { total, cached: false },
-    { headers: { "Cache-Control": CACHE_CONTROL } },
+    {
+      error: "backend_not_configured",
+      message: "The Go API origin is not configured for this deployment.",
+    },
+    {
+      status: 503,
+      headers: { "Cache-Control": "no-store", "Retry-After": "15" },
+    },
   );
 }

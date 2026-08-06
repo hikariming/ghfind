@@ -48,13 +48,13 @@ describe("project discovery primitives", () => {
 
   it("builds stable project list URLs while preserving filters", () => {
     expect(buildProjectListHref({ sort: "quality", language: null, page: 1 })).toBe(
-      "/projects",
+      "/projects/discovery",
     );
     expect(
       buildProjectListHref({ sort: "momentum", language: "TypeScript", page: 3 }),
-    ).toBe("/projects?sort=momentum&language=TypeScript&page=3");
+    ).toBe("/projects/discovery?sort=momentum&language=TypeScript&page=3");
     expect(buildProjectListHref({ sort: "stars", language: "C++", page: 1 })).toBe(
-      "/projects?sort=stars&language=C%2B%2B",
+      "/projects/discovery?sort=stars&language=C%2B%2B",
     );
   });
 });

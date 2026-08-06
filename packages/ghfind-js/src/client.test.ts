@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { GhFind, GhFindError } from "./client.js";
 import type { FetchLike } from "./client.js";
+import type { ScorePayload } from "./types.js";
 
 function base64(s: string): string {
   return Buffer.from(s, "utf8").toString("base64");
@@ -41,13 +42,44 @@ describe("GhFind", () => {
 
   it("getScore hits GET /api/score/{username}", async () => {
     const { fetch, calls } = fakeFetch(() => ({
-      json: { username: "torvalds", final_score: 99, tier: "夯", tier_key: "god" },
+      json: { source: "quick", coverage: "quick", username: "torvalds", final_score: 99, tier: "夯", tier_key: "god" },
     }));
     const gh = new GhFind({ host: "https://ghfind.com", fetch });
     const r = await gh.getScore("torvalds");
+    expect(r.source).toBe("quick");
     expect(r.final_score).toBe(99);
     expect(calls[0].url).toBe("https://ghfind.com/api/score/torvalds");
     expect(calls[0].init?.method).toBe("GET");
+  });
+
+  it("types worker-backed quick score payloads and legacy fallbacks", () => {
+    const quick: ScorePayload = {
+      source: "quick",
+      coverage: "quick",
+      cached: false,
+      username: "octocat",
+      display_name: null,
+      avatar_url: null,
+      profile_url: "https://github.com/octocat",
+      final_score: 42,
+      tier: "NPC",
+      tier_key: "npc",
+      sub_scores: {
+        account_maturity: 1,
+        original_project_quality: 1,
+        contribution_quality: 1,
+        ecosystem_impact: 1,
+        community_influence: 1,
+        activity_authenticity: 1,
+      },
+      tags: null,
+      roast_line: null,
+      percentile: null,
+      profile: "https://ghfind.com/u/octocat",
+    };
+    const legacy: ScorePayload = { ...quick, source: "legacy_v5_v5_v3", coverage: "legacy", stale: true };
+
+    expect([quick.source, legacy.source]).toEqual(["quick", "legacy_v5_v5_v3"]);
   });
 
   it("scan POSTs username and turnstile token", async () => {
@@ -57,6 +89,33 @@ describe("GhFind", () => {
     const body = JSON.parse(calls[0].init!.body as string);
     expect(body).toEqual({ username: "octocat", turnstileToken: "tok" });
     expect(calls[0].init?.method).toBe("POST");
+  });
+
+  it("scan follows a 202 public job Location", async () => {
+    const { fetch, calls } = fakeFetch((url) => {
+      if (url.endsWith("/api/scan")) {
+        return {
+          status: 202,
+          json: { id: "job_aaaaaaaaaaaaaaaa", state: "queued" },
+          headers: { location: "/api/scan/jobs/job_aaaaaaaaaaaaaaaa" },
+        };
+      }
+      return {
+        json: {
+          status: { state: "completed" },
+          result: { metrics: { username: "octocat" }, scoring: { final_score: 42 } },
+        },
+      };
+    });
+    const gh = new GhFind({ host: "https://ghfind.com", fetch });
+
+    const result = await gh.scan("octocat");
+
+    expect(result.scoring.final_score).toBe(42);
+    expect(calls.map((c) => c.url)).toEqual([
+      "https://ghfind.com/api/scan",
+      "https://ghfind.com/api/scan/jobs/job_aaaaaaaaaaaaaaaa",
+    ]);
   });
 
   it("score returns only the scoring block", async () => {

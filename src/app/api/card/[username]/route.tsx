@@ -1,12 +1,5 @@
-import {
-  getAccountDetail,
-  getProfileSnapshot,
-  getWeeklyBaselines,
-  resolveWeeklyDelta,
-} from "@/lib/db";
-import { getPercentileCached } from "@/lib/rank";
+import { getGoProfilePresentation } from "@/lib/go-profile.server";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
-import { beatPercent } from "@/lib/percentile";
 import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { USERNAME_RE } from "@/lib/username";
 import { tierAvatarFrame } from "@/lib/tier";
@@ -38,7 +31,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
 
   // Satori rasterizes this away, so the full-size mark costs the response nothing.
   const sponsorLogo = await sponsorLogoDataUrl();
-  const detail = USERNAME_RE.test(name) ? await getAccountDetail(name) : null;
+  const presentation = USERNAME_RE.test(name) ? await getGoProfilePresentation(name) : null;
+  const detail = presentation?.detail ?? null;
 
   // Unrated placeholder — keeps READMEs from showing a broken image.
   if (!detail) {
@@ -63,17 +57,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
 
   const tier = detail.tier as Tier;
   const color = BADGE_COLOR[tier];
-  const counts = await getPercentileCached(detail.final_score);
-  const beat = counts ? beatPercent(counts.below, counts.total) : null;
+  const beat = presentation?.percentile?.beat ?? null;
   // Weekly movement — the embed changes week to week, so a card pasted into a
   // README keeps pulling its owner (and their visitors) back.
-  const baselines = await getWeeklyBaselines([detail.username]);
-  const delta = resolveWeeklyDelta({
-    currentScore: detail.final_score,
-    snapshotBaseline: baselines.get(detail.username) ?? null,
-    prevScore: detail.prev_score,
-    prevScannedAt: detail.prev_scanned_at,
-  });
+  const delta = presentation?.delta ?? null;
   const [avatar, tierIcon] = await Promise.all([
     avatarDataUrl(detail.avatar_url),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
@@ -102,7 +89,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   // fall through to the always-available score card so an embed never breaks.
   const variant = parseVariant(req);
   if (variant !== "score") {
-    const snap = await getProfileSnapshot(detail.username);
+    const snap = presentation?.snapshot ?? null;
     if (variantHasData(variant, snap) && snap) {
       return png(renderVariant(variant, id, snap), fontList);
     }

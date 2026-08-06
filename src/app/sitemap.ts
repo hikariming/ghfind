@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
-import { getAllPublicUsernames, getIndexableMatchups } from "@/lib/db";
 import { getPost, getPostSlugs } from "@/lib/blog";
 import { getCollection, getCollectionSlugs } from "@/lib/collections";
-import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
-import { PUBLIC_INDEX_MIN_SCORE, SITE_URL, localePath } from "@/lib/site";
+import { getGoFacetCategories } from "@/lib/go-developers.server";
+import { getGoSitemapInventory } from "@/lib/go-sitemap.server";
+import { SITE_URL, localePath } from "@/lib/site";
 import { HTML_LANG, routing } from "@/i18n/routing";
 
 // Generate at request time, not at build: the profile query is a full scan of
@@ -55,6 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/leaderboard", { changeFrequency: "hourly", priority: 0.9 }),
     entry("/developers", { changeFrequency: "daily", priority: 0.9 }),
     entry("/projects", { changeFrequency: "daily", priority: 0.9 }),
+    entry("/projects/discovery", { changeFrequency: "daily", priority: 0.8 }),
     entry("/vs", { changeFrequency: "daily", priority: 0.8 }),
     entry("/docs", { changeFrequency: "weekly", priority: 0.8 }),
     entry("/methodology", { changeFrequency: "monthly", priority: 0.7 }),
@@ -98,7 +99,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const facetRoutes: MetadataRoute.Sitemap = (
     await Promise.all(
       (["language", "repo", "org"] as FacetType[]).map((type) =>
-        withTimeout(getFacetCategoriesCached(type), PROFILE_QUERY_TIMEOUT_MS, []).then(
+        withTimeout(getGoFacetCategories(type), PROFILE_QUERY_TIMEOUT_MS, []).then(
           (cats) =>
             cats.map((c) =>
               // Encode each segment separately so a `repo` value ("owner/name")
@@ -118,11 +119,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ).flat();
 
   // Indexable profiles (non-hidden, score ≥ floor). Below-floor pages omitted.
-  const profiles = await withTimeout(
-    getAllPublicUsernames(PUBLIC_INDEX_MIN_SCORE),
+  const inventory = await withTimeout(
+    getGoSitemapInventory(),
     PROFILE_QUERY_TIMEOUT_MS,
-    [],
+    null,
   );
+  const profiles = inventory?.profiles ?? [];
   const profileRoutes: MetadataRoute.Sitemap = profiles.map((p) =>
     entry(`/u/${p.username}`, {
       lastModified: p.scanned_at ? new Date(p.scanned_at) : undefined,
@@ -133,7 +135,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Indexable PK matchups: LLM-judged and both sides above the floor. Handles are
   // already lowercased+sorted canonical, so each maps to one canonical /vs URL.
-  const matchups = await withTimeout(getIndexableMatchups(), PROFILE_QUERY_TIMEOUT_MS, []);
+  const matchups = inventory?.matchups ?? [];
   const matchupRoutes: MetadataRoute.Sitemap = matchups.map((m) =>
     entry(`/vs/${encodeURIComponent(m.a)}/${encodeURIComponent(m.b)}`, {
       lastModified: m.updatedAt ? new Date(m.updatedAt) : undefined,

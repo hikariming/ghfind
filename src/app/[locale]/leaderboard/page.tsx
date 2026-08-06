@@ -4,7 +4,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { LeaderboardControls } from "@/components/LeaderboardControls";
 import { JsonLd, leaderboardJsonLd } from "@/components/JsonLd";
 import { localeAlternates } from "@/lib/site";
-import { getLeaderboardCached } from "@/lib/leaderboard";
+import { getGoLeaderboard } from "@/lib/go-leaderboard.server";
 import {
   LEADERBOARD_WINDOW_OPTIONS,
   type LeaderboardWindow,
@@ -103,7 +103,7 @@ export default async function LeaderboardPage({
   // this JSON-LD read is a cache hit, not a second DB query.
   const rankingEntries =
     view === "score"
-      ? (await getLeaderboardCached("score", timeWindow)).entries.slice(0, 50)
+      ? (await getGoLeaderboard("score", timeWindow)).slice(0, 50)
       : [];
 
   return (

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import type { ProjectListItem } from "@/lib/db";
+import type { CommonProfileProject } from "@/lib/profile-presentation";
 import { commonProjectRows } from "@/lib/discovery-next-steps";
 import { trackEvent } from "@/lib/track";
 
@@ -10,7 +10,7 @@ export function CommonProjects({
   projects,
   flat = false,
 }: {
-  projects: ProjectListItem[];
+  projects: CommonProfileProject[];
   flat?: boolean;
 }) {
   const t = useTranslations("discoveryNext");

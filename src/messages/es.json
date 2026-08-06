@@ -13,6 +13,7 @@
     "leaderboard": "Ranking",
     "discover": "Descubrir",
     "developers": "Developers",
+    "projectBoards": "Tableros de proyectos",
     "projects": "Proyectos",
     "collections": "Selecciones",
     "languages": "Lenguajes",
@@ -167,7 +168,17 @@
     "page": "Página {page}",
     "listLabel": "Resultados de proyectos",
     "emptyTitle": "Todavía no hay grafo de proyectos aquí",
-    "emptyBody": "Corre el backfill de repositorios en local o quita el filtro actual."
+    "emptyBody": "Corre el backfill de repositorios en local o quita el filtro actual.",
+    "analysisForm": {
+      "repositoryLabel": "GitHub repository",
+      "repositoryPlaceholder": "owner/repository",
+      "refLabel": "Branch, tag, or commit (optional)",
+      "refPlaceholder": "default branch",
+      "submit": "Iniciar evaluación",
+      "submitting": "Creating task…",
+      "safetyHint": "Se admite cualquier repositorio público de GitHub. En algunos proyectos también se verifican la instalación, el build y el flujo principal.",
+      "unknownError": "Project evaluation could not be created."
+    }
   },
   "collections": {
     "metaTitle": "Selección del fundador: proyectos y desarrolladores · ghfind",
@@ -836,6 +847,130 @@
       "5": "@{winner} va arriba por un pelo, pero @{loser} ni se inmuta.",
       "6": "Repartan la diferencia — @{winner} solo tuvo {gap} puntos más de suerte.",
       "7": "Da lo mismo uno que otro — @{winner} y @{loser} no se sacaron nada."
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "Project evaluation status · ghfind",
+    "pollFailed": "Status refresh failed; another attempt will follow.",
+    "requestedRef": "requested ref",
+    "duration": "elapsed",
+    "retry": "Return and submit again",
+    "confidence": "confidence",
+    "verification": "verification",
+    "exposure": "exposure",
+    "communityStrength": "community strength",
+    "activityTitle": "Actividad reciente",
+    "activity": {
+      "started": "Análisis iniciado",
+      "inspecting_source": "Revisando código y configuración",
+      "inspecting_docs": "Leyendo la documentación",
+      "inspecting_history": "Revisando versiones e historial",
+      "checking_community": "Revisando comunidad y versiones",
+      "evaluating": "Organizando evidencias y puntuando",
+      "writing": "Generando resultados",
+      "validating": "Validando resultados",
+      "saving": "Guardando resultados",
+      "completed": "Análisis completado",
+      "failed": "Análisis detenido"
+    },
+    "errors": {
+      "invalidArtifact": "The generated assessment was incomplete. Go back and submit it again.",
+      "generic": "This project assessment could not be completed. Please try again later."
+    },
+    "unknowns": "Por verificar",
+    "risks": "Adoption risks",
+    "none": "None recorded.",
+    "viewProject": "View project page",
+    "scores": {
+      "product": "Product value",
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density"
+    },
+    "status": {
+      "queued": "Waiting for analysis",
+      "creating_thread": "Preparing the assessment",
+      "running": "Analyzing project",
+      "finalizing": "Validating and saving results",
+      "completed": "Project evaluation complete",
+      "failed": "Project evaluation failed",
+      "cancelled": "Project evaluation cancelled",
+      "expired": "Project evaluation expired"
+    },
+    "phase": {
+      "queued": "Waiting for execution capacity",
+      "creating_thread": "Preparing the assessment task",
+      "classifying": "Identifying the product contract and project type",
+      "cloning": "Resolving the requested repository version",
+      "inspecting": "Inspecting source, docs, and configuration",
+      "installing": "Installing required dependencies",
+      "building": "Building the project",
+      "exercising": "Running a representative core flow",
+      "evaluating": "Organizing evidence and scoring",
+      "writing_report": "Writing structured results and report",
+      "persisting": "Validating and saving the assessment",
+      "completed": "Score, evidence, and report are saved"
+    }
+  },
+  "projectBoards": {
+    "metaTitle": "Descubre proyectos de GitHub de calidad · ghfind",
+    "metaDescription": "Descubre proyectos de GitHub rankeados por la calidad y el impulso de los developers que hay detrás.",
+    "eyebrow": "Descubrimiento de proyectos",
+    "heading": "Encuentra proyectos por quién los construye",
+    "subtitle": "Las stars muestran popularidad. ghfind agrega la capa que falta: calidad de contributors, profundidad del equipo y atención reciente.",
+    "boardLabel": "Project boards",
+    "boards": {
+      "treasure": "Treasure projects",
+      "classic": "Classic projects",
+      "unranked": "Not currently ranked",
+      "all": "Todos los análisis"
+    },
+    "boardDescriptions": {
+      "treasure": "Alto valor de producto, evidencia fiable y una exposición relativamente baja. Las stars solo indican exposición.",
+      "classic": "Proyectos maduros con adopción sostenida que siguen siendo útiles hoy.",
+      "all": "Todos los proyectos analizados, estén o no en un tablero."
+    },
+    "databaseUnavailable": "Los datos de proyectos no están disponibles temporalmente. Inténtalo de nuevo más tarde.",
+    "listLabel": "Resultados de proyectos",
+    "emptyTitle": "Todavía no hay grafo de proyectos aquí",
+    "emptyBody": {
+      "treasure": "Envía el primer repositorio público. Los proyectos que cumplan los criterios aparecerán aquí tras la evaluación.",
+      "classic": "Mature projects appear here after evaluation confirms lasting adoption and current usefulness.",
+      "all": "Los análisis completados aparecen aquí, independientemente de la elegibilidad del tablero."
+    },
+    "prev": "← Anterior",
+    "page": "Página {page}",
+    "next": "Siguiente →",
+    "productScore": "product value",
+    "confidence": "confidence",
+    "communityStrength": "community strength",
+    "viewReport": "View full evaluation",
+    "details": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Onboarding and core experience",
+      "valueDensity": "Scope and value density",
+      "exposure": "Exposure",
+      "stars": "Stars",
+      "rubric": "Rubric",
+      "commit": "Evaluated commit",
+      "analysisTime": "Evaluation time",
+      "productContract": "Product contract",
+      "targetUsers": "Target users",
+      "painStatement": "Core pain",
+      "dimensionEvidence": "Dimension evidence",
+      "unknowns": "Por verificar",
+      "risks": "Adoption risks",
+      "none": "None recorded.",
+      "treasureHistory": "Treasure discovery history",
+      "selectedAt": "Selected",
+      "report": "Full evaluation report",
+      "historyStatus": {
+        "active": "Active treasure project",
+        "graduated": "Graduated from treasure status",
+        "removed": "Removed"
+      }
     }
   }
 }

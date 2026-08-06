@@ -2,11 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import type { RelatedProject } from "@/lib/db";
+import type { GoRelatedProject } from "@/lib/go-projects.server";
 import { relatedProjectRows } from "@/lib/discovery-next-steps";
 import { trackEvent } from "@/lib/track";
 
-export function ProjectRecommendations({ projects }: { projects: RelatedProject[] }) {
+export function ProjectRecommendations({ projects }: { projects: GoRelatedProject[] }) {
   const t = useTranslations("discoveryNext");
   const rows = relatedProjectRows(projects);
   if (rows.length === 0) return null;
