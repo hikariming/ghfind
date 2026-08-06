@@ -101,6 +101,20 @@ async function commandAnchors() {
   const beforeSha = env("BEFORE_SHA");
   const currentSha = env("GITHUB_SHA");
 
+  // Staleness guard: queued runs execute FIFO, so an older run can start
+  // after a newer main push already deployed. Deploying this run's older
+  // commit last would silently roll the backend back — skip instead.
+  const remoteHead = execFileSync("git", ["ls-remote", "origin", "refs/heads/main"])
+    .toString()
+    .split(/\s+/)[0];
+  if (remoteHead && remoteHead !== currentSha) {
+    console.log(`stale run: this sha ${currentSha} is not main head ${remoteHead}; skipping gate`);
+    writeState({ stale: true });
+    setOutput("stale", "true");
+    return;
+  }
+  setOutput("stale", "false");
+
   // Vercel anchor: the READY production deployment of the previous main
   // commit. Fallback: newest READY production deployment that is not this sha.
   const project = env("VERCEL_PROJECT_ID");
@@ -210,6 +224,11 @@ async function commandVercelWait() {
 
 async function commandVerdict() {
   const state = readState();
+  if (state.stale) {
+    console.log("stale run skipped by the anchors step; nothing to gate");
+    setOutput("rollback", "none");
+    return;
+  }
   const smokeOutcome = process.env.SMOKE_OUTCOME || "skipped";
   const problems = [];
   if (state.railwayOk !== true) problems.push("railway deploy not green");
