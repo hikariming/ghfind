@@ -13,7 +13,7 @@
   "subject": {
     "kind": "repo",
     "id": "lobehub/lobehub",
-    "name": "LobeHub",
+    "nickname": "LobeHub",
     "headline": {
       "zh": "8.12 万 star · 1.58 万 fork · TypeScript · 2023 年 5 月建仓",
       "en": "81.2k stars · 15.8k forks · TypeScript · started May 2023"
