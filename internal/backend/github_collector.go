@@ -62,14 +62,12 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	workflowLanded, _ := c.github.fetchWorkflowLandedPRs(ctx, login, overview.ClosedPRCount)
 	mergedContribs := []ContribRepoAgg{}
 	mergedAggregationIncomplete := overview.MergedPRCount > 300
-	if !mergedAggregationIncomplete {
-		mergedContribs, err = c.github.fetchMergedPRContribRepos(ctx, login, 300)
-		if errors.Is(err, ErrGitHubResourceLimit) {
-			mergedAggregationIncomplete = true
-			mergedContribs = nil
-		} else if err != nil {
-			return ScanResult{}, err
-		}
+	mergedContribs, err = c.github.fetchMergedPRContribRepos(ctx, login, 300)
+	if errors.Is(err, ErrGitHubResourceLimit) {
+		mergedAggregationIncomplete = true
+		mergedContribs = nil
+	} else if err != nil {
+		return ScanResult{}, err
 	}
 	workflowContribs := make([]ContribRepoAgg, 0, len(workflowLanded))
 	workflowIDs := map[string]bool{}
