@@ -1,0 +1,99 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "LobeHub：8.1 万 star 的开源 Agent 平台，我们把它的贡献者名单挨个打了分",
+    "en": "LobeHub: we scored every contributor behind the 81k-star open-source agent platform"
+  },
+  "intro": {
+    "zh": "从浏览器里的 ChatGPT 客户端，到「首席 Agent 运营官」，LobeChat 用三年改了三次架构、换了一次名字。站长推荐的项目线第一期不谈愿景：我们抓了它 commit 数前 100 的贡献者，28 位已评分账号中位数 85.3（全站基线 42.5），没有一个注册不满两年——但一个人写了 43% 的提交。这是一份带风险提示的推荐。",
+    "en": "From a browser-only ChatGPT client to a \"Chief Agent Operator\", LobeChat rebuilt its architecture three times and renamed itself once in three years. For the first project pick we skip the vision deck: we pulled its top-100 committers and scored them. Median 85.3 across 28 scored accounts (site-wide baseline: 42.5), not one account younger than two years — but one person wrote 43% of the commits. A recommendation that ships with its risk notes."
+  },
+  "publishedAt": "2026-08-04",
+  "tags": ["ai-agent", "open-source", "self-hosted"],
+  "subject": {
+    "kind": "repo",
+    "id": "lobehub/lobehub",
+    "name": "LobeHub",
+    "headline": {
+      "zh": "8.1 万 star · TypeScript · 2023 年建仓 · 前 100 贡献者中 28 位已评分，中位数 85.3",
+      "en": "81k stars · TypeScript · started 2023 · 28 of its top-100 contributors scored, median 85.3"
+    }
+  },
+  "items": [
+    {
+      "kind": "developer",
+      "id": "arvinxx",
+      "blurb": {
+        "zh": "创始人徐文彬，Ant Design 核心成员出身。仓库里 43% 的人类提交出自他手，过去 30 天抽样的 400 个已合并 PR 里有 117 个是他提的——这既是项目的引擎，也是它最大的单点风险。",
+        "en": "Founder Arvin Xu, formerly a core member of Ant Design. He wrote 43% of the repo's human commits and authored 117 of the 400 recently merged PRs we sampled — the project's engine, and its single biggest point of failure."
+      },
+      "stats": {
+        "name": "Arvin Xu",
+        "tier": "夯",
+        "score": 100,
+        "followers": 2190,
+        "totalStars": 85373
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "nekomeowww",
+      "blurb": {
+        "zh": "11 年账号、1,755 个已合并 PR、名下项目累计 13 万 star。他在 LobeHub 只提交了 224 次，但这类「在别处已经证明过自己」的人愿意来，本身就是项目成色的一个信号。",
+        "en": "An 11-year-old account with 1,755 merged PRs and 130k stars across their projects. Only 224 commits here — but people who have already proven themselves elsewhere choosing to show up is itself a signal about a project."
+      },
+      "stats": {
+        "name": "Neko",
+        "tier": "夯",
+        "score": 99.7,
+        "followers": 1629,
+        "totalStars": 130430
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "Innei",
+      "blurb": {
+        "zh": "715 次提交，仓库人类提交量第三。个人简介里写着 mx-space、Afilmory 等自有项目，1,315 个已合并 PR——典型的「自己有作品，还愿意给别人的项目写代码」那一类开发者。",
+        "en": "715 commits, third among humans in this repo. Runs their own projects (mx-space, Afilmory) with 1,315 merged PRs on top — the kind of developer who ships their own work and still writes code for someone else's."
+      },
+      "stats": {
+        "name": "Innei",
+        "tier": "夯",
+        "score": 99.6,
+        "followers": 3384,
+        "totalStars": 6390
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "tjx666",
+      "blurb": {
+        "zh": "810 次提交，人类里排第二，近 30 天抽样中提交了 74 个已合并 PR。600 个已合并 PR、8 年账号，是这个仓库日常吞吐量的另一根柱子。",
+        "en": "810 commits — second among humans — and 74 merged PRs in our 30-day sample. 600 merged PRs on an eight-year-old account: the other pillar holding up this repo's daily throughput."
+      },
+      "stats": {
+        "name": "YuTengjing",
+        "tier": "夯",
+        "score": 94.3,
+        "followers": 631,
+        "totalStars": 1422
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "MapleEve",
+      "blurb": {
+        "zh": "32 个关注者、名下仓库总共 58 个 star，引擎给了 90.7 分——因为 14 年账号龄和 391 个已合并 PR 骗不了人。这类人正是 star 榜看不见、引擎能看见的样本。",
+        "en": "32 followers, 58 stars across their repos — and an engine score of 90.7, because a 14-year-old account with 391 merged PRs cannot be faked. Exactly the kind of contributor a star ranking misses and an engine does not."
+      },
+      "stats": {
+        "name": "Maple Gao",
+        "tier": "夯",
+        "score": 90.7,
+        "followers": 32,
+        "totalStars": 58
+      }
+    }
+  ]
+}
