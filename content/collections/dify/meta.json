@@ -1,0 +1,129 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+    "en": "Dify.AI: From Chat Orchestration Tool to Agentic Workflow Executor (2023–2026)"
+  },
+  "intro": {
+    "zh": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器。本报告梳理其创始团队背景、三阶段技术演进、开源社区里程碑、企业落地案例与融资路径。我们另外用评分引擎扫了这个仓库前 100 位贡献者中的 96 个真人：分数中位数 78.2，15 人拿到「夯」，也有 5 人落在「拉完了」。",
+    "en": "Dify started in May 2023 as a RAG-powered chatbot builder, became a workflow orchestration engine in 2024, was rebuilt around plugins and Agent nodes in v1.0 (2025), and shipped as a full Agentic workflow executor in v1.16 (2026). This report traces the founding team, the three-stage technical evolution, open-source milestones, enterprise deployments, and funding history. We also ran our engine over 96 of the repo's top-100 human contributors: median score 78.2, 15 at the top tier — and 5 at the bottom."
+  },
+  "publishedAt": "2026-08-07",
+  "tags": ["llmops", "ai-agent", "open-source"],
+  "subject": {
+    "kind": "repo",
+    "id": "langgenius/dify",
+    "nickname": "Dify",
+    "headline": {
+      "zh": "15.2 万 star · 2.39 万 fork · TypeScript · 2023 年 4 月建仓",
+      "en": "152k stars · 23.9k forks · TypeScript · started April 2023"
+    }
+  },
+  "items": [
+    {
+      "kind": "developer",
+      "id": "takatost",
+      "blurb": {
+        "zh": "联合创始人兼首席工程师 John Wang，在我们抽样的百位贡献者里提交量排第二（539 次）——但最后一次提交停在 2024 年 10 月，此后主仓再无他的代码。引擎只给 73.1「人上人」：12.8 年账号和 563 个已合并 PR 撑着分数，可 Dify 挂在 langgenius 组织名下，他个人仓库加起来只有 163 star，创始人的影响力压根没落到自己账号上。",
+        "en": "Co-founder and chief engineer John Wang — second by commit count (539) in our 100-contributor sample, but his last commit to the repo lands in October 2024. The engine gives him 73.1: a 12.8-year account and 563 merged PRs hold the score up, while Dify sits under the langgenius org and his personal repos total 163 stars. The founder's influence never accrues to the founder's account."
+      },
+      "stats": {
+        "name": "John Wang",
+        "tier": "人上人",
+        "score": 73.1,
+        "followers": 566,
+        "totalStars": 163
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "laipz8200",
+      "blurb": {
+        "zh": "全仓第一提交人，708 次提交——takatost 2024 年底停手之后，接住 Dify 主干的就是他。10.5 年账号、846 个已合并 PR，引擎 97.3「夯」。工作流引擎、节点执行、错误恢复这些文中反复提到的硬骨头，大多经他的手。",
+        "en": "Top committer with 708 commits — the person who caught the trunk after takatost stopped shipping in late 2024. A 10.5-year account with 846 merged PRs, scored 97.3. Most of the hard parts this report keeps pointing at — workflow engine, node execution, error recovery — went through him."
+      },
+      "stats": {
+        "name": "-LAN-",
+        "tier": "夯",
+        "score": 97.3,
+        "followers": 390,
+        "totalStars": 151126
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "hyoban",
+      "blurb": {
+        "zh": "902 个已合并 PR，是这个仓库里最能出 PR 的人，99.1 分也是我们扫过的 96 位 Dify 贡献者中的最高分。157 个公开仓库、8.2 年账号，前端那条线（Next.js/React 交互层）的主要维护者之一。",
+        "en": "902 merged PRs — the highest PR throughput in this repo, and at 99.1 the top score among the 96 Dify contributors we scanned. 157 public repos on an 8.2-year account, and one of the main maintainers of the Next.js/React interaction layer this report describes."
+      },
+      "stats": {
+        "name": "Stephen Zhou",
+        "tier": "夯",
+        "score": 99.1,
+        "followers": 532,
+        "totalStars": 188760
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "bowenliang123",
+      "blurb": {
+        "zh": "梁博文，Apache Kyuubi PMC 成员，14 年账号、662 个已合并 PR，在 Dify 提交 295 次排进前八——而且他不是 langgenius 的人。名下仓库总共 316 star，任何按 star 排的榜单都看不见他，引擎给 94。",
+        "en": "Bowen Liang, an Apache Kyuubi PMC member with a 14-year account and 662 merged PRs, sits eighth by commits here (295) — and he is not on the langgenius payroll. His own repos total 316 stars, so no star-ranked list will ever surface him. The engine scores him 94."
+      },
+      "stats": {
+        "name": "Bowen Liang",
+        "tier": "夯",
+        "score": 94,
+        "followers": 163,
+        "totalStars": 316
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "kurokobo",
+      "blurb": {
+        "zh": "正文里点名的那份官方 10 万 star 致谢名单，他在其中。116 个关注者、名下仓库 884 star，放在社交口径上毫不起眼；13.6 年账号加 584 个已合并 PR，引擎给到 94.3「夯」。外部贡献者能进官方名单，靠的是这个。",
+        "en": "One of the contributors named in Dify's official 100k-star thank-you list quoted in this report. 116 followers and 884 stars across his repos — invisible by social metrics; a 13.6-year account with 584 merged PRs — 94.3 by ours. That gap is the whole point."
+      },
+      "stats": {
+        "name": "kurokobo",
+        "tier": "夯",
+        "score": 94.3,
+        "followers": 116,
+        "totalStars": 884
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "junjiem",
+      "blurb": {
+        "zh": "文中提到的 MCP 代理相关插件作者，同样在官方致谢名单里。他在主仓只提交了 20 次，但 12.5 年账号、442 个已合并 PR——贡献都在插件生态那一侧，主仓提交数根本量不出来他的分量。",
+        "en": "Author of the MCP proxy plugins this report credits, also on the official thank-you list. Only 20 commits in the main repo, but a 12.5-year account with 442 merged PRs: his work lives in the plugin ecosystem, where the main repo's commit count cannot see it."
+      },
+      "stats": {
+        "name": "Junjie.M",
+        "tier": "夯",
+        "score": 92.3,
+        "followers": 228,
+        "totalStars": 1201
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "fdb02983rhy",
+      "blurb": {
+        "zh": "官方致谢名单里排在最前面的那个 ID。账号只有 4.8 年、17 个关注者、名下仓库加起来 39 star，99 个已合并 PR 换来 80.4「顶级」。引擎不认名气，只认合进主干的代码——他是这句话最干净的样本。",
+        "en": "The first handle on that official thank-you list. A 4.8-year-old account, 17 followers, 39 stars across all his repos — and 99 merged PRs, which the engine prices at 80.4. Reputation buys nothing here; merged code does. He is the cleanest sample of that."
+      },
+      "stats": {
+        "name": "fdb02983rhy",
+        "tier": "顶级",
+        "score": 80.4,
+        "followers": 17,
+        "totalStars": 39
+      }
+    }
+  ]
+}

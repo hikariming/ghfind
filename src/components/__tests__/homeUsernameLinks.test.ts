@@ -21,4 +21,15 @@ describe("home username links", () => {
     expect(leaderboard).not.toContain("href={profileUrl}");
     expect(leaderboard).not.toContain("const profileUrl =");
   });
+
+  it("sends the whole editor's-picks card to the collection, never to GitHub", () => {
+    const card = source("CollectionPromoCard.tsx");
+
+    // Stretched link covering the card — the only link it has.
+    expect(card).toMatch(
+      /<Link\s+href=\{`\/collections\/\$\{slug\}`\}[\s\S]*?className="absolute inset-0 z-0/,
+    );
+    expect(card.match(/<Link\b/g)).toHaveLength(1);
+    expect(card).not.toContain("github.com");
+  });
 });
