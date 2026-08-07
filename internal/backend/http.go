@@ -66,6 +66,7 @@ type APIServer struct {
 	projectAnalysisPublisher ProjectAnalysisJobPublisher
 	metrics                  *BackendMetrics
 	githubOAuthOrigin        string
+	githubAPIOrigin          string
 	oauthHTTPClient          *http.Client
 	llmHTTPClient            *http.Client
 	checks                   []dependencyCheck
@@ -87,7 +88,8 @@ func NewAPIServer(
 		config: config, scores: scores, statuses: statuses, publisher: publisher,
 		checks: checks, clock: time.Now, scanWait: 55 * time.Second, scanPoll: 250 * time.Millisecond,
 		verdictWait: 45 * time.Second, verdictPoll: 500 * time.Millisecond,
-		githubOAuthOrigin: "https://github.com", oauthHTTPClient: &http.Client{Timeout: 10 * time.Second},
+		githubOAuthOrigin: "https://github.com", githubAPIOrigin: defaultGitHubAPIURL,
+		oauthHTTPClient: &http.Client{Timeout: 10 * time.Second},
 		llmHTTPClient: &http.Client{Timeout: verdictLLMTimeout},
 		metrics:       NewBackendMetrics(),
 	}
