@@ -284,6 +284,14 @@ replicas (competing consumers on the same queue) scale that linearly.
 
 Staging pitfalls learned from bring-up:
 
+- Railway service healthchecks probe the service's injected `PORT`, not the
+  public domain's target port. The worker only listens on its metrics address
+  (`:9090` by default), so a `/healthz` healthcheck on the worker makes every
+  deployment fail with "service unavailable" until the retry window expires.
+  Keep the healthcheck on `ghfind-api` only (it listens on `PORT`); monitor
+  the worker through its public `:9090` `/healthz` `/readyz` endpoints
+  instead, or bind `GHFIND_WORKER_METRICS_LISTEN_ADDR` to the injected port
+  first.
 - Railway injects `PORT` into every service; `ghfind-mocks` listens on it
   (`:8080`). Never set `PORT` manually on the mocks service, and point
   `UPSTASH_REDIS_REST_URL` at the injected port
