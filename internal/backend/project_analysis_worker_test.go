@@ -425,8 +425,10 @@ func TestProjectAnalysisWorkerRedrivesSlotContentionPark(t *testing.T) {
 	if redrive.job.ID != "analysis-1" || redrive.job.Attempt != 0 {
 		t.Fatalf("redrive job = %#v", redrive.job)
 	}
-	if redrive.delay != projectAnalysisDeferredRedriveDelay {
-		t.Fatalf("redrive delay = %v", redrive.delay)
+	low := projectAnalysisDeferredRedriveDelay - projectAnalysisDeferredRedriveJitter
+	high := projectAnalysisDeferredRedriveDelay + projectAnalysisDeferredRedriveJitter
+	if redrive.delay < low || redrive.delay >= high {
+		t.Fatalf("redrive delay = %v, want within [%v, %v)", redrive.delay, low, high)
 	}
 	// The parked run is untouched: still queued, no create attempt consumed,
 	// and Mosoo was never called.
