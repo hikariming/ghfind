@@ -1,0 +1,54 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "编辑推荐 · 第一期：当 AI 开始「生活」——三个开源项目，三种 Agent 的形态",
+    "en": "Editor's Picks Vol. 1: When AI Starts to \"Live\" — Three Open-Source Projects, Three Forms of the Agent"
+  },
+  "intro": {
+    "zh": "编辑推荐栏目第一期。我们挑选了三个风格迥异、却深层互文的开源项目：yuiju 让 AI 角色在自己的世界里吃饭、上学、写日记，拥有独立于用户的生活（Agent 的「心」）；lathe 把存量 API 一键变成 Agent 能安全调用的 CLI 契约与 Skill（Agent 的「手」）；mosoo 在 Cloudflare 原生沙箱里规模化运行 Codex、Claude Agent SDK、OpenCode（Agent 的「身体」）。",
+    "en": "The first issue of our Editor's Picks column. Three very different yet deeply connected open-source projects: yuiju gives an AI character a life of her own — meals, school, diaries — independent of the user (the agent's \"heart\"); lathe turns existing APIs into CLI contracts and Skills that agents can safely call (the agent's \"hands\"); mosoo runs Codex, Claude Agent SDK, and OpenCode at scale in Cloudflare-native sandboxes (the agent's \"body\")."
+  },
+  "publishedAt": "2026-08-07",
+  "tags": ["ai-agent", "editor-picks", "open-source"],
+  "items": [
+    {
+      "kind": "repo",
+      "id": "yixiaojiu/yuiju",
+      "blurb": {
+        "zh": "LLM 驱动的角色自主生活模拟：世界引擎按 tick 推进，不依赖用户消息；LLM 只做原子 Action 的决策，状态变化由系统记账。不做 AI 智能助手，做有自己生活的「人」——这是 Agent 的「心」。",
+        "en": "An LLM-driven autonomous life simulation: the world engine advances on ticks, independent of user messages; the LLM only picks among atomic Actions while the system records state. Not an AI assistant — a \"person\" with her own life. This is the agent's \"heart\"."
+      },
+      "stats": {
+        "stars": 43,
+        "language": "TypeScript",
+        "description": "Build AI companions that have their own lives"
+      }
+    },
+    {
+      "kind": "repo",
+      "id": "lathe-cli/lathe",
+      "blurb": {
+        "zh": "把 Swagger/OpenAPI/protobuf/GraphQL 一键生成单二进制、Agent 友好的 Cobra CLI：结构化命令目录、auth 预检、--dry-run、机器可读输出，外加一份生成的 Skill 操作手册。Spec 即真相，Catalog 即契约——这是 Agent 的「手」。",
+        "en": "Generates single-binary, agent-friendly Cobra CLIs from Swagger/OpenAPI/protobuf/GraphQL: structured command catalogs, auth preflight, --dry-run, machine-readable output, plus a generated Skill guide. Spec as truth, catalog as contract — these are the agent's \"hands\"."
+      },
+      "stats": {
+        "stars": 39,
+        "language": "Go",
+        "description": "Agentic-friendly CLI generator for APIs"
+      }
+    },
+    {
+      "kind": "repo",
+      "id": "langgenius/mosoo",
+      "blurb": {
+        "zh": "Dify 团队出品的 Cloudflare 原生 coding agent 运行时：统一运行时协议、Agent API、隔离沙箱、可断点续跑的持久执行线。把 Codex / Claude Agent SDK / OpenCode 产品化所需的基础设施——这是 Agent 的「身体」。（Alpha 阶段，生产使用需评估风险）",
+        "en": "A Cloudflare-native coding-agent runtime from the Dify team: unified runtime protocol, Agent API, isolated sandboxes, and durable runs you can resume. The infrastructure for productizing Codex / Claude Agent SDK / OpenCode — the agent's \"body\". (Alpha — assess risks before production use.)"
+      },
+      "stats": {
+        "stars": 114,
+        "language": "TypeScript",
+        "description": "Open-source, Cloudflare-native agent runtime for Codex, Claude Agent SDK, and OpenCode"
+      }
+    }
+  ]
+}
