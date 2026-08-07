@@ -16,7 +16,7 @@ import { bcp47 } from "@/lib/site";
  * editorial nickname use GitHub's cached public profile-name fallback.
  */
 export async function HomeCollections({ locale }: { locale: string }) {
-  const collections = listCollections().slice(0, 3);
+  const collections = listCollections().slice(0, 6);
   if (collections.length === 0) return null;
   const t = await getTranslations("collections");
   const tBlog = await getTranslations("blog");
