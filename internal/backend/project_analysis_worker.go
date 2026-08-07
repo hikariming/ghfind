@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"regexp"
 	"strings"
@@ -33,6 +34,10 @@ const (
 	// until an execution slot frees. Runs parked on a scheduled create retry
 	// instead wake at their exact retry time.
 	projectAnalysisDeferredRedriveDelay = 15 * time.Second
+	// projectAnalysisDeferredRedriveJitter spreads the fixed redrive interval
+	// by ±5s so runs parked by the same event (e.g. a full slot window right
+	// after an outage) do not wake in lockstep and race the slot check.
+	projectAnalysisDeferredRedriveJitter = 5 * time.Second
 )
 
 var mosooRunRetrySuffix = regexp.MustCompile(`-retry-(\d+)$`)
@@ -358,14 +363,16 @@ func (w *ProjectAnalysisWorker) createRetryDelay(attempt int, err *MosooError) t
 
 // deferredRedriveDelayFor picks the wake-up delay for a parked run: a pending
 // create retry wakes at its scheduled time, while slot contention polls on a
-// fixed interval until an execution slot frees.
+// fixed jittered interval until an execution slot frees.
 func deferredRedriveDelayFor(run *ProjectAnalysisRun) time.Duration {
 	if run != nil && run.CreateRetryAt != nil {
 		if delay := time.Until(time.UnixMilli(*run.CreateRetryAt)); delay > 0 {
 			return delay
 		}
 	}
-	return projectAnalysisDeferredRedriveDelay
+	spread := int64(2 * projectAnalysisDeferredRedriveJitter)
+	jitter := time.Duration(rand.Int63n(spread)) - projectAnalysisDeferredRedriveJitter
+	return projectAnalysisDeferredRedriveDelay + jitter
 }
 
 // redriveDeferred republishes a parked job through the delayed retry lane so
