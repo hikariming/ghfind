@@ -28,6 +28,11 @@ const (
 	// projectAnalysisDeliveryBuffer keeps the per-delivery context alive past
 	// the run timeout so one last finalize pass can finish.
 	projectAnalysisDeliveryBuffer = time.Minute
+	// projectAnalysisDeferredRedriveDelay is the wake-up interval for a run
+	// parked by slot contention: the delayed retry lane re-enqueues the job
+	// until an execution slot frees. Runs parked on a scheduled create retry
+	// instead wake at their exact retry time.
+	projectAnalysisDeferredRedriveDelay = 15 * time.Second
 )
 
 var mosooRunRetrySuffix = regexp.MustCompile(`-retry-(\d+)$`)
@@ -210,7 +215,7 @@ func (w *ProjectAnalysisWorker) process(ctx context.Context, job ProjectAnalysis
 		var disposition workerDisposition
 		var reason string
 		if run.MosooThreadID == nil {
-			disposition, reason, run = w.createOrResumeThread(ctx, run, startedAt)
+			disposition, reason, run = w.createOrResumeThread(ctx, job, run, startedAt)
 		} else {
 			disposition, reason, run = w.pollThread(ctx, run, startedAt)
 		}
@@ -247,8 +252,10 @@ func (w *ProjectAnalysisWorker) failRun(ctx context.Context, analysisID, code, m
 // createOrResumeThread mirrors createOrResumeMosooThread. It returns a
 // completed disposition (with an empty reason) whenever the loop should
 // continue with the returned run, and a parked marker when the delivery is
-// done because the run waits on a slot or a scheduled create retry.
-func (w *ProjectAnalysisWorker) createOrResumeThread(ctx context.Context, run *ProjectAnalysisRun, startedAt time.Time) (workerDisposition, string, *ProjectAnalysisRun) {
+// done because the run waits on a slot or a scheduled create retry. Parked
+// runs are re-driven through the delayed retry lane (see redriveDeferred), so
+// they no longer depend on the external reconcile endpoint to wake up.
+func (w *ProjectAnalysisWorker) createOrResumeThread(ctx context.Context, job ProjectAnalysisJob, run *ProjectAnalysisRun, startedAt time.Time) (workerDisposition, string, *ProjectAnalysisRun) {
 	now := time.Now()
 	if run.MosooThreadID == nil && run.CreateAttempts >= w.config.ProjectAnalysisCreateMaxAttempts &&
 		(run.CreateRetryAt == nil || *run.CreateRetryAt <= now.UnixMilli()) {
@@ -265,10 +272,12 @@ func (w *ProjectAnalysisWorker) createOrResumeThread(ctx context.Context, run *P
 		return workerRetry, "reserve execution slot: " + err.Error(), run
 	}
 	if !reserved {
-		// Slot contention or a pending create retry: park the delivery. The
-		// scheduled reconcile re-enqueues the run when it becomes due.
-		w.metrics.recordWorkerJobCompleted(ProjectAnalysisJobKind, "deferred", time.Since(startedAt))
-		return workerCompleted, "deferred", w.reloadRun(ctx, run)
+		// Slot contention or a pending create retry: park the delivery and
+		// republish the job through the delayed retry lane so the run wakes up
+		// on its own. The reconcile endpoint remains a manual backstop.
+		current := w.reloadRun(ctx, run)
+		disposition, reason := w.redriveDeferred(ctx, job, deferredRedriveDelayFor(current), startedAt)
+		return disposition, reason, current
 	}
 	attemptRun := w.reloadRun(ctx, run)
 	snapshot, err := w.mosoo.CreateProjectAnalysisThread(ctx, attemptRun, w.config.ProjectAnalysisExecutionMode(attemptRun.RepoKey))
@@ -295,8 +304,8 @@ func (w *ProjectAnalysisWorker) createOrResumeThread(ctx context.Context, run *P
 			w.log.Warn("project_analysis.create_retry_scheduled",
 				"analysis_id", pending.ID, "repo_key", pending.RepoKey,
 				"attempt", pending.CreateAttempts, "error_code", mosooErr.Code)
-			w.metrics.recordWorkerJobCompleted(ProjectAnalysisJobKind, "deferred", time.Since(startedAt))
-			return workerCompleted, "deferred", pending
+			disposition, reason := w.redriveDeferred(ctx, job, time.Until(time.UnixMilli(retryAt)), startedAt)
+			return disposition, reason, pending
 		}
 		code := MosooUnavailable
 		message := "Mosoo project analysis failed."
@@ -345,6 +354,39 @@ func (w *ProjectAnalysisWorker) createRetryDelay(attempt int, err *MosooError) t
 		return time.Minute
 	}
 	return delay
+}
+
+// deferredRedriveDelayFor picks the wake-up delay for a parked run: a pending
+// create retry wakes at its scheduled time, while slot contention polls on a
+// fixed interval until an execution slot frees.
+func deferredRedriveDelayFor(run *ProjectAnalysisRun) time.Duration {
+	if run != nil && run.CreateRetryAt != nil {
+		if delay := time.Until(time.UnixMilli(*run.CreateRetryAt)); delay > 0 {
+			return delay
+		}
+	}
+	return projectAnalysisDeferredRedriveDelay
+}
+
+// redriveDeferred republishes a parked job through the delayed retry lane so
+// the run is re-driven without the external reconcile endpoint. The attempt
+// counter is preserved on purpose: parking is waiting, not a failure, so it
+// must not consume the MaxAttempts budget or dead-letter the job. A publish
+// failure falls back to the ordinary workerRetry path.
+func (w *ProjectAnalysisWorker) redriveDeferred(ctx context.Context, job ProjectAnalysisJob, delay time.Duration, startedAt time.Time) (workerDisposition, string) {
+	if delay < time.Second {
+		delay = time.Second
+	}
+	publishCtx, cancel := context.WithTimeout(ctx, workerDeliveryTimeout)
+	err := w.publisher.PublishProjectAnalysisRetry(publishCtx, job, delay)
+	cancel()
+	if err != nil {
+		w.log.Error("redrive deferred project analysis", "job_id", job.ID, "error", err)
+		w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
+		return workerRetry, "redrive deferred project analysis: " + err.Error()
+	}
+	w.metrics.recordWorkerJobCompleted(ProjectAnalysisJobKind, "deferred", time.Since(startedAt))
+	return workerCompleted, "deferred"
 }
 
 // pollThread mirrors the snapshot-driven half of reconcileProjectAnalysis.

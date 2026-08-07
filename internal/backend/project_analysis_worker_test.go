@@ -11,6 +11,41 @@ import (
 	"time"
 )
 
+// recordingProjectPublisher captures project analysis publishes for
+// assertions; it never touches a broker.
+type recordingProjectPublisher struct {
+	mu        sync.Mutex
+	published []string
+	retries   []recordedProjectRetry
+	dead      []string
+}
+
+type recordedProjectRetry struct {
+	job   ProjectAnalysisJob
+	delay time.Duration
+}
+
+func (p *recordingProjectPublisher) PublishProjectAnalysis(_ context.Context, job ProjectAnalysisJob) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.published = append(p.published, job.ID)
+	return nil
+}
+
+func (p *recordingProjectPublisher) PublishProjectAnalysisRetry(_ context.Context, job ProjectAnalysisJob, delay time.Duration) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.retries = append(p.retries, recordedProjectRetry{job: job, delay: delay})
+	return nil
+}
+
+func (p *recordingProjectPublisher) PublishProjectAnalysisDead(_ context.Context, job ProjectAnalysisJob, reason string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.dead = append(p.dead, job.ID+":"+reason)
+	return nil
+}
+
 // fakeMosoo is a scripted Mosoo Public Thread API server. Each GET on a
 // thread pops the next scripted run snapshot (the last one repeats), which
 // lets one test walk a run from boot to completion.
@@ -166,7 +201,7 @@ func validWorkerArtifacts(t *testing.T, analysisID, repoKey string) map[string]s
 	}
 }
 
-func newTestProjectAnalysisWorker(t *testing.T, store *TursoStore, mosooURL string, mutate func(*Config)) *ProjectAnalysisWorker {
+func newTestProjectAnalysisWorker(t *testing.T, store *TursoStore, mosooURL string, mutate func(*Config)) (*ProjectAnalysisWorker, *recordingProjectPublisher) {
 	t.Helper()
 	config := Config{
 		MosooAPIBase:                     mosooURL,
@@ -182,9 +217,10 @@ func newTestProjectAnalysisWorker(t *testing.T, store *TursoStore, mosooURL stri
 	if mutate != nil {
 		mutate(&config)
 	}
-	worker := NewProjectAnalysisWorker(config, store, NewMosooClient(config), nil, nil, nil)
+	publisher := &recordingProjectPublisher{}
+	worker := NewProjectAnalysisWorker(config, store, NewMosooClient(config), nil, publisher, nil)
 	worker.poll = time.Millisecond
-	return worker
+	return worker, publisher
 }
 
 func TestProjectAnalysisWorkerCompletesRun(t *testing.T) {
@@ -205,7 +241,7 @@ func TestProjectAnalysisWorkerCompletesRun(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
 	disposition, reason := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted || reason != "" {
 		t.Fatalf("disposition = %v reason = %q", disposition, reason)
@@ -263,7 +299,7 @@ func TestProjectAnalysisWorkerUsesAllowlistedRuntimeMode(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, func(config *Config) {
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, func(config *Config) {
 		config.ProjectAnalysisRuntimeAllowlist = []string{"owner/useful-tool"}
 	})
 	disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
@@ -295,7 +331,7 @@ func TestProjectAnalysisWorkerCreateRetryBackoffAndExhaustion(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, func(config *Config) {
+	worker, publisher := newTestProjectAnalysisWorker(t, store, server.URL, func(config *Config) {
 		config.ProjectAnalysisCreateMaxAttempts = 2
 		config.ProjectAnalysisCreateRetryBase = time.Second
 	})
@@ -313,6 +349,19 @@ func TestProjectAnalysisWorkerCreateRetryBackoffAndExhaustion(t *testing.T) {
 	}
 	if *run.CreateRetryAt <= time.Now().UnixMilli() {
 		t.Fatalf("create retry is not in the future: %d", *run.CreateRetryAt)
+	}
+	// The parked delivery redrives itself through the delayed retry lane,
+	// waking at the scheduled retry time without consuming the job's attempt
+	// budget.
+	if len(publisher.retries) != 1 {
+		t.Fatalf("redrives = %#v", publisher.retries)
+	}
+	redrive := publisher.retries[0]
+	if redrive.job.ID != "analysis-1" || redrive.job.Attempt != 0 {
+		t.Fatalf("redrive job = %#v", redrive.job)
+	}
+	if redrive.delay <= 0 || redrive.delay > time.Second {
+		t.Fatalf("redrive delay = %v", redrive.delay)
 	}
 
 	// Fast-forward the scheduled backoff: the next pass reclaims the slot and
@@ -337,6 +386,59 @@ func TestProjectAnalysisWorkerCreateRetryBackoffAndExhaustion(t *testing.T) {
 	}
 	if mosoo.createCalls != 2 {
 		t.Fatalf("create calls = %d", mosoo.createCalls)
+	}
+	// Exhaustion is terminal: no further redrive is published.
+	if len(publisher.retries) != 1 {
+		t.Fatalf("redrives after exhaustion = %#v", publisher.retries)
+	}
+}
+
+func TestProjectAnalysisWorkerRedrivesSlotContentionPark(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	// Occupy every execution slot with a running analysis.
+	for _, id := range []string{"busy-1", "busy-2", "busy-3"} {
+		createTestRun(t, store, id, "owner/"+id, nil)
+		if err := store.AttachMosooThread(context.Background(), AttachMosooThreadInput{
+			AnalysisID: id, AgentID: "agent-1", ThreadID: "thread-" + id, RunID: "run-" + id,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	createTestRun(t, store, "analysis-1", "owner/useful-tool", nil)
+
+	mosoo := newFakeMosoo(t)
+	server := httptest.NewServer(mosoo.handler())
+	defer server.Close()
+
+	worker, publisher := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	disposition, reason := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
+	if disposition != workerCompleted || reason != "deferred" {
+		t.Fatalf("disposition = %v reason = %q", disposition, reason)
+	}
+	// The run could not reserve a slot, so the delivery parks and republishes
+	// the job on the fixed redrive interval instead of waiting for the
+	// reconcile endpoint.
+	if len(publisher.retries) != 1 {
+		t.Fatalf("redrives = %#v", publisher.retries)
+	}
+	redrive := publisher.retries[0]
+	if redrive.job.ID != "analysis-1" || redrive.job.Attempt != 0 {
+		t.Fatalf("redrive job = %#v", redrive.job)
+	}
+	if redrive.delay != projectAnalysisDeferredRedriveDelay {
+		t.Fatalf("redrive delay = %v", redrive.delay)
+	}
+	// The parked run is untouched: still queued, no create attempt consumed,
+	// and Mosoo was never called.
+	run, err := store.GetProjectAnalysisRun(context.Background(), "analysis-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != ProjectAnalysisStatusQueued || run.CreateAttempts != 0 {
+		t.Fatalf("run = status %q attempts %d", run.Status, run.CreateAttempts)
+	}
+	if mosoo.createCalls != 0 {
+		t.Fatalf("mosoo create calls = %d", mosoo.createCalls)
 	}
 }
 
@@ -367,7 +469,7 @@ func TestProjectAnalysisWorkerRetriesInactiveRuntimeOnce(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
 	disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted {
 		t.Fatalf("disposition = %v", disposition)
@@ -406,7 +508,7 @@ func TestProjectAnalysisWorkerExpiresTimedOutRun(t *testing.T) {
 	mosoo := newFakeMosoo(t)
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
 	disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted {
 		t.Fatalf("disposition = %v", disposition)
@@ -444,7 +546,7 @@ func TestProjectAnalysisWorkerFailsInvalidArtifacts(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
 	disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted {
 		t.Fatalf("disposition = %v", disposition)
@@ -473,7 +575,7 @@ func TestProjectAnalysisWorkerFailsWaitingInput(t *testing.T) {
 	}
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
-	worker := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
 	disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted {
 		t.Fatalf("disposition = %v", disposition)

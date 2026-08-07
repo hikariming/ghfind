@@ -192,9 +192,10 @@ The backend also serves the project-analysis surface on staging:
 `POST /api/project-analyses` (submit a repository), `GET
 /api/project-analyses/{id}` (live status/result), `GET /api/project-boards`
 (treasure/classic boards), and the secret-authenticated
-`/api/internal/project-analyses/reconcile` (re-enqueue stalled runs). The
-worker consumes a dedicated `ghfind.project-analysis.v1` queue lane
-(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 3) and drives the Mosoo
+`/api/internal/project-analyses/reconcile` (manual backstop that re-enqueues
+stalled runs; parked runs re-drive themselves through the delayed retry lane).
+The worker consumes a dedicated `ghfind.project-analysis.v1` queue lane
+(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 20) and drives the Mosoo
 agent end to end. Without Mosoo credentials submissions still queue and fail
 with the standard `mosoo_*` error codes.
 
