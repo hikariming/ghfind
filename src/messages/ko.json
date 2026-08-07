@@ -915,6 +915,7 @@
   },
   "projectBoards": {
     "homeEyebrow": "프로젝트 평가",
+    "homeCta": "내 프로젝트 테스트",
     "metaTitle": "주목할 오픈소스 프로젝트 · ghfind",
     "metaDescription": "실제 문제를 해결하고 더 많은 관심을 받을 가치가 있는 오픈소스 프로젝트를 찾아보세요.",
     "eyebrow": "오픈소스 프로젝트 평가",

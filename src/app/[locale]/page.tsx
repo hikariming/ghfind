@@ -1,14 +1,11 @@
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeCollections } from "@/components/HomeCollections";
 import { HomeProjectBoards } from "@/components/HomeProjectBoards";
-import { HomeProjectsPreview } from "@/components/HomeProjectsPreview";
 import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
 import { HomeFaq, getFaqItems } from "@/components/HomeFaq";
-import { HomeIntro } from "@/components/HomeIntro";
 import { JsonLd, faqJsonLd } from "@/components/JsonLd";
 import type { TierKey } from "@/lib/tier";
 
@@ -40,7 +37,6 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   setRequestLocale(locale);
   const t = await getTranslations("home");
   const tt = await getTranslations("tiers");
-  const tNav = await getTranslations("nav");
   const faqItems = await getFaqItems();
 
   return (
@@ -80,7 +76,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       <div className="mt-12 flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-12">
           <HomeCollections locale={locale} />
-          <HomeProjectsPreview />
+          <HomeProjectBoards locale={locale} />
         </div>
         <aside className="flex w-full flex-col gap-6 lg:sticky lg:top-20 lg:w-80 lg:shrink-0">
           <Suspense
@@ -90,42 +86,8 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           >
             <LeaderboardRail />
           </Suspense>
-          <nav
-            aria-label={tNav("discover")}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-          >
-            <h2 className="px-2 text-sm font-black tracking-wide text-zinc-100">
-              {tNav("discover")}
-            </h2>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {[
-                { href: "/developers", label: tNav("developers"), emoji: "🧑‍💻" },
-                { href: "/projects/discovery", label: tNav("projects"), emoji: "📦" },
-                { href: "/collections", label: tNav("collections"), emoji: "⭐" },
-                { href: "/vs", label: tNav("versus"), emoji: "⚔️" },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  prefetch={false}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-zinc-100"
-                >
-                  <span className="me-1.5">{item.emoji}</span>
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </nav>
         </aside>
       </div>
-
-      {/* Project assessment band: full-width strip between the directory
-          columns and the intro, previewing the treasure board top. */}
-      <div className="mt-16 w-full max-w-6xl">
-        <HomeProjectBoards locale={locale} />
-      </div>
-
-      <HomeIntro />
 
       <HomeFaq items={faqItems} />
 
@@ -134,6 +96,16 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         <p className="mt-2">
           {t.rich("disclaimer2", {
             code: (c) => <code className="text-zinc-400">{c}</code>,
+            skill: (c) => (
+              <a
+                href="https://github.com/hikariming/ghfind"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 underline underline-offset-2 hover:text-orange-400"
+              >
+                <code>{c}</code>
+              </a>
+            ),
           })}
         </p>
         <p className="mt-2">

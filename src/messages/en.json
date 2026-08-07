@@ -915,6 +915,7 @@
   },
   "projectBoards": {
     "homeEyebrow": "Project Assessments",
+    "homeCta": "Test my project",
     "metaTitle": "Treasure open-source projects · ghfind",
     "metaDescription": "Find useful open-source projects that solve real problems and deserve more attention.",
     "eyebrow": "Open-source project evaluation",
