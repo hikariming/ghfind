@@ -80,7 +80,7 @@
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
-    "disclaimer2": "评分核心开源于 <code>github-account-value</code> 技能 · 自带 Key 仅存于你的浏览器本地。"
+    "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。"
   },
   "leaderboard": {
     "heading": "🏆 名人堂",
@@ -145,7 +145,7 @@
     "metaDescription": "按背后开发者的质量、团队深度和近期势头发现 GitHub 项目。",
     "eyebrow": "项目发现",
     "heading": "不只看 Star，更看谁在做",
-    "subtitle": "Star 代表受欢迎程度；ghfind 补上贡献者质量、团队深度和近期关注这层信息。",
+    "subtitle": "优质开发者参与的优质项目",
     "sortLabel": "项目排序",
     "languageLabel": "项目语言",
     "sort": {
@@ -524,8 +524,15 @@
     "heading": "常见问题",
     "items": [
       {
+        "q": "如何联系我们？",
+        "a": "给",
+        "repo": "hikariming/ghfind",
+        "repoUrl": "https://github.com/hikariming/ghfind",
+        "afterRepo": "提 issue、PR。通过邮件 connect@ghfind.com 联系我们。"
+      },
+      {
         "q": "ghfind 是什么？",
-        "a": "ghfind 是一个面向 GitHub 的开发者评分与发现工具。它用一套完全确定性的开源引擎，为任意账号打出 0–100 的真实贡献含金量与可信度评分，并在此之上提供 AI 吐槽、开发者对战和排行榜。"
+        "a": "ghfind 是一个面向 GitHub 的开发者评分与发现工具。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。"
       },
       {
         "q": "分数是怎么算出来的？",
@@ -555,7 +562,7 @@
   },
   "homeIntro": {
     "whatHeading": "ghfind 是什么？",
-    "whatBody": "ghfind 是一个面向 GitHub 的开发者评分与发现工具。它用一套完全确定性的引擎（开源的 github-account-value skill，AGPL 协议），从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。相同输入永远得到相同分数，大模型不参与打分。在分数之上，还提供可选的 AI 吐槽、开发者对战、按语言和组织的排行榜，以及 README 评分徽章。",
+        "whatBody": "ghfind 是一个面向 GitHub 的开发者评分与发现工具。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。",
     "howHeading": "ghfind 如何工作",
     "steps": [
       {
@@ -914,7 +921,8 @@
     }
   },
   "projectBoards": {
-    "homeEyebrow": "项目评测",
+    "homeEyebrow": "发现宝藏项目",
+    "homeCta": "测测我的项目",
     "metaTitle": "宝藏开源项目 · ghfind",
     "metaDescription": "发现真正解决问题、值得更多关注的开源项目。",
     "eyebrow": "开源项目评估",
@@ -928,7 +936,7 @@
       "all": "全部分析"
     },
     "boardDescriptions": {
-      "treasure": "兼具产品价值、可信依据和较低曝光度。Star 仅用于衡量曝光度。",
+      "treasure": "发现并推荐优质但无人问津的宝藏项目。",
       "classic": "长期被采用、今天仍然实用的成熟项目。",
       "all": "所有完成评测的项目，不论是否入榜。"
     },

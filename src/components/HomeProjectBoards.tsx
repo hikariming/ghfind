@@ -7,6 +7,7 @@ import {
 } from "@/components/ProjectAssessmentCard";
 import { getGoPublicData } from "@/lib/go-backend.server";
 import type { ProjectAssessment } from "@/lib/project-analysis-db";
+import { HOME_MOCK_ASSESSMENTS } from "@/lib/home-mocks";
 
 const PREVIEW_LIMIT = 8;
 
@@ -19,7 +20,6 @@ const PREVIEW_LIMIT = 8;
  */
 export async function HomeProjectBoards({ locale }: { locale: string }) {
   const t = await getTranslations("projectBoards");
-  const tCollections = await getTranslations("collections");
   let entries: ProjectAssessment[] = [];
   for (const board of ["treasure", "all"] as const) {
     const data = await getGoPublicData<{ entries: ProjectAssessment[] }>(
@@ -31,7 +31,7 @@ export async function HomeProjectBoards({ locale }: { locale: string }) {
     // unranked list while treasure has too few entries to fill a strip.
     if (entries.length >= 4 || board === "all") break;
   }
-  if (entries.length === 0) return null;
+  if (entries.length === 0 && process.env.NODE_ENV !== "production") entries = HOME_MOCK_ASSESSMENTS;
 
   const labels: ProjectAssessmentCardLabels = {
     productScore: t("productScore"),
@@ -57,7 +57,7 @@ export async function HomeProjectBoards({ locale }: { locale: string }) {
           prefetch={false}
           className="shrink-0 text-sm text-zinc-400 underline-offset-4 transition-colors hover:text-zinc-200 hover:underline"
         >
-          {tCollections("viewAll")} →
+          {t("homeCta")} →
         </Link>
       </div>
       <HomeSnapStrip>
