@@ -8,7 +8,6 @@ describe("primary navigation", () => {
     expect(discover?.children).toEqual([
       { key: "developers", href: "/developers" },
       { key: "projectBoards", href: "/projects" },
-      { key: "projects", href: "/projects/discovery" },
       { key: "collections", href: "/collections" },
       { key: "languages", href: "/developers#languages", exact: true },
       { key: "organizations", href: "/developers#organizations", exact: true },
