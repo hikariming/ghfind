@@ -1,22 +1,22 @@
 {
   "type": "projects",
   "title": {
-    "zh": "LobeHub：8.1 万 star 的开源 Agent 平台，我们把它的贡献者名单挨个打了分",
-    "en": "LobeHub: we scored every contributor behind the 81k-star open-source agent platform"
+    "zh": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+    "en": "LobeHub: From Open-Source Chat Tool to Chief Agent Operator"
   },
   "intro": {
-    "zh": "从浏览器里的 ChatGPT 客户端，到「首席 Agent 运营官」，LobeChat 用三年改了三次架构、换了一次名字。站长推荐的项目线第一期不谈愿景：我们抓了它 commit 数前 100 的贡献者，28 位已评分账号中位数 85.3（全站基线 42.5），没有一个注册不满两年——但一个人写了 43% 的提交。这是一份带风险提示的推荐。",
-    "en": "From a browser-only ChatGPT client to a \"Chief Agent Operator\", LobeChat rebuilt its architecture three times and renamed itself once in three years. For the first project pick we skip the vision deck: we pulled its top-100 committers and scored them. Median 85.3 across 28 scored accounts (site-wide baseline: 42.5), not one account younger than two years — but one person wrote 43% of the commits. A recommendation that ships with its risk notes."
+    "zh": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台。本报告系统梳理其完整发展脉络、技术架构演进、商业模式探索与生态系统建设。",
+    "en": "LobeHub began in 2023 as the open-source chat tool LobeChat, went through three major architectural overhauls and two repositionings, and became a multi-agent collaboration platform built around the \"Chief Agent Operator\" (CAO). This report traces its full trajectory: architecture, business model, and ecosystem."
   },
-  "publishedAt": "2026-08-04",
+  "publishedAt": "2026-08-07",
   "tags": ["ai-agent", "open-source", "self-hosted"],
   "subject": {
     "kind": "repo",
     "id": "lobehub/lobehub",
     "name": "LobeHub",
     "headline": {
-      "zh": "8.1 万 star · TypeScript · 2023 年建仓 · 前 100 贡献者中 28 位已评分，中位数 85.3",
-      "en": "81k stars · TypeScript · started 2023 · 28 of its top-100 contributors scored, median 85.3"
+      "zh": "8.12 万 star · 1.58 万 fork · TypeScript · 2023 年 5 月建仓",
+      "en": "81.2k stars · 15.8k forks · TypeScript · started May 2023"
     }
   },
   "items": [
