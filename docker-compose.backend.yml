@@ -1,0 +1,95 @@
+x-backend-environment: &backend-environment
+  GHFIND_API_LISTEN_ADDR: ":8080"
+  GHFIND_WORKER_METRICS_LISTEN_ADDR: ":9090"
+  RABBITMQ_URL: amqp://ghfind:ghfind-local-only@rabbitmq:5672/
+  TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:?set TURSO_DATABASE_URL in your shell or .env}
+  TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
+  UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:?set UPSTASH_REDIS_REST_URL in your shell or .env}
+  UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:?set UPSTASH_REDIS_REST_TOKEN in your shell or .env}
+  MOSOO_API_BASE: ${MOSOO_API_BASE:-https://try.mosoo.ai/api/v1}
+  MOSOO_PROJECT_AGENT_ID: ${MOSOO_PROJECT_AGENT_ID:-}
+  MOSOO_PROJECT_USER_ID: ${MOSOO_PROJECT_USER_ID:-ghfind}
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ghfind
+      RABBITMQ_DEFAULT_PASS: ghfind-local-only
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: api
+    environment:
+      <<: *backend-environment
+      # API-only authorization for internal operations. The worker never
+      # accepts HTTP input and must not receive this credential.
+      ADMIN_SECRET: ${ADMIN_SECRET:?set ADMIN_SECRET in your shell or .env}
+      GITHUB_ROAST_CLI_API_KEY: ${GITHUB_ROAST_CLI_API_KEY:-}
+      PROJECT_ANALYSIS_RECONCILE_SECRET: ${PROJECT_ANALYSIS_RECONCILE_SECRET:-}
+      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
+      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_BASE_URL: ${LLM_FALLBACK_BASE_URL:-}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      # Shared only with Vercel's BotID gateway so direct public requests cannot
+      # invoke the internal verdict route. It is never given to the worker.
+      GHFIND_VERDICT_GATEWAY_SECRET: ${GHFIND_VERDICT_GATEWAY_SECRET:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/ghfind-healthcheck", "http://localhost:8080/healthz", "http://localhost:8080/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ports:
+      - "8080:8080"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: worker
+    environment:
+      <<: *backend-environment
+      # The worker alone calls GitHub. Keep this PAT out of the API service and
+      # never expose it in Vercel's environment. The Mosoo token is likewise
+      # worker-only: only the worker creates and polls analysis threads.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?set GITHUB_TOKEN in your shell or .env}
+      MOSOO_API_TOKEN: ${MOSOO_API_TOKEN:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/ghfind-healthcheck", "http://localhost:9090/healthz", "http://localhost:9090/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ports:
+      - "9090:9090"
+
+volumes:
+  rabbitmq-data:

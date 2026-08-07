@@ -9,7 +9,7 @@ LDFLAGS := -X 'github.com/hikariming/ghfind/internal/agentcli.Version=$(VERSION)
 	-X 'github.com/hikariming/ghfind/internal/agentcli.Commit=$(COMMIT)' \
 	-X 'github.com/hikariming/ghfind/internal/agentcli.Date=$(BUILD_DATE)'
 
-.PHONY: cli-build cli-build-all cli-test cli-clean
+.PHONY: cli-build cli-build-all cli-test cli-clean backend-build backend-test
 
 cli-build:
 	mkdir -p "$(BINDIR)"
@@ -28,3 +28,9 @@ cli-test:
 
 cli-clean:
 	rm -rf "$(BINDIR)" "$(DISTDIR)"
+
+backend-build:
+	$(GO) build ./cmd/ghfind-api ./cmd/ghfind-worker
+
+backend-test:
+	$(GO) test ./internal/backend

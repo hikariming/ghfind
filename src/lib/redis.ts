@@ -33,6 +33,7 @@ let redis: Redis | null = null;
 let scanLimiter: Ratelimit | null = null;
 let scanNetworkLimiter: Ratelimit | null = null;
 let campaignLeaderboardReadLimiter: Ratelimit | null = null;
+let projectAnalysisLimiter: Ratelimit | null = null;
 let mcpLimiter: Ratelimit | null = null;
 let roastRequestLimiter: Ratelimit | null = null;
 let roastRequestNetworkLimiter: Ratelimit | null = null;
@@ -42,6 +43,10 @@ let roastNetworkMinuteLimiter: Ratelimit | null = null;
 let roastNetworkDayLimiter: Ratelimit | null = null;
 let verdictMinuteLimiter: Ratelimit | null = null;
 let verdictDayLimiter: Ratelimit | null = null;
+const localProjectAnalysisWindows = new Map<string, { count: number; reset: number }>();
+const PROJECT_ANALYSIS_LIMIT = 5;
+const PROJECT_ANALYSIS_WINDOW_MS = 60 * 60 * 1_000;
+const PROJECT_ANALYSIS_RESULT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export const RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS = 15;
 const LIMITER_UNAVAILABLE_LOG_INTERVAL_MS = 60_000;
@@ -376,6 +381,88 @@ export async function checkRoastRequestNetworkRateLimit(ip: string): Promise<Rat
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
+}
+
+/** Project analysis starts a long-running Cattle Agent, so it uses a separate,
+ * tighter budget than account scans. Turso still deduplicates identical active
+ * analyses; this protects against many distinct repository submissions. */
+export async function checkProjectAnalysisRateLimit(ip: string): Promise<RateLimitResult> {
+  const r = getRedis();
+  if (!r) return localProjectAnalysisRateLimit(ip);
+  if (!projectAnalysisLimiter) {
+    projectAnalysisLimiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(PROJECT_ANALYSIS_LIMIT, "60 m"),
+      prefix: "rl:project-analysis",
+      analytics: false,
+    });
+  }
+  try {
+    const { success, limit, remaining, reset } = await projectAnalysisLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch {
+    return localProjectAnalysisRateLimit(ip);
+  }
+}
+
+const projectAnalysisResultKey = (fingerprint: string) =>
+  `project-analysis:completed:v1:${fingerprint}`;
+
+export async function getCachedProjectAnalysisId(
+  fingerprint: string,
+): Promise<string | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    const value = await r.get<string>(projectAnalysisResultKey(fingerprint));
+    return typeof value === "string" && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedProjectAnalysisId(
+  fingerprint: string,
+  analysisId: string,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(projectAnalysisResultKey(fingerprint), analysisId, {
+      ex: PROJECT_ANALYSIS_RESULT_TTL_SECONDS,
+    });
+  } catch {
+    // Best-effort index only. Durable project analysis remains the source of truth.
+  }
+}
+
+export async function clearCachedProjectAnalysisId(
+  fingerprint: string,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(projectAnalysisResultKey(fingerprint)).catch(() => {});
+}
+
+function localProjectAnalysisRateLimit(ip: string): RateLimitResult {
+  const now = Date.now();
+  if (localProjectAnalysisWindows.size > 10_000) {
+    for (const [key, value] of localProjectAnalysisWindows) {
+      if (value.reset <= now) localProjectAnalysisWindows.delete(key);
+    }
+  }
+  const current = localProjectAnalysisWindows.get(ip);
+  const window = !current || current.reset <= now
+    ? { count: 0, reset: now + PROJECT_ANALYSIS_WINDOW_MS }
+    : current;
+  window.count += 1;
+  localProjectAnalysisWindows.set(ip, window);
+  return {
+    success: window.count <= PROJECT_ANALYSIS_LIMIT,
+    limit: PROJECT_ANALYSIS_LIMIT,
+    remaining: Math.max(0, PROJECT_ANALYSIS_LIMIT - window.count),
+    reset: window.reset,
+  };
 }
 
 /**

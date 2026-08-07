@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
-import { getAccountDetail, getMatchup } from "@/lib/db";
-import { SUBSCORE_MAX } from "@/lib/score";
+import { SUBSCORE_MAX } from "@/lib/score-presentation";
 import { DIMENSIONS, barColor } from "@/lib/dimensions";
 import { TIER_KEY } from "@/lib/tier";
 import { verdict } from "@/lib/verdict";
@@ -12,6 +11,7 @@ import { normalizeUsername } from "@/lib/username";
 import { localeAlternates, localePath, VS_MIN_SCORE } from "@/lib/site";
 import { normLang } from "@/lib/lang";
 import type { RoastLine } from "@/lib/types";
+import { getGoVsPresentation } from "@/lib/go-profile.server";
 import { VsPlayerCard } from "@/components/VsPlayerCard";
 import { VsSummonButton } from "@/components/VsSummonButton";
 import { VsVerdictLive } from "@/components/VsVerdictLive";
@@ -19,9 +19,8 @@ import { VsShare } from "@/components/VsShare";
 
 export const dynamic = "force-dynamic";
 
-// Dedupe the DB reads between generateMetadata() and the page render.
-const getDetail = cache((username: string) => getAccountDetail(username));
-const getM = cache((a: string, b: string) => getMatchup(a, b));
+// Dedupe the Go presentation read between metadata and page rendering.
+const getVs = cache((a: string, b: string) => getGoVsPresentation(a, b));
 
 /** Pick the content-language side of a bilingual line, falling back to the other. */
 function localeSide(line: RoastLine | null | undefined, locale: string): string {
@@ -56,7 +55,7 @@ export async function generateMetadata({
       : `/api/card/vs/${pair.a}/${pair.b}?lang=zh`;
   // Index only a matchup that earned an LLM verdict AND clears the floor on both
   // sides — keeps N² UGC pairs out of the index but lets real, judged duels rank.
-  const matchup = await getM(pair.a, pair.b);
+  const matchup = (await getVs(pair.a, pair.b))?.matchup;
   const indexable =
     !!matchup?.verdict &&
     matchup.scoreA >= VS_MIN_SCORE &&
@@ -97,11 +96,10 @@ export default async function VsPage({
   const tDim = await getTranslations("dimensions");
   const tTier = await getTranslations("tiers");
 
-  const [da, db, matchup] = await Promise.all([
-    getDetail(pair.a),
-    getDetail(pair.b),
-    getM(pair.a, pair.b),
-  ]);
+  const presentation = await getVs(pair.a, pair.b);
+  const da = presentation?.a ?? null;
+  const db = presentation?.b ?? null;
+  const matchup = presentation?.matchup ?? null;
   const v = verdict(da, db);
 
   const tierName = (d: typeof da) => (d ? tTier(`${TIER_KEY[d.tier]}.name`) : null);

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { authConfigured } from "@/lib/auth";
+import { oauthConfigured } from "@/lib/oauth-config";
 import { NAV_ITEMS } from "@/config/nav";
 import { NavLinks } from "./NavLinks";
 import { NavAuth } from "./NavAuth";
@@ -16,7 +16,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 export async function Navbar() {
   const tNav = await getTranslations("nav");
   const tRepo = await getTranslations("repoLink");
-  const oauthConfigured = authConfigured();
+  const oauthEnabled = oauthConfigured();
   const repoHref = "https://github.com/hikariming/ghfind";
 
   return (
@@ -47,7 +47,7 @@ export async function Navbar() {
               <LanguageSwitcher />
             </div>
             <NavAuth
-              configured={oauthConfigured}
+              configured={oauthEnabled}
               repoHref={repoHref}
               repoLabel={tRepo("label")}
               repoTitle={tRepo("title")}
@@ -63,7 +63,7 @@ export async function Navbar() {
           </div>
 
           <div className="md:hidden">
-            <MobileMenu configured={oauthConfigured} repoHref={repoHref} />
+            <MobileMenu configured={oauthEnabled} repoHref={repoHref} />
           </div>
         </div>
       </div>

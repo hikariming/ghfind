@@ -1,0 +1,99 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+    "en": "LobeHub: From Open-Source Chat Tool to Chief Agent Operator"
+  },
+  "intro": {
+    "zh": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台。本报告系统梳理其完整发展脉络、技术架构演进、商业模式探索与生态系统建设。",
+    "en": "LobeHub began in 2023 as the open-source chat tool LobeChat, went through three major architectural overhauls and two repositionings, and became a multi-agent collaboration platform built around the \"Chief Agent Operator\" (CAO). This report traces its full trajectory: architecture, business model, and ecosystem."
+  },
+  "publishedAt": "2026-08-07",
+  "tags": ["ai-agent", "open-source", "self-hosted"],
+  "subject": {
+    "kind": "repo",
+    "id": "lobehub/lobehub",
+    "name": "LobeHub",
+    "headline": {
+      "zh": "8.12 万 star · 1.58 万 fork · TypeScript · 2023 年 5 月建仓",
+      "en": "81.2k stars · 15.8k forks · TypeScript · started May 2023"
+    }
+  },
+  "items": [
+    {
+      "kind": "developer",
+      "id": "arvinxx",
+      "blurb": {
+        "zh": "创始人徐文彬，Ant Design 核心成员出身。仓库里 43% 的人类提交出自他手，过去 30 天抽样的 400 个已合并 PR 里有 117 个是他提的——这既是项目的引擎，也是它最大的单点风险。",
+        "en": "Founder Arvin Xu, formerly a core member of Ant Design. He wrote 43% of the repo's human commits and authored 117 of the 400 recently merged PRs we sampled — the project's engine, and its single biggest point of failure."
+      },
+      "stats": {
+        "name": "Arvin Xu",
+        "tier": "夯",
+        "score": 100,
+        "followers": 2190,
+        "totalStars": 85373
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "nekomeowww",
+      "blurb": {
+        "zh": "11 年账号、1,755 个已合并 PR、名下项目累计 13 万 star。他在 LobeHub 只提交了 224 次，但这类「在别处已经证明过自己」的人愿意来，本身就是项目成色的一个信号。",
+        "en": "An 11-year-old account with 1,755 merged PRs and 130k stars across their projects. Only 224 commits here — but people who have already proven themselves elsewhere choosing to show up is itself a signal about a project."
+      },
+      "stats": {
+        "name": "Neko",
+        "tier": "夯",
+        "score": 99.7,
+        "followers": 1629,
+        "totalStars": 130430
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "Innei",
+      "blurb": {
+        "zh": "715 次提交，仓库人类提交量第三。个人简介里写着 mx-space、Afilmory 等自有项目，1,315 个已合并 PR——典型的「自己有作品，还愿意给别人的项目写代码」那一类开发者。",
+        "en": "715 commits, third among humans in this repo. Runs their own projects (mx-space, Afilmory) with 1,315 merged PRs on top — the kind of developer who ships their own work and still writes code for someone else's."
+      },
+      "stats": {
+        "name": "Innei",
+        "tier": "夯",
+        "score": 99.6,
+        "followers": 3384,
+        "totalStars": 6390
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "tjx666",
+      "blurb": {
+        "zh": "810 次提交，人类里排第二，近 30 天抽样中提交了 74 个已合并 PR。600 个已合并 PR、8 年账号，是这个仓库日常吞吐量的另一根柱子。",
+        "en": "810 commits — second among humans — and 74 merged PRs in our 30-day sample. 600 merged PRs on an eight-year-old account: the other pillar holding up this repo's daily throughput."
+      },
+      "stats": {
+        "name": "YuTengjing",
+        "tier": "夯",
+        "score": 94.3,
+        "followers": 631,
+        "totalStars": 1422
+      }
+    },
+    {
+      "kind": "developer",
+      "id": "MapleEve",
+      "blurb": {
+        "zh": "32 个关注者、名下仓库总共 58 个 star，引擎给了 90.7 分——因为 14 年账号龄和 391 个已合并 PR 骗不了人。这类人正是 star 榜看不见、引擎能看见的样本。",
+        "en": "32 followers, 58 stars across their repos — and an engine score of 90.7, because a 14-year-old account with 391 merged PRs cannot be faked. Exactly the kind of contributor a star ranking misses and an engine does not."
+      },
+      "stats": {
+        "name": "Maple Gao",
+        "tier": "夯",
+        "score": 90.7,
+        "followers": 32,
+        "totalStars": 58
+      }
+    }
+  ]
+}

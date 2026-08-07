@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -25,6 +26,8 @@ DEFAULT_HOST = "https://ghfind.com"
 _GITHUB_API = "https://api.github.com"
 _ROAST_META_HEADER = "x-roast-meta"
 _FRAME = "\x1f"
+_SCAN_JOB_TIMEOUT_SECONDS = 75.0
+_SCAN_JOB_POLL_SECONDS = 1.0
 
 # transport(method, url, headers, body) -> (status, text, response_headers)
 Transport = Callable[[str, str, Dict[str, str], Optional[bytes]], Tuple[int, str, Dict[str, str]]]
@@ -117,6 +120,29 @@ class GhFind:
             self._raise(status, text)
         return json.loads(text)
 
+    def _absolute_url(self, location: str) -> str:
+        return urllib.parse.urljoin(self.host + "/", location)
+
+    def _poll_scan_job(self, location: str) -> ScanResult:
+        deadline = time.monotonic() + _SCAN_JOB_TIMEOUT_SECONDS
+        last: object = None
+        while True:
+            status, text, _ = self._transport("GET", self._absolute_url(location), {}, None)
+            if not 200 <= status < 300:
+                self._raise(status, text)
+            payload = json.loads(text) if text else {}
+            last = payload
+            if isinstance(payload, dict) and payload.get("result"):
+                return payload["result"]  # type: ignore[return-value]
+            job = payload.get("status") if isinstance(payload, dict) else None
+            if isinstance(job, dict) and job.get("state") == "failed":
+                raise GhFindError("Scan job failed", status=status,
+                                  code=job.get("error") or "scan_failed", body=payload)
+            if time.monotonic() >= deadline:
+                raise GhFindError("Scan job timed out", status=202,
+                                  code="scan_timeout", body=last)
+            time.sleep(_SCAN_JOB_POLL_SECONDS)
+
     # ---- GitHub existence check (client-side; does NOT touch ghfind) ----------
 
     def get_github_user(self, username: str, *, token: Optional[str] = None) -> Optional[dict]:
@@ -169,7 +195,16 @@ class GhFind:
         body: dict = {"username": username}
         if self._turnstile_token:
             body["turnstileToken"] = self._turnstile_token
-        return self._post_json("/api/scan", body)  # type: ignore[return-value]
+        status, text, headers = self._post("/api/scan", body)
+        if not 200 <= status < 300:
+            self._raise(status, text)
+        if status == 202:
+            location = headers.get("location") or headers.get("Location")
+            if not location:
+                raise GhFindError("Scan job accepted without a status Location",
+                                  status=202, code="scan_status_missing")
+            return self._poll_scan_job(location)
+        return json.loads(text)  # type: ignore[return-value]
 
     def score(self, username: str, *, verify_exists: bool = False,
               github_token: Optional[str] = None) -> Scoring:
@@ -182,14 +217,15 @@ class GhFind:
         """Deterministic score via ``GET /api/score/{username}`` (no LLM).
 
         Indexed accounts return the stored payload (``source == "indexed"``, with
-        tags/roast_line); unseen accounts are scored live on demand
-        (``source == "live"``, includes red_flags). Raises ``GhFindError`` with
-        status 404 only when the GitHub login does not exist. Cheapest way to get
-        a score.
+        tags/roast_line); unseen accounts are admitted to the Go quick-scan
+        worker path (``source == "quick"``, includes red_flags). A compatible old
+        stored score may return ``source == "legacy_v5_v5_v3"`` with
+        ``stale == True``. Raises ``GhFindError`` with status 404 only when the
+        GitHub login does not exist. Cheapest way to get a score.
 
         Pass ``verify_exists=True`` to confirm the account is real (client-side
         GitHub check) before calling ghfind — avoids triggering a live
-        server-side crawl for a handle that doesn't exist.
+        worker work for a handle that doesn't exist.
         """
         if verify_exists:
             self._ensure_exists(username, github_token)

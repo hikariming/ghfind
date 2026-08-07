@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import type { LeaderboardWindow } from "@/lib/db";
-import { getLeaderboardCached } from "@/lib/leaderboard";
+import type { LeaderboardWindow } from "@/lib/leaderboardWindow";
+import { getGoLeaderboard } from "@/lib/go-leaderboard.server";
 import {
   LeaderboardClient,
   type LeaderboardLabels,
@@ -38,7 +38,7 @@ export async function Leaderboard({
   // uses (shared key per view+window), so the expensive 500-row triple JOIN runs
   // at most once per TTL instead of on every leaderboard page visit. Only the
   // initialView is fetched; the client lazily loads the other views on demand.
-  const { entries } = await getLeaderboardCached(initialView, timeWindow);
+  const entries = await getGoLeaderboard(initialView, timeWindow);
   const trendingEntries = initialView === "trending" ? entries : [];
   const scoreEntries = initialView === "score" ? entries : [];
   const heatEntries = initialView === "heat" ? entries : [];

@@ -1,9 +1,10 @@
-import type { ProjectListItem, RelatedProject } from "@/lib/db";
+import type { CommonProfileProject } from "@/lib/profile-presentation";
+import type { GoRelatedProject } from "@/lib/go-projects.server";
 
 const href = (key: string) =>
   `/developers/repo/${key.split("/").map(encodeURIComponent).join("/")}`;
 
-export function relatedProjectRows(projects: RelatedProject[]) {
+export function relatedProjectRows(projects: GoRelatedProject[]) {
   return projects.map(({ project, sharedContributorCount }) => ({
     key: project.repo.repo_key,
     title: project.repo.name_with_owner,
@@ -16,7 +17,7 @@ export function relatedProjectRows(projects: RelatedProject[]) {
   }));
 }
 
-export function commonProjectRows(projects: ProjectListItem[]) {
+export function commonProjectRows(projects: CommonProfileProject[]) {
   return projects.map((project) => ({
     key: project.repo.repo_key,
     title: project.repo.name_with_owner,
@@ -28,7 +29,7 @@ export function commonProjectRows(projects: ProjectListItem[]) {
 
 export function discoveryNextStepCards() {
   return [
-    { kind: "projects" as const, href: "/projects" },
+    { kind: "projects" as const, href: "/projects/discovery" },
     { kind: "organizations" as const, href: "/developers#organizations" },
   ];
 }

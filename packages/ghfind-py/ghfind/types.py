@@ -82,8 +82,10 @@ class RoastLine(TypedDict):
 
 
 class ScorePayload(TypedDict, total=False):
-    source: str  # "indexed" (stored) or "live" (just crawled + scored, no LLM)
-    cached: bool  # live path only
+    source: str  # "indexed", "quick", or "legacy_v5_v5_v3"
+    coverage: str  # "quick" for current Go collection, "legacy" for fallback
+    stale: bool  # true only for compatible legacy fallback scores
+    cached: bool  # quick path only
     username: str
     display_name: Optional[str]
     avatar_url: Optional[str]
@@ -92,11 +94,11 @@ class ScorePayload(TypedDict, total=False):
     tier: str
     tier_key: str
     sub_scores: SubScores
-    red_flags: List[RedFlag]  # live path only
-    base_score: float  # live path only
-    total_penalty: float  # live path only
-    tags: Optional[Tags]  # null on the live path
-    roast_line: Optional[RoastLine]  # null on the live path
+    red_flags: List[RedFlag]  # quick path only
+    base_score: float  # quick path only
+    total_penalty: float  # quick path only
+    tags: Optional[Tags]  # null on the quick path
+    roast_line: Optional[RoastLine]  # null on the quick path
     percentile: Optional[Percentile]
     scanned_at: int  # indexed path only
     profile: str

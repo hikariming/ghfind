@@ -17,10 +17,10 @@ export function GET() {
     openapi: "3.1.0",
     info: {
       title: "ghfind API",
-      version: "1.2.0",
+      version: "1.3.0",
       description:
         "Score any GitHub account 0-100 for value and trustworthiness with a deterministic engine, " +
-        "plus roasts, head-to-head battles, leaderboards, and developer discovery. " +
+        "plus open-source project evaluations, roasts, head-to-head battles, leaderboards, and developer discovery. " +
         "Official SDKs: `@hikariming/ghfind` on npm and `ghfind` on PyPI.\n\n" +
         "## Errors\n" +
         "All errors return `application/json` shaped as `{ error, message, hint }` — `error` is a " +
@@ -45,6 +45,7 @@ export function GET() {
       { name: "roast", description: "LLM-written roast report (bring-your-own key supported)" },
       { name: "battle", description: "Head-to-head PK; deterministic winner, optional LLM commentary" },
       { name: "discovery", description: "Leaderboards, developer directory, search, stats" },
+      { name: "projects", description: "Asynchronous Mosoo Cattle Agent evaluation of open-source projects" },
       { name: "images", description: "SVG badge and OG card images" },
     ],
     paths: {
@@ -56,9 +57,11 @@ export function GET() {
           description:
             "Read-only, no auth, cacheable, never calls an LLM. Returns the deterministic score, " +
             "tier, sub-scores, and percentile. If the account is already indexed you get the stored " +
-            "payload (with tags/roast_line); otherwise it is scored live on demand by crawling GitHub " +
-            "and running the pure scoring engine (`source: \"live\"`, includes red_flags, no LLM copy). " +
-            "The only 404 is a GitHub login that does not exist. Rate limited per IP.",
+            "payload (`source: \"indexed\"`, with tags/roast_line). Otherwise the Go API admits a " +
+            "durable quick-scan job and waits for the independently restartable worker to persist the " +
+            "result (`source: \"quick\"`, `coverage: \"quick\"`, includes red_flags, no LLM copy). " +
+            "When only an old compatible stored score exists, the response may be `source: \"legacy_v5_v5_v3\"`, " +
+            "`coverage: \"legacy\"`, `stale: true`. The only 404 is a GitHub login that does not exist. Rate limited per IP.",
           parameters: [
             {
               name: "username",
@@ -70,7 +73,7 @@ export function GET() {
           ],
           responses: {
             "200": {
-              description: "Score payload (indexed or live-scored)",
+              description: "Score payload (indexed, quick-worker scored, or legacy fallback)",
               headers: {
                 "RateLimit-Limit": { $ref: "#/components/headers/RateLimit-Limit" },
                 "RateLimit-Remaining": { $ref: "#/components/headers/RateLimit-Remaining" },
@@ -81,7 +84,7 @@ export function GET() {
             "400": { description: "Invalid username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "404": { description: "GitHub account does not exist", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "429": {
-              description: "Rate limited (live scoring path)",
+              description: "Rate limited (quick scoring path)",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
@@ -96,7 +99,8 @@ export function GET() {
           summary: "Run a bounded GitHub scan and compute the deterministic score",
           description:
             "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
-            "final_score. Deterministic — no LLM and no background scan queue. In production, machine callers send " +
+            "final_score. Deterministic — no LLM. Work is admitted to the durable Go worker path; most calls " +
+            "return the persisted result inline, while long-running jobs return 202 and a public status Location. In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
           parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -125,6 +129,13 @@ export function GET() {
               },
               content: { "application/json": { schema: { $ref: "#/components/schemas/ScanResult" } } },
             },
+            "202": {
+              description: "Scan accepted and still running; poll the Location URL until `result` is present.",
+              headers: {
+                Location: { description: "Public scan job status URL", schema: { type: "string", example: "/api/scan/jobs/job_aaaaaaaaaaaaaaaa" } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/JobStatus" } } },
+            },
             "400": { description: "Invalid body or username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "401": {
               description: "Invalid API key",
@@ -139,6 +150,91 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/scan/jobs/{id}": {
+        get: {
+          tags: ["scoring"],
+          operationId: "scanJobStatus",
+          summary: "Query a public scan job admitted by POST /api/scan",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", example: "job_aaaaaaaaaaaaaaaa" } },
+          ],
+          responses: {
+            "200": {
+              description: "Current scan job state. Completed jobs include the persisted scan result.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ScanJobStatusResponse" } } },
+            },
+            "400": { description: "Invalid job id", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "404": { description: "Scan job not found or not a public scan job", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Status or result temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/project-analyses": {
+        post: {
+          tags: ["projects"],
+          operationId: "createProjectAnalysis",
+          summary: "Reuse or start an evidence-backed open-source project evaluation",
+          description:
+            "Returns a matching persisted result before creating an asynchronous Mosoo Cattle Agent task. " +
+            "Product value is scored independently " +
+            "from Stars, company backing, code volume, and contributor count. Unknown public repositories " +
+            "receive source inspection only; code execution is restricted to a server allowlist.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["repositoryUrl"],
+                  properties: {
+                    repositoryUrl: { type: "string", description: "Public GitHub URL or owner/repository" },
+                    ref: { type: ["string", "null"], description: "Optional branch, tag, or commit" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Matching completed result loaded from durable persistence",
+              headers: {
+                Location: { description: "Endpoint for the persisted analysis", schema: { type: "string" } },
+                "Idempotency-Key": { description: "Stable analysis task key", schema: { type: "string" } },
+                "X-Project-Analysis-Reused": { description: "Always true for a persisted replay", schema: { type: "string", enum: ["true"] } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisAccepted" } } },
+            },
+            "202": {
+              description: "Task created or deduplicated against an active task",
+              headers: {
+                Location: { description: "Polling endpoint for this analysis", schema: { type: "string" } },
+                "Idempotency-Key": { description: "Stable Mosoo task key", schema: { type: "string" } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisAccepted" } } },
+            },
+            "400": { description: "Invalid repository, ref, or request body", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "429": { description: "Per-IP project-analysis quota exceeded", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Persistence or Mosoo execution layer unavailable", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/project-analyses/{analysisId}": {
+        get: {
+          tags: ["projects"],
+          operationId: "getProjectAnalysis",
+          summary: "Read project-evaluation progress or the persisted result",
+          parameters: [
+            { name: "analysisId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            "200": {
+              description: "Curated status; completed tasks include the current assessment and treasure history",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectAnalysisView" } } },
+            },
+            "404": { description: "Analysis not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -428,6 +524,17 @@ export function GET() {
                 "not_scored",
                 "unauthorized",
                 "invalid_type",
+                "invalid_job_id",
+                "not_found",
+                "scan_result_unavailable",
+                "invalid_repository",
+                "invalid_ref",
+                "analysis_not_found",
+                "analysis_timeout",
+                "artifact_missing",
+                "artifact_invalid",
+                "unexpected_input_request",
+                "mosoo_unavailable",
               ],
             },
             message: { type: "string" },
@@ -499,6 +606,70 @@ export function GET() {
             cached: { type: "boolean" },
           },
         },
+        ProjectAnalysisAccepted: {
+          type: "object",
+          required: ["analysisId", "repoKey", "status", "phase", "progress", "retry", "statusUrl"],
+          properties: {
+            analysisId: { type: "string", format: "uuid" },
+            repoKey: { type: "string", example: "owner/repository" },
+            status: { $ref: "#/components/schemas/ProjectAnalysisStatus" },
+            phase: { type: "string" },
+            progress: { type: "integer", minimum: 0, maximum: 100 },
+            retry: { $ref: "#/components/schemas/ProjectAnalysisRetry" },
+            statusUrl: { type: "string" },
+            reused: { type: "boolean", description: "True when an existing completed result was replayed" },
+          },
+        },
+        ProjectAnalysisStatus: {
+          type: "string",
+          enum: ["queued", "creating_thread", "running", "finalizing", "completed", "failed", "cancelled", "expired"],
+        },
+        ProjectAnalysisRetry: {
+          anyOf: [
+            {
+              type: "object",
+              required: ["attempt", "maxAttempts", "nextAttemptAt"],
+              properties: {
+                attempt: { type: "integer", minimum: 1 },
+                maxAttempts: { type: "integer", minimum: 1 },
+                nextAttemptAt: { type: "integer", description: "Epoch milliseconds" },
+              },
+            },
+            { type: "null" },
+          ],
+        },
+        ProjectAnalysisView: {
+          type: "object",
+          required: ["analysisId", "repoKey", "canonicalUrl", "status", "phase", "progress", "retry", "createdAt", "updatedAt"],
+          properties: {
+            analysisId: { type: "string", format: "uuid" },
+            repoKey: { type: "string" },
+            canonicalUrl: { type: "string", format: "uri" },
+            requestedRef: { type: ["string", "null"] },
+            status: { $ref: "#/components/schemas/ProjectAnalysisStatus" },
+            phase: { type: "string" },
+            progress: { type: "integer", minimum: 0, maximum: 100 },
+            retry: { $ref: "#/components/schemas/ProjectAnalysisRetry" },
+            error: {
+              anyOf: [
+                {
+                  type: "object",
+                  required: ["code", "message"],
+                  properties: { code: { type: "string" }, message: { type: "string" } },
+                },
+                { type: "null" },
+              ],
+            },
+            createdAt: { type: "integer", description: "Epoch milliseconds" },
+            updatedAt: { type: "integer", description: "Epoch milliseconds" },
+            completedAt: { type: ["integer", "null"] },
+            assessment: {
+              type: ["object", "null"],
+              description: "Validated product score, four dimensions, confidence, verification, community strength, exposure, risks, report, and exact commit identity.",
+            },
+            treasureHistory: { type: "array", items: { type: "object" } },
+          },
+        },
         VsVerdictResponse: {
           type: "object",
           properties: {
@@ -516,11 +687,17 @@ export function GET() {
         ScorePayload: {
           type: "object",
           properties: {
-            source: { type: "string", enum: ["indexed", "live"], description: "indexed = stored; live = just crawled + scored deterministically" },
-            cached: { type: "boolean", description: "live path only: served from the scan cache" },
+            source: {
+              type: "string",
+              enum: ["indexed", "quick", "legacy_v5_v5_v3"],
+              description: "indexed = current stored score; quick = current deterministic worker scan; legacy_v5_v5_v3 = compatible stale fallback",
+            },
+            coverage: { type: "string", enum: ["quick", "legacy"], description: "quick for current Go collection; legacy for accepted old stored scores" },
+            stale: { type: "boolean", description: "true only for compatible legacy fallback scores" },
+            cached: { type: "boolean", description: "quick path only: served from the scan cache" },
             red_flags: {
               type: "array",
-              description: "live path only: deterministic penalties",
+              description: "quick path only: deterministic penalties",
               items: {
                 type: "object",
                 properties: { flag: { type: "string" }, penalty: { type: "number" }, detail: { type: "string" } },
@@ -534,8 +711,8 @@ export function GET() {
             tier: { type: "string", enum: ["夯", "顶级", "人上人", "NPC", "拉完了"] },
             tier_key: { type: "string", enum: ["god", "elite", "solid", "npc", "trash"] },
             sub_scores: { $ref: "#/components/schemas/SubScores" },
-            tags: { type: "object", properties: { zh: { type: "array", items: { type: "string" } }, en: { type: "array", items: { type: "string" } } } },
-            roast_line: { type: "object", properties: { zh: { type: "string" }, en: { type: "string" } } },
+            tags: { type: "object", nullable: true, properties: { zh: { type: "array", items: { type: "string" } }, en: { type: "array", items: { type: "string" } } } },
+            roast_line: { type: "object", nullable: true, properties: { zh: { type: "string" }, en: { type: "string" } } },
             percentile: {
               type: "object",
               nullable: true,
@@ -588,6 +765,26 @@ export function GET() {
             flood_pr_titles: { type: "array", items: { type: "string" } },
             impact_repos: { type: "array", items: { type: "object" } },
             scoring: { $ref: "#/components/schemas/Scoring" },
+          },
+        },
+        JobStatus: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            kind: { type: "string", enum: ["scan.quick.v1", "score_snapshot.v1"] },
+            username: { type: "string" },
+            state: { type: "string", enum: ["queued", "running", "retrying", "completed", "failed"] },
+            attempt: { type: "integer" },
+            created_at: { type: "string", format: "date-time" },
+            updated_at: { type: "string", format: "date-time" },
+            error: { type: "string" },
+          },
+        },
+        ScanJobStatusResponse: {
+          type: "object",
+          properties: {
+            status: { $ref: "#/components/schemas/JobStatus" },
+            result: { $ref: "#/components/schemas/ScanResult" },
           },
         },
       },

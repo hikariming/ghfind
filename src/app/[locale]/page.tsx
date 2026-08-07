@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeCollections } from "@/components/HomeCollections";
+import { HomeProjectBoards } from "@/components/HomeProjectBoards";
 import { HomeProjectsPreview } from "@/components/HomeProjectsPreview";
 import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
@@ -13,9 +14,9 @@ import type { TierKey } from "@/lib/tier";
 
 // ISR: the homepage shell is fully static (the scan form, tier pills and copy are
 // locale-only; DeveloperCount fetches client-side; the leaderboard rail and
-// projects preview read Redis-cached boards). Serving it from the CDN instead of
-// rendering a function on every visit is what frees the serverless pool for the
-// LLM scan/roast traffic.
+// projects preview read the Go API through ISR-cached fetches). Serving it
+// from the CDN instead of rendering a function on every visit is what frees
+// the serverless pool for the LLM scan/roast traffic.
 // Keep the durable snapshot for an hour: minute-level regeneration only creates
 // repeated ISR writes.
 // Pin the homepage to static + ISR. Next 16's "auto" heuristic otherwise renders
@@ -99,7 +100,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             <div className="mt-3 grid grid-cols-2 gap-2">
               {[
                 { href: "/developers", label: tNav("developers"), emoji: "🧑‍💻" },
-                { href: "/projects", label: tNav("projects"), emoji: "📦" },
+                { href: "/projects/discovery", label: tNav("projects"), emoji: "📦" },
                 { href: "/collections", label: tNav("collections"), emoji: "⭐" },
                 { href: "/vs", label: tNav("versus"), emoji: "⚔️" },
               ].map((item) => (
@@ -116,6 +117,12 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             </div>
           </nav>
         </aside>
+      </div>
+
+      {/* Project assessment band: full-width strip between the directory
+          columns and the intro, previewing the treasure board top. */}
+      <div className="mt-16 w-full max-w-6xl">
+        <HomeProjectBoards locale={locale} />
       </div>
 
       <HomeIntro />

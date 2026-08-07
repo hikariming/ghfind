@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import type { CampaignSlug } from "@/lib/campaigns";
-import type { LeaderboardEntry } from "@/lib/db";
+import type { PresentationLeaderboardEntry } from "@/lib/profile-presentation";
 import { normLang } from "@/lib/lang";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { useMountEffect } from "@/lib/use-mount-effect";
@@ -18,7 +18,7 @@ export function CampaignLeaderboardClient({
   emptyLabel,
 }: {
   campaign: CampaignSlug;
-  initialEntries: LeaderboardEntry[];
+  initialEntries: PresentationLeaderboardEntry[];
   emptyLabel: string;
 }) {
   const locale = useLocale();
@@ -41,7 +41,7 @@ export function CampaignLeaderboardClient({
           { cache: "no-store" },
         );
         if (!response.ok) return;
-        const data = (await response.json()) as { entries?: LeaderboardEntry[] };
+        const data = (await response.json()) as { entries?: PresentationLeaderboardEntry[] };
         if (!disposed && Array.isArray(data.entries)) {
           setEntries(data.entries);
           dirty = false;

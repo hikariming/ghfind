@@ -2,18 +2,18 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import type { ProjectListItem } from "@/lib/db";
+import type { GoProjectListItem } from "@/lib/go-projects.server";
 import { projectCardViewModel } from "@/lib/project-card";
 import { tierStyle } from "@/lib/tier";
 import { trackEvent } from "@/lib/track";
 
 const number = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
-export function ProjectCard({ project, position }: { project: ProjectListItem; position: number }) {
+export function ProjectCard({ project, position }: { project: GoProjectListItem; position: number }) {
   const t = useTranslations("projects");
   const model = projectCardViewModel(project);
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
+    <article className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <Link
@@ -22,7 +22,7 @@ export function ProjectCard({ project, position }: { project: ProjectListItem; p
             onClick={() =>
               trackEvent("project_card_click", { repo: model.repoKey, position })
             }
-            className="break-all text-lg font-black text-zinc-100 underline-offset-4 hover:text-white hover:underline"
+            className="break-words text-lg font-black text-zinc-100 underline-offset-4 hover:text-white hover:underline"
           >
             {model.title}
           </Link>

@@ -13,6 +13,7 @@
     "leaderboard": "榜单",
     "discover": "发现",
     "developers": "开发者",
+    "projectBoards": "项目榜",
     "projects": "项目",
     "collections": "站长推荐",
     "languages": "语言",
@@ -167,7 +168,17 @@
     "page": "第 {page} 页",
     "listLabel": "项目结果",
     "emptyTitle": "这里还没有项目图谱",
-    "emptyBody": "请先在本地运行项目回填，或移除当前筛选条件。"
+    "emptyBody": "请先在本地运行项目回填，或移除当前筛选条件。",
+    "analysisForm": {
+      "repositoryLabel": "GitHub 仓库",
+      "repositoryPlaceholder": "组织/仓库",
+      "refLabel": "分支、Tag 或 Commit（可选）",
+      "refPlaceholder": "默认分支",
+      "submit": "开始评估",
+      "submitting": "正在创建任务…",
+      "safetyHint": "支持任意公开 GitHub 仓库；部分项目还会验证安装、构建和核心流程。",
+      "unknownError": "项目评估创建失败。"
+    }
   },
   "collections": {
     "metaTitle": "站长推荐：优质项目与开发者 · ghfind",
@@ -836,6 +847,131 @@
       "5": "@{winner} 微弱领先，但 @{loser} 完全不虚。",
       "6": "平分秋色，@{winner} 也就赢在运气好了 {gap} 分。",
       "7": "半斤八两，@{winner} 与 @{loser} 谁也没占到便宜。"
+    }
+  },
+  "projectAnalysis": {
+    "metaTitle": "项目评估进度 · ghfind",
+    "pollFailed": "状态刷新失败，将继续重试。",
+    "requestedRef": "指定版本",
+    "duration": "耗时",
+    "retry": "返回并重新提交",
+    "confidence": "置信度",
+    "verification": "验证等级",
+    "exposure": "曝光分层",
+    "communityStrength": "社区强度",
+    "activityTitle": "最近活动",
+    "activity": {
+      "started": "开始分析",
+      "inspecting_source": "检查源码与配置",
+      "inspecting_docs": "阅读项目文档",
+      "inspecting_history": "检查版本与提交历史",
+      "checking_community": "检查社区与发布情况",
+      "evaluating": "整理证据并评分",
+      "writing": "生成分析结果",
+      "validating": "校验结果",
+      "saving": "保存结果",
+      "completed": "分析完成",
+      "failed": "分析中止"
+    },
+    "errors": {
+      "invalidArtifact": "生成的评估结果格式不完整，请返回后重新提交。",
+      "generic": "本次项目评估未能完成，请稍后重试。"
+    },
+    "unknowns": "待核实",
+    "risks": "采用风险",
+    "none": "没有记录到。",
+    "viewProject": "查看项目主页",
+    "scores": {
+      "product": "产品价值",
+      "pain": "需求痛点",
+      "effectiveness": "解决效果",
+      "experience": "上手与核心体验",
+      "valueDensity": "范围与价值密度"
+    },
+    "status": {
+      "queued": "等待分析",
+      "creating_thread": "正在准备评估任务",
+      "running": "正在分析项目",
+      "finalizing": "正在校验与保存结果",
+      "completed": "项目评估完成",
+      "failed": "项目评估失败",
+      "cancelled": "项目评估已取消",
+      "expired": "项目评估已过期"
+    },
+    "phase": {
+      "queued": "等待执行资源",
+      "creating_thread": "准备评估任务",
+      "classifying": "识别产品契约与项目类型",
+      "cloning": "获取指定仓库版本",
+      "inspecting": "检查源码、文档和配置",
+      "installing": "安装必要依赖",
+      "building": "构建项目",
+      "exercising": "执行代表性核心流程",
+      "evaluating": "整理证据并评分",
+      "writing_report": "生成结构化结果与报告",
+      "persisting": "校验并保存评估结果",
+      "completed": "评分、证据和报告已保存"
+    }
+  },
+  "projectBoards": {
+    "homeEyebrow": "项目评测",
+    "metaTitle": "宝藏开源项目 · ghfind",
+    "metaDescription": "发现真正解决问题、值得更多关注的开源项目。",
+    "eyebrow": "开源项目评估",
+    "heading": "发现值得被看到的项目",
+    "subtitle": "不只看 Star、公司背景或代码量，而是从实际需求、解决效果、上手体验和价值密度评估公开 GitHub 项目。",
+    "boardLabel": "项目榜单",
+    "boards": {
+      "treasure": "宝藏项目",
+      "classic": "经典项目",
+      "unranked": "暂未入榜",
+      "all": "全部分析"
+    },
+    "boardDescriptions": {
+      "treasure": "兼具产品价值、可信依据和较低曝光度。Star 仅用于衡量曝光度。",
+      "classic": "长期被采用、今天仍然实用的成熟项目。",
+      "all": "所有完成评测的项目，不论是否入榜。"
+    },
+    "databaseUnavailable": "项目数据暂时不可用，请稍后重试。",
+    "listLabel": "项目结果",
+    "emptyTitle": "榜单还没有项目",
+    "emptyBody": {
+      "treasure": "提交第一个公开仓库；符合榜单条件的项目会在评估完成后显示在这里。",
+      "classic": "完成评估且具备长期采用证据的成熟项目会进入经典榜。",
+      "all": "完成评估的项目都会显示在这里，不限榜单条件。"
+    },
+    "prev": "← 上一页",
+    "page": "第 {page} 页",
+    "next": "下一页 →",
+    "productScore": "产品价值",
+    "confidence": "置信度",
+    "communityStrength": "社区强度",
+    "viewReport": "查看完整评估",
+    "details": {
+      "pain": "需求痛点",
+      "effectiveness": "解决效果",
+      "experience": "上手与核心体验",
+      "valueDensity": "范围与价值密度",
+      "exposure": "曝光分层",
+      "stars": "Star",
+      "rubric": "评分规则",
+      "commit": "评估 Commit",
+      "analysisTime": "评估时间",
+      "productContract": "产品契约",
+      "targetUsers": "目标用户",
+      "painStatement": "核心痛点",
+      "dimensionEvidence": "四维评分依据",
+      "unknowns": "待核实",
+      "risks": "采用风险",
+      "none": "没有记录到。",
+      "treasureHistory": "宝藏发现历史",
+      "selectedAt": "入选于",
+      "report": "完整评估报告",
+      "historyStatus": {
+        "active": "当前宝藏项目",
+        "graduated": "已从宝藏阶段毕业",
+        "removed": "已移除"
+      }
     }
   }
 }

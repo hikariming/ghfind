@@ -3,7 +3,6 @@
 import { ArrowUpRight, LogOut, Menu, Palette, UserRound, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { signIn, signOut } from "next-auth/react";
 import { NAV_ITEMS } from "@/config/nav";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { NavLinks } from "./NavLinks";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearch } from "./GlobalSearch";
 import { fetchMe, type Me } from "@/lib/me-client";
+import { signInWithGitHub, signOutOfGitHub } from "@/lib/oauth-client";
 
 /**
  * Mobile hamburger + drawer (sm:hidden). Owns the open/close state.
@@ -85,7 +85,7 @@ export function MobileMenu({
           id="mobile-menu"
           side="top"
           overlayClassName="top-14"
-          className="top-14 rounded-b-lg border-b border-white/10 bg-popover/98 px-4 pb-5 pt-4 backdrop-blur-xl"
+          className="top-14 rounded-b-lg border-b border-white/10 bg-popover/98 px-4 pb-5 pt-4 backdrop-blur-xl overflow-y-auto max-h-[calc(100vh-55px)]"
         >
           <div className="space-y-4">
             <GlobalSearch mobile />
@@ -158,7 +158,7 @@ export function MobileMenu({
                     className="h-11 w-full justify-center border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.07] hover:text-white"
                     onClick={() => {
                       close();
-                      void signIn("github");
+                      signInWithGitHub();
                     }}
                   >
                     <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 fill-current">
@@ -207,7 +207,7 @@ export function MobileMenu({
                     type="button"
                     onClick={() => {
                       close();
-                      void signOut();
+                      void signOutOfGitHub();
                     }}
                     className="flex min-h-12 w-full items-center gap-3 px-4 py-3 text-start text-sm text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-zinc-100"
                   >

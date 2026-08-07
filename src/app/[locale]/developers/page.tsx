@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
-import type { FacetCategory } from "@/lib/db";
+import { getGoFacetCategories, type GoFacetCategory } from "@/lib/go-developers.server";
 import { localeAlternates } from "@/lib/site";
 
 // Everything the directory reads is served from Redis (cache-aside + in-process
@@ -33,7 +32,7 @@ function CategoryGrid({
   countLabel,
 }: {
   type: FacetType;
-  categories: FacetCategory[];
+  categories: GoFacetCategory[];
   countLabel: (count: number) => string;
 }) {
   return (
@@ -71,9 +70,9 @@ export default async function DevelopersPage({
   const t = await getTranslations("developers");
 
   const [languages, orgs, projectsAll] = await Promise.all([
-    getFacetCategoriesCached("language"),
-    getFacetCategoriesCached("org"),
-    getFacetCategoriesCached("repo"),
+    getGoFacetCategories("language"),
+    getGoFacetCategories("org"),
+    getGoFacetCategories("repo"),
   ]);
   // The repo axis has far more buckets (one per notable project) than languages
   // or orgs, and they're already ordered most-contributors-first — show only the

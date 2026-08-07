@@ -6,8 +6,8 @@ export const revalidate = 86400;
 
 /**
  * MCP server card (/.well-known/mcp/server-card.json) so agents can preview the
- * server before opening a transport. Mirrors the tools registered in
- * src/app/api/[transport]/route.ts.
+ * server before opening a transport. Mirrors the tools served by the Go MCP
+ * backend through the same-origin `/mcp` rewrite.
  */
 export function GET() {
   return Response.json(

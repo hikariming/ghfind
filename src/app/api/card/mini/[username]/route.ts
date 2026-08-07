@@ -15,7 +15,6 @@
 
 import { NextRequest } from "next/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
-import { getAccountDetail, getProfileSnapshot, getWeeklyBaselines, resolveWeeklyDelta } from "@/lib/db";
 import {
   parseMiniCardLang,
   parseMiniCardTheme,
@@ -25,8 +24,8 @@ import {
 } from "@/lib/mini-card";
 import { beatPercent } from "@/lib/percentile";
 import { aggregateLanguages } from "@/lib/profile-insights";
-import { getRankCached } from "@/lib/rank";
-import { tierFor } from "@/lib/score";
+import { getGoProfilePresentation } from "@/lib/go-profile.server";
+import { tierFor } from "@/lib/score-presentation";
 import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE } from "../../shared";
@@ -63,7 +62,8 @@ export async function GET(
   const lang = parseMiniCardLang(params.get("lang"));
 
   const name = decodeURIComponent(username ?? "").trim();
-  const detail = USERNAME_RE.test(name) ? await getAccountDetail(name) : null;
+  const presentation = USERNAME_RE.test(name) ? await getGoProfilePresentation(name) : null;
+  const detail = presentation?.detail ?? null;
   if (!detail) {
     // Never 404: an embedded card that fails renders as a broken image in
     // someone else's README.
@@ -76,21 +76,14 @@ export async function GET(
   // Rank and percentile both come off getRankCached so the two halves of the
   // meta line ("Top 0.8% · #128 / 21,384") share one denominator. getRank /
   // getPercentile in db.ts aggregate the whole table — never call those here.
-  const [rank, avatar, baselines, snap, sponsorLogo] = await Promise.all([
-    getRankCached(detail.final_score),
+  const [avatar, sponsorLogo] = await Promise.all([
     avatarDataUrl(detail.avatar_url, AVATAR_PX),
-    getWeeklyBaselines([detail.username]),
-    getProfileSnapshot(detail.username),
     // `small`: this is the other half of the payload budget the avatar spends.
     sponsorLogoDataUrl("small"),
   ]);
-
-  const delta = resolveWeeklyDelta({
-    currentScore: detail.final_score,
-    snapshotBaseline: baselines.get(detail.username) ?? null,
-    prevScore: detail.prev_score,
-    prevScannedAt: detail.prev_scanned_at,
-  });
+  const rank = presentation?.rank ?? null;
+  const delta = presentation?.delta ?? null;
+  const snap = presentation?.snapshot ?? null;
 
   // Snapshots are version-gated, so this is legitimately empty for older rows —
   // the footer slot then carries the brand line alone.

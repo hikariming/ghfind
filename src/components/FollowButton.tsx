@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { signInWithGitHub } from "@/lib/oauth-client";
 
 type FollowState = "loading" | "anon" | "following" | "not_following";
 
@@ -46,7 +46,7 @@ export function FollowButton({
     if (busy || state === "loading") return;
     setHint(null);
     if (state === "anon") {
-      signIn("github");
+      signInWithGitHub();
       return;
     }
     setBusy(true);
@@ -58,7 +58,7 @@ export function FollowButton({
       if (res.ok) {
         setState(wasFollowing ? "not_following" : "following");
       } else if (res.status === 401) {
-        signIn("github");
+        signInWithGitHub();
       } else if (res.status === 409) {
         setHint(t("limit"));
       }

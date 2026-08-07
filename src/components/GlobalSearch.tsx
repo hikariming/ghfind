@@ -83,7 +83,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
           <span className={mobile ? "" : "hidden lg:inline"}>{t("trigger")}</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="gap-3 border-white/10 bg-zinc-950/98 p-4 backdrop-blur-xl sm:max-w-xl">
+      <DialogContent className="gap-3 border-white/10 bg-popover/98 p-4 text-popover-foreground backdrop-blur-xl sm:max-w-xl">
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>{t("description")}</DialogDescription>
         <div className="relative">
@@ -112,7 +112,7 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
             aria-controls="global-search-results"
             aria-label={t("input")}
             placeholder={t("placeholder")}
-            className="h-11 border-white/10 bg-white/[0.04] ps-9"
+            className="h-11 border-white/10 bg-white/[0.03] ps-9"
           />
         </div>
         <div id="global-search-results" role="listbox" className="max-h-[55vh] overflow-y-auto">
@@ -134,15 +134,15 @@ export function GlobalSearch({ mobile = false }: { mobile?: boolean }) {
                   onClick={() => navigate(row.href)}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition-colors ${
                     activeIndex === index
-                      ? "bg-white/[0.08] text-zinc-100"
-                      : "text-zinc-300 hover:bg-white/[0.05]"
+                      ? "bg-white/10 text-zinc-100"
+                      : "text-zinc-300 hover:bg-white/5"
                   }`}
                 >
                   {row.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={row.avatarUrl} alt="" className="h-7 w-7 rounded-full" />
                   ) : (
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-xs text-zinc-500">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.03] text-xs text-zinc-500">
                       {row.group === "repos" ? "◫" : row.group === "facets" ? "#" : "@"}
                     </span>
                   )}

@@ -1,12 +1,12 @@
 import { getTranslations } from "next-intl/server";
-import { getAccountDetail, getMatchup } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
 import { normalizeUsername } from "@/lib/username";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { verdict } from "@/lib/verdict";
-import type { AccountDetail } from "@/lib/db";
+import type { AccountDetail } from "@/lib/profile-presentation";
+import { getGoVsPresentation } from "@/lib/go-profile.server";
 import { Brand, OgAvatarFrame, PALETTES, Shell, parseQr, parseTheme } from "../../../[username]/cards";
 import type { CardPalette } from "../../../[username]/cards";
 import { avatarDataUrl, fonts, png, qrDataUrl, qrModuleColor } from "../../../shared";
@@ -108,11 +108,10 @@ export async function GET(
   const a = (na ?? decodeURIComponent(rawA ?? "")).toLowerCase();
   const b = (nb ?? decodeURIComponent(rawB ?? "")).toLowerCase();
 
-  const [da, db, matchup] = await Promise.all([
-    na ? getAccountDetail(a) : Promise.resolve(null),
-    nb ? getAccountDetail(b) : Promise.resolve(null),
-    na && nb ? getMatchup(a, b) : Promise.resolve(null),
-  ]);
+  const presentation = na && nb ? await getGoVsPresentation(a, b) : null;
+  const da = presentation?.a ?? null;
+  const db = presentation?.b ?? null;
+  const matchup = presentation?.matchup ?? null;
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
 

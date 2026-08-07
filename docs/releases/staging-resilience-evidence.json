@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-08-04T11:30:40.720Z",
+  "origins": {
+    "sameOrigin": "https://ghfind-api-production.up.railway.app",
+    "backend": "https://ghfind-api-production.up.railway.app",
+    "workerMetrics": "https://ghfind-worker-production.up.railway.app",
+    "rabbitManagement": "https://ghfind-rabbitmq-production.up.railway.app"
+  },
+  "deploymentAnchors": null,
+  "rollback": null,
+  "restartJob": {
+    "id": "job_e3af6366622dc81e477db7b8a9b5307a",
+    "kind": "scan.quick.v1",
+    "state": "completed",
+    "attempt": 4,
+    "hasResult": true
+  },
+  "metrics": {
+    "backend": {
+      "ghfind_api_job_admissions_total": 4,
+      "ghfind_api_scan_waits_total": 4
+    },
+    "worker": {
+      "ghfind_worker_jobs_started_total": 8,
+      "ghfind_worker_jobs_completed_total": 5,
+      "ghfind_worker_jobs_retried_total": 3,
+      "ghfind_worker_jobs_failed_total": 0,
+      "ghfind_worker_jobs_dead_lettered_total": 0,
+      "ghfind_worker_job_duration_seconds_count": 8
+    }
+  },
+  "queues": [
+    {
+      "name": "ghfind.scan.quick.v1",
+      "kind": "scan.quick.v1",
+      "role": "primary",
+      "durable": true,
+      "messages": 0,
+      "messagesReady": 0,
+      "messagesUnacknowledged": 0,
+      "consumers": 1,
+      "state": "running"
+    },
+    {
+      "name": "ghfind.scan.quick.retry.v1",
+      "kind": "scan.quick.v1",
+      "role": "retry",
+      "durable": true,
+      "messages": 0,
+      "messagesReady": 0,
+      "messagesUnacknowledged": 0,
+      "consumers": 0,
+      "state": "running"
+    },
+    {
+      "name": "ghfind.scan.quick.dead.v1",
+      "kind": "scan.quick.v1",
+      "role": "dead",
+      "durable": true,
+      "messages": 20,
+      "messagesReady": 20,
+      "messagesUnacknowledged": 0,
+      "consumers": 0,
+      "state": "running"
+    },
+    {
+      "name": "ghfind.score-snapshot.v1",
+      "kind": "score_snapshot.v1",
+      "role": "primary",
+      "durable": true,
+      "messages": 0,
+      "messagesReady": 0,
+      "messagesUnacknowledged": 0,
+      "consumers": 1,
+      "state": "running"
+    },
+    {
+      "name": "ghfind.score-snapshot.retry.v1",
+      "kind": "score_snapshot.v1",
+      "role": "retry",
+      "durable": true,
+      "messages": 0,
+      "messagesReady": 0,
+      "messagesUnacknowledged": 0,
+      "consumers": 0,
+      "state": "running"
+    },
+    {
+      "name": "ghfind.score-snapshot.dead.v1",
+      "kind": "score_snapshot.v1",
+      "role": "dead",
+      "durable": true,
+      "messages": 0,
+      "messagesReady": 0,
+      "messagesUnacknowledged": 0,
+      "consumers": 0,
+      "state": "running"
+    }
+  ]
+}

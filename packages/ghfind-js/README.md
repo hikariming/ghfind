@@ -115,7 +115,7 @@ const gh = new GhFind(); // defaults to https://ghfind.com
 
 // Cheapest: deterministic score (no LLM), works for ANY account.
 const s = await gh.getScore("torvalds");
-console.log(s.final_score, s.tier, s.percentile, s.source); // "indexed" | "live"
+console.log(s.final_score, s.tier, s.percentile, s.source); // "indexed" | "quick" | "legacy_v5_v5_v3"
 
 // Full evidence payload:
 const scan = await gh.scan("torvalds");

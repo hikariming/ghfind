@@ -26,7 +26,7 @@ export const catalog: Capability[] = [
     summary: "Fetch the deterministic score for any GitHub account.",
     llm: false,
     response_semantics:
-      "Factual score payload: final_score, tier, sub_scores, percentile. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are scored live on demand (source: live, includes red_flags). 404 only if the GitHub login does not exist.",
+      "Factual score payload: final_score, tier, sub_scores, percentile. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are admitted to the Go quick-scan worker path (source: quick, coverage: quick, includes red_flags). Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
     agent_guidance:
       "Preferred first call: cheapest, cacheable way to get a score — works even for accounts never seen before. Use scan() only when you also need the full metrics/repo/PR payload.",
   },

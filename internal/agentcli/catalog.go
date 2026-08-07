@@ -41,7 +41,7 @@ var commandCatalog = []CommandInfo{
 		API:     []string{"GET /api/score/{username}"},
 		Output:  []string{"json", "pretty"},
 		ResponseSemantics: "GET /api/score returns a factual score payload: final_score, tier, tier_key, sub_scores, percentile. Never calls an LLM. " +
-			"Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are scored live on demand (source: live, includes red_flags). 404 only if the GitHub login does not exist.",
+			"Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are admitted to the Go quick-scan worker path (source: quick, coverage: quick, includes red_flags). Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
 		AgentGuidance: "Preferred first call: the cheapest, cacheable way to get a score — no auth, works even for never-seen accounts. Use scan when you also need the full metrics/repo/PR payload.",
 		Auth:          "None. GET /api/score is public, unauthenticated, edge-cached and rate-limited on the server. The heavy POST /api/scan is what needs --api-key/Turnstile in production.",
 		Args:          []Arg{{Name: "username", Required: true}},

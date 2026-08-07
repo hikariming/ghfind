@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { NavGuestMenu } from "@/components/NavGuestMenu";
 import { WorkspaceUserMenu } from "@/components/workspace/WorkspaceUserMenu";
 import { fetchMe, type Me } from "@/lib/me-client";
+import { signInWithGitHub } from "@/lib/oauth-client";
 
 /**
  * GitHub login control for the navbar. Client island: it probes `/api/me` for the
@@ -70,7 +70,7 @@ export function NavAuth({
     <>
       <button
         type="button"
-        onClick={() => signIn("github")}
+        onClick={() => signInWithGitHub()}
         className="navbar-action gap-2 px-4"
       >
         <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 fill-current">

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getLeaderboardCached } from "@/lib/leaderboard";
+import { getGoLeaderboard } from "@/lib/go-leaderboard.server";
 import { tierStyle } from "@/lib/tier";
 import type { LeaderboardClientEntry, LeaderboardView } from "./LeaderboardClient";
 import { LeaderboardRailTabs } from "./LeaderboardRailTabs";
@@ -78,17 +78,18 @@ function RailBoard({
 /**
  * Homepage right-rail leaderboard teaser with view tabs (trending/score/heat —
  * the same boards as /leaderboard). All three boards are server-rendered into
- * the force-static shell from the Redis payloads /leaderboard already caches,
- * so tab switching is purely local: no API call, no function invocation, no DB
- * read per click. Each board ships RAIL_LIMIT rows; the interactive board
- * (time windows, pagination, VS) still lives at /leaderboard.
+ * the force-static shell from the Go API through an ISR-compatible cached
+ * fetch (hourly revalidate, matching the page), so tab switching is purely
+ * local: no API call, no function invocation, no DB read per click. Each
+ * board ships RAIL_LIMIT rows; the interactive board (time windows,
+ * pagination, VS) still lives at /leaderboard.
  */
 export async function LeaderboardRail() {
   const t = await getTranslations("home");
   const tBoard = await getTranslations("leaderboard");
   const boards = await Promise.all(
     RAIL_VIEWS.map(async ({ view, labelKey }) => {
-      const { entries } = await getLeaderboardCached(view);
+      const entries = await getGoLeaderboard(view, "all", 500, 3600);
       const rows = withDevLeaderboardPreview(view, entries.slice(0, RAIL_LIMIT));
       return { view, label: tBoard(labelKey), rows };
     }),

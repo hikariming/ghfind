@@ -9,6 +9,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { splitReport } from "@/lib/report";
 import { consumeRoastStream, pendingScanKey } from "@/lib/roast-stream";
+import { readScanResponse } from "@/lib/scan-job-client";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { RoastLine, RoastMeta, ScanResult, SubScoreKey, Tags, Tier } from "@/lib/types";
 import {
@@ -238,13 +239,21 @@ export function Roaster({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
-        const data = await res.json();
+        const data = await readScanResponse(res);
         if (!res.ok) {
-          setError(tScan.has(data?.error) ? tScan(data.error) : t("errScanFailed"));
+          const code = data && typeof data === "object" && "error" in data ? String(data.error) : "";
+          setError(tScan.has(code) ? tScan(code) : t("errScanFailed"));
           setScanning(false);
           return;
         }
-        if (data?.legacy_profile === true && typeof data.username === "string") {
+        if (
+          data &&
+          typeof data === "object" &&
+          "legacy_profile" in data &&
+          data.legacy_profile === true &&
+          "username" in data &&
+          typeof data.username === "string"
+        ) {
           presentLegacyProfile(data.username);
           return;
         }

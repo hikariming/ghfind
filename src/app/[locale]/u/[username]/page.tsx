@@ -6,17 +6,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import {
-  getAccountDetail,
-  getFacetRank,
-  getProfileComments,
-  getProfileSnapshot,
-  getSimilarAccounts,
-  getUserMatchups,
-  filterExistingRepoKeys,
-} from "@/lib/db";
-import { getCachedScan } from "@/lib/redis";
-import { getRankCached } from "@/lib/rank";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { PendingProfile } from "./PendingProfile";
 import { LiveRoast } from "@/components/LiveRoast";
@@ -33,7 +22,7 @@ import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
-import { nextTier, tierFor } from "@/lib/score";
+import { nextTier, tierFor } from "@/lib/score-presentation";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -48,8 +37,10 @@ import { FollowButton } from "@/components/FollowButton";
 import { FacetRankLink } from "@/components/FacetRankLink";
 import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
-import { auth, authConfigured } from "@/lib/auth";
-import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
+import { getGoPrivateData } from "@/lib/go-backend.server";
+import type { ProfileComment } from "@/lib/comments";
+import { oauthConfigured } from "@/lib/oauth-config";
+import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { rankProfileWorks } from "@/lib/profile-work";
 import { ROAST_CACHE_VERSION } from "@/lib/cache-version";
 import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
@@ -108,10 +99,9 @@ function classifyLandingSource(referer: string | null, fromBadge: boolean): stri
 // and remains cached at the persistence layer where applicable.
 export const dynamic = "force-dynamic";
 
-// Dedupe the DB read between generateMetadata() and the page render.
-const getDetail = cache((username: string) => getAccountDetail(username));
-// Dedupe the cached-scan read (pending-profile fallback) across the same pair.
-const getLiveScan = cache((username: string) => getCachedScan(username));
+// Dedupe Go presentation reads between metadata and the page render.
+const getProfile = cache((username: string) => getGoProfilePresentation(username));
+const getLiveScan = cache((username: string) => getGoLiveProfileScan(username));
 
 export async function generateMetadata({
   params,
@@ -123,7 +113,7 @@ export async function generateMetadata({
   const { locale, username } = await params;
   const t = await getTranslations({ locale, namespace: "detailMeta" });
   const decoded = decodeURIComponent(username);
-  const d = await getDetail(decoded);
+  const d = (await getProfile(decoded))?.detail ?? null;
   if (!d) {
     // No persisted row yet. A cached scan or the `?roasting=1` handoff marker
     // means we render the live-roast pending shell rather than 404 — give it a
@@ -194,7 +184,8 @@ export default async function AccountPage({
   const query = await searchParams;
   const isAdvxCampaign = query.campaign === "advx";
   const decoded = decodeURIComponent(username);
-  const d = await getDetail(decoded);
+  const presentation = await getProfile(decoded);
+  const d = presentation?.detail ?? null;
   if (!d) {
     // First-time username being roasted right now: no `scores` row yet. Render
     // the live pending shell when we have a scan to show — either the server-side
@@ -276,29 +267,20 @@ export default async function AccountPage({
             title: t("scoreStateReadyTitle"),
             body: t("scoreStateReadyBody"),
           };
-  const [similar, comments, snap, rank, session, battles, facetRank] =
-    await Promise.all([
-      getSimilarAccounts(d.username, d.final_score, d.sub_scores),
-      getProfileComments(d.username),
-      getProfileSnapshot(d.username),
-      getRankCached(d.final_score),
-      authConfigured() ? auth() : Promise.resolve(null),
-      getUserMatchups(d.username),
-      getFacetRank(d.username, d.final_score),
-    ]);
-  const commonProjects = Array.from(
-    new Map(
-      (
-        await Promise.all(
-          similar.slice(0, 3).map((account) =>
-            getDeveloperCommonProjectsCached(d.username, account.username, 3),
-          ),
-        )
-      )
-        .flat()
-        .map((project) => [project.repo.repo_key, project]),
-    ).values(),
-  ).slice(0, 6);
+  const [comments, session] = await Promise.all([
+    getGoPrivateData<{ comments: ProfileComment[] }>(
+      `/api/profile-comments/${encodeURIComponent(d.username)}`,
+    ).then((response) => response?.comments ?? []),
+    oauthConfigured()
+      ? getGoPrivateData<{ user: { login: string; image: string | null } | null }>("/api/me")
+      : Promise.resolve(null),
+  ]);
+  const similar = presentation?.similar ?? [];
+  const snap = presentation?.snapshot ?? null;
+  const rank = presentation?.rank ?? null;
+  const battles = presentation?.battles ?? [];
+  const facetRank = presentation?.facetRank ?? null;
+  const commonProjects = presentation?.common_projects ?? [];
   // Inline re-detect is self-service: only the signed-in owner sees it on their
   // own profile. GitHub handles are case-insensitive, so compare normalized.
   const isOwner =
@@ -369,12 +351,7 @@ export default async function AccountPage({
   // i.e. the repo exists as a first-class `repos` row. One indexed lookup over
   // both representative and impact repos; failure → empty set → all
   // cards keep their external GitHub links (pre-Phase-B behavior).
-  const existingRepoKeys = snap
-    ? await filterExistingRepoKeys([
-        ...impactRepos.map((r) => r.repo.toLowerCase()),
-        ...representativeWorks.map((r) => r.repo.toLowerCase()),
-      ])
-    : new Set<string>();
+  const existingRepoKeys = new Set(presentation?.existing_repo_keys ?? []);
   /** Locale-relative internal project page path for an "owner/name" key. */
   const repoHref = (key: string) => {
     const [owner, name] = key.split("/");
