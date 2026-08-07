@@ -34,9 +34,21 @@ export function CollectionPromoCard({
 
   return (
     <article className="group relative flex flex-col rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
+      {/* Stretched link: any part of the card opens the collection. Kept as a
+          real <a> so cmd/ctrl-click opens a new tab. Nothing else in the card
+          is interactive — anything added later needs `relative z-10`. */}
+      <Link
+        href={`/collections/${slug}`}
+        prefetch={false}
+        aria-label={title}
+        onClick={() => trackEvent("home_collections_click", { slug, position })}
+        className="absolute inset-0 z-0 rounded-2xl outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-300"
+      />
       {(avatarUrl || identityName) && (
         <div className="flex min-w-0 items-center gap-3">
-          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/10 text-sm font-bold text-orange-300 ring-2 ring-orange-400/40">
+          {/* Decorative, and `relative` for the avatar image — kept transparent
+              to hit-testing so it doesn't punch a hole in the stretched link. */}
+          <span className="pointer-events-none relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/10 text-sm font-bold text-orange-300 ring-2 ring-orange-400/40">
             <span aria-hidden="true">{avatarInitial}</span>
             {avatarUrl && !avatarFailed && (
               // eslint-disable-next-line @next/next/no-img-element -- GitHub avatar; the image optimizer would just add Vercel cost
@@ -49,34 +61,16 @@ export function CollectionPromoCard({
               />
             )}
           </span>
-          {githubUsername ? (
-            <a
-              href={`https://github.com/${githubUsername}`}
-              target="_blank"
-              rel="noreferrer"
-              className="min-w-0 truncate text-sm font-semibold text-zinc-100 underline-offset-4 hover:text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-300"
-            >
-              <span>{githubUsername}</span>
-              {identityName && identityName !== githubUsername && (
-                <span className="font-normal text-zinc-400"> · {identityName}</span>
-              )}
-            </a>
-          ) : (
-            <span className="min-w-0 truncate text-sm font-semibold text-zinc-100">
-              {identityName}
-            </span>
-          )}
+          <span className="min-w-0 truncate text-sm font-semibold text-zinc-100">
+            {githubUsername ?? identityName}
+            {githubUsername && identityName && identityName !== githubUsername && (
+              <span className="font-normal text-zinc-400"> · {identityName}</span>
+            )}
+          </span>
         </div>
       )}
-      <h3 className="mt-3 line-clamp-2 text-lg font-bold text-zinc-100">
-        <Link
-          href={`/collections/${slug}`}
-          prefetch={false}
-          onClick={() => trackEvent("home_collections_click", { slug, position })}
-          className="rounded-sm outline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-300"
-        >
-          {title}
-        </Link>
+      <h3 className="mt-3 line-clamp-2 text-lg font-bold text-zinc-100 transition-colors group-hover:text-white">
+        {title}
       </h3>
       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-zinc-400">{intro}</p>
       <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs text-zinc-500">
