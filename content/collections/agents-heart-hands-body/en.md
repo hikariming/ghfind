@@ -14,7 +14,7 @@ A heart that knows how to live, a pair of hands that can do real work, a body th
 
 ## 1. yuiju: not an AI assistant, but a "person" with a life of her own
 
-![Avatar of Yuu-chan, the yuiju character](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-avatar.webp "Figure: avatar of Yuu-chan, the yuiju project character, from the repo's packages/source/picture/ directory")
+![Avatar of Yuu-chan, the yuiju character](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-avatar.webp "Figure: avatar of Yuu-chan, the yuiju project character, from the repo's packages/source/picture/ directory")
 
 ### A one-line recommendation (from the author)
 
@@ -40,17 +40,17 @@ After reading through its technical documentation, we believe the most commendab
 
 **Fourth, game-design thinking permeates everything.** A dynamic weather system keeps daily life from being a fixed script; the character can hold long-term and short-term plans rather than passively responding to whatever the user just typed; and when something worth telling happens in her life, she shares it at the right moment instead of forever waiting for you to speak first. The author himself describes the project as "an AI character system with state, actions, memory, and a rhythm of life" — the most concise definition of "virtual life" we've seen.
 
-![yuiju system architecture](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-architecture.png "Figure: yuiju system architecture — the @yuiju/world engine advances world state and character behavior in parallel, while the LLM only makes Action decisions")
+![yuiju system architecture](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-architecture.png "Figure: yuiju system architecture — the @yuiju/world engine advances world state and character behavior in parallel, while the LLM only makes Action decisions")
 
 ### Editor's take
 
 yuiju answers a question many AI companion projects dodge: **can an AI have a life of its own when you're not around?** It upgrades companionship from "you summon me" to "we each live our own lives and meet occasionally," grounding the emotional connection in genuinely shared experience rather than sweet talk generated on the fly. The project is still early, and pieces like the memory module are still being polished, but the direction it offers — using a game-engine-style deterministic framework to constrain and carry the LLM's freedom — is enormously valuable reference material for the entire AI-character field. If you love Animal Crossing, or love the feeling of nurturing and companionship, it's worth heading straight to its web page and experiencing it once (`yuiju-web.yixiaojiu.top`). To close, here's a Yuu-chan sticker, so you can get a feel for her little temper:
 
-![Yuu-chan sticker: hmph](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-hmph.png "Yuu-chan sticker: hmph")
+![Yuu-chan sticker: hmph](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-hmph.png "Yuu-chan sticker: hmph")
 
 ## 2. lathe: growing an agent's 「hands」 from your APIs in one shot
 
-![lathe logo](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/lathe-logo.png "Figure: the lathe project logo, from the repo's docs/images/ directory")
+![lathe logo](https://assets.usedify.app/collections/agents-heart-hands-body/lathe-logo.png "Figure: the lathe project logo, from the repo's docs/images/ directory")
 
 ### What it is
 
@@ -76,7 +76,7 @@ Read its README and you'll find that lathe has decomposed "how an agent safely u
 
 Three engineering details are also worth mentioning: all generated modules share **the same runtime** (auth, request construction, output, pagination, streaming, and error handling behave consistently); the **overlay layer** lets you hide/ignore commands, fix parameters, and add shortcut commands without touching the upstream spec or the generated Go code; and the two-stage pipeline (`specsync` fetches and pins the spec → `codegen` normalizes it into a unified IR and renders) guarantees reproducibility.
 
-![lathe architecture diagram](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/lathe-architecture.png "Figure: the lathe generation flow — spec pinned and synced → codegen normalizes and renders → CLI plus companion Skill generated")
+![lathe architecture diagram](https://assets.usedify.app/collections/agents-heart-hands-body/lathe-architecture.png "Figure: the lathe generation flow — spec pinned and synced → codegen normalizes and renders → CLI plus companion Skill generated")
 
 ### Why now: the CLI is becoming the de facto interface for agents
 
@@ -88,7 +88,7 @@ lathe suits two kinds of people. The first is teams sitting on a pile of Swagger
 
 ## 3. mosoo: giving coding agents a scalable 「body」 to run in
 
-![mosoo banner](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/mosoo-banner.png "Figure: the official mosoo banner (2400×1260), from the repo's docs/assets/ directory")
+![mosoo banner](https://assets.usedify.app/collections/agents-heart-hands-body/mosoo-banner.png "Figure: the official mosoo banner (2400×1260), from the repo's docs/assets/ directory")
 
 ### What it is
 

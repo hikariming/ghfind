@@ -14,7 +14,7 @@
 
 ## 一、yuiju：不做 AI 智能助手，做有自己生活的「人」
 
-![yuiju 角色「悠酱」头像](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-avatar.webp "图：yuiju 项目角色「悠酱」的头像，来自仓库 packages/source/picture/")
+![yuiju 角色「悠酱」头像](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-avatar.webp "图：yuiju 项目角色「悠酱」的头像，来自仓库 packages/source/picture/")
 
 ### 一句话推荐语（作者语）
 
@@ -40,17 +40,17 @@
 
 **第四，游戏设计思维的全面渗透。** 动态天气系统让日常不只是固定脚本；角色可以拥有长期与短期计划，不只是被动回应用户的当下输入；当生活里发生值得说的事，她会在合适的时机主动分享，而不是永远等你开口。作者本人把项目介绍为“有状态、有行动、有记忆、有生活节奏的 AI 角色系统”——这是对“虚拟生命”最凝练的定义。
 
-![yuiju 系统架构图](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-architecture.png "图：yuiju 系统架构——@yuiju/world 世界引擎同时推进世界状态与角色行为，LLM 只做 Action 决策")
+![yuiju 系统架构图](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-architecture.png "图：yuiju 系统架构——@yuiju/world 世界引擎同时推进世界状态与角色行为，LLM 只做 Action 决策")
 
 ### 编辑点评
 
 yuiju 回答了一个许多 AI 陪伴项目回避的问题：**一个 AI 能不能在没有你的时候，也拥有自己的生活？** 它把陪伴从“你召唤我”升级为“我们各自生活，偶尔相遇”，让情感连接建立在真实的共同经历之上，而非即时生成的甜蜜话术。虽然项目仍处于早期，记忆模块等环节也在持续打磨，但它提供的方向——用游戏引擎式的确定性框架，去约束和承载 LLM 的自由度——对整个 AI 角色领域都极具参考价值。喜欢《动物森友会》、喜欢养成与陪伴感的读者，值得立刻去它的 Web 页面体验一次（`yuiju-web.yixiaojiu.top`）。最后放一张悠酱的表情包，感受一下她的“小脾气”：
 
-![悠酱表情包 hmph](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/yuiju-hmph.png "悠酱表情包：hmph")
+![悠酱表情包 hmph](https://assets.usedify.app/collections/agents-heart-hands-body/yuiju-hmph.png "悠酱表情包：hmph")
 
 ## 二、lathe：让 API 一键长出 Agent 的「手」
 
-![lathe logo](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/lathe-logo.png "图：lathe 项目 logo，来自仓库 docs/images/")
+![lathe logo](https://assets.usedify.app/collections/agents-heart-hands-body/lathe-logo.png "图：lathe 项目 logo，来自仓库 docs/images/")
 
 ### 它是什么
 
@@ -76,7 +76,7 @@ lathe 的全部设计浓缩为两句话：
 
 此外还有三处工程细节值得一提：所有生成模块共享**同一套运行时**（鉴权、请求构造、输出、分页、流式、错误处理行为一致）；**overlay 层**允许在不改上游 spec、不改生成的 Go 代码的前提下，隐藏/忽略命令、修正参数、添加快捷命令；两阶段流水线（`specsync` 拉取并固定 spec → `codegen` 归一化为统一 IR 再渲染）保证了可复现性。
 
-![lathe 架构图](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/lathe-architecture.png "图：lathe 生成流程——spec 固定同步 → codegen 归一化渲染 → 生成 CLI 与配套 Skill")
+![lathe 架构图](https://assets.usedify.app/collections/agents-heart-hands-body/lathe-architecture.png "图：lathe 生成流程——spec 固定同步 → codegen 归一化渲染 → 生成 CLI 与配套 Skill")
 
 ### 为什么是现在：CLI 正在成为 Agent 的事实接口
 
@@ -88,7 +88,7 @@ lathe 适合两类人：一类是手里攒着大量 Swagger/OpenAPI/proto/GraphQ
 
 ## 三、mosoo：给 coding agent 一个能规模化运行的「家」
 
-![mosoo banner](https://pub-f0560cb5ffde4095b7345da9c0f73c28.r2.dev/collections/agents-heart-hands-body/mosoo-banner.png "图：mosoo 官方 banner（2400×1260），来自仓库 docs/assets/")
+![mosoo banner](https://assets.usedify.app/collections/agents-heart-hands-body/mosoo-banner.png "图：mosoo 官方 banner（2400×1260），来自仓库 docs/assets/")
 
 ### 它是什么
 
