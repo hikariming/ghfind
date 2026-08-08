@@ -35,9 +35,9 @@ export function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t("label")}
-        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-300 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/20 data-[state=open]:bg-white/10"
+        className="navbar-action gap-1.5 px-3"
       >
-        <Globe className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+        <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
         <span className="font-medium">{t(locale)}</span>
         <ChevronDown className="h-3 w-3 shrink-0 text-zinc-500" />
       </DropdownMenuTrigger>
