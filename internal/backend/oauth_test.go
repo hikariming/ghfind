@@ -24,27 +24,41 @@ func (s *fakeOAuthStore) UpsertOAuthUser(_ context.Context, session OAuthSession
 }
 
 func TestGitHubOAuthCallbackCreatesSignedGoSession(t *testing.T) {
-	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+	oauth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/login/oauth/access_token":
 			if err := request.ParseForm(); err != nil || request.Form.Get("code") != "code-fixture" {
 				t.Fatalf("token request form=%v err=%v", request.Form, err)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "token-fixture"})
-		case "/user":
-			if request.Header.Get("Authorization") != "Bearer token-fixture" {
-				t.Fatalf("authorization=%q", request.Header.Get("Authorization"))
+			if request.Header.Get("User-Agent") != "ghfind" {
+				t.Fatalf("token user-agent=%q", request.Header.Get("User-Agent"))
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "OctoCat", "name": "The Cat", "avatar_url": "https://avatars.example/octocat"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "token-fixture"})
 		default:
 			http.NotFound(w, request)
 		}
 	}))
-	defer github.Close()
+	defer oauth.Close()
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/user" {
+			http.NotFound(w, request)
+			return
+		}
+		if request.Header.Get("Authorization") != "Bearer token-fixture" {
+			t.Fatalf("authorization=%q", request.Header.Get("Authorization"))
+		}
+		if request.Header.Get("User-Agent") != "ghfind" {
+			t.Fatalf("profile user-agent=%q", request.Header.Get("User-Agent"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "OctoCat", "name": "The Cat", "avatar_url": "https://avatars.example/octocat"})
+	}))
+	defer api.Close()
 
 	store := &fakeOAuthStore{}
 	server := NewAPIServer(Config{GitHubOAuthID: "client", GitHubOAuthSecret: "secret", AuthSecret: "auth-secret", PublicSiteURL: "https://ghfind.example"}, store, &fakeStatusStore{}, &fakePublisher{})
-	server.githubOAuthOrigin = github.URL
+	server.githubOAuthOrigin = oauth.URL
+	server.githubAPIOrigin = api.URL
 	now := time.Unix(1_700_000_000, 0).UTC()
 	server.clock = func() time.Time { return now }
 
@@ -55,8 +69,8 @@ func TestGitHubOAuthCallbackCreatesSignedGoSession(t *testing.T) {
 		t.Fatalf("begin status=%d body=%s", beginResponse.Code, beginResponse.Body.String())
 	}
 	authorize, err := url.Parse(beginResponse.Header().Get("Location"))
-	githubOrigin, _ := url.Parse(github.URL)
-	if err != nil || authorize.Host != githubOrigin.Host || authorize.Path != "/login/oauth/authorize" {
+	oauthOrigin, _ := url.Parse(oauth.URL)
+	if err != nil || authorize.Host != oauthOrigin.Host || authorize.Path != "/login/oauth/authorize" {
 		t.Fatalf("authorize=%q err=%v", beginResponse.Header().Get("Location"), err)
 	}
 	state := authorize.Query().Get("state")
@@ -103,5 +117,47 @@ func TestGitHubOAuthRejectsTamperedState(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid_oauth_state") {
 		t.Fatalf("response=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestGitHubOAuthProfileUsesAPIOriginNotOAuthOrigin(t *testing.T) {
+	oauthHits := 0
+	oauth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		oauthHits++
+		if request.URL.Path == "/user" {
+			t.Fatalf("profile must not hit OAuth origin path=%q", request.URL.Path)
+		}
+		if request.URL.Path != "/login/oauth/access_token" {
+			http.NotFound(w, request)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "token-fixture"})
+	}))
+	defer oauth.Close()
+
+	apiHits := 0
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		apiHits++
+		if request.URL.Path != "/user" {
+			http.NotFound(w, request)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 7, "login": "api-user", "name": "API", "avatar_url": "https://avatars.example/api"})
+	}))
+	defer api.Close()
+
+	server := NewAPIServer(Config{GitHubOAuthID: "client", GitHubOAuthSecret: "secret", AuthSecret: "auth-secret", PublicSiteURL: "https://ghfind.example"}, &fakeOAuthStore{}, &fakeStatusStore{}, &fakePublisher{})
+	server.githubOAuthOrigin = oauth.URL
+	server.githubAPIOrigin = api.URL
+
+	profile, err := server.fetchGitHubOAuthProfile(context.Background(), "code-fixture")
+	if err != nil {
+		t.Fatalf("fetch profile: %v", err)
+	}
+	if profile.ID != 7 || profile.Login != "api-user" {
+		t.Fatalf("profile=%#v", profile)
+	}
+	if oauthHits != 1 || apiHits != 1 {
+		t.Fatalf("oauthHits=%d apiHits=%d", oauthHits, apiHits)
 	}
 }

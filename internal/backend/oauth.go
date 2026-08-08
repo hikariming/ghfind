@@ -323,6 +323,7 @@ func (s *APIServer) fetchGitHubOAuthProfile(ctx context.Context, code string) (g
 	}
 	tokenRequest.Header.Set("Accept", "application/json")
 	tokenRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	tokenRequest.Header.Set("User-Agent", "ghfind")
 	tokenResponse, err := client.Do(tokenRequest)
 	if err != nil {
 		return githubOAuthProfile{}, err
@@ -334,12 +335,17 @@ func (s *APIServer) fetchGitHubOAuthProfile(ctx context.Context, code string) (g
 	if tokenResponse.StatusCode < 200 || tokenResponse.StatusCode >= 300 || json.NewDecoder(io.LimitReader(tokenResponse.Body, 64<<10)).Decode(&token) != nil || token.AccessToken == "" {
 		return githubOAuthProfile{}, fmt.Errorf("GitHub OAuth token exchange failed")
 	}
-	profileRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(s.githubOAuthOrigin, "/")+"/user", nil)
+	apiOrigin := strings.TrimRight(s.githubAPIOrigin, "/")
+	if apiOrigin == "" {
+		apiOrigin = defaultGitHubAPIURL
+	}
+	profileRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, apiOrigin+"/user", nil)
 	if err != nil {
 		return githubOAuthProfile{}, err
 	}
 	profileRequest.Header.Set("Accept", "application/vnd.github+json")
 	profileRequest.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	profileRequest.Header.Set("User-Agent", "ghfind")
 	profileResponse, err := client.Do(profileRequest)
 	if err != nil {
 		return githubOAuthProfile{}, err
