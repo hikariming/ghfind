@@ -254,6 +254,7 @@ type githubRepo struct {
 	PushedAt        *string `json:"pushed_at"`
 	Owner           *struct {
 		Login string `json:"login"`
+		Type  string `json:"type"`
 	} `json:"owner"`
 	Topics []string `json:"topics"`
 }

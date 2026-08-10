@@ -335,12 +335,13 @@ func TestRoastPromptMarksRecentPRsAsSample(t *testing.T) {
 		t.Fatalf("sample context=%#v", context)
 	}
 	for key, needle := range map[string]string{
-		"recent_prs_scope":          "不代表全量 PR 分布",
-		"account_time_scope":        "自然年份数量",
-		"no_sample_extrapolation":   "不要仅凭 recent_prs",
-		"workflow_landing_scope":    "不得把官方工作流已落地 PR 写成 GitHub 合并",
-		"affiliation_scope":         "不能作为夸奖或背书理由",
-		"attributed_original_scope": "组织名下可归属/主导维护项目",
+		"recent_prs_scope":              "不代表全量 PR 分布",
+		"account_time_scope":            "自然年份数量",
+		"no_sample_extrapolation":       "不要仅凭 recent_prs",
+		"workflow_landing_scope":        "不得把官方工作流已落地 PR 写成 GitHub 合并",
+		"affiliation_scope":             "不能作为夸奖或背书理由",
+		"attributed_original_scope":     "组织名下可归属/主导维护项目",
+		"organization_maintained_scope": "它不参与评分",
 	} {
 		if !strings.Contains(context[key].(string), needle) {
 			t.Fatalf("context_notes[%q]=%q missing %q", key, context[key], needle)
@@ -367,6 +368,34 @@ func TestRoastPromptMarksRecentPRsAsSample(t *testing.T) {
 	}
 	if !strings.Contains(enContext["affiliation_scope"].(string), "README text") {
 		t.Fatalf("en affiliation_scope=%q", enContext["affiliation_scope"])
+	}
+}
+
+func TestRoastPromptKeepsOrganizationMaintenanceEvidenceOutsideScoreInputs(t *testing.T) {
+	scan := roastPromptBaseScan()
+	scan.SignatureWork = SignatureWork{
+		Source: "recent_sample",
+		OrganizationMaintainedRepos: []OrganizationMaintainedRepo{{
+			Repository: TopRepo{Name: "courier", OwnerLogin: stringPointer("octohelm"), NameWithOwner: stringPointer("octohelm/courier"), Stars: 120, OpenIssues: 7},
+			Commits:    80, PRs: 12, ActiveYears: 3,
+			Evidence: []string{"80 commits + 12 PRs across 3 years", "listed in maintainer/codeowner docs"},
+		}},
+	}
+	payload := roastPromptUserPayload(t, buildRoastPrompt(scan, roastLanguageZH))
+	items := roastPayloadSlice(t, payload, "organization_maintained_repos")
+	if len(items) != 1 {
+		t.Fatalf("organization_maintained_repos=%#v", items)
+	}
+	item := items[0].(map[string]any)
+	if item["repo"] != "octohelm/courier" || item["commits"] != float64(80) || item["prs"] != float64(12) {
+		t.Fatalf("organization maintenance payload=%#v", item)
+	}
+	if _, leaked := item["repository"].(map[string]any)["open_issues"]; leaked {
+		t.Fatalf("organization maintenance payload leaked REST open_issues: %#v", item)
+	}
+	context := roastPayloadMap(t, payload, "context_notes")
+	if !strings.Contains(context["organization_maintained_scope"].(string), "不参与评分") || !strings.Contains(context["organization_maintained_scope"].(string), "不证明") {
+		t.Fatalf("organization maintenance scope=%q", context["organization_maintained_scope"])
 	}
 }
 

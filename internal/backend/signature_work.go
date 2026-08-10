@@ -23,10 +23,47 @@ type SignatureWorkCluster struct {
 	SubstantiveLowStarSignal bool     `json:"substantive_low_star_signal,omitempty"`
 }
 
+// OrganizationMaintainedRepo is display/prompt evidence for an organization
+// repository where the scanned account has both substantial public work and a
+// repository-local maintainer proof. It is intentionally kept out of
+// TopRepos/RawMetrics: it must never alter the deterministic score until a
+// separately versioned scoring policy explicitly opts into it.
+type OrganizationMaintainedRepo struct {
+	Repository  TopRepo  `json:"repository"`
+	Commits     float64  `json:"commits"`
+	PRs         float64  `json:"prs"`
+	ActiveYears float64  `json:"active_years"`
+	Evidence    []string `json:"evidence"`
+}
+
+// EstimatedContributionLanguage is one language's contribution-weighted share
+// across public repositories. It is intentionally separate from RawMetrics:
+// language presentation must never become a scoring signal implicitly.
+type EstimatedContributionLanguage struct {
+	Name string  `json:"name"`
+	Pct  float64 `json:"pct"`
+}
+
+// EstimatedContributionLanguages records the bounded coverage behind the
+// profile's language display. Candidate repos can be personal, organization,
+// or third-party repositories; ownership does not affect the estimate.
+type EstimatedContributionLanguages struct {
+	Languages          []EstimatedContributionLanguage `json:"languages"`
+	CandidateRepoCount int                             `json:"candidate_repo_count"`
+	SelectedRepoCount  int                             `json:"selected_repo_count"`
+	SampledRepoCount   int                             `json:"sampled_repo_count"`
+}
+
 type SignatureWork struct {
 	ImpactRepoRepresentatives []ImpactRepo           `json:"impact_repo_representatives"`
 	WorkClusters              []SignatureWorkCluster `json:"work_clusters"`
-	Source                    string                 `json:"source"`
+	// OrganizationMaintainedRepos is a presentation-only side channel. Unlike
+	// attributed originals in TopRepos it is not a scoring input.
+	OrganizationMaintainedRepos []OrganizationMaintainedRepo `json:"organization_maintained_repos,omitempty"`
+	// EstimatedContributionLanguages is profile-only language evidence built
+	// from the unchanged public contribution aggregation.
+	EstimatedContributionLanguages *EstimatedContributionLanguages `json:"estimated_contribution_languages,omitempty"`
+	Source                         string                          `json:"source"`
 }
 
 var signatureWorkRE = regexp.MustCompile(`(?i)\b(fix|security|auth|credential|capabilit|boundary|bound|revoke|cleanup|retry|ledger|atomic|consistency|provenance|runtime|workflow|inference|metadata|lifecycle|parser|type inference|rustdoc|inlay|syntax)\b`)

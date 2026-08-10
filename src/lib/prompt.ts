@@ -172,6 +172,22 @@ function buildSignatureWork(scan: ScanResult, lang: Lang) {
   };
 }
 
+function buildOrganizationMaintainedRepos(scan: ScanResult) {
+  return (scan.signature_work?.organization_maintained_repos ?? []).map((work) => {
+    const { open_issues: _openIssuesAndPrs, ...repository } = work.repository;
+    return {
+      repo:
+        work.repository.name_with_owner ??
+        `${work.repository.owner_login ?? scan.metrics.username}/${work.repository.name}`,
+      repository,
+      commits: work.commits,
+      prs: work.prs,
+      active_years: work.active_years,
+      evidence: work.evidence.slice(0, 3),
+    };
+  });
+}
+
 function buildRiskNotes(scan: ScanResult, lang: Lang): string[] {
   const m = scan.metrics;
   const notes: string[] = [];
@@ -596,6 +612,8 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "School, company, employer, and organization membership are background only, whether they appear in profile fields or README text. They must not justify praise unless backed by concrete repository quality, PR/commit work, release/tag authorship, MAINTAINERS/CODEOWNERS, or similar maintainer evidence.",
           attributed_original_scope:
             "If metrics.attributed_original_repo_count > 0 or top_repos contains attributed_original=true, those are organization-owned projects attributed to the user by strong long-term maintenance signals. For roast/report wording, treat attributed org repos as the user's flagship project signal, not as an external employer/customer project. Describe them as org-owned attributed/led projects; do not say the user has no original project just because the repo owner is an organization. Do not frame attributed org projects as 'someone else's project', 'borrowed glory', 'working for the org', 'org laborer', 'employee/servant of the org', or 'building another person's palace'. You may criticize single-project dependency, but not by denying attribution. Do not claim admin/owner/control unless the data explicitly says so.",
+          organization_maintained_scope:
+            "organization_maintained_repos contains display-only public organization work with the existing long-term contribution threshold plus repository-local maintainer proof. It is not a score input and does not prove ownership, admin access, employment, or control. You may cite the exact repo and evidence, but never call it the user's personal repository or change the score because of it.",
           identity_scope:
             "Do not infer titles such as Apache Committer from PRs to Apache repos. Only state such identity when the input explicitly provides it.",
           core_contribution_scope:
@@ -648,6 +666,8 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "学校、公司、雇主、组织 membership 只是背景信息，无论它们出现在 profile 字段还是 README 文本里；除非有真实仓库质量、PR/commit、release/tag、MAINTAINERS/CODEOWNERS 等维护证据支撑，否则不能作为夸奖或背书理由。",
           attributed_original_scope:
             "如果 metrics.attributed_original_repo_count > 0 或 top_repos 中存在 attributed_original=true，这些是基于长期维护强信号归属给用户的组织名下项目。在 roast/report 文案口径里，应把这些归属组织仓库视作用户的旗舰项目信号，而不是外部雇主/客户项目。应描述为“组织名下可归属/主导维护项目”，不要因为 repo owner 是组织就写成用户没有原创项目；也不要把这些已归属项目写成“别人的项目/借来的光环/给组织打工/给组织当长工/组织仆人/给他人盖宫殿/嫁衣”。可以吐槽单项目依赖，但不能否认归属。除非输入明确证明，不要声称其拥有 admin/owner/实际控制权。",
+          organization_maintained_scope:
+            "organization_maintained_repos 是展示用的公开组织维护证据：同时满足现有长期贡献阈值和仓库内维护证明。它不参与评分，也不证明用户拥有仓库、是管理员、受雇于组织或实际控制组织。可以点名完整 repo 与证据，但不得称为个人仓库，或据此改变分数。",
           identity_scope:
             "不要因为给 Apache 等组织仓库提过 PR 就推断其是 Committer；只有输入明确给出身份时才能这样写。",
           core_contribution_scope:
@@ -690,6 +710,7 @@ function buildPayload(scan: ScanResult, lang: Lang) {
     impact_repos: scan.impact_repos,
     verified_impact_prs: scan.verified_impact_prs ?? [],
     signature_work: buildSignatureWork(scan, lang),
+    organization_maintained_repos: buildOrganizationMaintainedRepos(scan),
     flood_pr_titles: scan.flood_pr_titles,
     risk_notes: buildRiskNotes(scan, lang),
     factual_guardrails: buildFactualGuardrails(scan, lang),

@@ -110,6 +110,14 @@ func roastEvidenceRepos(scan ScanResult) []string {
 		seen[strings.ToLower(repo.Repo)] = true
 		result = append(result, repo.Repo)
 	}
+	for _, work := range scan.SignatureWork.OrganizationMaintainedRepos {
+		repo := repoDisplayName(work.Repository)
+		if strings.Count(repo, "/") != 1 || seen[strings.ToLower(repo)] {
+			continue
+		}
+		seen[strings.ToLower(repo)] = true
+		result = append(result, repo)
+	}
 	for _, cluster := range scan.SignatureWork.WorkClusters {
 		if strings.Count(cluster.Repo, "/") != 1 || seen[strings.ToLower(cluster.Repo)] {
 			continue

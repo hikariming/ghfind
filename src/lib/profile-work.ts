@@ -1,6 +1,6 @@
 import type { ImpactRepo, SignatureWork, TopRepo } from "./types";
 
-export type ProfileWorkSource = "signature" | "impact" | "own";
+export type ProfileWorkSource = "signature" | "impact" | "organization" | "own";
 
 export interface ProfileWorkItem {
   repo: string;
@@ -63,6 +63,8 @@ function mergeWork(
     prs: Math.max(prev.prs ?? 0, item.prs ?? 0) || undefined,
     commits: Math.max(prev.commits ?? 0, item.commits ?? 0) || undefined,
     examples: [...(prev.examples ?? []), ...(item.examples ?? [])].slice(0, MAX_EXAMPLES),
+    language: prev.language ?? item.language,
+    description: prev.description ?? item.description,
     orgContextRepo: prev.orgContextRepo ?? item.orgContextRepo,
   });
 }
@@ -121,6 +123,26 @@ export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWor
       score: 12 + Math.log1p(workUnits) * 10 + starScore(repo.stars),
       prs: repo.prs || undefined,
       commits: repo.commits || undefined,
+    });
+  }
+
+  // This is a display-only evidence channel. It deliberately does not add the
+  // repo to TopRepos or change any deterministic score input.
+  for (const work of input.signatureWork?.organization_maintained_repos ?? []) {
+    const repo = work.repository;
+    const fullName = topRepoFullName(input.username, repo);
+    const workUnits = work.prs * 4 + work.commits;
+    mergeWork(works, {
+      repo: fullName,
+      name: repo.name,
+      stars: repo.stars,
+      source: "organization",
+      score: 20 + Math.log1p(workUnits) * 8 + starScore(repo.stars),
+      prs: work.prs || undefined,
+      commits: work.commits || undefined,
+      language: repo.language,
+      description: repo.description,
+      examples: work.evidence,
     });
   }
 
