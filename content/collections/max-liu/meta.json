@@ -2,11 +2,15 @@
   "type": "developers",
   "title": {
     "zh": "刘德泽（Max Liu）：从奥克兰退学到 LobeHub 增长负责人，开源世界的另一半",
-    "en": "Max Liu: from Auckland dropout to Head of Growth at LobeHub — the other half of open source"
+    "en": "Max Liu: from Auckland dropout to Head of Growth at LobeHub — the other half of open source",
+    "ja": "刘德泽（Max Liu）：オークランド中退からLobeHubのグロース責任者へ——オープンソースのもう半分",
+    "ko": "刘德泽(Max Liu): 오클랜드 중퇴에서 LobeHub 그로스 총괄로 — 오픈소스 세계의 또 다른 절반"
   },
   "intro": {
     "zh": "他没有 GitHub 账号，却在把一个 8 万 star 的开源项目推向更多人。奇绩创坛、AI 教育公司 COO、ListenHub CMO（ARR 从 0 到 300 万美元）、AdventureX 黑客松组织者，再到放弃 Anthropic 加入 LobeHub——一个 00 后用三年高频试错，走出了工程师之外的另一条 AI 路径。",
-    "en": "He has no GitHub account, yet he is the one pushing an 80k-star open-source project to the world. MiraclePlus, COO of an AI-education startup, CMO of ListenHub (ARR $0 → $3M), organizer of the AdventureX hackathon, then turning down Anthropic to join LobeHub — three years of rapid iteration on a career path AI needs just as much as engineers."
+    "en": "He has no GitHub account, yet he is the one pushing an 80k-star open-source project to the world. MiraclePlus, COO of an AI-education startup, CMO of ListenHub (ARR $0 → $3M), organizer of the AdventureX hackathon, then turning down Anthropic to join LobeHub — three years of rapid iteration on a career path AI needs just as much as engineers.",
+    "ja": "彼にはGitHubアカウントがない。それでも、8万starのオープンソースプロジェクトをより多くの人に届けようとしている。MiraclePlus、AI教育会社のCOO、ListenHubのCMO（ARRを0から300万ドルへ）、AdventureXハッカソンの主催者、そしてAnthropicを断ってLobeHubへ——Z世代の一人が3年間の高速な試行錯誤で、エンジニア以外のもう一つのAIキャリアを切り開きました。",
+    "ko": "그에게는 GitHub 계정이 없습니다. 그런데도 8만 star의 오픈소스 프로젝트를 더 많은 사람에게 전하고 있습니다. MiraclePlus, AI 교육 회사 COO, ListenHub CMO(ARR 0에서 300만 달러로), AdventureX 해커톤 주최자, 그리고 Anthropic을 포기하고 LobeHub에 합류 — 한 Z세대가 3년간의 빈번한 시행착오 끝에 엔지니어가 아닌 또 다른 AI 경로를 걸었습니다."
   },
   "publishedAt": "2026-08-02",
   "tags": ["founder-story", "growth", "hackathon"],
@@ -16,7 +20,9 @@
       "id": "lobehub/lobehub",
       "blurb": {
         "zh": "他现在的主场：开源多 Agent 平台 LobeHub。ghfind 图谱里该仓库有 30 位已评分贡献者，平均 79.5 分——工程侧的成色，正是他选择加入的理由之一。",
-        "en": "His current home turf: LobeHub, the open-source multi-agent platform. In the ghfind graph the repo counts 30 scored contributors averaging 79.5 — the engineering calibre that convinced him to join."
+        "en": "His current home turf: LobeHub, the open-source multi-agent platform. In the ghfind graph the repo counts 30 scored contributors averaging 79.5 — the engineering calibre that convinced him to join.",
+        "ja": "彼の現在の本拠地：オープンソースのマルチAgentプラットフォームLobeHub。ghfindグラフではこのリポジトリに30人の採点済み貢献者がおり、平均79.5点——エンジニアリング面の実力こそ、彼が参加を決めた理由の一つです。",
+        "ko": "그의 현재 주요 활동지: 오픈소스 멀티 Agent 플랫폼 LobeHub. ghfind 그래프에서 이 리포지토리에는 채점된 기여자 30명이 있으며 평균 79.5점입니다 — 엔지니어링 측면의 수준이야말로 그가 합류를 선택한 이유 중 하나입니다."
       },
       "stats": {
         "stars": 80986,

@@ -2,11 +2,15 @@
   "type": "developers",
   "title": {
     "zh": "阿酥在coding（LofiSu）：当\"身份工程\"遇上评分引擎",
-    "en": "LofiSu: when identity engineering meets a scoring engine"
+    "en": "LofiSu: when identity engineering meets a scoring engine",
+    "ja": "阿酥在coding（LofiSu）：「アイデンティティ工学」がスコアリングエンジンに出会うとき",
+    "ko": "阿酥在coding(LofiSu): '아이덴티티 엔지니어링'이 평가 엔진을 만났을 때"
   },
   "intro": {
     "zh": "2026 年 5 月，围绕这位 00 后开发者的争议刷屏中文技术圈：Apache Committer 身份是真的，DeerFlow 参与也是真的，但\"20 岁 AI 天才\"的叙事撑得住吗？ghfind 引擎只读 GitHub 公开数据，给出的评分是 49.9。这一期不是推荐，是一份档案——以及一个行业问题：当包装比实干便宜，数据核查该如何定价。",
-    "en": "In May 2026 the Chinese dev community erupted over this Gen-Z developer: the Apache committer status is real, the DeerFlow participation is real — but does the \"20-year-old AI prodigy\" narrative hold? Reading nothing but public GitHub data, the ghfind engine scores the account 49.9. This issue is not a recommendation but a case file — and an industry question: when packaging is cheaper than substance, what prices in the fact-check?"
+    "en": "In May 2026 the Chinese dev community erupted over this Gen-Z developer: the Apache committer status is real, the DeerFlow participation is real — but does the \"20-year-old AI prodigy\" narrative hold? Reading nothing but public GitHub data, the ghfind engine scores the account 49.9. This issue is not a recommendation but a case file — and an industry question: when packaging is cheaper than substance, what prices in the fact-check?",
+    "ja": "2026年5月、このZ世代開発者をめぐる論争が中国の技術コミュニティで沸騰しました：Apache Committerの身分は本物、DeerFlowへの参加も本物。しかし「20歳のAI天才」という物語は成り立つのか？ghfindエンジンはGitHubの公開データだけを読み、49.9というスコアを出しました。今号はおすすめではなく、一つのケースファイル——そして一つの業界の問いです：包装が実質より安いとき、ファクトチェックにはどう値段を付けるべきか。",
+    "ko": "2026년 5월, 이 Z세대 개발자를 둘러싼 논란이 중국 기술 커뮤니티를 뜨겁게 달궜습니다: Apache Committer 신분은 사실이고, DeerFlow 참여도 사실입니다 — 하지만 '20세 AI 천재'라는 서사는 성립할까요? ghfind 엔진은 GitHub 공개 데이터만 읽고 49.9점을 매겼습니다. 이번 호는 추천이 아니라 하나의 사건 파일 — 그리고 업계를 향한 질문입니다: 포장이 실속보다 값싼 시대, 팩트체크의 가격은 어떻게 매겨져야 할까요."
   },
   "publishedAt": "2026-08-02",
   "tags": ["case-study", "open-source-trust", "title-inflation"],
@@ -16,7 +20,9 @@
     "nickname": "阿酥在coding (LofiSu)",
     "headline": {
       "zh": "Apache Fory Committer · DeerFlow 贡献者 · ghfind 评分 49.9（NPC）",
-      "en": "Apache Fory committer · DeerFlow contributor · ghfind score 49.9 (NPC)"
+      "en": "Apache Fory committer · DeerFlow contributor · ghfind score 49.9 (NPC)",
+      "ja": "Apache Fory Committer · DeerFlow貢献者 · ghfindスコア 49.9（NPC）",
+      "ko": "Apache Fory Committer · DeerFlow 기여자 · ghfind 점수 49.9 (NPC)"
     }
   },
   "items": [
@@ -25,7 +31,9 @@
       "id": "bytedance/deer-flow",
       "blurb": {
         "zh": "争议的中心仓库：字节跳动开源的长时程 SuperAgent 框架。ghfind 图谱里它有 26 位已评分贡献者，平均 77.1 分；LofiSu 在其中的贡献记录为 15 commits / 1 PR。",
-        "en": "The repo at the center of the dispute: ByteDance's open-source long-horizon SuperAgent harness. In the ghfind graph it counts 26 scored contributors averaging 77.1; LofiSu's recorded contribution is 15 commits / 1 PR."
+        "en": "The repo at the center of the dispute: ByteDance's open-source long-horizon SuperAgent harness. In the ghfind graph it counts 26 scored contributors averaging 77.1; LofiSu's recorded contribution is 15 commits / 1 PR.",
+        "ja": "論争の中心にあるリポジトリ：ByteDanceがオープンソース化した長時間軸のSuperAgentフレームワーク。ghfindグラフでは26人の採点済み貢献者がおり、平均77.1点。LofiSuの記録された貢献は15 commits / 1 PRです。",
+        "ko": "논란의 중심에 있는 리포지토리: ByteDance가 오픈소스로 공개한 장기 시계열 SuperAgent 프레임워크. ghfind 그래프에는 채점된 기여자 26명이 있으며 평균 77.1점입니다. LofiSu의 기록된 기여는 15 commits / 1 PR입니다."
       },
       "stats": {
         "stars": 78859,

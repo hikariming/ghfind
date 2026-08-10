@@ -2,11 +2,15 @@
   "type": "projects",
   "title": {
     "zh": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
-    "en": "LobeHub: From Open-Source Chat Tool to Chief Agent Operator"
+    "en": "LobeHub: From Open-Source Chat Tool to Chief Agent Operator",
+    "ja": "LobeHub：オープンソースチャットツールからChief Agent Operatorへの進化の軌跡",
+    "ko": "LobeHub: 오픈소스 채팅 도구에서 Chief Agent Operator로 — 진화의 여정"
   },
   "intro": {
     "zh": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台。本报告系统梳理其完整发展脉络、技术架构演进、商业模式探索与生态系统建设。",
-    "en": "LobeHub began in 2023 as the open-source chat tool LobeChat, went through three major architectural overhauls and two repositionings, and became a multi-agent collaboration platform built around the \"Chief Agent Operator\" (CAO). This report traces its full trajectory: architecture, business model, and ecosystem."
+    "en": "LobeHub began in 2023 as the open-source chat tool LobeChat, went through three major architectural overhauls and two repositionings, and became a multi-agent collaboration platform built around the \"Chief Agent Operator\" (CAO). This report traces its full trajectory: architecture, business model, and ecosystem.",
+    "ja": "LobeHubは2023年にオープンソースのチャットツールLobeChatとして始まり、3度の大規模なアーキテクチャ変革と2度のブランド再定位を経て、「Chief Agent Operator」（CAO）を中核とするマルチエージェントコラボレーションプラットフォームへと発展しました。本レポートでは、その全発展経緯、技術アーキテクチャの進化、ビジネスモデルの模索、エコシステム構築を体系的に整理します。",
+    "ko": "LobeHub는 2023년 오픈소스 채팅 도구 LobeChat으로 시작해 세 차례의 대규모 아키텍처 변혁과 두 번의 브랜드 리포지셔닝을 거쳐, 'Chief Agent Operator'(CAO)를 핵심으로 하는 멀티 에이전트 협업 플랫폼으로 발전했습니다. 이 리포트는 전체 발전 과정, 기술 아키텍처 진화, 비즈니스 모델 탐색과 생태계 구축을 체계적으로 정리합니다."
   },
   "publishedAt": "2026-08-07",
   "tags": ["ai-agent", "open-source", "self-hosted"],
@@ -16,7 +20,9 @@
     "nickname": "LobeHub",
     "headline": {
       "zh": "8.12 万 star · 1.58 万 fork · TypeScript · 2023 年 5 月建仓",
-      "en": "81.2k stars · 15.8k forks · TypeScript · started May 2023"
+      "en": "81.2k stars · 15.8k forks · TypeScript · started May 2023",
+      "ja": "8.12万 star · 1.58万 fork · TypeScript · 2023年5月作成",
+      "ko": "8.12만 star · 1.58만 fork · TypeScript · 2023년 5월 생성"
     }
   },
   "items": [
@@ -25,7 +31,9 @@
       "id": "arvinxx",
       "blurb": {
         "zh": "创始人徐文彬，Ant Design 核心成员出身。仓库里 43% 的人类提交出自他手，过去 30 天抽样的 400 个已合并 PR 里有 117 个是他提的——这既是项目的引擎，也是它最大的单点风险。",
-        "en": "Founder Arvin Xu, formerly a core member of Ant Design. He wrote 43% of the repo's human commits and authored 117 of the 400 recently merged PRs we sampled — the project's engine, and its single biggest point of failure."
+        "en": "Founder Arvin Xu, formerly a core member of Ant Design. He wrote 43% of the repo's human commits and authored 117 of the 400 recently merged PRs we sampled — the project's engine, and its single biggest point of failure.",
+        "ja": "創業者のArvin Xuは、Ant Designのコアメンバー出身。リポジトリの人間によるコミットの43%が彼の手によるもので、過去30日間にサンプリングした400件のマージ済みPRのうち117件も彼が作成しました——これはプロジェクトのエンジンであると同時に、最大の単一障害点でもあります。",
+        "ko": "창업자 Arvin Xu는 Ant Design 핵심 멤버 출신입니다. 리포지토리의 인간 커밋 중 43%가 그의 손에서 나왔고, 지난 30일간 샘플링한 400개의 머지된 PR 중 117개도 그가 올렸습니다 — 이는 프로젝트의 엔진인 동시에 가장 큰 단일 장애 지점이기도 합니다."
       },
       "stats": {
         "name": "Arvin Xu",
@@ -40,7 +48,9 @@
       "id": "nekomeowww",
       "blurb": {
         "zh": "11 年账号、1,755 个已合并 PR、名下项目累计 13 万 star。他在 LobeHub 只提交了 224 次，但这类「在别处已经证明过自己」的人愿意来，本身就是项目成色的一个信号。",
-        "en": "An 11-year-old account with 1,755 merged PRs and 130k stars across their projects. Only 224 commits here — but people who have already proven themselves elsewhere choosing to show up is itself a signal about a project."
+        "en": "An 11-year-old account with 1,755 merged PRs and 130k stars across their projects. Only 224 commits here — but people who have already proven themselves elsewhere choosing to show up is itself a signal about a project.",
+        "ja": "11年のアカウント、1,755件のマージ済みPR、自身のプロジェクト累計13万 star。LobeHubへのコミットは224回にすぎませんが、こうした「他の場所で既に実力を証明した」人が参加してくれること自体が、プロジェクトの品質を示す一つのシグナルです。",
+        "ko": "11년 된 계정, 1,755개의 머지된 PR, 본인 프로젝트 누적 13만 star. LobeHub에는 224회만 커밋했지만, 이런 '다른 곳에서 이미 실력을 증명한' 사람이 기꺼이 합류한다는 것 자체가 프로젝트의 수준을 보여주는 신호입니다."
       },
       "stats": {
         "name": "Neko",
@@ -55,7 +65,9 @@
       "id": "Innei",
       "blurb": {
         "zh": "715 次提交，仓库人类提交量第三。个人简介里写着 mx-space、Afilmory 等自有项目，1,315 个已合并 PR——典型的「自己有作品，还愿意给别人的项目写代码」那一类开发者。",
-        "en": "715 commits, third among humans in this repo. Runs their own projects (mx-space, Afilmory) with 1,315 merged PRs on top — the kind of developer who ships their own work and still writes code for someone else's."
+        "en": "715 commits, third among humans in this repo. Runs their own projects (mx-space, Afilmory) with 1,315 merged PRs on top — the kind of developer who ships their own work and still writes code for someone else's.",
+        "ja": "715回のコミットで、リポジトリの人間コミット数は3位。プロフィールにはmx-space、Afilmoryなどの自身のプロジェクトが並び、1,315件のマージ済みPR——典型的な「自分の作品を持ちながら、他人のプロジェクトにもコードを書く」タイプの開発者です。",
+        "ko": "715회 커밋으로 리포지토리 인간 커밋 수 3위. 프로필에는 mx-space, Afilmory 등 자신의 프로젝트가 적혀 있고, 1,315개의 머지된 PR을 보유하고 있습니다 — '자기 작품도 만들면서 남의 프로젝트에도 코드를 쓰는' 전형적인 개발자 유형입니다."
       },
       "stats": {
         "name": "Innei",
@@ -70,7 +82,9 @@
       "id": "tjx666",
       "blurb": {
         "zh": "810 次提交，人类里排第二，近 30 天抽样中提交了 74 个已合并 PR。600 个已合并 PR、8 年账号，是这个仓库日常吞吐量的另一根柱子。",
-        "en": "810 commits — second among humans — and 74 merged PRs in our 30-day sample. 600 merged PRs on an eight-year-old account: the other pillar holding up this repo's daily throughput."
+        "en": "810 commits — second among humans — and 74 merged PRs in our 30-day sample. 600 merged PRs on an eight-year-old account: the other pillar holding up this repo's daily throughput.",
+        "ja": "810回のコミットで人間では2位、直近30日のサンプリングでは74件のマージ済みPRを作成。600件のマージ済みPRと8年のアカウントを持ち、このリポジトリの日常的なスループットを支えるもう一本の柱です。",
+        "ko": "810회 커밋으로 인간 중 2위이며, 최근 30일 샘플링에서 74개의 머지된 PR을 올렸습니다. 600개의 머지된 PR, 8년 된 계정 — 이 리포지토리의 일상적인 처리량을 떠받치는 또 다른 기둥입니다."
       },
       "stats": {
         "name": "YuTengjing",
@@ -85,7 +99,9 @@
       "id": "MapleEve",
       "blurb": {
         "zh": "32 个关注者、名下仓库总共 58 个 star，引擎给了 90.7 分——因为 14 年账号龄和 391 个已合并 PR 骗不了人。这类人正是 star 榜看不见、引擎能看见的样本。",
-        "en": "32 followers, 58 stars across their repos — and an engine score of 90.7, because a 14-year-old account with 391 merged PRs cannot be faked. Exactly the kind of contributor a star ranking misses and an engine does not."
+        "en": "32 followers, 58 stars across their repos — and an engine score of 90.7, because a 14-year-old account with 391 merged PRs cannot be faked. Exactly the kind of contributor a star ranking misses and an engine does not.",
+        "ja": "フォロワー32人、自身のリポジトリ合計58 starですが、エンジンは90.7点を付けました——14年のアカウント歴と391件のマージ済みPRは偽装できないからです。まさにstarランキングには見えず、エンジンには見えるタイプのサンプルです。",
+        "ko": "팔로워 32명, 본인 리포지토리 합계 58 star지만 엔진은 90.7점을 줬습니다 — 14년의 계정 연수와 391개의 머지된 PR은 속일 수 없기 때문입니다. star 순위표에는 보이지 않지만 엔진에는 보이는, 바로 그런 유형의 표본입니다."
       },
       "stats": {
         "name": "Maple Gao",

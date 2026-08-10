@@ -2,11 +2,15 @@
   "type": "projects",
   "title": {
     "zh": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
-    "en": "Dify.AI: From Chat Orchestration Tool to Agentic Workflow Executor (2023–2026)"
+    "en": "Dify.AI: From Chat Orchestration Tool to Agentic Workflow Executor (2023–2026)",
+    "ja": "Dify.AI：チャットオーケストレーションツールからAgenticワークフロー実行エンジンへのオープンソース進化史（2023-2026）",
+    "ko": "Dify.AI: 채팅 오케스트레이션 도구에서 Agentic 워크플로 실행기로 — 오픈소스 진화사(2023-2026)"
   },
   "intro": {
     "zh": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器。本报告梳理其创始团队背景、三阶段技术演进、开源社区里程碑、企业落地案例与融资路径。我们另外用评分引擎扫了这个仓库前 100 位贡献者中的 96 个真人：分数中位数 78.2，15 人拿到「夯」，也有 5 人落在「拉完了」。",
-    "en": "Dify started in May 2023 as a RAG-powered chatbot builder, became a workflow orchestration engine in 2024, was rebuilt around plugins and Agent nodes in v1.0 (2025), and shipped as a full Agentic workflow executor in v1.16 (2026). This report traces the founding team, the three-stage technical evolution, open-source milestones, enterprise deployments, and funding history. We also ran our engine over 96 of the repo's top-100 human contributors: median score 78.2, 15 at the top tier — and 5 at the bottom."
+    "en": "Dify started in May 2023 as a RAG-powered chatbot builder, became a workflow orchestration engine in 2024, was rebuilt around plugins and Agent nodes in v1.0 (2025), and shipped as a full Agentic workflow executor in v1.16 (2026). This report traces the founding team, the three-stage technical evolution, open-source milestones, enterprise deployments, and funding history. We also ran our engine over 96 of the repo's top-100 human contributors: median score 78.2, 15 at the top tier — and 5 at the bottom.",
+    "ja": "Difyは2023年5月にRAG ChatBot開発プラットフォームとして始まり、2024年のWorkflowオーケストレーションエンジン、2025年v1.0のプラグイン化リファクタリングとAgentノードを経て、2026年のv1.16で正式にAgenticワークフロー実行エンジンとなりました。本レポートでは、創業チームの背景、3段階の技術進化、オープンソースコミュニティのマイルストーン、企業導入事例、資金調達の経緯を整理します。また、スコアリングエンジンでこのリポジトリの上位100人の貢献者のうち実在する96人を採点しました：スコア中央値78.2、15人が最高ティアを獲得し、5人が最下位ティアでした。",
+    "ko": "Dify는 2023년 5월 RAG ChatBot 개발 플랫폼으로 시작해 2024년 Workflow 오케스트레이션 엔진, 2025년 v1.0의 플러그인 기반 리팩터링과 Agent 노드를 거쳐 2026년 v1.16에서 정식으로 Agentic 워크플로 실행기가 되었습니다. 이 리포트는 창업 팀의 배경, 3단계 기술 진화, 오픈소스 커뮤니티 마일스톤, 엔터프라이즈 도입 사례와 투자 유치 경로를 정리합니다. 또한 평가 엔진으로 이 리포지토리의 상위 100명의 기여자 중 실제 인간 96명을 채점했습니다: 점수 중앙값 78.2, 15명이 최상위 등급을 받았고 5명은 최하위 등급이었습니다."
   },
   "publishedAt": "2026-08-07",
   "tags": ["llmops", "ai-agent", "open-source"],
@@ -16,7 +20,9 @@
     "nickname": "Dify",
     "headline": {
       "zh": "15.2 万 star · 2.39 万 fork · TypeScript · 2023 年 4 月建仓",
-      "en": "152k stars · 23.9k forks · TypeScript · started April 2023"
+      "en": "152k stars · 23.9k forks · TypeScript · started April 2023",
+      "ja": "15.2万 star · 2.39万 fork · TypeScript · 2023年4月作成",
+      "ko": "15.2만 star · 2.39만 fork · TypeScript · 2023년 4월 생성"
     }
   },
   "items": [
@@ -25,7 +31,9 @@
       "id": "takatost",
       "blurb": {
         "zh": "联合创始人兼首席工程师 John Wang，在我们抽样的百位贡献者里提交量排第二（539 次）——但最后一次提交停在 2024 年 10 月，此后主仓再无他的代码。引擎只给 73.1「人上人」：12.8 年账号和 563 个已合并 PR 撑着分数，可 Dify 挂在 langgenius 组织名下，他个人仓库加起来只有 163 star，创始人的影响力压根没落到自己账号上。",
-        "en": "Co-founder and chief engineer John Wang — second by commit count (539) in our 100-contributor sample, but his last commit to the repo lands in October 2024. The engine gives him 73.1: a 12.8-year account and 563 merged PRs hold the score up, while Dify sits under the langgenius org and his personal repos total 163 stars. The founder's influence never accrues to the founder's account."
+        "en": "Co-founder and chief engineer John Wang — second by commit count (539) in our 100-contributor sample, but his last commit to the repo lands in October 2024. The engine gives him 73.1: a 12.8-year account and 563 merged PRs hold the score up, while Dify sits under the langgenius org and his personal repos total 163 stars. The founder's influence never accrues to the founder's account.",
+        "ja": "共同創業者兼チーフエンジニアのJohn Wang。私たちがサンプリングした100人の貢献者の中でコミット数は2位（539回）——しかし最後のコミットは2024年10月で止まっており、それ以降メインリポジトリに彼のコードはありません。エンジンの評価は73.1：12.8年のアカウント歴と563件のマージ済みPRがスコアを支えていますが、Difyはlanggenius組織の傘下にあり、彼の個人リポジトリは合計163 starにすぎません。創業者の影響力は、創業者自身のアカウントには蓄積されなかったのです。",
+        "ko": "공동 창업자이자 수석 엔지니어 John Wang. 우리가 샘플링한 100명의 기여자 중 커밋 수 2위(539회) — 하지만 마지막 커밋은 2024년 10월에 멈춰 있고, 이후 메인 리포지토리에는 그의 코드가 없습니다. 엔진은 73.1점만 줍니다: 12.8년 된 계정과 563개의 머지된 PR이 점수를 떠받치고 있지만, Dify는 langgenius 조직 아래에 있고 그의 개인 리포지토리는 합쳐서 163 star뿐입니다. 창업자의 영향력은 창업자 자신의 계정에는 쌓이지 않았습니다."
       },
       "stats": {
         "name": "John Wang",
@@ -40,7 +48,9 @@
       "id": "laipz8200",
       "blurb": {
         "zh": "全仓第一提交人，708 次提交——takatost 2024 年底停手之后，接住 Dify 主干的就是他。10.5 年账号、846 个已合并 PR，引擎 97.3「夯」。工作流引擎、节点执行、错误恢复这些文中反复提到的硬骨头，大多经他的手。",
-        "en": "Top committer with 708 commits — the person who caught the trunk after takatost stopped shipping in late 2024. A 10.5-year account with 846 merged PRs, scored 97.3. Most of the hard parts this report keeps pointing at — workflow engine, node execution, error recovery — went through him."
+        "en": "Top committer with 708 commits — the person who caught the trunk after takatost stopped shipping in late 2024. A 10.5-year account with 846 merged PRs, scored 97.3. Most of the hard parts this report keeps pointing at — workflow engine, node execution, error recovery — went through him.",
+        "ja": "全リポジトリで最多のコミッター、708回のコミット——takatostが2024年末に手を引いた後、Difyの幹を受け継いだのが彼です。10.5年のアカウント、846件のマージ済みPR、エンジンの評価は97.3。本稿で繰り返し言及される難所——ワークフローエンジン、ノード実行、エラー回復——の多くは彼の手を経ています。",
+        "ko": "리포지토리 전체 커밋 1위, 708회의 커밋 — takatost가 2024년 말 손을 뗀 뒤 Dify 본줄기를 이어받은 사람입니다. 10.5년 된 계정, 846개의 머지된 PR, 엔진 점수 97.3. 이 리포트가 반복해서 짚는 어려운 부분들 — 워크플로 엔진, 노드 실행, 오류 복구 — 은 대부분 그의 손을 거쳤습니다."
       },
       "stats": {
         "name": "-LAN-",
@@ -55,7 +65,9 @@
       "id": "hyoban",
       "blurb": {
         "zh": "902 个已合并 PR，是这个仓库里最能出 PR 的人，99.1 分也是我们扫过的 96 位 Dify 贡献者中的最高分。157 个公开仓库、8.2 年账号，前端那条线（Next.js/React 交互层）的主要维护者之一。",
-        "en": "902 merged PRs — the highest PR throughput in this repo, and at 99.1 the top score among the 96 Dify contributors we scanned. 157 public repos on an 8.2-year account, and one of the main maintainers of the Next.js/React interaction layer this report describes."
+        "en": "902 merged PRs — the highest PR throughput in this repo, and at 99.1 the top score among the 96 Dify contributors we scanned. 157 public repos on an 8.2-year account, and one of the main maintainers of the Next.js/React interaction layer this report describes.",
+        "ja": "902件のマージ済みPRはこのリポジトリで最もPRを量産する人物であり、99.1というスコアは私たちが採点した96人のDify貢献者の中で最高です。157の公開リポジトリ、8.2年のアカウント歴を持ち、フロントエンド（Next.js/Reactインタラクション層）の主要メンテナーの一人です。",
+        "ko": "902개의 머지된 PR — 이 리포지토리에서 가장 많은 PR을 만들어낸 사람이며, 99.1점은 우리가 채점한 96명의 Dify 기여자 중 최고 점수입니다. 157개의 공개 리포지토리, 8.2년 된 계정을 보유하고, 프론트엔드(Next.js/React 인터랙션 레이어)의 주요 메인테이너 중 한 명입니다."
       },
       "stats": {
         "name": "Stephen Zhou",
@@ -70,7 +82,9 @@
       "id": "bowenliang123",
       "blurb": {
         "zh": "梁博文，Apache Kyuubi PMC 成员，14 年账号、662 个已合并 PR，在 Dify 提交 295 次排进前八——而且他不是 langgenius 的人。名下仓库总共 316 star，任何按 star 排的榜单都看不见他，引擎给 94。",
-        "en": "Bowen Liang, an Apache Kyuubi PMC member with a 14-year account and 662 merged PRs, sits eighth by commits here (295) — and he is not on the langgenius payroll. His own repos total 316 stars, so no star-ranked list will ever surface him. The engine scores him 94."
+        "en": "Bowen Liang, an Apache Kyuubi PMC member with a 14-year account and 662 merged PRs, sits eighth by commits here (295) — and he is not on the langgenius payroll. His own repos total 316 stars, so no star-ranked list will ever surface him. The engine scores him 94.",
+        "ja": "梁博文（Bowen Liang）、Apache Kyuubi PMCメンバー。14年のアカウント歴、662件のマージ済みPRを持ち、Difyへのコミットは295回で8位以内——しかも彼はlanggeniusの人間ではありません。彼名義のリポジトリは合計316 starで、star順のランキングでは決して顔が見えませんが、エンジンは94を付けました。",
+        "ko": "Apache Kyuubi PMC 멤버 Bowen Liang. 14년 된 계정, 662개의 머지된 PR을 보유하고 Dify에 295회 커밋해 상위 8위 안에 들었습니다 — 그런데 그는 langgenius 소속이 아닙니다. 본인 명의 리포지토리는 합쳐서 316 star라 star 순위표에서는 그를 볼 수 없지만, 엔진은 94점을 줍니다."
       },
       "stats": {
         "name": "Bowen Liang",
@@ -85,7 +99,9 @@
       "id": "kurokobo",
       "blurb": {
         "zh": "正文里点名的那份官方 10 万 star 致谢名单，他在其中。116 个关注者、名下仓库 884 star，放在社交口径上毫不起眼；13.6 年账号加 584 个已合并 PR，引擎给到 94.3「夯」。外部贡献者能进官方名单，靠的是这个。",
-        "en": "One of the contributors named in Dify's official 100k-star thank-you list quoted in this report. 116 followers and 884 stars across his repos — invisible by social metrics; a 13.6-year account with 584 merged PRs — 94.3 by ours. That gap is the whole point."
+        "en": "One of the contributors named in Dify's official 100k-star thank-you list quoted in this report. 116 followers and 884 stars across his repos — invisible by social metrics; a 13.6-year account with 584 merged PRs — 94.3 by ours. That gap is the whole point.",
+        "ja": "本編で言及した公式の10万star謝辞リストに名を連ねています。フォロワー116人、自身のリポジトリ合計884 starと、ソーシャル指標ではまったく目立ちませんが、13.6年のアカウントと584件のマージ済みPRにより、エンジンの評価は94.3。外部貢献者が公式リストに入れるのは、この実績あってこそです。",
+        "ko": "본문에서 언급한 공식 10만 star 감사 명단에 이름을 올린 사람입니다. 팔로워 116명, 본인 리포지토리 합계 884 star로 소셜 지표로는 전혀 눈에 띄지 않지만, 13.6년 된 계정과 584개의 머지된 PR로 엔진은 94.3점을 줬습니다. 외부 기여자가 공식 명단에 들 수 있었던 것은 바로 이런 실적 덕분입니다."
       },
       "stats": {
         "name": "kurokobo",
@@ -100,7 +116,9 @@
       "id": "junjiem",
       "blurb": {
         "zh": "文中提到的 MCP 代理相关插件作者，同样在官方致谢名单里。他在主仓只提交了 20 次，但 12.5 年账号、442 个已合并 PR——贡献都在插件生态那一侧，主仓提交数根本量不出来他的分量。",
-        "en": "Author of the MCP proxy plugins this report credits, also on the official thank-you list. Only 20 commits in the main repo, but a 12.5-year account with 442 merged PRs: his work lives in the plugin ecosystem, where the main repo's commit count cannot see it."
+        "en": "Author of the MCP proxy plugins this report credits, also on the official thank-you list. Only 20 commits in the main repo, but a 12.5-year account with 442 merged PRs: his work lives in the plugin ecosystem, where the main repo's commit count cannot see it.",
+        "ja": "本編で触れたMCPプロキシ関連プラグインの作者で、同じく公式謝辞リスト入りしています。メインリポジトリへのコミットはわずか20回ですが、12.5年のアカウント歴と442件のマージ済みPR——彼の貢献はプラグインエコシステム側にあり、メインリポジトリのコミット数では彼の真価は測れません。",
+        "ko": "본문에서 언급한 MCP 프록시 관련 플러그인의 저자로, 역시 공식 감사 명단에 있습니다. 메인 리포지토리에는 20회만 커밋했지만, 12.5년 된 계정에 442개의 머지된 PR을 보유하고 있습니다 — 그의 기여는 플러그인 생태계 쪽에 있어서, 메인 리포지토리의 커밋 수로는 그의 무게를 잴 수 없습니다."
       },
       "stats": {
         "name": "Junjie.M",
@@ -115,7 +133,9 @@
       "id": "fdb02983rhy",
       "blurb": {
         "zh": "官方致谢名单里排在最前面的那个 ID。账号只有 4.8 年、17 个关注者、名下仓库加起来 39 star，99 个已合并 PR 换来 80.4「顶级」。引擎不认名气，只认合进主干的代码——他是这句话最干净的样本。",
-        "en": "The first handle on that official thank-you list. A 4.8-year-old account, 17 followers, 39 stars across all his repos — and 99 merged PRs, which the engine prices at 80.4. Reputation buys nothing here; merged code does. He is the cleanest sample of that."
+        "en": "The first handle on that official thank-you list. A 4.8-year-old account, 17 followers, 39 stars across all his repos — and 99 merged PRs, which the engine prices at 80.4. Reputation buys nothing here; merged code does. He is the cleanest sample of that.",
+        "ja": "公式謝辞リストの先頭に並ぶID。アカウント歴はわずか4.8年、フォロワー17人、自身のリポジトリを合わせても39 starですが、99件のマージ済みPRが80.4という評価をもたらしました。エンジンは名声を認めず、メインラインにマージされたコードだけを認める——彼はこの言葉の最もクリーンなサンプルです。",
+        "ko": "공식 감사 명단의 맨 앞에 있는 ID. 계정은 4.8년밖에 안 됐고, 팔로워 17명, 본인 리포지토리 합계 39 star이지만, 99개의 머지된 PR이 80.4점을 가져다줬습니다. 엔진은 명성을 인정하지 않고 본줄기에 머지된 코드만 인정합니다 — 그는 이 문장의 가장 깨끗한 표본입니다."
       },
       "stats": {
         "name": "fdb02983rhy",
