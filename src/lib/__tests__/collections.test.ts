@@ -33,7 +33,7 @@ describe("collections content", () => {
         `${slug}: empty collection`,
       ).toBeGreaterThan(0);
       for (const l of c.bodyLocales) {
-        expect(["zh", "en"], `${slug}: body locale ${l}`).toContain(l);
+        expect(["zh", "en", "ja", "ko"], `${slug}: body locale ${l}`).toContain(l);
       }
       if (c.subject) {
         expect(["repo", "developer"], `${slug}: subject.kind`).toContain(c.subject.kind);
@@ -99,6 +99,14 @@ describe("collections content", () => {
     for (const locale of ["en", "ja", "ko", "es", "pt", "id", "vi", "ar"]) {
       expect(pickText(text, locale)).toBe("English");
     }
+  });
+
+  it("serves ja/ko copy when present and falls back locale → en → zh", () => {
+    const text = { zh: "中文", en: "English", ja: "日本語", ko: "한국어" };
+    expect(pickText(text, "ja")).toBe("日本語");
+    expect(pickText(text, "ko")).toBe("한국어");
+    expect(pickText(text, "es")).toBe("English");
+    expect(pickText({ zh: "中文", en: "", ja: "日本語" }, "en")).toBe("中文");
   });
 
   it("canonicalizes body-less locales onto a real body locale", () => {

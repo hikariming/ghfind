@@ -9,17 +9,19 @@ content/collections/<slug>/
   meta.json    # 必须：类型、双语标题/导语、日期、tags、可选 subject / items
   zh.md        # 可选：长文正文（人物特写/深度推荐）
   en.md        # 可选：英文正文
+  ja.md        # 可选：日文正文
+  ko.md        # 可选：韩文正文
 ```
 
-正文语言回落：请求 locale → en → zh（编辑内容只维护 zh/en，其余 locale 自动回落，页面会显示"暂无翻译"提示，hreflang/canonical 只指向真实存在的语言版本）。
+正文语言回落：请求 locale → en → zh（正文维护 zh/en/ja/ko，其余 locale 自动回落，页面会显示"暂无翻译"提示，hreflang/canonical 只指向真实存在的语言版本）。
 
 ## meta.json 字段
 
 ```jsonc
 {
   "type": "developers",              // projects | developers | mixed（页面顶部的类型徽章）
-  "title": { "zh": "…", "en": "…" },
-  "intro": { "zh": "…", "en": "…" }, // 索引卡摘要 + meta description
+  "title": { "zh": "…", "en": "…", "ja": "…", "ko": "…" },
+  "intro": { "zh": "…", "en": "…", "ja": "…", "ko": "…" }, // 索引卡摘要 + meta description；ja/ko 可选，缺省回落 en
   "publishedAt": "2026-08-01",       // ISO 日期，索引页按此倒序
   "tags": ["developer-story"],
 

@@ -2,11 +2,15 @@
   "type": "developers",
   "title": {
     "zh": "张昱轩：00后AI开发者的成长之路与开源贡献之路",
-    "en": "Yuxuan Zhang: a Gen-Z developer's road from campus contests to core contributor at Z.ai"
+    "en": "Yuxuan Zhang: a Gen-Z developer's road from campus contests to core contributor at Z.ai",
+    "ja": "张昱轩：Z世代AI開発者の成長とオープンソース貢献の道",
+    "ko": "张昱轩: Z세대 AI 개발자의 성장과 오픈소스 기여의 길"
   },
   "intro": {
     "zh": "从小学接触 Logo 与 C++，到 RoboMaster 国家一等奖，再到智谱AI算法工程师、GLM-5 与 Open-AutoGLM 核心贡献者——zRzRzRzRzRzRzR 的成长轨迹，为开发者和在校大学生提供了一套可借鉴的成长范式。",
-    "en": "From childhood Logo and C++ to a national RoboMaster title, then core algorithm engineer at Z.ai contributing to GLM-5 and Open-AutoGLM — the trajectory of zRzRzRzRzRzRzR is a playbook young developers can actually follow."
+    "en": "From childhood Logo and C++ to a national RoboMaster title, then core algorithm engineer at Z.ai contributing to GLM-5 and Open-AutoGLM — the trajectory of zRzRzRzRzRzRzR is a playbook young developers can actually follow.",
+    "ja": "小学校でLogoとC++に触れ、RoboMaster全国一等賞を経て、Z.aiのアルゴリズムエンジニア、GLM-5とOpen-AutoGLMのコアコントリビューターへ——zRzRzRzRzRzRzRの成長軌跡は、開発者や大学生にとって参考にできる成長モデルを提示しています。",
+    "ko": "초등학교 때 Logo와 C++를 접하고, RoboMaster 전국 1등상을 거쳐 Z.ai 알고리즘 엔지니어, GLM-5와 Open-AutoGLM의 핵심 기여자로 — zRzRzRzRzRzRzR의 성장 궤적은 개발자와 대학생에게 참고할 만한 성장 모델을 제시합니다."
   },
   "publishedAt": "2026-08-01",
   "tags": ["developer-story", "glm", "open-source"],
@@ -16,7 +20,9 @@
     "nickname": "张昱轩",
     "headline": {
       "zh": "智谱AI 算法工程师 · GLM-5 / Open-AutoGLM / CogVideoX 核心贡献者",
-      "en": "Algorithm engineer at Z.ai · core contributor to GLM-5, Open-AutoGLM and CogVideoX"
+      "en": "Algorithm engineer at Z.ai · core contributor to GLM-5, Open-AutoGLM and CogVideoX",
+      "ja": "Z.aiアルゴリズムエンジニア · GLM-5 / Open-AutoGLM / CogVideoXコアコントリビューター",
+      "ko": "Z.ai 알고리즘 엔지니어 · GLM-5 / Open-AutoGLM / CogVideoX 핵심 기여자"
     }
   }
 }

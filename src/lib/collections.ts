@@ -12,15 +12,15 @@ import type { Tier } from "@/lib/types";
  *   `subject` (the person/repo the piece is about) and optional `items`
  *   (card-list picks for roundup-style collections).
  * - `<locale>.md` — optional long-form article body. Editorial content ships
- *   zh and/or en only (same policy as LLM content); a locale without its own
- *   body falls back locale → en → zh.
+ *   zh + en plus ja/ko translations; a locale without its own body falls back
+ *   locale → en → zh.
  *
  * Item `stats` are static editorial numbers for now; the real-data phase
  * resolves live stats from `repos`/`scores` at render time and keeps `stats`
  * as the fallback for entities the engine hasn't scanned yet.
  */
 
-export type LocalizedText = { zh: string; en: string };
+export type LocalizedText = { zh: string; en: string; ja?: string; ko?: string };
 
 export type RepoPickStats = {
   stars: number;
@@ -132,9 +132,11 @@ export function listCollections(): Collection[] {
     .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
 }
 
-/** Editorial copy ships zh + en; zh readers get zh, everyone else gets en. */
+/** Editorial copy ships zh + en (+ ja/ko where translated); fall back locale → en → zh. */
 export function pickText(text: LocalizedText, locale: string): string {
-  return locale === "zh" ? text.zh || text.en : text.en;
+  return (
+    (text as Record<string, string | undefined>)[locale] || text.en || text.zh
+  );
 }
 
 /**
