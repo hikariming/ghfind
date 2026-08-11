@@ -104,11 +104,45 @@ export interface SignatureWorkCluster {
   substantive_low_star_signal?: boolean;
 }
 
+/**
+ * Public organization work independently verified from long-term contribution
+ * history and repository-local maintainer evidence. Presentation/prompt only;
+ * it never contributes to RawMetrics or deterministic scoring.
+ */
+export interface OrganizationMaintainedRepo {
+  repository: TopRepo;
+  commits: number;
+  prs: number;
+  active_years: number;
+  evidence: string[];
+}
+
+/** A contribution-weighted language share from public commit and landed-PR work. */
+export interface EstimatedContributionLanguage {
+  name: string;
+  pct: number;
+}
+
+/**
+ * Profile-only language estimate. Candidate repositories may be personal,
+ * organization-owned, or third-party; none of this data is a score input.
+ */
+export interface EstimatedContributionLanguages {
+  languages: EstimatedContributionLanguage[];
+  candidate_repo_count: number;
+  selected_repo_count: number;
+  sampled_repo_count: number;
+}
+
 export interface SignatureWork {
   /** High-work representative contributed repos, not just the highest-star ones. */
   impact_repo_representatives: SignatureImpactRepo[];
   /** All-history or sample-derived clusters of concrete work by repo/title. */
   work_clusters: SignatureWorkCluster[];
+  /** Display-only, independently proven organization maintenance work. */
+  organization_maintained_repos?: OrganizationMaintainedRepo[];
+  /** Display-only, contribution-weighted language estimate. */
+  estimated_contribution_languages?: EstimatedContributionLanguages;
   source: "all_history_public_scan" | "recent_sample";
 }
 

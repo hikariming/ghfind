@@ -283,6 +283,43 @@ function hasValidSignatureWork(value: unknown): value is SignatureWork {
   ) {
     return false;
   }
+  if (
+    !optionalMatches(
+      value,
+      "organization_maintained_repos",
+      (items) =>
+        Array.isArray(items) &&
+        items.every(
+          (item) =>
+            isRecord(item) &&
+            hasValidTopRepo(item.repository) &&
+            isFiniteNumber(item.commits) &&
+            isFiniteNumber(item.prs) &&
+            isFiniteNumber(item.active_years) &&
+            isStringArray(item.evidence),
+        ),
+    )
+  ) {
+    return false;
+  }
+  if (
+    !optionalMatches(
+      value,
+      "estimated_contribution_languages",
+      (estimate) =>
+        isRecord(estimate) &&
+        Array.isArray(estimate.languages) &&
+        estimate.languages.every(
+          (language) =>
+            isRecord(language) && typeof language.name === "string" && isFiniteNumber(language.pct),
+        ) &&
+        isFiniteNumber(estimate.candidate_repo_count) &&
+        isFiniteNumber(estimate.selected_repo_count) &&
+        isFiniteNumber(estimate.sampled_repo_count),
+    )
+  ) {
+    return false;
+  }
   return value.work_clusters.every(
     (cluster) =>
       isRecord(cluster) &&

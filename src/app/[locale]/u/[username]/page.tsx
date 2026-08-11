@@ -343,7 +343,21 @@ export default async function AccountPage({
         signatureWork: snap.signature_work,
       })
     : [];
-  const languages = snap ? aggregateLanguages(snap.top_repos) : [];
+  // Prefer the public contribution-weighted estimate. It covers personal,
+  // organization, and third-party work without changing TopRepos, scores, or
+  // directory language facets. Older/incomplete snapshots retain the legacy
+  // repository-footprint fallback.
+  const contributionLanguages = snap?.signature_work?.estimated_contribution_languages?.languages ?? [];
+  const languages = contributionLanguages.length > 0
+    ? contributionLanguages.slice(0, 6)
+    : snap
+      ? aggregateLanguages([
+          ...snap.top_repos,
+          ...(snap.signature_work?.organization_maintained_repos ?? []).map(
+            (work) => work.repository,
+          ),
+        ])
+      : [];
   const topics = snap ? collectTopics(snap.top_repos) : [];
   const organizations = snap?.organizations ?? [];
   // Repo cards route into their internal project page (reclaiming the click that

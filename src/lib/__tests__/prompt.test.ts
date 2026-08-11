@@ -636,4 +636,44 @@ describe("buildRoastMessages", () => {
     expect(payload.signature_work.work_clusters[0].note).toContain("org/main-platform");
     expect(payload.signature_work.work_clusters[0].note).toContain("不要因为这个仓库 star 少");
   });
+
+  it("passes independently proven organization maintenance as display-only prompt evidence", () => {
+    const withOrganizationMaintenance = {
+      ...scan,
+      signature_work: {
+        source: "recent_sample",
+        impact_repo_representatives: [],
+        work_clusters: [],
+        organization_maintained_repos: [
+          {
+            repository: {
+              name: "courier",
+              name_with_owner: "octohelm/courier",
+              owner_login: "octohelm",
+              stars: 120,
+              forks: 2,
+              open_issues: 7,
+              size: 100,
+              language: "Go",
+              description: "Courier",
+              pushed_at: null,
+            },
+            commits: 80,
+            prs: 12,
+            active_years: 3,
+            evidence: ["80 commits + 12 PRs across 3 years", "listed in maintainer/codeowner docs"],
+          },
+        ],
+      },
+    } as unknown as ScanResult;
+
+    const [, zhUser] = buildRoastMessages(withOrganizationMaintenance, "zh");
+    const payload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(payload.organization_maintained_repos).toEqual([
+      expect.objectContaining({ repo: "octohelm/courier", commits: 80, prs: 12 }),
+    ]);
+    expect(payload.organization_maintained_repos[0].repository.open_issues).toBeUndefined();
+    expect(payload.context_notes.organization_maintained_scope).toContain("它不参与评分");
+    expect(payload.context_notes.organization_maintained_scope).toContain("不证明");
+  });
 });

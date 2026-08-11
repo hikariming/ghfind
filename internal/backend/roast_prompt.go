@@ -79,19 +79,20 @@ func roastPromptPayload(scan ScanResult, language roastLanguage) map[string]any 
 		verifiedImpactPRs = []RecentPR{}
 	}
 	return map[string]any{
-		"score_contract":      scoreContract,
-		"context_notes":       roastContextNotes(scan, language),
-		"metrics":             metrics,
-		"top_repos":           topRepos,
-		"recent_prs":          scan.RecentPRs,
-		"impact_summary":      impactSummary,
-		"impact_repos":        scan.ImpactRepos,
-		"verified_impact_prs": verifiedImpactPRs,
-		"signature_work":      roastSignatureWork(scan, language),
-		"flood_pr_titles":     scan.FloodPRTitles,
-		"risk_notes":          roastRiskNotes(scan, language),
-		"factual_guardrails":  roastFactualGuardrails(scan, language),
-		"scoring":             scoring,
+		"score_contract":                scoreContract,
+		"context_notes":                 roastContextNotes(scan, language),
+		"metrics":                       metrics,
+		"top_repos":                     topRepos,
+		"recent_prs":                    scan.RecentPRs,
+		"impact_summary":                impactSummary,
+		"impact_repos":                  scan.ImpactRepos,
+		"verified_impact_prs":           verifiedImpactPRs,
+		"signature_work":                roastSignatureWork(scan, language),
+		"organization_maintained_repos": roastOrganizationMaintainedRepos(scan),
+		"flood_pr_titles":               scan.FloodPRTitles,
+		"risk_notes":                    roastRiskNotes(scan, language),
+		"factual_guardrails":            roastFactualGuardrails(scan, language),
+		"scoring":                       scoring,
 	}
 }
 
@@ -129,6 +130,7 @@ func roastContextNotes(scan ScanResult, language roastLanguage) map[string]any {
 			"star_quality_scope":                "Original-project star points are already discounted by top_starred_original_repo_quality_score. If the top-starred repo looks like a profile/config/list/notebook rather than a usable project, do not praise those stars as project strength.",
 			"affiliation_scope":                 "School, company, employer, and organization membership are background only, whether they appear in profile fields or README text. They must not justify praise unless backed by concrete repository quality, PR/commit work, release/tag authorship, MAINTAINERS/CODEOWNERS, or similar maintainer evidence.",
 			"attributed_original_scope":         "If metrics.attributed_original_repo_count > 0 or top_repos contains attributed_original=true, those are organization-owned projects attributed to the user by strong long-term maintenance signals. For roast/report wording, treat attributed org repos as the user's flagship project signal, not as an external employer/customer project. Describe them as org-owned attributed/led projects; do not say the user has no original project just because the repo owner is an organization. Do not frame attributed org projects as 'someone else's project', 'borrowed glory', 'working for the org', 'org laborer', 'employee/servant of the org', or 'building another person's palace'. You may criticize single-project dependency, but not by denying attribution. Do not claim admin/owner/control unless the data explicitly says so.",
+			"organization_maintained_scope":     "organization_maintained_repos contains display-only public organization work with the existing long-term contribution threshold plus repository-local maintainer proof. It is not a score input and does not prove ownership, admin access, employment, or control. You may cite the exact repo and evidence, but never call it the user's personal repository or change the score because of it.",
 			"identity_scope":                    "Do not infer titles such as Apache Committer from PRs to Apache repos. Only state such identity when the input explicitly provides it.",
 			"core_contribution_scope":           "If impact_quality_cap is present and core_impact_pr_count is small while doc_like_impact_pr_count is larger, describe the work as docs/site/examples/templates/frontend UI rather than core engineering.",
 			"low_quality_contribution_scope":    "If impact_quality_cap is present, recent_external_doc_like_pr_ratio >= 0.55, and top_starred_original_repo_quality_score < 0.3, explain the weak external-contribution quality in plain language without changing the score.",
@@ -159,6 +161,7 @@ func roastContextNotes(scan ScanResult, language roastLanguage) map[string]any {
 		"star_quality_scope":                "原创项目 star 分已按 top_starred_original_repo_quality_score 折扣；如果最高星仓库更像 profile/config/list/notebook 而不是可用项目，不要把这些 star 夸成项目实力。",
 		"affiliation_scope":                 "学校、公司、雇主、组织 membership 只是背景信息，无论它们出现在 profile 字段还是 README 文本里；除非有真实仓库质量、PR/commit、release/tag、MAINTAINERS/CODEOWNERS 等维护证据支撑，否则不能作为夸奖或背书理由。",
 		"attributed_original_scope":         "如果 metrics.attributed_original_repo_count > 0 或 top_repos 中存在 attributed_original=true，这些是基于长期维护强信号归属给用户的组织名下项目。在 roast/report 文案口径里，应把这些归属组织仓库视作用户的旗舰项目信号，而不是外部雇主/客户项目。应描述为“组织名下可归属/主导维护项目”，不要因为 repo owner 是组织就写成用户没有原创项目；也不要把这些已归属项目写成“别人的项目/借来的光环/给组织打工/给组织当长工/组织仆人/给他人盖宫殿/嫁衣”。可以吐槽单项目依赖，但不能否认归属。除非输入明确证明，不要声称其拥有 admin/owner/实际控制权。",
+		"organization_maintained_scope":     "organization_maintained_repos 是展示用的公开组织维护证据：同时满足现有长期贡献阈值和仓库内维护证明。它不参与评分，也不证明用户拥有仓库、是管理员、受雇于组织或实际控制组织。可以点名完整 repo 与证据，但不得称为个人仓库，或据此改变分数。",
 		"identity_scope":                    "不要因为给 Apache 等组织仓库提过 PR 就推断其是 Committer；只有输入明确给出身份时才能这样写。",
 		"core_contribution_scope":           "如果 impact_quality_cap 存在，且 core_impact_pr_count 很少而 doc_like_impact_pr_count 更多，应描述为文档/站点/示例/模板/前端界面类贡献为主，不要写成核心工程贡献。",
 		"low_quality_contribution_scope":    "如果 impact_quality_cap 存在、recent_external_doc_like_pr_ratio >= 0.55 且 top_starred_original_repo_quality_score < 0.3，就用人话解释外部贡献质量偏弱，但不得改分。",
@@ -467,6 +470,26 @@ func roastSignatureWork(scan ScanResult, language roastLanguage) map[string]any 
 	}
 }
 
+// roastOrganizationMaintainedRepos exposes the presentation-only maintenance
+// evidence in a compact, explicit shape. Keeping it separate from top_repos
+// makes it mechanically clear to the writer that this is not score evidence.
+func roastOrganizationMaintainedRepos(scan ScanResult) []map[string]any {
+	result := make([]map[string]any, 0, len(scan.SignatureWork.OrganizationMaintainedRepos))
+	for _, work := range scan.SignatureWork.OrganizationMaintainedRepos {
+		repository := roastJSONMap(work.Repository)
+		delete(repository, "open_issues")
+		result = append(result, map[string]any{
+			"repo":         repoDisplayName(work.Repository),
+			"repository":   repository,
+			"commits":      work.Commits,
+			"prs":          work.PRs,
+			"active_years": work.ActiveYears,
+			"evidence":     append([]string(nil), work.Evidence...),
+		})
+	}
+	return result
+}
+
 func englishTierName(tier string) string {
 	switch tier {
 	case "夯":
@@ -525,6 +548,16 @@ func boundedRoastScan(scan ScanResult) ScanResult {
 	scan.SignatureWork.WorkClusters = append([]SignatureWorkCluster(nil), scan.SignatureWork.WorkClusters[:minInt(len(scan.SignatureWork.WorkClusters), 16)]...)
 	for index := range scan.SignatureWork.WorkClusters {
 		scan.SignatureWork.WorkClusters[index].Examples = truncateStrings(scan.SignatureWork.WorkClusters[index].Examples, 5, 200)
+	}
+	scan.SignatureWork.OrganizationMaintainedRepos = append([]OrganizationMaintainedRepo(nil), scan.SignatureWork.OrganizationMaintainedRepos[:minInt(len(scan.SignatureWork.OrganizationMaintainedRepos), maxOrganizationMaintainedRepos)]...)
+	for index := range scan.SignatureWork.OrganizationMaintainedRepos {
+		repository := &scan.SignatureWork.OrganizationMaintainedRepos[index].Repository
+		repository.Description = truncateString(repository.Description, 300)
+		repository.ReadmeExcerpt = truncateString(repository.ReadmeExcerpt, 1500)
+		if repository.Readme != nil {
+			repository.Readme.Features.PromptSummary = truncateRunes(repository.Readme.Features.PromptSummary, 1500)
+		}
+		scan.SignatureWork.OrganizationMaintainedRepos[index].Evidence = truncateStrings(scan.SignatureWork.OrganizationMaintainedRepos[index].Evidence, 3, 200)
 	}
 	return scan
 }

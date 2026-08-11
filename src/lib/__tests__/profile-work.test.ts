@@ -75,4 +75,45 @@ describe("rankProfileWorks", () => {
       }),
     ]);
   });
+
+  it("shows independently proven organization maintenance without promoting it to own work", () => {
+    const works = rankProfileWorks({
+      username: "dev",
+      signatureWork: {
+        source: "recent_sample",
+        impact_repo_representatives: [],
+        work_clusters: [],
+        organization_maintained_repos: [
+          {
+            repository: {
+              name: "controller",
+              name_with_owner: "org/controller",
+              owner_login: "org",
+              stars: 80,
+              forks: 0,
+              open_issues: 0,
+              size: 1,
+              language: "Go",
+              description: "Organization controller",
+              pushed_at: null,
+            },
+            commits: 80,
+            prs: 12,
+            active_years: 3,
+            evidence: ["80 commits + 12 PRs across 3 years", "listed in maintainer/codeowner docs"],
+          },
+        ],
+      },
+    });
+
+    expect(works).toEqual([
+      expect.objectContaining({
+        repo: "org/controller",
+        source: "organization",
+        language: "Go",
+        commits: 80,
+        prs: 12,
+      }),
+    ]);
+  });
 });
