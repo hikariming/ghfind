@@ -33,6 +33,10 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 			_, _ = w.Write([]byte(`{"Go":2000}`))
 			return
 		}
+		if request.URL.Path == "/repos/popular/project/languages" {
+			_, _ = w.Write([]byte(`{"Go":2000}`))
+			return
+		}
 		if request.URL.Path != "/graphql" {
 			t.Errorf("unexpected request %s", request.URL)
 			w.WriteHeader(http.StatusNotFound)
