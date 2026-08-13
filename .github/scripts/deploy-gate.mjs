@@ -204,12 +204,26 @@ async function commandVercelWait() {
   const currentSha = env("GITHUB_SHA");
   const project = env("VERCEL_PROJECT_ID");
   const deadline = Date.now() + 25 * 60 * 1000;
+  // Vercel silently skips deployments whose commit author it can identify as a
+  // Vercel user without contributing access to the team (e.g. a Viewer). When
+  // no deployment for this sha shows up within the grace window, fall back to
+  // the project's deploy hook once — hook-triggered builds carry no commit
+  // author, so the membership check does not apply.
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_MAIN;
+  const hookAfter = Date.now() + 3 * 60 * 1000;
+  let hookFired = false;
   try {
     for (;;) {
       const list = await vercelApi(`/v6/deployments?projectId=${project}&limit=20`);
       const deployment = (list.deployments || []).find(
         (candidate) => candidate.meta?.githubCommitSha === currentSha,
       );
+      if (!deployment && !hookFired && hookUrl && Date.now() > hookAfter) {
+        hookFired = true;
+        console.log("no vercel deployment after 3m; triggering the main deploy hook as fallback");
+        const hookResponse = await fetch(hookUrl, { method: "POST" });
+        console.log(`deploy hook responded ${hookResponse.status}`);
+      }
       if (deployment) {
         const status = deployment.readyState || deployment.state;
         if (status === "READY") {
