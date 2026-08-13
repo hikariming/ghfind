@@ -66,6 +66,28 @@ func TestCampaignSSEHubSharesRevisionPollingAndCleansUp(t *testing.T) {
 	}
 }
 
+func TestCampaignSSEHubSubscribesWithoutStoredRevision(t *testing.T) {
+	// The revision key expires 7 days after the last campaign join; a missing
+	// key must not 503 the stream — it starts at 0 and picks up the next bump.
+	store := &fakeCampaignRevisionStore{}
+	hub := newCampaignSSEHub(store)
+	hub.pollInterval = 10 * time.Millisecond
+	listener, unsubscribe, err := hub.subscribe(context.Background(), "advx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	store.setRevision(1)
+	select {
+	case revision := <-listener:
+		if revision != 1 {
+			t.Fatalf("revision=%d", revision)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("listener did not receive the first bump")
+	}
+}
+
 func TestCampaignSSEHubEnforcesPerCampaignCapacity(t *testing.T) {
 	initial := int64(1)
 	hub := newCampaignSSEHub(&fakeCampaignRevisionStore{revision: &initial})

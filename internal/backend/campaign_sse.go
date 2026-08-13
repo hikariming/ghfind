@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -54,12 +53,16 @@ func (h *campaignSSEHub) subscribe(ctx context.Context, campaign string) (<-chan
 			h.mu.Unlock()
 			return nil, nil, err
 		}
-		if revision == nil {
-			h.mu.Unlock()
-			return nil, nil, fmt.Errorf("campaign revision unavailable")
+		// A missing revision key only means nobody has joined the campaign
+		// recently (the writer INCRs it with a 7-day TTL). Start the stream at
+		// 0 so the endpoint stays available instead of 503ing until the next
+		// join; the poller picks up the first bump from there.
+		initial := int64(0)
+		if revision != nil {
+			initial = *revision
 		}
 		channel = &campaignRevisionChannel{
-			campaign: campaign, revision: *revision, listeners: map[chan int64]struct{}{}, stop: make(chan struct{}),
+			campaign: campaign, revision: initial, listeners: map[chan int64]struct{}{}, stop: make(chan struct{}),
 		}
 		h.channels[campaign] = channel
 		go h.poll(channel)
