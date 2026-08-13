@@ -38,7 +38,7 @@ export function NavGuestMenu({
           type="button"
           aria-label={triggerLabel}
           title={triggerLabel}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-300 shadow-sm transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+          className="navbar-action w-10 justify-center"
         >
           <SlidersHorizontal className="h-4 w-4" />
         </button>
