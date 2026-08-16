@@ -77,6 +77,20 @@ export function GET() {
     lines.push(`User-agent: ${bot}`, "Disallow: /", "");
   }
 
+  // Bingbot gets its own group because a UA that matches a specific group stops
+  // reading `*` entirely — so the /api/ policy must be repeated here. Crawl-delay
+  // is honored by Bing (Google ignores it): bingbot crawls ~19k facet pages/day
+  // at 99% ISR MISS, i.e. a fresh SSR render per hit. 10s ≈ 8.6k req/day cap.
+  lines.push(
+    "User-agent: bingbot",
+    "Allow: /",
+    "Allow: /api/og/",
+    "Allow: /api/card/",
+    "Disallow: /api/",
+    "Crawl-delay: 10",
+    "",
+  );
+
   // Everyone else: open, but keep the budget-burning API private (images allowed).
   lines.push(
     "User-agent: *",
