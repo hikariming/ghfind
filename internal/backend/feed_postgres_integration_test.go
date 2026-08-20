@@ -2,6 +2,8 @@ package backend
 
 import (
 	"context"
+	"database/sql"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -21,6 +23,7 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	resetFeedIntegrationSchema(t, ctx, databaseURL)
 	if err := feedmigration.Run(ctx, databaseURL); err != nil {
 		t.Fatal(err)
 	}
@@ -418,5 +421,29 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	})
 	if err != nil || legacyReview.CanonicalTagID != "domain:legacy-automation" {
 		t.Fatalf("explicit legacy tag classification mismatch: result=%#v err=%v", legacyReview, err)
+	}
+}
+
+// resetFeedIntegrationSchema makes this opt-in integration test repeatable.
+// The test only accepts a dedicated database whose name ends in "_test", so a
+// developer cannot accidentally run its destructive schema reset against the
+// Feed production database by merely exporting FEED_TEST_DATABASE_URL.
+func resetFeedIntegrationSchema(t *testing.T, ctx context.Context, databaseURL string) {
+	t.Helper()
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		t.Fatalf("parse FEED_TEST_DATABASE_URL: %v", err)
+	}
+	databaseName := strings.Trim(parsed.Path, "/")
+	if !strings.HasSuffix(databaseName, "_test") {
+		t.Fatalf("FEED_TEST_DATABASE_URL must target a dedicated *_test database, got %q", databaseName)
+	}
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		t.Fatalf("open integration database: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `DROP SCHEMA IF EXISTS feed CASCADE`); err != nil {
+		t.Fatalf("reset Feed integration schema: %v", err)
 	}
 }
