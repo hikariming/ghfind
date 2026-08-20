@@ -50,6 +50,7 @@ const nextConfig: NextConfig = {
             { source: "/api/developers", destination: `${backend}/api/developers` },
             { source: "/api/projects", destination: `${backend}/api/projects` },
             { source: "/api/projects/:path*", destination: `${backend}/api/projects/:path*` },
+            { source: "/api/feed/:path*", destination: `${backend}/api/feed/:path*` },
             { source: "/api/profile/:path*", destination: `${backend}/api/profile/:path*` },
             { source: "/api/embed/:path*", destination: `${backend}/api/embed/:path*` },
             { source: "/api/sitemap", destination: `${backend}/api/sitemap` },

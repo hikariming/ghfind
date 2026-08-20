@@ -23,7 +23,7 @@ var (
 	githubProfilePattern  = regexp.MustCompile(`(?i)github\.com/([^/?#]+)`)
 )
 
-type dependencyCheck func(context.Context) error
+type dependencyCheck = func(context.Context) error
 
 // APIServer owns Go-native public endpoints and authenticated job admission.
 // The Next app reaches it through an external rewrite, preserving /api/* for
@@ -64,6 +64,11 @@ type APIServer struct {
 	projectAnalysisCache     ProjectAnalysisResultCache
 	projectAnalysisLimiter   ProjectAnalysisRateLimiter
 	projectAnalysisPublisher ProjectAnalysisJobPublisher
+	feed                     FeedDataStore
+	feedSessions             FeedSessionStore
+	feedSigner               *FeedSigner
+	feedLimiter              FeedRateLimiter
+	feedGorse                FeedGorseRecommender
 	metrics                  *BackendMetrics
 	githubOAuthOrigin        string
 	githubAPIOrigin          string
@@ -90,8 +95,8 @@ func NewAPIServer(
 		verdictWait: 45 * time.Second, verdictPoll: 500 * time.Millisecond,
 		githubOAuthOrigin: "https://github.com", githubAPIOrigin: defaultGitHubAPIURL,
 		oauthHTTPClient: &http.Client{Timeout: 10 * time.Second},
-		llmHTTPClient: &http.Client{Timeout: verdictLLMTimeout},
-		metrics:       NewBackendMetrics(),
+		llmHTTPClient:   &http.Client{Timeout: verdictLLMTimeout},
+		metrics:         NewBackendMetrics(),
 	}
 	if cache, ok := statuses.(StatsCache); ok {
 		server.statsCache = cache
@@ -186,6 +191,9 @@ func NewAPIServer(
 	if analysisPublisher, ok := publisher.(ProjectAnalysisJobPublisher); ok {
 		server.projectAnalysisPublisher = analysisPublisher
 	}
+	if limiter, ok := statuses.(FeedRateLimiter); ok {
+		server.feedLimiter = limiter
+	}
 	return server
 }
 
@@ -193,6 +201,7 @@ func (s *APIServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /readyz", s.ready)
+	mux.HandleFunc("GET /feed-readyz", s.feedReady)
 	mux.Handle("GET /metrics", s.metrics.Handler())
 	mux.HandleFunc("GET /api/stats", s.stats)
 	mux.HandleFunc("GET /api/sitemap", s.sitemapInventory)
@@ -216,6 +225,17 @@ func (s *APIServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/project-analyses", s.createProjectAnalysis)
 	mux.HandleFunc("GET /api/project-analyses/{id}", s.projectAnalysis)
 	mux.HandleFunc("GET /api/project-boards", s.projectBoards)
+	mux.HandleFunc("GET /api/feed/tags", withFeedRequestTimeout(s.feedTags))
+	mux.HandleFunc("GET /api/feed/preferences", withFeedRequestTimeout(s.feedPreferences))
+	mux.HandleFunc("PUT /api/feed/preferences", withFeedRequestTimeout(s.feedPreferences))
+	mux.HandleFunc("GET /api/feed/projects", withFeedRequestTimeout(s.feedProjects))
+	mux.HandleFunc("PUT /api/feed/projects/{owner}/{repo}/state", withFeedRequestTimeout(s.feedProjectState))
+	mux.HandleFunc("POST /api/feed/events", withFeedRequestTimeout(s.feedEvents))
+	mux.HandleFunc("DELETE /api/feed/profile", withFeedRequestTimeout(s.deleteFeedProfile))
+	mux.HandleFunc("POST /api/internal/feed/projects/reconcile", s.reconcileFeedProjects)
+	mux.HandleFunc("POST /api/internal/feed/tags/review", s.reviewFeedTagProposal)
+	mux.HandleFunc("POST /api/internal/feed/gorse/rebuild", s.rebuildFeedGorse)
+	mux.HandleFunc("POST /api/internal/feed/projects/moderate", s.moderateFeedProject)
 	mux.HandleFunc("GET /api/internal/project-analyses/reconcile", s.reconcileProjectAnalyses)
 	mux.HandleFunc("POST /api/internal/project-analyses/reconcile", s.reconcileProjectAnalyses)
 	mux.HandleFunc("GET /api/auth/github", s.beginGitHubOAuth)
@@ -244,6 +264,14 @@ func (s *APIServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/admin/backfill-scores", s.adminBackfillScores)
 	mux.HandleFunc("/mcp", s.mcp)
 	return withRequestLimits(mux)
+}
+
+func withFeedRequestTimeout(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		ctx, cancel := context.WithTimeout(request.Context(), 8*time.Second)
+		defer cancel()
+		next(w, request.WithContext(ctx))
+	}
 }
 
 func (s *APIServer) health(w http.ResponseWriter, _ *http.Request) {

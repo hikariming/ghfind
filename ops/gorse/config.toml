@@ -1,0 +1,64 @@
+[database]
+cache_store = "postgres://gorse_local:gorse-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable"
+data_store = "postgres://gorse_local:gorse-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable"
+table_prefix = "gorse_"
+cache_table_prefix = "gorse_cache_"
+data_table_prefix = "gorse_data_"
+
+[master]
+host = "0.0.0.0"
+port = 8086
+http_host = "0.0.0.0"
+http_port = 8088
+n_jobs = 1
+dashboard_user_name = "operator"
+dashboard_password = "local-only-change-me"
+admin_api_key = "local-only-admin-key"
+
+[server]
+default_n = 100
+api_key = "local-only-server-key"
+auto_insert_user = false
+auto_insert_item = false
+cache_expire = "10s"
+
+[recommend]
+cache_size = 100
+cache_expire = "1h"
+context_size = 100
+
+[recommend.data_source]
+positive_feedback_types = ["save", "github_outbound", "qualified_view", "share"]
+read_feedback_types = ["impression"]
+positive_feedback_ttl = 0
+item_ttl = 0
+
+[[recommend.non-personalized]]
+name = "product_value"
+score = "item.Labels.product_score"
+
+[[recommend.item-to-item]]
+name = "tag_neighbors"
+type = "tags"
+column = "item.Labels.tags"
+
+[[recommend.item-to-item]]
+name = "embedding_neighbors"
+type = "embedding"
+column = "item.Labels.embedding"
+
+[[recommend.user-to-user]]
+name = "tag_neighbors"
+type = "tags"
+column = "user.Labels.tags"
+
+[[recommend.user-to-user]]
+name = "embedding_neighbors"
+type = "embedding"
+column = "user.Labels.embedding"
+
+[recommend.collaborative]
+type = "none"
+
+[recommend.replacement]
+enable_replacement = false

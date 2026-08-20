@@ -80,6 +80,7 @@ type ProjectAssessment struct {
 	ClassicEligible    bool
 	ResolvedCommitSHA  string
 	AnalyzedAt         int64
+	UpdatedAt          int64
 	Analysis           *ProjectAnalysisArtifact
 	ReportMarkdown     string
 }
@@ -778,6 +779,7 @@ const projectAssessmentSelect = `
 	       pa.community_strength, pa.confidence, pa.unknowns_json, pa.risks_json,
 	       pa.stars, pa.treasure_eligible, pa.classic_eligible,
 	       pa.resolved_commit_sha, pa.analyzed_at,
+	       pa.updated_at,
 	       pr.analysis_json, pr.report_markdown
 	FROM project_assessments AS pa
 	JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id`
@@ -803,7 +805,7 @@ func scanProjectAssessment(scanner rowScanner) (*ProjectAssessment, error) {
 		&assessment.ValueDensityScore, &assessment.CommunityStrength,
 		&assessment.Confidence, &unknownsJSON, &risksJSON,
 		&stars, &treasureFlag, &classicFlag,
-		&assessment.ResolvedCommitSHA, &assessment.AnalyzedAt,
+		&assessment.ResolvedCommitSHA, &assessment.AnalyzedAt, &assessment.UpdatedAt,
 		&analysisJSON, &reportMarkdown,
 	)
 	if err != nil {
@@ -827,6 +829,35 @@ func scanProjectAssessment(scanner rowScanner) (*ProjectAssessment, error) {
 	assessment.Analysis = analysis
 	assessment.ReportMarkdown = reportMarkdown.String
 	return &assessment, nil
+}
+
+// ListFeedProjectAssessments provides a stable keyset scan for the rebuildable
+// Feed projection. It deliberately avoids product-score ordering and OFFSET:
+// concurrent analysis completions cannot move rows between pages and create a
+// silent omission during reconciliation.
+func (s *TursoStore) ListFeedProjectAssessments(ctx context.Context, afterRepoKey string, limit int) ([]ProjectAssessment, error) {
+	if err := s.ensureCurrentProjectEligibility(ctx); err != nil {
+		return nil, fmt.Errorf("ensure current project eligibility: %w", err)
+	}
+	limit = maxInt(1, minInt(100, limit))
+	rows, err := s.db.QueryContext(ctx, projectAssessmentSelect+`
+		WHERE pa.repo_key > ? ORDER BY pa.repo_key ASC LIMIT ?`, strings.ToLower(strings.TrimSpace(afterRepoKey)), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list Feed project assessments: %w", err)
+	}
+	defer rows.Close()
+	assessments := []ProjectAssessment{}
+	for rows.Next() {
+		assessment, err := scanProjectAssessment(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan Feed project assessment: %w", err)
+		}
+		assessments = append(assessments, *assessment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list Feed project assessments: %w", err)
+	}
+	return assessments, nil
 }
 
 func (s *TursoStore) GetProjectAssessment(ctx context.Context, repoKey string) (*ProjectAssessment, error) {

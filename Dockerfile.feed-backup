@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ghfind-feed-backup ./cmd/ghfind-feed-backup
+COPY internal/feedbackup ./internal/feedbackup
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-feed-backup ./cmd/ghfind-feed-backup
+
+# pg_dump/pg_restore must use the same PostgreSQL major as the Feed server.
+# This image contains the PostgreSQL 17 client while the Go binary remains
+# static. The service is a cron job and exits after one operation.
+FROM postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+COPY --from=build /out/ghfind-feed-backup /usr/local/bin/ghfind-feed-backup
+USER postgres
+ENTRYPOINT ["/usr/local/bin/ghfind-feed-backup"]
