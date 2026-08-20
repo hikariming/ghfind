@@ -38,6 +38,11 @@ function optional(name: string): string | null {
   return value || null;
 }
 
+function publicSmokeHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const bypass = optional("VERCEL_AUTOMATION_BYPASS_SECRET");
+  return bypass ? { ...extra, "x-vercel-protection-bypass": bypass } : extra;
+}
+
 function originUrl(name: string, requiredValue: boolean): URL | null {
   const raw = requiredValue ? required(name) : optional(name);
   if (!raw) return null;
@@ -56,7 +61,7 @@ function originUrl(name: string, requiredValue: boolean): URL | null {
   return url;
 }
 
-async function runCheck(base: URL, check: Check): Promise<void> {
+async function runCheck(base: URL, check: Check, vercelProtected = false): Promise<void> {
   const response = await fetch(new URL(check.path, base), {
     redirect: "follow",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -88,10 +93,10 @@ async function runMcpCheck(base: URL): Promise<void> {
     method: "POST",
     redirect: "follow",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
+    headers: publicSmokeHeaders({
       Accept: "application/json, text/event-stream",
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
   if (response.status !== 200) {
@@ -113,7 +118,7 @@ async function runCampaignSseCheck(base: URL, campaign: string): Promise<void> {
   const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
   try {
     const response = await fetch(new URL(`/api/campaigns/${encodeURIComponent(campaign)}/leaderboard/events`, base), {
-      headers: { Accept: "text/event-stream" },
+      headers: publicSmokeHeaders({ Accept: "text/event-stream" }),
       signal: controller.signal,
     });
     if (response.status !== 200) {
@@ -222,6 +227,9 @@ async function main(): Promise<void> {
 
   const base = originUrl("SMOKE_BASE_URL", true);
   if (!base) throw new Error("SMOKE_BASE_URL is required");
+  if (process.env.SMOKE_REQUIRE_VERCEL_BYPASS === "1" && !optional("VERCEL_AUTOMATION_BYPASS_SECRET")) {
+    throw new Error("VERCEL_AUTOMATION_BYPASS_SECRET is required for protected production smoke");
+  }
   const canary = handle(required("SMOKE_CANARY_HANDLE"), "SMOKE_CANARY_HANDLE");
   const facetType = required("SMOKE_FACET_TYPE");
   if (!new Set(["language", "org", "repo"]).has(facetType)) {
@@ -313,7 +321,7 @@ async function main(): Promise<void> {
     },
   ];
 
-  for (const check of checks) await runCheck(base, check);
+  for (const check of checks) await runCheck(base, check, true);
   await runMcpCheck(base);
   await runCampaignSseCheck(base, optional("SMOKE_CAMPAIGN") || "advx");
 
@@ -324,7 +332,7 @@ async function main(): Promise<void> {
       path: `/api/scan/jobs/${encodeURIComponent(scanJobID)}`,
       status: 200,
       validate: validateScanJob,
-    });
+    }, true);
   } else if (process.env.SMOKE_REQUIRE_SCAN_JOB === "1") {
     throw new Error("SMOKE_SCAN_JOB_ID is required when SMOKE_REQUIRE_SCAN_JOB=1");
   }

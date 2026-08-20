@@ -52,6 +52,7 @@ type ProjectAnalysisWorker struct {
 	mosoo     *MosooClient
 	cache     ProjectAnalysisResultCache
 	publisher ProjectAnalysisJobPublisher
+	feedSync  FeedCatalogSyncPublisher
 	metrics   *BackendMetrics
 	log       *slog.Logger
 	poll      time.Duration
@@ -74,6 +75,11 @@ func NewProjectAnalysisWorker(
 		metrics: NewBackendMetrics(), log: logger,
 		poll:     projectAnalysisPollInterval,
 		verifier: &http.Client{Timeout: 5 * time.Second},
+	}
+	if config.FeedMode.Enabled() {
+		if feedSync, ok := publisher.(FeedCatalogSyncPublisher); ok {
+			worker.feedSync = feedSync
+		}
 	}
 	if cache, ok := statuses.(ProjectAnalysisResultCache); ok {
 		worker.cache = cache
@@ -594,6 +600,21 @@ func (w *ProjectAnalysisWorker) finalizeCompletedRun(ctx context.Context, run *P
 		)
 		if err := w.cache.SetCachedProjectAnalysisID(ctx, fingerprint, completed.ID); err != nil {
 			w.log.Warn("cache completed project analysis", "analysis_id", completed.ID, "error", err)
+		}
+	}
+	// Turso completion is the authoritative commit and must never be rolled
+	// back because the optional Feed projection is unavailable. Publish a
+	// confirmed low-latency hint after that commit; the leased 30-second
+	// reconciliation sweep repairs a lost cross-database message.
+	if w.feedSync != nil {
+		publishCtx, cancel := context.WithTimeout(ctx, workerDeliveryTimeout)
+		err := w.feedSync.PublishFeedCatalogSync(publishCtx, FeedCatalogSyncJob{
+			RepoKey: completed.RepoKey, AnalysisID: completed.ID, RequestedAt: time.Now().UTC().UnixMilli(),
+		})
+		cancel()
+		if err != nil {
+			w.log.Warn("publish Feed catalog sync after analysis completion", "analysis_id", completed.ID,
+				"repo_key", completed.RepoKey, "error", err)
 		}
 	}
 	w.log.Info("project_analysis.completed",

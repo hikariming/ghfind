@@ -38,7 +38,36 @@ func main() {
 	}
 	defer publisher.Close()
 
-	server := backend.NewAPIServer(config, store, statuses, publisher, store.Ping, statuses.Ping, publisher.Ping)
+	checks := []func(context.Context) error{store.Ping, statuses.Ping, publisher.Ping}
+	var feedStore *backend.PostgresFeedStore
+	if config.FeedMode.Enabled() {
+		feedStore, err = backend.OpenPostgresFeedStore(config)
+		if err != nil {
+			logger.Warn("Feed PostgreSQL configuration unavailable; core API will continue", "error", err)
+			feedStore = nil
+		} else {
+			defer feedStore.Close()
+			probeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			probeErr := feedStore.Ping(probeCtx)
+			cancel()
+			if probeErr != nil {
+				logger.Warn("Feed PostgreSQL unavailable at startup; Feed will return 503 until recovery", "error", probeErr)
+			}
+		}
+	}
+	server := backend.NewAPIServer(config, store, statuses, publisher, checks...)
+	if err := server.UseFeed(feedStore, statuses); err != nil {
+		logger.Error("configure Feed API", "error", err)
+		os.Exit(1)
+	}
+	if config.FeedGorseLiveBPS > 0 {
+		gorseClient, gorseErr := backend.NewGorseClient(config)
+		if gorseErr != nil {
+			logger.Warn("live Gorse candidate source unavailable; baseline Feed will continue", "error", gorseErr)
+		} else if err := server.UseFeedGorse(gorseClient.WithTimeout(200 * time.Millisecond)); err != nil {
+			logger.Warn("live Gorse candidate source disabled; baseline Feed will continue", "error", err)
+		}
+	}
 	httpServer := &http.Server{
 		Addr:              config.APIListenAddr,
 		Handler:           server.Handler(),

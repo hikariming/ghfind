@@ -9,6 +9,20 @@ x-backend-environment: &backend-environment
   MOSOO_API_BASE: ${MOSOO_API_BASE:-https://try.mosoo.ai/api/v1}
   MOSOO_PROJECT_AGENT_ID: ${MOSOO_PROJECT_AGENT_ID:-}
   MOSOO_PROJECT_USER_ID: ${MOSOO_PROJECT_USER_ID:-ghfind}
+  FEED_MODE: ${FEED_MODE:-off}
+  FEED_DATABASE_URL: ${FEED_DATABASE_URL:-postgres://feed:feed-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable}
+  FEED_SIGNING_SECRET: ${FEED_SIGNING_SECRET:-local-feed-signing-secret-change-me}
+  FEED_CANARY_BPS: ${FEED_CANARY_BPS:-0}
+  FEED_GORSE_LIVE_BPS: ${FEED_GORSE_LIVE_BPS:-0}
+  FEED_SHADOW_OUTCOME_WINDOW: ${FEED_SHADOW_OUTCOME_WINDOW:-24h}
+  FEED_INTERNAL_GITHUB_IDS: ${FEED_INTERNAL_GITHUB_IDS:-}
+  FEED_EMBEDDING_BASE_URL: ${FEED_EMBEDDING_BASE_URL:-}
+  FEED_EMBEDDING_API_KEY: ${FEED_EMBEDDING_API_KEY:-}
+  FEED_EMBEDDING_MODEL: ${FEED_EMBEDDING_MODEL:-}
+  FEED_EMBEDDING_DIMENSIONS: ${FEED_EMBEDDING_DIMENSIONS:-1536}
+  GORSE_BASE_URL: ${GORSE_BASE_URL:-http://gorse:8088}
+  GORSE_SERVER_API_KEY: ${GORSE_SERVER_API_KEY:-local-only-server-key}
+  GORSE_ADMIN_API_KEY: ${GORSE_ADMIN_API_KEY:-local-only-admin-key}
 
 services:
   rabbitmq:
@@ -26,6 +40,53 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  feed-postgres:
+    image: pgvector/pgvector:0.8.1-pg17-trixie@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf
+    profiles: ["feed", "gorse"]
+    environment:
+      POSTGRES_DB: ghfind_feed
+      POSTGRES_USER: feed
+      POSTGRES_PASSWORD: feed-local-only
+    volumes:
+      - feed-postgres-data:/var/lib/postgresql/data
+      - ./ops/feed-postgres-init.sql:/docker-entrypoint-initdb.d/10-vector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feed -d ghfind_feed"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  feed-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: api
+    profiles: ["feed", "gorse"]
+    entrypoint: ["/ghfind-feed-migrate"]
+    environment:
+      FEED_DATABASE_URL: postgres://feed:feed-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable
+    depends_on:
+      feed-postgres:
+        condition: service_healthy
+    restart: "no"
+
+  gorse:
+    image: zhenghaoz/gorse-in-one:0.5.11@sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7
+    profiles: ["gorse"]
+    environment:
+      GORSE_CACHE_STORE: postgres://gorse_local:gorse-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable
+      GORSE_DATA_STORE: postgres://gorse_local:gorse-local-only@feed-postgres:5432/ghfind_feed?sslmode=disable
+      GORSE_SERVER_API_KEY: ${GORSE_SERVER_API_KEY:-local-only-server-key}
+      GORSE_ADMIN_API_KEY: ${GORSE_ADMIN_API_KEY:-local-only-admin-key}
+    volumes:
+      - ./ops/gorse/config.toml:/etc/gorse/config.toml:ro
+      - gorse-data:/var/lib/gorse
+    depends_on:
+      feed-postgres:
+        condition: service_healthy
+      feed-migrate:
+        condition: service_completed_successfully
 
   api:
     build:
@@ -93,3 +154,5 @@ services:
 
 volumes:
   rabbitmq-data:
+  feed-postgres-data:
+  gorse-data:

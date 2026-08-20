@@ -311,6 +311,45 @@ func (s *TursoStore) GetProjectOverview(ctx context.Context, key string) (*Proje
 	return result, nil
 }
 
+// ListFeedProjectOverviews reads only the repository metadata used by the Feed
+// descriptor. The public project overview also computes owner and contributor
+// aggregates, which would turn a catalog reconciliation into an N+1 workload
+// against the same Turso database serving existing product routes.
+func (s *TursoStore) ListFeedProjectOverviews(ctx context.Context, repoKeys []string) (map[string]*ProjectOverview, error) {
+	result := make(map[string]*ProjectOverview, len(repoKeys))
+	values := make([]string, 0, len(repoKeys))
+	seen := map[string]bool{}
+	for _, repoKey := range repoKeys {
+		repoKey = strings.ToLower(strings.TrimSpace(repoKey))
+		if repoKey != "" && !seen[repoKey] {
+			seen[repoKey] = true
+			values = append(values, repoKey)
+		}
+	}
+	if len(values) == 0 {
+		return result, nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(values)), ",")
+	args := make([]any, len(values))
+	for index := range values {
+		args[index] = values[index]
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT repo_key,name_with_owner,owner_login,name,description,stars,forks,language,topics
+		FROM repos WHERE repo_key IN (`+placeholders+`) ORDER BY repo_key`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("read Feed project metadata: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		repo, err := projectRepoFromRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan Feed project metadata: %w", err)
+		}
+		result[repo.RepoKey] = &ProjectOverview{Repo: repo}
+	}
+	return result, rows.Err()
+}
+
 func (s *TursoStore) GetRelatedProjects(ctx context.Context, key string, limit int) ([]RelatedProject, error) {
 	key = strings.ToLower(strings.TrimSpace(key))
 	if limit < 1 {
