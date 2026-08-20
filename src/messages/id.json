@@ -934,6 +934,9 @@
       "all": "Semua proyek yang dianalisis, masuk papan atau tidak."
     },
     "databaseUnavailable": "Data proyek sementara tidak tersedia. Coba lagi nanti.",
+    "pageOf": "Halaman {page} / {totalPages}",
+    "total": "{count} proyek",
+    "jump": "Buka",
     "listLabel": "Hasil proyek",
     "emptyTitle": "Belum ada graf proyek di sini",
     "emptyBody": {

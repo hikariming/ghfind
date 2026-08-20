@@ -934,6 +934,9 @@
       "all": "Mọi dự án đã phân tích, dù có lọt bảng hay không."
     },
     "databaseUnavailable": "Dữ liệu dự án tạm thời không khả dụng. Vui lòng thử lại sau.",
+    "pageOf": "Trang {page} / {totalPages}",
+    "total": "{count} dự án",
+    "jump": "Đi",
     "listLabel": "Kết quả dự án",
     "emptyTitle": "Chưa có dữ liệu dự án ở đây",
     "emptyBody": {

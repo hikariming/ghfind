@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { redirect } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { ProjectAnalysisForm } from "@/components/ProjectAnalysisForm";
 import {
@@ -9,6 +10,7 @@ import {
 import {
   listProjectBoard,
   ProjectAnalysisDatabaseError,
+  countProjectBoard,
   type ProjectBoard,
 } from "@/lib/project-analysis-db";
 import { getGoPublicData, goBackendOrigin } from "@/lib/go-backend.server";
@@ -59,13 +61,18 @@ export default async function ProjectsPage({
   const page = parsePage(query.page);
   let databaseError: string | null = null;
   let entries = [] as Awaited<ReturnType<typeof listProjectBoard>>;
+  let total = 0;
   if (goBackendOrigin()) {
     // The Go backend owns the board read when it is configured; the local
     // Turso path below is the local-dev fallback only.
     const fromGo = await getGoPublicData<{
       entries: Awaited<ReturnType<typeof listProjectBoard>>;
+      total: number;
     }>(`/api/project-boards?board=${board}&limit=${PAGE_SIZE + 1}&offset=${(page - 1) * PAGE_SIZE}`);
-    if (fromGo) entries = fromGo.entries;
+    if (fromGo) {
+      entries = fromGo.entries;
+      total = fromGo.total;
+    }
     else databaseError = "Go backend board read failed";
   } else {
     try {
@@ -73,16 +80,26 @@ export default async function ProjectsPage({
         limit: PAGE_SIZE + 1,
         offset: (page - 1) * PAGE_SIZE,
       });
+      total = await countProjectBoard(board);
     } catch (error) {
       if (!(error instanceof ProjectAnalysisDatabaseError)) throw error;
       const fallback = await getGoPublicData<{
         entries: Awaited<ReturnType<typeof listProjectBoard>>;
+        total: number;
       }>(`/api/project-boards?board=${board}&limit=${PAGE_SIZE + 1}&offset=${(page - 1) * PAGE_SIZE}`);
-      if (fallback) entries = fallback.entries;
+      if (fallback) {
+        entries = fallback.entries;
+        total = fallback.total;
+      }
       else databaseError = error.message;
     }
   }
-  const hasNext = entries.length > PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (page > totalPages) {
+    redirect(`/projects?board=${board}&page=${totalPages}`);
+  }
+  const currentPage = page;
+  const hasNext = currentPage < totalPages;
   const visibleEntries = entries.slice(0, PAGE_SIZE);
   const cardLabels: ProjectAssessmentCardLabels = {
     productScore: t("productScore"),
@@ -163,20 +180,38 @@ export default async function ProjectsPage({
         </section>
       )}
 
-      {(page > 1 || hasNext) && (
-        <nav className="mt-6 flex items-center justify-between text-sm">
+      {(currentPage > 1 || hasNext) && (
+        <nav className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
           <Link
-            href={`/projects?board=${board}&page=${Math.max(1, page - 1)}`}
-            aria-disabled={page <= 1}
-            className={page <= 1 ? "pointer-events-none text-zinc-700" : "text-zinc-300"}
+            href={`/projects?board=${board}&page=${Math.max(1, currentPage - 1)}`}
+            aria-disabled={currentPage <= 1}
+            className={currentPage <= 1 ? "pointer-events-none text-zinc-700" : "text-zinc-300"}
           >
             {t("prev")}
           </Link>
-          <span className="text-zinc-500">{t("page", { page })}</span>
+          <span className="text-zinc-500">
+            {t("pageOf", { page: currentPage, totalPages })} · {t("total", { count: total })}
+          </span>
+          <form action="/projects" method="get" className="flex items-center gap-2">
+            <input type="hidden" name="board" value={board} />
+            <label htmlFor="project-page" className="sr-only">{t("jump")}</label>
+            <input
+              id="project-page"
+              name="page"
+              type="number"
+              min="1"
+              max={totalPages}
+              defaultValue={currentPage}
+              className="w-16 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-zinc-200 outline-none focus:border-orange-400/50"
+            />
+            <button type="submit" className="rounded-lg border border-white/10 px-3 py-1.5 text-zinc-300 hover:bg-white/5">
+              {t("jump")}
+            </button>
+          </form>
           <Link
-            href={`/projects?board=${board}&page=${page + 1}`}
-            aria-disabled={!hasNext}
-            className={!hasNext ? "pointer-events-none text-zinc-700" : "text-zinc-300"}
+            href={`/projects?board=${board}&page=${Math.min(totalPages, currentPage + 1)}`}
+            aria-disabled={currentPage >= totalPages}
+            className={currentPage >= totalPages ? "pointer-events-none text-zinc-700" : "text-zinc-300"}
           >
             {t("next")}
           </Link>

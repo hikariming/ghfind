@@ -934,6 +934,9 @@
       "all": "보드 등재 여부와 관계없이 평가가 완료된 모든 프로젝트."
     },
     "databaseUnavailable": "프로젝트 데이터를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    "pageOf": "{page} / {totalPages}페이지",
+    "total": "프로젝트 {count}개",
+    "jump": "이동",
     "listLabel": "프로젝트 결과",
     "emptyTitle": "이 보드에는 아직 프로젝트가 없습니다",
     "emptyBody": {
