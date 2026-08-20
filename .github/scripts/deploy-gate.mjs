@@ -314,29 +314,44 @@ async function commandVercelWait() {
   // vercel.json disables Git-triggered production deployments for main. Only
   // this post-CI gate may publish the checked-out revision, which prevents a
   // failing commit from reaching Vercel while Railway is still gated on CI.
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_MAIN;
   try {
-    vercelCli(["link", "--yes", "--project", project]);
-    const output = vercelCli([
-      "deploy",
-      "--prod",
-      "--yes",
-      "--meta",
-      `githubCommitSha=${currentSha}`,
-      "--meta",
-      "githubCommitRef=main",
-    ]);
-    const deploymentURL = output
-      .trim()
-      .split(/\s+/)
-      .reverse()
-      .find((value) => /^https:\/\//.test(value));
-    if (!deploymentURL) throw new Error(`Vercel CLI returned no deployment URL: ${output}`);
-    const hostname = new URL(deploymentURL).hostname;
-    const deadline = Date.now() + 20 * 60 * 1000;
+    let hostname = "";
+    try {
+      vercelCli(["link", "--yes", "--project", project]);
+      const output = vercelCli([
+        "deploy",
+        "--prod",
+        "--yes",
+        "--meta",
+        `githubCommitSha=${currentSha}`,
+        "--meta",
+        "githubCommitRef=main",
+      ]);
+      const deploymentURL = output
+        .trim()
+        .split(/\s+/)
+        .reverse()
+        .find((value) => /^https:\/\//.test(value));
+      if (!deploymentURL) throw new Error(`Vercel CLI returned no deployment URL: ${output}`);
+      hostname = new URL(deploymentURL).hostname;
+    } catch (cliError) {
+      // Retain upstream's deploy-hook escape hatch for Vercel membership and
+      // control-plane failures, while keeping the post-CI CLI deployment as
+      // the normal and auditable path.
+      if (!hookUrl) throw cliError;
+      console.error(`explicit Vercel deploy failed (${cliError.message}); triggering main deploy hook`);
+      const hookResponse = await fetch(hookUrl, { method: "POST" });
+      if (!hookResponse.ok) {
+        throw new Error(`Vercel deploy hook responded ${hookResponse.status}`);
+      }
+    }
+    const deadline = Date.now() + 25 * 60 * 1000;
     while (Date.now() < deadline) {
       const list = await vercelApi(`/v6/deployments?projectId=${project}&limit=20`);
       const deployment = (list.deployments || []).find(
-        (candidate) => candidate.url === hostname || candidate.meta?.githubCommitSha === currentSha,
+        (candidate) =>
+          (hostname && candidate.url === hostname) || candidate.meta?.githubCommitSha === currentSha,
       );
       if (deployment) {
         const status = deployment.readyState || deployment.state;

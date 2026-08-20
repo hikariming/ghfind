@@ -163,6 +163,65 @@ html[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover {
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 }
 
+.navbar-action {
+  display: inline-flex;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #d4d4d8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  outline: none;
+  transition-duration: 200ms;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+}
+
+.navbar-action:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.navbar-action:active {
+  transform: scale(0.98);
+}
+
+.navbar-action:hover,
+.navbar-action[data-state="open"] {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #f4f4f5;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+html[data-theme="light"] .navbar-action {
+  border-color: var(--border);
+  background-color: var(--surface);
+  color: #3f3f46;
+}
+
+html[data-theme="light"] .navbar-action:focus-visible {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+}
+
+html[data-theme="light"] .navbar-action:hover,
+html[data-theme="light"] .navbar-action[data-state="open"] {
+  background-color: rgba(255, 255, 255, 0.98);
+  color: #18181b;
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.1),
+    0 1px 2px -1px rgba(15, 23, 42, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-action:active {
+    transform: none;
+  }
+}
+
 html[data-theme="light"] .focus\:bg-white\/\[0\.03\]:focus {
   background-color: rgba(255, 255, 255, 0.92);
 }
