@@ -888,6 +888,25 @@ func (s *TursoStore) ListProjectBoard(ctx context.Context, board ProjectBoard, l
 	return assessments, nil
 }
 
+func (s *TursoStore) CountProjectBoard(ctx context.Context, board ProjectBoard) (int, error) {
+	if err := s.ensureCurrentProjectEligibility(ctx); err != nil {
+		return 0, fmt.Errorf("ensure current project eligibility: %w", err)
+	}
+	where := ""
+	if board != ProjectBoardAll {
+		eligibilityColumn := "treasure_eligible"
+		if board != ProjectBoardTreasure {
+			eligibilityColumn = "classic_eligible"
+		}
+		where = "WHERE " + eligibilityColumn + " = 1"
+	}
+	var total int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM project_assessments "+where).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count project board: %w", err)
+	}
+	return total, nil
+}
+
 var projectEligibilityState struct {
 	sync.Mutex
 	reconciled bool

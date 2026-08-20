@@ -918,6 +918,19 @@ export async function listProjectBoard(
   return result.rows.map((row) => mapAssessment(row as Record<string, unknown>));
 }
 
+export async function countProjectBoard(board: ProjectBoard): Promise<number> {
+  const db = database();
+  await ensureSchema(db);
+  await ensureCurrentProjectEligibility(db);
+  const eligibilityFilter =
+    board === "all" ? "" : `WHERE ${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1`;
+  const result = await db.execute({
+    sql: `SELECT COUNT(*) AS total FROM project_assessments ${eligibilityFilter}`,
+    args: [],
+  });
+  return Number(result.rows[0]?.total ?? 0);
+}
+
 export async function listReconciliableProjectAnalysisRuns(
   limit = 20,
 ): Promise<ProjectAnalysisRun[]> {
