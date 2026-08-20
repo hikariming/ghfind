@@ -7,12 +7,12 @@ Use UTF-8. Keep JSON machine-readable and Markdown human-readable.
 Required top-level fields:
 
 ```text
-schema_version = ghfind.project-analysis.v2
+schema_version = ghfind.project-analysis.v3
 analysis_id
 repository { repo_key, canonical_url, requested_ref, resolved_commit_sha }
 rubric_version
-agent_version = project-evaluator-v2
-skill_version = ghfind-project-evaluator-v3
+agent_version = project-evaluator-v3
+skill_version = ghfind-project-evaluator-v4
 project { name, summary, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
 scores { pain, effectiveness, experience, value_density, product_score }
 confidence
@@ -34,10 +34,10 @@ micro_tool | sdk_library | web_app | desktop_app | framework_platform | database
 
 Type-guide filenames are human-facing labels and are not valid enum values. For example, `micro-tool.md` maps to `micro_tool`.
 
-`project.product_tags` contains 3-5 concise, evidence-backed product characteristics:
+`project.product_tags` contains 3-5 concise, evidence-backed product characteristics. Each tag must declare exactly one governed namespace: `domain`, `use_case`, `audience`, `artifact`, `stack`, or `stage`.
 
 ```text
-{ slug, labels { zh, en }, evidence_ids[] }
+{ namespace, slug, labels { zh, en }, evidence_ids[] }
 ```
 
 - `slug` is a stable lowercase kebab-case identifier such as `local-first` or `cross-tool-search`.

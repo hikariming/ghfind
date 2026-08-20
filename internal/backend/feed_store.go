@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hikariming/ghfind/internal/feedmigration"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -57,10 +59,13 @@ type FeedDataStore interface {
 	ListFeedTags(context.Context) ([]FeedTag, int64, error)
 	EnsureFeedUser(context.Context, OAuthSession) (*FeedUser, error)
 	GetFeedUser(context.Context, int64) (*FeedUser, error)
+	ClaimFeedGraphRefresh(context.Context, int64, int64, time.Time, time.Duration, time.Duration) (bool, error)
+	FailFeedGraphRefresh(context.Context, int64, time.Time, time.Duration) error
 	ReplaceExplicitFeedPreferences(context.Context, int64, int64, []FeedPreference) (*FeedUser, error)
 	SeedFeedGraphPreferences(context.Context, int64, []DeveloperFacet) (bool, error)
 	LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error)
 	LoadGorseFeedCandidates(context.Context, FeedUser, []string, int) ([]FeedCandidate, error)
+	AvailableFeedRepoKeys(context.Context, int64, []string) (map[string]bool, error)
 	SaveFeedRequest(context.Context, FeedRequestRecord) error
 	SetFeedProjectState(context.Context, int64, string, FeedStatePatch, time.Time) (FeedProjectState, error)
 	AppendFeedEvents(context.Context, int64, []AcceptedFeedEvent) (FeedEventAppendResult, error)
@@ -71,6 +76,8 @@ type FeedDataStore interface {
 	ReleaseFeedReconcileLease(context.Context, string) error
 	FinalizeFeedProjectReconcile(context.Context, []string, time.Time) (int64, error)
 	MarkFeedReconcile(context.Context, string, time.Time, bool) error
+	LoadFeedProjectChangeCursor(context.Context) (FeedProjectChangeCursor, bool, error)
+	SaveFeedProjectChangeCursor(context.Context, FeedProjectChangeCursor) error
 	Close() error
 }
 
@@ -115,6 +122,51 @@ func (s *PostgresFeedStore) Ping(ctx context.Context) error {
 	if !vectorInstalled {
 		return fmt.Errorf("Feed PostgreSQL pgvector extension is not enabled")
 	}
+	required, err := feedmigration.RequiredMigrations()
+	if err != nil {
+		return fmt.Errorf("load embedded Feed migration requirements: %w", err)
+	}
+	applied := make(map[int64]string, len(required))
+	rows, err := s.db.QueryContext(ctx, `SELECT version,name FROM feed.schema_migrations ORDER BY version`)
+	if err != nil {
+		return fmt.Errorf("read Feed migration ledger: %w", err)
+	}
+	for rows.Next() {
+		var version int64
+		var name string
+		if err := rows.Scan(&version, &name); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan Feed migration ledger: %w", err)
+		}
+		applied[version] = name
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("read Feed migration ledger: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close Feed migration ledger: %w", err)
+	}
+	if len(applied) != len(required) {
+		return fmt.Errorf("Feed PostgreSQL migrations are incomplete: applied=%d required=%d", len(applied), len(required))
+	}
+	for _, migration := range required {
+		if applied[migration.Version] != migration.Name {
+			return fmt.Errorf("Feed PostgreSQL migration %d (%s) is missing or mismatched", migration.Version, migration.Name)
+		}
+	}
+	var activeTaxonomies, activeAlgorithms int
+	if err := s.db.QueryRowContext(ctx, `SELECT
+	  (SELECT COUNT(*) FROM feed.taxonomy_versions WHERE state='active'),
+	  (SELECT COUNT(*) FROM feed.algorithm_configs WHERE state='active')`).Scan(&activeTaxonomies, &activeAlgorithms); err != nil {
+		return fmt.Errorf("verify Feed active configuration: %w", err)
+	}
+	if activeTaxonomies != 1 {
+		return fmt.Errorf("Feed PostgreSQL requires exactly one active taxonomy, found %d", activeTaxonomies)
+	}
+	if activeAlgorithms != 1 {
+		return fmt.Errorf("Feed PostgreSQL requires exactly one active algorithm configuration, found %d", activeAlgorithms)
+	}
 	return nil
 }
 
@@ -123,7 +175,12 @@ func (s *PostgresFeedStore) FeedProjectSourceHashes(ctx context.Context, repoKey
 	if len(repoKeys) == 0 {
 		return result, nil
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT repo_key,source_hash FROM feed.projects WHERE repo_key = ANY($1)`, repoKeys)
+	// A project hidden because it disappeared from Turso must be projected
+	// again even when its source payload is byte-for-byte identical. Excluding
+	// that tombstone state from the hash fast path lets UpsertFeedProject clear
+	// missing_from_source and restore the current publication decision.
+	rows, err := s.db.QueryContext(ctx, `SELECT repo_key,source_hash FROM feed.projects
+	  WHERE repo_key = ANY($1) AND blocked_reason IS DISTINCT FROM 'missing_from_source'`, repoKeys)
 	if err != nil {
 		return nil, fmt.Errorf("read Feed project source hashes: %w", err)
 	}
@@ -295,16 +352,97 @@ func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*F
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	var vectorText sql.NullString
-	if err := s.db.QueryRowContext(ctx, `SELECT e.embedding::text FROM feed.user_profile_embeddings e
+	var vectorText, vectorModel sql.NullString
+	var vectorDimensions sql.NullInt64
+	if err := s.db.QueryRowContext(ctx, `SELECT e.embedding::text,e.model,e.dimensions FROM feed.user_profile_embeddings e
 	      JOIN feed.users u ON u.github_id=e.github_id AND u.profile_version=e.profile_version
-	      WHERE e.github_id = $1 AND e.active = true LIMIT 1`, githubID).Scan(&vectorText); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	      WHERE e.github_id = $1 AND e.active = true LIMIT 1`, githubID).Scan(&vectorText, &vectorModel, &vectorDimensions); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("read Feed user embedding: %w", err)
 	}
 	if vectorText.Valid {
 		user.Embedding, _ = parsePGVector(vectorText.String)
+		user.embeddingModel = vectorModel.String
+		user.embeddingDimensions = int(vectorDimensions.Int64)
 	}
 	return &user, nil
+}
+
+// ClaimFeedGraphRefresh grants one API process the right to read a user's
+// Turso facets. The materialized profile is valid for refreshAfter unless the
+// active taxonomy has changed. The short lease makes a crashed refresher
+// recoverable without allowing a thundering herd of homepage requests.
+func (s *PostgresFeedStore) ClaimFeedGraphRefresh(
+	ctx context.Context,
+	githubID, taxonomyVersion int64,
+	now time.Time,
+	refreshAfter, leaseTTL time.Duration,
+) (bool, error) {
+	if refreshAfter <= 0 || leaseTTL <= 0 {
+		return false, fmt.Errorf("Feed graph refresh requires positive refresh and lease durations")
+	}
+	var claimed bool
+	err := s.db.QueryRowContext(ctx, `UPDATE feed.users
+	  SET graph_refresh_locked_until=$3, updated_at=now()
+	  WHERE github_id=$1 AND deleted_at IS NULL
+	    AND (graph_refresh_locked_until IS NULL OR graph_refresh_locked_until < $2)
+	    AND (graph_checked_at IS NULL OR graph_checked_at <= $4 OR graph_taxonomy_version <> $5)
+	  RETURNING true`, githubID, now, now.Add(leaseTTL), now.Add(-refreshAfter), taxonomyVersion).Scan(&claimed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("claim Feed graph refresh: %w", err)
+	}
+	return claimed, nil
+}
+
+// FailFeedGraphRefresh retains the prior materialized preferences and applies
+// bounded retry backoff. A transient Turso outage must never clear a user's
+// cold-start profile or make every Feed request hit Turso.
+func (s *PostgresFeedStore) FailFeedGraphRefresh(ctx context.Context, githubID int64, now time.Time, retryAfter time.Duration) error {
+	if retryAfter <= 0 {
+		return fmt.Errorf("Feed graph refresh retry duration must be positive")
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE feed.users
+	  SET graph_refresh_locked_until=$2, updated_at=now()
+	  WHERE github_id=$1 AND deleted_at IS NULL`, githubID, now.Add(retryAfter))
+	if err != nil {
+		return fmt.Errorf("back off Feed graph refresh: %w", err)
+	}
+	if affected, err := result.RowsAffected(); err != nil {
+		return err
+	} else if affected != 1 {
+		return fmt.Errorf("Feed user %d disappeared while backing off graph refresh", githubID)
+	}
+	return nil
+}
+
+// AvailableFeedRepoKeys re-applies the two request-time hard filters that may
+// change while a 30-minute Feed session is cached in Upstash. Ranking remains
+// stable, but a moderator removal or a user's not-interested action can never
+// leak through a later cursor page.
+func (s *PostgresFeedStore) AvailableFeedRepoKeys(ctx context.Context, githubID int64, repoKeys []string) (map[string]bool, error) {
+	available := make(map[string]bool, len(repoKeys))
+	if len(repoKeys) == 0 {
+		return available, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key
+	  FROM feed.projects p
+	  LEFT JOIN feed.user_project_state ups ON ups.github_id=$1 AND ups.repo_key=p.repo_key
+	  WHERE p.repo_key = ANY($2) AND p.publishable=true
+	    AND COALESCE(ups.not_interested,false)=false`, githubID, repoKeys)
+	if err != nil {
+		return nil, fmt.Errorf("revalidate Feed page: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var repoKey string
+		if err := rows.Scan(&repoKey); err != nil {
+			return nil, err
+		}
+		available[repoKey] = true
+	}
+	return available, rows.Err()
 }
 
 func (s *PostgresFeedStore) ReplaceExplicitFeedPreferences(ctx context.Context, githubID, taxonomyVersion int64, preferences []FeedPreference) (*FeedUser, error) {
@@ -484,18 +622,79 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 
 func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64, events []AcceptedFeedEvent) (FeedEventAppendResult, error) {
 	result := FeedEventAppendResult{}
+	if len(events) == 0 {
+		return result, nil
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return result, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	type eventRow struct {
+		ID         string         `json:"id"`
+		RepoKey    string         `json:"repo_key"`
+		RequestID  string         `json:"request_id,omitempty"`
+		EventType  FeedEventType  `json:"event_type"`
+		OccurredAt time.Time      `json:"occurred_at"`
+		Metadata   map[string]any `json:"metadata"`
+	}
+	batch := make([]eventRow, 0, len(events))
+	for _, event := range events {
+		batch = append(batch, eventRow{
+			ID: event.Input.ID, RepoKey: strings.ToLower(event.Input.RepoKey), RequestID: event.RequestID,
+			EventType: event.Input.Type, OccurredAt: event.Input.OccurredAt, Metadata: event.Metadata,
+		})
+	}
+	encoded, err := json.Marshal(batch)
+	if err != nil {
+		return result, fmt.Errorf("encode Feed event batch: %w", err)
+	}
+	// One set-based statement inserts the immutable facts and their transactional
+	// outbox projection. A 50-event client batch previously performed 100 SQL
+	// statements inside a single transaction; at the documented 50 concurrent
+	// writers that alone exceeded the 200ms p95 event SLO.
+	rows, err := tx.QueryContext(ctx, `WITH input AS (
+      SELECT id,lower(repo_key) AS repo_key,NULLIF(request_id,'') AS request_id,event_type,occurred_at,metadata
+      FROM jsonb_to_recordset($2::jsonb) AS value(
+        id TEXT, repo_key TEXT, request_id TEXT, event_type TEXT, occurred_at TIMESTAMPTZ, metadata JSONB
+      )
+    ), inserted AS (
+      INSERT INTO feed.events (id,github_id,repo_key,request_id,event_type,occurred_at,metadata)
+      SELECT id,$1,repo_key,request_id,event_type,occurred_at,metadata FROM input
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id,repo_key,event_type,occurred_at,metadata
+    ), queued AS (
+      INSERT INTO feed.event_outbox (event_id,aggregate_key,topic,payload)
+      SELECT id,'gh:' || $1::text,'feed.event-project.v1',jsonb_build_object(
+        'eventId',id,'githubId',$1,'repoKey',repo_key,'type',event_type,
+        'occurredAt',occurred_at,'metadata',metadata
+      ) FROM inserted
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+    )
+    SELECT id FROM inserted`, githubID, string(encoded))
+	if err != nil {
+		return result, fmt.Errorf("append Feed event batch: %w", err)
+	}
+	insertedIDs := make(map[string]bool, len(events))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return result, fmt.Errorf("scan appended Feed event: %w", err)
+		}
+		insertedIDs[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return result, fmt.Errorf("append Feed event batch rows: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return result, fmt.Errorf("close appended Feed event batch: %w", err)
+	}
 	profileChanged := false
 	for _, event := range events {
-		inserted, err := insertFeedEventTxResult(ctx, tx, event.Input.ID, githubID, event.Input.RepoKey, event.RequestID, event.Input.Type, event.Input.OccurredAt, event.Metadata)
-		if err != nil {
-			return result, err
-		}
-		if inserted {
+		if insertedIDs[event.Input.ID] {
 			result.Accepted++
 			qualified, _ := event.Metadata["qualified"].(bool)
 			if event.Input.Type == FeedEventGitHubOutbound || event.Input.Type == FeedEventShare || (event.Input.Type == FeedEventDwell && qualified) {
@@ -591,6 +790,50 @@ func (s *PostgresFeedStore) MarkFeedReconcile(ctx context.Context, cursor string
 	return err
 }
 
+func (s *PostgresFeedStore) LoadFeedProjectChangeCursor(ctx context.Context) (FeedProjectChangeCursor, bool, error) {
+	var encoded string
+	err := s.db.QueryRowContext(ctx, `SELECT cursor_value FROM feed.projection_cursors
+	  WHERE projection='turso-projects-incremental'`).Scan(&encoded)
+	if errors.Is(err, sql.ErrNoRows) {
+		return FeedProjectChangeCursor{}, false, nil
+	}
+	if err != nil {
+		return FeedProjectChangeCursor{}, false, fmt.Errorf("read Feed project change cursor: %w", err)
+	}
+	var cursor FeedProjectChangeCursor
+	if err := json.Unmarshal([]byte(encoded), &cursor); err != nil {
+		return FeedProjectChangeCursor{}, false, fmt.Errorf("decode Feed project change cursor: %w", err)
+	}
+	if cursor.UpdatedAt < 0 || (cursor.UpdatedAt == 0 && cursor.RepoKey != "") || cursor.SourceCount < 0 {
+		return FeedProjectChangeCursor{}, false, fmt.Errorf("invalid Feed project change cursor")
+	}
+	return cursor, true, nil
+}
+
+func (s *PostgresFeedStore) SaveFeedProjectChangeCursor(ctx context.Context, cursor FeedProjectChangeCursor) error {
+	if cursor.UpdatedAt < 0 || cursor.SourceCount < 0 {
+		return fmt.Errorf("invalid Feed project change cursor")
+	}
+	cursor.RepoKey = strings.ToLower(strings.TrimSpace(cursor.RepoKey))
+	encoded, err := json.Marshal(cursor)
+	if err != nil {
+		return err
+	}
+	var sourceTimestamp any
+	if cursor.UpdatedAt > 0 {
+		sourceTimestamp = time.UnixMilli(cursor.UpdatedAt).UTC()
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO feed.projection_cursors
+	  (projection,cursor_value,source_timestamp,consecutive_clean_runs)
+	  VALUES ('turso-projects-incremental',$1,$2,0)
+	  ON CONFLICT (projection) DO UPDATE SET cursor_value=excluded.cursor_value,
+	    source_timestamp=excluded.source_timestamp,updated_at=now()`, string(encoded), sourceTimestamp)
+	if err != nil {
+		return fmt.Errorf("save Feed project change cursor: %w", err)
+	}
+	return nil
+}
+
 func (s *PostgresFeedStore) FinalizeFeedProjectReconcile(ctx context.Context, seen []string, now time.Time) (int64, error) {
 	if len(seen) == 0 {
 		return 0, fmt.Errorf("refusing to finalize an empty Feed project snapshot")
@@ -602,7 +845,7 @@ func (s *PostgresFeedStore) FinalizeFeedProjectReconcile(ctx context.Context, se
 	defer tx.Rollback() //nolint:errcheck
 	rows, err := tx.QueryContext(ctx, `UPDATE feed.projects SET publishable=false,
 	      blocked_reason='missing_from_source',projection_version=projection_version+1,projected_at=$2,updated_at=now()
-	      WHERE NOT (repo_key = ANY($1)) AND publishable=true
+	      WHERE NOT (repo_key = ANY($1)) AND publishable=true AND projected_at < $2
 	      RETURNING repo_key,projection_version`, seen, now)
 	if err != nil {
 		return 0, fmt.Errorf("hide missing Feed projects: %w", err)

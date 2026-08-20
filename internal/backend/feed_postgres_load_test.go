@@ -55,6 +55,13 @@ func TestPostgresFeedStoreLoad(t *testing.T) {
 	if err := seedFeedLoadCatalog(ctx, store, projectCount); err != nil {
 		t.Fatal(err)
 	}
+	// The dedicated migration role owns adaptive HNSW DDL. Running its
+	// idempotent maintenance operation here exercises the same 50k transition
+	// that production uses, without allowing the API/worker pool to create
+	// indexes during a request.
+	if err := feedmigration.MaintainVectorIndexes(ctx, databaseURL); err != nil {
+		t.Fatalf("maintain vector indexes: %v", err)
+	}
 	user, err := store.GetFeedUser(ctx, 9_000_000_001)
 	if err != nil || user == nil {
 		t.Fatalf("load-test user: user=%#v err=%v", user, err)
@@ -87,10 +94,11 @@ func TestPostgresFeedStoreLoad(t *testing.T) {
 		events := make([]AcceptedFeedEvent, 0, 50)
 		for index := 0; index < 50; index++ {
 			sequence := call*50 + index + 1
+			repoNumber := sequence%projectCount + 1
 			events = append(events, AcceptedFeedEvent{Input: FeedEventInput{
 				ID:         fmt.Sprintf("%08x-0000-4000-8000-%012x", call+1, sequence),
 				Type:       FeedEventImpression,
-				RepoKey:    fmt.Sprintf("loadowner%d/repo%d", sequence%1000, sequence%projectCount+1),
+				RepoKey:    fmt.Sprintf("loadowner%d/repo%d", repoNumber%1000, repoNumber),
 				OccurredAt: time.Now().UTC(),
 			}, Metadata: map[string]any{"rank": index}})
 		}

@@ -12,11 +12,12 @@ import (
 )
 
 type FeedTagReviewInput struct {
-	ProposalID     string `json:"proposalId"`
-	Action         string `json:"action"`
-	CanonicalTagID string `json:"canonicalTagId,omitempty"`
-	Operator       string `json:"operator"`
-	Reason         string `json:"reason"`
+	ProposalID      string `json:"proposalId"`
+	Action          string `json:"action"`
+	CanonicalTagID  string `json:"canonicalTagId,omitempty"`
+	TargetNamespace string `json:"targetNamespace,omitempty"`
+	Operator        string `json:"operator"`
+	Reason          string `json:"reason"`
 }
 
 type FeedTagReviewResult struct {
@@ -62,6 +63,8 @@ type FeedAdminStore interface {
 	QueueFullGorseRebuild(context.Context, FeedGorseRebuildInput) (FeedGorseRebuildResult, error)
 	ModerateFeedProject(context.Context, FeedProjectModerationInput) (FeedProjectModerationResult, error)
 }
+
+var ErrFeedStaleTagProposal = errors.New("Feed tag proposal no longer matches the current assessment")
 
 func (s *PostgresFeedStore) ModerateFeedProject(ctx context.Context, input FeedProjectModerationInput) (FeedProjectModerationResult, error) {
 	normalized, err := NormalizeGitHubRepository(input.RepoKey)
@@ -209,10 +212,34 @@ func (s *PostgresFeedStore) QueueFullGorseRebuild(ctx context.Context, input Fee
 	return result, nil
 }
 
+type feedReviewProposal struct {
+	ID                string
+	Namespace         string
+	Slug              string
+	LabelZH           string
+	LabelEN           string
+	Source            string
+	SourceRef         string
+	Evidence          []byte
+	AnalysisID        string
+	NamespaceInferred bool
+	Confidence        float64
+}
+
+func isFeedTagNamespace(namespace string) bool {
+	for _, candidate := range productTagNamespaces {
+		if candidate == namespace {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *PostgresFeedStore) ReviewFeedTagProposal(ctx context.Context, input FeedTagReviewInput) (FeedTagReviewResult, error) {
 	input.ProposalID = strings.TrimSpace(input.ProposalID)
 	input.Action = strings.ToLower(strings.TrimSpace(input.Action))
 	input.CanonicalTagID = strings.TrimSpace(input.CanonicalTagID)
+	input.TargetNamespace = strings.TrimSpace(input.TargetNamespace)
 	input.Operator = strings.TrimSpace(input.Operator)
 	input.Reason = strings.TrimSpace(input.Reason)
 	if input.ProposalID == "" || input.Operator == "" || input.Reason == "" ||
@@ -227,20 +254,53 @@ func (s *PostgresFeedStore) ReviewFeedTagProposal(ctx context.Context, input Fee
 		return FeedTagReviewResult{}, err
 	}
 	defer tx.Rollback() //nolint:errcheck
-	var namespace, slug, labelZH, labelEN, status, proposalSource, sourceRef string
-	var evidence []byte
-	err = tx.QueryRowContext(ctx, `SELECT namespace,slug,label_zh,label_en,status,source,source_ref,evidence_ids
-	  FROM feed.tag_proposals WHERE id=$1 FOR UPDATE`, input.ProposalID).
-		Scan(&namespace, &slug, &labelZH, &labelEN, &status, &proposalSource, &sourceRef, &evidence)
+
+	var proposal feedReviewProposal
+	var status string
+	err = tx.QueryRowContext(ctx, `SELECT namespace,slug,label_zh,label_en,status,source,source_ref,evidence_ids,
+      analysis_id,namespace_inferred FROM feed.tag_proposals WHERE id=$1 FOR UPDATE`, input.ProposalID).
+		Scan(&proposal.Namespace, &proposal.Slug, &proposal.LabelZH, &proposal.LabelEN, &status, &proposal.Source,
+			&proposal.SourceRef, &proposal.Evidence, &proposal.AnalysisID, &proposal.NamespaceInferred)
 	if errors.Is(err, sql.ErrNoRows) {
 		return FeedTagReviewResult{}, ErrFeedProjectNotFound
 	}
 	if err != nil {
 		return FeedTagReviewResult{}, err
 	}
+	proposal.ID = input.ProposalID
 	if status != "proposed" {
 		return FeedTagReviewResult{}, fmt.Errorf("proposal has already been resolved")
 	}
+
+	// Resolve all stale Agent evidence before allowing any taxonomy mutation.
+	if _, err := tx.ExecContext(ctx, `UPDATE feed.tag_proposals proposal SET
+      status='superseded',resolved_at=now(),resolution_reason='proposal evidence is no longer current'
+      FROM feed.projects project
+      WHERE proposal.status='proposed' AND proposal.source='agent' AND proposal.source_ref=project.repo_key
+        AND proposal.analysis_id IS DISTINCT FROM project.analysis_id`); err != nil {
+		return FeedTagReviewResult{}, fmt.Errorf("supersede stale Feed proposals: %w", err)
+	}
+	if proposal.Source == "agent" {
+		var currentAnalysis string
+		err := tx.QueryRowContext(ctx, `SELECT analysis_id FROM feed.projects WHERE repo_key=$1 FOR UPDATE`, proposal.SourceRef).Scan(&currentAnalysis)
+		if errors.Is(err, sql.ErrNoRows) || currentAnalysis != proposal.AnalysisID {
+			return FeedTagReviewResult{}, ErrFeedStaleTagProposal
+		}
+		if err != nil {
+			return FeedTagReviewResult{}, err
+		}
+	}
+
+	targetNamespace := proposal.Namespace
+	if proposal.NamespaceInferred && input.Action != "reject" {
+		if !isFeedTagNamespace(input.TargetNamespace) {
+			return FeedTagReviewResult{}, fmt.Errorf("targetNamespace is required for a legacy inferred proposal")
+		}
+		targetNamespace = input.TargetNamespace
+	} else if input.TargetNamespace != "" && input.TargetNamespace != proposal.Namespace {
+		return FeedTagReviewResult{}, fmt.Errorf("explicit proposal namespace cannot be changed")
+	}
+
 	var currentVersion int64
 	if err := tx.QueryRowContext(ctx, `SELECT version FROM feed.taxonomy_versions WHERE state='active' FOR UPDATE`).Scan(&currentVersion); err != nil {
 		return FeedTagReviewResult{}, err
@@ -258,10 +318,10 @@ func (s *PostgresFeedStore) ReviewFeedTagProposal(ctx context.Context, input Fee
 	resolvedStatus := "mapped"
 	switch input.Action {
 	case "create":
-		canonicalID = namespace + ":" + slug
+		canonicalID = targetNamespace + ":" + proposal.Slug
 		if _, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_definitions
           (id,namespace,slug,label_zh,label_en,description,status,taxonomy_version)
-          VALUES ($1,$2,$3,$4,$5,'','canonical',$6)`, canonicalID, namespace, slug, labelZH, labelEN, newVersion); err != nil {
+          VALUES ($1,$2,$3,$4,$5,'','canonical',$6)`, canonicalID, targetNamespace, proposal.Slug, proposal.LabelZH, proposal.LabelEN, newVersion); err != nil {
 			return FeedTagReviewResult{}, fmt.Errorf("create canonical Feed tag: %w", err)
 		}
 	case "map":
@@ -269,63 +329,89 @@ func (s *PostgresFeedStore) ReviewFeedTagProposal(ctx context.Context, input Fee
 		if err := tx.QueryRowContext(ctx, `SELECT namespace FROM feed.tag_definitions WHERE id=$1 AND status='canonical'`, canonicalID).Scan(&canonicalNamespace); err != nil {
 			return FeedTagReviewResult{}, fmt.Errorf("canonical Feed tag does not exist: %w", err)
 		}
-		if canonicalNamespace != namespace {
+		if canonicalNamespace != targetNamespace {
 			return FeedTagReviewResult{}, fmt.Errorf("proposal and canonical tag namespaces differ")
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_aliases(namespace,alias_slug,canonical_tag_id,taxonomy_version)
           VALUES ($1,$2,$3,$4) ON CONFLICT (namespace,alias_slug) DO UPDATE SET
-          canonical_tag_id=excluded.canonical_tag_id,taxonomy_version=excluded.taxonomy_version`, namespace, slug, canonicalID, newVersion); err != nil {
+          canonical_tag_id=excluded.canonical_tag_id,taxonomy_version=excluded.taxonomy_version`, targetNamespace, proposal.Slug, canonicalID, newVersion); err != nil {
 			return FeedTagReviewResult{}, err
 		}
 	case "reject":
 		resolvedStatus, canonicalID = "rejected", ""
 	}
-	var nullableCanonical any
-	if canonicalID != "" {
-		nullableCanonical = canonicalID
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE feed.tag_proposals SET status=$2,canonical_tag_id=$3,
-      resolved_by=$4,resolution_reason=$5,taxonomy_version=$6,resolved_at=now() WHERE id=$1`,
-		input.ProposalID, resolvedStatus, nullableCanonical, input.Operator, input.Reason, newVersion); err != nil {
-		return FeedTagReviewResult{}, err
-	}
-	if canonicalID != "" {
-		var analysisID string
-		var confidence float64
-		err := tx.QueryRowContext(ctx, `SELECT analysis_id,confidence FROM feed.projects WHERE repo_key=$1 FOR UPDATE`, sourceRef).
-			Scan(&analysisID, &confidence)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+
+	proposals := []feedReviewProposal{proposal}
+	if canonicalID != "" && proposal.Source == "agent" && !proposal.NamespaceInferred {
+		rows, err := tx.QueryContext(ctx, `SELECT proposal.id,proposal.namespace,proposal.slug,proposal.label_zh,proposal.label_en,
+          proposal.source,proposal.source_ref,proposal.evidence_ids,proposal.analysis_id,proposal.namespace_inferred,project.confidence
+          FROM feed.tag_proposals proposal JOIN feed.projects project ON project.repo_key=proposal.source_ref
+          WHERE proposal.status='proposed' AND proposal.source='agent' AND proposal.namespace=$1 AND proposal.slug=$2
+            AND proposal.namespace_inferred=false AND proposal.analysis_id=project.analysis_id
+          ORDER BY proposal.source_ref FOR UPDATE`, proposal.Namespace, proposal.Slug)
+		if err != nil {
 			return FeedTagReviewResult{}, err
 		}
-		if err == nil {
-			tagSource := "editor"
-			switch proposalSource {
-			case "agent":
-				tagSource = "agent"
-			case "owner":
-				tagSource = "owner"
+		proposals = []feedReviewProposal{}
+		for rows.Next() {
+			var item feedReviewProposal
+			if err := rows.Scan(&item.ID, &item.Namespace, &item.Slug, &item.LabelZH, &item.LabelEN, &item.Source,
+				&item.SourceRef, &item.Evidence, &item.AnalysisID, &item.NamespaceInferred, &item.Confidence); err != nil {
+				rows.Close()
+				return FeedTagReviewResult{}, err
 			}
-			confidence = clampRange(confidence/100, 0, 1)
+			proposals = append(proposals, item)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return FeedTagReviewResult{}, err
+		}
+		if err := rows.Close(); err != nil {
+			return FeedTagReviewResult{}, err
+		}
+	}
+
+	if canonicalID == "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE feed.tag_proposals SET status='rejected',canonical_tag_id=NULL,
+          resolved_by=$2,resolution_reason=$3,taxonomy_version=$4,resolved_at=now() WHERE id=$1`,
+			proposal.ID, input.Operator, input.Reason, newVersion); err != nil {
+			return FeedTagReviewResult{}, err
+		}
+	} else {
+		for _, item := range proposals {
+			confidence := clampRange(item.Confidence/100, 0, 1)
+			if item.Confidence == 0 { // non-Agent proposals are reviewed/editorial facts.
+				confidence = 1
+			}
+			tagSource := "editor"
+			if item.Source == "agent" || item.Source == "owner" {
+				tagSource = item.Source
+			}
 			if _, err := tx.ExecContext(ctx, `INSERT INTO feed.project_tags
-			  (repo_key,tag_id,source,weight,confidence,evidence_ids,analysis_id,taxonomy_version)
-			  VALUES ($1,$2,$3,1,$4,$5::jsonb,$6,$7)
-			  ON CONFLICT(repo_key,tag_id,source) DO UPDATE SET weight=1,confidence=excluded.confidence,
-			    evidence_ids=excluded.evidence_ids,analysis_id=excluded.analysis_id,taxonomy_version=excluded.taxonomy_version,updated_at=now()`,
-				sourceRef, canonicalID, tagSource, confidence, string(evidence), analysisID, newVersion); err != nil {
+              (repo_key,tag_id,source,weight,confidence,evidence_ids,analysis_id,taxonomy_version)
+              VALUES ($1,$2,$3,1,$4,$5::jsonb,$6,$7)
+              ON CONFLICT(repo_key,tag_id,source) DO UPDATE SET weight=1,confidence=excluded.confidence,
+                evidence_ids=excluded.evidence_ids,analysis_id=excluded.analysis_id,taxonomy_version=excluded.taxonomy_version,updated_at=now()`,
+				item.SourceRef, canonicalID, tagSource, confidence, string(item.Evidence), item.AnalysisID, newVersion); err != nil {
 				return FeedTagReviewResult{}, fmt.Errorf("activate reviewed Feed tag: %w", err)
 			}
-			if err := refreshFeedProjectDescriptorTx(ctx, tx, sourceRef); err != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE feed.tag_proposals SET status='mapped',canonical_tag_id=$2,
+              resolved_by=$3,resolution_reason=$4,taxonomy_version=$5,resolved_at=now() WHERE id=$1`,
+				item.ID, canonicalID, input.Operator, input.Reason, newVersion); err != nil {
+				return FeedTagReviewResult{}, err
+			}
+			if err := refreshFeedProjectDescriptorTx(ctx, tx, item.SourceRef); err != nil {
 				return FeedTagReviewResult{}, err
 			}
 			var projectionVersion int64
 			if err := tx.QueryRowContext(ctx, `UPDATE feed.projects SET projection_version=projection_version+1,
-			  projected_at=now(),updated_at=now() WHERE repo_key=$1 RETURNING projection_version`, sourceRef).Scan(&projectionVersion); err != nil {
+              projected_at=now(),updated_at=now() WHERE repo_key=$1 RETURNING projection_version`, item.SourceRef).Scan(&projectionVersion); err != nil {
 				return FeedTagReviewResult{}, err
 			}
-			payload, _ := json.Marshal(map[string]any{"repoKey": sourceRef, "taxonomyVersion": newVersion, "projectionVersion": projectionVersion})
+			payload, _ := json.Marshal(map[string]any{"repoKey": item.SourceRef, "taxonomyVersion": newVersion, "projectionVersion": projectionVersion})
 			if _, err := tx.ExecContext(ctx, `INSERT INTO feed.event_outbox(aggregate_key,topic,payload,dedupe_key)
-			  VALUES ($1,'feed.project-sync.v1',$2::jsonb,$3) ON CONFLICT(dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
-				sourceRef, string(payload), fmt.Sprintf("project-sync:%s:%d", sourceRef, projectionVersion)); err != nil {
+              VALUES ($1,'feed.project-sync.v1',$2::jsonb,$3) ON CONFLICT(dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+				item.SourceRef, string(payload), fmt.Sprintf("project-sync:%s:%d", item.SourceRef, projectionVersion)); err != nil {
 				return FeedTagReviewResult{}, err
 			}
 		}
@@ -377,6 +463,10 @@ func (s *APIServer) reviewFeedTagProposal(w http.ResponseWriter, request *http.R
 		return
 	}
 	result, err := admin.ReviewFeedTagProposal(request.Context(), input)
+	if errors.Is(err, ErrFeedStaleTagProposal) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "stale_tag_proposal"}, noStoreHeaders())
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_tag_review", "message": err.Error()}, noStoreHeaders())
 		return

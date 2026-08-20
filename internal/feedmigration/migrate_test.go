@@ -16,3 +16,29 @@ func TestEmbeddedMigrationsAreOrdered(t *testing.T) {
 		}
 	}
 }
+
+func TestLatestVersionMatchesEmbeddedMigrationLedger(t *testing.T) {
+	items, err := loadMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest, err := LatestVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest != items[len(items)-1].version {
+		t.Fatalf("latest version=%d, final embedded migration=%d", latest, items[len(items)-1].version)
+	}
+	required, err := RequiredMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(required) != len(items) {
+		t.Fatalf("required migration count=%d, embedded=%d", len(required), len(items))
+	}
+	for index, item := range items {
+		if required[index].Version != item.version || required[index].Name != item.name {
+			t.Fatalf("required[%d]=%#v, embedded=%#v", index, required[index], item)
+		}
+	}
+}

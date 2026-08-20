@@ -130,10 +130,10 @@ describe("project analysis reconciliation", () => {
       repoKey: persistedRepoKey,
       canonicalUrl: `https://github.com/${persistedRepoKey}`,
       requestedRef: null,
-      schemaVersion: "ghfind.project-analysis.v2",
+      schemaVersion: "ghfind.project-analysis.v3",
       rubricVersion: "project-value-v1",
-      agentVersion: "project-evaluator-v2",
-      skillVersion: "ghfind-project-evaluator-v3",
+      agentVersion: "project-evaluator-v3",
+      skillVersion: "ghfind-project-evaluator-v4",
     });
     const analysis = {
       ...(validProjectAnalysis as ProjectAnalysisArtifact),

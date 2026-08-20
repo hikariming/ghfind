@@ -23,8 +23,8 @@ func validProjectAnalysisMap() map[string]any {
 			"resolved_commit_sha": strings.Repeat("a", 40),
 		},
 		"rubric_version": "project-value-v1",
-		"agent_version":  "project-evaluator-v2",
-		"skill_version":  "ghfind-project-evaluator-v3",
+		"agent_version":  ProjectAgentVersion,
+		"skill_version":  ProjectSkillVersion,
 		"project": map[string]any{
 			"name":           "useful-tool",
 			"summary":        "Converts one format into another.",
@@ -34,16 +34,19 @@ func validProjectAnalysisMap() map[string]any {
 			"lifecycle":      "feature_complete",
 			"product_tags": []map[string]any{
 				{
+					"namespace":    "use_case",
 					"slug":         "one-command-conversion",
 					"labels":       map[string]any{"zh": "一键转换", "en": "One-command conversion"},
 					"evidence_ids": []string{"readme-contract"},
 				},
 				{
+					"namespace":    "artifact",
 					"slug":         "developer-cli",
 					"labels":       map[string]any{"zh": "开发者 CLI", "en": "Developer CLI"},
 					"evidence_ids": []string{"readme-contract"},
 				},
 				{
+					"namespace":    "audience",
 					"slug":         "automation-friendly",
 					"labels":       map[string]any{"zh": "自动化友好", "en": "Automation-friendly"},
 					"evidence_ids": []string{"readme-contract"},
@@ -243,7 +246,7 @@ func TestProjectAnalysisKeyParity(t *testing.T) {
 		"owner/useful-tool", nil,
 		ProjectAnalysisSchemaVersion, ProjectRubricVersion, ProjectAgentVersion, ProjectSkillVersion,
 	)
-	if fingerprint != "e149861b2e6bc0bb4b5bc2a3dbec9938ec8de5da9062c1fa9234237f267f10ba" {
+	if fingerprint != "a04ffea7307058c5e054a019968896e1b9afd62c6629c88611757dd7c10bc569" {
 		t.Fatalf("fingerprint = %q", fingerprint)
 	}
 	activeKey := ProjectAnalysisActiveKey("owner/useful-tool", nil, ProjectRubricVersion)
@@ -255,7 +258,7 @@ func TestProjectAnalysisKeyParity(t *testing.T) {
 		"OWNER/Useful-Tool", &ref,
 		ProjectAnalysisSchemaVersion, ProjectRubricVersion, ProjectAgentVersion, ProjectSkillVersion,
 	)
-	if fingerprint != "a172d1316e0d333e95eee7fc99daf705fbb717bf4870c8278bae0d9e2397d184" {
+	if fingerprint != "d19d587fd139a4015c30610ecc339bf9211d055ecf356ff9a50f62d47a3bdac0" {
 		t.Fatalf("ref fingerprint = %q", fingerprint)
 	}
 	if key := ProjectAnalysisActiveKey("owner/useful-tool", &ref, ProjectRubricVersion); key != "124c6e4a3d4bcbfb39e271bdbb7ee31c0715c8ab0d83d2560b0a2530bd34e95d" {
@@ -293,6 +296,25 @@ func TestParseProjectAnalysisArtifactsKeepsLegacyReadable(t *testing.T) {
 	}
 	if len(parsed.Analysis.Project.ProductTags) != 0 {
 		t.Fatalf("legacy product tags = %#v", parsed.Analysis.Project.ProductTags)
+	}
+}
+
+func TestParseProjectAnalysisArtifactsV2TagsRemainNamespaceInferred(t *testing.T) {
+	analysis := validProjectAnalysisMap()
+	analysis["schema_version"] = PreviousProjectAnalysisSchemaVersion
+	analysis["agent_version"] = "project-evaluator-v2"
+	analysis["skill_version"] = "ghfind-project-evaluator-v3"
+	for _, tag := range analysis["project"].(map[string]any)["product_tags"].([]map[string]any) {
+		delete(tag, "namespace")
+	}
+	evidence := validRuntimeEvidenceMap()
+	evidence["schema_version"] = PreviousProjectAnalysisSchemaVersion
+	parsed, err := ParseProjectAnalysisArtifacts(artifactsInput(t, analysis, evidence, "# V2 Report"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Analysis.Project.ProductTags) != 3 || parsed.Analysis.Project.ProductTags[0].Namespace != "use_case" || parsed.Analysis.Project.ProductTags[0].NamespaceExplicit {
+		t.Fatalf("v2 product tags must remain inferred proposals: %#v", parsed.Analysis.Project.ProductTags)
 	}
 }
 
@@ -344,6 +366,7 @@ func TestParseProjectAnalysisArtifactsProductTagRules(t *testing.T) {
 
 	// Internal classification slugs must never surface as public tags.
 	internalTag := map[string]any{
+		"namespace":    "use_case",
 		"slug":         "micro-tool",
 		"labels":       map[string]any{"zh": "格式转换", "en": "Format conversion"},
 		"evidence_ids": []string{"readme-contract"},
@@ -354,6 +377,7 @@ func TestParseProjectAnalysisArtifactsProductTagRules(t *testing.T) {
 
 	// Generic labels are rejected case-insensitively.
 	genericTag := map[string]any{
+		"namespace":    "use_case",
 		"slug":         "handy-cli",
 		"labels":       map[string]any{"zh": "工具", "en": "Handy CLI"},
 		"evidence_ids": []string{"readme-contract"},
@@ -364,6 +388,7 @@ func TestParseProjectAnalysisArtifactsProductTagRules(t *testing.T) {
 
 	// Duplicate slugs and duplicate labels are rejected.
 	duplicateSlug := map[string]any{
+		"namespace":    "artifact",
 		"slug":         "developer-cli",
 		"labels":       map[string]any{"zh": "另一个 CLI", "en": "Another CLI"},
 		"evidence_ids": []string{"readme-contract"},
@@ -373,6 +398,7 @@ func TestParseProjectAnalysisArtifactsProductTagRules(t *testing.T) {
 	expectArtifactInvalid(t, err, "Duplicate product tag slug")
 
 	duplicateLabel := map[string]any{
+		"namespace":    "use_case",
 		"slug":         "cli-for-devs",
 		"labels":       map[string]any{"zh": "开发者 cli", "en": "CLI for devs"},
 		"evidence_ids": []string{"readme-contract"},
@@ -388,13 +414,14 @@ func TestParseProjectAnalysisArtifactsProductTagRules(t *testing.T) {
 
 	// More than five tags are rejected by the schema itself.
 	sixth := map[string]any{
+		"namespace":    "domain",
 		"slug":         "extra-tag",
 		"labels":       map[string]any{"zh": "额外标签", "en": "Extra tag"},
 		"evidence_ids": []string{"readme-contract"},
 	}
 	_, err = ParseProjectAnalysisArtifacts(artifactsInput(t,
 		withTags(append(validTags, duplicateSlug, sixth, map[string]any{
-			"slug": "yet-another", "labels": map[string]any{"zh": "又一标签", "en": "Yet another"},
+			"namespace": "domain", "slug": "yet-another", "labels": map[string]any{"zh": "又一标签", "en": "Yet another"},
 			"evidence_ids": []string{"readme-contract"},
 		})), validRuntimeEvidenceMap(), "# Report"))
 	expectArtifactInvalid(t, err, "at most 5")
@@ -462,8 +489,8 @@ func TestParseProjectAnalysisArtifactsChecksRunIdentity(t *testing.T) {
 	input := artifactsInput(t, validProjectAnalysisMap(), validRuntimeEvidenceMap(), "# Report")
 	input.ExpectedRun = &ProjectAnalysisRunIdentity{
 		RubricVersion: "project-value-v0",
-		AgentVersion:  "project-evaluator-v2",
-		SkillVersion:  "ghfind-project-evaluator-v3",
+		AgentVersion:  ProjectAgentVersion,
+		SkillVersion:  ProjectSkillVersion,
 	}
 	_, err := ParseProjectAnalysisArtifacts(input)
 	expectArtifactInvalid(t, err, "does not match the analysis run")
@@ -471,8 +498,8 @@ func TestParseProjectAnalysisArtifactsChecksRunIdentity(t *testing.T) {
 	ref := "main"
 	input.ExpectedRun = &ProjectAnalysisRunIdentity{
 		RubricVersion: "project-value-v1",
-		AgentVersion:  "project-evaluator-v2",
-		SkillVersion:  "ghfind-project-evaluator-v3",
+		AgentVersion:  ProjectAgentVersion,
+		SkillVersion:  ProjectSkillVersion,
 		RequestedRef:  &ref,
 	}
 	_, err = ParseProjectAnalysisArtifacts(input)
@@ -480,8 +507,8 @@ func TestParseProjectAnalysisArtifactsChecksRunIdentity(t *testing.T) {
 
 	input.ExpectedRun = &ProjectAnalysisRunIdentity{
 		RubricVersion: "project-value-v1",
-		AgentVersion:  "project-evaluator-v2",
-		SkillVersion:  "ghfind-project-evaluator-v3",
+		AgentVersion:  ProjectAgentVersion,
+		SkillVersion:  ProjectSkillVersion,
 	}
 	if _, err := ParseProjectAnalysisArtifacts(input); err != nil {
 		t.Fatal(err)

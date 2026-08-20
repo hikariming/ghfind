@@ -4,7 +4,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "ghfind.project-analysis.v2"
+      "const": "ghfind.project-analysis.v3"
     },
     "analysis_id": {
       "type": "string",

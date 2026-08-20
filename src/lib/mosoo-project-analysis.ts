@@ -265,7 +265,7 @@ function buildProjectAnalysisPrompt(
   executionMode: "source_only" | "allowlisted_runtime",
 ): string {
   return [
-    "[GHFIND_PROJECT_ANALYSIS_V2]",
+	`[GHFIND_PROJECT_ANALYSIS_${run.schemaVersion === "ghfind.project-analysis.v3" ? "V3" : "V2"}]`,
     `analysis_id: ${run.id}`,
     `repository_url: ${run.canonicalUrl}`,
     `requested_ref: ${run.requestedRef ?? ""}`,

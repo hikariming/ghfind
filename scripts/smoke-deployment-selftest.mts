@@ -13,6 +13,7 @@ function writeText(response: http.ServerResponse, status: number, body: string, 
 }
 
 function startFixtureServer(): Promise<{ origin: string; close: () => Promise<void> }> {
+	let profileAttempts = 0;
   const server = http.createServer((request, response) => {
     const host = request.headers.host ?? "127.0.0.1";
     const url = new URL(request.url ?? "/", `http://${host}`);

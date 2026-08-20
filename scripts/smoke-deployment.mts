@@ -1,5 +1,7 @@
 const REQUEST_TIMEOUT_MS = 15_000;
 const STREAM_TIMEOUT_MS = 5_000;
+const GET_RETRY_BUDGET_MS = 30_000;
+const RETRYABLE_GET_STATUSES = new Set([429, 502, 503, 504]);
 
 type Check = {
   label: string;

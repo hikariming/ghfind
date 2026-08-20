@@ -23,7 +23,7 @@ func validFeedAssessment() ProjectAssessment {
 			PainStatement: "The old workflow is slow",
 			ProjectType:   "micro_tool",
 			Lifecycle:     "active_evolution",
-			ProductTags: []ProductTag{{Slug: "developer-productivity", Labels: ProductTagLabels{
+			ProductTags: []ProductTag{{Namespace: "use_case", NamespaceExplicit: true, Slug: "developer-productivity", Labels: ProductTagLabels{
 				Zh: "开发者生产力", En: "Developer productivity",
 			}, EvidenceIDs: []string{"source:readme"}}},
 		},

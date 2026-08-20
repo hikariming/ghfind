@@ -31,6 +31,7 @@ type fakeFeedDataStore struct {
 	gorseCandidates []FeedCandidate
 	requests        []FeedRequestRecord
 	events          []AcceptedFeedEvent
+	unavailable     map[string]bool
 }
 
 func (f *fakeFeedDataStore) Ping(context.Context) error                           { return nil }
@@ -53,6 +54,12 @@ func (f *fakeFeedDataStore) GetFeedUser(context.Context, int64) (*FeedUser, erro
 	copy := f.user
 	return &copy, nil
 }
+func (f *fakeFeedDataStore) ClaimFeedGraphRefresh(context.Context, int64, int64, time.Time, time.Duration, time.Duration) (bool, error) {
+	return false, nil
+}
+func (f *fakeFeedDataStore) FailFeedGraphRefresh(context.Context, int64, time.Time, time.Duration) error {
+	return nil
+}
 func (f *fakeFeedDataStore) ReplaceExplicitFeedPreferences(_ context.Context, _ int64, version int64, preferences []FeedPreference) (*FeedUser, error) {
 	f.user.TaxonomyVersion, f.user.Preferences = version, preferences
 	f.user.ProfileVersion++
@@ -67,6 +74,15 @@ func (f *fakeFeedDataStore) LoadFeedCandidates(context.Context, FeedUser, int) (
 }
 func (f *fakeFeedDataStore) LoadGorseFeedCandidates(context.Context, FeedUser, []string, int) ([]FeedCandidate, error) {
 	return append([]FeedCandidate(nil), f.gorseCandidates...), nil
+}
+func (f *fakeFeedDataStore) AvailableFeedRepoKeys(_ context.Context, _ int64, keys []string) (map[string]bool, error) {
+	available := map[string]bool{}
+	for _, key := range keys {
+		if !f.unavailable[key] {
+			available[key] = true
+		}
+	}
+	return available, nil
 }
 
 type fakeFeedGorseRecommender struct {
@@ -88,7 +104,12 @@ func (f *fakeFeedDataStore) SetFeedProjectState(_ context.Context, _ int64, key 
 	}
 	if patch.NotInterested != nil {
 		state.NotInterested = *patch.NotInterested
+		if f.unavailable == nil {
+			f.unavailable = map[string]bool{}
+		}
+		f.unavailable[key] = *patch.NotInterested
 	}
+	f.user.ProfileVersion++
 	return state, nil
 }
 func (f *fakeFeedDataStore) AppendFeedEvents(_ context.Context, _ int64, events []AcceptedFeedEvent) (FeedEventAppendResult, error) {
@@ -112,6 +133,12 @@ func (f *fakeFeedDataStore) FinalizeFeedProjectReconcile(context.Context, []stri
 	return 0, nil
 }
 func (f *fakeFeedDataStore) MarkFeedReconcile(context.Context, string, time.Time, bool) error {
+	return nil
+}
+func (f *fakeFeedDataStore) LoadFeedProjectChangeCursor(context.Context) (FeedProjectChangeCursor, bool, error) {
+	return FeedProjectChangeCursor{}, false, nil
+}
+func (f *fakeFeedDataStore) SaveFeedProjectChangeCursor(context.Context, FeedProjectChangeCursor) error {
 	return nil
 }
 func (f *fakeFeedDataStore) Close() error { return nil }
@@ -185,6 +212,47 @@ func TestFeedProjectsRequiresOAuthAndProducesStableCursorPage(t *testing.T) {
 	}
 	if len(store.requests) != 2 || store.requests[1].Items[0].Rank != 2 {
 		t.Fatalf("global rank not audited: %#v", store.requests)
+	}
+}
+
+func TestFeedPageRevalidatesHardFiltersAndFillsPastUnavailableItems(t *testing.T) {
+	server, store, _ := feedAPITestServer(t)
+	store.unavailable = map[string]bool{"two/beta": true}
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, authenticatedFeedRequest(t, server, http.MethodGet, "/api/feed/projects?limit=2", nil, 42))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var page feedProjectsResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 2 || page.NextCursor != nil {
+		t.Fatalf("filtered page was not filled from later candidates: %#v", page)
+	}
+	for _, item := range page.Items {
+		if item.Project.RepoKey == "two/beta" {
+			t.Fatalf("unavailable project leaked through cached Feed session: %#v", page)
+		}
+	}
+}
+
+func TestFeedCursorExpiresWhenProfileVersionChanges(t *testing.T) {
+	server, store, _ := feedAPITestServer(t)
+	first := httptest.NewRecorder()
+	server.Handler().ServeHTTP(first, authenticatedFeedRequest(t, server, http.MethodGet, "/api/feed/projects?limit=1", nil, 42))
+	var page feedProjectsResponse
+	if err := json.Unmarshal(first.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if first.Code != http.StatusOK || page.NextCursor == nil {
+		t.Fatalf("first page status=%d body=%s", first.Code, first.Body.String())
+	}
+	store.user.ProfileVersion++
+	second := httptest.NewRecorder()
+	server.Handler().ServeHTTP(second, authenticatedFeedRequest(t, server, http.MethodGet, "/api/feed/projects?cursor="+*page.NextCursor, nil, 42))
+	if second.Code != http.StatusGone || !strings.Contains(second.Body.String(), "feed_cursor_expired") {
+		t.Fatalf("stale cursor status=%d body=%s", second.Code, second.Body.String())
 	}
 }
 

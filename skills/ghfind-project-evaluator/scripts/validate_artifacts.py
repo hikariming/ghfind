@@ -12,8 +12,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-SCHEMA_VERSION = "ghfind.project-analysis.v2"
-SKILL_VERSION = "ghfind-project-evaluator-v3"
+SCHEMA_VERSION = "ghfind.project-analysis.v3"
+SKILL_VERSION = "ghfind-project-evaluator-v4"
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 CHINESE_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 JAPANESE_PATTERN = re.compile(r"[\u3040-\u30ff]")
@@ -63,6 +63,7 @@ GENERIC_PRODUCT_TAG_LABELS = {
     "useful tool",
     "high quality",
 }
+PRODUCT_TAG_NAMESPACES = {"domain", "use_case", "audience", "artifact", "stack", "stage"}
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -278,10 +279,13 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path, locale
     en_labels: set[str] = set()
     for tag in product_tags:
         require(isinstance(tag, dict), "product tag must be an object")
+        namespace = tag.get("namespace")
+        require(namespace in PRODUCT_TAG_NAMESPACES, f"invalid product tag namespace: {namespace}")
         slug = tag.get("slug")
-        require(isinstance(slug, str) and slug not in slugs, f"duplicate product tag slug: {slug}")
+        identity = f"{namespace}:{slug}"
+        require(isinstance(slug, str) and identity not in slugs, f"duplicate product tag slug: {identity}")
         require(slug not in INTERNAL_PRODUCT_TAGS, f"product tag exposes internal classification: {slug}")
-        slugs.add(slug)
+        slugs.add(identity)
         labels = tag.get("labels")
         require(isinstance(labels, dict), f"product tag {slug} requires labels")
         for label_language, seen in (("zh", zh_labels), ("en", en_labels)):

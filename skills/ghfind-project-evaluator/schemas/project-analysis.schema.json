@@ -4,7 +4,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "ghfind.project-analysis.v2"
+      "const": "ghfind.project-analysis.v3"
     },
     "analysis_id": {
       "type": "string",
@@ -122,6 +122,17 @@
           "items": {
             "type": "object",
             "properties": {
+              "namespace": {
+                "type": "string",
+                "enum": [
+                  "domain",
+                  "use_case",
+                  "audience",
+                  "artifact",
+                  "stack",
+                  "stage"
+                ]
+              },
               "slug": {
                 "type": "string",
                 "minLength": 2,
@@ -160,6 +171,7 @@
               }
             },
             "required": [
+              "namespace",
               "slug",
               "labels",
               "evidence_ids"
