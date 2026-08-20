@@ -1,5 +1,7 @@
 const REQUEST_TIMEOUT_MS = 15_000;
 const STREAM_TIMEOUT_MS = 5_000;
+const GET_RETRY_BUDGET_MS = 30_000;
+const RETRYABLE_GET_STATUSES = new Set([429, 502, 503, 504]);
 
 type Check = {
   label: string;
@@ -61,13 +63,35 @@ function originUrl(name: string, requiredValue: boolean): URL | null {
 }
 
 async function runCheck(base: URL, check: Check, vercelProtected = false): Promise<void> {
-  const response = await fetch(new URL(check.path, base), {
-    redirect: "follow",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: vercelProtected
-      ? publicSmokeHeaders({ Accept: "application/json, text/html;q=0.9" })
-      : { Accept: "application/json, text/html;q=0.9" },
-  });
+  const deadline = Date.now() + GET_RETRY_BUDGET_MS;
+  let response: Response | null = null;
+  for (let attempt = 1; ; attempt += 1) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      throw new Error(`${check.label} did not complete within the GET retry budget`);
+    }
+    try {
+      response = await fetch(new URL(check.path, base), {
+        redirect: "follow",
+        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, remaining)),
+        headers: vercelProtected
+          ? publicSmokeHeaders({ Accept: "application/json, text/html;q=0.9" })
+          : { Accept: "application/json, text/html;q=0.9" },
+      });
+    } catch (error) {
+      if (attempt >= 3 || Date.now() >= deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(500, Math.max(0, deadline - Date.now()))));
+      continue;
+    }
+    if (!RETRYABLE_GET_STATUSES.has(response.status) || attempt >= 3 || Date.now() >= deadline) {
+      break;
+    }
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1_000 : 500 * attempt;
+    await response.body?.cancel().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(delay, Math.max(0, deadline - Date.now()))));
+  }
+  if (!response) throw new Error(`${check.label} produced no response`);
   if (response.status !== check.status) {
     throw new Error(`${check.label} returned ${response.status}; expected ${check.status}`);
   }

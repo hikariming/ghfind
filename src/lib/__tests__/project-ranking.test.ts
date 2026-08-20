@@ -6,7 +6,7 @@ import { validProjectAnalysis } from "./project-analysis-contract.test";
 function artifact(
   overrides: Partial<ProjectAnalysisArtifact> = {},
 ): ProjectAnalysisArtifact {
-  return { ...(validProjectAnalysis as ProjectAnalysisArtifact), ...overrides };
+	return { ...(validProjectAnalysis as ProjectAnalysisArtifact), ...overrides } as ProjectAnalysisArtifact;
 }
 
 describe("project board eligibility", () => {

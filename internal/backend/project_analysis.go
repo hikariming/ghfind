@@ -20,11 +20,12 @@ import (
 // TypeScript sources remain the single source of truth while the analysis
 // pipeline is migrated.
 const (
-	LegacyProjectAnalysisSchemaVersion = "ghfind.project-analysis.v1"
-	ProjectAnalysisSchemaVersion       = "ghfind.project-analysis.v2"
-	ProjectRubricVersion               = "project-value-v1"
-	ProjectAgentVersion                = "project-evaluator-v2"
-	ProjectSkillVersion                = "ghfind-project-evaluator-v3"
+	LegacyProjectAnalysisSchemaVersion   = "ghfind.project-analysis.v1"
+	PreviousProjectAnalysisSchemaVersion = "ghfind.project-analysis.v2"
+	ProjectAnalysisSchemaVersion         = "ghfind.project-analysis.v3"
+	ProjectRubricVersion                 = "project-value-v1"
+	ProjectAgentVersion                  = "project-evaluator-v3"
+	ProjectSkillVersion                  = "ghfind-project-evaluator-v4"
 )
 
 // Sentinel errors distinguish contract failures from infrastructure failures
@@ -91,9 +92,11 @@ type ProductTagLabels struct {
 }
 
 type ProductTag struct {
-	Slug        string           `json:"slug"`
-	Labels      ProductTagLabels `json:"labels"`
-	EvidenceIDs []string         `json:"evidence_ids"`
+	Namespace         string           `json:"namespace,omitempty"`
+	Slug              string           `json:"slug"`
+	Labels            ProductTagLabels `json:"labels"`
+	EvidenceIDs       []string         `json:"evidence_ids"`
+	NamespaceExplicit bool             `json:"-"`
 }
 
 type ProjectInfo struct {
@@ -466,8 +469,9 @@ type rawScoreDimension struct {
 }
 
 type rawProductTag struct {
-	Slug   *string `json:"slug"`
-	Labels *struct {
+	Namespace *string `json:"namespace"`
+	Slug      *string `json:"slug"`
+	Labels    *struct {
 		Zh *string `json:"zh"`
 		En *string `json:"en"`
 	} `json:"labels"`
@@ -555,7 +559,7 @@ type rawEvidenceArtifact struct {
 }
 
 func parseSchemaVersion(value *string) (string, error) {
-	return requiredEnum(value, "schema_version", ProjectAnalysisSchemaVersion, LegacyProjectAnalysisSchemaVersion)
+	return requiredEnum(value, "schema_version", ProjectAnalysisSchemaVersion, PreviousProjectAnalysisSchemaVersion, LegacyProjectAnalysisSchemaVersion)
 }
 
 func parseScoreDimension(raw *rawScoreDimension, field string, maxScore int64) (ScoreDimension, error) {
@@ -581,7 +585,9 @@ func parseScoreDimension(raw *rawScoreDimension, field string, maxScore int64) (
 	return ScoreDimension{Score: score, MaxScore: maximum, Rationale: rationale, EvidenceIDs: evidenceIDs}, nil
 }
 
-func parseProductTag(raw *rawProductTag, field string) (ProductTag, error) {
+var productTagNamespaces = []string{"domain", "use_case", "audience", "artifact", "stack", "stage"}
+
+func parseProductTag(raw *rawProductTag, field string, requireNamespace bool) (ProductTag, error) {
 	if raw == nil {
 		return ProductTag{}, artifactErrorf("%s is required", field)
 	}
@@ -607,10 +613,19 @@ func parseProductTag(raw *rawProductTag, field string) (ProductTag, error) {
 	if err != nil {
 		return ProductTag{}, err
 	}
-	return ProductTag{Slug: slug, Labels: ProductTagLabels{Zh: zh, En: en}, EvidenceIDs: evidenceIDs}, nil
+	namespace := "use_case"
+	explicit := false
+	if requireNamespace {
+		parsed, err := requiredEnum(raw.Namespace, field+".namespace", productTagNamespaces...)
+		if err != nil {
+			return ProductTag{}, err
+		}
+		namespace, explicit = parsed, true
+	}
+	return ProductTag{Namespace: namespace, Slug: slug, Labels: ProductTagLabels{Zh: zh, En: en}, EvidenceIDs: evidenceIDs, NamespaceExplicit: explicit}, nil
 }
 
-func parseProject(raw *rawProject) (ProjectInfo, error) {
+func parseProject(raw *rawProject, schemaVersion string) (ProjectInfo, error) {
 	if raw == nil {
 		return ProjectInfo{}, artifactErrorf("project is required")
 	}
@@ -644,15 +659,16 @@ func parseProject(raw *rawProject) (ProjectInfo, error) {
 	if err != nil {
 		return ProjectInfo{}, err
 	}
-	// The legacy-compatible schema defaults product_tags to an empty list; the
-	// v2 minimum of three is asserted separately by assertProductTags.
+	// Legacy schemas default product_tags to an empty list. Only v3 has an
+	// explicit taxonomy namespace; v1/v2 tags remain review-only so historical
+	// guessed categories never silently enter recommendation recall.
 	tags := []ProductTag{}
 	if raw.ProductTags != nil {
 		if len(*raw.ProductTags) > 5 {
 			return ProjectInfo{}, artifactErrorf("project.product_tags must contain at most 5 entries")
 		}
 		for index := range *raw.ProductTags {
-			tag, err := parseProductTag(&(*raw.ProductTags)[index], fmt.Sprintf("project.product_tags[%d]", index))
+			tag, err := parseProductTag(&(*raw.ProductTags)[index], fmt.Sprintf("project.product_tags[%d]", index), schemaVersion == ProjectAnalysisSchemaVersion)
 			if err != nil {
 				return ProjectInfo{}, err
 			}
@@ -813,7 +829,7 @@ func parseProjectAnalysisArtifact(raw string) (*ProjectAnalysisArtifact, error) 
 	if err != nil {
 		return nil, err
 	}
-	project, err := parseProject(artifact.Project)
+	project, err := parseProject(artifact.Project, schemaVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -1045,10 +1061,14 @@ func assertProductTags(analysis *ProjectAnalysisArtifact) error {
 	zhLabels := map[string]bool{}
 	enLabels := map[string]bool{}
 	for _, tag := range analysis.Project.ProductTags {
-		if slugs[tag.Slug] {
-			return artifactErrorf("Duplicate product tag slug: %s", tag.Slug)
+		identity := tag.Namespace + ":" + tag.Slug
+		if slugs[identity] {
+			return artifactErrorf("Duplicate product tag slug: %s", identity)
 		}
-		slugs[tag.Slug] = true
+		slugs[identity] = true
+		if analysis.SchemaVersion == ProjectAnalysisSchemaVersion && !tag.NamespaceExplicit {
+			return artifactErrorf("Product tag namespace is required: %s", tag.Slug)
+		}
 		if internalProductTags[tag.Slug] {
 			return artifactErrorf("Product tag exposes an internal classification: %s", tag.Slug)
 		}

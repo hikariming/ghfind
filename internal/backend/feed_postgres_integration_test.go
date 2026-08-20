@@ -82,6 +82,25 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	if err := store.UpsertFeedProject(ctx, projection); err != nil {
 		t.Fatalf("idempotent project replay: %v", err)
 	}
+	// Two current assessments can propose the same explicit namespace/slug.
+	// Reviewing one must activate both; unchanged sibling projects must not
+	// wait for an unrelated reproject before they become recall candidates.
+	secondAssessment := validFeedAssessment()
+	secondAssessment.RepoKey = "other/another-tool"
+	secondAssessment.LatestAnalysisID = "analysis-feed-2"
+	secondAssessment.ResolvedCommitSHA = strings.Repeat("b", 40)
+	secondAssessment.Analysis.AnalysisID = secondAssessment.LatestAnalysisID
+	secondAssessment.Analysis.Repository.RepoKey = secondAssessment.RepoKey
+	secondAssessment.Analysis.Repository.CanonicalURL = "https://github.com/other/another-tool"
+	secondAssessment.Analysis.Repository.ResolvedCommitSHA = secondAssessment.ResolvedCommitSHA
+	secondAssessment.Analysis.Project.Name = "Another Tool"
+	secondProjection, err := BuildFeedProjectProjection(secondAssessment, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertFeedProject(ctx, secondProjection); err != nil {
+		t.Fatalf("project with matching tag proposal: %v", err)
+	}
 	var proposals, activeUnreviewed int
 	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.tag_proposals WHERE status='proposed'`).Scan(&proposals); err != nil {
 		t.Fatal(err)
@@ -89,11 +108,12 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.project_tags pt JOIN feed.tag_proposals p ON p.canonical_tag_id=pt.tag_id WHERE p.status='proposed'`).Scan(&activeUnreviewed); err != nil {
 		t.Fatal(err)
 	}
-	if proposals != 1 || activeUnreviewed != 0 {
+	if proposals != 2 || activeUnreviewed != 0 {
 		t.Fatalf("proposal governance mismatch: proposed=%d active=%d", proposals, activeUnreviewed)
 	}
 	var proposalID, descriptorBeforeReview string
-	if err := store.db.QueryRowContext(ctx, `SELECT id FROM feed.tag_proposals WHERE status='proposed' LIMIT 1`).Scan(&proposalID); err != nil {
+	if err := store.db.QueryRowContext(ctx, `SELECT id FROM feed.tag_proposals
+	  WHERE status='proposed' AND source_ref=$1`, projection.RepoKey).Scan(&proposalID); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.db.QueryRowContext(ctx, `SELECT descriptor FROM feed.projects WHERE repo_key=$1`, projection.RepoKey).Scan(&descriptorBeforeReview); err != nil {
@@ -108,13 +128,14 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	}
 	var activeReviewed int
 	var descriptorAfterReview string
-	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.project_tags WHERE repo_key=$1 AND tag_id=$2`, projection.RepoKey, review.CanonicalTagID).Scan(&activeReviewed); err != nil {
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.project_tags
+	  WHERE repo_key IN ($1,$2) AND tag_id=$3`, projection.RepoKey, secondProjection.RepoKey, review.CanonicalTagID).Scan(&activeReviewed); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.db.QueryRowContext(ctx, `SELECT descriptor FROM feed.projects WHERE repo_key=$1`, projection.RepoKey).Scan(&descriptorAfterReview); err != nil {
 		t.Fatal(err)
 	}
-	if activeReviewed != 1 || !strings.Contains(descriptorAfterReview, "use_case:developer-productivity") {
+	if activeReviewed != 2 || !strings.Contains(descriptorAfterReview, "use_case:developer-productivity") {
 		t.Fatalf("reviewed tag did not activate descriptor: active=%d descriptor=%s", activeReviewed, descriptorAfterReview)
 	}
 
@@ -126,7 +147,7 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(candidates) != 1 || counts["quality"] != 1 {
+	if len(candidates) != 2 || counts["quality"] != 2 {
 		t.Fatalf("candidate projection mismatch: candidates=%#v counts=%#v", candidates, counts)
 	}
 	gorseCandidates, err := store.LoadGorseFeedCandidates(ctx, *user, []string{projection.ItemID, "unknown:item"}, 60)
@@ -134,12 +155,16 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 		t.Fatalf("Gorse candidate hydration mismatch: candidates=%#v err=%v", gorseCandidates, err)
 	}
 	hidden, err := store.FinalizeFeedProjectReconcile(ctx, []string{"different/project"}, time.Now().UTC())
-	if err != nil || hidden != 1 {
+	if err != nil || hidden != 2 {
 		t.Fatalf("hide missing project: hidden=%d err=%v", hidden, err)
 	}
 	hiddenProject, _, err := store.GetFeedProjectForGorse(ctx, projection.RepoKey)
 	if err != nil || hiddenProject == nil || hiddenProject.Publishable {
 		t.Fatalf("hidden project projection mismatch: project=%#v err=%v", hiddenProject, err)
+	}
+	hashes, err := store.FeedProjectSourceHashes(ctx, []string{projection.RepoKey})
+	if err != nil || hashes[projection.RepoKey] != "" {
+		t.Fatalf("missing project incorrectly satisfied source-hash fast path: hashes=%#v err=%v", hashes, err)
 	}
 	if err := store.UpsertFeedProject(ctx, projection); err != nil {
 		t.Fatalf("restore reappeared project: %v", err)
@@ -280,7 +305,7 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rebuild.RebuildID == "" || rebuild.Projects != 1 || rebuild.Users != 1 || rebuild.Events != 5 {
+	if rebuild.RebuildID == "" || rebuild.Projects != 2 || rebuild.Users != 1 || rebuild.Events != 5 {
 		t.Fatalf("Gorse rebuild mismatch: %#v", rebuild)
 	}
 	// A second rebuild is deliberately allowed and receives independent dedupe
@@ -350,5 +375,48 @@ func TestPostgresFeedStoreIntegration(t *testing.T) {
 	var retainedOverride bool
 	if err := store.db.QueryRowContext(ctx, `SELECT admin_override FROM feed.projects WHERE repo_key=$1`, projection.RepoKey).Scan(&retainedOverride); err != nil || retainedOverride {
 		t.Fatalf("risk override leaked across analysis versions: retained=%v err=%v", retainedOverride, err)
+	}
+
+	// v1/v2 artifacts carry a compatibility namespace only. They may be
+	// reviewed, but an operator must explicitly classify that legacy label
+	// instead of silently letting the old default participate in recommendations.
+	legacyAssessment := validFeedAssessment()
+	legacyAssessment.RepoKey = "legacy/old-tool"
+	legacyAssessment.LatestAnalysisID = "analysis-feed-legacy"
+	legacyAssessment.ResolvedCommitSHA = strings.Repeat("d", 40)
+	legacyAssessment.Analysis.SchemaVersion = PreviousProjectAnalysisSchemaVersion
+	legacyAssessment.Analysis.AnalysisID = legacyAssessment.LatestAnalysisID
+	legacyAssessment.Analysis.Repository.RepoKey = legacyAssessment.RepoKey
+	legacyAssessment.Analysis.Repository.CanonicalURL = "https://github.com/legacy/old-tool"
+	legacyAssessment.Analysis.Repository.ResolvedCommitSHA = legacyAssessment.ResolvedCommitSHA
+	legacyAssessment.Analysis.Project.ProductTags = []ProductTag{{
+		Namespace: "use_case", Slug: "legacy-automation", Labels: ProductTagLabels{
+			Zh: "旧版自动化", En: "Legacy automation",
+		}, EvidenceIDs: []string{"source:legacy"},
+	}}
+	legacyProjection, err := BuildFeedProjectProjection(legacyAssessment, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertFeedProject(ctx, legacyProjection); err != nil {
+		t.Fatalf("project legacy tag proposal: %v", err)
+	}
+	var legacyProposalID string
+	var legacyInferred bool
+	if err := store.db.QueryRowContext(ctx, `SELECT id,namespace_inferred FROM feed.tag_proposals
+	  WHERE source_ref=$1 AND analysis_id=$2`, legacyProjection.RepoKey, legacyProjection.AnalysisID).
+		Scan(&legacyProposalID, &legacyInferred); err != nil || !legacyInferred {
+		t.Fatalf("legacy tag proposal identity: id=%q inferred=%v err=%v", legacyProposalID, legacyInferred, err)
+	}
+	if _, err := store.ReviewFeedTagProposal(ctx, FeedTagReviewInput{
+		ProposalID: legacyProposalID, Action: "create", Operator: "integration-test", Reason: "must classify legacy tag",
+	}); err == nil {
+		t.Fatal("legacy proposal was approved without target namespace")
+	}
+	legacyReview, err := store.ReviewFeedTagProposal(ctx, FeedTagReviewInput{
+		ProposalID: legacyProposalID, Action: "create", TargetNamespace: "domain", Operator: "integration-test", Reason: "classify legacy tag",
+	})
+	if err != nil || legacyReview.CanonicalTagID != "domain:legacy-automation" {
+		t.Fatalf("explicit legacy tag classification mismatch: result=%#v err=%v", legacyReview, err)
 	}
 }

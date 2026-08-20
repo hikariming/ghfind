@@ -29,6 +29,31 @@ func (s *recordingFeedProjectSource) ListFeedProjectAssessments(_ context.Contex
 	return result, nil
 }
 
+func (s *recordingFeedProjectSource) ListFeedProjectAssessmentChanges(_ context.Context, afterUpdatedAt int64, afterRepoKey string, limit int) ([]ProjectAssessment, error) {
+	s.listCalls++
+	items := append([]ProjectAssessment(nil), s.assessments...)
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].UpdatedAt != items[j].UpdatedAt {
+			return items[i].UpdatedAt < items[j].UpdatedAt
+		}
+		return items[i].RepoKey < items[j].RepoKey
+	})
+	result := []ProjectAssessment{}
+	for _, item := range items {
+		if item.UpdatedAt > afterUpdatedAt || (item.UpdatedAt == afterUpdatedAt && item.RepoKey > afterRepoKey) {
+			result = append(result, item)
+		}
+		if len(result) == limit {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (s *recordingFeedProjectSource) FeedProjectCatalogCount(context.Context) (int64, error) {
+	return int64(len(s.assessments)), nil
+}
+
 func (s *recordingFeedProjectSource) GetProjectAssessment(_ context.Context, repoKey string) (*ProjectAssessment, error) {
 	for index := range s.assessments {
 		if s.assessments[index].RepoKey == repoKey {
@@ -57,6 +82,9 @@ type recordingFeedReconcileTarget struct {
 	renewCalls   int
 	released     int
 	finalized    []string
+	cursor       FeedProjectChangeCursor
+	cursorExists bool
+	savedCursors []FeedProjectChangeCursor
 }
 
 func (t *recordingFeedReconcileTarget) FeedProjectSourceHashes(_ context.Context, keys []string) (map[string]string, error) {
@@ -95,6 +123,16 @@ func (t *recordingFeedReconcileTarget) RenewFeedReconcileLease(context.Context, 
 func (t *recordingFeedReconcileTarget) FinalizeFeedProjectReconcile(_ context.Context, seen []string, _ time.Time) (int64, error) {
 	t.finalized = append([]string(nil), seen...)
 	return 0, nil
+}
+
+func (t *recordingFeedReconcileTarget) LoadFeedProjectChangeCursor(context.Context) (FeedProjectChangeCursor, bool, error) {
+	return t.cursor, t.cursorExists, nil
+}
+
+func (t *recordingFeedReconcileTarget) SaveFeedProjectChangeCursor(_ context.Context, cursor FeedProjectChangeCursor) error {
+	t.cursor, t.cursorExists = cursor, true
+	t.savedCursors = append(t.savedCursors, cursor)
+	return nil
 }
 
 func reconcileAssessment(repoKey, analysisID string) ProjectAssessment {
@@ -179,5 +217,79 @@ func TestFeedReconcilerEventSyncIsIdempotent(t *testing.T) {
 	changed, err = reconciler.SyncProject(context.Background(), "owner/alpha")
 	if err != nil || changed || len(target.projected) != 1 {
 		t.Fatalf("second sync changed=%v err=%v projected=%d", changed, err, len(target.projected))
+	}
+}
+
+func TestFeedIncrementalReconcilerReadsOnlyOverlapAndNeverHides(t *testing.T) {
+	now := time.Date(2026, 8, 20, 4, 0, 0, 0, time.UTC)
+	old := reconcileAssessment("owner/old", "analysis-old")
+	old.UpdatedAt = now.Add(-20 * time.Minute).UnixMilli()
+	recent := reconcileAssessment("owner/recent", "analysis-recent")
+	recent.UpdatedAt = now.Add(-time.Minute).UnixMilli()
+	source := &recordingFeedProjectSource{assessments: []ProjectAssessment{old, recent}}
+	target := &recordingFeedReconcileTarget{leaseAllowed: true, hashes: map[string]string{}}
+	reconciler := NewFeedProjectReconciler(source, target, nil)
+	reconciler.now = func() time.Time { return now }
+	result, err := reconciler.ReconcileChanges(context.Background(), FeedProjectChangeCursor{
+		UpdatedAt: now.UnixMilli(), RepoKey: "owner/cursor",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Seen != 1 || result.Projected != 1 || len(target.finalized) != 0 {
+		t.Fatalf("incremental result=%#v projected=%d finalized=%#v", result, len(target.projected), target.finalized)
+	}
+	if result.HighWater.UpdatedAt != now.UnixMilli() || result.HighWater.RepoKey != "owner/cursor" {
+		t.Fatalf("incremental high-water moved backwards: %#v", result.HighWater)
+	}
+}
+
+func TestFeedReconcileCycleBootstrapsFullThenUsesIncremental(t *testing.T) {
+	now := time.Date(2026, 8, 20, 4, 0, 0, 0, time.UTC)
+	first := reconcileAssessment("owner/first", "analysis-first")
+	first.UpdatedAt = now.Add(-time.Minute).UnixMilli()
+	source := &recordingFeedProjectSource{assessments: []ProjectAssessment{first}}
+	target := &recordingFeedReconcileTarget{leaseAllowed: true, hashes: map[string]string{}}
+	reconciler := NewFeedProjectReconciler(source, target, nil)
+	reconciler.now = func() time.Time { return now }
+	result, mode, err := reconciler.reconcileCycle(context.Background())
+	if err != nil || mode != "full" || result.Projected != 1 || len(target.savedCursors) != 1 {
+		t.Fatalf("bootstrap result=%#v mode=%s saved=%#v err=%v", result, mode, target.savedCursors, err)
+	}
+	if target.cursor.SourceCount != 1 || !target.cursor.LastFullAt.Equal(now) {
+		t.Fatalf("bootstrap cursor=%#v", target.cursor)
+	}
+
+	second := reconcileAssessment("owner/second", "analysis-second")
+	second.UpdatedAt = now.Add(time.Second).UnixMilli()
+	source.assessments = append(source.assessments, second)
+	reconciler.now = func() time.Time { return now.Add(30 * time.Second) }
+	result, mode, err = reconciler.reconcileCycle(context.Background())
+	if err != nil || mode != "incremental" || result.Projected != 1 {
+		t.Fatalf("incremental result=%#v mode=%s err=%v", result, mode, err)
+	}
+	if target.cursor.SourceCount != 2 || target.cursor.RepoKey != "owner/second" || len(target.finalized) != 1 {
+		t.Fatalf("incremental cursor=%#v finalized=%#v", target.cursor, target.finalized)
+	}
+}
+
+func TestFeedReconcileCycleCountDecreaseForcesFullAntiEntropy(t *testing.T) {
+	now := time.Date(2026, 8, 20, 4, 0, 0, 0, time.UTC)
+	assessment := reconcileAssessment("owner/remaining", "analysis-remaining")
+	assessment.UpdatedAt = now.Add(-time.Minute).UnixMilli()
+	source := &recordingFeedProjectSource{assessments: []ProjectAssessment{assessment}}
+	target := &recordingFeedReconcileTarget{
+		leaseAllowed: true,
+		hashes:       map[string]string{},
+		cursorExists: true,
+		cursor: FeedProjectChangeCursor{
+			UpdatedAt: now.Add(-time.Minute).UnixMilli(), RepoKey: "owner/old", SourceCount: 2, LastFullAt: now.Add(-time.Hour),
+		},
+	}
+	reconciler := NewFeedProjectReconciler(source, target, nil)
+	reconciler.now = func() time.Time { return now }
+	_, mode, err := reconciler.reconcileCycle(context.Background())
+	if err != nil || mode != "full" || len(target.finalized) != 1 || target.cursor.SourceCount != 1 {
+		t.Fatalf("count-decrease mode=%s finalized=%#v cursor=%#v err=%v", mode, target.finalized, target.cursor, err)
 	}
 }

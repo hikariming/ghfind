@@ -21,10 +21,10 @@ func mosooTestRun() *ProjectAnalysisRun {
 		RepoKey:        "owner/repo",
 		CanonicalURL:   "https://github.com/owner/repo",
 		IdempotencyKey: "ghfind-project-analysis-1",
-		SchemaVersion:  "ghfind.project-analysis.v2",
+		SchemaVersion:  ProjectAnalysisSchemaVersion,
 		RubricVersion:  "project-value-v1",
-		AgentVersion:   "project-evaluator-v2",
-		SkillVersion:   "ghfind-project-evaluator-v3",
+		AgentVersion:   ProjectAgentVersion,
+		SkillVersion:   ProjectSkillVersion,
 	}
 }
 
@@ -101,13 +101,13 @@ func TestMosooCreateThreadSendsVersionedPromptAndIdempotencyKey(t *testing.T) {
 		}
 		prompt := body.Input.Content[0].Text
 		for _, line := range []string{
-			"[GHFIND_PROJECT_ANALYSIS_V2]",
+			"[GHFIND_PROJECT_ANALYSIS_V3]",
 			"analysis_id: analysis-1",
 			"repository_url: https://github.com/owner/repo",
 			"requested_ref: ",
 			"execution_mode: source_only",
 			"rubric_version: project-value-v1",
-			"schema_version: ghfind.project-analysis.v2",
+			"schema_version: ghfind.project-analysis.v3",
 			"artifact_prefix: project-analysis-analysis-1",
 			"locale: zh-CN",
 		} {

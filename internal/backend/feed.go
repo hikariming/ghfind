@@ -56,13 +56,15 @@ type FeedPreference struct {
 }
 
 type FeedUser struct {
-	GitHubID        int64            `json:"githubId"`
-	Login           string           `json:"login"`
-	AvatarURL       string           `json:"avatarUrl,omitempty"`
-	TaxonomyVersion int64            `json:"taxonomyVersion"`
-	ProfileVersion  int64            `json:"profileVersion"`
-	Preferences     []FeedPreference `json:"preferences"`
-	Embedding       []float64        `json:"-"`
+	GitHubID            int64            `json:"githubId"`
+	Login               string           `json:"login"`
+	AvatarURL           string           `json:"avatarUrl,omitempty"`
+	TaxonomyVersion     int64            `json:"taxonomyVersion"`
+	ProfileVersion      int64            `json:"profileVersion"`
+	Preferences         []FeedPreference `json:"preferences"`
+	Embedding           []float64        `json:"-"`
+	embeddingModel      string
+	embeddingDimensions int
 }
 
 type FeedCandidate struct {

@@ -254,13 +254,23 @@ export function GET() {
         get: {
           tags: ["feed"], operationId: "getFeedPreferences", summary: "Get explicit preferences and a weak-profile summary",
           security: [{ sessionCookie: [] }],
-          responses: { "200": { description: "Current Feed profile", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedPreferencesResponse" } } } }, "401": { description: "GitHub OAuth session required" } },
+          responses: {
+            "200": { description: "Current Feed profile", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedPreferencesResponse" } } } },
+            "401": { description: "GitHub OAuth session required" },
+            "429": { description: "Rate limited", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+            "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+          },
         },
         put: {
           tags: ["feed"], operationId: "replaceFeedPreferences", summary: "Atomically replace at most 30 explicit tag preferences",
           security: [{ sessionCookie: [] }],
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["taxonomyVersion", "preferences"], properties: { taxonomyVersion: { type: "integer" }, preferences: { type: "array", maxItems: 30, items: { $ref: "#/components/schemas/FeedPreferenceInput" } } } } } } },
-          responses: { "200": { description: "Updated Feed profile", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedPreferencesResponse" } } } }, "400": { description: "Invalid or non-canonical tags" }, "409": { description: "Taxonomy version changed; refetch tags" } },
+          responses: {
+            "200": { description: "Updated Feed profile", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedPreferencesResponse" } } } },
+            "400": { description: "Invalid or non-canonical tags" }, "401": { description: "GitHub OAuth session required" },
+            "409": { description: "Taxonomy version changed; refetch tags" }, "429": { description: "Rate limited" },
+            "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+          },
         },
       },
       "/api/feed/projects": {
@@ -285,7 +295,12 @@ export function GET() {
           security: [{ sessionCookie: [] }],
           parameters: [{ name: "owner", in: "path", required: true, schema: { type: "string" } }, { name: "repo", in: "path", required: true, schema: { type: "string" } }],
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", description: "Exactly one of saved/notInterested may be present", properties: { saved: { type: "boolean" }, notInterested: { type: "boolean" }, impressionToken: { type: "string" } } } } } },
-          responses: { "200": { description: "Durable current state" }, "400": { description: "Invalid one-field patch or impression token" }, "404": { description: "Project not in Feed catalog" } },
+          responses: {
+            "200": { description: "Durable current state", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProjectState" } } } },
+            "400": { description: "Invalid one-field patch or impression token" }, "401": { description: "GitHub OAuth session required" },
+            "404": { description: "Project not in Feed catalog" }, "429": { description: "Rate limited" },
+            "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+          },
         },
       },
       "/api/feed/events": {
@@ -294,14 +309,18 @@ export function GET() {
           description: "Clients emit impression only after at least 50% visibility for one second. Event UUIDs are globally idempotent; arbitrary metadata is not accepted.",
           security: [{ sessionCookie: [] }],
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["events"], properties: { events: { type: "array", minItems: 1, maxItems: 50, items: { $ref: "#/components/schemas/FeedEventInput" } } } } } } },
-          responses: { "202": { description: "Immutable event facts and outbox entries committed" }, "400": { description: "Invalid event, time, type, or impression token" }, "503": { description: "Event storage unavailable" } },
+          responses: {
+            "202": { description: "Immutable event facts and outbox entries committed", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedEventAppendResult" } } } },
+            "400": { description: "Invalid event, time, type, or impression token" }, "401": { description: "GitHub OAuth session required" },
+            "429": { description: "Rate limited" }, "503": { description: "Event storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+          },
         },
       },
       "/api/feed/profile": {
         delete: {
           tags: ["feed"], operationId: "deleteFeedProfile", summary: "Delete Feed profile facts and enqueue downstream deletion",
           security: [{ sessionCookie: [] }],
-          responses: { "202": { description: "Feed data deleted; Gorse deletion queued" }, "401": { description: "GitHub OAuth session required" }, "503": { description: "Feed storage unavailable" } },
+          responses: { "202": { description: "Feed data deleted; Gorse deletion queued", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } }, "401": { description: "GitHub OAuth session required" }, "429": { description: "Rate limited" }, "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } } },
         },
       },
       "/api/roast": {
@@ -580,13 +599,17 @@ export function GET() {
         FeedPreferenceInput: {
           type: "object", required: ["tagId", "value"], properties: { tagId: { type: "string" }, value: { type: "integer", enum: [-1, 1] } },
         },
+        FeedPreference: {
+          type: "object", required: ["tagId", "value", "source", "strength", "taxonomyVersion"],
+          properties: { tagId: { type: "string" }, value: { type: "integer", enum: [-1, 1] }, source: { type: "string", enum: ["explicit", "graph", "behavior"] }, strength: { type: "number", minimum: 0, maximum: 1 }, taxonomyVersion: { type: "integer" } },
+        },
         FeedPreferencesResponse: {
           type: "object", required: ["taxonomyVersion", "profileVersion", "preferences", "weakProfile"],
-          properties: { taxonomyVersion: { type: "integer" }, profileVersion: { type: "integer" }, preferences: { type: "array", items: { type: "object" } }, weakProfile: { type: "object" } },
+          properties: { taxonomyVersion: { type: "integer" }, profileVersion: { type: "integer" }, preferences: { type: "array", items: { $ref: "#/components/schemas/FeedPreference" } }, weakProfile: { type: "object", required: ["positiveTags", "negativeTags", "weakSignals"], properties: { positiveTags: { type: "integer" }, negativeTags: { type: "integer" }, weakSignals: { type: "integer" } } } },
         },
         FeedProject: {
-          type: "object", required: ["repoKey", "ownerLogin", "name", "canonicalUrl", "summary", "productScore", "confidence", "tags"],
-          properties: { repoKey: { type: "string", example: "owner/repository" }, ownerLogin: { type: "string" }, name: { type: "string" }, canonicalUrl: { type: "string", format: "uri" }, summary: { type: "string" }, language: { type: ["string", "null"] }, topics: { type: "array", items: { type: "string" } }, projectType: { type: "string" }, lifecycle: { type: "string" }, productScore: { type: "number", minimum: 0, maximum: 100 }, confidence: { type: "number", minimum: 0, maximum: 100 }, verificationLevel: { type: "string" }, exposureBand: { type: "string" }, tags: { type: "array", items: { $ref: "#/components/schemas/FeedTag" } } },
+          type: "object", required: ["repoKey", "ownerLogin", "name", "canonicalUrl", "summary", "language", "topics", "projectType", "lifecycle", "productScore", "confidence", "verificationLevel", "exposureBand", "treasureEligible", "classicEligible", "analyzedAt", "tags"],
+          properties: { repoKey: { type: "string", example: "owner/repository" }, ownerLogin: { type: "string" }, name: { type: "string" }, canonicalUrl: { type: "string", format: "uri" }, summary: { type: "string" }, language: { type: ["string", "null"] }, topics: { type: "array", items: { type: "string" } }, projectType: { type: "string" }, lifecycle: { type: "string" }, productScore: { type: "number", minimum: 0, maximum: 100 }, confidence: { type: "number", minimum: 0, maximum: 100 }, verificationLevel: { type: "string" }, exposureBand: { type: "string" }, treasureEligible: { type: "boolean" }, classicEligible: { type: "boolean" }, analyzedAt: { type: "string", format: "date-time" }, tags: { type: "array", items: { $ref: "#/components/schemas/FeedTag" } } },
         },
         FeedItem: {
           type: "object", required: ["project", "reasonCodes", "impressionToken"], properties: { project: { $ref: "#/components/schemas/FeedProject" }, reasonCodes: { type: "array", items: { type: "string", enum: ["matches_tags", "similar_to_saved", "high_product_value", "newly_evaluated", "long_tail_discovery", "catalog_discovery"] } }, impressionToken: { type: "string" } },
@@ -597,6 +620,15 @@ export function GET() {
         FeedEventInput: {
           type: "object", required: ["id", "type", "repoKey", "occurredAt", "impressionToken"],
           properties: { id: { type: "string", format: "uuid" }, type: { type: "string", enum: ["impression", "detail_open", "dwell", "github_outbound", "share"] }, repoKey: { type: "string" }, occurredAt: { type: "string", format: "date-time" }, impressionToken: { type: "string" }, durationMs: { type: "integer", minimum: 0, maximum: 1800000 } },
+        },
+        FeedProjectState: {
+          type: "object", required: ["repoKey", "saved", "notInterested"], properties: { repoKey: { type: "string" }, saved: { type: "boolean" }, notInterested: { type: "boolean" } },
+        },
+        FeedEventAppendResult: {
+          type: "object", required: ["accepted", "duplicate"], properties: { accepted: { type: "integer", minimum: 0 }, duplicate: { type: "integer", minimum: 0 } },
+        },
+        FeedProfileDeletion: {
+          type: "object", required: ["deletionId", "status"], properties: { deletionId: { type: "string" }, status: { type: "string", enum: ["queued"] } },
         },
         Error: {
           type: "object",
@@ -636,10 +668,16 @@ export function GET() {
                 "feed_unavailable",
                 "feed_cursor_expired",
                 "invalid_cursor",
+                "invalid_pagination",
                 "invalid_impression_token",
                 "taxonomy_version_changed",
                 "invalid_preferences",
+                "invalid_state_patch",
+                "project_not_found",
                 "invalid_events",
+                "feed_events_unavailable",
+                "rate_limit_unavailable",
+                "stale_tag_proposal",
               ],
             },
             message: { type: "string" },

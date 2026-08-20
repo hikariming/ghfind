@@ -220,18 +220,32 @@ func normalizedFeedStrings(values []string) []string {
 
 func feedProjectionHash(project FeedProjectProjection) (string, error) {
 	stable := struct {
+		RepoKey           string
 		AnalysisID        string
 		ResolvedCommitSHA string
+		CanonicalURL      string
+		OwnerLogin        string
+		Name              string
 		Descriptor        string
 		ProductScore      float64
 		Confidence        float64
 		VerificationLevel string
 		ExposureBand      string
+		TreasureEligible  bool
+		ClassicEligible   bool
+		AnalyzedAt        time.Time
 		Risks             []ProjectRisk
 		ProductTags       []ProductTag
 		Publishable       bool
-	}{project.AnalysisID, project.ResolvedCommitSHA, project.Descriptor, project.ProductScore, project.Confidence,
-		project.VerificationLevel, project.ExposureBand, project.Risks, project.ProductTags, project.Publishable}
+	}{
+		RepoKey: project.RepoKey, AnalysisID: project.AnalysisID, ResolvedCommitSHA: project.ResolvedCommitSHA,
+		CanonicalURL: project.CanonicalURL, OwnerLogin: project.OwnerLogin, Name: project.Name,
+		Descriptor: project.Descriptor, ProductScore: project.ProductScore, Confidence: project.Confidence,
+		VerificationLevel: project.VerificationLevel, ExposureBand: project.ExposureBand,
+		TreasureEligible: project.TreasureEligible, ClassicEligible: project.ClassicEligible,
+		AnalyzedAt: project.AnalyzedAt.UTC(), Risks: project.Risks, ProductTags: project.ProductTags,
+		Publishable: project.Publishable,
+	}
 	encoded, err := json.Marshal(stable)
 	if err != nil {
 		return "", fmt.Errorf("encode Feed project source hash: %w", err)
@@ -311,6 +325,15 @@ func (s *PostgresFeedStore) UpsertFeedProject(ctx context.Context, project FeedP
       WHERE repo_key=$1 AND source IN ('agent','system','github_topic')`, project.RepoKey); err != nil {
 		return fmt.Errorf("clear generated Feed tags: %w", err)
 	}
+	// A new assessment supersedes unreviewed Agent suggestions from its prior
+	// evidence set. We never let an administrator later approve a tag that the
+	// current analysis no longer asserts.
+	if _, err := tx.ExecContext(ctx, `UPDATE feed.tag_proposals
+      SET status='superseded',resolved_at=now(),resolution_reason='superseded by newer assessment'
+      WHERE source='agent' AND source_ref=$1 AND status='proposed' AND analysis_id IS DISTINCT FROM $2`,
+		project.RepoKey, project.AnalysisID); err != nil {
+		return fmt.Errorf("supersede stale Feed tag proposals: %w", err)
+	}
 	for _, id := range []string{
 		"artifact:" + strings.ReplaceAll(project.ProjectType, "_", "-"),
 		"stage:" + strings.ReplaceAll(project.Lifecycle, "_", "-"),
@@ -320,9 +343,16 @@ func (s *PostgresFeedStore) UpsertFeedProject(ctx context.Context, project FeedP
 		}
 	}
 	for _, tag := range project.ProductTags {
-		canonicalID, found, err := resolveProjectedFeedTag(ctx, tx, "use_case", tag.Slug, taxonomyVersion)
-		if err != nil {
-			return err
+		namespace := tag.Namespace
+		if namespace == "" {
+			namespace = "use_case"
+		}
+		canonicalID, found, err := "", false, error(nil)
+		if tag.NamespaceExplicit {
+			canonicalID, found, err = resolveProjectedFeedTag(ctx, tx, namespace, tag.Slug, taxonomyVersion)
+			if err != nil {
+				return err
+			}
 		}
 		if found {
 			confidence := project.Confidence / 100
@@ -440,16 +470,23 @@ func upsertProjectedFeedTag(ctx context.Context, tx *sql.Tx, project FeedProject
 }
 
 func insertFeedTagProposal(ctx context.Context, tx *sql.Tx, project FeedProjectProjection, tag ProductTag, version int64) error {
-	digest := sha256.Sum256([]byte("use_case\x00" + strings.ToLower(tag.Slug) + "\x00" + project.RepoKey))
+	namespace := tag.Namespace
+	if namespace == "" {
+		namespace = "use_case"
+	}
+	digest := sha256.Sum256([]byte(namespace + "\x00" + strings.ToLower(tag.Slug) + "\x00" + project.RepoKey + "\x00" + project.AnalysisID))
 	id := "proposal_" + hex.EncodeToString(digest[:12])
 	evidence, _ := json.Marshal(tag.EvidenceIDs)
 	_, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_proposals
-      (id,namespace,slug,label_zh,label_en,source,source_ref,evidence_ids,status,taxonomy_version)
-      VALUES ($1,'use_case',$2,$3,$4,'agent',$5,$6::jsonb,'proposed',$7)
-      ON CONFLICT (namespace,slug,source_ref) DO UPDATE SET
+      (id,namespace,slug,label_zh,label_en,source,source_ref,evidence_ids,status,taxonomy_version,analysis_id,namespace_inferred)
+      VALUES ($1,$2,$3,$4,$5,'agent',$6,$7::jsonb,'proposed',$8,$9,$10)
+      ON CONFLICT (namespace,slug,source,source_ref,analysis_id) DO UPDATE SET
         label_zh=excluded.label_zh, label_en=excluded.label_en,
-        evidence_ids=excluded.evidence_ids, taxonomy_version=excluded.taxonomy_version`,
-		id, strings.ToLower(tag.Slug), tag.Labels.Zh, tag.Labels.En, project.RepoKey, string(evidence), version)
+        evidence_ids=excluded.evidence_ids, taxonomy_version=excluded.taxonomy_version,
+        namespace_inferred=excluded.namespace_inferred
+      WHERE feed.tag_proposals.status='proposed'`,
+		id, namespace, strings.ToLower(tag.Slug), tag.Labels.Zh, tag.Labels.En, project.RepoKey, string(evidence), version,
+		project.AnalysisID, !tag.NamespaceExplicit)
 	if err != nil {
 		return fmt.Errorf("insert Feed tag proposal %s: %w", tag.Slug, err)
 	}

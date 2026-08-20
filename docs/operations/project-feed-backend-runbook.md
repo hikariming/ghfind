@@ -10,14 +10,17 @@ are deliberately configured as `baseline`, with Gorse contribution disabled.
 
 - `/ghfind-feed-migrate`: forward-only embedded SQL runner with an advisory
   lock. It verifies pgvector before creating the migration ledger and never
-  installs extensions.
+  installs extensions. It also owns idempotent, concurrent Feed retrieval
+  indexes: the bounded tag-affinity index at any catalog size, and a
+  dimension-specific HNSW index once an active embedding corpus reaches 50k.
 - `/ghfind-feed-bootstrap`: explicitly acknowledged, operator-triggered,
   one-shot installer for `vector` and `btree_gin`. It is never deployed by the
   automatic main-branch gate.
 - Go API: `/api/feed/tags`, `/preferences`, `/projects`, project state,
   `/events`, and `/profile`, plus secret-protected reconcile/tag-review routes.
 - Go worker: confirmed `feed.catalog-sync.v1` events after Turso commits, a
-  30-second leased/keyset reconciliation backstop, embedding/profile rebuild,
+  30-second leased/keyset **incremental** repair path (five-minute overlap),
+  six-hour full anti-entropy reconciliation, embedding/profile rebuild,
   transactional-outbox relay, retention cleanup, and optional Gorse shadow
   projection. Reconciliation batches repository metadata and source-hash
   comparisons; it does not issue one Turso graph query per project.
@@ -30,6 +33,14 @@ are deliberately configured as `baseline`, with Gorse contribution disabled.
 - Upstash: only 30-minute candidate sessions and per-user rate limits.
 - RabbitMQ: durable projection transport. An outage delays projections but
   does not roll back committed events.
+
+The 30-second loop is deliberately not a full Turso table scan. It reads only
+assessment rows changed since its durable `(updated_at, repo_key)` cursor and
+replays a bounded overlap through source-hash idempotency. A full keyset scan
+runs on first boot, after a source-count decrease, and at most once per six
+hours. This keeps normal Feed load proportional to changes while retaining an
+anti-entropy repair path for missed messages and unsupported out-of-band source
+deletions.
 
 ## Railway topology and one-time database action
 
@@ -96,6 +107,17 @@ main-branch deployment gate runs it before API and worker on every green CI
 revision, so a merge cannot start Feed code against an older schema. Migration
 failure prevents both long-lived deployments; forward-only schema changes are
 not rolled back with application images.
+
+The same migration job is the only allowed owner of adaptive vector-index DDL.
+It uses `CREATE INDEX CONCURRENTLY`: API and worker processes never create or
+rebuild indexes. At every green main deployment it first ensures the
+tag-affinity index, then, when there are at least 50,000 active embeddings,
+creates the matching `vector(N)` HNSW index for `N ≤ 2000` or `halfvec(N)` for
+`2001..4000`. The Feed query automatically uses that dimension-specific
+expression and otherwise retains exact cosine. If the catalog crosses 50k
+without a code deployment, manually redeploy only `ghfind-feed-migrate` from
+the current approved main revision; it is idempotent and does not restart the
+API or worker.
 
 Use these service variables on API and worker unless noted:
 
@@ -202,10 +224,11 @@ and restored databases both contained migration versions `1..10` and 24
 `feed` tables. A separate compatibility drill completed against the actual
 Railway Bucket; its `_compat-test` objects were removed afterwards.
 
-Migrations `11..12` add reconciliation lease columns plus candidate-path
-indexes; they do not change the 24-table restore inventory. The current CI
-bootstraps a disposable PostgreSQL 17/pgvector service, applies all `1..12`
-migrations, and runs the
+Migrations `11..14` add reconciliation lease/candidate-path indexes, the
+bounded cold-start graph-refresh cache, and immutable analysis identity for
+tag proposals; they do not change the 24-table restore inventory. The current
+CI bootstraps a disposable PostgreSQL 17/pgvector service, applies all `1..14`
+migrations plus migration-owned adaptive index maintenance, and runs the
 real store integration suite on every revision.
 
 ### Verify and restore procedure
@@ -257,17 +280,18 @@ There is no Gorse dependency and no shadow wait on the critical path:
 4. Add Gorse asynchronously. Even when Gorse is never enabled, tag, embedding,
    quality, freshness, MMR, and exploration all remain live in the Go Baseline.
 
-This path can be completed in one deployment session. The three reconciliation
-runs are 30-second worker cycles, not a multi-day observation requirement;
-multiple worker replicas cannot duplicate a sweep because PostgreSQL owns a
-ten-minute expiring lease.
+This path can be completed in one deployment session. The first reconciliation
+is a full keyset pass; subsequent confirmation cycles are 30-second incremental
+repairs, not a multi-day observation requirement. Multiple worker replicas
+cannot duplicate either operation because PostgreSQL owns a 45-second renewable
+lease.
 
-1. Keep API/worker on `off`; run migrations and inspect all twelve migration
+1. Keep API/worker on `off`; run migrations and inspect all fourteen migration
    rows in `feed.schema_migrations`.
-2. Set only the worker to `baseline`. Confirm a full reconciliation, compare
-   Turso assessments with `feed.projects`, and require three consecutive clean
-   runs. Review `feed.tag_proposals`; proposed tags must have zero joins into
-   active `feed.project_tags`.
+2. Set only the worker to `baseline`. Confirm the initial full reconciliation,
+   compare Turso assessments with `feed.projects`, then require three
+   consecutive clean incremental cycles. Review `feed.tag_proposals`; proposed
+   tags must have zero joins into active `feed.project_tags`.
 3. If an embedding provider is configured, confirm descriptor hashes prevent
    duplicate calls. Provider failures use exponential retry (30 seconds up to
    six hours) and move the unchanged descriptor to
@@ -298,6 +322,14 @@ verification can never be overridden. Every effective action increments the
 project projection version, writes `feed.project_moderation_actions`, and
 queues a Gorse visibility update. A new assessment/source hash always clears a
 prior risk override, forcing the new evidence to receive its own review.
+
+The supported visibility SLA is explicit: a Feed moderation removal is
+immediate; an assessment/risk update is observed by the event path or the
+30-second incremental cursor repair; cached cursor pages rehydrate
+publishability and `notInterested` state on every page. Direct physical deletion
+of a Turso assessment outside the application contract has no row-level change
+journal, so its final repair is the six-hour anti-entropy pass. Do not use
+out-of-band physical deletion as a moderation workflow.
 
 ## Gorse shadow only
 
@@ -433,3 +465,6 @@ FEED_LOAD_TEST_PROJECTS=50000 \
 The test fails above candidate p95 400ms/p99 900ms, event-batch p95 200ms, or
 on any request error. Never point it at production, staging, or a recovery
 target; create a disposable database whose name contains `loadtest`.
+It invokes the same migration-owned index-maintenance operation after seeding,
+so the 50k run also verifies the HNSW threshold transition rather than merely
+testing an already-created local index.

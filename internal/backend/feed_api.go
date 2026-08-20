@@ -334,6 +334,13 @@ func (s *APIServer) serveFeedCursor(w http.ResponseWriter, request *http.Request
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
+	if user.ProfileVersion != session.ProfileVersion {
+		// Preferences and project state are part of the ranking contract. Once
+		// either changes, continuing an old deterministic sequence would serve
+		// stale personalization (and could re-serve a newly blocked project).
+		writeJSON(w, http.StatusGone, map[string]string{"error": "feed_cursor_expired"}, noStoreHeaders())
+		return
+	}
 	pageSize := session.PageSize
 	if pageSize < 1 || pageSize > feedMaxPageSize {
 		pageSize = limit
@@ -351,8 +358,24 @@ type feedProjectsResponse struct {
 }
 
 func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, user FeedUser, session FeedSession, offset, limit int, started time.Time) {
-	end := minInt(offset+limit, len(session.Items))
-	items := append([]FeedRankedItem(nil), session.Items[offset:end]...)
+	remainingKeys := make([]string, 0, len(session.Items)-offset)
+	for _, item := range session.Items[offset:] {
+		remainingKeys = append(remainingKeys, item.Project.RepoKey)
+	}
+	available, err := s.feed.AvailableFeedRepoKeys(request.Context(), user.GitHubID, remainingKeys)
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
+		return
+	}
+	items := make([]FeedRankedItem, 0, limit)
+	end := offset
+	for end < len(session.Items) && len(items) < limit {
+		item := session.Items[end]
+		end++
+		if available[item.Project.RepoKey] {
+			items = append(items, item)
+		}
+	}
 	requestID, err := NewFeedID("feed_request")
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())

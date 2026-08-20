@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { ProjectAnalysisArtifact, RuntimeEvidenceArtifact } from "../project-analysis-contract";
 import {
   parseProjectAnalysisArtifacts,
   normalizeGitHubRepository,
   LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION,
+	PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_ANALYSIS_SCHEMA_VERSION,
 } from "../project-analysis-contract";
 
@@ -20,7 +22,7 @@ const evidence = {
       path: "README.md",
     },
   ],
-};
+} satisfies RuntimeEvidenceArtifact;
 
 const analysis = {
   schema_version: PROJECT_ANALYSIS_SCHEMA_VERSION,
@@ -32,8 +34,8 @@ const analysis = {
     resolved_commit_sha: "a".repeat(40),
   },
   rubric_version: "project-value-v1",
-  agent_version: "project-evaluator-v2",
-  skill_version: "ghfind-project-evaluator-v3",
+  agent_version: "project-evaluator-v3",
+  skill_version: "ghfind-project-evaluator-v4",
   project: {
     name: "useful-tool",
     summary: "Converts one format into another.",
@@ -43,16 +45,19 @@ const analysis = {
     lifecycle: "feature_complete",
     product_tags: [
       {
+        namespace: "use_case",
         slug: "one-command-conversion",
         labels: { zh: "一键转换", en: "One-command conversion" },
         evidence_ids: ["readme-contract"],
       },
       {
+        namespace: "artifact",
         slug: "developer-cli",
         labels: { zh: "开发者 CLI", en: "Developer CLI" },
         evidence_ids: ["readme-contract"],
       },
       {
+        namespace: "audience",
         slug: "automation-friendly",
         labels: { zh: "自动化友好", en: "Automation-friendly" },
         evidence_ids: ["readme-contract"],
@@ -104,7 +109,7 @@ const analysis = {
     evidence_ids: ["readme-contract"],
   },
   analyzed_at: "2026-07-15T00:00:00.000Z",
-};
+} satisfies ProjectAnalysisArtifact;
 
 describe("project analysis contract", () => {
   it("normalizes supported GitHub repository inputs", () => {
@@ -162,6 +167,27 @@ describe("project analysis contract", () => {
     expect(parsed.analysis.project.product_tags).toEqual([]);
   });
 
+	it("keeps v2 product tags readable while reserving namespace governance for v3", () => {
+	  const parsed = parseProjectAnalysisArtifacts({
+		analysisRaw: JSON.stringify({
+		  ...analysis,
+		  schema_version: PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
+		  agent_version: "project-evaluator-v2",
+		  skill_version: "ghfind-project-evaluator-v3",
+		  project: {
+			...analysis.project,
+			product_tags: analysis.project.product_tags.map(({ namespace: _namespace, ...tag }) => tag),
+		  },
+		}),
+		evidenceRaw: JSON.stringify({ ...evidence, schema_version: PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION }),
+		reportMarkdown: "# V2 report",
+		expectedAnalysisId: "analysis-1",
+		expectedRepoKey: "owner/useful-tool",
+	  });
+	  expect(parsed.analysis.schema_version).toBe(PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION);
+	  expect(parsed.analysis.project.product_tags[0]).not.toHaveProperty("namespace");
+	});
+
   it("rejects internal classifications and generic product tags", () => {
     expect(() =>
       parseProjectAnalysisArtifacts({
@@ -172,6 +198,7 @@ describe("project analysis contract", () => {
             product_tags: [
               ...analysis.project.product_tags.slice(0, 2),
               {
+                namespace: "use_case",
                 slug: "micro-tool",
                 labels: { zh: "工具", en: "Tool" },
                 evidence_ids: ["readme-contract"],

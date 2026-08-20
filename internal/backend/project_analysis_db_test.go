@@ -89,6 +89,8 @@ func openProjectAnalysisTestStore(t *testing.T) *TursoStore {
 			ON project_assessments(treasure_eligible, product_score DESC, confidence DESC)`,
 		`CREATE INDEX idx_project_assessments_classic
 			ON project_assessments(classic_eligible, product_score DESC, confidence DESC)`,
+		`CREATE INDEX idx_project_assessments_feed_updates
+			ON project_assessments(updated_at, repo_key)`,
 		`CREATE TABLE treasure_entries (
 			id TEXT PRIMARY KEY,
 			repo_key TEXT NOT NULL,

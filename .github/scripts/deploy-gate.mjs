@@ -92,7 +92,7 @@ function vercelCli(args) {
 async function railwayDeployments(serviceId) {
   const data = await railwayGql(
     `query($input: DeploymentListInput!) {
-       deployments(first: 20, input: $input) { edges { node { id status createdAt } } }
+       deployments(first: 20, input: $input) { edges { node { id status createdAt meta { cliMessage } } } }
      }`,
     {
       input: {
@@ -173,8 +173,19 @@ async function commandAnchors() {
   );
 }
 
-function railwayUp(serviceId) {
-  const args = ["up", "--service", serviceId, "--environment", "production", "--ci", "-y"];
+function railwayUp(serviceId, message, sourceDirectory) {
+  const args = [
+    "up",
+    ...(sourceDirectory ? [sourceDirectory] : []),
+    "--service",
+    serviceId,
+    "--environment",
+    "production",
+    "--ci",
+    "-y",
+    "-m",
+    message,
+  ];
   try {
     execFileSync("railway", args, { stdio: "inherit", env: process.env });
   } catch (first) {
@@ -187,13 +198,20 @@ function railwayUp(serviceId) {
   }
 }
 
-async function waitRailwaySuccess(serviceId, previousId, timeoutMs) {
+async function waitRailwaySuccess(serviceId, previousId, timeoutMs, expectedMessage) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const deployments = await railwayDeployments(serviceId);
     const latest = deployments[0];
     if (latest && latest.id !== previousId) {
-      if (latest.status === "SUCCESS") return latest;
+      if (latest.status === "SUCCESS") {
+        if (expectedMessage && latest.meta?.cliMessage !== expectedMessage) {
+          throw new Error(
+            `railway deployment ${latest.id} for ${serviceId} completed without expected deploy message ${expectedMessage}`,
+          );
+        }
+        return latest;
+      }
       if (["FAILED", "CRASHED", "REMOVED"].includes(latest.status)) {
         throw new Error(`railway deployment ${latest.id} for ${serviceId} reached ${latest.status}`);
       }
@@ -201,22 +219,6 @@ async function waitRailwaySuccess(serviceId, previousId, timeoutMs) {
     await sleep(20000);
   }
   throw new Error(`timeout waiting for railway service ${serviceId} deployment`);
-}
-
-async function waitRailwayDeployment(serviceId, deploymentId, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const deployments = await railwayDeployments(serviceId);
-    const deployment = deployments.find((candidate) => candidate.id === deploymentId);
-    if (deployment?.status === "SUCCESS") return deployment;
-    if (deployment && ["FAILED", "CRASHED", "REMOVED"].includes(deployment.status)) {
-      throw new Error(
-        `railway deployment ${deployment.id} for ${serviceId} reached ${deployment.status}`,
-      );
-    }
-    await sleep(20000);
-  }
-  throw new Error(`timeout waiting for railway deployment ${deploymentId} on ${serviceId}`);
 }
 
 async function waitRailwayRemoved(serviceId, deploymentId, timeoutMs) {
@@ -231,6 +233,7 @@ async function waitRailwayRemoved(serviceId, deploymentId, timeoutMs) {
 }
 
 async function commandRailwayDeploy() {
+  const deploySha = process.env.DEPLOY_SHA || env("GITHUB_SHA");
   const services = [
     // Migrations are forward-only and are never rolled back. This one-shot
     // deployment must finish before either long-lived process can open Feed
@@ -251,13 +254,14 @@ async function commandRailwayDeploy() {
       // rollout race ahead of the migration that belongs to this revision.
       const previousId = (await railwayDeployments(serviceId))[0]?.id;
       console.log(`deploying railway service ${name} (${serviceId})`);
-      railwayUp(serviceId);
-      const deployment = await waitRailwaySuccess(serviceId, previousId, 20 * 60 * 1000);
+      const message = `deploy ${deploySha}`;
+      railwayUp(serviceId, message);
+      const deployment = await waitRailwaySuccess(serviceId, previousId, 20 * 60 * 1000, message);
       const state = readState();
       writeState({
         railwayDeployed: {
           ...(state.railwayDeployed || {}),
-          [name]: { id: deployment.id },
+          [name]: { id: deployment.id, sha: deploySha, message },
         },
       });
       console.log(`railway ${name} deployment ${deployment.id} SUCCESS`);
@@ -314,44 +318,29 @@ async function commandVercelWait() {
   // vercel.json disables Git-triggered production deployments for main. Only
   // this post-CI gate may publish the checked-out revision, which prevents a
   // failing commit from reaching Vercel while Railway is still gated on CI.
-  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_MAIN;
   try {
-    let hostname = "";
-    try {
-      vercelCli(["link", "--yes", "--project", project]);
-      const output = vercelCli([
-        "deploy",
-        "--prod",
-        "--yes",
-        "--meta",
-        `githubCommitSha=${currentSha}`,
-        "--meta",
-        "githubCommitRef=main",
-      ]);
-      const deploymentURL = output
-        .trim()
-        .split(/\s+/)
-        .reverse()
-        .find((value) => /^https:\/\//.test(value));
-      if (!deploymentURL) throw new Error(`Vercel CLI returned no deployment URL: ${output}`);
-      hostname = new URL(deploymentURL).hostname;
-    } catch (cliError) {
-      // Retain upstream's deploy-hook escape hatch for Vercel membership and
-      // control-plane failures, while keeping the post-CI CLI deployment as
-      // the normal and auditable path.
-      if (!hookUrl) throw cliError;
-      console.error(`explicit Vercel deploy failed (${cliError.message}); triggering main deploy hook`);
-      const hookResponse = await fetch(hookUrl, { method: "POST" });
-      if (!hookResponse.ok) {
-        throw new Error(`Vercel deploy hook responded ${hookResponse.status}`);
-      }
-    }
-    const deadline = Date.now() + 25 * 60 * 1000;
+    vercelCli(["link", "--yes", "--project", project]);
+    const output = vercelCli([
+      "deploy",
+      "--prod",
+      "--yes",
+      "--meta",
+      `githubCommitSha=${currentSha}`,
+      "--meta",
+      "githubCommitRef=main",
+    ]);
+    const deploymentURL = output
+      .trim()
+      .split(/\s+/)
+      .reverse()
+      .find((value) => /^https:\/\//.test(value));
+    if (!deploymentURL) throw new Error(`Vercel CLI returned no deployment URL: ${output}`);
+    const hostname = new URL(deploymentURL).hostname;
+    const deadline = Date.now() + 20 * 60 * 1000;
     while (Date.now() < deadline) {
       const list = await vercelApi(`/v6/deployments?projectId=${project}&limit=20`);
       const deployment = (list.deployments || []).find(
-        (candidate) =>
-          (hostname && candidate.url === hostname) || candidate.meta?.githubCommitSha === currentSha,
+        (candidate) => candidate.url === hostname || candidate.meta?.githubCommitSha === currentSha,
       );
       if (deployment) {
         const status = deployment.readyState || deployment.state;
@@ -472,24 +461,9 @@ async function rollbackRailwayService(name, serviceId, anchorId, deployedId, bef
     console.log(`railway ${name} already on the anchor deployment, skip`);
     return;
   }
-  try {
-    const result = await railwayGql(
-      `mutation($id: String!) { deploymentRedeploy(id: $id) { id status } }`,
-      { id: anchorId },
-    );
-    const redeploymentId = result.deploymentRedeploy?.id;
-    if (!redeploymentId) throw new Error("deploymentRedeploy returned no deployment id");
-    console.log(
-      `railway ${name} redeploying anchor ${anchorId} as deployment ${redeploymentId}`,
-    );
-    await waitRailwayDeployment(serviceId, redeploymentId, 20 * 60 * 1000);
-    console.log(`railway ${name} rollback deployment ${redeploymentId} SUCCESS`);
-    return;
-  } catch (error) {
-    console.error(`railway ${name} anchor redeploy unavailable: ${error.message}`);
-  }
-  // Fallback: rebuild the previous main commit into the service. Only viable
-  // when that commit still ships the backend image definition.
+  // Railway's deploymentRedeploy does not guarantee the historical image is
+  // rebuilt: on observed failures it re-used the latest source/image. Always
+  // build the exact pre-release commit in an isolated worktree instead.
   if (!/^[0-9a-f]{40}$/i.test(beforeSha)) {
     throw new Error(`invalid rollback commit ${beforeSha}`);
   }
@@ -508,12 +482,9 @@ async function rollbackRailwayService(name, serviceId, anchorId, deployedId, bef
     });
     const previousId = (await railwayDeployments(serviceId))[0]?.id;
     console.log(`railway ${name}: rebuilding ${beforeSha} as the rollback deployment`);
-    execFileSync(
-      "railway",
-      ["up", worktree, "--service", serviceId, "--environment", "production", "--ci", "-y"],
-      { stdio: "inherit", env: process.env },
-    );
-    const rollback = await waitRailwaySuccess(serviceId, previousId, 20 * 60 * 1000);
+    const message = `rollback ${beforeSha}`;
+    railwayUp(serviceId, message, worktree);
+    const rollback = await waitRailwaySuccess(serviceId, previousId, 20 * 60 * 1000, message);
     console.log(`railway ${name} rebuilt rollback deployment ${rollback.id} SUCCESS`);
   } finally {
     try {

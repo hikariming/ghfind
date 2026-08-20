@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	feedReconcileInterval = 30 * time.Second
-	feedReconcileLeaseTTL = 45 * time.Second
-	feedReconcileTimeout  = 8 * time.Minute
+	feedReconcileInterval     = 30 * time.Second
+	feedFullReconcileInterval = 6 * time.Hour
+	feedReconcileOverlap      = 5 * time.Minute
+	feedReconcileLeaseTTL     = 45 * time.Second
+	feedReconcileTimeout      = 8 * time.Minute
 )
 
 type feedReconcileLeaseRenewer interface {
@@ -21,16 +23,26 @@ type feedReconcileLeaseRenewer interface {
 
 type FeedProjectSource interface {
 	ListFeedProjectAssessments(context.Context, string, int) ([]ProjectAssessment, error)
+	ListFeedProjectAssessmentChanges(context.Context, int64, string, int) ([]ProjectAssessment, error)
+	FeedProjectCatalogCount(context.Context) (int64, error)
 	GetProjectAssessment(context.Context, string) (*ProjectAssessment, error)
 	ListFeedProjectOverviews(context.Context, []string) (map[string]*ProjectOverview, error)
 }
 
+type FeedProjectChangeCursor struct {
+	UpdatedAt   int64     `json:"updatedAt"`
+	RepoKey     string    `json:"repoKey"`
+	SourceCount int64     `json:"sourceCount"`
+	LastFullAt  time.Time `json:"lastFullAt"`
+}
+
 type FeedProjectReconcileResult struct {
-	Seen          int   `json:"seen"`
-	Projected     int   `json:"projected"`
-	Unchanged     int   `json:"unchanged"`
-	HiddenMissing int64 `json:"hiddenMissing"`
-	LeaseSkipped  bool  `json:"leaseSkipped"`
+	Seen          int                     `json:"seen"`
+	Projected     int                     `json:"projected"`
+	Unchanged     int                     `json:"unchanged"`
+	HiddenMissing int64                   `json:"hiddenMissing"`
+	LeaseSkipped  bool                    `json:"leaseSkipped"`
+	HighWater     FeedProjectChangeCursor `json:"-"`
 }
 
 type FeedProjectReconciler struct {
@@ -72,10 +84,11 @@ func (r *FeedProjectReconciler) buildProjections(
 	}
 	overviews, err := r.source.ListFeedProjectOverviews(ctx, keys)
 	if err != nil {
-		// Repository language/topics enrich ranking but are not publication
-		// facts. Preserve tag-only projection when the graph query is degraded.
-		r.log.Warn("Feed project metadata batch unavailable; projecting assessments only", "error", err)
-		overviews = map[string]*ProjectOverview{}
+		// An unavailable graph is different from an empty graph response. Writing
+		// an empty map here would erase existing language/topic enrichment and
+		// churn descriptors, embeddings, and rankings. Leave the prior projection
+		// intact and let Rabbit/reconciliation retry the source transaction.
+		return nil, fmt.Errorf("read repository metadata for Feed projection: %w", err)
 	}
 	projections := make([]FeedProjectProjection, 0, len(assessments))
 	for _, assessment := range assessments {
@@ -154,6 +167,17 @@ func (r *FeedProjectReconciler) Reconcile(ctx context.Context) (FeedProjectRecon
 		}
 		return nil
 	}
+	nextLeaseRenewal := startedAt.Add(r.leaseTTL / 3)
+	renewIfDue := func() error {
+		if r.now().UTC().Before(nextLeaseRenewal) {
+			return nil
+		}
+		if err := renewLease(); err != nil {
+			return err
+		}
+		nextLeaseRenewal = r.now().UTC().Add(r.leaseTTL / 3)
+		return nil
+	}
 
 	seen := []string{}
 	const pageSize = 100
@@ -181,8 +205,16 @@ func (r *FeedProjectReconciler) Reconcile(ctx context.Context) (FeedProjectRecon
 			_ = r.target.MarkFeedReconcile(ctx, afterRepoKey, startedAt, false)
 			return result, err
 		}
-		for _, projection := range projections {
+		for index, projection := range projections {
+			if err := renewIfDue(); err != nil {
+				_ = r.target.MarkFeedReconcile(ctx, afterRepoKey, startedAt, false)
+				return result, err
+			}
 			result.Seen++
+			result.HighWater = laterFeedProjectCursor(result.HighWater, FeedProjectChangeCursor{
+				UpdatedAt: assessments[index].UpdatedAt,
+				RepoKey:   projection.RepoKey,
+			})
 			seen = append(seen, projection.RepoKey)
 			afterRepoKey = projection.RepoKey
 			if known[projection.RepoKey] == projection.SourceHash {
@@ -223,21 +255,172 @@ func (r *FeedProjectReconciler) Reconcile(ctx context.Context) (FeedProjectRecon
 	return result, nil
 }
 
+func laterFeedProjectCursor(left, right FeedProjectChangeCursor) FeedProjectChangeCursor {
+	if right.UpdatedAt > left.UpdatedAt ||
+		(right.UpdatedAt == left.UpdatedAt && strings.ToLower(right.RepoKey) > strings.ToLower(left.RepoKey)) {
+		return right
+	}
+	return left
+}
+
+// ReconcileChanges is the normal 30-second repair path. It replays a bounded
+// overlap window through source-hash idempotency, so equal-millisecond writes,
+// brief clock skew, lost RabbitMQ hints, and process restarts cannot create a
+// permanent omission. Unlike a full reconciliation it never hides rows.
+func (r *FeedProjectReconciler) ReconcileChanges(ctx context.Context, cursor FeedProjectChangeCursor) (FeedProjectReconcileResult, error) {
+	result := FeedProjectReconcileResult{HighWater: cursor}
+	if r.source == nil || r.target == nil {
+		return result, fmt.Errorf("Feed project reconciler dependencies are required")
+	}
+	startedAt := r.now().UTC()
+	acquired, err := r.target.AcquireFeedReconcileLease(ctx, r.workerID, startedAt, r.leaseTTL)
+	if err != nil {
+		return result, err
+	}
+	if !acquired {
+		result.LeaseSkipped = true
+		return result, nil
+	}
+	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := r.target.ReleaseFeedReconcileLease(releaseCtx, r.workerID); err != nil {
+			r.log.Warn("release incremental Feed project reconciliation lease", "error", err)
+		}
+	}()
+	renewLease := func() error {
+		renewer, ok := r.target.(feedReconcileLeaseRenewer)
+		if !ok {
+			return nil
+		}
+		renewed, err := renewer.RenewFeedReconcileLease(ctx, r.workerID, r.now().UTC(), r.leaseTTL)
+		if err != nil {
+			return fmt.Errorf("renew incremental Feed project reconciliation lease: %w", err)
+		}
+		if !renewed {
+			return fmt.Errorf("incremental Feed project reconciliation lease was lost")
+		}
+		return nil
+	}
+	nextLeaseRenewal := startedAt.Add(r.leaseTTL / 3)
+	renewIfDue := func() error {
+		if r.now().UTC().Before(nextLeaseRenewal) {
+			return nil
+		}
+		if err := renewLease(); err != nil {
+			return err
+		}
+		nextLeaseRenewal = r.now().UTC().Add(r.leaseTTL / 3)
+		return nil
+	}
+
+	pageUpdatedAt := cursor.UpdatedAt - feedReconcileOverlap.Milliseconds() - 1
+	if pageUpdatedAt < 0 {
+		pageUpdatedAt = 0
+	}
+	pageRepoKey := ""
+	const pageSize = 100
+	for {
+		assessments, err := r.source.ListFeedProjectAssessmentChanges(ctx, pageUpdatedAt, pageRepoKey, pageSize)
+		if err != nil {
+			return result, fmt.Errorf("list changed Turso Feed assessments after (%d,%q): %w", pageUpdatedAt, pageRepoKey, err)
+		}
+		if len(assessments) == 0 {
+			break
+		}
+		projections, err := r.buildProjections(ctx, assessments)
+		if err != nil {
+			return result, err
+		}
+		keys := make([]string, 0, len(projections))
+		for _, projection := range projections {
+			keys = append(keys, projection.RepoKey)
+		}
+		known, err := r.target.FeedProjectSourceHashes(ctx, keys)
+		if err != nil {
+			return result, err
+		}
+		for index, projection := range projections {
+			if err := renewIfDue(); err != nil {
+				return result, err
+			}
+			assessment := assessments[index]
+			result.Seen++
+			result.HighWater = laterFeedProjectCursor(result.HighWater, FeedProjectChangeCursor{
+				UpdatedAt: assessment.UpdatedAt,
+				RepoKey:   projection.RepoKey,
+			})
+			if known[projection.RepoKey] == projection.SourceHash {
+				result.Unchanged++
+				continue
+			}
+			if err := r.target.UpsertFeedProject(ctx, projection); err != nil {
+				return result, fmt.Errorf("project changed %s into Feed catalog: %w", projection.RepoKey, err)
+			}
+			result.Projected++
+		}
+		last := assessments[len(assessments)-1]
+		pageUpdatedAt, pageRepoKey = last.UpdatedAt, strings.ToLower(last.RepoKey)
+		if err := renewLease(); err != nil {
+			return result, err
+		}
+		if len(assessments) < pageSize {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (r *FeedProjectReconciler) reconcileCycle(ctx context.Context) (FeedProjectReconcileResult, string, error) {
+	cursor, exists, err := r.target.LoadFeedProjectChangeCursor(ctx)
+	if err != nil {
+		return FeedProjectReconcileResult{}, "cursor", err
+	}
+	sourceCount, err := r.source.FeedProjectCatalogCount(ctx)
+	if err != nil {
+		return FeedProjectReconcileResult{}, "count", err
+	}
+	now := r.now().UTC()
+	full := !exists || cursor.LastFullAt.IsZero() || now.Sub(cursor.LastFullAt) >= feedFullReconcileInterval || sourceCount < cursor.SourceCount
+	mode := "incremental"
+	var result FeedProjectReconcileResult
+	if full {
+		mode = "full"
+		result, err = r.Reconcile(ctx)
+	} else {
+		result, err = r.ReconcileChanges(ctx, cursor)
+	}
+	if err != nil || result.LeaseSkipped {
+		return result, mode, err
+	}
+	next := laterFeedProjectCursor(cursor, result.HighWater)
+	next.SourceCount = sourceCount
+	if full {
+		next.LastFullAt = now
+	} else {
+		next.LastFullAt = cursor.LastFullAt
+	}
+	if err := r.target.SaveFeedProjectChangeCursor(ctx, next); err != nil {
+		return result, mode, err
+	}
+	return result, mode, nil
+}
+
 func (r *FeedProjectReconciler) Run(ctx context.Context) error {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 	for {
 		started := r.now().UTC()
 		reconcileCtx, cancel := context.WithTimeout(ctx, r.timeout)
-		result, err := r.Reconcile(reconcileCtx)
+		result, mode, err := r.reconcileCycle(reconcileCtx)
 		cancel()
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			r.log.Error("Feed project reconciliation failed", "error", err)
+			r.log.Error("Feed project reconciliation failed", "mode", mode, "error", err)
 		} else if !result.LeaseSkipped {
-			r.log.Info("Feed project reconciliation completed", "seen", result.Seen,
+			r.log.Info("Feed project reconciliation completed", "mode", mode, "seen", result.Seen,
 				"projected", result.Projected, "unchanged", result.Unchanged,
 				"hidden_missing", result.HiddenMissing, "duration", r.now().UTC().Sub(started))
 		}

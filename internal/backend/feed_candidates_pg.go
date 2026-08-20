@@ -44,53 +44,89 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		}
 	}
 
-	tagRows, err := s.db.QueryContext(ctx, `SELECT pt.repo_key,
-      SUM(pref.value * pref.strength * pt.weight * pt.confidence) /
-        NULLIF(SUM(ABS(pref.value * pref.strength * pt.weight * pt.confidence)), 0) AS affinity
-      FROM feed.user_tag_preferences pref
-      JOIN feed.project_tags pt ON pt.tag_id = pref.tag_id
-      JOIN feed.projects p ON p.repo_key = pt.repo_key AND p.publishable = true
-      LEFT JOIN feed.user_project_state ups ON ups.github_id = pref.github_id AND ups.repo_key = pt.repo_key
-      WHERE pref.github_id = $1 AND COALESCE(ups.not_interested, false) = false
-      GROUP BY pt.repo_key ORDER BY affinity DESC, pt.repo_key LIMIT 80`, user.GitHubID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("load tag Feed candidates: %w", err)
-	}
-	for tagRows.Next() {
-		var key string
-		var affinity float64
-		if err := tagRows.Scan(&key, &affinity); err != nil {
-			_ = tagRows.Close()
+	// Tag retrieval is deliberately bounded per preference before affinity is
+	// aggregated. Exact aggregation would scan every project carrying a popular
+	// tag (50k+ in a mature catalog) merely to return 80 candidates. The
+	// expression index gives each of the at-most-30 preferences a stable, high
+	// confidence fanout; the final affinity query then selects the global Top80.
+	// This is a candidate-recall approximation, never a governance decision.
+	if len(user.Preferences) > 0 {
+		tagRows, err := s.db.QueryContext(ctx, `WITH prefs AS MATERIALIZED (
+          SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1
+        ), sampled AS MATERIALIZED (
+          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+          FROM prefs pref
+          CROSS JOIN LATERAL (
+            SELECT repo_key,weight,confidence FROM feed.project_tags pt
+            WHERE pt.tag_id=pref.tag_id
+            ORDER BY (pt.weight * pt.confidence) DESC,repo_key
+            LIMIT 160
+          ) pt
+        )
+        SELECT sampled.repo_key,
+          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+        FROM sampled
+        CROSS JOIN LATERAL (
+          SELECT 1 FROM feed.projects p
+          WHERE p.repo_key=sampled.repo_key AND p.publishable=true OFFSET 0
+        ) p
+        WHERE NOT EXISTS (
+          SELECT 1 FROM feed.user_project_state ups
+          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+        )
+        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80`, user.GitHubID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load tag Feed candidates: %w", err)
+		}
+		for tagRows.Next() {
+			var key string
+			var affinity float64
+			if err := tagRows.Scan(&key, &affinity); err != nil {
+				_ = tagRows.Close()
+				return nil, nil, err
+			}
+			add(key, "tag", &affinity, nil)
+		}
+		if err := tagRows.Close(); err != nil {
 			return nil, nil, err
 		}
-		add(key, "tag", &affinity, nil)
-	}
-	if err := tagRows.Close(); err != nil {
-		return nil, nil, err
 	}
 
-	vectorRows, err := s.db.QueryContext(ctx, `SELECT pe.repo_key, 1 - (pe.embedding <=> upe.embedding) AS similarity
-	      FROM feed.user_profile_embeddings upe
-	      JOIN feed.users fu ON fu.github_id=upe.github_id AND fu.profile_version=upe.profile_version
-      JOIN feed.project_embeddings pe ON pe.active = true AND pe.model = upe.model AND pe.dimensions = upe.dimensions
-      JOIN feed.projects p ON p.repo_key = pe.repo_key AND p.publishable = true
-      LEFT JOIN feed.user_project_state ups ON ups.github_id = upe.github_id AND ups.repo_key = pe.repo_key
-      WHERE upe.github_id = $1 AND upe.active = true AND COALESCE(ups.not_interested, false) = false
-      ORDER BY pe.embedding <=> upe.embedding, pe.repo_key LIMIT 80`, user.GitHubID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("load vector Feed candidates: %w", err)
-	}
-	for vectorRows.Next() {
-		var key string
-		var similarity float64
-		if err := vectorRows.Scan(&key, &similarity); err != nil {
-			_ = vectorRows.Close()
+	// GetFeedUser has already read and version-checked the active user vector.
+	// Passing that scalar into the candidate query avoids joining users and the
+	// active profile vector once per catalog row. The shape also permits a
+	// future dimension-specific HNSW expression index without changing the API
+	// contract; exact cosine remains the safe default while the catalog is small.
+	if len(user.Embedding) > 0 && user.embeddingModel != "" && user.embeddingDimensions > 0 {
+		embeddingExpression, parameterExpression := feedVectorDistanceExpressions(user.embeddingDimensions)
+		vectorQuery := fmt.Sprintf(`SELECT pe.repo_key,
+            1 - (%s <=> %s) AS similarity
+          FROM feed.project_embeddings pe
+          JOIN feed.projects p ON p.repo_key=pe.repo_key AND p.publishable=true
+          WHERE pe.active=true AND pe.model=$2 AND pe.dimensions=$3
+            AND NOT EXISTS (
+              SELECT 1 FROM feed.user_project_state ups
+              WHERE ups.github_id=$4 AND ups.repo_key=pe.repo_key AND ups.not_interested=true
+            )
+	          ORDER BY %s <=> %s LIMIT 80`, embeddingExpression, parameterExpression, embeddingExpression, parameterExpression)
+		vectorRows, err := s.db.QueryContext(ctx, vectorQuery,
+			pgVectorLiteral(user.Embedding), user.embeddingModel, user.embeddingDimensions, user.GitHubID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load vector Feed candidates: %w", err)
+		}
+		for vectorRows.Next() {
+			var key string
+			var similarity float64
+			if err := vectorRows.Scan(&key, &similarity); err != nil {
+				_ = vectorRows.Close()
+				return nil, nil, err
+			}
+			add(key, "semantic", nil, &similarity)
+		}
+		if err := vectorRows.Close(); err != nil {
 			return nil, nil, err
 		}
-		add(key, "semantic", nil, &similarity)
-	}
-	if err := vectorRows.Close(); err != nil {
-		return nil, nil, err
 	}
 
 	for _, source := range []struct {
@@ -198,7 +234,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		return nil, nil, err
 	}
 
-	tagRows, err = s.db.QueryContext(ctx, `SELECT pt.repo_key, td.id, td.namespace, td.slug, td.label_zh,
+	tagRows, err := s.db.QueryContext(ctx, `SELECT pt.repo_key, td.id, td.namespace, td.slug, td.label_zh,
       td.label_en, td.description, pt.weight, pt.confidence, pt.taxonomy_version
       FROM feed.project_tags pt JOIN feed.tag_definitions td ON td.id = pt.tag_id
       WHERE pt.repo_key = ANY($1) AND td.status = 'canonical' ORDER BY pt.repo_key, td.namespace, td.slug`, keys)
@@ -241,4 +277,29 @@ func parsePGVector(value string) ([]float64, error) {
 		result[index] = parsed
 	}
 	return result, nil
+}
+
+func pgVectorLiteral(values []float64) string {
+	parts := make([]string, len(values))
+	for index, value := range values {
+		parts[index] = strconv.FormatFloat(value, 'g', -1, 64)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
+
+func feedVectorDistanceExpressions(dimensions int) (embedding, parameter string) {
+	// pgvector HNSW requires a fixed-dimension expression. The migration role
+	// creates those indexes once an active corpus reaches 50k. Exact cosine is
+	// retained for unsupported dimensions, while halfvec keeps 2001-4000-dim
+	// provider models indexable without changing stored source vectors.
+	switch {
+	case dimensions > 0 && dimensions <= 2_000:
+		kind := fmt.Sprintf("vector(%d)", dimensions)
+		return "pe.embedding::" + kind, "$1::" + kind
+	case dimensions > 2_000 && dimensions <= 4_000:
+		kind := fmt.Sprintf("halfvec(%d)", dimensions)
+		return "pe.embedding::" + kind, "$1::" + kind
+	default:
+		return "pe.embedding", "$1::vector"
+	}
 }

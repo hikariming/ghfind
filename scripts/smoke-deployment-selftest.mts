@@ -8,6 +8,7 @@ function writeJSON(response: http.ServerResponse, status: number, body: unknown,
 }
 
 function startFixtureServer(): Promise<{ origin: string; close: () => Promise<void> }> {
+	let profileAttempts = 0;
   const server = http.createServer((request, response) => {
     const host = request.headers.host ?? "127.0.0.1";
     const url = new URL(request.url ?? "/", `http://${host}`);
@@ -33,6 +34,11 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/profile/octocat") {
+		profileAttempts += 1;
+		if (profileAttempts === 1) {
+			writeJSON(response, 429, { error: "temporary_rate_limit" }, { "retry-after": "0.01" });
+			return;
+		}
       writeJSON(response, 200, { detail: { username: "octocat", final_score: 42 } });
       return;
     }

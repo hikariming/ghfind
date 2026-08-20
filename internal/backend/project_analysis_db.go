@@ -784,6 +784,20 @@ const projectAssessmentSelect = `
 	FROM project_assessments AS pa
 	JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id`
 
+// Feed projection never returns the long-form markdown report. Keeping that
+// blob out of reconciliation queries materially reduces Turso transfer and
+// allocation pressure without changing the authoritative assessment fields.
+const feedProjectAssessmentSelect = `
+	SELECT pa.repo_key, pa.latest_analysis_id, pa.product_score, pa.pain_score,
+	       pa.effectiveness_score, pa.experience_score, pa.value_density_score,
+	       pa.community_strength, pa.confidence, pa.unknowns_json, pa.risks_json,
+	       pa.stars, pa.treasure_eligible, pa.classic_eligible,
+	       pa.resolved_commit_sha, pa.analyzed_at,
+	       pa.updated_at,
+	       pr.analysis_json, NULL AS report_markdown
+	FROM project_assessments AS pa
+	JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id`
+
 // scanProjectAssessment mirrors mapAssessment: type, lifecycle, verification
 // level, and exposure band come from the stored analysis artifact, not the
 // denormalized columns.
@@ -840,7 +854,7 @@ func (s *TursoStore) ListFeedProjectAssessments(ctx context.Context, afterRepoKe
 		return nil, fmt.Errorf("ensure current project eligibility: %w", err)
 	}
 	limit = maxInt(1, minInt(100, limit))
-	rows, err := s.db.QueryContext(ctx, projectAssessmentSelect+`
+	rows, err := s.db.QueryContext(ctx, feedProjectAssessmentSelect+`
 		WHERE pa.repo_key > ? ORDER BY pa.repo_key ASC LIMIT ?`, strings.ToLower(strings.TrimSpace(afterRepoKey)), limit)
 	if err != nil {
 		return nil, fmt.Errorf("list Feed project assessments: %w", err)
@@ -858,6 +872,51 @@ func (s *TursoStore) ListFeedProjectAssessments(ctx context.Context, afterRepoKe
 		return nil, fmt.Errorf("list Feed project assessments: %w", err)
 	}
 	return assessments, nil
+}
+
+// ListFeedProjectAssessmentChanges reads only rows newer than a durable
+// (updated_at, repo_key) high-water mark. Callers deliberately restart a few
+// minutes before the mark, so equal-millisecond writes and clock skew are
+// replayed through the source-hash idempotency guard instead of being missed.
+func (s *TursoStore) ListFeedProjectAssessmentChanges(ctx context.Context, afterUpdatedAt int64, afterRepoKey string, limit int) ([]ProjectAssessment, error) {
+	if err := s.ensureCurrentProjectEligibility(ctx); err != nil {
+		return nil, fmt.Errorf("ensure current project eligibility: %w", err)
+	}
+	limit = maxInt(1, minInt(100, limit))
+	if afterUpdatedAt < 0 {
+		afterUpdatedAt = 0
+	}
+	rows, err := s.db.QueryContext(ctx, feedProjectAssessmentSelect+`
+		WHERE pa.updated_at > ? OR (pa.updated_at = ? AND pa.repo_key > ?)
+		ORDER BY pa.updated_at ASC, pa.repo_key ASC LIMIT ?`, afterUpdatedAt, afterUpdatedAt,
+		strings.ToLower(strings.TrimSpace(afterRepoKey)), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list changed Feed project assessments: %w", err)
+	}
+	defer rows.Close()
+	assessments := []ProjectAssessment{}
+	for rows.Next() {
+		assessment, err := scanProjectAssessment(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan changed Feed project assessment: %w", err)
+		}
+		assessments = append(assessments, *assessment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list changed Feed project assessments: %w", err)
+	}
+	return assessments, nil
+}
+
+func (s *TursoStore) FeedProjectCatalogCount(ctx context.Context) (int64, error) {
+	if err := s.ensureCurrentProjectEligibility(ctx); err != nil {
+		return 0, fmt.Errorf("ensure current project eligibility: %w", err)
+	}
+	var count int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM project_assessments`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count Feed project assessments: %w", err)
+	}
+	return count, nil
 }
 
 func (s *TursoStore) GetProjectAssessment(ctx context.Context, repoKey string) (*ProjectAssessment, error) {
