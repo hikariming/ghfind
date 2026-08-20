@@ -934,6 +934,9 @@
       "all": "入賞の有無にかかわらず、評価が完了したすべてのプロジェクト。"
     },
     "databaseUnavailable": "プロジェクトデータを一時的に利用できません。しばらくしてから再度お試しください。",
+    "pageOf": "{page} / {totalPages} ページ",
+    "total": "{count} 件のプロジェクト",
+    "jump": "移動",
     "listLabel": "プロジェクト一覧",
     "emptyTitle": "このボードにはまだプロジェクトがありません",
     "emptyBody": {

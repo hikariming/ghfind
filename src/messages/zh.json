@@ -941,6 +941,9 @@
       "all": "所有完成评测的项目，不论是否入榜。"
     },
     "databaseUnavailable": "项目数据暂时不可用，请稍后重试。",
+    "pageOf": "第 {page} / {totalPages} 页",
+    "total": "共 {count} 个项目",
+    "jump": "跳转",
     "listLabel": "项目结果",
     "emptyTitle": "榜单还没有项目",
     "emptyBody": {

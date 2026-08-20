@@ -27,6 +27,7 @@ type ProjectAnalysisRunStore interface {
 	CreateProjectAnalysisRun(context.Context, CreateProjectAnalysisRunInput) (*ProjectAnalysisRun, bool, error)
 	GetProjectAssessment(context.Context, string) (*ProjectAssessment, error)
 	ListProjectBoard(context.Context, ProjectBoard, int, int) ([]ProjectAssessment, error)
+	CountProjectBoard(context.Context, ProjectBoard) (int, error)
 	ListTreasureHistory(context.Context, string) ([]TreasureHistoryEntry, error)
 	ListReconciliableProjectAnalysisRuns(context.Context, int) ([]ProjectAnalysisRun, error)
 }
@@ -538,6 +539,11 @@ func (s *APIServer) projectBoards(w http.ResponseWriter, request *http.Request) 
 		s.projectAnalysisStoreError(w, err)
 		return
 	}
+	total, err := s.projectAnalyses.CountProjectBoard(request.Context(), board)
+	if err != nil {
+		s.projectAnalysisStoreError(w, err)
+		return
+	}
 	views := make([]*projectAssessmentView, 0, len(entries))
 	for index := range entries {
 		views = append(views, newProjectAssessmentView(&entries[index]))
@@ -545,6 +551,7 @@ func (s *APIServer) projectBoards(w http.ResponseWriter, request *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"board":   string(board),
 		"entries": views,
+		"total":   total,
 	}, map[string]string{"Cache-Control": "no-store"})
 }
 

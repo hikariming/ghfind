@@ -934,6 +934,9 @@
       "all": "Every analyzed project, whether or not it made a board."
     },
     "databaseUnavailable": "Project data is temporarily unavailable. Please try again later.",
+    "pageOf": "Page {page} / {totalPages}",
+    "total": "{count} projects",
+    "jump": "Go",
     "listLabel": "Project results",
     "emptyTitle": "No projects on this board yet",
     "emptyBody": {

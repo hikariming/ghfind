@@ -934,6 +934,9 @@
       "all": "Todos os projetos analisados, estejam ou não em um quadro."
     },
     "databaseUnavailable": "Os dados dos projetos estão temporariamente indisponíveis. Tente novamente mais tarde.",
+    "pageOf": "Página {page} / {totalPages}",
+    "total": "{count} projetos",
+    "jump": "Ir",
     "listLabel": "Resultados de projetos",
     "emptyTitle": "Ainda não há grafo de projetos aqui",
     "emptyBody": {
