@@ -58,7 +58,7 @@ export function RescanButton({
     }
     setStatus("scanning");
     try {
-      const scanRes = await fetch("/api/scan", {
+      const scanRes = await fetch("/api/scan?force=1", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, turnstileToken: token }),

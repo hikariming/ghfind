@@ -753,6 +753,7 @@ func (s *APIServer) scan(w http.ResponseWriter, request *http.Request) {
 		TurnstileToken unknownString `json:"turnstileToken"`
 		Campaign       unknownString `json:"campaign"`
 	}
+	force := request.URL.Query().Get("force") == "1"
 	decoder := json.NewDecoder(io.LimitReader(request.Body, 16<<10))
 	if err := decoder.Decode(&input); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_body"}, nil)
@@ -811,7 +812,7 @@ func (s *APIServer) scan(w http.ResponseWriter, request *http.Request) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate_limited"}, headers)
 		return
 	}
-	if s.scanCache != nil {
+	if !force && s.scanCache != nil {
 		// Cache availability is deliberately not an admission dependency. This
 		// mirrors the existing best-effort cache read: a Redis miss/outage falls
 		// through to the durable worker rather than making a valid scan fail.
