@@ -12,13 +12,13 @@ Evaluate the project itself, not its author popularity. Let a small, highly usef
 Accept only a versioned task containing:
 
 ```text
-[GHFIND_PROJECT_ANALYSIS_V2]
+[GHFIND_PROJECT_ANALYSIS_V3]
 analysis_id: <caller id>
 repository_url: <public https://github.com/owner/repo URL>
 requested_ref: <branch, tag, sha, or empty>
 execution_mode: source_only | allowlisted_runtime
 rubric_version: project-value-v1
-schema_version: ghfind.project-analysis.v2
+schema_version: ghfind.project-analysis.v3
 artifact_prefix: project-analysis-<analysis_id>
 locale: <BCP 47 language tag, such as zh-CN, zh-TW, en-US, or ja-JP>
 ```

@@ -20,6 +20,7 @@ than Turso/Redis/GitHub/LLM directly.
 | `GET /api/leaderboard` | Go-owned | views, windows, pagination, `cached` field and CDN contract |
 | `GET /api/developers` | Go-owned | language/org/repo validation, category and bucket cache keys, pagination and CDN contract |
 | Go project presentation reads | Go-owned | bounded project lists, repo overview, related-project graph and canonical contributor aggregates for Next renderers |
+| `/api/feed/*` | Go-owned, feature-gated | GitHub OAuth principal, governed taxonomy, deterministic signed pagination, immutable event facts, profile deletion; `FEED_MODE=off` fails closed without opening Feed PostgreSQL, while an enabled-but-unreachable Feed store returns Feed-only `503` without changing core `/readyz` |
 | `GET /api/facet-rank/{username}` | Go-owned | 10/min public-read sliding limit, rank/null shape and CDN contract |
 | profile/blog/collection comments, reactions, follows | Go-owned | OAuth/anonymous authorization, write status and no-store headers |
 | `/api/me` and `/api/auth/*` | Go-owned | GitHub OAuth callback/session-cookie behavior and user upsert |
@@ -55,6 +56,14 @@ Go scoring and existing Turso persistence. Duplicate deliveries are guarded by
 Future project analysis and provider callbacks must register a row in this
 matrix before implementation, including their request signature, idempotency
 key, persistence target, retry/DLQ policy and public status contract.
+
+Feed uses `feed.event-project.v1`, `feed.project-sync.v1`,
+`feed.profile-rebuild.v1`, `feed.user-delete.v1`, and
+`feed.gorse-shadow-request.v1` through the transactional PostgreSQL outbox.
+`ghfind.feed-projection.v1` is a durable competing-consumer queue and
+`ghfind.feed-projection.dead.v1` is its inspection DLQ. RabbitMQ never becomes
+the behavior fact source: relay claims are leased, publisher-confirmed, and
+the full Gorse database remains rebuildable from PostgreSQL/Turso projections.
 
 The `backend extraction boundary` Vitest suite scans Next runtime source under
 `src/app` and `src/components` so UI/rendering code may use type-only contracts

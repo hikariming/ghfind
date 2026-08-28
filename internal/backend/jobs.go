@@ -37,6 +37,15 @@ const (
 	projectAnalysisRetryQueue = "ghfind.project-analysis.retry.v1"
 	projectAnalysisDeadQueue  = "ghfind.project-analysis.dead.v1"
 	ProjectAnalysisJobKind    = "project-analysis.v1"
+	feedProjectionQueue       = "ghfind.feed-projection.v1"
+	feedProjectionDeadQueue   = "ghfind.feed-projection.dead.v1"
+	feedProjectionDeadKey     = "feed.projection.dead.v1"
+	feedCatalogSyncKey        = "feed.catalog-sync.v1"
+	feedCatalogSyncRetryKey   = "feed.catalog-sync.retry.v1"
+	feedCatalogSyncDeadKey    = "feed.catalog-sync.dead.v1"
+	feedCatalogSyncQueue      = "ghfind.feed-catalog-sync.v1"
+	feedCatalogSyncRetryQueue = "ghfind.feed-catalog-sync.retry.v1"
+	feedCatalogSyncDeadQueue  = "ghfind.feed-catalog-sync.dead.v1"
 )
 
 // ScoreSnapshotJob carries no secret and is safe to persist in RabbitMQ. Its
@@ -80,6 +89,23 @@ type ProjectAnalysisJobPublisher interface {
 	PublishProjectAnalysis(context.Context, ProjectAnalysisJob) error
 	PublishProjectAnalysisRetry(context.Context, ProjectAnalysisJob, time.Duration) error
 	PublishProjectAnalysisDead(context.Context, ProjectAnalysisJob, string) error
+}
+
+// FeedCatalogSyncJob is emitted only after the authoritative Turso analysis
+// transaction commits. PostgreSQL projection is idempotent; RequestedAt and
+// AnalysisID make retries auditable while the periodic sweep recovers a rare
+// cross-database publish loss.
+type FeedCatalogSyncJob struct {
+	RepoKey     string `json:"repo_key"`
+	AnalysisID  string `json:"analysis_id"`
+	Attempt     int    `json:"attempt"`
+	RequestedAt int64  `json:"requested_at"`
+}
+
+type FeedCatalogSyncPublisher interface {
+	PublishFeedCatalogSync(context.Context, FeedCatalogSyncJob) error
+	PublishFeedCatalogSyncRetry(context.Context, FeedCatalogSyncJob, time.Duration) error
+	PublishFeedCatalogSyncDead(context.Context, FeedCatalogSyncJob, string) error
 }
 
 // RabbitPublisher opens a short-lived AMQP channel for each confirmed publish.
@@ -173,6 +199,31 @@ func (p *RabbitPublisher) PublishProjectAnalysisRetry(ctx context.Context, job P
 
 func (p *RabbitPublisher) PublishProjectAnalysisDead(ctx context.Context, job ProjectAnalysisJob, reason string) error {
 	return p.publishConfirmed(ctx, deadLetterExchange, projectAnalysisDeadKey, job.ID, job, "", amqp091.Table{"x-ghfind-failure": reason})
+}
+
+func (p *RabbitPublisher) PublishFeedCatalogSync(ctx context.Context, job FeedCatalogSyncJob) error {
+	return p.publishConfirmed(ctx, jobsExchange, feedCatalogSyncKey, job.AnalysisID, job, "", nil)
+}
+
+func (p *RabbitPublisher) PublishFeedCatalogSyncRetry(ctx context.Context, job FeedCatalogSyncJob, delay time.Duration) error {
+	if delay <= 0 {
+		return fmt.Errorf("Feed catalog retry delay must be positive")
+	}
+	return p.publishConfirmed(ctx, jobsExchange, feedCatalogSyncRetryKey, job.AnalysisID, job,
+		strconv.FormatInt(delay.Milliseconds(), 10), nil)
+}
+
+func (p *RabbitPublisher) PublishFeedCatalogSyncDead(ctx context.Context, job FeedCatalogSyncJob, reason string) error {
+	return p.publishConfirmed(ctx, deadLetterExchange, feedCatalogSyncDeadKey, job.AnalysisID, job, "",
+		amqp091.Table{"x-ghfind-failure": reason})
+}
+
+func (p *RabbitPublisher) PublishFeedOutbox(ctx context.Context, message FeedOutboxMessage) error {
+	if err := validateFeedOutboxTopic(message.Topic); err != nil {
+		return err
+	}
+	return p.publishConfirmed(ctx, jobsExchange, message.Topic, fmt.Sprintf("feed-outbox-%d", message.ID),
+		json.RawMessage(message.Payload), "", amqp091.Table{"x-ghfind-aggregate": message.AggregateKey})
 }
 
 // publishConfirmed opens a short-lived channel, declares the topology, and
@@ -323,6 +374,44 @@ func declareJobTopology(channel *amqp091.Channel) error {
 	}
 	if err := channel.QueueBind(projectAnalysisDeadQueue, projectAnalysisDeadKey, deadLetterExchange, false, nil); err != nil {
 		return fmt.Errorf("bind project analysis dead queue: %w", err)
+	}
+	if _, err := channel.QueueDeclare(feedProjectionQueue, true, false, false, false, amqp091.Table{
+		"x-dead-letter-exchange": deadLetterExchange, "x-dead-letter-routing-key": feedProjectionDeadKey,
+	}); err != nil {
+		return fmt.Errorf("declare Feed projection queue: %w", err)
+	}
+	for _, routingKey := range []string{"feed.event-project.v1", "feed.project-sync.v1", "feed.profile-rebuild.v1", "feed.user-delete.v1", "feed.gorse-shadow-request.v1"} {
+		if err := channel.QueueBind(feedProjectionQueue, routingKey, jobsExchange, false, nil); err != nil {
+			return fmt.Errorf("bind Feed projection queue for %s: %w", routingKey, err)
+		}
+	}
+	if _, err := channel.QueueDeclare(feedProjectionDeadQueue, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare Feed projection dead queue: %w", err)
+	}
+	if err := channel.QueueBind(feedProjectionDeadQueue, feedProjectionDeadKey, deadLetterExchange, false, nil); err != nil {
+		return fmt.Errorf("bind Feed projection dead queue: %w", err)
+	}
+	if _, err := channel.QueueDeclare(feedCatalogSyncQueue, true, false, false, false, amqp091.Table{
+		"x-dead-letter-exchange": deadLetterExchange, "x-dead-letter-routing-key": feedCatalogSyncDeadKey,
+	}); err != nil {
+		return fmt.Errorf("declare Feed catalog sync queue: %w", err)
+	}
+	if err := channel.QueueBind(feedCatalogSyncQueue, feedCatalogSyncKey, jobsExchange, false, nil); err != nil {
+		return fmt.Errorf("bind Feed catalog sync queue: %w", err)
+	}
+	if _, err := channel.QueueDeclare(feedCatalogSyncRetryQueue, true, false, false, false, amqp091.Table{
+		"x-dead-letter-exchange": jobsExchange, "x-dead-letter-routing-key": feedCatalogSyncKey,
+	}); err != nil {
+		return fmt.Errorf("declare Feed catalog sync retry queue: %w", err)
+	}
+	if err := channel.QueueBind(feedCatalogSyncRetryQueue, feedCatalogSyncRetryKey, jobsExchange, false, nil); err != nil {
+		return fmt.Errorf("bind Feed catalog sync retry queue: %w", err)
+	}
+	if _, err := channel.QueueDeclare(feedCatalogSyncDeadQueue, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare Feed catalog sync dead queue: %w", err)
+	}
+	if err := channel.QueueBind(feedCatalogSyncDeadQueue, feedCatalogSyncDeadKey, deadLetterExchange, false, nil); err != nil {
+		return fmt.Errorf("bind Feed catalog sync dead queue: %w", err)
 	}
 	return nil
 }

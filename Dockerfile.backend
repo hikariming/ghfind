@@ -10,6 +10,8 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-api ./cmd/g
     CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-worker ./cmd/ghfind-worker && \
     CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-healthcheck ./cmd/ghfind-healthcheck && \
     CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-backend ./cmd/ghfind-backend && \
+	CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-feed-bootstrap ./cmd/ghfind-feed-bootstrap && \
+	CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-feed-migrate ./cmd/ghfind-feed-migrate && \
     CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/ghfind-mocks ./cmd/ghfind-mocks
 
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
@@ -17,6 +19,8 @@ COPY --from=build /out/ghfind-api /ghfind-api
 COPY --from=build /out/ghfind-worker /ghfind-worker
 COPY --from=build /out/ghfind-healthcheck /ghfind-healthcheck
 COPY --from=build /out/ghfind-backend /ghfind-backend
+COPY --from=build /out/ghfind-feed-bootstrap /ghfind-feed-bootstrap
+COPY --from=build /out/ghfind-feed-migrate /ghfind-feed-migrate
 COPY --from=build /out/ghfind-mocks /ghfind-mocks
 USER nonroot:nonroot
 
@@ -35,7 +39,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["/ghfind-healthcheck", "http://localhost:9090/healthz", "http://localhost:9090/readyz"]
 
 # Railway's default Dockerfile build uses the final stage; every service runs
-# this image and selects its binary with GHFIND_ROLE (api|worker|mocks), so
+# this image and selects its binary with GHFIND_ROLE
+# (api|worker|mocks|feed-bootstrap|feed-migrate), so
 # one source revision produces every independently deployed service. The api
 # stage keeps the runbook's local-compose target intact.
 FROM runtime AS railway

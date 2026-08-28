@@ -34,10 +34,13 @@ const (
 	// (each token's hourly quota feeds about four concurrent latency-bound
 	// scans), capped at 20. The floor keeps a tokenless local worker
 	// functional; ValidateWorker still requires a token for real scans.
-	scanConcurrencyBase     = 8
-	scanConcurrencyPerToken = 4
-	minScanConcurrency      = 2
-	maxScanConcurrency      = 20
+	scanConcurrencyBase            = 8
+	scanConcurrencyPerToken        = 4
+	minScanConcurrency             = 2
+	maxScanConcurrency             = 20
+	defaultFeedShadowOutcomeWindow = 24 * time.Hour
+	minFeedShadowOutcomeWindow     = time.Hour
+	maxFeedShadowOutcomeWindow     = 7 * 24 * time.Hour
 )
 
 // Config is shared by the API and worker. Secrets are intentionally all
@@ -84,6 +87,23 @@ type Config struct {
 	ProjectAnalysisRuntimeAllowlist  []string
 	ProjectAnalysisReconcileSecret   string
 	CronSecret                       string
+	// Feed is an optional, isolated PostgreSQL-backed subsystem. Keeping the
+	// default mode off ensures a missing Feed deployment can never prevent the
+	// existing score/project API or worker from starting.
+	FeedMode                FeedMode
+	FeedDatabaseURL         string
+	FeedSigningSecret       string
+	FeedCanaryBPS           int
+	FeedGorseLiveBPS        int
+	FeedShadowOutcomeWindow time.Duration
+	FeedInternalAllowlist   []int64
+	EmbeddingBaseURL        string
+	EmbeddingAPIKey         string
+	EmbeddingModel          string
+	EmbeddingDimensions     int
+	GorseBaseURL            string
+	GorseServerAPIKey       string
+	GorseAdminAPIKey        string
 }
 
 // LoadConfigFromEnv reads the existing Turso/Upstash names plus the new broker
@@ -130,7 +150,34 @@ func LoadConfigFromEnv() Config {
 		ProjectAnalysisRuntimeAllowlist:  projectAnalysisAllowlistFromEnv(os.Getenv("PROJECT_ANALYSIS_RUNTIME_ALLOWLIST")),
 		ProjectAnalysisReconcileSecret:   strings.TrimSpace(os.Getenv("PROJECT_ANALYSIS_RECONCILE_SECRET")),
 		CronSecret:                       strings.TrimSpace(os.Getenv("CRON_SECRET")),
+		FeedMode:                         ParseFeedMode(os.Getenv("FEED_MODE")),
+		FeedDatabaseURL:                  strings.TrimSpace(os.Getenv("FEED_DATABASE_URL")),
+		FeedSigningSecret:                strings.TrimSpace(os.Getenv("FEED_SIGNING_SECRET")),
+		FeedCanaryBPS:                    clampIntValueAllowZero(os.Getenv("FEED_CANARY_BPS"), 0, 0, 10_000),
+		FeedGorseLiveBPS:                 clampIntValueAllowZero(os.Getenv("FEED_GORSE_LIVE_BPS"), 0, 0, 10_000),
+		FeedShadowOutcomeWindow:          boundedDurationValue(os.Getenv("FEED_SHADOW_OUTCOME_WINDOW"), defaultFeedShadowOutcomeWindow, minFeedShadowOutcomeWindow, maxFeedShadowOutcomeWindow),
+		FeedInternalAllowlist:            int64ListFromEnv(os.Getenv("FEED_INTERNAL_GITHUB_IDS")),
+		EmbeddingBaseURL:                 strings.TrimRight(strings.TrimSpace(os.Getenv("FEED_EMBEDDING_BASE_URL")), "/"),
+		EmbeddingAPIKey:                  strings.TrimSpace(os.Getenv("FEED_EMBEDDING_API_KEY")),
+		EmbeddingModel:                   strings.TrimSpace(os.Getenv("FEED_EMBEDDING_MODEL")),
+		EmbeddingDimensions:              clampIntValue(os.Getenv("FEED_EMBEDDING_DIMENSIONS"), 1536, 1, 65_535),
+		GorseBaseURL:                     strings.TrimRight(strings.TrimSpace(os.Getenv("GORSE_BASE_URL")), "/"),
+		GorseServerAPIKey:                strings.TrimSpace(os.Getenv("GORSE_SERVER_API_KEY")),
+		GorseAdminAPIKey:                 strings.TrimSpace(os.Getenv("GORSE_ADMIN_API_KEY")),
 	}
+}
+
+func int64ListFromEnv(raw string) []int64 {
+	values := []int64{}
+	seen := map[int64]bool{}
+	for _, part := range strings.Split(raw, ",") {
+		value, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64)
+		if err == nil && value > 0 && !seen[value] {
+			seen[value] = true
+			values = append(values, value)
+		}
+	}
+	return values
 }
 
 // ProjectAnalysisExecutionMode mirrors projectAnalysisExecutionMode: only an
@@ -203,6 +250,21 @@ func clampIntValue(raw string, fallback, minimum, maximum int) int {
 	return parsed
 }
 
+func clampIntValueAllowZero(raw string, fallback, minimum, maximum int) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < minimum {
+		return fallback
+	}
+	if parsed > maximum {
+		return maximum
+	}
+	return parsed
+}
+
 func clampDurationEnv(name string, fallback, minimum, maximum time.Duration) time.Duration {
 	value := strings.TrimSpace(os.Getenv(name))
 	if value == "" {
@@ -214,6 +276,17 @@ func clampDurationEnv(name string, fallback, minimum, maximum time.Duration) tim
 	}
 	parsed := time.Duration(millis) * time.Millisecond
 	if parsed < minimum {
+		return fallback
+	}
+	if parsed > maximum {
+		return maximum
+	}
+	return parsed
+}
+
+func boundedDurationValue(raw string, fallback, minimum, maximum time.Duration) time.Duration {
+	parsed, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil || parsed < minimum {
 		return fallback
 	}
 	if parsed > maximum {
@@ -308,6 +381,9 @@ func (c Config) ValidateAPI() error {
 	if strings.TrimSpace(c.AdminSecret) == "" {
 		return fmt.Errorf("ADMIN_SECRET is required")
 	}
+	if err := c.validateFeed(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -319,6 +395,43 @@ func (c Config) ValidateWorker() error {
 	}
 	if strings.TrimSpace(c.GitHubToken) == "" {
 		return fmt.Errorf("GITHUB_TOKEN is required for scan worker")
+	}
+	if err := c.validateFeed(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c Config) validateFeed() error {
+	// A zero-value Config is common in focused unit tests and in embedders that
+	// do not use Feed. Treat it exactly like the explicit default, "off".
+	if c.FeedMode == "" || c.FeedMode == FeedModeOff {
+		return nil
+	}
+	if !c.FeedMode.Valid() {
+		return fmt.Errorf("FEED_MODE must be off, baseline, baseline_gorse_shadow, or gorse_canary")
+	}
+	if c.FeedGorseLiveBPS > 0 && c.FeedMode != FeedModeGorseCanary {
+		return fmt.Errorf("FEED_GORSE_LIVE_BPS requires FEED_MODE=gorse_canary")
+	}
+	if strings.TrimSpace(c.FeedDatabaseURL) == "" {
+		return fmt.Errorf("FEED_DATABASE_URL is required when FEED_MODE is enabled")
+	}
+	if len(c.FeedSigningSecret) < 32 {
+		return fmt.Errorf("FEED_SIGNING_SECRET must contain at least 32 characters when FEED_MODE is enabled")
+	}
+	if (c.FeedMode == FeedModeGorseShadow || c.FeedMode == FeedModeGorseCanary) && c.GorseBaseURL == "" {
+		return fmt.Errorf("GORSE_BASE_URL is required for the configured FEED_MODE")
+	}
+	if (c.FeedMode == FeedModeGorseShadow || c.FeedMode == FeedModeGorseCanary) && c.GorseServerAPIKey == "" {
+		return fmt.Errorf("GORSE_SERVER_API_KEY is required for the configured FEED_MODE")
+	}
+	if (c.FeedMode == FeedModeGorseShadow || c.FeedMode == FeedModeGorseCanary) && c.GorseAdminAPIKey == "" {
+		return fmt.Errorf("GORSE_ADMIN_API_KEY is required for the configured FEED_MODE")
+	}
+	embeddingConfigured := c.EmbeddingBaseURL != "" || c.EmbeddingAPIKey != "" || c.EmbeddingModel != ""
+	if embeddingConfigured && (c.EmbeddingBaseURL == "" || c.EmbeddingAPIKey == "" || c.EmbeddingModel == "") {
+		return fmt.Errorf("FEED_EMBEDDING_BASE_URL, FEED_EMBEDDING_API_KEY, and FEED_EMBEDDING_MODEL must be configured together")
 	}
 	return nil
 }

@@ -2,11 +2,11 @@ name: Deploy production gate
 
 # Production deploy orchestration for the decoupled stack.
 #
-# A push to main makes Vercel build automatically through its GitHub
-# integration; this workflow deploys the Railway backend services from the same
-# commit, then gates both platforms: if either side fails (or the post-deploy
-# smoke fails), both sides are rolled back to the previous healthy anchors so
-# ghfind.com never serves a half-cutover state.
+# A green CI run for a push to main applies forward-only Feed migrations and
+# deploys the Railway backend plus Vercel frontend from the exact same commit.
+# vercel.json disables Git-triggered main deployments so a CI-failing commit
+# cannot reach production ahead of this gate. If either platform or the smoke
+# fails, both sides are rolled back to their previous healthy anchors.
 #
 # Rollback safety contract:
 # - Railway variables live on the service/environment layer. This workflow
@@ -18,16 +18,16 @@ name: Deploy production gate
 # Required GitHub secrets:
 # - VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID — token scoped to the
 #   Vercel team owning the frontend project.
-# - VERCEL_DEPLOY_HOOK_MAIN — deploy hook URL for main. Used as a fallback
-#   when Vercel never starts a deployment for the pushed commit (it silently
-#   skips commits whose author is an identified Vercel user without
-#   contributing access to the team, e.g. a Viewer).
 # - RAILWAY_TOKEN — Railway project token for the backend project+environment.
 
 on:
-  push:
+  # Deploy only after the complete CI workflow for main is green. A raw push
+  # trigger races CI and can publish a revision whose tests later fail.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-  # Manual escape hatch: when a push trigger is lost (e.g. an Actions outage)
+  # Manual escape hatch: when a workflow-run trigger is lost (e.g. an Actions outage)
   # the gate for the current main head can be started by hand.
   workflow_dispatch:
 
@@ -41,8 +41,12 @@ concurrency:
 env:
   RAILWAY_API_SERVICE: 023799da-f0bc-4d85-94c8-b6a1ef71c5f5
   RAILWAY_WORKER_SERVICE: 5c56db45-47ed-4a1a-af37-0225885aadf2
+  RAILWAY_MIGRATE_SERVICE: 8d0697a7-37cc-4c13-bc44-dede3a3a5d3d
+  RAILWAY_BACKUP_SERVICE: e5fa86a0-4789-441d-aaa2-8d45fcd6e90f
   RAILWAY_PROJECT_ID: 815ec3e1-679a-41b4-a7c0-6ba65b64db8e
   RAILWAY_ENVIRONMENT_ID: b9d929d6-a1e4-4e74-b43f-38ed529cc6f1
+  RAILWAY_API_ORIGIN: https://ghfind-api-production-bccd.up.railway.app
+  RAILWAY_WORKER_ORIGIN: https://ghfind-worker-production-de01.up.railway.app
   SMOKE_BASE_URL: https://ghfind.com
   SMOKE_CANARY_HANDLE: octocat
   SMOKE_FACET_TYPE: language
@@ -51,14 +55,18 @@ env:
 jobs:
   gate:
     name: Deploy Railway, gate Vercel, rollback both on failure
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Includes room for a failed deployment and a verified rollback. Individual
+    # service waits are bounded inside deploy-gate.mjs; the workflow timeout is
+    # the final circuit breaker, not the normal rollback mechanism.
+    timeout-minutes: 150
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_DEPLOY_HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Check required secrets
         run: |
@@ -75,6 +83,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -91,7 +100,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install deploy CLIs
-        run: npm install --global vercel@58 @railway/cli
+        run: npm install --global vercel@58 @railway/cli@5.41.2
 
       - name: Capture rollback anchors
         id: anchors
@@ -104,15 +113,19 @@ jobs:
         if: steps.anchors.outputs.stale != 'true'
         run: node .github/scripts/deploy-gate.mjs railway-deploy
 
-      - name: Wait for the Vercel production deployment of this commit
+      - name: Deploy this exact commit to Vercel production
         id: vercel
-        if: steps.anchors.outputs.stale != 'true'
+        if: steps.anchors.outputs.stale != 'true' && steps.railway.outputs.ok == 'true'
         run: node .github/scripts/deploy-gate.mjs vercel-wait
 
       - name: Read-only production smoke
         id: smoke
         if: steps.railway.outputs.ok == 'true' && steps.vercel.outputs.ok == 'true'
-        run: pnpm smoke:deployment
+        env:
+          SMOKE_REQUIRE_VERCEL_BYPASS: "1"
+        run: |
+          vercel link --yes --project "$VERCEL_PROJECT_ID" --token "$VERCEL_TOKEN"
+          vercel env run --environment production --token "$VERCEL_TOKEN" -- pnpm smoke:deployment
 
       - name: Gate verdict
         id: verdict

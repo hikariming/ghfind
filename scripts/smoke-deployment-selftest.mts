@@ -8,10 +8,21 @@ function writeJSON(response: http.ServerResponse, status: number, body: unknown,
 }
 
 function startFixtureServer(): Promise<{ origin: string; close: () => Promise<void> }> {
+	let profileAttempts = 0;
   const server = http.createServer((request, response) => {
     const host = request.headers.host ?? "127.0.0.1";
     const url = new URL(request.url ?? "/", `http://${host}`);
     const origin = `http://${host}`;
+    const directBackendPath = new Set(["/healthz", "/readyz", "/metrics"]).has(url.pathname);
+    const bypass = request.headers["x-vercel-protection-bypass"];
+    if (directBackendPath && bypass) {
+      writeJSON(response, 400, { error: "bypass_secret_leaked_to_backend" });
+      return;
+    }
+    if (!directBackendPath && bypass !== "selftest-bypass-secret") {
+      writeJSON(response, 429, { error: "missing_vercel_bypass" });
+      return;
+    }
 
     if (request.method === "GET" && url.pathname === "/u/octocat") {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -23,6 +34,11 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/profile/octocat") {
+		profileAttempts += 1;
+		if (profileAttempts === 1) {
+			writeJSON(response, 429, { error: "temporary_rate_limit" }, { "retry-after": "0.01" });
+			return;
+		}
       writeJSON(response, 200, { detail: { username: "octocat", final_score: 42 } });
       return;
     }
@@ -126,6 +142,8 @@ async function runSmoke(origin: string): Promise<void> {
       SMOKE_REQUIRE_SCAN_JOB: "1",
       SMOKE_BACKEND_BASE_URL: origin,
       SMOKE_WORKER_METRICS_BASE_URL: origin,
+      SMOKE_REQUIRE_VERCEL_BYPASS: "1",
+      VERCEL_AUTOMATION_BYPASS_SECRET: "selftest-bypass-secret",
     },
   });
 

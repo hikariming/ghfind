@@ -9,6 +9,7 @@ const GO_REWRITE_SOURCES = [
   "/api/developers",
   "/api/projects",
   "/api/projects/:path*",
+  "/api/feed/:path*",
   "/api/profile/:path*",
   "/api/embed/:path*",
   "/api/sitemap",

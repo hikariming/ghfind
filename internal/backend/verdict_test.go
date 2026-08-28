@@ -10,11 +10,13 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 type verdictFixtureStore struct {
+	mu      sync.Mutex
 	details map[string]*StoredScoreDetail
 	reads   int
 	records []MatchupInput
@@ -23,6 +25,8 @@ type verdictFixtureStore struct {
 
 func (s *verdictFixtureStore) ScoreCount(context.Context) (*int, error) { return nil, nil }
 func (s *verdictFixtureStore) GetStoredScore(_ context.Context, username string) (*StoredScoreDetail, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.reads++
 	return s.details[username], nil
 }
@@ -30,10 +34,14 @@ func (s *verdictFixtureStore) GetScorePercentile(context.Context, float64) (*Sco
 	return nil, nil
 }
 func (s *verdictFixtureStore) RecordMatchup(_ context.Context, value MatchupInput) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.records = append(s.records, value)
 	return nil
 }
 func (s *verdictFixtureStore) BumpMatchupView(context.Context, string, string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.bumps++
 	return nil
 }

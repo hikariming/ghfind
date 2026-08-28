@@ -96,7 +96,8 @@ canonical profile origin.
    copy production secrets into committed files.
 2. Run `docker compose -f docker-compose.backend.yml up --build`.
 3. Verify `GET http://localhost:8080/healthz` and `/readyz` return `200`, and
-   `GET http://localhost:9090/healthz` and `/readyz` return `200`. The worker
+   `GET http://localhost:9090/healthz` and `/readyz` return `200`. When Feed is
+   enabled, verify `/feed-readyz` independently on both ports. The worker
    `readyz` fails closed until Turso, Upstash and RabbitMQ all ping cleanly, so
    a degraded worker becomes visible to healthchecks instead of silently
    accumulating queue depth. Verify `GET http://localhost:8080/metrics` and
@@ -204,7 +205,8 @@ data services so no production Turso/Upstash state is touched:
 
 - `ghfind-api` / `ghfind-worker` / `ghfind-mocks`: source services built from
   `Dockerfile.backend` (final `railway` stage); each selects its binary with
-  `GHFIND_ROLE` (`api` / `worker` / `mocks`). `ghfind-mocks` serves the Upstash
+  `GHFIND_ROLE` (`api` / `worker` / `mocks` / `feed-bootstrap` /
+  `feed-migrate`). `ghfind-mocks` serves the Upstash
   REST mock and idempotently provisions the mock schema into the libsql service.
 - `ghfind-libsql`: `ghcr.io/tursodatabase/libsql-server` image, private only,
   standing in for Turso.
@@ -341,15 +343,27 @@ Staging pitfalls learned from bring-up:
 
 ### Automated deploy gate (main branch)
 
-`.github/workflows/deploy-production.yml` orchestrates every push to `main`:
-Vercel still builds automatically through its GitHub integration, while the
-workflow deploys `ghfind-api` and `ghfind-worker` from the same commit with
-`railway up`, waits for both platforms, and runs the read-only deployment
+`.github/workflows/deploy-production.yml` starts after the complete `CI`
+workflow for a `main` push succeeds. `vercel.json` disables Git-triggered
+deployments for `main`; the gate performs the only token-authenticated
+production deploy of the exact checkout, so a CI-failing revision cannot reach
+Vercel ahead of Railway. Before
+the long-lived services, the workflow deploys the one-shot
+`ghfind-feed-migrate` role, then deploys `ghfind-api` and `ghfind-worker` from
+the same commit with `railway up`, and builds/registers the independently
+scheduled `ghfind-feed-backup` cron image from that commit. It verifies both
+core readiness endpoints, both independent `/feed-readyz` probes, and the
+anonymous Feed authentication contract,
+waits for Vercel, and runs the read-only deployment
 smoke against `https://ghfind.com`. If either platform fails — or the smoke
 does — the workflow rolls **both** sides back to the anchors captured at the
 start of the run: `vercel rollback <previous deployment>` for the frontend,
 and an anchor-deployment redeploy (fallback: rebuild of the previous main
-commit) for the Railway services.
+commit) for the Railway services. Rollback waits for the replacement deployment
+to reach `SUCCESS`, verifies the Vercel production target and original core
+readiness, and fails the workflow if any rollback step is incomplete. A
+first-ever backup cron deployment has no anchor; the gate records and removes
+that exact deployment on rollback rather than failing anchor capture.
 
 Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
 `VERCEL_PROJECT_ID` (team-scoped Vercel token) and `RAILWAY_TOKEN` (Railway

@@ -18,6 +18,20 @@ jobs:
     name: Verify release
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      feed-postgres:
+        image: pgvector/pgvector:0.8.1-pg17-trixie@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf
+        env:
+          POSTGRES_DB: ghfind_feed_test
+          POSTGRES_USER: feed_test
+          POSTGRES_PASSWORD: feed-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feed_test -d ghfind_feed_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -71,11 +85,32 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Test Go API and worker
+      - name: Bootstrap disposable pgvector integration database
+        env:
+          FEED_DATABASE_URL: postgres://feed_test:feed-test-only@127.0.0.1:5432/ghfind_feed_test?sslmode=disable
+          # Keep this value identical to feedmigration.ExtensionBootstrapAcknowledgement.
+          # CI uses an isolated disposable database; production bootstrap remains a
+          # separate operator-triggered action.
+          FEED_EXTENSION_BOOTSTRAP_ACK: I_UNDERSTAND_THIS_RUNS_PRIVILEGED_DDL
+        run: go run ./cmd/ghfind-feed-bootstrap
+
+      - name: Test Go API and worker with real PostgreSQL
+        env:
+          FEED_TEST_DATABASE_URL: postgres://feed_test:feed-test-only@127.0.0.1:5432/ghfind_feed_test?sslmode=disable
         run: go test ./...
+
+      - name: Build backend release images
+        run: |
+          docker build --target railway --file Dockerfile.backend --tag ghfind-backend:ci .
+          docker build --file Dockerfile.feed-backup --tag ghfind-feed-backup:ci .
 
       - name: Self-test deployment smoke
         run: pnpm smoke:deployment:selftest
+
+      - name: Validate production deploy gate syntax
+        run: |
+          node --check .github/scripts/deploy-gate.mjs
+          node scripts/deploy-gate-selftest.mjs
 
       - name: Self-test backend async smoke
         run: pnpm smoke:backend:async:selftest

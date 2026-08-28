@@ -22,10 +22,10 @@ const run: ProjectAnalysisRun = {
   mosooAgentId: null,
   mosooThreadId: null,
   mosooRunId: null,
-  schemaVersion: "ghfind.project-analysis.v2",
+  schemaVersion: "ghfind.project-analysis.v3",
   rubricVersion: "project-value-v1",
-  agentVersion: "project-evaluator-v2",
-  skillVersion: "ghfind-project-evaluator-v3",
+  agentVersion: "project-evaluator-v3",
+  skillVersion: "ghfind-project-evaluator-v4",
   verificationLevel: null,
   errorCode: null,
   errorMessage: null,
@@ -130,8 +130,8 @@ describe("Mosoo project analysis client", () => {
       expect(new Headers(init?.headers).get("Idempotency-Key")).toBe(run.idempotencyKey);
       const body = JSON.parse(String(init?.body));
       expect(body.client_external_ref).toBe(run.id);
-      expect(body.input.content[0].text).toContain("[GHFIND_PROJECT_ANALYSIS_V2]");
-      expect(body.input.content[0].text).toContain("schema_version: ghfind.project-analysis.v2");
+      expect(body.input.content[0].text).toContain("[GHFIND_PROJECT_ANALYSIS_V3]");
+      expect(body.input.content[0].text).toContain("schema_version: ghfind.project-analysis.v3");
       expect(body.input.content[0].text).toContain("execution_mode: source_only");
       return Response.json(threadResponse());
     });

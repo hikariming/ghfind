@@ -76,6 +76,21 @@ type MCPRateLimiter interface {
 	LimitMCP(context.Context, string, time.Time) (RateLimitResult, error)
 }
 
+type FeedRateLimiter interface {
+	LimitFeed(context.Context, int64, string, time.Time) (RateLimitResult, error)
+}
+
+func (s *UpstashStatusStore) LimitFeed(ctx context.Context, githubID int64, kind string, now time.Time) (RateLimitResult, error) {
+	limit := 60
+	switch kind {
+	case "events":
+		limit = 120
+	case "write":
+		limit = 20
+	}
+	return s.limitLegacySlidingWindow(ctx, "rl:feed:"+kind, strconv.FormatInt(githubID, 10), limit, time.Minute, now)
+}
+
 // LimitPublicRead uses an atomic Redis sliding window. Its state is deliberately
 // namespaced independently from Next's client library internals, while keeping
 // the same ten-per-minute budget and fail-closed behavior for protected reads.
