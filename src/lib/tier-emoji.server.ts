@@ -1,16 +1,8 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import assets from "@/generated/embedded-assets.json";
 import type { TierAvatarFrameIcon } from "./tier";
 
-const iconDataUrls = new Map<TierAvatarFrameIcon, Promise<string>>();
-
+// SVGs ship base64-embedded (scripts/gen-embedded-assets.mts) — no runtime
+// filesystem on Workers. Kept async so call sites stay unchanged.
 export function tierAvatarFrameIconDataUrl(icon: TierAvatarFrameIcon): Promise<string> {
-  const cached = iconDataUrls.get(icon);
-  if (cached) return cached;
-
-  const dataUrl = readFile(path.join(process.cwd(), "public", "tier-emoji", `${icon}.svg`)).then(
-    (svg) => `data:image/svg+xml;base64,${svg.toString("base64")}`,
-  );
-  iconDataUrls.set(icon, dataUrl);
-  return dataUrl;
+  return Promise.resolve((assets.tierEmoji as Record<string, string>)[icon] ?? "");
 }

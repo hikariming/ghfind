@@ -27,6 +27,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cloudflare/OpenNext build output and the embedded-asset JSON (the content
+    // map is ~1MB of generated data; linting it OOMs eslint).
+    ".open-next/**",
+    ".wrangler/**",
+    "src/generated/**",
+    // Local-only noise: stale worktrees and scratch scripts (absent in CI).
+    ".worktrees/**",
+    "tmp/**",
   ]),
 ]);
 

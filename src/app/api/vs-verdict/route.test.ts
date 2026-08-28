@@ -3,22 +3,22 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  checkBotId: vi.fn(),
+  verifyTurnstile: vi.fn(),
   goBackendOrigin: vi.fn(),
   fetch: vi.fn(),
 }));
 
-vi.mock("botid/server", () => ({ checkBotId: mocks.checkBotId }));
+vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/go-backend.server", () => ({ goBackendOrigin: mocks.goBackendOrigin }));
 
 import { POST } from "./route";
 
-describe("vs verdict BotID gateway", () => {
+describe("vs verdict human-check gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.GHFIND_VERDICT_GATEWAY_SECRET = "gateway-secret";
     mocks.goBackendOrigin.mockReturnValue("https://api.example.test");
-    mocks.checkBotId.mockResolvedValue({ isBot: false, isVerifiedBot: false });
+    mocks.verifyTurnstile.mockResolvedValue(true);
     vi.stubGlobal("fetch", mocks.fetch);
   });
 
@@ -32,12 +32,12 @@ describe("vs verdict BotID gateway", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(mocks.checkBotId).not.toHaveBeenCalled();
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
-  it("rejects an unverified bot before forwarding", async () => {
-    mocks.checkBotId.mockResolvedValue({ isBot: true, isVerifiedBot: false });
+  it("rejects a failed human-check before forwarding", async () => {
+    mocks.verifyTurnstile.mockResolvedValue(false);
     const response = await POST(
       new NextRequest("https://example.test/api/vs-verdict", {
         method: "POST",
@@ -49,7 +49,23 @@ describe("vs verdict BotID gateway", () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
-  it("forwards only a BotID-approved body with an HMAC-bound client identity", async () => {
+  it("passes the client token and IP to the Turnstile verification", async () => {
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 200 }));
+    await POST(
+      new NextRequest("https://example.test/api/vs-verdict", {
+        method: "POST",
+        headers: {
+          "x-turnstile-token": "tok-123",
+          "cf-connecting-ip": "198.51.100.42",
+        },
+        body: JSON.stringify({ a: "alice", b: "bob" }),
+      }),
+    );
+
+    expect(mocks.verifyTurnstile).toHaveBeenCalledWith("tok-123", "198.51.100.42");
+  });
+
+  it("forwards only an approved body with an HMAC-bound client identity", async () => {
     mocks.fetch.mockResolvedValue(
       new Response(JSON.stringify({ verdict: null, reason: "below_floor" }), {
         status: 200,
@@ -80,6 +96,24 @@ describe("vs verdict BotID gateway", () => {
         .update(`${timestamp}\n198.51.100.42\n${body}`, "utf8")
         .digest("hex"),
     );
+  });
+
+  it("prefers the Cloudflare client IP over the Vercel header", async () => {
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 200 }));
+    await POST(
+      new NextRequest("https://example.test/api/vs-verdict", {
+        method: "POST",
+        headers: {
+          "cf-connecting-ip": "203.0.113.7",
+          "x-vercel-forwarded-for": "198.51.100.42",
+        },
+        body: JSON.stringify({ a: "alice", b: "bob" }),
+      }),
+    );
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Ghfind-Client-IP"]).toBe("203.0.113.7");
   });
 
   it("does not trust caller-supplied generic X-Forwarded-For", async () => {

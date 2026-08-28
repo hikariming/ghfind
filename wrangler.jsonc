@@ -1,7 +1,10 @@
 {
   // ghfind frontend on Cloudflare Workers via @opennextjs/cloudflare.
-  // Spike config — dev/production envs, R2 cache and custom domains land in 阶段1
-  // (docs/plans/2026-08-28-cloudflare-migration-execution.md).
+  // Top level = local `wrangler dev`. Deployments always use --env:
+  //   wrangler deploy --env dev         → dev.ghfind.com (noindex, staging data)
+  //   wrangler deploy --env production  → ghfind.com (cutover 阶段1.4; no domain bound yet)
+  // Secrets (TURSO_*, UPSTASH_*, GHFIND_*, TURNSTILE_SECRET_KEY, LLM_*) are set
+  // per-env via `wrangler secret put <NAME> --env <env>`, never in this file.
   "name": "ghfind",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-06",
@@ -12,5 +15,36 @@
   },
   "observability": {
     "enabled": true
+  },
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+  ],
+  "vars": {
+    "GHFIND_DEPLOY_ENV": "development"
+  },
+  "env": {
+    "dev": {
+      "name": "ghfind-dev",
+      "routes": [
+        { "pattern": "dev.ghfind.com", "custom_domain": true }
+      ],
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview"
+      }
+    },
+    "production": {
+      "name": "ghfind",
+      // ghfind.com binds here at cutover (阶段1.4) — adding it earlier would
+      // start answering production traffic the moment the record flips orange.
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production"
+      }
+    }
   }
 }

@@ -1,24 +1,27 @@
 import { createHmac } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { checkBotId } from "botid/server";
 import { goBackendOrigin } from "@/lib/go-backend.server";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 function clientIp(request: NextRequest): string {
+  const cfConnecting = request.headers.get("cf-connecting-ip")?.trim();
+  if (cfConnecting) return cfConnecting;
   const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.trim();
   if (vercelForwarded) return vercelForwarded.split(",")[0]?.trim() || "0.0.0.0";
   return "unknown";
 }
 
 /**
- * Vercel BotID needs the platform request context, so this is intentionally
- * the one verification gateway that cannot be a transparent rewrite. It owns
- * no validation, rate limiting, data access, cache/lock, prompt, or LLM work:
- * after BotID it forwards the exact request body to Go with an HMAC-bound
- * client identity. The Go API rejects direct Railway calls without it.
+ * The human-check gateway for LLM verdicts (Turnstile, formerly Vercel BotID):
+ * headless farms that execute JS and auto-mount the /vs banner must not burn
+ * LLM credit. It owns no validation, rate limiting, data access, cache/lock,
+ * prompt, or LLM work: after the check it forwards the exact request body to
+ * Go with an HMAC-bound client identity. The Go API rejects direct calls
+ * without it.
  */
 export async function POST(request: NextRequest) {
   const origin = goBackendOrigin();
@@ -33,8 +36,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const verification = await checkBotId();
-  if (verification.isBot && !verification.isVerifiedBot) {
+  const principal = clientIp(request);
+  const humanOk = await verifyTurnstile(
+    request.headers.get("x-turnstile-token"),
+    principal === "unknown" ? undefined : principal,
+  );
+  if (!humanOk) {
     return NextResponse.json(
       {
         error: "bot_detected",
@@ -46,7 +53,6 @@ export async function POST(request: NextRequest) {
 
   const body = await request.text();
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const principal = clientIp(request);
   const signature = createHmac("sha256", gatewaySecret)
     .update(`${timestamp}\n${principal}\n${body}`, "utf8")
     .digest("hex");

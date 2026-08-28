@@ -1,11 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
 import { HTML_LANG, routing } from "@/i18n/routing";
 import { readingMinutes } from "@/lib/blog";
+import { contentFileExists, listContentDir, readContentFile } from "@/lib/content-files";
 import type { Tier } from "@/lib/types";
 
 /**
- * Filesystem loader for the curated picks section ("编辑推荐"). Each entry is a
+ * Loader for the curated picks section ("编辑推荐"), reading the embedded
+ * content map (`@/lib/content-files` — no runtime filesystem). Each entry is a
  * directory `content/collections/<slug>/` holding:
  *
  * - `meta.json` — type, bilingual title/intro, tags, optional feature
@@ -76,32 +76,22 @@ export type CollectionArticle = {
   readingMinutes: number;
 };
 
-const COLLECTIONS_DIR = path.join(process.cwd(), "content", "collections");
-
 export function getCollectionSlugs(): string[] {
-  if (!fs.existsSync(COLLECTIONS_DIR)) return [];
-  return fs
-    .readdirSync(COLLECTIONS_DIR, { withFileTypes: true })
-    .filter(
-      (d) =>
-        d.isDirectory() &&
-        fs.existsSync(path.join(COLLECTIONS_DIR, d.name, "meta.json")),
-    )
-    .map((d) => d.name);
+  return listContentDir("collections").filter((slug) =>
+    contentFileExists(`collections/${slug}/meta.json`),
+  );
 }
 
 export function getCollection(slug: string): Collection | null {
-  // Slugs come from route params — refuse anything that could escape the dir.
+  // Slugs come from route params — refuse anything that isn't a plain slug.
   if (!/^[a-z0-9-]+$/.test(slug)) return null;
-  const dir = path.join(COLLECTIONS_DIR, slug);
-  const metaFile = path.join(dir, "meta.json");
-  if (!fs.existsSync(metaFile)) return null;
-  const meta = JSON.parse(fs.readFileSync(metaFile, "utf8")) as Omit<
+  const rawMeta = readContentFile(`collections/${slug}/meta.json`);
+  if (rawMeta === null) return null;
+  const meta = JSON.parse(rawMeta) as Omit<
     Collection,
     "slug" | "items" | "bodyLocales"
   > & { items?: CollectionItem[] };
-  const bodyLocales = fs
-    .readdirSync(dir)
+  const bodyLocales = listContentDir(`collections/${slug}`)
     .filter((f) => f.endsWith(".md"))
     .map((f) => f.slice(0, -3));
   return { ...meta, slug, items: meta.items ?? [], bodyLocales };
@@ -118,10 +108,8 @@ export function getCollectionArticle(
     collection.bodyLocales.includes(l),
   );
   if (!bodyLocale) return null;
-  const body = fs.readFileSync(
-    path.join(COLLECTIONS_DIR, slug, `${bodyLocale}.md`),
-    "utf8",
-  );
+  const body = readContentFile(`collections/${slug}/${bodyLocale}.md`);
+  if (body === null) return null;
   return { body, bodyLocale, readingMinutes: readingMinutes(body) };
 }
 

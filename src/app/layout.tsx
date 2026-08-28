@@ -1,5 +1,4 @@
 import Script from "next/script";
-import { BotIdClient } from "botid/client";
 import AnalyticsGate from "@/components/AnalyticsGate";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -18,15 +17,8 @@ const geistMono = Geist_Mono({
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
 
-/**
- * The verdict route gets a BotID signature because /vs auto-fires it on mount,
- * which any JS-running crawler could otherwise trigger. Interactive roasts rely
- * on scan Turnstile plus server-side request and generation rate limits instead:
- * BotID classifications are not reliable enough to gate the primary user flow.
- */
-const BOTID_PROTECTED_ROUTES = [
-  { path: "/api/vs-verdict", method: "POST" as const },
-];
+// The verdict route's human-check moved from Vercel BotID to Turnstile
+// (VsVerdictLive gates its auto-fire on a token; the route verifies it).
 
 const THEME_INIT_SCRIPT = `
 try {
@@ -69,9 +61,6 @@ export default function RootLayout({
       // so the server markup intentionally differs for saved theme and /en.
       suppressHydrationWarning
     >
-      <head>
-        <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
-      </head>
       <body className="min-h-full flex flex-col">
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}

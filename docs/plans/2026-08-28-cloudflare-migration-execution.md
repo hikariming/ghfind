@@ -94,6 +94,15 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-28：**阶段 1.1 代码改造完成并本地全绿**：
+  - fs 消除：`scripts/gen-embedded-assets.mts` 生成 `src/generated/`（content 775KB + 字体/emoji/sponsor 104KB，已提交并接入 dev/build 脚本），`src/lib/content-files.ts` 虚拟文件层；blog/collections/卡片字体/tier-emoji/sponsor 全部离盘。
+  - BotID→Turnstile：vs-verdict 路由改 `verifyTurnstile`（x-turnstile-token 头），VsVerdictLive 拿 token 才开火（复用现有 Turnstile 组件与 key，未配置时跳过），layout/next.config 拆除 botid；测试重写为 Turnstile 合同（含 CF-Connecting-IP 优先）。
+  - 平台解耦：`src/lib/deploy-env.ts`（GHFIND_DEPLOY_ENV 优先、VERCEL_ENV 兜底），redis.ts fail-closed / anonymous-session / site.ts 三处切换；vs-verdict IP 头 CF 优先。
+  - 埋点：track.ts 双通道（GA4 恒发 + Vercel 通道仅 Vercel 构建，`NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare` 时 AnalyticsGate 不挂载）；GA4 的 webdriver 门沿用 layout 现有实现。
+  - wrangler dev/production 双环境（dev=dev.ghfind.com+noindex+独立 R2 桶 ghfind-next-cache-dev；production 暂不绑域名）；open-next 切 R2 增量缓存；proxy.ts 非生产环境注 X-Robots-Tag noindex。
+  - 死代码清除：next-auth（auth.ts/types）、@vercel/speed-insights、botid 依赖移除。
+  - 验证：tsc 双 tsconfig ✅、vitest 805/805 ✅、eslint 0 error ✅、OpenNext 构建 ✅、wrangler dev 冒烟 `/api/card/octocat` **出真 PNG**、blog/collections 200、noindex 头生效。
+  - 待办：`wrangler secret put`（dev env 的 TURSO/UPSTASH/GHFIND_BACKEND_ORIGIN/TURNSTILE_SECRET_KEY/LLM_*）→ 部署 dev → 绑域回归；Turnstile widget 域名白名单加 dev.ghfind.com；GA4 事件到达验证。
 - 2026-08-28：方案落盘。阶段 0.1 spike 开始。
 - 2026-08-28：**阶段 0.1 spike 完成，结论 GO ✅**（分支 `feat/cf-frontend-spike`）：
   - `opennextjs-cloudflare build` 零代码改动一次通过（@opennextjs/cloudflare 1.20.3 + Next 16.2.9）；`proxy.ts` 以 Node.js middleware 模式打包（OpenNext 标记 experimental，切换前多回归）。
@@ -102,4 +111,5 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
   - 预期内失败：`/api/card/*`、`/api/og/home` 500——字体 fs 读取；**OpenNext 已把 woff 拷到 server assets（ENOENT 路径 `/server/assets/Inter-Regular.*.woff`），大概率是资产声明/读取方式的配置级修复而非代码重写**，阶段 1 首项。
   - `/u/octocat` 404 为本机冒烟触发后端 10/min 公共读限流（直连 API 得 429），非移植缺陷。
   - 环境注意：packageManager 从 pnpm@9.12.1 对齐到 11.24.0（node_modules 实际是 v11 store 装的，9/11 错配导致无法安装依赖）；wrangler compatibility_date 用 2026-08-06（本地 workerd 上限）。
+- 2026-08-28：**阶段 0.3 NS 迁移完成**：3 个 zone（ghfind.com `ae7ba9c0…`、githubroast.dev `bf5ebbe3…`、githubroast.icu `1f7bcf52…`）记录与 Vercel DNS 权威值 1:1（apex/通配符 CNAME→vercel-dns-016，全灰云；ghfind 旧 zone 里扫描快照的硬编码 A 记录已换成 CNAME）；用户在 Vercel dashboard 改 NS → `bristol`/`konnor.ns.cloudflare.com`，注册局层面三域全部生效；**ghfind.com 与 .dev 已 active**，.icu pending 自动转。真浏览器验证生产正常（本机/WebFetch 的 429 是既有 ASN challenge 拦机房出口，与迁移无关）。API token 存 `~/.config/cf-migration/token`（Zone/DNS/Settings/WAF Edit）；建 zone 脚本 `tmp/cf-zone-setup.sh` 幂等可重跑。R2 桶 `ghfind-next-cache` 已建（阶段 1 增量缓存用）。**注意：wrangler OAuth 无 zone 写权限，zone/DNS/WAF 操作都走这个 token。**
 - 2026-08-28：阶段 0.2 盘点完成大半（结果归档 `local-notes/cf-migration/`）：**无 Vercel cron**；WAF 5 条规则全量导出+CF 表达式草稿（含 08-09 scan/roast XHR 被 challenge 事故的修正）；Turso 实测 **852MB**、scores 26k 行；public_scan_* 半死（runs/pr_facts/owned_repo_facts 活、jobs/commit_*/worker_metrics 死于 07-21 可清）；**发现 schema 外的 papers/paper_roasts 两表**（别的实验共库，迁移前须确认归属）。剩余：Railway/三平台账单实数（dashboard 人工查）。

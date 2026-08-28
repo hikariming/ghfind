@@ -1,6 +1,7 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { AGENT_LINK_HEADER } from "@/lib/agent-docs";
+import { deployEnv } from "@/lib/deploy-env";
 import { routing, type Locale } from "@/i18n/routing";
 
 const handleI18n = createMiddleware(routing);
@@ -74,6 +75,16 @@ function appendVaryAccept(res: NextResponse) {
 }
 
 export default function proxy(req: NextRequest) {
+  const res = route(req);
+  // Non-production deployments (dev.ghfind.com) must never enter the index —
+  // they mirror production content and would compete with it in search.
+  if (deployEnv() !== "production") {
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return res;
+}
+
+function route(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Cold-arrival agent negotiation. An AI agent that lands on the homepage from
