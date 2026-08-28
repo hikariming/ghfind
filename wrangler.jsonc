@@ -1,0 +1,16 @@
+{
+  // ghfind frontend on Cloudflare Workers via @opennextjs/cloudflare.
+  // Spike config — dev/production envs, R2 cache and custom domains land in 阶段1
+  // (docs/plans/2026-08-28-cloudflare-migration-execution.md).
+  "name": "ghfind",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
