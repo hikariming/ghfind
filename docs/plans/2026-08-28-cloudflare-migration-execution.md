@@ -59,9 +59,11 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 - [ ] 压测卡片路由（Satori 冷启动 CPU）与首页 ISR 命中
 
 ### 1.3 WAF/防护平移（切换前在 CF 侧就位）
-- [ ] ASN challenge 列表（28 个，一条 `ip.src.asnum in {…}` 表达式）+ 机器接口 bypass（/mcp、/llms*、/openapi.json、/auth.md、/api/card*、/api/badge* 等）+ lightpanda deny
-- [ ] Turnstile 生产 site key、`/api/scan` 接入验证与 XHR 放行（复查 waf-challenge-blocks-xhr 教训：challenge 规则必须排除 scan/roast XHR 路径）
-- [ ] 观测就位：Workers Logs + GA4 事件收数验证，否则切换期盲飞
+- [x] **已上线（08-29，Rulesets API 写入 ghfind.com zone）**三条自定义规则，顺序即求值序：① Skip 机器端点（跳过本 ruleset 其余规则+托管 WAF+BIC/securityLevel）② Block Lightpanda ③ Managed Challenge 28 农场 ASN（**显式排除 /api/scan、/api/roast**，修正 08-09 XHR 事故）。验证：Lightpanda 打首页 403 / 打 badge 被 skip 放行 200；llms.txt/card 不受 challenge；本机机场出口 ASN 在名单内被 challenge（`cf-mitigated: challenge`，真浏览器无感通过，与 Vercel 时代同名单行为一致）。
+- [x] 边缘 rate limit 决策：**方案 A**——不在边缘做（免费档仅 1 条且窗口 10s 无法 1:1 平移），依赖应用层现成同预算限流（scan-network 60/min、roast-network 48/min+480/天）。
+- [x] Bot Fight Mode 决策：**保持关闭**——免费档 BFM 不受 skip 规则豁免，会 challenge /mcp 和 agent 流量，与 GEO/agent 策略冲突；对应 Vercel Bot Protection 本来也停在 Log 未启用。
+- [ ] Turnstile 生产 site key 域名白名单加 dev/正式域（secret 本地为空待配）
+- [ ] 观测就位：Workers Logs 已开（wrangler.jsonc observability）+ GA4 事件收数验证
 
 ### 1.4 切正式
 - [ ] 部署 production env，用生产 env vars（backend origin 仍指 Railway）
@@ -94,6 +96,7 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-29：**dev 全量回归修复完成（b2c61e9）**：① `/projects` 500 根因=`@libsql/client` 在 Next 默认 serverExternalPackages 里被外部化、Workers 加载失败——db.ts/project-analysis-db.ts 换 `/web` 入口 + `transpilePackages` 强制打包 + 补 `@libsql/isomorphic-*` 依赖；vitest 把 `/web` 别名回 Node 客户端保住 file: 测试夹具。② 预渲染 blog/collections 404 根因=裸 `wrangler deploy` 不灌 R2 增量缓存——`populateCache remote` 并入 cf:deploy 脚本（318 项已灌）。复测：/projects、/u、榜单、/vs、/ar(RTL)、/en/blog/[slug]、/collections/[slug]、`/blog/[slug].md`、卡片 PNG、sitemap 全 200。`/blog-md/` 直连 404 为 locale 中间件既有行为（生产同），非回归。**DNS 传播注意**：注册局/公共解析器已全量指向 CF，但用户与本机的机场出口解析器缓存旧 NS 委托（TTL 48h），期间 dev 域会被送到 Vercel 404——换代理节点即解，最迟 08-30 自然消退；正式切换日同样会有此尾巴（Vercel 保活缓冲期就是为这个）。
 - 2026-08-28：**阶段 1.2 dev 环境上线并冒烟通过**：`ghfind-dev` worker 部署成功、`dev.ghfind.com` 自定义域绑定（wrangler 自动建了 proxied 记录）；11 个密钥经 `wrangler secret bulk` 推送（源=本地 .env + Railway 域名 `ghfind-api-production.up.railway.app`；**Vercel 的 Sensitive 密钥 pull 不出来，.env 才是可用源**）。真边缘冒烟：zh/en 首页、blog、llms.txt 200，`/api/card/octocat` 出 136KB PNG，badge SVG 证明 Worker→Railway 通，`X-Robots-Tag: noindex` 生效。已知残留：① 本机及部分 resolver 仍缓存旧 NS（1-2 天内 dev 域可能解析到 Vercel 404，1.1.1.1 已正确）；② dev 的 GHFIND_BACKEND_ORIGIN 指生产 Railway——**dev 上测 scan/roast 会写生产数据**；③ dev 域 OAuth 登录会回跳生产（需单独 GitHub OAuth App 才能闭环）；④ Turnstile secret 本地 .env 为空未配，dev 上人机检查按设计跳过。
 - 2026-08-28：**阶段 1.1 代码改造完成并本地全绿**：
   - fs 消除：`scripts/gen-embedded-assets.mts` 生成 `src/generated/`（content 775KB + 字体/emoji/sponsor 104KB，已提交并接入 dev/build 脚本），`src/lib/content-files.ts` 虚拟文件层；blog/collections/卡片字体/tier-emoji/sponsor 全部离盘。
