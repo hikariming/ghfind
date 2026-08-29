@@ -1,134 +1,105 @@
-import { createHmac } from "node:crypto";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   verifyTurnstile: vi.fn(),
-  goBackendOrigin: vi.fn(),
-  fetch: vi.fn(),
+  checkVerdictRateLimit: vi.fn(),
+  rateLimitHeaders: vi.fn(),
+  getAccountDetail: vi.fn(),
+  recordMatchup: vi.fn(),
+  bumpMatchupView: vi.fn(),
 }));
 
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
-vi.mock("@/lib/go-backend.server", () => ({ goBackendOrigin: mocks.goBackendOrigin }));
+
+vi.mock("@/lib/db", () => ({
+  getAccountDetail: mocks.getAccountDetail,
+  recordMatchup: mocks.recordMatchup,
+  bumpMatchupView: mocks.bumpMatchupView,
+}));
+
+vi.mock("@/lib/redis", () => ({
+  checkVerdictRateLimit: mocks.checkVerdictRateLimit,
+  rateLimitHeaders: mocks.rateLimitHeaders,
+  acquireVerdictLock: vi.fn(),
+  getCachedVerdict: vi.fn(),
+  releaseVerdictLock: vi.fn(),
+  setCachedVerdict: vi.fn(),
+  waitForCachedVerdict: vi.fn(),
+}));
 
 import { POST } from "./route";
 
-describe("vs verdict human-check gateway", () => {
+function post(body: unknown, headers?: Record<string, string>) {
+  return POST(
+    new NextRequest("https://example.test/api/vs-verdict", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+describe("vs verdict cost guardrail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.GHFIND_VERDICT_GATEWAY_SECRET = "gateway-secret";
-    mocks.goBackendOrigin.mockReturnValue("https://api.example.test");
+    mocks.checkVerdictRateLimit.mockResolvedValue({ success: false });
+    mocks.rateLimitHeaders.mockReturnValue({});
     mocks.verifyTurnstile.mockResolvedValue(true);
-    vi.stubGlobal("fetch", mocks.fetch);
   });
 
-  it("fails closed when either gateway setting is absent", async () => {
-    mocks.goBackendOrigin.mockReturnValue(null);
-    const response = await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        body: JSON.stringify({ a: "alice", b: "bob" }),
-      }),
-    );
+  it("rate-limits before the human-check and all Turso reads or writes", async () => {
+    const response = await post({ a: "alice", b: "bob" });
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ verdict: null, reason: "rate_limited" });
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
+    expect(mocks.getAccountDetail).not.toHaveBeenCalled();
+    expect(mocks.recordMatchup).not.toHaveBeenCalled();
+    expect(mocks.bumpMatchupView).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable 503 before the human-check and all Turso reads when protection is unavailable", async () => {
+    mocks.checkVerdictRateLimit.mockResolvedValue({ success: false, unavailable: true, retryAfter: 15 });
+    mocks.rateLimitHeaders.mockReturnValue({ "Retry-After": "15" });
+
+    const response = await post({ a: "alice", b: "bob" });
 
     expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("15");
+    await expect(response.json()).resolves.toEqual({ verdict: null, reason: "rate_limit_unavailable" });
     expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
-    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.getAccountDetail).not.toHaveBeenCalled();
   });
 
-  it("rejects a failed human-check before forwarding", async () => {
+  it("rejects a failed human-check before any Turso read or write", async () => {
+    mocks.checkVerdictRateLimit.mockResolvedValue({ success: true });
     mocks.verifyTurnstile.mockResolvedValue(false);
-    const response = await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        body: JSON.stringify({ a: "alice", b: "bob" }),
-      }),
+
+    const response = await post(
+      { a: "alice", b: "bob" },
+      { "x-turnstile-token": "bad", "cf-connecting-ip": "198.51.100.7" },
     );
 
     expect(response.status).toBe(403);
-    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.verifyTurnstile).toHaveBeenCalledWith("bad", "198.51.100.7");
+    expect(mocks.getAccountDetail).not.toHaveBeenCalled();
+    expect(mocks.recordMatchup).not.toHaveBeenCalled();
   });
 
-  it("passes the client token and IP to the Turnstile verification", async () => {
-    mocks.fetch.mockResolvedValue(new Response("{}", { status: 200 }));
-    await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        headers: {
-          "x-turnstile-token": "tok-123",
-          "cf-connecting-ip": "198.51.100.42",
-        },
-        body: JSON.stringify({ a: "alice", b: "bob" }),
-      }),
-    );
+  it("keeps the below-floor gate ahead of matchup writes", async () => {
+    mocks.checkVerdictRateLimit.mockResolvedValue({ success: true });
+    mocks.getAccountDetail.mockImplementation(async (username: string) => ({
+      username,
+      final_score: 10,
+      sub_scores: {},
+    }));
 
-    expect(mocks.verifyTurnstile).toHaveBeenCalledWith("tok-123", "198.51.100.42");
-  });
-
-  it("forwards only an approved body with an HMAC-bound client identity", async () => {
-    mocks.fetch.mockResolvedValue(
-      new Response(JSON.stringify({ verdict: null, reason: "below_floor" }), {
-        status: 200,
-        headers: { "cache-control": "no-store", "content-type": "application/json" },
-      }),
-    );
-    const body = JSON.stringify({ a: "alice", b: "bob" });
-    const response = await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        headers: { "x-vercel-forwarded-for": "198.51.100.42, 203.0.113.9" },
-        body,
-      }),
-    );
+    const response = await post({ a: "alice", b: "bob" });
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(mocks.fetch).toHaveBeenCalledTimes(1);
-    const [target, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
-    expect(target).toBe("https://api.example.test/api/internal/vs-verdict");
-    expect(init.method).toBe("POST");
-    expect(init.body).toBe(body);
-    const headers = init.headers as Record<string, string>;
-    const timestamp = headers["X-Ghfind-Gateway-Timestamp"];
-    expect(headers["X-Ghfind-Client-IP"]).toBe("198.51.100.42");
-    expect(headers["X-Ghfind-Gateway-Signature"]).toBe(
-      createHmac("sha256", "gateway-secret")
-        .update(`${timestamp}\n198.51.100.42\n${body}`, "utf8")
-        .digest("hex"),
-    );
-  });
-
-  it("prefers the Cloudflare client IP over the Vercel header", async () => {
-    mocks.fetch.mockResolvedValue(new Response("{}", { status: 200 }));
-    await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        headers: {
-          "cf-connecting-ip": "203.0.113.7",
-          "x-vercel-forwarded-for": "198.51.100.42",
-        },
-        body: JSON.stringify({ a: "alice", b: "bob" }),
-      }),
-    );
-
-    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Record<string, string>;
-    expect(headers["X-Ghfind-Client-IP"]).toBe("203.0.113.7");
-  });
-
-  it("does not trust caller-supplied generic X-Forwarded-For", async () => {
-    mocks.fetch.mockResolvedValue(new Response("{}", { status: 200 }));
-    const body = JSON.stringify({ a: "alice", b: "bob" });
-    await POST(
-      new NextRequest("https://example.test/api/vs-verdict", {
-        method: "POST",
-        headers: { "x-forwarded-for": "198.51.100.42" },
-        body,
-      }),
-    );
-
-    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Record<string, string>;
-    expect(headers["X-Ghfind-Client-IP"]).toBe("unknown");
+    await expect(response.json()).resolves.toEqual({ verdict: null, reason: "below_floor" });
+    expect(mocks.recordMatchup).not.toHaveBeenCalled();
+    expect(mocks.bumpMatchupView).not.toHaveBeenCalled();
   });
 });
