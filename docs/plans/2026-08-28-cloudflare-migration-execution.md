@@ -72,7 +72,13 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 - [ ] 回滚预案：DNS 记录改回 Vercel（Vercel 项目保留只读一个计费周期再注销）
 - [ ] 稳定一周 → **注销 Vercel Pro**；改写 `deploy-gate.mjs`（Vercel 段 → wrangler deploy + versions 回滚，Railway 段暂留）
 
-## 阶段 2 — Go 后端 TS 化上 Workers，下线 Railway（15–25 人日）
+## 阶段 2 — Go 后端 TS 化上 Workers，下线 Railway（审计后修正：5–7 人日）
+
+> **2026-08-29 审计定论（决定性事实：拆 Go 时 `f557571` 只删路由壳、src/lib 零改动）**：13 个面 = 8 REUSE + 4 PARTIAL + 1 PORT。
+> 路由壳全部可从 `f557571^` 恢复；分数版本两侧一致（v9/v4/v10/v1），无数据迁移。
+> **架构决策**：/api/scan 回同步即时打分（不重建队列——07-21 #144 已拆过一次，runbook 记录同步延迟与队列版相当）；campaign SSE 先恢复 TS 每连接轮询版（isolate 各自轮询可接受，DO 优化留后）；vs-verdict 网关塌缩进同 worker，HMAC 网关与 GHFIND_VERDICT_GATEWAY_SECRET 删除。
+> **必做的非恢复项**：① OAuth 手搓 HMAC cookie 重写（WebCrypto，~300 行，唯一 PORT）；② 两个 Go-only 采集器移植（github_organization_work + github_contribution_languages，~183 行）；③ Go 漂移 9 commits 复核（force=1 绕缓存、SSE revision 过期修复、api.github.com OAuth profile 等）；④ 守卫测试处理（backend-extraction-boundary.test.ts 是拆分的机械执法者，恢复第一批时删除；route-ownership/runbook/openapi 合同测试随面更新）。
+> **切流批次**：B1 公共读(stats/search/leaderboard/facet-rank/developers/score) → B2 MCP+badge 数据 → B3 OAuth+me+社交 → B4 roast+vs-verdict 塌缩 → B5 scan 同步化+Go-only 端点删除(profile/vs/sitemap presentation shim 由页面直调 db.ts) → 观察一周注销 Railway。每批 = 恢复壳+接线+从 next.config rewrites 摘除对应路径。
 
 - [ ] 脚手架：API Worker（Hono 或原生 router）+ Queues ×3（score-snapshot / scan-quick / project-analysis，各带 DLQ）+ 消费者 Worker + Workflows；Turso 用 `@libsql/client/web`、Upstash REST 原样连
 - [ ] 切流批次（dev 域先验，再逐路由把生产 rewrite 从 Railway origin 指向 Worker；Railway 全程在线兜底）：
@@ -96,6 +102,7 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-29：**阶段 2 审计 + B1 完成（023529f）**：审计定论 8 REUSE/4 PARTIAL/1 PORT（详见上方阶段 2 节），工作量 15-25 人日修正为 5-7。B1 六条公共读路由（stats/search-users/leaderboard/developers/facet-rank/score）从 `f557571^` 恢复原实现、摘 rewrite、删 boundary 守卫测试、所有权矩阵重分类；dev 上与 Railway 响应键集对拍全一致，809 测试全绿。**B1 目前仅 dev 生效**，production 待并跑结束随下次 prod 部署切流。剩余批次：B2 MCP+badge → B3 OAuth(唯一 PORT)+me+社交 → B4 roast+verdict 塌缩 → B5 scan 同步化+Go-only 采集器移植+presentation shim 删除。
 - 2026-08-29：**🚀 正式切换完成（656c3f9）——ghfind.com 现由 Cloudflare Worker 服务，Vercel 并跑兜底 48h**：
   - 切换前验证：dev 修复 build 期 GHFIND_BACKEND_ORIGIN 缺失（.env 已补，beforeFiles 重写才会生成——**此坑切记**）；Go-owned API 面 10 端点 + MCP initialize/tools-list 全通过；官方 smoke 仅"canonical origin 相等"一项不过（测试域上定义性不可能，非缺陷）。
   - production 部署：worker `ghfind` + workers.dev 验证入口（beiming1201.workers.dev，并跑结束后关）+ 11 secrets + R2 缓存 321 项 + vars PUBLIC/NEXT_PUBLIC_SITE_URL=https://ghfind.com；workers.dev 上 21 路由全 200 后才动 DNS。

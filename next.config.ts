@@ -48,17 +48,11 @@ const nextConfig: NextConfig = {
             // Vercel retains `/api/*` as the stable external surface for SDKs
             // and OAuth. `beforeFiles` is deliberate: these rewrites must win
             // over the fail-closed app route files left as deployment guards.
-            { source: "/api/stats", destination: `${backend}/api/stats` },
-            { source: "/api/search-users", destination: `${backend}/api/search-users` },
-            { source: "/api/leaderboard", destination: `${backend}/api/leaderboard` },
-            { source: "/api/developers", destination: `${backend}/api/developers` },
             { source: "/api/projects", destination: `${backend}/api/projects` },
             { source: "/api/projects/:path*", destination: `${backend}/api/projects/:path*` },
             { source: "/api/profile/:path*", destination: `${backend}/api/profile/:path*` },
             { source: "/api/embed/:path*", destination: `${backend}/api/embed/:path*` },
             { source: "/api/sitemap", destination: `${backend}/api/sitemap` },
-            { source: "/api/facet-rank/:path*", destination: `${backend}/api/facet-rank/:path*` },
-            { source: "/api/score/:path*", destination: `${backend}/api/score/:path*` },
             { source: "/api/vs/:path*", destination: `${backend}/api/vs/:path*` },
             { source: "/api/campaigns/:path*", destination: `${backend}/api/campaigns/:path*` },
             { source: "/api/scan/jobs/:path*", destination: `${backend}/api/scan/jobs/:path*` },
