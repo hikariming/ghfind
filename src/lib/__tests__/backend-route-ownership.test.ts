@@ -25,7 +25,6 @@ const GO_REWRITE_SOURCES = [
   "/api/collection-comments/:path*",
   "/api/internal/:path*",
   "/api/admin/:path*",
-  "/mcp",
 ];
 
 const NEXT_API_GUARDS = new Set([

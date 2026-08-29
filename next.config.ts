@@ -71,9 +71,6 @@ const nextConfig: NextConfig = {
             { source: "/api/collection-comments/:path*", destination: `${backend}/api/collection-comments/:path*` },
             { source: "/api/internal/:path*", destination: `${backend}/api/internal/:path*` },
             { source: "/api/admin/:path*", destination: `${backend}/api/admin/:path*` },
-            // The MCP transport stays at its published root URL. The Go
-            // backend emits the existing stateless Streamable-HTTP SSE frames.
-            { source: "/mcp", destination: `${backend}/mcp` },
           ]
         : [],
       afterFiles: [
