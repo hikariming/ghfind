@@ -25,6 +25,9 @@
   "env": {
     "dev": {
       "name": "ghfind-dev",
+      // workers.dev stays on for dev: a WAF-free test entrance (the zone's ASN
+      // challenge blocks curl-based smoke from proxy egress IPs).
+      "workers_dev": true,
       "routes": [
         { "pattern": "dev.ghfind.com", "custom_domain": true }
       ],
@@ -37,13 +40,20 @@
     },
     "production": {
       "name": "ghfind",
-      // ghfind.com binds here at cutover (阶段1.4) — adding it earlier would
-      // start answering production traffic the moment the record flips orange.
+      // workers.dev is a WAF-free verification entrance (zone rules only apply
+      // to the custom domain); disable it once the parallel-run window closes.
+      "workers_dev": true,
+      "routes": [
+        { "pattern": "ghfind.com", "custom_domain": true }
+      ],
       "r2_buckets": [
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
       ],
       "vars": {
-        "GHFIND_DEPLOY_ENV": "production"
+        "GHFIND_DEPLOY_ENV": "production",
+        // site.ts fails closed in production unless both are set and equal.
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com"
       }
     }
   }
