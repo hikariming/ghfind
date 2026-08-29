@@ -992,40 +992,35 @@ export async function recordAccountLookup(username: string, ip: string): Promise
   try {
     await ensureSchema(db);
     const now = Date.now();
-    const tx = await db.transaction("write");
-    try {
-      const gate = await tx.execute({
-        sql: `INSERT INTO account_lookup_limits (username, ip_hash, last_counted_at)
-              VALUES (?, ?, ?)
-              ON CONFLICT(username, ip_hash) DO UPDATE SET
-                last_counted_at = excluded.last_counted_at
-              WHERE account_lookup_limits.last_counted_at <= ?
-              RETURNING last_counted_at`,
-        args: [
-          normalizedUsername,
-          ipHash,
-          now,
-          now - HEAT_LOOKUP_WINDOW_MS,
-        ],
-      });
-      if (gate.rows.length === 0) {
-        await tx.rollback();
-        return false;
-      }
-      await tx.execute({
-        sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
-              VALUES (?, 1, ?, ?)
-              ON CONFLICT(username) DO UPDATE SET
-                lookup_count   = account_stats.lookup_count + 1,
-                last_lookup_at = excluded.last_lookup_at`,
-        args: [normalizedUsername, now, now],
-      });
-      await tx.commit();
-      return true;
-    } catch (e) {
-      await tx.rollback().catch(() => {});
-      throw e;
+    // Two guarded statements instead of an interactive transaction (D1 has
+    // none). The RETURNING gate stays atomic on its own; a crash between the
+    // gate and the counter loses at most one increment of a best-effort stat.
+    const gate = await db.execute({
+      sql: `INSERT INTO account_lookup_limits (username, ip_hash, last_counted_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(username, ip_hash) DO UPDATE SET
+              last_counted_at = excluded.last_counted_at
+            WHERE account_lookup_limits.last_counted_at <= ?
+            RETURNING last_counted_at`,
+      args: [
+        normalizedUsername,
+        ipHash,
+        now,
+        now - HEAT_LOOKUP_WINDOW_MS,
+      ],
+    });
+    if (gate.rows.length === 0) {
+      return false;
     }
+    await db.execute({
+      sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
+            VALUES (?, 1, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+              lookup_count   = account_stats.lookup_count + 1,
+              last_lookup_at = excluded.last_lookup_at`,
+      args: [normalizedUsername, now, now],
+    });
+    return true;
   } catch (e) {
     // Give the count back: a failed Turso write must not suppress this pair's
     // heat for a whole window.
@@ -1061,12 +1056,15 @@ function scoreWriteIdentity(row: Record<string, unknown>): ScoreWriteIdentity | 
     : null;
 }
 
-async function ensureAccountStatsTx(
-  tx: Transaction,
+/** The subset of the libsql client both Client and Transaction satisfy. */
+type SqlExecutor = Pick<Client, "execute">;
+
+async function ensureAccountStats(
+  db: SqlExecutor,
   username: string,
   scannedAt: number,
 ): Promise<void> {
-  await tx.execute({
+  await db.execute({
     sql: `INSERT INTO account_stats (username, lookup_count, first_lookup_at, last_lookup_at)
           VALUES (?, ?, ?, ?)
           ON CONFLICT(username) DO UPDATE SET
@@ -1075,9 +1073,18 @@ async function ensureAccountStatsTx(
   });
 }
 
-async function upsertCanonicalScoreTx(
-  tx: Transaction,
+/**
+ * Guarded canonical-score upsert without an interactive transaction (D1 has
+ * none). Each write re-asserts its branch's precondition in the statement's
+ * own WHERE clause, so an interleaved writer makes the statement affect zero
+ * rows instead of clobbering newer data; the one racy branch (concurrent
+ * first insert) retries once against the fresh row. Same-user scans are
+ * additionally single-flighted upstream via coalesceScan.
+ */
+async function upsertCanonicalScoreGuarded(
+  db: SqlExecutor,
   materialized: CanonicalScoreMaterialization,
+  attempt = 0,
 ): Promise<CanonicalScoreUpsertResult> {
   const entry = materialized.scoreEntry;
   const provenance = materialized.provenance;
@@ -1085,7 +1092,7 @@ async function upsertCanonicalScoreTx(
   const tags = JSON.stringify(entry.tags ?? EMPTY_TAGS);
   const roastLine = JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE);
   const subScores = JSON.stringify(entry.sub_scores);
-  const current = await tx.execute({
+  const current = await db.execute({
     sql: `SELECT username, final_score, tier, sub_scores, score_version,
                  score_write_token, score_source_collection_version,
                  score_source_snapshot_hash, scanned_at
@@ -1096,13 +1103,14 @@ async function upsertCanonicalScoreTx(
   const token = randomUUID();
 
   if (!row) {
-    await tx.execute({
+    const inserted = await db.execute({
       sql: `INSERT INTO scores
               (username, display_name, avatar_url, profile_url, final_score, tier, tags,
                roast_line, score_version, score_write_token,
                score_source_collection_version, score_source_snapshot_hash,
                bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            WHERE NOT EXISTS (SELECT 1 FROM scores WHERE username = ?)`,
       args: [
         username,
         entry.display_name,
@@ -1119,9 +1127,16 @@ async function upsertCanonicalScoreTx(
         entry.bot_score,
         subScores,
         entry.scanned_at,
+        username,
       ],
     });
-    await ensureAccountStatsTx(tx, username, entry.scanned_at);
+    if (Number(inserted.rowsAffected ?? 0) === 0) {
+      // A concurrent writer created the row between our read and insert:
+      // re-evaluate against it (once).
+      if (attempt >= 1) return { status: "superseded", identity: null };
+      return upsertCanonicalScoreGuarded(db, materialized, attempt + 1);
+    }
+    await ensureAccountStats(db, username, entry.scanned_at);
     return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
   }
 
@@ -1139,11 +1154,12 @@ async function upsertCanonicalScoreTx(
       throw new Error("invalid canonical score timestamp");
     }
     if (entry.scanned_at > previousScannedAt) {
-      await tx.execute({
+      const bumped = await db.execute({
         sql: `UPDATE scores SET score_write_token = ?, scanned_at = ?
               WHERE username = ? AND score_version = ?
                 AND score_source_collection_version = ?
-                AND score_source_snapshot_hash = ?`,
+                AND score_source_snapshot_hash = ?
+                AND scanned_at < ?`,
         args: [
           token,
           entry.scanned_at,
@@ -1151,16 +1167,23 @@ async function upsertCanonicalScoreTx(
           provenance.scoreVersion,
           provenance.collectionVersion,
           provenance.snapshotHash,
+          entry.scanned_at,
         ],
       });
-      await ensureAccountStatsTx(tx, username, entry.scanned_at);
+      if (Number(bumped.rowsAffected ?? 0) === 0) {
+        // A concurrent writer advanced the row first; their identity stands.
+        return existingIdentity
+          ? { status: "same", identity: existingIdentity }
+          : { status: "superseded", identity: null };
+      }
+      await ensureAccountStats(db, username, entry.scanned_at);
       return {
         status: "written",
         identity: { scannedAt: entry.scanned_at, token },
       };
     }
     if (existingIdentity) return { status: "same", identity: existingIdentity };
-    await tx.execute({
+    await db.execute({
       sql: `UPDATE scores SET score_write_token = ?
             WHERE username = ? AND score_version = ?
               AND score_source_collection_version = ?
@@ -1191,7 +1214,7 @@ async function upsertCanonicalScoreTx(
     }
   }
 
-  await tx.execute({
+  const overwritten = await db.execute({
     sql: `UPDATE scores SET
             prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
             prev_scanned_at = CASE WHEN ? - scanned_at >= ? THEN scanned_at ELSE prev_scanned_at END,
@@ -1200,7 +1223,15 @@ async function upsertCanonicalScoreTx(
             score_source_collection_version = ?, score_source_snapshot_hash = ?,
             bot_score = ?, sub_scores = ?, scanned_at = ?,
             roast = NULL, roast_version = NULL, roast_en = NULL, roast_en_version = NULL
-          WHERE username = ?`,
+          WHERE username = ?
+            AND (
+              score_version IS NOT ?
+              OR score_source_collection_version IS NOT ?
+              OR score_source_snapshot_hash IS NULL
+              OR length(score_source_snapshot_hash) != 64
+              OR score_source_snapshot_hash GLOB '*[^0-9a-f]*'
+              OR scanned_at < ?
+            )`,
     args: [
       entry.scanned_at,
       PROGRESS_MIN_GAP_MS,
@@ -1221,9 +1252,15 @@ async function upsertCanonicalScoreTx(
       subScores,
       entry.scanned_at,
       username,
+      provenance.scoreVersion,
+      provenance.collectionVersion,
+      entry.scanned_at,
     ],
   });
-  await ensureAccountStatsTx(tx, username, entry.scanned_at);
+  if (Number(overwritten.rowsAffected ?? 0) === 0) {
+    return { status: "superseded", identity: null };
+  }
+  await ensureAccountStats(db, username, entry.scanned_at);
   return { status: "written", identity: { scannedAt: entry.scanned_at, token } };
 }
 
@@ -1475,55 +1512,46 @@ export async function publishCompleteQuickScan(
   if (!db) return null;
   try {
     await ensureSchema(db);
-    const tx = await db.transaction("write");
-    try {
-      const existingRun = await tx.execute({
-        sql: `SELECT id FROM public_scan_runs
+    // Score first: its guarded upsert is the supersedence arbiter, so a
+    // superseded scan writes nothing at all. The run row follows with its own
+    // NOT EXISTS dedupe; a crash in between costs one archival run row, never
+    // score integrity.
+    const scoreWrite = await upsertCanonicalScoreGuarded(db, materialized);
+    if (scoreWrite.status === "superseded") {
+      return null;
+    }
+    await db.execute({
+      sql: `INSERT INTO public_scan_runs
+              (id, username, score_version, collection_version, state, coverage,
+               source_status, quick_scan, snapshot, snapshot_hash,
+               started_at, completed_at, updated_at)
+            SELECT ?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?
+            WHERE NOT EXISTS (
+              SELECT 1 FROM public_scan_runs
               WHERE username = ? AND score_version = ? AND collection_version = ?
                 AND state = 'complete_public' AND snapshot_hash = ? AND started_at = ?
-              LIMIT 1`,
-        args: [
-          materialized.scoreEntry.username,
-          SCORE_CACHE_VERSION,
-          PUBLIC_SCAN_COLLECTION_VERSION,
-          snapshotHash,
-          scannedAt,
-        ],
-      });
-      if (!existingRun.rows[0]) {
-        await tx.execute({
-          sql: `INSERT INTO public_scan_runs
-                  (id, username, score_version, collection_version, state, coverage,
-                   source_status, quick_scan, snapshot, snapshot_hash,
-                   started_at, completed_at, updated_at)
-                VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            randomUUID(),
-            materialized.scoreEntry.username,
-            SCORE_CACHE_VERSION,
-            PUBLIC_SCAN_COLLECTION_VERSION,
-            JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
-            snapshot,
-            snapshot,
-            snapshotHash,
-            scannedAt,
-            scannedAt,
-            scannedAt,
-          ],
-        });
-      }
-      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
-      if (scoreWrite.status === "superseded") {
-        await tx.rollback();
-        return null;
-      }
-      await tx.commit();
-      await recordProfileSnapshot(materialized.scan);
-      return scoreWrite.identity;
-    } catch (error) {
-      await tx.rollback().catch(() => {});
-      throw error;
-    }
+            )`,
+      args: [
+        randomUUID(),
+        materialized.scoreEntry.username,
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
+        snapshot,
+        snapshot,
+        snapshotHash,
+        scannedAt,
+        scannedAt,
+        scannedAt,
+        materialized.scoreEntry.username,
+        SCORE_CACHE_VERSION,
+        PUBLIC_SCAN_COLLECTION_VERSION,
+        snapshotHash,
+        scannedAt,
+      ],
+    });
+    await recordProfileSnapshot(materialized.scan);
+    return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("publish_quick_score", error);
     return null;
@@ -1591,22 +1619,14 @@ export async function ensureCanonicalScoreForPublicRun(
       return existingIdentity;
     }
 
-    const tx = await db.transaction("write");
-    try {
-      const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
-      if (scoreWrite.status === "superseded") {
-        await tx.rollback();
-        return null;
-      }
-      await tx.commit();
-      if (scoreWrite.status === "written") {
-        await recordProfileSnapshot(materialized.scan);
-      }
-      return scoreWrite.identity;
-    } catch (error) {
-      await tx.rollback().catch(() => {});
-      throw error;
+    const scoreWrite = await upsertCanonicalScoreGuarded(db, materialized);
+    if (scoreWrite.status === "superseded") {
+      return null;
     }
+    if (scoreWrite.status === "written") {
+      await recordProfileSnapshot(materialized.scan);
+    }
+    return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("ensure_run_score", error);
     return null;
@@ -1812,22 +1832,14 @@ export async function backfillCanonicalScoresPage(
     }
 
     try {
-      const tx = await db.transaction("write");
-      try {
-        const scoreWrite = await upsertCanonicalScoreTx(tx, materialized);
-        if (scoreWrite.status === "superseded") {
-          await tx.rollback();
-          response.skipped += 1;
-          lastProcessedCursor = rowCursor;
-          continue;
-        }
-        await tx.commit();
-        response.materialized += 1;
+      const scoreWrite = await upsertCanonicalScoreGuarded(db, materialized);
+      if (scoreWrite.status === "superseded") {
+        response.skipped += 1;
         lastProcessedCursor = rowCursor;
-      } catch (error) {
-        await tx.rollback().catch(() => {});
-        throw error;
+        continue;
       }
+      response.materialized += 1;
+      lastProcessedCursor = rowCursor;
     } catch {
       response.failed += 1;
       stoppedOnFailure = true;
@@ -3166,7 +3178,7 @@ export async function completePublicScanRun(input: {
         // A newer canonical score may win while this older run still completes
         // as immutable historical evidence. Invalid state throws and rolls the
         // whole completion back.
-        await upsertCanonicalScoreTx(tx, materialized);
+        await upsertCanonicalScoreGuarded(tx, materialized);
       }
 
       const now = Date.now();
@@ -4376,76 +4388,71 @@ export async function updateRoast(
     await ensureSchema(db);
     const normalizedUsername = username.toLowerCase();
     const generatedAt = Date.now();
-    const tx = await db.transaction("write");
-    try {
-      const updated = await tx.execute({
-        sql: `UPDATE scores
-              SET ${col} = ?, ${versionCol} = ?,
-                  tags = COALESCE(?, tags), roast_line = COALESCE(?, roast_line)
-              WHERE username = ?
-                AND score_version = ?
-                AND score_source_collection_version = ?
-                AND length(score_source_snapshot_hash) = 64
-                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
-                AND score_write_token = ?
-                AND scanned_at = ?`,
-        args: [
-          roast,
-          ROAST_CACHE_VERSION,
-          artifacts ? JSON.stringify(artifacts.tags) : null,
-          artifacts ? JSON.stringify(artifacts.roastLine) : null,
-          normalizedUsername,
-          SCORE_CACHE_VERSION,
-          PUBLIC_SCAN_COLLECTION_VERSION,
-          scoreWrite.token,
-          scoreWrite.scannedAt,
-        ],
-      });
-      if (Number(updated.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return false;
-      }
-      const snapshot = await tx.execute({
-        sql: `INSERT INTO score_snapshots
-                (id, username, display_name, avatar_url, profile_url, final_score, tier,
-                 tags, roast_line, score_version, roast_version, roast_lang, bot_score,
-                 sub_scores, generated_at)
-              SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
-                     tags, roast_line, score_version, ?, ?, bot_score, sub_scores, ?
-              FROM scores
-              WHERE username = ?
-                AND score_version = ?
-                AND score_source_collection_version = ?
-                AND length(score_source_snapshot_hash) = 64
-                AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
-                AND score_write_token = ?
-                AND scanned_at = ?
-                AND ${versionCol} = ?
-                AND ${col} = ?`,
-        args: [
-          randomUUID(),
-          ROAST_CACHE_VERSION,
-          lang,
-          generatedAt,
-          normalizedUsername,
-          SCORE_CACHE_VERSION,
-          PUBLIC_SCAN_COLLECTION_VERSION,
-          scoreWrite.token,
-          scoreWrite.scannedAt,
-          ROAST_CACHE_VERSION,
-          roast,
-        ],
-      });
-      if (Number(snapshot.rowsAffected ?? 0) !== 1) {
-        await tx.rollback();
-        return false;
-      }
-      await tx.commit();
-      return true;
-    } catch (error) {
-      await tx.rollback().catch(() => {});
-      throw error;
-    }
+    // batch() runs as one implicit transaction on both libsql and D1. Every
+    // statement re-asserts the full CAS guard, so a lost race affects zero
+    // rows; both must land for the write to count.
+    const [updated, snapshot] = await db.batch(
+      [
+        {
+          sql: `UPDATE scores
+                SET ${col} = ?, ${versionCol} = ?,
+                    tags = COALESCE(?, tags), roast_line = COALESCE(?, roast_line)
+                WHERE username = ?
+                  AND score_version = ?
+                  AND score_source_collection_version = ?
+                  AND length(score_source_snapshot_hash) = 64
+                  AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
+                  AND score_write_token = ?
+                  AND scanned_at = ?`,
+          args: [
+            roast,
+            ROAST_CACHE_VERSION,
+            artifacts ? JSON.stringify(artifacts.tags) : null,
+            artifacts ? JSON.stringify(artifacts.roastLine) : null,
+            normalizedUsername,
+            SCORE_CACHE_VERSION,
+            PUBLIC_SCAN_COLLECTION_VERSION,
+            scoreWrite.token,
+            scoreWrite.scannedAt,
+          ],
+        },
+        {
+          sql: `INSERT INTO score_snapshots
+                  (id, username, display_name, avatar_url, profile_url, final_score, tier,
+                   tags, roast_line, score_version, roast_version, roast_lang, bot_score,
+                   sub_scores, generated_at)
+                SELECT ?, username, display_name, avatar_url, profile_url, final_score, tier,
+                       tags, roast_line, score_version, ?, ?, bot_score, sub_scores, ?
+                FROM scores
+                WHERE username = ?
+                  AND score_version = ?
+                  AND score_source_collection_version = ?
+                  AND length(score_source_snapshot_hash) = 64
+                  AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
+                  AND score_write_token = ?
+                  AND scanned_at = ?
+                  AND ${versionCol} = ?
+                  AND ${col} = ?`,
+          args: [
+            randomUUID(),
+            ROAST_CACHE_VERSION,
+            lang,
+            generatedAt,
+            normalizedUsername,
+            SCORE_CACHE_VERSION,
+            PUBLIC_SCAN_COLLECTION_VERSION,
+            scoreWrite.token,
+            scoreWrite.scannedAt,
+            ROAST_CACHE_VERSION,
+            roast,
+          ],
+        },
+      ],
+      "write",
+    );
+    return (
+      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1
+    );
   } catch (e) {
     console.error("updateRoast failed:", e);
     return false;
