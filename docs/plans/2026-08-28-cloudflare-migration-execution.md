@@ -96,6 +96,14 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-29：**🚀 正式切换完成（656c3f9）——ghfind.com 现由 Cloudflare Worker 服务，Vercel 并跑兜底 48h**：
+  - 切换前验证：dev 修复 build 期 GHFIND_BACKEND_ORIGIN 缺失（.env 已补，beforeFiles 重写才会生成——**此坑切记**）；Go-owned API 面 10 端点 + MCP initialize/tools-list 全通过；官方 smoke 仅"canonical origin 相等"一项不过（测试域上定义性不可能，非缺陷）。
+  - production 部署：worker `ghfind` + workers.dev 验证入口（beiming1201.workers.dev，并跑结束后关）+ 11 secrets + R2 缓存 321 项 + vars PUBLIC/NEXT_PUBLIC_SITE_URL=https://ghfind.com；workers.dev 上 21 路由全 200 后才动 DNS。
+  - 原子切换：删 apex CNAME（记录 id 041b947d…，指 922fe19d07a85c6f.vercel-dns-016.com 灰云）→ `wrangler deploy --env production` 绑 custom domain，间隙约 10s。
+  - 切换后验证：apex 经 1.1.1.1 解析 CF 边缘；llms.txt/badge/card 经 Worker 200；/en 对农场 ASN 出 `cf-mitigated: challenge`（WAF 生效）；www 经 Vercel 通配符 307 回 apex（并跑期正常）。
+  - **回滚（30 秒）**：`wrangler triggers` 删 ghfind.com custom domain（或 dashboard Workers→ghfind→Domains 移除）+ 恢复 DNS：`POST /zones/ae7ba9c0…/dns_records {"type":"CNAME","name":"ghfind.com","content":"922fe19d07a85c6f.vercel-dns-016.com","proxied":false}`。Vercel 侧域名未动，恢复记录即回到切换前。
+  - **并跑期注意**：① 旧 NS 缓存的解析器（含用户本机机场出口）最长 48h 内仍把流量送 Vercel——这正是并跑的意义；② **并跑期间别 push main**（deploy gate 只更新 Railway+Vercel，CF 侧会滞后；确需发版则同时手跑 `pnpm cf:deploy:prod`）；③ 观察面：CF dashboard Workers 请求/错误曲线、GA4 事件、Vercel 账单应随流量迁移下降。
+  - 并跑结束后（≈08-31）待办：注销 Vercel Pro、production 关 workers_dev、githubroast.dev/.icu 上 Redirect Rules 接管 308、merge 分支 + deploy gate 改写 wrangler、www 显式记录。
 - 2026-08-29：**dev 全量回归修复完成（b2c61e9）**：① `/projects` 500 根因=`@libsql/client` 在 Next 默认 serverExternalPackages 里被外部化、Workers 加载失败——db.ts/project-analysis-db.ts 换 `/web` 入口 + `transpilePackages` 强制打包 + 补 `@libsql/isomorphic-*` 依赖；vitest 把 `/web` 别名回 Node 客户端保住 file: 测试夹具。② 预渲染 blog/collections 404 根因=裸 `wrangler deploy` 不灌 R2 增量缓存——`populateCache remote` 并入 cf:deploy 脚本（318 项已灌）。复测：/projects、/u、榜单、/vs、/ar(RTL)、/en/blog/[slug]、/collections/[slug]、`/blog/[slug].md`、卡片 PNG、sitemap 全 200。`/blog-md/` 直连 404 为 locale 中间件既有行为（生产同），非回归。**DNS 传播注意**：注册局/公共解析器已全量指向 CF，但用户与本机的机场出口解析器缓存旧 NS 委托（TTL 48h），期间 dev 域会被送到 Vercel 404——换代理节点即解，最迟 08-30 自然消退；正式切换日同样会有此尾巴（Vercel 保活缓冲期就是为这个）。
 - 2026-08-28：**阶段 1.2 dev 环境上线并冒烟通过**：`ghfind-dev` worker 部署成功、`dev.ghfind.com` 自定义域绑定（wrangler 自动建了 proxied 记录）；11 个密钥经 `wrangler secret bulk` 推送（源=本地 .env + Railway 域名 `ghfind-api-production.up.railway.app`；**Vercel 的 Sensitive 密钥 pull 不出来，.env 才是可用源**）。真边缘冒烟：zh/en 首页、blog、llms.txt 200，`/api/card/octocat` 出 136KB PNG，badge SVG 证明 Worker→Railway 通，`X-Robots-Tag: noindex` 生效。已知残留：① 本机及部分 resolver 仍缓存旧 NS（1-2 天内 dev 域可能解析到 Vercel 404，1.1.1.1 已正确）；② dev 的 GHFIND_BACKEND_ORIGIN 指生产 Railway——**dev 上测 scan/roast 会写生产数据**；③ dev 域 OAuth 登录会回跳生产（需单独 GitHub OAuth App 才能闭环）；④ Turnstile secret 本地 .env 为空未配，dev 上人机检查按设计跳过。
 - 2026-08-28：**阶段 1.1 代码改造完成并本地全绿**：
