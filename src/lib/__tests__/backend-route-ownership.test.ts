@@ -9,8 +9,6 @@ const GO_REWRITE_SOURCES = [
   "/api/embed/:path*",
   "/api/sitemap",
   "/api/vs/:path*",
-  "/api/scan/jobs/:path*",
-  "/api/scan",
   "/api/project-analyses",
   "/api/project-analyses/:path*",
   "/api/internal/:path*",
@@ -18,8 +16,6 @@ const GO_REWRITE_SOURCES = [
 ];
 
 const NEXT_API_GUARDS = new Set([
-  "src/app/api/scan/jobs/[id]/route.ts",
-  "src/app/api/scan/route.ts",
 ]);
 
 const REVIEWED_NEXT_API_ROUTES = new Set([
@@ -32,6 +28,7 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/auth/signout/route.ts",
   "src/app/api/me/route.ts",
   "src/app/api/roast/route.ts",
+  "src/app/api/scan/route.ts",
   "src/app/api/blog-comments/[slug]/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/events/route.ts",

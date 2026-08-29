@@ -278,6 +278,10 @@ export interface ScanResult {
   verified_impact_prs?: RecentPr[];
   /** Representative concrete work examples for report generation. */
   signature_work?: SignatureWork;
+  /** Display-only org maintenance evidence collected alongside the scan. */
+  organization_maintained_repos?: OrganizationMaintainedRepo[];
+  /** Display-only contribution-weighted language estimate. */
+  estimated_contribution_languages?: EstimatedContributionLanguages;
   /** "owner/name" of the user's pinned repos — their self-selected best work, a
    * strong signal of the direction they identify with. Optional for back-compat. */
   pinned_repos?: string[];

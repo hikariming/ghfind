@@ -54,8 +54,6 @@ const nextConfig: NextConfig = {
             { source: "/api/embed/:path*", destination: `${backend}/api/embed/:path*` },
             { source: "/api/sitemap", destination: `${backend}/api/sitemap` },
             { source: "/api/vs/:path*", destination: `${backend}/api/vs/:path*` },
-            { source: "/api/scan/jobs/:path*", destination: `${backend}/api/scan/jobs/:path*` },
-            { source: "/api/scan", destination: `${backend}/api/scan` },
             { source: "/api/project-analyses", destination: `${backend}/api/project-analyses` },
             { source: "/api/project-analyses/:path*", destination: `${backend}/api/project-analyses/:path*` },
             { source: "/api/project-boards", destination: `${backend}/api/project-boards` },
