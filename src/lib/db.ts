@@ -6248,6 +6248,32 @@ export interface UserUpsert {
 }
 
 /**
+ * Whether the account has a visible canonical score (current score + collection
+ * version, well-formed snapshot hash). Backs the `/api/me` `scored` probe;
+ * mirrors the Go backend's HasCanonicalPublicScore query.
+ */
+export async function hasCanonicalPublicScore(username: string): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT 1 FROM scores
+            WHERE username = ? AND hidden = 0 AND score_version = ?
+              AND score_source_collection_version = ?
+              AND length(score_source_snapshot_hash) = 64
+              AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
+            LIMIT 1`,
+      args: [username.toLowerCase(), SCORE_CACHE_VERSION, PUBLIC_SCAN_COLLECTION_VERSION],
+    });
+    return res.rows.length > 0;
+  } catch (e) {
+    console.error("hasCanonicalPublicScore failed:", e);
+    return false;
+  }
+}
+
+/**
  * Upsert a logged-in GitHub user. Best-effort; no-ops without Turso. `login` is
  * stored lowercased to match the `scores.username` convention for later linking.
  */

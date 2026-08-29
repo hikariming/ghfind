@@ -102,6 +102,7 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-29：**B2+B3 完成（cf3fc6f, 9cc321a）**：B2=/mcp（mcp-handler 路由+工具恢复，dev 上 tools/list+score_user 实调通过）+badge 直读 db。B3=OAuth 全套重写（**oauth-session.ts 与 Go 签名逐字节兼容，存量 ghfind_session cookie 切换后继续有效**，合同测试钉死 wire format）、/api/me、社交五件套+campaign SSE 恢复（auth.ts 重建为旧 auth() 合同的薄适配器，恢复的处理器零改动）、reactions 补 Go 时代新增的 GET（与 Railway 逐字节一致）。837 测试全绿。**数据库迁移结论（用户当日提出想立刻迁）**：物理不可行——Railway Go 连不上 D1，先迁数据=写入断流；papers/paper_roasts 确认废弃不迁。剩余 rewrite 16 条（scan/roast/profile/vs/embed/sitemap/projects/project-analyses/internal/admin）→ B4 roast+verdict、B5 scan 同步化+双采集器+shim 清理后清零。**B4/B5 未做**；AUTH_GITHUB_ID/SECRET+AUTH_SECRET 生产值在 Railway env，切流时需用户从 dashboard 取出。
 - 2026-08-29：**阶段 2 审计 + B1 完成（023529f）**：审计定论 8 REUSE/4 PARTIAL/1 PORT（详见上方阶段 2 节），工作量 15-25 人日修正为 5-7。B1 六条公共读路由（stats/search-users/leaderboard/developers/facet-rank/score）从 `f557571^` 恢复原实现、摘 rewrite、删 boundary 守卫测试、所有权矩阵重分类；dev 上与 Railway 响应键集对拍全一致，809 测试全绿。**B1 目前仅 dev 生效**，production 待并跑结束随下次 prod 部署切流。剩余批次：B2 MCP+badge → B3 OAuth(唯一 PORT)+me+社交 → B4 roast+verdict 塌缩 → B5 scan 同步化+Go-only 采集器移植+presentation shim 删除。
 - 2026-08-29：**🚀 正式切换完成（656c3f9）——ghfind.com 现由 Cloudflare Worker 服务，Vercel 并跑兜底 48h**：
   - 切换前验证：dev 修复 build 期 GHFIND_BACKEND_ORIGIN 缺失（.env 已补，beforeFiles 重写才会生成——**此坑切记**）；Go-owned API 面 10 端点 + MCP initialize/tools-list 全通过；官方 smoke 仅"canonical origin 相等"一项不过（测试域上定义性不可能，非缺陷）。
