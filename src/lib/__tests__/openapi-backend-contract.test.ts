@@ -13,7 +13,7 @@ describe("OpenAPI backend extraction contract", () => {
     const source = spec.components.schemas.ScorePayload.properties.source;
 
     expect(score.description).toContain('source: "quick"');
-    expect(score.description).toContain("durable quick-scan job");
+    expect(score.description).toContain("synchronous quick");
     expect(score.description).not.toContain('source: "live"');
     expect(source.enum).toEqual(["indexed", "quick", "legacy_v5_v5_v3"]);
     expect(spec.components.schemas.ScorePayload.properties.coverage.enum).toEqual(["quick", "legacy"]);

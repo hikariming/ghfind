@@ -1,7 +1,11 @@
 import "server-only";
 
-import { getGoPublicData } from "@/lib/go-backend.server";
 import type { CampaignSlug } from "@/lib/campaigns";
+import { DEVELOPERS_PER_FACET_LIMIT, getCampaignLeaderboard } from "@/lib/db";
+import {
+  getDevelopersByFacetCached,
+  getFacetCategoriesCached,
+} from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import type { PresentationLeaderboardEntry } from "@/lib/profile-presentation";
 
@@ -10,27 +14,24 @@ export interface GoFacetCategory {
   count: number;
 }
 
-/** Kept in sync with the Go directory endpoint's bounded public result set. */
-export const GO_DEVELOPERS_PER_FACET_LIMIT = 250;
+/** The directory endpoint's bounded public result set. */
+export const GO_DEVELOPERS_PER_FACET_LIMIT = DEVELOPERS_PER_FACET_LIMIT;
 
-export async function getGoFacetCategories(type: FacetType) {
-  const data = await getGoPublicData<{ categories: GoFacetCategory[] }>(
-    `/api/developers?type=${encodeURIComponent(type)}`,
-  );
-  return data?.categories ?? [];
+export async function getGoFacetCategories(
+  type: FacetType,
+): Promise<GoFacetCategory[]> {
+  return getFacetCategoriesCached(type);
 }
 
-export async function getGoDevelopersByFacet(type: FacetType, value: string) {
-  const query = new URLSearchParams({ type, value });
-  const data = await getGoPublicData<{ entries: PresentationLeaderboardEntry[] }>(
-    `/api/developers?${query.toString()}`,
-  );
-  return data?.entries ?? [];
+export async function getGoDevelopersByFacet(
+  type: FacetType,
+  value: string,
+): Promise<PresentationLeaderboardEntry[]> {
+  return getDevelopersByFacetCached(type, value);
 }
 
-export async function getGoCampaignLeaderboard(campaign: CampaignSlug) {
-  const data = await getGoPublicData<{ entries: PresentationLeaderboardEntry[] }>(
-    `/api/campaigns/${encodeURIComponent(campaign)}/leaderboard?limit=500`,
-  );
-  return data?.entries ?? [];
+export async function getGoCampaignLeaderboard(
+  campaign: CampaignSlug,
+): Promise<PresentationLeaderboardEntry[]> {
+  return getCampaignLeaderboard(campaign, 500);
 }

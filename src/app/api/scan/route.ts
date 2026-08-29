@@ -195,7 +195,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const cached = await getCachedScan(username);
+  // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
+  // fresh snapshot immediately; admission/rate limits above still apply.
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  const cached = force ? null : await getCachedScan(username);
   if (cached) {
     // The cached snapshot was persisted by its producing quick scan. Replaying
     // it must remain read-only: publishing it again with Date.now() would make
