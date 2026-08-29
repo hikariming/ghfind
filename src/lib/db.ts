@@ -10,7 +10,10 @@
  * layer only persists the result for cross-account ranking.
  */
 
-import { Client, createClient, type Transaction } from "@libsql/client";
+// The /web entry works on runtimes without node APIs (Cloudflare Workers) and
+// over plain HTTP everywhere else. It cannot open `file:` URLs — local dev and
+// tests that need one construct their own Node client and pass it in.
+import { Client, createClient, type Transaction } from "@libsql/client/web";
 import { createHash, randomUUID } from "node:crypto";
 import {
   bypassGeneratedCaches,

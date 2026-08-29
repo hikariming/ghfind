@@ -24,11 +24,13 @@
     "versions:check": "tsx scripts/check-release-versions.mts",
     "gen:assets": "tsx scripts/gen-embedded-assets.mts",
     "cf:build": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare opennextjs-cloudflare build",
-    "cf:deploy:dev": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare opennextjs-cloudflare build && wrangler deploy --env dev",
-    "cf:deploy:prod": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare opennextjs-cloudflare build && wrangler deploy --env production"
+    "cf:deploy:dev": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare opennextjs-cloudflare build && wrangler deploy --env dev && opennextjs-cloudflare populateCache remote -- --env dev",
+    "cf:deploy:prod": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare opennextjs-cloudflare build && wrangler deploy --env production && opennextjs-cloudflare populateCache remote -- --env production"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
+    "@libsql/isomorphic-fetch": "^0.3.1",
+    "@libsql/isomorphic-ws": "^0.1.5",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-dropdown-menu": "^2.1.18",
     "@radix-ui/react-label": "^2.1.10",

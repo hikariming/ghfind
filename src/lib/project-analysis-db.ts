@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createClient, type Client, type InValue } from "@libsql/client";
+import { createClient, type Client, type InValue } from "@libsql/client/web";
 import {
   projectAnalysisArtifactSchema,
   type ProjectAnalysisArtifact,

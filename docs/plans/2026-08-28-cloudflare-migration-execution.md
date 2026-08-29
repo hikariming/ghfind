@@ -94,6 +94,7 @@ dev 环境四项隔离（缺一不可，上线 dev 域前逐项确认）：
 
 ## 进度记录
 
+- 2026-08-28：**阶段 1.2 dev 环境上线并冒烟通过**：`ghfind-dev` worker 部署成功、`dev.ghfind.com` 自定义域绑定（wrangler 自动建了 proxied 记录）；11 个密钥经 `wrangler secret bulk` 推送（源=本地 .env + Railway 域名 `ghfind-api-production.up.railway.app`；**Vercel 的 Sensitive 密钥 pull 不出来，.env 才是可用源**）。真边缘冒烟：zh/en 首页、blog、llms.txt 200，`/api/card/octocat` 出 136KB PNG，badge SVG 证明 Worker→Railway 通，`X-Robots-Tag: noindex` 生效。已知残留：① 本机及部分 resolver 仍缓存旧 NS（1-2 天内 dev 域可能解析到 Vercel 404，1.1.1.1 已正确）；② dev 的 GHFIND_BACKEND_ORIGIN 指生产 Railway——**dev 上测 scan/roast 会写生产数据**；③ dev 域 OAuth 登录会回跳生产（需单独 GitHub OAuth App 才能闭环）；④ Turnstile secret 本地 .env 为空未配，dev 上人机检查按设计跳过。
 - 2026-08-28：**阶段 1.1 代码改造完成并本地全绿**：
   - fs 消除：`scripts/gen-embedded-assets.mts` 生成 `src/generated/`（content 775KB + 字体/emoji/sponsor 104KB，已提交并接入 dev/build 脚本），`src/lib/content-files.ts` 虚拟文件层；blog/collections/卡片字体/tier-emoji/sponsor 全部离盘。
   - BotID→Turnstile：vs-verdict 路由改 `verifyTurnstile`（x-turnstile-token 头），VsVerdictLive 拿 token 才开火（复用现有 Turnstile 组件与 key，未配置时跳过），layout/next.config 拆除 botid；测试重写为 Turnstile 合同（含 CF-Connecting-IP 优先）。
