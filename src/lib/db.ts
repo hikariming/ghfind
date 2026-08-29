@@ -13,7 +13,8 @@
 // The /web entry works on runtimes without node APIs (Cloudflare Workers) and
 // over plain HTTP everywhere else. It cannot open `file:` URLs — local dev and
 // tests that need one construct their own Node client and pass it in.
-import { Client, createClient, type Transaction } from "@libsql/client/web";
+import { Client, createClient } from "@libsql/client/web";
+import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import { createHash, randomUUID } from "node:crypto";
 import {
   bypassGeneratedCaches,
@@ -361,6 +362,13 @@ let schemaReady: Promise<void> | null = null;
 
 function getClient(): Client | null {
   if (client) return client;
+  const d1 = getD1Binding();
+  if (d1) {
+    client = d1AsLibsqlClient(d1);
+    // D1 schema is owned by wrangler migrations; never run runtime DDL there.
+    schemaReady = Promise.resolve();
+    return client;
+  }
   const url = process.env.TURSO_DATABASE_URL;
   if (!url) return null;
   client = createClient({
