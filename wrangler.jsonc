@@ -35,7 +35,11 @@
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
       ],
       "vars": {
-        "GHFIND_DEPLOY_ENV": "preview"
+        "GHFIND_DEPLOY_ENV": "preview",
+        // Explicit: OpenNext bakes .env values (localhost) into the bundle as
+        // fallbacks; bindings must win for anything origin-derived.
+        "PUBLIC_SITE_URL": "https://dev.ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://dev.ghfind.com"
       }
     },
     "production": {
