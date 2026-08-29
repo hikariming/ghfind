@@ -16,6 +16,9 @@
   "observability": {
     "enabled": true
   },
+  "d1_databases": [
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+  ],
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
   ],
@@ -30,6 +33,9 @@
       "workers_dev": true,
       "routes": [
         { "pattern": "dev.ghfind.com", "custom_domain": true }
+      ],
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
@@ -49,6 +55,9 @@
       "workers_dev": true,
       "routes": [
         { "pattern": "ghfind.com", "custom_domain": true }
+      ],
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
