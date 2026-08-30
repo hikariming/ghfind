@@ -33,6 +33,30 @@ export function SponsorPill({ large = false }: { large?: boolean }) {
   );
 }
 
+/**
+ * Thin full-width strip rendered at the very top of the navbar. Replaces the
+ * homepage-only sponsor pill so the credit is visible on every page without
+ * eating hero real estate.
+ */
+export function SponsorStrip() {
+  return (
+    <div className="flex w-full items-center justify-center border-b border-white/10 bg-white/[0.03] px-4 py-1.5">
+      <a
+        href={SPONSOR.url}
+        target="_blank"
+        rel="noopener noreferrer sponsored"
+        className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={SPONSOR.logo} alt={SPONSOR.name} className="h-4 w-4 rounded" />
+        <span>
+          Powered by <span className="font-semibold">{SPONSOR.name}</span>
+        </span>
+      </a>
+    </div>
+  );
+}
+
 /** Tiny one-line credit for the global footer (every page). */
 export function PoweredByLobeHub() {
   return (
