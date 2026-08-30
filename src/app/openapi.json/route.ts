@@ -57,8 +57,8 @@ export function GET() {
           description:
             "Read-only, no auth, cacheable, never calls an LLM. Returns the deterministic score, " +
             "tier, sub-scores, and percentile. If the account is already indexed you get the stored " +
-            "payload (`source: \"indexed\"`, with tags/roast_line). Otherwise the Go API admits a " +
-            "durable quick-scan job and waits for the independently restartable worker to persist the " +
+            "payload (`source: \"indexed\"`, with tags/roast_line). Otherwise a synchronous quick " +
+            "scan collects and persists the " +
             "result (`source: \"quick\"`, `coverage: \"quick\"`, includes red_flags, no LLM copy). " +
             "When only an old compatible stored score exists, the response may be `source: \"legacy_v5_v5_v3\"`, " +
             "`coverage: \"legacy\"`, `stale: true`. The only 404 is a GitHub login that does not exist. Rate limited per IP.",
@@ -73,7 +73,7 @@ export function GET() {
           ],
           responses: {
             "200": {
-              description: "Score payload (indexed, quick-worker scored, or legacy fallback)",
+              description: "Score payload (indexed, synchronous quick scan, or legacy fallback)",
               headers: {
                 "RateLimit-Limit": { $ref: "#/components/headers/RateLimit-Limit" },
                 "RateLimit-Remaining": { $ref: "#/components/headers/RateLimit-Remaining" },
@@ -99,8 +99,9 @@ export function GET() {
           summary: "Run a bounded GitHub scan and compute the deterministic score",
           description:
             "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
-            "final_score. Deterministic — no LLM. Work is admitted to the durable Go worker path; most calls " +
-            "return the persisted result inline, while long-running jobs return 202 and a public status Location. In production, machine callers send " +
+            "final_score. Deterministic — no LLM. Scans run synchronously and return the persisted " +
+            "result inline (cached snapshots replay instantly; `?force=1` bypasses the cache for a " +
+            "rescan). In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
           parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -129,13 +130,6 @@ export function GET() {
               },
               content: { "application/json": { schema: { $ref: "#/components/schemas/ScanResult" } } },
             },
-            "202": {
-              description: "Scan accepted and still running; poll the Location URL until `result` is present.",
-              headers: {
-                Location: { description: "Public scan job status URL", schema: { type: "string", example: "/api/scan/jobs/job_aaaaaaaaaaaaaaaa" } },
-              },
-              content: { "application/json": { schema: { $ref: "#/components/schemas/JobStatus" } } },
-            },
             "400": { description: "Invalid body or username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "401": {
               description: "Invalid API key",
@@ -150,25 +144,6 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          },
-        },
-      },
-      "/api/scan/jobs/{id}": {
-        get: {
-          tags: ["scoring"],
-          operationId: "scanJobStatus",
-          summary: "Query a public scan job admitted by POST /api/scan",
-          parameters: [
-            { name: "id", in: "path", required: true, schema: { type: "string", example: "job_aaaaaaaaaaaaaaaa" } },
-          ],
-          responses: {
-            "200": {
-              description: "Current scan job state. Completed jobs include the persisted scan result.",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/ScanJobStatusResponse" } } },
-            },
-            "400": { description: "Invalid job id", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "404": { description: "Scan job not found or not a public scan job", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-            "503": { description: "Status or result temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -690,7 +665,7 @@ export function GET() {
             source: {
               type: "string",
               enum: ["indexed", "quick", "legacy_v5_v5_v3"],
-              description: "indexed = current stored score; quick = current deterministic worker scan; legacy_v5_v5_v3 = compatible stale fallback",
+              description: "indexed = current stored score; quick = current deterministic synchronous scan; legacy_v5_v5_v3 = compatible stale fallback",
             },
             coverage: { type: "string", enum: ["quick", "legacy"], description: "quick for current Go collection; legacy for accepted old stored scores" },
             stale: { type: "boolean", description: "true only for compatible legacy fallback scores" },
@@ -765,26 +740,6 @@ export function GET() {
             flood_pr_titles: { type: "array", items: { type: "string" } },
             impact_repos: { type: "array", items: { type: "object" } },
             scoring: { $ref: "#/components/schemas/Scoring" },
-          },
-        },
-        JobStatus: {
-          type: "object",
-          properties: {
-            id: { type: "string" },
-            kind: { type: "string", enum: ["scan.quick.v1", "score_snapshot.v1"] },
-            username: { type: "string" },
-            state: { type: "string", enum: ["queued", "running", "retrying", "completed", "failed"] },
-            attempt: { type: "integer" },
-            created_at: { type: "string", format: "date-time" },
-            updated_at: { type: "string", format: "date-time" },
-            error: { type: "string" },
-          },
-        },
-        ScanJobStatusResponse: {
-          type: "object",
-          properties: {
-            status: { $ref: "#/components/schemas/JobStatus" },
-            result: { $ref: "#/components/schemas/ScanResult" },
           },
         },
       },

@@ -110,7 +110,6 @@ export function LiveRoast({
     // guards a remounted profile subtree from opening a second result popup
     // while its server-rendered props still say `openModalOnMount`.
     openedHandoffPopupRef.current = openModalOnMount && consumeRoastingHandoff();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the handoff may open this modal exactly once after hydration
     if (openedHandoffPopupRef.current && fallbackMeta) setModalMeta(fallbackMeta);
     // Failure downgrade: with fallback content the old report renders (and the
     // already-open popup keeps its stored content) instead of an error line —

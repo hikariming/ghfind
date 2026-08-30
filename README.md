@@ -199,15 +199,16 @@ turso db tokens create github-roast   # gives TURSO_DATABASE_URL(libsql://...) +
 TURSO_DATABASE_URL=file:./local.db
 ```
 
-## Deploy to Vercel
+## Deploy to Cloudflare Workers
 
-1. Push to GitHub, import in Vercel.
-2. Configure environment variables (as above). `UPSTASH_*` can be provisioned in one click via Vercel's Upstash integration.
-3. Grab a Cloudflare Turnstile site/secret key pair; set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`.
-4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and persisted quick-scan profiles.
-5. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
-6. Set both `NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. Vercel Production rejects a missing, local, HTTP, malformed, or mismatched value during the build so metadata, sitemap, API profile URLs, cards, and LLM attribution cannot drift.
-7. Deploy the web application.
+Production runs as the `ghfind` OpenNext Worker. [`wrangler.jsonc`](./wrangler.jsonc) is the source of truth for the Worker, D1, R2 incremental cache, custom domains, and environment names; Vercel and Railway are no longer deployment targets.
+
+1. Configure Worker secrets per environment with `wrangler secret put <NAME> --env production` (or `--env dev`). Do not commit secret values. The normal application settings remain documented in [`.env.example`](./.env.example); production also needs the configured `GHFIND_D1` and `NEXT_INC_CACHE_R2_BUCKET` bindings.
+2. Set `PUBLIC_SITE_URL` and `NEXT_PUBLIC_SITE_URL` to the same HTTPS origin in the relevant Wrangler environment. The production values are `https://ghfind.com`.
+3. Validate a preview with `pnpm cf:deploy:dev`; deploy production with `pnpm cf:deploy:prod`. Both commands build the OpenNext Worker and populate its R2 incremental cache.
+4. For automatic production deploys, configure the GitHub `production` environment with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets plus the non-secret smoke variables `SMOKE_CANARY_HANDLE`, `SMOKE_FACET_TYPE`, and `SMOKE_FACET_VALUE`. A push to `main` then deploys and runs the read-only Worker smoke.
+
+See [the Cloudflare Worker runbook](./docs/operations/cloudflare-worker-runbook.md) for verification and rollback.
 
 ## Bring your own model / API key
 

@@ -147,12 +147,26 @@ function buildClustersFromPublicPrFacts(
   return attachOrgContext(clusters, impactRepos, { allowSubstantiveLowStarSignal: true });
 }
 
+/** Copy the display-only Go-era side channels into a signature-work block. */
+function attachDisplayOnlyWork(work: SignatureWork, scan: ScanResult): SignatureWork {
+  if (scan.organization_maintained_repos?.length) {
+    work.organization_maintained_repos = scan.organization_maintained_repos;
+  }
+  if (scan.estimated_contribution_languages) {
+    work.estimated_contribution_languages = scan.estimated_contribution_languages;
+  }
+  return work;
+}
+
 export function buildRecentSignatureWork(scan: ScanResult): SignatureWork {
-  return {
-    impact_repo_representatives: signatureImpactRepos(scan.impact_repos),
-    work_clusters: attachOrgContext(buildClustersFromRecentPrs(scan.recent_prs ?? []), scan.impact_repos),
-    source: "recent_sample",
-  };
+  return attachDisplayOnlyWork(
+    {
+      impact_repo_representatives: signatureImpactRepos(scan.impact_repos),
+      work_clusters: attachOrgContext(buildClustersFromRecentPrs(scan.recent_prs ?? []), scan.impact_repos),
+      source: "recent_sample",
+    },
+    scan,
+  );
 }
 
 export function buildPublicSignatureWork(
@@ -175,26 +189,10 @@ export function buildPublicSignatureWork(
  * requests only crawls GitHub once.
  */
 export async function buildScanResult(username: string): Promise<ScanResult> {
-  const {
-    metrics,
-    top_repos,
-    recent_prs,
-    flood_pr_titles,
-    impact_repos,
-    verified_impact_prs,
-    pinned_repos,
-    organizations,
-  } = await collect(username);
+  const collected = await collect(username);
   const scan = {
-    metrics,
-    top_repos,
-    recent_prs,
-    flood_pr_titles,
-    impact_repos,
-    verified_impact_prs,
-    pinned_repos,
-    organizations,
-    scoring: score(metrics),
+    ...collected,
+    scoring: score(collected.metrics),
   };
   return {
     ...scan,
@@ -243,7 +241,7 @@ export function applyPublicContributionAggregate(
     metrics,
     impact_repos: impact.impact_repos,
     signature_work: prFacts.length
-      ? buildPublicSignatureWork(impact.impact_repos, prFacts)
+      ? attachDisplayOnlyWork(buildPublicSignatureWork(impact.impact_repos, prFacts), scan)
       : buildRecentSignatureWork({ ...scan, metrics, impact_repos: impact.impact_repos }),
     scoring: score(metrics),
   };
