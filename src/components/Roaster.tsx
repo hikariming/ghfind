@@ -390,18 +390,33 @@ export function Roaster({
       <div className="mt-3 flex flex-col items-center gap-3">
         <SponsorPill large />
         {!campaign ? (
-          <Button
-            type="button"
-            onClick={() => {
-              setByoReason(undefined);
-              setByoOpen(true);
-            }}
-            variant="link"
-            size="sm"
-            className="h-auto px-0 text-xs text-zinc-500"
-          >
-            {t("byoLink")}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <a
+              href="https://www.stepfun.com/"
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              aria-label="StepFun"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/stepfun.svg"
+                alt="StepFun"
+                className="h-4 w-4 rounded border border-white/10 bg-[#0e0e0e] p-[2px]"
+              />
+            </a>
+            <Button
+              type="button"
+              onClick={() => {
+                setByoReason(undefined);
+                setByoOpen(true);
+              }}
+              variant="link"
+              size="sm"
+              className="h-auto px-0 text-xs text-zinc-500"
+            >
+              {t("byoLink")}
+            </Button>
+          </div>
         ) : null}
       </div>
 
