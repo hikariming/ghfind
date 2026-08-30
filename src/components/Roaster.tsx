@@ -390,11 +390,12 @@ export function Roaster({
       <div className="mt-3 flex flex-col items-center gap-3">
         <SponsorPill large />
         {!campaign ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs">
             <a
               href="https://www.stepfun.com/"
               target="_blank"
               rel="noopener noreferrer sponsored"
+              className="inline-flex items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-200"
               aria-label="StepFun"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -403,7 +404,9 @@ export function Roaster({
                 alt="StepFun"
                 className="h-4 w-4 rounded border border-white/10 bg-[#0e0e0e] p-[2px]"
               />
+              <span className="font-medium">StepFun</span>
             </a>
+            <span className="text-zinc-600">/</span>
             <Button
               type="button"
               onClick={() => {
