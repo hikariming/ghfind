@@ -13,7 +13,6 @@ import {
   countProjectBoard,
   type ProjectBoard,
 } from "@/lib/project-analysis-db";
-import { getGoPublicData, goBackendOrigin } from "@/lib/go-backend.server";
 import { localeAlternates } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -62,37 +61,15 @@ export default async function ProjectsPage({
   let databaseError: string | null = null;
   let entries = [] as Awaited<ReturnType<typeof listProjectBoard>>;
   let total = 0;
-  if (goBackendOrigin()) {
-    // The Go backend owns the board read when it is configured; the local
-    // Turso path below is the local-dev fallback only.
-    const fromGo = await getGoPublicData<{
-      entries: Awaited<ReturnType<typeof listProjectBoard>>;
-      total: number;
-    }>(`/api/project-boards?board=${board}&limit=${PAGE_SIZE + 1}&offset=${(page - 1) * PAGE_SIZE}`);
-    if (fromGo) {
-      entries = fromGo.entries;
-      total = fromGo.total;
-    }
-    else databaseError = "Go backend board read failed";
-  } else {
-    try {
-      entries = await listProjectBoard(board, {
-        limit: PAGE_SIZE + 1,
-        offset: (page - 1) * PAGE_SIZE,
-      });
-      total = await countProjectBoard(board);
-    } catch (error) {
-      if (!(error instanceof ProjectAnalysisDatabaseError)) throw error;
-      const fallback = await getGoPublicData<{
-        entries: Awaited<ReturnType<typeof listProjectBoard>>;
-        total: number;
-      }>(`/api/project-boards?board=${board}&limit=${PAGE_SIZE + 1}&offset=${(page - 1) * PAGE_SIZE}`);
-      if (fallback) {
-        entries = fallback.entries;
-        total = fallback.total;
-      }
-      else databaseError = error.message;
-    }
+  try {
+    entries = await listProjectBoard(board, {
+      limit: PAGE_SIZE + 1,
+      offset: (page - 1) * PAGE_SIZE,
+    });
+    total = await countProjectBoard(board);
+  } catch (error) {
+    if (!(error instanceof ProjectAnalysisDatabaseError)) throw error;
+    databaseError = error.message;
   }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (page > totalPages) {

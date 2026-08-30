@@ -9,7 +9,9 @@
 
 import { logRatio } from "./score";
 import type {
+  EstimatedContributionLanguages,
   ImpactRepo,
+  OrganizationMaintainedRepo,
   RawMetrics,
   ReadmeFeatures,
   RecentPr,
@@ -161,7 +163,7 @@ interface RestRepo {
   language: string | null;
   description: string | null;
   pushed_at: string | null;
-  owner?: { login?: string } | null;
+  owner?: { login?: string; type?: string } | null;
   // Topics are returned by default on the modern REST repos endpoint; absent on
   // older proxies, so optional. A high-signal official domain label.
   topics?: string[];
@@ -1162,6 +1164,139 @@ async function collectAttributedOriginalRepos(input: {
   );
 
   return repos.filter((repo): repo is TopRepo => repo !== null);
+}
+
+const MAX_ORGANIZATION_MAINTAINED_REPOS = 6;
+
+/**
+ * Public organization-owned repositories the user demonstrably maintains.
+ * Presentation/prompt only — never a score input. A candidate needs the
+ * long-term contribution threshold plus repository-local proof (release/tag
+ * author or an explicit maintainer/CODEOWNERS entry), so mere contributors do
+ * not inherit an organization's portfolio. (Ported from the Go backend's
+ * collectOrganizationMaintainedRepos during the Workers repatriation.)
+ */
+async function collectOrganizationMaintainedRepos(
+  contributions: ContribRepoAgg[],
+  loginLower: string,
+  profileUrl: string | null,
+): Promise<OrganizationMaintainedRepo[]> {
+  const candidates = contributions
+    .filter(
+      (c) =>
+        !c.is_private &&
+        !c.is_fork &&
+        c.owner_login.toLowerCase() !== loginLower &&
+        hasStrongLongTermOrgContribution(c),
+    )
+    .sort((a, b) => {
+      const aWork = a.commits + a.prs * 4;
+      const bWork = b.commits + b.prs * 4;
+      return bWork - aWork || b.stars - a.stars;
+    })
+    .slice(0, MAX_ORGANIZATION_MAINTAINED_REPOS);
+
+  const result: OrganizationMaintainedRepo[] = [];
+  for (const candidate of candidates) {
+    const [owner, name] = candidate.repo.split("/");
+    if (!owner || !name) continue;
+    const detail = await fetchRepoDetails(owner, name);
+    if (
+      !detail ||
+      detail.private ||
+      detail.fork ||
+      detail.owner?.type?.toLowerCase() !== "organization"
+    ) {
+      continue;
+    }
+    const [releaseOrTagAuthor, maintainerFileHit] = await Promise.all([
+      hasReleaseOrTagAuthor(owner, name, loginLower),
+      hasMaintainerFileHit(owner, name, loginLower, profileUrl),
+    ]);
+    if (!releaseOrTagAuthor && !maintainerFileHit) continue;
+    const evidence = [
+      `${candidate.commits} commits + ${candidate.prs} PRs across ${candidate.active_years} years`,
+    ];
+    if (releaseOrTagAuthor) evidence.push("release/tag author");
+    if (maintainerFileHit) evidence.push("listed in maintainer/codeowner docs");
+    const repository = repoToTopRepo(detail, owner);
+    const languages = await fetchRepoLanguages(owner, name).catch(() => []);
+    if (languages.length) repository.languages = languages;
+    result.push({
+      repository,
+      commits: candidate.commits,
+      prs: candidate.prs,
+      active_years: candidate.active_years,
+      evidence,
+    });
+  }
+  return result;
+}
+
+const MAX_CONTRIBUTION_LANGUAGE_REPOS = 50;
+
+function contributionLanguageWorkUnits(c: ContribRepoAgg): number {
+  return Math.max(0, c.commits) + Math.max(0, c.prs) * 4;
+}
+
+/**
+ * Contribution-weighted language estimate from the public commit/landed-PR
+ * aggregation. Presentation-only side channel: repository language bytes
+ * describe the repository, log-scaled user work units decide its influence.
+ * (Ported from the Go backend's collectEstimatedContributionLanguages.)
+ */
+async function collectEstimatedContributionLanguages(
+  contributions: ContribRepoAgg[],
+): Promise<EstimatedContributionLanguages | null> {
+  const candidates = contributions
+    .filter(
+      (c) => c.repo && !c.is_private && !c.is_fork && contributionLanguageWorkUnits(c) > 0,
+    )
+    .sort(
+      (a, b) =>
+        contributionLanguageWorkUnits(b) - contributionLanguageWorkUnits(a) ||
+        b.commits - a.commits ||
+        b.prs - a.prs ||
+        a.repo.toLowerCase().localeCompare(b.repo.toLowerCase()),
+    );
+
+  const candidateRepoCount = candidates.length;
+  const selected = candidates.slice(0, MAX_CONTRIBUTION_LANGUAGE_REPOS);
+
+  const weights = new Map<string, number>();
+  let sampledRepoCount = 0;
+  for (const candidate of selected) {
+    const [owner, name] = candidate.repo.split("/");
+    if (!owner || !name) continue;
+    // Language display must never fail or alter a scored scan.
+    const languages = await fetchRepoLanguages(owner, name).catch(() => []);
+    const languageBytes = languages.reduce((a, l) => a + Math.max(0, l.size), 0);
+    if (languageBytes === 0) continue;
+    const repoWeight = Math.log1p(contributionLanguageWorkUnits(candidate));
+    for (const language of languages) {
+      if (!language.name || language.size <= 0) continue;
+      weights.set(
+        language.name,
+        (weights.get(language.name) ?? 0) + (repoWeight * language.size) / languageBytes,
+      );
+    }
+    sampledRepoCount++;
+  }
+
+  const totalWeight = [...weights.values()].reduce((a, w) => a + w, 0);
+  if (totalWeight === 0) return null;
+  const languages = [...weights.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, weight]) => ({
+      name,
+      pct: Math.round((weight / totalWeight) * 100),
+    }));
+  return {
+    languages,
+    candidate_repo_count: candidateRepoCount,
+    selected_repo_count: selected.length,
+    sampled_repo_count: sampledRepoCount,
+  };
 }
 
 interface PrNode {
@@ -2487,6 +2622,8 @@ export async function collect(username: string): Promise<{
   verified_impact_prs: RecentPr[];
   pinned_repos: string[];
   organizations: string[];
+  organization_maintained_repos?: OrganizationMaintainedRepo[];
+  estimated_contribution_languages?: EstimatedContributionLanguages;
 }> {
   if (!hasGithubToken()) {
     throw new GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.");
@@ -2623,6 +2760,14 @@ export async function collect(username: string): Promise<{
       ]),
     ).values(),
   ];
+  // Display-only side channels (never score inputs), ported from Go:
+  // independently proven org maintenance + contribution-weighted languages.
+  const [organizationMaintainedRepos, estimatedContributionLanguages] = contribRepos
+    ? await Promise.all([
+        collectOrganizationMaintainedRepos(contribRepos, loginLower, user.html_url ?? null),
+        collectEstimatedContributionLanguages(contribRepos),
+      ])
+    : [[], null];
   const attributedOriginalRepoNames = attributedOriginalRepos.map((r) => repoDisplayName(r));
   const attributedOriginalRepoStars = attributedOriginalRepos.reduce(
     (a, r) => a + (r.stars ?? 0),
@@ -2808,5 +2953,11 @@ export async function collect(username: string): Promise<{
     verified_impact_prs: verifiedImpactPrs,
     pinned_repos: pinnedRepos,
     organizations,
+    ...(organizationMaintainedRepos.length
+      ? { organization_maintained_repos: organizationMaintainedRepos }
+      : {}),
+    ...(estimatedContributionLanguages
+      ? { estimated_contribution_languages: estimatedContributionLanguages }
+      : {}),
   };
 }

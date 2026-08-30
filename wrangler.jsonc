@@ -1,0 +1,73 @@
+{
+  // ghfind frontend on Cloudflare Workers via @opennextjs/cloudflare.
+  // Top level = local `wrangler dev`. Deployments always use --env:
+  //   wrangler deploy --env dev         → dev.ghfind.com (noindex, staging data)
+  //   wrangler deploy --env production  → ghfind.com (cutover 阶段1.4; no domain bound yet)
+  // Secrets (TURSO_*, UPSTASH_*, GHFIND_*, TURNSTILE_SECRET_KEY, LLM_*) are set
+  // per-env via `wrangler secret put <NAME> --env <env>`, never in this file.
+  "name": "ghfind",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+  ],
+  "vars": {
+    "GHFIND_DEPLOY_ENV": "development"
+  },
+  "env": {
+    "dev": {
+      "name": "ghfind-dev",
+      // workers.dev stays on for dev: a WAF-free test entrance (the zone's ASN
+      // challenge blocks curl-based smoke from proxy egress IPs).
+      "workers_dev": true,
+      "routes": [
+        { "pattern": "dev.ghfind.com", "custom_domain": true }
+      ],
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview",
+        // Explicit: OpenNext bakes .env values (localhost) into the bundle as
+        // fallbacks; bindings must win for anything origin-derived.
+        "PUBLIC_SITE_URL": "https://dev.ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://dev.ghfind.com"
+      }
+    },
+    "production": {
+      "name": "ghfind",
+      // workers.dev is a WAF-free verification entrance (zone rules only apply
+      // to the custom domain); disable it once the parallel-run window closes.
+      "workers_dev": true,
+      "routes": [
+        { "pattern": "ghfind.com", "custom_domain": true }
+      ],
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production",
+        // site.ts fails closed in production unless both are set and equal.
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com"
+      }
+    }
+  }
+}

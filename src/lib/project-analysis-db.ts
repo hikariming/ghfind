@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createClient, type Client, type InValue } from "@libsql/client";
+import { createClient, type Client, type InValue } from "@libsql/client/web";
+import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import {
   projectAnalysisArtifactSchema,
   type ProjectAnalysisArtifact,
@@ -136,6 +137,13 @@ let eligibilityReady: Promise<void> | null = null;
 
 function database(): Client {
   if (client) return client;
+  const d1 = getD1Binding();
+  if (d1) {
+    client = d1AsLibsqlClient(d1);
+    // D1 schema is owned by wrangler migrations; never run runtime DDL there.
+    schemaReady = Promise.resolve();
+    return client;
+  }
   const url = process.env.TURSO_DATABASE_URL?.trim();
   if (!url) {
     throw new ProjectAnalysisDatabaseError(

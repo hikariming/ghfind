@@ -5,8 +5,7 @@ import {
   ProjectAssessmentCard,
   type ProjectAssessmentCardLabels,
 } from "@/components/ProjectAssessmentCard";
-import { getGoPublicData } from "@/lib/go-backend.server";
-import type { ProjectAssessment } from "@/lib/project-analysis-db";
+import { listProjectBoard, type ProjectAssessment } from "@/lib/project-analysis-db";
 import { HOME_MOCK_ASSESSMENTS } from "@/lib/home-mocks";
 
 const PREVIEW_LIMIT = 8;
@@ -14,19 +13,21 @@ const PREVIEW_LIMIT = 8;
 /**
  * Homepage "project assessment" band — previews the top of the treasure
  * board (falling back to the all-analyses list while the board is small) as a
- * horizontal strip of the same assessment cards /projects uses. Reads Go
- * through an ISR-cached fetch so it survives the force-static homepage
- * prerender.
+ * horizontal strip of the same assessment cards /projects uses. Reads Turso
+ * directly at prerender; the homepage's revalidate window bounds freshness,
+ * matching the 1h ISR fetch this replaced.
  */
 export async function HomeProjectBoards({ locale }: { locale: string }) {
   const t = await getTranslations("projectBoards");
   let entries: ProjectAssessment[] = [];
   for (const board of ["treasure", "all"] as const) {
-    const data = await getGoPublicData<{ entries: ProjectAssessment[] }>(
-      `/api/project-boards?board=${board}&limit=${PREVIEW_LIMIT}&offset=0`,
-      { revalidate: 3600 },
-    );
-    entries = data?.entries ?? [];
+    try {
+      entries = await listProjectBoard(board, { limit: PREVIEW_LIMIT, offset: 0 });
+    } catch {
+      // Best-effort band: a board read failure must not take down the
+      // homepage render, same as the old null-on-failure fetch.
+      entries = [];
+    }
     // The treasure board is the editorial surface; only fall back to the
     // unranked list while treasure has too few entries to fill a strip.
     if (entries.length >= 4 || board === "all") break;

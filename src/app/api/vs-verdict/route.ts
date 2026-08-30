@@ -1,40 +1,87 @@
-import { createHmac } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { checkBotId } from "botid/server";
-import { goBackendOrigin } from "@/lib/go-backend.server";
+import { getAccountDetail, recordMatchup, bumpMatchupView } from "@/lib/db";
+import { verdict } from "@/lib/verdict";
+import { normalizeUsername } from "@/lib/username";
+import { VS_MIN_SCORE } from "@/lib/site";
+import { buildPkVerdictMessages, parsePkVerdict } from "@/lib/prompt";
+import { defaultLlmConfig, fallbackLlmConfig, getCompletionWithFallback } from "@/lib/llm";
+import type { LlmConfig } from "@/lib/llm";
+import { verifyTurnstile } from "@/lib/turnstile";
+import {
+  acquireVerdictLock,
+  checkVerdictRateLimit,
+  getCachedVerdict,
+  rateLimitHeaders,
+  releaseVerdictLock,
+  setCachedVerdict,
+  waitForCachedVerdict,
+  type CachedVerdict,
+} from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-function clientIp(request: NextRequest): string {
-  const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.trim();
-  if (vercelForwarded) return vercelForwarded.split(",")[0]?.trim() || "0.0.0.0";
-  return "unknown";
+function clientIp(req: NextRequest): string {
+  const cfConnecting = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfConnecting) return cfConnecting;
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
+}
+
+/** Normalize + canonicalize (lowercased, dictionary order) a pair, or null. */
+function canonicalize(a: string, b: string): { a: string; b: string } | null {
+  const na = normalizeUsername(a);
+  const nb = normalizeUsername(b);
+  if (!na || !nb || na.toLowerCase() === nb.toLowerCase()) return null;
+  const [x, y] = [na.toLowerCase(), nb.toLowerCase()].sort();
+  return { a: x, b: y };
 }
 
 /**
- * Vercel BotID needs the platform request context, so this is intentionally
- * the one verification gateway that cannot be a transparent rewrite. It owns
- * no validation, rate limiting, data access, cache/lock, prompt, or LLM work:
- * after BotID it forwards the exact request body to Go with an HMAC-bound
- * client identity. The Go API rejects direct Railway calls without it.
+ * Generate (or return the cached) bilingual LLM PK verdict + self-improvement
+ * advice for a matchup. Auto-fired by the /vs page on mount, so crawlers that
+ * run JS reach it too — the Turnstile human-check (x-turnstile-token, verified
+ * server-side; formerly Vercel BotID, then a Go HMAC gateway — both retired in
+ * the Workers repatriation) gates them before anything is written or spent.
+ * Guardrails: both sides must clear VS_MIN_SCORE, per-IP rate limit,
+ * single-flight lock, and a ~5-day cache — so one pair costs at most one LLM
+ * call per window. The matchup row + view count are written only after the bot
+ * and floor gates: probe traffic and junk pairs used to cost two Turso writes
+ * per request before either check ran.
  */
-export async function POST(request: NextRequest) {
-  const origin = goBackendOrigin();
-  const gatewaySecret = process.env.GHFIND_VERDICT_GATEWAY_SECRET?.trim();
-  if (!origin || !gatewaySecret) {
+export async function POST(req: NextRequest) {
+  let body: { a?: string; b?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+  }
+
+  const pair = canonicalize(body.a ?? "", body.b ?? "");
+  if (!pair) return NextResponse.json({ error: "invalid_pair" }, { status: 400 });
+  const { a, b } = pair;
+
+  // Enforce the request budget before the human-check and every Turso
+  // read/write. The cached verdict is already present in the SSR page, so a
+  // retry that exceeds the budget can safely keep rendering the deterministic
+  // fallback.
+  const ip = clientIp(req);
+  const limit = await checkVerdictRateLimit(ip);
+  if (!limit.success) {
     return NextResponse.json(
+      { verdict: null, reason: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
       {
-        error: "backend_not_configured",
-        message: "The Go verdict gateway is not configured for this deployment.",
+        status: limit.unavailable ? 503 : 429,
+        headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" },
       },
-      { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "15" } },
     );
   }
 
-  const verification = await checkBotId();
-  if (verification.isBot && !verification.isVerifiedBot) {
+  const humanOk = await verifyTurnstile(
+    req.headers.get("x-turnstile-token"),
+    ip === "0.0.0.0" ? undefined : ip,
+  );
+  if (!humanOk) {
     return NextResponse.json(
       {
         error: "bot_detected",
@@ -44,38 +91,86 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.text();
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const principal = clientIp(request);
-  const signature = createHmac("sha256", gatewaySecret)
-    .update(`${timestamp}\n${principal}\n${body}`, "utf8")
-    .digest("hex");
+  const [da, db] = await Promise.all([getAccountDetail(a), getAccountDetail(b)]);
+  if (!da || !db) {
+    return NextResponse.json({ error: "need_both", verdict: null }, { status: 404 });
+  }
+
+  const v = verdict(da, db);
+  const winner = v.winner === "tie" ? null : v.winner === "a" ? da.username : db.username;
+  const base = {
+    a,
+    b,
+    winner,
+    bucket: v.bucket,
+    gap: v.gap,
+    scoreA: da.final_score,
+    scoreB: db.final_score,
+  };
+
+  // Floor gate: below VS_MIN_SCORE we don't spend the model — page keeps the
+  // deterministic template line. Runs before the writes so junk pairs no longer
+  // mint matchup rows or view counts.
+  if (da.final_score < VS_MIN_SCORE || db.final_score < VS_MIN_SCORE) {
+    return NextResponse.json({ verdict: null, reason: "below_floor" });
+  }
+
+  // Ensure a row exists (deterministic result) + count the human view. Never
+  // overwrites an existing LLM verdict (recordMatchup COALESCEs).
+  await recordMatchup({ ...base, source: "template" });
+  await bumpMatchupView(a, b);
+
+  // Cache hit → no LLM.
+  const cached = await getCachedVerdict(a, b);
+  if (cached) {
+    return NextResponse.json({
+      verdict: cached.verdict,
+      advice: cached.advice,
+      winner: cached.winner,
+      bucket: cached.bucket,
+    });
+  }
+
+  const configs = [defaultLlmConfig(), fallbackLlmConfig()].filter(
+    (c): c is LlmConfig => c !== null,
+  );
+  if (!configs.length) return NextResponse.json({ verdict: null, reason: "no_llm" });
+
+  // Single-flight: only the leader spends the LLM; others wait for its result.
+  const leader = await acquireVerdictLock(a, b);
+  if (!leader) {
+    const waited = await waitForCachedVerdict(a, b);
+    if (waited) {
+      return NextResponse.json({
+        verdict: waited.verdict,
+        advice: waited.advice,
+        winner: waited.winner,
+        bucket: waited.bucket,
+      });
+    }
+    // Fall through and generate ourselves rather than starve.
+  }
 
   try {
-    const response = await fetch(`${origin}/api/internal/vs-verdict`, {
-      method: "POST",
-      body,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": request.headers.get("content-type") || "application/json",
-        "X-Ghfind-Gateway-Timestamp": timestamp,
-        "X-Ghfind-Client-IP": principal,
-        "X-Ghfind-Gateway-Signature": signature,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(110_000),
+    const messages = buildPkVerdictMessages(da, db, v);
+    const raw = await getCompletionWithFallback(configs, messages, {
+      deadlineMs: Date.now() + 100_000,
+      // Fresh per-provider window so a stalled primary leaves the DeepSeek
+      // fallback a real budget instead of the shared-deadline scraps.
+      attemptBudgetMs: 45_000,
     });
-    const headers = new Headers();
-    for (const name of ["cache-control", "retry-after", "ratelimit-limit", "ratelimit-remaining", "ratelimit-reset"]) {
-      const value = response.headers.get(name);
-      if (value) headers.set(name, value);
+    const { verdict: verdictLine, advice } = parsePkVerdict(raw);
+    if (!verdictLine.zh && !verdictLine.en) {
+      return NextResponse.json({ verdict: null, reason: "empty" });
     }
-    headers.set("Content-Type", response.headers.get("content-type") || "application/json; charset=utf-8");
-    return new NextResponse(response.body, { status: response.status, headers });
-  } catch {
-    return NextResponse.json(
-      { verdict: null, reason: "failed" },
-      { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "15" } },
-    );
+    const value: CachedVerdict = { verdict: verdictLine, advice, winner, bucket: v.bucket };
+    await setCachedVerdict(a, b, value);
+    await recordMatchup({ ...base, verdict: verdictLine, advice, source: "llm" });
+    return NextResponse.json({ verdict: verdictLine, advice, winner, bucket: v.bucket });
+  } catch (e) {
+    console.error("vs-verdict failed:", e);
+    return NextResponse.json({ verdict: null, reason: "failed" });
+  } finally {
+    if (leader) await releaseVerdictLock(a, b);
   }
 }

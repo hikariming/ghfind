@@ -1,20 +1,252 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { notifyCampaignCardGenerated } from "@/lib/campaign-notify";
+import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
+import {
+  hasLegacyReadFallbackProfile,
+  getLegacyReadFallbackScan,
+  publishCompleteQuickScan,
+  recordAccountLookup,
+  recordCampaignParticipant,
+} from "@/lib/db";
+import {
+  checkRateLimit,
+  checkScanNetworkRateLimit,
+  coalesceScan,
+  getCachedScan,
+  rateLimitHeaders,
+} from "@/lib/redis";
+import {
+  attachAnonymousSession,
+  establishAnonymousSession,
+  type AnonymousSession,
+} from "@/lib/anonymous-session";
+import { apiError } from "@/lib/api-error";
+import { machineAuth } from "@/lib/machine-auth";
+import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
+import { verifyTurnstile } from "@/lib/turnstile";
+import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+function clientIp(req: NextRequest): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  return fwd?.split(",")[0]?.trim() || "0.0.0.0";
+}
+
+function idempotencyHeaders(req: NextRequest): Record<string, string> {
+  const key = req.headers.get("idempotency-key");
+  return key ? { "Idempotency-Key": key } : {};
+}
+
+function scorePersistenceUnavailable(headers: Record<string, string>) {
+  return apiError("scan_failed", {
+    status: 503,
+    message: "score persistence is temporarily unavailable",
+    hint: "Retry later; no incomplete score was published.",
+    headers: {
+      ...headers,
+      "Cache-Control": "no-store",
+      "Retry-After": "5",
+    },
+  });
+}
+
+class ScorePersistenceError extends Error {}
+
+async function persistQuickScan(
+  scan: import("@/lib/types").ScanResult,
+  scannedAt: number,
+): Promise<boolean> {
+  try {
+    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
+  } catch {
+    console.error("publishCompleteQuickScan failed");
+    return false;
+  }
+}
+
+async function recordSuccessfulLookup(
+  username: string,
+  ip: string,
+  campaign: CampaignSlug | null,
+): Promise<void> {
+  const [, newlyJoined] = await Promise.all([
+    recordAccountLookup(username, ip),
+    campaign ? recordCampaignParticipant(campaign, username) : Promise.resolve(false),
+  ]);
+  if (campaign && newlyJoined) {
+    // Operator mail rides after the response; a slow SMTP hop must not add
+    // latency to the scan result the participant is staring at.
+    after(() => notifyCampaignCardGenerated(campaign, username));
+  }
+}
 
 /**
- * POST /api/scan is Go-owned through the same-origin rewrite in next.config.ts.
- * This guard deliberately contains no authentication, cache, GitHub, scoring,
- * or Turso fallback logic: accepting a scan here would split the durable job
- * contract between two runtimes during a deployment misconfiguration.
+ * A verified v5/v5/v3 profile is only an emergency read fallback. Successful
+ * current quick scans always win and immediately refresh the v9 profile.
  */
-export function POST() {
+async function legacyReadFallbackResponse(input: {
+  scan: import("@/lib/types").ScanResult;
+  headers: Record<string, string>;
+}) {
   return NextResponse.json(
-    { error: "backend_not_configured" },
     {
-      status: 503,
-      headers: { "Cache-Control": "no-store", "Retry-After": "15" },
+      ...input.scan,
+      cached: true,
+      coverage: "legacy",
+      stale: true,
+      legacy_read_fallback: true,
+      served_score_version: LEGACY_READ_FALLBACK.score,
+      served_roast_version: LEGACY_READ_FALLBACK.roast,
+      served_collection_version: LEGACY_READ_FALLBACK.collection,
+      target_score_version: RUNTIME_RELEASE_VERSIONS.score,
+      target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
+      target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
     },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
   );
+}
+
+async function legacyReadFallbackProfileResponse(input: {
+  username: string;
+  headers: Record<string, string>;
+}) {
+  return NextResponse.json(
+    {
+      username: input.username,
+      cached: true,
+      stale: true,
+      legacy_read_fallback: true,
+      legacy_profile: true,
+      served_score_version: LEGACY_READ_FALLBACK.score,
+      served_roast_version: LEGACY_READ_FALLBACK.roast,
+      served_collection_version: LEGACY_READ_FALLBACK.collection,
+      target_score_version: RUNTIME_RELEASE_VERSIONS.score,
+      target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
+      target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
+    },
+    { headers: { ...input.headers, "Cache-Control": "no-store" } },
+  );
+}
+
+function immediateResponse(input: {
+  scan: import("@/lib/types").ScanResult;
+  cached: boolean;
+  headers: Record<string, string>;
+}) {
+  return NextResponse.json(
+    {
+      ...input.scan,
+      cached: input.cached,
+      // The bounded collector is the product contract. It never waits for a
+      // second full-history pass before scoring or roasting the account.
+      coverage: "quick",
+    },
+    { headers: input.headers },
+  );
+}
+
+export async function POST(req: NextRequest) {
+  const idem = idempotencyHeaders(req);
+  let body: { username?: unknown; turnstileToken?: unknown; campaign?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return apiError("invalid_body", { status: 400, headers: idem });
+  }
+
+  const username = normalizeUsername(body.username);
+  if (!username) return apiError("invalid_username", { status: 400, headers: idem });
+
+  const campaign = campaignSlug(body.campaign);
+  if (body.campaign !== undefined && !campaign) {
+    return apiError("invalid_body", { status: 400, headers: idem });
+  }
+
+  const ip = clientIp(req);
+  const auth = machineAuth(req);
+  if (auth === "invalid") return apiError("unauthorized", { status: 401, headers: idem });
+  let anonymousSession: AnonymousSession | null = null;
+  if (auth === "absent") {
+    const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+    if (!(await verifyTurnstile(token, ip))) {
+      return apiError("turnstile_failed", { status: 403, headers: idem });
+    }
+    anonymousSession = establishAnonymousSession(req);
+  }
+
+  const principal = auth === "absent" && anonymousSession ? `anon:${anonymousSession.id}` : ip;
+  const limit = await checkRateLimit(principal);
+  const rlHeaders = rateLimitHeaders(limit);
+  if (!limit.success) {
+    return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
+      status: limit.unavailable ? 503 : 429,
+      headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
+    });
+  }
+  const networkLimit = await checkScanNetworkRateLimit(ip);
+  if (!networkLimit.success) {
+    return apiError(networkLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
+      status: networkLimit.unavailable ? 503 : 429,
+      headers: { ...idem, ...rateLimitHeaders(networkLimit), "Cache-Control": "no-store" },
+    });
+  }
+
+  // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
+  // fresh snapshot immediately; admission/rate limits above still apply.
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  const cached = force ? null : await getCachedScan(username);
+  if (cached) {
+    // The cached snapshot was persisted by its producing quick scan. Replaying
+    // it must remain read-only: publishing it again with Date.now() would make
+    // an old score look freshly scanned and reset the UI's rescan cooldown.
+    await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
+    return attachAnonymousSession(
+      immediateResponse({ scan: cached, cached: true, headers: { ...idem, ...rlHeaders } }),
+      anonymousSession,
+    );
+  }
+
+  try {
+    const result = await coalesceScan(username, async () => {
+      const scannedAt = Date.now();
+      const quickScan = await buildScanResult(username);
+      if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
+      return quickScan;
+    });
+    await recordSuccessfulLookup(result.metrics.username, ip, campaign);
+    return attachAnonymousSession(
+      immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),
+      anonymousSession,
+    );
+  } catch (error) {
+    if (error instanceof ScorePersistenceError) {
+      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
+    }
+    const legacyScan = await getLegacyReadFallbackScan(username);
+    if (legacyScan) {
+      return attachAnonymousSession(
+        await legacyReadFallbackResponse({ scan: legacyScan, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
+    }
+    if (await hasLegacyReadFallbackProfile(username)) {
+      return attachAnonymousSession(
+        await legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
+    }
+    const { error: code, status, retry_after } = scanErrorResponse(error);
+    return apiError(code as Parameters<typeof apiError>[0], {
+      status,
+      headers: {
+        ...idem,
+        ...rlHeaders,
+        ...(retry_after ? { "Retry-After": String(retry_after) } : {}),
+      },
+    });
+  }
 }

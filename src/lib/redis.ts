@@ -10,6 +10,7 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { deployEnv } from "@/lib/deploy-env";
 import {
   bypassGeneratedCaches,
   ROAST_CACHE_VERSION,
@@ -52,10 +53,12 @@ export const RATE_LIMIT_UNAVAILABLE_RETRY_AFTER_SECONDS = 15;
 const LIMITER_UNAVAILABLE_LOG_INTERVAL_MS = 60_000;
 const limiterUnavailableLogAt = new Map<string, number>();
 
+// Rate limiting fails CLOSED on production outages (see unavailableRateLimitResult)
+// — this check must recognize production on every platform we deploy to.
 function isProductionDeployment(): boolean {
   return (
-    process.env.VERCEL_ENV === "production" ||
-    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
+    deployEnv() === "production" ||
+    (process.env.NODE_ENV === "production" && deployEnv() !== "preview")
   );
 }
 

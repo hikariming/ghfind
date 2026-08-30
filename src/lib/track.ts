@@ -45,31 +45,46 @@ export type TrackEvent =
 type VaWindow = Window & {
   va?: (...params: unknown[]) => void;
   vaq?: unknown[][];
+  gtag?: (...params: unknown[]) => void;
 };
 
 /**
- * Thin, typed wrapper over Vercel Analytics `track()`. Client-only (the underlying
- * API no-ops on the server) and swallows failures so a blocked analytics script
- * never breaks a click handler. GA4 pageview autotracking is untouched — this only
- * adds the custom interaction events the growth surfaces need.
+ * True on Vercel builds; Cloudflare builds set
+ * `NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare` at build time. Gates the
+ * Vercel Analytics transport (its /_vercel/insights ingestion only exists on
+ * Vercel) — with no <Analytics/> to drain it, the va queue would only leak.
+ */
+export const ON_VERCEL =
+  process.env.NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM !== "cloudflare";
+
+/**
+ * Thin, typed wrapper over the analytics transports. Client-only and swallows
+ * failures so a blocked analytics script never breaks a click handler.
+ *
+ * Events go to GA4 (`gtag`, loaded in the root layout on every platform) and —
+ * on Vercel builds only — also to Vercel Analytics `track()`, so dashboards
+ * stay comparable across the Cloudflare migration window. GA4 pageview
+ * autotracking is untouched; this only adds the custom interaction events the
+ * growth surfaces need.
  */
 export function trackEvent(
   name: TrackEvent,
   props?: Record<string, string | number | boolean>,
 ): void {
   try {
+    if (typeof window === "undefined") return;
+    const w = window as VaWindow;
+    w.gtag?.("event", name, props ?? {});
+    if (!ON_VERCEL) return;
     // Mount-time events (e.g. badge_banner_view in a useEffect) can fire before
     // <Analytics/> — a root-layout effect that runs AFTER child effects — has
     // seeded window.va. The package's track() is `window.va?.(…)`, so those
     // events are silently dropped. Seed the same queue stub initQueue() would,
     // so early events buffer in window.vaq until the script drains them.
-    if (typeof window !== "undefined") {
-      const w = window as VaWindow;
-      if (!w.va) {
-        w.va = (...params: unknown[]) => {
-          (w.vaq ??= []).push(params);
-        };
-      }
+    if (!w.va) {
+      w.va = (...params: unknown[]) => {
+        (w.vaq ??= []).push(params);
+      };
     }
     track(name, props);
   } catch {
