@@ -20,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { CopyBadge } from "./CopyBadge";
 import { ShareMenu } from "./ShareMenu";
-import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
 import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
@@ -388,7 +387,6 @@ export function Roaster({
       </div>
 
       <div className="mt-3 flex flex-col items-center gap-3">
-        <SponsorPill large />
         {!campaign ? (
           <div className="flex items-center gap-1.5 text-xs">
             <a
