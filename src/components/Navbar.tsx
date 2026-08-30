@@ -8,6 +8,7 @@ import { MobileMenu } from "./MobileMenu";
 import { BrandMark } from "./BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { SponsorStrip } from "./Sponsor";
 
 /**
  * Site-wide top bar. Keep the public-site feel: plain brand on the left, normal
@@ -21,6 +22,7 @@ export async function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-white/[0.03] backdrop-blur-xl">
+      <SponsorStrip />
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-6 px-5 sm:px-6">
         <Link
           href="/"
