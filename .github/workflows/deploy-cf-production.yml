@@ -1,0 +1,56 @@
+name: Deploy production (Cloudflare)
+
+# Replaces the retired Vercel/Railway gate: ghfind.com is now served by the
+# Next-on-Workers (OpenNext) build. A push to main runs the exact same command
+# as a manual release — build, `wrangler deploy --env production`, and R2
+# incremental-cache population — against the merged commit.
+#
+# Required GitHub secrets:
+# - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
+# - CF_ACCOUNT_ID — Cloudflare account ID
+
+on:
+  push:
+    branches: [main]
+  # Manual escape hatch when a push trigger is lost.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cf-production-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to Cloudflare Workers (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # No `version:` — pnpm/action-setup reads packageManager from
+      # package.json (pnpm@11.24.0); pinning a second version here breaks the
+      # setup step with ERR_PNPM_BAD_PM_VERSION.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy (build + wrangler deploy --env production + populateCache)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: pnpm cf:deploy:prod
