@@ -7,6 +7,8 @@ export interface SiteUrlEnvironment {
   NEXT_PUBLIC_SITE_URL?: string;
   PUBLIC_SITE_URL?: string;
   VERCEL_ENV?: string;
+  /** Platform-neutral deployment env (Cloudflare); wins over VERCEL_ENV. */
+  GHFIND_DEPLOY_ENV?: string;
 }
 
 function configuredValue(value: string | undefined): string | null {
@@ -45,10 +47,11 @@ function isLocalHostname(hostname: string): boolean {
 export function resolveSiteUrl(environment: SiteUrlEnvironment): string {
   const nextPublicRaw = configuredValue(environment.NEXT_PUBLIC_SITE_URL);
   const publicRaw = configuredValue(environment.PUBLIC_SITE_URL);
-  const production = environment.VERCEL_ENV === "production";
+  const production =
+    (environment.GHFIND_DEPLOY_ENV || environment.VERCEL_ENV) === "production";
 
   if (production && (!nextPublicRaw || !publicRaw)) {
-    throw new Error("Vercel production requires NEXT_PUBLIC_SITE_URL and PUBLIC_SITE_URL");
+    throw new Error("Production requires NEXT_PUBLIC_SITE_URL and PUBLIC_SITE_URL");
   }
 
   const nextPublic = nextPublicRaw

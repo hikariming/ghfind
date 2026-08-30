@@ -4,9 +4,9 @@
  * ImageResponse wrapper. Kept in one place so both routes stay consistent (same
  * fonts, same long CDN cache) instead of copying the boilerplate.
  */
-import { readFile } from "node:fs/promises";
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
+import assets from "@/generated/embedded-assets.json";
 import { SITE_URL } from "@/lib/site";
 import { H, W } from "./[username]/cards";
 
@@ -16,17 +16,15 @@ export const CDN_CACHE =
 
 type FontList = { name: string; data: Buffer; weight: 400 | 800; style: "normal" }[];
 
-// Module-cache the (tiny, ~30KB each) Latin fonts across warm invocations.
+// The (tiny, ~30KB each) Latin fonts ship base64-embedded in the bundle —
+// runtimes without a filesystem (Workers) can't read the .woff files.
+// Module-cache the decoded buffers across warm invocations.
 let fontCache: FontList | null = null;
 export async function fonts(): Promise<FontList> {
   if (fontCache) return fontCache;
-  const [regular, bold] = await Promise.all([
-    readFile(new URL("./fonts/Inter-Regular.woff", import.meta.url)),
-    readFile(new URL("./fonts/Inter-ExtraBold.woff", import.meta.url)),
-  ]);
   fontCache = [
-    { name: "Inter", data: regular, weight: 400, style: "normal" },
-    { name: "Inter", data: bold, weight: 800, style: "normal" },
+    { name: "Inter", data: Buffer.from(assets.fonts.interRegular, "base64"), weight: 400, style: "normal" },
+    { name: "Inter", data: Buffer.from(assets.fonts.interExtraBold, "base64"), weight: 800, style: "normal" },
   ];
   return fontCache;
 }

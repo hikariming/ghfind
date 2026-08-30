@@ -1,6 +1,7 @@
 "use client";
 
 import { Analytics } from "@vercel/analytics/next";
+import { ON_VERCEL } from "@/lib/track";
 
 /**
  * Headless browsers (scraper farms on rotating proxies) execute our JS and were
@@ -8,6 +9,10 @@ import { Analytics } from "@vercel/analytics/next";
  * automation almost always carries `navigator.webdriver === true` (Puppeteer /
  * Playwright / Selenium defaults), so drop those events before they are sent.
  * Stealth-patched bots slip through here — the WAF ASN rules are the second net.
+ *
+ * On Cloudflare builds (NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare) the
+ * Vercel ingestion path (/_vercel/insights) does not exist, so <Analytics/> is
+ * not mounted at all; custom events flow through the GA4 channel in track.ts.
  *
  * SpeedInsights was removed 2026-07-15: stealth bots bypass the webdriver check,
  * so its per-data-point billing mostly measured farm traffic ($8.45/cycle), and
@@ -19,5 +24,6 @@ function isAutomated(): boolean {
 }
 
 export default function AnalyticsGate() {
+  if (!ON_VERCEL) return null;
   return <Analytics beforeSend={(event) => (isAutomated() ? null : event)} />;
 }

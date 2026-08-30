@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
+import { isProductionDeployment } from "@/lib/deploy-env";
 
 export const ANONYMOUS_SESSION_COOKIE = "ghfind_anonymous_session";
 
@@ -98,7 +99,7 @@ export function attachAnonymousSession<T extends NextResponse>(
     value: session.value,
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production",
+    secure: process.env.NODE_ENV === "production" || isProductionDeployment(),
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   });

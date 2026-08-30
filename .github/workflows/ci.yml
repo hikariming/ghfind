@@ -36,18 +36,13 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.12.1
+          version: 11.24.0
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Use Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23.x"
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
@@ -71,17 +66,11 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Test Go API and worker
-        run: go test ./...
-
       - name: Self-test deployment smoke
         run: pnpm smoke:deployment:selftest
 
-      - name: Self-test backend async smoke
-        run: pnpm smoke:backend:async:selftest
-
-      - name: Self-test backend resilience smoke
-        run: pnpm smoke:backend:resilience:selftest
-
       - name: Production build
         run: pnpm build
+
+      - name: Cloudflare Worker build
+        run: pnpm cf:build:prod

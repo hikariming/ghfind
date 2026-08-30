@@ -2,64 +2,36 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const GO_REWRITE_SOURCES = [
-  "/api/stats",
-  "/api/search-users",
-  "/api/leaderboard",
-  "/api/developers",
-  "/api/projects",
-  "/api/projects/:path*",
-  "/api/profile/:path*",
-  "/api/embed/:path*",
-  "/api/sitemap",
-  "/api/facet-rank/:path*",
-  "/api/score/:path*",
-  "/api/vs/:path*",
-  "/api/campaigns/:path*",
-  "/api/scan/jobs/:path*",
-  "/api/scan",
-  "/api/roast",
-  "/api/project-analyses",
-  "/api/project-analyses/:path*",
-  "/api/me",
-  "/api/auth/:path*",
-  "/api/follows",
-  "/api/follows/:path*",
-  "/api/profile-comments/:path*",
-  "/api/profile-reactions/:path*",
-  "/api/blog-comments/:path*",
-  "/api/collection-comments/:path*",
-  "/api/internal/:path*",
-  "/api/admin/:path*",
-  "/mcp",
-];
-
-const NEXT_API_GUARDS = new Set([
-  "src/app/api/auth/[...nextauth]/route.ts",
-  "src/app/api/blog-comments/[slug]/route.ts",
-  "src/app/api/campaigns/[campaign]/leaderboard/events/route.ts",
-  "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
-  "src/app/api/collection-comments/[slug]/route.ts",
-  "src/app/api/developers/route.ts",
-  "src/app/api/facet-rank/[username]/route.ts",
-  "src/app/api/follows/[username]/route.ts",
-  "src/app/api/follows/route.ts",
-  "src/app/api/leaderboard/route.ts",
+/**
+ * Post-repatriation route registry (阶段2 complete, 2026-08-29). The Go
+ * backend extraction is fully reversed: every API surface is served in-app on
+ * Cloudflare Workers, and next.config.ts carries no backend-origin rewrites.
+ * The registry keeps the old discipline — a new route file must be reviewed
+ * and listed here, so nothing ships as an unclassified public surface.
+ */
+const REVIEWED_NEXT_API_ROUTES = new Set([
+  "src/app/api/[...notFound]/route.ts",
+  "src/app/api/badge/[username]/route.ts",
+  "src/app/api/auth/github/route.ts",
+  "src/app/api/auth/callback/github/route.ts",
+  "src/app/api/auth/signout/route.ts",
   "src/app/api/me/route.ts",
+  "src/app/api/roast/route.ts",
+  "src/app/api/scan/route.ts",
+  "src/app/api/blog-comments/[slug]/route.ts",
+  "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
+  "src/app/api/campaigns/[campaign]/leaderboard/events/route.ts",
+  "src/app/api/collection-comments/[slug]/route.ts",
+  "src/app/api/follows/route.ts",
+  "src/app/api/follows/[username]/route.ts",
   "src/app/api/profile-comments/[username]/route.ts",
   "src/app/api/profile-reactions/[username]/route.ts",
-  "src/app/api/roast/route.ts",
-  "src/app/api/scan/jobs/[id]/route.ts",
-  "src/app/api/scan/route.ts",
+  "src/app/api/developers/route.ts",
+  "src/app/api/facet-rank/[username]/route.ts",
+  "src/app/api/leaderboard/route.ts",
   "src/app/api/score/[username]/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
-]);
-
-const REVIEWED_NEXT_API_ROUTES = new Set([
-  ...NEXT_API_GUARDS,
-  "src/app/api/[...notFound]/route.ts",
-  "src/app/api/badge/[username]/route.ts",
   "src/app/api/card/[username]/route.tsx",
   "src/app/api/card/mini/[username]/route.ts",
   "src/app/api/card/vs/[a]/[b]/route.tsx",
@@ -71,6 +43,12 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/project-analyses/route.ts",
   "src/app/api/route.ts",
   "src/app/api/vs-verdict/route.ts",
+  // 阶段2 B5c (2026-08-29): admin backfills repatriated from Go.
+  "src/app/api/admin/backfill-facets/route.ts",
+  "src/app/api/admin/backfill-profiles/route.ts",
+  "src/app/api/admin/backfill-repos/route.ts",
+  "src/app/api/admin/backfill-scores/route.ts",
+  "src/app/api/profile/backfill/route.ts",
 ]);
 
 function collectRouteFiles(dir: string): string[] {
@@ -88,25 +66,11 @@ function collectRouteFiles(dir: string): string[] {
 }
 
 describe("backend route ownership", () => {
-  it("rewrites every Go-owned same-origin route to the backend origin", () => {
+  it("carries no backend-origin rewrites after the repatriation", () => {
     const config = readFileSync("next.config.ts", "utf8");
 
-    expect(config).toContain("beforeFiles:");
-    expect(config).toContain("these rewrites must win");
-    for (const source of GO_REWRITE_SOURCES) {
-      expect(config, `missing rewrite for ${source}`).toContain(`source: "${source}"`);
-    }
-  });
-
-  it("keeps Go-owned Next fallbacks as fail-closed guards", () => {
-    for (const file of NEXT_API_GUARDS) {
-      const source = readFileSync(file, "utf8");
-
-      expect(source, `${file} must fail closed`).toContain("backend_not_configured");
-      expect(source, `${file} must avoid cacheable failures`).toContain('"Cache-Control": "no-store"');
-      expect(source, `${file} must tell clients to retry after backend cutover fixes`).toContain('"Retry-After": "15"');
-      expect(source, `${file} must not proxy or execute business work`).not.toContain("fetch(");
-    }
+    expect(config).not.toContain("beforeFiles");
+    expect(config).not.toContain("GHFIND_BACKEND_ORIGIN");
   });
 
   it("requires every Next API route to be explicitly classified", () => {

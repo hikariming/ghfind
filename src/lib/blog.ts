@@ -1,10 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
 import matter from "gray-matter";
 import { HTML_LANG, routing } from "@/i18n/routing";
+import { contentFileExists, listContentDir, readContentFile } from "@/lib/content-files";
 
 /**
- * Filesystem blog loader. Posts live in `content/blog/<slug>/<locale>.md` —
+ * Blog loader over the embedded content map (`@/lib/content-files` — no
+ * runtime filesystem, so it works on Workers and inside ISR revalidation).
+ * Posts live in `content/blog/<slug>/<locale>.md` —
  * `en.md` is required and is the source of truth for locale-invariant
  * frontmatter (`date`, `updated`, `tags`), so translations can never drift on
  * those fields. Translated files only own `title`/`description`/body.
@@ -17,7 +18,6 @@ import { HTML_LANG, routing } from "@/i18n/routing";
  * engines never index duplicate English content twice.
  */
 
-const BLOG_DIR = path.join(process.cwd(), "content", "blog");
 
 export type PostMeta = {
   slug: string;
@@ -38,34 +38,28 @@ export type PostMeta = {
 export type Post = PostMeta & { body: string };
 
 export function getPostSlugs(): string[] {
-  if (!fs.existsSync(BLOG_DIR)) return [];
-  return fs
-    .readdirSync(BLOG_DIR, { withFileTypes: true })
-    .filter(
-      (d) => d.isDirectory() && fs.existsSync(path.join(BLOG_DIR, d.name, "en.md")),
-    )
-    .map((d) => d.name);
+  return listContentDir("blog").filter((slug) =>
+    contentFileExists(`blog/${slug}/en.md`),
+  );
 }
 
 function localesFor(slug: string): string[] {
-  return fs
-    .readdirSync(path.join(BLOG_DIR, slug))
+  return listContentDir(`blog/${slug}`)
     .filter((f) => f.endsWith(".md"))
     .map((f) => f.slice(0, -3));
 }
 
 export function getPost(slug: string, locale: string): Post | null {
-  // Slugs come from route params — refuse anything that could escape BLOG_DIR.
+  // Slugs come from route params — refuse anything that isn't a plain slug.
   if (!/^[a-z0-9-]+$/.test(slug)) return null;
-  const dir = path.join(BLOG_DIR, slug);
-  if (!fs.existsSync(path.join(dir, "en.md"))) return null;
+  const enRaw = readContentFile(`blog/${slug}/en.md`);
+  if (enRaw === null) return null;
   const availableLocales = localesFor(slug);
   const isFallback = !availableLocales.includes(locale);
-  const file = path.join(dir, `${isFallback ? "en" : locale}.md`);
-  const { data, content } = matter(fs.readFileSync(file, "utf8"));
-  const en = isFallback
-    ? data
-    : matter(fs.readFileSync(path.join(dir, "en.md"), "utf8")).data;
+  const raw = isFallback ? enRaw : readContentFile(`blog/${slug}/${locale}.md`);
+  if (raw === null) return null;
+  const { data, content } = matter(raw);
+  const en = isFallback ? data : matter(enRaw).data;
   return {
     slug,
     locale,

@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import type { RoastLine } from "@/lib/types";
 import { normLang } from "@/lib/lang";
+import { Turnstile, turnstileEnabled } from "@/components/Turnstile";
 
 /**
  * The /vs verdict banner. SSR renders the deterministic template (or a stored
  * LLM verdict). When both sides are eligible and no LLM verdict exists yet, this
- * auto-fires `/api/vs-verdict` on mount (human-triggered, so crawlers never spend
- * LLM credit), then swaps in the savage verdict + self-improvement advice and
- * refreshes so the next SSR / OG image serves the stored text.
+ * fires `/api/vs-verdict` once — gated on a Turnstile token when the widget is
+ * configured, so headless crawlers that execute JS never spend LLM credit —
+ * then swaps in the savage verdict + self-improvement advice and refreshes so
+ * the next SSR / OG image serves the stored text.
  */
 export function VsVerdictLive({
   a,
@@ -36,22 +38,29 @@ export function VsVerdictLive({
   const [verdictText, setVerdictText] = useState(initialVerdict);
   const [adviceText, setAdviceText] = useState(initialAdvice);
   const [generating, setGenerating] = useState(false);
+  // With Turnstile configured, the request waits for a token; "" = not yet.
+  const [humanToken, setHumanToken] = useState("");
+  const needsHumanCheck = turnstileEnabled();
   const firedRef = useRef(false);
 
   useEffect(() => {
     if (!autoGenerate || firedRef.current) return;
+    if (needsHumanCheck && !humanToken) return;
     // Fire exactly once. We deliberately do NOT abort on cleanup: the LLM call
     // takes ~30-60s, and React Strict Mode's setup→cleanup→setup in dev would
     // otherwise abort the only request (the re-run is skipped by firedRef),
     // leaving it stuck "generating". A late setState after a real unmount is a
     // harmless no-op in React 18.
     firedRef.current = true;
-    setGenerating(true);
     (async () => {
+      setGenerating(true);
       try {
         const res = await fetch("/api/vs-verdict", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(humanToken ? { "x-turnstile-token": humanToken } : {}),
+          },
           body: JSON.stringify({ a, b }),
         });
         if (!res.ok) return;
@@ -74,7 +83,7 @@ export function VsVerdictLive({
         setGenerating(false);
       }
     })();
-  }, [autoGenerate, a, b, locale, router]);
+  }, [autoGenerate, needsHumanCheck, humanToken, a, b, locale, router]);
 
   return (
     <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/[0.07] p-5 text-center">
@@ -84,6 +93,9 @@ export function VsVerdictLive({
         </div>
       )}
       <p className="text-[0.95rem] leading-relaxed text-zinc-100">🔥 {verdictText}</p>
+      {autoGenerate && needsHumanCheck && !humanToken && (
+        <Turnstile onToken={setHumanToken} />
+      )}
       {generating && (
         <p className="mt-2 animate-pulse text-xs text-orange-200/80">{t("verdictGenerating")}</p>
       )}

@@ -22,14 +22,6 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { username: "octocat", profile: `${origin}/u/octocat`, final_score: 42 });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/profile/octocat") {
-      writeJSON(response, 200, { detail: { username: "octocat", final_score: 42 } });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/embed/badge/octocat") {
-      writeJSON(response, 200, { final_score: 42, tier: "夯", delta: null });
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/search-users") {
       writeJSON(response, 200, { users: [{ username: "octocat" }] });
       return;
@@ -42,12 +34,27 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { entries: [{ username: "octocat" }] });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/projects") {
-      writeJSON(response, 200, { projects: [] });
+    if (request.method === "GET" && url.pathname === "/api/stats") {
+      writeJSON(response, 200, { total: 1, cached: false });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/sitemap") {
-      writeJSON(response, 200, { profiles: [], matchups: [] });
+    if (request.method === "GET" && url.pathname === "/openapi.json") {
+      writeJSON(response, 200, { openapi: "3.1.0", servers: [{ url: origin }] });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/badge/octocat") {
+      response.writeHead(200, { "content-type": "image/svg+xml; charset=utf-8" });
+      response.end("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>");
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/sitemap.xml") {
+      response.writeHead(200, { "content-type": "application/xml; charset=utf-8" });
+      response.end("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/llms.txt") {
+      response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+      response.end(`${origin}/api/score/{username}`);
       return;
     }
     if (request.method === "POST" && url.pathname === "/mcp") {
@@ -61,34 +68,6 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       setTimeout(() => response.end(), 50);
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/scan/jobs/job_aaaaaaaaaaaaaaaa") {
-      writeJSON(response, 200, {
-        status: {
-          id: "job_aaaaaaaaaaaaaaaa",
-          kind: "scan.quick.v1",
-          username: "octocat",
-          state: "completed",
-        },
-        result: { metrics: { username: "octocat" }, scoring: { final_score: 42 } },
-      });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/healthz") {
-      writeJSON(response, 200, { ok: true });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/readyz") {
-      writeJSON(response, 200, { ready: true });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/metrics") {
-      response.writeHead(200, {
-        "content-type": "text/plain; version=0.0.4; charset=utf-8",
-        "cache-control": "no-store",
-      });
-      response.end('# TYPE ghfind_api_job_admissions_total counter\n');
-      return;
-    }
     writeJSON(response, 404, { error: "not_found", path: url.pathname });
   });
 
@@ -99,10 +78,9 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       const address = server.address() as AddressInfo;
       resolve({
         origin: `http://127.0.0.1:${address.port}`,
-        close: () =>
-          new Promise<void>((closeResolve, closeReject) => {
-            server.close((error) => (error ? closeReject(error) : closeResolve()));
-          }),
+        close: () => new Promise<void>((closeResolve, closeReject) => {
+          server.close((error) => (error ? closeReject(error) : closeResolve()));
+        }),
       });
     });
   });
@@ -120,12 +98,6 @@ async function runSmoke(origin: string): Promise<void> {
       SMOKE_CANARY_HANDLE: "octocat",
       SMOKE_FACET_TYPE: "language",
       SMOKE_FACET_VALUE: "TypeScript",
-      SMOKE_SCAN_JOB_ID: "job_aaaaaaaaaaaaaaaa",
-      SMOKE_SCAN_JOB_USERNAME: "octocat",
-      SMOKE_SCAN_JOB_EXPECT_RESULT: "1",
-      SMOKE_REQUIRE_SCAN_JOB: "1",
-      SMOKE_BACKEND_BASE_URL: origin,
-      SMOKE_WORKER_METRICS_BASE_URL: origin,
     },
   });
 

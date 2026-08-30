@@ -53,8 +53,8 @@ export const USE_CASES = [
 ];
 
 export const WHEN_TO_USE = [
-  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts are admitted to the durable quick-scan worker path and return the persisted v9 result when ready.`,
-  `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the bounded evidence payload: raw metrics, top repos, recent PRs, red flags, and sub-scores. It is admitted to a durable worker queue and usually returns the persisted result inline; if it returns 202, follow the Location status URL until result is present.`,
+  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts run a bounded synchronous quick scan and return the persisted v9 result inline.`,
+  `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the bounded evidence payload: raw metrics, top repos, recent PRs, red flags, and sub-scores. It runs synchronously and returns the persisted result inline; the ?force=1 query parameter bypasses a cached snapshot.`,
   `Use POST ${SITE_URL}/api/roast (or the CLI) only when you want the human-facing prose roast — this is the one LLM path and it can spend model credit.`,
   `Use POST ${SITE_URL}/api/project-analyses to reuse a matching persisted repository evaluation or start one with a dedicated Mosoo Cattle Agent; poll the returned statusUrl when it is still running.`,
   `Use the leaderboard / developers / stats endpoints for discovery and platform context, NOT as fresh per-user scoring evidence (they are ranked snapshots).`,
@@ -81,7 +81,7 @@ export function apiSummaryMd(): string {
 Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · API catalog: [${SITE_URL}/.well-known/api-catalog](${SITE_URL}/.well-known/api-catalog) · Auth: [${SITE_URL}/auth.md](${SITE_URL}/auth.md)
 
 - \`GET ${SITE_URL}/api/score/{username}\` — deterministic score, no auth, no LLM; scores unseen accounts with the bounded quick collector and persists the v9 result.
-- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — bounded deterministic scan payload (metrics + repo/PR signals + red flags) and a persisted v9 score. It uses the durable Go worker path; most calls return \`200\` with the result, while long-running calls return \`202\` plus a \`Location\` you can poll until \`result\` is present.
+- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — bounded synchronous deterministic scan payload (metrics + repo/PR signals + red flags) and a persisted v9 score. It returns \`200\` with the result; use \`?force=1\` to bypass a cached snapshot.
 - \`POST ${SITE_URL}/api/roast\` — LLM roast report (streaming); pass \`byoKey\` for your own model. The default path uses the exact persisted quick snapshot and does not wait for historical collection.
 - \`POST ${SITE_URL}/api/project-analyses\` { "repositoryUrl": "https://github.com/owner/repo" } — reuse a matching persisted product-value evaluation or start one; poll the returned \`statusUrl\` when it is still running.
 - \`POST ${SITE_URL}/api/vs-verdict\` { "a": "...", "b": "..." } — head-to-head verdict.

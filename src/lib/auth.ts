@@ -1,55 +1,36 @@
+import { cookies } from "next/headers";
+import { normalizeGitHubUsername } from "@/lib/comments";
+import {
+  OAUTH_SESSION_COOKIE,
+  decodeSignedPayload,
+  oauthConfigured,
+  type OAuthSession,
+} from "@/lib/oauth-session";
+
 /**
- * Auth.js (NextAuth v5) — "Login with GitHub" for identity only.
- *
- * Optional, like {@link ./db} and {@link ./redis}: when the OAuth env vars are
- * absent the login entry hides ({@link authConfigured}) and the rest of the app
- * runs unchanged. Sessions are stateless JWT cookies (no DB adapter); the only
- * persistence is a best-effort upsert into our own `users` table on sign-in,
- * which lays the groundwork for the upcoming comments feature.
+ * Session accessor with the shape the social route handlers were written
+ * against (the old next-auth `auth()` contract), now backed by the repatriated
+ * HMAC session cookie (`@/lib/oauth-session`, Go wire-format compatible).
  */
 
-import NextAuth from "next-auth";
-import GitHub, { type GitHubProfile } from "next-auth/providers/github";
-import { upsertUser } from "./db";
+export type AppSession = {
+  user: { githubId: number; login: string; image: string | null };
+};
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [GitHub],
-  session: { strategy: "jwt" },
-  callbacks: {
-    // `profile` is only present on the initial sign-in; persist the GitHub
-    // identity into the token so later requests don't need to re-fetch it.
-    jwt({ token, profile }) {
-      if (profile) {
-        const p = profile as unknown as GitHubProfile;
-        token.login = p.login;
-        token.githubId = p.id;
-        if (p.avatar_url) token.picture = p.avatar_url;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      session.user.login = (token.login as string | undefined) ?? "";
-      session.user.githubId = (token.githubId as number | undefined) ?? 0;
-      if (typeof token.picture === "string") session.user.image = token.picture;
-      return session;
-    },
-  },
-  events: {
-    // Best-effort persistence; never blocks login (upsertUser no-ops without Turso).
-    async signIn({ profile }) {
-      if (!profile) return;
-      const p = profile as unknown as GitHubProfile;
-      await upsertUser({
-        github_id: p.id,
-        login: p.login,
-        name: p.name ?? null,
-        avatar_url: p.avatar_url ?? null,
-      });
-    },
-  },
-});
-
-/** Whether GitHub OAuth is configured. UI hides the login entry when false. */
 export function authConfigured(): boolean {
-  return Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_SECRET);
+  return oauthConfigured();
+}
+
+export async function auth(): Promise<AppSession | null> {
+  const jar = await cookies();
+  const raw = jar.get(OAUTH_SESSION_COOKIE)?.value;
+  if (!raw) return null;
+  const session = decodeSignedPayload<OAuthSession>("session", raw);
+  if (!session || session.github_id <= 0) return null;
+  const login = normalizeGitHubUsername(session.login ?? "");
+  if (!login) return null;
+  if (session.expires_at <= Date.now()) return null;
+  return {
+    user: { githubId: session.github_id, login, image: session.avatar_url ?? null },
+  };
 }

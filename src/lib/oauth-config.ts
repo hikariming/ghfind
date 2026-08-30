@@ -1,14 +1,10 @@
 import "server-only";
+import { oauthConfigured as sessionSecretsConfigured } from "@/lib/oauth-session";
 
-/** Whether the Go-owned GitHub OAuth flow can be offered by the UI. */
+/**
+ * Whether the (now in-app) GitHub OAuth flow can be offered by the UI.
+ * `GHFIND_OAUTH_ENABLED=0` stays as the emergency login-UI kill switch.
+ */
 export function oauthConfigured(): boolean {
-  const backend = process.env.GHFIND_BACKEND_ORIGIN?.trim();
-  if (!backend) return false;
-  try {
-    const url = new URL(backend);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-  } catch {
-    return false;
-  }
-  return process.env.GHFIND_OAUTH_ENABLED?.trim() !== "0";
+  return sessionSecretsConfigured() && process.env.GHFIND_OAUTH_ENABLED?.trim() !== "0";
 }

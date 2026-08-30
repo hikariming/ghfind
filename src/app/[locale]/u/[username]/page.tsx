@@ -37,8 +37,8 @@ import { FollowButton } from "@/components/FollowButton";
 import { FacetRankLink } from "@/components/FacetRankLink";
 import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
-import { getGoPrivateData } from "@/lib/go-backend.server";
-import type { ProfileComment } from "@/lib/comments";
+import { auth } from "@/lib/auth";
+import { getProfileComments } from "@/lib/db";
 import { oauthConfigured } from "@/lib/oauth-config";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { rankProfileWorks } from "@/lib/profile-work";
@@ -268,12 +268,8 @@ export default async function AccountPage({
             body: t("scoreStateReadyBody"),
           };
   const [comments, session] = await Promise.all([
-    getGoPrivateData<{ comments: ProfileComment[] }>(
-      `/api/profile-comments/${encodeURIComponent(d.username)}`,
-    ).then((response) => response?.comments ?? []),
-    oauthConfigured()
-      ? getGoPrivateData<{ user: { login: string; image: string | null } | null }>("/api/me")
-      : Promise.resolve(null),
+    getProfileComments(d.username),
+    oauthConfigured() ? auth() : Promise.resolve(null),
   ]);
   const similar = presentation?.similar ?? [];
   const snap = presentation?.snapshot ?? null;
