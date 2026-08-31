@@ -9,6 +9,7 @@
 export const SPONSOR = {
   name: process.env.SPONSOR_NAME || "LobeHub",
   url: process.env.SPONSOR_URL || "https://lobehub.com",
+  tagline: "Your Chief Agent Operator · 你的首席 Agent 操作官",
   logo: "/lobehub.png",
   /**
    * 32px re-encode of the same mark. The SVG cards inline the logo as base64
