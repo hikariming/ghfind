@@ -1,5 +1,3 @@
-import { track } from "@vercel/analytics";
-
 /**
  * Where a PK (versus) entry was triggered from — lets us tell the badge-landing
  * loop apart from in-page CTAs when reading the funnel. Kept as a closed union so
@@ -42,30 +40,15 @@ export type TrackEvent =
   // Homepage editor's-picks band: promo card → collection page.
   | "home_collections_click";
 
-type VaWindow = Window & {
-  va?: (...params: unknown[]) => void;
-  vaq?: unknown[][];
+type GaWindow = Window & {
   gtag?: (...params: unknown[]) => void;
 };
 
 /**
- * True on Vercel builds; Cloudflare builds set
- * `NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare` at build time. Gates the
- * Vercel Analytics transport (its /_vercel/insights ingestion only exists on
- * Vercel) — with no <Analytics/> to drain it, the va queue would only leak.
- */
-export const ON_VERCEL =
-  process.env.NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM !== "cloudflare";
-
-/**
- * Thin, typed wrapper over the analytics transports. Client-only and swallows
- * failures so a blocked analytics script never breaks a click handler.
- *
- * Events go to GA4 (`gtag`, loaded in the root layout on every platform) and —
- * on Vercel builds only — also to Vercel Analytics `track()`, so dashboards
- * stay comparable across the Cloudflare migration window. GA4 pageview
- * autotracking is untouched; this only adds the custom interaction events the
- * growth surfaces need.
+ * Thin, typed wrapper over the GA4 transport (`gtag`, loaded in the root
+ * layout). Client-only and swallows failures so a blocked analytics script
+ * never breaks a click handler. GA4 pageview autotracking is untouched; this
+ * only adds the custom interaction events the growth surfaces need.
  */
 export function trackEvent(
   name: TrackEvent,
@@ -73,20 +56,7 @@ export function trackEvent(
 ): void {
   try {
     if (typeof window === "undefined") return;
-    const w = window as VaWindow;
-    w.gtag?.("event", name, props ?? {});
-    if (!ON_VERCEL) return;
-    // Mount-time events (e.g. badge_banner_view in a useEffect) can fire before
-    // <Analytics/> — a root-layout effect that runs AFTER child effects — has
-    // seeded window.va. The package's track() is `window.va?.(…)`, so those
-    // events are silently dropped. Seed the same queue stub initQueue() would,
-    // so early events buffer in window.vaq until the script drains them.
-    if (!w.va) {
-      w.va = (...params: unknown[]) => {
-        (w.vaq ??= []).push(params);
-      };
-    }
-    track(name, props);
+    (window as GaWindow).gtag?.("event", name, props ?? {});
   } catch {
     /* analytics blocked or unavailable */
   }
