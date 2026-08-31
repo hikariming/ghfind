@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   decodeSignedPayload,
@@ -31,7 +33,6 @@ describe("oauth session signing (Go wire-format compatibility)", () => {
     // (Go-issued ghfind_session cookies must stay valid).
     const payload = { github_id: 1, login: "a", expires_at: 2 };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-    const { createHmac } = require("node:crypto") as typeof import("node:crypto");
     const sig = createHmac("sha256", "test-secret")
       .update(`ghfind:oauth:session:${encodedPayload}`)
       .digest("base64url");
