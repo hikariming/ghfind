@@ -45,13 +45,14 @@ export function SponsorStrip() {
         href={SPONSOR.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+        className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
       >
+        <span className="text-zinc-500">赞助商</span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={SPONSOR.logo} alt={SPONSOR.name} className="h-4 w-4 rounded" />
-        <span>
-          Powered by <span className="font-semibold">{SPONSOR.name}</span>
-        </span>
+        <span className="font-semibold text-zinc-200">{SPONSOR.name}</span>
+        <span className="text-zinc-500">{SPONSOR.tagline}</span>
+        <span className="text-blue-500">了解更多 →</span>
       </a>
     </div>
   );

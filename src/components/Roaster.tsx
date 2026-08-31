@@ -389,6 +389,7 @@ export function Roaster({
       <div className="mt-3 flex flex-col items-center gap-3">
         {!campaign ? (
           <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-zinc-600">模型赞助商</span>
             <a
               href="https://www.stepfun.com/"
               target="_blank"
