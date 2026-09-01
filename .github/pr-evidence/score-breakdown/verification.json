@@ -1,0 +1,13 @@
+{
+  "issue": 230,
+  "page": "http://localhost:3000/zh/u/SomeoneToIgnore",
+  "screenshot": "after-zh-someone-to-ignore.png",
+  "captured_at": "2026-09-01",
+  "checks": [
+    "评分构成位于六维图下方",
+    "有风险调整时显示基础分、风险调整、最终得分和 Red Flag 明细",
+    "无风险调整时隐藏评分构成区域",
+    "Light、Dark、Auto 主题下手动检查通过",
+    "原有明星项目和代表作区块保留"
+  ]
+}

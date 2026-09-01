@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -34,6 +35,10 @@ func openProfileAPITestStore(t *testing.T) *TursoStore {
 		`CREATE TABLE account_lookup_limits (username TEXT, last_counted_at INTEGER)`,
 		`CREATE TABLE developer_facets (username TEXT, facet_type TEXT, facet_value TEXT, weight REAL)`,
 		`CREATE TABLE score_snapshots (id TEXT PRIMARY KEY, username TEXT, final_score REAL, generated_at INTEGER)`,
+		`CREATE TABLE public_scan_runs (
+			id TEXT PRIMARY KEY, username TEXT, score_version TEXT, collection_version TEXT, state TEXT,
+			snapshot TEXT, snapshot_hash TEXT
+		)`,
 		`CREATE TABLE vs_matchups (
 			handle_a TEXT, handle_b TEXT, winner TEXT, bucket TEXT, gap REAL, score_a REAL, score_b REAL,
 			verdict TEXT, advice TEXT, verdict_source TEXT, view_count INTEGER, created_at INTEGER, updated_at INTEGER,
@@ -64,6 +69,15 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatalf("insert score %s: %v", username, err)
+	}
+	_, err = store.db.Exec(`INSERT INTO public_scan_runs
+		(id, username, score_version, collection_version, state, snapshot, snapshot_hash)
+		VALUES (?, ?, 'v9', 'v4', 'complete_public', ?, ?)`,
+		"scan-"+username, username,
+		fmt.Sprintf(`{"scoring":{"sub_scores":{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":13},"base_score":%.2f,"red_flags":[{"flag":"mostly_forks","penalty":10,"detail":"Mostly forks"}],"total_penalty":10,"final_score":%.2f,"tier":"顶级","tier_label":"test"}}`, score+10, score),
+		strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatalf("insert score snapshot %s: %v", username, err)
 	}
 }
 
@@ -109,7 +123,7 @@ func TestProfilePresentationPreservesVersionGatedPublicFields(t *testing.T) {
 	for _, fragment := range []string{
 		`"username":"octocat"`, `"roast":"中文报告"`, `"roast_en":"English report"`,
 		`"bio":"builds reliable things"`, `"rank":1`, `"handleA":"octocat"`,
-		`"repo_key":"shared/repo"`,
+		`"repo_key":"shared/repo"`, `"score_breakdown":{"base_score":98.2,"total_penalty":10,"applied_penalty":10,"red_flags":[{"flag":"mostly_forks"`,
 	} {
 		if !strings.Contains(body, fragment) {
 			t.Fatalf("missing %s in %s", fragment, body)
@@ -134,5 +148,30 @@ func TestProfileDetailRejectsNonCanonicalRowsWithoutLegacyArtifact(t *testing.T)
 	}
 	if detail != nil {
 		t.Fatalf("detail=%#v, want nil", detail)
+	}
+}
+
+func TestProfileDetailFallsBackWithoutInventingRedFlags(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "fallback", 60)
+	if _, err := store.db.Exec(`DELETE FROM public_scan_runs WHERE username = 'fallback'`); err != nil {
+		t.Fatal(err)
+	}
+
+	detail, err := store.GetProfileDetail(context.Background(), "fallback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail == nil || detail.ScoreBreakdown == nil {
+		t.Fatalf("detail=%#v", detail)
+	}
+	if detail.ScoreBreakdown.Complete {
+		t.Fatal("fallback breakdown must not claim complete red-flag evidence")
+	}
+	if detail.ScoreBreakdown.BaseScore != 71 || detail.ScoreBreakdown.AppliedPenalty != 11 {
+		t.Fatalf("breakdown=%#v", detail.ScoreBreakdown)
+	}
+	if len(detail.ScoreBreakdown.RedFlags) != 0 {
+		t.Fatalf("red flags=%#v, want none", detail.ScoreBreakdown.RedFlags)
 	}
 }
