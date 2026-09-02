@@ -6,6 +6,7 @@ type Check = {
   path: string;
   status: number;
   validate?: (body: unknown, response: Response) => void;
+  validateText?: (body: string, response: Response) => void;
 };
 
 function usage(): void {
@@ -59,7 +60,7 @@ async function runCheck(base: URL, check: Check): Promise<void> {
   const response = await fetch(new URL(check.path, base), {
     redirect: "follow",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { Accept: "application/json, text/html;q=0.9" },
+    headers: { Accept: "application/json, image/svg+xml, text/html;q=0.9" },
   });
   if (response.status !== check.status) {
     throw new Error(`${check.label} returned ${response.status}; expected ${check.status}`);
@@ -74,6 +75,10 @@ async function runCheck(base: URL, check: Check): Promise<void> {
   if (check.validate) {
     const body = await response.json();
     check.validate(body, response);
+  }
+  if (check.validateText) {
+    const body = await response.text();
+    check.validateText(body, response);
   }
   console.log(`PASS ${check.label}`);
 }
@@ -246,13 +251,15 @@ async function main(): Promise<void> {
       },
     },
     {
-      label: "badge embed API",
-      path: `/api/embed/badge/${encodeURIComponent(canary)}`,
+      label: "badge SVG",
+      path: `/api/badge/${encodeURIComponent(canary)}`,
       status: 200,
-      validate(body) {
-        const payload = record(body);
-        if (!("final_score" in payload) || !("tier" in payload) || !("delta" in payload)) {
-          throw new Error("badge embed API is missing expected keys");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("image/svg+xml")) {
+          throw new Error("badge response is not SVG");
+        }
+        if (!body.includes("<svg")) {
+          throw new Error("badge response is missing SVG markup");
         }
       },
     },
