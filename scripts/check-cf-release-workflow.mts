@@ -22,7 +22,7 @@ const requiredFragments = [
   "cancel-in-progress: false",
   "EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584",
   "CF_VERSION_TAG: main-${{ github.event.workflow_run.head_sha }}",
-  "CF_VERSION_MESSAGE: release ${{ github.event.workflow_run.head_sha }} from upstream/main",
+  "CF_VERSION_MESSAGE: release-${{ github.event.workflow_run.head_sha }}-from-upstream-main",
   "secrets.CF_API_TOKEN",
   "wrangler deployments status",
   "wrangler rollback",
