@@ -1,19 +1,23 @@
 name: Deploy production (Cloudflare)
 
 # Replaces the retired Vercel/Railway gate: ghfind.com is now served by the
-# Next-on-Workers (OpenNext) build. A push to main runs the exact same command
-# as a manual release — build, `wrangler deploy --env production`, and R2
-# incremental-cache population — against the merged commit.
+# Next-on-Workers (OpenNext) build. A successful CI run on the merged `main`
+# commit is the only automatic production trigger. The workflow checks out the
+# exact SHA that CI verified, then runs the build, `wrangler deploy --env
+# production`, R2 incremental-cache population, and a read-only public smoke.
+# Any failure after the rollback anchor is captured restores the previous
+# Worker version. Frontend and backend are one Worker in the current topology,
+# so that single rollback covers both request surfaces.
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
 # The account ID is intentionally pinned below to Beiming1201@gmail.com's Account.
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-  # Manual escape hatch when a push trigger is lost.
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ concurrency:
 jobs:
   deploy:
     name: Build and deploy to Cloudflare Workers (production)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -33,6 +38,8 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       # No `version:` — pnpm/action-setup reads packageManager from
       # package.json (pnpm@11.24.0); pinning a second version here breaks the
@@ -49,10 +56,86 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Capture rollback target
+        id: release
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          previous_version="$(
+            pnpm exec wrangler deployments status \
+              --name ghfind \
+              --env production \
+              --json \
+              | jq -er '.versions | if length == 1 and .[0].percentage == 100 then .[0].version_id else error("production is not a single 100% deployment") end'
+          )"
+          test -n "$previous_version"
+          echo "previous_version=$previous_version" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Cloudflare production release"
+            echo "- Commit: `$RELEASE_SHA`"
+            echo "- Account: `$CLOUDFLARE_ACCOUNT_ID`"
+            echo "- Rollback target: `$previous_version`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Deploy (build + wrangler deploy --env production + populateCache)
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
         run: |
           test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
           pnpm cf:deploy:prod
+
+      - name: Post-deploy read-only smoke
+        id: smoke
+        env:
+          SMOKE_BASE_URL: https://ghfind.com
+          SMOKE_CANARY_HANDLE: octocat
+          SMOKE_FACET_TYPE: language
+          SMOKE_FACET_VALUE: TypeScript
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if pnpm smoke:deployment; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep 5
+            fi
+          done
+          exit 1
+
+      - name: Roll back frontend and backend Worker
+        id: rollback
+        if: ${{ failure() && steps.release.outputs.previous_version != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
+          PREVIOUS_VERSION: ${{ steps.release.outputs.previous_version }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          pnpm exec wrangler rollback "$PREVIOUS_VERSION" \
+            --name ghfind \
+            --env production \
+            --message "rollback: post-deploy verification failed for $RELEASE_SHA" \
+            --yes
+          {
+            echo "### Automatic rollback"
+            echo "- Restored Worker version: `$PREVIOUS_VERSION`"
+            echo "- Failed release commit: `$RELEASE_SHA`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify rollback
+        if: ${{ always() && steps.rollback.outcome == 'success' }}
+        env:
+          SMOKE_BASE_URL: https://ghfind.com
+          SMOKE_CANARY_HANDLE: octocat
+          SMOKE_FACET_TYPE: language
+          SMOKE_FACET_VALUE: TypeScript
+        run: pnpm smoke:deployment

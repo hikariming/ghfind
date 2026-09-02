@@ -21,7 +21,7 @@ The authoritative deployment files are:
 
 - [`wrangler.jsonc`](../../wrangler.jsonc) — Worker environments and D1/R2 bindings.
 - [`package.json`](../../package.json) — build and deploy scripts.
-- [`.github/workflows/deploy-cf-production.yml`](../../.github/workflows/deploy-cf-production.yml) — production push/manual release.
+- [`.github/workflows/deploy-cf-production.yml`](../../.github/workflows/deploy-cf-production.yml) — CI-gated production release and automatic Worker rollback.
 - [`scripts/smoke-deployment.mts`](../../scripts/smoke-deployment.mts) — read-only public smoke checks.
 
 Production ownership is fixed: `ghfind` must be deployed to
@@ -144,12 +144,23 @@ The normal local/manual release command is:
 pnpm cf:deploy:prod
 ```
 
-The same command runs from `.github/workflows/deploy-cf-production.yml` on pushes
-to `main` and through `workflow_dispatch`. The repository script pins the
-Beiming account and deploys with `--keep-vars`, preserving dashboard variables;
-Worker Secrets are not removed by a code deployment. CI supplies
-`CLOUDFLARE_API_TOKEN`; the token must have permission to deploy Workers and
-access the configured D1/R2 resources.
+The repository script pins the Beiming account and deploys with `--keep-vars`,
+preserving dashboard variables; Worker Secrets are not removed by a code
+deployment. CI supplies `CLOUDFLARE_API_TOKEN`; the token must have permission
+to deploy Workers and access the configured D1/R2 resources.
+
+The automatic production workflow is triggered by a successful `CI` workflow
+completion on `main`, not by a raw push. It checks out the exact commit SHA that
+CI verified, captures the active 100% Worker version, deploys, and runs the
+read-only production smoke three times at most. A build, deployment, or smoke
+failure invokes `wrangler rollback` to restore the captured version, then runs
+the smoke again against the restored origin. Because the current frontend and
+backend are one Worker, this is a single atomic application rollback for both.
+
+Protect `main` in GitHub and require the `CI / Verify release` check before
+merging. The workflow-level gate prevents a failed CI run from deploying even
+if an administrator bypasses branch protection; branch protection is still
+needed to enforce merge-only changes.
 
 Before a production release, record the current active deployment and run the
 local checks required by CI:
@@ -207,7 +218,19 @@ The `smoke:backend:*` scripts and the old Railway/Vercel resilience evidence are
 historical tests for the retired split backend topology. They are not the current
 production release gate.
 
-## Rollback
+## Automated rollback
+
+The production workflow records the active Worker version before publishing.
+If build/deploy/post-deploy smoke fails, it automatically runs:
+
+```bash
+pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production --message "rollback: post-deploy verification failed" --yes
+```
+
+It then repeats the read-only smoke. A failed rollback verification keeps the
+GitHub Actions run failed and requires operator intervention.
+
+## Manual rollback
 
 Cloudflare rollback is a Worker-version rollback; DNS does not need to be changed
 back to Vercel:
