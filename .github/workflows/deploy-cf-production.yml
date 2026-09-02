@@ -7,7 +7,7 @@ name: Deploy production (Cloudflare)
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
-# - CF_ACCOUNT_ID — Cloudflare account ID
+# The account ID is intentionally pinned below to Beiming1201@gmail.com's Account.
 
 on:
   push:
@@ -52,5 +52,7 @@ jobs:
       - name: Deploy (build + wrangler deploy --env production + populateCache)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-        run: pnpm cf:deploy:prod
+          CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
+        run: |
+          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          pnpm cf:deploy:prod

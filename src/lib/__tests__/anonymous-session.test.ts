@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("anonymous browser session", () => {
-  it("issues a signed HttpOnly session only with a Turnstile server secret", () => {
+  it("issues a signed HttpOnly session with the Turnstile server secret", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "turnstile-test-secret");
     const request = new NextRequest("https://example.test/api/scan");
     const session = establishAnonymousSession(request, 1_700_000_000_000);
@@ -23,6 +23,16 @@ describe("anonymous browser session", () => {
     expect(cookie?.value).toBe(session?.value);
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.sameSite).toBe("lax");
+  });
+
+  it("uses AUTH_SECRET when Turnstile is intentionally not configured", () => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    vi.stubEnv("AUTH_SECRET", "auth-test-secret");
+    const request = new NextRequest("https://example.test/api/scan");
+    const session = establishAnonymousSession(request, 1_700_000_000_000);
+
+    expect(session).toMatchObject({ issued: true });
+    expect(session?.value).toBeTruthy();
   });
 
   it("accepts the issued identity and rejects a tampered cookie", () => {
@@ -43,8 +53,9 @@ describe("anonymous browser session", () => {
     expect(anonymousSessionPrincipal(tampered, now + 1)).toBeNull();
   });
 
-  it("does not issue a browser identity when Turnstile is not configured", () => {
+  it("does not issue a browser identity without either signing secret", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    vi.stubEnv("AUTH_SECRET", "");
     expect(establishAnonymousSession(new NextRequest("https://example.test/api/scan"))).toBeNull();
   });
 });

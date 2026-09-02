@@ -5,9 +5,12 @@
   //   wrangler deploy --env production  → ghfind.com
   // Preflight the target account and verify the D1/R2 resources before deploying;
   // dev and production currently share the D1 database ID below.
+  // Production of record: Beiming1201@gmail.com's Account. Keep this pinned so
+  // a local OAuth context with multiple accounts cannot publish to the wrong one.
   // Secrets (TURSO_*, UPSTASH_*, GHFIND_*, TURNSTILE_SECRET_KEY, LLM_*) are set
   // per-env via `wrangler secret put <NAME> --env <env>`, never in this file.
   "name": "ghfind",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-06",
   "compatibility_flags": ["nodejs_compat"],

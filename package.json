@@ -25,8 +25,8 @@
     "versions:check": "tsx scripts/check-release-versions.mts",
     "gen:assets": "tsx scripts/gen-embedded-assets.mts",
     "cf:build": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://ghfind.com opennextjs-cloudflare build",
-    "cf:deploy:dev": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://dev.ghfind.com opennextjs-cloudflare build && wrangler deploy --env dev && opennextjs-cloudflare populateCache remote -- --env dev",
-    "cf:deploy:prod": "NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://ghfind.com opennextjs-cloudflare build && wrangler deploy --env production && opennextjs-cloudflare populateCache remote -- --env production"
+    "cf:deploy:dev": "CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://dev.ghfind.com opennextjs-cloudflare build && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 wrangler deploy --env dev --keep-vars && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 opennextjs-cloudflare populateCache remote -- --env dev",
+    "cf:deploy:prod": "CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://ghfind.com opennextjs-cloudflare build && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 wrangler deploy --env production --keep-vars && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 opennextjs-cloudflare populateCache remote -- --env production"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

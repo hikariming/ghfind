@@ -24,6 +24,12 @@ The authoritative deployment files are:
 - [`.github/workflows/deploy-cf-production.yml`](../../.github/workflows/deploy-cf-production.yml) — production push/manual release.
 - [`scripts/smoke-deployment.mts`](../../scripts/smoke-deployment.mts) — read-only public smoke checks.
 
+Production ownership is fixed: `ghfind` must be deployed to
+`Beiming1201@gmail.com's Account` (`8f19bebe359e4ec1a24c68c5f49c1584`). The
+repository config and production workflow pin this account. The
+`AsperforMias` account is not a production target and must not be used for
+production Workers, D1, R2, or Secrets.
+
 ## Hard stop: preflight the target account and resources
 
 Run these checks from the repository root before a remote deployment:
@@ -35,6 +41,12 @@ pnpm exec wrangler d1 info ghfind
 pnpm exec wrangler r2 bucket list
 pnpm exec wrangler secret list --env dev
 pnpm exec wrangler secret list --env production
+```
+
+For production, the account check is mandatory:
+
+```bash
+test "${CLOUDFLARE_ACCOUNT_ID:-8f19bebe359e4ec1a24c68c5f49c1584}" = "8f19bebe359e4ec1a24c68c5f49c1584"
 ```
 
 Confirm all of the following before continuing:
@@ -49,14 +61,16 @@ Confirm all of the following before continuing:
 4. The production values of `PUBLIC_SITE_URL` and `NEXT_PUBLIC_SITE_URL` are both
    `https://ghfind.com`. The dev values are both `https://dev.ghfind.com`.
 
-If the OAuth session can access multiple Cloudflare accounts, set the account
-explicitly for the command or CI job with `CLOUDFLARE_ACCOUNT_ID`. Do not deploy
-until the D1 and R2 inventory is visible in that account.
+If the OAuth session can access multiple Cloudflare accounts, the production
+commands in this repository force `CLOUDFLARE_ACCOUNT_ID` to the Beiming account.
+Do not replace it with an `AsperforMias` account ID and do not deploy until the
+D1 and R2 inventory is visible in Beiming.
 
 For a local release, the explicit form is:
 
 ```bash
 export CLOUDFLARE_ACCOUNT_ID=<target-account-id>
+export CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584
 pnpm exec wrangler d1 list
 pnpm exec wrangler r2 bucket list
 ```
@@ -131,9 +145,11 @@ pnpm cf:deploy:prod
 ```
 
 The same command runs from `.github/workflows/deploy-cf-production.yml` on pushes
-to `main` and through `workflow_dispatch`. The CI job supplies
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the token must have permission
-to deploy Workers and access the configured D1/R2 resources.
+to `main` and through `workflow_dispatch`. The repository script pins the
+Beiming account and deploys with `--keep-vars`, preserving dashboard variables;
+Worker Secrets are not removed by a code deployment. CI supplies
+`CLOUDFLARE_API_TOKEN`; the token must have permission to deploy Workers and
+access the configured D1/R2 resources.
 
 Before a production release, record the current active deployment and run the
 local checks required by CI:
