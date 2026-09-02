@@ -19,7 +19,7 @@ export { SUBSCORE_MAX, nextTier, tierFor } from "./score-presentation";
  * matching Python's built-in `round()` — so the TS port stays bit-for-bit in parity
  * with the canonical skill even when a sub-score lands on a .x5 boundary (e.g. 17.25).
  */
-function round(value: number, digits = 0): number {
+export function roundHalfEven(value: number, digits = 0): number {
   const f = 10 ** digits;
   const scaled = value * f;
   const floor = Math.floor(scaled);
@@ -56,7 +56,7 @@ export function starEngagementMultiplier(ratio: number | undefined): number {
 }
 
 export function clampScore(value: number): number {
-  return round(Math.max(0, Math.min(value, 100)), 2);
+  return roundHalfEven(Math.max(0, Math.min(value, 100)), 2);
 }
 
 /**
@@ -286,7 +286,7 @@ export function score(m: RawMetrics): Scoring {
   const agePts = Math.min(m.account_age_years / 6.0, 1.0) * 7;
   const years = m.contribution_years_active;
   const spanPts = years === 0 ? 0 : years === 1 ? 1 : years === 2 ? 2 : 3;
-  sub.account_maturity = round(agePts + spanPts, 1);
+  sub.account_maturity = roundHalfEven(agePts + spanPts, 1);
 
   // 2. Original Project Quality (18) — stars are only part of quality. A useful
   // 0-star project can still earn substance points, while stars alone cannot
@@ -306,7 +306,7 @@ export function score(m: RawMetrics): Scoring {
       0,
       Math.min(m.best_original_repo_quality_score ?? 0, 1),
     ) * 6;
-    sub.original_project_quality = round(
+    sub.original_project_quality = roundHalfEven(
       starPts + projectSubstance,
       1,
     );
@@ -346,7 +346,7 @@ export function score(m: RawMetrics): Scoring {
     lowPrestigeBulkContributionCap(m) ?? Infinity,
     SUBSCORE_MAX.contribution_quality,
   );
-  sub.contribution_quality = round(
+  sub.contribution_quality = roundHalfEven(
     Math.min(contributionQualityRaw, contributionCap),
     1,
   );
@@ -358,7 +358,7 @@ export function score(m: RawMetrics): Scoring {
   const prestige = impactPrestigeSignal(m) * 9;
   const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
   const ecosystemRaw = prestige + depth;
-  sub.ecosystem_impact = round(
+  sub.ecosystem_impact = roundHalfEven(
     m.impact_quality_cap === undefined
       ? ecosystemRaw
       : Math.min(ecosystemRaw, m.impact_quality_cap),
@@ -379,7 +379,7 @@ export function score(m: RawMetrics): Scoring {
     ratioPts = ratio >= 2 ? 3 : ratio >= 1 ? 2 : ratio >= 0.5 ? 1.5 : 1;
   }
   const communityRaw = followerPts + ratioPts;
-  sub.community_influence = round(
+  sub.community_influence = roundHalfEven(
     hasSocialOnlyDormantSignal(m) ? Math.min(communityRaw, 2.5) : communityRaw,
     1,
   );
@@ -393,9 +393,9 @@ export function score(m: RawMetrics): Scoring {
   else if (days <= 365) recencyPts = 2.0;
   else recencyPts = 0.0;
   const diversityPts = Math.min(m.activity_type_count, 4) * 1.125;
-  sub.activity_authenticity = round(contribPts + recencyPts + diversityPts, 1);
+  sub.activity_authenticity = roundHalfEven(contribPts + recencyPts + diversityPts, 1);
 
-  const base = round(
+  const base = roundHalfEven(
     Object.values(sub).reduce((a, b) => a + b, 0),
     1,
   );
@@ -512,7 +512,7 @@ export function score(m: RawMetrics): Scoring {
     40,
   );
   // Keep two decimals (not integer) so the leaderboard can rank finely.
-  const final = clampScore(round(base - penalty, 2));
+  const final = clampScore(roundHalfEven(base - penalty, 2));
   const { tier, tier_label: tierLabel } = tierFor(final);
 
   return {

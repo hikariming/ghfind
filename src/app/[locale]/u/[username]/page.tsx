@@ -22,11 +22,14 @@ import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
+import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
 import { nextTier, tierFor } from "@/lib/score-presentation";
+import { roundHalfEven } from "@/lib/score";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
+import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 import { RescanButton } from "@/components/RescanButton";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
@@ -39,7 +42,6 @@ import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { auth } from "@/lib/auth";
 import { getProfileComments } from "@/lib/db";
-import type { ProfileComment } from "@/lib/comments";
 import { oauthConfigured } from "@/lib/oauth-config";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { rankProfileWorks } from "@/lib/profile-work";
@@ -326,10 +328,37 @@ export default async function AccountPage({
   const dimensionLabels = Object.fromEntries(
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<(typeof DIMENSIONS)[number], string>;
+  const inferredBaseScore = roundHalfEven(
+    Object.values(d.sub_scores).reduce((sum, value) => sum + value, 0),
+    1,
+  );
+  const inferredPenalty = Math.max(0, roundHalfEven(inferredBaseScore - d.final_score, 2));
+  const scoreBreakdown = d.score_breakdown ?? {
+    base_score: inferredBaseScore,
+    total_penalty: inferredPenalty,
+    applied_penalty: inferredPenalty,
+    red_flags: [],
+    complete: false,
+  };
+  const scoreBreakdownCopy = {
+    base: t("scoreBase"),
+    adjustment: t("scoreAdjustment"),
+    inferredAdjustment: t("scoreInferredAdjustment"),
+    final: t("scoreFinal"),
+    heading: t("scoreBreakdownHeading"),
+    note: t("scoreBreakdownNote"),
+    riskHeading: t("scoreRiskHeading", { count: scoreBreakdown.red_flags.length }),
+    unavailable: t("scoreRiskUnavailable"),
+    capNote: t("scoreAdjustmentLimited", {
+      total: scoreBreakdown.total_penalty.toFixed(2),
+      applied: scoreBreakdown.applied_penalty.toFixed(2),
+    }),
+    more: t("scoreRiskMore", { count: Math.max(0, scoreBreakdown.red_flags.length - 3) }),
+  };
 
   // Evidence blocks (only when a sedimented snapshot exists).
   const impactRepos = snap
-    ? [...snap.impact_repos].sort((a, b) => b.stars - a.stars).slice(0, 6)
+    ? [...snap.impact_repos].toSorted((a, b) => b.stars - a.stars).slice(0, 6)
     : [];
   const representativeWorks = snap
     ? rankProfileWorks({
@@ -521,6 +550,7 @@ export default async function AccountPage({
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
         </div>
+        <ScoreBreakdownSummary breakdown={scoreBreakdown} copy={scoreBreakdownCopy} />
         <div className={`mt-1 text-2xl font-bold ${style.text}`}>
           {style.emoji} {tTier(`${tierKey}.name`)}
         </div>
@@ -781,6 +811,12 @@ export default async function AccountPage({
           labels={dimensionLabels}
           tier={d.tier}
           compact={isAdvxCampaign}
+        />
+        <ScoreBreakdown
+          breakdown={scoreBreakdown}
+          finalScore={d.final_score}
+          copy={scoreBreakdownCopy}
+          flagLabel={(flag) => scoreRedFlagLabel(flag, lang)}
         />
       </section>
 
