@@ -37,10 +37,10 @@ Use `SMOKE_ALLOW_HTTP=1` only for local smoke runs. Remote origins must be HTTPS
 
 Run `pnpm smoke:deployment`. The script checks the profile, deterministic score
 API, badge SVG, autocomplete, score leaderboard,
-facet bucket, project list, sitemap inventory, MCP tools/list transport, campaign
+facet bucket, projects page, sitemap XML, MCP tools/list transport, campaign
 SSE reconnect frame, optional public scan status/result, and canonical origin.
 Missing required values, `localhost` canonical output on a remote smoke,
-unexpected status, or malformed JSON fails the run.
+unexpected status, or malformed response content fails the run.
 
 Run `pnpm smoke:deployment:selftest` to exercise every smoke branch against a
 local fixture server. CI runs this self-test without production secrets; a

@@ -45,12 +45,16 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { entries: [{ username: "octocat" }] });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/projects") {
-      writeJSON(response, 200, { projects: [] });
+    if (request.method === "GET" && url.pathname === "/projects") {
+      writeText(response, 200, "<html><main>projects</main></html>", {
+        "content-type": "text/html; charset=utf-8",
+      });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/sitemap") {
-      writeJSON(response, 200, { profiles: [], matchups: [] });
+    if (request.method === "GET" && url.pathname === "/sitemap.xml") {
+      writeText(response, 200, "<?xml version=\"1.0\"?><urlset></urlset>", {
+        "content-type": "application/xml; charset=utf-8",
+      });
       return;
     }
     if (request.method === "POST" && url.pathname === "/mcp") {

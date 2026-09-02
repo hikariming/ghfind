@@ -288,21 +288,26 @@ async function main(): Promise<void> {
       },
     },
     {
-      label: "projects API",
-      path: "/api/projects?limit=1",
+      label: "projects page",
+      path: "/projects",
       status: 200,
-      validate(body) {
-        if (!Array.isArray(record(body).projects)) throw new Error("projects are missing");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("text/html")) {
+          throw new Error("projects page is not HTML");
+        }
+        if (!body.includes("<main")) throw new Error("projects page is missing main content");
       },
     },
     {
-      label: "sitemap inventory API",
-      path: "/api/sitemap",
+      label: "sitemap XML",
+      path: "/sitemap.xml",
       status: 200,
-      validate(body) {
-        const payload = record(body);
-        if (!Array.isArray(payload.profiles) || !Array.isArray(payload.matchups)) {
-          throw new Error("sitemap inventory arrays are missing");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("xml")) {
+          throw new Error("sitemap is not XML");
+        }
+        if (!body.includes("<urlset")) {
+          throw new Error("sitemap is missing urlset");
         }
       },
     },
