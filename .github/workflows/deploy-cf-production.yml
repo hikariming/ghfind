@@ -1,14 +1,15 @@
 name: Deploy production (Cloudflare)
 
 # Replaces the retired Vercel/Railway gate: ghfind.com is now served by the
-# Next-on-Workers (OpenNext) build. A successful CI run for a `main` commit is
-# the only automatic production trigger; main branch protection is optional.
-# The workflow checks out the exact SHA that CI verified, then runs the build,
-# `wrangler deploy --env
-# production`, R2 incremental-cache population, and a read-only public smoke.
-# Any failure after the rollback anchor is captured restores the previous
-# Worker version. Frontend and backend are one Worker in the current topology,
-# so that single rollback covers both request surfaces.
+# Next-on-Workers (OpenNext) build. This workflow is production-owned by
+# hikariming/ghfind; a copied workflow in a fork must fail its provenance guard.
+# A successful CI run for a `main` commit is the only automatic production
+# trigger; main branch protection is optional. The workflow checks out the exact
+# SHA that CI verified, then runs the build, `wrangler deploy --env production`,
+# R2 incremental-cache population, and a read-only public smoke. Any failure
+# after the rollback anchor is captured restores the previous Worker version.
+# Frontend and backend are one Worker in the current topology, so that single
+# rollback covers both request surfaces.
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
@@ -30,17 +31,46 @@ concurrency:
 jobs:
   deploy:
     name: Build and deploy to Cloudflare Workers (production)
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
+      EXPECTED_REPOSITORY: hikariming/ghfind
+      EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      CF_VERSION_TAG: main-${{ github.event.workflow_run.head_sha }}
+      CF_VERSION_MESSAGE: release ${{ github.event.workflow_run.head_sha }} from upstream/main
     steps:
       - name: Check out
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Verify upstream/main provenance
+        env:
+          SOURCE_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$SOURCE_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$SOURCE_BRANCH" = "main"
+          test "$SOURCE_SHA" = "$RELEASE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          case "$SOURCE_SHA" in
+            [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]*) ;;
+            *) echo "workflow_run head_sha is not a commit SHA" >&2; exit 1 ;;
+          esac
+          {
+            echo "### Release provenance"
+            echo "- Repository: \`$SOURCE_REPOSITORY\`"
+            echo "- Branch: \`$SOURCE_BRANCH\`"
+            echo "- Commit: \`$SOURCE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # No `version:` — pnpm/action-setup reads packageManager from
       # package.json (pnpm@11.24.0); pinning a second version here breaks the
@@ -62,23 +92,30 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
+          status_file="$RUNNER_TEMP/cf-production-before.json"
+          pnpm exec wrangler deployments status \
+            --name ghfind \
+            --env production \
+            --json > "$status_file"
           previous_version="$(
-            pnpm exec wrangler deployments status \
-              --name ghfind \
-              --env production \
-              --json \
+            cat "$status_file" \
               | jq -er '.versions | if length == 1 and .[0].percentage == 100 then .[0].version_id else error("production is not a single 100% deployment") end'
           )"
-          test -n "$previous_version"
+          if [[ ! "$previous_version" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo "Cloudflare returned an invalid rollback version id" >&2
+            exit 1
+          fi
+          previous_author="$(jq -er '.author_email' < "$status_file")"
+          test "$previous_author" = "beiming1201@gmail.com"
           echo "previous_version=$previous_version" >> "$GITHUB_OUTPUT"
           {
             echo "### Cloudflare production release"
             echo "- Commit: `$RELEASE_SHA`"
             echo "- Account: `$CLOUDFLARE_ACCOUNT_ID`"
+            echo "- Previous active author: `$previous_author`"
             echo "- Rollback target: `$previous_version`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -88,8 +125,26 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
         run: |
-          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
           pnpm cf:deploy:prod
+
+      - name: Confirm a single 100% version is active
+        id: active
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
+          active_version="$(
+            pnpm exec wrangler deployments status \
+              --name ghfind \
+              --env production \
+              --json \
+              | jq -er '.versions | if length == 1 and .[0].percentage == 100 then .[0].version_id else error("production is not a single 100% deployment") end'
+          )"
+          echo "active_version=$active_version" >> "$GITHUB_OUTPUT"
+          echo "- New active Worker version: `$active_version`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Post-deploy read-only smoke
         id: smoke
@@ -117,15 +172,22 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "8f19bebe359e4ec1a24c68c5f49c1584"
           PREVIOUS_VERSION: ${{ steps.release.outputs.previous_version }}
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
           pnpm exec wrangler rollback "$PREVIOUS_VERSION" \
             --name ghfind \
             --env production \
             --message "rollback: post-deploy verification failed for $RELEASE_SHA" \
             --yes
+          active_version="$(
+            pnpm exec wrangler deployments status \
+              --name ghfind \
+              --env production \
+              --json \
+              | jq -er '.versions | if length == 1 and .[0].percentage == 100 then .[0].version_id else error("production is not a single 100% deployment") end'
+          )"
+          test "$active_version" = "$PREVIOUS_VERSION"
           {
             echo "### Automatic rollback"
             echo "- Restored Worker version: `$PREVIOUS_VERSION`"
@@ -133,6 +195,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify rollback
+        id: rollback_smoke
         if: ${{ always() && steps.rollback.outcome == 'success' }}
         env:
           SMOKE_BASE_URL: https://ghfind.com
@@ -140,3 +203,11 @@ jobs:
           SMOKE_FACET_TYPE: language
           SMOKE_FACET_VALUE: TypeScript
         run: pnpm smoke:deployment
+
+      - name: Report unrecoverable release state
+        if: ${{ always() && failure() && (steps.release.outcome != 'success' || steps.rollback.outcome != 'success' || steps.rollback_smoke.outcome == 'failure') }}
+        run: |
+          {
+            echo "### Manual intervention required"
+            echo "Automatic rollback did not complete successfully. Inspect the Cloudflare deployment status and restore the last known-good Worker version before retrying."
+          } >> "$GITHUB_STEP_SUMMARY"

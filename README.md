@@ -214,8 +214,12 @@ pnpm cf:deploy:prod      # ghfind.com
 
 Production deploys also run from
 [`.github/workflows/deploy-cf-production.yml`](./.github/workflows/deploy-cf-production.yml)
-on `main`. Configure secrets with `wrangler secret put --env <env>`; do not commit
-secret values. Cloudflare D1/R2 bindings are defined in [`wrangler.jsonc`](./wrangler.jsonc).
+in the canonical `hikariming/ghfind` repository: a successful upstream `main`
+CI run checks out that exact SHA, deploys to Beiming's Cloudflare account, and
+automatically rolls back the single frontend/backend Worker if deployment or
+post-deploy smoke fails. Configure secrets with `wrangler secret put --env
+<env>`; do not commit secret values. Cloudflare D1/R2 bindings are defined in
+[`wrangler.jsonc`](./wrangler.jsonc).
 
 ## Bring your own model / API key
 
