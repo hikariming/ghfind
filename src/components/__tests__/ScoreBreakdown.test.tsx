@@ -22,8 +22,8 @@ describe("ScoreBreakdown", () => {
       applied_penalty: 20,
       complete: true,
       red_flags: [
-        { flag: "mostly_forks", penalty: 10, detail: "" },
-        { flag: "no_original_work", penalty: 10, detail: "" },
+        { flag: "mostly_forks", penalty: 10, detail: "83% of repositories are forks." },
+        { flag: "no_original_work", penalty: 10, detail: "No non-empty original repositories." },
       ],
     };
     const html = renderToStaticMarkup(
@@ -44,6 +44,8 @@ describe("ScoreBreakdown", () => {
     expect(html).toContain("60.70");
     expect(html).toContain("几乎全部仓库为 Fork");
     expect(html).toContain("没有非空原创仓库");
+    expect(html).toContain("83% of repositories are forks.");
+    expect(html).toContain("No non-empty original repositories.");
     expect(html).toContain('href="#score-breakdown"');
   });
 

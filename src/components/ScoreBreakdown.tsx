@@ -55,7 +55,12 @@ function RiskRows({
           key={`${flag.flag}-${index}`}
           className="flex items-start justify-between gap-3 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5"
         >
-          <span className="text-xs leading-5 text-zinc-300">{flagLabel(flag.flag)}</span>
+          <span className="min-w-0 text-left">
+            <span className="block text-xs leading-5 text-zinc-300">{flagLabel(flag.flag)}</span>
+            {flag.detail ? (
+              <span className="mt-0.5 block text-[10px] leading-4 text-zinc-500">{flag.detail}</span>
+            ) : null}
+          </span>
           <span className="shrink-0 text-xs font-semibold tabular-nums text-amber-300">
             −{score(flag.penalty)}
           </span>
