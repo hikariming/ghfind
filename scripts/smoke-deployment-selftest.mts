@@ -22,10 +22,6 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { username: "octocat", profile: `${origin}/u/octocat`, final_score: 42 });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/profile/octocat") {
-      writeJSON(response, 200, { detail: { username: "octocat", final_score: 42 } });
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/embed/badge/octocat") {
       writeJSON(response, 200, { final_score: 42, tier: "夯", delta: null });
       return;

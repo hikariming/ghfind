@@ -157,10 +157,11 @@ failure invokes `wrangler rollback` to restore the captured version, then runs
 the smoke again against the restored origin. Because the current frontend and
 backend are one Worker, this is a single atomic application rollback for both.
 
-Protect `main` in GitHub and require the `CI / Verify release` check before
-merging. The workflow-level gate prevents a failed CI run from deploying even
-if an administrator bypasses branch protection; branch protection is still
-needed to enforce merge-only changes.
+Main branch protection is optional for this release design. The deployment
+workflow is the release gate: it reacts only to a successful `CI` completion on
+`main`, so a commit whose CI fails is never deployed. If branch protection is
+enabled separately, the relevant check name is `Verify release`; it is not
+required for the rollback behavior below.
 
 Before a production release, record the current active deployment and run the
 local checks required by CI:
@@ -220,8 +221,9 @@ production release gate.
 
 ## Automated rollback
 
-The production workflow records the active Worker version before publishing.
-If build/deploy/post-deploy smoke fails, it automatically runs:
+The production workflow records the active 100% Worker version before each
+serialized release. If build/deploy/post-deploy smoke fails, it automatically
+runs:
 
 ```bash
 pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production --message "rollback: post-deploy verification failed" --yes
@@ -230,6 +232,12 @@ pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production
 It then repeats the read-only smoke. A failed rollback verification keeps the
 GitHub Actions run failed and requires operator intervention.
 
+The captured version is the last release that was active before the current
+release started. With `cancel-in-progress: false`, queued releases are handled
+one at a time: if commit1 is the last smoke-qualified release and commits2
+through5 fail, each failed release returns to commit1. If an intermediate
+release passes its post-deploy smoke, that release becomes the new rollback
+anchor for the releases that follow.
 ## Manual rollback
 
 Cloudflare rollback is a Worker-version rollback; DNS does not need to be changed

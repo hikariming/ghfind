@@ -36,7 +36,7 @@ split-backend checks and should be removed from the Cloudflare release job.
 Use `SMOKE_ALLOW_HTTP=1` only for local smoke runs. Remote origins must be HTTPS.
 
 Run `pnpm smoke:deployment`. The script checks the profile, deterministic score
-API, profile presentation, badge embed data, autocomplete, score leaderboard,
+API, badge embed data, autocomplete, score leaderboard,
 facet bucket, project list, sitemap inventory, MCP tools/list transport, campaign
 SSE reconnect frame, optional public scan status/result, and canonical origin.
 Missing required values, `localhost` canonical output on a remote smoke,

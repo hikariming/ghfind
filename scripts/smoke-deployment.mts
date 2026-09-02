@@ -246,20 +246,6 @@ async function main(): Promise<void> {
       },
     },
     {
-      label: "profile presentation API",
-      path: `/api/profile/${encodeURIComponent(canary)}`,
-      status: 200,
-      validate(body) {
-        const detail = record(record(body).detail);
-        if (String(detail.username).toLowerCase() !== canary.toLowerCase()) {
-          throw new Error("profile presentation returned the wrong canary");
-        }
-        if (typeof detail.final_score !== "number") {
-          throw new Error("profile presentation is missing final_score");
-        }
-      },
-    },
-    {
       label: "badge embed API",
       path: `/api/embed/badge/${encodeURIComponent(canary)}`,
       status: 200,

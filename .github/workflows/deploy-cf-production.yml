@@ -1,9 +1,10 @@
 name: Deploy production (Cloudflare)
 
 # Replaces the retired Vercel/Railway gate: ghfind.com is now served by the
-# Next-on-Workers (OpenNext) build. A successful CI run on the merged `main`
-# commit is the only automatic production trigger. The workflow checks out the
-# exact SHA that CI verified, then runs the build, `wrangler deploy --env
+# Next-on-Workers (OpenNext) build. A successful CI run for a `main` commit is
+# the only automatic production trigger; main branch protection is optional.
+# The workflow checks out the exact SHA that CI verified, then runs the build,
+# `wrangler deploy --env
 # production`, R2 incremental-cache population, and a read-only public smoke.
 # Any failure after the rollback anchor is captured restores the previous
 # Worker version. Frontend and backend are one Worker in the current topology,
