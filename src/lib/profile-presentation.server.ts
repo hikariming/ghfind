@@ -8,6 +8,7 @@ import "server-only";
  */
 import {
   getAccountDetail,
+  getCurrentCanonicalQuickScan,
   getDeveloperCommonProjects,
   getFacetRank,
   getMatchup,
@@ -31,6 +32,7 @@ import type {
   ProfilePercentile,
   ProfilePresentation,
   ProfileSnapshotView,
+  ScoreBreakdown,
   VsMatchup,
   VsPresentation,
 } from "@/lib/profile-presentation";
@@ -44,8 +46,42 @@ const TRENDING_MATCHUP_LIMIT = 40;
 
 /** The persisted row's `score_version` is optional in the db model but part of
  *  the public presentation contract, so pin it to an explicit null. */
-function toPresentationDetail(detail: DbAccountDetail): AccountDetail {
-  return { ...detail, score_version: detail.score_version ?? null };
+function toPresentationDetail(
+  detail: DbAccountDetail,
+  scoreBreakdown?: ScoreBreakdown | null,
+): AccountDetail {
+  return {
+    ...detail,
+    score_version: detail.score_version ?? null,
+    ...(scoreBreakdown ? { score_breakdown: scoreBreakdown } : {}),
+  };
+}
+
+function scoreBreakdownFromScan(
+  scan: ScanResult | null,
+  finalScore: number,
+): ScoreBreakdown | null {
+  const scoring = scan?.scoring;
+  if (
+    !scoring ||
+    !Number.isFinite(scoring.base_score) ||
+    !Number.isFinite(scoring.total_penalty) ||
+    !Number.isFinite(scoring.final_score) ||
+    Math.abs(scoring.final_score - finalScore) > 0.005
+  ) {
+    return null;
+  }
+  const appliedPenalty = Math.max(
+    0,
+    Number((scoring.base_score - finalScore).toFixed(2)),
+  );
+  return {
+    base_score: scoring.base_score,
+    total_penalty: scoring.total_penalty,
+    applied_penalty: appliedPenalty,
+    red_flags: Array.isArray(scoring.red_flags) ? scoring.red_flags : [],
+    complete: true,
+  };
 }
 
 function toCommonProject(item: ProjectListItem): CommonProfileProject {
@@ -150,7 +186,10 @@ export async function buildProfilePresentation(
   if (!handle) return null;
   const detail = await getAccountDetail(handle);
   if (!detail) return null;
-  const [snapshot, { rank, percentile }, similar, battles, facetRank, delta] = await Promise.all([
+  const [scoreBreakdown, snapshot, { rank, percentile }, similar, battles, facetRank, delta] = await Promise.all([
+    getCurrentCanonicalQuickScan(detail.username).then((current) =>
+      scoreBreakdownFromScan(current?.scan ?? null, detail.final_score),
+    ),
     getProfileSnapshot(detail.username),
     buildScorePercentile(detail.final_score),
     getSimilarAccounts(detail.username, detail.final_score, detail.sub_scores, SIMILAR_LIMIT),
@@ -170,7 +209,7 @@ export async function buildProfilePresentation(
     buildExistingRepoKeys(snapshot),
   ]);
   return {
-    detail: toPresentationDetail(detail),
+    detail: toPresentationDetail(detail, scoreBreakdown),
     snapshot,
     rank,
     percentile,

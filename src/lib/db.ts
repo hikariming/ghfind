@@ -2074,6 +2074,7 @@ export async function getCurrentCanonicalQuickScan(
               AND r.score_version = ?
               AND r.collection_version = ?
               AND r.state = 'complete_public'
+              AND r.coverage = 'complete_public'
               AND r.snapshot IS NOT NULL
               AND r.snapshot_hash IS NOT NULL
             ORDER BY s.scanned_at DESC, r.completed_at DESC, r.id DESC
