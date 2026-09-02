@@ -1,4 +1,9 @@
-# Backend route ownership matrix
+# Historical backend route ownership matrix
+
+> **Historical reference.** This matrix records the pre-migration Go extraction
+> boundary and is retained for contract/history review. The current app is a
+> single Cloudflare Worker with same-origin page and API routes. For current
+> deployment and rollback, use the [Cloudflare deployment runbook](./cloudflare-deployment-runbook.md).
 
 This matrix is the cutover checklist for issue #170. A route is only marked
 **Go-owned** after its Next handler contains no direct data/business dependency,

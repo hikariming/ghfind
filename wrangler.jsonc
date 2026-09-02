@@ -1,8 +1,10 @@
 {
-  // ghfind frontend on Cloudflare Workers via @opennextjs/cloudflare.
+  // ghfind frontend + backend on one Cloudflare Worker via @opennextjs/cloudflare.
   // Top level = local `wrangler dev`. Deployments always use --env:
-  //   wrangler deploy --env dev         → dev.ghfind.com (noindex, staging data)
-  //   wrangler deploy --env production  → ghfind.com (cutover 阶段1.4; no domain bound yet)
+  //   wrangler deploy --env dev         → dev.ghfind.com
+  //   wrangler deploy --env production  → ghfind.com
+  // Preflight the target account and verify the D1/R2 resources before deploying;
+  // dev and production currently share the D1 database ID below.
   // Secrets (TURSO_*, UPSTASH_*, GHFIND_*, TURNSTILE_SECRET_KEY, LLM_*) are set
   // per-env via `wrangler secret put <NAME> --env <env>`, never in this file.
   "name": "ghfind",

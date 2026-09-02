@@ -568,7 +568,9 @@ export async function checkRoastNetworkRateLimit(ip: string): Promise<RateLimitR
 }
 
 /** Cached roast: the LLM-written report + deterministic score metadata, keyed
- * by every input contract plus language and username (24h). */
+ * by every input contract plus language and username (48h). A compatible
+ * persisted roast can re-warm this cache after expiry without another LLM call.
+ */
 export interface CachedRoast {
   report: string;
   /** Exact canonical scan identity. Missing on pre-migration cache entries. */
@@ -584,7 +586,7 @@ export interface CachedRoast {
   roast_line?: import("./types").RoastLine;
 }
 
-const ROAST_TTL_SECONDS = 60 * 60 * 24;
+const ROAST_TTL_SECONDS = 60 * 60 * 48;
 export const roastKey = (username: string, lang: Lang) =>
   `roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 

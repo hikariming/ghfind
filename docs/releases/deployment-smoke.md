@@ -1,9 +1,15 @@
-# Deployment smoke
+# Cloudflare deployment smoke
+
+The current production topology is one OpenNext Cloudflare Worker: the same
+origin serves the UI and all `/api/*` routes. This document describes the
+read-only release smoke for `ghfind-dev` and `ghfind`; it no longer assumes a
+Vercel frontend, Railway API, or a separate metrics origin.
 
 `scripts/smoke-deployment.mts` is read-only. It never starts a scan or roast and
 does not print canary handles, run IDs, response bodies, or credentials.
 
-Configure these values privately in the deployment system:
+Configure these values privately in the deployment system. Use
+`https://dev.ghfind.com` for dev or `https://ghfind.com` for production:
 
 ```text
 SMOKE_BASE_URL
@@ -12,9 +18,8 @@ SMOKE_FACET_TYPE
 SMOKE_FACET_VALUE
 ```
 
-For the Go backend cutover, also configure a previously admitted public scan job
-so the smoke can prove the `202 -> Location -> result` path without starting new
-GitHub work:
+To optionally verify a previously admitted public scan job without starting new
+GitHub work, configure:
 
 ```text
 SMOKE_SCAN_JOB_ID
@@ -23,29 +28,32 @@ SMOKE_SCAN_JOB_EXPECT_RESULT=1
 SMOKE_REQUIRE_SCAN_JOB=1
 ```
 
-To prove process-level Railway health and metrics, configure private origins
-reachable only from the deployment runner, Railway private networking, or an SSH
-tunnel:
+The current single-Worker smoke does not require separate backend or worker
+metrics origins. `SMOKE_BACKEND_BASE_URL` and
+`SMOKE_WORKER_METRICS_BASE_URL`, if present in an old runner, are legacy
+split-backend checks and should be removed from the Cloudflare release job.
 
-```text
-SMOKE_BACKEND_BASE_URL
-SMOKE_WORKER_METRICS_BASE_URL
-```
-
-Use `SMOKE_ALLOW_HTTP=1` only for local or tunneled localhost smoke runs. Remote
-origins must be HTTPS.
+Use `SMOKE_ALLOW_HTTP=1` only for local smoke runs. Remote origins must be HTTPS.
 
 Run `pnpm smoke:deployment`. The script checks the profile, deterministic score
-API, Go-owned profile presentation, badge embed data, autocomplete, score
-leaderboard, facet bucket, project list, sitemap inventory, MCP tools/list
-transport, campaign SSE reconnect frame, optional public scan status/result,
-optional Go API `/healthz` `/readyz` `/metrics`, optional worker `/metrics`,
-and canonical origin. Missing required values, `localhost` canonical output on
-a remote smoke, unexpected status, or malformed JSON fails the run.
+API, profile presentation, badge embed data, autocomplete, score leaderboard,
+facet bucket, project list, sitemap inventory, MCP tools/list transport, campaign
+SSE reconnect frame, optional public scan status/result, and canonical origin.
+Missing required values, `localhost` canonical output on a remote smoke,
+unexpected status, or malformed JSON fails the run.
 
 Run `pnpm smoke:deployment:selftest` to exercise every smoke branch against a
-local fixture server. CI runs this self-test without production secrets; staging
-must still run the real smoke against the deployed Vercel/Railway origins.
+local fixture server. CI runs this self-test without production secrets; a
+release must still run the real smoke against the deployed Cloudflare Worker
+origin.
+
+## Historical split-backend smoke
+
+The following `smoke:backend:*` sections and resilience evidence were written for
+the retired Go API/worker plus Railway topology. They remain useful for fixture
+regression until the old scripts are removed, but they are not Cloudflare
+production release gates and must not be used to infer that a separate backend is
+still deployed.
 
 ## Backend async smoke
 
@@ -77,21 +85,20 @@ Run `pnpm smoke:backend:async`. The script does not print the handle, API key,
 job payload or response bodies. Run `pnpm smoke:backend:async:selftest` to
 exercise the control flow locally without secrets.
 
-## Rollback verification
+## Historical rollback verification
 
-Use the same smoke commands after a rollback, but record which rollback mode was
-used:
+The old Railway/Vercel rollback modes below are retained only as historical
+evidence format. For the current release path, use the
+[Cloudflare deployment runbook](../operations/cloudflare-deployment-runbook.md):
+list Worker deployments, roll back the `ghfind` version, then run the smoke
+against `https://ghfind.com`. Do not remove `GHFIND_BACKEND_ORIGIN`; it is not part
+of the current production topology.
 
-- Railway API/worker rollback: run `pnpm smoke:deployment` and, if the worker
-  changed, `pnpm smoke:backend:async` against a cold canary.
-- Vercel deployment rollback: move the production alias back to the saved
-  previous healthy Vercel deployment, then run `pnpm smoke:deployment`.
-- Emergency `GHFIND_BACKEND_ORIGIN` removal: this is fail-closed containment,
-  not a functional rollback. Go-owned routes return `503 backend_not_configured`
-  by design and this state must not be used as issue-completion evidence.
-
-Attach the smoke command, timestamp, deployment IDs, and queue/DLQ depth snapshot
-to the staging evidence bundle. Install or adapt
+For the historical split-backend evidence only, attach the smoke command,
+timestamp, deployment IDs, and queue/DLQ depth snapshot to the staging evidence
+bundle. The current Cloudflare release evidence is defined in the
+[Cloudflare deployment runbook](../operations/cloudflare-deployment-runbook.md).
+Install or adapt
 `docs/operations/backend-alerts.prometheus.yml` before promotion so publish
 failures, worker failures, dead-lettering, latency growth, scan backlog and DLQ
 depth have explicit alerts.
@@ -148,8 +155,8 @@ fixtures without secrets. A passing self-test is not staging proof; the real
 run must attach the generated evidence JSON plus the read-only deployment smoke
 and write-path async smoke output.
 
-Before promoting a Vercel deployment, set both `NEXT_PUBLIC_SITE_URL` and
-`PUBLIC_SITE_URL` to the same HTTPS origin in the Production environment. The
-build rejects missing, local, HTTP, malformed, or mismatched production values.
+Before promoting a Cloudflare production deployment, set both
+`NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. The build
+rejects missing, local, HTTP, malformed, or mismatched production values.
 Use an explicit local origin only in local development or Preview; never copy
 the value or unrelated environment settings into logs, issues, or screenshots.

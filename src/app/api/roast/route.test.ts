@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   getCurrentCanonicalQuickScan: vi.fn(),
   getLegacyReadFallbackRoast: vi.fn(),
   getRankCached: vi.fn(),
-  getScoreScannedAt: vi.fn(),
   rateLimitHeaders: vi.fn(),
   releaseRoastLock: vi.fn(),
   setCachedRoast: vi.fn(),
@@ -33,7 +32,6 @@ vi.mock("@/lib/db", () => ({
   getCanonicalScoreWriteIdentity: mocks.getCanonicalScoreWriteIdentity,
   getCurrentCanonicalQuickScan: mocks.getCurrentCanonicalQuickScan,
   getLegacyReadFallbackRoast: mocks.getLegacyReadFallbackRoast,
-  getScoreScannedAt: mocks.getScoreScannedAt,
   updateRoast: mocks.updateRoast,
 }));
 vi.mock("@/lib/rank", () => ({ getRankCached: mocks.getRankCached }));
@@ -74,12 +72,14 @@ const scan = {
 
 describe("POST /api/roast quick score contract", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.GITHUB_ROAST_CLI_API_KEY;
     mocks.checkRoastRequestRateLimit.mockResolvedValue({ success: true });
     mocks.checkRoastRateLimit.mockResolvedValue({ success: true });
     mocks.checkRoastRequestNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.checkRoastNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
-    mocks.anonymousSessionPrincipal.mockReturnValue(null);
+    mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
     mocks.defaultLlmConfig.mockReturnValue({ baseURL: "https://llm.example.test", apiKey: "key", model: "model" });
     mocks.fallbackLlmConfig.mockReturnValue(null);
     mocks.getCachedScan.mockResolvedValue(null);
@@ -88,7 +88,6 @@ describe("POST /api/roast quick score contract", () => {
     mocks.getCanonicalScoreWriteIdentity.mockResolvedValue({ scannedAt: 1, token: "token" });
     mocks.getCachedRoast.mockResolvedValue(null);
     mocks.getArchivedRoast.mockResolvedValue(null);
-    mocks.getScoreScannedAt.mockResolvedValue(1);
     mocks.acquireRoastLock.mockResolvedValue(true);
     mocks.updateRoast.mockResolvedValue(true);
     mocks.getRankCached.mockResolvedValue(null);
@@ -110,7 +109,8 @@ describe("POST /api/roast quick score contract", () => {
     expect(mocks.updateRoast).toHaveBeenCalled();
   });
 
-  it("accepts an interactive roast without a BotID availability gate", async () => {
+  it("accepts an interactive roast without the machine API quota", async () => {
+    mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
     const response = await POST(new NextRequest("https://example.test/api/roast", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -119,11 +119,30 @@ describe("POST /api/roast quick score contract", () => {
 
     expect(response.status).toBe(200);
     await new Response(response.body).text();
-    expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalled();
-    expect(mocks.checkRoastRateLimit).toHaveBeenCalled();
+    expect(mocks.checkRoastRequestRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastRequestNetworkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastNetworkRateLimit).not.toHaveBeenCalled();
   });
 
-  it("uses the signed browser session while retaining the shared network budgets", async () => {
+  it("does not let an unverified browser spend platform model credit", async () => {
+    mocks.anonymousSessionPrincipal.mockReturnValue(null);
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scan, lang: "zh" }),
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "turnstile_failed",
+      useByoKey: true,
+    });
+    expect(mocks.chat).not.toHaveBeenCalled();
+    expect(mocks.acquireRoastLock).not.toHaveBeenCalled();
+  });
+
+  it("uses the signed browser session without shared NAT budgets", async () => {
     mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
     const response = await POST(new NextRequest("https://example.test/api/roast", {
       method: "POST",
@@ -133,10 +152,36 @@ describe("POST /api/roast quick score contract", () => {
 
     expect(response.status).toBe(200);
     await new Response(response.body).text();
-    expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalledWith("anon:session-fixture");
-    expect(mocks.checkRoastRequestNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
-    expect(mocks.checkRoastRateLimit).toHaveBeenCalledWith("anon:session-fixture");
-    expect(mocks.checkRoastNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
+    expect(mocks.checkRoastRequestRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastRequestNetworkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkRoastNetworkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("serves a compatible roast cache even when the browser asks to refresh", async () => {
+    const snapshotHash = "a".repeat(64);
+    mocks.defaultLlmConfig.mockReturnValue(null);
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue({ scan, snapshotHash });
+    mocks.getCachedRoast.mockResolvedValue({
+      report: "## 锐评\n工作扎实。",
+      snapshot_hash: snapshotHash,
+      delta: 0,
+      tags: { zh: [], en: [] },
+      final_score: 71,
+      tier: "人上人",
+      roast_line: { zh: "工作扎实。", en: "Solid work." },
+    });
+
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scan, refresh: true, lang: "zh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await new Response(response.body).text();
+    expect(mocks.checkRoastRateLimit).not.toHaveBeenCalled();
+    expect(mocks.acquireRoastLock).not.toHaveBeenCalled();
   });
 
   it("keeps machine-authenticated callers on their IP budget", async () => {
@@ -157,6 +202,24 @@ describe("POST /api/roast quick score contract", () => {
     await new Response(response.body).text();
     expect(mocks.checkRoastRequestRateLimit).toHaveBeenCalledWith("198.51.100.10");
     expect(mocks.checkRoastRateLimit).toHaveBeenCalledWith("198.51.100.10");
+  });
+
+  it("releases the generation lock when a machine caller is over quota", async () => {
+    process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
+    mocks.checkRoastRateLimit.mockResolvedValue({ success: false, reset: Date.now() + 1000 });
+
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-key",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ scan, lang: "zh" }),
+    }));
+
+    expect(response.status).toBe(429);
+    expect(mocks.releaseRoastLock).toHaveBeenCalledWith("DemoDev", "zh");
+    expect(mocks.chat).not.toHaveBeenCalled();
   });
 
   it("uses the exact server quick snapshot instead of a client handoff", async () => {

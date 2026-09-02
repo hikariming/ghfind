@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
  *  key returns a spec-shaped 401 (with WWW-Authenticate) instead of falling
  *  through to the normal browser path. Shared by the credit-spending endpoints
  *  (/api/scan, /api/roast): agents authenticate here; browser traffic is guarded
- *  by Turnstile on scan and server-side rate limits on roast. */
+ *  by Turnstile on scan and signed browser sessions thereafter. */
 export function machineAuth(req: NextRequest): "valid" | "invalid" | "absent" {
   const value = req.headers.get("authorization") ?? "";
   if (!value) return "absent";
