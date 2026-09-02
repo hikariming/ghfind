@@ -30,6 +30,31 @@ repository config and production workflow pin this account. The
 `AsperforMias` account is not a production target and must not be used for
 production Workers, D1, R2, or Secrets.
 
+## Canonical GitHub source and CI ownership
+
+`hikariming/ghfind` is the only canonical production repository. Production is
+not connected to a personal fork or to a Cloudflare dashboard Git integration;
+the binding is enforced by the upstream workflow itself:
+
+```text
+upstream/main commit
+  -> CI push run succeeds
+  -> Deploy production (Cloudflare) workflow_run on that exact SHA
+  -> provenance guard confirms hikariming/ghfind + main
+  -> deploy ghfind in Beiming's account
+```
+
+The fork has no production deployment workflow. The only GitHub Actions secret
+needed by the production workflow is the upstream repository secret
+`CF_API_TOKEN`. `CF_ACCOUNT_ID` is deliberately not read by the workflow; the
+Beiming account ID is pinned in both the workflow and `wrangler.jsonc`. Worker
+runtime secrets such as Upstash Redis and the LLM credentials stay in the
+Cloudflare Worker environment and must not be copied into GitHub Actions.
+
+Every automated Worker version is tagged with the exact `main-<commit-sha>` and
+given a release message containing the same SHA. This makes the Cloudflare
+version history traceable back to upstream `main` without exposing credentials.
+
 ## Hard stop: preflight the target account and resources
 
 Run these checks from the repository root before a remote deployment:
@@ -151,11 +176,14 @@ to deploy Workers and access the configured D1/R2 resources.
 
 The automatic production workflow is triggered by a successful `CI` workflow
 completion on `main`, not by a raw push. It checks out the exact commit SHA that
-CI verified, captures the active 100% Worker version, deploys, and runs the
-read-only production smoke three times at most. A build, deployment, or smoke
-failure invokes `wrangler rollback` to restore the captured version, then runs
-the smoke again against the restored origin. Because the current frontend and
-backend are one Worker, this is a single atomic application rollback for both.
+CI verified and rejects any event whose repository, branch, or checked-out SHA
+does not match upstream `main`. It captures the active 100% Worker version,
+deploys, confirms that production still has one 100% version, and runs the
+read-only production smoke three times at most. A build, deployment, active
+version, or smoke failure invokes `wrangler rollback` to restore the captured
+version, verifies that the old version is active, then runs the smoke again
+against the restored origin. Because the current frontend and backend are one
+Worker, this is a single atomic application rollback for both.
 
 Main branch protection is optional for this release design. The deployment
 workflow is the release gate: it reacts only to a successful `CI` completion on
@@ -222,8 +250,9 @@ production release gate.
 ## Automated rollback
 
 The production workflow records the active 100% Worker version before each
-serialized release. If build/deploy/post-deploy smoke fails, it automatically
-runs:
+serialized release. It also requires that the active deployment was authored by
+the Beiming Cloudflare identity. If build/deploy/active-version/post-deploy
+smoke fails, it automatically runs:
 
 ```bash
 pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production --message "rollback: post-deploy verification failed" --yes
@@ -237,7 +266,9 @@ release started. With `cancel-in-progress: false`, queued releases are handled
 one at a time: if commit1 is the last smoke-qualified release and commits2
 through5 fail, each failed release returns to commit1. If an intermediate
 release passes its post-deploy smoke, that release becomes the new rollback
-anchor for the releases that follow.
+anchor for the releases that follow. An out-of-band deployment or a split
+traffic state is not accepted as a rollback anchor; the release stops and needs
+operator review.
 ## Manual rollback
 
 Cloudflare rollback is a Worker-version rollback; DNS does not need to be changed

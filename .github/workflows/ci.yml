@@ -60,6 +60,9 @@ jobs:
             pnpm versions:check
           fi
 
+      - name: Verify Cloudflare release workflow contract
+        run: pnpm ci:check-cf-release-workflow
+
       - name: Typecheck
         run: pnpm typecheck
 
