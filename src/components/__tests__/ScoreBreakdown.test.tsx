@@ -5,6 +5,7 @@ import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdo
 const copy = {
   base: "六维基础分",
   adjustment: "风险调整",
+  inferredAdjustment: "未解释分差",
   final: "最终得分",
   heading: "评分构成",
   note: "风险规则在六维分数相加后独立应用。",
@@ -42,6 +43,7 @@ describe("ScoreBreakdown", () => {
     expect(html).toContain("80.70");
     expect(html).toContain("−20.00");
     expect(html).toContain("60.70");
+    expect(html).toContain("风险调整");
     expect(html).toContain("几乎全部仓库为 Fork");
     expect(html).toContain("没有非空原创仓库");
     expect(html).toContain("83% of repositories are forks.");
@@ -89,6 +91,8 @@ describe("ScoreBreakdown", () => {
     );
 
     expect(html).toContain("未保存具体扣分明细");
+    expect(html).toContain("未解释分差");
+    expect(html).not.toContain("风险调整");
     expect(html).not.toContain("风险调整明细 · 共 2 项");
   });
 });

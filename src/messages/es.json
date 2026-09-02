@@ -272,6 +272,7 @@
     "dimensionsHeading": "Desglose del score",
     "scoreBase": "Base de seis dimensiones",
     "scoreAdjustment": "Ajuste de riesgo",
+    "scoreInferredAdjustment": "Diferencia no explicada",
     "scoreFinal": "Puntuación final",
     "scoreBreakdownHeading": "Composición de la puntuación",
     "scoreBreakdownNote": "Las reglas de riesgo se aplican por separado después de sumar las seis dimensiones.",

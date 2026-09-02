@@ -272,6 +272,7 @@
     "dimensionsHeading": "スコア内訳",
     "scoreBase": "6次元の基礎点",
     "scoreAdjustment": "リスク調整",
+    "scoreInferredAdjustment": "未説明の差分",
     "scoreFinal": "最終スコア",
     "scoreBreakdownHeading": "スコア構成",
     "scoreBreakdownNote": "リスクルールは、6つの次元スコアを合計した後に別途適用されます。",

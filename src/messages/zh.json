@@ -272,6 +272,7 @@
     "dimensionsHeading": "维度评分",
     "scoreBase": "六维基础分",
     "scoreAdjustment": "风险调整",
+    "scoreInferredAdjustment": "未解释分差",
     "scoreFinal": "最终得分",
     "scoreBreakdownHeading": "评分构成",
     "scoreBreakdownNote": "风险规则在六维分数相加后独立应用。",

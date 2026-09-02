@@ -272,6 +272,7 @@
     "dimensionsHeading": "Rincian skor",
     "scoreBase": "Nilai dasar enam dimensi",
     "scoreAdjustment": "Penyesuaian risiko",
+    "scoreInferredAdjustment": "Selisih yang tidak terjelaskan",
     "scoreFinal": "Nilai akhir",
     "scoreBreakdownHeading": "Komposisi nilai",
     "scoreBreakdownNote": "Aturan risiko diterapkan secara terpisah setelah enam nilai dimensi dijumlahkan.",

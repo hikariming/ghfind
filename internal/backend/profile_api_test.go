@@ -36,7 +36,7 @@ func openProfileAPITestStore(t *testing.T) *TursoStore {
 		`CREATE TABLE developer_facets (username TEXT, facet_type TEXT, facet_value TEXT, weight REAL)`,
 		`CREATE TABLE score_snapshots (id TEXT PRIMARY KEY, username TEXT, final_score REAL, generated_at INTEGER)`,
 		`CREATE TABLE public_scan_runs (
-			id TEXT PRIMARY KEY, username TEXT, score_version TEXT, collection_version TEXT, state TEXT,
+			id TEXT PRIMARY KEY, username TEXT, score_version TEXT, collection_version TEXT, state TEXT, coverage TEXT,
 			snapshot TEXT, snapshot_hash TEXT
 		)`,
 		`CREATE TABLE vs_matchups (
@@ -70,11 +70,18 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 	if err != nil {
 		t.Fatalf("insert score %s: %v", username, err)
 	}
+	base := score + 10
+	activity := base - 58
+	_, err = store.db.Exec(`UPDATE scores SET sub_scores = ? WHERE username = ?`,
+		fmt.Sprintf(`{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":%.2f}`, activity), username)
+	if err != nil {
+		t.Fatalf("update score dimensions %s: %v", username, err)
+	}
 	_, err = store.db.Exec(`INSERT INTO public_scan_runs
-		(id, username, score_version, collection_version, state, snapshot, snapshot_hash)
-		VALUES (?, ?, 'v9', 'v4', 'complete_public', ?, ?)`,
+		(id, username, score_version, collection_version, state, coverage, snapshot, snapshot_hash)
+		VALUES (?, ?, 'v9', 'v4', 'complete_public', 'complete_public', ?, ?)`,
 		"scan-"+username, username,
-		fmt.Sprintf(`{"scoring":{"sub_scores":{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":13},"base_score":%.2f,"red_flags":[{"flag":"mostly_forks","penalty":10,"detail":"Mostly forks"}],"total_penalty":10,"final_score":%.2f,"tier":"顶级","tier_label":"test"}}`, score+10, score),
+		fmt.Sprintf(`{"scoring":{"sub_scores":{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":%.2f},"base_score":%.2f,"red_flags":[{"flag":"mostly_forks","penalty":10,"detail":"Mostly forks"}],"total_penalty":10,"final_score":%.2f,"tier":"顶级","tier_label":"test"}}`, activity, base, score),
 		strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatalf("insert score snapshot %s: %v", username, err)
@@ -168,7 +175,7 @@ func TestProfileDetailFallsBackWithoutInventingRedFlags(t *testing.T) {
 	if detail.ScoreBreakdown.Complete {
 		t.Fatal("fallback breakdown must not claim complete red-flag evidence")
 	}
-	if detail.ScoreBreakdown.BaseScore != 71 || detail.ScoreBreakdown.AppliedPenalty != 11 {
+	if detail.ScoreBreakdown.BaseScore != 70 || detail.ScoreBreakdown.AppliedPenalty != 10 {
 		t.Fatalf("breakdown=%#v", detail.ScoreBreakdown)
 	}
 	if len(detail.ScoreBreakdown.RedFlags) != 0 {

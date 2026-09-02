@@ -166,6 +166,64 @@ func nullableProfileInt(value sql.NullInt64) *int64 {
 	return &result
 }
 
+const profileScoreTolerance = 0.005
+
+func finiteProfileScore(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func closeProfileScores(left, right float64) bool {
+	return math.Abs(left-right) <= profileScoreTolerance
+}
+
+func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
+	if scoring == nil || scoring.RedFlags == nil ||
+		!finiteProfileScore(scoring.BaseScore) ||
+		!finiteProfileScore(scoring.TotalPenalty) ||
+		!finiteProfileScore(scoring.FinalScore) ||
+		scoring.BaseScore < 0 || scoring.BaseScore > 100 ||
+		scoring.TotalPenalty < 0 || scoring.TotalPenalty > 40 ||
+		scoring.FinalScore < 0 || scoring.FinalScore > 100 {
+		return false
+	}
+	if !closeProfileScores(scoring.SubScores.AccountMaturity, detail.SubScores.AccountMaturity) ||
+		!closeProfileScores(scoring.SubScores.OriginalProjectQuality, detail.SubScores.OriginalProjectQuality) ||
+		!closeProfileScores(scoring.SubScores.ContributionQuality, detail.SubScores.ContributionQuality) ||
+		!closeProfileScores(scoring.SubScores.EcosystemImpact, detail.SubScores.EcosystemImpact) ||
+		!closeProfileScores(scoring.SubScores.CommunityInfluence, detail.SubScores.CommunityInfluence) ||
+		!closeProfileScores(scoring.SubScores.ActivityAuthenticity, detail.SubScores.ActivityAuthenticity) {
+		return false
+	}
+	baseFromDimensions := roundToEven(
+		scoring.SubScores.AccountMaturity+
+			scoring.SubScores.OriginalProjectQuality+
+			scoring.SubScores.ContributionQuality+
+			scoring.SubScores.EcosystemImpact+
+			scoring.SubScores.CommunityInfluence+
+			scoring.SubScores.ActivityAuthenticity,
+		1,
+	)
+	if !closeProfileScores(baseFromDimensions, scoring.BaseScore) {
+		return false
+	}
+	flagPenaltyTotal := 0.0
+	for _, flag := range scoring.RedFlags {
+		if !finiteProfileScore(flag.Penalty) || flag.Penalty < 0 {
+			return false
+		}
+		flagPenaltyTotal += flag.Penalty
+	}
+	if flagPenaltyTotal > 40 {
+		flagPenaltyTotal = 40
+	}
+	if !closeProfileScores(flagPenaltyTotal, scoring.TotalPenalty) {
+		return false
+	}
+	expectedFinal := clampScore(roundToEven(scoring.BaseScore-scoring.TotalPenalty, 2))
+	return closeProfileScores(expectedFinal, scoring.FinalScore) &&
+		closeProfileScores(scoring.FinalScore, detail.FinalScore)
+}
+
 func inferredProfileScoreBreakdown(detail *ProfileDetail) *ProfileScoreBreakdown {
 	base := roundToEven(
 		detail.SubScores.AccountMaturity+
@@ -200,6 +258,7 @@ func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *Profi
 		FROM public_scan_runs
 		WHERE username = ? AND score_version = ? AND collection_version = ?
 		  AND snapshot_hash = ? AND state = 'complete_public'
+		  AND coverage = 'complete_public'
 		LIMIT 1`, strings.ToLower(detail.Username), *detail.ScoreVersion, *detail.CollectionVersion, *detail.SnapshotHash).Scan(&encoded)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fallback, nil
@@ -215,14 +274,10 @@ func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *Profi
 	if err := json.Unmarshal([]byte(encoded.String), &scoring); err != nil {
 		return fallback, fmt.Errorf("decode profile score breakdown: %w", err)
 	}
-	// The provenance identity should make these equal. If a damaged historical
-	// row violates that invariant, prefer an honest incomplete explanation over
-	// showing a formula that does not equal the score on the page.
-	if math.Abs(scoring.FinalScore-detail.FinalScore) > 0.005 {
+	// Only expose a complete explanation when the immutable scan agrees with
+	// both the six-dimensional score row and the red-flag penalty formula.
+	if !validProfileScoring(&scoring, detail) {
 		return fallback, nil
-	}
-	if scoring.RedFlags == nil {
-		scoring.RedFlags = []RedFlag{}
 	}
 	applied := roundToEven(scoring.BaseScore-detail.FinalScore, 2)
 	if applied < 0 {

@@ -272,6 +272,7 @@
     "dimensionsHeading": "Score breakdown",
     "scoreBase": "Six-dimension base",
     "scoreAdjustment": "Risk adjustment",
+    "scoreInferredAdjustment": "Unexplained difference",
     "scoreFinal": "Final score",
     "scoreBreakdownHeading": "Score composition",
     "scoreBreakdownNote": "Risk rules are applied separately after the six dimension scores are added.",

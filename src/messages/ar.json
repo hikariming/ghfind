@@ -272,6 +272,7 @@
     "dimensionsHeading": "تفصيل التقييم",
     "scoreBase": "الدرجة الأساسية للأبعاد الستة",
     "scoreAdjustment": "تعديل المخاطر",
+    "scoreInferredAdjustment": "فرق غير مفسر",
     "scoreFinal": "الدرجة النهائية",
     "scoreBreakdownHeading": "تركيب الدرجة",
     "scoreBreakdownNote": "تُطبَّق قواعد المخاطر بشكل منفصل بعد جمع درجات الأبعاد الستة.",

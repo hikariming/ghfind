@@ -36,7 +36,8 @@ import type {
   VsMatchup,
   VsPresentation,
 } from "@/lib/profile-presentation";
-import type { ScanResult } from "@/lib/types";
+import type { ScanResult, SubScoreKey, SubScores } from "@/lib/types";
+import { roundHalfEven } from "@/lib/score";
 
 const SIMILAR_LIMIT = 6;
 const COMMON_PROJECT_CANDIDATES = 3;
@@ -57,29 +58,92 @@ function toPresentationDetail(
   };
 }
 
+const SCORE_TOLERANCE = 0.005;
+const SCORE_SUB_KEYS: SubScoreKey[] = [
+  "account_maturity",
+  "original_project_quality",
+  "contribution_quality",
+  "ecosystem_impact",
+  "community_influence",
+  "activity_authenticity",
+];
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isClose(left: number, right: number): boolean {
+  return Math.abs(left - right) <= SCORE_TOLERANCE;
+}
+
+function isValidRedFlag(value: unknown): value is ScanResult["scoring"]["red_flags"][number] {
+  if (!value || typeof value !== "object") return false;
+  const flag = value as Record<string, unknown>;
+  return (
+    typeof flag.flag === "string" &&
+    isFiniteNumber(flag.penalty) &&
+    flag.penalty >= 0 &&
+    typeof flag.detail === "string"
+  );
+}
+
 function scoreBreakdownFromScan(
   scan: ScanResult | null,
   finalScore: number,
+  detailSubScores: SubScores,
 ): ScoreBreakdown | null {
   const scoring = scan?.scoring;
   if (
     !scoring ||
-    !Number.isFinite(scoring.base_score) ||
-    !Number.isFinite(scoring.total_penalty) ||
-    !Number.isFinite(scoring.final_score) ||
-    Math.abs(scoring.final_score - finalScore) > 0.005
+    !isFiniteNumber(scoring.base_score) ||
+    !isFiniteNumber(scoring.total_penalty) ||
+    !isFiniteNumber(scoring.final_score) ||
+    !Array.isArray(scoring.red_flags) ||
+    !scoring.red_flags.every(isValidRedFlag) ||
+    scoring.base_score < 0 ||
+    scoring.base_score > 100 ||
+    scoring.total_penalty < 0 ||
+    scoring.total_penalty > 40 ||
+    scoring.final_score < 0 ||
+    scoring.final_score > 100
   ) {
     return null;
   }
-  const appliedPenalty = Math.max(
-    0,
-    Number((scoring.base_score - finalScore).toFixed(2)),
+
+  const subScores = scoring.sub_scores as Partial<Record<SubScoreKey, unknown>> | undefined;
+  if (!subScores || !SCORE_SUB_KEYS.every((key) => isFiniteNumber(subScores[key]))) {
+    return null;
+  }
+  if (!SCORE_SUB_KEYS.every((key) => isClose(subScores[key] as number, detailSubScores[key]))) {
+    return null;
+  }
+
+  const baseFromDimensions = roundHalfEven(
+    SCORE_SUB_KEYS.reduce((sum, key) => sum + (subScores[key] as number), 0),
+    1,
   );
+  if (!isClose(baseFromDimensions, scoring.base_score)) return null;
+
+  const flagPenaltyTotal = Math.min(
+    scoring.red_flags.reduce((sum, flag) => sum + flag.penalty, 0),
+    40,
+  );
+  if (!isClose(flagPenaltyTotal, scoring.total_penalty)) return null;
+
+  const expectedFinal = Math.max(
+    0,
+    Math.min(100, roundHalfEven(scoring.base_score - scoring.total_penalty, 2)),
+  );
+  if (!isClose(expectedFinal, scoring.final_score) || !isClose(scoring.final_score, finalScore)) {
+    return null;
+  }
+
+  const appliedPenalty = Math.max(0, roundHalfEven(scoring.base_score - finalScore, 2));
   return {
     base_score: scoring.base_score,
     total_penalty: scoring.total_penalty,
     applied_penalty: appliedPenalty,
-    red_flags: Array.isArray(scoring.red_flags) ? scoring.red_flags : [],
+    red_flags: scoring.red_flags,
     complete: true,
   };
 }
@@ -111,7 +175,7 @@ async function buildCommonProjects(
     const items = await getDeveloperCommonProjects(username, candidate, COMMON_PROJECT_LIMIT);
     const batch = items
       .map(toCommonProject)
-      .sort(
+      .toSorted(
         (left, right) =>
           right.avgScore - left.avgScore ||
           (left.repo.repo_key < right.repo.repo_key ? -1 : left.repo.repo_key > right.repo.repo_key ? 1 : 0),
@@ -145,7 +209,7 @@ function snapshotRepoKeys(snapshot: ProfileSnapshotView | null): string[] {
 
 async function buildExistingRepoKeys(snapshot: ProfileSnapshotView | null): Promise<string[]> {
   const existing = await filterExistingRepoKeys(snapshotRepoKeys(snapshot));
-  return [...existing].sort();
+  return existing ? [...existing].toSorted() : [];
 }
 
 /** Same shape as the Go ScorePercentile: `beat`/`rank` stay null when there is
@@ -188,7 +252,7 @@ export async function buildProfilePresentation(
   if (!detail) return null;
   const [scoreBreakdown, snapshot, { rank, percentile }, similar, battles, facetRank, delta] = await Promise.all([
     getCurrentCanonicalQuickScan(detail.username).then((current) =>
-      scoreBreakdownFromScan(current?.scan ?? null, detail.final_score),
+      scoreBreakdownFromScan(current?.scan ?? null, detail.final_score, detail.sub_scores),
     ),
     getProfileSnapshot(detail.username),
     buildScorePercentile(detail.final_score),

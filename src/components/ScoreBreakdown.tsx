@@ -3,6 +3,7 @@ import type { ScoreBreakdown as ScoreBreakdownData } from "@/lib/profile-present
 interface ScoreBreakdownCopy {
   base: string;
   adjustment: string;
+  inferredAdjustment: string;
   final: string;
   heading: string;
   note: string;
@@ -29,6 +30,8 @@ export function ScoreBreakdownSummary({
 }: Pick<ScoreBreakdownProps, "breakdown" | "copy">) {
   if (breakdown.applied_penalty <= 0.005) return null;
 
+  const adjustmentLabel = breakdown.complete ? copy.adjustment : copy.inferredAdjustment;
+
   return (
     <a
       href="#score-breakdown"
@@ -36,7 +39,7 @@ export function ScoreBreakdownSummary({
     >
       <span>{copy.base} <strong className="font-semibold tabular-nums text-zinc-200">{score(breakdown.base_score)}</strong></span>
       <span aria-hidden="true" className="text-zinc-600">·</span>
-      <span>{copy.adjustment} <strong className="font-semibold tabular-nums text-amber-300">−{score(breakdown.applied_penalty)}</strong></span>
+      <span>{adjustmentLabel} <strong className="font-semibold tabular-nums text-amber-300">−{score(breakdown.applied_penalty)}</strong></span>
     </a>
   );
 }
@@ -81,6 +84,7 @@ export function ScoreBreakdown({
   const visibleFlags = breakdown.red_flags.slice(0, 3);
   const remainingFlags = breakdown.red_flags.slice(3);
   const adjustmentWasLimited = Math.abs(breakdown.total_penalty - breakdown.applied_penalty) > 0.005;
+  const adjustmentLabel = breakdown.complete ? copy.adjustment : copy.inferredAdjustment;
 
   return (
     <div id="score-breakdown" className="mt-4 scroll-mt-24 rounded-lg border border-amber-300/20 bg-amber-500/[0.04] p-3">
@@ -92,7 +96,7 @@ export function ScoreBreakdown({
         </div>
         <span aria-hidden="true" className="text-sm font-semibold text-zinc-500">−</span>
         <div>
-          <div className="text-[11px] text-zinc-500">{copy.adjustment}</div>
+          <div className="text-[11px] text-zinc-500">{adjustmentLabel}</div>
           <div className="mt-0.5 text-base font-bold tabular-nums text-amber-300">{score(breakdown.applied_penalty)}</div>
         </div>
         <span aria-hidden="true" className="text-sm font-semibold text-zinc-500">=</span>

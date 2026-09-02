@@ -24,6 +24,7 @@ import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
 import { nextTier, tierFor } from "@/lib/score-presentation";
+import { roundHalfEven } from "@/lib/score";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -41,7 +42,6 @@ import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { auth } from "@/lib/auth";
 import { getProfileComments } from "@/lib/db";
-import type { ProfileComment } from "@/lib/comments";
 import { oauthConfigured } from "@/lib/oauth-config";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { rankProfileWorks } from "@/lib/profile-work";
@@ -328,19 +328,22 @@ export default async function AccountPage({
   const dimensionLabels = Object.fromEntries(
     DIMENSIONS.map((key) => [key, tDim(key)]),
   ) as Record<(typeof DIMENSIONS)[number], string>;
-  const inferredBaseScore = Number(
-    Object.values(d.sub_scores).reduce((sum, value) => sum + value, 0).toFixed(1),
+  const inferredBaseScore = roundHalfEven(
+    Object.values(d.sub_scores).reduce((sum, value) => sum + value, 0),
+    1,
   );
+  const inferredPenalty = Math.max(0, roundHalfEven(inferredBaseScore - d.final_score, 2));
   const scoreBreakdown = d.score_breakdown ?? {
     base_score: inferredBaseScore,
-    total_penalty: Math.max(0, Number((inferredBaseScore - d.final_score).toFixed(2))),
-    applied_penalty: Math.max(0, Number((inferredBaseScore - d.final_score).toFixed(2))),
+    total_penalty: inferredPenalty,
+    applied_penalty: inferredPenalty,
     red_flags: [],
     complete: false,
   };
   const scoreBreakdownCopy = {
     base: t("scoreBase"),
     adjustment: t("scoreAdjustment"),
+    inferredAdjustment: t("scoreInferredAdjustment"),
     final: t("scoreFinal"),
     heading: t("scoreBreakdownHeading"),
     note: t("scoreBreakdownNote"),
@@ -355,7 +358,7 @@ export default async function AccountPage({
 
   // Evidence blocks (only when a sedimented snapshot exists).
   const impactRepos = snap
-    ? [...snap.impact_repos].sort((a, b) => b.stars - a.stars).slice(0, 6)
+    ? [...snap.impact_repos].toSorted((a, b) => b.stars - a.stars).slice(0, 6)
     : [];
   const representativeWorks = snap
     ? rankProfileWorks({

@@ -272,6 +272,7 @@
     "dimensionsHeading": "점수 상세 분석",
     "scoreBase": "6개 지표 기본 점수",
     "scoreAdjustment": "위험 조정",
+    "scoreInferredAdjustment": "설명되지 않은 차이",
     "scoreFinal": "최종 점수",
     "scoreBreakdownHeading": "점수 구성",
     "scoreBreakdownNote": "위험 규칙은 6개 지표 점수를 합산한 뒤 별도로 적용됩니다.",

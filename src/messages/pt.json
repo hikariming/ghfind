@@ -272,6 +272,7 @@
     "dimensionsHeading": "Detalhamento da nota",
     "scoreBase": "Base das seis dimensões",
     "scoreAdjustment": "Ajuste de risco",
+    "scoreInferredAdjustment": "Diferença não explicada",
     "scoreFinal": "Pontuação final",
     "scoreBreakdownHeading": "Composição da pontuação",
     "scoreBreakdownNote": "As regras de risco são aplicadas separadamente após a soma das seis dimensões.",
