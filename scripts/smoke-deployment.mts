@@ -6,6 +6,7 @@ type Check = {
   path: string;
   status: number;
   validate?: (body: unknown, response: Response) => void;
+  validateText?: (body: string, response: Response) => void;
 };
 
 function usage(): void {
@@ -59,7 +60,7 @@ async function runCheck(base: URL, check: Check): Promise<void> {
   const response = await fetch(new URL(check.path, base), {
     redirect: "follow",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { Accept: "application/json, text/html;q=0.9" },
+    headers: { Accept: "application/json, image/svg+xml, text/html;q=0.9" },
   });
   if (response.status !== check.status) {
     throw new Error(`${check.label} returned ${response.status}; expected ${check.status}`);
@@ -74,6 +75,10 @@ async function runCheck(base: URL, check: Check): Promise<void> {
   if (check.validate) {
     const body = await response.json();
     check.validate(body, response);
+  }
+  if (check.validateText) {
+    const body = await response.text();
+    check.validateText(body, response);
   }
   console.log(`PASS ${check.label}`);
 }
@@ -246,27 +251,15 @@ async function main(): Promise<void> {
       },
     },
     {
-      label: "profile presentation API",
-      path: `/api/profile/${encodeURIComponent(canary)}`,
+      label: "badge SVG",
+      path: `/api/badge/${encodeURIComponent(canary)}`,
       status: 200,
-      validate(body) {
-        const detail = record(record(body).detail);
-        if (String(detail.username).toLowerCase() !== canary.toLowerCase()) {
-          throw new Error("profile presentation returned the wrong canary");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("image/svg+xml")) {
+          throw new Error("badge response is not SVG");
         }
-        if (typeof detail.final_score !== "number") {
-          throw new Error("profile presentation is missing final_score");
-        }
-      },
-    },
-    {
-      label: "badge embed API",
-      path: `/api/embed/badge/${encodeURIComponent(canary)}`,
-      status: 200,
-      validate(body) {
-        const payload = record(body);
-        if (!("final_score" in payload) || !("tier" in payload) || !("delta" in payload)) {
-          throw new Error("badge embed API is missing expected keys");
+        if (!body.includes("<svg")) {
+          throw new Error("badge response is missing SVG markup");
         }
       },
     },
@@ -295,21 +288,26 @@ async function main(): Promise<void> {
       },
     },
     {
-      label: "projects API",
-      path: "/api/projects?limit=1",
+      label: "projects page",
+      path: "/projects",
       status: 200,
-      validate(body) {
-        if (!Array.isArray(record(body).projects)) throw new Error("projects are missing");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("text/html")) {
+          throw new Error("projects page is not HTML");
+        }
+        if (!body.includes("<main")) throw new Error("projects page is missing main content");
       },
     },
     {
-      label: "sitemap inventory API",
-      path: "/api/sitemap",
+      label: "sitemap XML",
+      path: "/sitemap.xml",
       status: 200,
-      validate(body) {
-        const payload = record(body);
-        if (!Array.isArray(payload.profiles) || !Array.isArray(payload.matchups)) {
-          throw new Error("sitemap inventory arrays are missing");
+      validateText(body, response) {
+        if (!(response.headers.get("content-type") ?? "").includes("xml")) {
+          throw new Error("sitemap is not XML");
+        }
+        if (!body.includes("<urlset")) {
+          throw new Error("sitemap is missing urlset");
         }
       },
     },

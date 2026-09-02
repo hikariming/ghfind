@@ -185,29 +185,37 @@ facts.
 
 See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, and the leaderboard **degrade silently** when unconfigured in local development. Production requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`: when the limiter is unavailable, only protected uncached cost-bearing routes return `503` with `Retry-After`; edge-cached responses and ordinary browsing continue. `RATE_LIMIT_FAIL_OPEN=1` is an emergency operator override and should not be set during normal operation.
 
-## Leaderboard + percentile (Turso, optional)
+## Leaderboard + percentile (Cloudflare D1)
 
-Configure `TURSO_*` to unlock the "Hall of Fame" leaderboard (`/leaderboard`) and the result page's "🏆 You beat X% of developers".
+Production stores scores in the Cloudflare D1 `GHFIND_D1` binding configured in
+`wrangler.jsonc`. Follow the [Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md)
+to verify the target account and database before deploying. `TURSO_*` remains a
+local/maintenance fallback and is not the production database.
 Each scan upserts the account's latest score into the DB (one row per account); percentile = the share of stored scores strictly below yours.
 **The public board only lists accounts scoring ≥60**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The whole feature degrades silently when unconfigured.
 
 ```bash
-# cloud
-turso db create github-roast
-turso db tokens create github-roast   # gives TURSO_DATABASE_URL(libsql://...) + TURSO_AUTH_TOKEN
-# local dev, no cloud
+# local development only
 TURSO_DATABASE_URL=file:./local.db
 ```
 
-## Deploy to Vercel
+## Deploy to Cloudflare Workers
 
-1. Push to GitHub, import in Vercel.
-2. Configure environment variables (as above). `UPSTASH_*` can be provisioned in one click via Vercel's Upstash integration.
-3. Grab a Cloudflare Turnstile site/secret key pair; set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`.
-4. (Optional) Turso: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` to enable the leaderboard, archived reports, profile comments/reactions, and persisted quick-scan profiles.
-5. (Optional) GitHub OAuth: `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` to enable signed-in comments/reactions.
-6. Set both `NEXT_PUBLIC_SITE_URL` and `PUBLIC_SITE_URL` to the same HTTPS origin. Vercel Production rejects a missing, local, HTTP, malformed, or mismatched value during the build so metadata, sitemap, API profile URLs, cards, and LLM attribution cannot drift.
-7. Deploy the web application.
+The frontend and backend run together in one OpenNext Cloudflare Worker. See the
+[Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md)
+for account/resource preflight, secrets, smoke checks, and rollback.
+
+```bash
+pnpm exec wrangler whoami
+pnpm cf:build
+pnpm cf:deploy:dev       # dev.ghfind.com
+pnpm cf:deploy:prod      # ghfind.com
+```
+
+Production deploys also run from
+[`.github/workflows/deploy-cf-production.yml`](./.github/workflows/deploy-cf-production.yml)
+on `main`. Configure secrets with `wrangler secret put --env <env>`; do not commit
+secret values. Cloudflare D1/R2 bindings are defined in [`wrangler.jsonc`](./wrangler.jsonc).
 
 ## Bring your own model / API key
 

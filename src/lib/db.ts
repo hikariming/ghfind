@@ -1222,6 +1222,22 @@ async function upsertCanonicalScoreGuarded(
     }
   }
 
+  // A collector refresh can produce a new source snapshot without changing the
+  // deterministic score. Keep the generated prose in that case: the roast is
+  // still compatible with the public score and can be replayed without another
+  // platform-model call. A score-version, final-score, tier, or sub-score change
+  // invalidates the prose and clears it below.
+  const sameScoringOutput =
+    row.score_version === provenance.scoreVersion &&
+    Number(row.final_score) === entry.final_score &&
+    String(row.tier ?? "") === String(entry.tier) &&
+    row.sub_scores === subScores;
+  const roastColumns = sameScoringOutput
+    ? `roast = roast, roast_version = roast_version,
+            roast_en = roast_en, roast_en_version = roast_en_version`
+    : `roast = NULL, roast_version = NULL,
+            roast_en = NULL, roast_en_version = NULL`;
+
   const overwritten = await db.execute({
     sql: `UPDATE scores SET
             prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
@@ -1230,7 +1246,7 @@ async function upsertCanonicalScoreGuarded(
             tags = ?, roast_line = ?, score_version = ?, score_write_token = ?,
             score_source_collection_version = ?, score_source_snapshot_hash = ?,
             bot_score = ?, sub_scores = ?, scanned_at = ?,
-            roast = NULL, roast_version = NULL, roast_en = NULL, roast_en_version = NULL
+            ${roastColumns}
           WHERE username = ?
             AND (
               score_version IS NOT ?

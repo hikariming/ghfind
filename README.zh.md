@@ -182,29 +182,36 @@ agent 要判断单个账号时应使用 `scan` 或 `score`;排行榜和开发者
 
 见 [`.env.example`](./.env.example)。GitHub 评分流程最小可跑只需 `GITHUB_TOKEN` + `LLM_API_KEY`(默认 StepFun 阶跃,OpenAI 兼容;可换任意 OpenAI 兼容服务);缓存、限流、人机校验、GitHub 登录、个人页评论/反应、排行榜在未配置时会**静默降级**(适合本地)。生产强烈建议全配齐。
 
-## 排行榜 + 百分位(Turso,可选)
+## 排行榜 + 百分位(Cloudflare D1)
 
-配置 `TURSO_*` 后解锁「名人堂排行榜」(`/leaderboard`) 和结果页的「🏆 你超越了 X% 的开发者」。
+生产环境使用 `wrangler.jsonc` 中的 Cloudflare D1 绑定 `GHFIND_D1`。部署前请按
+[Cloudflare 部署手册](./docs/operations/cloudflare-deployment-runbook.md)核对目标账号和数据库；`TURSO_*`
+只保留给本地开发/维护脚本，不是生产数据库。
 每次扫描把账号的最新分数 upsert 进库(一账号一行);百分位 = 库里分数严格低于你的占比。
 **公开榜只收录 ≥60 分的账号**,低分号仍参与百分位统计但不被公开点名(防骚扰)。未配置时整套功能静默降级。
 
 ```bash
-# 云端
-turso db create github-roast
-turso db tokens create github-roast   # 得到 TURSO_DATABASE_URL(libsql://...) + TURSO_AUTH_TOKEN
-# 本地开发免云
+# 仅本地开发
 TURSO_DATABASE_URL=file:./local.db
 ```
 
-## 部署到 Vercel
+## 部署到 Cloudflare Workers
 
-1. Push 到 GitHub,在 Vercel 导入。
-2. 配置环境变量(同上)。`UPSTASH_*` 用 Vercel 的 Upstash 集成一键开通。
-3. Cloudflare Turnstile 拿一对 site/secret key,配 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`。
-4. (可选)Turso:`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` 开排行榜、归档报告、个人页评论/反应。
-5. (可选)GitHub OAuth:`AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET` + `AUTH_SECRET` 开启登录评论/反应。
-6. (可选)自定义域名部署时设置 `PUBLIC_SITE_URL`,保证 metadata、sitemap、卡片和 LLM attribution 使用正确域名。
-7. Deploy。
+当前前端和后端由同一个 OpenNext Cloudflare Worker 承载。账号/资源预检、
+Secrets、冒烟验证和回滚请看
+[Cloudflare 部署手册](./docs/operations/cloudflare-deployment-runbook.md)。
+
+```bash
+pnpm exec wrangler whoami
+pnpm cf:build
+pnpm cf:deploy:dev       # dev.ghfind.com
+pnpm cf:deploy:prod      # ghfind.com
+```
+
+生产部署也会由 `main` 分支触发
+[Cloudflare GitHub Actions](./.github/workflows/deploy-cf-production.yml)。
+Secrets 用 `wrangler secret put --env <env>` 配置，不要提交密钥值；Cloudflare
+D1/R2 绑定统一维护在 [`wrangler.jsonc`](./wrangler.jsonc)。
 
 ## 自带模型 / API Key
 

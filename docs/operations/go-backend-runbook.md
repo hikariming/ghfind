@@ -1,4 +1,10 @@
-# Go backend extraction runbook
+# Historical Go backend extraction runbook
+
+> **Archived architecture.** This document describes the retired Vercel frontend
+> plus Railway/Go backend split. The current frontend and backend run together in
+> the Cloudflare Worker. Do not use the deployment, secret placement, staging, or
+> rollback instructions below for production. Use the [current Cloudflare
+> deployment runbook](./cloudflare-deployment-runbook.md) instead.
 
 ## Ownership and topology
 
