@@ -41,7 +41,7 @@ jobs:
       EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       CF_VERSION_TAG: main-${{ github.event.workflow_run.head_sha }}
-      CF_VERSION_MESSAGE: release ${{ github.event.workflow_run.head_sha }} from upstream/main
+      CF_VERSION_MESSAGE: release-${{ github.event.workflow_run.head_sha }}-from-upstream-main
     steps:
       - name: Check out
         uses: actions/checkout@v4
