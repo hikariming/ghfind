@@ -337,6 +337,50 @@ describe("buildRoastMessages", () => {
     expect(enPayload.context_notes.no_sample_extrapolation).toContain("Do not infer");
   });
 
+  it("keeps last-year contribution totals separate from PR and repository attribution", () => {
+    const aggregateScan = {
+      ...scan,
+      metrics: {
+        ...scan.metrics,
+        last_year_contributions: 694,
+        total_pr_count: 8,
+        merged_pr_count: 5,
+      },
+    } as ScanResult;
+
+    const [zhSystem, zhUser] = buildRoastMessages(aggregateScan, "zh");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhSystem.content).toContain("context_notes.last_year_contributions_scope");
+    expect(zhSystem.content).toContain("不得把它写成 PR 数");
+    expect(zhPayload.metrics).toMatchObject({
+      last_year_contributions: 694,
+      total_pr_count: 8,
+      merged_pr_count: 5,
+    });
+    expect(zhPayload.context_notes.last_year_contributions_scope).toContain("聚合计数");
+    expect(zhPayload.context_notes.last_year_contributions_scope).toContain("不是 PR 数");
+    expect(zhPayload.context_notes.last_year_contributions_scope).toContain("不提供仓库归属分布");
+    expect(zhPayload.context_notes.last_year_contributions_scope).toContain("不得把该数值全部归因于");
+
+    const [enSystem, enUser] = buildRoastMessages(aggregateScan, "en");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enSystem.content).toContain("context_notes.last_year_contributions_scope");
+    expect(enSystem.content).toContain("must not be written as a PR count");
+    expect(enPayload.metrics).toMatchObject({
+      last_year_contributions: 694,
+      total_pr_count: 8,
+      merged_pr_count: 5,
+    });
+    expect(enPayload.context_notes.last_year_contributions_scope).toContain("aggregate count");
+    expect(enPayload.context_notes.last_year_contributions_scope).toContain("not a PR count");
+    expect(enPayload.context_notes.last_year_contributions_scope).toContain(
+      "does not provide repository-ownership distribution",
+    );
+    expect(enPayload.context_notes.last_year_contributions_scope).toContain(
+      "Never attribute the entire value",
+    );
+  });
+
   it("keeps impact coverage neutral and includes verified high-star PR samples", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("不能把样本数写成");

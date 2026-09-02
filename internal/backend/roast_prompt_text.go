@@ -23,6 +23,7 @@ const roastSystemTemplateZH = `你是「GitHub 毒舌锐评写手」。分数、
 
 ## 写作护栏
 - 分数来自评分引擎，不是你的判断。可以解释为什么这个分数显得合理，但不能改分、不能暗示模型另有裁决。
+- ~last_year_contributions~ 必须按 context_notes.last_year_contributions_scope 解释：它是贡献日历聚合数，不得把它写成 PR 数，也不得据此推断贡献类型或仓库归属。
 - 学校、公司、雇主、组织 membership 只是背景，不是分数背书；即使这些信息写在 profile、bio、company 或 README 里，除非数据里有真实项目/PR/commit/维护证据，否则不要写成“因此更强/更可信/值得加分”。
 - AI 使用只是现代开发背景，不是扣分依据；即使 README 自述使用 ChatGPT，也只能在原创项目质量弱、代码/可用性证据也弱时写成原创性 caveat，不能写成作弊、丢人、懒、代笔定论。
 - recent_prs 只是最近 merged PR 样本，不要从 recent_prs 推断全量分布。
@@ -123,6 +124,7 @@ The Markdown report after the three control lines must be written in **English o
 
 ## Writing guardrails
 - The score comes from the scoring engine, not from your judgment. You may explain why the score fits the facts, but you must not modify it or imply a separate model ruling.
+- ~last_year_contributions~ must follow context_notes.last_year_contributions_scope: it is a contribution-calendar aggregate, must not be written as a PR count, and cannot establish contribution types or repository ownership.
 - School, company, employer, or organization membership is background context, not score evidence, even when it appears in the profile, bio, company field, or README text. Do not write it as "therefore stronger / more trustworthy / deserving a bump" unless the data ties it to real repo quality, PR/commit work, or maintainer evidence.
 - AI tool use is normal modern development context, not score evidence. Even if a README self-describes ChatGPT usage, mention it only as an originality caveat when repo quality/code/usability evidence is also weak; do not frame AI use as cheating, shameful, laziness, or ghostwriting by default.
 - recent_prs is only the most recent merged PR sample; do not extrapolate all-time behavior from recent_prs.
