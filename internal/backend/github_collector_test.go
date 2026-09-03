@@ -33,6 +33,10 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 			_, _ = w.Write([]byte(`{"Go":2000}`))
 			return
 		}
+		if request.URL.Path == "/repos/popular/project/languages" {
+			_, _ = w.Write([]byte(`{"Go":2000}`))
+			return
+		}
 		if request.URL.Path != "/graphql" {
 			t.Errorf("unexpected request %s", request.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -51,7 +55,7 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 		case strings.Contains(body.Query, "labels(first: 20)"):
 			data = `{"user":{"pullRequests":{"nodes":[]}}}`
 		case strings.Contains(body.Query, "states: MERGED, after"):
-			data = `{"user":{"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
+			data = `{"user":{"pullRequests":{"nodes":[{"repository":{"nameWithOwner":"popular/project","stargazerCount":20000,"isPrivate":false,"isFork":false,"owner":{"login":"popular"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
 		case strings.Contains(body.Query, "hasIssuesEnabled"):
 			data = `{"repository":{"stargazerCount":40,"hasIssuesEnabled":true,"isMirror":false,"watchers":{"totalCount":2},"issues":{"totalCount":3},"pullRequests":{"totalCount":4}}}`
 		case strings.Contains(body.Query, "issues(states: OPEN)"):
@@ -61,7 +65,7 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 		case strings.Contains(body.Query, "pullRequests(first: $count, orderBy"):
 			data = `{"user":{"pullRequests":{"nodes":[{"title":"fix worker","repository":{"nameWithOwner":"upstream/framework"}}]}}}`
 		case strings.Contains(body.Query, "totalCommitContributions"):
-			data = `{"user":{"pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":1},"allPRs":{"totalCount":1},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
+			data = `{"user":{"pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":480},"allPRs":{"totalCount":480},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
 		default:
 			t.Errorf("unhandled GraphQL query: %s", body.Query)
 			data = `{}`
@@ -75,8 +79,11 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 1 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
+	if scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
 		t.Fatalf("unexpected metrics: %#v", scan.Metrics)
+	}
+	if !scan.Metrics.MergedPRContributionAggregationIncomplete || scan.Metrics.ImpactPRCount != 1 {
+		t.Fatalf("bounded merged-PR evidence was not preserved: %#v", scan.Metrics)
 	}
 	if len(scan.TopRepos) != 1 || scan.TopRepos[0].Readme == nil || scan.Scoring.FinalScore <= 0 || scan.Scoring.FinalScore != Score(scan.Metrics).FinalScore {
 		t.Fatalf("scan is not a Go-native deterministic result: %#v", scan)
