@@ -31,7 +31,7 @@ export function LeaderboardRailTabs({ tabs }: { tabs: LeaderboardRailTab[] }) {
             className={cn(
               "shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
               active === tab.key
-                ? "border-orange-500/30 bg-orange-500/10 text-orange-200"
+                ? "border-border bg-accent text-accent-foreground"
                 : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
             )}
           >

@@ -1,5 +1,6 @@
 "use client";
 
+import { Search, Swords, ChartNoAxesColumn, AtSign } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -354,12 +355,18 @@ export function Omnibox({
           ? t("groupUser")
           : t("groupDiscover");
 
+  const IntentIcon = intent.kind === "pk" || intent.kind === "pk-half"
+    ? Swords
+    : intent.kind === "language" || intent.kind === "org" || intent.kind === "repo"
+      ? ChartNoAxesColumn
+      : intent.kind === "user" ? AtSign : Search;
+
   return (
     <div className="relative w-full">
       <div
-        className={`flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60 ${stackCtaOnMobile ? "flex-wrap sm:flex-nowrap" : ""}`}
+        className={`omnibox-field flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1.5 focus-within:border-orange-500/60 ${stackCtaOnMobile ? "flex-wrap sm:flex-nowrap" : ""}`}
       >
-        <span className="ps-3 text-lg leading-none text-zinc-400">{intentIcon(intent.kind)}</span>
+        <span className="ps-3 text-zinc-400"><IntentIcon aria-hidden="true" className="size-4" /></span>
         {pkA && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-500/15 py-1 ps-2.5 pe-1 text-sm font-medium text-orange-200 ring-1 ring-orange-400/30">
             @{pkA}
@@ -383,6 +390,7 @@ export function Omnibox({
           placeholder={
             pkA ? t("pkHalfHint") : (placeholder ?? t(`placeholder${phIndex}`))
           }
+          aria-label={placeholder ?? t("placeholder0")}
           role="combobox"
           aria-expanded={open && rows.length > 0}
           aria-autocomplete="list"
@@ -396,7 +404,7 @@ export function Omnibox({
           onClick={() => !busy && activateIntent(intent)}
           disabled={busy}
           aria-busy={busy}
-          className={`shrink-0 whitespace-nowrap bg-orange-600 text-white hover:bg-orange-500 disabled:cursor-wait disabled:opacity-100 ${stackCtaOnMobile ? "basis-full sm:basis-auto" : ""}`}
+          className={`omnibox-submit shrink-0 whitespace-nowrap disabled:cursor-wait disabled:opacity-100 ${stackCtaOnMobile ? "basis-full sm:basis-auto" : ""}`}
         >
           {busy ? (
             <>
@@ -437,7 +445,7 @@ export function Omnibox({
                     row.activate();
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-start text-sm ${
+                  className={`omnibox-field flex w-full items-center gap-2 px-3 py-2 text-start text-sm ${
                     i === activeIndex ? "bg-white/10 text-zinc-100" : "text-zinc-300"
                   }`}
                 >

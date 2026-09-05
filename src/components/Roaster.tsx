@@ -373,7 +373,7 @@ export function Roaster({
     <div className="w-full max-w-6xl">
       {/* Omnibox: roast / PK / language / org / search in one input. A bare
           handle still roasts in place (via onRoast); other intents navigate. */}
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3">
+      <div className="roaster-input mx-auto flex w-full max-w-5xl flex-col items-center gap-3">
         <Omnibox
           value={username}
           onChange={setUsername}

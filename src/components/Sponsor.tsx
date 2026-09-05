@@ -40,7 +40,7 @@ export function SponsorPill({ large = false }: { large?: boolean }) {
  */
 export function SponsorStrip() {
   return (
-    <div className="flex w-full items-center justify-center border-b border-white/10 bg-white/[0.03] px-4 py-1.5">
+    <div className="sponsor-strip flex w-full items-center justify-center border-b border-white/10 bg-white/[0.03] px-4 py-1.5">
       <a
         href={SPONSOR.url}
         target="_blank"

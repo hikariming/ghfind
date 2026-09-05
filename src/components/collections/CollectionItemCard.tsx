@@ -18,7 +18,7 @@ const compact = new Intl.NumberFormat("en-US", {
 
 function Blurb({ label, text }: { label: string; text: string }) {
   return (
-    <div className="mt-4 rounded-xl border border-orange-400/20 bg-orange-500/[0.06] p-4">
+    <div className="card-blurb mt-4 rounded-xl border border-orange-400/20 bg-orange-500/[0.06] p-4">
       <div className="text-[10px] font-bold uppercase tracking-wide text-orange-300/90">
         {label}
       </div>
@@ -49,7 +49,7 @@ export async function RepoPickCard({
   const [owner, name] = item.id.split("/");
   const href = `/developers/repo/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 sm:p-6">
+    <article className="content-card rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 sm:p-6">
       <div className="flex items-start gap-4">
         <PositionBadge position={position} />
         <div className="min-w-0 flex-1">
@@ -128,7 +128,7 @@ export async function DeveloperPickCard({
   const stats: DeveloperPickStats = item.stats;
   const style = tierStyle(stats.tier);
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 sm:p-6">
+    <article className="content-card rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 sm:p-6">
       <div className="flex items-start gap-4">
         <PositionBadge position={position} />
         <div className="min-w-0 flex-1">

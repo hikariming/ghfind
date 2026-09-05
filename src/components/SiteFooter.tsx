@@ -32,7 +32,7 @@ export async function SiteFooter() {
   ];
 
   return (
-    <footer className="mt-auto w-full border-t border-[var(--border)] px-5 py-10">
+    <footer className="site-footer mt-auto w-full border-t border-[var(--border)] px-5 py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">

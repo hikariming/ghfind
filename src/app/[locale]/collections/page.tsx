@@ -40,7 +40,7 @@ export default async function CollectionsIndexPage({
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 py-14 sm:px-6 sm:py-20">
       <header className="max-w-3xl">
-        <p className="text-sm font-bold uppercase tracking-wide text-orange-400">
+        <p className="text-sm font-medium tracking-wide text-muted-foreground">
           {t("eyebrow")}
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100 sm:text-5xl">
@@ -65,7 +65,7 @@ export default async function CollectionsIndexPage({
               <Link
                 href={`/collections/${collection.slug}`}
                 prefetch={false}
-                className="group block rounded-2xl border border-white/10 bg-white/[0.035] p-6 transition-colors hover:border-white/20 hover:bg-white/[0.055]"
+                className="collection-index-entry group block"
               >
                 <div className="flex items-start gap-4">
                   {avatarOwner && (
@@ -74,18 +74,18 @@ export default async function CollectionsIndexPage({
                       src={`https://github.com/${avatarOwner}.png?size=112`}
                       alt=""
                       loading="lazy"
-                      className="mt-1 h-12 w-12 shrink-0 rounded-full ring-2 ring-orange-400/40"
+                      className="mt-1 h-12 w-12 shrink-0 rounded-xl"
                     />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full bg-orange-500/10 px-2.5 py-1 font-semibold text-orange-200">
+                      <span className="font-medium text-muted-foreground">
                         {t(`type.${collection.type}`)}
                       </span>
                       {collection.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full border border-white/10 px-2 py-0.5 text-zinc-500"
+                          className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground"
                         >
                           {tag}
                         </span>

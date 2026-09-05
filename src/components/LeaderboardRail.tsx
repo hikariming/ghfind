@@ -1,6 +1,8 @@
-import { getTranslations } from "next-intl/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getGoLeaderboard } from "@/lib/go-leaderboard.server";
 import { tierStyle } from "@/lib/tier";
 import type { LeaderboardClientEntry, LeaderboardView } from "./LeaderboardClient";
 import { LeaderboardRailTabs } from "./LeaderboardRailTabs";
@@ -75,41 +77,111 @@ function RailBoard({
   );
 }
 
+function RailSkeleton() {
+  return (
+    <ol className="mt-3 flex flex-col gap-1" aria-hidden>
+      {Array.from({ length: RAIL_LIMIT }, (_, i) => (
+        <li key={i} className="flex animate-pulse items-center gap-2.5 rounded-xl px-2 py-1.5">
+          <span className="h-3 w-4 rounded bg-white/5" />
+          <span className="h-8 w-8 shrink-0 rounded-full bg-white/5" />
+          <span className="h-3 flex-1 rounded bg-white/5" />
+          <span className="h-3 w-10 rounded bg-white/5" />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /**
  * Homepage right-rail leaderboard teaser with view tabs (trending/score/heat —
- * the same boards as /leaderboard). All three boards are server-rendered into
- * the force-static shell from the Go API through an ISR-compatible cached
- * fetch (hourly revalidate, matching the page), so tab switching is purely
- * local: no API call, no function invocation, no DB read per click. Each
- * board ships RAIL_LIMIT rows; the interactive board (time windows,
- * pagination, VS) still lives at /leaderboard.
+ * the same boards as /leaderboard). The homepage shell is force-static and is
+ * built in CI without DB/Redis env, so the boards CANNOT be baked in at build
+ * time (that used to render an empty rail that got ISR-cached for everyone).
+ * Instead the static shell ships the rail frame + skeleton and the three
+ * boards are fetched from /api/leaderboard on mount (CDN-cached, one request
+ * per view) — the same pattern as DeveloperCount. Tab switching stays purely
+ * local. Each board shows RAIL_LIMIT rows; the interactive board (time
+ * windows, pagination, VS) still lives at /leaderboard.
  */
-export async function LeaderboardRail() {
-  const t = await getTranslations("home");
-  const tBoard = await getTranslations("leaderboard");
-  const boards = await Promise.all(
-    RAIL_VIEWS.map(async ({ view, labelKey }) => {
-      const entries = await getGoLeaderboard(view, "all", 500, 3600);
-      const rows = withDevLeaderboardPreview(view, entries.slice(0, RAIL_LIMIT));
-      return { view, label: tBoard(labelKey), rows };
-    }),
-  );
-  const tabs = boards
-    .filter((board) => board.rows.length > 0)
-    .map((board) => ({
-      key: board.view,
-      label: board.label,
-      panel: <RailBoard rows={board.rows} view={board.view} openLabel={t("openBoard")} />,
-    }));
+export function LeaderboardRail() {
+  const t = useTranslations("home");
+  const tBoard = useTranslations("leaderboard");
+  const [rowsByView, setRowsByView] = useState<Partial<
+    Record<LeaderboardView, LeaderboardClientEntry[]>
+  > | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all(
+      RAIL_VIEWS.map(async ({ view }): Promise<[LeaderboardView, LeaderboardClientEntry[]]> => {
+        try {
+          const res = await fetch(
+            `/api/leaderboard?view=${view}&window=all&limit=${RAIL_LIMIT}`,
+          );
+          if (!res.ok) return [view, []];
+          const data = (await res.json()) as { entries?: LeaderboardClientEntry[] };
+          return [view, withDevLeaderboardPreview(view, data.entries ?? [])];
+        } catch {
+          return [view, []];
+        }
+      }),
+    ).then((results) => {
+      if (!alive) return;
+      setRowsByView(
+        Object.fromEntries(results) as Partial<
+          Record<LeaderboardView, LeaderboardClientEntry[]>
+        >,
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Loading: ship the rail frame with tab chips and skeleton rows so the
+  // static shell reserves the layout slot (no pop-in jump after hydration).
+  if (rowsByView === null) {
+    return (
+      <section className="home-rail">
+        <h2 className="px-2 text-sm font-black tracking-wide text-zinc-100">
+          {t("boardHeading")}
+        </h2>
+        <div className="mt-3">
+          <LeaderboardRailTabs
+            tabs={RAIL_VIEWS.map(({ view, labelKey }) => ({
+              key: view,
+              label: tBoard(labelKey),
+              panel: <RailSkeleton />,
+            }))}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  const tabs = RAIL_VIEWS.map(({ view, labelKey }) => ({
+    key: view,
+    label: tBoard(labelKey),
+    rows: rowsByView[view] ?? [],
+  })).filter((board) => board.rows.length > 0);
   if (tabs.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <section className="home-rail">
       <h2 className="px-2 text-sm font-black tracking-wide text-zinc-100">
         {t("boardHeading")}
       </h2>
+      {/* key remounts the tab switcher once real rows arrive, so the active
+          tab resets to the first board that actually has data. */}
       <div className="mt-3">
-        <LeaderboardRailTabs tabs={tabs} />
+        <LeaderboardRailTabs
+          key="loaded"
+          tabs={tabs.map((board) => ({
+            key: board.key,
+            label: board.label,
+            panel: <RailBoard rows={board.rows} view={board.key} openLabel={t("openBoard")} />,
+          }))}
+        />
       </div>
     </section>
   );

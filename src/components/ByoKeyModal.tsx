@@ -111,7 +111,7 @@ function ByoKeyModalContent({
 
   return (
     <DialogContent
-      className="w-full max-w-[30.5rem] border border-white/10 bg-zinc-900 p-6 shadow-2xl"
+      className="w-full max-w-[30.5rem] border border-border bg-popover p-6 shadow-2xl"
       onOpenAutoFocus={(event) => {
         event.preventDefault();
       }}
@@ -120,12 +120,12 @@ function ByoKeyModalContent({
         <DialogTitle>{t("title")}</DialogTitle>
       </DialogHeader>
       {reason && (
-        <p className="mt-1 text-sm text-amber-400/90">{reason}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{reason}</p>
       )}
       <DialogDescription className="mt-2 text-xs text-zinc-400">
         {t.rich("compatNote", { b: (c) => <span className="text-zinc-300">{c}</span> })}
       </DialogDescription>
-      <p className="mt-1.5 text-xs text-amber-400/90">
+      <p className="mt-1.5 text-xs text-muted-foreground">
         {t.rich("tempKeyNote", { b: (c) => <span className="font-semibold">{c}</span> })}
       </p>
 
@@ -154,7 +154,7 @@ function ByoKeyModalContent({
           id="byo-base-url"
           value={baseURL}
           onChange={(e) => setBaseURL(e.target.value)}
-          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
+          className="border-border bg-input text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus-visible:ring-ring/20"
           placeholder="https://api.openai.com/v1"
         />
       </div>
@@ -165,7 +165,7 @@ function ByoKeyModalContent({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
-          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
+          className="border-border bg-input text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus-visible:ring-ring/20"
           placeholder="sk-..."
         />
       </div>
@@ -175,7 +175,7 @@ function ByoKeyModalContent({
           id="byo-model"
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          className="border-white/15 bg-white/5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-400/60 focus-visible:ring-orange-500/20"
+          className="border-border bg-input text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus-visible:ring-ring/20"
           placeholder="gpt-4o-mini"
         />
       </div>
@@ -203,7 +203,7 @@ function ByoKeyModalContent({
             type="button"
             onClick={save}
             disabled={!apiKey.trim()}
-            className="bg-orange-600 text-white hover:bg-orange-500"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {t("saveContinue")}
           </Button>

@@ -32,7 +32,7 @@ function LeaderboardControlChip<T extends string>({
     "shrink-0 whitespace-nowrap rounded-full border text-center transition-colors",
     size === "view" ? "px-3 py-1.5 text-sm font-medium" : "px-3 py-1 text-xs font-medium",
     item.active
-      ? "border-orange-500/30 bg-orange-500/10 text-orange-200"
+      ? "border-border bg-accent text-accent-foreground"
       : "border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
   );
 

@@ -35,10 +35,11 @@ const fetchers: Record<
 const inflight = new Map<string, Promise<{ entries: LeaderboardEntry[]; cached: boolean }>>();
 
 /**
- * Cache-aside leaderboard read shared by the home page (SSR) and the
- * /api/leaderboard route. A hit serves entirely from Redis — no DB query — so
- * the expensive triple LEFT JOIN only runs once per (view, window) per TTL, and
- * concurrent misses are coalesced into a single query.
+ * Cache-aside leaderboard read shared by /leaderboard (SSR) and the
+ * /api/leaderboard route (which the homepage rail fetches client-side). A hit
+ * serves entirely from Redis — no DB query — so the expensive triple LEFT JOIN
+ * only runs once per (view, window) per TTL, and concurrent misses are
+ * coalesced into a single query.
  */
 export async function getLeaderboardCached(
   view: LeaderboardCacheView = "trending",

@@ -40,8 +40,8 @@ export function VsBattleBox() {
     setValue: (v: string) => void,
     placeholder: string,
   ) => (
-    <div className="group flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 transition focus-within:border-orange-500/60 focus-within:bg-black/30">
-      <span className="select-none text-sm font-semibold text-zinc-500 group-focus-within:text-orange-400">
+    <div className="group flex flex-1 items-center gap-2 rounded-xl border border-border bg-input px-3 py-2.5 transition focus-within:border-ring">
+      <span className="select-none text-sm font-semibold text-zinc-500 group-focus-within:text-foreground">
         @
       </span>
       <input
@@ -52,6 +52,7 @@ export function VsBattleBox() {
         }}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
+        aria-label={placeholder}
         autoComplete="off"
         autoCapitalize="off"
         spellCheck={false}
@@ -61,10 +62,7 @@ export function VsBattleBox() {
   );
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-orange-500/[0.08] via-white/[0.03] to-rose-500/[0.06] p-5 shadow-lg shadow-black/20 sm:p-6">
-      {/* soft glow behind the VS */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/20 blur-3xl" />
-
+    <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="text-center">
         <h2 className="text-lg font-black text-zinc-100">{t("pkHeading")}</h2>
         <p className="mt-1 text-xs text-zinc-400">{t("pkSub")}</p>
@@ -83,13 +81,13 @@ export function VsBattleBox() {
       <button
         type="button"
         onClick={fight}
-        className="mt-4 w-full rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white shadow-md shadow-orange-900/30 transition hover:bg-orange-500 active:scale-[0.99]"
+        className="mt-4 w-full rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 active:scale-[0.99]"
       >
         {t("pkButton")}
       </button>
 
       {error && (
-        <p className="mt-3 text-center text-xs text-rose-300">{t("pkInvalid")}</p>
+        <p className="mt-3 text-center text-xs text-rose-400">{t("pkInvalid")}</p>
       )}
     </section>
   );
