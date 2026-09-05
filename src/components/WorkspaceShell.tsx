@@ -38,7 +38,7 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
     <>
       <div className="workspace-brand">
         <Link href="/" onClick={() => setOpen(false)} aria-label="ghfind" className="workspace-brand-link">
-          <BrandMark className="size-7 shrink-0" /><span className="sidebar-label">ghfind<span className="workspace-brand-caption">{t("tagline")}</span></span>
+          <BrandMark className="size-7 shrink-0" /><span className="sidebar-label">ghfind</span>
         </Link>
         {mobile ? <SheetClose className="shell-icon" aria-label={nav("closeMenu")}><X size={18} /></SheetClose> :
           <button className="shell-icon sidebar-collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? t("expand") : t("collapse")} title={collapsed ? t("expand") : t("collapse")} aria-expanded={!collapsed}>
@@ -78,7 +78,8 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
         </div>
         <div className="sidebar-group">
           <p className="sidebar-group-label">{t("career")}</p>
-          {[{ key: "resume", icon: FileUser }, { key: "talent", icon: BriefcaseBusiness }].map(({ key, icon: Icon }) => <button key={key} className="sidebar-link sidebar-upcoming" disabled aria-label={`${t(key)} · ${t("soon")}`} title={`${t(key)} · ${t("soon")}`}>
+          <Link href="/resume" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/resume") ? "page" : undefined} aria-label={t("resume")} title={t("resume")}><FileUser size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("resume")}</span><span className="sidebar-soon sidebar-label">{t("preview")}</span></Link>
+          {[{ key: "talent", icon: BriefcaseBusiness }].map(({ key, icon: Icon }) => <button key={key} className="sidebar-link sidebar-upcoming" disabled aria-label={`${t(key)} · ${t("soon")}`} title={`${t(key)} · ${t("soon")}`}>
             <Icon size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t(key)}</span><span className="sidebar-soon sidebar-label">{t("soon")}</span>
           </button>)}
         </div>

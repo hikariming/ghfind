@@ -989,6 +989,7 @@
     }
   },
   "sidebar": {
+    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
     "career": "Career",

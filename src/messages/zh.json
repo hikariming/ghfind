@@ -996,6 +996,7 @@
     }
   },
   "sidebar": {
+    "preview": "预览版",
     "workspace": "工作台",
     "discover": "发现",
     "career": "职业",
