@@ -83,7 +83,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 p-0.5 text-xs"
+      className="theme-toggle inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 p-0.5 text-xs"
       role="group"
       aria-label={t("label")}
     >

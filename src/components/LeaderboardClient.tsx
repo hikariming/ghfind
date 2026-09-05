@@ -358,7 +358,7 @@ export function LeaderboardClient({
           return (
             <li
               key={e.username}
-              className="group relative flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 transition-colors hover:bg-white/[0.06] sm:flex-row sm:items-center sm:rounded-xl sm:px-4"
+              className="leaderboard-row group relative flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 transition-colors hover:bg-white/[0.06] sm:flex-row sm:items-center sm:rounded-xl sm:px-4"
             >
               {/* Stretched link: whole row navigates to the detail page. Kept as a
                   real <a> so cmd/ctrl-click opens a new tab. Tag expand buttons sit

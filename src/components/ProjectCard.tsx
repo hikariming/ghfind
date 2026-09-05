@@ -13,7 +13,7 @@ export function ProjectCard({ project, position }: { project: GoProjectListItem;
   const t = useTranslations("projects");
   const model = projectCardViewModel(project);
   return (
-    <article className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
+    <article className="content-card h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.055]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <Link
@@ -51,7 +51,7 @@ export function ProjectCard({ project, position }: { project: GoProjectListItem;
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-center">
+      <div className="card-stats mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-center">
         <div>
           <div className="text-sm font-bold tabular-nums text-zinc-100">{model.contributorCount}</div>
           <div className="text-[10px] uppercase tracking-wide text-zinc-500">{t("contributors")}</div>

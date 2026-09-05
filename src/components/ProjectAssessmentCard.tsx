@@ -23,7 +23,7 @@ export function ProjectAssessmentCard({
 }) {
   const analysis = assessment.analysis;
   return (
-    <article className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+    <article className="content-card assessment-card h-full w-full rounded-2xl border border-white/10 bg-white/[0.035] p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <a
@@ -39,7 +39,7 @@ export function ProjectAssessmentCard({
           </p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-black tabular-nums text-orange-300">
+          <div className="assessment-score text-3xl font-black tabular-nums text-orange-300">
             {assessment.productScore}
           </div>
           <div className="text-[11px] uppercase tracking-wide text-zinc-500">
@@ -52,7 +52,7 @@ export function ProjectAssessmentCard({
         locale={locale}
         className="mt-4"
       />
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+      <div className="assessment-meta mt-4 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full bg-white/5 px-2.5 py-1 text-zinc-300">
           {labels.confidence} {assessment.confidence}%
         </span>

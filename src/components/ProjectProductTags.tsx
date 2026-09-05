@@ -16,7 +16,7 @@ export function ProjectProductTags({
       {tags.map((tag) => (
         <span
           key={tag.slug}
-          className="rounded-full border border-orange-400/20 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-200"
+          className="rounded-md bg-muted px-2 py-1 text-xs font-normal text-muted-foreground"
         >
           {productTagLabel(tag, locale)}
         </span>
