@@ -73,7 +73,7 @@ export function ProjectAssessmentDetails({
         ))}
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      <section className="content-card p-5">
         <ProjectProductTags
           tags={analysis.project.product_tags}
           locale={locale}
@@ -101,7 +101,7 @@ export function ProjectAssessmentDetails({
         </dl>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      <section className="content-card p-5">
         <h2 className="font-bold text-zinc-100">{labels.productContract}</h2>
         <p className="mt-3 text-sm leading-relaxed text-zinc-300">{analysis.project.summary}</p>
         <h3 className="mt-4 text-sm font-semibold text-zinc-200">{labels.targetUsers}</h3>
@@ -116,7 +116,7 @@ export function ProjectAssessmentDetails({
         <h2 className="mb-3 font-bold text-zinc-100">{labels.dimensionEvidence}</h2>
         <div className="grid gap-3 md:grid-cols-2">
           {dimensions.map(([label, dimension]) => (
-            <article key={label} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+            <article key={label} className="content-card p-5">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-semibold text-zinc-100">{label}</h3>
                 <span className="font-mono text-sm text-orange-300">{dimension.score}/{dimension.max_score}</span>
@@ -139,7 +139,7 @@ export function ProjectAssessmentDetails({
         />
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      <section className="content-card p-5">
         <h2 className="font-bold text-zinc-100">{labels.treasureHistory}</h2>
         {treasureHistory.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">{labels.none}</p>
@@ -156,7 +156,7 @@ export function ProjectAssessmentDetails({
         )}
       </section>
 
-      <article className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      <article className="content-card p-5">
         <h2 className="mb-4 font-bold text-zinc-100">{labels.report}</h2>
         <AnalysisReport markdown={assessment.reportMarkdown} />
       </article>
@@ -201,7 +201,7 @@ function SignalCard({ label, value, description }: { label: string; value: strin
 
 function ListCard({ title, empty, items }: { title: string; empty: string; items: string[] }) {
   return (
-    <article className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+    <article className="content-card p-5">
       <h2 className="font-bold text-zinc-100">{title}</h2>
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-zinc-500">{empty}</p>

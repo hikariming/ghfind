@@ -90,9 +90,9 @@ export default async function ProjectsPage({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 py-14 sm:px-6 sm:py-20">
-      <header className="mb-8 flex items-center justify-between gap-4">
+      <header className="mb-8 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold uppercase tracking-wide text-orange-400">
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             {t("eyebrow")}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100 sm:text-5xl">
@@ -106,7 +106,7 @@ export default async function ProjectsPage({
           href="https://mosoo.ai"
           target="_blank"
           rel="noopener noreferrer"
-          className="mr-4 inline-flex shrink-0 items-center gap-3 rounded-full border border-white/10 bg-white/5 px-6 py-4 text-lg text-zinc-300 transition-colors hover:bg-white/10 sm:mr-8"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/mosoo.svg" alt="mosoo" className="h-8 w-8 rounded" />
@@ -125,7 +125,7 @@ export default async function ProjectsPage({
             aria-current={board === value ? "page" : undefined}
             className={`rounded-full border px-4 py-2 text-sm font-bold ${
               board === value
-                ? "border-orange-400/50 bg-orange-500/15 text-orange-200"
+                ? "border-border bg-accent text-accent-foreground"
                 : "border-white/10 text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
             }`}
           >

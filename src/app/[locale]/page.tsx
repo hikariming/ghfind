@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeCollections } from "@/components/HomeCollections";
@@ -7,11 +6,9 @@ import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
 import { HomeFaq, getFaqItems } from "@/components/HomeFaq";
 import { JsonLd, faqJsonLd } from "@/components/JsonLd";
-import type { TierKey } from "@/lib/tier";
-
 // ISR: the homepage shell is fully static (the scan form, tier pills and copy are
-// locale-only; DeveloperCount fetches client-side; the leaderboard rail and
-// projects preview read the Go API through ISR-cached fetches). Serving it
+// locale-only; DeveloperCount and the leaderboard rail fetch client-side from
+// the API; the projects preview reads build-embedded content files). Serving it
 // from the CDN instead of rendering a function on every visit is what frees
 // the serverless pool for the LLM scan/roast traffic.
 // Keep the durable snapshot for an hour: minute-level regeneration only creates
@@ -23,69 +20,41 @@ import type { TierKey } from "@/lib/tier";
 export const dynamic = "force-static";
 export const revalidate = 3600;
 
-// Tier pills: emoji + color are language-neutral; the label comes from i18n.
-const TIER_PILLS: { key: TierKey; emoji: string; cls: string }[] = [
-  { key: "god", emoji: "🏆", cls: "text-amber-300" },
-  { key: "elite", emoji: "🥇", cls: "text-violet-300" },
-  { key: "solid", emoji: "💪", cls: "text-emerald-300" },
-  { key: "npc", emoji: "🫥", cls: "text-slate-300" },
-  { key: "trash", emoji: "💩", cls: "text-rose-400" },
-];
-
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home");
-  const tt = await getTranslations("tiers");
   const faqItems = await getFaqItems();
 
   return (
-    <main className="flex flex-1 flex-col items-center px-5 pb-14 pt-2 sm:px-6 sm:pb-20 sm:pt-3">
+    <main className="home-page flex flex-1 flex-col items-center px-5 pb-14 pt-2 sm:px-6 sm:pb-20 sm:pt-3">
       <JsonLd data={faqJsonLd(faqItems)} />
-      {/* Compact hero: every element survives, sized so the hero + idle scan
-          form stay ≈320px and the content zone peeks into the first screen. */}
-      <header className="mb-6 flex w-full max-w-4xl flex-col items-center text-center">
-        <p className="mb-3 text-sm font-bold tracking-wide text-zinc-400">
-          {t("brand")} <span className="text-orange-500">GitHub</span>
-        </p>
-        <h1 className="max-w-2xl whitespace-pre-line text-balance text-2xl font-black tracking-tight sm:text-4xl">
-          {t("headline")}
-        </h1>
-        <p className="mt-2 max-w-md text-sm font-semibold tracking-wide text-zinc-300 sm:text-base">
-          {t("subtitle")}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
+      <section className="home-intro">
+        <header className="mb-7 flex w-full flex-col items-center text-center">
+          <h1 className="home-title max-w-3xl text-balance">
+            {t("headline")}
+          </h1>
+          <p className="home-description mt-4 max-w-xl text-sm sm:text-base">
+            {t("subtitle")}
+          </p>
+        </header>
+        <Roaster />
+        <div className="home-proof">
           <DeveloperCount />
-          {TIER_PILLS.map(({ key, emoji, cls }) => (
-            <span
-              key={key}
-              className={`rounded-full border border-white/10 px-2 py-0.5 text-[11px] ${cls}`}
-            >
-              {emoji} {tt(`${key}.name`)}
-            </span>
-          ))}
         </div>
-      </header>
-
-      <Roaster />
+      </section>
 
       {/* Content zone: directory-style two-column layout on desktop — main
           stream (editor's picks + project feed slot) with a sticky right rail
           (leaderboard teaser + discover links). Mobile folds to a single
           column, main content first. Pattern mirrors /u/[username]. */}
-      <div className="mt-12 flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
+      <div className="home-content flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-12">
           <HomeCollections locale={locale} />
           <HomeProjectBoards locale={locale} />
         </div>
         <aside className="flex w-full flex-col gap-6 lg:sticky lg:top-20 lg:w-80 lg:shrink-0">
-          <Suspense
-            fallback={
-              <div className="h-96 animate-pulse rounded-2xl border border-white/5 bg-white/5" />
-            }
-          >
-            <LeaderboardRail />
-          </Suspense>
+          <LeaderboardRail />
         </aside>
       </div>
 

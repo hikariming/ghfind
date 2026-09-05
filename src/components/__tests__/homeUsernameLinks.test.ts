@@ -27,7 +27,7 @@ describe("home username links", () => {
 
     // Stretched link covering the card — the only link it has.
     expect(card).toMatch(
-      /<Link\s+href=\{`\/collections\/\$\{slug\}`\}[\s\S]*?className="absolute inset-0 z-0/,
+      /<Link\s+href=\{`\/collections\/\$\{slug\}`\}[\s\S]*?className="collection-card-link/,
     );
     expect(card.match(/<Link\b/g)).toHaveLength(1);
     expect(card).not.toContain("github.com");

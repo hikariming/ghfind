@@ -31,7 +31,7 @@ export function ProjectControls({
             onClick={() => trackEvent("project_sort_change", { sort: value })}
             className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
               sort === value
-                ? "border-orange-400/50 bg-orange-500/15 text-orange-200"
+                ? "border-border bg-accent text-accent-foreground"
                 : "border-white/10 text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200"
             }`}
           >

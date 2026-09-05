@@ -48,7 +48,7 @@ export function DeveloperCount() {
       {t.rich("developerCount", {
         count: display,
         n: (c) => (
-          <span className="text-base font-black tabular-nums text-orange-400">{c}</span>
+          <span className="font-medium tabular-nums text-foreground">{c}</span>
         ),
       })}
     </div>

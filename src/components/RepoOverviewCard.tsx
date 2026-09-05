@@ -33,7 +33,7 @@ export function RepoOverviewCard({
   const { repo, owner, summary } = overview;
 
   return (
-    <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="content-card mb-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <a
           href={`https://github.com/${repo.name_with_owner}`}
