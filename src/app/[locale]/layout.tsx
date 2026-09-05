@@ -88,9 +88,10 @@ export default async function LocaleLayout({
       />
       <NextIntlClientProvider>
         <HtmlLangSync locale={locale} />
-        <Navbar />
-        {children}
-        <SiteFooter />
+        <Navbar>
+          {children}
+          <SiteFooter />
+        </Navbar>
         <LoginNudge configured={oauthEnabled} />
       </NextIntlClientProvider>
     </>

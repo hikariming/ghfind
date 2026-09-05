@@ -987,5 +987,20 @@
         "removed": "제거됨"
       }
     }
+  },
+  "sidebar": {
+    "workspace": "Workspace",
+    "discover": "Explore",
+    "career": "Career",
+    "resume": "My résumé",
+    "talent": "Talent pool",
+    "soon": "Soon",
+    "tagline": "Developer workspace",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "navigation": "Main navigation",
+    "docs": "Help & documentation",
+    "skip": "Skip to content",
+    "edition": "Public workspace"
   }
 }

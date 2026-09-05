@@ -1,74 +1,16 @@
+import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { oauthConfigured } from "@/lib/oauth-config";
-import { NAV_ITEMS } from "@/config/nav";
-import { NavLinks } from "./NavLinks";
 import { NavAuth } from "./NavAuth";
-import { MobileMenu } from "./MobileMenu";
-import { BrandMark } from "./BrandMark";
-import { GlobalSearch } from "./GlobalSearch";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { SponsorStrip } from "./Sponsor";
+import { WorkspaceShell } from "./WorkspaceShell";
 
-/**
- * Site-wide top bar. Keep the public-site feel: plain brand on the left, normal
- * navigation links in the middle, account/source actions on the right.
- */
-export async function Navbar() {
-  const tNav = await getTranslations("nav");
+/** Server-owned account configuration and content keep the shared shell static. */
+export async function Navbar({ children }: { children: ReactNode }) {
   const tRepo = await getTranslations("repoLink");
-  const oauthEnabled = oauthConfigured();
-  const repoHref = "https://github.com/hikariming/ghfind";
-
-  return (
-    <header className="site-navbar sticky top-0 z-40 w-full border-b border-border backdrop-blur-xl">
-      <SponsorStrip />
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-6 px-5 sm:px-6">
-        <Link
-          href="/"
-          className="group flex shrink-0 items-center gap-2.5 text-[1.35rem] font-black leading-none tracking-tight text-zinc-100 transition-colors hover:text-white"
-        >
-          <BrandMark className="size-7 shrink-0 transition-transform group-hover:rotate-3" />
-          {tNav("brand")}
-        </Link>
-
-        <div className="hidden min-w-0 flex-1 md:flex">
-          <NavLinks items={NAV_ITEMS} />
-        </div>
-
-        <div className="ml-auto flex items-center justify-end gap-2">
-          <div className="hidden md:block">
-            <GlobalSearch />
-          </div>
-          <div className="hidden items-center gap-2 sm:flex md:gap-1.5">
-            {/* Language toggle sits inline next to the avatar box — surfaced
-                here rather than buried in the account/settings dropdown so
-                visitors can switch locale in one click. Hidden below md to keep
-                the smaller navbar from getting crowded. */}
-            <div className="hidden md:block">
-              <LanguageSwitcher />
-            </div>
-            <NavAuth
-              configured={oauthEnabled}
-              repoHref={repoHref}
-              repoLabel={tRepo("label")}
-              repoTitle={tRepo("title")}
-            />
-          </div>
-
-          {/* On mobile the locale switcher gets its own always-visible control
-              next to the hamburger. Previously it lived only at the bottom of
-              the (now long) mobile drawer, where the growing nav pushed it out
-              of easy reach. */}
-          <div className="md:hidden">
-            <LanguageSwitcher />
-          </div>
-
-          <div className="md:hidden">
-            <MobileMenu configured={oauthEnabled} repoHref={repoHref} />
-          </div>
-        </div>
-      </div>
-    </header>
-  );
+  const configured = oauthConfigured();
+  return <WorkspaceShell
+    sponsor={<SponsorStrip />}
+    account={configured ? <NavAuth configured repoHref="https://github.com/hikariming/ghfind" repoLabel={tRepo("label")} repoTitle={tRepo("title")} /> : <a href="https://github.com/hikariming/ghfind" target="_blank" rel="noopener noreferrer" className="sidebar-source" aria-label={tRepo("label")}><span aria-hidden>↗</span><span className="sidebar-label">{tRepo("label")}</span></a>}
+  >{children}</WorkspaceShell>;
 }
