@@ -549,6 +549,31 @@ describe("canonical score materialization", () => {
     expect(Number(runs.rows[0]?.count)).toBe(1);
   });
 
+  it("retains a roast when a new snapshot produces the same scoring output", async () => {
+    const username = "quick-roast-reuse-fixture";
+    const firstScan = syntheticScan(username, { bio: "first snapshot" });
+    const first = await db.publishCompleteQuickScan(firstScan, 1_910_000_012_000);
+    if (!first) throw new Error("expected the first canonical score write");
+    await expect(
+      db.updateRoast(username, "## stable report", "zh", first),
+    ).resolves.toBe(true);
+
+    const secondScan = syntheticScan(username, { bio: "second snapshot" });
+    expect(secondScan.scoring).toEqual(firstScan.scoring);
+    const secondSerialized = serializeScan(secondScan);
+    expect(secondSerialized.snapshotHash).not.toBe(serializeScan(firstScan).snapshotHash);
+    await expect(
+      db.publishCompleteQuickScan(secondScan, 1_910_000_013_000),
+    ).resolves.toBeTruthy();
+
+    await expect(readScoreRow(username)).resolves.toMatchObject({
+      final_score: firstScan.scoring.final_score,
+      score_source_snapshot_hash: secondSerialized.snapshotHash,
+      roast: "## stable report",
+      roast_version: ROAST_CACHE_VERSION,
+    });
+  });
+
   it("publishes a repeated snapshot as the latest run after an intervening snapshot", async () => {
     const username = "quick-snapshot-ordering-fixture";
     const firstScan = syntheticScan(username, { followers: 10 });

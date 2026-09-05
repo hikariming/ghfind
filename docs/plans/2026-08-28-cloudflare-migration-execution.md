@@ -2,13 +2,15 @@
 
 > 2026-08-28。分析背景与成本测算见 [2026-08-28-cloudflare-migration-analysis.md](./2026-08-28-cloudflare-migration-analysis.md)，本文件是可执行的作战清单，按阶段推进、逐项勾销。
 > 原则：**每一步生产零感知；切正式 = 改一条 DNS 记录；任何时刻可秒级回滚。**
+>
+> **当前状态（2026-09-02）：迁移已完成。** 前端页面和 `/api/*` 后端现由同一个 OpenNext Cloudflare Worker 承载；当前发布、冒烟和版本回滚请以 [`cloudflare-deployment-runbook.md`](../operations/cloudflare-deployment-runbook.md) 为准。本文的阶段清单和后续进度条目保留作迁移历史，不再表示当前线上拓扑。
 
 ## 环境与命名
 
 | 环境 | 前端 | 后端 API | 数据面 |
 |---|---|---|---|
-| dev（新建，常驻，未来即 staging） | `dev.ghfind.com` → Workers (env: dev) | `api-dev.ghfind.com` → Workers (env: dev)；阶段 1 期间暂指 Railway/staging mocks | `GHFIND_STAGING_*` 那套（staging Turso/Upstash/Mosoo） |
-| production | `ghfind.com` / `www`（切换前 = Vercel 灰云记录；切换后 = Workers env: production） | 阶段 2 起 `api.ghfind.com`（或纯 Service Binding 不出网） | 生产 Turso/Upstash → 阶段 3 迁 D1/KV/DO |
+| dev | `dev.ghfind.com` → `ghfind-dev` Worker (env: dev) | 页面和 `/api/*` 同源，由同一个 Worker 处理 | D1 `GHFIND_D1` + R2 `ghfind-next-cache-dev`；当前与 production 共用 D1 ID，未完全隔离 |
+| production | `ghfind.com` → `ghfind` Worker (env: production) | 页面和 `/api/*` 同源，由同一个 Worker 处理 | D1 `GHFIND_D1` + R2 `ghfind-next-cache`；Upstash/GitHub/LLM/Mosoo 通过 Worker Secrets 访问 |
 
 命名规则：**只用一级子域**（`api-dev.ghfind.com`，不用 `dev.api.ghfind.com`）——免费版 Universal SSL 只覆盖 `*.ghfind.com` 一层。
 

@@ -371,6 +371,43 @@ func TestRoastPromptMarksRecentPRsAsSample(t *testing.T) {
 	}
 }
 
+func TestRoastPromptScopesLastYearContributionsAsAggregate(t *testing.T) {
+	scan := roastPromptBaseScan()
+	scan.Metrics.LastYearContributions = 694
+	scan.Metrics.TotalPRCount = 8
+	scan.Metrics.MergedPRCount = 5
+
+	tests := []struct {
+		language roastLanguage
+		needles  []string
+	}{
+		{roastLanguageZH, []string{"聚合计数", "不是 PR 数", "不提供仓库归属分布", "不得把该数值全部归因于"}},
+		{roastLanguageEN, []string{"aggregate count", "not a PR count", "does not provide repository-ownership distribution", "Never attribute the entire value"}},
+	}
+
+	for _, test := range tests {
+		messages := buildRoastPrompt(scan, test.language)
+		if !strings.Contains(messages[0].Content, "context_notes.last_year_contributions_scope") {
+			t.Fatalf("system prompt missing last-year contribution scope: %q", messages[0].Content)
+		}
+		payload := roastPromptUserPayload(t, messages)
+		metrics := roastPayloadMap(t, payload, "metrics")
+		if metrics["last_year_contributions"] != float64(694) || metrics["total_pr_count"] != float64(8) || metrics["merged_pr_count"] != float64(5) {
+			t.Fatalf("metrics=%#v", metrics)
+		}
+		context := roastPayloadMap(t, payload, "context_notes")
+		scope, ok := context["last_year_contributions_scope"].(string)
+		if !ok {
+			t.Fatalf("last_year_contributions_scope=%#v", context["last_year_contributions_scope"])
+		}
+		for _, needle := range test.needles {
+			if !strings.Contains(scope, needle) {
+				t.Fatalf("last_year_contributions_scope=%q missing %q", scope, needle)
+			}
+		}
+	}
+}
+
 func TestRoastPromptKeepsOrganizationMaintenanceEvidenceOutsideScoreInputs(t *testing.T) {
 	scan := roastPromptBaseScan()
 	scan.SignatureWork = SignatureWork{

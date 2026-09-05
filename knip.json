@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "vitest": {
+        "entry": ["src/**/*.test.{ts,tsx}", "packages/**/*.test.{ts,tsx}"]
+      },
+      "ignore": ["packages/ghfind-js/**"]
+    }
+  }
+}

@@ -18,24 +18,37 @@ const profileCacheControl = "public, max-age=0, s-maxage=300, stale-while-revali
 // pages and image cards. It intentionally mirrors the legacy AccountDetail
 // JSON shape so renderers do not need a Turso client to remain compatible.
 type ProfileDetail struct {
-	Username           string    `json:"username"`
-	DisplayName        *string   `json:"display_name"`
-	AvatarURL          *string   `json:"avatar_url"`
-	ProfileURL         *string   `json:"profile_url"`
-	FinalScore         float64   `json:"final_score"`
-	Tier               string    `json:"tier"`
-	Tags               Tags      `json:"tags"`
-	SubScores          SubScores `json:"sub_scores"`
-	RoastLine          RoastLine `json:"roast_line"`
-	Roast              *string   `json:"roast"`
-	RoastEN            *string   `json:"roast_en"`
-	ScoreVersion       *string   `json:"score_version"`
-	LegacyReadFallback bool      `json:"legacy_read_fallback"`
-	CollectionVersion  *string   `json:"score_source_collection_version"`
-	SnapshotHash       *string   `json:"score_source_snapshot_hash"`
-	ScannedAt          int64     `json:"scanned_at"`
-	PrevScore          *float64  `json:"prev_score"`
-	PrevScannedAt      *int64    `json:"prev_scanned_at"`
+	Username           string                 `json:"username"`
+	DisplayName        *string                `json:"display_name"`
+	AvatarURL          *string                `json:"avatar_url"`
+	ProfileURL         *string                `json:"profile_url"`
+	FinalScore         float64                `json:"final_score"`
+	Tier               string                 `json:"tier"`
+	Tags               Tags                   `json:"tags"`
+	SubScores          SubScores              `json:"sub_scores"`
+	RoastLine          RoastLine              `json:"roast_line"`
+	Roast              *string                `json:"roast"`
+	RoastEN            *string                `json:"roast_en"`
+	ScoreVersion       *string                `json:"score_version"`
+	LegacyReadFallback bool                   `json:"legacy_read_fallback"`
+	CollectionVersion  *string                `json:"score_source_collection_version"`
+	SnapshotHash       *string                `json:"score_source_snapshot_hash"`
+	ScannedAt          int64                  `json:"scanned_at"`
+	PrevScore          *float64               `json:"prev_score"`
+	PrevScannedAt      *int64                 `json:"prev_scanned_at"`
+	ScoreBreakdown     *ProfileScoreBreakdown `json:"score_breakdown"`
+}
+
+// ProfileScoreBreakdown explains how the six public dimensions become the
+// final score. Complete is false only for historical rows whose exact scoring
+// snapshot is unavailable; in that case the numeric adjustment is inferred,
+// but no red-flag reason is invented.
+type ProfileScoreBreakdown struct {
+	BaseScore      float64   `json:"base_score"`
+	TotalPenalty   float64   `json:"total_penalty"`
+	AppliedPenalty float64   `json:"applied_penalty"`
+	RedFlags       []RedFlag `json:"red_flags"`
+	Complete       bool      `json:"complete"`
 }
 
 type ProfileCardMetrics struct {
@@ -153,6 +166,132 @@ func nullableProfileInt(value sql.NullInt64) *int64 {
 	return &result
 }
 
+const profileScoreTolerance = 0.005
+
+func finiteProfileScore(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func closeProfileScores(left, right float64) bool {
+	return math.Abs(left-right) <= profileScoreTolerance
+}
+
+func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
+	if scoring == nil || scoring.RedFlags == nil ||
+		!finiteProfileScore(scoring.BaseScore) ||
+		!finiteProfileScore(scoring.TotalPenalty) ||
+		!finiteProfileScore(scoring.FinalScore) ||
+		scoring.BaseScore < 0 || scoring.BaseScore > 100 ||
+		scoring.TotalPenalty < 0 || scoring.TotalPenalty > 40 ||
+		scoring.FinalScore < 0 || scoring.FinalScore > 100 {
+		return false
+	}
+	if !closeProfileScores(scoring.SubScores.AccountMaturity, detail.SubScores.AccountMaturity) ||
+		!closeProfileScores(scoring.SubScores.OriginalProjectQuality, detail.SubScores.OriginalProjectQuality) ||
+		!closeProfileScores(scoring.SubScores.ContributionQuality, detail.SubScores.ContributionQuality) ||
+		!closeProfileScores(scoring.SubScores.EcosystemImpact, detail.SubScores.EcosystemImpact) ||
+		!closeProfileScores(scoring.SubScores.CommunityInfluence, detail.SubScores.CommunityInfluence) ||
+		!closeProfileScores(scoring.SubScores.ActivityAuthenticity, detail.SubScores.ActivityAuthenticity) {
+		return false
+	}
+	baseFromDimensions := roundToEven(
+		scoring.SubScores.AccountMaturity+
+			scoring.SubScores.OriginalProjectQuality+
+			scoring.SubScores.ContributionQuality+
+			scoring.SubScores.EcosystemImpact+
+			scoring.SubScores.CommunityInfluence+
+			scoring.SubScores.ActivityAuthenticity,
+		1,
+	)
+	if !closeProfileScores(baseFromDimensions, scoring.BaseScore) {
+		return false
+	}
+	flagPenaltyTotal := 0.0
+	for _, flag := range scoring.RedFlags {
+		if !finiteProfileScore(flag.Penalty) || flag.Penalty < 0 {
+			return false
+		}
+		flagPenaltyTotal += flag.Penalty
+	}
+	if flagPenaltyTotal > 40 {
+		flagPenaltyTotal = 40
+	}
+	if !closeProfileScores(flagPenaltyTotal, scoring.TotalPenalty) {
+		return false
+	}
+	expectedFinal := clampScore(roundToEven(scoring.BaseScore-scoring.TotalPenalty, 2))
+	return closeProfileScores(expectedFinal, scoring.FinalScore) &&
+		closeProfileScores(scoring.FinalScore, detail.FinalScore)
+}
+
+func inferredProfileScoreBreakdown(detail *ProfileDetail) *ProfileScoreBreakdown {
+	base := roundToEven(
+		detail.SubScores.AccountMaturity+
+			detail.SubScores.OriginalProjectQuality+
+			detail.SubScores.ContributionQuality+
+			detail.SubScores.EcosystemImpact+
+			detail.SubScores.CommunityInfluence+
+			detail.SubScores.ActivityAuthenticity,
+		1,
+	)
+	applied := roundToEven(base-detail.FinalScore, 2)
+	if applied < 0 {
+		applied = 0
+	}
+	return &ProfileScoreBreakdown{
+		BaseScore:      base,
+		TotalPenalty:   applied,
+		AppliedPenalty: applied,
+		RedFlags:       []RedFlag{},
+		Complete:       false,
+	}
+}
+
+func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *ProfileDetail) (*ProfileScoreBreakdown, error) {
+	fallback := inferredProfileScoreBreakdown(detail)
+	if detail.ScoreVersion == nil || detail.CollectionVersion == nil || detail.SnapshotHash == nil {
+		return fallback, nil
+	}
+
+	var encoded sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT json_extract(snapshot, '$.scoring')
+		FROM public_scan_runs
+		WHERE username = ? AND score_version = ? AND collection_version = ?
+		  AND snapshot_hash = ? AND state = 'complete_public'
+		  AND coverage = 'complete_public'
+		LIMIT 1`, strings.ToLower(detail.Username), *detail.ScoreVersion, *detail.CollectionVersion, *detail.SnapshotHash).Scan(&encoded)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fallback, nil
+	}
+	if err != nil {
+		return fallback, fmt.Errorf("read profile score breakdown: %w", err)
+	}
+	if !encoded.Valid || encoded.String == "" {
+		return fallback, nil
+	}
+
+	var scoring Scoring
+	if err := json.Unmarshal([]byte(encoded.String), &scoring); err != nil {
+		return fallback, fmt.Errorf("decode profile score breakdown: %w", err)
+	}
+	// Only expose a complete explanation when the immutable scan agrees with
+	// both the six-dimensional score row and the red-flag penalty formula.
+	if !validProfileScoring(&scoring, detail) {
+		return fallback, nil
+	}
+	applied := roundToEven(scoring.BaseScore-detail.FinalScore, 2)
+	if applied < 0 {
+		applied = 0
+	}
+	return &ProfileScoreBreakdown{
+		BaseScore:      scoring.BaseScore,
+		TotalPenalty:   scoring.TotalPenalty,
+		AppliedPenalty: applied,
+		RedFlags:       scoring.RedFlags,
+		Complete:       true,
+	}, nil
+}
+
 func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*ProfileDetail, error) {
 	var detail ProfileDetail
 	var display, avatar, profile, tags, line, roast, roastEN, version, collection, hash, roastVersion, roastENVersion sql.NullString
@@ -194,6 +333,10 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 	detail.LegacyReadFallback = legacy
 	detail.PrevScore = nullableProfileFloat(previousScore)
 	detail.PrevScannedAt = nullableProfileInt(previousScannedAt)
+	detail.ScoreBreakdown = inferredProfileScoreBreakdown(&detail)
+	if breakdown, breakdownErr := s.getProfileScoreBreakdown(ctx, &detail); breakdownErr == nil {
+		detail.ScoreBreakdown = breakdown
+	}
 	if (canonical && roastVersion.String == roastArtifactVersion) || (legacy && roastVersion.String == legacyRoastVersion) {
 		detail.Roast = nullableProfileString(roast)
 	}

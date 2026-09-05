@@ -335,6 +335,7 @@ const SYSTEM_PROMPT_ZH = `你是「GitHub 毒舌锐评写手」。分数、档�
 ## 写作护栏
 - 分数来自评分引擎，不是你的判断。可以解释为什么这个分数显得合理，但不能改分、不能暗示模型另有裁决。
 - 任何“大于/小于/更多/更少/比例”结论都必须由 payload 的精确数字推出。粉丝与关注的关系必须遵循 context_notes.follower_following_fact；数值接近时优先直接写两个数字，不要臆造高低关系。
+- \`last_year_contributions\` 必须按 context_notes.last_year_contributions_scope 解释：它是贡献日历聚合数，不得把它写成 PR 数，也不得据此推断贡献类型或仓库归属。
 - 学校、公司、雇主、组织 membership 只是背景，不是分数背书；即使这些信息写在 profile、bio、company 或 README 里，除非数据里有真实项目/PR/commit/维护证据，否则不要写成“因此更强/更可信/值得加分”。
 - AI 使用只是现代开发背景，不是扣分依据；即使 README 自述使用 ChatGPT，也只能在原创项目质量弱、代码/可用性证据也弱时写成原创性 caveat，不能写成作弊、丢人、懒、代笔定论。
 - recent_prs 只是最近 merged PR 样本，不要从 recent_prs 推断全量分布。
@@ -436,6 +437,7 @@ The Markdown report after the three control lines must be written in **English o
 ## Writing guardrails
 - The score comes from the scoring engine, not from your judgment. You may explain why the score fits the facts, but you must not modify it or imply a separate model ruling.
 - Every more/fewer, larger/smaller, or ratio claim must follow the exact payload numbers. For followers versus following, obey context_notes.follower_following_fact; when values are close, state the two counts rather than inventing a relationship.
+- \`last_year_contributions\` must follow context_notes.last_year_contributions_scope: it is a contribution-calendar aggregate, must not be written as a PR count, and cannot establish contribution types or repository ownership.
 - School, company, employer, or organization membership is background context, not score evidence, even when it appears in the profile, bio, company field, or README text. Do not write it as "therefore stronger / more trustworthy / deserving a bump" unless the data ties it to real repo quality, PR/commit work, or maintainer evidence.
 - AI tool use is normal modern development context, not score evidence. Even if a README self-describes ChatGPT usage, mention it only as an originality caveat when repo quality/code/usability evidence is also weak; do not frame AI use as cheating, shameful, laziness, or ghostwriting by default.
 - recent_prs is only the most recent merged PR sample; do not extrapolate all-time behavior from recent_prs.
@@ -594,6 +596,8 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "recent_prs contains only the most recent merged PR sample; it is not the all-time PR distribution.",
           account_time_scope:
             "contribution_years_active is the count of calendar years with contributions after account creation, not continuous elapsed active time. Do not compare it directly against account_age_years as a time-travel/future anomaly.",
+          last_year_contributions_scope:
+            "last_year_contributions is the aggregate count from GitHub's trailing-year contribution calendar and may include commits, PRs, issues, reviews, and other counted activity. It is not a PR count and does not provide repository-ownership distribution. Never attribute the entire value to PRs, commits, external repositories, or the user's own repositories; use only explicit breakdown fields in the payload.",
           recent_prs_sample_size: scan.metrics.recent_merged_pr_sample,
           total_merged_pr_count: scan.metrics.merged_pr_count,
           follower_following_fact: followerFollowingFact,
@@ -648,6 +652,8 @@ function buildPayload(scan: ScanResult, lang: Lang) {
             "recent_prs 只包含最近 merged PR 样本，不代表全量 PR 分布。",
           account_time_scope:
             "contribution_years_active 是账号创建后出现过贡献的自然年份数量，不是连续活跃时长；不要把它直接和 account_age_years 比较并写成穿越/来自未来。",
+          last_year_contributions_scope:
+            "last_year_contributions 是 GitHub 过去一年贡献日历的聚合计数，可能包含 commit、PR、Issue、Review 等多种计入活动；它不是 PR 数，也不提供仓库归属分布。不得把该数值全部归因于 PR、commit、外部仓库或用户自有仓库；贡献类型和仓库归属只能使用 payload 中对应的明确拆分字段。",
           recent_prs_sample_size: scan.metrics.recent_merged_pr_sample,
           total_merged_pr_count: scan.metrics.merged_pr_count,
           follower_following_fact: followerFollowingFact,

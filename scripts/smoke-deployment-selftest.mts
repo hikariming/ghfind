@@ -7,6 +7,11 @@ function writeJSON(response: http.ServerResponse, status: number, body: unknown,
   response.end(JSON.stringify(body));
 }
 
+function writeText(response: http.ServerResponse, status: number, body: string, headers: Record<string, string> = {}) {
+  response.writeHead(status, headers);
+  response.end(body);
+}
+
 function startFixtureServer(): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = http.createServer((request, response) => {
     const host = request.headers.host ?? "127.0.0.1";
@@ -22,12 +27,10 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { username: "octocat", profile: `${origin}/u/octocat`, final_score: 42 });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/profile/octocat") {
-      writeJSON(response, 200, { detail: { username: "octocat", final_score: 42 } });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/embed/badge/octocat") {
-      writeJSON(response, 200, { final_score: 42, tier: "夯", delta: null });
+    if (request.method === "GET" && url.pathname === "/api/badge/octocat") {
+      writeText(response, 200, "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>42</text></svg>", {
+        "content-type": "image/svg+xml; charset=utf-8",
+      });
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/search-users") {
@@ -42,12 +45,16 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       writeJSON(response, 200, { entries: [{ username: "octocat" }] });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/projects") {
-      writeJSON(response, 200, { projects: [] });
+    if (request.method === "GET" && url.pathname === "/projects") {
+      writeText(response, 200, "<html><main>projects</main></html>", {
+        "content-type": "text/html; charset=utf-8",
+      });
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/sitemap") {
-      writeJSON(response, 200, { profiles: [], matchups: [] });
+    if (request.method === "GET" && url.pathname === "/sitemap.xml") {
+      writeText(response, 200, "<?xml version=\"1.0\"?><urlset></urlset>", {
+        "content-type": "application/xml; charset=utf-8",
+      });
       return;
     }
     if (request.method === "POST" && url.pathname === "/mcp") {

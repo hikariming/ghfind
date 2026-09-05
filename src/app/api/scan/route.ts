@@ -10,7 +10,6 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
-  checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -32,8 +31,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim() || "0.0.0.0";
+  return (
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-vercel-forwarded-for")?.split(",").at(-1)?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ||
+    "0.0.0.0"
+  );
 }
 
 function idempotencyHeaders(req: NextRequest): Record<string, string> {
@@ -178,8 +181,18 @@ export async function POST(req: NextRequest) {
     anonymousSession = establishAnonymousSession(req);
   }
 
-  const principal = auth === "absent" && anonymousSession ? `anon:${anonymousSession.id}` : ip;
-  const limit = await checkRateLimit(principal);
+  const isMachineCaller = auth === "valid";
+  const principal = isMachineCaller
+    ? ip
+    : anonymousSession
+      ? `anon:${anonymousSession.id}`
+      : ip;
+  // A verified, signed browser session is the interactive path. If Turnstile
+  // is unavailable/misconfigured and no session can be issued, retain the IP
+  // guard as a fail-safe rather than making the scan route unlimited.
+  const limit = isMachineCaller || !anonymousSession
+    ? await checkRateLimit(principal)
+    : { success: true };
   const rlHeaders = rateLimitHeaders(limit);
   if (!limit.success) {
     return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
@@ -187,14 +200,6 @@ export async function POST(req: NextRequest) {
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
     });
   }
-  const networkLimit = await checkScanNetworkRateLimit(ip);
-  if (!networkLimit.success) {
-    return apiError(networkLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
-      status: networkLimit.unavailable ? 503 : 429,
-      headers: { ...idem, ...rateLimitHeaders(networkLimit), "Cache-Control": "no-store" },
-    });
-  }
-
   // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
   // fresh snapshot immediately; admission/rate limits above still apply.
   const force = req.nextUrl.searchParams.get("force") === "1";

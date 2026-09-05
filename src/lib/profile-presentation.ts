@@ -3,7 +3,7 @@
  * deliberately separate from the former Turso helpers: server components and
  * image renderers may consume them, but must never acquire database access.
  */
-import type { ImpactRepo, RoastLine, SubScores, Tags, Tier, TopRepo } from "@/lib/types";
+import type { ImpactRepo, RedFlag, RoastLine, SubScores, Tags, Tier, TopRepo } from "@/lib/types";
 import type { SignatureWork } from "@/lib/types";
 
 export interface AccountDetail {
@@ -25,6 +25,15 @@ export interface AccountDetail {
   scanned_at: number;
   prev_score: number | null;
   prev_scanned_at: number | null;
+  score_breakdown?: ScoreBreakdown | null;
+}
+
+export interface ScoreBreakdown {
+  base_score: number;
+  total_penalty: number;
+  applied_penalty: number;
+  red_flags: RedFlag[];
+  complete: boolean;
 }
 
 export interface ProfileCardMetrics {

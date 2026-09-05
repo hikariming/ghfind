@@ -120,6 +120,7 @@ func roastContextNotes(scan ScanResult, language roastLanguage) map[string]any {
 		notes = map[string]any{
 			"recent_prs_scope":                  "recent_prs contains only the most recent merged PR sample; it is not the all-time PR distribution.",
 			"account_time_scope":                "contribution_years_active is the count of calendar years with contributions after account creation, not continuous elapsed active time. Do not compare it directly against account_age_years as a time-travel/future anomaly.",
+			"last_year_contributions_scope":     "last_year_contributions is the aggregate count from GitHub's trailing-year contribution calendar and may include commits, PRs, issues, reviews, and other counted activity. It is not a PR count and does not provide repository-ownership distribution. Never attribute the entire value to PRs, commits, external repositories, or the user's own repositories; use only explicit breakdown fields in the payload.",
 			"recent_prs_sample_size":            m.RecentMergedPRSample,
 			"total_merged_pr_count":             m.MergedPRCount,
 			"workflow_landed_pr_count":          valueOrZero(m.WorkflowLandedPRCount),
@@ -151,6 +152,7 @@ func roastContextNotes(scan ScanResult, language roastLanguage) map[string]any {
 	notes = map[string]any{
 		"recent_prs_scope":                  "recent_prs 只包含最近 merged PR 样本，不代表全量 PR 分布。",
 		"account_time_scope":                "contribution_years_active 是账号创建后出现过贡献的自然年份数量，不是连续活跃时长；不要把它直接和 account_age_years 比较并写成穿越/来自未来。",
+		"last_year_contributions_scope":     "last_year_contributions 是 GitHub 过去一年贡献日历的聚合计数，可能包含 commit、PR、Issue、Review 等多种计入活动；它不是 PR 数，也不提供仓库归属分布。不得把该数值全部归因于 PR、commit、外部仓库或用户自有仓库；贡献类型和仓库归属只能使用 payload 中对应的明确拆分字段。",
 		"recent_prs_sample_size":            m.RecentMergedPRSample,
 		"total_merged_pr_count":             m.MergedPRCount,
 		"workflow_landed_pr_count":          valueOrZero(m.WorkflowLandedPRCount),

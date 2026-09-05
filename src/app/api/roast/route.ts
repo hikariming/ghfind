@@ -8,12 +8,10 @@ import {
   getCanonicalScoreWriteIdentity,
   getCurrentCanonicalQuickScan,
   getLegacyReadFallbackRoast,
-  getScoreScannedAt,
   updateRoast,
   type ScoreWriteIdentity,
 } from "@/lib/db";
 import { getRankCached } from "@/lib/rank";
-import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { Lang, normLang } from "@/lib/lang";
 import {
   ChatAttemptEvent,
@@ -80,9 +78,8 @@ interface RoastBody {
   byoKey?: ByoKey;
   /** UI locale → report language. Defaults to zh (see {@link normLang}). */
   lang?: string;
-  /** Ask to regenerate instead of replaying the cache/archive. Honored only when
-   * the server confirms the stored roast is stale (scanned_at older than
-   * ROAST_FRESH_MS) — otherwise ignored, so the flag can't burn LLM credit. */
+  /** Ask for a fresh scan; a compatible cached/archive roast is still replayed
+   * when the score is unchanged, so this flag cannot burn LLM credit needlessly. */
   refresh?: boolean;
 }
 
@@ -108,7 +105,12 @@ function logRoastSummary(fields: Record<string, unknown>): void {
 }
 
 function clientIp(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
+  return (
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-vercel-forwarded-for")?.split(",").at(-1)?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ||
+    "0.0.0.0"
+  );
 }
 
 function resolveConfig(byo?: ByoKey): { config: LlmConfig; isDefault: boolean } | null {
@@ -615,43 +617,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
 
-  // Invalid machine credentials still fail closed. Interactive browser roasts
-  // are protected by the request and generation rate limits below; a heuristic
-  // bot classifier must not gate this primary user-facing flow.
+  // Invalid machine credentials still fail closed. Bearer callers are the
+  // machine/API surface; interactive browsers have already passed Turnstile on
+  // the scan path and must not spend the machine roast quota.
   const auth = machineAuth(req);
   if (auth === "invalid") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const isMachineCaller = auth === "valid";
   const ip = clientIp(req);
-  // CLI/MCP callers retain their IP budget. Only an interactive browser that
-  // completed Turnstile can exchange its shared-NAT IP key for a signed session.
-  const principal = auth === "absent" ? anonymousSessionPrincipal(req) ?? ip : ip;
+  const browserPrincipal = auth === "absent" ? anonymousSessionPrincipal(req) : null;
+  const isDefault = !(
+    body.byoKey?.apiKey && body.byoKey?.baseURL && body.byoKey?.model
+  );
+  const path = isDefault ? "default" : "byo";
+  // Browser sessions get a stable principal for auditability. Machine callers
+  // deliberately retain the IP principal for the existing API quota contract.
+  const principal = browserPrincipal ?? ip;
 
-  // This protects every path, including BYO: it runs before the snapshot and
-  // scan-cache reads below, while the later roast limiter remains dedicated
-  // to operator-paid model generation.
-  const requestLimit = await checkRoastRequestRateLimit(principal);
-  if (!requestLimit.success) {
-    return NextResponse.json(
-      { error: requestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
-      {
-        status: requestLimit.unavailable ? 503 : 429,
-        headers: { ...rateLimitHeaders(requestLimit), "Cache-Control": "no-store" },
-      },
-    );
-  }
-  const networkRequestLimit = await checkRoastRequestNetworkRateLimit(ip);
-  if (!networkRequestLimit.success) {
-    return NextResponse.json(
-      {
-        error: networkRequestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
-        useByoKey: true,
-      },
-      {
-        status: networkRequestLimit.unavailable ? 503 : 429,
-        headers: { ...rateLimitHeaders(networkRequestLimit), "Cache-Control": "no-store" },
-      },
-    );
+  // Machine/API requests remain protected. Browser traffic is deliberately
+  // excluded here: its normal path is Turnstile/session + cache/single-flight,
+  // while a cache hit must never be rejected by an API quota.
+  if (isMachineCaller) {
+    const requestLimit = await checkRoastRequestRateLimit(principal);
+    if (!requestLimit.success) {
+      return NextResponse.json(
+        { error: requestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
+        {
+          status: requestLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(requestLimit), "Cache-Control": "no-store" },
+        },
+      );
+    }
+    const networkRequestLimit = await checkRoastRequestNetworkRateLimit(ip);
+    if (!networkRequestLimit.success) {
+      return NextResponse.json(
+        {
+          error: networkRequestLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+          useByoKey: true,
+        },
+        {
+          status: networkRequestLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(networkRequestLimit), "Cache-Control": "no-store" },
+        },
+      );
+    }
   }
 
   const lang = normLang(body.lang);
@@ -659,7 +669,8 @@ export async function POST(req: NextRequest) {
   // A verified v5/v5/v3 artifact is a read-only continuity path when the quick
   // collector is unavailable. It is intentionally checked before resolving an LLM config:
   // replaying already-persisted public text must not depend on model capacity or
-  // spend credit. `refresh` explicitly opts out and continues toward v9 work.
+  // spend credit. `refresh` may cause a new scan upstream, but a compatible roast
+  // remains replayable when the score did not change.
   if (body.refresh !== true && !body.scan) {
     const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
     if (legacyRoast && reportMatchesLang(legacyRoast.report, lang)) {
@@ -682,18 +693,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const resolved = resolveConfig(body.byoKey);
-  if (!resolved) {
-    return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
-  }
-  const { config, isDefault } = resolved;
-
-  // Default path fails over to the operator's fallback provider (DeepSeek) when
-  // the primary drops/queues the connection before any answer text. BYO keys
-  // never fail over — the user supplied a single key and pays their own way.
-  const fallback = isDefault ? fallbackLlmConfig() : null;
-  const llmConfigs = fallback ? [config, fallback] : [config];
-  const path = isDefault ? "default" : "byo";
   // Single-flight: set once we hold the roast lock, so the stream/error paths
   // know to release it. Only the default model coalesces (BYO keys self-serve).
   let isLeader = false;
@@ -720,7 +719,6 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
-    let refreshHonored = false;
     // Every replay and new report belongs to the deterministic v9 score from
     // this exact quick snapshot. A forged request body cannot produce a report
     // because it has no matching score write identity.
@@ -736,92 +734,64 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // A validated `refresh` skips canonical replay paths only when the
-    // stored report is actually stale.
-    if (body.refresh === true) {
-      const scannedAt = await getScoreScannedAt(username);
-      refreshHonored = scannedAt == null || Date.now() - scannedAt > ROAST_FRESH_MS;
+    const cachedRoast = await getCachedRoast(username, lang);
+    if (
+      cachedRoast?.snapshot_hash === snapshotHash &&
+      reportMatchesLang(cachedRoast.report, lang)
+    ) {
+      const tags = cachedRoast.tags ?? { zh: [], en: [] };
+      const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
+      const meta =
+        cachedRoast.final_score !== undefined && cachedRoast.tier
+          ? await metaForStoredRoast(
+              cachedRoast.final_score,
+              cachedRoast.tier,
+              tags,
+              roastLine,
+              lang,
+            )
+          : await computeMeta(scan, cachedRoast.delta, tags, roastLine, lang);
+      logRoastSummary({
+        requestId, lang, path, ok: true, source: "redis_cache",
+        requestTotalMs: Date.now() - reqT0,
+      });
+      return roastResponse(cachedRoast.report, meta);
     }
+    if (cachedRoast) await clearCachedRoast(username, lang);
 
-    if (!refreshHonored) {
-      const cachedRoast = await getCachedRoast(username, lang);
-      if (
-        cachedRoast?.snapshot_hash === snapshotHash &&
-        reportMatchesLang(cachedRoast.report, lang)
-      ) {
-        const tags = cachedRoast.tags ?? { zh: [], en: [] };
-        const roastLine = cachedRoast.roast_line ?? EMPTY_ROAST_LINE;
-        const meta =
-          cachedRoast.final_score !== undefined && cachedRoast.tier
-            ? await metaForStoredRoast(
-                cachedRoast.final_score,
-                cachedRoast.tier,
-                tags,
-                roastLine,
-                lang,
-              )
-            : await computeMeta(scan, cachedRoast.delta, tags, roastLine, lang);
-        logRoastSummary({
-          requestId, lang, path, ok: true, source: "redis_cache",
-          requestTotalMs: Date.now() - reqT0,
-        });
-        return roastResponse(cachedRoast.report, meta);
-      }
-      if (cachedRoast) await clearCachedRoast(username, lang);
-
-      const archivedRoast = await getArchivedRoast(username, lang);
-      if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
-        const meta = await metaForStoredRoast(
-          archivedRoast.final_score,
-          archivedRoast.tier,
-          archivedRoast.tags,
-          archivedRoast.roast_line,
-          lang,
-        );
-        await cacheRoastReplay(
-          username,
-          lang,
-          snapshotHash,
-          archivedRoast.report,
-          archivedRoast.tags,
-          archivedRoast.roast_line,
-          archivedRoast.final_score,
-          archivedRoast.tier,
-        );
-        logRoastSummary({
-          requestId, lang, path, ok: true, source: "archive",
-          requestTotalMs: Date.now() - reqT0,
-        });
-        return roastResponse(archivedRoast.report, meta);
-      }
-    }
-    const generationLimit = await checkRoastRateLimit(principal);
-    if (!generationLimit.success) {
-      return NextResponse.json(
-        { error: generationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
-        {
-          status: generationLimit.unavailable ? 503 : 429,
-          headers: { ...rateLimitHeaders(generationLimit), "Cache-Control": "no-store" },
-        },
+    const archivedRoast = await getArchivedRoast(username, lang);
+    if (archivedRoast && reportMatchesLang(archivedRoast.report, lang)) {
+      const meta = await metaForStoredRoast(
+        archivedRoast.final_score,
+        archivedRoast.tier,
+        archivedRoast.tags,
+        archivedRoast.roast_line,
+        lang,
       );
+      await cacheRoastReplay(
+        username,
+        lang,
+        snapshotHash,
+        archivedRoast.report,
+        archivedRoast.tags,
+        archivedRoast.roast_line,
+        archivedRoast.final_score,
+        archivedRoast.tier,
+      );
+      logRoastSummary({
+        requestId, lang, path, ok: true, source: "archive",
+        requestTotalMs: Date.now() - reqT0,
+      });
+      return roastResponse(archivedRoast.report, meta);
     }
-    const networkGenerationLimit = await checkRoastNetworkRateLimit(ip);
-    if (!networkGenerationLimit.success) {
+    if (!isMachineCaller && !browserPrincipal) {
       return NextResponse.json(
-        {
-          error: networkGenerationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
-          useByoKey: true,
-        },
-        {
-          status: networkGenerationLimit.unavailable ? 503 : 429,
-          headers: { ...rateLimitHeaders(networkGenerationLimit), "Cache-Control": "no-store" },
-        },
+        { error: "turnstile_failed", useByoKey: true },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
       );
     }
     isLeader = await acquireRoastLock(username, lang);
-    if (isLeader) {
-      if (refreshHonored) await clearCachedRoast(username, lang);
-    } else {
+    if (!isLeader) {
       const lockWaitStartedAt = Date.now();
       const shared = await waitForCachedRoast(username, lang);
       lockWaitMs = Date.now() - lockWaitStartedAt;
@@ -850,6 +820,49 @@ export async function POST(req: NextRequest) {
       generationPath = "follower_fallback";
     }
   }
+
+  // Charge the machine generation budget only after the cache/archive miss and
+  // lock decision. A follower that receives the leader's cached result is free;
+  // a follower that must fall back to its own generation is still protected.
+  if (isMachineCaller && isDefault) {
+    const generationLimit = await checkRoastRateLimit(principal);
+    if (!generationLimit.success) {
+      if (isLeader) await releaseRoastLock(username, lang);
+      return NextResponse.json(
+        { error: generationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited", useByoKey: true },
+        {
+          status: generationLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(generationLimit), "Cache-Control": "no-store" },
+        },
+      );
+    }
+    const networkGenerationLimit = await checkRoastNetworkRateLimit(ip);
+    if (!networkGenerationLimit.success) {
+      if (isLeader) await releaseRoastLock(username, lang);
+      return NextResponse.json(
+        {
+          error: networkGenerationLimit.unavailable ? "rate_limit_unavailable" : "rate_limited",
+          useByoKey: true,
+        },
+        {
+          status: networkGenerationLimit.unavailable ? 503 : 429,
+          headers: { ...rateLimitHeaders(networkGenerationLimit), "Cache-Control": "no-store" },
+        },
+      );
+    }
+  }
+
+  const resolved = resolveConfig(body.byoKey);
+  if (!resolved) {
+    return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
+  }
+  const { config } = resolved;
+
+  // Default path fails over to the operator's fallback provider (DeepSeek) when
+  // the primary drops/queues the connection before any answer text. BYO keys
+  // never fail over — the user supplied a single key and pays their own way.
+  const fallback = isDefault ? fallbackLlmConfig() : null;
+  const llmConfigs = fallback ? [config, fallback] : [config];
 
   // One model stream writes the report. Progress frames keep the client alive
   // while the model prepares its controls.

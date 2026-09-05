@@ -128,7 +128,7 @@ describe("POST /api/scan immediate quick contract", () => {
     });
   });
 
-  it("uses a Turnstile-issued browser session before the shared network budget", async () => {
+  it("keeps a Turnstile-issued browser outside the machine rate limit", async () => {
     delete process.env.GITHUB_ROAST_CLI_API_KEY;
     mocks.establishAnonymousSession.mockReturnValue({ id: "session-fixture", issued: true });
 
@@ -139,8 +139,8 @@ describe("POST /api/scan immediate quick contract", () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith("anon:session-fixture");
-    expect(mocks.checkScanNetworkRateLimit).toHaveBeenCalledWith("198.51.100.10");
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkScanNetworkRateLimit).not.toHaveBeenCalled();
     expect(mocks.attachAnonymousSession).toHaveBeenCalledWith(
       expect.any(Response),
       { id: "session-fixture", issued: true },

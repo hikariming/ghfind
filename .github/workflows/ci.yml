@@ -60,11 +60,21 @@ jobs:
             pnpm versions:check
           fi
 
+      - name: Verify Cloudflare release workflow contract
+        run: pnpm ci:check-cf-release-workflow
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Lint
         run: pnpm lint
+
+      # Knip dead-code dry-run (report only). Findings exist today
+      # (see #208); once they are resolved this step can drop
+      # `continue-on-error` and become a blocking check.
+      - name: Knip (dead code dry-run)
+        continue-on-error: true
+        run: pnpm knip
 
       - name: Test
         run: pnpm test

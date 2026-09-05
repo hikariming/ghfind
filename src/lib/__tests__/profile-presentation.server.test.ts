@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   filterExistingRepoKeys: vi.fn(),
   getAccountDetail: vi.fn(),
   getCachedScan: vi.fn(),
+  getCurrentCanonicalQuickScan: vi.fn(),
   getDeveloperCommonProjects: vi.fn(),
   getFacetRank: vi.fn(),
   getMatchup: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/lib/db", () => ({
   filterExistingRepoKeys: mocks.filterExistingRepoKeys,
   getAccountDetail: mocks.getAccountDetail,
   getDeveloperCommonProjects: mocks.getDeveloperCommonProjects,
+  getCurrentCanonicalQuickScan: mocks.getCurrentCanonicalQuickScan,
   getFacetRank: mocks.getFacetRank,
   getMatchup: mocks.getMatchup,
   getProfileSnapshot: mocks.getProfileSnapshot,
@@ -51,7 +53,7 @@ const subScores = {
   contribution_quality: 21,
   ecosystem_impact: 12,
   community_influence: 5,
-  activity_authenticity: 14,
+  activity_authenticity: 26.7,
 };
 
 const detail = {
@@ -74,6 +76,20 @@ const detail = {
   prev_score: 70,
   prev_scanned_at: 111,
 };
+
+const canonicalScan = (overrides: Record<string, unknown> = {}) => ({
+  snapshotHash: "a".repeat(64),
+  scan: {
+    scoring: {
+      sub_scores: subScores,
+      base_score: 87.7,
+      total_penalty: 10,
+      final_score: 77.7,
+      red_flags: [{ flag: "mostly_forks", penalty: 10, detail: "Mostly forks" }],
+      ...overrides,
+    },
+  },
+} as unknown as ScanResult);
 
 const snapshot = {
   top_repos: [
@@ -146,6 +162,7 @@ beforeEach(() => {
   mocks.getMatchup.mockResolvedValue(matchup);
   mocks.getTrendingMatchups.mockResolvedValue([matchup]);
   mocks.getCachedScan.mockResolvedValue(null);
+  mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
 });
 
 describe("getGoProfilePresentation", () => {
@@ -191,6 +208,35 @@ describe("getGoProfilePresentation", () => {
       prevScore: 70,
       prevScannedAt: 111,
     });
+  });
+
+  it("passes the canonical scan's score breakdown through the local presentation", async () => {
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue(canonicalScan());
+
+    const presentation = await getGoProfilePresentation("octocat");
+
+    expect(presentation?.detail.score_breakdown).toEqual({
+      base_score: 87.7,
+      total_penalty: 10,
+      applied_penalty: 10,
+      red_flags: [{ flag: "mostly_forks", penalty: 10, detail: "Mostly forks" }],
+      complete: true,
+    });
+    expect(mocks.getCurrentCanonicalQuickScan).toHaveBeenCalledWith("octocat");
+  });
+
+  it.each([
+    ["missing red flags", { red_flags: undefined }],
+    ["dimension sum disagrees with base", { sub_scores: { ...subScores, activity_authenticity: 26.8 } }],
+    ["score row dimension disagrees with scan", { sub_scores: { ...subScores, activity_authenticity: 26.6 } }],
+    ["penalty total disagrees with red flags", { total_penalty: 9 }],
+    ["final score formula disagrees with base and penalty", { final_score: 76.7 }],
+  ])("does not expose an unverified breakdown when %s", async (_reason, overrides) => {
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue(canonicalScan(overrides));
+
+    const presentation = await getGoProfilePresentation("octocat");
+
+    expect(presentation?.detail.score_breakdown).toBeUndefined();
   });
 
   it("pins the optional score_version to null in the public contract", async () => {

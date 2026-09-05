@@ -25,12 +25,22 @@ import {
   lowPrestigeBulkContributionCap,
   logRatio,
   score,
+  roundHalfEven,
   spamBotScore,
   starEngagementMultiplier,
   tierFor,
 } from "../score";
 import type { RawMetrics, RecentPr, TopRepo } from "../types";
 import fixtures from "./score-fixtures.json";
+
+describe("roundHalfEven", () => {
+  it("uses half-even rounding for profile score reconstruction", () => {
+    expect(roundHalfEven(17.25, 1)).toBe(17.2);
+    expect(roundHalfEven(17.35, 1)).toBe(17.4);
+    expect(roundHalfEven(34.205, 2)).toBe(34.2);
+    expect(roundHalfEven(34.215, 2)).toBe(34.22);
+  });
+});
 
 const pr = (over: Partial<RecentPr>): RecentPr => ({
   title: "x",

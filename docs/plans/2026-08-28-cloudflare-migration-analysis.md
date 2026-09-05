@@ -1,6 +1,7 @@
-# 全面迁移 Cloudflare 分析：Railway + Turso + Vercel 下线
+# 历史归档：Cloudflare 迁移分析
 
 > 2026-08-28。基于对当前 main 分支的全量代码摸底（前端 Vercel 面 / Railway Go 后端 / Turso 数据层三路并行审计）。
+> **状态：历史分析。** 迁移已完成，当前前端页面和 `/api/*` 后端由同一个 OpenNext Cloudflare Worker 承载。现行部署、冒烟、账号/资源预检和回滚请看 [`../operations/cloudflare-deployment-runbook.md`](../operations/cloudflare-deployment-runbook.md)。本文保留迁移前基线、目标映射和风险记录，不是当前生产拓扑说明。
 > 前提约束：**项目分析继续用 Mosoo**（try.mosoo.ai 外部 API，不迁移）；LLM 供应商（StepFun/DeepSeek）不变；`ghfind` CLI 不变（只走 HTTP）。
 
 ---

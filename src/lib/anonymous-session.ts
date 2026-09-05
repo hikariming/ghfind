@@ -21,14 +21,16 @@ function configured(value: string | undefined): string | null {
 }
 
 /**
- * A browser session is issued only after a real Turnstile verification. Reuse
- * AUTH_SECRET when available; otherwise the Turnstile server secret is still a
- * private, high-entropy signing key. No session is issued without Turnstile.
+ * Reuse AUTH_SECRET when available. When Turnstile is configured, the session
+ * is issued only after the caller has passed Turnstile in the scan route. If
+ * Turnstile is intentionally absent, AUTH_SECRET still lets the no-op local or
+ * emergency browser path issue a signed identity instead of passing scan and
+ * then failing roast because no session can be verified.
  */
 function signingSecret(): string | null {
+  const authSecret = configured(process.env.AUTH_SECRET);
   const turnstileSecret = configured(process.env.TURNSTILE_SECRET_KEY);
-  if (!turnstileSecret) return null;
-  return configured(process.env.AUTH_SECRET) ?? turnstileSecret;
+  return authSecret ?? turnstileSecret;
 }
 
 function signature(payload: string, secret: string): string {
