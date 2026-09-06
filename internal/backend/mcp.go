@@ -487,6 +487,9 @@ func (s *APIServer) mcpStoredScorePayload(ctx context.Context, detail StoredScor
 		"source": source, "coverage": map[bool]string{true: "quick", false: "legacy"}[current], "stale": !current,
 		"username": detail.Username, "display_name": detail.DisplayName, "final_score": detail.FinalScore,
 		"tier": detail.Tier, "tier_key": tierKey(detail.Tier), "sub_scores": detail.SubScores,
+		"base_score": storedBaseScore(detail.SubScores), "total_penalty": storedRiskPenalty(detail.RiskAssessment),
+		"red_flags": storedRiskFlags(detail.RiskAssessment), "risk_assessment": detail.RiskAssessment,
+		"risk_notes": detail.RiskNotes,
 		"percentile": s.scorePercentile(ctx, detail.FinalScore), "scanned_at": detail.ScannedAt,
 		"profile": s.scoreProfileURL(detail.Username),
 	}
@@ -497,7 +500,9 @@ func (s *APIServer) mcpLiveScorePayload(ctx context.Context, scan ScanResult) ma
 		"source": "quick", "coverage": "quick", "username": scan.Metrics.Username,
 		"display_name": scan.Metrics.Name, "final_score": scan.Scoring.FinalScore,
 		"tier": scan.Scoring.Tier, "tier_key": tierKey(scan.Scoring.Tier), "sub_scores": scan.Scoring.SubScores,
-		"red_flags": scan.Scoring.RedFlags, "percentile": s.scorePercentile(ctx, scan.Scoring.FinalScore),
+		"base_score": scan.Scoring.BaseScore, "total_penalty": scan.Scoring.TotalPenalty,
+		"red_flags": scan.Scoring.RedFlags, "risk_assessment": scan.Scoring.RiskAssessment,
+		"risk_notes": scan.Scoring.RiskNotes, "percentile": s.scorePercentile(ctx, scan.Scoring.FinalScore),
 		"profile": s.scoreProfileURL(scan.Metrics.Username),
 	}
 }

@@ -105,6 +105,17 @@ def _print_sub_scores(sub_scores: Optional[Dict[str, Any]]) -> None:
             _out(f"- {key}: {sub_scores[key]}")
 
 
+def _print_risk(scoring: Dict[str, Any]) -> None:
+    assessment = scoring.get("risk_assessment")
+    if assessment:
+        _out(
+            f'risk: {assessment.get("level")}, confidence {assessment.get("confidence", 0)}%, '
+            f'penalty -{assessment.get("applied_penalty", 0)}'
+        )
+    for note in scoring.get("risk_notes") or []:
+        _out(f'{note.get("flag")}: {note.get("detail", "")}')
+
+
 def _local_scan(args: argparse.Namespace, username: str) -> Dict[str, Any]:
     token = _github_token(args)
     if not token:
@@ -133,6 +144,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
             return
         _out(f'{scan["metrics"]["username"]}: {s["final_score"]}/100 {s["tier"]} ({s["tier_label"]})')
         _print_sub_scores(s.get("sub_scores"))
+        _print_risk(s)
         for f in s.get("red_flags") or []:
             _out(f'- {f["flag"]}: -{f["penalty"]} {f["detail"]}')
         _out(_profile_link(host, scan["metrics"]["username"]))
@@ -144,6 +156,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
         return
     _out(f'{payload["username"]}: {payload["final_score"]}/100 {payload["tier"]} ({payload.get("tier_key")})')
     _print_sub_scores(payload.get("sub_scores"))
+    _print_risk(payload)
     for f in payload.get("red_flags") or []:
         _out(f'- {f["flag"]}: -{f["penalty"]} {f["detail"]}')
     pct = payload.get("percentile")

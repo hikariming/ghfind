@@ -1,22 +1,26 @@
-# v9 / v10 / v4 roast release
+# v10 / v10 / v4 risk-scoring release
 
 ## Change
 
-GitHub REST's `open_issues_count` combines open Issues and pull requests. The
-writer now receives only a bounded GraphQL `open_issue_count`, which excludes
-pull requests, and is explicitly prohibited from suggesting Issue cleanup when
-that count is absent or zero.
+The six positive dimensions and `base_score` are unchanged. The public risk
+layer is now v10: footprint scarcity produces notes only, while active
+manipulation requires sufficient bounded evidence and is capped at 25 points.
+The hidden `spamBotScore` remains independent.
 
 ## Rollout
 
-1. Deploy with roast cache version `v10`.
-2. Confirm the affected account remains a canonical v9/v4 score and a new
-   roast does not replay the previous v9 report.
-3. Re-roast the affected account; a repository with zero verified open Issues
-   must not receive Issue-cleanup advice.
+1. Deploy with score and roast cache versions `v10` and collection version `v4`.
+2. Run the v10 canonical backfill from complete v4 snapshots in resumable
+   pages of 100. Public reads must contain only v10 rows during the backfill.
+3. Verify that six-dimensional/base values are unchanged, footprint-only
+   accounts have `total_penalty = 0`, and every non-zero penalty is reproducible
+   from `risk_assessment.signals`.
+4. Confirm roast keys include `v10:v10:v4`; a v9 score/roast is never reused.
 
 ## Rollback
 
-Revert this release as one roast-version change: restore `ROAST_CACHE_VERSION`
-and the release manifest target to `v9`, then redeploy. Do not create aliases
-between v9 and v10 report artifacts.
+Revert the application release as one score/risk change: restore the prior
+scoring implementation and `SCORE_CACHE_VERSION` to `v9`, then redeploy. Do not
+make v9 public reads coexist with v10 in the same ranking query. Existing v10
+rows are retained as migration data and the rollback is recoverable by a later
+v10 redeploy/backfill.

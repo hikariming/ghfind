@@ -347,13 +347,22 @@ export default async function AccountPage({
     final: t("scoreFinal"),
     heading: t("scoreBreakdownHeading"),
     note: t("scoreBreakdownNote"),
-    riskHeading: t("scoreRiskHeading", { count: scoreBreakdown.red_flags.length }),
+    riskHeading: t("scoreRiskHeading", {
+      count: (scoreBreakdown.risk_assessment?.signals ?? scoreBreakdown.red_flags).length,
+    }),
     unavailable: t("scoreRiskUnavailable"),
     capNote: t("scoreAdjustmentLimited", {
       total: scoreBreakdown.total_penalty.toFixed(2),
       applied: scoreBreakdown.applied_penalty.toFixed(2),
     }),
     more: t("scoreRiskMore", { count: Math.max(0, scoreBreakdown.red_flags.length - 3) }),
+    riskStatus: t("scoreRiskStatus"),
+    riskScore: t("scoreRiskScore"),
+    riskFootprintNote: t("scoreRiskFootprintNote"),
+    riskNoPenalty: t("scoreRiskNoPenalty"),
+    riskNotesHeading: t("scoreRiskNotes", {
+      count: (scoreBreakdown.risk_notes ?? []).length,
+    }),
   };
 
   // Evidence blocks (only when a sedimented snapshot exists).

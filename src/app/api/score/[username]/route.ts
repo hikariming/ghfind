@@ -19,6 +19,7 @@ import {
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
+import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -56,6 +57,16 @@ function scorePersistenceUnavailable(headers: Record<string, string>): Response 
     "no-store",
     { ...headers, "Retry-After": "5" },
   );
+}
+
+function persistedBaseScore(detail: AccountDetail): number {
+  return roundHalfEven(Object.values(detail.sub_scores).reduce((sum, value) => sum + value, 0), 1);
+}
+
+function persistedRiskFlags(detail: AccountDetail) {
+  return (detail.risk_assessment?.signals ?? [])
+    .filter((signal) => signal.penalty > 0)
+    .map(({ flag, penalty, detail: explanation }) => ({ flag, penalty, detail: explanation }));
 }
 
 class ScorePersistenceError extends Error {}
@@ -99,6 +110,8 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
       base_score: scoring.base_score,
       total_penalty: scoring.total_penalty,
       red_flags: scoring.red_flags,
+      risk_assessment: scoring.risk_assessment,
+      risk_notes: scoring.risk_notes,
       tags: null,
       roast_line: null,
       percentile: await percentileFor(scoring.final_score),
@@ -136,6 +149,11 @@ async function persistedScoreResponse(
       tier: detail.tier,
       tier_key: TIER_KEY[detail.tier],
       sub_scores: detail.sub_scores,
+      base_score: persistedBaseScore(detail),
+      total_penalty: detail.risk_assessment?.applied_penalty ?? 0,
+      red_flags: persistedRiskFlags(detail),
+      risk_assessment: detail.risk_assessment ?? null,
+      risk_notes: detail.risk_notes ?? [],
       tags: detail.tags,
       roast_line: detail.roast_line,
       percentile: await percentileFor(detail.final_score),
@@ -175,6 +193,13 @@ export async function GET(
   const limit = await checkRateLimit(clientIp(req));
   const headers = rateLimitHeaders(limit);
   if (!limit.success) {
+    if (detail?.legacy_read_fallback) {
+      return persistedScoreResponse(detail, {
+        source: "legacy_v5_v5_v3",
+        current: false,
+        headers,
+      });
+    }
     return json(
       {
         error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited",
@@ -202,7 +227,6 @@ export async function GET(
       });
     }
   } catch (error) {
-    if (error instanceof ScorePersistenceError) return scorePersistenceUnavailable(headers);
     if (detail?.legacy_read_fallback) {
       return persistedScoreResponse(detail, {
         source: "legacy_v5_v5_v3",
@@ -210,6 +234,7 @@ export async function GET(
         headers,
       });
     }
+    if (error instanceof ScorePersistenceError) return scorePersistenceUnavailable(headers);
     const { error: code, status, retry_after } = scanErrorResponse(error);
     return json(
       { error: code, message: code.replace(/_/g, " "), ...(retry_after ? { retry_after } : {}) },

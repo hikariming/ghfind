@@ -65,7 +65,7 @@ const legacyFallback = {
   roast_line: { zh: "", en: "" },
   roast: "legacy report",
   roast_en: "legacy report",
-  score_version: "v5",
+  score_version: "v9",
   legacy_read_fallback: true,
   score_source_collection_version: null,
   score_source_snapshot_hash: null,

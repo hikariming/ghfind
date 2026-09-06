@@ -659,6 +659,48 @@ export function GET() {
             },
           },
         },
+        RiskEvidence: {
+          type: "object",
+          properties: {
+            observed: { type: "object", additionalProperties: true },
+            sample_size: { type: "number" },
+            threshold: { type: "object", additionalProperties: { type: "number" } },
+            coverage: { type: "object", additionalProperties: { type: "number" } },
+            window: { type: "string" },
+          },
+        },
+        RiskSignal: {
+          type: "object",
+          properties: {
+            flag: { type: "string" },
+            family: { type: "string", enum: ["footprint", "contribution", "social"] },
+            disposition: { type: "string", enum: ["penalty", "note"] },
+            severity: { type: "number", minimum: 0, maximum: 1 },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+            penalty: { type: "number", minimum: 0, maximum: 25 },
+            detail: { type: "string" },
+            evidence: { $ref: "#/components/schemas/RiskEvidence" },
+          },
+        },
+        RiskAssessment: {
+          type: "object",
+          properties: {
+            version: { type: "string", enum: ["v10"] },
+            risk_score: { type: "number", minimum: 0, maximum: 100 },
+            level: { type: "string", enum: ["none", "review", "high"] },
+            confidence: { type: "number", minimum: 0, maximum: 100 },
+            applied_penalty: { type: "number", minimum: 0, maximum: 25 },
+            signals: { type: "array", items: { $ref: "#/components/schemas/RiskSignal" } },
+            coverage: {
+              type: "object",
+              properties: {
+                repo: { type: "number", minimum: 0, maximum: 1 },
+                merged_pr: { type: "number", minimum: 0, maximum: 1 },
+                all_pr: { type: "number", minimum: 0, maximum: 1 },
+              },
+            },
+          },
+        },
         ScorePayload: {
           type: "object",
           properties: {
@@ -678,6 +720,10 @@ export function GET() {
                 properties: { flag: { type: "string" }, penalty: { type: "number" }, detail: { type: "string" } },
               },
             },
+            base_score: { type: "number", minimum: 0, maximum: 100 },
+            total_penalty: { type: "number", minimum: 0, maximum: 25 },
+            risk_assessment: { $ref: "#/components/schemas/RiskAssessment" },
+            risk_notes: { type: "array", items: { $ref: "#/components/schemas/RiskSignal" } },
             username: { type: "string" },
             display_name: { type: "string", nullable: true },
             avatar_url: { type: "string", nullable: true },
@@ -724,6 +770,8 @@ export function GET() {
                 properties: { flag: { type: "string" }, penalty: { type: "number" }, detail: { type: "string" } },
               },
             },
+            risk_assessment: { $ref: "#/components/schemas/RiskAssessment" },
+            risk_notes: { type: "array", items: { $ref: "#/components/schemas/RiskSignal" } },
             total_penalty: { type: "number" },
             final_score: { type: "number" },
             tier: { type: "string" },

@@ -17,7 +17,7 @@ const (
 	// written on every scan and every read filter (canonicalScoreVersion in
 	// turso.go aliases it). A scoring-rule bump changes this one line, in the
 	// same review as src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion      = "v9"
+	goCanonicalScoreVersion      = "v10"
 	goCanonicalCollectionVersion = "v4"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
@@ -72,6 +72,14 @@ func (s *TursoStore) PersistCollectedScan(ctx context.Context, job ScanJob, scan
 	subScores, err := json.Marshal(scan.Scoring.SubScores)
 	if err != nil {
 		return false, fmt.Errorf("encode sub scores: %w", err)
+	}
+	riskAssessment, err := json.Marshal(scan.Scoring.RiskAssessment)
+	if err != nil {
+		return false, fmt.Errorf("encode risk assessment: %w", err)
+	}
+	riskNotes, err := json.Marshal(scan.Scoring.RiskNotes)
+	if err != nil {
+		return false, fmt.Errorf("encode risk notes: %w", err)
 	}
 	metrics, err := json.Marshal(scan.Metrics)
 	if err != nil {
@@ -130,12 +138,12 @@ func (s *TursoStore) PersistCollectedScan(ctx context.Context, job ScanJob, scan
 		_, err = tx.ExecContext(ctx, `INSERT INTO scores
           (username, display_name, avatar_url, profile_url, final_score, tier, tags,
            roast_line, score_version, score_write_token, score_source_collection_version,
-           score_source_snapshot_hash, bot_score, sub_scores, scanned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           score_source_snapshot_hash, bot_score, sub_scores, risk_assessment, risk_notes, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			username, scan.Metrics.Name, scan.Metrics.AvatarURL, scan.Metrics.ProfileURL,
 			scan.Scoring.FinalScore, scan.Scoring.Tier, `{"zh":[],"en":[]}`, `{"zh":"","en":""}`,
 			goCanonicalScoreVersion, token, goCanonicalCollectionVersion, snapshotHash,
-			SpamBotScore(scan.Metrics), string(subScores), scannedAt)
+			SpamBotScore(scan.Metrics), string(subScores), string(riskAssessment), string(riskNotes), scannedAt)
 	} else {
 		_, err = tx.ExecContext(ctx, `UPDATE scores SET
           prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
@@ -143,13 +151,13 @@ func (s *TursoStore) PersistCollectedScan(ctx context.Context, job ScanJob, scan
           display_name = ?, avatar_url = ?, profile_url = ?, final_score = ?, tier = ?,
           tags = ?, roast_line = ?, score_version = ?, score_write_token = ?,
           score_source_collection_version = ?, score_source_snapshot_hash = ?,
-          bot_score = ?, sub_scores = ?, scanned_at = ?,
+          bot_score = ?, sub_scores = ?, risk_assessment = ?, risk_notes = ?, scanned_at = ?,
           roast = NULL, roast_version = NULL, roast_en = NULL, roast_en_version = NULL
           WHERE username = ?`,
 			scannedAt, progressMinGapMilliseconds, scannedAt, progressMinGapMilliseconds,
 			scan.Metrics.Name, scan.Metrics.AvatarURL, scan.Metrics.ProfileURL, scan.Scoring.FinalScore, scan.Scoring.Tier,
 			`{"zh":[],"en":[]}`, `{"zh":"","en":""}`, goCanonicalScoreVersion, token,
-			goCanonicalCollectionVersion, snapshotHash, SpamBotScore(scan.Metrics), string(subScores), scannedAt, username)
+			goCanonicalCollectionVersion, snapshotHash, SpamBotScore(scan.Metrics), string(subScores), string(riskAssessment), string(riskNotes), scannedAt, username)
 	}
 	if err != nil {
 		return false, fmt.Errorf("upsert canonical score: %w", err)

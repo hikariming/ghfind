@@ -12,30 +12,28 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("records the isolated v9/v9/v4 to v9/v10/v4 roast release", () => {
+  it("records the v9/v10/v4 to v10/v10/v4 scoring release", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
       score: "v9",
-      roast: "v9",
+      roast: "v10",
       collection: "v4",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
-      score: "v9",
+      score: "v10",
       roast: "v10",
       collection: "v4",
     });
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
 
-  it("keeps the v5/v5/v3 emergency reader outside the formal lineage", () => {
-    expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual({
-      score: "v5",
-      roast: "v5",
-      collection: "v3",
-    });
+  it("keeps the immediately previous release as a read-only emergency reader", () => {
+    expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual(
+      RELEASE_VERSION_MANIFEST.previousRelease,
+    );
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v9", roast: "v10" },
+      { score: "v10", roast: "v10" },
     ]);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v9"]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v10"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -90,7 +88,7 @@ describe("release version contract", () => {
     const changedFallback = manifestCopy();
     changedFallback.legacyReadFallback.score = "v6";
     expect(releaseVersionErrors(changedFallback)).toContain(
-      "legacy read fallback must remain the exact v5/v5/v3 artifact tuple",
+      "legacy read fallback must equal the immediately previous release tuple",
     );
   });
 

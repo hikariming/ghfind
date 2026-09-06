@@ -1,0 +1,37 @@
+{
+  "version": "v10",
+  "caps": {
+    "total_penalty": 25,
+    "contribution": 16,
+    "social": 9
+  },
+  "sampling": {
+    "smoothing_event_add": 1,
+    "smoothing_sample_add": 2,
+    "full_sample": 40,
+    "minimum_contribution_sample": 20,
+    "minimum_rejection_decisions": 20,
+    "minimum_flood_sample": 20
+  },
+  "thresholds": {
+    "trivial_rate": 0.5,
+    "trivial_transition": 0.4,
+    "template_target_share": 0.6,
+    "template_title_ratio": 0.6,
+    "follow_minimum": 1500,
+    "follow_ratio": 0.2,
+    "star_minimum": 500,
+    "star_engagement_ratio": 0.02,
+    "rejection_wilson_lower": 0.4,
+    "wilson_z": 1.96
+  },
+  "coverage": {
+    "repository_limit": 200,
+    "merged_pr_limit": 50,
+    "all_pr_limit": 30
+  },
+  "risk_levels": {
+    "review_minimum": 20,
+    "high_minimum": 60
+  }
+}

@@ -1,4 +1,8 @@
-# v9/v9/v4 Release Contract
+# v9/v9/v4 Release Contract (historical)
+
+> Superseded by [v10/v10/v4 risk-scoring release](v9-v10-v4-rollout.md). This
+> file is retained only to document the previous release and is not a current
+> public-read or deployment instruction.
 
 ## Runtime Contract
 

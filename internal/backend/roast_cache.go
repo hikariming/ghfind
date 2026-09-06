@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	roastCacheTTL = 24 * time.Hour
+	roastCacheTTL = 48 * time.Hour
 	roastLockTTL  = 270 * time.Second
 )
 
@@ -52,11 +52,11 @@ func normalizeRoastLanguage(value string) roastLanguage {
 }
 
 func roastCacheKey(username string, language roastLanguage) string {
-	return "roast:v10:v9:v4:" + string(language) + ":" + strings.ToLower(strings.TrimSpace(username))
+	return "roast:" + roastArtifactVersion + ":" + canonicalScoreVersion + ":" + goCanonicalCollectionVersion + ":" + string(language) + ":" + strings.ToLower(strings.TrimSpace(username))
 }
 
 func roastLockKey(username string, language roastLanguage) string {
-	return "lock:roast:v10:v9:v4:" + string(language) + ":" + strings.ToLower(strings.TrimSpace(username))
+	return "lock:roast:" + roastArtifactVersion + ":" + canonicalScoreVersion + ":" + goCanonicalCollectionVersion + ":" + string(language) + ":" + strings.ToLower(strings.TrimSpace(username))
 }
 
 func (s *UpstashStatusStore) GetCachedRoast(ctx context.Context, username string, language roastLanguage) (*CachedRoast, error) {

@@ -109,6 +109,32 @@ describe("POST /api/roast quick score contract", () => {
     expect(mocks.updateRoast).toHaveBeenCalled();
   });
 
+  it("carries the previous-release roast when live generation fails", async () => {
+    mocks.getLegacyReadFallbackRoast.mockResolvedValue({
+      username: "demodev",
+      final_score: 64,
+      tier: "人上人",
+      tags: { zh: [], en: [] },
+      roast_line: { zh: "旧版一句", en: "Old line" },
+      report: "## 旧版锐评\n只读回放。",
+    });
+    mocks.chat.mockImplementation(async function* () {
+      throw new Error("provider unavailable");
+    });
+
+    const response = await POST(new NextRequest("https://example.test/api/roast", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scan, lang: "zh" }),
+    }));
+    const body = await new Response(response.body).text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("roast_failed");
+    expect(body).toContain("旧版锐评");
+    expect(body).toContain('"final_score":64');
+  });
+
   it("accepts an interactive roast without the machine API quota", async () => {
     mocks.anonymousSessionPrincipal.mockReturnValue("anon:session-fixture");
     const response = await POST(new NextRequest("https://example.test/api/roast", {

@@ -14,8 +14,8 @@ import (
 
 const (
 	roastArtifactVersion    = "v10"
-	legacyRoastScoreVersion = "v5"
-	legacyRoastVersion      = "v5"
+	legacyRoastScoreVersion = "v9"
+	legacyRoastVersion      = "v10"
 )
 
 type RoastScoreIdentity struct {
@@ -103,26 +103,29 @@ func (s *TursoStore) GetArchivedRoast(ctx context.Context, username string, lang
 	return s.readStoredRoast(ctx, username, language, false)
 }
 
+func isMissingFallbackTableError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no such table")
+}
+
 func (s *TursoStore) readStoredRoast(ctx context.Context, username string, language roastLanguage, legacy bool) (*StoredRoast, error) {
 	column, versionColumn := "roast", "roast_version"
 	if language == roastLanguageEN {
 		column, versionColumn = "roast_en", "roast_en_version"
 	}
 	query := fmt.Sprintf(`SELECT username, final_score, tier, tags, roast_line, %s
-      FROM scores WHERE username = ? AND hidden = 0
-        AND score_version = ?
-        AND %s = ?
-        AND %s IS NOT NULL AND %s != ''
-      LIMIT 1`, column, versionColumn, column, column)
+	      FROM scores WHERE username = ? AND hidden = 0
+	        AND score_version = ?
+	        AND %s = ?
+	        AND %s IS NOT NULL AND %s != ''
+	      LIMIT 1`, column, versionColumn, column, column)
 	args := []any{strings.ToLower(username), roastArtifactVersion, roastArtifactVersion}
 	if legacy {
 		query = fmt.Sprintf(`SELECT username, final_score, tier, tags, roast_line, %s
-        FROM scores WHERE username = ? AND hidden = 0
-          AND score_version = ?
-          AND %s = ?
-          AND %s IS NOT NULL AND %s != ''
-        LIMIT 1`, column, versionColumn, column, column)
-		args = []any{strings.ToLower(username), legacyRoastScoreVersion, legacyRoastVersion}
+	        FROM score_release_fallbacks
+	        WHERE username = ? AND score_version = ? AND collection_version = ?
+	          AND %s = ? AND %s IS NOT NULL AND %s != ''
+	        LIMIT 1`, column, versionColumn, column, column)
+		args = []any{strings.ToLower(username), legacyRoastScoreVersion, goCanonicalCollectionVersion, legacyRoastVersion}
 	} else {
 		query = fmt.Sprintf(`SELECT username, final_score, tier, tags, roast_line, %s
         FROM scores WHERE username = ? AND hidden = 0
@@ -138,6 +141,17 @@ func (s *TursoStore) readStoredRoast(ctx context.Context, username string, langu
 	var result StoredRoast
 	var tags, roastLine string
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(&result.Username, &result.FinalScore, &result.Tier, &tags, &roastLine, &result.Report)
+	if legacy && (errors.Is(err, sql.ErrNoRows) || isMissingFallbackTableError(err)) {
+		// Keep compatibility with databases created before the immutable fallback
+		// table was introduced. This branch is read-only and remains version-gated.
+		query = fmt.Sprintf(`SELECT username, final_score, tier, tags, roast_line, %s
+	        FROM scores WHERE username = ? AND hidden = 0
+	          AND score_version = ? AND %s = ?
+	          AND %s IS NOT NULL AND %s != ''
+	        LIMIT 1`, column, versionColumn, column, column)
+		args = []any{strings.ToLower(username), legacyRoastScoreVersion, legacyRoastVersion}
+		err = s.db.QueryRowContext(ctx, query, args...).Scan(&result.Username, &result.FinalScore, &result.Tier, &tags, &roastLine, &result.Report)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

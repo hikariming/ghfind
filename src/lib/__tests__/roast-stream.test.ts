@@ -92,6 +92,18 @@ describe("consumeRoastStream", () => {
     expect(out.report).toBe("");
   });
 
+  it("passes a stale report fallback carried by an E-frame", async () => {
+    const onError = vi.fn();
+    const fallbackMeta = { ...META, final_score: 42 };
+    const fallback = { report: "## previous release", meta: fallbackMeta };
+    const res = makeRes([frame("E", JSON.stringify({ error: "roast_failed", fallback }))]);
+
+    const out = await consumeRoastStream(res, { onError });
+
+    expect(out.errored).toBe(true);
+    expect(onError).toHaveBeenCalledWith({ error: "roast_failed", fallback });
+  });
+
   it("handles control frames split across chunk boundaries", async () => {
     const b64 = encodeMeta();
     const tFrame = frame("T", "half-and-half");

@@ -6,9 +6,9 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// Formal successor to the previous production score contract. The underlying
-// #111 scoring behavior is unchanged by this normalization.
-export const SCORE_CACHE_VERSION = "v9";
+// Formal successor to the previous production score contract. Six positive
+// dimensions remain stable; v10 adds the structured risk layer.
+export const SCORE_CACHE_VERSION = "v10";
 // Formal successor to the previous production report contract.
 export const ROAST_CACHE_VERSION = "v10";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

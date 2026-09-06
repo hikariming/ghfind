@@ -26,7 +26,7 @@ export const catalog: Capability[] = [
     summary: "Fetch the deterministic score for any GitHub account.",
     llm: false,
     response_semantics:
-      "Factual score payload: final_score, tier, sub_scores, percentile. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are admitted to the Go quick-scan worker path (source: quick, coverage: quick, includes red_flags). Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
+      "Factual score payload: final_score, tier, six-dimension sub_scores, and v10 risk_assessment/risk_notes. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are admitted to the Go quick-scan worker path (source: quick, coverage: quick). Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
     agent_guidance:
       "Preferred first call: cheapest, cacheable way to get a score — works even for accounts never seen before. Use scan() only when you also need the full metrics/repo/PR payload.",
   },
@@ -46,7 +46,7 @@ export const catalog: Capability[] = [
     summary: "Crawl GitHub and compute the full deterministic scan + score.",
     llm: false,
     response_semantics:
-      "Authoritative factual payload: metrics, repo/PR signals, deterministic sub_scores, red_flags, final_score. No writer-layer roast copy.",
+      "Authoritative factual payload: metrics, repo/PR signals, deterministic sub_scores, v10 red_flags/risk_assessment/risk_notes, and final_score. No writer-layer roast copy.",
     agent_guidance:
       "Use when you need full evidence or want to run your own analysis. Treat as the source of truth for scoring facts.",
   },
@@ -55,7 +55,7 @@ export const catalog: Capability[] = [
     api: ["POST /api/scan"],
     summary: "Compact scoring block derived from scan().",
     llm: false,
-    response_semantics: "Just the `scoring` object (numeric score, tier, sub_scores, red_flags).",
+      response_semantics: "Just the `scoring` object (numeric score, tier, six sub_scores, v10 risk_assessment, risk_notes, and actual red_flags).",
     agent_guidance: "Use when you only need the numbers and don't want the full scan payload.",
   },
   {

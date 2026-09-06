@@ -22,7 +22,7 @@ func openQueryTestStore(t *testing.T) *TursoStore {
 			username TEXT PRIMARY KEY, display_name TEXT, avatar_url TEXT, profile_url TEXT,
 			final_score REAL NOT NULL, tier TEXT NOT NULL, tags TEXT, score_version TEXT,
 			hidden INTEGER NOT NULL DEFAULT 0, scanned_at INTEGER NOT NULL, prev_score REAL, prev_scanned_at INTEGER,
-			roast_line TEXT, bot_score REAL, sub_scores TEXT
+			roast_line TEXT, bot_score REAL, sub_scores TEXT, risk_assessment TEXT, risk_notes TEXT
 		)`,
 		`CREATE TABLE account_stats (
 			username TEXT PRIMARY KEY, lookup_count INTEGER, last_lookup_at INTEGER

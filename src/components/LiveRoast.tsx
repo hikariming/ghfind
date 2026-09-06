@@ -110,18 +110,22 @@ export function LiveRoast({
     // guards a remounted profile subtree from opening a second result popup
     // while its server-rendered props still say `openModalOnMount`.
     openedHandoffPopupRef.current = openModalOnMount && consumeRoastingHandoff();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the handoff may open this modal exactly once after hydration
     if (openedHandoffPopupRef.current && fallbackMeta) setModalMeta(fallbackMeta);
     // Failure downgrade: with fallback content the old report renders (and the
     // already-open popup keeps its stored content) instead of an error line —
     // the caller only passes it when a stored roast exists to fall back to.
-    const fail = (key: string) => {
+    const fail = (
+      key: string,
+      streamFallback?: { report?: string; meta?: RoastMeta },
+    ) => {
       doneRef.current = true;
       setSettled(true);
-      if (fallbackReport !== undefined && fallbackMeta) {
-        setMeta(fallbackMeta);
-        setReport(fallbackReport);
-        if (!closedRef.current) setModalMeta(fallbackMeta);
+      const reportFallback = streamFallback?.report ?? fallbackReport;
+      const metaFallback = streamFallback?.meta ?? fallbackMeta;
+      if (reportFallback !== undefined && metaFallback) {
+        setMeta(metaFallback);
+        setReport(reportFallback);
+        if (!closedRef.current) setModalMeta(metaFallback);
       } else {
         setErrorKey(key);
       }
@@ -161,7 +165,7 @@ export function LiveRoast({
             if (openedHandoffPopupRef.current && !closedRef.current) setModalMeta(m);
           },
           onReport: setReport,
-          onError: (data) => fail(mapError(data?.error)),
+          onError: (data) => fail(mapError(data?.error), data?.fallback),
         });
         if (errored) return;
 

@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "previousRelease": {
     "score": "v9",
-    "roast": "v9",
+    "roast": "v10",
     "collection": "v4"
   },
   "targetRelease": {
-    "score": "v9",
+    "score": "v10",
     "roast": "v10",
     "collection": "v4"
   },
@@ -15,19 +15,19 @@
     "trackingIssue": null
   },
   "compatibility": {
-    "publicScoreReadOrder": ["v9"],
+    "publicScoreReadOrder": ["v10"],
     "roastReplay": [
       {
-        "score": "v9",
+        "score": "v10",
         "roast": "v10"
       }
     ],
     "collectionReadOrder": ["v4"]
   },
   "legacyReadFallback": {
-    "score": "v5",
-    "roast": "v5",
-    "collection": "v3"
+    "score": "v9",
+    "roast": "v10",
+    "collection": "v4"
   },
   "changeControl": {
     "maxComponentsPerPullRequest": 1,

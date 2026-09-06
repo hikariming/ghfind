@@ -82,7 +82,7 @@ describe("POST /api/scan immediate quick contract", () => {
     vi.clearAllMocks();
   });
 
-  it("persists and returns the current v9 quick result without a queue response", async () => {
+  it("persists and returns the current v10 quick result without a queue response", async () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
@@ -122,9 +122,9 @@ describe("POST /api/scan immediate quick contract", () => {
     await expect(response.json()).resolves.toMatchObject({
       coverage: "legacy",
       legacy_read_fallback: true,
-      served_score_version: "v5",
-      served_roast_version: "v5",
-      served_collection_version: "v3",
+      served_score_version: "v9",
+      served_roast_version: "v10",
+      served_collection_version: "v4",
     });
   });
 

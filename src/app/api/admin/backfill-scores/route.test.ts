@@ -83,7 +83,7 @@ describe("canonical score backfill operations", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(mocks.backfillCanonicalScoresPage).toHaveBeenCalledWith({
       apply: false,
-      limit: 25,
+      limit: 100,
       cursor: null,
     });
     const payload = await response.json();

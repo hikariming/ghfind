@@ -36,6 +36,8 @@ type StoredScoreDetail struct {
 	Tags              Tags
 	RoastLine         RoastLine
 	SubScores         SubScores
+	RiskAssessment    *RiskAssessment
+	RiskNotes         []RiskSignal
 	ScannedAt         int64
 	ScoreVersion      string
 	CollectionVersion string
@@ -76,35 +78,95 @@ func parseSubScores(raw string) SubScores {
 	return scores
 }
 
-func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*StoredScoreDetail, error) {
-	var detail StoredScoreDetail
-	var display, avatar, profile, version, collection, snapshot, roast, roastEN, roastVersion, roastENVersion sql.NullString
-	var tags, roastLine, subScores sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
-		tags, roast_line, sub_scores, score_version, score_source_collection_version,
-		score_source_snapshot_hash, roast, roast_en, roast_version, roast_en_version, scanned_at
-		FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`, strings.ToLower(username)).Scan(
-		&detail.Username, &display, &avatar, &profile, &detail.FinalScore, &detail.Tier,
-		&tags, &roastLine, &subScores, &version, &collection, &snapshot, &roast, &roastEN, &roastVersion, &roastENVersion, &detail.ScannedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+func parseRiskAssessment(raw string) *RiskAssessment {
+	assessment := RiskAssessment{}
+	if err := json.Unmarshal([]byte(raw), &assessment); err != nil || assessment.Version != "v10" {
+		return nil
 	}
+	return &assessment
+}
+
+func parseRiskNotes(raw string) []RiskSignal {
+	if raw == "" {
+		return []RiskSignal{}
+	}
+	var notes []RiskSignal
+	if err := json.Unmarshal([]byte(raw), &notes); err != nil || notes == nil {
+		return []RiskSignal{}
+	}
+	return notes
+}
+
+func storedBaseScore(scores SubScores) float64 {
+	return roundToEven(scores.AccountMaturity+scores.OriginalProjectQuality+scores.ContributionQuality+
+		scores.EcosystemImpact+scores.CommunityInfluence+scores.ActivityAuthenticity, 1)
+}
+
+func storedRiskFlags(assessment *RiskAssessment) []RedFlag {
+	flags := make([]RedFlag, 0)
+	if assessment == nil {
+		return flags
+	}
+	for _, signal := range assessment.Signals {
+		if signal.Penalty > 0 {
+			flags = append(flags, RedFlag{Flag: signal.Flag, Penalty: signal.Penalty, Detail: signal.Detail})
+		}
+	}
+	return flags
+}
+
+func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*StoredScoreDetail, error) {
+	read := func(query string, args ...any) (*StoredScoreDetail, error) {
+		var detail StoredScoreDetail
+		var display, avatar, profile, version, collection, snapshot, roast, roastEN, roastVersion, roastENVersion sql.NullString
+		var tags, roastLine, subScores, riskAssessment, riskNotes sql.NullString
+		err := s.db.QueryRowContext(ctx, query, args...).Scan(
+			&detail.Username, &display, &avatar, &profile, &detail.FinalScore, &detail.Tier,
+			&tags, &roastLine, &subScores, &version, &collection, &snapshot, &roast, &roastEN, &roastVersion, &roastENVersion, &riskAssessment, &riskNotes, &detail.ScannedAt,
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		detail.DisplayName = nullableStringValue(display)
+		detail.AvatarURL = nullableStringValue(avatar)
+		detail.ProfileURL = nullableStringValue(profile)
+		detail.ScoreVersion, detail.CollectionVersion, detail.SnapshotHash = version.String, collection.String, snapshot.String
+		detail.Tags = parseTags(tags.String)
+		detail.RoastLine = parseRoastLine(roastLine.String)
+		detail.SubScores = parseSubScores(subScores.String)
+		detail.RiskAssessment = parseRiskAssessment(riskAssessment.String)
+		detail.RiskNotes = parseRiskNotes(riskNotes.String)
+		detail.LegacyFallback = detail.ScoreVersion == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
+		return &detail, nil
+	}
+
+	user := strings.ToLower(username)
+	detail, err := read(`SELECT username, display_name, avatar_url, profile_url, final_score, tier,
+		tags, roast_line, sub_scores, score_version, score_source_collection_version,
+		score_source_snapshot_hash, roast, roast_en, roast_version, roast_en_version,
+		risk_assessment, risk_notes, scanned_at
+		FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`, user)
 	if err != nil {
 		return nil, fmt.Errorf("read stored score: %w", err)
 	}
-	detail.DisplayName = nullableStringValue(display)
-	detail.AvatarURL = nullableStringValue(avatar)
-	detail.ProfileURL = nullableStringValue(profile)
-	detail.ScoreVersion, detail.CollectionVersion, detail.SnapshotHash = version.String, collection.String, snapshot.String
-	detail.Tags = parseTags(tags.String)
-	detail.RoastLine = parseRoastLine(roastLine.String)
-	detail.SubScores = parseSubScores(subScores.String)
-	detail.LegacyFallback = detail.ScoreVersion == "v5" && ((roastVersion.String == "v5" && roast.Valid && roast.String != "") || (roastENVersion.String == "v5" && roastEN.Valid && roastEN.String != ""))
-	if detail.ScoreVersion != canonicalScoreVersion && !detail.LegacyFallback {
+	if detail == nil || detail.ScoreVersion != canonicalScoreVersion || detail.CollectionVersion != goCanonicalCollectionVersion || !canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+		fallback, fallbackErr := read(`SELECT username, display_name, avatar_url, profile_url, final_score, tier,
+			tags, roast_line, sub_scores, score_version, collection_version,
+			NULL, roast, roast_en, roast_version, roast_en_version,
+			risk_assessment, risk_notes, scanned_at
+			FROM score_release_fallbacks
+			WHERE username = ? AND score_version = ? AND collection_version = ? LIMIT 1`, user, legacyRoastScoreVersion, goCanonicalCollectionVersion)
+		if fallbackErr == nil && fallback != nil {
+			detail = fallback
+		}
+	}
+	if detail == nil || (detail.ScoreVersion != canonicalScoreVersion && !detail.LegacyFallback) {
 		return nil, nil
 	}
-	return &detail, nil
+	return detail, nil
 }
 
 func (s *TursoStore) GetScorePercentile(ctx context.Context, score float64) (*ScorePercentile, error) {
@@ -167,23 +229,35 @@ func (s *APIServer) storedScorePayload(ctx context.Context, detail StoredScoreDe
 		profileURL = *detail.ProfileURL
 	}
 	return map[string]any{
-		"source":       source,
-		"coverage":     map[bool]string{true: "quick", false: "legacy"}[current],
-		"stale":        !current,
-		"username":     detail.Username,
-		"display_name": detail.DisplayName,
-		"avatar_url":   detail.AvatarURL,
-		"profile_url":  profileURL,
-		"final_score":  detail.FinalScore,
-		"tier":         detail.Tier,
-		"tier_key":     tierKey(detail.Tier),
-		"sub_scores":   detail.SubScores,
-		"tags":         detail.Tags,
-		"roast_line":   detail.RoastLine,
-		"percentile":   s.scorePercentile(ctx, detail.FinalScore),
-		"scanned_at":   detail.ScannedAt,
-		"profile":      s.scoreProfileURL(detail.Username),
+		"source":          source,
+		"coverage":        map[bool]string{true: "quick", false: "legacy"}[current],
+		"stale":           !current,
+		"username":        detail.Username,
+		"display_name":    detail.DisplayName,
+		"avatar_url":      detail.AvatarURL,
+		"profile_url":     profileURL,
+		"final_score":     detail.FinalScore,
+		"tier":            detail.Tier,
+		"tier_key":        tierKey(detail.Tier),
+		"sub_scores":      detail.SubScores,
+		"base_score":      storedBaseScore(detail.SubScores),
+		"total_penalty":   storedRiskPenalty(detail.RiskAssessment),
+		"red_flags":       storedRiskFlags(detail.RiskAssessment),
+		"risk_assessment": detail.RiskAssessment,
+		"risk_notes":      detail.RiskNotes,
+		"tags":            detail.Tags,
+		"roast_line":      detail.RoastLine,
+		"percentile":      s.scorePercentile(ctx, detail.FinalScore),
+		"scanned_at":      detail.ScannedAt,
+		"profile":         s.scoreProfileURL(detail.Username),
 	}
+}
+
+func storedRiskPenalty(assessment *RiskAssessment) float64 {
+	if assessment == nil {
+		return 0
+	}
+	return assessment.AppliedPenalty
 }
 
 func (s *APIServer) liveScorePayload(ctx context.Context, scan ScanResult, cached bool) map[string]any {
@@ -192,24 +266,26 @@ func (s *APIServer) liveScorePayload(ctx context.Context, scan ScanResult, cache
 		profileURL = *scan.Metrics.ProfileURL
 	}
 	return map[string]any{
-		"source":        "quick",
-		"coverage":      "quick",
-		"cached":        cached,
-		"username":      scan.Metrics.Username,
-		"display_name":  scan.Metrics.Name,
-		"avatar_url":    scan.Metrics.AvatarURL,
-		"profile_url":   profileURL,
-		"final_score":   scan.Scoring.FinalScore,
-		"tier":          scan.Scoring.Tier,
-		"tier_key":      tierKey(scan.Scoring.Tier),
-		"sub_scores":    scan.Scoring.SubScores,
-		"base_score":    scan.Scoring.BaseScore,
-		"total_penalty": scan.Scoring.TotalPenalty,
-		"red_flags":     scan.Scoring.RedFlags,
-		"tags":          nil,
-		"roast_line":    nil,
-		"percentile":    s.scorePercentile(ctx, scan.Scoring.FinalScore),
-		"profile":       s.scoreProfileURL(scan.Metrics.Username),
+		"source":          "quick",
+		"coverage":        "quick",
+		"cached":          cached,
+		"username":        scan.Metrics.Username,
+		"display_name":    scan.Metrics.Name,
+		"avatar_url":      scan.Metrics.AvatarURL,
+		"profile_url":     profileURL,
+		"final_score":     scan.Scoring.FinalScore,
+		"tier":            scan.Scoring.Tier,
+		"tier_key":        tierKey(scan.Scoring.Tier),
+		"sub_scores":      scan.Scoring.SubScores,
+		"base_score":      scan.Scoring.BaseScore,
+		"total_penalty":   scan.Scoring.TotalPenalty,
+		"red_flags":       scan.Scoring.RedFlags,
+		"risk_assessment": scan.Scoring.RiskAssessment,
+		"risk_notes":      scan.Scoring.RiskNotes,
+		"tags":            nil,
+		"roast_line":      nil,
+		"percentile":      s.scorePercentile(ctx, scan.Scoring.FinalScore),
+		"profile":         s.scoreProfileURL(scan.Metrics.Username),
 	}
 }
 

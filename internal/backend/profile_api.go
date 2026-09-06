@@ -36,6 +36,8 @@ type ProfileDetail struct {
 	ScannedAt          int64                  `json:"scanned_at"`
 	PrevScore          *float64               `json:"prev_score"`
 	PrevScannedAt      *int64                 `json:"prev_scanned_at"`
+	RiskAssessment     *RiskAssessment        `json:"risk_assessment"`
+	RiskNotes          []RiskSignal           `json:"risk_notes"`
 	ScoreBreakdown     *ProfileScoreBreakdown `json:"score_breakdown"`
 }
 
@@ -44,11 +46,13 @@ type ProfileDetail struct {
 // snapshot is unavailable; in that case the numeric adjustment is inferred,
 // but no red-flag reason is invented.
 type ProfileScoreBreakdown struct {
-	BaseScore      float64   `json:"base_score"`
-	TotalPenalty   float64   `json:"total_penalty"`
-	AppliedPenalty float64   `json:"applied_penalty"`
-	RedFlags       []RedFlag `json:"red_flags"`
-	Complete       bool      `json:"complete"`
+	BaseScore      float64         `json:"base_score"`
+	TotalPenalty   float64         `json:"total_penalty"`
+	AppliedPenalty float64         `json:"applied_penalty"`
+	RedFlags       []RedFlag       `json:"red_flags"`
+	RiskAssessment *RiskAssessment `json:"risk_assessment"`
+	RiskNotes      []RiskSignal    `json:"risk_notes"`
+	Complete       bool            `json:"complete"`
 }
 
 type ProfileCardMetrics struct {
@@ -182,7 +186,7 @@ func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
 		!finiteProfileScore(scoring.TotalPenalty) ||
 		!finiteProfileScore(scoring.FinalScore) ||
 		scoring.BaseScore < 0 || scoring.BaseScore > 100 ||
-		scoring.TotalPenalty < 0 || scoring.TotalPenalty > 40 ||
+		scoring.TotalPenalty < 0 || scoring.TotalPenalty > 25 ||
 		scoring.FinalScore < 0 || scoring.FinalScore > 100 {
 		return false
 	}
@@ -213,10 +217,15 @@ func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
 		}
 		flagPenaltyTotal += flag.Penalty
 	}
-	if flagPenaltyTotal > 40 {
-		flagPenaltyTotal = 40
+	if flagPenaltyTotal > 25 {
+		flagPenaltyTotal = 25
 	}
 	if !closeProfileScores(flagPenaltyTotal, scoring.TotalPenalty) {
+		return false
+	}
+	if scoring.RiskAssessment.Version != "v10" ||
+		!closeProfileScores(scoring.RiskAssessment.AppliedPenalty, scoring.TotalPenalty) ||
+		!closeProfileScores(scoring.RiskAssessment.RiskScore, scoring.TotalPenalty/25*100) {
 		return false
 	}
 	expectedFinal := clampScore(roundToEven(scoring.BaseScore-scoring.TotalPenalty, 2))
@@ -243,23 +252,25 @@ func inferredProfileScoreBreakdown(detail *ProfileDetail) *ProfileScoreBreakdown
 		TotalPenalty:   applied,
 		AppliedPenalty: applied,
 		RedFlags:       []RedFlag{},
+		RiskNotes:      []RiskSignal{},
+		RiskAssessment: nil,
 		Complete:       false,
 	}
 }
 
 func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *ProfileDetail) (*ProfileScoreBreakdown, error) {
 	fallback := inferredProfileScoreBreakdown(detail)
-	if detail.ScoreVersion == nil || detail.CollectionVersion == nil || detail.SnapshotHash == nil {
+	if detail.CollectionVersion == nil || detail.SnapshotHash == nil {
 		return fallback, nil
 	}
 
 	var encoded sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT json_extract(snapshot, '$.scoring')
+	err := s.db.QueryRowContext(ctx, `SELECT snapshot
 		FROM public_scan_runs
-		WHERE username = ? AND score_version = ? AND collection_version = ?
+		WHERE username = ? AND collection_version = ?
 		  AND snapshot_hash = ? AND state = 'complete_public'
 		  AND coverage = 'complete_public'
-		LIMIT 1`, strings.ToLower(detail.Username), *detail.ScoreVersion, *detail.CollectionVersion, *detail.SnapshotHash).Scan(&encoded)
+		LIMIT 1`, strings.ToLower(detail.Username), *detail.CollectionVersion, *detail.SnapshotHash).Scan(&encoded)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fallback, nil
 	}
@@ -270,10 +281,11 @@ func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *Profi
 		return fallback, nil
 	}
 
-	var scoring Scoring
-	if err := json.Unmarshal([]byte(encoded.String), &scoring); err != nil {
+	var scan ScanResult
+	if err := json.Unmarshal([]byte(encoded.String), &scan); err != nil {
 		return fallback, fmt.Errorf("decode profile score breakdown: %w", err)
 	}
+	scoring := Score(scan.Metrics)
 	// Only expose a complete explanation when the immutable scan agrees with
 	// both the six-dimensional score row and the red-flag penalty formula.
 	if !validProfileScoring(&scoring, detail) {
@@ -288,24 +300,27 @@ func (s *TursoStore) getProfileScoreBreakdown(ctx context.Context, detail *Profi
 		TotalPenalty:   scoring.TotalPenalty,
 		AppliedPenalty: applied,
 		RedFlags:       scoring.RedFlags,
+		RiskAssessment: &scoring.RiskAssessment,
+		RiskNotes:      scoring.RiskNotes,
 		Complete:       true,
 	}, nil
 }
 
 func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*ProfileDetail, error) {
 	var detail ProfileDetail
-	var display, avatar, profile, tags, line, roast, roastEN, version, collection, hash, roastVersion, roastENVersion sql.NullString
+	var display, avatar, profile, tags, line, roast, roastEN, version, collection, hash, roastVersion, roastENVersion, riskAssessment, riskNotes sql.NullString
 	var rawSubScores string
 	var previousScore sql.NullFloat64
 	var previousScannedAt sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
 		tags, roast_line, sub_scores, roast, roast_en, score_version,
 		score_source_collection_version, score_source_snapshot_hash,
-		roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at
+		roast_version, roast_en_version, risk_assessment, risk_notes,
+		scanned_at, prev_score, prev_scanned_at
 		FROM scores WHERE username = ? AND hidden = 0 LIMIT 1`, strings.ToLower(username)).Scan(
 		&detail.Username, &display, &avatar, &profile, &detail.FinalScore, &detail.Tier,
 		&tags, &line, &rawSubScores, &roast, &roastEN, &version, &collection, &hash,
-		&roastVersion, &roastENVersion, &detail.ScannedAt, &previousScore, &previousScannedAt,
+		&roastVersion, &roastENVersion, &riskAssessment, &riskNotes, &detail.ScannedAt, &previousScore, &previousScannedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -333,6 +348,8 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 	detail.LegacyReadFallback = legacy
 	detail.PrevScore = nullableProfileFloat(previousScore)
 	detail.PrevScannedAt = nullableProfileInt(previousScannedAt)
+	detail.RiskAssessment = parseRiskAssessment(riskAssessment.String)
+	detail.RiskNotes = parseRiskNotes(riskNotes.String)
 	detail.ScoreBreakdown = inferredProfileScoreBreakdown(&detail)
 	if breakdown, breakdownErr := s.getProfileScoreBreakdown(ctx, &detail); breakdownErr == nil {
 		detail.ScoreBreakdown = breakdown
