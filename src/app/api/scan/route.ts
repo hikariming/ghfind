@@ -88,8 +88,8 @@ async function recordSuccessfulLookup(
 }
 
 /**
- * A verified v5/v5/v3 profile is only an emergency read fallback. Successful
- * current quick scans always win and immediately refresh the v9 profile.
+ * A verified previous-release profile is only an emergency read fallback. Successful
+ * current quick scans always win and immediately refresh the v10 profile.
  */
 async function legacyReadFallbackResponse(input: {
   scan: import("@/lib/types").ScanResult;
@@ -195,6 +195,19 @@ export async function POST(req: NextRequest) {
     : { success: true };
   const rlHeaders = rateLimitHeaders(limit);
   if (!limit.success) {
+    const legacyScan = await getLegacyReadFallbackScan(username);
+    if (legacyScan) {
+      return attachAnonymousSession(
+        await legacyReadFallbackResponse({ scan: legacyScan, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
+    }
+    if (await hasLegacyReadFallbackProfile(username)) {
+      return attachAnonymousSession(
+        await legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } }),
+        anonymousSession,
+      );
+    }
     return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
       status: limit.unavailable ? 503 : 429,
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
@@ -228,9 +241,6 @@ export async function POST(req: NextRequest) {
       anonymousSession,
     );
   } catch (error) {
-    if (error instanceof ScorePersistenceError) {
-      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
-    }
     const legacyScan = await getLegacyReadFallbackScan(username);
     if (legacyScan) {
       return attachAnonymousSession(
@@ -243,6 +253,9 @@ export async function POST(req: NextRequest) {
         await legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } }),
         anonymousSession,
       );
+    }
+    if (error instanceof ScorePersistenceError) {
+      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
     }
     const { error: code, status, retry_after } = scanErrorResponse(error);
     return apiError(code as Parameters<typeof apiError>[0], {

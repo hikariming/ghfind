@@ -178,12 +178,15 @@ The automatic production workflow is triggered by a successful `CI` workflow
 completion on `main`, not by a raw push. It checks out the exact commit SHA that
 CI verified and rejects any event whose repository, branch, or checked-out SHA
 does not match upstream `main`. It captures the active 100% Worker version,
-deploys, confirms that production still has one 100% version, and runs the
-read-only production smoke three times at most. A build, deployment, active
-version, or smoke failure invokes `wrangler rollback` to restore the captured
-version, verifies that the old version is active, then runs the smoke again
-against the restored origin. Because the current frontend and backend are one
-Worker, this is a single atomic application rollback for both.
+applies and verifies all pending D1 migrations, deploys, confirms that
+production still has one 100% version, and runs the read-only production smoke
+three times at most. A migration failure stops the release before the Worker
+can change and does not invoke a redundant rollback. A build, deployment,
+active-version, or smoke failure after the rollback anchor is captured invokes
+`wrangler rollback` to restore the captured version, verifies that the old
+version is active, then runs the smoke again against the restored origin.
+Because the current frontend and backend are one Worker, this is a single
+atomic application rollback for both.
 
 Main branch protection is optional for this release design. The deployment
 workflow is the release gate: it reacts only to a successful `CI` completion on
@@ -201,8 +204,9 @@ pnpm test
 pnpm cf:build
 ```
 
-If `migrations/` changed, review and apply the migration to the intended remote
-D1 before publishing the Worker:
+If `migrations/` changed, the production workflow applies the migration and
+verifies the schema before publishing the Worker. For a manual release, review
+and apply the migration to the intended remote D1 first:
 
 ```bash
 pnpm exec wrangler d1 migrations list ghfind --remote --env production
@@ -252,7 +256,8 @@ production release gate.
 The production workflow records the active 100% Worker version before each
 serialized release. It also requires that the active deployment was authored by
 the Beiming Cloudflare identity. If build/deploy/active-version/post-deploy
-smoke fails, it automatically runs:
+the build/deployment, active-version check, or post-deploy smoke fails, it
+automatically runs:
 
 ```bash
 pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production --message "rollback: post-deploy verification failed" --yes

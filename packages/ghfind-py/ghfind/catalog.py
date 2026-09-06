@@ -27,7 +27,8 @@ CATALOG: List[Capability] = [
         "summary": "Fetch the deterministic score for any GitHub account.",
         "llm": False,
         "response_semantics": (
-            "Factual score payload: final_score, tier, sub_scores, percentile. Never calls an "
+            "Factual score payload: final_score, tier, six-dimension sub_scores, and v10 "
+            "risk_assessment/risk_notes. Never calls an "
             "LLM. Indexed accounts return stored data (source indexed); unseen accounts are "
             "admitted to the Go quick-scan worker path (source quick, coverage quick, includes "
             "red_flags). Compatible old stored scores may return source legacy_v5_v5_v3 with "
@@ -54,7 +55,7 @@ CATALOG: List[Capability] = [
         "api": ["POST /api/scan"],
         "summary": "Crawl GitHub and compute the full deterministic scan + score.",
         "llm": False,
-        "response_semantics": "Authoritative factual payload: metrics, signals, sub_scores, red_flags, final_score.",
+        "response_semantics": "Authoritative factual payload: metrics, signals, sub_scores, v10 risk_assessment, risk_notes, red_flags, final_score.",
         "agent_guidance": "Use for full evidence or your own analysis. Source of truth for scoring facts.",
     },
     {
@@ -62,7 +63,7 @@ CATALOG: List[Capability] = [
         "api": ["POST /api/scan"],
         "summary": "Compact scoring block derived from scan().",
         "llm": False,
-        "response_semantics": "Just the scoring object (numeric score, tier, sub_scores, red_flags).",
+        "response_semantics": "Just the scoring object (numeric score, tier, six sub_scores, v10 risk_assessment, risk_notes, red_flags).",
         "agent_guidance": "Use when you only need the numbers.",
     },
     {

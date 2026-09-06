@@ -43,6 +43,8 @@ export interface CanonicalScoreEntry {
   roast_line: RoastLine;
   bot_score: number;
   sub_scores: SubScores;
+  risk_assessment: Scoring["risk_assessment"];
+  risk_notes: Scoring["risk_notes"];
   scanned_at: number;
 }
 
@@ -349,6 +351,20 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
     "activity_authenticity",
   ];
   const tiers = ["夯", "顶级", "人上人", "NPC", "拉完了"];
+  const hasLegacyRiskShape = value.risk_assessment === undefined && value.risk_notes === undefined;
+  const hasV10RiskShape =
+    isRecord(value.risk_assessment) &&
+    value.risk_assessment.version === "v10" &&
+    isFiniteNumber(value.risk_assessment.risk_score) &&
+    ["none", "review", "high"].includes(String(value.risk_assessment.level)) &&
+    isFiniteNumber(value.risk_assessment.confidence) &&
+    isFiniteNumber(value.risk_assessment.applied_penalty) &&
+    Array.isArray(value.risk_assessment.signals) &&
+    isRecord(value.risk_assessment.coverage) &&
+    isFiniteNumber(value.risk_assessment.coverage.repo) &&
+    isFiniteNumber(value.risk_assessment.coverage.merged_pr) &&
+    isFiniteNumber(value.risk_assessment.coverage.all_pr) &&
+    Array.isArray(value.risk_notes);
   return (
     subScoreKeys.every((key) => isFiniteNumber(subScores[key])) &&
     isFiniteNumber(value.base_score) &&
@@ -363,7 +379,8 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
     isFiniteNumber(value.final_score) &&
     typeof value.tier === "string" &&
     tiers.includes(value.tier) &&
-    typeof value.tier_label === "string"
+    typeof value.tier_label === "string" &&
+    (hasLegacyRiskShape || hasV10RiskShape)
   );
 }
 
@@ -430,6 +447,8 @@ export function materializeCanonicalScore(
       roast_line: { zh: "", en: "" },
       bot_score: spamBotScore(parsed.metrics),
       sub_scores: scoring.sub_scores,
+      risk_assessment: scoring.risk_assessment,
+      risk_notes: scoring.risk_notes,
       scanned_at: input.scannedAt,
     },
     provenance: {

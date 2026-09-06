@@ -46,10 +46,52 @@ class RedFlag(TypedDict):
     detail: str
 
 
+RiskFamily = Literal["footprint", "contribution", "social"]
+RiskDisposition = Literal["penalty", "note"]
+RiskLevel = Literal["none", "review", "high"]
+
+
+class RiskEvidence(TypedDict, total=False):
+    observed: Dict[str, object]
+    sample_size: float
+    threshold: Dict[str, float]
+    coverage: Dict[str, float]
+    window: str
+
+
+class RiskSignal(TypedDict):
+    flag: str
+    family: RiskFamily
+    disposition: RiskDisposition
+    severity: float
+    confidence: float
+    penalty: float
+    detail: str
+    evidence: RiskEvidence
+
+
+class RiskCoverage(TypedDict):
+    repo: float
+    merged_pr: float
+    all_pr: float
+
+
+class RiskAssessment(TypedDict):
+    version: Literal["v10"]
+    risk_score: float
+    level: RiskLevel
+    confidence: float
+    applied_penalty: float
+    signals: List[RiskSignal]
+    coverage: RiskCoverage
+
+
 class Scoring(TypedDict):
     sub_scores: SubScores
     base_score: float
     red_flags: List[RedFlag]
+    risk_assessment: RiskAssessment
+    risk_notes: List[RiskSignal]
     total_penalty: float
     final_score: float
     tier: str
@@ -95,6 +137,8 @@ class ScorePayload(TypedDict, total=False):
     tier_key: str
     sub_scores: SubScores
     red_flags: List[RedFlag]  # quick path only
+    risk_assessment: RiskAssessment
+    risk_notes: List[RiskSignal]
     base_score: float  # quick path only
     total_penalty: float  # quick path only
     tags: Optional[Tags]  # null on the quick path

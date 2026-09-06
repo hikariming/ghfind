@@ -59,10 +59,13 @@ import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
 } from "./score-materialization";
+import { score } from "./score";
 import type {
   ImpactRepo,
   RoastLine,
   ScanResult,
+  RiskAssessment,
+  RiskSignal,
   SignatureWork,
   SubScores,
   Tags,
@@ -102,17 +105,28 @@ const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
 /**
  * Public reads must never surface a score merely because it is the newest row.
  * A row is readable only after the current quick collector has materialized the
- * current formal v9 score. The roast route separately requires an exact v9/v4
- * snapshot hash before it generates or replays text. The v5 emergency path is
- * handled explicitly by the profile/roast readers and never joins rankings.
+ * current formal v10 score. The roast route separately requires an exact v10/v4
+ * snapshot hash before it generates or replays text. The previous-release
+ * emergency path is handled explicitly by the profile/roast readers and never
+ * joins rankings.
  */
 function canonicalPublicScorePredicate(alias: string): string {
   return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
 }
 
-function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
+function isLegacyReadFallbackScore(row: Record<string, unknown>): boolean {
   return (
     row.score_version === LEGACY_READ_FALLBACK.score &&
+    (row.collection_version == null ||
+      row.score_source_collection_version == null ||
+      row.collection_version === LEGACY_READ_FALLBACK.collection ||
+      row.score_source_collection_version === LEGACY_READ_FALLBACK.collection)
+  );
+}
+
+function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
+  return (
+    isLegacyReadFallbackScore(row) &&
     ((row.roast_version === LEGACY_READ_FALLBACK.roast &&
       typeof row.roast === "string" &&
       row.roast.length > 0) ||
@@ -123,13 +137,13 @@ function hasLegacyReadFallbackReport(row: Record<string, unknown>): boolean {
 }
 
 /**
- * A stored v5/v5 score/report pair is safe to show as a stale profile even
+ * A stored previous-release score/report pair is safe to show as a stale profile even
  * when its old collector snapshot is no longer retained. This deliberately
  * proves only the persisted presentation artifact. Callers that need a full
  * ScanResult must use the stricter snapshot verifier below.
  */
 function isLegacyReadFallbackProfile(row: Record<string, unknown>): boolean {
-  return hasLegacyReadFallbackReport(row);
+  return isLegacyReadFallbackScore(row);
 }
 
 function parseVerifiedLegacyReadFallbackRun(
@@ -168,19 +182,44 @@ function parseVerifiedLegacyReadFallbackRun(
 }
 
 /**
- * A full v5 scan payload may be served only when its score row and a complete
- * v3 factual snapshot agree on the same account/version contract. This is
+ * A full previous-release scan payload may be served only when its score row and
+ * a complete matching factual snapshot agree on the same account/version contract. This is
  * read-only: it never upgrades, queues, re-scores, or invokes an LLM.
  */
 async function getVerifiedLegacyReadFallbackScan(
   db: Client,
   row: Record<string, unknown>,
 ): Promise<ScanResult | null> {
-  if (!hasLegacyReadFallbackReport(row)) return null;
+  if (!isLegacyReadFallbackScore(row)) return null;
   const username = typeof row.username === "string" ? row.username.trim().toLowerCase() : "";
   const finalScore = Number(row.final_score);
   if (!username || !Number.isFinite(finalScore)) return null;
   try {
+    // The immutable fallback table carries the exact historical snapshot, so it
+    // remains verifiable even after public_scan_runs is compacted.
+    if (typeof row.snapshot === "string" && typeof row.snapshot_hash === "string") {
+      const embedded = parseVerifiedLegacyReadFallbackRun(
+        {
+          id: "legacy-fallback",
+          username,
+          scoreVersion: LEGACY_READ_FALLBACK.score,
+          collectionVersion: LEGACY_READ_FALLBACK.collection,
+          state: "complete_public",
+          coverage: "complete_public",
+          sourceStatus: parsePublicScanSourceStatus(row.source_status),
+          quickScan: null,
+          snapshot: row.snapshot,
+          snapshotHash: row.snapshot_hash,
+          startedAt: Number(row.scanned_at),
+          completedAt: Number(row.scanned_at),
+          updatedAt: Number(row.scanned_at),
+          lastError: null,
+        },
+        username,
+        finalScore,
+      );
+      if (embedded) return embedded;
+    }
     const result = await db.execute({
       sql: `SELECT * FROM public_scan_runs
             WHERE username = ?
@@ -208,6 +247,31 @@ async function getVerifiedLegacyReadFallbackScan(
       if (scan) return scan;
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort read of the immutable fallback copy. Older databases may not have
+ * received its migration yet; callers then fall back to the legacy scores row. */
+async function getLegacyReadFallbackRow(
+  db: Client,
+  username: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const result = await db.execute({
+      sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
+                   tags, roast_line, roast, roast_en, roast_version, roast_en_version,
+                   bot_score, sub_scores, risk_assessment, risk_notes, score_version,
+                   collection_version, collection_version AS score_source_collection_version,
+                   snapshot, snapshot_hash, source_status, scanned_at,
+                   NULL AS prev_score, NULL AS prev_scanned_at
+            FROM score_release_fallbacks
+            WHERE username = ? AND score_version = ? AND collection_version = ?
+            LIMIT 1`,
+      args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score, LEGACY_READ_FALLBACK.collection],
+    });
+    return (result.rows[0] as Record<string, unknown> | undefined) ?? null;
   } catch {
     return null;
   }
@@ -396,6 +460,8 @@ function ensureSchema(db: Client): Promise<void> {
              sub_scores   TEXT,
              roast        TEXT,
              roast_line   TEXT,
+             risk_assessment TEXT,
+             risk_notes   TEXT,
              score_write_token TEXT,
              score_source_collection_version TEXT,
              score_source_snapshot_hash TEXT,
@@ -407,6 +473,37 @@ function ensureSchema(db: Client): Promise<void> {
           // so a composite index lets one seek cover both conditions.
           `CREATE INDEX IF NOT EXISTS idx_scores_hidden_score
              ON scores(hidden, final_score DESC)`,
+          // Immutable copy of the immediately previous public release. It is a
+          // read-only incident fallback and is deliberately excluded from every
+          // ranking/canonical-score query.
+          `CREATE TABLE IF NOT EXISTS score_release_fallbacks (
+             username           TEXT NOT NULL,
+             score_version      TEXT NOT NULL,
+             collection_version TEXT NOT NULL,
+             display_name       TEXT,
+             avatar_url         TEXT,
+             profile_url        TEXT,
+             final_score        REAL NOT NULL,
+             tier               TEXT NOT NULL,
+             tags               TEXT,
+             roast_line         TEXT,
+             roast              TEXT,
+             roast_en           TEXT,
+             roast_version      TEXT,
+             roast_en_version   TEXT,
+             bot_score          REAL,
+             sub_scores         TEXT,
+             risk_assessment    TEXT,
+             risk_notes         TEXT,
+             snapshot           TEXT,
+             snapshot_hash      TEXT,
+             source_status      TEXT NOT NULL DEFAULT '{}',
+             scanned_at         INTEGER NOT NULL,
+             captured_at        INTEGER NOT NULL,
+             PRIMARY KEY (username, score_version, collection_version)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_score_release_fallbacks_username
+             ON score_release_fallbacks(username, captured_at DESC)`,
           `CREATE TABLE IF NOT EXISTS score_snapshots (
              id            TEXT PRIMARY KEY,
              username      TEXT NOT NULL,
@@ -844,6 +941,8 @@ function ensureSchema(db: Client): Promise<void> {
         // Bilingual one-liner {zh,en} JSON — generated in one LLM call so the
         // roast shows in the visitor's language regardless of report language.
         "roast_line TEXT",
+        "risk_assessment TEXT",
+        "risk_notes TEXT",
         "score_version TEXT",
         "score_write_token TEXT",
         "score_source_collection_version TEXT",
@@ -923,6 +1022,9 @@ export interface ScoreEntry {
   bot_score: number;
   /** Per-dimension breakdown — persisted for "similar developers" matching. */
   sub_scores: SubScores;
+  /** Structured v10 risk evidence; hidden bot score remains separate. */
+  risk_assessment?: RiskAssessment;
+  risk_notes?: RiskSignal[];
   scanned_at: number;
 }
 
@@ -1056,6 +1158,58 @@ function isCanonicalSnapshotHash(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 }
 
+/**
+ * Copy the previous release out of the mutable `scores` row before a canonical
+ * write can replace it. The INSERT is idempotent, so a retry or concurrent
+ * materialization cannot create a second fallback. A missing historical scan is
+ * acceptable: the score/report artifact is still useful as a stale display, but
+ * `getLegacyReadFallbackScan` will refuse to claim a complete scan.
+ */
+async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Promise<void> {
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO score_release_fallbacks
+            (username, score_version, collection_version, display_name, avatar_url,
+             profile_url, final_score, tier, tags, roast_line, roast, roast_en,
+             roast_version, roast_en_version, bot_score, sub_scores, risk_assessment,
+             risk_notes, snapshot, snapshot_hash, source_status, scanned_at, captured_at)
+          SELECT s.username, s.score_version, ?, s.display_name, s.avatar_url,
+                 s.profile_url, s.final_score, s.tier, s.tags, s.roast_line, s.roast,
+                 s.roast_en, s.roast_version, s.roast_en_version, s.bot_score,
+                 s.sub_scores, s.risk_assessment, s.risk_notes, r.snapshot,
+                 r.snapshot_hash, COALESCE(r.source_status, '{}'), s.scanned_at, ?
+          FROM scores s
+          LEFT JOIN public_scan_runs r ON r.id = (
+            SELECT candidate.id
+            FROM public_scan_runs candidate
+            WHERE candidate.username = s.username
+              AND candidate.score_version = ?
+              AND candidate.collection_version = ?
+              AND candidate.state = 'complete_public'
+              AND candidate.coverage = 'complete_public'
+              AND candidate.snapshot IS NOT NULL
+              AND candidate.snapshot_hash IS NOT NULL
+              AND length(candidate.snapshot_hash) = 64
+              AND candidate.snapshot_hash NOT GLOB '*[^0-9a-f]*'
+              AND candidate.completed_at IS NOT NULL
+            ORDER BY candidate.completed_at DESC, candidate.id DESC
+            LIMIT 1
+          )
+          WHERE s.username = ?
+            AND s.hidden = 0
+            AND s.score_version = ?
+            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)`,
+    args: [
+      LEGACY_READ_FALLBACK.collection,
+      Date.now(),
+      LEGACY_READ_FALLBACK.score,
+      LEGACY_READ_FALLBACK.collection,
+      username,
+      LEGACY_READ_FALLBACK.score,
+      LEGACY_READ_FALLBACK.collection,
+    ],
+  });
+}
+
 function scoreWriteIdentity(row: Record<string, unknown>): ScoreWriteIdentity | null {
   const scannedAt = Number(row.scanned_at);
   const token = typeof row.score_write_token === "string" ? row.score_write_token : "";
@@ -1100,8 +1254,10 @@ async function upsertCanonicalScoreGuarded(
   const tags = JSON.stringify(entry.tags ?? EMPTY_TAGS);
   const roastLine = JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE);
   const subScores = JSON.stringify(entry.sub_scores);
+  const riskAssessment = JSON.stringify(entry.risk_assessment ?? null);
+  const riskNotes = JSON.stringify(entry.risk_notes ?? []);
   const current = await db.execute({
-    sql: `SELECT username, final_score, tier, sub_scores, score_version,
+    sql: `SELECT username, final_score, tier, sub_scores, risk_assessment, risk_notes, score_version,
                  score_write_token, score_source_collection_version,
                  score_source_snapshot_hash, scanned_at
           FROM scores WHERE username = ? LIMIT 1`,
@@ -1110,14 +1266,18 @@ async function upsertCanonicalScoreGuarded(
   const row = current.rows[0] as Record<string, unknown> | undefined;
   const token = randomUUID();
 
+  if (row?.score_version === LEGACY_READ_FALLBACK.score) {
+    await preserveLegacyReadFallback(db, username);
+  }
+
   if (!row) {
     const inserted = await db.execute({
       sql: `INSERT INTO scores
-              (username, display_name, avatar_url, profile_url, final_score, tier, tags,
-               roast_line, score_version, score_write_token,
+            (username, display_name, avatar_url, profile_url, final_score, tier, tags,
+               roast_line, risk_assessment, risk_notes, score_version, score_write_token,
                score_source_collection_version, score_source_snapshot_hash,
                bot_score, sub_scores, scanned_at)
-            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             WHERE NOT EXISTS (SELECT 1 FROM scores WHERE username = ?)`,
       args: [
         username,
@@ -1128,6 +1288,8 @@ async function upsertCanonicalScoreGuarded(
         entry.tier,
         tags,
         roastLine,
+        riskAssessment,
+        riskNotes,
         provenance.scoreVersion,
         token,
         provenance.collectionVersion,
@@ -1231,7 +1393,9 @@ async function upsertCanonicalScoreGuarded(
     row.score_version === provenance.scoreVersion &&
     Number(row.final_score) === entry.final_score &&
     String(row.tier ?? "") === String(entry.tier) &&
-    row.sub_scores === subScores;
+    row.sub_scores === subScores &&
+    String(row.risk_assessment ?? "null") === riskAssessment &&
+    String(row.risk_notes ?? "[]") === riskNotes;
   const roastColumns = sameScoringOutput
     ? `roast = roast, roast_version = roast_version,
             roast_en = roast_en, roast_en_version = roast_en_version`
@@ -1243,7 +1407,7 @@ async function upsertCanonicalScoreGuarded(
             prev_score = CASE WHEN ? - scanned_at >= ? THEN final_score ELSE prev_score END,
             prev_scanned_at = CASE WHEN ? - scanned_at >= ? THEN scanned_at ELSE prev_scanned_at END,
             display_name = ?, avatar_url = ?, profile_url = ?, final_score = ?, tier = ?,
-            tags = ?, roast_line = ?, score_version = ?, score_write_token = ?,
+            tags = ?, roast_line = ?, risk_assessment = ?, risk_notes = ?, score_version = ?, score_write_token = ?,
             score_source_collection_version = ?, score_source_snapshot_hash = ?,
             bot_score = ?, sub_scores = ?, scanned_at = ?,
             ${roastColumns}
@@ -1268,6 +1432,8 @@ async function upsertCanonicalScoreGuarded(
       entry.tier,
       tags,
       roastLine,
+      riskAssessment,
+      riskNotes,
       provenance.scoreVersion,
       token,
       provenance.collectionVersion,
@@ -1299,12 +1465,13 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
   try {
     await ensureSchema(db);
     const username = entry.username.toLowerCase();
+    await preserveLegacyReadFallback(db, username);
     const token = randomUUID();
     const written = await db.execute({
       sql: `INSERT INTO scores
               (username, display_name, avatar_url, profile_url, final_score, tier, tags,
-               roast_line, score_version, score_write_token, bot_score, sub_scores, scanned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               roast_line, risk_assessment, risk_notes, score_version, score_write_token, bot_score, sub_scores, scanned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
               prev_score      = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
                                      THEN scores.final_score ELSE scores.prev_score END,
@@ -1313,18 +1480,26 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
               roast         = CASE WHEN scores.score_version = excluded.score_version
                                         AND scores.final_score = excluded.final_score
                                         AND scores.sub_scores = excluded.sub_scores
+                                        AND scores.risk_assessment = excluded.risk_assessment
+                                        AND scores.risk_notes = excluded.risk_notes
                                    THEN scores.roast ELSE NULL END,
               roast_version = CASE WHEN scores.score_version = excluded.score_version
                                         AND scores.final_score = excluded.final_score
                                         AND scores.sub_scores = excluded.sub_scores
+                                        AND scores.risk_assessment = excluded.risk_assessment
+                                        AND scores.risk_notes = excluded.risk_notes
                                    THEN scores.roast_version ELSE NULL END,
               roast_en         = CASE WHEN scores.score_version = excluded.score_version
                                            AND scores.final_score = excluded.final_score
                                            AND scores.sub_scores = excluded.sub_scores
+                                           AND scores.risk_assessment = excluded.risk_assessment
+                                           AND scores.risk_notes = excluded.risk_notes
                                       THEN scores.roast_en ELSE NULL END,
               roast_en_version = CASE WHEN scores.score_version = excluded.score_version
                                            AND scores.final_score = excluded.final_score
                                            AND scores.sub_scores = excluded.sub_scores
+                                           AND scores.risk_assessment = excluded.risk_assessment
+                                           AND scores.risk_notes = excluded.risk_notes
                                       THEN scores.roast_en_version ELSE NULL END,
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
@@ -1333,6 +1508,8 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
               tier         = excluded.tier,
               tags         = excluded.tags,
               roast_line   = excluded.roast_line,
+              risk_assessment = excluded.risk_assessment,
+              risk_notes   = excluded.risk_notes,
               score_version = excluded.score_version,
               score_write_token = excluded.score_write_token,
               score_source_collection_version = NULL,
@@ -1350,6 +1527,8 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
         entry.tier,
         JSON.stringify(entry.tags ?? EMPTY_TAGS),
         JSON.stringify(entry.roast_line ?? EMPTY_ROAST_LINE),
+        JSON.stringify(entry.risk_assessment ?? null),
+        JSON.stringify(entry.risk_notes ?? []),
         SCORE_CACHE_VERSION,
         token,
         entry.bot_score,
@@ -2122,7 +2301,12 @@ export async function getCurrentCanonicalQuickScan(
     ) {
       return null;
     }
-    return { scan: scan as ScanResult, snapshotHash };
+    // A v9 snapshot can be promoted to a v10 canonical score during the
+    // bounded backfill without rewriting its immutable bytes/hash. Recompute
+    // the embedded scoring object at the read boundary so roast/profile paths
+    // never consume the legacy embedded rules after that promotion.
+    const currentScan = scan as ScanResult;
+    return { scan: { ...currentScan, scoring: score(currentScan.metrics) }, snapshotHash };
   } catch (error) {
     console.error("getCurrentCanonicalQuickScan failed:", error);
     return null;
@@ -5600,7 +5784,7 @@ export interface AccountDetail {
   roast_en: string | null;
   /** Score formula version that produced this persisted profile. */
   score_version?: string | null;
-  /** True only for the explicit read-only v5/v5/v3 continuity path. */
+  /** True only for the explicit read-only previous-release continuity path. */
   legacy_read_fallback: boolean;
   /** Canonical collection provenance; null for historical/legacy score rows. */
   score_source_collection_version: string | null;
@@ -5610,6 +5794,8 @@ export interface AccountDetail {
   /** Previous scan's score/time (progress-board columns); NULL until a re-scan. */
   prev_score: number | null;
   prev_scanned_at: number | null;
+  risk_assessment?: RiskAssessment | null;
+  risk_notes?: RiskSignal[];
 }
 
 export interface ArchivedRoast {
@@ -5716,6 +5902,28 @@ export async function searchScoredUsers(
 function parseNullableRoastLine(raw: unknown): RoastLine | null {
   if (typeof raw !== "string" || !raw) return null;
   return parseRoastLine(raw);
+}
+
+function parseRiskAssessment(raw: unknown): RiskAssessment | null {
+  if (typeof raw !== "string" || !raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<RiskAssessment>;
+    return parsed && parsed.version === "v10" && Array.isArray(parsed.signals)
+      ? (parsed as RiskAssessment)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseRiskNotes(raw: unknown): RiskSignal[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as RiskSignal[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** A stored PK matchup (canonical lowercased+sorted pair). */
@@ -5927,25 +6135,34 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
                    tags, roast_line, sub_scores, roast, roast_en, score_version,
                    score_source_collection_version, score_source_snapshot_hash,
-                   roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at
+                   roast_version, roast_en_version, risk_assessment, risk_notes,
+                   scanned_at, prev_score, prev_scanned_at
             FROM scores
             WHERE username = ? AND hidden = 0
             LIMIT 1`,
       args: [username.toLowerCase()],
     });
-    const r = res.rows[0];
-    if (!r) return null;
-    const currentScore = r.score_version === SCORE_CACHE_VERSION;
+    const currentRow = (res.rows[0] as Record<string, unknown> | undefined) ?? null;
+    const currentScore = currentRow?.score_version === SCORE_CACHE_VERSION;
     const canonicalScore =
       currentScore &&
-      r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
-      typeof r.score_source_snapshot_hash === "string" &&
-      /^[a-f0-9]{64}$/.test(r.score_source_snapshot_hash);
+      currentRow?.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
+      typeof currentRow.score_source_snapshot_hash === "string" &&
+      /^[a-f0-9]{64}$/.test(currentRow.score_source_snapshot_hash);
+    // A broken/incomplete target-version row must not hide the last verified
+    // release during an incident. A canonical v10 row always wins; otherwise
+    // prefer the immutable previous-release copy when one was captured.
+    const fallbackRow = canonicalScore
+      ? null
+      : await getLegacyReadFallbackRow(db, username);
+    const r = fallbackRow ?? currentRow;
+    if (!r) return null;
+    const resolvedCurrentScore = r.score_version === SCORE_CACHE_VERSION;
     const legacyReadFallback =
-      !currentScore && isLegacyReadFallbackProfile(r as Record<string, unknown>);
-    const readableArtifacts = currentScore || legacyReadFallback;
+      !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
+    const readableArtifacts = resolvedCurrentScore || legacyReadFallback;
     if (!readableArtifacts) return null;
-    const artifactRoastVersion = canonicalScore
+    const artifactRoastVersion = canonicalScore && resolvedCurrentScore
       ? ROAST_CACHE_VERSION
       : legacyReadFallback
         ? LEGACY_READ_FALLBACK.roast
@@ -5960,6 +6177,8 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       tags: readableArtifacts ? parseTags(r.tags) : EMPTY_TAGS,
       roast_line: readableArtifacts ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
+      risk_assessment: parseRiskAssessment(r.risk_assessment),
+      risk_notes: parseRiskNotes(r.risk_notes),
       roast:
         artifactRoastVersion && r.roast_version === artifactRoastVersion
           ? ((r.roast as string | null) ?? null)
@@ -5987,17 +6206,20 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
 }
 
 /**
- * Whether an account has a stored v5/v5 profile that can be shown immediately
- * while a current quick scan is unavailable. This does not assert that a full
- * historical snapshot exists, so it must never be used as a score source.
+ * Whether an account has a stored previous-release profile that can be shown
+ * immediately while a current quick scan is unavailable. This does not assert
+ * that a full historical snapshot exists, so it must never be used as a score
+ * source.
  */
 export async function hasLegacyReadFallbackProfile(username: string): Promise<boolean> {
   const db = getClient();
   if (!db) return false;
   try {
     await ensureSchema(db);
+    const fallback = await getLegacyReadFallbackRow(db, username);
+    if (fallback && isLegacyReadFallbackProfile(fallback)) return true;
     const result = await db.execute({
-      sql: `SELECT score_version, roast, roast_en, roast_version, roast_en_version
+      sql: `SELECT score_version, score_source_collection_version
             FROM scores
             WHERE username = ? AND hidden = 0 AND score_version = ?
             LIMIT 1`,
@@ -6012,18 +6234,24 @@ export async function hasLegacyReadFallbackProfile(username: string): Promise<bo
 }
 
 /**
- * Return the complete stored v3 snapshot that proves a v5/v5 emergency read
- * fallback. This is deliberately read-only: callers may display it immediately
- * when the current quick collector fails, but must never cache it as current or
- * use it to materialize a score.
+ * Return the complete stored previous-release snapshot that proves an emergency
+ * read fallback. This is deliberately read-only: callers may display it
+ * immediately when the current quick collector fails, but must never cache it as
+ * current or use it to materialize a score.
  */
 export async function getLegacyReadFallbackScan(username: string): Promise<ScanResult | null> {
   const db = getClient();
   if (!db) return null;
   try {
     await ensureSchema(db);
+    const fallback = await getLegacyReadFallbackRow(db, username);
+    if (fallback) {
+      const scan = await getVerifiedLegacyReadFallbackScan(db, fallback);
+      if (scan) return scan;
+    }
     const result = await db.execute({
-      sql: `SELECT username, final_score, score_version, roast, roast_en,
+      sql: `SELECT username, final_score, score_version,
+                   score_source_collection_version, roast, roast_en,
                    roast_version, roast_en_version
             FROM scores
             WHERE username = ? AND hidden = 0 AND score_version = ?
@@ -6039,9 +6267,9 @@ export async function getLegacyReadFallbackScan(username: string): Promise<ScanR
 }
 
 /**
- * Read one v5/v5 report without requiring a current scan or LLM configuration.
- * The caller must treat it as stale and must never cache it as a canonical v9
- * report. Full v3 snapshot provenance is intentionally not required here: a
+ * Read one previous-release report without requiring a current scan or LLM configuration.
+ * The caller must treat it as stale and must never cache it as a canonical v10
+ * report. Full snapshot provenance is intentionally not required here: a
  * profile replay does not claim to be a complete scan result.
  */
 export async function getLegacyReadFallbackRoast(
@@ -6054,16 +6282,19 @@ export async function getLegacyReadFallbackRoast(
   const versionCol = lang === "en" ? "roast_en_version" : "roast_version";
   try {
     await ensureSchema(db);
-    const result = await db.execute({
+    const fallback = await getLegacyReadFallbackRow(db, username);
+    const result = fallback
+      ? { rows: [fallback] }
+      : await db.execute({
       sql: `SELECT username, final_score, tier, tags, roast_line, score_version,
                    roast, roast_en, roast_version, roast_en_version
             FROM scores
             WHERE username = ? AND hidden = 0 AND score_version = ?
             LIMIT 1`,
       args: [username.toLowerCase(), LEGACY_READ_FALLBACK.score],
-    });
+      });
     const row = result.rows[0] as Record<string, unknown> | undefined;
-    if (!row || !isLegacyReadFallbackProfile(row)) return null;
+    if (!row || !hasLegacyReadFallbackReport(row)) return null;
     if (
       row[versionCol] !== LEGACY_READ_FALLBACK.roast ||
       typeof row[col] !== "string" ||

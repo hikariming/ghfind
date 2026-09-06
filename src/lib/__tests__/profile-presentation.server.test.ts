@@ -220,6 +220,8 @@ describe("getGoProfilePresentation", () => {
       total_penalty: 10,
       applied_penalty: 10,
       red_flags: [{ flag: "mostly_forks", penalty: 10, detail: "Mostly forks" }],
+      risk_assessment: null,
+      risk_notes: [],
       complete: true,
     });
     expect(mocks.getCurrentCanonicalQuickScan).toHaveBeenCalledWith("octocat");

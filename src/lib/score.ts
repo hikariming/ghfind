@@ -10,7 +10,8 @@
  */
 
 import { SUBSCORE_MAX, tierFor } from "./score-presentation";
-import type { RawMetrics, RedFlag, Scoring, SubScores } from "./types";
+import { assessRisk } from "./risk";
+import type { RawMetrics, Scoring, SubScores } from "./types";
 
 export { SUBSCORE_MAX, nextTier, tierFor } from "./score-presentation";
 
@@ -204,50 +205,6 @@ export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefine
   return 22;
 }
 
-export function templatedPrFloodPenalty(m: RawMetrics): number | undefined {
-  if (!(m.pr_flood_suspect ?? false)) return undefined;
-
-  const share = m.top_repo_pr_share ?? 0;
-  const templated = m.templated_pr_ratio ?? 0;
-  const concentrationSeverity = Math.max(
-    0,
-    Math.min(1, ((share - 0.5) / 0.5) * 0.5 + ((templated - 0.5) / 0.5) * 0.5),
-  );
-  const sample = m.recent_merged_pr_sample ?? m.recent_pr_sample ?? 0;
-  const docLikeRatio =
-    m.recent_external_doc_like_pr_ratio ??
-    m.recent_doc_like_pr_ratio ??
-    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
-      ? m.recent_external_doc_like_pr_count / sample
-      : sample > 0 && m.recent_doc_like_pr_count !== undefined
-        ? m.recent_doc_like_pr_count / sample
-        : 0);
-  const rejection = m.pr_rejection_rate ?? 0;
-  const hasPopularImpactSignal =
-    (m.impact_pr_count ?? 0) > 0 || (m.max_impact_repo_stars ?? 0) >= 10_000;
-  const lowCoreImpact =
-    hasPopularImpactSignal &&
-    (m.core_impact_pr_count ?? 0) <= 2 &&
-    (m.impact_quality_cap !== undefined || (m.max_impact_repo_stars ?? 0) >= 10_000);
-  const weakOwnProject =
-    m.total_stars < 300 &&
-    (m.top_starred_original_repo_quality_score ?? 1) < 0.5;
-  const lowQualityEvidence =
-    (sample >= 20 && docLikeRatio >= 0.55 ? 1 : 0) +
-    (rejection >= 0.35 ? 1 : 0) +
-    (lowCoreImpact ? 1 : 0) +
-    (weakOwnProject ? 1 : 0);
-  const extremeFlood = share >= 0.85 && templated >= 0.75;
-
-  if (lowQualityEvidence >= 2 || (extremeFlood && lowQualityEvidence >= 1)) {
-    return 10 + Math.round(10 * concentrationSeverity);
-  }
-  if (lowQualityEvidence === 1 || extremeFlood) {
-    return 6 + Math.round(4 * concentrationSeverity);
-  }
-  return 4 + Math.round(4 * concentrationSeverity);
-}
-
 /**
  * Author-closed external PRs are not maintainer rejections: people close PRs
  * after rebases, wrong-base mistakes, upstream direction changes, or duplicate
@@ -400,117 +357,8 @@ export function score(m: RawMetrics): Scoring {
     1,
   );
 
-  // Red flags (penalties)
-  const flags: RedFlag[] = [];
-  const flag = (name: string, penalty: number, detail: string): void => {
-    flags.push({ flag: name, penalty, detail });
-  };
-
-  const fetched = Math.max(m.fetched_repo_count, 1);
-  if (m.account_age_years < 1 && m.public_repos > 30) {
-    flag(
-      "new_account_mass_repos",
-      10,
-      `Account <1yr old with ${m.public_repos} repos — possible mass creation.`,
-    );
-  }
-  if (m.fork_repo_count / fetched > 0.7 && m.nonempty_original_repo_count <= 2) {
-    flag(
-      "mostly_forks",
-      10,
-      `${m.fork_repo_count}/${fetched} repos are forks with little original work.`,
-    );
-  }
-  if (m.nonempty_original_repo_count === 0) {
-    flag("no_original_work", 10, "No non-empty original repositories.");
-  }
-  if (m.empty_original_repo_count >= 5 && m.empty_original_repo_count / fetched > 0.5) {
-    flag(
-      "mostly_empty_repos",
-      5,
-      `${m.empty_original_repo_count} empty original repos — likely placeholder/spam.`,
-    );
-  }
-  if (m.following > 1000 && m.followers < m.following * 0.3) {
-    flag(
-      "follow_farming",
-      10,
-      `following ${m.following} >> followers ${m.followers} — follow-farming pattern.`,
-    );
-  }
-  if (!m.bio && m.followers < 3 && m.total_stars === 0 && m.merged_pr_count < 2) {
-    flag("ghost_profile", 8, "Empty profile with negligible footprint.");
-  }
-  if (
-    m.contribution_years_active <= 1 &&
-    m.account_age_years > 2 &&
-    (m.days_since_last_activity ?? 999) > 365
-  ) {
-    flag("burst_then_dormant", 5, "Active in only one year then dormant — burst pattern.");
-  }
-  if (hasSocialOnlyDormantSignal(m)) {
-    flag(
-      "social_only_dormant_profile",
-      5,
-      `${m.followers} followers but 0 last-year contributions, 0 PRs, no external impact, ` +
-        "and no strong original project signal — social/profile attention is disconnected from code work.",
-    );
-  }
-  if (m.star_inflation_suspect) {
-    flag(
-      "possible_star_inflation",
-      5,
-      "Top repo has many stars but near-zero forks/issues — possible bought stars.",
-    );
-  }
-  const sample = m.recent_merged_pr_sample;
-  // Garbage farming into popular community projects: trivial PRs into OTHERS'
-  // ≥200★ repos (typo/whitespace PRs to famous repos for a contributor badge).
-  // PRs into one's own projects are never counted here.
-  const externalTrivial = m.external_trivial_pr_count ?? 0;
-  if (sample >= 10 && externalTrivial / sample > 0.5) {
-    flag(
-      "trivial_pr_farming",
-      8,
-      `${externalTrivial}/${sample} recent merged PRs are ≤5-line changes into others' ` +
-        "≥200★ repos — garbage PR farming into popular community projects.",
-    );
-  }
-  // Templated-PR flooding: title/concentration alone is a pattern risk, not
-  // proof of low quality or AI abuse. Heavy penalties require corroborating
-  // evidence such as doc-like/trivial work, low core impact, weak own projects,
-  // or high maintainer rejection.
-  const floodPenalty = templatedPrFloodPenalty(m);
-  if (floodPenalty !== undefined) {
-    const floodSample = m.recent_pr_sample ?? 0;
-    const repo = m.top_repo_pr_target ?? "one repo";
-    const share = m.top_repo_pr_share ?? 0;
-    const templated = m.templated_pr_ratio ?? 0;
-    flag(
-      "templated_pr_flooding",
-      floodPenalty,
-      `近期 ${Math.round(share * 100)}% 的 PR 集中刷向 ${repo}，` +
-        `${Math.round(templated * 100)}% 标题高度模板化（${floodSample} 个样本）` +
-        ` — 模式化批量贡献风险，需结合 diff 质量人工复核。`,
-    );
-  }
-  // High PR rejection: maintainer-closed unmerged PRs, not self-closed cleanup.
-  const rejectedPrs = m.maintainer_closed_unmerged_pr_count ?? m.closed_unmerged_pr_count ?? 0;
-  const decidedPrs = m.merged_pr_count + rejectedPrs;
-  const rejection = m.pr_rejection_rate ?? 0;
-  if (decidedPrs >= 10 && rejection > 0.5) {
-    flag(
-      "high_pr_rejection",
-      rejection > 0.7 ? 10 : 8,
-      `${rejectedPrs}/${decidedPrs} 个已决 PR 被维护者关闭未合并（被拒率 ` +
-        `${Math.round(rejection * 100)}%）— 低质 / 频繁被拒。`,
-    );
-  }
-
-  const penalty = Math.min(
-    flags.reduce((a, f) => a + f.penalty, 0),
-    40,
-  );
+  const risk = assessRisk(m);
+  const penalty = risk.total_penalty;
   // Keep two decimals (not integer) so the leaderboard can rank finely.
   const final = clampScore(roundHalfEven(base - penalty, 2));
   const { tier, tier_label: tierLabel } = tierFor(final);
@@ -518,7 +366,9 @@ export function score(m: RawMetrics): Scoring {
   return {
     sub_scores: sub,
     base_score: base,
-    red_flags: flags,
+    red_flags: risk.red_flags,
+    risk_assessment: risk.risk_assessment,
+    risk_notes: risk.risk_notes,
     total_penalty: penalty,
     final_score: final,
     tier,

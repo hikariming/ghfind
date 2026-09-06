@@ -5,7 +5,7 @@ import * as db from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_BATCH_LIMIT = 25;
+const DEFAULT_BATCH_LIMIT = 100;
 const MAX_BATCH_LIMIT = 100;
 const MAX_CURSOR_LENGTH = 512;
 

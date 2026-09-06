@@ -25,8 +25,15 @@ const requiredFragments = [
   "CF_VERSION_MESSAGE: release-${{ github.event.workflow_run.head_sha }}-from-upstream-main",
   "secrets.CF_API_TOKEN",
   "wrangler deployments status",
+  "Apply and verify production D1 migrations",
+  "wrangler d1 migrations apply ghfind --remote --env production",
+  "wrangler d1 execute ghfind --remote --env production --json",
+  "score_release_fallbacks",
   "wrangler rollback",
   "steps.release.outputs.previous_version",
+  "steps.deploy.outcome == 'failure'",
+  "steps.active.outcome == 'failure'",
+  "steps.smoke.outcome == 'failure'",
   "id: rollback_smoke",
 ];
 

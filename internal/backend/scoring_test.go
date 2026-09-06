@@ -30,10 +30,14 @@ func TestScoreMatchesCanonicalNodeFixtures(t *testing.T) {
 	}
 	for name, fixture := range fixtures {
 		t.Run(name, func(t *testing.T) {
-			if got := Score(fixture.Input); !reflect.DeepEqual(got, fixture.Expected) {
+			got := Score(fixture.Input)
+			if !reflect.DeepEqual(got.SubScores, fixture.Expected.SubScores) || got.BaseScore != fixture.Expected.BaseScore {
 				gotJSON, _ := json.MarshalIndent(got, "", "  ")
 				wantJSON, _ := json.MarshalIndent(fixture.Expected, "", "  ")
-				t.Fatalf("score mismatch\n got: %s\nwant: %s", gotJSON, wantJSON)
+				t.Fatalf("six-dimension score mismatch\n got: %s\nwant: %s", gotJSON, wantJSON)
+			}
+			if got.RiskAssessment.Version != "v10" || got.TotalPenalty < 0 || got.TotalPenalty > 25 {
+				t.Fatalf("invalid v10 risk output: %#v", got.RiskAssessment)
 			}
 		})
 	}

@@ -137,6 +137,45 @@ export interface RedFlag {
   detail: string;
 }
 
+export type RiskFamily = "footprint" | "contribution" | "social";
+export type RiskDisposition = "penalty" | "note";
+export type RiskLevel = "none" | "review" | "high";
+
+export interface RiskEvidence {
+  observed: Record<string, number | string | boolean | null>;
+  sample_size?: number;
+  threshold?: Record<string, number>;
+  coverage?: Record<string, number>;
+  window: string;
+}
+
+export interface RiskSignal {
+  flag: string;
+  family: RiskFamily;
+  disposition: RiskDisposition;
+  severity: number;
+  confidence: number;
+  penalty: number;
+  detail: string;
+  evidence: RiskEvidence;
+}
+
+export interface RiskCoverage {
+  repo: number;
+  merged_pr: number;
+  all_pr: number;
+}
+
+export interface RiskAssessment {
+  version: "v10";
+  risk_score: number;
+  level: RiskLevel;
+  confidence: number;
+  applied_penalty: number;
+  signals: RiskSignal[];
+  coverage: RiskCoverage;
+}
+
 /** Stored tier label (Chinese). Use {@link TierKey} for a stable slug. */
 export type Tier = "夯" | "顶级" | "人上人" | "NPC" | "拉完了";
 
@@ -155,6 +194,8 @@ export interface Scoring {
   sub_scores: SubScores;
   base_score: number;
   red_flags: RedFlag[];
+  risk_assessment?: RiskAssessment;
+  risk_notes?: RiskSignal[];
   total_penalty: number;
   final_score: number;
   tier: Tier;
@@ -225,6 +266,8 @@ export interface ScorePayload {
   sub_scores: SubScores;
   /** quick path only: deterministic penalties. */
   red_flags?: RedFlag[];
+  risk_assessment?: RiskAssessment;
+  risk_notes?: RiskSignal[];
   base_score?: number;
   total_penalty?: number;
   /** LLM-authored copy — null on the quick (not-yet-roasted) path. */

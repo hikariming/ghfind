@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS scores (
   score_source_snapshot_hash TEXT,
   bot_score REAL,
   sub_scores TEXT,
+  risk_assessment TEXT,
+  risk_notes TEXT,
   scanned_at INTEGER NOT NULL,
   hidden INTEGER NOT NULL DEFAULT 0,
   roast TEXT,
@@ -28,6 +30,33 @@ CREATE TABLE IF NOT EXISTS scores (
   prev_scanned_at INTEGER,
   followers INTEGER,
   total_stars INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS score_release_fallbacks (
+  username TEXT NOT NULL,
+  score_version TEXT NOT NULL,
+  collection_version TEXT NOT NULL,
+  display_name TEXT,
+  avatar_url TEXT,
+  profile_url TEXT,
+  final_score REAL NOT NULL,
+  tier TEXT NOT NULL,
+  tags TEXT,
+  roast_line TEXT,
+  roast TEXT,
+  roast_en TEXT,
+  roast_version TEXT,
+  roast_en_version TEXT,
+  bot_score REAL,
+  sub_scores TEXT,
+  risk_assessment TEXT,
+  risk_notes TEXT,
+  snapshot TEXT,
+  snapshot_hash TEXT,
+  source_status TEXT NOT NULL DEFAULT '{}',
+  scanned_at INTEGER NOT NULL,
+  captured_at INTEGER NOT NULL,
+  PRIMARY KEY (username, score_version, collection_version)
 );
 
 CREATE TABLE IF NOT EXISTS score_snapshots (

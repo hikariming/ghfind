@@ -576,6 +576,32 @@ async function metaForStoredRoast(
   return { final_score: finalScore, tier, tier_label, delta: 0, percentile, tags, roast_line: roastLine };
 }
 
+async function legacyRoastResponse(
+  username: string,
+  lang: Lang,
+  requestId: string,
+  requestStartedAt: number,
+): Promise<Response | null> {
+  const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
+  if (!legacyRoast || !reportMatchesLang(legacyRoast.report, lang)) return null;
+  const meta = await metaForStoredRoast(
+    legacyRoast.final_score,
+    legacyRoast.tier,
+    legacyRoast.tags,
+    legacyRoast.roast_line,
+    lang,
+  );
+  logRoastSummary({
+    requestId,
+    lang,
+    path: "legacy_read_fallback",
+    ok: true,
+    source: "legacy_v5_v5_v3",
+    requestTotalMs: Date.now() - requestStartedAt,
+  });
+  return roastResponse(legacyRoast.report, meta);
+}
+
 async function cacheRoastReplay(
   username: string,
   lang: Lang,
@@ -666,33 +692,6 @@ export async function POST(req: NextRequest) {
 
   const lang = normLang(body.lang);
 
-  // A verified v5/v5/v3 artifact is a read-only continuity path when the quick
-  // collector is unavailable. It is intentionally checked before resolving an LLM config:
-  // replaying already-persisted public text must not depend on model capacity or
-  // spend credit. `refresh` may cause a new scan upstream, but a compatible roast
-  // remains replayable when the score did not change.
-  if (body.refresh !== true && !body.scan) {
-    const legacyRoast = await getLegacyReadFallbackRoast(username, lang);
-    if (legacyRoast && reportMatchesLang(legacyRoast.report, lang)) {
-      const meta = await metaForStoredRoast(
-        legacyRoast.final_score,
-        legacyRoast.tier,
-        legacyRoast.tags,
-        legacyRoast.roast_line,
-        lang,
-      );
-      logRoastSummary({
-        requestId,
-        lang,
-        path: "legacy_read_fallback",
-        ok: true,
-        source: "legacy_v5_v5_v3",
-        requestTotalMs: Date.now() - reqT0,
-      });
-      return roastResponse(legacyRoast.report, meta);
-    }
-  }
-
   // Single-flight: set once we hold the roast lock, so the stream/error paths
   // know to release it. Only the default model coalesces (BYO keys self-serve).
   let isLeader = false;
@@ -704,12 +703,18 @@ export async function POST(req: NextRequest) {
 
   // `/api/scan` materializes the bounded quick snapshot before the client gets
   // it. Default-model reports always prefer the exact server snapshot joined to
-  // the currently served v9 score. There is no background-job dependency.
+  // the currently served v10 score. There is no background-job dependency.
   const [canonicalQuick, cachedScan] = await Promise.all([
     getCurrentCanonicalQuickScan(username),
     getCachedScan(username),
   ]);
   const scan = canonicalQuick?.scan ?? cachedScan ?? (body.scan ? sanitizeScan(body.scan) : null);
+  // If the new scanner has not produced a usable snapshot, replay the immutable
+  // previous-release report without resolving model config or spending quota.
+  if (!scan && body.refresh !== true && !body.scan && !isMachineCaller) {
+    const legacy = await legacyRoastResponse(username, lang, requestId, reqT0);
+    if (legacy) return legacy;
+  }
   if (!scan?.metrics || !scan.scoring) {
     return NextResponse.json({ error: "missing_scan" }, { status: 400 });
   }
@@ -719,7 +724,7 @@ export async function POST(req: NextRequest) {
   // Default-model protections: serve a cached roast for free, else rate-limit the
   // (credit-spending) LLM call. BYO keys skip both — it's the user's own credit.
   if (isDefault) {
-    // Every replay and new report belongs to the deterministic v9 score from
+    // Every replay and new report belongs to the deterministic v10 score from
     // this exact quick snapshot. A forged request body cannot produce a report
     // because it has no matching score write identity.
     try {
@@ -728,6 +733,10 @@ export async function POST(req: NextRequest) {
       scoreIdentity = null;
     }
     if (!scoreIdentity) {
+      if (body.refresh !== true && !isMachineCaller) {
+        const legacy = await legacyRoastResponse(username, lang, requestId, reqT0);
+        if (legacy) return legacy;
+      }
       return NextResponse.json(
         { error: "score_materialization_pending" },
         { status: 409, headers: { "Cache-Control": "no-store" } },
@@ -818,6 +827,13 @@ export async function POST(req: NextRequest) {
         return roastResponse(shared.report, meta);
       }
       generationPath = "follower_fallback";
+      // The leader failed to publish a replay within the bounded wait. Do not
+      // turn a concurrency incident into a second unbounded model producer when
+      // a verified previous-release report is available for the browser.
+      if (!isMachineCaller && body.refresh !== true) {
+        const legacy = await legacyRoastResponse(username, lang, requestId, reqT0);
+        if (legacy) return legacy;
+      }
     }
   }
 
@@ -854,6 +870,10 @@ export async function POST(req: NextRequest) {
 
   const resolved = resolveConfig(body.byoKey);
   if (!resolved) {
+    if (!isMachineCaller && body.refresh !== true) {
+      const legacy = await legacyRoastResponse(username, lang, requestId, reqT0);
+      if (legacy) return legacy;
+    }
     return NextResponse.json({ error: "no_llm_configured", useByoKey: true }, { status: 400 });
   }
   const { config } = resolved;
@@ -926,12 +946,32 @@ export async function POST(req: NextRequest) {
         metaMs,
         attempts,
       });
+      const withLegacyFallback = async (obj: unknown): Promise<unknown> => {
+        if (isMachineCaller || body.refresh === true) return obj;
+        try {
+          const legacy = await getLegacyReadFallbackRoast(username, lang);
+          if (!legacy || !reportMatchesLang(legacy.report, lang)) return obj;
+          const fallbackMeta = await metaForStoredRoast(
+            legacy.final_score,
+            legacy.tier,
+            legacy.tags,
+            legacy.roast_line,
+            lang,
+          );
+          return {
+            ...(typeof obj === "object" && obj !== null ? obj : { error: "roast_failed" }),
+            fallback: { report: legacy.report, meta: fallbackMeta },
+          };
+        } catch {
+          return obj;
+        }
+      };
       const failAndClose = async (obj: unknown, fields: Record<string, unknown>) => {
         // Release the single-flight lock so waiting requests aren't stalled for
         // the full lock TTL by a generation that died early.
         if (isLeader) await releaseRoastLock(username, lang);
         logRoastSummary({ ...summaryFields(), ok: false, ...fields });
-        push(errorFrame(enc, obj));
+        push(errorFrame(enc, await withLegacyFallback(obj)));
         close();
       };
 
@@ -1062,7 +1102,7 @@ export async function POST(req: NextRequest) {
           ...summaryFields(), ok: false, stage: "stream",
           kind: classifyLlmError(e), chars: full.length,
         });
-        push(errorFrame(enc, { error: "roast_failed" }));
+        push(errorFrame(enc, await withLegacyFallback({ error: "roast_failed" })));
       } finally {
         if (isLeader) await releaseRoastLock(username, lang);
         close();

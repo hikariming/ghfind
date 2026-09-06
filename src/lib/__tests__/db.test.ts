@@ -273,9 +273,9 @@ describe("getArchivedRoast", () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({
       sql: `UPDATE scores
-            SET score_version = 'v9', roast_version = 'v8'
+            SET score_version = ?, roast_version = 'v8'
             WHERE username = ?`,
-      args: [username],
+      args: [SCORE_CACHE_VERSION, username],
     });
 
     await expect(db.getArchivedRoast(username, "zh")).resolves.toBeNull();
@@ -355,6 +355,48 @@ describe("getArchivedRoast", () => {
       report: "## 旧版中文点评\n只读回放。",
     });
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
+  });
+
+  it("preserves the previous release when v10 overwrites the mutable score row", async () => {
+    const username = "legacy-copy-before-v10-fixture";
+    await writeLegacyReadFallback(username);
+
+    await expect(
+      writeScore({
+        ...entry,
+        username,
+        final_score: 88.4,
+        scanned_at: entry.scanned_at + 10,
+      }),
+    ).resolves.not.toBeNull();
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const copied = await client.execute({
+      sql: `SELECT score_version, collection_version, final_score, roast_version,
+                   roast, snapshot, snapshot_hash
+            FROM score_release_fallbacks WHERE username = ? LIMIT 1`,
+      args: [username],
+    });
+    expect(copied.rows[0]).toMatchObject({
+      score_version: LEGACY_READ_FALLBACK.score,
+      collection_version: LEGACY_READ_FALLBACK.collection,
+      final_score: entry.final_score,
+      roast_version: LEGACY_READ_FALLBACK.roast,
+      roast: "## 旧版中文点评\n只读回放。",
+    });
+    expect(typeof copied.rows[0]?.snapshot).toBe("string");
+    expect(typeof copied.rows[0]?.snapshot_hash).toBe("string");
+
+    await expect(db.getLegacyReadFallbackRoast(username, "zh")).resolves.toMatchObject({
+      final_score: entry.final_score,
+      report: "## 旧版中文点评\n只读回放。",
+    });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: 88.4,
+      score_version: SCORE_CACHE_VERSION,
+      legacy_read_fallback: false,
+      roast: null,
+    });
   });
 
   it("clears generated reports when the deterministic score identity changes", async () => {
@@ -528,6 +570,25 @@ describe("canonical score materialization", () => {
       args: ["0".repeat(64), username],
     });
     await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
+  });
+
+  it("recomputes v10 scoring when a promoted snapshot embeds legacy scoring", async () => {
+    const username = "promoted-v9-snapshot-fixture";
+    const scan = syntheticScan(username);
+    scan.scoring = {
+      ...scan.scoring,
+      base_score: 0,
+      total_penalty: 0,
+      final_score: 0,
+      red_flags: [],
+      risk_assessment: undefined,
+      risk_notes: undefined,
+    };
+
+    await expect(db.publishCompleteQuickScan(scan, 1_910_000_006_000)).resolves.toBeTruthy();
+    const current = await db.getCurrentCanonicalQuickScan(username);
+    expect(current?.scan.scoring).toEqual(score(scan.metrics));
+    expect(current?.scan.scoring.final_score).not.toBe(0);
   });
 
   it("reuses the same score identity and run for a repeated quick snapshot", async () => {
@@ -2018,13 +2079,13 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("reads only v9 profile snapshots and ignores legacy snapshots", async () => {
+  it("reads only v10 profile snapshots and ignores legacy snapshots", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     const username = "profile-version-fixture";
     const rows = [
       ["profile-v8", username, 300, JSON.stringify({ followers: 8 }), "v8"],
       ["profile-local", username, 400, JSON.stringify({ followers: 99 }), "local-fixture"],
-      ["profile-v9", username, 200, JSON.stringify({ followers: 9 }), "v9"],
+      ["profile-v10", username, 200, JSON.stringify({ followers: 9 }), "v10"],
     ];
     for (const row of rows) {
       await client.execute({
@@ -2040,7 +2101,7 @@ describe("profile snapshots", () => {
     });
     await client.execute({
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
-      args: ["profile-v9"],
+      args: ["profile-v10"],
     });
     await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 

@@ -174,6 +174,13 @@ function printSubScores(subScores: Record<string, number> | undefined): void {
   }
 }
 
+function printRisk(s: { risk_assessment?: { level: string; confidence: number; applied_penalty: number }; risk_notes?: { flag: string; detail: string }[] }): void {
+  if (s.risk_assessment) {
+    out(`risk: ${s.risk_assessment.level}, confidence ${s.risk_assessment.confidence}%, penalty -${s.risk_assessment.applied_penalty}`);
+  }
+  for (const note of s.risk_notes ?? []) out(`risk_note: ${note.flag} ${note.detail}`);
+}
+
 async function localScan(flags: Flags, username: string): Promise<ScanResult> {
   const token = githubToken(flags);
   if (!token) {
@@ -203,6 +210,7 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
     }
     out(`${scan.metrics.username}: ${s.final_score}/100 ${s.tier} (${s.tier_label})`);
     printSubScores(s.sub_scores);
+    printRisk(s);
     if (s.red_flags?.length) {
       out("red_flags:");
       for (const f of s.red_flags) out(`- ${f.flag}: -${f.penalty} ${f.detail}`);
@@ -218,6 +226,7 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
   }
   out(`${payload.username}: ${payload.final_score}/100 ${payload.tier} (${payload.tier_key})`);
   printSubScores(payload.sub_scores);
+  printRisk(payload);
   if (payload.red_flags?.length) {
     out("red_flags:");
     for (const f of payload.red_flags) out(`- ${f.flag}: -${f.penalty} ${f.detail}`);

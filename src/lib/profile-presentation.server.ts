@@ -36,7 +36,7 @@ import type {
   VsMatchup,
   VsPresentation,
 } from "@/lib/profile-presentation";
-import type { ScanResult, SubScoreKey, SubScores } from "@/lib/types";
+import type { RiskAssessment, RiskSignal, ScanResult, SubScoreKey, SubScores } from "@/lib/types";
 import { roundHalfEven } from "@/lib/score";
 
 const SIMILAR_LIMIT = 6;
@@ -87,6 +87,48 @@ function isValidRedFlag(value: unknown): value is ScanResult["scoring"]["red_fla
   );
 }
 
+function isValidRiskAssessment(value: unknown): value is RiskAssessment {
+  if (!value || typeof value !== "object") return false;
+  const assessment = value as Record<string, unknown>;
+  const coverage = assessment.coverage;
+  return (
+    assessment.version === "v10" &&
+    (assessment.level === "none" || assessment.level === "review" || assessment.level === "high") &&
+    isFiniteNumber(assessment.risk_score) &&
+    isFiniteNumber(assessment.confidence) &&
+    isFiniteNumber(assessment.applied_penalty) &&
+    assessment.risk_score >= 0 &&
+    assessment.risk_score <= 100 &&
+    assessment.confidence >= 0 &&
+    assessment.confidence <= 100 &&
+    assessment.applied_penalty >= 0 &&
+    assessment.applied_penalty <= 25 &&
+    isClose(assessment.risk_score, assessment.applied_penalty / 25 * 100) &&
+    Array.isArray(assessment.signals) &&
+    coverage !== null &&
+    typeof coverage === "object" &&
+    isFiniteNumber((coverage as Record<string, unknown>).repo) &&
+    isFiniteNumber((coverage as Record<string, unknown>).merged_pr) &&
+    isFiniteNumber((coverage as Record<string, unknown>).all_pr)
+  );
+}
+
+function isValidRiskSignal(value: unknown): value is RiskSignal {
+  if (!value || typeof value !== "object") return false;
+  const signal = value as Record<string, unknown>;
+  return (
+    typeof signal.flag === "string" &&
+    (signal.family === "footprint" || signal.family === "contribution" || signal.family === "social") &&
+    (signal.disposition === "note" || signal.disposition === "penalty") &&
+    isFiniteNumber(signal.severity) &&
+    isFiniteNumber(signal.confidence) &&
+    isFiniteNumber(signal.penalty) &&
+    typeof signal.detail === "string" &&
+    signal.evidence !== null &&
+    typeof signal.evidence === "object"
+  );
+}
+
 function scoreBreakdownFromScan(
   scan: ScanResult | null,
   finalScore: number,
@@ -103,7 +145,7 @@ function scoreBreakdownFromScan(
     scoring.base_score < 0 ||
     scoring.base_score > 100 ||
     scoring.total_penalty < 0 ||
-    scoring.total_penalty > 40 ||
+    scoring.total_penalty > 25 ||
     scoring.final_score < 0 ||
     scoring.final_score > 100
   ) {
@@ -126,7 +168,7 @@ function scoreBreakdownFromScan(
 
   const flagPenaltyTotal = Math.min(
     scoring.red_flags.reduce((sum, flag) => sum + flag.penalty, 0),
-    40,
+    25,
   );
   if (!isClose(flagPenaltyTotal, scoring.total_penalty)) return null;
 
@@ -138,13 +180,50 @@ function scoreBreakdownFromScan(
     return null;
   }
 
+  const riskAssessment = scoring.risk_assessment;
+  const riskNotes = scoring.risk_notes ?? [];
+  if (
+    riskAssessment &&
+    (!isValidRiskAssessment(riskAssessment) ||
+      !riskAssessment.signals.every(isValidRiskSignal) ||
+      !riskNotes.every(isValidRiskSignal) ||
+      riskAssessment.applied_penalty < 0 ||
+      riskAssessment.applied_penalty > 25 ||
+      !isClose(riskAssessment.applied_penalty, scoring.total_penalty))
+  ) {
+    return null;
+  }
+
   const appliedPenalty = Math.max(0, roundHalfEven(scoring.base_score - finalScore, 2));
   return {
     base_score: scoring.base_score,
     total_penalty: scoring.total_penalty,
     applied_penalty: appliedPenalty,
     red_flags: scoring.red_flags,
+    risk_assessment: riskAssessment ?? null,
+    risk_notes: riskNotes,
     complete: true,
+  };
+}
+
+function scoreBreakdownFromStoredDetail(detail: DbAccountDetail): ScoreBreakdown {
+  const base = roundHalfEven(
+    SCORE_SUB_KEYS.reduce((sum, key) => sum + detail.sub_scores[key], 0),
+    1,
+  );
+  const applied = Math.max(0, roundHalfEven(base - detail.final_score, 2));
+  return {
+    base_score: base,
+    total_penalty: detail.risk_assessment?.applied_penalty ?? applied,
+    applied_penalty: applied,
+    red_flags: detail.risk_assessment
+      ? detail.risk_assessment.signals
+          .filter((signal) => signal.penalty > 0)
+          .map(({ flag, penalty, detail: explanation }) => ({ flag, penalty, detail: explanation }))
+      : [],
+    risk_assessment: detail.risk_assessment ?? null,
+    risk_notes: detail.risk_notes ?? [],
+    complete: Boolean(detail.risk_assessment),
   };
 }
 
@@ -251,9 +330,15 @@ export async function buildProfilePresentation(
   const detail = await getAccountDetail(handle);
   if (!detail) return null;
   const [scoreBreakdown, snapshot, { rank, percentile }, similar, battles, facetRank, delta] = await Promise.all([
-    getCurrentCanonicalQuickScan(detail.username).then((current) =>
-      scoreBreakdownFromScan(current?.scan ?? null, detail.final_score, detail.sub_scores),
-    ),
+    getCurrentCanonicalQuickScan(detail.username).then((current) => {
+      // If a current scan exists but fails verification, do not silently turn
+      // it into an apparently valid breakdown from the score row. A stored-row
+      // fallback is only appropriate when no current scan is available.
+      if (current) {
+        return scoreBreakdownFromScan(current.scan, detail.final_score, detail.sub_scores);
+      }
+      return scoreBreakdownFromStoredDetail(detail);
+    }),
     getProfileSnapshot(detail.username),
     buildScorePercentile(detail.final_score),
     getSimilarAccounts(detail.username, detail.final_score, detail.sub_scores, SIMILAR_LIMIT),

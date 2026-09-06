@@ -125,6 +125,8 @@ describe("materializeCanonicalScore", () => {
         roast_line: { zh: "", en: "" },
         bot_score: spamBotScore(original.metrics),
         sub_scores: expected.sub_scores,
+        risk_assessment: expected.risk_assessment,
+        risk_notes: expected.risk_notes,
         scanned_at: SCANNED_AT,
       },
       provenance: {

@@ -12,6 +12,7 @@ import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
+import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export type ToolError = { error: string; message: string };
@@ -44,6 +45,16 @@ function isCanonicalDetail(detail: NonNullable<Awaited<ReturnType<typeof getAcco
   );
 }
 
+function persistedBaseScore(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>): number {
+  return roundHalfEven(Object.values(detail.sub_scores).reduce((sum, value) => sum + value, 0), 1);
+}
+
+function persistedRiskFlags(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>) {
+  return (detail.risk_assessment?.signals ?? [])
+    .filter((signal) => signal.penalty > 0)
+    .map(({ flag, penalty, detail: explanation }) => ({ flag, penalty, detail: explanation }));
+}
+
 /** Deterministic score for one account, with no asynchronous collection state. */
 export async function scoreUser(
   rawUsername: string,
@@ -65,6 +76,11 @@ export async function scoreUser(
       tier: detail.tier,
       tier_key: TIER_KEY[detail.tier],
       sub_scores: detail.sub_scores,
+      base_score: persistedBaseScore(detail),
+      total_penalty: detail.risk_assessment?.applied_penalty ?? 0,
+      red_flags: persistedRiskFlags(detail),
+      risk_assessment: detail.risk_assessment ?? null,
+      risk_notes: detail.risk_notes ?? [],
       percentile: await percentileFor(detail.final_score),
       scanned_at: detail.scanned_at,
       profile: `${SITE_URL}/u/${detail.username}`,
@@ -85,7 +101,11 @@ export async function scoreUser(
       tier,
       tier_key: TIER_KEY[tier],
       sub_scores: scoring.sub_scores,
+      base_score: scoring.base_score,
+      total_penalty: scoring.total_penalty,
       red_flags: scoring.red_flags,
+      risk_assessment: scoring.risk_assessment,
+      risk_notes: scoring.risk_notes,
       percentile: await percentileFor(scoring.final_score),
       profile: `${SITE_URL}/u/${metrics.username}`,
     };

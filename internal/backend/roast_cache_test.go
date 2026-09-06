@@ -33,13 +33,13 @@ func TestRoastCachePreservesNodeKeysTTLAndLockLifetime(t *testing.T) {
 
 	setCache, setLock, clearCache := <-commands, <-commands, <-commands
 	assertCommandString(t, setCache, 0, "SET")
-	assertCommandString(t, setCache, 1, "roast:v10:v9:v4:en:octocat")
-	assertCommandNumber(t, setCache, 4, 86400)
+	assertCommandString(t, setCache, 1, "roast:v10:v10:v4:en:octocat")
+	assertCommandNumber(t, setCache, 4, 172800)
 	assertCommandString(t, setLock, 0, "SET")
-	assertCommandString(t, setLock, 1, "lock:roast:v10:v9:v4:en:octocat")
+	assertCommandString(t, setLock, 1, "lock:roast:v10:v10:v4:en:octocat")
 	assertCommandNumber(t, setLock, 5, 270)
 	assertCommandString(t, clearCache, 0, "DEL")
-	assertCommandString(t, clearCache, 1, "roast:v10:v9:v4:en:octocat")
+	assertCommandString(t, clearCache, 1, "roast:v10:v10:v4:en:octocat")
 }
 
 func assertCommandString(t *testing.T, command []json.RawMessage, index int, want string) {

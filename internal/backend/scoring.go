@@ -101,14 +101,51 @@ type RedFlag struct {
 	Detail  string  `json:"detail"`
 }
 
+type RiskEvidence struct {
+	Observed   map[string]any     `json:"observed"`
+	SampleSize *float64           `json:"sample_size,omitempty"`
+	Threshold  map[string]float64 `json:"threshold,omitempty"`
+	Coverage   map[string]float64 `json:"coverage"`
+	Window     string             `json:"window"`
+}
+
+type RiskSignal struct {
+	Flag        string       `json:"flag"`
+	Family      string       `json:"family"`
+	Disposition string       `json:"disposition"`
+	Severity    float64      `json:"severity"`
+	Confidence  float64      `json:"confidence"`
+	Penalty     float64      `json:"penalty"`
+	Detail      string       `json:"detail"`
+	Evidence    RiskEvidence `json:"evidence"`
+}
+
+type RiskCoverage struct {
+	Repo     float64 `json:"repo"`
+	MergedPR float64 `json:"merged_pr"`
+	AllPR    float64 `json:"all_pr"`
+}
+
+type RiskAssessment struct {
+	Version        string       `json:"version"`
+	RiskScore      float64      `json:"risk_score"`
+	Level          string       `json:"level"`
+	Confidence     float64      `json:"confidence"`
+	AppliedPenalty float64      `json:"applied_penalty"`
+	Signals        []RiskSignal `json:"signals"`
+	Coverage       RiskCoverage `json:"coverage"`
+}
+
 type Scoring struct {
-	SubScores    SubScores `json:"sub_scores"`
-	BaseScore    float64   `json:"base_score"`
-	RedFlags     []RedFlag `json:"red_flags"`
-	TotalPenalty float64   `json:"total_penalty"`
-	FinalScore   float64   `json:"final_score"`
-	Tier         string    `json:"tier"`
-	TierLabel    string    `json:"tier_label"`
+	SubScores      SubScores      `json:"sub_scores"`
+	BaseScore      float64        `json:"base_score"`
+	RedFlags       []RedFlag      `json:"red_flags"`
+	RiskAssessment RiskAssessment `json:"risk_assessment"`
+	RiskNotes      []RiskSignal   `json:"risk_notes"`
+	TotalPenalty   float64        `json:"total_penalty"`
+	FinalScore     float64        `json:"final_score"`
+	Tier           string         `json:"tier"`
+	TierLabel      string         `json:"tier_label"`
 }
 
 func valueOrZero(value *float64) float64 {
@@ -307,42 +344,6 @@ func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
 	return 22, true
 }
 
-func templatedPRFloodPenalty(m RawMetrics) (float64, bool) {
-	if !m.PRFloodSuspect {
-		return 0, false
-	}
-	concentrationSeverity := max(0, min(1, ((m.TopRepoPRShare-0.5)/0.5)*0.5+((m.TemplatedPRRatio-0.5)/0.5)*0.5))
-	sample := m.RecentMergedPRSample
-	if sample == 0 {
-		sample = m.RecentPRSample
-	}
-	docLikeRatio := docLikePRRatio(m, sample)
-	hasPopularImpactSignal := m.ImpactPRCount > 0 || m.MaxImpactRepoStars >= 10000
-	lowCoreImpact := hasPopularImpactSignal && valueOrZero(m.CoreImpactPRCount) <= 2 && (m.ImpactQualityCap != nil || m.MaxImpactRepoStars >= 10000)
-	weakOwnProject := m.TotalStars < 300 && valueOr(m.TopStarredOriginalRepoQualityScore, 1) < 0.5
-	lowQualityEvidence := 0
-	if sample >= 20 && docLikeRatio >= 0.55 {
-		lowQualityEvidence++
-	}
-	if m.PRRejectionRate >= 0.35 {
-		lowQualityEvidence++
-	}
-	if lowCoreImpact {
-		lowQualityEvidence++
-	}
-	if weakOwnProject {
-		lowQualityEvidence++
-	}
-	extremeFlood := m.TopRepoPRShare >= 0.85 && m.TemplatedPRRatio >= 0.75
-	if lowQualityEvidence >= 2 || (extremeFlood && lowQualityEvidence >= 1) {
-		return 10 + roundJS(10*concentrationSeverity), true
-	}
-	if lowQualityEvidence == 1 || extremeFlood {
-		return 6 + roundJS(4*concentrationSeverity), true
-	}
-	return 4 + roundJS(4*concentrationSeverity), true
-}
-
 func hasSocialOnlyDormantSignal(m RawMetrics) bool {
 	return m.Followers >= 500 && m.LastYearContributions == 0 && m.MergedPRCount == 0 &&
 		m.ImpactPRCount == 0 && m.MaxImpactRepoStars == 0 && m.TotalStars <= 300 &&
@@ -461,70 +462,10 @@ func Score(m RawMetrics) Scoring {
 	sub.ActivityAuthenticity = roundToEven(contributionPoints+recencyPoints+min(m.ActivityTypeCount, 4)*1.125, 1)
 
 	base := roundToEven(sub.AccountMaturity+sub.OriginalProjectQuality+sub.ContributionQuality+sub.EcosystemImpact+sub.CommunityInfluence+sub.ActivityAuthenticity, 1)
-	flags := make([]RedFlag, 0)
-	flag := func(name string, penalty float64, detail string) {
-		flags = append(flags, RedFlag{Flag: name, Penalty: penalty, Detail: detail})
-	}
-	fetched := max(m.FetchedRepoCount, 1)
-	if m.AccountAgeYears < 1 && m.PublicRepos > 30 {
-		flag("new_account_mass_repos", 10, fmt.Sprintf("Account <1yr old with %s repos — possible mass creation.", formatNumber(m.PublicRepos)))
-	}
-	if m.ForkRepoCount/fetched > 0.7 && m.NonemptyOriginalRepoCount <= 2 {
-		flag("mostly_forks", 10, fmt.Sprintf("%s/%s repos are forks with little original work.", formatNumber(m.ForkRepoCount), formatNumber(fetched)))
-	}
-	if m.NonemptyOriginalRepoCount == 0 {
-		flag("no_original_work", 10, "No non-empty original repositories.")
-	}
-	if m.EmptyOriginalRepoCount >= 5 && m.EmptyOriginalRepoCount/fetched > 0.5 {
-		flag("mostly_empty_repos", 5, fmt.Sprintf("%s empty original repos — likely placeholder/spam.", formatNumber(m.EmptyOriginalRepoCount)))
-	}
-	if m.Following > 1000 && m.Followers < m.Following*0.3 {
-		flag("follow_farming", 10, fmt.Sprintf("following %s >> followers %s — follow-farming pattern.", formatNumber(m.Following), formatNumber(m.Followers)))
-	}
-	if (m.Bio == nil || *m.Bio == "") && m.Followers < 3 && m.TotalStars == 0 && m.MergedPRCount < 2 {
-		flag("ghost_profile", 8, "Empty profile with negligible footprint.")
-	}
-	days := 999.0
-	if m.DaysSinceLastActivity != nil {
-		days = *m.DaysSinceLastActivity
-	}
-	if m.ContributionYearsActive <= 1 && m.AccountAgeYears > 2 && days > 365 {
-		flag("burst_then_dormant", 5, "Active in only one year then dormant — burst pattern.")
-	}
-	if hasSocialOnlyDormantSignal(m) {
-		flag("social_only_dormant_profile", 5, fmt.Sprintf("%s followers but 0 last-year contributions, 0 PRs, no external impact, and no strong original project signal — social/profile attention is disconnected from code work.", formatNumber(m.Followers)))
-	}
-	if m.StarInflationSuspect {
-		flag("possible_star_inflation", 5, "Top repo has many stars but near-zero forks/issues — possible bought stars.")
-	}
-	if m.RecentMergedPRSample >= 10 && m.ExternalTrivialPRCount/m.RecentMergedPRSample > 0.5 {
-		flag("trivial_pr_farming", 8, fmt.Sprintf("%s/%s recent merged PRs are ≤5-line changes into others' ≥200★ repos — garbage PR farming into popular community projects.", formatNumber(m.ExternalTrivialPRCount), formatNumber(m.RecentMergedPRSample)))
-	}
-	if penalty, applies := templatedPRFloodPenalty(m); applies {
-		repo := "one repo"
-		if m.TopRepoPRTarget != nil {
-			repo = *m.TopRepoPRTarget
-		}
-		flag("templated_pr_flooding", penalty, fmt.Sprintf("近期 %s%% 的 PR 集中刷向 %s，%s%% 标题高度模板化（%s 个样本） — 模式化批量贡献风险，需结合 diff 质量人工复核。", formatNumber(roundJS(m.TopRepoPRShare*100)), repo, formatNumber(roundJS(m.TemplatedPRRatio*100)), formatNumber(m.RecentPRSample)))
-	}
-	rejected := valueOr(m.MaintainerClosedUnmergedPRCount, m.ClosedUnmergedPRCount)
-	decided := m.MergedPRCount + rejected
-	if decided >= 10 && m.PRRejectionRate > 0.5 {
-		penalty := 8.0
-		if m.PRRejectionRate > 0.7 {
-			penalty = 10
-		}
-		flag("high_pr_rejection", penalty, fmt.Sprintf("%s/%s 个已决 PR 被维护者关闭未合并（被拒率 %s%%）— 低质 / 频繁被拒。", formatNumber(rejected), formatNumber(decided), formatNumber(roundJS(m.PRRejectionRate*100))))
-	}
-
-	totalPenalty := 0.0
-	for _, flag := range flags {
-		totalPenalty += flag.Penalty
-	}
-	totalPenalty = min(totalPenalty, 40)
+	riskAssessment, riskNotes, redFlags, totalPenalty := AssessRisk(m)
 	final := clampScore(roundToEven(base-totalPenalty, 2))
 	tier, tierLabel := tierFor(final)
-	return Scoring{SubScores: sub, BaseScore: base, RedFlags: flags, TotalPenalty: totalPenalty, FinalScore: final, Tier: tier, TierLabel: tierLabel}
+	return Scoring{SubScores: sub, BaseScore: base, RedFlags: redFlags, RiskAssessment: riskAssessment, RiskNotes: riskNotes, TotalPenalty: totalPenalty, FinalScore: final, Tier: tier, TierLabel: tierLabel}
 }
 
 func formatNumber(value float64) string {

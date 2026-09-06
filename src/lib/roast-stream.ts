@@ -42,7 +42,11 @@ export interface RoastStreamCallbacks {
   /** The report markdown accumulated so far (called on each new chunk). */
   onReport?(accumulated: string): void;
   /** Server error (preflight JSON already handled by caller, or an E-frame). */
-  onError?(data: { error?: string; useByoKey?: boolean }): void;
+  onError?(data: {
+    error?: string;
+    useByoKey?: boolean;
+    fallback?: { report?: string; meta?: RoastMeta };
+  }): void;
 }
 
 /**
