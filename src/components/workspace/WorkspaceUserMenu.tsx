@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, LogOut, Palette, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, ChevronsUpDown, FileUser, LogOut, UserRound, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { signOutOfGitHub } from "@/lib/oauth-client";
 
 type WorkspaceUserMenuProps = {
@@ -34,6 +33,14 @@ function GitHubMark() {
   );
 }
 
+/**
+ * Signed-in account row at the foot of the sidebar: avatar + handle as the
+ * trigger, menu opens upward (the row sits at the viewport bottom). Holds the
+ * profile entry, the résumé link that ties the account into the career
+ * section, following, source, and sign out. Theme/locale stay in the sidebar's
+ * preferences row, so they are not repeated here. In the collapsed icon rail
+ * only the avatar shows.
+ */
 export function WorkspaceUserMenu({
   image,
   login,
@@ -44,7 +51,7 @@ export function WorkspaceUserMenu({
 }: WorkspaceUserMenuProps) {
   const tHeader = useTranslations("header");
   const tFollow = useTranslations("follow");
-  const tTheme = useTranslations("themeSwitch");
+  const tSidebar = useTranslations("sidebar");
   const targetHref = scored
     ? `/u/${login}`
     : `/?username=${encodeURIComponent(`https://github.com/${login}`)}`;
@@ -55,38 +62,30 @@ export function WorkspaceUserMenu({
         <button
           type="button"
           aria-label={login}
-          className="navbar-action w-10 justify-center overflow-hidden"
+          className="sidebar-account-user"
         >
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt={login} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-sm font-semibold text-zinc-100">{avatarFallback(login)}</span>
-          )}
-        </button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        className="w-[18.5rem] rounded-2xl border-white/10 bg-popover/98 p-1.5 shadow-2xl backdrop-blur-xl"
-      >
-        <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06]">
+          <span className="sidebar-account-avatar">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={image} alt={login} className="h-full w-full object-cover" />
             ) : (
-              <span className="text-base font-semibold text-zinc-100">{avatarFallback(login)}</span>
+              <span aria-hidden>{avatarFallback(login)}</span>
             )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-zinc-100">@{login}</div>
-            <div className="truncate text-xs text-zinc-500">github.com/{login}</div>
-          </div>
-        </div>
+          </span>
+          <span className="sidebar-account-name sidebar-label">
+            <span>@{login}</span>
+            <small>github.com/{login}</small>
+          </span>
+          <ChevronsUpDown size={14} className="sidebar-label sidebar-account-chevron" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
 
-        <DropdownMenuSeparator className="mx-1 bg-white/10" />
-
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={10}
+        className="w-[16.5rem] rounded-2xl border-white/10 bg-popover/98 p-1.5 shadow-2xl backdrop-blur-xl"
+      >
         <DropdownMenuItem asChild>
           <Link
             href={targetHref}
@@ -95,6 +94,19 @@ export function WorkspaceUserMenu({
             <span className="flex items-center gap-2.5">
               <UserRound className="h-4 w-4 text-zinc-300" />
               <span>{scored ? tHeader("myProfile") : tHeader("judgeSelf")}</span>
+            </span>
+            <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/resume"
+            className="flex items-center justify-between rounded-xl px-3 py-2.5"
+          >
+            <span className="flex items-center gap-2.5">
+              <FileUser className="h-4 w-4 text-zinc-300" />
+              <span>{tSidebar("resume")}</span>
             </span>
             <ArrowUpRight className="h-4 w-4 text-zinc-500" />
           </Link>
@@ -130,16 +142,6 @@ export function WorkspaceUserMenu({
             <ArrowUpRight className="h-4 w-4 text-zinc-500" />
           </a>
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator className="mx-1 bg-white/10" />
-
-        <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5">
-          <span className="flex items-center gap-2.5 text-sm text-zinc-300">
-            <Palette className="h-4 w-4 text-zinc-300" />
-            {tTheme("label")}
-          </span>
-          <ThemeToggle />
-        </div>
 
         <DropdownMenuSeparator className="mx-1 bg-white/10" />
 

@@ -56,7 +56,7 @@ export function ResumePhotoInput({ zh, photo, onChange }: { zh: boolean; photo: 
         {photo && <button type="button" className="resume-text-button" disabled={busy} onClick={() => { ++request.current; onChange(undefined); setError(""); }}><X size={13} />{copy("移除", "Remove")}</button>}
       </div>
     </div>
-    <p>{copy("支持 JPG、PNG、WebP，最大 5 MB。图片会在浏览器内压缩，随简历保存到本地，不会上传到服务器。上传后请保存简历。", "JPG, PNG or WebP, up to 5 MB. Photos are compressed in your browser and saved locally with your résumé, never uploaded to a server. Save your résumé after adding a photo.")}</p>
+    <p>{copy("支持 JPG、PNG、WebP，最大 5 MB。图片先在浏览器内压缩。点击保存后，随简历保存到本地；登录后也会保存到云端。", "JPG, PNG or WebP, up to 5 MB. Photos are compressed in your browser. Save your résumé to keep the photo locally and, when signed in, in the cloud.")}</p>
     {photo && <label className="resume-photo-position">{copy("照片取景 · 上下位置", "Crop · vertical position")}<input type="range" min="0" max="100" value={photo.position} onChange={event => onChange({ ...photo, position: Number(event.target.value) })} /></label>}
     {error && <p role="alert" className="resume-error">{error}</p>}
   </div>;

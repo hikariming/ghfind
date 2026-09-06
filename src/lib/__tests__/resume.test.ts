@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createResume, readResumeLibrary, serializeResumeLibrary, upsertResume } from "../resume";
+import { createResume, readResumeLibrary, resumeStorageSnapshot, sampleResume, serializeResumeLibrary, TEMPLATE_IDS, upsertResume } from "../resume";
 
 describe("local résumé persistence", () => {
   it("round-trips personal data, sections and layout without merging distinct documents", () => {
@@ -45,4 +45,25 @@ describe("résumé portraits", () => {
       expect(() => serializeResumeLibrary([{ ...draft, photo }])).toThrow();
     }
   });
+});
+
+describe("sample résumé content", () => {
+  // "Fill sample data" and the cloud-sync payload validation share this path:
+  // every template's illustrative content must survive a library round-trip.
+  it("round-trips through the library schema in both languages for every template", () => {
+    for (const template of TEMPLATE_IDS) {
+      for (const zh of [true, false]) {
+        const sample = sampleResume(template, zh);
+        expect(sample.basics.name).not.toBe("");
+        expect(readResumeLibrary(serializeResumeLibrary([sample]))).toEqual([sample]);
+      }
+    }
+  });
+});
+
+it("does not treat schema property reordering after a cloud save as another tab's edit", () => {
+  const saved = { ...createResume("modern", true), updatedAt: "version-1", cloudBase: { account: "example", updatedAt: "cloud-version" } };
+  const restored = readResumeLibrary(serializeResumeLibrary([saved]))[0];
+  expect(resumeStorageSnapshot(saved)).toBe(resumeStorageSnapshot(restored));
+  expect(resumeStorageSnapshot({ ...restored, name: "Another tab" })).not.toBe(resumeStorageSnapshot(saved));
 });

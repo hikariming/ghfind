@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { oauthConfigured } from "@/lib/oauth-config";
 import { Navbar } from "@/components/Navbar";
 import { LoginNudge } from "@/components/LoginNudge";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -70,11 +69,11 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   const tMeta = await getTranslations({ locale, namespace: "meta" });
 
-  // The login nudge gates its own visibility client-side (OAuth configured +
-  // signed out, probed via /api/me). We deliberately do NOT read the session
-  // here: a server-side auth() reads cookies, which would opt every page out of
-  // static/ISR caching — the whole point of this refactor.
-  const oauthEnabled = oauthConfigured();
+  // The login nudge gates its own visibility client-side (OAuth offered +
+  // signed out, both from the shared /api/me probe). We deliberately do NOT
+  // read the session or the OAuth env here: a server-side check would read
+  // cookies or bake the build machine's env into prerendered HTML — either
+  // way it defeats static/ISR caching.
 
   return (
     <>
@@ -92,7 +91,7 @@ export default async function LocaleLayout({
           {children}
           <SiteFooter />
         </Navbar>
-        <LoginNudge configured={oauthEnabled} />
+        <LoginNudge />
       </NextIntlClientProvider>
     </>
   );

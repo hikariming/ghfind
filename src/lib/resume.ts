@@ -1,12 +1,19 @@
 import { z } from "zod";
 
 export const RESUME_STORAGE_KEY = "ghfind.resumes.v1";
+/**
+ * Hard cap for the cloud-synced library payload (photos are the only bulky
+ * field, ~700 KB each). D1 query parameters top out around 1 MB, so the API
+ * rejects anything past this before it reaches the database.
+ */
+export const RESUME_LIBRARY_MAX_BYTES = 900_000;
 export const TEMPLATE_IDS = ["editorial", "modern", "classic", "noir"] as const;
 export const SECTION_TYPES = ["experience", "projects", "education", "skills", "custom"] as const;
 const field = z.string().max(20000);
 const entrySchema = z.object({ id: z.string(), title: field, subtitle: field, period: field, details: field });
 export const resumeSchema = z.object({
   id: z.string(), name: field, template: z.enum(TEMPLATE_IDS), updatedAt: z.string(),
+  cloudBase: z.object({ account: z.string(), updatedAt: z.string().nullable() }).optional(),
   photo: z.object({ data: z.string().max(700000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/), position: z.number().min(0).max(100) }).optional(),
   basics: z.object({ name: field, role: field, email: field, phone: field, city: field, website: field, summary: field }),
   sections: z.array(z.object({ id: z.string(), type: z.enum(SECTION_TYPES), title: field, entries: z.array(entrySchema).max(100) })).max(30),
@@ -52,4 +59,15 @@ export function sampleResume(template: TemplateId, zh: boolean): Resume {
     { id: "sample-education", type: "education", title: zh ? "教育背景" : "Education", entries: [{ id: "sample-3", title: zh ? "计算机科学与技术 · 本科" : "BSc Computer Science", subtitle: zh ? "某大学" : "Example University", period: "2018 — 2022", details: "" }] },
     { id: "sample-skills", type: "skills", title: zh ? "专业技能" : "Skills", entries: [{ id: "sample-4", title: "", subtitle: "", period: "", details: "TypeScript · React · Node.js · PostgreSQL\nProduct design · Figma · Git" }] },
   ] };
+}
+
+/** Compare document content independently of storage timestamps and local sync metadata. */
+export function sameResumeContent(a: Resume, b: Resume): boolean {
+  const content = (r: Resume) => ({ name: r.name, template: r.template, basics: r.basics, sections: r.sections, photo: r.photo });
+  return JSON.stringify(content(a)) === JSON.stringify(content(b));
+}
+
+/** Normalize schema field order before comparing local storage snapshots. */
+export function resumeStorageSnapshot(resume?: Resume): string {
+  return serializeResumeLibrary(resume ? [resume] : []);
 }

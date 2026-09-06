@@ -792,6 +792,18 @@ function ensureSchema(db: Client): Promise<void> {
              PRIMARY KEY (follower_github_id, target_username)
            )`,
           `CREATE INDEX IF NOT EXISTS idx_follows_target ON follows(target_username)`,
+          // Cloud copy of a signed-in user's résumé library (the localStorage
+          // payload from lib/resume.ts, validated against librarySchema before
+          // writes). Keyed by GitHub numeric id like follows so renames don't
+          // orphan data; one JSON blob per user keeps sync a simple
+          // last-write-wins replace. Payload size is capped at the API layer
+          // (photos are the only bulky field).
+          `CREATE TABLE IF NOT EXISTS user_resume_libraries (
+             github_id  INTEGER PRIMARY KEY,
+             login      TEXT NOT NULL,
+             data       TEXT NOT NULL,
+             updated_at INTEGER NOT NULL
+           )`,
           // Repositories as first-class entities — the normalized project layer
           // derived from profile_snapshots (top_repos + impact_repos) by
           // lib/repo-graph.ts. Promotes repos out of the per-scan JSON blobs so
@@ -7000,4 +7012,35 @@ export async function listFollowedAccounts(
     console.error("listFollowedAccounts failed:", e);
     return null;
   }
+}
+
+/** Null is an empty library; undefined is an unavailable database. */
+export async function getResumeLibrary(githubId: number): Promise<{ data: string; updatedAt: number } | null | undefined> {
+  const db = getClient();
+  if (!db || !validGithubId(githubId)) return undefined;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({ sql: `SELECT data, updated_at FROM user_resume_libraries WHERE github_id = ?`, args: [githubId] });
+    const row = res.rows[0];
+    return row ? { data: String(row.data), updatedAt: Number(row.updated_at) } : null;
+  } catch { return undefined; }
+}
+
+/** Atomically compare the read snapshot before writing; never erase a concurrent save. */
+export async function saveResumeLibrary(githubId: number, login: string, data: string, expectedData: string | null): Promise<"saved" | "conflict" | "unavailable"> {
+  const db = getClient();
+  if (!db || !validGithubId(githubId) || !login) return "unavailable";
+  try {
+    await ensureSchema(db);
+    const result = expectedData === null
+      ? await db.execute({
+          sql: `INSERT INTO user_resume_libraries (github_id, login, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(github_id) DO NOTHING`,
+          args: [githubId, login, data, Date.now()],
+        })
+      : await db.execute({
+          sql: `UPDATE user_resume_libraries SET login = ?, data = ?, updated_at = ? WHERE github_id = ? AND data = ?`,
+          args: [login, data, Date.now(), githubId, expectedData],
+        });
+    return result.rowsAffected === 1 ? "saved" : "conflict";
+  } catch { return "unavailable"; }
 }
