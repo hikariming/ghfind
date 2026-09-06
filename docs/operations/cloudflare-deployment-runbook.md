@@ -254,10 +254,10 @@ production release gate.
 ## Automated rollback
 
 The production workflow records the active 100% Worker version before each
-serialized release. It also requires that the active deployment was authored by
-the Beiming Cloudflare identity. If build/deploy/active-version/post-deploy
-the build/deployment, active-version check, or post-deploy smoke fails, it
-automatically runs:
+serialized release. The target account is enforced by the pinned Beiming Account
+ID; Cloudflare's `author_email` is retained as audit metadata only because a
+delegated user token may legitimately publish into that account. If
+build/deploy/active-version/post-deploy smoke fails, it automatically runs:
 
 ```bash
 pnpm exec wrangler rollback <CAPTURED_VERSION_ID> --name ghfind --env production --message "rollback: post-deploy verification failed" --yes
