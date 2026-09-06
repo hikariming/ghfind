@@ -49,4 +49,16 @@ if (/^  push:/m.test(workflow) || /^  workflow_dispatch:/m.test(workflow)) {
   );
 }
 
+if (workflow.includes('test "$previous_author" = "beiming1201@gmail.com"')) {
+  throw new Error(
+    "Do not use Cloudflare author_email as the production account gate; validate the pinned account ID instead.",
+  );
+}
+
+if (!workflow.includes("Previous active author (audit metadata only)")) {
+  throw new Error(
+    "Production release must label Cloudflare author_email as audit metadata only.",
+  );
+}
+
 console.log(`Cloudflare release workflow contract passed (${workflowPath})`);

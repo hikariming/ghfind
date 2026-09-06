@@ -108,14 +108,16 @@ jobs:
             echo "Cloudflare returned an invalid rollback version id" >&2
             exit 1
           fi
-          previous_author="$(jq -er '.author_email' < "$status_file")"
-          test "$previous_author" = "beiming1201@gmail.com"
+          # The API credential may be a delegated user token. The deployment
+          # target is enforced by the pinned account ID above; the author is
+          # audit metadata and must not be used as an account-ownership gate.
+          previous_author="$(jq -r '.author_email // "unknown"' < "$status_file")"
           echo "previous_version=$previous_version" >> "$GITHUB_OUTPUT"
           {
             echo "### Cloudflare production release"
             echo "- Commit: `$RELEASE_SHA`"
             echo "- Account: `$CLOUDFLARE_ACCOUNT_ID`"
-            echo "- Previous active author: `$previous_author`"
+            echo "- Previous active author (audit metadata only): `$previous_author`"
             echo "- Rollback target: `$previous_version`"
           } >> "$GITHUB_STEP_SUMMARY"
 
