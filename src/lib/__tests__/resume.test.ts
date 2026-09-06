@@ -27,3 +27,22 @@ describe("local résumé persistence", () => {
     expect(new Set(draft.sections.map(section => section.id)).size).toBe(4);
   });
 });
+
+
+describe("résumé portraits", () => {
+  it("loads old drafts without a photo and preserves portraits across layout changes", () => {
+    const old = createResume("editorial", true);
+    expect(readResumeLibrary(serializeResumeLibrary([old]))[0].photo).toBeUndefined();
+    const withPhoto = { ...old, template: "noir" as const, photo: { data: "data:image/jpeg;base64,/9j/2Q==", position: 35 } };
+    const restored = readResumeLibrary(serializeResumeLibrary([withPhoto]))[0];
+    expect(restored.photo).toEqual(withPhoto.photo);
+    expect(upsertResume([restored], { ...restored, template: "classic" })[0].photo).toEqual(withPhoto.photo);
+    expect(readResumeLibrary(serializeResumeLibrary([{ ...restored, photo: undefined }]))[0].photo).toBeUndefined();
+  });
+  it("rejects external URLs, invalid crops and oversized embedded photos", () => {
+    const draft = createResume("noir", true);
+    for (const photo of [{ data: "https://example.com/photo.jpg", position: 50 }, { data: "data:image/jpeg;base64,AAAA", position: 101 }, { data: "data:image/jpeg;base64," + "A".repeat(700000), position: 50 }]) {
+      expect(() => serializeResumeLibrary([{ ...draft, photo }])).toThrow();
+    }
+  });
+});

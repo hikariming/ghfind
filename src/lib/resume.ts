@@ -1,12 +1,13 @@
 import { z } from "zod";
 
 export const RESUME_STORAGE_KEY = "ghfind.resumes.v1";
-export const TEMPLATE_IDS = ["editorial", "modern", "classic"] as const;
+export const TEMPLATE_IDS = ["editorial", "modern", "classic", "noir"] as const;
 export const SECTION_TYPES = ["experience", "projects", "education", "skills", "custom"] as const;
 const field = z.string().max(20000);
 const entrySchema = z.object({ id: z.string(), title: field, subtitle: field, period: field, details: field });
 export const resumeSchema = z.object({
   id: z.string(), name: field, template: z.enum(TEMPLATE_IDS), updatedAt: z.string(),
+  photo: z.object({ data: z.string().max(700000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/), position: z.number().min(0).max(100) }).optional(),
   basics: z.object({ name: field, role: field, email: field, phone: field, city: field, website: field, summary: field }),
   sections: z.array(z.object({ id: z.string(), type: z.enum(SECTION_TYPES), title: field, entries: z.array(entrySchema).max(100) })).max(30),
 });

@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, FileText, HardDrive, LayoutTemplate, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { createResume, emptyEntry, newSection, readResumeLibrary, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
+import { ResumePhotoInput } from "./ResumePhotoInput";
 import { ResumePaper } from "./ResumePaper";
 
 const templateCopy = {
-  zh: { editorial: ["清爽双栏", "克制的层次与留白，适合产品与技术岗位。"], modern: ["现代蓝调", "鲜明的个人标识，让经历更容易被看见。"], classic: ["经典排版", "简洁、正式，让内容成为第一主角。"] },
-  en: { editorial: ["Editorial", "Clear hierarchy for product and engineering roles."], modern: ["Modern", "A distinctive identity and a confident blue accent."], classic: ["Classic", "Quiet, considered typography that puts content first."] },
+  zh: { noir: ["黑白肖像", "大标题与黑白双栏，教育和技能独立呈现。"], editorial: ["清爽双栏", "克制的层次与留白，适合产品与技术岗位。"], modern: ["现代蓝调", "鲜明的个人标识，让经历更容易被看见。"], classic: ["经典排版", "简洁、正式，让内容成为第一主角。"] },
+  en: { noir: ["Monochrome", "Bold typography, a portrait and a dedicated credentials column."], editorial: ["Editorial", "Clear hierarchy for product and engineering roles."], modern: ["Modern", "A distinctive identity and a confident blue accent."], classic: ["Classic", "Quiet, considered typography that puts content first."] },
 };
 
 export function ResumeBuilder({ zh }: { zh: boolean }) {
@@ -24,6 +25,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const [notice, setNotice] = useState("");
   const [undo, setUndo] = useState<Resume | null>(null);
   const dirty = draft !== null && JSON.stringify(draft) !== savedSnapshot;
+
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [view]);
 
   useEffect(() => {
     let live = true;
@@ -100,7 +103,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       {(library.length > 0 || draft) && <section className="resume-library"><div className="resume-section-heading"><h2>{copy("本地简历", "Local résumés")}</h2>{draft && <button className="resume-text-button" onClick={() => setView("editor")}>{copy("继续当前编辑", "Continue editing")} <ArrowRight size={14} /></button>}</div>
         <div className="resume-saved-list">{library.map(resume => <button key={resume.id} className="resume-saved-item" onClick={() => openResume(resume)}><FileText size={22} /><span><strong>{resume.name}</strong><small>{templates[resume.template][0]} · {new Date(resume.updatedAt).toLocaleString(zh ? "zh-CN" : "en-GB")}</small></span><ArrowRight size={16} /></button>)}</div>
       </section>}
-      <section className="resume-template-gallery"><div className="resume-section-heading"><div><h2>{copy("从一个好看的模板开始", "Start with a considered template")}</h2><p>{copy("三种风格，同一份内容。进入编辑器后也可以随时更换。下方为示例排版。", "Three styles, the same story. Switch templates any time. Thumbnails show sample content.")}</p></div><span className="resume-section-count">01 — 03</span></div>
+      <section className="resume-template-gallery"><div className="resume-section-heading"><div><h2>{copy("从一个好看的模板开始", "Start with a considered template")}</h2><p>{copy("四种风格，同一份内容。进入编辑器后也可以随时更换。下方为示例排版。", "Four styles, the same story. Switch templates any time. Thumbnails show sample content.")}</p></div><span className="resume-section-count">01 — 04</span></div>
         <div className="resume-template-grid">{TEMPLATE_IDS.map((template, index) => <button key={template} className="resume-template-card" onClick={() => begin(template)}><div className="resume-template-thumbnail"><ResumePaper resume={sampleResume(template, zh)} zh={zh} miniature /></div><div className="resume-template-caption"><span className="resume-template-index">0{index + 1}</span><div><h3>{templates[template][0]}</h3><p>{templates[template][1]}</p></div><ArrowRight size={18} /></div><span className="resume-template-use">{copy("使用此模板", "Use template")} <ArrowRight size={14} /></span></button>)}</div>
       </section>
     </> : draft && <>
@@ -121,6 +124,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
           </div>
           <div className="resume-editor-content" role="tabpanel" id={`resume-panel-${tab}`} aria-labelledby={`resume-tab-${tab}`}>
             {tab === "basics" && <><h2>{copy("先认识一下你", "Start with you")}</h2><p className="resume-editor-hint">{copy("填写你希望展示的信息，留空的字段不会显示。", "Only the fields you fill in will appear.")}</p>
+              <ResumePhotoInput zh={zh} photo={draft.photo} onChange={photo => { setDraft(current => current && ({ ...current, photo })); setNotice(""); }} />
               <div className="resume-fields">{(["name", "role", "email", "phone", "city", "website"] as const).map((key, index) => <label key={key}>{[copy("姓名", "Name"), copy("求职方向 / 职位", "Role / career focus"), copy("邮箱", "Email"), copy("电话", "Phone"), copy("所在城市", "Location"), copy("个人网站 / GitHub", "Website / GitHub")][index]}<input type={key === "email" ? "email" : "text"} autoComplete="off" value={draft.basics[key]} maxLength={500} placeholder={[copy("你的姓名", "Your name"), copy("例如：前端工程师", "e.g. Frontend Engineer"), "hello@example.com", copy("选填", "Optional"), copy("例如：上海", "e.g. London"), "github.com/username"][index]} onChange={event => { setDraft({ ...draft, basics: { ...draft.basics, [key]: event.target.value } }); setNotice(""); }} /></label>)}</div>
               <label className="resume-field">{copy("个人简介", "Summary")}<textarea rows={5} maxLength={20000} value={draft.basics.summary} placeholder={copy("用两三句话介绍你的方向、擅长的领域和代表性成果。", "Introduce your focus, strengths and a meaningful achievement.")} onChange={event => setDraft({ ...draft, basics: { ...draft.basics, summary: event.target.value } })} /></label>
               <button className="resume-button resume-next" onClick={() => setTab("sections")}>{copy("接下来，补充经历", "Next, add your experience")}<ArrowRight size={15} /></button>
