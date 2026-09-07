@@ -18,6 +18,9 @@ type recordingProjectPublisher struct {
 	published []string
 	retries   []recordedProjectRetry
 	dead      []string
+	feedSync  []FeedCatalogSyncJob
+	feedRetry []FeedCatalogSyncJob
+	feedDead  []FeedCatalogSyncJob
 }
 
 type recordedProjectRetry struct {
@@ -43,6 +46,27 @@ func (p *recordingProjectPublisher) PublishProjectAnalysisDead(_ context.Context
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.dead = append(p.dead, job.ID+":"+reason)
+	return nil
+}
+
+func (p *recordingProjectPublisher) PublishFeedCatalogSync(_ context.Context, job FeedCatalogSyncJob) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.feedSync = append(p.feedSync, job)
+	return nil
+}
+
+func (p *recordingProjectPublisher) PublishFeedCatalogSyncRetry(_ context.Context, job FeedCatalogSyncJob, _ time.Duration) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.feedRetry = append(p.feedRetry, job)
+	return nil
+}
+
+func (p *recordingProjectPublisher) PublishFeedCatalogSyncDead(_ context.Context, job FeedCatalogSyncJob, _ string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.feedDead = append(p.feedDead, job)
 	return nil
 }
 
@@ -241,7 +265,9 @@ func TestProjectAnalysisWorkerCompletesRun(t *testing.T) {
 	server := httptest.NewServer(mosoo.handler())
 	defer server.Close()
 
-	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker, publisher := newTestProjectAnalysisWorker(t, store, server.URL, func(config *Config) {
+		config.FeedMode = FeedModeBaseline
+	})
 	disposition, reason := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"})
 	if disposition != workerCompleted || reason != "" {
 		t.Fatalf("disposition = %v reason = %q", disposition, reason)
@@ -253,6 +279,9 @@ func TestProjectAnalysisWorkerCompletesRun(t *testing.T) {
 	}
 	if run.Status != ProjectAnalysisStatusCompleted || run.Progress != 100 || run.Phase != "completed" {
 		t.Fatalf("run = status %q phase %q progress %d", run.Status, run.Phase, run.Progress)
+	}
+	if len(publisher.feedSync) != 1 || publisher.feedSync[0].RepoKey != "owner/useful-tool" || publisher.feedSync[0].AnalysisID != "analysis-1" {
+		t.Fatalf("Feed catalog sync jobs = %#v", publisher.feedSync)
 	}
 	if run.MosooThreadID == nil || *run.MosooThreadID != "thread-1" {
 		t.Fatalf("mosoo thread = %v", run.MosooThreadID)
@@ -285,6 +314,21 @@ func TestProjectAnalysisWorkerCompletesRun(t *testing.T) {
 	}
 	if mosoo.createKeys[0] != "ghfind-project-analysis-1" {
 		t.Fatalf("idempotency key = %q", mosoo.createKeys[0])
+	}
+}
+
+func TestProjectAnalysisWorkerDoesNotPublishFeedCatalogWhenFeedIsOff(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	worker, _ := newTestProjectAnalysisWorker(t, store, "http://127.0.0.1:1", nil)
+	if worker.feedSync != nil {
+		t.Fatal("Feed-off worker must not publish into an unconsumed Feed catalog queue")
+	}
+
+	worker, _ = newTestProjectAnalysisWorker(t, store, "http://127.0.0.1:1", func(config *Config) {
+		config.FeedMode = FeedModeBaseline
+	})
+	if worker.feedSync == nil {
+		t.Fatal("Feed baseline worker must enable low-latency catalog sync publishing")
 	}
 }
 

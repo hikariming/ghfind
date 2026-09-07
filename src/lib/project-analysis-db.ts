@@ -10,6 +10,7 @@ import {
   type VerificationLevel,
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
+import { syncFeedProjectProjection } from "./feed";
 
 export type ProjectBoard = "treasure" | "classic" | "all";
 export type TreasureEntryStatus = "active" | "graduated" | "removed";
@@ -229,6 +230,8 @@ function ensureSchema(db: Client): Promise<void> {
              ON project_assessments(treasure_eligible, product_score DESC, confidence DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_project_assessments_classic
              ON project_assessments(classic_eligible, product_score DESC, confidence DESC)`,
+          `CREATE INDEX IF NOT EXISTS idx_project_assessments_feed_updates
+             ON project_assessments(updated_at, repo_key)`,
           `CREATE TABLE IF NOT EXISTS treasure_entries (
              id TEXT PRIMARY KEY,
              repo_key TEXT NOT NULL,
@@ -851,6 +854,18 @@ export async function finalizeProjectAnalysis(
   }
   const completed = await selectRun(db, input.analysisId);
   if (!completed) throw new ProjectAnalysisDatabaseError("Completed analysis run disappeared.");
+  // Feed is a rebuildable Cloudflare D1 projection. Its availability must never
+  // turn a completed Mosoo assessment into a failed one; migration 0004 and
+  // the protected reconcile endpoint repair a delayed projection.
+  try {
+    await syncFeedProjectProjection(analysis, input.analysisId);
+  } catch (error) {
+    console.error("feed.project_projection_failed", {
+      analysisId: input.analysisId,
+      repoKey: analysis.repository.repo_key.toLowerCase(),
+      error: error instanceof Error ? error.message : "unknown",
+    });
+  }
   return completed;
 }
 

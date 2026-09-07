@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 export const LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v1";
-export const PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v2";
+export const PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v2";
+export const PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v3";
 export const PROJECT_RUBRIC_VERSION = "project-value-v1";
-export const PROJECT_AGENT_VERSION = "project-evaluator-v2";
-export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v3";
+export const PROJECT_AGENT_VERSION = "project-evaluator-v3";
+export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v4";
 
 export const projectAnalysisStatusSchema = z.enum([
   "queued",
@@ -105,7 +106,7 @@ export const exposureBandSchema = z.enum([
 
 const evidenceIdSchema = z.string().trim().min(1).max(100);
 
-export const productTagSchema = z.object({
+const productTagBaseSchema = z.object({
   slug: z
     .string()
     .trim()
@@ -119,6 +120,23 @@ export const productTagSchema = z.object({
   evidence_ids: z.array(evidenceIdSchema).min(1).max(10),
 });
 
+export const productTagNamespaceSchema = z.enum([
+  "domain",
+  "use_case",
+  "audience",
+  "artifact",
+  "stack",
+  "stage",
+]);
+
+// v1/v2 artifacts had product tags but no governed namespace. They remain
+// readable, but the Feed treats them as inferred proposals rather than
+// silently placing them in use_case recall.
+export const legacyProductTagSchema = productTagBaseSchema;
+export const productTagSchema = productTagBaseSchema.extend({
+  namespace: productTagNamespaceSchema,
+});
+
 const legacyCompatibleProjectSchema = z.object({
   name: z.string().trim().min(1).max(200),
   summary: z.string().trim().min(1).max(2_000),
@@ -126,11 +144,11 @@ const legacyCompatibleProjectSchema = z.object({
   pain_statement: z.string().trim().min(1).max(2_000),
   project_type: projectTypeArtifactSchema,
   lifecycle: projectLifecycleSchema,
-  product_tags: z.array(productTagSchema).max(5).default([]),
+  product_tags: z.array(legacyProductTagSchema).max(5).default([]),
 });
 
 const currentProjectSchema = legacyCompatibleProjectSchema.extend({
-  product_tags: z.array(productTagSchema).min(3).max(5),
+	product_tags: z.array(productTagSchema).min(3).max(5),
 });
 
 function scoreDimensionSchema(maxScore: number) {
@@ -177,11 +195,7 @@ const communityStrengthSchema = z.object({
   evidence_ids: z.array(evidenceIdSchema).max(30),
 });
 
-export const projectAnalysisArtifactSchema = z.object({
-  schema_version: z.union([
-    z.literal(PROJECT_ANALYSIS_SCHEMA_VERSION),
-    z.literal(LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION),
-  ]),
+const projectAnalysisCommonSchema = z.object({
   analysis_id: z.string().trim().min(1).max(100),
   repository: z.object({
     repo_key: z.string().trim().min(3).max(140),
@@ -192,7 +206,6 @@ export const projectAnalysisArtifactSchema = z.object({
   rubric_version: z.string().trim().min(1).max(100),
   agent_version: z.string().trim().min(1).max(100),
   skill_version: z.string().trim().min(1).max(100),
-  project: legacyCompatibleProjectSchema,
   scores: z.object({
     pain: scoreDimensionSchema(25),
     effectiveness: scoreDimensionSchema(30),
@@ -216,14 +229,28 @@ export const projectAnalysisArtifactSchema = z.object({
   analyzed_at: z.string().datetime({ offset: true }),
 });
 
-export const currentProjectAnalysisArtifactSchema = projectAnalysisArtifactSchema.extend({
+const legacyProjectAnalysisArtifactSchema = projectAnalysisCommonSchema.extend({
+  schema_version: z.union([
+    z.literal(LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION),
+    z.literal(PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION),
+  ]),
+  project: legacyCompatibleProjectSchema,
+});
+
+export const currentProjectAnalysisArtifactSchema = projectAnalysisCommonSchema.extend({
   schema_version: z.literal(PROJECT_ANALYSIS_SCHEMA_VERSION),
   project: currentProjectSchema,
 });
 
+export const projectAnalysisArtifactSchema = z.union([
+  legacyProjectAnalysisArtifactSchema,
+  currentProjectAnalysisArtifactSchema,
+]);
+
 export const runtimeEvidenceArtifactSchema = z.object({
   schema_version: z.union([
     z.literal(PROJECT_ANALYSIS_SCHEMA_VERSION),
+    z.literal(PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION),
     z.literal(LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION),
   ]),
   analysis_id: z.string().trim().min(1).max(100),
@@ -409,8 +436,13 @@ function assertProductTags(analysis: ProjectAnalysisArtifact): void {
   const zhLabels = new Set<string>();
   const enLabels = new Set<string>();
   for (const tag of analysis.project.product_tags) {
-    if (slugs.has(tag.slug)) throw new Error(`Duplicate product tag slug: ${tag.slug}`);
-    slugs.add(tag.slug);
+	const namespace = "namespace" in tag ? tag.namespace : undefined;
+	if (analysis.schema_version === PROJECT_ANALYSIS_SCHEMA_VERSION && !namespace) {
+	  throw new Error(`Product tag namespace is required: ${tag.slug}`);
+	}
+	const identity = namespace ? `${namespace}:${tag.slug}` : tag.slug;
+    if (slugs.has(identity)) throw new Error(`Duplicate product tag slug: ${identity}`);
+    slugs.add(identity);
     if (INTERNAL_PRODUCT_TAGS.has(tag.slug)) {
       throw new Error(`Product tag exposes an internal classification: ${tag.slug}`);
     }

@@ -282,8 +282,12 @@ func buildProjectAnalysisPrompt(run *ProjectAnalysisRun, executionMode string) s
 	if run.RequestedRef != nil {
 		requestedRef = *run.RequestedRef
 	}
+	protocolVersion := "V2"
+	if run.SchemaVersion == ProjectAnalysisSchemaVersion {
+		protocolVersion = "V3"
+	}
 	return strings.Join([]string{
-		"[GHFIND_PROJECT_ANALYSIS_V2]",
+		"[GHFIND_PROJECT_ANALYSIS_" + protocolVersion + "]",
 		"analysis_id: " + run.ID,
 		"repository_url: " + run.CanonicalURL,
 		"requested_ref: " + requestedRef,

@@ -23,10 +23,20 @@ type metricKey struct {
 type BackendMetrics struct {
 	mu       sync.Mutex
 	counters map[metricKey]float64
+	gauges   map[metricKey]float64
 }
 
 func NewBackendMetrics() *BackendMetrics {
-	return &BackendMetrics{counters: map[metricKey]float64{}}
+	return &BackendMetrics{counters: map[metricKey]float64{}, gauges: map[metricKey]float64{}}
+}
+
+func (m *BackendMetrics) SetGauge(name string, labels map[string]string, value float64) {
+	if m == nil || name == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.gauges[metricKey{name: name, labels: prometheusLabels(labels)}] = value
 }
 
 func (m *BackendMetrics) IncCounter(name string, labels map[string]string) {
@@ -64,15 +74,17 @@ func (m *BackendMetrics) Prometheus() string {
 		return ""
 	}
 	m.mu.Lock()
-	snapshot := make([]struct {
+	type metricSample struct {
 		key   metricKey
 		value float64
-	}, 0, len(m.counters))
+		kind  string
+	}
+	snapshot := make([]metricSample, 0, len(m.counters)+len(m.gauges))
 	for key, value := range m.counters {
-		snapshot = append(snapshot, struct {
-			key   metricKey
-			value float64
-		}{key: key, value: value})
+		snapshot = append(snapshot, metricSample{key: key, value: value, kind: "counter"})
+	}
+	for key, value := range m.gauges {
+		snapshot = append(snapshot, metricSample{key: key, value: value, kind: "gauge"})
 	}
 	m.mu.Unlock()
 
@@ -85,9 +97,10 @@ func (m *BackendMetrics) Prometheus() string {
 	var builder strings.Builder
 	seen := map[string]bool{}
 	for _, metric := range snapshot {
-		if !seen[metric.key.name] {
-			seen[metric.key.name] = true
-			_, _ = fmt.Fprintf(&builder, "# TYPE %s counter\n", metric.key.name)
+		seenKey := metric.kind + "\x00" + metric.key.name
+		if !seen[seenKey] {
+			seen[seenKey] = true
+			_, _ = fmt.Fprintf(&builder, "# TYPE %s %s\n", metric.key.name, metric.kind)
 		}
 		_, _ = fmt.Fprintf(&builder, "%s%s %s\n", metric.key.name, metric.key.labels, strconv.FormatFloat(metric.value, 'f', -1, 64))
 	}
@@ -145,4 +158,53 @@ func (m *BackendMetrics) recordWorkerJobFailed(kind, result string, duration tim
 
 func (m *BackendMetrics) recordWorkerJobDeadLettered(kind string) {
 	m.IncCounter("ghfind_worker_jobs_dead_lettered_total", map[string]string{"kind": kind})
+}
+
+func (m *BackendMetrics) recordFeedRequest(result string, duration time.Duration) {
+	m.IncCounter("ghfind_feed_requests_total", map[string]string{"algorithm": FeedAlgorithmVersion, "result": result})
+	m.ObserveDuration("ghfind_feed_request_duration", map[string]string{"algorithm": FeedAlgorithmVersion}, duration)
+}
+
+func (m *BackendMetrics) recordFeedCandidates(counts map[string]int) {
+	for source, count := range counts {
+		m.AddCounter("ghfind_feed_candidates_total", map[string]string{"source": source}, float64(count))
+	}
+}
+
+func (m *BackendMetrics) recordFeedServed(items []FeedRankedItem) {
+	for _, item := range items {
+		for _, source := range item.CandidateSources {
+			m.IncCounter("ghfind_feed_served_total", map[string]string{
+				"source": source, "exploration": strconv.FormatBool(item.Exploration),
+			})
+		}
+	}
+}
+
+func (m *BackendMetrics) recordFeedEvents(eventType FeedEventType, result string, count int) {
+	if count > 0 {
+		m.AddCounter("ghfind_feed_events_total", map[string]string{"type": string(eventType), "result": result}, float64(count))
+	}
+}
+
+func (m *BackendMetrics) recordFeedProjectionLag(projection string, lag time.Duration) {
+	if lag < 0 {
+		lag = 0
+	}
+	m.SetGauge("ghfind_feed_projection_lag_seconds", map[string]string{"projection": projection}, lag.Seconds())
+}
+
+func (m *BackendMetrics) recordFeedCatalogOrphans(count int64) {
+	m.SetGauge("ghfind_feed_catalog_orphans", nil, float64(count))
+}
+
+func (m *BackendMetrics) recordGorseShadow(duration time.Duration, overlap float64, result string) {
+	m.ObserveDuration("ghfind_feed_gorse_shadow_duration", map[string]string{"result": result}, duration)
+	if overlap >= 0 {
+		m.SetGauge("ghfind_feed_gorse_overlap_ratio", nil, overlap)
+	}
+}
+
+func (m *BackendMetrics) recordGorseOverlap(overlap float64) {
+	m.SetGauge("ghfind_feed_gorse_overlap_ratio", nil, overlap)
 }

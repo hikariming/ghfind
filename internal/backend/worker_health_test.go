@@ -125,3 +125,28 @@ func TestWorkerHealthHandlerRejectsOtherPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkerFeedReadinessIsIsolatedFromCoreReadiness(t *testing.T) {
+	server := httptest.NewServer(NewWorkerHealthHandlerWithFeed(
+		func(context.Context) error { return errors.New("Feed PostgreSQL unavailable") },
+		func(context.Context) error { return nil },
+	))
+	defer server.Close()
+
+	core, err := http.Get(server.URL + "/readyz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	core.Body.Close()
+	if core.StatusCode != http.StatusOK {
+		t.Fatalf("core readiness = %d, want 200", core.StatusCode)
+	}
+	feed, err := http.Get(server.URL + "/feed-readyz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed.Body.Close()
+	if feed.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("Feed readiness = %d, want 503", feed.StatusCode)
+	}
+}

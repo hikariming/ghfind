@@ -160,7 +160,7 @@ describe("project analysis persistence", () => {
 
     await db.finalizeProjectAnalysis({
       analysisId: "analysis-2",
-      analysis: established,
+      analysis: established as ProjectAnalysisArtifact,
       analysisJson: JSON.stringify(established),
       evidenceJson: JSON.stringify(establishedEvidence),
       reportMarkdown: "# Established Tool",

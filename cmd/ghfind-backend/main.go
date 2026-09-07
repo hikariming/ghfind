@@ -8,8 +8,8 @@ package main
 import (
 	"log"
 	"os"
-	"os/exec"
 	"strings"
+	"syscall"
 )
 
 func main() {
@@ -18,18 +18,21 @@ func main() {
 		role = "api"
 	}
 	binary := map[string]string{
-		"api":    "/ghfind-api",
-		"worker": "/ghfind-worker",
-		"mocks":  "/ghfind-mocks",
+		"api":            "/ghfind-api",
+		"worker":         "/ghfind-worker",
+		"mocks":          "/ghfind-mocks",
+		"feed-bootstrap": "/ghfind-feed-bootstrap",
+		"feed-migrate":   "/ghfind-feed-migrate",
 	}[role]
 	if binary == "" {
 		log.Fatalf("unknown GHFIND_ROLE %q", role)
 	}
-	command := exec.Command(binary, os.Args[1:]...)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	command.Env = os.Environ()
-	if err := command.Run(); err != nil {
-		log.Fatalf("%s exited: %v", binary, err)
+	// Replace the dispatcher instead of spawning a child. The selected service
+	// must remain PID 1 so Railway/Docker SIGTERM reaches its graceful HTTP and
+	// RabbitMQ shutdown handlers; a parent exec.Command would otherwise exit
+	// first and leave the real backend unable to drain in-flight work.
+	args := append([]string{binary}, os.Args[1:]...)
+	if err := syscall.Exec(binary, args, os.Environ()); err != nil {
+		log.Fatalf("exec %s: %v", binary, err)
 	}
 }

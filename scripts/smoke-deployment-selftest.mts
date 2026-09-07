@@ -17,7 +17,6 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
     const host = request.headers.host ?? "127.0.0.1";
     const url = new URL(request.url ?? "/", `http://${host}`);
     const origin = `http://${host}`;
-
     if (request.method === "GET" && url.pathname === "/u/octocat") {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       response.end("<html>octocat</html>");

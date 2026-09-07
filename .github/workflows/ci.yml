@@ -79,7 +79,15 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Test Go API and worker
+      - name: Verify Cloudflare D1 migrations from an empty database
+        run: |
+          pnpm exec wrangler d1 migrations apply ghfind --local --persist-to "$RUNNER_TEMP/ghfind-d1-migrations"
+          pnpm exec wrangler d1 migrations apply ghfind-feed-dev --local --persist-to "$RUNNER_TEMP/ghfind-d1-migrations"
+
+      # Historical Go packages remain compile-tested while the Cloudflare D1
+      # Feed owns the deployable API/store path. CI intentionally provisions no
+      # PostgreSQL service and has no Railway/Vercel deployment dependency.
+      - name: Test Go compatibility packages
         run: go test ./...
 
       - name: Self-test deployment smoke
@@ -93,3 +101,6 @@ jobs:
 
       - name: Production build
         run: pnpm build
+
+      - name: Cloudflare Worker build
+        run: pnpm cf:build

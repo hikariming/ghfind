@@ -61,6 +61,16 @@ export function getD1Binding(): D1DatabaseLike | null {
   }
 }
 
+/** Dedicated D1 binding for Feed-only projection and behavior facts. */
+export function getFeedD1Binding(): D1DatabaseLike | null {
+  try {
+    const env = getCloudflareContext().env as { GHFIND_FEED_D1?: D1DatabaseLike };
+    return env.GHFIND_FEED_D1 ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function d1AsLibsqlClient(d1: D1DatabaseLike): Client {
   const prepare = (stmt: InStatement) => {
     const { sql, args } = normalizeStatement(stmt);

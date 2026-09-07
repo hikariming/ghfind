@@ -1,9 +1,14 @@
 # Historical backend route ownership matrix
 
-> **Historical reference.** This matrix records the pre-migration Go extraction
-> boundary and is retained for contract/history review. The current app is a
-> single Cloudflare Worker with same-origin page and API routes. For current
-> deployment and rollback, use the [Cloudflare deployment runbook](./cloudflare-deployment-runbook.md).
+> **Historical reference — do not operate from this file.** This matrix records
+> the pre-migration Go extraction boundary and is retained only for contract
+> history. The current app is a single Cloudflare Worker with same-origin page
+> and API routes; the `Go-owned` labels below are not current architecture.
+> For current deployment and rollback, use the
+> [Cloudflare deployment runbook](./cloudflare-deployment-runbook.md). For the
+> Feed specifically, use the
+> [Cloudflare-native Feed runbook](./project-feed-backend-runbook.md), not the
+> historical PostgreSQL/RabbitMQ/Gorse notes below.
 
 This matrix is the cutover checklist for issue #170. A route is only marked
 **Go-owned** after its Next handler contains no direct data/business dependency,
@@ -25,6 +30,7 @@ than Turso/Redis/GitHub/LLM directly.
 | `GET /api/leaderboard` | Go-owned | views, windows, pagination, `cached` field and CDN contract |
 | `GET /api/developers` | Go-owned | language/org/repo validation, category and bucket cache keys, pagination and CDN contract |
 | Go project presentation reads | Go-owned | bounded project lists, repo overview, related-project graph and canonical contributor aggregates for Next renderers |
+| `/api/feed/*` | Cloudflare Worker + D1, feature-gated | GitHub OAuth principal, governed taxonomy, deterministic signed pagination, immutable event facts and profile deletion; `FEED_MODE=off` is a D1-serving kill switch and an unavailable D1 returns Feed-only `503` without changing other APIs |
 | `GET /api/facet-rank/{username}` | Go-owned | 10/min public-read sliding limit, rank/null shape and CDN contract |
 | profile/blog/collection comments, reactions, follows | Go-owned | OAuth/anonymous authorization, write status and no-store headers |
 | `/api/me` and `/api/auth/*` | Go-owned | GitHub OAuth callback/session-cookie behavior and user upsert |
