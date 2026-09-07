@@ -1346,6 +1346,9 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .resume-dialog-check { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-size: 13px; cursor: pointer; }
 .resume-dialog-check input { accent-color: var(--foreground); }
 .resume-dialog-hint { font-size: 12px; color: var(--muted-foreground); line-height: 1.7; margin-top: 12px; }
+.resume-fill-banner { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-muted); }
+.resume-fill-banner > svg { flex-shrink: 0; color: var(--muted-foreground); }
+.resume-fill-banner p { flex: 1; min-width: min(260px, 100%); font-size: 13px; line-height: 1.7; color: var(--foreground); }
 .resume-crop-viewport { position: relative; height: min(360px, 52dvh); margin-top: 14px; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-muted); touch-action: none; cursor: grab; }
 .resume-crop-viewport:active { cursor: grabbing; }
 .resume-crop-viewport img { position: absolute; left: 50%; top: 50%; max-width: none; pointer-events: none; user-select: none; }

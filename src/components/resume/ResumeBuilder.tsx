@@ -40,7 +40,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const saving = useRef(false);
   const localBase = useRef<{ id: string; snapshot: string; preserve: boolean } | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
-  const [offerProfile, setOfferProfile] = useState(false);
+  const [offerDismissedFor, setOfferDismissedFor] = useState<string | null>(null);
   const [saveDialog, setSaveDialog] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveAsData, setSaveAsData] = useState(false);
@@ -97,8 +97,6 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   function begin(template: TemplateId) {
     if (!canReplace()) return;
     localBase.current = null;
-    // Only a brand-new blank draft gets the one-time saved-data offer.
-    setOfferProfile(!!profileRef.current);
     setDraft(createResume(template, zh)); setSavedSnapshot(""); setView("editor"); setTab("basics"); setUndo(null); setNotice(""); setError(""); setConflict(false);
   }
   function openResume(resume: Resume, fromCloud = false) {
@@ -107,7 +105,6 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       const local = readResumeLibrary(localStorage.getItem(RESUME_STORAGE_KEY)).find(item => item.id === resume.id);
       localBase.current = { id: resume.id, snapshot: resumeStorageSnapshot(local), preserve: !!(fromCloud && local && !sameResumeContent(local, resume)) };
     } catch { setError(copy("无法读取本地备份，请检查浏览器存储后重试。", "Cannot read the local backup. Check browser storage and retry.")); return; }
-    setOfferProfile(false);
     setDraft(resume); setSavedSnapshot(JSON.stringify(resume)); setView("editor"); setTab("basics"); setUndo(null); setNotice(""); setError(""); setConflict(false);
   }
   function saveLocal(value: Resume): Resume {
@@ -274,6 +271,12 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const cloudMatch = draft && cloudLibrary.find(item => item.id === draft.id);
   const savedToCloud = !!(draft && cloudMatch && sameResumeContent(draft, cloudMatch));
   const saveStatus = syncBusy ? copy("正在保存…", "Saving…") : dirty ? copy("有未保存的修改", "Unsaved changes") : savedToCloud ? copy("已保存到云端", "Saved to cloud") : copy("已保存到此浏览器", "Saved in this browser");
+  // Derived, not set at draft creation: a cloud-only profile finishes loading
+  // after the editor opens, and the offer must appear whenever it turns out
+  // the open draft is blank. Dismissal is remembered per draft id.
+  const profileDataName = profile?.name || copy("已存数据", "Saved data");
+  const canOfferProfile = view === "editor" && !!draft && !!profile && isResumeEmpty(draft);
+  const showProfileOffer = canOfferProfile && offerDismissedFor !== draft?.id;
   const localNotice = <div className="resume-local-note"><HardDrive size={17} aria-hidden /><p>{me?.user
     ? copy("点击保存，同时保存当前简历到云端和此浏览器。云端简历会自动显示在列表中。", "Save keeps this résumé in the cloud and in this browser. Cloud résumés appear in your library automatically.")
     : me?.oauth === false ? copy("简历保存在此浏览器，清除浏览器数据会丢失。此环境暂未开启云端登录。", "Résumés are saved in this browser; clearing browser data removes them. Cloud sign-in is unavailable in this environment.") : copy("无需登录即可制作简历，保存后仅在此浏览器可见。登录后可保存到云端，换设备继续编辑。", "Create without signing in and save in this browser. Sign in to save to the cloud and continue on another device.")}</p></div>;
@@ -302,7 +305,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
         <div className="resume-template-grid">{TEMPLATE_IDS.map((template, index) => <button key={template} className="resume-template-card" onClick={() => begin(template)}><div className="resume-template-thumbnail"><ResumePaper resume={sampleResume(template, zh)} zh={zh} miniature /></div><div className="resume-template-caption"><span className="resume-template-index">0{index + 1}</span><div><h3>{templates[template][0]}</h3><p>{templates[template][1]}</p></div><ArrowRight size={18} /></div><span className="resume-template-use">{copy("使用此模板", "Use template")} <ArrowRight size={14} /></span></button>)}</div>
       </section>
     </> : draft && <>
-      <fieldset className="resume-editing-fields" disabled={syncBusy}><div className="resume-document-bar"><label>{copy("简历名称", "Document name")}<input value={draft.name} maxLength={100} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label><span className="resume-document-tools">{profile && isResumeEmpty(draft) && <button className="resume-button" onClick={fillProfile}><ClipboardPaste size={14} />{copy("填入已存数据", "Fill with saved data")}</button>}<button className="resume-text-button" onClick={fillSample}><Sparkles size={14} />{copy("填入示例数据", "Fill sample data")}</button><button className="resume-text-button" disabled={syncBusy || isResumeEmpty(draft)} onClick={() => void saveProfileData()}><Database size={14} />{copy("另存数据", "Save as data")}</button><span role="status" className="resume-save-status">{saveStatus}{!dirty && <Check size={14} />}</span></span></div>
+      <fieldset className="resume-editing-fields" disabled={syncBusy}><div className="resume-document-bar"><label>{copy("简历名称", "Document name")}<input value={draft.name} maxLength={100} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label><span className="resume-document-tools"><button className="resume-text-button" onClick={fillSample}><Sparkles size={14} />{copy("填入示例数据", "Fill sample data")}</button><button className="resume-text-button" disabled={syncBusy || isResumeEmpty(draft)} onClick={() => void saveProfileData()}><Database size={14} />{copy("另存数据", "Save as data")}</button><span role="status" className="resume-save-status">{saveStatus}{!dirty && <Check size={14} />}</span></span></div>
+      {canOfferProfile && <div className="resume-fill-banner"><ClipboardPaste size={19} aria-hidden /><p>{copy(`有已存数据「${profileDataName}」，一键填入这份简历，不用从头写。`, `You have saved data “${profileDataName}” — fill this résumé with one click instead of starting from scratch.`)}</p><button className="resume-button resume-button-primary" onClick={fillProfile}><ClipboardPaste size={15} />{copy("填入已存数据", "Fill with saved data")}</button></div>}
       <div className="resume-mobile-switch"><button aria-pressed={mobilePanel === "edit"} onClick={() => setMobilePanel("edit")}>{copy("编辑内容", "Edit")}</button><button aria-pressed={mobilePanel === "preview"} onClick={() => setMobilePanel("preview")}>{copy("简历预览", "Preview")}</button></div>
       <div className="resume-studio" data-mobile-panel={mobilePanel}>
         <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePagedPaper resume={draft} zh={zh} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · A4 幅面，内容较长时自动分页", "Preview updates as you type · A4 pages, overflow continues on the next page")}</p></section>
@@ -343,12 +347,12 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       </div></fieldset>
     </>}
     {view === "editor" && draft && <div className="resume-print-root" aria-hidden><ResumePaper resume={draft} zh={zh} /></div>}
-    {view === "editor" && draft && offerProfile && profile && <div className="resume-dialog-overlay" role="presentation" onKeyDown={event => { if (event.key === "Escape") setOfferProfile(false); }}>
+    {showProfileOffer && draft && profile && <div className="resume-dialog-overlay" role="presentation" onKeyDown={event => { if (event.key === "Escape") setOfferDismissedFor(draft.id); }}>
       <div className="resume-dialog" role="dialog" aria-modal="true" aria-label={copy("填入已存数据", "Fill with saved data")}>
-        <div className="resume-dialog-heading"><h3>{copy("填入已存数据", "Fill with saved data")}</h3><p>{copy(`已有存好的数据「${profile.name || copy("已存数据", "Saved data")}」，一键填入，不用从头写。`, `You have saved data “${profile.name || copy("已存数据", "Saved data")}” — fill it in with one click instead of starting from scratch.`)}</p></div>
+        <div className="resume-dialog-heading"><h3>{copy("填入已存数据", "Fill with saved data")}</h3><p>{copy(`已有存好的数据「${profileDataName}」，一键填入，不用从头写。`, `You have saved data “${profileDataName}” — fill it in with one click instead of starting from scratch.`)}</p></div>
         <div className="resume-dialog-actions">
-          <button type="button" className="resume-button" onClick={() => setOfferProfile(false)}>{copy("从头写起", "Start blank")}</button>
-          <button type="button" className="resume-button resume-button-primary" autoFocus onClick={() => { setOfferProfile(false); fillProfile(); }}><ClipboardPaste size={14} />{copy("填入数据", "Fill it in")}</button>
+          <button type="button" className="resume-button" onClick={() => setOfferDismissedFor(draft.id)}>{copy("从头写起", "Start blank")}</button>
+          <button type="button" className="resume-button resume-button-primary" autoFocus onClick={() => { setOfferDismissedFor(draft.id); fillProfile(); }}><ClipboardPaste size={14} />{copy("填入数据", "Fill it in")}</button>
         </div>
       </div>
     </div>}
