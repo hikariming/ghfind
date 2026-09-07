@@ -35,6 +35,17 @@ split-backend checks and should be removed from the Cloudflare release job.
 
 Use `SMOKE_ALLOW_HTTP=1` only for local smoke runs. Remote origins must be HTTPS.
 
+For dev, the zone's ASN challenge can block runner egress on the custom domain,
+so run against the WAF-free workers.dev entrance and pin the canonical origin
+the score API is expected to report:
+
+```text
+SMOKE_BASE_URL=https://ghfind-dev.beiming1201.workers.dev
+SMOKE_EXPECTED_ORIGIN=https://dev.ghfind.com
+```
+
+`SMOKE_EXPECTED_ORIGIN` defaults to the `SMOKE_BASE_URL` origin when unset.
+
 Run `pnpm smoke:deployment`. The script checks the profile, deterministic score
 API, badge SVG, autocomplete, score leaderboard,
 facet bucket, projects page, sitemap XML, MCP tools/list transport, campaign
