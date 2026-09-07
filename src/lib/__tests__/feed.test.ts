@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createClient } from "@libsql/client/web";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
@@ -102,6 +103,44 @@ describe("Cloudflare Feed baseline", () => {
     expect(result).toMatchObject({ status: "accepted", canonicalTagId: "use_case:one-command-conversion" });
     const reviewed = await feed.listFeedTags();
     expect(reviewed.tags.some((tag) => tag.id === "use_case:one-command-conversion")).toBe(true);
+  });
+
+  it("reconciles repository metadata in bounded batches without per-project source lookups", async () => {
+    const projected = assessment(7);
+    const source = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await source.batch([
+      `CREATE TABLE IF NOT EXISTS project_analysis_runs (
+         id TEXT PRIMARY KEY, status TEXT NOT NULL, analysis_json TEXT NOT NULL
+       )`,
+      `CREATE TABLE IF NOT EXISTS project_assessments (
+         repo_key TEXT PRIMARY KEY, latest_analysis_id TEXT NOT NULL, updated_at INTEGER NOT NULL
+       )`,
+      `CREATE TABLE IF NOT EXISTS repos (
+         repo_key TEXT PRIMARY KEY, language TEXT, topics TEXT
+       )`,
+      {
+        sql: "INSERT INTO project_analysis_runs(id, status, analysis_json) VALUES (?, 'completed', ?)",
+        args: [projected.analysis_id, JSON.stringify(projected)],
+      },
+      {
+        sql: "INSERT INTO project_assessments(repo_key, latest_analysis_id, updated_at) VALUES (?, ?, ?)",
+        args: [projected.repository.repo_key, projected.analysis_id, 1_700_000_000_000],
+      },
+      {
+        sql: "INSERT INTO repos(repo_key, language, topics) VALUES (?, 'TypeScript', '[\"cloudflare\"]')",
+        args: [projected.repository.repo_key],
+      },
+    ], "write");
+
+    await expect(feed.reconcileFeedCatalog(1)).resolves.toMatchObject({ processed: 1, skipped: 0 });
+    const page = await feed.getFeedPage({ githubId: 777_777, login: "reconcile-tester", image: null }, { limit: 20 });
+    expect(page.items).toContainEqual(expect.objectContaining({
+      project: expect.objectContaining({
+        repoKey: projected.repository.repo_key,
+        language: "TypeScript",
+        topics: ["cloudflare"],
+      }),
+    }));
   });
 
   it("serves deterministic signed pages, records state safely, and rejects cross-user feedback", async () => {
