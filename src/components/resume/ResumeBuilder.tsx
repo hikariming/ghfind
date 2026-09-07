@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Cloud, RefreshCw, FileText, HardDrive, LayoutTemplate, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Cloud, Printer, RefreshCw, FileText, HardDrive, LayoutTemplate, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { createResume, emptyEntry, newSection, readResumeLibrary, resumeStorageSnapshot, sameResumeContent, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
 import { fetchMe, type Me } from "@/lib/me-client";
 import { signInWithGitHub } from "@/lib/oauth-client";
 import { ResumePhotoInput } from "./ResumePhotoInput";
+import { ResumePagedPaper } from "./ResumePagedPaper";
 import { ResumePaper } from "./ResumePaper";
 
 const templateCopy = {
@@ -209,7 +210,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   return <main className={`resume-app ${view === "editor" ? "resume-is-editing" : ""}`}>
     <header className="resume-page-heading">
       <div><div className="resume-eyebrow">G H F I N D / CAREER</div><h1>{copy("我的简历", "My résumés")} <span className="resume-beta">{copy("预览版", "Preview")}</span></h1><p>{copy("把你的经历，整理成下一次机会。", "Make room for your next opportunity.")}</p></div>
-      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={() => void save()}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : me?.user ? copy("保存到云端", "Save to cloud") : copy("保存简历", "Save résumé")}</button></div>}
+      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button" disabled={syncBusy} onClick={() => window.print()}><Printer size={15} />{copy("导出 PDF", "Export PDF")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={() => void save()}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : me?.user ? copy("保存到云端", "Save to cloud") : copy("保存简历", "Save résumé")}</button></div>}
     </header>
     {localNotice}
     {error && <div className="resume-error" role="alert">{error}{cloudState === "signed-out" && me?.user && <button className="resume-button" onClick={() => signInWithGitHub()}>{copy("重新登录", "Sign in again")}</button>}{conflict && draft && <button className="resume-button" disabled={syncBusy} onClick={() => void save(true)}>{copy("另存为副本", "Save a copy")}</button>}</div>}
@@ -229,7 +230,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       <fieldset className="resume-editing-fields" disabled={syncBusy}><div className="resume-document-bar"><label>{copy("简历名称", "Document name")}<input value={draft.name} maxLength={100} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label><span className="resume-document-tools"><button className="resume-text-button" onClick={fillSample}><Sparkles size={14} />{copy("填入示例数据", "Fill sample data")}</button><span role="status" className="resume-save-status">{saveStatus}{!dirty && <Check size={14} />}</span></span></div>
       <div className="resume-mobile-switch"><button aria-pressed={mobilePanel === "edit"} onClick={() => setMobilePanel("edit")}>{copy("编辑内容", "Edit")}</button><button aria-pressed={mobilePanel === "preview"} onClick={() => setMobilePanel("preview")}>{copy("简历预览", "Preview")}</button></div>
       <div className="resume-studio" data-mobile-panel={mobilePanel}>
-        <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePaper resume={draft} zh={zh} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · 内容较长时纸张自动延展", "Preview updates as you type · The page grows with your content")}</p></section>
+        <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePagedPaper resume={draft} zh={zh} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · A4 幅面，内容较长时自动分页", "Preview updates as you type · A4 pages, overflow continues on the next page")}</p></section>
         <section className="resume-editor-pane" aria-label={copy("简历编辑器", "Résumé editor")}>
           <div className="resume-editor-tabs" role="tablist" aria-label={copy("编辑分类", "Editor sections")}>
             {(["basics", "sections", "templates"] as const).map((key, index) => <button key={key} id={`resume-tab-${key}`} role="tab" aria-selected={tab === key} aria-controls={`resume-panel-${key}`} tabIndex={tab === key ? 0 : -1} onKeyDown={event => {
@@ -266,5 +267,6 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
         </section>
       </div></fieldset>
     </>}
+    {view === "editor" && draft && <div className="resume-print-root" aria-hidden><ResumePaper resume={draft} zh={zh} /></div>}
   </main>;
 }

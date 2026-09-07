@@ -1,31 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { prepareResumePhoto } from "../resume/ResumePhotoInput";
+import { decodeResumePhoto, renderCroppedResumePhoto } from "../resume/ResumePhotoInput";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("local portrait preparation", () => {
   it("rejects unsupported and oversized files before decoding", async () => {
     const decode = vi.fn(); vi.stubGlobal("createImageBitmap", decode);
-    await expect(prepareResumePhoto(new File(["svg"], "photo.svg", { type: "image/svg+xml" }))).rejects.toThrow("format");
-    await expect(prepareResumePhoto(new File([new Uint8Array(5 * 1024 * 1024 + 1)], "photo.jpg", { type: "image/jpeg" }))).rejects.toThrow("size");
+    await expect(decodeResumePhoto(new File(["svg"], "photo.svg", { type: "image/svg+xml" }))).rejects.toThrow("format");
+    await expect(decodeResumePhoto(new File([new Uint8Array(5 * 1024 * 1024 + 1)], "photo.jpg", { type: "image/jpeg" }))).rejects.toThrow("size");
     expect(decode).not.toHaveBeenCalled();
   });
-  it("resizes locally, flattens transparency onto white and releases decoded image memory", async () => {
-    const bitmap = { width: 1200, height: 1800, close: vi.fn() };
-    const context = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
-    const canvas = { width: 0, height: 0, getContext: () => context, toDataURL: vi.fn(() => "data:image/jpeg;base64,/9j/2Q==") };
+  it("rejects undecodable and oversized images and releases decoded memory", async () => {
+    const bitmap = { width: 9000, height: 9000, close: vi.fn() };
     vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
-    vi.stubGlobal("document", { createElement: () => canvas });
-    expect(await prepareResumePhoto(new File(["test"], "photo.png", { type: "image/png" }))).toBe("data:image/jpeg;base64,/9j/2Q==");
-    expect([canvas.width, canvas.height]).toEqual([400, 600]);
-    expect(context.fillStyle).toBe("#fff");
-    expect(context.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 400, 600);
+    await expect(decodeResumePhoto(new File(["test"], "photo.png", { type: "image/png" }))).rejects.toThrow("dimensions");
     expect(bitmap.close).toHaveBeenCalledOnce();
   });
-  it("releases a decoded image even when conversion fails", async () => {
-    const bitmap = { width: 100, height: 100, close: vi.fn() };
-    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
+  it("renders the crop region, flattens transparency onto white and caps the edge length", () => {
+    const context = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
+    const canvas = { width: 0, height: 0, getContext: () => context, toDataURL: vi.fn(() => "data:image/jpeg;base64,/9j/2Q==") };
+    vi.stubGlobal("document", { createElement: () => canvas });
+    const source = {} as CanvasImageSource;
+    expect(renderCroppedResumePhoto(source, 40, 80, 1200, 1400)).toBe("data:image/jpeg;base64,/9j/2Q==");
+    expect([canvas.width, canvas.height]).toEqual([514, 600]);
+    expect(context.fillStyle).toBe("#fff");
+    expect(context.drawImage).toHaveBeenCalledWith(source, 40, 80, 1200, 1400, 0, 0, 514, 600);
+  });
+  it("keeps small crops at native resolution instead of upscaling", () => {
+    const context = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
+    const canvas = { width: 0, height: 0, getContext: () => context, toDataURL: vi.fn(() => "data:image/jpeg;base64,/9j/2Q==") };
+    vi.stubGlobal("document", { createElement: () => canvas });
+    renderCroppedResumePhoto({} as CanvasImageSource, 0, 0, 300, 350);
+    expect([canvas.width, canvas.height]).toEqual([300, 350]);
+  });
+  it("rejects when the canvas context is unavailable or the result is too large", () => {
     vi.stubGlobal("document", { createElement: () => ({ getContext: () => null }) });
-    await expect(prepareResumePhoto(new File(["test"], "photo.jpg", { type: "image/jpeg" }))).rejects.toThrow("canvas");
-    expect(bitmap.close).toHaveBeenCalledOnce();
+    expect(() => renderCroppedResumePhoto({} as CanvasImageSource, 0, 0, 100, 100)).toThrow("canvas");
+    const context = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
+    const canvas = { width: 0, height: 0, getContext: () => context, toDataURL: vi.fn(() => `data:image/jpeg;base64,${"A".repeat(700000)}`) };
+    vi.stubGlobal("document", { createElement: () => canvas });
+    expect(() => renderCroppedResumePhoto({} as CanvasImageSource, 0, 0, 100, 100)).toThrow("size");
   });
 });
