@@ -6,8 +6,7 @@ export interface SiteUrlEnvironment {
   [name: string]: string | undefined;
   NEXT_PUBLIC_SITE_URL?: string;
   PUBLIC_SITE_URL?: string;
-  VERCEL_ENV?: string;
-  /** Platform-neutral deployment env (Cloudflare); wins over VERCEL_ENV. */
+  /** Platform-neutral deployment env (Cloudflare, set via wrangler vars). */
   GHFIND_DEPLOY_ENV?: string;
 }
 
@@ -40,15 +39,14 @@ function isLocalHostname(hostname: string): boolean {
 
 /**
  * Resolve the one public origin used by metadata, machine documents, API
- * profile links, share surfaces, and provider attribution. Vercel production
- * requires both public settings so a stale higher-priority value cannot shadow
- * the operator's intended origin.
+ * profile links, share surfaces, and provider attribution. Production requires
+ * both public settings so a stale higher-priority value cannot shadow the
+ * operator's intended origin.
  */
 export function resolveSiteUrl(environment: SiteUrlEnvironment): string {
   const nextPublicRaw = configuredValue(environment.NEXT_PUBLIC_SITE_URL);
   const publicRaw = configuredValue(environment.PUBLIC_SITE_URL);
-  const production =
-    (environment.GHFIND_DEPLOY_ENV || environment.VERCEL_ENV) === "production";
+  const production = environment.GHFIND_DEPLOY_ENV === "production";
 
   if (production && (!nextPublicRaw || !publicRaw)) {
     throw new Error("Production requires NEXT_PUBLIC_SITE_URL and PUBLIC_SITE_URL");
@@ -61,11 +59,11 @@ export function resolveSiteUrl(environment: SiteUrlEnvironment): string {
 
   if (production) {
     if (nextPublic !== publicUrl) {
-      throw new Error("Vercel production site URL settings must match");
+      throw new Error("Production site URL settings must match");
     }
     const url = new URL(nextPublic!);
     if (url.protocol !== "https:" || isLocalHostname(url.hostname)) {
-      throw new Error("Vercel production site URL must be a non-local HTTPS origin");
+      throw new Error("Production site URL must be a non-local HTTPS origin");
     }
   }
 

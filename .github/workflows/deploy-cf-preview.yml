@@ -1,0 +1,184 @@
+name: Deploy PR preview (Cloudflare)
+
+# Builds each PR into an isolated Cloudflare Worker (ghfind-pr-<number>) on the
+# `preview` wrangler env and posts the workers.dev URL on the PR. Shares the dev
+# D1 database and dev R2 cache bucket, so previews see staging data and never
+# touch the production origin. The worker is deleted when the PR closes.
+#
+# Fork PRs are skipped (secrets are unavailable there) — same constraint as the
+# Vercel preview era.
+#
+# Required GitHub secrets:
+# - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
+# - CF_ACCOUNT_ID — Cloudflare account ID
+# Optional repository variable:
+# - CF_WORKERS_SUBDOMAIN — skips the workers.dev subdomain API lookup
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-cf-preview-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  deploy:
+    name: Build and deploy preview worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.action != 'closed' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve preview worker name and URL
+        id: preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.run_id }}
+          SUBDOMAIN_OVERRIDE: ${{ vars.CF_WORKERS_SUBDOMAIN }}
+        run: |
+          WORKER="ghfind-pr-${PR_NUMBER}"
+          echo "worker=$WORKER" >> "$GITHUB_OUTPUT"
+          SUBDOMAIN="$SUBDOMAIN_OVERRIDE"
+          if [ -z "$SUBDOMAIN" ]; then
+            SUBDOMAIN=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+              | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).result.subdomain||'')}catch(e){}})")
+          fi
+          if [ -z "$SUBDOMAIN" ]; then
+            echo "Could not resolve workers.dev subdomain (set the CF_WORKERS_SUBDOMAIN repo variable)" >&2
+            exit 1
+          fi
+          echo "url=https://${WORKER}.${SUBDOMAIN}.workers.dev" >> "$GITHUB_OUTPUT"
+
+      - name: Build (OpenNext)
+        env:
+          NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM: cloudflare
+          NEXT_PUBLIC_SITE_URL: ${{ steps.preview.outputs.url }}
+          PUBLIC_SITE_URL: ${{ steps.preview.outputs.url }}
+        run: pnpm cf:build
+
+      - name: Deploy preview worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WORKER: ${{ steps.preview.outputs.worker }}
+          URL: ${{ steps.preview.outputs.url }}
+        run: |
+          pnpm wrangler deploy --env preview --name "$WORKER" \
+            --var "PUBLIC_SITE_URL:$URL" --var "NEXT_PUBLIC_SITE_URL:$URL"
+
+      - name: Smoke check (non-blocking)
+        env:
+          URL: ${{ steps.preview.outputs.url }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$URL" || echo 000)
+            if [ "$CODE" = "200" ] || [ "$CODE" = "307" ] || [ "$CODE" = "308" ]; then
+              echo "Preview is up ($CODE)"; exit 0
+            fi
+            echo "attempt $i: got $CODE, retrying..."; sleep 10
+          done
+          echo "::warning::Preview smoke check did not pass (last code $CODE)"
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- cf-preview-deployment -->";
+            const body = `${marker}\n:rocket: Preview deployed: **${{ steps.preview.outputs.url }}**\nWorker \`${{ steps.preview.outputs.worker }}\` (deleted automatically when this PR closes).`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  cleanup:
+    name: Delete preview worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Delete worker via Cloudflare API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WORKER: ghfind-pr-${{ github.event.pull_request.number }}
+        run: |
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER")
+          # 200 = deleted, 404 = nothing to delete (already gone).
+          if [ "$CODE" != "200" ] && [ "$CODE" != "404" ]; then
+            echo "::warning::Failed to delete $WORKER (HTTP $CODE)"
+          else
+            echo "Deleted $WORKER (HTTP $CODE)"
+          fi
+
+  fork-note:
+    name: Explain skipped fork preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Comment on fork PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- cf-preview-deployment -->";
+            const body = `${marker}\n:information_source: Cloudflare preview deployments are skipped for fork PRs (repository secrets are unavailable). Merge to a branch in this repository to get a preview.`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            if (!comments.some((c) => c.body?.includes(marker))) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

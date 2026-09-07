@@ -999,5 +999,21 @@
         "removed": "已移除"
       }
     }
+  },
+  "sidebar": {
+    "preview": "预览版",
+    "workspace": "工作台",
+    "discover": "发现",
+    "career": "职业",
+    "resume": "我的简历",
+    "talent": "人才库",
+    "soon": "筹备中",
+    "tagline": "开发者工作台",
+    "expand": "展开侧边栏",
+    "collapse": "收起侧边栏",
+    "navigation": "主导航",
+    "docs": "帮助与文档",
+    "skip": "跳到内容",
+    "edition": "开放社区"
   }
 }

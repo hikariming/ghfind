@@ -2835,3 +2835,16 @@ describe("project discovery queries", () => {
     ]);
   });
 });
+
+describe("résumé snapshot compare-and-swap", () => {
+  it("rejects simultaneous first saves and stale snapshots without erasing data", async () => {
+    const id = 99881234;
+    expect(await db.getResumeLibrary(id)).toBeNull();
+    expect(await db.saveResumeLibrary(id, "resume-fixture", "first", null)).toBe("saved");
+    expect(await db.saveResumeLibrary(id, "resume-fixture", "stale-first", null)).toBe("conflict");
+    expect(await db.saveResumeLibrary(id, "resume-fixture", "second", "first")).toBe("saved");
+    expect(await db.saveResumeLibrary(id, "resume-fixture", "stale-second", "first")).toBe("conflict");
+    expect((await db.getResumeLibrary(id))?.data).toBe("second");
+    expect(await db.getResumeLibrary(id + 1)).toBeNull();
+  });
+});

@@ -1,5 +1,4 @@
 import Script from "next/script";
-import AnalyticsGate from "@/components/AnalyticsGate";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -83,7 +82,6 @@ export default function RootLayout({
           `}
         </Script>
         {children}
-        <AnalyticsGate />
       </body>
     </html>
   );

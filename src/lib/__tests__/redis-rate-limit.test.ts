@@ -20,7 +20,7 @@ afterEach(() => {
 describe("production rate-limit availability", () => {
   it("keeps local development usable without Redis", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("VERCEL_ENV", "development");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "development");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { checkRateLimit } = await loadRedis();
@@ -29,9 +29,9 @@ describe("production rate-limit availability", () => {
     expect(error).not.toHaveBeenCalled();
   });
 
-  it("keeps Vercel preview deployments usable without production Redis", async () => {
+  it("keeps preview deployments usable without production Redis", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "preview");
     unsetRedisEnv();
     const { checkRateLimit } = await loadRedis();
 
@@ -40,7 +40,7 @@ describe("production rate-limit availability", () => {
 
   it("fails closed with a retry hint when production Redis is unconfigured", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "production");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { checkRateLimit, checkScanNetworkRateLimit, rateLimitHeaders } = await loadRedis();
@@ -63,7 +63,7 @@ describe("production rate-limit availability", () => {
 
   it("fails closed when a configured Redis limiter request errors", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "production");
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.test");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
     const fetch = vi.fn().mockRejectedValue(new Error("redis unavailable"));
@@ -85,7 +85,7 @@ describe("production rate-limit availability", () => {
 
   it("allows an explicit emergency operator override", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "production");
     vi.stubEnv("RATE_LIMIT_FAIL_OPEN", "1");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

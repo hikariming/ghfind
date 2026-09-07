@@ -362,6 +362,12 @@ CREATE TABLE treasure_entries (
              removed_at INTEGER,
              removed_reason TEXT
            );
+CREATE TABLE user_resume_libraries (
+             github_id  INTEGER PRIMARY KEY,
+             login      TEXT NOT NULL,
+             data       TEXT NOT NULL,
+             updated_at INTEGER NOT NULL
+           );
 CREATE TABLE users (
              github_id   INTEGER PRIMARY KEY,
              login       TEXT NOT NULL,
