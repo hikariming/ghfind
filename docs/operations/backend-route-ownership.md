@@ -67,14 +67,6 @@ Future project analysis and provider callbacks must register a row in this
 matrix before implementation, including their request signature, idempotency
 key, persistence target, retry/DLQ policy and public status contract.
 
-Feed uses `feed.event-project.v1`, `feed.project-sync.v1`,
-`feed.profile-rebuild.v1`, `feed.user-delete.v1`, and
-`feed.gorse-shadow-request.v1` through the transactional PostgreSQL outbox.
-`ghfind.feed-projection.v1` is a durable competing-consumer queue and
-`ghfind.feed-projection.dead.v1` is its inspection DLQ. RabbitMQ never becomes
-the behavior fact source: relay claims are leased, publisher-confirmed, and
-the full Gorse database remains rebuildable from PostgreSQL/Turso projections.
-
 The `backend extraction boundary` Vitest suite scans Next runtime source under
 `src/app` and `src/components` so UI/rendering code may use type-only contracts
 or Go presentation helpers, but cannot reintroduce direct DB, Redis, GitHub,

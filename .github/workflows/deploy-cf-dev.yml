@@ -122,9 +122,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
-          # dev and production share this database; migrations must stay
-          # additive. A migration failure stops the release before the Worker
-          # can change and does not invoke a redundant rollback.
+          # The core assessment D1 is shared by dev and production; migrations
+          # must stay additive. Feed migrations run separately against the
+          # dedicated development Feed D1 in `pnpm cf:deploy:dev`. A failure
+          # stops the release before the Worker can change and does not invoke
+          # a redundant rollback.
           pnpm exec wrangler d1 migrations apply ghfind --remote --env dev
 
       - name: Deploy (build + wrangler deploy --env dev + populateCache)
