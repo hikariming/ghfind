@@ -115,10 +115,10 @@ jobs:
           echo "previous_version=$previous_version" >> "$GITHUB_OUTPUT"
           {
             echo "### Cloudflare production release"
-            echo "- Commit: `$RELEASE_SHA`"
-            echo "- Account: `$CLOUDFLARE_ACCOUNT_ID`"
-            echo "- Previous active author (audit metadata only): `$previous_author`"
-            echo "- Rollback target: `$previous_version`"
+            echo "- Commit: \`$RELEASE_SHA\`"
+            echo "- Account: \`$CLOUDFLARE_ACCOUNT_ID\`"
+            echo "- Previous active author (audit metadata only): \`$previous_author\`"
+            echo "- Rollback target: \`$previous_version\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Apply and verify production D1 migrations
@@ -174,7 +174,7 @@ jobs:
               | jq -er '.versions | if length == 1 and .[0].percentage == 100 then .[0].version_id else error("production is not a single 100% deployment") end'
           )"
           echo "active_version=$active_version" >> "$GITHUB_OUTPUT"
-          echo "- New active Worker version: `$active_version`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New active Worker version: \`$active_version\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Post-deploy read-only smoke
         id: smoke
@@ -223,8 +223,8 @@ jobs:
           test "$active_version" = "$PREVIOUS_VERSION"
           {
             echo "### Automatic rollback"
-            echo "- Restored Worker version: `$PREVIOUS_VERSION`"
-            echo "- Failed release commit: `$RELEASE_SHA`"
+            echo "- Restored Worker version: \`$PREVIOUS_VERSION\`"
+            echo "- Failed release commit: \`$RELEASE_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify rollback

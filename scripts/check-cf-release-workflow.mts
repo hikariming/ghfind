@@ -63,4 +63,11 @@ if (!workflow.includes("Previous active author (audit metadata only)")) {
   );
 }
 
+const unescapedSummaryInterpolation = /echo\s+"[^"\n]*?(?<!\\)`\$[A-Za-z_][A-Za-z0-9_]*`/;
+if (unescapedSummaryInterpolation.test(workflow)) {
+  throw new Error(
+    "Cloudflare release summary must escape Markdown backticks so shell does not execute interpolated values.",
+  );
+}
+
 console.log(`Cloudflare release workflow contract passed (${workflowPath})`);
