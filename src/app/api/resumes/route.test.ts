@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { createResume, readResumeLibrary, serializeResumeLibrary } from "@/lib/resume";
+import { createResume, profileFromResume, readResumeLibrary, readResumeLibraryFull, sampleResume, serializeResumeLibrary } from "@/lib/resume";
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), get: vi.fn(), save: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authConfigured: () => true, auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({ getResumeLibrary: mocks.get, saveResumeLibrary: mocks.save }));
@@ -62,6 +62,36 @@ describe("cloud résumé saving", () => {
   it("returns an explicit error if the database write fails", async () => {
     mocks.save.mockResolvedValue("unavailable");
     expect((await PUT(request({ resume: createResume("classic", true), baseUpdatedAt: null }))).status).toBe(503);
+  });
+  it("preserves the stored profile across document saves", async () => {
+    const other = createResume("classic", true);
+    const profile = profileFromResume(sampleResume("modern", true));
+    mocks.get.mockResolvedValue({ data: serializeResumeLibrary([other], profile), updatedAt: 1 });
+    const resume = createResume("noir", true);
+    const result = await PUT(request({ resume, baseUpdatedAt: null }));
+    expect(result.status).toBe(200);
+    const written = readResumeLibraryFull(mocks.save.mock.calls[0][2]);
+    expect(written.profile).toEqual(profile);
+    expect(written.resumes.map(item => item.id)).toEqual([resume.id, other.id]);
+  });
+  it("saves reusable data without a document and keeps every document untouched", async () => {
+    const other = createResume("editorial", true);
+    const data = serializeResumeLibrary([other]);
+    mocks.get.mockResolvedValue({ data, updatedAt: 1 });
+    const profile = profileFromResume(sampleResume("classic", false));
+    const result = await PUT(request({ profile }));
+    expect(result.status).toBe(200);
+    expect((await result.json()).profile).toEqual(profile);
+    const [id, login, written, expected] = mocks.save.mock.calls[0];
+    expect([id, login, expected]).toEqual([12, "example", data]);
+    const stored = readResumeLibraryFull(written);
+    expect(stored.resumes).toEqual([other]);
+    expect(stored.profile).toEqual(profile);
+  });
+  it("rejects invalid profile bodies and still refuses empty saves", async () => {
+    expect((await PUT(request({ profile: { basics: {}, sections: [] } }))).status).toBe(400);
+    expect((await PUT(request({}))).status).toBe(400);
+    expect(mocks.save).not.toHaveBeenCalled();
   });
 });
 

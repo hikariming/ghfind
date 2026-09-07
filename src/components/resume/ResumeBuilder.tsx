@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Cloud, Printer, RefreshCw, FileText, HardDrive, LayoutTemplate, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
-import { createResume, emptyEntry, newSection, readResumeLibrary, resumeStorageSnapshot, sameResumeContent, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Cloud, ClipboardPaste, Database, Printer, RefreshCw, FileText, HardDrive, LayoutTemplate, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
+import { createResume, emptyEntry, isResumeEmpty, newSection, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sameResumeContent, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Profile, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
 import { fetchMe, type Me } from "@/lib/me-client";
 import { signInWithGitHub } from "@/lib/oauth-client";
 import { ResumePhotoInput } from "./ResumePhotoInput";
@@ -35,10 +35,28 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const [cloudLibrary, setCloudLibrary] = useState<Resume[]>([]);
   const [cloudState, setCloudState] = useState<"loading" | "ready" | "error" | "signed-out">("loading");
   const [conflict, setConflict] = useState(false);
+  const [profile, setProfileState] = useState<Profile | undefined>(undefined);
+  const profileRef = useRef<Profile | undefined>(undefined);
   const saving = useRef(false);
   const localBase = useRef<{ id: string; snapshot: string; preserve: boolean } | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const dirty = draft !== null && JSON.stringify(draft) !== savedSnapshot;
+
+  const setProfile = useCallback((next: Profile | undefined) => { profileRef.current = next; setProfileState(next); }, []);
+  // Reusable data lives alongside the library in the same storage payload;
+  // every write preserves whatever profile the latest read saw.
+  const persistProfile = useCallback((next: Profile) => {
+    setProfile(next);
+    try {
+      const stored = readResumeLibraryFull(localStorage.getItem(RESUME_STORAGE_KEY));
+      localStorage.setItem(RESUME_STORAGE_KEY, serializeResumeLibrary(stored.resumes, next));
+    } catch { /* storage unavailable: the profile stays in memory */ }
+  }, [setProfile]);
+  const adoptCloudProfile = useCallback((candidate: Profile | undefined) => {
+    const current = profileRef.current;
+    if (!candidate || (current && Date.parse(current.updatedAt) >= Date.parse(candidate.updatedAt))) return;
+    persistProfile(candidate);
+  }, [persistProfile]);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [view]);
 
@@ -47,12 +65,15 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     // Read after hydration so no browser-only data enters the static page shell.
     Promise.resolve().then(() => {
       if (!live) return;
-      try { setLibrary(readResumeLibrary(localStorage.getItem(RESUME_STORAGE_KEY))); }
+      try {
+        const stored = readResumeLibraryFull(localStorage.getItem(RESUME_STORAGE_KEY));
+        setLibrary(stored.resumes); setProfile(stored.profile);
+      }
       catch { setError(zh ? "无法读取本地简历。原有数据未被修改，请检查浏览器存储权限或数据格式。" : "Unable to read local résumés. Existing data has not been changed. Check browser storage permissions or the data format."); }
       setReady(true);
     });
     return () => { live = false; };
-  }, [zh]);
+  }, [zh, setProfile]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -82,8 +103,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     setDraft(resume); setSavedSnapshot(JSON.stringify(resume)); setView("editor"); setTab("basics"); setUndo(null); setNotice(""); setError(""); setConflict(false);
   }
   function saveLocal(value: Resume): Resume {
-    const latest = readResumeLibrary(localStorage.getItem(RESUME_STORAGE_KEY));
-    const previous = latest.find(item => item.id === value.id);
+    const latest = readResumeLibraryFull(localStorage.getItem(RESUME_STORAGE_KEY));
+    const previous = latest.resumes.find(item => item.id === value.id);
     const base = localBase.current?.id === value.id ? localBase.current : null;
     if (base ? resumeStorageSnapshot(previous) !== base.snapshot : !!previous && previous.updatedAt !== value.updatedAt) {
       throw new Error("local_conflict");
@@ -91,9 +112,9 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     const saved = { ...value, name: value.name.trim() || copy("未命名简历", "Untitled résumé"), updatedAt: nextSavedAt(previous?.updatedAt) };
     // Editing a cloud version keeps any different local version as a separate
     // backup. Reading a cloud document never discards local-only changes.
-    const preserved = base?.preserve && previous ? upsertResume(latest, { ...previous, id: crypto.randomUUID(), name: `${previous.name} (${copy("本地备份", "local backup")})`, cloudBase: undefined }) : latest;
+    const preserved = base?.preserve && previous ? upsertResume(latest.resumes, { ...previous, id: crypto.randomUUID(), name: `${previous.name} (${copy("本地备份", "local backup")})`, cloudBase: undefined }) : latest.resumes;
     const next = upsertResume(preserved, saved);
-    localStorage.setItem(RESUME_STORAGE_KEY, serializeResumeLibrary(next));
+    localStorage.setItem(RESUME_STORAGE_KEY, serializeResumeLibrary(next, latest.profile ?? profileRef.current));
     localBase.current = { id: saved.id, snapshot: resumeStorageSnapshot(saved), preserve: false };
     setLibrary(next); setDraft(saved); setSavedSnapshot(JSON.stringify(saved));
     return saved;
@@ -130,13 +151,13 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       setCloudLibrary(items => upsertResume(items, cloud));
       const saved = { ...cloud, cloudBase: { account, updatedAt: cloud.updatedAt } };
       // The editor is disabled during saving; another browser tab can still write.
-      const latest = readResumeLibrary(localStorage.getItem(RESUME_STORAGE_KEY));
-      if (latest.find(item => item.id === local.id)?.updatedAt !== local.updatedAt) {
+      const latest = readResumeLibraryFull(localStorage.getItem(RESUME_STORAGE_KEY));
+      if (latest.resumes.find(item => item.id === local.id)?.updatedAt !== local.updatedAt) {
         setNotice(copy("已保存到云端；另一标签页的本地版本已保留。", "Saved to cloud; the other tab's local version was preserved."));
         return;
       }
-      const next = upsertResume(latest, saved);
-      localStorage.setItem(RESUME_STORAGE_KEY, serializeResumeLibrary(next));
+      const next = upsertResume(latest.resumes, saved);
+      localStorage.setItem(RESUME_STORAGE_KEY, serializeResumeLibrary(next, latest.profile ?? profileRef.current));
       localBase.current = { id: saved.id, snapshot: resumeStorageSnapshot(saved), preserve: false };
       setLibrary(next); setDraft(saved); setSavedSnapshot(JSON.stringify(saved));
       setNotice(copy("已保存到云端，并保留本地备份", "Saved to cloud with a local backup"));
@@ -162,7 +183,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       if (!res.ok) throw new Error("load_failed");
       const body = await res.json();
       if (!(body.data === null || typeof body.data === "string")) throw new Error("invalid_library");
-      setCloudLibrary(readResumeLibrary(body.data)); setCloudState("ready");
+      const cloud = readResumeLibraryFull(body.data);
+      setCloudLibrary(cloud.resumes); adoptCloudProfile(cloud.profile); setCloudState("ready");
     } catch { setCloudState("error"); }
   }
   useEffect(() => {
@@ -178,11 +200,14 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
         if (!res.ok) throw new Error("load_failed");
         const body = await res.json();
         if (!(body.data === null || typeof body.data === "string")) throw new Error("invalid_library");
-        if (live) { setCloudLibrary(readResumeLibrary(body.data)); setCloudState("ready"); }
+        if (live) {
+          const cloud = readResumeLibraryFull(body.data);
+          setCloudLibrary(cloud.resumes); adoptCloudProfile(cloud.profile); setCloudState("ready");
+        }
       } catch { if (live) setCloudState("error"); }
     });
     return () => { live = false; };
-  }, []);
+  }, [adoptCloudProfile]);
 
   // Preview the current template with illustrative content. Keeps the document
   // name/template, offers the existing undo path, and never touches saved data
@@ -194,6 +219,30 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     setUndo(draft);
     setDraft({ ...draft, basics: sample.basics, sections: sample.sections });
     setNotice(copy("已填入示例数据，看看整体效果；保存前不会覆盖已存内容", "Sample data filled in — nothing is overwritten until you save"));
+  }
+
+  // Reusable data is only written explicitly here — saving a résumé never
+  // updates it, so job-specific tailoring cannot pollute the shared data.
+  async function saveProfileData() {
+    if (!draft || syncBusy) return;
+    const next = profileFromResume(draft);
+    persistProfile(next);
+    if (!me?.user) {
+      setNotice(copy("数据已保存，新建简历可一键填入", "Data saved — new résumés can be filled with one click"));
+      return;
+    }
+    try {
+      const res = await fetch("/api/resumes", { signal: AbortSignal.timeout(20000), method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profile: next }) });
+      if (!res.ok) throw new Error("profile_save_failed");
+      setNotice(copy("数据已保存并同步到云端，新建简历可一键填入", "Data saved and synced to the cloud — new résumés can be filled with one click"));
+    } catch {
+      setError(copy("数据已保存在此浏览器，云端同步失败，可稍后点击「另存数据」重试。", "Data saved in this browser; cloud sync failed. Click “Save as data” again to retry."));
+    }
+  }
+  function fillProfile() {
+    if (!draft || !profile) return;
+    setDraft({ ...draft, basics: profile.basics, sections: profile.sections });
+    setNotice(copy("已填入已存数据，可继续编辑后再保存", "Saved data filled in — keep editing, then save"));
   }
 
   const cloudMatch = draft && cloudLibrary.find(item => item.id === draft.id);
@@ -210,7 +259,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   return <main className={`resume-app ${view === "editor" ? "resume-is-editing" : ""}`}>
     <header className="resume-page-heading">
       <div><div className="resume-eyebrow">G H F I N D / CAREER</div><h1>{copy("我的简历", "My résumés")} <span className="resume-beta">{copy("预览版", "Preview")}</span></h1><p>{copy("把你的经历，整理成下一次机会。", "Make room for your next opportunity.")}</p></div>
-      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button" disabled={syncBusy} onClick={() => window.print()}><Printer size={15} />{copy("导出 PDF", "Export PDF")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={() => void save()}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : me?.user ? copy("保存到云端", "Save to cloud") : copy("保存简历", "Save résumé")}</button></div>}
+      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button" disabled={syncBusy} onClick={() => window.print()}><Printer size={15} />{copy("导出 PDF", "Export PDF")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={() => void save()}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : copy("保存", "Save")}</button></div>}
     </header>
     {localNotice}
     {error && <div className="resume-error" role="alert">{error}{cloudState === "signed-out" && me?.user && <button className="resume-button" onClick={() => signInWithGitHub()}>{copy("重新登录", "Sign in again")}</button>}{conflict && draft && <button className="resume-button" disabled={syncBusy} onClick={() => void save(true)}>{copy("另存为副本", "Save a copy")}</button>}</div>}
@@ -221,13 +270,13 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
         <div className="resume-cloud-actions">{me?.user && cloudState !== "signed-out" ? <button className="resume-button" disabled={cloudState === "loading"} onClick={() => void refreshCloud()}><RefreshCw size={15} />{copy("刷新列表", "Refresh")}</button> : me?.oauth !== false && <button className="resume-button" disabled={!me} onClick={() => signInWithGitHub()}>{copy("用 GitHub 登录", "Sign in with GitHub")}</button>}{draft && <button className="resume-button" onClick={() => setView("editor")}>{copy("继续编辑", "Continue editing")}<ArrowRight size={14} /></button>}</div>
       </section>
       {cloudLibrary.length > 0 && <section className="resume-library"><div className="resume-section-heading"><h2>{copy("云端简历", "Cloud résumés")} <span className="resume-section-count">{cloudLibrary.length}</span></h2></div><div className="resume-saved-list">{cloudLibrary.map(item => renderResume(item, true))}</div></section>}
-      {cloudState === "ready" && cloudLibrary.length === 0 && localOnly.length > 0 && <p className="resume-empty">{copy("还没有云端简历。打开本地简历或选择模板，编辑后点击「保存到云端」。", "No cloud résumés yet. Open a local draft or choose a template, then save to the cloud.")}</p>}
+      {cloudState === "ready" && cloudLibrary.length === 0 && localOnly.length > 0 && <p className="resume-empty">{copy("还没有云端简历。打开本地简历或选择模板，编辑后点击「保存」。", "No cloud résumés yet. Open a local draft or choose a template, then click Save.")}</p>}
       {localOnly.length > 0 && <section className="resume-library"><div className="resume-section-heading"><div><h2>{copy("此浏览器中的草稿", "Drafts in this browser")}</h2><p>{copy("尚未保存到云端，或与云端内容不同。打开后可继续编辑和保存。", "Local-only drafts or versions that differ from the cloud. Open to edit and save.")}</p></div></div><div className="resume-saved-list">{localOnly.map(item => renderResume(item, false))}</div></section>}
       <section className="resume-template-gallery"><div className="resume-section-heading"><div><h2>{copy("从一个好看的模板开始", "Start with a considered template")}</h2><p>{copy("四种风格，同一份内容。进入编辑器后也可以随时更换。下方为示例排版。", "Four styles, the same story. Switch templates any time. Thumbnails show sample content.")}</p></div><span className="resume-section-count">01 — 04</span></div>
         <div className="resume-template-grid">{TEMPLATE_IDS.map((template, index) => <button key={template} className="resume-template-card" onClick={() => begin(template)}><div className="resume-template-thumbnail"><ResumePaper resume={sampleResume(template, zh)} zh={zh} miniature /></div><div className="resume-template-caption"><span className="resume-template-index">0{index + 1}</span><div><h3>{templates[template][0]}</h3><p>{templates[template][1]}</p></div><ArrowRight size={18} /></div><span className="resume-template-use">{copy("使用此模板", "Use template")} <ArrowRight size={14} /></span></button>)}</div>
       </section>
     </> : draft && <>
-      <fieldset className="resume-editing-fields" disabled={syncBusy}><div className="resume-document-bar"><label>{copy("简历名称", "Document name")}<input value={draft.name} maxLength={100} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label><span className="resume-document-tools"><button className="resume-text-button" onClick={fillSample}><Sparkles size={14} />{copy("填入示例数据", "Fill sample data")}</button><span role="status" className="resume-save-status">{saveStatus}{!dirty && <Check size={14} />}</span></span></div>
+      <fieldset className="resume-editing-fields" disabled={syncBusy}><div className="resume-document-bar"><label>{copy("简历名称", "Document name")}<input value={draft.name} maxLength={100} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label><span className="resume-document-tools">{profile && isResumeEmpty(draft) && <button className="resume-button" onClick={fillProfile}><ClipboardPaste size={14} />{copy("填入已存数据", "Fill with saved data")}</button>}<button className="resume-text-button" onClick={fillSample}><Sparkles size={14} />{copy("填入示例数据", "Fill sample data")}</button><button className="resume-text-button" disabled={syncBusy || isResumeEmpty(draft)} onClick={() => void saveProfileData()}><Database size={14} />{copy("另存数据", "Save as data")}</button><span role="status" className="resume-save-status">{saveStatus}{!dirty && <Check size={14} />}</span></span></div>
       <div className="resume-mobile-switch"><button aria-pressed={mobilePanel === "edit"} onClick={() => setMobilePanel("edit")}>{copy("编辑内容", "Edit")}</button><button aria-pressed={mobilePanel === "preview"} onClick={() => setMobilePanel("preview")}>{copy("简历预览", "Preview")}</button></div>
       <div className="resume-studio" data-mobile-panel={mobilePanel}>
         <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePagedPaper resume={draft} zh={zh} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · A4 幅面，内容较长时自动分页", "Preview updates as you type · A4 pages, overflow continues on the next page")}</p></section>

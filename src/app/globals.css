@@ -1257,8 +1257,6 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .resume-photo-upload:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
 .resume-photo-upload.is-busy { opacity: .5; }
 .resume-photo-editor > p { font-size: 10px; color: var(--muted-foreground); line-height: 1.8; margin-top: 12px; }
-.resume-photo-position { display: flex; flex-direction: column; gap: 9px; margin-top: 15px; font-size: 11px; color: var(--muted-foreground); }
-.resume-photo-position input { width: 100%; accent-color: var(--foreground); }
 .resume-paper-photo { width: 6em; height: 7em; object-fit: cover; flex-shrink: 0; border-radius: .15em; }
 .resume-paper-header > .resume-paper-photo { margin-inline-start: auto; }
 .resume-paper-identity { min-width: 0; }

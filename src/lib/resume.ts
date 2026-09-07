@@ -11,15 +11,21 @@ export const TEMPLATE_IDS = ["editorial", "modern", "classic", "noir"] as const;
 export const SECTION_TYPES = ["experience", "projects", "education", "skills", "custom"] as const;
 const field = z.string().max(20000);
 const entrySchema = z.object({ id: z.string(), title: field, subtitle: field, period: field, details: field });
+const basicsSchema = z.object({ name: field, role: field, email: field, phone: field, city: field, website: field, summary: field });
+const sectionsSchema = z.array(z.object({ id: z.string(), type: z.enum(SECTION_TYPES), title: field, entries: z.array(entrySchema).max(100) })).max(30);
 export const resumeSchema = z.object({
   id: z.string(), name: field, template: z.enum(TEMPLATE_IDS), updatedAt: z.string(),
   cloudBase: z.object({ account: z.string(), updatedAt: z.string().nullable() }).optional(),
   photo: z.object({ data: z.string().max(700000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/), position: z.number().min(0).max(100) }).optional(),
-  basics: z.object({ name: field, role: field, email: field, phone: field, city: field, website: field, summary: field }),
-  sections: z.array(z.object({ id: z.string(), type: z.enum(SECTION_TYPES), title: field, entries: z.array(entrySchema).max(100) })).max(30),
+  basics: basicsSchema,
+  sections: sectionsSchema,
 });
-const librarySchema = z.object({ version: z.literal(1), resumes: z.array(resumeSchema).max(100) });
+// Reusable content data deliberately excludes the photo: portraits are the
+// only bulky field and would blow the library payload cap if stored twice.
+export const profileSchema = z.object({ basics: basicsSchema, sections: sectionsSchema, updatedAt: z.string() });
+const librarySchema = z.object({ version: z.literal(1), resumes: z.array(resumeSchema).max(100), profile: profileSchema.optional() });
 export type Resume = z.infer<typeof resumeSchema>;
+export type Profile = z.infer<typeof profileSchema>;
 export type ResumeSection = Resume["sections"][number];
 export type TemplateId = typeof TEMPLATE_IDS[number];
 export type SectionType = typeof SECTION_TYPES[number];
@@ -27,15 +33,27 @@ export const sectionNames = {
   zh: { experience: "工作经历", projects: "项目经历", education: "教育背景", skills: "专业技能", custom: "自定义区块" },
   en: { experience: "Experience", projects: "Projects", education: "Education", skills: "Skills", custom: "Custom section" },
 };
+export function readResumeLibraryFull(raw: string | null): { resumes: Resume[]; profile?: Profile } {
+  if (raw === null) return { resumes: [] };
+  const library = librarySchema.parse(JSON.parse(raw));
+  return library.profile ? { resumes: library.resumes, profile: library.profile } : { resumes: library.resumes };
+}
 export function readResumeLibrary(raw: string | null): Resume[] {
-  return raw === null ? [] : librarySchema.parse(JSON.parse(raw)).resumes;
+  return readResumeLibraryFull(raw).resumes;
 }
 export function upsertResume(resumes: Resume[], resume: Resume): Resume[] {
   const valid = resumeSchema.parse(resume);
   return [valid, ...resumes.filter(item => item.id !== valid.id)];
 }
-export function serializeResumeLibrary(resumes: Resume[]): string {
-  return JSON.stringify(librarySchema.parse({ version: 1, resumes }));
+export function serializeResumeLibrary(resumes: Resume[], profile?: Profile): string {
+  return JSON.stringify(librarySchema.parse({ version: 1, resumes, profile }));
+}
+export function profileFromResume(resume: Resume): Profile {
+  return profileSchema.parse({ basics: resume.basics, sections: resume.sections, updatedAt: new Date().toISOString() });
+}
+export function isResumeEmpty(resume: Resume): boolean {
+  return Object.values(resume.basics).every(value => !value.trim())
+    && resume.sections.every(section => section.entries.every(entry => [entry.title, entry.subtitle, entry.period, entry.details].every(value => !value.trim())));
 }
 export function emptyEntry() { return { id: crypto.randomUUID(), title: "", subtitle: "", period: "", details: "" }; }
 export function newSection(type: SectionType, zh: boolean): ResumeSection {

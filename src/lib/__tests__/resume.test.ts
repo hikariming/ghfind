@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createResume, readResumeLibrary, resumeStorageSnapshot, sampleResume, serializeResumeLibrary, TEMPLATE_IDS, upsertResume } from "../resume";
+import { createResume, isResumeEmpty, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sampleResume, serializeResumeLibrary, TEMPLATE_IDS, upsertResume } from "../resume";
 
 describe("local résumé persistence", () => {
   it("round-trips personal data, sections and layout without merging distinct documents", () => {
@@ -44,6 +44,39 @@ describe("résumé portraits", () => {
     for (const photo of [{ data: "https://example.com/photo.jpg", position: 50 }, { data: "data:image/jpeg;base64,AAAA", position: 101 }, { data: "data:image/jpeg;base64," + "A".repeat(700000), position: 50 }]) {
       expect(() => serializeResumeLibrary([{ ...draft, photo }])).toThrow();
     }
+  });
+});
+
+describe("reusable résumé data (profile)", () => {
+  it("extracts content without the photo and round-trips it through the library payload", () => {
+    const resume = sampleResume("modern", true);
+    resume.photo = { data: "data:image/jpeg;base64,/9j/2Q==", position: 50 };
+    const profile = profileFromResume(resume);
+    expect(profile.basics).toEqual(resume.basics);
+    expect(profile.sections).toEqual(resume.sections);
+    expect("photo" in profile).toBe(false);
+    expect(Date.parse(profile.updatedAt)).not.toBeNaN();
+    const stored = serializeResumeLibrary([resume], profile);
+    const restored = readResumeLibraryFull(stored);
+    expect(restored.profile).toEqual(profile);
+    expect(restored.resumes).toEqual([resume]);
+    expect(readResumeLibrary(stored)).toEqual([resume]);
+  });
+  it("keeps profile-less and empty libraries readable", () => {
+    const resume = createResume("classic", true);
+    expect(readResumeLibraryFull(serializeResumeLibrary([resume]))).toEqual({ resumes: [resume] });
+    expect(readResumeLibraryFull(null)).toEqual({ resumes: [] });
+  });
+  it("detects blank résumés, including whitespace-only and scaffolded ones", () => {
+    expect(isResumeEmpty(createResume("editorial", true))).toBe(true);
+    const whitespace = createResume("editorial", true);
+    whitespace.basics.name = "   ";
+    whitespace.sections[0].entries[0].details = " \n ";
+    expect(isResumeEmpty(whitespace)).toBe(true);
+    const filled = createResume("editorial", true);
+    filled.sections[0].entries[0].title = "Engineer";
+    expect(isResumeEmpty(filled)).toBe(false);
+    expect(isResumeEmpty(sampleResume("noir", false))).toBe(false);
   });
 });
 

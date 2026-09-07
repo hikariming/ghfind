@@ -155,8 +155,7 @@ export function ResumePhotoInput({ zh, photo, onChange }: { zh: boolean; photo: 
       </div>
     </div>
     <p>{copy("支持 JPG、PNG、WebP，最大 5 MB。上传后在浏览器内裁剪并压缩。点击保存后，随简历保存到本地；登录后也会保存到云端。", "JPG, PNG or WebP, up to 5 MB. Photos are cropped and compressed in your browser. Save your résumé to keep the photo locally and, when signed in, in the cloud.")}</p>
-    {photo && <label className="resume-photo-position">{copy("显示位置微调 · 在裁剪框内上下移动", "Fine-tune · shift within the cropped frame")}<input type="range" min="0" max="100" value={photo.position} onChange={event => onChange({ ...photo, position: Number(event.target.value) })} /></label>}
     {error && <p role="alert" className="resume-error">{error}</p>}
-    {cropSource && <PhotoCropDialog zh={zh} source={cropSource} onCancel={closeCrop} onConfirm={data => { onChange({ data, position: photo?.position ?? 50 }); setError(""); closeCrop(); }} />}
+    {cropSource && <PhotoCropDialog zh={zh} source={cropSource} onCancel={closeCrop} onConfirm={data => { onChange({ data, position: 50 }); setError(""); closeCrop(); }} />}
   </div>;
 }
