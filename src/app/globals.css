@@ -1337,11 +1337,15 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .resume-page-content { position: absolute; inset-inline: 0; }
 .resume-page-content .resume-paper { box-shadow: none; }
 
-/* Portrait crop dialog. */
-.resume-crop-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 18px; background: rgb(0 0 0 / .55); }
-.resume-crop-dialog { width: min(520px, 100%); max-height: calc(100dvh - 36px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); color: var(--foreground); box-shadow: var(--shadow-float); }
-.resume-crop-heading h3 { font-size: 15px; font-weight: 550; }
-.resume-crop-heading p { font-size: 12px; color: var(--muted-foreground); line-height: 1.7; margin-top: 5px; }
+/* Résumé dialogs: photo crop, saved-data offer, save confirmation. */
+.resume-dialog-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 18px; background: rgb(0 0 0 / .55); }
+.resume-dialog { width: min(520px, 100%); max-height: calc(100dvh - 36px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); color: var(--foreground); box-shadow: var(--shadow-float); }
+.resume-dialog-heading h3 { font-size: 15px; font-weight: 550; }
+.resume-dialog-heading p { font-size: 12px; color: var(--muted-foreground); line-height: 1.7; margin-top: 5px; }
+.resume-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.resume-dialog-check { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-size: 13px; cursor: pointer; }
+.resume-dialog-check input { accent-color: var(--foreground); }
+.resume-dialog-hint { font-size: 12px; color: var(--muted-foreground); line-height: 1.7; margin-top: 12px; }
 .resume-crop-viewport { position: relative; height: min(360px, 52dvh); margin-top: 14px; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-muted); touch-action: none; cursor: grab; }
 .resume-crop-viewport:active { cursor: grabbing; }
 .resume-crop-viewport img { position: absolute; left: 50%; top: 50%; max-width: none; pointer-events: none; user-select: none; }
@@ -1349,7 +1353,6 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .resume-crop-zoom { display: flex; align-items: center; gap: 12px; margin-top: 16px; color: var(--muted-foreground); }
 .resume-crop-zoom input { flex: 1; accent-color: var(--foreground); }
 .resume-crop-zoom > span { font-size: 11px; min-width: 38px; text-align: end; }
-.resume-crop-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
 /* PDF export: only the print copy of the paper is visible, browser paginates. */
 .resume-print-root { display: none; }

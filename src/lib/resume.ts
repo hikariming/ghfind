@@ -22,7 +22,8 @@ export const resumeSchema = z.object({
 });
 // Reusable content data deliberately excludes the photo: portraits are the
 // only bulky field and would blow the library payload cap if stored twice.
-export const profileSchema = z.object({ basics: basicsSchema, sections: sectionsSchema, updatedAt: z.string() });
+// name is optional: profiles stored before it existed must still parse.
+export const profileSchema = z.object({ basics: basicsSchema, sections: sectionsSchema, updatedAt: z.string(), name: field.max(200).optional() });
 const librarySchema = z.object({ version: z.literal(1), resumes: z.array(resumeSchema).max(100), profile: profileSchema.optional() });
 export type Resume = z.infer<typeof resumeSchema>;
 export type Profile = z.infer<typeof profileSchema>;
@@ -48,8 +49,8 @@ export function upsertResume(resumes: Resume[], resume: Resume): Resume[] {
 export function serializeResumeLibrary(resumes: Resume[], profile?: Profile): string {
   return JSON.stringify(librarySchema.parse({ version: 1, resumes, profile }));
 }
-export function profileFromResume(resume: Resume): Profile {
-  return profileSchema.parse({ basics: resume.basics, sections: resume.sections, updatedAt: new Date().toISOString() });
+export function profileFromResume(resume: Resume, name?: string): Profile {
+  return profileSchema.parse({ basics: resume.basics, sections: resume.sections, updatedAt: new Date().toISOString(), name: name?.trim() || undefined });
 }
 export function isResumeEmpty(resume: Resume): boolean {
   return Object.values(resume.basics).every(value => !value.trim())

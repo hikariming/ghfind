@@ -83,9 +83,9 @@ function PhotoCropDialog({ zh, source, onCancel, onConfirm }: { zh: boolean; sou
     }
   }
 
-  return <div className="resume-crop-overlay" role="presentation">
-    <div className="resume-crop-dialog" role="dialog" aria-modal="true" aria-label={copy("裁剪照片", "Crop photo")}>
-      <div className="resume-crop-heading"><h3>{copy("裁剪照片", "Crop photo")}</h3><p>{copy("拖动调整位置，用滑块缩放。框内区域将作为简历照片。", "Drag to position, zoom with the slider. The framed area becomes your portrait.")}</p></div>
+  return <div className="resume-dialog-overlay" role="presentation">
+    <div className="resume-dialog" role="dialog" aria-modal="true" aria-label={copy("裁剪照片", "Crop photo")}>
+      <div className="resume-dialog-heading"><h3>{copy("裁剪照片", "Crop photo")}</h3><p>{copy("拖动调整位置，用滑块缩放。框内区域将作为简历照片。", "Drag to position, zoom with the slider. The framed area becomes your portrait.")}</p></div>
       <div className="resume-crop-viewport" ref={viewportRef}
         onPointerDown={event => { if (!ready) return; viewportRef.current?.setPointerCapture(event.pointerId); drag.current = { pointer: event.pointerId, startX: event.clientX, startY: event.clientY, baseX: position.x, baseY: position.y }; }}
         onPointerMove={event => { if (drag.current?.pointer !== event.pointerId) return; setOffset({ x: drag.current.baseX + event.clientX - drag.current.startX, y: drag.current.baseY + event.clientY - drag.current.startY }); }}
@@ -101,7 +101,7 @@ function PhotoCropDialog({ zh, source, onCancel, onConfirm }: { zh: boolean; sou
         <span>{Math.round(zoom * 100)}%</span>
       </label>
       {error && <p role="alert" className="resume-error">{error}</p>}
-      <div className="resume-crop-actions">
+      <div className="resume-dialog-actions">
         <button type="button" className="resume-button" onClick={onCancel}><X size={14} />{copy("取消", "Cancel")}</button>
         <button type="button" className="resume-button resume-button-primary" disabled={!ready} onClick={confirm}><Check size={14} />{copy("确认裁剪", "Apply crop")}</button>
       </div>

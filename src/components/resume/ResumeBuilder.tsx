@@ -40,6 +40,11 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const saving = useRef(false);
   const localBase = useRef<{ id: string; snapshot: string; preserve: boolean } | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [offerProfile, setOfferProfile] = useState(false);
+  const [saveDialog, setSaveDialog] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveAsData, setSaveAsData] = useState(false);
+  const [dataName, setDataName] = useState("");
   const dirty = draft !== null && JSON.stringify(draft) !== savedSnapshot;
 
   const setProfile = useCallback((next: Profile | undefined) => { profileRef.current = next; setProfileState(next); }, []);
@@ -92,6 +97,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   function begin(template: TemplateId) {
     if (!canReplace()) return;
     localBase.current = null;
+    // Only a brand-new blank draft gets the one-time saved-data offer.
+    setOfferProfile(!!profileRef.current);
     setDraft(createResume(template, zh)); setSavedSnapshot(""); setView("editor"); setTab("basics"); setUndo(null); setNotice(""); setError(""); setConflict(false);
   }
   function openResume(resume: Resume, fromCloud = false) {
@@ -100,6 +107,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       const local = readResumeLibrary(localStorage.getItem(RESUME_STORAGE_KEY)).find(item => item.id === resume.id);
       localBase.current = { id: resume.id, snapshot: resumeStorageSnapshot(local), preserve: !!(fromCloud && local && !sameResumeContent(local, resume)) };
     } catch { setError(copy("无法读取本地备份，请检查浏览器存储后重试。", "Cannot read the local backup. Check browser storage and retry.")); return; }
+    setOfferProfile(false);
     setDraft(resume); setSavedSnapshot(JSON.stringify(resume)); setView("editor"); setTab("basics"); setUndo(null); setNotice(""); setError(""); setConflict(false);
   }
   function saveLocal(value: Resume): Resume {
@@ -119,16 +127,17 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     setLibrary(next); setDraft(saved); setSavedSnapshot(JSON.stringify(saved));
     return saved;
   }
-  async function save(asCopy = false) {
-    if (!draft || saving.current) return;
+  async function save(asCopy = false, value?: Resume) {
+    const current = value ?? draft;
+    if (!current || saving.current) return;
     saving.current = true; setSyncBusy(true); setError(""); setNotice(""); setConflict(false);
     const account = me?.user?.login;
-    const remote = cloudLibrary.find(item => item.id === draft.id);
-    const baseUpdatedAt = draft.cloudBase && draft.cloudBase.account === account ? draft.cloudBase.updatedAt : remote ? draft.updatedAt : null;
-    const value = asCopy ? { ...draft, id: crypto.randomUUID(), name: `${draft.name} (${copy("副本", "copy")})`, updatedAt: "", cloudBase: undefined } : draft;
+    const remote = cloudLibrary.find(item => item.id === current.id);
+    const baseUpdatedAt = current.cloudBase && current.cloudBase.account === account ? current.cloudBase.updatedAt : remote ? current.updatedAt : null;
+    const target = asCopy ? { ...current, id: crypto.randomUUID(), name: `${current.name} (${copy("副本", "copy")})`, updatedAt: "", cloudBase: undefined } : current;
     let local: Resume;
     try {
-      local = saveLocal({ ...value, cloudBase: account ? { account, updatedAt: asCopy ? null : baseUpdatedAt } : value.cloudBase });
+      local = saveLocal({ ...target, cloudBase: account ? { account, updatedAt: asCopy ? null : baseUpdatedAt } : target.cloudBase });
     } catch (cause) {
       setError(cause instanceof Error && cause.message === "local_conflict"
         ? copy("此浏览器已有另一版本。请另存副本，保留两份内容。", "This browser has another version. Save a copy to keep both." )
@@ -223,9 +232,9 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
 
   // Reusable data is only written explicitly here — saving a résumé never
   // updates it, so job-specific tailoring cannot pollute the shared data.
-  async function saveProfileData() {
-    if (!draft || syncBusy) return;
-    const next = profileFromResume(draft);
+  async function saveProfileData(name?: string) {
+    if (!draft) return;
+    const next = profileFromResume(draft, name || profileRef.current?.name || draft.name);
     persistProfile(next);
     if (!me?.user) {
       setNotice(copy("数据已保存，新建简历可一键填入", "Data saved — new résumés can be filled with one click"));
@@ -245,6 +254,23 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     setNotice(copy("已填入已存数据，可继续编辑后再保存", "Saved data filled in — keep editing, then save"));
   }
 
+  function openSaveDialog() {
+    if (!draft || syncBusy) return;
+    setSaveName(draft.name);
+    setSaveAsData(!profileRef.current);
+    setDataName(profileRef.current?.name || draft.name);
+    setSaveDialog(true);
+  }
+  function confirmSave() {
+    if (!draft || syncBusy) return;
+    const value = saveName === draft.name ? draft : { ...draft, name: saveName };
+    const keepData = saveAsData;
+    const keepName = dataName;
+    setSaveDialog(false);
+    void save(false, value);
+    if (keepData) void saveProfileData(keepName);
+  }
+
   const cloudMatch = draft && cloudLibrary.find(item => item.id === draft.id);
   const savedToCloud = !!(draft && cloudMatch && sameResumeContent(draft, cloudMatch));
   const saveStatus = syncBusy ? copy("正在保存…", "Saving…") : dirty ? copy("有未保存的修改", "Unsaved changes") : savedToCloud ? copy("已保存到云端", "Saved to cloud") : copy("已保存到此浏览器", "Saved in this browser");
@@ -259,7 +285,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   return <main className={`resume-app ${view === "editor" ? "resume-is-editing" : ""}`}>
     <header className="resume-page-heading">
       <div><div className="resume-eyebrow">G H F I N D / CAREER</div><h1>{copy("我的简历", "My résumés")} <span className="resume-beta">{copy("预览版", "Preview")}</span></h1><p>{copy("把你的经历，整理成下一次机会。", "Make room for your next opportunity.")}</p></div>
-      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button" disabled={syncBusy} onClick={() => window.print()}><Printer size={15} />{copy("导出 PDF", "Export PDF")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={() => void save()}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : copy("保存", "Save")}</button></div>}
+      {view === "editor" && <div className="resume-header-actions"><button className="resume-button" disabled={syncBusy} onClick={() => setView("gallery")}><ArrowLeft size={15} />{copy("模板与简历", "Templates & résumés")}</button><button className="resume-button" disabled={syncBusy} onClick={() => window.print()}><Printer size={15} />{copy("导出 PDF", "Export PDF")}</button><button className="resume-button resume-button-primary" disabled={syncBusy || !me || (!!me.user && cloudState === "loading")} onClick={openSaveDialog}><Save size={15} />{syncBusy ? copy("保存中…", "Saving…") : copy("保存", "Save")}</button></div>}
     </header>
     {localNotice}
     {error && <div className="resume-error" role="alert">{error}{cloudState === "signed-out" && me?.user && <button className="resume-button" onClick={() => signInWithGitHub()}>{copy("重新登录", "Sign in again")}</button>}{conflict && draft && <button className="resume-button" disabled={syncBusy} onClick={() => void save(true)}>{copy("另存为副本", "Save a copy")}</button>}</div>}
@@ -317,5 +343,27 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       </div></fieldset>
     </>}
     {view === "editor" && draft && <div className="resume-print-root" aria-hidden><ResumePaper resume={draft} zh={zh} /></div>}
+    {view === "editor" && draft && offerProfile && profile && <div className="resume-dialog-overlay" role="presentation" onKeyDown={event => { if (event.key === "Escape") setOfferProfile(false); }}>
+      <div className="resume-dialog" role="dialog" aria-modal="true" aria-label={copy("填入已存数据", "Fill with saved data")}>
+        <div className="resume-dialog-heading"><h3>{copy("填入已存数据", "Fill with saved data")}</h3><p>{copy(`已有存好的数据「${profile.name || copy("已存数据", "Saved data")}」，一键填入，不用从头写。`, `You have saved data “${profile.name || copy("已存数据", "Saved data")}” — fill it in with one click instead of starting from scratch.`)}</p></div>
+        <div className="resume-dialog-actions">
+          <button type="button" className="resume-button" onClick={() => setOfferProfile(false)}>{copy("从头写起", "Start blank")}</button>
+          <button type="button" className="resume-button resume-button-primary" autoFocus onClick={() => { setOfferProfile(false); fillProfile(); }}><ClipboardPaste size={14} />{copy("填入数据", "Fill it in")}</button>
+        </div>
+      </div>
+    </div>}
+    {view === "editor" && draft && saveDialog && <div className="resume-dialog-overlay" role="presentation" onKeyDown={event => { if (event.key === "Escape") setSaveDialog(false); }}>
+      <form className="resume-dialog" role="dialog" aria-modal="true" aria-label={copy("保存简历", "Save résumé")} onSubmit={event => { event.preventDefault(); confirmSave(); }}>
+        <div className="resume-dialog-heading"><h3>{copy("保存简历", "Save résumé")}</h3></div>
+        <label className="resume-field">{copy("简历名称", "Résumé name")}<input autoFocus value={saveName} maxLength={100} onChange={event => setSaveName(event.target.value)} /></label>
+        <label className="resume-dialog-check"><input type="checkbox" checked={saveAsData} onChange={event => setSaveAsData(event.target.checked)} />{copy("同时存为可复用数据", "Also save as reusable data")}</label>
+        {saveAsData && <label className="resume-field">{copy("数据名称", "Data name")}<input value={dataName} maxLength={100} onChange={event => setDataName(event.target.value)} /></label>}
+        <p className="resume-dialog-hint">{copy("保存后随时可在列表取用；存为数据后，新建简历可一键填入。", "Saved résumés are always available in your library; saved data can be filled into new résumés with one click.")}</p>
+        <div className="resume-dialog-actions">
+          <button type="button" className="resume-button" onClick={() => setSaveDialog(false)}>{copy("取消", "Cancel")}</button>
+          <button type="submit" className="resume-button resume-button-primary" disabled={syncBusy}><Save size={14} />{copy("确认保存", "Save")}</button>
+        </div>
+      </form>
+    </div>}
   </main>;
 }

@@ -67,6 +67,14 @@ describe("reusable résumé data (profile)", () => {
     expect(readResumeLibraryFull(serializeResumeLibrary([resume]))).toEqual({ resumes: [resume] });
     expect(readResumeLibraryFull(null)).toEqual({ resumes: [] });
   });
+  it("parses stored profiles without a name and keeps explicit names", () => {
+    const legacy = JSON.parse(serializeResumeLibrary([], profileFromResume(sampleResume("classic", true)))) as { profile: Record<string, unknown> };
+    delete legacy.profile.name;
+    expect(readResumeLibraryFull(JSON.stringify(legacy)).profile?.name).toBeUndefined();
+    const named = readResumeLibraryFull(serializeResumeLibrary([], profileFromResume(sampleResume("classic", true), "主数据"))).profile;
+    expect(named?.name).toBe("主数据");
+    expect(profileFromResume(sampleResume("classic", true), "   ").name).toBeUndefined();
+  });
   it("detects blank résumés, including whitespace-only and scaffolded ones", () => {
     expect(isResumeEmpty(createResume("editorial", true))).toBe(true);
     const whitespace = createResume("editorial", true);
