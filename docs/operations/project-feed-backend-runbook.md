@@ -22,6 +22,10 @@ Current production algorithm: `cloudflare-tag-quality-v1`.
 - Canonical tags are eligible for recall. Assessment tags with a free-form
   namespace/slug are stored as evidence-backed proposals and have zero recall
   effect until an administrator creates or maps a canonical tag.
+- Legacy v1/v2 assessments have evidence-backed product tags but no namespace.
+  They enter the review-only `use_case` intake bucket; this is not an automatic
+  semantic classification and does not grant recall. An administrator can map
+  an accepted proposal to a canonical tag in any governed namespace.
 - The baseline ranks tag affinity, saved-tag similarity, product score,
   confidence, freshness, and long-tail exposure; MMR limits repetitive tags.
   There is no online embedding, LLM ranking, Gorse, or hidden model fallback.
