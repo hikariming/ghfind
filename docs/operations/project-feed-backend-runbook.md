@@ -46,6 +46,13 @@ Required existing Worker secrets:
   endpoints. It must be different from OAuth credentials and never supplied to
   a browser.
 
+The production repository also holds a GitHub Actions secret with the same
+name. It is only consumed by the explicitly dispatched bounded reconciliation
+workflow; it is never exposed to a browser, an application response, or a
+scheduled job. The first bootstrap synchronizes this credential into the
+Worker through GitHub Actions, so an operator does not need a local deployment
+or access to its plaintext value.
+
 Optional Worker variable:
 
 - `FEED_MODE=baseline` (or omit it) enables the D1 baseline.
@@ -87,6 +94,15 @@ If `nextCursor` is returned, invoke the endpoint again with its `updatedAt`
 and `repoKey` values until it is `null`. This is a repair tool for a failed
 projection or an intentional taxonomy migration; it must not be scheduled as
 a perpetual sweep.
+
+For the initial production backfill or a bounded repair, prefer the GitHub
+Actions workflow **Reconcile Feed catalog (production)**. It has no automatic
+trigger and enforces at most four pages of 100 assessments per dispatch. For
+the first run, dispatch it with `bootstrap_credential=true`, `page_limit=100`,
+`max_pages=4`, `updated_at=0`, and an empty `repo_key`. Later repair runs keep
+`bootstrap_credential=false` and resume from the cursor written into the job
+summary. Do not turn this workflow into a schedule or increase its bounds;
+larger catalog repairs should be split into explicit, auditable dispatches.
 
 Review proposed assessment tags before they can affect recommendations:
 
