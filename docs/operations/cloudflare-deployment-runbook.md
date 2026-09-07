@@ -150,8 +150,16 @@ required.
 
 ## Deploy dev
 
-Only deploy dev after the resource preflight and the D1 data-safety warning have
-been acknowledged:
+Pushes to `dev` deploy automatically: after a successful `CI` run on the branch,
+`.github/workflows/deploy-cf-dev.yml` checks out the verified SHA, applies
+pending D1 migrations, deploys `ghfind-dev`, and rolls the Worker back if the
+post-deploy smoke fails. The smoke runs against the WAF-free workers.dev
+entrance (`SMOKE_BASE_URL=https://ghfind-dev.beiming1201.workers.dev` with
+`SMOKE_EXPECTED_ORIGIN=https://dev.ghfind.com`) because the zone's ASN
+challenge can block runner egress on the custom domain.
+
+For a manual dev release, only deploy after the resource preflight and the D1
+data-safety warning have been acknowledged:
 
 ```bash
 pnpm cf:deploy:dev

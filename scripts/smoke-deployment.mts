@@ -228,7 +228,7 @@ async function main(): Promise<void> {
     throw new Error("SMOKE_FACET_TYPE must be language, org, or repo");
   }
   const facetValue = required("SMOKE_FACET_VALUE");
-  const expectedOrigin = base.origin;
+  const expectedOrigin = originUrl("SMOKE_EXPECTED_ORIGIN", false)?.origin ?? base.origin;
   const checks: Check[] = [
     {
       label: "profile",
