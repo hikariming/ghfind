@@ -1279,7 +1279,7 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .resume-paper-noir .resume-paper-entry-heading { display: block; }
 .resume-paper-noir .resume-paper-entry-heading h4 { font-size: 1em; color: #222; text-transform: uppercase; }
 .resume-noir-summary > p { border-inline-start: 1px solid #555; padding-inline-start: 1em; white-space: pre-wrap; }
-.resume-paper-noir .resume-paper-photo { display: block; width: 100%; height: auto; aspect-ratio: .85; object-fit: cover; filter: grayscale(1); margin-bottom: 2.2em; border-radius: 0; }
+.resume-paper-noir .resume-paper-photo { display: block; width: 100%; height: auto; aspect-ratio: .85; object-fit: cover; margin-bottom: 2.2em; border-radius: 0; }
 .resume-paper-photo-sample { background: #edf0f1; color: #818a91; overflow: hidden; }
 .resume-paper-photo-sample svg { width: 90%; height: 100%; margin: 15% auto 0; }
 .resume-template-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 32px; }
