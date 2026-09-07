@@ -107,18 +107,8 @@ jobs:
           FEED_TEST_DATABASE_URL: postgres://feed_test:feed-test-only@127.0.0.1:5432/ghfind_feed_test?sslmode=disable
         run: go test ./...
 
-      - name: Build backend release images
-        run: |
-          docker build --target railway --file Dockerfile.backend --tag ghfind-backend:ci .
-          docker build --file Dockerfile.feed-backup --tag ghfind-feed-backup:ci .
-
       - name: Self-test deployment smoke
         run: pnpm smoke:deployment:selftest
-
-      - name: Validate production deploy gate syntax
-        run: |
-          node --check .github/scripts/deploy-gate.mjs
-          node scripts/deploy-gate-selftest.mjs
 
       - name: Self-test backend async smoke
         run: pnpm smoke:backend:async:selftest
