@@ -1,0 +1,168 @@
+name: Reconcile Feed catalog (production)
+
+# An operator-triggered, bounded repair/bootstrap tool. This intentionally has
+# no push, workflow_run, schedule, or cron trigger: Feed catalog reconciliation
+# must not become a perpetual production scan. The initial controlled run can
+# synchronize the Worker-only credential from GitHub Actions, then projects at
+# most 4 x 100 completed assessments using the protected same-origin endpoint.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bootstrap_credential:
+        description: "Synchronize FEED_ADMIN_SECRET into the production Worker before reconciling"
+        required: true
+        default: false
+        type: boolean
+      page_limit:
+        description: "Completed assessments per request (1-100)"
+        required: true
+        default: "100"
+        type: string
+      max_pages:
+        description: "Maximum pages for this explicit run (1-4)"
+        required: true
+        default: "4"
+        type: string
+      updated_at:
+        description: "Resume cursor timestamp; leave as 0 for the initial run"
+        required: true
+        default: "0"
+        type: string
+      repo_key:
+        description: "Resume cursor repository key; leave empty for the initial run"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feed-catalog-reconcile-production
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Bounded production catalog reconciliation
+    if: ${{ github.repository == 'hikariming/ghfind' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
+      CLOUDFLARE_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      FEED_ADMIN_SECRET: ${{ secrets.FEED_ADMIN_SECRET }}
+      BOOTSTRAP_CREDENTIAL: ${{ inputs.bootstrap_credential }}
+      PAGE_LIMIT: ${{ inputs.page_limit }}
+      MAX_PAGES: ${{ inputs.max_pages }}
+      INITIAL_UPDATED_AT: ${{ inputs.updated_at }}
+      INITIAL_REPO_KEY: ${{ inputs.repo_key }}
+      FEED_RECONCILE_URL: https://ghfind.com/api/internal/feed/reconcile
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # No `version:` — pnpm/action-setup reads packageManager from package.json.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate bounded operator inputs
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "hikariming/ghfind"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
+          test -n "$FEED_ADMIN_SECRET"
+          case "$BOOTSTRAP_CREDENTIAL" in true|false) ;; *) echo "bootstrap_credential must be boolean" >&2; exit 1 ;; esac
+          case "$PAGE_LIMIT" in ''|*[!0-9]*) echo "page_limit must be an integer" >&2; exit 1 ;; esac
+          case "$MAX_PAGES" in ''|*[!0-9]*) echo "max_pages must be an integer" >&2; exit 1 ;; esac
+          case "$INITIAL_UPDATED_AT" in ''|*[!0-9]*) echo "updated_at must be a non-negative integer" >&2; exit 1 ;; esac
+          if [ "$PAGE_LIMIT" -lt 1 ] || [ "$PAGE_LIMIT" -gt 100 ]; then
+            echo "page_limit must be between 1 and 100" >&2
+            exit 1
+          fi
+          if [ "$MAX_PAGES" -lt 1 ] || [ "$MAX_PAGES" -gt 4 ]; then
+            echo "max_pages must be between 1 and 4" >&2
+            exit 1
+          fi
+          if [ -n "$INITIAL_REPO_KEY" ] && ! [[ "$INITIAL_REPO_KEY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "repo_key must be an owner/repository cursor" >&2
+            exit 1
+          fi
+
+      - name: Bootstrap Worker-only reconciliation credential
+        if: ${{ inputs.bootstrap_credential }}
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
+          secret_file="$RUNNER_TEMP/feed-admin-secret"
+          umask 077
+          printf '%s' "$FEED_ADMIN_SECRET" > "$secret_file"
+          trap 'rm -f "$secret_file"' EXIT
+          pnpm exec wrangler secret put FEED_ADMIN_SECRET --env production < "$secret_file"
+
+      - name: Reconcile bounded catalog page set
+        id: reconcile
+        run: |
+          set -euo pipefail
+          updated_at="$INITIAL_UPDATED_AT"
+          repo_key="$INITIAL_REPO_KEY"
+          total_processed=0
+          total_skipped=0
+          completed=false
+          response_file="$RUNNER_TEMP/feed-reconcile-response.json"
+          trap 'rm -f "$response_file"' EXIT
+
+          for page in $(seq 1 "$MAX_PAGES"); do
+            curl --fail-with-body --silent --show-error --max-time 55 --retry 2 --retry-all-errors \
+              --header "Authorization: Bearer $FEED_ADMIN_SECRET" \
+              --get "$FEED_RECONCILE_URL" \
+              --data-urlencode "limit=$PAGE_LIMIT" \
+              --data-urlencode "updatedAt=$updated_at" \
+              --data-urlencode "repoKey=$repo_key" > "$response_file"
+
+            processed="$(jq -er '.processed | if type == "number" and . >= 0 then . else error("invalid processed") end' "$response_file")"
+            skipped="$(jq -er '.skipped | if type == "number" and . >= 0 then . else error("invalid skipped") end' "$response_file")"
+            total_processed=$((total_processed + processed))
+            total_skipped=$((total_skipped + skipped))
+            next_updated_at="$(jq -r '.nextCursor.updatedAt // empty' "$response_file")"
+            next_repo_key="$(jq -r '.nextCursor.repoKey // empty' "$response_file")"
+
+            if [ -z "$next_updated_at" ] && [ -z "$next_repo_key" ]; then
+              completed=true
+              break
+            fi
+            case "$next_updated_at" in ''|*[!0-9]*) echo "Feed returned an invalid resume timestamp" >&2; exit 1 ;; esac
+            if ! [[ "$next_repo_key" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+              echo "Feed returned an invalid resume repository key" >&2
+              exit 1
+            fi
+            updated_at="$next_updated_at"
+            repo_key="$next_repo_key"
+          done
+
+          {
+            echo "### Feed catalog reconciliation"
+            echo "- Processed: $total_processed"
+            echo "- Skipped: $total_skipped"
+            echo "- Page limit: $PAGE_LIMIT"
+            echo "- Maximum pages: $MAX_PAGES"
+            echo "- Completed in this bounded run: $completed"
+            if [ "$completed" = false ]; then
+              echo "- Resume cursor: updatedAt=$updated_at, repoKey=$repo_key"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "completed=$completed" >> "$GITHUB_OUTPUT"
+          echo "next_updated_at=$updated_at" >> "$GITHUB_OUTPUT"
+          echo "next_repo_key=$repo_key" >> "$GITHUB_OUTPUT"

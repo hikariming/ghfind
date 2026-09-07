@@ -71,3 +71,40 @@ if (unescapedSummaryInterpolation.test(workflow)) {
 }
 
 console.log(`Cloudflare release workflow contract passed (${workflowPath})`);
+
+const reconcileWorkflowPath = resolve(
+  process.cwd(),
+  ".github/workflows/feed-catalog-reconcile.yml",
+);
+const reconcileWorkflow = readFileSync(reconcileWorkflowPath, "utf8");
+const requiredReconcileFragments = [
+  "workflow_dispatch:",
+  "bootstrap_credential:",
+  "page_limit:",
+  "max_pages:",
+  "updated_at:",
+  "repo_key:",
+  "github.repository == 'hikariming/ghfind'",
+  "FEED_ADMIN_SECRET: ${{ secrets.FEED_ADMIN_SECRET }}",
+  "CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}",
+  "wrangler secret put FEED_ADMIN_SECRET --env production",
+  "https://ghfind.com/api/internal/feed/reconcile",
+  'if [ "$MAX_PAGES" -lt 1 ] || [ "$MAX_PAGES" -gt 4 ]; then',
+  'if [ "$PAGE_LIMIT" -lt 1 ] || [ "$PAGE_LIMIT" -gt 100 ]; then',
+  "--data-urlencode \"updatedAt=$updated_at\"",
+  "--data-urlencode \"repoKey=$repo_key\"",
+];
+
+for (const fragment of requiredReconcileFragments) {
+  if (!reconcileWorkflow.includes(fragment)) {
+    throw new Error(`Feed reconciliation workflow is missing: ${fragment}`);
+  }
+}
+
+if (/^\s+(push|schedule|workflow_run):/m.test(reconcileWorkflow)) {
+  throw new Error(
+    "Feed reconciliation must remain an explicit workflow_dispatch operation, not an automatic or scheduled scan.",
+  );
+}
+
+console.log(`Feed reconciliation workflow contract passed (${reconcileWorkflowPath})`);
