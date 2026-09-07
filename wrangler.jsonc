@@ -3,8 +3,10 @@
   // Top level = local `wrangler dev`. Deployments always use --env:
   //   wrangler deploy --env dev         → dev.ghfind.com
   //   wrangler deploy --env production  → ghfind.com
-  // Preflight the target account and verify the D1/R2 resources before deploying;
-  // dev and production currently share the D1 database ID below.
+  // Preflight the target account and verify the D1/R2 resources before deploying.
+  // The legacy core D1 is shared by dev/production; Feed uses the separate,
+  // dedicated D1 binding below so recommendation reads/writes cannot consume
+  // scoring or project-evaluation capacity.
   // Production of record: Beiming1201@gmail.com's Account. Keep this pinned so
   // a local OAuth context with multiple accounts cannot publish to the wrong one.
   // Secrets (TURSO_*, UPSTASH_*, GHFIND_*, TURNSTILE_SECRET_KEY, LLM_*) are set
@@ -22,7 +24,8 @@
     "enabled": true
   },
   "d1_databases": [
-    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
   ],
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
@@ -40,7 +43,8 @@
         { "pattern": "dev.ghfind.com", "custom_domain": true }
       ],
       "d1_databases": [
-        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
       ],
       "r2_buckets": [
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
@@ -62,7 +66,8 @@
         { "pattern": "ghfind.com", "custom_domain": true }
       ],
       "d1_databases": [
-        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed", "database_id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf", "migrations_dir": "migrations-feed" }
       ],
       "r2_buckets": [
         { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }

@@ -2,7 +2,14 @@
 
 日期：2026-08-13
 
-状态：Phase 1/2 首期代码已落地、等待 staging 数据/性能验收；Baseline 发布不依赖 Gorse 或固定 shadow 天数；Phase 3/4 的 allowlist、影子投影和观测底座已落地；Phase 5 可按安全样本门槛快速晋级，Phase 6 仍由数据成熟度锁定
+状态：**已被 Cloudflare-native 基线实现取代（2026-09-07）**。本文件保留为
+原始 PostgreSQL/Go/Gorse 方案的架构史料，不能用于部署、运维或判断当前线上
+行为。当前可部署实现和验收步骤见
+[`project-feed-backend-runbook.md`](../operations/project-feed-backend-runbook.md)：
+同源 OpenNext Worker + 专用 `GHFIND_FEED_D1`（核心 `GHFIND_D1` 只读作评测事实源）、
+`migrations-feed/0001`、受治理标签、
+确定性 tag/quality 基线；不启用 Railway、Vercel、PostgreSQL、RabbitMQ、Gorse、
+pgvector 或定期全盘扫描。
 
 基线：`upstream/main@77e73d10b7a1de172912dd15dd144ea13758e0c2`
 

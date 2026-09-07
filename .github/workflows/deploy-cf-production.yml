@@ -133,14 +133,20 @@ jobs:
           # backup. This must complete before the first v10 write can replace
           # a v9 row; otherwise the immutable read fallback cannot be used.
           pnpm exec wrangler d1 migrations apply ghfind --remote --env production
-          schema_file="$RUNNER_TEMP/cf-production-schema.json"
+          pnpm exec wrangler d1 migrations apply ghfind-feed --remote --env production
+          core_schema_file="$RUNNER_TEMP/cf-production-core-schema.json"
           pnpm exec wrangler d1 execute ghfind --remote --env production --json \
             --command "SELECT COUNT(*) AS risk_columns FROM pragma_table_info('scores') WHERE name IN ('risk_assessment','risk_notes'); SELECT COUNT(*) AS fallback_tables FROM sqlite_master WHERE type='table' AND name='score_release_fallbacks';" \
-            > "$schema_file"
-          jq -e '.[0].results[0].risk_columns == 2 and .[1].results[0].fallback_tables == 1' "$schema_file" >/dev/null
+            > "$core_schema_file"
+          jq -e '.[0].results[0].risk_columns == 2 and .[1].results[0].fallback_tables == 1' "$core_schema_file" >/dev/null
+          feed_schema_file="$RUNNER_TEMP/cf-production-feed-schema.json"
+          pnpm exec wrangler d1 execute ghfind-feed --remote --env production --json \
+            --command "SELECT COUNT(*) AS feed_tables FROM sqlite_master WHERE type='table' AND name IN ('feed_taxonomy_versions','feed_tag_definitions','feed_tag_aliases','feed_projects','feed_project_moderation','feed_project_tags','feed_tag_proposals','feed_users','feed_user_tag_preferences','feed_user_project_states','feed_events','feed_served_items','feed_rate_windows'); SELECT COUNT(*) AS active_feed_taxonomy FROM feed_taxonomy_versions WHERE version = 1 AND status = 'active'; SELECT COUNT(*) AS canonical_feed_tags FROM feed_tag_definitions WHERE status = 'canonical' AND taxonomy_version = 1;" \
+            > "$feed_schema_file"
+          jq -e '.[0].results[0].feed_tables == 13 and .[1].results[0].active_feed_taxonomy == 1 and .[2].results[0].canonical_feed_tags == 13' "$feed_schema_file" >/dev/null
           {
             echo "### Production D1 schema"
-            echo "- Migrations applied and v10 risk columns / read-fallback table verified before Worker deployment."
+            echo "- Migrations applied; v10 read fallback and Cloudflare Feed D1 schema/taxonomy verified before Worker deployment."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy (build + wrangler deploy --env production + populateCache)

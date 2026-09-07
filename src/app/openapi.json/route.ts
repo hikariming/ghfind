@@ -251,7 +251,7 @@ export function GET() {
       "/api/feed/projects": {
         get: {
           tags: ["feed"], operationId: "getProjectFeed", summary: "Get one deterministic personalized Feed page",
-          description: "The signed cursor points to a 30-minute server-side candidate sequence. Every item carries a principal-bound impression token required for behavior events.",
+          description: "The signed cursor pins a 30-minute, profile-versioned deterministic candidate sequence. Every item carries a principal-bound impression token required for behavior events.",
           security: [{ sessionCookie: [] }],
           parameters: [
             { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 50, default: 20 } },
@@ -260,7 +260,7 @@ export function GET() {
           responses: {
             "200": { description: "Personalized Feed page", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProjectsResponse" } } } },
             "401": { description: "GitHub OAuth session required" }, "410": { description: "Cursor expired; start a new stream" },
-            "503": { description: "Feed PostgreSQL unavailable; unrelated APIs remain available", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+            "503": { description: "Feed D1 storage unavailable; unrelated APIs remain available", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
           },
         },
       },
@@ -285,7 +285,7 @@ export function GET() {
           security: [{ sessionCookie: [] }],
           requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["events"], properties: { events: { type: "array", minItems: 1, maxItems: 50, items: { $ref: "#/components/schemas/FeedEventInput" } } } } } } },
           responses: {
-            "202": { description: "Immutable event facts and outbox entries committed", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedEventAppendResult" } } } },
+            "202": { description: "Immutable event facts committed", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedEventAppendResult" } } } },
             "400": { description: "Invalid event, time, type, or impression token" }, "401": { description: "GitHub OAuth session required" },
             "429": { description: "Rate limited" }, "503": { description: "Event storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
           },
@@ -293,9 +293,9 @@ export function GET() {
       },
       "/api/feed/profile": {
         delete: {
-          tags: ["feed"], operationId: "deleteFeedProfile", summary: "Delete Feed profile facts and enqueue downstream deletion",
+          tags: ["feed"], operationId: "deleteFeedProfile", summary: "Delete Feed profile facts",
           security: [{ sessionCookie: [] }],
-          responses: { "202": { description: "Feed data deleted; Gorse deletion queued", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } }, "401": { description: "GitHub OAuth session required" }, "429": { description: "Rate limited" }, "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } } },
+          responses: { "200": { description: "Feed profile facts deleted", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } }, "401": { description: "GitHub OAuth session required" }, "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } } },
         },
       },
       "/api/roast": {
@@ -603,7 +603,7 @@ export function GET() {
           type: "object", required: ["accepted", "duplicate"], properties: { accepted: { type: "integer", minimum: 0 }, duplicate: { type: "integer", minimum: 0 } },
         },
         FeedProfileDeletion: {
-          type: "object", required: ["deletionId", "status"], properties: { deletionId: { type: "string" }, status: { type: "string", enum: ["queued"] } },
+          type: "object", required: ["deletionId", "status"], properties: { deletionId: { type: "string" }, status: { type: "string", enum: ["completed"] } },
         },
         Error: {
           type: "object",
