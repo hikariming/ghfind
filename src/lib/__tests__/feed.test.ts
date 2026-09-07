@@ -2,7 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ProjectAnalysisArtifact } from "../project-analysis-contract";
+import {
+  PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
+  type ProjectAnalysisArtifact,
+} from "../project-analysis-contract";
 import { validProjectAnalysis } from "./project-analysis-contract.test";
 
 let feed: typeof import("../feed");
@@ -57,6 +60,33 @@ afterAll(() => {
 });
 
 describe("Cloudflare Feed baseline", () => {
+  it("queues legacy v2 product tags for review without granting them recall", async () => {
+    const source = assessment(6);
+    const legacy = {
+      ...source,
+      schema_version: PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
+      project: {
+        ...source.project,
+        product_tags: [{
+          slug: "legacy-v2-only",
+          labels: { zh: "旧版专属特征", en: "Legacy v2-only feature" },
+          evidence_ids: ["readme-contract"],
+        }],
+      },
+    } as ProjectAnalysisArtifact;
+
+    await feed.syncFeedProjectProjection(legacy);
+
+    const pending = await feed.listPendingFeedTagProposals(20);
+    expect(pending).toContainEqual(expect.objectContaining({
+      id: "owner/tool-6:feed-analysis-6:use_case:legacy-v2-only",
+      namespace: "use_case",
+      slug: "legacy-v2-only",
+    }));
+    const tags = await feed.listFeedTags();
+    expect(tags.tags.some((tag) => tag.id === "use_case:legacy-v2-only")).toBe(false);
+  });
+
   it("keeps unreviewed assessment tags out of recall until a governed review accepts them", async () => {
     const first = assessment(1);
     await feed.syncFeedProjectProjection(first);

@@ -376,8 +376,14 @@ export async function syncFeedProjectProjection(
   );
 
   for (const candidate of analysis.project.product_tags) {
-    if (!("namespace" in candidate) || !isNamespace(candidate.namespace)) continue;
-    const tagId = await canonicalTagId(db, candidate.namespace, candidate.slug);
+    // v1/v2 assessments carry evidence-backed product characteristics but no
+    // governed namespace. Put those into a review-only intake bucket instead
+    // of silently discarding them or granting them use_case recall. An admin
+    // can still map a legacy proposal to a canonical tag in any namespace.
+    const namespace = "namespace" in candidate && isNamespace(candidate.namespace)
+      ? candidate.namespace
+      : "use_case";
+    const tagId = await canonicalTagId(db, namespace, candidate.slug);
     if (tagId) {
       await db.execute({
         sql: `INSERT INTO feed_project_tags
@@ -390,7 +396,7 @@ export async function syncFeedProjectProjection(
       });
       continue;
     }
-    const proposalId = `${repoKey}:${analysisId}:${candidate.namespace}:${candidate.slug}`;
+    const proposalId = `${repoKey}:${analysisId}:${namespace}:${candidate.slug}`;
     await db.execute({
       sql: `INSERT INTO feed_tag_proposals
             (id, repo_key, analysis_id, namespace, slug, label_zh, label_en, evidence_json, status, created_at, updated_at)
@@ -398,7 +404,7 @@ export async function syncFeedProjectProjection(
             ON CONFLICT(repo_key, analysis_id, namespace, slug) DO UPDATE SET
               label_zh = excluded.label_zh, label_en = excluded.label_en, evidence_json = excluded.evidence_json,
               updated_at = excluded.updated_at`,
-      args: [proposalId, repoKey, analysisId, candidate.namespace, candidate.slug, candidate.labels.zh, candidate.labels.en, JSON.stringify(candidate.evidence_ids), now, now],
+      args: [proposalId, repoKey, analysisId, namespace, candidate.slug, candidate.labels.zh, candidate.labels.en, JSON.stringify(candidate.evidence_ids), now, now],
     });
   }
 }
