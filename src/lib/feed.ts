@@ -12,7 +12,7 @@ import {
  *
  * D1 owns Feed-only facts; project assessments remain owned by the existing
  * evaluation store.  There is deliberately no runtime DDL against D1: the
- * production schema is migration 0004.  The small local schema below exists
+ * production schema is migration-owned. The small local schema below exists
  * solely for Turso/file-backed tests and development.
  */
 
@@ -191,7 +191,7 @@ const LOCAL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS feed_events (id TEXT PRIMARY KEY, github_id INTEGER NOT NULL, repo_key TEXT NOT NULL, type TEXT NOT NULL, occurred_at INTEGER NOT NULL, duration_ms INTEGER, request_id TEXT NOT NULL, rank INTEGER NOT NULL, created_at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS feed_served_items (request_id TEXT NOT NULL, github_id INTEGER NOT NULL, repo_key TEXT NOT NULL, rank INTEGER NOT NULL, algorithm_version TEXT NOT NULL, source TEXT NOT NULL, propensity REAL NOT NULL, exploration INTEGER NOT NULL DEFAULT 0, served_at INTEGER NOT NULL, PRIMARY KEY(request_id, repo_key))`,
   `CREATE TABLE IF NOT EXISTS feed_rate_windows (github_id INTEGER NOT NULL, bucket TEXT NOT NULL, window_started INTEGER NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(github_id, bucket, window_started))`,
-  `CREATE INDEX IF NOT EXISTS idx_feed_projects_catalog ON feed_projects(published, product_score DESC, analyzed_at DESC, repo_key)`,
+  `CREATE INDEX IF NOT EXISTS idx_feed_projects_candidate_order ON feed_projects(published, product_score DESC, confidence DESC, analyzed_at DESC, repo_key)`,
   `CREATE INDEX IF NOT EXISTS idx_feed_project_tags_tag ON feed_project_tags(tag_id, repo_key)`,
   `CREATE INDEX IF NOT EXISTS idx_feed_events_user_repo_type_time ON feed_events(github_id, repo_key, type, occurred_at DESC)`,
 ];
