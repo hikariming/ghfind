@@ -22,7 +22,7 @@ A separately retained passing run started at **2026-09-08T05:43:18.732Z** and co
 | Later deletion overlay SHA-256      | `ebd1ea1858e3824efff7a140b36800300814d5014ca1321161eb5ca85ff4d73f` |
 | Overlaid target NDJSON SHA-256      | `6efb69984a7924ba6eb6ef1e15098823ee17db2af8cdd9a4bd4bdac6d7df77e6` |
 
-Retained synthetic artifacts: `/var/folders/tp/xrswdd4j6d34rzrjf66wnc980000gn/T/ghfind-local-d1-recovery-Io8XeJ/evidence.json`. The path belongs to this local session and is not a durable backup destination. Fresh runs generate new identities, timestamps and hashes.
+The original machine-readable report is preserved byte-for-byte in [schema-11 evidence](../evidence/feed-local-d1-recovery/2026-09-08-schema11.json), with file SHA-256 `addbb6192298d3914d292ca5e058307a55563747517e4df22f7603afaec5c8f8`. Its original local directory remains recorded inside the report and may expire. Only the evidence report is archived in this repository; the full relational snapshot files are not. Fresh runs generate new identities, timestamps and hashes.
 
 The source first reviewed an assessment proposal, moving taxonomy 1→2, then independently reviewed actor 202's user proposal, moving taxonomy 2→3. Its other user proposal remained pending. Only after both reviews did actors 101/202/303 create taxonomy-3 requests and sessions. Actor 404 remained physically at user/preference taxonomy 1, with an unchanged profile version, and read active taxonomy 3. Thus deletion rejections are checked independently of taxonomy invalidation. Full-row comparisons verified restored facts, the whole-file hash and inert exact governance retries; the deliberate conflicting import batch rolled back and actual D1 integrity/foreign-key checks passed.
 
@@ -55,7 +55,7 @@ A separately retained passing execution started at **2026-09-08T05:03:37.547Z**,
 | Overlaid target NDJSON SHA-256         | `d654aed1d7c85f3a8e99b49211d0e2ed3c2e437fa9189d681e4abe79df5a1bfa` |
 | Restored governance ledger row SHA-256 | `1c9e755f39fb7c7c0e071d71faf505e3332db17e23a4eaa939b1f04afeacd5eb` |
 
-Retained synthetic artifacts: `/var/folders/tp/xrswdd4j6d34rzrjf66wnc980000gn/T/ghfind-local-d1-recovery-pMXmPr/evidence.json`. This is a local session path, not a durable archive. Fresh runs allocate new paths/identities and produce new hashes.
+The original machine-readable report is preserved byte-for-byte in [schema-9 evidence](../evidence/feed-local-d1-recovery/2026-09-08-schema9.json), with file SHA-256 `ea1a1fa928b6a5bdb12592ebeebd0626cfdf5f500902373a3437a07ce2cfed6f`. The report retains the original local artifact path for provenance; that directory is not a durable backup. Full snapshot payloads are not copied into the repository.
 
 The source executed a real governance `create` command `5e471ebb-09ff-4824-9acd-945d2bce149a` through the adapter's protected endpoint with an independently generated local operator secret. It created `use_case:local-recovery-governed`, advanced active taxonomy from 1 to 2, preserved the old version as retired, and committed one ledger row with operator/reason, payload hash and receipt. After import, both the command query and an exact retry while the target write gate stayed closed returned the same receipt. Full-row comparison confirmed that the retry changed no facts.
 
@@ -91,7 +91,7 @@ The retained successful execution started at **2026-09-08T04:26:00.732Z**, used 
 | Post-snapshot deletion overlay SHA-256 | `20eed2f9b075487f4f6e1ecc2dfffdd496ddf118b1b840b8eaf3f44d4849692d` |
 | Overlaid target NDJSON SHA-256         | `220aa2de8ad21238b409981d958b2f7f146bf12293fc5884b3fd525dd54547be` |
 
-Machine-readable evidence and all relational artifacts were retained at `/var/folders/tp/xrswdd4j6d34rzrjf66wnc980000gn/T/ghfind-local-d1-recovery-RnGErO/evidence.json`. This path is a local session artifact, not a durable archive location. Re-running produces a new directory, synthetic identifiers, timestamps and hashes. There is no resume or reuse operation.
+The existing [schema-7 machine-readable evidence](../evidence/feed-local-d1-recovery/2026-09-08.json) remains unchanged. Its original evidence and relational artifacts were recorded at `/var/folders/tp/xrswdd4j6d34rzrjf66wnc980000gn/T/ghfind-local-d1-recovery-RnGErO/evidence.json`; that path is a local session artifact, not a durable archive location. Re-running produces a new directory, synthetic identifiers, timestamps and hashes. There is no resume or reuse operation.
 
 Every table's independent D1 count was checked before/after export. The fresh target matched every actual primary key, column, state, version and row hash, and the complete NDJSON hash matched the source backup. D1 foreign-key and quick-integrity checks passed. A deliberately conflicting two-row import batch rolled back its first insert; subsequent full-row comparison confirmed no partial import.
 
