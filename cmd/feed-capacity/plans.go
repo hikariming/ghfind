@@ -12,7 +12,7 @@ import (
 // baseline. The report includes SQL so later changes cannot masquerade as these
 // earlier query measurements. EXPLAIN is read-only and only touches the fixture.
 func plans(ctx context.Context, db *sql.DB, out string) error {
-	provenance := ` AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) `
+	provenance := ` AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id OFFSET 0) `
 	queries := map[string]string{}
 	for _, q := range []struct {
 		name, order string
