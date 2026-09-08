@@ -12,6 +12,7 @@ import {
 import {
   attachMosooThread,
   createProjectAnalysisRun,
+  recordProjectAnalysisSubmission,
   failProjectAnalysis,
   finalizeProjectAnalysis,
   findReusableCompletedProjectAnalysisRun,
@@ -25,6 +26,7 @@ import {
   updateProjectAnalysisState,
   updateProjectAnalysisActivities,
   type ProjectAnalysisRun,
+  type ProjectAnalysisSubmissionOptions,
   type ReusableProjectAnalysisRunInput,
 } from "./project-analysis-db";
 import {
@@ -46,6 +48,7 @@ export type ProjectAnalysisServiceErrorCode =
   | "invalid_ref"
   | "analysis_not_found"
   | "artifact_invalid"
+  | "analysis_persistence_unavailable"
   | "unexpected_input_request"
   | "analysis_timeout";
 
@@ -380,6 +383,7 @@ async function createOrResumeMosooThread(run: ProjectAnalysisRun): Promise<Proje
 
 export async function createProjectAnalysis(
   input: CreateProjectAnalysisInput,
+  options: ProjectAnalysisSubmissionOptions = {},
 ): Promise<ProjectAnalysisRun> {
   let repository;
   try {
@@ -395,7 +399,10 @@ export async function createProjectAnalysis(
   const reusable = await findReusableProjectAnalysisByIdentity(
     reusableProjectAnalysisInput(repository.repoKey, requestedRef),
   );
-  if (reusable) return reusable;
+  if (reusable) {
+    if (options.appSubmission) await recordProjectAnalysisSubmission(reusable.id);
+    return reusable;
+  }
 
   const created = await createProjectAnalysisRun({
     id: randomUUID(),
@@ -406,7 +413,7 @@ export async function createProjectAnalysis(
     rubricVersion: PROJECT_RUBRIC_VERSION,
     agentVersion: PROJECT_AGENT_VERSION,
     skillVersion: PROJECT_SKILL_VERSION,
-  });
+  }, options);
   if (!created.created) return created.run;
   return createOrResumeMosooThread(created.run);
 }
@@ -497,6 +504,20 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
   try {
     artifacts = await readMosooProjectAnalysisArtifacts(run.mosooThreadId!, run.id);
   } catch (error) {
+    // The evaluator has completed. A failed artifact download must not turn a
+    // recoverable source commit into a terminal run or another paid evaluation.
+    // Body-stream failures occur after mosooFetch returns its Response, so they
+    // can retain the platform's TypeError/AbortError instead of its wrapper.
+    const retryableTransport = error instanceof TypeError ||
+      (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name));
+    if ((error instanceof MosooProjectAnalysisError && isRetryableMosooCreateError(error)) || retryableTransport) {
+      if (run.status !== "finalizing") {
+        await updateProjectAnalysisState({ analysisId: run.id, status: "finalizing", phase: "persisting", progress: 90 });
+      }
+      // Keep an existing finalizing timestamp: transient retries must not renew
+      // the bounded grace for a subsequent successful but incomplete file list.
+      throw new ProjectAnalysisServiceError("analysis_persistence_unavailable", "Completed analysis artifacts are temporarily unavailable; retry the same analysis.", 503);
+    }
     if (
       error instanceof MosooProjectAnalysisError &&
       error.code === "artifact_missing" &&
@@ -519,9 +540,10 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
     progress: 90,
   });
 
+  let parsed: ReturnType<typeof parseProjectAnalysisArtifacts>;
   try {
     const expectedRepoKey = await verifiedArtifactRepoKey(run, artifacts.analysisJson);
-    const parsed = parseProjectAnalysisArtifacts({
+    parsed = parseProjectAnalysisArtifacts({
       analysisRaw: artifacts.analysisJson,
       evidenceRaw: artifacts.evidenceJson,
       reportMarkdown: artifacts.reportMarkdown,
@@ -536,7 +558,19 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
     ) {
       throw new Error("Artifact version or requested ref does not match the analysis run.");
     }
-    const completed = await finalizeProjectAnalysis({
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Project artifacts are invalid.";
+    await failProjectAnalysis(run.id, "artifact_invalid", message);
+    const failed = await getProjectAnalysisRun(run.id);
+    if (!failed) {
+      throw new ProjectAnalysisServiceError("artifact_invalid", message, 502);
+    }
+    return failed;
+  }
+
+  let completed: ProjectAnalysisRun;
+  try {
+    completed = await finalizeProjectAnalysis({
       analysisId: run.id,
       analysis: parsed.analysis,
       analysisJson: artifacts.analysisJson,
@@ -548,33 +582,38 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
         report: sha256(artifacts.reportMarkdown),
       },
     });
-    await cacheCompletedProjectAnalysis(completed);
-    console.info("project_analysis.completed", {
-      analysisId: completed.id,
-      repoKey: completed.repoKey,
-      mosooThreadId: completed.mosooThreadId,
-      status: completed.status,
-      phase: completed.phase,
-      durationMs: (completed.completedAt ?? Date.now()) - completed.createdAt,
-      verificationLevel: completed.verificationLevel,
-      artifactBytes:
-        artifacts.analysisJson.length +
-        artifacts.evidenceJson.length +
-        artifacts.reportMarkdown.length,
-      schemaVersion: completed.schemaVersion,
-      rubricVersion: completed.rubricVersion,
-      errorCode: completed.errorCode,
-    });
-    return completed;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Project artifacts are invalid.";
-    await failProjectAnalysis(run.id, "artifact_invalid", message);
-    const failed = await getProjectAnalysisRun(run.id);
-    if (!failed) {
-      throw new ProjectAnalysisServiceError("artifact_invalid", message, 502);
-    }
-    return failed;
+  } catch {
+    // A validated assessment is not an invalid artifact because its core
+    // transaction/outbox could not commit. Preserve finalizing for the existing
+    // reconciler; retry the same run/thread rather than rerunning the evaluator.
+    const current = await getProjectAnalysisRun(run.id).catch(() => null);
+    if (current && ["completed", "failed", "cancelled", "expired"].includes(current.status)) return current;
+    console.error("project_analysis.finalization_retry", { analysisId: run.id, errorCode: "analysis_persistence_unavailable" });
+    throw new ProjectAnalysisServiceError("analysis_persistence_unavailable", "Validated analysis results could not be saved; retry the same analysis.", 503);
   }
+  try {
+    await cacheCompletedProjectAnalysis(completed);
+  } catch {
+    console.error("project_analysis.cache_refresh_failed", { analysisId: completed.id });
+  }
+  console.info("project_analysis.completed", {
+    analysisId: completed.id,
+    repoKey: completed.repoKey,
+    mosooThreadId: completed.mosooThreadId,
+    status: completed.status,
+    phase: completed.phase,
+    durationMs: (completed.completedAt ?? Date.now()) - completed.createdAt,
+    verificationLevel: completed.verificationLevel,
+    artifactBytes:
+      artifacts.analysisJson.length +
+      artifacts.evidenceJson.length +
+      artifacts.reportMarkdown.length,
+    schemaVersion: completed.schemaVersion,
+    rubricVersion: completed.rubricVersion,
+    errorCode: completed.errorCode,
+  });
+  return completed;
+
 }
 
 export async function reconcileProjectAnalysis(
@@ -602,7 +641,7 @@ export async function reconcileProjectAnalysis(
     }
     return run;
   }
-  if (run.startedAt && Date.now() - run.startedAt > analysisTimeoutMs()) {
+  if (run.status !== "finalizing" && run.startedAt && Date.now() - run.startedAt > analysisTimeoutMs()) {
     await failProjectAnalysis(
       run.id,
       "analysis_timeout",

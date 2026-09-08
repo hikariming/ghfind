@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createClient, type Client, type InValue } from "@libsql/client/web";
+import { createClient, type Client, type InValue, type ResultSet } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import {
   projectAnalysisArtifactSchema,
@@ -11,6 +11,7 @@ import {
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
 import { syncFeedProjectProjection } from "./feed";
+import { appSubmissionReceiptStatement, assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
 
 export type ProjectBoard = "treasure" | "classic" | "all";
 export type TreasureEntryStatus = "active" | "graduated" | "removed";
@@ -31,6 +32,12 @@ export interface CreateProjectAnalysisRunInput {
   rubricVersion: string;
   agentVersion: string;
   skillVersion: string;
+}
+
+// Server-only option. It is never parsed from a client's request body or used
+// to label background/import work as an explicit submission.
+export interface ProjectAnalysisSubmissionOptions {
+  appSubmission?: true;
 }
 
 export interface ProjectAnalysisRun {
@@ -345,13 +352,14 @@ async function selectRun(db: Client, analysisId: string): Promise<ProjectAnalysi
 
 export async function createProjectAnalysisRun(
   input: CreateProjectAnalysisRunInput,
+  options: ProjectAnalysisSubmissionOptions = {},
 ): Promise<CreateProjectAnalysisRunResult> {
   const db = database();
   await ensureSchema(db);
   const now = Date.now();
   const key = activeKey(input);
   const idempotencyKey = `ghfind-project-${input.id}`;
-  const insert = await db.execute({
+  const insertStatement = {
     sql: `INSERT OR IGNORE INTO project_analysis_runs (
             id, repo_key, canonical_url, requested_ref, active_key,
             idempotency_key, status, phase, progress,
@@ -372,12 +380,27 @@ export async function createProjectAnalysisRun(
       now,
       now,
     ],
-  });
-  const created = insert.rowsAffected === 1;
-  const result = await db.execute({
+  };
+  const selectStatement = {
     sql: `SELECT * FROM project_analysis_runs WHERE active_key = ? LIMIT 1`,
     args: [key],
-  });
+  };
+  let insert: ResultSet, result: ResultSet;
+  if (options.appSubmission && feedSourceOutboxEnabled()) {
+    // The successful run insert (or active-run reuse) and its provenance are
+    // inseparable. No external thread can start if this receipt write fails.
+    const results = await db.batch([
+      insertStatement,
+      appSubmissionReceiptStatement({ activeKey: key }, now),
+      selectStatement,
+    ], "write");
+    insert = results[0];
+    result = results[2];
+  } else {
+    insert = await db.execute(insertStatement);
+    result = await db.execute(selectStatement);
+  }
+  const created = insert.rowsAffected === 1;
   const row = result.rows[0];
   if (!row) throw new ProjectAnalysisDatabaseError("Failed to create or find analysis run.");
   return { run: mapRun(row as Record<string, unknown>), created };
@@ -389,6 +412,13 @@ export async function getProjectAnalysisRun(
   const db = database();
   await ensureSchema(db);
   return selectRun(db, analysisId);
+}
+
+export async function recordProjectAnalysisSubmission(analysisId: string): Promise<void> {
+  if (!feedSourceOutboxEnabled()) return;
+  const db = database();
+  await ensureSchema(db);
+  await recordAppSubmission(db, analysisId);
 }
 
 export async function findReusableCompletedProjectAnalysisRun(
@@ -847,24 +877,36 @@ export async function finalizeProjectAnalysis(
     ],
   });
 
+  let updateResultIndex = statements.length - 1;
+  if (feedSourceOutboxEnabled()) {
+    const guardId = randomUUID();
+    statements.unshift({
+      sql: `INSERT INTO feed_source_assertions (id, valid) VALUES (?, CASE WHEN EXISTS (
+        SELECT 1 FROM project_analysis_runs WHERE id = ?
+        AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+      ) THEN 1 ELSE 0 END)`,
+      args: [guardId, input.analysisId],
+    });
+    updateResultIndex += 1;
+    statements.push(assessmentOutboxStatement(input.analysisId, now), {
+      sql: "DELETE FROM feed_source_assertions WHERE id = ?", args: [guardId],
+    });
+  }
   const results = await db.batch(statements, "write");
-  const updateResult = results.at(-1);
+  const updateResult = results[updateResultIndex];
   if (!updateResult || updateResult.rowsAffected !== 1) {
     throw new ProjectAnalysisDatabaseError("Analysis finalization lost its state race.");
   }
   const completed = await selectRun(db, input.analysisId);
   if (!completed) throw new ProjectAnalysisDatabaseError("Completed analysis run disappeared.");
-  // Feed is a rebuildable Cloudflare D1 projection. Its availability must never
-  // turn a completed Mosoo assessment into a failed one; migration 0004 and
-  // the protected reconcile endpoint repair a delayed projection.
-  try {
-    await syncFeedProjectProjection(analysis, input.analysisId);
-  } catch (error) {
-    console.error("feed.project_projection_failed", {
-      analysisId: input.analysisId,
-      repoKey: analysis.repository.repo_key.toLowerCase(),
-      error: error instanceof Error ? error.message : "unknown",
-    });
+  // Outbox mode has one projection writer: the discrete Feed executor. Never
+  // wait for or invoke the old unfenced Feed writer after this core commit.
+  if (!feedSourceOutboxEnabled()) {
+    try {
+      await syncFeedProjectProjection(analysis, input.analysisId);
+    } catch {
+      console.error("feed.project_projection_failed", { analysisId: input.analysisId });
+    }
   }
   return completed;
 }

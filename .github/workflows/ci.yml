@@ -66,6 +66,9 @@ jobs:
       - name: Verify approved application schema boundary
         run: node --test scripts/feed-platform-schema-release.test.mjs
 
+      - name: Verify bounded snapshot format and integrity
+        run: node --test scripts/feed-snapshot.test.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -167,6 +170,10 @@ jobs:
         run: pnpm build
       - name: Identical API contracts against PostgreSQL and workerd
         run: node scripts/test-feed-crossprofile.mjs
+      - name: Rehearse isolated D1 restore and deletion-generation fencing
+        run: |
+          npm ci --prefix platform/runtime
+          node --test scripts/feed-snapshot-local.test.mjs
       - name: Remove disposable S3 service
         if: always()
         run: docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml down

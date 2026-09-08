@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { createClient, type Client, type InStatement } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding, getFeedD1Binding } from "@/lib/d1-client";
+import { feedSourceOutboxEnabled } from "@/lib/feed-source-outbox";
 import {
   normalizeGitHubRepository,
   type ProjectAnalysisArtifact,
@@ -295,12 +296,19 @@ export function isFeedPublishable(analysis: ProjectAnalysisArtifact): boolean {
   );
 }
 
+function requireLegacyCatalogWriter(): void {
+  if (feedSourceOutboxEnabled() || process.env.FEED_BACKEND === "go") {
+    throw new FeedError("feed_unavailable", 503, "Legacy Feed catalog writes are disabled; use the versioned executor and governance operations.");
+  }
+}
+
 /** Project-analysis finalization invokes this best-effort projection after its own durable commit. */
 export async function syncFeedProjectProjection(
   analysis: ProjectAnalysisArtifact,
   analysisId = analysis.analysis_id,
   repositoryContext?: RepositoryProjectionContext,
 ): Promise<void> {
+  requireLegacyCatalogWriter();
   const db = await ready();
   const normalized = normalizeGitHubRepository(analysis.repository.repo_key);
   const repoKey = normalized.repoKey.toLowerCase();
@@ -421,9 +429,10 @@ export async function reconcileFeedCatalog(
   limit = 100,
   cursor?: { updatedAt: number; repoKey: string },
 ): Promise<{ processed: number; skipped: number; nextCursor: { updatedAt: number; repoKey: string } | null }> {
+  requireLegacyCatalogWriter();
   await ready();
   const sourceDb = sourceDatabase();
-  const bounded = Math.max(1, Math.min(250, Math.floor(limit)));
+  const bounded = Math.max(1, Math.min(100, Math.floor(limit)));
   const after = cursor ?? { updatedAt: 0, repoKey: "" };
   const rows = await sourceDb.execute({
     sql: `SELECT pa.repo_key, pa.updated_at, pr.id, pr.analysis_json,
@@ -1009,6 +1018,7 @@ export async function reviewFeedTagProposal(input: {
   reason: string;
   canonicalTagId?: string;
 }): Promise<{ proposalId: string; status: "accepted" | "rejected"; canonicalTagId?: string }> {
+  requireLegacyCatalogWriter();
   const db = await ready();
   const found = await db.execute({ sql: "SELECT * FROM feed_tag_proposals WHERE id = ? LIMIT 1", args: [input.proposalId] });
   const row = found.rows[0] as DbRow | undefined;
