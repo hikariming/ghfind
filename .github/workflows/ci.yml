@@ -66,6 +66,9 @@ jobs:
       - name: Verify approved application schema boundary
         run: node --test scripts/feed-platform-schema-release.test.mjs
 
+      - name: Verify bounded snapshot format and integrity
+        run: node --test scripts/feed-snapshot.test.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
