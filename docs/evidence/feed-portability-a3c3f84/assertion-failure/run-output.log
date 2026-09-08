@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/tmp/ghfind-feed-portability-a3c3f84/run.py", line 75, in <module>
+    check_response(wait_http('initial-ready-'+name,origin,'/readyz',200),200,service)
+  File "/tmp/ghfind-feed-portability-a3c3f84/run.py", line 41, in check_response
+    body=json.loads(r['body']);assert body['service']==service and body['version']==SHA and body['contractVersion']==1,r
+AssertionError: {'label': 'initial-ready-ghfind-portability-a3-api', 'at': '2026-09-08T17:24:47.484649+00:00', 'origin': 'http://127.0.0.1:58085', 'path': '/readyz', 'method': 'GET', 'status': 200, 'headers': {'Cache-Control': 'no-store', 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', 'Date': 'Tue, 08 Sep 2026 17:24:47 GMT', 'Content-Length': '153'}, 'body': '{"contractVersion":"1","ready":true,"service":"feed-api","storeProfile":"postgres","version":"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e","writerEpoch":1}\n', 'seconds': 0.0457388329999997}
