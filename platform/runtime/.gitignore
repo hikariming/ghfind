@@ -4,3 +4,4 @@ dist/
 .dev.vars
 wrangler.staging.generated.json
 *.evidence.json
+provision.evidence.json.*.tmp
