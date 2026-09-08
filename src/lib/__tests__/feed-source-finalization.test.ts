@@ -178,6 +178,62 @@ describe("source finalization through the real reconciliation service", () => {
     await assertCompletedExactlyOnce();
   });
 
+  it.each(["503", "429", "network", "timeout", "body-network"])("preserves a failed source commit across transient artifact %s and resumes the same run", async fault => {
+    await connection.executeMultiple(`CREATE TRIGGER reject_source_event
+      BEFORE INSERT ON feed_source_outbox BEGIN SELECT RAISE(ABORT,'injected-source-commit-failure'); END;`);
+    await expect(reconcileProjectAnalysis(analysisId)).rejects.toMatchObject({ code: "analysis_persistence_unavailable", status: 503 });
+    await connection.execute("DROP TRIGGER reject_source_event");
+    const before = await analyses.getProjectAnalysisRun(analysisId);
+    if (fault === "timeout") vi.stubEnv("MOSOO_PROJECT_REQUEST_TIMEOUT_MS", "1000");
+    const healthyFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).includes("/files/analysis/content?")) {
+        if (fault === "503" || fault === "429") return Response.json({ error: { code: "temporary" } }, { status: Number(fault) });
+        if (fault === "network") throw new TypeError("Synthetic connection reset");
+        if (fault === "timeout") return new Promise<Response>((_, reject) => {
+          init!.signal!.addEventListener("abort", () => reject(new DOMException("Synthetic request timeout", "AbortError")), { once: true });
+        });
+        return new Response(new ReadableStream({ start(controller) { controller.error(new TypeError("Synthetic body-stream reset")); } }));
+      }
+      return healthyFetch(input, init);
+    });
+    await expect(reconcileProjectAnalysis(analysisId)).rejects.toMatchObject({ code: "analysis_persistence_unavailable", status: 503 });
+    expect(await analyses.getProjectAnalysisRun(analysisId)).toMatchObject({
+      status: "finalizing", updatedAt: before!.updatedAt, mosooThreadId: threadId, mosooRunId, errorCode: null,
+    });
+    expect((await connection.execute("SELECT * FROM project_assessments")).rows).toHaveLength(0);
+    expect((await connection.execute("SELECT * FROM feed_source_outbox")).rows).toHaveLength(0);
+    vi.mocked(fetch).mockImplementation(healthyFetch);
+    await connection.execute({ sql: "UPDATE project_analysis_runs SET started_at=1 WHERE id=?", args: [analysisId] });
+    await expect(reconcileProjectAnalysis(analysisId)).resolves.toMatchObject({ status: "completed" });
+    await assertCompletedExactlyOnce();
+  });
+
+  it("starts durable finalizing on the first transient download without extending missing-artifact grace", async () => {
+    const healthyFetch = vi.mocked(fetch).getMockImplementation()!;
+    const unavailable: typeof fetch = async (input, init) => String(input).endsWith(`/threads/${threadId}/files`)
+      ? Response.json({ error: { code: "temporary" } }, { status: 503 })
+      : healthyFetch(input, init);
+    const missing: typeof fetch = async (input, init) => String(input).endsWith(`/threads/${threadId}/files`)
+      ? Response.json({ files: [] })
+      : healthyFetch(input, init);
+    vi.mocked(fetch).mockImplementation(unavailable);
+    await expect(reconcileProjectAnalysis(analysisId)).rejects.toMatchObject({ code: "analysis_persistence_unavailable", status: 503 });
+    expect(await analyses.getProjectAnalysisRun(analysisId)).toMatchObject({ status: "finalizing", mosooThreadId: threadId, mosooRunId });
+    vi.mocked(fetch).mockImplementation(missing);
+    await expect(reconcileProjectAnalysis(analysisId)).resolves.toMatchObject({ status: "finalizing", errorCode: null });
+    vi.mocked(fetch).mockImplementation(unavailable);
+    const graceStart = Date.now() - 31_000;
+    await connection.execute({ sql: "UPDATE project_analysis_runs SET started_at=1,updated_at=? WHERE id=?", args: [graceStart, analysisId] });
+    await expect(reconcileProjectAnalysis(analysisId)).rejects.toMatchObject({ code: "analysis_persistence_unavailable", status: 503 });
+    expect((await analyses.getProjectAnalysisRun(analysisId))!.updatedAt).toBe(graceStart);
+    vi.mocked(fetch).mockImplementation(missing);
+    await expect(reconcileProjectAnalysis(analysisId)).resolves.toMatchObject({ status: "failed", errorCode: "artifact_missing" });
+    expect((await connection.execute("SELECT * FROM project_assessments")).rows).toHaveLength(0);
+    expect((await connection.execute("SELECT * FROM feed_source_outbox")).rows).toHaveLength(0);
+    expect(legacy.sync).not.toHaveBeenCalled();
+  });
+
   it("never waits for an unavailable legacy Feed projection", async () => {
     legacy.sync.mockImplementation(() => new Promise<void>(() => {}));
     let deadline: ReturnType<typeof setTimeout> | undefined;
