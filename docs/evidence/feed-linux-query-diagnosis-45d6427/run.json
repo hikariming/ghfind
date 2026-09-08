@@ -1,0 +1,10 @@
+{
+  "format": "ghfind-feed-query-run-v1",
+  "observedAt": "2026-09-08T18:25:02.371455+00:00",
+  "requestedSha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+  "checkedOutSha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+  "runId": "34262883561",
+  "runAttempt": "1",
+  "capacityAcceptance": false,
+  "scope": "isolated synthetic diagnosis; source preflight not yet completed"
+}

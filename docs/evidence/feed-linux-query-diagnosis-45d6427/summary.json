@@ -1,0 +1,473 @@
+{
+  "format": "ghfind-feed-query-evidence-summary-v1",
+  "sourceSha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+  "capacityAcceptance": false,
+  "calculation": "statistics recomputed from retained observations/traces; nearest-rank percentiles; request SQL means request > 0; query timings and stage timings overlap and must not be added",
+  "diagnosis": {
+    "status": "complete",
+    "startedAt": "2026-09-08T18:27:31.145319476Z",
+    "finishedAt": "2026-09-08T18:27:49.816736706Z",
+    "durationSeconds": 18.67141728,
+    "http": {
+      "successfulFullPages": 100,
+      "itemsPerPage": 20,
+      "count": 100,
+      "totalMs": 18288.032,
+      "meanMs": 182.88032,
+      "p50Ms": 183.331,
+      "p95Ms": 189.34,
+      "maxMs": 237.367
+    },
+    "sqlTraceRows": 5505,
+    "requestSQLTraceRows": 5500,
+    "initializationSQLTraceRows": 5,
+    "droppedTraces": 0,
+    "sqlOutcomes": {
+      "ok": 5505
+    },
+    "resourceSamples": 18
+  },
+  "requestSQLRanking": [
+    {
+      "template": "candidates.tag",
+      "sqlSha256": "bfc6027e4092aebfc544cb657490738bf41cbd19138a18b327e24bd4075103e5",
+      "count": 100,
+      "totalMs": 13440.03,
+      "meanMs": 134.4003,
+      "p50Ms": 135.914,
+      "p95Ms": 140.665,
+      "maxMs": 164.892,
+      "shareOfRequestSQLDuration": 0.79204643
+    },
+    {
+      "template": null,
+      "sqlSha256": "35ba29f7995275129ff8427f918810c0f0a1f0d2116a41b16797ec430174dbab",
+      "count": 2000,
+      "totalMs": 478.898,
+      "meanMs": 0.239449,
+      "p50Ms": 0.23,
+      "p95Ms": 0.301,
+      "maxMs": 0.879,
+      "shareOfRequestSQLDuration": 0.02822237
+    },
+    {
+      "template": null,
+      "sqlSha256": "08e3f4cf02ae776f46231a5b83bb56a50dfaf1ddd6fd8fb2b83016217ee9169f",
+      "count": 100,
+      "totalMs": 470.029,
+      "meanMs": 4.70029,
+      "p50Ms": 4.612,
+      "p95Ms": 5.16,
+      "maxMs": 6.582,
+      "shareOfRequestSQLDuration": 0.0276997
+    },
+    {
+      "template": "snapshot.available",
+      "sqlSha256": "17736ccfa0a7eacec226ae23bd0801b06c05f6537774f365145d6a5cb596d094",
+      "count": 100,
+      "totalMs": 443.738,
+      "meanMs": 4.43738,
+      "p50Ms": 4.3,
+      "p95Ms": 5.306,
+      "maxMs": 5.6,
+      "shareOfRequestSQLDuration": 0.02615032
+    },
+    {
+      "template": "candidates.tags",
+      "sqlSha256": "ff67c0db32ad136f1586527be72f4615ca202acdae9d77909c1a9cfd5a50f757",
+      "count": 100,
+      "totalMs": 420.567,
+      "meanMs": 4.20567,
+      "p50Ms": 4.059,
+      "p95Ms": 4.825,
+      "maxMs": 5.129,
+      "shareOfRequestSQLDuration": 0.02478481
+    },
+    {
+      "template": null,
+      "sqlSha256": "57e08ae99fe91ea0aaca6129bb6a4758d0fbad4cf8ec8b9ae536d0d4566f2cbc",
+      "count": 100,
+      "totalMs": 312.761,
+      "meanMs": 3.12761,
+      "p50Ms": 3.004,
+      "p95Ms": 3.677,
+      "maxMs": 4.002,
+      "shareOfRequestSQLDuration": 0.0184316
+    },
+    {
+      "template": "candidates.hydrate",
+      "sqlSha256": "01e6eef66d5fcc4b78cd84849d23cc0bd428ebf0c3e3d9010c2df40a88c73508",
+      "count": 100,
+      "totalMs": 234.0,
+      "meanMs": 2.34,
+      "p50Ms": 2.276,
+      "p95Ms": 2.974,
+      "maxMs": 4.516,
+      "shareOfRequestSQLDuration": 0.01379006
+    },
+    {
+      "template": "candidates.latest",
+      "sqlSha256": "fa9032cb2e0262e3537783e85569a94e08471523c31989a7a684cebde71c4ed0",
+      "count": 100,
+      "totalMs": 194.463,
+      "meanMs": 1.94463,
+      "p50Ms": 1.918,
+      "p95Ms": 2.085,
+      "maxMs": 2.572,
+      "shareOfRequestSQLDuration": 0.01146007
+    },
+    {
+      "template": "candidates.quality",
+      "sqlSha256": "71cf719c3f7052f64ff6e0ba9e08ee9182e982ca739b50e2990476fe02efd13e",
+      "count": 100,
+      "totalMs": 148.942,
+      "meanMs": 1.48942,
+      "p50Ms": 1.463,
+      "p95Ms": 1.603,
+      "maxMs": 2.026,
+      "shareOfRequestSQLDuration": 0.00877743
+    },
+    {
+      "template": "candidates.discovery",
+      "sqlSha256": "6145da3e19573e9e7d60dddf3c774d73f9706acaa5f04077921a06e5b5e20fc0",
+      "count": 100,
+      "totalMs": 138.598,
+      "meanMs": 1.38598,
+      "p50Ms": 1.361,
+      "p95Ms": 1.514,
+      "maxMs": 1.981,
+      "shareOfRequestSQLDuration": 0.00816784
+    },
+    {
+      "template": null,
+      "sqlSha256": "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098",
+      "count": 300,
+      "totalMs": 103.763,
+      "meanMs": 0.345877,
+      "p50Ms": 0.339,
+      "p95Ms": 0.461,
+      "maxMs": 0.586,
+      "shareOfRequestSQLDuration": 0.00611495
+    },
+    {
+      "template": "snapshot.eligible",
+      "sqlSha256": "ab0b3c734c1a2d52a1b1bfddee0ec04abafd12f032cf920e3ccf8fe4ecfc4056",
+      "count": 100,
+      "totalMs": 99.17,
+      "meanMs": 0.9917,
+      "p50Ms": 0.896,
+      "p95Ms": 1.775,
+      "maxMs": 2.179,
+      "shareOfRequestSQLDuration": 0.00584428
+    },
+    {
+      "template": null,
+      "sqlSha256": "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+      "count": 300,
+      "totalMs": 63.467,
+      "meanMs": 0.211557,
+      "p50Ms": 0.174,
+      "p95Ms": 0.331,
+      "maxMs": 0.662,
+      "shareOfRequestSQLDuration": 0.00374023
+    },
+    {
+      "template": null,
+      "sqlSha256": "a84c7f26ae55f8cfaf16fc3654bf2e304bf2cb9f0a391d4ed8cc9a55a28dc2c6",
+      "count": 300,
+      "totalMs": 62.374,
+      "meanMs": 0.207913,
+      "p50Ms": 0.198,
+      "p95Ms": 0.264,
+      "maxMs": 0.728,
+      "shareOfRequestSQLDuration": 0.00367582
+    },
+    {
+      "template": null,
+      "sqlSha256": "8b66bdad68d5068054c6927f7b959955fa54adcf638997d8dba57212bd3222f8",
+      "count": 300,
+      "totalMs": 49.896,
+      "meanMs": 0.16632,
+      "p50Ms": 0.155,
+      "p95Ms": 0.195,
+      "maxMs": 1.468,
+      "shareOfRequestSQLDuration": 0.00294047
+    },
+    {
+      "template": null,
+      "sqlSha256": "0d5e237841997beef625726f63b49cc9fcc505d8c4d0b649ba040187511df664",
+      "count": 300,
+      "totalMs": 48.559,
+      "meanMs": 0.161863,
+      "p50Ms": 0.158,
+      "p95Ms": 0.187,
+      "maxMs": 0.565,
+      "shareOfRequestSQLDuration": 0.00286167
+    },
+    {
+      "template": null,
+      "sqlSha256": "1f2f66f15f0483c7583a9ad414df0dad7cce88fca59cc0f14c1f1715e6cd6557",
+      "count": 100,
+      "totalMs": 47.51,
+      "meanMs": 0.4751,
+      "p50Ms": 0.46,
+      "p95Ms": 0.572,
+      "maxMs": 1.136,
+      "shareOfRequestSQLDuration": 0.00279985
+    },
+    {
+      "template": null,
+      "sqlSha256": "34b06be781f3ed02f180af8e98dcc14ea56e3092407f85079615c8e387887c44",
+      "count": 200,
+      "totalMs": 37.393,
+      "meanMs": 0.186965,
+      "p50Ms": 0.178,
+      "p95Ms": 0.224,
+      "maxMs": 0.608,
+      "shareOfRequestSQLDuration": 0.00220364
+    },
+    {
+      "template": null,
+      "sqlSha256": "611561f2ce000b08bcb87868e5fa272d5c41e30c20e0f310a63f3c11da9267d2",
+      "count": 100,
+      "totalMs": 31.111,
+      "meanMs": 0.31111,
+      "p50Ms": 0.254,
+      "p95Ms": 0.366,
+      "maxMs": 4.904,
+      "shareOfRequestSQLDuration": 0.00183343
+    },
+    {
+      "template": null,
+      "sqlSha256": "499a9d4ebae3afc6a4bd6bdda2c5ea16a1795faa3386557d1befa920e41bf05f",
+      "count": 100,
+      "totalMs": 27.812,
+      "meanMs": 0.27812,
+      "p50Ms": 0.243,
+      "p95Ms": 0.438,
+      "maxMs": 1.949,
+      "shareOfRequestSQLDuration": 0.00163901
+    },
+    {
+      "template": null,
+      "sqlSha256": "774cb1383fa952b6c19f1accb4f9bf530a827d8805a97bcfd750e6fa9b71f909",
+      "count": 100,
+      "totalMs": 27.664,
+      "meanMs": 0.27664,
+      "p50Ms": 0.261,
+      "p95Ms": 0.353,
+      "maxMs": 0.658,
+      "shareOfRequestSQLDuration": 0.00163029
+    },
+    {
+      "template": null,
+      "sqlSha256": "28d29fe3d720ca612b89ca2f28924e3a11428773233bac7b4e73f341c0abbeed",
+      "count": 100,
+      "totalMs": 23.989,
+      "meanMs": 0.23989,
+      "p50Ms": 0.222,
+      "p95Ms": 0.372,
+      "maxMs": 0.705,
+      "shareOfRequestSQLDuration": 0.00141372
+    },
+    {
+      "template": null,
+      "sqlSha256": "f4988c4caa122466217d4d71e79017e50c1460c4d2aa5ceae0fad4f5e9bdd9c7",
+      "count": 100,
+      "totalMs": 23.915,
+      "meanMs": 0.23915,
+      "p50Ms": 0.216,
+      "p95Ms": 0.248,
+      "maxMs": 2.169,
+      "shareOfRequestSQLDuration": 0.00140936
+    },
+    {
+      "template": null,
+      "sqlSha256": "1c7c59589db3aa1953b1b59dc58e8896414d7ab5a237def072debbf5a5720be2",
+      "count": 100,
+      "totalMs": 20.471,
+      "meanMs": 0.20471,
+      "p50Ms": 0.181,
+      "p95Ms": 0.289,
+      "maxMs": 1.617,
+      "shareOfRequestSQLDuration": 0.00120639
+    },
+    {
+      "template": null,
+      "sqlSha256": "5b7d6b36590c5736cfd5749628faacfc6bebbeb47c1c053b6b8c7dde950aee90",
+      "count": 100,
+      "totalMs": 19.62,
+      "meanMs": 0.1962,
+      "p50Ms": 0.188,
+      "p95Ms": 0.232,
+      "maxMs": 0.622,
+      "shareOfRequestSQLDuration": 0.00115624
+    }
+  ],
+  "stages": [
+    {
+      "stage": "candidates",
+      "count": 100,
+      "totalMs": 14588.97,
+      "meanMs": 145.8897,
+      "p50Ms": 147.01,
+      "p95Ms": 152.278,
+      "maxMs": 180.6
+    },
+    {
+      "stage": "session.put",
+      "count": 100,
+      "totalMs": 1056.381,
+      "meanMs": 10.56381,
+      "p50Ms": 10.503,
+      "p95Ms": 11.568,
+      "maxMs": 12.695
+    },
+    {
+      "stage": "request.record",
+      "count": 100,
+      "totalMs": 841.831,
+      "meanMs": 8.41831,
+      "p50Ms": 8.228,
+      "p95Ms": 9.615,
+      "maxMs": 12.134
+    },
+    {
+      "stage": "snapshot.available",
+      "count": 100,
+      "totalMs": 446.981,
+      "meanMs": 4.46981,
+      "p50Ms": 4.325,
+      "p95Ms": 5.332,
+      "maxMs": 5.68
+    },
+    {
+      "stage": "user.ensure",
+      "count": 100,
+      "totalMs": 233.919,
+      "meanMs": 2.33919,
+      "p50Ms": 2.135,
+      "p95Ms": 2.752,
+      "maxMs": 14.335
+    }
+  ],
+  "actualPlans": {
+    "status": "complete",
+    "completeUniqueTemplateCohorts": 16,
+    "durationSeconds": 0.357693541,
+    "plans": [
+      {
+        "template": "candidates.discovery",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "6145da3e19573e9e7d60dddf3c774d73f9706acaa5f04077921a06e5b5e20fc0",
+        "explainExecutionMs": 0.792
+      },
+      {
+        "template": "candidates.discovery",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "6145da3e19573e9e7d60dddf3c774d73f9706acaa5f04077921a06e5b5e20fc0",
+        "explainExecutionMs": 0.469
+      },
+      {
+        "template": "candidates.hydrate",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "01e6eef66d5fcc4b78cd84849d23cc0bd428ebf0c3e3d9010c2df40a88c73508",
+        "explainExecutionMs": 2.251
+      },
+      {
+        "template": "candidates.hydrate",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "01e6eef66d5fcc4b78cd84849d23cc0bd428ebf0c3e3d9010c2df40a88c73508",
+        "explainExecutionMs": 1.179
+      },
+      {
+        "template": "candidates.latest",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "fa9032cb2e0262e3537783e85569a94e08471523c31989a7a684cebde71c4ed0",
+        "explainExecutionMs": 0.865
+      },
+      {
+        "template": "candidates.latest",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "fa9032cb2e0262e3537783e85569a94e08471523c31989a7a684cebde71c4ed0",
+        "explainExecutionMs": 0.799
+      },
+      {
+        "template": "candidates.quality",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "71cf719c3f7052f64ff6e0ba9e08ee9182e982ca739b50e2990476fe02efd13e",
+        "explainExecutionMs": 0.774
+      },
+      {
+        "template": "candidates.quality",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "71cf719c3f7052f64ff6e0ba9e08ee9182e982ca739b50e2990476fe02efd13e",
+        "explainExecutionMs": 0.477
+      },
+      {
+        "template": "candidates.tag",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "bfc6027e4092aebfc544cb657490738bf41cbd19138a18b327e24bd4075103e5",
+        "explainExecutionMs": 153.725
+      },
+      {
+        "template": "candidates.tag",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "bfc6027e4092aebfc544cb657490738bf41cbd19138a18b327e24bd4075103e5",
+        "explainExecutionMs": 141.735
+      },
+      {
+        "template": "candidates.tags",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "ff67c0db32ad136f1586527be72f4615ca202acdae9d77909c1a9cfd5a50f757",
+        "explainExecutionMs": 3.487
+      },
+      {
+        "template": "candidates.tags",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "ff67c0db32ad136f1586527be72f4615ca202acdae9d77909c1a9cfd5a50f757",
+        "explainExecutionMs": 3.339
+      },
+      {
+        "template": "snapshot.available",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "17736ccfa0a7eacec226ae23bd0801b06c05f6537774f365145d6a5cb596d094",
+        "explainExecutionMs": 3.615
+      },
+      {
+        "template": "snapshot.available",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "17736ccfa0a7eacec226ae23bd0801b06c05f6537774f365145d6a5cb596d094",
+        "explainExecutionMs": 3.436
+      },
+      {
+        "template": "snapshot.eligible",
+        "syntheticCohort": 0,
+        "outcome": "ok",
+        "sqlSha256": "ab0b3c734c1a2d52a1b1bfddee0ec04abafd12f032cf920e3ccf8fe4ecfc4056",
+        "explainExecutionMs": 0.717
+      },
+      {
+        "template": "snapshot.eligible",
+        "syntheticCohort": 1,
+        "outcome": "ok",
+        "sqlSha256": "ab0b3c734c1a2d52a1b1bfddee0ec04abafd12f032cf920e3ccf8fe4ecfc4056",
+        "explainExecutionMs": 0.698
+      }
+    ]
+  }
+}
