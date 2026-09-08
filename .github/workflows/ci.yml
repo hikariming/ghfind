@@ -171,7 +171,9 @@ jobs:
       - name: Identical API contracts against PostgreSQL and workerd
         run: node scripts/test-feed-crossprofile.mjs
       - name: Rehearse isolated D1 restore and deletion-generation fencing
-        run: node --test scripts/feed-snapshot-local.test.mjs
+        run: |
+          npm ci --prefix platform/runtime
+          node --test scripts/feed-snapshot-local.test.mjs
       - name: Remove disposable S3 service
         if: always()
         run: docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml down
