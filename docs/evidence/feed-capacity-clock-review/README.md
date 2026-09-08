@@ -1,0 +1,11 @@
+# Clock interpretation correction for the retained local capacity run
+
+Review date: 2026-09-09. This corrects the cross-clock interpretation of the retained [writer-2 run](../feed-capacity-ebda1f9/README.md). Its original artifacts, hashes, 6,000 outcomes and failed reliability result remain unchanged. No new load was run.
+
+The 600 resource records each contain both an actual UTC `at` timestamp and a Go monotonic `offsetMs`. Recomputing wall time minus monotonic time finds a range of **0.007–7,790.550 ms**. Between UTC `05:55:09.647087` and `05:55:18.540338`, monotonic offset advances from `581001.678` to `582119.824` ms: wall time and monotonic time diverge by another **7,775.105 ms**. [Computed values](review.json) retain the original source path and exact sample endpoints.
+
+The previous report projected request UTC intervals by adding monotonic request offsets to the load's initial UTC timestamp. Those projections are derived times; during the clock discontinuity they cannot be treated as directly measured request UTC or used for precise alignment with the external Docker/VM stream. This review supersedes that alignment interpretation. The source of the clock change is unproven. These records do not establish host contention, sleep, clock adjustment, PostgreSQL checkpointing or GC as the cause of failures.
+
+The original 88 failures out of 6,000 offered requests, and Go-measured admitted p95/p99 of 136.707/2344.481 ms, reproduce from the original bytes. They remain their recorded measurement populations; the local run does not establish production or Cloudflare wall-clock latency. Reliability acceptance still fails independently of this clock issue.
+
+The new verifier therefore uses monotonic offsets for internal one-second sampling coverage and separately reports clock drift. It does not require wall and monotonic clocks to match within an invented 2 ms tolerance. It also accepts Go RFC3339Nano fractional timestamps through an explicit stdlib-compatible parser. Two Docker `--` / `-- / --` records are retained as unavailable observations, excluded from valid sampling counts and never converted into zero CPU or memory. None of these corrections relaxes the request rate, deadline, offered error denominator, latency threshold or required valid sample coverage.
