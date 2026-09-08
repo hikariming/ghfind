@@ -13,18 +13,28 @@ const text = (min: number, max: number) =>
         bytes <= max &&
         (min === 0 || value.trim().length > 0) &&
         !Array.from(value).some((character) => {
-          const code = character.charCodeAt(0);
-          return code < 32 || code === 127;
+          // Array.from keeps valid surrogate pairs together. Lone surrogates
+          // cannot have a portable UTF-8/JCS identity across JSON decoders.
+          const code = character.codePointAt(0)!;
+          return (
+            code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)
+          );
         })
       );
     });
 const integer = z.number().int().safe().positive();
+// z.uuid() also accepts the nil and max sentinels, which are not command IDs.
+const uuid = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  );
 const target = {
   proposalKind: z.enum(["assessment", "user"]),
   proposalId: text(1, 160),
 };
 const command = {
-  commandId: z.uuid(),
+  commandId: uuid,
   writerEpoch: integer,
   expectedTaxonomyVersion: integer,
   operator: text(1, 100),
@@ -44,7 +54,7 @@ const labels = z
   .refine((value) => !!(value.labelZh.trim() || value.labelEn.trim()));
 export const governanceSchemas = {
   proposal: z.strictObject(target),
-  command: z.strictObject({ commandId: z.uuid() }),
+  command: z.strictObject({ commandId: uuid }),
   review: z.discriminatedUnion("action", [
     z.strictObject({
       ...review,
@@ -103,6 +113,19 @@ const validEvidence = `EXISTS(SELECT 1 FROM feed_projects p WHERE p.repo_key=q.r
   AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)
     OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)))`;
 
+function readEvidence(encoded: string): string[] {
+  try {
+    const evidence = z
+      .array(text(0, 256))
+      .max(64)
+      .safeParse(JSON.parse(encoded));
+    if (evidence.success) return evidence.data;
+  } catch {
+    // Historical assessment rows need not have a json_valid constraint.
+  }
+  throw new BridgeError(409, "governance_evidence_invalid");
+}
+
 // Hash parsed commands with recursively sorted object keys so wire field order
 // cannot change idempotency. Arrays retain order; never store raw command bodies.
 function canonical(value: unknown): string {
@@ -145,12 +168,7 @@ export class FeedGovernance extends FeedStore {
   async proposal(input: Target) {
     const row = await this.readProposal(input);
     if (!row) return { proposal: null };
-    const evidence = z
-      .array(text(0, 256))
-      .max(64)
-      .safeParse(JSON.parse(row.evidence_json));
-    if (!evidence.success)
-      throw new BridgeError(409, "governance_evidence_invalid");
+    const evidence = readEvidence(row.evidence_json);
     return {
       proposal: {
         ...input,
@@ -160,7 +178,7 @@ export class FeedGovernance extends FeedStore {
         slug: row.slug,
         labelZh: row.label_zh,
         labelEn: row.label_en,
-        evidence: evidence.data,
+        evidence,
         status: row.status === "accepted" ? "mapped" : row.status,
         reviewedBy: row.reviewed_by,
         reviewReason: row.review_reason,
@@ -190,6 +208,9 @@ export class FeedGovernance extends FeedStore {
       if (completed) return completed;
       throw new BridgeError(404, "governance_proposal_not_found");
     }
+    // Rejection must remain possible for malformed or obsolete stored evidence.
+    // Promotion validates it before use; the batch also pins these exact bytes.
+    if (row && input.action !== "reject") readEvidence(row.evidence_json);
     if (
       row &&
       input.action !== "reject" &&
