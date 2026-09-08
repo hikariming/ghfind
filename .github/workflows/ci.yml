@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify release
+    name: Application checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -84,10 +84,8 @@ jobs:
           pnpm exec wrangler d1 migrations apply ghfind --local --persist-to "$RUNNER_TEMP/ghfind-d1-migrations"
           pnpm exec wrangler d1 migrations apply ghfind-feed-dev --local --persist-to "$RUNNER_TEMP/ghfind-d1-migrations"
 
-      # Historical Go packages remain compile-tested while the Cloudflare D1
-      # Feed owns the deployable API/store path. CI intentionally provisions no
-      # PostgreSQL service and has no Railway/Vercel deployment dependency.
-      - name: Test Go compatibility packages
+      # Required database contracts run in the separate isolated service job.
+      - name: Test Go packages
         run: go test ./...
 
       - name: Self-test deployment smoke
@@ -104,3 +102,104 @@ jobs:
 
       - name: Cloudflare Worker build
         run: pnpm cf:build
+
+  feed-contracts:
+    name: Feed storage contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg17-trixie@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf
+        env:
+          POSTGRES_USER: feed
+          POSTGRES_PASSWORD: feed-ci-only
+          POSTGRES_DB: ghfind_feed_contract_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feed -d ghfind_feed_contract_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      CI: "true"
+      FEED_TEST_DATABASE_URL: postgres://feed:feed-ci-only@127.0.0.1:5432/ghfind_feed_contract_test?sslmode=disable
+      FEED_REQUIRE_POSTGRES_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - name: Require a real PostgreSQL contract environment
+        run: test -n "$FEED_TEST_DATABASE_URL"
+      - name: PostgreSQL and pgvector contracts including migration replay
+        run: go test -count=1 -v ./internal/backend -run 'TestPortablePostgresContracts|TestPostgresFeedStoreIntegration'
+      - name: Install locked Worker contract dependencies
+        working-directory: platform/feed
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck Worker capabilities
+        working-directory: platform/feed
+        run: pnpm typecheck
+      - name: Real workerd D1 and R2 contracts
+        working-directory: platform/feed
+        run: pnpm test
+      - name: Build the binding adapter
+        working-directory: platform/feed
+        run: pnpm build
+      - name: Identical API contracts against PostgreSQL and workerd
+        run: node scripts/test-feed-crossprofile.mjs
+
+  feed-runtime:
+    name: Feed runtime builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: docker/setup-buildx-action@v3
+      - name: Install locked Container Worker dependencies
+        run: npm ci --prefix platform/runtime
+      - name: Validate Container Worker and routing tests
+        run: |
+          npm --prefix platform/runtime run typecheck
+          npm --prefix platform/runtime test
+          node --test scripts/feed-platform-manifest.test.mjs
+      - name: Build the Container Worker without deployment
+        run: npm --prefix platform/runtime run build
+      - name: Build portable Go API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.feed
+          target: api
+          platforms: linux/amd64
+          push: false
+      - name: Build portable Go executor image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.feed
+          target: worker
+          platforms: linux/amd64
+          push: false
+
+  release-verify:
+    name: Verify release
+    if: always()
+    needs: [verify, feed-contracts, feed-runtime]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      APPLICATION_RESULT: ${{ needs.verify.result }}
+      STORAGE_RESULT: ${{ needs.feed-contracts.result }}
+      RUNTIME_RESULT: ${{ needs.feed-runtime.result }}
+    steps:
+      - name: Require every release dependency to pass
+        run: |
+          test "$APPLICATION_RESULT" = success
+          test "$STORAGE_RESULT" = success
+          test "$RUNTIME_RESULT" = success
