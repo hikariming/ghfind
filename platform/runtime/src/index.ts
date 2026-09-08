@@ -5,9 +5,11 @@ import {
   type Dispatch,
   type Target,
 } from "./router";
-import { relayOnce } from "./relay";
+import { runScheduled } from "./scheduled";
+import { bindingBridge, assessmentSource, deletionCleanup } from "./outbound";
+// Required by the Containers SDK for outboundByHost interception.
+export { ContainerProxy } from "@cloudflare/containers";
 import { deliver } from "./queue";
-import { bearerAuthorized, json } from "./security";
 
 function containerEnvironment(env: RuntimeEnv): Record<string, string> {
   checkConfiguration(env);
@@ -24,6 +26,7 @@ function containerEnvironment(env: RuntimeEnv): Record<string, string> {
     FEED_EXECUTOR_ENABLED: env.FEED_EXECUTOR_ENABLED,
     FEED_SOURCE_ENDPOINT: "http://feed-source.internal",
     FEED_SOURCE_SECRET: env.FEED_SOURCE_SECRET,
+    FEED_CLEANUP_ENDPOINT: "http://feed-cleanup.internal",
   };
 }
 
@@ -43,7 +46,7 @@ export class FeedAPI extends Container<RuntimeEnv> {
 
 export class FeedExecutor extends Container<RuntimeEnv> {
   defaultPort = 8080;
-  sleepAfter = "1m";
+  sleepAfter = "10s";
   enableInternet = false;
   entrypoint = ["/usr/local/bin/feed-worker"];
   constructor(
@@ -55,48 +58,11 @@ export class FeedExecutor extends Container<RuntimeEnv> {
   }
 }
 
-async function adapter(request: Request, env: RuntimeEnv): Promise<Response> {
-  const url = new URL(request.url);
-  if (
-    url.hostname !== "feed-bindings.internal" ||
-    request.method !== "POST" ||
-    !/^\/internal\/feed\/v1\/[a-z][a-z.-]*$/.test(url.pathname) ||
-    url.search ||
-    request.headers.get("x-feed-contract") !== "1" ||
-    !bearerAuthorized(request, env.FEED_BRIDGE_SECRET)
-  ) {
-    return json({ error: "unauthorized" }, 401);
-  }
-  return env.FEED_ADAPTER.fetch(
-    new Request(request, {
-      signal: AbortSignal.timeout(8000),
-      redirect: "manual",
-    }),
-  );
-}
-async function source(request: Request, env: RuntimeEnv): Promise<Response> {
-  const url = new URL(request.url);
-  if (
-    url.hostname !== "feed-source.internal" ||
-    request.method !== "POST" ||
-    !/^\/internal\/feed\/source\/v1\/(health|assessment)$/.test(url.pathname) ||
-    url.search ||
-    request.headers.get("x-feed-contract") !== "1" ||
-    !bearerAuthorized(request, env.FEED_SOURCE_SECRET)
-  ) {
-    return json({ error: "unauthorized" }, 401);
-  }
-  return env.FEED_ADAPTER.fetch(
-    new Request(request, {
-      signal: AbortSignal.timeout(8000),
-      redirect: "manual",
-    }),
-  );
-}
-FeedAPI.outboundByHost = { "feed-bindings.internal": adapter };
+FeedAPI.outboundByHost = { "feed-bindings.internal": bindingBridge };
 FeedExecutor.outboundByHost = {
-  "feed-bindings.internal": adapter,
-  "feed-source.internal": source,
+  "feed-bindings.internal": bindingBridge,
+  "feed-source.internal": assessmentSource,
+  "feed-cleanup.internal": deletionCleanup,
 };
 
 function dispatcher(env: RuntimeEnv): Dispatch {
@@ -120,17 +86,22 @@ export default {
     _controller: ScheduledController,
     env: RuntimeEnv,
   ): Promise<void> {
-    const summary = await relayOnce(env, {
-      source: (request) => env.FEED_ADAPTER.fetch(request),
-      send: async (events) => {
-        await env.FEED_JOBS_QUEUE.sendBatch(
-          events.map((body) => ({ body, contentType: "json" })),
-        );
+    await runScheduled(
+      env,
+      {
+        source: (request) => env.FEED_ADAPTER.fetch(request),
+        send: async (events) => {
+          await env.FEED_JOBS_QUEUE.sendBatch(
+            events.map((body) => ({ body, contentType: "json" })),
+          );
+        },
       },
-    });
-    console.log(JSON.stringify({ event: "feed_source_relay", ...summary }));
-    if (summary.retried > 0 || summary.leaseConflicts > 0)
-      throw new Error("feed_source_relay_incomplete");
+      dispatcher(env),
+      (entry, failed) => {
+        if (failed) console.error(JSON.stringify(entry));
+        else console.log(JSON.stringify(entry));
+      },
+    );
   },
   async queue(batch: MessageBatch<unknown>, env: RuntimeEnv): Promise<void> {
     // Configuration fixes max_batch_size=1 and max_concurrency=1. Sequential

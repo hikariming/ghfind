@@ -81,22 +81,23 @@ jobs:
           FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
           FEED_EXECUTOR_SECRET: ${{ secrets.FEED_EXECUTOR_SECRET }}
           FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
+          FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
         run: |
           set -euo pipefail
           node --input-type=module - <<'JS'
           import {writeFileSync} from 'node:fs';
-          import {secretNames,validateManifest} from './scripts/feed-platform-manifest.mjs';
+          import {secretNames,adapterSecretNames,allSecretNames,validateManifest} from './scripts/feed-platform-manifest.mjs';
           if(!process.env.CF_FEED_STAGING_API_TOKEN)throw new Error('Dedicated CF_FEED_STAGING_API_TOKEN is absent');
           const manifest=validateManifest(JSON.parse(process.env.STAGING_MANIFEST || '{}'));
-          const secrets=Object.fromEntries(secretNames.map(name=>{
+          const secrets=Object.fromEntries(allSecretNames.map(name=>{
             const value=process.env[name];
             if(!value || Buffer.byteLength(value)<32)throw new Error(`Missing/short ${name}`);
             return [name,value];
           }));
-          if(new Set(Object.values(secrets)).size!==secretNames.length)throw new Error('Runtime secrets must be distinct');
+          if(new Set(Object.values(secrets)).size!==allSecretNames.length)throw new Error('Runtime secrets must be distinct');
           writeFileSync(`${process.env.RUNNER_TEMP}/feed-staging-manifest.json`,JSON.stringify(manifest));
-          writeFileSync(`${process.env.RUNNER_TEMP}/feed-runtime-secrets.json`,JSON.stringify(secrets),{mode:0o600});
-          writeFileSync(`${process.env.RUNNER_TEMP}/feed-adapter-secrets.json`,JSON.stringify({FEED_BRIDGE_SECRET:secrets.FEED_BRIDGE_SECRET,FEED_SOURCE_SECRET:secrets.FEED_SOURCE_SECRET}),{mode:0o600});
+          writeFileSync(`${process.env.RUNNER_TEMP}/feed-runtime-secrets.json`,JSON.stringify(Object.fromEntries(secretNames.map(name=>[name,secrets[name]]))),{mode:0o600});
+          writeFileSync(`${process.env.RUNNER_TEMP}/feed-adapter-secrets.json`,JSON.stringify(Object.fromEntries(adapterSecretNames.map(name=>[name,secrets[name]]))),{mode:0o600});
           JS
       - name: Read back isolated resources before any mutation
         env:
@@ -110,7 +111,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
         run: |
           set -euo pipefail
-          platform/runtime/node_modules/.bin/wrangler containers push "ghfind-feed:$RELEASE_SHA"
+          platform/runtime/node_modules/.bin/wrangler containers push "ghfind-feed:$RELEASE_SHA" --config platform/runtime/wrangler.jsonc
           image_ref="$(docker image inspect "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed:$RELEASE_SHA" --format '{{json .RepoDigests}}' | jq -er --arg prefix "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed@sha256:" '[.[] | select(startswith($prefix))] | if length == 1 then .[0] else error("unambiguous pushed digest required") end')"
           echo "reference=$image_ref" >> "$GITHUB_OUTPUT"
           node scripts/feed-platform-manifest.mjs render "$RUNNER_TEMP/feed-staging-manifest.json" "$image_ref" "$RELEASE_SHA" platform/runtime/wrangler.staging.generated.json

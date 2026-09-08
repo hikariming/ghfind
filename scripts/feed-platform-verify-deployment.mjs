@@ -19,8 +19,12 @@ if (
   throw new Error("Passing matching probes required");
 const cli = resolve("platform/runtime/node_modules/.bin/wrangler");
 function wrangler(args) {
+  // Never inherit the existing production Worker's root configuration.
+  const scoped = args.includes("--config")
+    ? args
+    : [...args, "--config", "platform/runtime/wrangler.staging.generated.json"];
   return JSON.parse(
-    execFileSync(cli, args, {
+    execFileSync(cli, scoped, {
       encoding: "utf8",
       maxBuffer: 4 * 1024 * 1024,
       timeout: 30000,
