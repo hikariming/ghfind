@@ -163,6 +163,7 @@ export class FeedCommands extends FeedStore {
     const eventId = `state_${command}`;
     await this.batch([
       this.guard(command, input, input.githubId, {
+        taxonomyRequestIds: [input.requestId],
         relation: this.relation(),
         relationValues: [
           input.requestId,
@@ -289,6 +290,7 @@ export class FeedCommands extends FeedStore {
     const encoded = JSON.stringify(events);
     const result = await this.batch([
       this.guard(command, input, input.githubId, {
+        taxonomyRequestIds: events.map((event) => event.requestId),
         relation: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON r.id=s.request_id WHERE r.id=json_extract(e.value,'$.requestId') AND r.github_id=? AND r.profile_version<=? AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=r.github_id),0) AND s.repo_key=json_extract(e.value,'$.repoKey') AND s.rank=json_extract(e.value,'$.rank') AND s.algorithm_version=json_extract(e.value,'$.algorithmVersion'))) THEN 1 ELSE 0 END`,
         relationValues: [encoded, input.githubId, input.expectedProfileVersion],
         payload: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) j JOIN feed_runtime_events e ON e.id=json_extract(j.value,'$.id') WHERE e.github_id<>? OR e.payload_hash<>json_extract(j.value,'$.hash')) THEN 1 ELSE 0 END`,
@@ -370,7 +372,7 @@ export class FeedCommands extends FeedStore {
   }
   async getSession(input: Input<"sessions.get">) {
     const rows = await this.rows<{ payload_json: string }>(
-      "SELECT s.payload_json FROM feed_runtime_sessions s JOIN feed_users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=? AND s.github_id=? AND s.expires_at>?",
+      "SELECT s.payload_json FROM feed_runtime_sessions s JOIN feed_users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=? AND s.github_id=? AND s.expires_at>? AND json_extract(s.payload_json,'$.taxonomyVersion')=(SELECT version FROM feed_taxonomy_versions WHERE status='active')",
       input.id,
       input.githubId,
       Date.now(),
