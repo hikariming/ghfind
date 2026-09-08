@@ -170,6 +170,8 @@ jobs:
         run: pnpm build
       - name: Identical API contracts against PostgreSQL and workerd
         run: node scripts/test-feed-crossprofile.mjs
+      - name: Rehearse isolated D1 restore and deletion-generation fencing
+        run: node --test scripts/feed-snapshot-local.test.mjs
       - name: Remove disposable S3 service
         if: always()
         run: docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml down
@@ -193,6 +195,7 @@ jobs:
           node --test scripts/feed-platform-manifest.test.mjs
           node --test scripts/feed-platform-provision.test.mjs
           node --test scripts/feed-operator.test.mjs
+          node --test scripts/feed-governance.test.mjs
       - name: Build the Container Worker without deployment
         run: npm --prefix platform/runtime run build
       - name: Build portable Go API image
