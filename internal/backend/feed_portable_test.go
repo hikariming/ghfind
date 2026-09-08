@@ -48,7 +48,7 @@ func TestPortableCFStoreUsesVersionedOperationsAndActorScope(t *testing.T) {
 		case "/internal/feed/v1/sessions.get":
 			var in FeedBridgeSessionRequest
 			json.NewDecoder(r.Body).Decode(&in)
-			if in.GitHubID != 42 || in.ID != "s" {
+			if in.GitHubID != 42 || in.ID != "s" || in.WriterEpoch != 1 {
 				t.Error("unscoped session")
 			}
 			json.NewEncoder(w).Encode(FeedBridgeSessionResponse{Session: FeedSessionDTO{ID: "s", GitHubID: 42}})
