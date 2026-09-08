@@ -1,0 +1,169 @@
+import { BridgeError, schemas, type Input, type Operation } from "./contract";
+import { FeedCommands } from "./commands";
+
+const MAX_BODY = 128 * 1024;
+async function body(request: Request, operation: string): Promise<unknown> {
+  const limit =
+    operation === "sessions.put" || operation === "requests.save"
+      ? 2 * 1024 * 1024
+      : MAX_BODY;
+  if (
+    !request.headers
+      .get("content-type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  )
+    throw new BridgeError(415, "unsupported_media_type");
+  if (Number(request.headers.get("content-length")) > limit)
+    throw new BridgeError(413, "request_too_large");
+  if (!request.body) throw new BridgeError(400, "invalid_request");
+  const reader = request.body.getReader(),
+    chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > limit) {
+        await reader.cancel();
+        throw new BridgeError(413, "request_too_large");
+      }
+      chunks.push(part.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  try {
+    return JSON.parse(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes),
+    );
+  } catch {
+    throw new BridgeError(400, "invalid_request");
+  }
+}
+async function authorized(request: Request, secret: string): Promise<boolean> {
+  if (!secret || secret.length < 32) return false;
+  const provided = request.headers.get("authorization") ?? "";
+  // Hash both inputs before constant-time comparison, including unequal lengths.
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(provided)),
+    crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`Bearer ${secret}`),
+    ),
+  ]);
+  return crypto.subtle.timingSafeEqual(a, b);
+}
+export async function handleOperation(
+  operation: Operation,
+  raw: unknown,
+  env: Env,
+): Promise<object> {
+  const store = new FeedCommands(env.FEED_DB);
+  const parse = <K extends Operation>(op: K): Input<K> => {
+    const result = schemas[op].safeParse(raw);
+    if (!result.success) throw new BridgeError(400, "invalid_request");
+    return result.data as Input<K>;
+  };
+  switch (operation) {
+    case "health": {
+      parse(operation);
+      const [control] = await store.rows<{
+        schema_version: number;
+        writer_epoch: number;
+        writes_enabled: number;
+      }>(
+        "SELECT schema_version,writer_epoch,writes_enabled FROM feed_runtime_control WHERE id=1",
+      );
+      await env.FEED_ARCHIVE.head("health/capability-v1");
+      return {
+        ready: control?.schema_version === 3,
+        contractVersion: "1",
+        writerEpoch: control?.writer_epoch ?? 0,
+        writesEnabled: control?.writes_enabled === 1,
+      };
+    }
+    case "taxonomy.list":
+      parse(operation);
+      return store.taxonomy();
+    case "users.ensure":
+      return store.ensure(parse(operation));
+    case "users.get":
+      return { user: await store.user(parse(operation).githubId) };
+    case "preferences.replace":
+      return store.preferences(parse(operation));
+    case "candidates.load":
+      return store.candidates(parse(operation));
+    case "projects.available":
+      return store.available(parse(operation));
+    case "requests.save":
+      return store.saveRequest(parse(operation));
+    case "state.set":
+      return store.state(parse(operation));
+    case "events.append":
+      return store.events(parse(operation));
+    case "profile.delete":
+      return store.deleteProfile(parse(operation));
+    case "profile.deletion.get":
+      return store.deletion(parse(operation));
+    case "sessions.put":
+      return store.putSession(parse(operation));
+    case "sessions.get":
+      return store.getSession(parse(operation));
+    case "sessions.delete":
+      return store.deleteSession(parse(operation));
+  }
+}
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const headers = { "Cache-Control": "no-store", "X-Feed-Contract": "1" };
+    try {
+      if (!(await authorized(request, env.FEED_BRIDGE_SECRET)))
+        throw new BridgeError(401, "unauthorized");
+      if (request.method !== "POST")
+        throw new BridgeError(405, "method_not_allowed");
+      if (request.headers.get("x-feed-contract") !== "1")
+        throw new BridgeError(409, "contract_version_changed");
+      const url = new URL(request.url),
+        operation = url.pathname.replace(/^\/internal\/feed\/v1\//, "");
+      if (
+        url.search ||
+        !url.pathname.startsWith("/internal/feed/v1/") ||
+        !Object.hasOwn(schemas, operation)
+      )
+        throw new BridgeError(404, "operation_not_found");
+      return Response.json(
+        await handleOperation(
+          operation as Operation,
+          await body(request, operation),
+          env,
+        ),
+        { headers },
+      );
+    } catch (error) {
+      if (error instanceof BridgeError)
+        return Response.json(
+          { error: error.code },
+          { status: error.status, headers },
+        );
+      // Never log body, identities, SQL bind values, tokens, or exception text.
+      console.error(
+        JSON.stringify({
+          component: "feed-adapter",
+          event: "capability_failed",
+        }),
+      );
+      return Response.json(
+        { error: "feed_unavailable" },
+        { status: 503, headers },
+      );
+    }
+  },
+} satisfies ExportedHandler<Env>;
