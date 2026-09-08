@@ -64,8 +64,19 @@ test(
     const report = await runLocalDrill();
     assert.equal(report.status, "passed");
     assert.notEqual(report.identities.source, report.identities.target);
-    assert.equal(report.tables, 43);
-    assert.equal(report.columns, 321);
+    assert.equal(report.tables, 45);
+    assert.equal(report.schemaVersion, 9);
+    assert.equal(report.runtimeControlSchemaVersion, 7);
+    assert.equal(report.columns, 348);
+    assert.equal(report.governance.action, "create");
+    assert.equal(report.governance.activeTaxonomyVersion, 2);
+    assert.equal(report.governance.ledgerRows, 1);
+    assert.equal(report.governance.restoredCommandReceiptEqual, true);
+    assert.equal(report.governance.exactReplayChangedNoRows, true);
+    assert.equal(report.governance.storedUserTaxonomyVersion, 1);
+    assert.equal(report.governance.readUserTaxonomyVersion, 2);
+    assert.equal(report.governance.storedPreferenceTaxonomyVersion, 1);
+    assert.equal(report.governance.profileVersionUnchanged, true);
     assert.equal(report.backup.dataSha256, report.restored.dataSha256);
     assert.equal(report.postDeletion.fullSourceTargetRowEquality, true);
     assert.equal(report.postDeletion.idempotentReplay, true);
@@ -84,6 +95,7 @@ test(
       "feed_profile_deletions",
       "feed_cleanup_jobs",
       "feed_runtime_control",
+      "feed_governance_commands",
     ])
       assert.ok(
         report.tableCounts[name] > 0,

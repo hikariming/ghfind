@@ -1,7 +1,7 @@
 // Bundled only by feed-snapshot-local.mjs into a fresh loopback Miniflare instance.
 // The imports below are resolved by that builder; this is never a deployed Worker.
 import adapter from "local-drill-adapter";
-import { SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA_9 as SCHEMA } from "./feed-snapshot-schema.mjs";
 
 const migrations = LOCAL_DRILL_MIGRATIONS;
 const names = Object.keys(SCHEMA.tables).sort();
@@ -19,7 +19,7 @@ const overlayTables = [
   "feed_cleanup_jobs",
   "feed_runtime_outbox",
 ];
-const fixtureActorIds = [101, 202, 303];
+const fixtureActorIds = [101, 202, 303, 404];
 const adapterOperations = new Set([
   "health",
   "users.ensure",
@@ -84,7 +84,7 @@ async function gate(db, closed) {
   );
   need(
     control?.writer_epoch === 1 &&
-      control.schema_version === 7 &&
+      control.schema_version === SCHEMA.runtimeControlSchemaVersion &&
       control.writes_enabled === (closed ? 0 : 1),
     "local_writer_gate_mismatch",
   );
@@ -137,17 +137,28 @@ async function local(op, raw, env) {
     const tables = {};
     for (const { name } of actual) {
       table(name);
-      const uniqueKeys = [];
+      const uniqueKeys = [],
+        partialUniqueKeys = [];
       for (const idx of await rows(db, `PRAGMA index_list(${name})`))
-        if (idx.unique && idx.origin !== "pk")
-          uniqueKeys.push(
-            (await rows(db, `PRAGMA index_info(${idx.name})`)).map(
-              (v) => v.name,
-            ),
-          );
+        if (idx.unique && idx.origin !== "pk") {
+          const columns = (
+            await rows(db, `PRAGMA index_info(${idx.name})`)
+          ).map((v) => v.name);
+          if (idx.partial) {
+            const [entry] = await rows(
+              db,
+              "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+              idx.name,
+            );
+            const predicate = /\bWHERE\s+(.+?)\s*$/i.exec(entry.sql)?.[1];
+            need(predicate, "unsupported_partial_index");
+            partialUniqueKeys.push({ columns, where: predicate });
+          } else uniqueKeys.push(columns);
+        }
       tables[name] = {
         columns: await rows(db, `PRAGMA table_info(${name})`),
         uniqueKeys,
+        partialUniqueKeys,
       };
     }
     return { tables, restoreOrder: await order(db) };
@@ -174,6 +185,12 @@ async function local(op, raw, env) {
         )
         .bind(now),
     ]);
+    await db
+      .prepare(
+        `INSERT INTO feed_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-governance-proposal','snapshot-owner/repo','snapshot-analysis','use_case','local-recovery-governed','本地恢复治理','Local recovery governed','["synthetic-local-evidence"]','proposed',?,?)`,
+      )
+      .bind(now, now)
+      .run();
     return { synthetic: true };
   }
   if (op === "gate") {
@@ -181,9 +198,9 @@ async function local(op, raw, env) {
     need(typeof raw.closed === "boolean", "invalid_gate");
     await db
       .prepare(
-        "UPDATE feed_runtime_control SET writes_enabled=? WHERE id=1 AND writer_epoch=1 AND schema_version=7",
+        "UPDATE feed_runtime_control SET writes_enabled=? WHERE id=1 AND writer_epoch=1 AND schema_version=?",
       )
-      .bind(raw.closed ? 0 : 1)
+      .bind(raw.closed ? 0 : 1, SCHEMA.runtimeControlSchemaVersion)
       .run();
     await gate(db, raw.closed);
     return { closed: raw.closed };
@@ -248,7 +265,7 @@ async function local(op, raw, env) {
         raw.rows.length === 1 &&
           raw.rows[0].id === 1 &&
           raw.rows[0].writer_epoch === 1 &&
-          raw.rows[0].schema_version === 7 &&
+          raw.rows[0].schema_version === SCHEMA.runtimeControlSchemaVersion &&
           raw.rows[0].writes_enabled === 0,
         "restore_requires_closed_gate",
       );
@@ -337,6 +354,19 @@ const localWorker = {
         { error: "local_request_rejected" },
         { status: 403 },
       );
+    if (
+      /^\/internal\/feed\/governance\/v1\/(proposal|command|review)$/.test(
+        url.pathname,
+      )
+    ) {
+      const copy = await request.clone().json();
+      if (
+        copy.proposalId !== undefined &&
+        copy.proposalId !== "local-governance-proposal"
+      )
+        return new Response(null, { status: 403 });
+      return adapter.fetch(request, env);
+    }
     if (url.pathname.startsWith("/internal/feed/v1/")) {
       if (
         !adapterOperations.has(url.pathname.slice("/internal/feed/v1/".length))

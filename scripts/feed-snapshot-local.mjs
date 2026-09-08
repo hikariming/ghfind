@@ -8,18 +8,20 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA_9 as SCHEMA } from "./feed-snapshot-schema.mjs";
 import {
   canonical,
   digest,
   compareKeys,
-  rowRecord,
+  rowRecord as versionedRowRecord,
   buildSnapshot,
   validateSnapshot,
 } from "./feed-snapshot.mjs";
 
 const ownRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const names = Object.keys(SCHEMA.tables).sort();
+const rowRecord = (table, row) =>
+  versionedRowRecord(table, row, SCHEMA.schemaVersion);
 const overlayTables = [
   "feed_cleanup_jobs",
   "feed_profile_deletions",
@@ -29,7 +31,8 @@ const overlayTables = [
 export const LOCAL_PLAN = Object.freeze({
   format: "feed-local-d1-recovery-drill-v1",
   schema: SCHEMA.id,
-  schemaVersion: 7,
+  schemaVersion: SCHEMA.schemaVersion,
+  runtimeControlSchemaVersion: SCHEMA.runtimeControlSchemaVersion,
   contractVersion: 1,
   tables: names.length,
   columns: Object.values(SCHEMA.tables).reduce(
@@ -50,7 +53,7 @@ export const LOCAL_PLAN = Object.freeze({
     "core assessment database",
     "remote resources",
     "PostgreSQL",
-    "schema 8",
+    "standalone schema 8 and unknown migration sets",
     "real OAuth",
     "migration promotion",
     "RPO/RTO acceptance",
@@ -70,7 +73,7 @@ function exact(value, keys, code) {
   );
 }
 // The migration hashes are pinned before parsing. This parser supports the SQL
-// used by 0001–0007; triggers and explicit transaction blocks are not accepted.
+// used by the pinned 0001–0009 migration set; triggers and explicit transaction blocks are not accepted.
 export function splitPinnedSQL(sql) {
   const statements = [];
   let current = "",
@@ -166,6 +169,11 @@ export function inspectSchema(actual) {
       name,
     );
     assert.deepEqual(actualTable.uniqueKeys, spec.uniqueKeys, name);
+    assert.deepEqual(
+      actualTable.partialUniqueKeys,
+      spec.partialUniqueKeys ?? [],
+      name,
+    );
     for (const column of actualTable.columns) {
       const expected = spec.columns[column.name];
       assert.equal(
@@ -330,6 +338,72 @@ async function snapshot(directory, label, rows, source, timing) {
   });
   return { directory: output, metadata, build, validation };
 }
+async function seedGovernance(runtime) {
+  let { user } = await runtime.bridge("users.ensure", {
+    writerEpoch: 1,
+    expectedProfileVersion: 0,
+    githubId: 404,
+    login: "local-lazy-taxonomy-fixture",
+    avatarUrl: "",
+  });
+  ({ user } = await runtime.bridge("preferences.replace", {
+    writerEpoch: 1,
+    expectedProfileVersion: user.profileVersion,
+    githubId: 404,
+    taxonomyVersion: 1,
+    preferences: [
+      {
+        tagId: "artifact:micro-tool",
+        value: 1,
+        source: "explicit",
+        strength: 1,
+        taxonomyVersion: 1,
+      },
+    ],
+  }));
+  const proposal = {
+    proposalKind: "assessment",
+    proposalId: "local-governance-proposal",
+  };
+  assert.equal(
+    (await runtime.governance("proposal", proposal)).proposal.currentEvidence,
+    true,
+  );
+  const command = {
+    ...proposal,
+    commandId: randomUUID(),
+    writerEpoch: 1,
+    expectedTaxonomyVersion: 1,
+    expectedAnalysisId: "snapshot-analysis",
+    action: "create",
+    operator: "local-synthetic-reviewer",
+    reason: "Individually reviewed synthetic local recovery evidence",
+    labels: {
+      labelZh: "本地恢复治理",
+      labelEn: "Local recovery governed",
+      description: "Synthetic governance recovery fixture",
+    },
+    assignment: { weight: 0.4, confidence: 0.8 },
+  };
+  const receipt = await runtime.governance("review", command);
+  assert.equal(receipt.commandId, command.commandId);
+  assert.equal(receipt.status, "mapped");
+  assert.equal(receipt.taxonomyVersion, 2);
+  assert.equal(receipt.canonicalTagId, "use_case:local-recovery-governed");
+  assert.deepEqual(
+    (await runtime.governance("command", { commandId: command.commandId }))
+      .command,
+    receipt,
+  );
+  const { user: lazyUser } = await runtime.bridge("users.get", {
+    githubId: 404,
+  });
+  assert.equal(lazyUser.taxonomyVersion, 2);
+  assert.equal(lazyUser.profileVersion, user.profileVersion);
+  assert.deepEqual(lazyUser.preferences, user.preferences);
+  assert.equal(lazyUser.preferences[0].taxonomyVersion, 1);
+  return { receipt, command, lazyUser };
+}
 async function seedUsers(runtime) {
   const actors = {};
   for (const githubId of [101, 202, 303]) {
@@ -344,14 +418,14 @@ async function seedUsers(runtime) {
       writerEpoch: 1,
       expectedProfileVersion: user.profileVersion,
       githubId,
-      taxonomyVersion: 1,
+      taxonomyVersion: user.taxonomyVersion,
       preferences: [
         {
           tagId: "artifact:micro-tool",
           value: 1,
           source: "explicit",
           strength: 1,
-          taxonomyVersion: 1,
+          taxonomyVersion: user.taxonomyVersion,
         },
       ],
     }));
@@ -436,7 +510,7 @@ async function seedUsers(runtime) {
         id: sessionId,
         githubId,
         algorithmVersion,
-        taxonomyVersion: 1,
+        taxonomyVersion: user.taxonomyVersion,
         profileVersion: user.profileVersion,
         pageSize: 1,
         seed: `session-seed-${githubId}`,
@@ -520,7 +594,8 @@ export async function runLocalDrill() {
     assert.notEqual(identities.source, identities.target);
     async function startRuntime(role) {
       const token = randomBytes(32).toString("hex"),
-        bridge = randomBytes(32).toString("hex");
+        bridge = randomBytes(32).toString("hex"),
+        operator = randomBytes(32).toString("hex");
       const root = join(directory, role);
       await mkdir(root, { mode: 0o700 });
       const mf = new Miniflare(
@@ -536,6 +611,7 @@ export async function runLocalDrill() {
             LOCAL_ROLE: role,
             LOCAL_TOKEN: token,
             FEED_BRIDGE_SECRET: bridge,
+            FEED_OPERATOR_SECRET: operator,
             FEED_SEMANTIC_STATE: "disabled",
           },
           resourcePersistencePath: join(root, "storage"),
@@ -574,7 +650,7 @@ export async function runLocalDrill() {
           headers: {
             "content-type": "application/json",
             "x-local-drill-token": badToken ? "invalid" : token,
-            authorization: `Bearer ${bridge}`,
+            authorization: `Bearer ${path.startsWith("/internal/feed/governance/v1/") ? operator : bridge}`,
             "x-feed-contract": "1",
           },
           body: JSON.stringify(data),
@@ -593,6 +669,8 @@ export async function runLocalDrill() {
           request(`/__local/${op}`, data, options),
         bridge: (op, data, options) =>
           request(`/internal/feed/v1/${op}`, data, options),
+        governance: (op, data, options) =>
+          request(`/internal/feed/governance/v1/${op}`, data, options),
       };
     }
     const source = await startRuntime("source"),
@@ -608,15 +686,44 @@ export async function runLocalDrill() {
     await source.local("inspect", {}, { status: 403, badToken: true });
     await source.local("arbitrary-sql", { sql: "SELECT 1" }, { status: 400 });
     await source.local("seed");
+    const governance = await seedGovernance(source);
     const actors = await seedUsers(source);
     const snapshotStart = Date.now();
     await source.local("gate", { closed: true });
     await source.local("export", { table: "sqlite_master" }, { status: 400 });
     const before = await collect(source),
       snapshotEnd = Date.now();
+    const lazyUserRow = before.find(
+      ({ table, row }) => table === "feed_users" && row.github_id === 404,
+    ).row;
+    assert.equal(
+      lazyUserRow.taxonomy_version,
+      1,
+      "governance must not eagerly rewrite every user",
+    );
+    assert.equal(
+      lazyUserRow.profile_version,
+      governance.lazyUser.profileVersion,
+    );
+    const governanceRows = before.filter(
+      ({ table }) => table === "feed_governance_commands",
+    );
+    assert.equal(governanceRows.length, 1);
+    assert.equal(
+      governanceRows[0].row.command_id,
+      governance.receipt.commandId,
+    );
+    assert.equal(
+      governanceRows[0].row.payload_hash,
+      digest(canonical(governance.command)),
+    );
+    assert.deepEqual(
+      JSON.parse(governanceRows[0].row.result_json),
+      governance.receipt,
+    );
     const sourceMetadata = {
       profile: "cf_d1_r2",
-      schemaVersion: 7,
+      schemaVersion: SCHEMA.schemaVersion,
       contractVersion: 1,
       writerEpoch: 1,
       gitSHA,
@@ -647,6 +754,27 @@ export async function runLocalDrill() {
     }
     const restored = await collect(target);
     compareRows(before, restored, "snapshot restore");
+    assert.deepEqual(
+      (
+        await target.governance("command", {
+          commandId: governance.receipt.commandId,
+        })
+      ).command,
+      governance.receipt,
+    );
+    assert.deepEqual(
+      await target.governance("review", governance.command),
+      governance.receipt,
+    );
+    compareRows(
+      before,
+      await collect(target),
+      "restored exact governance retry while writer gate remains closed",
+    );
+    assert.deepEqual(
+      (await target.bridge("users.get", { githubId: 404 })).user,
+      governance.lazyUser,
+    );
     // A failed D1 import batch must roll back earlier inserts, with the gate still closed.
     const existingUser = restored.find((r) => r.table === "feed_users").row;
     await target.local(
@@ -772,7 +900,7 @@ export async function runLocalDrill() {
           writerEpoch: 1,
           expectedProfileVersion: actor.user.profileVersion,
           githubId,
-          taxonomyVersion: 1,
+          taxonomyVersion: actor.user.taxonomyVersion,
           preferences: [],
         },
         { status: 409 },
@@ -902,6 +1030,23 @@ export async function runLocalDrill() {
         idempotentReplay: true,
         newerGenerationOverlayRejected: true,
         cleanupCompleted: false,
+      },
+      governance: {
+        commandId: governance.receipt.commandId,
+        action: governance.receipt.action,
+        activeTaxonomyVersion: governance.receipt.taxonomyVersion,
+        canonicalTagId: governance.receipt.canonicalTagId,
+        ledgerRows: governanceRows.length,
+        ledgerRowHash: rowRecord(governanceRows[0].table, governanceRows[0].row)
+          .sha256,
+        restoredCommandReceiptEqual: true,
+        exactReplayChangedNoRows: true,
+        lazyActor: 404,
+        storedUserTaxonomyVersion: lazyUserRow.taxonomy_version,
+        readUserTaxonomyVersion: governance.lazyUser.taxonomyVersion,
+        storedPreferenceTaxonomyVersion:
+          governance.lazyUser.preferences[0].taxonomyVersion,
+        profileVersionUnchanged: true,
       },
       rows: before.length,
       tableCounts: backup.metadata.inventory,
