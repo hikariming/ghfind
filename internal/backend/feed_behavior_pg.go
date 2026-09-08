@@ -15,7 +15,8 @@ func rebuildFeedBehaviorTx(ctx context.Context, tx *sql.Tx, id int64) error {
 	}
 	_, err := tx.ExecContext(ctx, `WITH tags AS (
  SELECT pt.repo_key,pt.tag_id,MAX(pt.weight) AS weight,MAX(pt.taxonomy_version) AS taxonomy_version
- FROM feed.project_tags pt JOIN feed.tag_definitions d ON d.id=pt.tag_id AND d.status='canonical'
+ FROM feed.project_tags pt JOIN feed.tag_definitions d ON d.id=pt.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+ JOIN feed.projects p ON p.repo_key=pt.repo_key AND p.analysis_id=pt.analysis_id
  WHERE pt.repo_key IN(SELECT repo_key FROM feed.behavior_signals WHERE github_id=$1) GROUP BY pt.repo_key,pt.tag_id
  ) INSERT INTO feed.user_tag_preferences(github_id,tag_id,value,source,strength,taxonomy_version)
  SELECT $1,t.tag_id,1,'behavior',LEAST(0.6,SUM(CASE s.signal WHEN 'saved' THEN 0.3 WHEN 'outbound' THEN 0.1 ELSE 0.05 END*t.weight)),MAX(t.taxonomy_version)

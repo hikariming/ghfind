@@ -69,6 +69,9 @@ func (s *PostgresFeedStore) PutFeedSession(ctx context.Context, session FeedSess
 	if err := s.guardFeedWrite(ctx, tx, session.GitHubID, session.ProfileVersion); err != nil {
 		return err
 	}
+	if err := s.checkFeedTaxonomyTx(ctx, tx, session.TaxonomyVersion); err != nil {
+		return err
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.sessions(id,github_id,profile_version,snapshot,created_at,expires_at) VALUES($1,$2,$3,$4::jsonb,$5,$6) ON CONFLICT(id) DO NOTHING`, session.ID, session.GitHubID, session.ProfileVersion, string(encoded), session.CreatedAt, session.ExpiresAt)
 	if err != nil {
 		return err
@@ -86,8 +89,16 @@ func (s *PostgresFeedStore) GetFeedSession(context.Context, string) (*FeedSessio
 	return nil, errors.New("actor-scoped session lookup required")
 }
 func (s *PostgresFeedStore) GetFeedSessionForUser(ctx context.Context, id int64, key string) (*FeedSession, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if err := s.guardFeedWrite(ctx, tx, id, 0); err != nil {
+		return nil, err
+	}
 	var encoded []byte
-	err := s.db.QueryRowContext(ctx, `SELECT s.snapshot FROM feed.sessions s JOIN feed.users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=$1 AND s.github_id=$2 AND s.expires_at>now() AND u.deleted_at IS NULL`, key, id).Scan(&encoded)
+	err = tx.QueryRowContext(ctx, `SELECT s.snapshot FROM feed.sessions s JOIN feed.users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=$1 AND s.github_id=$2 AND s.expires_at>now() AND u.deleted_at IS NULL AND ($3=false OR (s.snapshot->>'taxonomyVersion')::bigint=(SELECT version FROM feed.taxonomy_versions WHERE state='active'))`, key, id, s.writerEpoch > 0).Scan(&encoded)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrFeedSessionNotFound
 	}
@@ -96,6 +107,9 @@ func (s *PostgresFeedStore) GetFeedSessionForUser(ctx context.Context, id int64,
 	}
 	var dto FeedSessionDTO
 	if err := json.Unmarshal(encoded, &dto); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	session := dto.session()
@@ -130,13 +144,43 @@ func (s *PostgresFeedStore) checkFeedAttribution(ctx context.Context, tx *sql.Tx
 	if s.writerEpoch == 0 {
 		return nil
 	}
+	var requestTaxonomy int64
+	err := tx.QueryRowContext(ctx, `SELECT taxonomy_version FROM feed.requests WHERE id=$1 AND github_id=$2`, requestID, id).Scan(&requestTaxonomy)
+	if err != nil {
+		return fmt.Errorf("invalid feed request attribution: %w", err)
+	}
+	if err := s.checkFeedTaxonomyTx(ctx, tx, requestTaxonomy); err != nil {
+		return err
+	}
 	var found bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM feed.requests r JOIN feed.served_items si ON si.request_id=r.id WHERE r.id=$1 AND r.github_id=$2 AND si.repo_key=$3 AND r.profile_version<=(SELECT profile_version FROM feed.users WHERE github_id=$2) AND r.profile_version>COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),0))`, requestID, id, repoKey).Scan(&found)
+	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM feed.requests r JOIN feed.served_items si ON si.request_id=r.id WHERE r.id=$1 AND r.github_id=$2 AND si.repo_key=$3 AND r.profile_version<=(SELECT profile_version FROM feed.users WHERE github_id=$2) AND r.profile_version>COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),0))`, requestID, id, repoKey).Scan(&found)
 	if err != nil {
 		return err
 	}
 	if !found {
 		return fmt.Errorf("invalid feed request attribution")
+	}
+	return nil
+}
+
+func activeFeedTaxonomyTx(ctx context.Context, tx *sql.Tx) (int64, error) {
+	var version int64
+	err := tx.QueryRowContext(ctx, `SELECT version FROM feed.taxonomy_versions WHERE state='active'`).Scan(&version)
+	return version, err
+}
+
+// Caller already holds the runtime control row's shared lock. Governance holds
+// its exclusive lock, so activation cannot occur between this check and commit.
+func (s *PostgresFeedStore) checkFeedTaxonomyTx(ctx context.Context, tx *sql.Tx, expected int64) error {
+	if s.writerEpoch == 0 {
+		return nil
+	}
+	active, err := activeFeedTaxonomyTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if active != expected {
+		return ErrFeedTaxonomyChanged
 	}
 	return nil
 }
