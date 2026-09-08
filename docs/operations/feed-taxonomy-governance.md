@@ -54,6 +54,35 @@ are rejected. The active taxonomy version invalidates old sessions and behavior
 request writes without updating every user row. Deprecated tags stop acting as
 canonical positive or negative preferences; historical evidence remains intact.
 
+User proposals are private contributions associated with a profile generation.
+Deleting that generation immediately hides their inspection response and fences
+new reviews; waiting for asynchronous cleanup is not an authorization boundary.
+Recreating the same GitHub user's profile does not restore a previous proposal.
+New proposal commands belong to one actor and generation, so two users proposing
+the same project/tag do not acquire each other's proposal or evidence.
+
+A review of a deleted or unattributable user proposal returns
+`409 governance_proposal_deleted`; inspection returns `{"proposal":null}`. An
+already committed governance command can still return its original safe receipt
+on an exact retry, without copying or recreating content. A changed retry remains
+a conflict. The reviewed canonical definition, alias and public classification
+can remain as independently moderated project facts. The original user's labels
+and evidence are erased from the proposal, and raw evidence previously copied
+into an assignment is erased only while that assignment still names the original
+proposal. A later assignment by another reviewer must survive that cleanup.
+New user-derived assignments store a controlled `governance:<commandId>` reference
+instead of the user's raw evidence. Only minimal hashes, deletion fences and safe
+receipts remain for replay prevention; author associations are removed after all
+their content sinks have been cleaned. Cleanup cannot report completed before
+this work, archive erasure and any required index erasure finish.
+
+The implementation gate includes deletion before review, deletion after review,
+deletion concurrent with review, repeated cleanup, replacement assignments and a
+new profile generation, against both real storage profiles. A snapshot produced
+before the deletion must receive the current deletion overlay before use. A
+schema 7 or 9 recovery report does not establish this later privacy migration's
+recovery behavior.
+
 The transport contract number and additive SQL compatibility range do not prove
 that an old implementation supports these taxonomy semantics. After governance
 is used, an allowed application rollback must retain the lazy taxonomy fences.
