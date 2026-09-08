@@ -28,7 +28,7 @@ func NewCFFeedStore(endpoint, secret string, client *http.Client) (*CFFeedStore,
 	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Scheme != "https" && parsed.Scheme != "http") || len(secret) < 32 {
 		return nil, fmt.Errorf("valid bridge endpoint and secret (>=32 bytes) are required")
 	}
-	if parsed.Scheme == "http" && parsed.Hostname() != "feed-bindings.internal" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+	if parsed.Scheme == "http" && parsed.Hostname() != "feed-bindings.internal" && parsed.Hostname() != "feed-cleanup.internal" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
 		return nil, fmt.Errorf("bridge HTTP requires private container handler or loopback")
 	}
 	if client == nil {
