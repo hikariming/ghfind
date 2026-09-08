@@ -6,6 +6,7 @@
     "types": "wrangler types",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "capacity:local": "tsc --project tsconfig.capacity.json --noEmit && vitest run --config vitest.capacity.config.ts --update",
     "build": "wrangler deploy --dry-run --outdir dist"
   },
   "devDependencies": {
