@@ -11,6 +11,11 @@ does not pretend to identify an OAuth user. Historical completion does not
 create a receipt. Receipt identity is stable per analysis and repeated calls do
 not inflate the outbox. Agent/backfill source kinds require separate protected
 entry points; clients cannot choose them through the public submission route.
+For a newly accepted run, the POST route passes a server-only `appSubmission`
+option. Run creation (or active-run deduplication), receipt insertion and the
+returned run snapshot share a core database batch before any external Mosoo
+thread creation. A failed receipt write rolls back the new run and prevents the
+external call. Background creation/reconciliation does not set this option.
 
 Assessment finalization batches its existing results, guarded run transition
 and source outbox in the same core transaction. The CHECK guard aborts the entire
@@ -30,7 +35,9 @@ consumer fetches the identified source facts through a bounded capability and
 verifies receipt, analysis hash, completion and current eligibility. The queue
 does not carry unbounded assessment JSON. A stale event cannot replace a newer
 project version. A receipt satisfies only submission evidence, never governance
-or assessment eligibility.
+or assessment eligibility. Supersession also checks the replacement run's actual
+JSON SHA-256, selected together with its completed run/outbox/receipt identity;
+matching stored hash columns alone cannot cause an old task to be completed.
 
 Claims are indexed, at most 100, with a 60-second lease and maximum ten attempts.
 Retry delay doubles to a five-minute ceiling. Publication completion checks the
@@ -42,5 +49,9 @@ count and timestamp. No unbounded automatic replay or catalog scan is used.
 
 Local source-seam tests cover transaction rollback, explicit reuse, downstream
 unavailability, deduplication, lease races, acknowledgement loss and final-attempt
-crash/replay. They use SQLite/libsql as supplemental tests; real D1 execution,
-queue delivery, executor restart and DLQ evidence are separate required gates.
+crash/replay. Node tests use SQLite/libsql and stub the external Mosoo boundary;
+they verify that POST intent is durable before the first external call. Actual
+local workerd/D1 tests additionally cover source capabilities, raw-hash rejection,
+supersession, and atomic run/receipt statement rollback. Neither suite is remote
+Cloudflare staging, real Mosoo completion, Queue delivery or production recovery
+evidence; those remain separate release gates.

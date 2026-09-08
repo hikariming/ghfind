@@ -22,20 +22,29 @@ export function assessmentOutboxStatement(analysisId: string, now: number): { sq
   };
 }
 
-// Only the explicit submission route calls this. No caller-supplied source kind,
-// owner identity or authorization claim is trusted. Reuse of a completed run is
-// a new explicit submission and therefore must pass this seam as well.
+// Fixed SQL selectors keep POST intent separate from user-controlled payloads.
+// The active-key form is used in the SAME batch as run creation/deduplication.
+export function appSubmissionReceiptStatement(
+  identity: { analysisId: string } | { activeKey: string },
+  now: number,
+): { sql: string; args: InValue[] } {
+  const byId = "analysisId" in identity;
+  return {
+    sql: `INSERT INTO feed_submission_receipts
+      (id, analysis_id, requested_repo_key, source_kind, submitted_at, evidence_ref)
+      SELECT 'app:' || id, id, lower(repo_key), 'app_submission', ?, 'POST /api/project-analyses'
+      FROM project_analysis_runs WHERE ${byId ? "id" : "active_key"} = ?
+      ON CONFLICT(analysis_id) DO NOTHING`,
+    args: [now, byId ? identity.analysisId : identity.activeKey],
+  };
+}
+
+// Explicit reuse of a completed run also records app intent. Historical
+// completion and background reconciliation never call this on their own.
 export async function recordAppSubmission(db: Client, analysisId: string, now = Date.now()): Promise<void> {
   if (!feedSourceOutboxEnabled()) return;
   await db.batch([
-    {
-      sql: `INSERT INTO feed_submission_receipts
-        (id, analysis_id, requested_repo_key, source_kind, submitted_at, evidence_ref)
-        SELECT 'app:' || id, id, lower(repo_key), 'app_submission', ?, 'POST /api/project-analyses'
-        FROM project_analysis_runs WHERE id = ?
-        ON CONFLICT(analysis_id) DO NOTHING`,
-      args: [now, analysisId],
-    },
+    appSubmissionReceiptStatement({ analysisId }, now),
     assessmentOutboxStatement(analysisId, now),
   ], "write");
 }
