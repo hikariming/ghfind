@@ -101,6 +101,7 @@ export class FeedError extends Error {
 
 type Viewer = { githubId: number; login: string; image: string | null };
 type DbRow = Record<string, unknown>;
+type RepositoryProjectionContext = { language: string | null; topics: string[] };
 type Candidate = {
   project: FeedProject;
   tagIds: string[];
@@ -294,98 +295,103 @@ export function isFeedPublishable(analysis: ProjectAnalysisArtifact): boolean {
   );
 }
 
-async function canonicalTagId(db: Client, namespace: FeedNamespace, slug: string): Promise<string | null> {
-  const direct = await db.execute({
-    sql: "SELECT id FROM feed_tag_definitions WHERE namespace = ? AND slug = ? AND status = 'canonical' LIMIT 1",
-    args: [namespace, slug],
-  });
-  if (direct.rows[0]) return rowString(direct.rows[0] as DbRow, "id") || null;
-  const alias = await db.execute({
-    sql: "SELECT canonical_tag_id FROM feed_tag_aliases WHERE namespace = ? AND slug = ? LIMIT 1",
-    args: [namespace, slug],
-  });
-  return alias.rows[0] ? rowString(alias.rows[0] as DbRow, "canonical_tag_id") || null : null;
-}
-
 /** Project-analysis finalization invokes this best-effort projection after its own durable commit. */
 export async function syncFeedProjectProjection(
   analysis: ProjectAnalysisArtifact,
   analysisId = analysis.analysis_id,
+  repositoryContext?: RepositoryProjectionContext,
 ): Promise<void> {
   const db = await ready();
-  const sourceDb = sourceDatabase();
   const normalized = normalizeGitHubRepository(analysis.repository.repo_key);
   const repoKey = normalized.repoKey.toLowerCase();
   const [ownerLogin, name] = repoKey.split("/", 2);
   if (!ownerLogin || !name) throw new FeedError("feed_unavailable", 503, "Invalid repository key in project assessment.");
   const now = Date.now();
-  let repoRow: DbRow | undefined;
-  try {
-    const repo = await sourceDb.execute({ sql: "SELECT language, topics FROM repos WHERE repo_key = ? LIMIT 1", args: [repoKey] });
-    repoRow = repo.rows[0] as DbRow | undefined;
-  } catch (error) {
-    // The standalone Turso test/dev schema intentionally does not claim
-    // ownership of the core repository graph. D1 always has `repos` from
-    // migration 0001, so a production query failure must still surface.
-    if (getD1Binding()) throw error;
+  let language = repositoryContext?.language ?? null;
+  let topics = repositoryContext?.topics ?? [];
+  if (!repositoryContext) {
+    let repoRow: DbRow | undefined;
+    try {
+      const repo = await sourceDatabase().execute({ sql: "SELECT language, topics FROM repos WHERE repo_key = ? LIMIT 1", args: [repoKey] });
+      repoRow = repo.rows[0] as DbRow | undefined;
+    } catch (error) {
+      // The standalone Turso test/dev schema intentionally does not claim
+      // ownership of the core repository graph. D1 always has `repos` from
+      // migration 0001, so a production query failure must still surface.
+      if (getD1Binding()) throw error;
+    }
+    language = repoRow ? rowString(repoRow, "language") || null : null;
+    topics = repoRow ? parseStringArray(repoRow.topics) : [];
   }
-  const language = repoRow ? rowString(repoRow, "language") || null : null;
-  const topics = repoRow ? parseStringArray(repoRow.topics) : [];
   const publishable = isFeedPublishable(analysis) ? 1 : 0;
-
-  await db.batch(
-    [
-      {
-        sql: `INSERT INTO feed_projects
-              (repo_key, analysis_id, owner_login, name, canonical_url, summary, language, topics_json,
-               project_type, lifecycle, product_score, confidence, verification_level, exposure_band,
-               treasure_eligible, classic_eligible, analyzed_at, risks_json, published, source_hash, projected_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
-              ON CONFLICT(repo_key) DO UPDATE SET
-                analysis_id = excluded.analysis_id, owner_login = excluded.owner_login, name = excluded.name,
-                canonical_url = excluded.canonical_url, summary = excluded.summary, language = excluded.language,
-                topics_json = excluded.topics_json, project_type = excluded.project_type, lifecycle = excluded.lifecycle,
-                product_score = excluded.product_score, confidence = excluded.confidence,
-                verification_level = excluded.verification_level, exposure_band = excluded.exposure_band,
-                analyzed_at = excluded.analyzed_at, risks_json = excluded.risks_json, published = excluded.published,
-                source_hash = excluded.source_hash, projected_at = excluded.projected_at`,
-        args: [
-          repoKey, analysisId, ownerLogin, name, analysis.repository.canonical_url, analysis.project.summary,
-          language, JSON.stringify(topics), analysis.project.project_type, analysis.project.lifecycle,
-          analysis.scores.product_score, analysis.confidence, analysis.verification_level, analysis.exposure.band,
-          Date.parse(analysis.analyzed_at), JSON.stringify(analysis.risks), publishable, sourceHash(analysis), now,
-        ],
-      },
-      { sql: "DELETE FROM feed_project_tags WHERE repo_key = ? AND source IN ('derived', 'assessment')", args: [repoKey] },
-      {
-        sql: `INSERT INTO feed_project_tags
-              (repo_key, tag_id, source, weight, confidence, evidence_json, analysis_id, taxonomy_version, created_at, updated_at)
-              VALUES (?, ?, 'derived', ?, 1, '[]', ?, ?, ?, ?)
-              ON CONFLICT(repo_key, tag_id) DO UPDATE SET analysis_id = excluded.analysis_id, updated_at = excluded.updated_at`,
-        args: [repoKey, `artifact:${analysis.project.project_type.replace(/_/g, "-")}`, 0.7, analysisId, FEED_TAXONOMY_VERSION, now, now],
-      },
-      {
-        sql: `INSERT INTO feed_project_tags
-              (repo_key, tag_id, source, weight, confidence, evidence_json, analysis_id, taxonomy_version, created_at, updated_at)
-              VALUES (?, ?, 'derived', ?, 1, '[]', ?, ?, ?, ?)
-              ON CONFLICT(repo_key, tag_id) DO UPDATE SET analysis_id = excluded.analysis_id, updated_at = excluded.updated_at`,
-        args: [repoKey, `stage:${analysis.project.lifecycle.replace(/_/g, "-")}`, 0.45, analysisId, FEED_TAXONOMY_VERSION, now, now],
-      },
-    ],
-    "write",
-  );
-
-  for (const candidate of analysis.project.product_tags) {
+  const candidateTags = analysis.project.product_tags.map((candidate) => ({
+    candidate,
     // v1/v2 assessments carry evidence-backed product characteristics but no
     // governed namespace. Put those into a review-only intake bucket instead
     // of silently discarding them or granting them use_case recall. An admin
     // can still map a legacy proposal to a canonical tag in any namespace.
-    const namespace = "namespace" in candidate && isNamespace(candidate.namespace)
+    namespace: "namespace" in candidate && isNamespace(candidate.namespace)
       ? candidate.namespace
-      : "use_case";
-    const tagId = await canonicalTagId(db, namespace, candidate.slug);
+      : "use_case" as const,
+  }));
+
+  // Resolve every product tag in one D1 batch. The former serial direct-then-
+  // alias lookups made a 100-project reconciliation page perform more than a
+  // thousand network round trips, exceeding the Worker request budget for
+  // legacy artifacts. The two subqueries preserve direct-over-alias priority.
+  const resolutions = candidateTags.length
+    ? await db.batch(candidateTags.map(({ candidate, namespace }) => ({
+      sql: `SELECT COALESCE(
+              (SELECT id FROM feed_tag_definitions WHERE namespace = ? AND slug = ? AND status = 'canonical' LIMIT 1),
+              (SELECT canonical_tag_id FROM feed_tag_aliases WHERE namespace = ? AND slug = ? LIMIT 1)
+            ) AS tag_id`,
+      args: [namespace, candidate.slug, namespace, candidate.slug],
+    })), "read")
+    : [];
+
+  const statements: InStatement[] = [
+    {
+      sql: `INSERT INTO feed_projects
+            (repo_key, analysis_id, owner_login, name, canonical_url, summary, language, topics_json,
+             project_type, lifecycle, product_score, confidence, verification_level, exposure_band,
+             treasure_eligible, classic_eligible, analyzed_at, risks_json, published, source_hash, projected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
+            ON CONFLICT(repo_key) DO UPDATE SET
+              analysis_id = excluded.analysis_id, owner_login = excluded.owner_login, name = excluded.name,
+              canonical_url = excluded.canonical_url, summary = excluded.summary, language = excluded.language,
+              topics_json = excluded.topics_json, project_type = excluded.project_type, lifecycle = excluded.lifecycle,
+              product_score = excluded.product_score, confidence = excluded.confidence,
+              verification_level = excluded.verification_level, exposure_band = excluded.exposure_band,
+              analyzed_at = excluded.analyzed_at, risks_json = excluded.risks_json, published = excluded.published,
+              source_hash = excluded.source_hash, projected_at = excluded.projected_at`,
+      args: [
+        repoKey, analysisId, ownerLogin, name, analysis.repository.canonical_url, analysis.project.summary,
+        language, JSON.stringify(topics), analysis.project.project_type, analysis.project.lifecycle,
+        analysis.scores.product_score, analysis.confidence, analysis.verification_level, analysis.exposure.band,
+        Date.parse(analysis.analyzed_at), JSON.stringify(analysis.risks), publishable, sourceHash(analysis), now,
+      ],
+    },
+    { sql: "DELETE FROM feed_project_tags WHERE repo_key = ? AND source IN ('derived', 'assessment')", args: [repoKey] },
+    {
+      sql: `INSERT INTO feed_project_tags
+            (repo_key, tag_id, source, weight, confidence, evidence_json, analysis_id, taxonomy_version, created_at, updated_at)
+            VALUES (?, ?, 'derived', ?, 1, '[]', ?, ?, ?, ?)
+            ON CONFLICT(repo_key, tag_id) DO UPDATE SET analysis_id = excluded.analysis_id, updated_at = excluded.updated_at`,
+      args: [repoKey, `artifact:${analysis.project.project_type.replace(/_/g, "-")}`, 0.7, analysisId, FEED_TAXONOMY_VERSION, now, now],
+    },
+    {
+      sql: `INSERT INTO feed_project_tags
+            (repo_key, tag_id, source, weight, confidence, evidence_json, analysis_id, taxonomy_version, created_at, updated_at)
+            VALUES (?, ?, 'derived', ?, 1, '[]', ?, ?, ?, ?)
+            ON CONFLICT(repo_key, tag_id) DO UPDATE SET analysis_id = excluded.analysis_id, updated_at = excluded.updated_at`,
+      args: [repoKey, `stage:${analysis.project.lifecycle.replace(/_/g, "-")}`, 0.45, analysisId, FEED_TAXONOMY_VERSION, now, now],
+    },
+  ];
+
+  for (const [index, { candidate, namespace }] of candidateTags.entries()) {
+    const tagId = rowString((resolutions[index]?.rows[0] ?? {}) as DbRow, "tag_id") || null;
     if (tagId) {
-      await db.execute({
+      statements.push({
         sql: `INSERT INTO feed_project_tags
               (repo_key, tag_id, source, weight, confidence, evidence_json, analysis_id, taxonomy_version, created_at, updated_at)
               VALUES (?, ?, 'assessment', ?, ?, ?, ?, ?, ?, ?)
@@ -397,7 +403,7 @@ export async function syncFeedProjectProjection(
       continue;
     }
     const proposalId = `${repoKey}:${analysisId}:${namespace}:${candidate.slug}`;
-    await db.execute({
+    statements.push({
       sql: `INSERT INTO feed_tag_proposals
             (id, repo_key, analysis_id, namespace, slug, label_zh, label_en, evidence_json, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)
@@ -407,6 +413,8 @@ export async function syncFeedProjectProjection(
       args: [proposalId, repoKey, analysisId, namespace, candidate.slug, candidate.labels.zh, candidate.labels.en, JSON.stringify(candidate.evidence_ids), now, now],
     });
   }
+
+  await db.batch(statements, "write");
 }
 
 export async function reconcileFeedCatalog(
@@ -418,28 +426,42 @@ export async function reconcileFeedCatalog(
   const bounded = Math.max(1, Math.min(250, Math.floor(limit)));
   const after = cursor ?? { updatedAt: 0, repoKey: "" };
   const rows = await sourceDb.execute({
-    sql: `SELECT pa.repo_key, pa.updated_at, pr.id, pr.analysis_json
+    sql: `SELECT pa.repo_key, pa.updated_at, pr.id, pr.analysis_json,
+                 repos.language AS repository_language, repos.topics AS repository_topics
           FROM project_assessments pa
           JOIN project_analysis_runs pr ON pr.id = pa.latest_analysis_id AND pr.status = 'completed'
+          LEFT JOIN repos ON repos.repo_key = pa.repo_key
           WHERE pa.updated_at > ? OR (pa.updated_at = ? AND pa.repo_key > ?)
           ORDER BY pa.updated_at ASC, pa.repo_key ASC LIMIT ?`,
     args: [after.updatedAt, after.updatedAt, after.repoKey, bounded],
   });
+  // D1 writes for separate repositories are independent. Bound concurrency
+  // keeps reconciliation safely below the Worker deadline without creating an
+  // unbounded subrequest burst for a large catch-up page.
   let processed = 0;
   let skipped = 0;
-  let last: { updatedAt: number; repoKey: string } | null = null;
-  for (const raw of rows.rows) {
-    const row = raw as DbRow;
-    last = { updatedAt: rowNumber(row, "updated_at"), repoKey: rowString(row, "repo_key") };
-    try {
-      const analysis = projectAnalysisArtifactSchema.parse(JSON.parse(rowString(row, "analysis_json")));
-      await syncFeedProjectProjection(analysis, rowString(row, "id"));
-      processed += 1;
-    } catch {
-      skipped += 1;
-    }
+  for (let start = 0; start < rows.rows.length; start += 8) {
+    const outcomes = await Promise.all(rows.rows.slice(start, start + 8).map(async (raw) => {
+      const row = raw as DbRow;
+      try {
+        const analysis = projectAnalysisArtifactSchema.parse(JSON.parse(rowString(row, "analysis_json")));
+        await syncFeedProjectProjection(analysis, rowString(row, "id"), {
+          language: rowString(row, "repository_language") || null,
+          topics: parseStringArray(row.repository_topics),
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    }));
+    processed += outcomes.filter(Boolean).length;
+    skipped += outcomes.filter((outcome) => !outcome).length;
   }
-  return { processed, skipped, nextCursor: rows.rows.length === bounded ? last : null };
+  const finalRow = rows.rows.at(-1) as DbRow | undefined;
+  const nextCursor = rows.rows.length === bounded && finalRow
+    ? { updatedAt: rowNumber(finalRow, "updated_at"), repoKey: rowString(finalRow, "repo_key") }
+    : null;
+  return { processed, skipped, nextCursor };
 }
 
 async function ensureUser(db: Client, viewer: Viewer): Promise<{ profileVersion: number }> {
