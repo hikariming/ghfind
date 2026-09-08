@@ -3,6 +3,7 @@ import { z } from "zod";
 import { FeedArchive } from "./archive";
 import { BridgeError } from "./contract";
 import { FeedStore } from "./store";
+import { hasFeedRuntimeSchema } from "./schema-readiness";
 
 const integer = z.number().int().safe().positive();
 const identity = {
@@ -31,12 +32,14 @@ export async function handleArchive(operation: string, raw: unknown, env: Env) {
     );
     await store.rows("SELECT object_key FROM feed_archive_objects LIMIT 0");
     const [compatibility] = await store.rows<{ compatible: number }>(
-      "SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 AS compatible FROM feed_schema_compatibility WHERE id=1",
+      "SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=2 AND max_writer_contract>=2 AS compatible FROM feed_schema_compatibility WHERE id=1",
     );
     await env.FEED_ARCHIVE.head("health/archive-v1");
+    const runtimeSchema = await hasFeedRuntimeSchema(env.FEED_DB);
     return {
       ready:
         control.schema_version >= 7 &&
+        runtimeSchema &&
         control.writes_enabled === 1 &&
         compatibility?.compatible === 1,
       contractVersion: "1",

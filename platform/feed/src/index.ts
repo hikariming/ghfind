@@ -10,6 +10,7 @@ import { FeedDelivery, deliverySchemas } from "./delivery";
 import { handleGovernance } from "./governance";
 
 import { readJSONBody } from "./body";
+import { hasFeedRuntimeSchema } from "./schema-readiness";
 
 async function body(request: Request, operation: string): Promise<unknown> {
   const limit =
@@ -57,16 +58,14 @@ export async function handleOperation(
         "SELECT schema_version,writer_epoch,writes_enabled FROM feed_runtime_control WHERE id=1",
       );
       await env.FEED_ARCHIVE.head("health/capability-v1");
-      const [tables] = await store.rows<{ count: number }>(
-        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN ('feed_runtime_sessions','feed_runtime_requests','feed_runtime_events','feed_execution_jobs','feed_project_source_versions','feed_user_tag_proposals','feed_replay_deliveries','feed_delivery_heads','feed_delivery_terminals')",
-      );
+      const runtimeSchema = await hasFeedRuntimeSchema(env.FEED_DB);
       const [compatibility] = await store.rows<{ compatible: number }>(
-        "SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 AS compatible FROM feed_schema_compatibility WHERE id=1",
+        "SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=2 AND max_writer_contract>=2 AS compatible FROM feed_schema_compatibility WHERE id=1",
       );
       return {
         ready:
           control?.schema_version >= 7 &&
-          tables.count === 9 &&
+          runtimeSchema &&
           compatibility?.compatible === 1,
         contractVersion: "1",
         writerEpoch: control?.writer_epoch ?? 0,
