@@ -30,7 +30,15 @@ func NewFeedGovernanceHandler(store FeedGovernanceStore, secret string) (http.Ha
 func (h *feedGovernanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Feed-Contract", "1")
 	respond := func(status int, v any) { writeJSON(w, status, v, noStoreHeaders()) }
-	failure := func(status int, code string) { respond(status, map[string]string{"error": code}) }
+	bodyComplete := r.Body == nil || r.Body == http.NoBody
+	failure := func(status int, code string) {
+		// net/http otherwise drains an unread request body before flushing a small
+		// error response, allowing an unauthenticated slow body to delay rejection.
+		if !bodyComplete {
+			w.Header().Set("Connection", "close")
+		}
+		respond(status, map[string]string{"error": code})
+	}
 	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+h.secret)) != 1 {
 		failure(401, "unauthorized")
 		return
@@ -69,6 +77,7 @@ func (h *feedGovernanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	controller := http.NewResponseController(w)
 	_ = controller.SetReadDeadline(deadline)
 	body, err := io.ReadAll(io.LimitReader(r.Body, (32<<10)+1))
+	bodyComplete = err == nil && len(body) <= 32<<10
 	var timeout net.Error
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
 		failure(408, "body_timeout")
