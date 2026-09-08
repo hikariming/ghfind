@@ -152,7 +152,7 @@ func (s *PostgresFeedStore) Ping(ctx context.Context) error {
 			return ErrFeedWriterEpoch
 		}
 		var compatible bool
-		if err := s.db.QueryRowContext(ctx, `SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 FROM feed.schema_compatibility WHERE singleton=true`).Scan(&compatible); err != nil {
+		if err := s.db.QueryRowContext(ctx, `SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=$1 AND max_writer_contract>=$1 FROM feed.schema_compatibility WHERE singleton=true`, FeedStorageWriterVersion).Scan(&compatible); err != nil {
 			return fmt.Errorf("read Feed schema compatibility: %w", err)
 		}
 		if !compatible {
