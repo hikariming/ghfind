@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 type fakeFeedCleanupStore struct {
@@ -56,5 +57,28 @@ func TestFeedCleanupCompletionAndFailureAreDurable(t *testing.T) {
 		} else if err != nil || result.Status != "completed" || store.steps != 3 || store.releases != 0 {
 			t.Fatal("completion incorrect", result, store, err)
 		}
+	}
+}
+
+type interruptedCleanupStore struct{ fakeFeedCleanupStore }
+
+func (s *interruptedCleanupStore) StepFeedCleanup(ctx context.Context, _ FeedCleanupCommand) (FeedCleanupProgress, error) {
+	<-ctx.Done()
+	return FeedCleanupProgress{}, ctx.Err()
+}
+func (s *interruptedCleanupStore) ReleaseFeedCleanup(ctx context.Context, c FeedCleanupCommand) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return s.fakeFeedCleanupStore.ReleaseFeedCleanup(ctx, c)
+}
+func TestFeedCleanupDeadlineYieldsWithLiveReleaseContext(t *testing.T) {
+	store := &interruptedCleanupStore{}
+	executor, _ := NewFeedCleanupExecutor(store, 1, "cleanup-secret-test-0123456789abcdef")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	result, err := executor.Execute(ctx)
+	if err != nil || result.Status != "queued" || store.releases != 1 || store.failures != 0 {
+		t.Fatalf("deadline result%+v release%d failure%d err%v", result, store.releases, store.failures, err)
 	}
 }
