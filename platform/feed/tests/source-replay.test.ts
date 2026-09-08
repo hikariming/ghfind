@@ -62,6 +62,36 @@ beforeEach(async () => {
 });
 
 describe("operator recovery of exhausted core source delivery", () => {
+  it("routes an authenticated HTTP replay to the core database and returns its durable status", async () => {
+    const source = await seed("http");
+    await env.CORE_DB.prepare(
+      "UPDATE feed_source_outbox SET status='failed',attempts=10 WHERE sequence=?",
+    ).bind(source.sequence).run();
+    const call = (operation: string, body: unknown) => exports.default.fetch(
+      `https://adapter.invalid/internal/feed/admin/v1/${operation}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer local-test-only-operator-key-32-characters-minimum",
+          "content-type": "application/json",
+          "x-feed-contract": "1",
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    const response = await call("replay", command(source.id));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    const statusResponse = await call("status", { kind: "coreSource", id: source.id });
+    expect(statusResponse.status).toBe(200);
+    expect(await statusResponse.json()).toMatchObject({
+      job: { id: source.id, status: "pending", attempts: 0, replayCount: 1 },
+    });
+    expect(await env.CORE_DB.prepare(
+      "SELECT count(*) AS n FROM feed_source_operator_commands WHERE sequence=?",
+    ).bind(source.sequence).first<number>("n")).toBe(1);
+  });
+
   it("recovers ten failed publications through a durable command and preserves exact source identity", async () => {
     const initial = await seed();
     for (let attempt = 1; attempt <= 10; attempt++) {

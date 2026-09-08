@@ -297,7 +297,7 @@ async function handleCleanup(operation: string, raw: unknown, env: Env) {
   }
 }
 async function handleOperator(operation: string, raw: unknown, env: Env) {
-  const store = new FeedOperator(env.FEED_DB);
+  const store = new FeedOperator(env.FEED_DB, env.CORE_DB);
   switch (operation) {
     case "status": {
       const parsed = operatorSchemas.status.safeParse(raw);
