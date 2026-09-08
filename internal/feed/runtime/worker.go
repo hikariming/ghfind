@@ -13,6 +13,7 @@ type WorkerConfig struct {
 	Config
 	Enabled                                                       bool
 	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint string
+	ArchiveS3                                                     backend.FeedS3Config
 }
 
 func LoadWorkerConfig() (WorkerConfig, error) {
@@ -21,6 +22,7 @@ func LoadWorkerConfig() (WorkerConfig, error) {
 		return WorkerConfig{}, err
 	}
 	out := WorkerConfig{Config: c, Enabled: os.Getenv("FEED_EXECUTOR_ENABLED") == "true", ExecutorSecret: os.Getenv("FEED_EXECUTOR_SECRET"), SourceEndpoint: os.Getenv("FEED_SOURCE_ENDPOINT"), SourceSecret: os.Getenv("FEED_SOURCE_SECRET"), CleanupEndpoint: os.Getenv("FEED_CLEANUP_ENDPOINT")}
+	out.ArchiveS3 = backend.FeedS3Config{Endpoint: os.Getenv("FEED_ARCHIVE_S3_ENDPOINT"), Region: os.Getenv("FEED_ARCHIVE_S3_REGION"), Bucket: os.Getenv("FEED_ARCHIVE_S3_BUCKET"), AccessKeyID: os.Getenv("FEED_ARCHIVE_S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("FEED_ARCHIVE_S3_SECRET_ACCESS_KEY"), UsePathStyle: os.Getenv("FEED_ARCHIVE_S3_PATH_STYLE") == "true"}
 	if out.CleanupEndpoint == "" {
 		out.CleanupEndpoint = "http://feed-cleanup.internal"
 	}
@@ -54,6 +56,7 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/internal/feed/jobs/execute", executor)
+	var archiveReady func(context.Context) error
 	if c.StoreProfile == "cf_d1_r2" {
 		cleanupStore, err := backend.NewHTTPFeedCleanupStore(c.CleanupEndpoint, c.ExecutorSecret)
 		if err != nil {
@@ -65,13 +68,32 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 		}
 		mux.Handle("/internal/feed/jobs/cleanup", cleanup)
 	} else {
-		mux.HandleFunc("/internal/feed/jobs/cleanup", func(w http.ResponseWriter, r *http.Request) {
-			writeStatus(w, 503, map[string]string{"error": "archive_cleanup_unconfigured"})
-		})
+		pg, ok := store.(*backend.PostgresFeedStore)
+		if !ok {
+			return nil, errors.New("PostgreSQL archive registry unavailable")
+		}
+		objects, err := backend.NewFeedS3Objects(context.Background(), c.ArchiveS3)
+		if err != nil {
+			return nil, err
+		}
+		if err := pg.UseArchiveObjects(objects); err != nil {
+			return nil, err
+		}
+		archiveReady = pg.ArchiveReady
+		cleanup, err := backend.NewFeedCleanupExecutor(pg, c.WriterEpoch, c.ExecutorSecret)
+		if err != nil {
+			return nil, err
+		}
+		mux.Handle("/internal/feed/jobs/cleanup", cleanup)
 	}
 	return WithHealth(mux, c.Config, version, "feed-worker", func(ctx context.Context) error {
 		if err := store.Ping(ctx); err != nil {
 			return err
+		}
+		if archiveReady != nil {
+			if err := archiveReady(ctx); err != nil {
+				return err
+			}
 		}
 		return source.Ping(ctx)
 	}), nil
