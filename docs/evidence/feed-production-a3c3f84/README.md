@@ -1,0 +1,7 @@
+# Production readback after stage 4 integration
+
+[PR #249](https://github.com/hikariming/ghfind/pull/249) merged exact tested head `4fee486dc15aca81766c012f3b63d994a81a935b` after [required CI](https://github.com/hikariming/ghfind/actions/runs/34254087225) passed. Merge commit `a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e` then passed [main CI](https://github.com/hikariming/ghfind/actions/runs/34254497910) and the [automatic Cloudflare production workflow](https://github.com/hikariming/ghfind/actions/runs/34254883154).
+
+At 2026-09-08T17:07:22Z, the read-only API reported Worker `ghfind` active at `c905f51e-93cd-4dcf-a668-15132bd70b5a`, 100% traffic, with a release annotation matching that exact merge commit. [Filtered readback](readback.json) retains only selected deployment metadata, D1 identifiers and named plaintext Feed flags. No secret values are retained.
+
+Core D1 remains `60d45096-bfe7-4de1-8b85-c1b66a466b0d`; Feed D1 remains `9c4ac13a-4c90-40a8-9d56-d7141f864bbf`. The selected Feed override list is empty, so checked-in legacy/off defaults remain. The production application migration allowlist excludes the new Feed/source migrations. This application release does not activate independent Go Feed, source-outbox delivery, Containers or a new fact source. Remote staging, real OAuth/assessment E2E, object recovery, complete migration journals, RPO/RTO and controlled cutover remain unaccepted. The preserved local capacity failure is separate evidence, not a production load test.
