@@ -53,8 +53,8 @@ try {
     await delay(250);
   }
   if (!ready) throw new Error('workerd failed readiness before the bounded deadline');
-  await run('go', ['test', '-count=1', '-timeout=150s', '-v', './internal/backend', '-run', '^TestPortable(API|Archive)BothProfiles$'], {
-    ...env, FEED_REQUIRE_CROSSPROFILE_TESTS: '1', FEED_TEST_BRIDGE_ENDPOINT: endpoint, FEED_TEST_BRIDGE_SECRET: env.FEED_BRIDGE_SECRET, FEED_TEST_EXECUTOR_SECRET: env.FEED_EXECUTOR_SECRET,
+  await run('go', ['test', '-count=1', '-timeout=150s', '-v', './internal/backend', '-run', '^TestPortable(API|Archive|Governance)BothProfiles$'], {
+    ...env, FEED_REQUIRE_CROSSPROFILE_TESTS: '1', FEED_TEST_BRIDGE_ENDPOINT: endpoint, FEED_TEST_BRIDGE_SECRET: env.FEED_BRIDGE_SECRET, FEED_TEST_EXECUTOR_SECRET: env.FEED_EXECUTOR_SECRET, FEED_TEST_OPERATOR_SECRET: env.FEED_OPERATOR_SECRET,
   });
 } finally {
   if (worker && worker.exitCode === null) {
