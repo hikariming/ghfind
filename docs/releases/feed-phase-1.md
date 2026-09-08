@@ -60,3 +60,12 @@ No fallback to Railway is justified by the current permission/configuration gaps
 Stage 5 must wait for this evidence and stages 3/4. Formal releases and recovery
 use Actions. Application rollback keeps the same fact source; no destructive
 migration reversal or local production deploy is provided here.
+
+The code foundation can merge after its own CI passes so the staging workflow is
+available on the default branch. This is not stage-1 operational acceptance.
+Initial PR #248 CI passed on `a9c94f4`; a subsequent isolated recovery drill found
+that pending physical cleanup allowed old impressions into a newly created
+profile. The independent fix now joins request ownership and the preserved
+profile floor. New-head CI and its real workerd regression are required before
+merging this update. Remote runtime activation still requires the reviewed
+staging manifest and all remaining evidence above.
