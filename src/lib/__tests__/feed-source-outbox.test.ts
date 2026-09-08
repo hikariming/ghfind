@@ -32,6 +32,7 @@ beforeEach(async () => {
   connection = createClient({ url: process.env.TURSO_DATABASE_URL! });
   // Explicit migration; new source capabilities never add runtime DDL.
   await connection.executeMultiple(readFileSync("migrations/0005_feed_source_outbox.sql", "utf8"));
+  await connection.executeMultiple(readFileSync("migrations/0006_feed_source_replay_audit.sql", "utf8"));
   vi.stubEnv("FEED_SOURCE_OUTBOX_ENABLED", "true");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -124,7 +125,12 @@ describe("assessment source receipt and outbox", () => {
     expect(await claimFeedSourceEvents(connection, { limit: 10, leaseToken: "next", now: Date.now() })).toHaveLength(0);
     const failed = (await connection.execute("SELECT * FROM feed_source_outbox")).rows[0];
     expect(failed.status).toBe("failed");
-    expect(await replayFeedSourceEvent(connection, { sequence: Number(failed.sequence), reason: "incident-test", now: Date.now() })).toBe(true);
+    const replay = { sequence: Number(failed.sequence), commandId: crypto.randomUUID(), operator: "test-operator", reason: "incident-test", now: Date.now() };
+    expect(await replayFeedSourceEvent(connection, replay)).toBe(true);
     expect((await claimFeedSourceEvents(connection, { limit: 10, leaseToken: "replay", now: Date.now() + 100 }))[0].eventId).toBe(failed.event_id);
+    expect(await replayFeedSourceEvent(connection, replay)).toBe(true);
+    expect((await connection.execute("SELECT status,attempts,replay_count FROM feed_source_outbox")).rows[0]).toMatchObject({status:"leased",attempts:1,replay_count:1});
+    expect((await connection.execute("SELECT command_id,operator FROM feed_source_operator_commands")).rows).toEqual([{command_id:replay.commandId,operator:"test-operator"}]);
+    await expect(replayFeedSourceEvent(connection, {...replay,reason:"A conflicting operator request"})).rejects.toThrow();
   });
 });
