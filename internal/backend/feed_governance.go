@@ -90,7 +90,7 @@ func (e *feedGovernanceError) Error() string { return e.code }
 func govError(status int, code string) error { return &feedGovernanceError{status, code} }
 func govConflict(code string) error          { return govError(409, code) }
 func govText(s string, min, max int) bool {
-	if !utf8.ValidString(s) || len(s) < min || len(s) > max || (min > 0 && strings.TrimSpace(s) == "") {
+	if !utf8.ValidString(s) || len(s) < min || len(s) > max || (min > 0 && govBlank(s)) {
 		return false
 	}
 	for _, r := range s {
@@ -113,7 +113,7 @@ func validateGovReview(v FeedGovernanceReview) error {
 	assigned := v.Assignment != nil && !math.IsNaN(v.Assignment.Weight) && !math.IsInf(v.Assignment.Weight, 0) && v.Assignment.Weight >= 0 && v.Assignment.Weight <= 1 && !math.IsNaN(v.Assignment.Confidence) && !math.IsInf(v.Assignment.Confidence, 0) && v.Assignment.Confidence >= 0 && v.Assignment.Confidence <= 1
 	switch v.Action {
 	case "create":
-		if !assigned || v.CanonicalTagID != "" || v.Labels == nil || !govText(v.Labels.LabelZH, 0, 160) || !govText(v.Labels.LabelEN, 0, 160) || !govText(v.Labels.Description, 0, 1000) || strings.TrimSpace(v.Labels.LabelZH+v.Labels.LabelEN) == "" {
+		if !assigned || v.CanonicalTagID != "" || v.Labels == nil || !govText(v.Labels.LabelZH, 0, 160) || !govText(v.Labels.LabelEN, 0, 160) || !govText(v.Labels.Description, 0, 1000) || govBlank(v.Labels.LabelZH+v.Labels.LabelEN) {
 			return govError(400, "invalid_request")
 		}
 	case "map":
@@ -238,4 +238,18 @@ func govCanonical(v any) (string, error) {
 	default:
 		return "", errors.New("unsupported governance canonical value")
 	}
+}
+
+// ECMAScript String.trim whitespace, shared with the Worker validators. U+0085
+// is not JS whitespace; U+FEFF is. C0/DEL rejection remains independent.
+func govBlank(s string) bool {
+	for _, r := range s {
+		switch {
+		case r >= 0x2000 && r <= 0x200a:
+		case r == 0x9 || r == 0xa || r == 0xb || r == 0xc || r == 0xd || r == 0x20 || r == 0xa0 || r == 0x1680 || r == 0x2028 || r == 0x2029 || r == 0x202f || r == 0x205f || r == 0x3000 || r == 0xfeff:
+		default:
+			return false
+		}
+	}
+	return true
 }

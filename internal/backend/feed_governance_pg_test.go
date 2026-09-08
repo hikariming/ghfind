@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -417,5 +419,48 @@ func TestPostgresGovernanceAtomicAuditAndControlLock(t *testing.T) {
 	defer cancel()
 	if _, err = s.ReplaceExplicitFeedPreferences(withFeedProfileVersion(blocked, u.ProfileVersion), 42, 2, nil); err == nil {
 		t.Fatal("portable writer bypassed governance activation lock")
+	}
+}
+
+func TestPostgresGovernanceRejectsMalformedEvidenceWithoutAssigning(t *testing.T) {
+	ctx, s := governancePG(t)
+	h, _ := NewFeedGovernanceHandler(s, govTestSecret)
+	target := FeedGovernanceTarget{"assessment", "governance-proposal-0"}
+	for i, raw := range []string{`null`, `{}`, `[null]`, `[1]`, `["bad\n"]`, `["bad\u007f"]`} {
+		govSQL(t, ctx, s, `UPDATE feed.tag_proposals SET evidence_ids=$1::jsonb,status='proposed' WHERE id=$2`, raw, target.ProposalID)
+		if code, body := govHTTP(t, h, "proposal", target); code != 409 || !strings.Contains(string(body), "governance_evidence_invalid") {
+			t.Fatalf("inspect %d %s", code, body)
+		}
+		input := FeedGovernanceReview{FeedGovernanceCommand: govBase(900+i*3, 1), FeedGovernanceTarget: target, ExpectedAnalysisID: "analysis-1", Action: "create", Labels: &FeedGovernanceLabels{LabelEN: "Bad evidence"}, Assignment: &FeedGovernanceAssignment{Weight: .5, Confidence: .5}}
+		// Read only the fixture's immutable analysis ID, not a bypass API.
+		if err := s.db.QueryRowContext(ctx, `SELECT analysis_id FROM feed.tag_proposals WHERE id=$1`, target.ProposalID).Scan(&input.ExpectedAnalysisID); err != nil {
+			t.Fatal(err)
+		}
+		if code, body := govHTTP(t, h, "review", input); code != 409 || !strings.Contains(string(body), "governance_evidence_invalid") {
+			t.Fatalf("create %d %s", code, body)
+		}
+		input.Action = "map"
+		input.Labels = nil
+		input.CanonicalTagID = "domain:synthetic-reviewed"
+		input.CommandID = govBase(901+i*3, 1).CommandID
+		if code, body := govHTTP(t, h, "review", input); code != 409 || !strings.Contains(string(body), "governance_evidence_invalid") {
+			t.Fatalf("map %d %s", code, body)
+		}
+		input.Action = "reject"
+		input.Assignment = nil
+		input.CanonicalTagID = ""
+		input.CommandID = govBase(902+i*3, 1).CommandID
+		if code, body := govHTTP(t, h, "review", input); code != 200 {
+			t.Fatalf("reject malformed %d %s", code, body)
+		}
+		var stored []byte
+		var digest string
+		var assignments int
+		s.db.QueryRowContext(ctx, `SELECT evidence_ids FROM feed.tag_proposals WHERE id=$1`, target.ProposalID).Scan(&stored)
+		s.db.QueryRowContext(ctx, `SELECT evidence_hash FROM feed.governance_commands WHERE command_id=$1`, input.CommandID).Scan(&digest)
+		s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.project_tags WHERE tag_id='domain:synthetic-reviewed'`).Scan(&assignments)
+		if digest != fmt.Sprintf("%x", sha256.Sum256(stored)) || assignments != 0 {
+			t.Fatal("rejection lost raw audit evidence or assigned a tag")
+		}
 	}
 }
