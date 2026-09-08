@@ -72,6 +72,9 @@ jobs:
       - name: Verify synthetic capacity evidence gates
         run: python3 scripts/test-feed-capacity-verifier.py
 
+      - name: Verify Docker HTTP harness ownership and cleanup guards
+        run: python3 scripts/test-feed-docker-http.py
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -96,6 +99,10 @@ jobs:
       # Required database contracts run in the separate isolated service job.
       - name: Test Go packages
         run: go test ./...
+
+      # Compile the explicit integration entry without claiming a Docker run.
+      - name: Compile bounded Docker HTTP acceptance harness
+        run: go test -tags feedportability -run '^$' ./internal/backend
 
       - name: Self-test deployment smoke
         run: pnpm smoke:deployment:selftest
