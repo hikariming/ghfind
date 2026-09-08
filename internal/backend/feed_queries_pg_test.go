@@ -3,6 +3,7 @@ package backend
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -20,7 +21,13 @@ func TestFeedDiagnosticQueriesPreserveRuntimeSQL(t *testing.T) {
 		"candidates.discovery": "6145da3e19573e9e7d60dddf3c774d73f9706acaa5f04077921a06e5b5e20fc0",
 	}
 	for name, query := range feedDiagnosticReadQueries() {
-		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(query))); got != expected[name] {
+		baselineQuery := query
+		if name == "candidates.tag" {
+			baselineQuery = strings.Replace(query, "WHERE pt.tag_id=pref.tag_id\n            AND EXISTS(SELECT 1 FROM feed.projects current WHERE current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id OFFSET 0)", "JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id\n            WHERE pt.tag_id=pref.tag_id", 1)
+		}
+		// The separately evidenced current-analysis join-to-probe replacement is the
+		// sole permitted change from 1bc35c3; every other byte must remain identical.
+		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(baselineQuery))); got != expected[name] {
 			t.Fatalf("%s SQL changed: %s", name, got)
 		}
 		if got, ok := FeedDiagnosticReadQuery(query); !ok || got != name {
