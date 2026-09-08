@@ -52,6 +52,7 @@ function version(data, target) {
     data.ready !== true ||
     data.version !== sha ||
     data.contractVersion !== "1" ||
+    data.storageWriterVersion !== 2 ||
     data.storeProfile !== "cf_d1_r2" ||
     String(data.writerEpoch) !== "1" ||
     data.service !== (target === "executor-0" ? "feed-worker" : "feed-api")
