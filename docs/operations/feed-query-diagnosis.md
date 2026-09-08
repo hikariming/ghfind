@@ -34,3 +34,8 @@ a repair without relaxing Feed semantics, then rerun the separate full capacity
 gate on the repaired exact main SHA after CI. This diagnostic workflow has one
 attempt, retains evidence for 30 days including failures, and always removes its
 own Compose project. Retain meaningful reports before Actions artifact expiry.
+Source/run metadata is created immediately after checkout; build/test failures
+retain their logs and exit result before fixture creation. Checkout failure itself
+has only the Actions execution log. Individual step deadlines and a 25-minute
+job ceiling reserve time for upload and cleanup. Cleanup interprets the repository's
+Compose file only after the verified-source fixture step actually ran.
