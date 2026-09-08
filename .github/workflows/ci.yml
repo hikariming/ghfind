@@ -152,7 +152,7 @@ jobs:
           done
           exit 1
       - name: PostgreSQL and pgvector contracts including migration replay
-        run: go test -count=1 -v ./internal/backend -run 'TestPortablePostgresContracts|TestPostgresFeedStoreIntegration|TestPortablePostgresS3Cleanup'
+        run: go test -count=1 -v ./internal/backend -run 'TestPortablePostgresContracts|TestPortablePostgresSchemaCompatibility|TestPostgresFeedStoreIntegration|TestPortablePostgresS3Cleanup'
       - name: Install locked Worker contract dependencies
         working-directory: platform/feed
         run: pnpm install --frozen-lockfile
