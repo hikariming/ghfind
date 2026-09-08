@@ -7,10 +7,11 @@ import (
 )
 
 func feedProjectDTO(p FeedProject) FeedProjectDTO {
-	return FeedProjectDTO{FeedProject: p, ItemID: p.ItemID, Publishable: p.Publishable, SubmissionEvidence: p.SubmissionEvidence}
+	return FeedProjectDTO{FeedProject: p, AnalysisID: p.AnalysisID, SourceHash: p.SourceHash, ItemID: p.ItemID, Publishable: p.Publishable, SubmissionEvidence: p.SubmissionEvidence}
 }
 func (d FeedProjectDTO) project() FeedProject {
 	p := d.FeedProject
+	p.AnalysisID, p.SourceHash = d.AnalysisID, d.SourceHash
 	p.ItemID = d.ItemID
 	p.Publishable = d.Publishable
 	p.SubmissionEvidence = d.SubmissionEvidence

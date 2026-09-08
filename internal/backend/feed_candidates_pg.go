@@ -192,7 +192,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key, p.item_id, p.owner_login, p.name, p.canonical_url,
       p.summary, p.language, p.topics, p.project_type, p.lifecycle, p.product_score, p.confidence,
       p.verification_level, p.exposure_band, p.treasure_eligible, p.classic_eligible, p.analyzed_at,
-      p.publishable, ups.not_interested,
+      p.publishable, COALESCE(p.analysis_id,''), COALESCE(p.source_hash,''), ups.not_interested,
       (SELECT MAX(e.occurred_at) FROM feed.events e WHERE e.github_id = $1 AND e.repo_key = p.repo_key AND e.event_type = 'impression'),
       pe.embedding::text
       FROM feed.projects p
@@ -215,10 +215,14 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 			&candidate.Project.Lifecycle, &candidate.Project.ProductScore, &candidate.Project.Confidence,
 			&candidate.Project.VerificationLevel, &candidate.Project.ExposureBand, &candidate.Project.TreasureEligible,
 			&candidate.Project.ClassicEligible, &candidate.Project.AnalyzedAt, &candidate.Project.Publishable,
-			&notInterested, &seenAt, &embedding,
+			&candidate.Project.AnalysisID, &candidate.Project.SourceHash, &notInterested, &seenAt, &embedding,
 		); err != nil {
 			_ = rows.Close()
 			return nil, nil, fmt.Errorf("scan Feed candidate: %w", err)
+		}
+		if s.writerEpoch > 0 && (candidate.Project.AnalysisID == "" || candidate.Project.SourceHash == "") {
+			_ = rows.Close()
+			return nil, nil, ErrFeedCatalogChanged
 		}
 		if language.Valid {
 			candidate.Project.Language = &language.String

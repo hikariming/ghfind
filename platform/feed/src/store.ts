@@ -209,12 +209,30 @@ export class FeedStore {
       AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key AND t.analysis_id=${alias}.analysis_id)`;
   }
   async available(input: Input<"projects.available">) {
-    const rows = await this.rows<{ repo_key: string }>(
-      `SELECT p.repo_key FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT value FROM json_each(?))`,
-      input.githubId,
-      input.githubId,
-      JSON.stringify(input.repoKeys),
-    );
+    const identities = input.identities;
+    if (
+      identities &&
+      (identities.length !== input.repoKeys.length ||
+        new Set(identities.map((p) => p.repoKey)).size !== identities.length ||
+        new Set(input.repoKeys).size !== input.repoKeys.length ||
+        identities.some((p) => !input.repoKeys.includes(p.repoKey)))
+    )
+      throw new BridgeError(400, "invalid_request");
+    // Drive identity reads from the bounded JSON list, then use the catalog PK.
+    // A correlated EXISTS over the entire published catalog would scan 50k rows.
+    const rows = identities
+      ? await this.rows<{ repo_key: string }>(
+          `SELECT p.repo_key FROM json_each(?) expected CROSS JOIN feed_projects p ON p.repo_key=json_extract(expected.value,'$.repoKey') WHERE ${this.eligible()} AND json_extract(expected.value,'$.analysisId')=p.analysis_id AND json_extract(expected.value,'$.sourceHash')=p.source_hash`,
+          JSON.stringify(identities),
+          input.githubId,
+          input.githubId,
+        )
+      : await this.rows<{ repo_key: string }>(
+          `SELECT p.repo_key FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT value FROM json_each(?))`,
+          input.githubId,
+          input.githubId,
+          JSON.stringify(input.repoKeys),
+        );
     return {
       available: Object.fromEntries(rows.map((p) => [p.repo_key, true])),
     };
@@ -296,7 +314,16 @@ export class FeedStore {
             0,
           ) / weight
         : null;
+      if (
+        typeof r.analysis_id !== "string" ||
+        !r.analysis_id ||
+        typeof r.source_hash !== "string" ||
+        !r.source_hash
+      )
+        throw new BridgeError(409, "catalog_changed");
       const project = {
+        analysisId: r.analysis_id,
+        sourceHash: r.source_hash,
         repoKey: r.repo_key,
         itemId: String(r.repo_key).replace("/", ":"),
         ownerLogin: r.owner_login,

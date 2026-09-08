@@ -22,6 +22,8 @@ type FeedMutationFence struct {
 // Losing rank or features on a cache round-trip corrupts attribution.
 type FeedProjectDTO struct {
 	FeedProject
+	AnalysisID         string `json:"analysisId,omitempty"`
+	SourceHash         string `json:"sourceHash,omitempty"`
 	ItemID             string `json:"itemId"`
 	Publishable        bool   `json:"publishable"`
 	SubmissionEvidence bool   `json:"submissionEvidence"`
@@ -119,8 +121,9 @@ type FeedBridgeCandidatesResponse struct {
 // projects.available rechecks publication/provenance/negative state, NOT seenAt,
 // so impressions received between pages cannot invalidate the saved sequence.
 type FeedBridgeAvailableRequest struct {
-	GitHubID int64    `json:"githubId"`
-	RepoKeys []string `json:"repoKeys"`
+	GitHubID   int64                 `json:"githubId"`
+	RepoKeys   []string              `json:"repoKeys"`
+	Identities []FeedProjectIdentity `json:"identities,omitempty"`
 }
 type FeedBridgeAvailableResponse struct {
 	Available map[string]bool `json:"available"`
