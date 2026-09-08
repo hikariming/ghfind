@@ -1,0 +1,16 @@
+{
+  "sourceSha": "6dc60d849c3a6a7d416b0e25feae07f66a0b2cc5",
+  "binarySha256": "93784be4be9e35f5ab77952396e93c40e1db47fb5fdf7d15ae74e405e59b487b",
+  "command": [
+    "/tmp/ghfind-query-diagnose-regression.test",
+    "-test.run",
+    "^TestDiagnosticPostgresTwoRequests$",
+    "-test.v",
+    "-test.timeout",
+    "25s"
+  ],
+  "startedAt": "2026-09-08T18:07:56.858963+00:00",
+  "scope": "explicitly authorized two-request regression after 100-request incomplete capture; same fixture, no reseed",
+  "exitCode": 0,
+  "finishedAt": "2026-09-08T18:07:57.903154+00:00"
+}

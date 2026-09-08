@@ -1,0 +1,96 @@
+{
+  "initial": {
+    "startedAt": "2026-09-08T18:02:24.534037Z",
+    "finishedAt": "2026-09-08T18:02:36.508708Z",
+    "durationSeconds": 11.97459375,
+    "attempted": 100,
+    "completed": 100,
+    "successful": 100,
+    "cancelled": 0,
+    "outcomes": {
+      "http_200": 100
+    }
+  },
+  "queryTimings": {
+    "candidates.tag": {
+      "count": 100,
+      "totalMs": 6706.775,
+      "medianMs": 57.064,
+      "maxMs": 280.179
+    },
+    "candidates.latest": {
+      "count": 100,
+      "totalMs": 142.864,
+      "medianMs": 1.095,
+      "maxMs": 8.946
+    },
+    "candidates.quality": {
+      "count": 100,
+      "totalMs": 117.747,
+      "medianMs": 0.856,
+      "maxMs": 7.145
+    },
+    "candidates.discovery": {
+      "count": 100,
+      "totalMs": 121.593,
+      "medianMs": 0.77,
+      "maxMs": 10.042
+    },
+    "candidates.hydrate": {
+      "count": 100,
+      "totalMs": 222.465,
+      "medianMs": 1.515,
+      "maxMs": 10.359
+    },
+    "candidates.tags": {
+      "count": 100,
+      "totalMs": 344.908,
+      "medianMs": 2.591,
+      "maxMs": 14.565
+    },
+    "snapshot.available": {
+      "count": 100,
+      "totalMs": 277.036,
+      "medianMs": 2.242,
+      "maxMs": 10.22
+    },
+    "snapshot.eligible": {
+      "count": 100,
+      "totalMs": 73.561,
+      "medianMs": 0.504,
+      "maxMs": 4.455
+    }
+  },
+  "stageTimings": {
+    "user.ensure": {
+      "count": 100,
+      "totalMs": 401.406,
+      "medianMs": 2.118,
+      "maxMs": 64.659
+    },
+    "candidates": {
+      "count": 100,
+      "totalMs": 7662.469,
+      "medianMs": 64.985,
+      "maxMs": 299.212
+    },
+    "session.put": {
+      "count": 100,
+      "totalMs": 1765.958,
+      "medianMs": 9.98,
+      "maxMs": 289.036
+    },
+    "snapshot.available": {
+      "count": 100,
+      "totalMs": 278.638,
+      "medianMs": 2.251,
+      "maxMs": 10.365
+    },
+    "request.record": {
+      "count": 100,
+      "totalMs": 1148.379,
+      "medianMs": 7.551,
+      "maxMs": 51.353
+    }
+  }
+}
