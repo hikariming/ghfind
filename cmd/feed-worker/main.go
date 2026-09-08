@@ -1,31 +1,34 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"github.com/hikariming/ghfind/internal/feed/runtime"
 	"log/slog"
-	"net/http"
 	"os"
+	"time"
+
+	"github.com/hikariming/ghfind/internal/feed/runtime"
 )
 
 var version = "development"
 
-// The worker binary is deliberately unable to advertise readiness until a
-// durable task backend and verified-assessment handler are installed. It does
-// not start RabbitMQ or silently acknowledge unsupported messages.
 func main() {
-	config, err := runtime.LoadConfig()
-	if err != nil {
-		slog.Error("Feed executor configuration rejected", "error", err)
-		os.Exit(1)
-	}
-	unavailable := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"error":"executor_handlers_unconfigured"}`, http.StatusServiceUnavailable)
-	})
-	handler := runtime.WithHealth(unavailable, config, version, "feed-worker", func(context.Context) error { return errors.New("durable executor handlers are not configured") })
-	if err := runtime.Serve(config.Port, handler); err != nil {
+	if err := run(); err != nil {
 		slog.Error("Feed executor stopped", "error", err)
 		os.Exit(1)
 	}
+}
+func run() error {
+	config, err := runtime.LoadWorkerConfig()
+	if err != nil {
+		return err
+	}
+	store, _, err := runtime.OpenStore(config.Config)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	handler, err := runtime.WorkerHandler(config, version, store)
+	if err != nil {
+		return err
+	}
+	return runtime.ServeWithWriteTimeout(config.Port, handler, 75*time.Second)
 }
