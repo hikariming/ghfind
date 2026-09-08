@@ -1,0 +1,4 @@
+=== RUN   TestFeedDockerHTTPPortability
+    feed_portability_docker_test.go:215: bounded Docker HTTP contract: 21 calls; 50 synthetic projects; cleanup remains queued
+--- PASS: TestFeedDockerHTTPPortability (0.66s)
+PASS

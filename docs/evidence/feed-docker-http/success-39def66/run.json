@@ -1,0 +1,929 @@
+{
+  "sourceSha": "39def663ab662e66e0b3473dfc06285e761c2a26",
+  "fixtureOwner": "f44e6d82-dba2-44fd-927e-e28a65fddab5",
+  "scope": "ordinary Docker real API HTTP; synthetic signing and direct projections, no OAuth/source queue/worker/S3/capacity/production acceptance",
+  "resources": {
+    "postgres": "ghfind-http-f44e6d82-pg",
+    "api": "ghfind-http-f44e6d82-api",
+    "network": "ghfind-http-f44e6d82",
+    "volume": "ghfind-http-f44e6d82-pgdata"
+  },
+  "ports": {
+    "postgresLoopback": 55446,
+    "apiLoopback": 58087
+  },
+  "postgresImage": "pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+  "apiImage": "Dockerfile.feed --target api; immutable build image ID; default feed-api entrypoint",
+  "limits": {
+    "projects": 50,
+    "httpRequests": 100,
+    "contractSeconds": 120,
+    "postgresCPUs": 1,
+    "postgresMemoryBytes": 1073741824,
+    "apiCPUs": 0.5,
+    "apiMemoryBytes": 268435456
+  },
+  "defaultAction": "dry-run; requires --execute to build images or create resources",
+  "format": "ghfind-docker-http-run-v1",
+  "startedAt": "2026-09-08T19:06:54.306692+00:00",
+  "status": "passed",
+  "commands": [
+    {
+      "at": "2026-09-08T19:06:54.307088+00:00",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.004879791999999997
+    },
+    {
+      "at": "2026-09-08T19:06:54.312274+00:00",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.012068999999999996
+    },
+    {
+      "at": "2026-09-08T19:06:54.324655+00:00",
+      "argv": [
+        "docker",
+        "context",
+        "show"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.011435207999999995
+    },
+    {
+      "at": "2026-09-08T19:06:54.336513+00:00",
+      "argv": [
+        "docker",
+        "context",
+        "inspect",
+        "desktop-linux"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.010747708000000002
+    },
+    {
+      "at": "2026-09-08T19:06:54.347704+00:00",
+      "argv": [
+        "docker",
+        "info",
+        "--format",
+        "{{.ServerVersion}}"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.623312042
+    },
+    {
+      "at": "2026-09-08T19:06:54.971577+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.013099916000000045
+    },
+    {
+      "at": "2026-09-08T19:06:54.985356+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.01169362500000004
+    },
+    {
+      "at": "2026-09-08T19:06:54.997551+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "inspect",
+        "ghfind-http-f44e6d82"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.011389250000000017
+    },
+    {
+      "at": "2026-09-08T19:06:55.009457+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "inspect",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.011484666000000088
+    },
+    {
+      "at": "2026-09-08T19:06:55.021721+00:00",
+      "argv": [
+        "docker",
+        "build",
+        "--platform",
+        "linux/amd64",
+        "--target",
+        "api",
+        "-f",
+        "Dockerfile.feed",
+        "--build-arg",
+        "VERSION=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "--iidfile",
+        "/tmp/ghfind-docker-http-39def66/api-image-id.txt",
+        "--label",
+        "io.ghfind.fixture.owner=f44e6d82-dba2-44fd-927e-e28a65fddab5",
+        "--label",
+        "io.ghfind.fixture.source=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "."
+      ],
+      "timeoutSeconds": 300,
+      "exitCode": 0,
+      "durationSeconds": 29.964378084,
+      "log": "build.log"
+    },
+    {
+      "at": "2026-09-08T19:07:24.988927+00:00",
+      "argv": [
+        "go",
+        "test",
+        "-c",
+        "-tags",
+        "feedportability",
+        "-ldflags",
+        "-X github.com/hikariming/ghfind/internal/backend.portabilityBuildSHA=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "-o",
+        "/tmp/ghfind-docker-http-39def66/contract.test",
+        "./internal/backend"
+      ],
+      "timeoutSeconds": 120,
+      "exitCode": 0,
+      "durationSeconds": 3.868562874999995,
+      "log": "harness-build.log"
+    },
+    {
+      "at": "2026-09-08T19:07:28.858130+00:00",
+      "argv": [
+        "go",
+        "build",
+        "-trimpath",
+        "-o",
+        "/tmp/ghfind-docker-http-39def66/feed-migrate",
+        "./cmd/ghfind-feed-migrate"
+      ],
+      "timeoutSeconds": 120,
+      "exitCode": 0,
+      "durationSeconds": 0.7916871669999992,
+      "log": "migration-build.log"
+    },
+    {
+      "at": "2026-09-08T19:07:29.669345+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "create",
+        "--label",
+        "io.ghfind.fixture.owner=f44e6d82-dba2-44fd-927e-e28a65fddab5",
+        "--label",
+        "io.ghfind.fixture.source=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "ghfind-http-f44e6d82"
+      ],
+      "timeoutSeconds": 90,
+      "exitCode": 0,
+      "durationSeconds": 0.04117570900000089
+    },
+    {
+      "at": "2026-09-08T19:07:29.711300+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "inspect",
+        "ghfind-http-f44e6d82"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012218416999999704
+    },
+    {
+      "at": "2026-09-08T19:07:29.724404+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "create",
+        "--label",
+        "io.ghfind.fixture.owner=f44e6d82-dba2-44fd-927e-e28a65fddab5",
+        "--label",
+        "io.ghfind.fixture.source=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 90,
+      "exitCode": 0,
+      "durationSeconds": 0.016052833000003375
+    },
+    {
+      "at": "2026-09-08T19:07:29.741006+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "inspect",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012605750000005855
+    },
+    {
+      "at": "2026-09-08T19:07:29.755758+00:00",
+      "argv": [
+        "docker",
+        "create",
+        "--name",
+        "ghfind-http-f44e6d82-pg",
+        "--platform",
+        "linux/amd64",
+        "--label",
+        "io.ghfind.fixture.owner=f44e6d82-dba2-44fd-927e-e28a65fddab5",
+        "--label",
+        "io.ghfind.fixture.source=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "--network",
+        "ghfind-http-f44e6d82",
+        "--cpus",
+        "1",
+        "--memory",
+        "1g",
+        "--memory-swap",
+        "1g",
+        "--shm-size",
+        "128m",
+        "--pids-limit",
+        "128",
+        "-e",
+        "POSTGRES_USER=postgres",
+        "-e",
+        "POSTGRES_PASSWORD=portability-local-only",
+        "-e",
+        "POSTGRES_DB=feed_portability_test",
+        "-p",
+        "127.0.0.1:55446:5432",
+        "-p",
+        "127.0.0.1:58087:8080",
+        "--mount",
+        "type=volume,source=ghfind-http-f44e6d82-pgdata,target=/var/lib/postgresql/data",
+        "pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+        "postgres",
+        "-c",
+        "shared_buffers=128MB",
+        "-c",
+        "max_connections=40"
+      ],
+      "timeoutSeconds": 90,
+      "exitCode": 0,
+      "durationSeconds": 0.03830624999999799
+    },
+    {
+      "at": "2026-09-08T19:07:29.794709+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.013836375000003898
+    },
+    {
+      "at": "2026-09-08T19:07:29.809646+00:00",
+      "argv": [
+        "docker",
+        "start",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.09936224999999865
+    },
+    {
+      "at": "2026-09-08T19:07:29.909787+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PGPASSWORD=portability-local-only",
+        "-e",
+        "PGCONNECT_TIMEOUT=2",
+        "-e",
+        "PGOPTIONS=-c statement_timeout=1000",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-X",
+        "-A",
+        "-t",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test",
+        "-c",
+        "SELECT 1"
+      ],
+      "timeoutSeconds": 3,
+      "exitCode": 2,
+      "durationSeconds": 0.2474078329999969
+    },
+    {
+      "at": "2026-09-08T19:07:30.417720+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PGPASSWORD=portability-local-only",
+        "-e",
+        "PGCONNECT_TIMEOUT=2",
+        "-e",
+        "PGOPTIONS=-c statement_timeout=1000",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-X",
+        "-A",
+        "-t",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test",
+        "-c",
+        "SELECT 1"
+      ],
+      "timeoutSeconds": 3,
+      "exitCode": 2,
+      "durationSeconds": 0.3019529580000011
+    },
+    {
+      "at": "2026-09-08T19:07:30.976839+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PGPASSWORD=portability-local-only",
+        "-e",
+        "PGCONNECT_TIMEOUT=2",
+        "-e",
+        "PGOPTIONS=-c statement_timeout=1000",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-X",
+        "-A",
+        "-t",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test",
+        "-c",
+        "SELECT 1"
+      ],
+      "timeoutSeconds": 3,
+      "exitCode": 2,
+      "durationSeconds": 0.26425437500000015
+    },
+    {
+      "at": "2026-09-08T19:07:31.499512+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PGPASSWORD=portability-local-only",
+        "-e",
+        "PGCONNECT_TIMEOUT=2",
+        "-e",
+        "PGOPTIONS=-c statement_timeout=1000",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-X",
+        "-A",
+        "-t",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test",
+        "-c",
+        "SELECT 1"
+      ],
+      "timeoutSeconds": 3,
+      "exitCode": 2,
+      "durationSeconds": 0.2522193329999993
+    },
+    {
+      "at": "2026-09-08T19:07:32.013197+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PGPASSWORD=portability-local-only",
+        "-e",
+        "PGCONNECT_TIMEOUT=2",
+        "-e",
+        "PGOPTIONS=-c statement_timeout=1000",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-X",
+        "-A",
+        "-t",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test",
+        "-c",
+        "SELECT 1"
+      ],
+      "timeoutSeconds": 3,
+      "exitCode": 0,
+      "durationSeconds": 0.19526662500000214
+    },
+    {
+      "at": "2026-09-08T19:07:32.210395+00:00",
+      "argv": [
+        "docker",
+        "exec",
+        "-i",
+        "ghfind-http-f44e6d82-pg",
+        "psql",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-U",
+        "postgres",
+        "-d",
+        "feed_portability_test"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.21196933299999898,
+      "log": "fixture-marker.log"
+    },
+    {
+      "at": "2026-09-08T19:07:32.425015+00:00",
+      "argv": [
+        "/tmp/ghfind-docker-http-39def66/feed-migrate"
+      ],
+      "timeoutSeconds": 60,
+      "exitCode": 0,
+      "durationSeconds": 1.6494176670000016,
+      "log": "migration.log"
+    },
+    {
+      "at": "2026-09-08T19:07:34.076908+00:00",
+      "argv": [
+        "docker",
+        "create",
+        "--name",
+        "ghfind-http-f44e6d82-api",
+        "--platform",
+        "linux/amd64",
+        "--label",
+        "io.ghfind.fixture.owner=f44e6d82-dba2-44fd-927e-e28a65fddab5",
+        "--label",
+        "io.ghfind.fixture.source=39def663ab662e66e0b3473dfc06285e761c2a26",
+        "--network",
+        "container:ghfind-http-f44e6d82-pg",
+        "--read-only",
+        "--user",
+        "65532:65532",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--cpus",
+        "0.5",
+        "--memory",
+        "256m",
+        "--memory-swap",
+        "256m",
+        "--pids-limit",
+        "64",
+        "--ulimit",
+        "nofile=4096:4096",
+        "--tmpfs",
+        "/tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777",
+        "-e",
+        "PORT=8080",
+        "-e",
+        "FEED_MODE=baseline",
+        "-e",
+        "FEED_STORE_PROFILE=postgres",
+        "-e",
+        "FEED_WRITER_EPOCH=1",
+        "-e",
+        "FEED_DATABASE_URL=postgres://postgres:portability-local-only@127.0.0.1:5432/feed_portability_test?sslmode=disable&connect_timeout=3",
+        "-e",
+        "FEED_GATEWAY_SECRET=gggggggggggggggggggggggggggggggg",
+        "-e",
+        "FEED_SIGNING_SECRET=ssssssssssssssssssssssssssssssss",
+        "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a"
+      ],
+      "timeoutSeconds": 90,
+      "exitCode": 0,
+      "durationSeconds": 0.13952620900000312
+    },
+    {
+      "at": "2026-09-08T19:07:34.217742+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.01932491600000219
+    },
+    {
+      "at": "2026-09-08T19:07:34.238232+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012386583000001394
+    },
+    {
+      "at": "2026-09-08T19:07:34.251349+00:00",
+      "argv": [
+        "docker",
+        "start",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 30,
+      "exitCode": 0,
+      "durationSeconds": 0.0729293329999976
+    },
+    {
+      "at": "2026-09-08T19:07:34.330859+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.015120249999995394
+    },
+    {
+      "at": "2026-09-08T19:07:34.346734+00:00",
+      "argv": [
+        "/tmp/ghfind-docker-http-39def66/contract.test",
+        "-test.run",
+        "^TestFeedDockerHTTPPortability$",
+        "-test.v",
+        "-test.timeout",
+        "125s"
+      ],
+      "timeoutSeconds": 130,
+      "exitCode": 0,
+      "durationSeconds": 1.2780389999999997,
+      "log": "contract.log"
+    },
+    {
+      "at": "2026-09-08T19:07:35.625677+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.013070499999997764
+    },
+    {
+      "at": "2026-09-08T19:07:35.639584+00:00",
+      "argv": [
+        "docker",
+        "logs",
+        "--timestamps",
+        "c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.01420487499999723,
+      "log": "ghfind-http-f44e6d82-pg.log"
+    },
+    {
+      "at": "2026-09-08T19:07:35.654628+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012707791000003965
+    },
+    {
+      "at": "2026-09-08T19:07:35.668077+00:00",
+      "argv": [
+        "docker",
+        "logs",
+        "--timestamps",
+        "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012904874999996707,
+      "log": "ghfind-http-f44e6d82-api.log"
+    },
+    {
+      "at": "2026-09-08T19:07:35.681747+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.01307899999999762
+    },
+    {
+      "at": "2026-09-08T19:07:35.695628+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "rm",
+        "-f",
+        "-v",
+        "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a"
+      ],
+      "timeoutSeconds": 20,
+      "exitCode": 0,
+      "durationSeconds": 0.03992770800000045
+    },
+    {
+      "at": "2026-09-08T19:07:35.736290+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-api"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.011993666000002179
+    },
+    {
+      "at": "2026-09-08T19:07:35.749081+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.013086958999998899
+    },
+    {
+      "at": "2026-09-08T19:07:35.763014+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "rm",
+        "-f",
+        "-v",
+        "c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365"
+      ],
+      "timeoutSeconds": 20,
+      "exitCode": 0,
+      "durationSeconds": 0.3349299590000001
+    },
+    {
+      "at": "2026-09-08T19:07:36.099689+00:00",
+      "argv": [
+        "docker",
+        "container",
+        "inspect",
+        "ghfind-http-f44e6d82-pg"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.018972542000000203
+    },
+    {
+      "at": "2026-09-08T19:07:36.119474+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "inspect",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.015513167000001715
+    },
+    {
+      "at": "2026-09-08T19:07:36.135802+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "rm",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 20,
+      "exitCode": 0,
+      "durationSeconds": 0.02522112500000162
+    },
+    {
+      "at": "2026-09-08T19:07:36.161846+00:00",
+      "argv": [
+        "docker",
+        "volume",
+        "inspect",
+        "ghfind-http-f44e6d82-pgdata"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.012250416000000541
+    },
+    {
+      "at": "2026-09-08T19:07:36.174895+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "inspect",
+        "ghfind-http-f44e6d82"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.012320207999998445
+    },
+    {
+      "at": "2026-09-08T19:07:36.188014+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "rm",
+        "a4644ea69f7656c629d1802e9e6041b61c277c9ad23203fa24125afd1855d5e6"
+      ],
+      "timeoutSeconds": 20,
+      "exitCode": 0,
+      "durationSeconds": 0.2203499579999999
+    },
+    {
+      "at": "2026-09-08T19:07:36.410608+00:00",
+      "argv": [
+        "docker",
+        "network",
+        "inspect",
+        "ghfind-http-f44e6d82"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 1,
+      "durationSeconds": 0.027884750000005454
+    },
+    {
+      "at": "2026-09-08T19:07:36.439958+00:00",
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a"
+      ],
+      "timeoutSeconds": 10,
+      "exitCode": 0,
+      "durationSeconds": 0.03419212499999702
+    },
+    {
+      "at": "2026-09-08T19:07:36.475547+00:00",
+      "argv": [
+        "docker",
+        "image",
+        "rm",
+        "--no-prune",
+        "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a"
+      ],
+      "timeoutSeconds": 20,
+      "exitCode": 0,
+      "durationSeconds": 0.026286042000002396
+    }
+  ],
+  "created": [
+    {
+      "kind": "network",
+      "name": "ghfind-http-f44e6d82",
+      "id": "a4644ea69f7656c629d1802e9e6041b61c277c9ad23203fa24125afd1855d5e6"
+    },
+    {
+      "kind": "volume",
+      "name": "ghfind-http-f44e6d82-pgdata",
+      "id": "ghfind-http-f44e6d82-pgdata"
+    },
+    {
+      "kind": "container",
+      "name": "ghfind-http-f44e6d82-pg",
+      "id": "c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365"
+    },
+    {
+      "kind": "container",
+      "name": "ghfind-http-f44e6d82-api",
+      "id": "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a"
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "container",
+      "name": "ghfind-http-f44e6d82-api",
+      "id": "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a",
+      "status": "removed"
+    },
+    {
+      "kind": "container",
+      "name": "ghfind-http-f44e6d82-pg",
+      "id": "c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365",
+      "status": "removed"
+    },
+    {
+      "kind": "volume",
+      "name": "ghfind-http-f44e6d82-pgdata",
+      "id": "ghfind-http-f44e6d82-pgdata",
+      "status": "removed"
+    },
+    {
+      "kind": "network",
+      "name": "ghfind-http-f44e6d82",
+      "id": "a4644ea69f7656c629d1802e9e6041b61c277c9ad23203fa24125afd1855d5e6",
+      "status": "removed"
+    },
+    {
+      "kind": "image",
+      "id": "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a",
+      "status": "removed_or_absent"
+    }
+  ],
+  "apiImageBuildAttempted": true,
+  "imageId": "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a",
+  "binaries": {
+    "contract.test": "3c80b841886759486b89ae120bcdc8907748ba2205997d9ca48aa58cd265e0fb",
+    "feed-migrate": "1bb66c4b44f0b7c4a5c6d743c555e9f5cdc87b022ba27d55ec6046bd8aebad99"
+  },
+  "apiRuntime": {
+    "id": "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a",
+    "imageId": "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a",
+    "entrypoint": "/usr/local/bin/feed-api",
+    "user": "65532:65532",
+    "readonlyRoot": true,
+    "cpuNano": 500000000,
+    "memoryBytes": 268435456
+  },
+  "contractStatus": "passed",
+  "cleanupSuccessful": true,
+  "finishedAt": "2026-09-08T19:07:36.503720+00:00"
+}
