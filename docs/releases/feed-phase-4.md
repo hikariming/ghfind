@@ -5,7 +5,8 @@ Updated 2026-09-09. Main integration baseline:
 The stage-4 branch incorporated that baseline at `bc46f93`; its implementation
 head before this documentation delivery is
 `d04f5527b95e9f8045974d025de5ec83bb579670`.
-[PR #249](https://github.com/hikariming/ghfind/pull/249) remains draft and unmerged.
+[PR #249](https://github.com/hikariming/ghfind/pull/249) awaits exact-head CI and
+release integration; this document records the pre-merge evidence boundary.
 These are implementation and evidence handoff points, not a claim that stage 4
 has met every acceptance criterion or deployed to production.
 
@@ -44,6 +45,15 @@ that same result, even after the earlier evaluation execution deadline. Invalid
 artifact identity remains terminal. This process guard does not replace the
 writer-epoch fence required for a later database promotion.
 
+The subsequent `e5c1bd2` repair preserves `finalizing` when an already-completed
+assessment's artifact download has a transient 503/429/network/timeout/body-stream
+failure. It retries the same run without refreshing the existing missing-artifact
+grace timestamp. Six regression cases failed against the prior implementation;
+all 37 source-focused tests passed after repair, together with typecheck/lint.
+The upstream transport is controlled in those fixtures; they do not claim real
+Mosoo or Cloudflare E2E. A successful response with permanently missing artifacts
+still has a finite grace period, and invalid identity remains terminal.
+
 ## Versions and retained evidence
 
 The public/HTTP/read contract remains **1**; portable storage writer contract is
@@ -67,7 +77,9 @@ provenance and are not a durable backup destination.
 | [Schema 9](../evidence/feed-local-d1-recovery/2026-09-08-schema9.json)   | 45 tables / 348 columns / 73 rows; governance and deletion-fence restore; physical cleanup remained pending                                                                                             |
 | [Original schema 7](../evidence/feed-local-d1-recovery/2026-09-08.json)  | 43 tables / 321 columns / 63 rows; historical baseline, preserved unchanged                                                                                                                             |
 
-The schema-11 implementation passed the recorded **24-test** snapshot/local-D1
+The integrated stage-4 branch independently passed **24 tests with zero skips**
+on 2026-09-09 (3.92 seconds). The schema-11 implementation passed the recorded
+**24-test** snapshot/local-D1
 suite with zero skips. A retained run completed its assertions in 2,683 ms; this
 small local fixture duration is not a production RTO. Actor 303's actual
 pre-backup cleanup produced a tombstone which was exported and restored. Actor
