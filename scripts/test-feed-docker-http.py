@@ -25,6 +25,18 @@ class SafetyTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     m.validate_options(sha, str(target), root)
 
+    def test_postgres_readiness_authenticates_target_database_over_tcp(self):
+        command=m.postgres_readiness_command('owned-pg')
+        self.assertEqual(command[:3],['docker','exec','-e'])
+        self.assertIn('PGPASSWORD='+m.DB_PASSWORD,command)
+        self.assertIn('PGCONNECT_TIMEOUT=2',command)
+        self.assertIn('PGOPTIONS=-c statement_timeout=1000',command)
+        self.assertNotIn('pg_isready',command)
+        self.assertEqual(command[command.index('owned-pg')+1:],[
+            'psql','-X','-A','-t','-v','ON_ERROR_STOP=1',
+            '-h','127.0.0.1','-p','5432','-U','postgres','-d',m.DB_NAME,
+            '-c','SELECT 1'])
+
     def test_resource_cleanup_requires_both_labels(self):
         for kind in ['container', 'network', 'volume']:
             labels = {m.OWNER_LABEL: OWNER, m.SHA_LABEL: SHA}

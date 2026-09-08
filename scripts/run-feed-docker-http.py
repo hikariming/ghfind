@@ -41,6 +41,16 @@ def validate_options(sha, directory, root):
     return out
 
 
+def postgres_readiness_command(container):
+    # The image entrypoint temporarily starts a Unix-socket-only init server.
+    # Authenticate over TCP to the requested database before creating any marker.
+    return ['docker', 'exec', '-e', 'PGPASSWORD=' + DB_PASSWORD,
+            '-e', 'PGCONNECT_TIMEOUT=2', '-e', 'PGOPTIONS=-c statement_timeout=1000',
+            container, 'psql', '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1',
+            '-h', '127.0.0.1', '-p', '5432', '-U', 'postgres', '-d', DB_NAME,
+            '-c', 'SELECT 1']
+
+
 def resource_owned(details, owner, sha, kind):
     labels = details.get('Config', {}).get('Labels', {}) if kind == 'container' else details.get('Labels', {})
     return isinstance(labels, dict) and labels.get(OWNER_LABEL) == owner and labels.get(SHA_LABEL) == sha
@@ -208,7 +218,8 @@ class Harness:
             self.create('container', pg, ['docker', 'create', '--name', pg, '--platform', 'linux/amd64', *labels, '--network', self.names['network'], '--cpus', '1', '--memory', '1g', '--memory-swap', '1g', '--shm-size', '128m', '--pids-limit', '128', '-e', 'POSTGRES_USER=postgres', '-e', 'POSTGRES_PASSWORD=' + DB_PASSWORD, '-e', 'POSTGRES_DB=' + DB_NAME, '-p', f'127.0.0.1:{PG_PORT}:5432', '-p', f'127.0.0.1:{API_PORT}:8080', '--mount', 'type=volume,source=' + self.names['volume'] + ',target=/var/lib/postgresql/data', PG_IMAGE, 'postgres', '-c', 'shared_buffers=128MB', '-c', 'max_connections=40'])
             self.run(['docker', 'start', pg])
             for _ in range(40):
-                if self.run(['docker', 'exec', pg, 'pg_isready', '-U', 'postgres', '-d', DB_NAME], timeout=3, check=False).returncode == 0:
+                ready = self.run(postgres_readiness_command(pg), timeout=3, check=False)
+                if ready.returncode == 0 and ready.stdout.strip() == '1':
                     break
                 time.sleep(.25)
             else:
