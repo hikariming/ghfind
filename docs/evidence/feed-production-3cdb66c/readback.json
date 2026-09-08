@@ -1,0 +1,69 @@
+{
+  "observedAt": "2026-09-08T04:21:20.088109+00:00",
+  "worker": "ghfind",
+  "settings": {
+    "allowedFlags": [],
+    "databases": [
+      {
+        "id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d",
+        "name": "GHFIND_D1",
+        "type": "d1"
+      },
+      {
+        "id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf",
+        "name": "GHFIND_FEED_D1",
+        "type": "d1"
+      }
+    ]
+  },
+  "deployments": [
+    {
+      "id": "f591958b-f96f-42c2-8f86-875ae2f125fc",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "annotations": {
+        "workers/message": "release-3cdb66cc21028e1b7159ce30f769ff8fcd9b4d33-from-upstream-main",
+        "workers/triggered_by": "deployment"
+      },
+      "versions": [
+        {
+          "version_id": "7d4e2070-b1f5-4b07-9498-6a78c8e48762",
+          "percentage": 100
+        }
+      ],
+      "created_on": "2026-09-08T03:56:11.790202Z"
+    },
+    {
+      "id": "4a99cff1-801f-4ccd-ba2f-1372c3eba621",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "annotations": {
+        "workers/message": "release-38985cc0bcb811801f427e162bce3dd04ed062ee-from-upstream-main",
+        "workers/triggered_by": "deployment"
+      },
+      "versions": [
+        {
+          "version_id": "97f10c42-cb76-46f8-93e3-abf70a9951fc",
+          "percentage": 100
+        }
+      ],
+      "created_on": "2026-09-08T02:35:15.542487Z"
+    },
+    {
+      "id": "3aff64e2-dab4-4a90-8032-f1f1b61b0f6a",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "annotations": {
+        "workers/message": "release-41ce4cd829f431fa2e20133e0c2509bbe1d5fad3-from-upstream-main",
+        "workers/triggered_by": "deployment"
+      },
+      "versions": [
+        {
+          "version_id": "2d941c44-b50d-4c3c-95ab-32345858085a",
+          "percentage": 100
+        }
+      ],
+      "created_on": "2026-09-08T00:05:05.627024Z"
+    }
+  ]
+}

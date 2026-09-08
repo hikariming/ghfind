@@ -7,7 +7,7 @@ export default defineConfig({
   // Worker packages own workerd-backed configs and must not run in Node's
   // default pool. CI invokes each package's required contract suite explicitly.
   test: {
-    exclude: ["**/node_modules/**", "**/.git/**", "platform/**", "scripts/feed-platform-*.test.mjs"],
+    exclude: ["**/node_modules/**", "**/.git/**", "platform/**", "scripts/feed-platform-*.test.mjs", "scripts/feed-operator.test.mjs"],
   },
   resolve: {
     alias: {
