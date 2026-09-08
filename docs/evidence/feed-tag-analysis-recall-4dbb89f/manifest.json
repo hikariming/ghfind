@@ -1,0 +1,16 @@
+{
+  "sourceSha": "4dbb89fe1ea5c014b9649ce40a6bb1adaae05d73",
+  "binarySha256": "d971b8f231c86500ea6e9ad0933c0068bbcf875ed498635587cf899759a2a064",
+  "command": [
+    "/tmp/ghfind-tag-analysis-compare.test",
+    "-test.run",
+    "^TestDiagnosticTagAnalysisCompare$",
+    "-test.v",
+    "-test.timeout",
+    "35s"
+  ],
+  "startedAt": "2026-09-08T18:14:41.900057+00:00",
+  "scope": "same isolated fixture; eight read-only SELECT/EXPLAIN operations, no HTTP or reseed",
+  "exitCode": 0,
+  "finishedAt": "2026-09-08T18:14:42.992296+00:00"
+}
