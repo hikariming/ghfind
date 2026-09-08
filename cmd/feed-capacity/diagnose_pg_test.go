@@ -1,3 +1,5 @@
+//go:build feeddiagnostic
+
 package main
 
 import (
@@ -25,7 +27,7 @@ import (
 func TestDiagnosticPostgresTwoRequests(t *testing.T) {
 	dsn := os.Getenv("FEED_DIAGNOSIS_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("explicit owned synthetic diagnostic fixture not configured")
+		t.Fatal("explicit owned synthetic diagnostic fixture required")
 	}
 	if err := validateDSN(dsn); err != nil {
 		t.Fatal(err)
