@@ -218,3 +218,38 @@ func TestFeedGovernanceEvidenceStrictStringArray(t *testing.T) {
 		}
 	}
 }
+
+func TestFeedGovernanceEarlyRejectionDoesNotDrainUntrustedBody(t *testing.T) {
+	h, _ := NewFeedGovernanceHandler(noGovernanceStore{}, govTestSecret)
+	server := httptest.NewServer(h)
+	defer server.Close()
+	for _, tc := range []struct {
+		name, secret, media string
+		length, status      int
+	}{
+		{"unauthorized", "wrong", "application/json", 100, 401},
+		{"unsupported media", govTestSecret, "text/plain", 100, 415},
+		{"declared oversize", govTestSecret, "application/json", 32769, 413},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn, err := net.DialTimeout("tcp", strings.TrimPrefix(server.URL, "http://"), time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			_ = conn.SetDeadline(time.Now().Add(time.Second))
+			_, err = fmt.Fprintf(conn, "POST %sproposal HTTP/1.1\r\nHost: fixture\r\nAuthorization: Bearer %s\r\nX-Feed-Contract: 1\r\nContent-Type: %s\r\nContent-Length: %d\r\n\r\n", feedGovernancePath, tc.secret, tc.media, tc.length)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := http.ReadResponse(bufio.NewReader(conn), nil)
+			if err != nil {
+				t.Fatal("early rejection blocked draining body", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tc.status {
+				t.Fatalf("status %d want %d", response.StatusCode, tc.status)
+			}
+		})
+	}
+}
