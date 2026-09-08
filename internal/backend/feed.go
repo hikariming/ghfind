@@ -62,6 +62,7 @@ type FeedUser struct {
 	AvatarURL           string           `json:"avatarUrl,omitempty"`
 	TaxonomyVersion     int64            `json:"taxonomyVersion"`
 	ProfileVersion      int64            `json:"profileVersion"`
+	ProfileFloor        int64            `json:"profileFloor"`
 	Preferences         []FeedPreference `json:"preferences"`
 	Embedding           []float64        `json:"-"`
 	embeddingModel      string

@@ -68,6 +68,20 @@ func (s *CFFeedStore) call(ctx context.Context, op string, input, output any) er
 		}
 		_ = json.Unmarshal(data, &failure)
 		switch failure.Error {
+		case "proposal_id_conflict":
+			return ErrFeedProposalConflict
+		case "job_identity_conflict":
+			return ErrFeedJobConflict
+		case "job_lease_lost":
+			return ErrFeedJobLease
+		case "writer_epoch_changed":
+			return ErrFeedWriterEpoch
+		case "profile_version_changed":
+			return ErrFeedProfileChanged
+		case "event_id_conflict":
+			return ErrFeedEventConflict
+		case "deletion_not_found":
+			return ErrFeedDeletionNotFound
 		case "taxonomy_version_changed":
 			return ErrFeedTaxonomyChanged
 		case "project_not_found":

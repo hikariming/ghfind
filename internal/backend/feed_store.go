@@ -369,9 +369,9 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 
 func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*FeedUser, error) {
 	var user FeedUser
-	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), taxonomy_version, profile_version
+	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), taxonomy_version, profile_version,COALESCE((SELECT MAX(t.profile_version) FROM feed.user_deletion_tombstones t WHERE t.github_id=feed.users.github_id),0)
       FROM feed.users WHERE github_id = $1 AND deleted_at IS NULL`, githubID).Scan(
-		&user.GitHubID, &user.Login, &user.AvatarURL, &user.TaxonomyVersion, &user.ProfileVersion,
+		&user.GitHubID, &user.Login, &user.AvatarURL, &user.TaxonomyVersion, &user.ProfileVersion, &user.ProfileFloor,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -474,7 +474,7 @@ func (s *PostgresFeedStore) AvailableFeedRepoKeys(ctx context.Context, githubID 
 	  LEFT JOIN feed.user_project_state ups ON ups.github_id=$1 AND ups.repo_key=p.repo_key
 	  WHERE p.repo_key = ANY($2) AND p.publishable=true
 	    AND COALESCE(ups.not_interested,false)=false
- AND ($3=false OR EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key))`, githubID, repoKeys, s.writerEpoch > 0)
+ AND ($3=false OR EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id))`, githubID, repoKeys, s.writerEpoch > 0)
 	if err != nil {
 		return nil, fmt.Errorf("revalidate Feed page: %w", err)
 	}
@@ -709,6 +709,23 @@ func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64
 			return result, err
 		}
 	}
+	if s.writerEpoch > 0 {
+		for _, event := range events {
+			metadata, err := json.Marshal(event.Metadata)
+			if err != nil {
+				return result, err
+			}
+			var matches bool
+			err = tx.QueryRowContext(ctx, `SELECT github_id=$2 AND repo_key=$3 AND request_id IS NOT DISTINCT FROM NULLIF($4,'') AND event_type=$5 AND occurred_at=$6 AND metadata=$7::jsonb FROM feed.events WHERE id=$1`, event.Input.ID, githubID, strings.ToLower(event.Input.RepoKey), event.RequestID, event.Input.Type, event.Input.OccurredAt, string(metadata)).Scan(&matches)
+			if err == nil && !matches {
+				return result, ErrFeedEventConflict
+			}
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return result, err
+			}
+		}
+	}
+
 	type eventRow struct {
 		ID         string         `json:"id"`
 		RepoKey    string         `json:"repo_key"`

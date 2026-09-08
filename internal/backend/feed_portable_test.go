@@ -119,3 +119,34 @@ func TestPortableStateRequiresImpressionAndRejectsUnknownFields(t *testing.T) {
 		}
 	}
 }
+
+func TestPortableEventsSupportsBothLegacyShapesStrictly(t *testing.T) {
+	for _, body := range []string{`[{"id":"x","type":"impression","repoKey":"o/r","occurredAt":"2026-09-08T00:00:00Z","impressionToken":"t"}]`, `{"events":[{"id":"x","type":"impression","repoKey":"o/r","occurredAt":"2026-09-08T00:00:00Z","impressionToken":"t"}]}`} {
+		var payload feedEventsPayload
+		if err := decodeFeedJSON(httptest.NewRequest("POST", "/", strings.NewReader(body)), &payload); err != nil || len(payload.Events) != 1 {
+			t.Fatalf("legacy event shape rejected %v", err)
+		}
+	}
+	for _, body := range []string{`{"events":[],"unknown":true}`, `[{"id":"x","unknown":true}]`, `[] {}`, `[]` + strings.Repeat(" ", feedMaxBodyBytes)} {
+		var payload feedEventsPayload
+		if err := decodeFeedJSON(httptest.NewRequest("POST", "/", strings.NewReader(body)), &payload); err == nil {
+			t.Fatalf("invalid event shape accepted %s", body[:minInt(len(body), 50)])
+		}
+	}
+}
+func TestPortableAuthenticationOnceAndPatchCompatibility(t *testing.T) {
+	_, store, sessions := feedAPITestServer(t)
+	calls := 0
+	handler, err := NewStandaloneFeedHandler(FeedModeBaseline, strings.Repeat("s", 32), store, sessions, func(*http.Request, time.Time) *OAuthSession {
+		calls++
+		return &OAuthSession{GitHubID: 42, Login: "octocat"}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("PATCH", "/api/feed/projects/o/r/state", strings.NewReader(`{"saved":true}`)))
+	if w.Code != 400 || calls != 1 {
+		t.Fatalf("PATCH status%d authentication calls%d", w.Code, calls)
+	}
+}
