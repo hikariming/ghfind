@@ -446,6 +446,95 @@ describe("real workerd D1 capability contract", () => {
       ).status,
     ).toBe(409);
   });
+  it("accepts subsequent same-generation state changes and fences tokens across deletion", async () => {
+    await ensure();
+    await seed();
+    await request();
+    const base = {
+      ...fence,
+      githubId: 1,
+      repoKey: "owner0/repo",
+      requestId: "request-1",
+      now: new Date().toISOString(),
+    };
+    expect(await json("state.set", { ...base, saved: true })).toMatchObject({
+      saved: true,
+      notInterested: false,
+    });
+    expect(
+      await json("state.set", {
+        ...base,
+        expectedProfileVersion: 2,
+        saved: false,
+      }),
+    ).toMatchObject({ saved: false });
+    expect(
+      await json("state.set", {
+        ...base,
+        expectedProfileVersion: 3,
+        notInterested: true,
+      }),
+    ).toMatchObject({ saved: false, notInterested: true });
+    expect(
+      (
+        await json("projects.available", {
+          githubId: 1,
+          repoKeys: ["owner0/repo"],
+        })
+      ).available,
+    ).toEqual({});
+    await json("profile.delete", {
+      ...fence,
+      expectedProfileVersion: 4,
+      githubId: 1,
+      now: new Date().toISOString(),
+    });
+    await ensure();
+    expect(
+      (
+        await call("state.set", {
+          ...base,
+          expectedProfileVersion: 5,
+          saved: true,
+        })
+      ).status,
+    ).toBe(404);
+  });
+  it("accepts bounded private snapshots larger than the public request limit", async () => {
+    await ensure();
+    await seed();
+    const { item } = await request();
+    const now = Date.now();
+    const items = Array.from({ length: 20 }, (_, index) => ({
+      ...item,
+      rank: index + 1,
+      project: {
+        ...item.project,
+        repoKey: `owner${index}/repo`,
+        summary: "x".repeat(16000),
+      },
+    }));
+    const session = {
+      id: "large-private-session",
+      githubId: 1,
+      algorithmVersion: "baseline-v1",
+      taxonomyVersion: 1,
+      profileVersion: 1,
+      pageSize: 20,
+      seed: "seed",
+      candidateCounts: { latest: 20 },
+      degraded: [],
+      items,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 1800000).toISOString(),
+    };
+    expect(JSON.stringify(session).length).toBeGreaterThan(128 * 1024);
+    await json("sessions.put", { ...fence, session });
+    expect(
+      (await json("sessions.get", { ...fence, githubId: 1, id: session.id }))
+        .session.items,
+    ).toHaveLength(20);
+  });
   it("archives via R2 binding and deletes only the requested generation", async () => {
     const archive = new FeedArchive(env.FEED_ARCHIVE);
     await archive.put(1, 1, "event", new TextEncoder().encode("{}"));
