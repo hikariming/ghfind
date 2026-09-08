@@ -254,7 +254,14 @@ export class FeedStore {
         keys,
       ),
       this.rows<{ repo_key: string; seen_at: number }>(
-        "SELECT repo_key,MAX(occurred_at) AS seen_at FROM feed_events WHERE github_id=? AND type='impression' AND repo_key IN(SELECT value FROM json_each(?)) GROUP BY repo_key",
+        `SELECT e.repo_key,MAX(e.occurred_at) AS seen_at FROM feed_events e
+        JOIN feed_runtime_requests r ON r.id=e.request_id AND r.github_id=e.github_id
+        JOIN feed_users u ON u.github_id=e.github_id AND u.profile_version=?
+        WHERE e.github_id=? AND e.type='impression' AND e.repo_key IN(SELECT value FROM json_each(?))
+        AND r.profile_version<=u.profile_version
+        AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=e.github_id),0)
+        GROUP BY e.repo_key`,
+        actor.profileVersion,
         input.githubId,
         keys,
       ),
