@@ -89,18 +89,32 @@ func (s *PostgresFeedStore) StepFeedCleanup(ctx context.Context, in FeedCleanupC
 	out.Phase = row.phase
 	switch row.phase {
 	case "primary":
-		// Primary facts were atomically removed on acceptance. A restored old actor
-		// is removed again; newer generations always survive.
-		result, err := tx.ExecContext(ctx, `DELETE FROM feed.users WHERE github_id=$1 AND profile_version<=$2`, row.githubID, row.floor)
+		var phase string
+		if err := tx.QueryRowContext(ctx, `SELECT proposal_cleanup_phase FROM feed.user_deletion_tombstones WHERE deletion_id=$1`, in.DeletionID).Scan(&phase); err != nil {
+			return out, err
+		}
+		count, next, err := s.cleanFeedUserProposals(ctx, tx, row, phase)
 		if err != nil {
 			return out, err
 		}
-		count, err := result.RowsAffected()
-		if err != nil {
+		out.Processed = count
+		if _, err = tx.ExecContext(ctx, `UPDATE feed.user_deletion_tombstones SET proposal_cleanup_phase=$2 WHERE deletion_id=$1`, in.DeletionID, next); err != nil {
 			return out, err
 		}
-		out.Processed = int(count)
-		out.Phase = "archive"
+		if phase == "complete" || (next == "complete" && count == 0) {
+			// Primary facts were atomically removed on acceptance. A restored old actor
+			// is removed again; newer generations always survive.
+			result, err := tx.ExecContext(ctx, `DELETE FROM feed.users WHERE github_id=$1 AND profile_version<=$2`, row.githubID, row.floor)
+			if err != nil {
+				return out, err
+			}
+			n, err := result.RowsAffected()
+			if err != nil {
+				return out, err
+			}
+			out.Processed = int(n)
+			out.Phase = "archive"
+		}
 	case "archive":
 		rows, err := tx.QueryContext(ctx, `SELECT object_key FROM feed.archive_objects WHERE github_id=$1 AND profile_version<=$2 AND status<>'erased' ORDER BY object_key LIMIT 10`, row.githubID, row.floor)
 		if err != nil {
@@ -227,4 +241,50 @@ func (s *PostgresFeedStore) ReplayFeedCleanup(ctx context.Context, deletionID st
 		return ErrFeedJobLease
 	}
 	return tx.Commit()
+}
+
+// Each durable phase processes at most 100 business records; a crash repeats
+// its idempotent redaction. Author links disappear only after assignment and
+// proposal content have been erased, and never cross the accepted floor.
+func (s *PostgresFeedStore) cleanFeedUserProposals(ctx context.Context, tx *sql.Tx, row feedCleanupRow, phase string) (int, string, error) {
+	var result sql.Result
+	var err error
+	next := phase
+	switch phase {
+	case "assignments":
+		result, err = tx.ExecContext(ctx, `UPDATE feed.project_tags SET evidence_ids='[]'::jsonb,origin_proposal_id=NULL
+   WHERE (repo_key,tag_id,source) IN (SELECT p.repo_key,p.tag_id,p.source FROM feed.project_tags p JOIN feed.user_proposal_authors a ON a.proposal_id=p.origin_proposal_id
+   WHERE a.github_id=$1 AND a.profile_version<=$2 ORDER BY p.repo_key,p.tag_id,p.source LIMIT 100)`, row.githubID, row.floor)
+		next = "proposals"
+	case "proposals":
+		result, err = tx.ExecContext(ctx, `WITH pending AS (SELECT proposal_id FROM feed.user_proposal_authors WHERE github_id=$1 AND profile_version<=$2 AND redacted_at IS NULL ORDER BY proposal_id LIMIT 100),
+   erased AS (UPDATE feed.tag_proposals SET slug='deleted-proposal',label_zh='',label_en='Deleted proposal',evidence_ids='[]'::jsonb WHERE id IN(SELECT proposal_id FROM pending) RETURNING id)
+   UPDATE feed.user_proposal_authors SET redacted_at=now() WHERE proposal_id IN(SELECT id FROM erased)`, row.githubID, row.floor)
+		next = "commands"
+	case "commands":
+		result, err = tx.ExecContext(ctx, `UPDATE feed.tag_proposal_commands SET proposal_id=NULL,payload_hash='deleted',created_at='epoch'
+   WHERE (github_id,command_id) IN(SELECT github_id,command_id FROM feed.tag_proposal_commands WHERE github_id=$1 AND profile_version<=$2 AND proposal_id IS NOT NULL ORDER BY command_id LIMIT 100)`, row.githubID, row.floor)
+		next = "authors"
+	case "authors":
+		result, err = tx.ExecContext(ctx, `DELETE FROM feed.user_proposal_authors WHERE proposal_id IN(SELECT proposal_id FROM feed.user_proposal_authors WHERE github_id=$1 AND profile_version<=$2 AND redacted_at IS NOT NULL ORDER BY proposal_id LIMIT 100)`, row.githubID, row.floor)
+		next = "complete"
+	case "complete":
+		return 0, phase, nil
+	default:
+		return 0, phase, errors.New("invalid proposal cleanup phase")
+	}
+	if err != nil {
+		return 0, phase, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, phase, err
+	}
+	if n == 100 {
+		next = phase
+	}
+	if n == 0 && next != "complete" {
+		return s.cleanFeedUserProposals(ctx, tx, row, next)
+	}
+	return int(n), next, nil
 }

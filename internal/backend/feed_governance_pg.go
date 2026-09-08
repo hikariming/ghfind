@@ -23,19 +23,26 @@ func govSource(kind string) string {
 func readGovProposal(ctx context.Context, q govQuery, input FeedGovernanceTarget, lock, validateEvidence bool) (*FeedGovernanceProposal, []byte, error) {
 	out := &FeedGovernanceProposal{FeedGovernanceTarget: input}
 	var evidence []byte
+	var authorLive bool
 	query := `SELECT q.source_ref,q.analysis_id,q.namespace,q.slug,q.label_zh,q.label_en,q.evidence_ids,q.status,q.resolved_by,q.resolution_reason,p.analysis_id,
  COALESCE(p.analysis_id=q.analysis_id AND NOT p.admin_removed AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL),false),
- (SELECT version FROM feed.taxonomy_versions WHERE state='active')
+ (SELECT version FROM feed.taxonomy_versions WHERE state='active'),
+ (q.source<>'user' OR EXISTS(SELECT 1 FROM feed.user_proposal_authors a JOIN feed.users u ON u.github_id=a.github_id
+ WHERE a.proposal_id=q.id AND a.redacted_at IS NULL AND u.deleted_at IS NULL AND a.profile_version<=u.profile_version
+ AND a.profile_version>COALESCE((SELECT MAX(d.profile_version) FROM feed.user_deletion_tombstones d WHERE d.github_id=a.github_id),0)))
  FROM feed.tag_proposals q LEFT JOIN feed.projects p ON p.repo_key=q.source_ref WHERE q.id=$1 AND q.source=$2`
 	if lock {
 		query += ` FOR UPDATE OF q`
 	}
-	err := q.QueryRowContext(ctx, query, input.ProposalID, govSource(input.ProposalKind)).Scan(&out.RepoKey, &out.AnalysisID, &out.Namespace, &out.Slug, &out.LabelZH, &out.LabelEN, &evidence, &out.Status, &out.ReviewedBy, &out.ReviewReason, &out.CurrentAnalysisID, &out.CurrentEvidence, &out.TaxonomyVersion)
+	err := q.QueryRowContext(ctx, query, input.ProposalID, govSource(input.ProposalKind)).Scan(&out.RepoKey, &out.AnalysisID, &out.Namespace, &out.Slug, &out.LabelZH, &out.LabelEN, &evidence, &out.Status, &out.ReviewedBy, &out.ReviewReason, &out.CurrentAnalysisID, &out.CurrentEvidence, &out.TaxonomyVersion, &authorLive)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
 	if err != nil {
 		return nil, nil, err
+	}
+	if !authorLive {
+		return nil, nil, govConflict("governance_proposal_deleted")
 	}
 	if validateEvidence {
 		out.Evidence, err = govDecodeEvidence(evidence)
@@ -50,6 +57,10 @@ func (s *PostgresFeedStore) InspectFeedGovernanceProposal(ctx context.Context, i
 		return nil, govError(400, "invalid_request")
 	}
 	p, _, err := readGovProposal(ctx, s.db, input, false, true)
+	var conflict *feedGovernanceError
+	if errors.As(err, &conflict) && conflict.code == "governance_proposal_deleted" {
+		return nil, nil
+	}
 	return p, err
 }
 func readGovCommand(ctx context.Context, q govQuery, id, digest string) (*FeedGovernanceResult, error) {
@@ -122,6 +133,15 @@ func (s *PostgresFeedStore) applyFeedGovernance(ctx context.Context, input FeedG
 		return out, err
 	} else if old != nil {
 		return *old, tx.Commit()
+	}
+	if input.ProposalKind == "user" {
+		private, _, err := readGovProposal(ctx, tx, input.FeedGovernanceTarget, false, false)
+		if err != nil {
+			return out, err
+		}
+		if private == nil {
+			return out, govConflict("governance_proposal_deleted")
+		}
 	}
 	if !enabled || epoch != command.WriterEpoch || epoch != s.writerEpoch {
 		return out, ErrFeedWriterEpoch
@@ -272,7 +292,13 @@ func (s *PostgresFeedStore) applyFeedGovernance(ctx context.Context, input FeedG
 			if _, err = tx.ExecContext(ctx, `DELETE FROM feed.project_tags WHERE repo_key=$1 AND tag_id=$2`, proposal.RepoKey, tagID); err != nil {
 				return out, err
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO feed.project_tags(repo_key,tag_id,source,weight,confidence,evidence_ids,analysis_id,taxonomy_version,created_at,updated_at) VALUES($1,$2,'editor',$3,$4,$5::jsonb,$6,$7,$8,$8)`, proposal.RepoKey, tagID, input.Assignment.Weight, input.Assignment.Confidence, string(evidence), proposal.AnalysisID, next, now); err != nil {
+			assignmentEvidence := evidence
+			var origin any
+			if input.ProposalKind == "user" {
+				assignmentEvidence, _ = json.Marshal([]string{"governance:" + command.CommandID})
+				origin = input.ProposalID
+			}
+			if _, err = tx.ExecContext(ctx, `INSERT INTO feed.project_tags(repo_key,tag_id,source,weight,confidence,evidence_ids,analysis_id,taxonomy_version,created_at,updated_at,origin_proposal_id) VALUES($1,$2,'editor',$3,$4,$5::jsonb,$6,$7,$8,$8,$9)`, proposal.RepoKey, tagID, input.Assignment.Weight, input.Assignment.Confidence, string(assignmentEvidence), proposal.AnalysisID, next, now, origin); err != nil {
 				return out, err
 			}
 		}
