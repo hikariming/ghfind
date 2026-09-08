@@ -1,0 +1,32 @@
+# Exclusive disposable synthetic capacity fixture. Never attach production volumes.
+services:
+  postgres:
+    image: pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf
+    cpus: 2
+    mem_limit: 2g
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: capacity-local-only
+      POSTGRES_DB: feed_capacity_test
+    ports:
+      - "127.0.0.1:55441:5432"
+    volumes:
+      - capacity_data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=50", "-c", "track_io_timing=on"]
+
+  minio:
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    cpus: 0.5
+    mem_limit: 512m
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: capacity-local
+      MINIO_ROOT_PASSWORD: capacity-local-only-password
+    ports:
+      - "127.0.0.1:59002:9000"
+    tmpfs:
+      - /data:size=16m
+
+volumes:
+  capacity_data:

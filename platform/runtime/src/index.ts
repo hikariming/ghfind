@@ -3,6 +3,7 @@ import { Container, getContainer } from "@cloudflare/containers";
 import { handleRequest, type Dispatch, type Target } from "./router";
 import { runScheduled } from "./scheduled";
 import { handleAdminRequest } from "./admin";
+import { handleGovernanceRequest } from "./governance";
 import {
   bindingBridge,
   executorBindingBridge,
@@ -65,6 +66,8 @@ function dispatcher(env: RuntimeEnv): Dispatch {
 
 export default {
   fetch(request: Request, env: RuntimeEnv): Promise<Response> {
+    if (new URL(request.url).pathname.startsWith("/internal/runtime/feed-governance/"))
+      return handleGovernanceRequest(request, env);
     if (
       new URL(request.url).pathname.startsWith("/internal/runtime/feed-admin/")
     )

@@ -1,3 +1,4 @@
+import { forwardFeedRequest } from "@/lib/feed-gateway";
 import { feedErrorResponse, feedJson, feedJsonBody, isFeedResponse, requireFeedViewer } from "@/lib/feed-api";
 import { FeedError, updateFeedProjectState } from "@/lib/feed";
 
@@ -10,6 +11,8 @@ export async function PUT(
 ) {
   const viewer = await requireFeedViewer();
   if (isFeedResponse(viewer)) return viewer;
+  const forwarded = await forwardFeedRequest(request, viewer);
+  if (forwarded) return forwarded;
   try {
     const { owner, repo } = await params;
     const body = await feedJsonBody(request);
@@ -21,3 +24,6 @@ export async function PUT(
     return feedErrorResponse(error);
   }
 }
+
+// PUT is the existing public contract; PATCH is an additive alias.
+export const PATCH = PUT;

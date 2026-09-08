@@ -197,6 +197,7 @@ jobs:
           node --test scripts/feed-platform-manifest.test.mjs
           node --test scripts/feed-platform-provision.test.mjs
           node --test scripts/feed-operator.test.mjs
+          node --test scripts/feed-governance.test.mjs
       - name: Build the Container Worker without deployment
         run: npm --prefix platform/runtime run build
       - name: Build portable Go API image

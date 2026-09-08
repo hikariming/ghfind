@@ -240,8 +240,7 @@ function binding(settings, name, type) {
   ensure(matches?.length === 1, `missing_binding_${name}`);
   return matches[0];
 }
-export async function executeOperator({
-  command,
+export async function prepareOperatorTransport({
   manifest,
   release,
   sha,
@@ -251,7 +250,6 @@ export async function executeOperator({
   operatorSecret,
   fetcher = fetch,
 }) {
-  validateCommand(command);
   const expected = validateRelease(release, manifest, sha);
   ensure(
     typeof apiToken === "string" && apiToken.length > 0,
@@ -350,9 +348,15 @@ export async function executeOperator({
       health.contractVersion === "1",
     "operator_running_version_mismatch",
   );
-  async function operation(action) {
+  async function operation(family, action, body) {
+    ensure(
+      (family === "feed-admin" && ["status", "replay"].includes(action)) ||
+        (family === "feed-governance" &&
+          ["proposal", "command", "review", "deprecate"].includes(action)),
+      "operator_operation_not_enrolled",
+    );
     const response = await request(
-      `${origin}/internal/runtime/feed-admin/v1/${action}`,
+      `${origin}/internal/runtime/${family}/v1/${action}`,
       {
         method: "POST",
         headers: {
@@ -364,12 +368,20 @@ export async function executeOperator({
           "x-feed-writer-epoch": "1",
           "content-type": "application/json",
         },
-        body: JSON.stringify(capabilityBody(command, action)),
+        body: JSON.stringify(body),
       },
     );
-    const body = await smallJSON(response);
-    return { ok: response.ok, status: response.status, body };
+    const data = await smallJSON(response);
+    return { ok: response.ok, status: response.status, body: data };
   }
+  return { expected, operation };
+}
+export async function executeOperator(options) {
+  const { command, sha } = options;
+  validateCommand(command);
+  const { expected, operation: send } = await prepareOperatorTransport(options);
+  const operation = (action) =>
+    send("feed-admin", action, capabilityBody(command, action));
   const before = await operation("status");
   ensure(before.ok, "operator_status_unavailable");
   const evidence = {

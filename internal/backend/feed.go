@@ -27,6 +27,8 @@ type FeedTag struct {
 }
 
 type FeedProject struct {
+	AnalysisID         string    `json:"-"`
+	SourceHash         string    `json:"-"`
 	RepoKey            string    `json:"repoKey"`
 	ItemID             string    `json:"-"`
 	OwnerLogin         string    `json:"ownerLogin"`

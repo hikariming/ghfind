@@ -1,3 +1,4 @@
+import { forwardFeedRequest } from "@/lib/feed-gateway";
 import { feedErrorResponse, feedJson, isFeedResponse, requireFeedViewer } from "@/lib/feed-api";
 import { FeedError, getFeedPage } from "@/lib/feed";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const viewer = await requireFeedViewer();
   if (isFeedResponse(viewer)) return viewer;
+  const forwarded = await forwardFeedRequest(request, viewer);
+  if (forwarded) return forwarded;
   try {
     const url = new URL(request.url);
     const rawLimit = url.searchParams.get("limit") ?? "20";

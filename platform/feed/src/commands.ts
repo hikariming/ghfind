@@ -20,16 +20,16 @@ export class FeedCommands extends FeedStore {
         relationValues: [input.repoKey],
       }),
       this.sql(
-        "INSERT INTO feed_proposal_guards(id,valid) VALUES(?,CASE WHEN NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=? AND payload_hash<>?) THEN 1 ELSE 0 END)",
+        "INSERT INTO feed_proposal_guards(id,valid) VALUES(?,CASE WHEN NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands c WHERE github_id=? AND command_id=? AND (payload_hash<>? OR profile_version<=COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=c.github_id),0) OR profile_version>?)) THEN 1 ELSE 0 END)",
         command,
         input.githubId,
         input.id,
         digest,
+        input.expectedProfileVersion,
       ),
       this.sql(
         `INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at)
-        SELECT ?,repo_key,analysis_id,?,?,?,?,?,'proposed',?,? FROM feed_projects WHERE repo_key=? AND NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=?)
-        ON CONFLICT(repo_key,analysis_id,namespace,slug) DO NOTHING`,
+        SELECT ?,repo_key,analysis_id,?,?,?,?,?,'proposed',?,? FROM feed_projects WHERE repo_key=? AND NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=?)`,
         proposalId,
         input.namespace,
         input.slug,
@@ -44,16 +44,13 @@ export class FeedCommands extends FeedStore {
       ),
       this.sql(
         `INSERT INTO feed_tag_proposal_commands(github_id,command_id,proposal_id,profile_version,payload_hash,created_at)
-        SELECT ?,?,p.id,?,?,? FROM feed_user_tag_proposals p JOIN feed_projects f ON f.repo_key=p.repo_key AND f.analysis_id=p.analysis_id
-        WHERE p.repo_key=? AND p.namespace=? AND p.slug=? ON CONFLICT(github_id,command_id) DO NOTHING`,
+        SELECT ?,?,p.id,?,?,? FROM feed_user_tag_proposals p WHERE p.id=? ON CONFLICT(github_id,command_id) DO NOTHING`,
         input.githubId,
         input.id,
         input.expectedProfileVersion,
         digest,
         now,
-        input.repoKey,
-        input.namespace,
-        input.slug,
+        proposalId,
       ),
       this.sql(
         "INSERT INTO feed_user_proposal_authors(proposal_id,github_id,profile_version) SELECT id,?,? FROM feed_user_tag_proposals WHERE id=? ON CONFLICT(proposal_id) DO NOTHING",
@@ -83,7 +80,7 @@ export class FeedCommands extends FeedStore {
       this.sql(
         `INSERT INTO feed_user_tag_preferences(github_id,tag_id,value,source,strength,taxonomy_version,updated_at)
         SELECT ?,t.tag_id,1,'behavior',MIN(0.6,SUM(CASE s.signal WHEN 'saved' THEN 0.3 WHEN 'outbound' THEN 0.1 ELSE 0.05 END * t.weight)),MAX(t.taxonomy_version),?
-        FROM feed_behavior_signals s JOIN feed_project_tags t ON t.repo_key=s.repo_key JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical'
+        FROM feed_behavior_signals s JOIN feed_project_tags t ON t.repo_key=s.repo_key JOIN feed_projects p ON p.repo_key=t.repo_key AND p.analysis_id=t.analysis_id JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active')
         WHERE s.github_id=? GROUP BY t.tag_id`,
         githubId,
         now,
@@ -109,8 +106,8 @@ export class FeedCommands extends FeedStore {
         payload:
           "CASE WHEN NOT EXISTS(SELECT 1 FROM feed_runtime_requests WHERE id=? AND (payload_hash<>? OR github_id<>?)) THEN 1 ELSE 0 END",
         payloadValues: [input.id, input.payloadHash, id],
-        relation: `CASE WHEN (SELECT COUNT(*) FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT json_extract(value,'$.project.repoKey') FROM json_each(?)))=? THEN 1 ELSE 0 END`,
-        relationValues: [id, id, items, input.items.length],
+        relation: `CASE WHEN (SELECT COUNT(*) FROM json_each(?) expected CROSS JOIN feed_projects p ON p.repo_key=json_extract(expected.value,'$.project.repoKey') WHERE ${this.eligible()} AND json_extract(expected.value,'$.project.analysisId')=p.analysis_id AND json_extract(expected.value,'$.project.sourceHash')=p.source_hash)=? THEN 1 ELSE 0 END`,
+        relationValues: [items, id, id, input.items.length],
       }),
       this.sql(
         `INSERT INTO feed_runtime_requests(id,github_id,profile_version,taxonomy_version,algorithm_version,payload_hash,seed,candidate_counts_json,degraded_json,duration_ms,created_at)
@@ -163,6 +160,7 @@ export class FeedCommands extends FeedStore {
     const eventId = `state_${command}`;
     await this.batch([
       this.guard(command, input, input.githubId, {
+        taxonomyRequestIds: [input.requestId],
         relation: this.relation(),
         relationValues: [
           input.requestId,
@@ -289,6 +287,7 @@ export class FeedCommands extends FeedStore {
     const encoded = JSON.stringify(events);
     const result = await this.batch([
       this.guard(command, input, input.githubId, {
+        taxonomyRequestIds: events.map((event) => event.requestId),
         relation: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON r.id=s.request_id WHERE r.id=json_extract(e.value,'$.requestId') AND r.github_id=? AND r.profile_version<=? AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=r.github_id),0) AND s.repo_key=json_extract(e.value,'$.repoKey') AND s.rank=json_extract(e.value,'$.rank') AND s.algorithm_version=json_extract(e.value,'$.algorithmVersion'))) THEN 1 ELSE 0 END`,
         relationValues: [encoded, input.githubId, input.expectedProfileVersion],
         payload: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) j JOIN feed_runtime_events e ON e.id=json_extract(j.value,'$.id') WHERE e.github_id<>? OR e.payload_hash<>json_extract(j.value,'$.hash')) THEN 1 ELSE 0 END`,
@@ -370,7 +369,7 @@ export class FeedCommands extends FeedStore {
   }
   async getSession(input: Input<"sessions.get">) {
     const rows = await this.rows<{ payload_json: string }>(
-      "SELECT s.payload_json FROM feed_runtime_sessions s JOIN feed_users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=? AND s.github_id=? AND s.expires_at>?",
+      "SELECT s.payload_json FROM feed_runtime_sessions s JOIN feed_users u ON u.github_id=s.github_id AND u.profile_version=s.profile_version WHERE s.id=? AND s.github_id=? AND s.expires_at>? AND json_extract(s.payload_json,'$.taxonomyVersion')=(SELECT version FROM feed_taxonomy_versions WHERE status='active')",
       input.id,
       input.githubId,
       Date.now(),

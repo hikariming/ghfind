@@ -166,7 +166,7 @@ func (s *CFFeedStore) AvailableFeedRepoKeys(ctx context.Context, id int64, keys 
 	if len(keys) > 240 {
 		return nil, errors.New("too many keys")
 	}
-	err := s.call(ctx, "projects.available", FeedBridgeAvailableRequest{id, keys}, &out)
+	err := s.call(ctx, "projects.available", FeedBridgeAvailableRequest{GitHubID: id, RepoKeys: keys}, &out)
 	return out.Available, err
 }
 func (s *CFFeedStore) SaveFeedRequest(ctx context.Context, r FeedRequestRecord) error {
@@ -218,6 +218,11 @@ func (s *CFFeedStore) DeleteFeedProfile(ctx context.Context, id int64, now time.
 func (s *CFFeedStore) GetFeedDeletion(ctx context.Context, id int64, deletionID string) (FeedBridgeDeleteResponse, error) {
 	var out FeedBridgeDeleteResponse
 	err := s.call(ctx, "profile.deletion.get", FeedBridgeDeletionRequest{id, deletionID}, &out)
+	// D1's durable transport state is pending; the public cross-profile contract
+	// calls an accepted deletion queued until cleanup is running.
+	if err == nil && out.Status == "pending" {
+		out.Status = "queued"
+	}
 	return out, err
 }
 func (s *CFFeedStore) PutFeedSession(ctx context.Context, session FeedSession, _ time.Duration) error {

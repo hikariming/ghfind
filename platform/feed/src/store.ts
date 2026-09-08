@@ -1,7 +1,8 @@
 import { BridgeError, type Fence, type Input, type User } from "./contract";
+import { recallTags, type CatalogRow } from "./catalog";
 
 type Value = string | number | null;
-type Row = Record<string, string | number | null>;
+type Row = CatalogRow;
 export class FeedStore {
   constructor(readonly db: D1Database) {}
   sql(query: string, ...values: Value[]) {
@@ -44,6 +45,7 @@ export class FeedStore {
       allowAbsent?: boolean;
       ensure?: boolean;
       taxonomy?: number;
+      taxonomyRequestIds?: string[];
       relation?: string;
       relationValues?: Value[];
       payload?: string;
@@ -56,9 +58,11 @@ export class FeedStore {
         ? "CASE WHEN COALESCE((SELECT profile_version FROM feed_users WHERE github_id=?),0)=? THEN 1 ELSE 0 END"
         : "CASE WHEN EXISTS(SELECT 1 FROM feed_users WHERE github_id=? AND profile_version=?) THEN 1 ELSE 0 END";
     const taxonomy =
-      options.taxonomy === undefined
-        ? "1"
-        : "CASE WHEN (SELECT version FROM feed_taxonomy_versions WHERE status='active')=? THEN 1 ELSE 0 END";
+      options.taxonomy !== undefined
+        ? "CASE WHEN (SELECT version FROM feed_taxonomy_versions WHERE status='active')=? THEN 1 ELSE 0 END"
+        : options.taxonomyRequestIds !== undefined
+          ? "CASE WHEN EXISTS(SELECT 1 FROM feed_taxonomy_versions WHERE status='active') AND NOT EXISTS(SELECT 1 FROM feed_runtime_requests WHERE github_id=? AND id IN(SELECT value FROM json_each(?)) AND taxonomy_version<>(SELECT version FROM feed_taxonomy_versions WHERE status='active')) THEN 1 ELSE 0 END"
+          : "1";
     return this.sql(
       `INSERT INTO feed_command_guards(id,writer_ok,profile_ok,taxonomy_ok,relation_ok,payload_ok)
       VALUES (?,CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_control WHERE id=1 AND writer_epoch=? AND writes_enabled=1) THEN 1 ELSE 0 END,
@@ -66,7 +70,11 @@ export class FeedStore {
       command,
       fence.writerEpoch,
       ...(options.ensure ? [] : [githubId, fence.expectedProfileVersion]),
-      ...(options.taxonomy === undefined ? [] : [options.taxonomy]),
+      ...(options.taxonomy !== undefined
+        ? [options.taxonomy]
+        : options.taxonomyRequestIds !== undefined
+          ? [githubId, JSON.stringify(options.taxonomyRequestIds)]
+          : []),
       ...(options.relationValues ?? []),
       ...(options.payloadValues ?? []),
     );
@@ -106,14 +114,16 @@ export class FeedStore {
   }
   async user(githubId: number): Promise<User | null> {
     const users = await this.rows<Omit<User, "preferences">>(
-      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,taxonomy_version AS taxonomyVersion,profile_version AS profileVersion,COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=feed_users.github_id),0) AS profileFloor FROM feed_users WHERE github_id=?",
+      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,(SELECT version FROM feed_taxonomy_versions WHERE status='active') AS taxonomyVersion,profile_version AS profileVersion,COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=feed_users.github_id),0) AS profileFloor FROM feed_users WHERE github_id=?",
       githubId,
     );
     if (!users.length) return null;
+    if (!users[0].taxonomyVersion)
+      throw new BridgeError(503, "feed_unavailable");
     const preferences = await this.rows<User["preferences"][number]>(
       `SELECT p.tag_id AS tagId,p.value,p.source,p.strength,p.taxonomy_version AS taxonomyVersion
       FROM feed_user_tag_preferences p JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical'
-      WHERE p.github_id=? AND NOT EXISTS(SELECT 1 FROM feed_user_tag_preferences x WHERE x.github_id=p.github_id AND x.tag_id=p.tag_id
+      WHERE p.github_id=? AND t.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') AND NOT EXISTS(SELECT 1 FROM feed_user_tag_preferences x WHERE x.github_id=p.github_id AND x.tag_id=p.tag_id
         AND CASE x.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END > CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END)
       ORDER BY p.tag_id LIMIT 300`,
       githubId,
@@ -196,15 +206,33 @@ export class FeedStore {
       OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL))
       AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=${alias}.repo_key AND m.removed=1)
       AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=${alias}.repo_key AND s.not_interested=1)
-      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key)`;
+      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key AND t.analysis_id=${alias}.analysis_id)`;
   }
   async available(input: Input<"projects.available">) {
-    const rows = await this.rows<{ repo_key: string }>(
-      `SELECT p.repo_key FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT value FROM json_each(?))`,
-      input.githubId,
-      input.githubId,
-      JSON.stringify(input.repoKeys),
-    );
+    const identities = input.identities;
+    if (
+      identities &&
+      (identities.length !== input.repoKeys.length ||
+        new Set(identities.map((p) => p.repoKey)).size !== identities.length ||
+        new Set(input.repoKeys).size !== input.repoKeys.length ||
+        identities.some((p) => !input.repoKeys.includes(p.repoKey)))
+    )
+      throw new BridgeError(400, "invalid_request");
+    // Drive identity reads from the bounded JSON list, then use the catalog PK.
+    // A correlated EXISTS over the entire published catalog would scan 50k rows.
+    const rows = identities
+      ? await this.rows<{ repo_key: string }>(
+          `SELECT p.repo_key FROM json_each(?) expected CROSS JOIN feed_projects p ON p.repo_key=json_extract(expected.value,'$.repoKey') WHERE ${this.eligible()} AND json_extract(expected.value,'$.analysisId')=p.analysis_id AND json_extract(expected.value,'$.sourceHash')=p.source_hash`,
+          JSON.stringify(identities),
+          input.githubId,
+          input.githubId,
+        )
+      : await this.rows<{ repo_key: string }>(
+          `SELECT p.repo_key FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT value FROM json_each(?))`,
+          input.githubId,
+          input.githubId,
+          JSON.stringify(input.repoKeys),
+        );
     return {
       available: Object.fromEntries(rows.map((p) => [p.repo_key, true])),
     };
@@ -214,15 +242,11 @@ export class FeedStore {
     if (!actor) throw new BridgeError(409, "profile_version_changed");
     const params: Value[] = [input.githubId, input.githubId];
     const base = `SELECT p.* FROM feed_projects p WHERE ${this.eligible()}`;
-    const positive = JSON.stringify(
-      actor.preferences.filter((p) => p.value > 0).map((p) => p.tagId),
-    );
+    const positive = actor.preferences
+      .filter((p) => p.value > 0)
+      .map((p) => p.tagId);
     const recalled = await Promise.all([
-      this.rows(
-        `${base} AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.tag_id IN(SELECT value FROM json_each(?))) ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80`,
-        ...params,
-        positive,
-      ),
+      recallTags(this.db, this.eligible(), input.githubId, positive),
       this.rows(
         `${base} ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40`,
         ...params,
@@ -250,7 +274,7 @@ export class FeedStore {
       keys = JSON.stringify(selected.map((v) => v.row.repo_key));
     const [tags, seen] = await Promise.all([
       this.rows(
-        `SELECT p.repo_key,t.id,t.namespace,t.slug,t.label_zh AS labelZh,t.label_en AS labelEn,t.description,p.weight,p.confidence,p.taxonomy_version AS taxonomyVersion FROM feed_project_tags p JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical' WHERE p.repo_key IN(SELECT value FROM json_each(?)) ORDER BY p.repo_key,t.id`,
+        `SELECT p.repo_key,t.id,t.namespace,t.slug,t.label_zh AS labelZh,t.label_en AS labelEn,t.description,p.weight,p.confidence,p.taxonomy_version AS taxonomyVersion FROM feed_project_tags p JOIN feed_projects current ON current.repo_key=p.repo_key AND current.analysis_id=p.analysis_id JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical' AND t.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') WHERE p.repo_key IN(SELECT value FROM json_each(?)) ORDER BY p.repo_key,t.id`,
         keys,
       ),
       this.rows<{ repo_key: string; seen_at: number }>(
@@ -290,7 +314,16 @@ export class FeedStore {
             0,
           ) / weight
         : null;
+      if (
+        typeof r.analysis_id !== "string" ||
+        !r.analysis_id ||
+        typeof r.source_hash !== "string" ||
+        !r.source_hash
+      )
+        throw new BridgeError(409, "catalog_changed");
       const project = {
+        analysisId: r.analysis_id,
+        sourceHash: r.source_hash,
         repoKey: r.repo_key,
         itemId: String(r.repo_key).replace("/", ":"),
         ownerLogin: r.owner_login,
