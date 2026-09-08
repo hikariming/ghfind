@@ -1,0 +1,78 @@
+{
+  "sourceSha": "a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e",
+  "imageId": "sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f",
+  "startedAt": "2026-09-08T17:26:52.834375+00:00",
+  "requests": [
+    {
+      "label": "minio-live",
+      "at": "2026-09-08T17:26:55.004562+00:00",
+      "origin": "http://127.0.0.1:59005",
+      "path": "/minio/health/live",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Content-Length": "0",
+        "Server": "MinIO",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Vary": "Origin",
+        "X-Amz-Id-2": "dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8",
+        "X-Amz-Request-Id": "18D36889170B4079",
+        "X-Content-Type-Options": "nosniff",
+        "X-Xss-Protection": "1; mode=block",
+        "Date": "Tue, 08 Sep 2026 17:26:55 GMT"
+      },
+      "body": "",
+      "seconds": 0.005622665999999832
+    },
+    {
+      "label": "initial-ready-ghfind-portability-a3-api",
+      "at": "2026-09-08T17:26:56.134629+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:26:56 GMT",
+        "Content-Length": "153"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.06806024999999982
+    }
+  ],
+  "checks": {},
+  "scope": "ordinary Docker synthetic fixture; source is health-only; no OAuth, assessment, queue, Cloudflare, capacity or production evidence",
+  "schema": {
+    "database": "feed_portability_test",
+    "compatibility": {
+      "singleton": true,
+      "min_reader_contract": 1,
+      "max_reader_contract": 1,
+      "min_writer_contract": 2,
+      "max_writer_contract": 2
+    },
+    "migrationCount": 22,
+    "projects": 0,
+    "users": 0,
+    "jobs": 0
+  },
+  "result": "failed",
+  "error": "AssertionError({'label': 'initial-ready-ghfind-portability-a3-api', 'at': '2026-09-08T17:26:56.134629+00:00', 'origin': 'http://127.0.0.1:58085', 'path': '/readyz', 'method': 'GET', 'status': 200, 'headers': {'Cache-Control': 'no-store', 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff', 'Date': 'Tue, 08 Sep 2026 17:26:56 GMT', 'Content-Length': '153'}, 'body': '{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\\n', 'seconds': 0.06806024999999982})",
+  "cleanup": {
+    "at": "2026-09-08T17:26:57.363700+00:00",
+    "containersRemoved": true,
+    "volumeRemoved": true,
+    "networkRemoved": true,
+    "otherGhfindContainers": [
+      "ghfind-feed-api-compatible",
+      "ghfind-feed-api-contract",
+      "ghfind-feed-crossprofile-pg",
+      "ghfind-feed-contract-minio-1",
+      "ghfind-portable-feed-pg-contract"
+    ]
+  },
+  "finishedAt": "2026-09-08T17:26:57.363727+00:00"
+}
