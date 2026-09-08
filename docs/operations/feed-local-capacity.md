@@ -80,3 +80,9 @@ docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v
 This removes the capacity project's own synthetic database volume and MinIO
 container. It does not address backup restoration, which requires a separate
 snapshot/import/replay/fencing exercise.
+
+For bounded CPU diagnosis, run `-phase profile` separately. It sends at most100
+sequential requests over at most90seconds and writes `api-cpu.pprof`; inspect with
+`go tool pprof -top -cum /tmp/ghfind-feed-capacity /tmp/feed-capacity-report/api-cpu.pprof`.
+This is a diagnostic sample, not another ten-minute acceptance run. Keep the
+binary used for the profile until it has been inspected.
