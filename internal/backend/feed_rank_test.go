@@ -168,3 +168,86 @@ func TestMergeGorseCandidatesCapsExclusiveSourceAtTwentyFivePercent(t *testing.T
 		t.Fatalf("Gorse candidates=%d, expected 60", exclusive)
 	}
 }
+
+// Equal, independent candidates give a closed-form golden distribution:
+// best=(1-epsilon)+epsilon/n, every other candidate=epsilon/n.
+func TestPortableConditionalPropensityGolden(t *testing.T) {
+	now := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
+	candidates := []FeedCandidate{}
+	for _, owner := range []string{"a", "b", "c"} {
+		candidates = append(candidates, feedCandidate(owner+"/repo", owner, 80, 90, "low", now))
+	}
+	sawExploreBest, sawExploreOther, sawExploit := false, false, false
+	for seed := 0; seed < 256; seed++ {
+		ranked := RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 3, Seed: fmt.Sprintf("golden-%d", seed), OwnerCap: 2, ExplorationRate: .1, ExplorationWindowSize: 20})
+		remaining := []string{"a/repo", "b/repo", "c/repo"}
+		explored := 0
+		for _, item := range ranked {
+			n := len(remaining)
+			best := item.Project.RepoKey == remaining[0]
+			expected := 1.0
+			if explored < 2 {
+				expected = .1 / float64(n)
+				if best {
+					expected += .9
+				}
+				if math.Abs((.9+.1/float64(n))+float64(n-1)*.1/float64(n)-1) > 1e-12 {
+					t.Fatal("golden distribution mass")
+				}
+			} else if !best {
+				t.Fatal("exhausted quota selected nondeterministic item")
+			}
+			if math.Abs(item.Propensity-expected) > 1e-12 {
+				t.Fatalf("seed%d n%d best%v propensity%.15f want%.15f", seed, n, best, item.Propensity, expected)
+			}
+			if item.Exploration {
+				explored++
+				if best {
+					sawExploreBest = true
+				} else {
+					sawExploreOther = true
+				}
+			} else {
+				sawExploit = true
+			}
+			for i, key := range remaining {
+				if key == item.Project.RepoKey {
+					remaining = append(remaining[:i], remaining[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+	if !sawExploreBest || !sawExploreOther || !sawExploit {
+		t.Fatal("golden fixtures missed a mixture branch")
+	}
+}
+
+func TestPortableRollingExplorationBudgetAndDeterministicProbability(t *testing.T) {
+	now := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
+	candidates := []FeedCandidate{}
+	for i := 0; i < 65; i++ {
+		owner := fmt.Sprintf("golden-%02d", i)
+		candidates = append(candidates, feedCandidate(owner+"/repo", owner, 80, 90, "low", now))
+	}
+	ranked := RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 65, Seed: "rolling-golden", OwnerCap: 2, ExplorationRate: 1, ExplorationWindowSize: 20})
+	for i, item := range ranked {
+		explored := 0
+		for _, previous := range ranked[maxInt(0, i-19):i] {
+			if previous.Exploration {
+				explored++
+			}
+		}
+		if explored >= 2 {
+			if item.Exploration || item.Propensity != 1 {
+				t.Fatalf("exhausted rolling budget position%d %+v", i, item)
+			}
+		} else {
+			// Exploration uses the bounded top-50 pool, including its best candidate.
+			expected := 1 / float64(minInt(50, len(ranked)-i))
+			if !item.Exploration || math.Abs(item.Propensity-expected) > 1e-12 {
+				t.Fatalf("rolling mixture position%d propensity%f want%f", i, item.Propensity, expected)
+			}
+		}
+	}
+}

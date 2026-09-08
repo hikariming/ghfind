@@ -80,6 +80,8 @@ func (s *CFFeedStore) callPath(ctx context.Context, path string, input, output a
 			return ErrFeedJobLease
 		case "writer_epoch_changed":
 			return ErrFeedWriterEpoch
+		case "catalog_changed":
+			return ErrFeedCatalogChanged
 		case "profile_version_changed":
 			return ErrFeedProfileChanged
 		case "event_id_conflict":
@@ -178,7 +180,11 @@ func (s *CFFeedStore) SaveFeedRequest(ctx context.Context, r FeedRequestRecord) 
 	}
 	hash := sha256.Sum256(encoded)
 	in.PayloadHash = fmt.Sprintf("%x", hash)
-	return s.call(ctx, "requests.save", in, nil)
+	err = s.call(ctx, "requests.save", in, nil)
+	if errors.Is(err, ErrFeedProjectNotFound) {
+		return ErrFeedCatalogChanged
+	}
+	return err
 }
 func (s *CFFeedStore) SetFeedProjectState(ctx context.Context, id int64, key string, p FeedStatePatch, now time.Time) (FeedProjectState, error) {
 	var out FeedProjectState
