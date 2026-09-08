@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { SCHEMA_9 as SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA_11 as SCHEMA } from "./feed-snapshot-schema.mjs";
 import {
   canonical,
   digest,
@@ -34,6 +34,7 @@ export const LOCAL_PLAN = Object.freeze({
   schemaVersion: SCHEMA.schemaVersion,
   runtimeControlSchemaVersion: SCHEMA.runtimeControlSchemaVersion,
   contractVersion: 1,
+  writerContractVersion: SCHEMA.writerContractVersion,
   tables: names.length,
   columns: Object.values(SCHEMA.tables).reduce(
     (n, v) => n + Object.keys(v.columns).length,
@@ -73,7 +74,7 @@ function exact(value, keys, code) {
   );
 }
 // The migration hashes are pinned before parsing. This parser supports the SQL
-// used by the pinned 0001–0009 migration set; triggers and explicit transaction blocks are not accepted.
+// used by the pinned 0001–0011 migration set; triggers and explicit transaction blocks are not accepted.
 export function splitPinnedSQL(sql) {
   const statements = [];
   let current = "",
@@ -404,6 +405,259 @@ async function seedGovernance(runtime) {
   assert.equal(lazyUser.preferences[0].taxonomyVersion, 1);
   return { receipt, command, lazyUser };
 }
+async function seedUserProposals(runtime) {
+  const { user } = await runtime.bridge("users.ensure", {
+    writerEpoch: 1,
+    expectedProfileVersion: 0,
+    githubId: 202,
+    login: "local-fixture-202",
+    avatarUrl: "",
+  });
+  const inputs = ["pending", "approved"].map((kind) => ({
+    writerEpoch: 1,
+    expectedProfileVersion: user.profileVersion,
+    githubId: 202,
+    id: randomUUID(),
+    repoKey: "snapshot-owner/repo",
+    namespace: "artifact",
+    slug: `local-private-${kind}`,
+    labelZh: `私密提议${kind}`,
+    labelEn: `Private local ${kind}`,
+    evidence: [`synthetic-private-${kind}`],
+  }));
+  const proposals = [];
+  for (const input of inputs)
+    proposals.push(await runtime.bridge("taxonomy.propose", input));
+  const command = {
+    proposalKind: "user",
+    proposalId: proposals[1].proposalId,
+    commandId: randomUUID(),
+    writerEpoch: 1,
+    expectedTaxonomyVersion: 2,
+    expectedAnalysisId: "snapshot-analysis",
+    action: "map",
+    operator: "local-synthetic-reviewer",
+    reason: "Individual synthetic user proposal review",
+    canonicalTagId: "artifact:micro-tool",
+    assignment: { weight: 0.4, confidence: 0.8 },
+  };
+  const receipt = await runtime.governance("review", command);
+  assert.equal(receipt.taxonomyVersion, 3);
+  return { inputs, proposals, command, receipt };
+}
+function proposalRows(rows, privacy) {
+  const ids = new Set(privacy.proposals.map((p) => p.proposalId));
+  return rows
+    .filter(
+      ({ table, row }) =>
+        table === "feed_user_tag_proposals" && ids.has(row.id),
+    )
+    .map((v) => v.row);
+}
+async function checkDeletedProposals(runtime, privacy) {
+  for (const proposal of privacy.proposals) {
+    assert.equal(
+      (
+        await runtime.governance("proposal", {
+          proposalKind: "user",
+          proposalId: proposal.proposalId,
+        })
+      ).proposal,
+      null,
+    );
+    const failure = await runtime.governance(
+      "review",
+      {
+        ...privacy.command,
+        proposalId: proposal.proposalId,
+        expectedTaxonomyVersion: 3,
+        commandId: randomUUID(),
+      },
+      { status: 409 },
+    );
+    assert.equal(failure.error, "governance_proposal_deleted");
+  }
+  await runtime.local("gate", { closed: true });
+  const before = await collect(runtime);
+  assert.deepEqual(
+    await runtime.governance("review", privacy.command),
+    privacy.receipt,
+  );
+  compareRows(
+    before,
+    await collect(runtime),
+    "deleted proposal exact governance retry",
+  );
+  await runtime.local("gate", { closed: false });
+}
+async function runBoundedCleanup(runtime, count) {
+  let invocations = 0,
+    steps = 0,
+    processed = 0;
+  const completed = new Set();
+  for (
+    let invocation = 0;
+    invocation < 6 && completed.size < count;
+    invocation++
+  ) {
+    const leaseOwner = randomUUID();
+    const lease = await runtime.cleanup("claim", {
+      writerEpoch: 1,
+      leaseOwner,
+      leaseSeconds: 90,
+    });
+    assert.equal(lease.status, "leased");
+    invocations++;
+    const input = { writerEpoch: 1, deletionId: lease.deletionId, leaseOwner };
+    let done = false;
+    for (let step = 0; step < 8; step++) {
+      const result = await runtime.cleanup("step", input);
+      assert.ok(result.processed >= 0 && result.processed <= 100);
+      processed += result.processed;
+      steps++;
+      if (result.status === "completed") {
+        completed.add(lease.deletionId);
+        done = true;
+        break;
+      }
+    }
+    if (!done) await runtime.cleanup("release", input);
+  }
+  assert.equal(
+    completed.size,
+    count,
+    "bounded empty-local-R2 cleanup completes the expected synthetic deletions",
+  );
+  return { invocations, steps, processed };
+}
+async function cleanupPrivacy(runtime, privacy) {
+  const { user: fresh } = await runtime.bridge("users.get", { githubId: 202 });
+  const repeat = {
+    ...privacy.inputs[0],
+    expectedProfileVersion: fresh.profileVersion,
+  };
+  assert.equal(
+    (await runtime.bridge("taxonomy.propose", repeat, { status: 409 })).error,
+    "proposal_id_conflict",
+  );
+  const freshInput = {
+    ...repeat,
+    id: randomUUID(),
+    slug: "local-fresh-private",
+    labelZh: "新代际",
+    labelEn: "Fresh private proposal",
+    evidence: ["synthetic-fresh-generation"],
+  };
+  const freshProposal = await runtime.bridge("taxonomy.propose", freshInput);
+  const { invocations, steps, processed } = await runBoundedCleanup(runtime, 1);
+  assert.equal(
+    (await runtime.bridge("taxonomy.propose", repeat, { status: 409 })).error,
+    "proposal_id_conflict",
+  );
+  await checkDeletedProposals(runtime, privacy);
+  assert.equal(
+    (
+      await runtime.governance("proposal", {
+        proposalKind: "user",
+        proposalId: freshProposal.proposalId,
+      })
+    ).proposal.slug,
+    freshInput.slug,
+  );
+  await runtime.local("gate", { closed: true });
+  const after = await collect(runtime);
+  const erased = proposalRows(after, privacy);
+  assert.equal(erased.length, 2);
+  for (const row of erased) {
+    assert.equal(row.slug, "deleted-proposal");
+    assert.equal(row.label_zh, "");
+    assert.equal(row.label_en, "Deleted proposal");
+    assert.equal(row.evidence_json, "[]");
+  }
+  const ids = new Set(privacy.proposals.map((p) => p.proposalId));
+  const oldCommands = after.filter(
+    ({ table, row }) =>
+      table === "feed_tag_proposal_commands" &&
+      privacy.inputs.some((v) => v.id === row.command_id),
+  );
+  assert.equal(oldCommands.length, 2);
+  for (const { row } of oldCommands) {
+    assert.equal(row.proposal_id, "");
+    assert.equal(row.payload_hash, "deleted");
+    assert.equal(row.created_at, 0);
+    assert.ok(row.profile_version < fresh.profileVersion);
+  }
+  assert.equal(
+    after.filter(
+      ({ table, row }) =>
+        table === "feed_user_proposal_authors" && ids.has(row.proposal_id),
+    ).length,
+    0,
+  );
+  const assignment = after.find(
+    ({ table, row }) =>
+      table === "feed_project_tags" &&
+      row.origin_proposal_id === privacy.proposals[1].proposalId,
+  )?.row;
+  assert.ok(assignment);
+  assert.equal(assignment.evidence_json, "[]");
+  assert.equal(assignment.tag_id, "artifact:micro-tool");
+  assert.equal(assignment.weight, 0.4);
+  assert.equal(assignment.confidence, 0.8);
+  assert.equal(
+    after.filter(
+      ({ table, row }) =>
+        table === "feed_user_proposal_authors" &&
+        row.proposal_id === freshProposal.proposalId &&
+        row.profile_version === fresh.profileVersion,
+    ).length,
+    1,
+  );
+  for (const id of [202, 303]) {
+    const deletion = after.find(
+      ({ table, row }) =>
+        table === "feed_profile_deletions" && row.github_id === id,
+    )?.row;
+    assert.equal(deletion?.primary_complete, 1);
+    assert.equal(deletion?.archive_complete, 1);
+    assert.equal(deletion?.semantic_complete, 1);
+    assert.equal(deletion?.status, "completed");
+  }
+  const quarantine = await runtime.local("quarantine");
+  assert.equal(
+    quarantine.retained_body_proposals,
+    1,
+    "unowned legacy body remains quarantined instead of falsely attributed or erased",
+  );
+  assert.equal(
+    after.find(
+      ({ table, row }) =>
+        table === "feed_user_tag_proposals" &&
+        row.id === "local-unowned-proposal",
+    ).row.slug,
+    "unknown-private-body",
+  );
+  return {
+    pendingAndReviewedProposalsRestored: 2,
+    immediateInspectStatus: null,
+    newReviewStatus: 409,
+    exactGovernanceReplayChangedNoRows: true,
+    primaryCleanupCompleted: true,
+    emptyLocalArchiveCleanupCompleted: true,
+    realR2ObjectRestoreVerified: false,
+    invocations,
+    steps,
+    processed,
+    erasedProposalBodies: 2,
+    minimalCommandTombstones: 2,
+    removedOldAuthors: 2,
+    freshGenerationProposalPreserved: true,
+    publicCanonicalAssignmentPreserved: true,
+    assignmentEvidenceErased: true,
+    quarantine,
+    promotionReady: false,
+  };
+}
 async function seedUsers(runtime) {
   const actors = {};
   for (const githubId of [101, 202, 303]) {
@@ -523,6 +777,19 @@ async function seedUsers(runtime) {
     });
     actors[githubId] = { user, sessionId, event };
   }
+  actors[303].proposalCommandId = randomUUID();
+  actors[303].proposal = await runtime.bridge("taxonomy.propose", {
+    writerEpoch: 1,
+    expectedProfileVersion: actors[303].user.profileVersion,
+    githubId: 303,
+    id: actors[303].proposalCommandId,
+    repoKey: "snapshot-owner/repo",
+    namespace: "artifact",
+    slug: "local-prior-deleted-private",
+    labelZh: "备份前删除",
+    labelEn: "Deleted before backup",
+    evidence: ["synthetic-prior-deleted-body"],
+  });
   await runtime.bridge("profile.delete", {
     writerEpoch: 1,
     expectedProfileVersion: actors[303].user.profileVersion,
@@ -595,7 +862,8 @@ export async function runLocalDrill() {
     async function startRuntime(role) {
       const token = randomBytes(32).toString("hex"),
         bridge = randomBytes(32).toString("hex"),
-        operator = randomBytes(32).toString("hex");
+        operator = randomBytes(32).toString("hex"),
+        executor = randomBytes(32).toString("hex");
       const root = join(directory, role);
       await mkdir(root, { mode: 0o700 });
       const mf = new Miniflare(
@@ -612,6 +880,7 @@ export async function runLocalDrill() {
             LOCAL_TOKEN: token,
             FEED_BRIDGE_SECRET: bridge,
             FEED_OPERATOR_SECRET: operator,
+            FEED_EXECUTOR_SECRET: executor,
             FEED_SEMANTIC_STATE: "disabled",
           },
           resourcePersistencePath: join(root, "storage"),
@@ -650,7 +919,7 @@ export async function runLocalDrill() {
           headers: {
             "content-type": "application/json",
             "x-local-drill-token": badToken ? "invalid" : token,
-            authorization: `Bearer ${path.startsWith("/internal/feed/governance/v1/") ? operator : bridge}`,
+            authorization: `Bearer ${path.startsWith("/internal/feed/governance/v1/") ? operator : path.startsWith("/internal/feed/cleanup/v1/") ? executor : bridge}`,
             "x-feed-contract": "1",
           },
           body: JSON.stringify(data),
@@ -669,6 +938,8 @@ export async function runLocalDrill() {
           request(`/__local/${op}`, data, options),
         bridge: (op, data, options) =>
           request(`/internal/feed/v1/${op}`, data, options),
+        cleanup: (op, data, options) =>
+          request(`/internal/feed/cleanup/v1/${op}`, data, options),
         governance: (op, data, options) =>
           request(`/internal/feed/governance/v1/${op}`, data, options),
       };
@@ -687,12 +958,34 @@ export async function runLocalDrill() {
     await source.local("arbitrary-sql", { sql: "SELECT 1" }, { status: 400 });
     await source.local("seed");
     const governance = await seedGovernance(source);
+    const privacy = await seedUserProposals(source);
+    governance.lazyUser = (
+      await source.bridge("users.get", { githubId: 404 })
+    ).user;
     const actors = await seedUsers(source);
+    const sourceCleanup = await runBoundedCleanup(source, 1);
     const snapshotStart = Date.now();
     await source.local("gate", { closed: true });
     await source.local("export", { table: "sqlite_master" }, { status: 400 });
     const before = await collect(source),
       snapshotEnd = Date.now();
+    const priorCommand = before.find(
+      ({ table, row }) =>
+        table === "feed_tag_proposal_commands" &&
+        row.command_id === actors[303].proposalCommandId,
+    )?.row;
+    assert.ok(priorCommand);
+    assert.equal(priorCommand.proposal_id, "");
+    assert.equal(priorCommand.payload_hash, "deleted");
+    assert.equal(priorCommand.created_at, 0);
+    assert.equal(
+      before.find(
+        ({ table, row }) =>
+          table === "feed_user_tag_proposals" &&
+          row.id === actors[303].proposal.proposalId,
+      )?.row.slug,
+      "deleted-proposal",
+    );
     const lazyUserRow = before.find(
       ({ table, row }) => table === "feed_users" && row.github_id === 404,
     ).row;
@@ -708,7 +1001,32 @@ export async function runLocalDrill() {
     const governanceRows = before.filter(
       ({ table }) => table === "feed_governance_commands",
     );
-    assert.equal(governanceRows.length, 1);
+    assert.equal(governanceRows.length, 2);
+    governanceRows.sort((a, b) =>
+      a.row.command_id === governance.receipt.commandId
+        ? -1
+        : b.row.command_id === governance.receipt.commandId
+          ? 1
+          : 0,
+    );
+    assert.equal(proposalRows(before, privacy).length, 2);
+    const originalAssignment = before.find(
+      ({ table, row }) =>
+        table === "feed_project_tags" &&
+        row.origin_proposal_id === privacy.proposals[1].proposalId,
+    )?.row;
+    assert.equal(
+      originalAssignment?.evidence_json,
+      JSON.stringify([`governance:${privacy.command.commandId}`]),
+    );
+    assert.equal(
+      before.filter(
+        ({ table, row }) =>
+          table === "feed_user_proposal_authors" &&
+          privacy.proposals.some((p) => p.proposalId === row.proposal_id),
+      ).length,
+      2,
+    );
     assert.equal(
       governanceRows[0].row.command_id,
       governance.receipt.commandId,
@@ -866,6 +1184,7 @@ export async function runLocalDrill() {
     // Reopen ONLY this newly created local target to distinguish a profile fence
     // rejection from a closed writer gate rejection. This is not promotion.
     await target.local("gate", { closed: false });
+    await checkDeletedProposals(target, privacy);
     const { user: surviving } = await target.bridge("users.get", {
       githubId: 101,
     });
@@ -968,7 +1287,7 @@ export async function runLocalDrill() {
         freshSeenAt: null,
       });
     }
-    await target.local("gate", { closed: true });
+    const privacyRecovery = await cleanupPrivacy(target, privacy);
     const outdatedOverlay = await target.local(
       "overlay",
       {
@@ -1034,7 +1353,9 @@ export async function runLocalDrill() {
       governance: {
         commandId: governance.receipt.commandId,
         action: governance.receipt.action,
-        activeTaxonomyVersion: governance.receipt.taxonomyVersion,
+        activeTaxonomyVersion: governance.lazyUser.taxonomyVersion,
+        originalAssessmentReceiptTaxonomyVersion:
+          governance.receipt.taxonomyVersion,
         canonicalTagId: governance.receipt.canonicalTagId,
         ledgerRows: governanceRows.length,
         ledgerRowHash: rowRecord(governanceRows[0].table, governanceRows[0].row)
@@ -1047,6 +1368,11 @@ export async function runLocalDrill() {
         storedPreferenceTaxonomyVersion:
           governance.lazyUser.preferences[0].taxonomyVersion,
         profileVersionUnchanged: true,
+      },
+      privacyRecovery: {
+        ...privacyRecovery,
+        priorTombstoneRestored: true,
+        sourceCleanupBeforeBackup: sourceCleanup,
       },
       rows: before.length,
       tableCounts: backup.metadata.inventory,

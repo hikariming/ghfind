@@ -1,7 +1,7 @@
 // Bundled only by feed-snapshot-local.mjs into a fresh loopback Miniflare instance.
 // The imports below are resolved by that builder; this is never a deployed Worker.
 import adapter from "local-drill-adapter";
-import { SCHEMA_9 as SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA_11 as SCHEMA } from "./feed-snapshot-schema.mjs";
 
 const migrations = LOCAL_DRILL_MIGRATIONS;
 const names = Object.keys(SCHEMA.tables).sort();
@@ -22,6 +22,7 @@ const overlayTables = [
 const fixtureActorIds = [101, 202, 303, 404];
 const adapterOperations = new Set([
   "health",
+  "taxonomy.propose",
   "users.ensure",
   "users.get",
   "preferences.replace",
@@ -191,6 +192,12 @@ async function local(op, raw, env) {
       )
       .bind(now, now)
       .run();
+    await db
+      .prepare(
+        "INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-unowned-proposal','snapshot-owner/repo','snapshot-analysis','use_case','unknown-private-body','Unknown author','Unknown historical body','[\"unknown-local-evidence\"]','proposed',?,?)",
+      )
+      .bind(now, now)
+      .run();
     return { synthetic: true };
   }
   if (op === "gate") {
@@ -332,6 +339,16 @@ async function local(op, raw, env) {
     ]);
     return { applied: true, cleanupCompleted: false };
   }
+  if (op === "quarantine") {
+    exact(raw, []);
+    await gate(db, true);
+    return (
+      await rows(
+        db,
+        "SELECT quarantined_proposals,retained_body_proposals FROM feed_user_proposal_quarantine_summary",
+      )
+    )[0];
+  }
   if (op === "integrity") {
     exact(raw, []);
     await gate(db, true);
@@ -363,8 +380,20 @@ const localWorker = {
       if (
         copy.proposalId !== undefined &&
         copy.proposalId !== "local-governance-proposal"
-      )
-        return new Response(null, { status: 403 });
+      ) {
+        const known = await env.FEED_DB.prepare(
+          "SELECT id FROM feed_user_tag_proposals WHERE id=? AND repo_key='snapshot-owner/repo'",
+        )
+          .bind(copy.proposalId)
+          .first();
+        if (copy.proposalKind !== "user" || !known)
+          return new Response(null, { status: 403 });
+      }
+      return adapter.fetch(request, env);
+    }
+    if (
+      /^\/internal\/feed\/cleanup\/v1\/(claim|step|release)$/.test(url.pathname)
+    ) {
       return adapter.fetch(request, env);
     }
     if (url.pathname.startsWith("/internal/feed/v1/")) {
