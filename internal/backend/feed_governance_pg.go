@@ -20,7 +20,7 @@ func govSource(kind string) string {
 	}
 	return "user"
 }
-func readGovProposal(ctx context.Context, q govQuery, input FeedGovernanceTarget, lock bool) (*FeedGovernanceProposal, []byte, error) {
+func readGovProposal(ctx context.Context, q govQuery, input FeedGovernanceTarget, lock, validateEvidence bool) (*FeedGovernanceProposal, []byte, error) {
 	out := &FeedGovernanceProposal{FeedGovernanceTarget: input}
 	var evidence []byte
 	query := `SELECT q.source_ref,q.analysis_id,q.namespace,q.slug,q.label_zh,q.label_en,q.evidence_ids,q.status,q.resolved_by,q.resolution_reason,p.analysis_id,
@@ -37,12 +37,10 @@ func readGovProposal(ctx context.Context, q govQuery, input FeedGovernanceTarget
 	if err != nil {
 		return nil, nil, err
 	}
-	if err = json.Unmarshal(evidence, &out.Evidence); err != nil || out.Evidence == nil || len(out.Evidence) > 64 {
-		return nil, nil, govConflict("governance_evidence_invalid")
-	}
-	for _, e := range out.Evidence {
-		if !govText(e, 0, 256) {
-			return nil, nil, govConflict("governance_evidence_invalid")
+	if validateEvidence {
+		out.Evidence, err = govDecodeEvidence(evidence)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 	return out, evidence, nil
@@ -51,7 +49,7 @@ func (s *PostgresFeedStore) InspectFeedGovernanceProposal(ctx context.Context, i
 	if !validateGovTarget(input) {
 		return nil, govError(400, "invalid_request")
 	}
-	p, _, err := readGovProposal(ctx, s.db, input, false)
+	p, _, err := readGovProposal(ctx, s.db, input, false, true)
 	return p, err
 }
 func readGovCommand(ctx context.Context, q govQuery, id, digest string) (*FeedGovernanceResult, error) {
@@ -147,7 +145,7 @@ func (s *PostgresFeedStore) applyFeedGovernance(ctx context.Context, input FeedG
 	var evidence []byte
 	tagID := input.CanonicalTagID
 	if input.Action != "deprecate" {
-		proposal, evidence, err = readGovProposal(ctx, tx, input.FeedGovernanceTarget, true)
+		proposal, evidence, err = readGovProposal(ctx, tx, input.FeedGovernanceTarget, true, input.Action != "reject")
 		if err != nil {
 			return out, err
 		}
@@ -306,4 +304,18 @@ func (s *PostgresFeedStore) applyFeedGovernance(ctx context.Context, input FeedG
 		return out, err
 	}
 	return out, tx.Commit()
+}
+
+func govDecodeEvidence(raw []byte) ([]string, error) {
+	var entries []json.RawMessage
+	if !govValidJSONUnicode(raw) || json.Unmarshal(raw, &entries) != nil || entries == nil || len(entries) > 64 {
+		return nil, govConflict("governance_evidence_invalid")
+	}
+	out := make([]string, len(entries))
+	for i, entry := range entries {
+		if len(entry) == 0 || entry[0] != '"' || json.Unmarshal(entry, &out[i]) != nil || !govText(out[i], 0, 256) {
+			return nil, govConflict("governance_evidence_invalid")
+		}
+	}
+	return out, nil
 }
