@@ -87,7 +87,7 @@ const item = z.strictObject({
   candidateSources: strings.min(1),
   reasonCodes: strings,
   score: finite,
-  rank: integer.positive().max(240),
+  rank: integer.min(0).max(239),
   exploration: z.boolean(),
   propensity: finite.gt(0).max(1),
   features,
@@ -127,7 +127,7 @@ const event = z.strictObject({
   }),
   requestId: id,
   metadata: z.strictObject({
-    rank: integer.positive().max(240),
+    rank: integer.min(0).max(239),
     algorithmVersion: id,
     durationMs: integer.nonnegative().max(3600000).optional(),
     qualified: z.boolean().optional(),

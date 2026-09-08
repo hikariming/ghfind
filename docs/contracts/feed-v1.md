@@ -52,6 +52,8 @@ with a dedicated bridge credential. DTOs are defined by
 `internal/backend/feed_bridge_contract.go`. Use explicit private snapshot DTOs:
 public Go fields marked `json:"-"` must not disappear when sessions are persisted.
 Timestamps use RFC3339 UTC; identities and versions must be JSON-safe integers.
+Private item ranks are zero-based snapshot positions (0–239), matching the Go
+ranker, impression token and PostgreSQL constraint. They are not public scores.
 
 The adapter checks persistent writer epoch and expected user profile/deletion
 version for every mutation. Old writers, sessions and delayed messages fail after
