@@ -35,6 +35,10 @@ const eslintConfig = defineConfig([
     // Local-only noise: stale worktrees and scratch scripts (absent in CI).
     ".worktrees/**",
     "tmp/**",
+    "platform/**/worker-configuration.d.ts",
+    "platform/**/dist/**",
+    "platform/**/.wrangler/**",
+    "platform/**/node_modules/**",
   ]),
 ]);
 
