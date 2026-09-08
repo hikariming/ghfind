@@ -19,6 +19,10 @@ func feedRecallPredicates(portable bool) (string, string) {
 	return provenance, preferenceSQL
 }
 
+// Keep current-analysis validation as a correlated primary-key probe before
+// LIMIT. A flattened join scanned/hashed 50k projects and sorted 100k tag rows
+// per request. The project PK makes this EXISTS equivalent to the former join;
+// OFFSET 0 preserves the bounded affinity-index path without changing ordering.
 func feedTagRecallSQL(provenance, preferenceSQL string) string {
 	return `WITH prefs AS MATERIALIZED (
           ` + preferenceSQL + `
@@ -27,8 +31,8 @@ func feedTagRecallSQL(provenance, preferenceSQL string) string {
           FROM prefs pref
           CROSS JOIN LATERAL (
             SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
-            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
             WHERE pt.tag_id=pref.tag_id
+            AND EXISTS(SELECT 1 FROM feed.projects current WHERE current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id OFFSET 0)
             ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
             LIMIT 160
           ) pt
