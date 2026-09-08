@@ -40,3 +40,10 @@ It preserves the created container for inspection. Inspect before removing it.
 
 Not proven: CF cold start p95, production OAuth, assessment execution, task
 recovery, database promotion/restore, application rollback or the 800 ms Feed SLO.
+
+`compatibility.json` records a separate forward-schema drill at 04:12 UTC against
+the same isolated database and unchanged `0c23f3b` image. After applying additive
+migration 0020, readiness stayed 200. Setting the writer compatibility window to
+contract 2 returned 503; restoring contract 1 returned 200. This verifies the old
+binary's readiness fence, not request behavior during a production rollout or a
+database rollback. Migration 0020 belongs to the later recommendation phase.
