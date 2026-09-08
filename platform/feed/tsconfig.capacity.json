@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "resolveJsonModule": true },
+  "include": [
+    "src/**/*.ts",
+    "capacity/**/*.ts",
+    "tests/setup.ts",
+    "worker-configuration.d.ts"
+  ]
+}
