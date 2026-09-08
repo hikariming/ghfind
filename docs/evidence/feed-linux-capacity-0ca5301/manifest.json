@@ -1,0 +1,265 @@
+{
+  "format": "ghfind-feed-linux-capacity-preservation-v1",
+  "scope": "Linux PostgreSQL/pgvector and S3-compatible finite synthetic fixture; not Cloudflare, real OAuth, production or monthly-availability evidence",
+  "repository": "hikariming/ghfind",
+  "releaseSha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "githubRunId": 34264216366,
+  "githubJobId": 102189413636,
+  "githubRunAttempt": 1,
+  "githubArtifactId": 10071579469,
+  "githubArtifactName": "feed-linux-capacity-0ca53012559a512d61a55a5eca373dca2f8f139c-1",
+  "githubArchiveSha256": "d2115cd2b5636ffcba10b63f891f0a192de41621796032ef257356c14e9dfe5c",
+  "downloadedArchiveBytes": 243526,
+  "downloadedArchiveDigestMatchedGithub": true,
+  "downloadedArchiveEntriesMatchedSuppliedInputBytes": true,
+  "originalFileCount": 10,
+  "files": [
+    {
+      "originalName": "binary.sha256",
+      "retainedName": "binary.sha256",
+      "encoding": "identity",
+      "originalBytes": 104,
+      "originalSha256": "7b4992e916b670fa1b94657c747351d3e0dab841b5ef7ae2f91da80598ed9f99",
+      "retainedBytes": 104,
+      "retainedSha256": "7b4992e916b670fa1b94657c747351d3e0dab841b5ef7ae2f91da80598ed9f99"
+    },
+    {
+      "originalName": "containers.txt",
+      "retainedName": "containers.txt",
+      "encoding": "identity",
+      "originalBytes": 271,
+      "originalSha256": "a86bd458ed8e4912c4dbf9c2964c5f4423c11be3edc84355f168f0d06807a4d0",
+      "retainedBytes": 271,
+      "retainedSha256": "a86bd458ed8e4912c4dbf9c2964c5f4423c11be3edc84355f168f0d06807a4d0"
+    },
+    {
+      "originalName": "delete.json",
+      "retainedName": "delete.json",
+      "encoding": "identity",
+      "originalBytes": 1937,
+      "originalSha256": "4db51ce1fab443b2dfff4b1dd793743fc3284f00f90a9834b6aef9bb23afd65c",
+      "retainedBytes": 1937,
+      "retainedSha256": "4db51ce1fab443b2dfff4b1dd793743fc3284f00f90a9834b6aef9bb23afd65c"
+    },
+    {
+      "originalName": "external-resources.jsonl",
+      "retainedName": "external-resources.jsonl.gz",
+      "encoding": "gzip",
+      "originalBytes": 1935332,
+      "originalSha256": "5eac570fbbe52d168cf936ab536941e50e5ae95d73b8cb0058fd23ee2dcca2c2",
+      "retainedBytes": 75034,
+      "retainedSha256": "e1d9a4c9d917320312441ccd96ad5b853b7af36b1c863188046085624f502145"
+    },
+    {
+      "originalName": "fixture.json",
+      "retainedName": "fixture.json",
+      "encoding": "identity",
+      "originalBytes": 444,
+      "originalSha256": "cc29df96bc593d3f34527f3b332ecdb3687a965f6b9bc3b7650ca932a823429c",
+      "retainedBytes": 444,
+      "retainedSha256": "cc29df96bc593d3f34527f3b332ecdb3687a965f6b9bc3b7650ca932a823429c"
+    },
+    {
+      "originalName": "gate.json",
+      "retainedName": "gate.json",
+      "encoding": "identity",
+      "originalBytes": 4890,
+      "originalSha256": "87e05c18d50376516d966c8610d5993fc2aab806cb250be869345e540697fc89",
+      "retainedBytes": 4890,
+      "retainedSha256": "87e05c18d50376516d966c8610d5993fc2aab806cb250be869345e540697fc89"
+    },
+    {
+      "originalName": "go-version.txt",
+      "retainedName": "go-version.txt",
+      "encoding": "identity",
+      "originalBytes": 32,
+      "originalSha256": "9a7036e247707dbe4ae2c4ba17fcef8bc438f0093fa60ee68ab7d8de04778c28",
+      "retainedBytes": 32,
+      "retainedSha256": "9a7036e247707dbe4ae2c4ba17fcef8bc438f0093fa60ee68ab7d8de04778c28"
+    },
+    {
+      "originalName": "load.json",
+      "retainedName": "load.json.gz",
+      "encoding": "gzip",
+      "originalBytes": 1781292,
+      "originalSha256": "0d267a7b60c275cc5d038b173194722136cda8b1aa278090848c4765ededeca9",
+      "retainedBytes": 151246,
+      "retainedSha256": "2130b8fd4e279a4a4ab2813bb107b1bf409a2e1ff9455308dab4561cbb9793ac"
+    },
+    {
+      "originalName": "runner-cpu.txt",
+      "retainedName": "runner-cpu.txt",
+      "encoding": "identity",
+      "originalBytes": 3189,
+      "originalSha256": "4476e601951bb5e5dc85ca4b9d2e3bc795bb83c0d4e62b8d9f2bdec6659b0e7a",
+      "retainedBytes": 3189,
+      "retainedSha256": "4476e601951bb5e5dc85ca4b9d2e3bc795bb83c0d4e62b8d9f2bdec6659b0e7a"
+    },
+    {
+      "originalName": "runner-memory.txt",
+      "retainedName": "runner-memory.txt",
+      "encoding": "identity",
+      "originalBytes": 207,
+      "originalSha256": "4e5cd91e4de26d69f8058d0c682d0418d2eb48ac2bb2359a8199df7242035dc9",
+      "retainedBytes": 207,
+      "retainedSha256": "4e5cd91e4de26d69f8058d0c682d0418d2eb48ac2bb2359a8199df7242035dc9"
+    }
+  ],
+  "compression": {
+    "files": [
+      "load.json",
+      "external-resources.jsonl"
+    ],
+    "level": 9,
+    "mtime": 0,
+    "filenameHeader": "",
+    "roundTripByteEqualityVerified": true
+  },
+  "selectedReproducibilityInputs": [
+    {
+      "path": ".github/workflows/feed-capacity.yml",
+      "gitBlobId": "173d250167af9f2111e06a7e1d92aa8dcb0c6a26",
+      "sha256": "a34c5361a7e8a5a64c36ac5256a1bc6503721df280b78695e37b7ad755807cfa"
+    },
+    {
+      "path": "cmd/feed-capacity/deletion.go",
+      "gitBlobId": "675f5e789fd6cdec3896198a2ae8790bc915492a",
+      "sha256": "bed5328d8723f038bfc852d1ce354da90cfc7245f127b3188f7e05a7785bceb6"
+    },
+    {
+      "path": "cmd/feed-capacity/diagnose.go",
+      "gitBlobId": "a5b070aac0891583271e40b2ce89681c1cb37b12",
+      "sha256": "ed96561bbd38bd2bbcabe51c4000575cde80026aee363f30f03b3570169f8de1"
+    },
+    {
+      "path": "cmd/feed-capacity/main.go",
+      "gitBlobId": "100a25b3d2cbd6edb2c2ccf269f9ffcf9512c075",
+      "sha256": "162aff91b13166548b5766720bfd1763b54f449dc15cfa10e2c7c7f7f3c532c6"
+    },
+    {
+      "path": "cmd/feed-capacity/main_test.go",
+      "gitBlobId": "22ca520ae0744cb2cfafaab08c461c2cca3789f9",
+      "sha256": "11b996ab51b03444a3466e78e29183086f9abb089f1c6dd212a27b7c9f93cb7a"
+    },
+    {
+      "path": "cmd/feed-capacity/observe.go",
+      "gitBlobId": "1a11c7866b48f9213689b6f87e1bed7e7af17f6c",
+      "sha256": "0786de563459f200392ddbe16a15892392342ea73ccb21e5118aaa674263a08a"
+    },
+    {
+      "path": "cmd/feed-capacity/plans.go",
+      "gitBlobId": "bd026746ff7191faa4753f09dab27d25f7028f4b",
+      "sha256": "1bf5fd28deacefcb129e99f639c8b03c218636894ced79904f0ed49393528077"
+    },
+    {
+      "path": "cmd/feed-capacity/profile.go",
+      "gitBlobId": "e5e9a806598a04c5793132b00bbd699e6e9ebe4a",
+      "sha256": "2f142522cc65f8443abdc872df962d33efcda88295ad12ced2fbb0b1fe7dab80"
+    },
+    {
+      "path": "cmd/feed-capacity/s3_failure.go",
+      "gitBlobId": "fb49a6215d2fb341eff202b5ec02476565ab2d24",
+      "sha256": "618796fca1c531e0496045d0edd5a114d09aae9b8fa51bb5b6bdf19728d977c4"
+    },
+    {
+      "path": "cmd/feed-capacity/s3_failure_test.go",
+      "gitBlobId": "81c17ca0180e3cb7bfd90246a31a2db788c21ab2",
+      "sha256": "cc404be0d64e77d67352f019d57240d4c60636c6af27c668d855b9ac5c80ea3b"
+    },
+    {
+      "path": "cmd/feed-capacity/seed.sql",
+      "gitBlobId": "ff4b623f7518c41f061ff1d07f59cb7096e145c5",
+      "sha256": "14ad3f1aad6573b618a6546569dc965daf114c25f1c3bf62431037a596e07678"
+    },
+    {
+      "path": "go.mod",
+      "gitBlobId": "c3358f020b4d364d1034807d04589471a063ad35",
+      "sha256": "7af39c65fc4f1653232d65f1f61332fce249fce0127c3b052cbc758994092ee6"
+    },
+    {
+      "path": "go.sum",
+      "gitBlobId": "dcfb425b7ff2e96f751adf53dc96e931b2e300dd",
+      "sha256": "bd01fd4f14e9e16765325787a8ac1efbab9238202cabea71880a39c00a7d281b"
+    },
+    {
+      "path": "internal/backend/feed_candidates_pg.go",
+      "gitBlobId": "da4d402b0e85957e0d967d54d0c42d3f586b607b",
+      "sha256": "9db6b6bd8bfa94fcf600446db55f151b3d8e2b10148029c9557ee3ba3ecc3cbf"
+    },
+    {
+      "path": "internal/backend/feed_snapshot_identity.go",
+      "gitBlobId": "4feca8e6fb19118ed4fb1a82867c875053ca1c57",
+      "sha256": "d6b2e37900a9f7835e337a1d397dcd5e4a412f26611bfcba56f4666f9e354b3a"
+    },
+    {
+      "path": "internal/backend/feed_store.go",
+      "gitBlobId": "04cffaaae3edb2b833eeb1fb4aa59e54b74038eb",
+      "sha256": "ca1b60ca8834c15dd0048b65fca1e0aee62d78ae7ad1f722736ef018f592694d"
+    },
+    {
+      "path": "ops/feed-capacity-compose.yaml",
+      "gitBlobId": "6484280c6a7b115ae060346862b518e0ce86ba9b",
+      "sha256": "9640340bb3142a3d6097beeca6c931b1156e139f343fc669134d816e405007b3"
+    },
+    {
+      "path": "scripts/observe-feed-capacity.py",
+      "gitBlobId": "3d2cb85643161a357277df3bbe751d4bf7e4d540",
+      "sha256": "48d59db4e41737e8da8316c72829fc4e6375265b31d1cd6f189ade844378932f"
+    },
+    {
+      "path": "scripts/test-feed-capacity-verifier.py",
+      "gitBlobId": "e656b35a874b3d9c041b7dc8291777b88fe74ba3",
+      "sha256": "ba4cdd9df67f26c50a43c0d61a4b563dc2032bf9b3dd45fbdfb55bc2eeb5b8b6"
+    },
+    {
+      "path": "scripts/verify-feed-capacity.py",
+      "gitBlobId": "9b2447ac71f6b3f8a63366f617f342ce54e4211d",
+      "sha256": "54a82dde1c1b266e43daeacd4901e9bb59499aa3e7fd045fa87af5f9f9c9729d"
+    }
+  ],
+  "sourceIdentityScope": "The exact complete repository SHA governs all code; selected blobs identify harness, verifier, observer, fixture and relevant application sources, not a complete transitive dependency list.",
+  "binary": {
+    "sha256": "85c49474fc8a207540759e2d9d951a758677ef4e9bf5fa3c5c966261f9669158",
+    "retained": false,
+    "evidence": "binary.sha256",
+    "runtime": "go version go1.23.0 linux/amd64"
+  },
+  "offlineValidation": {
+    "exactSourceVerifier": "scripts/verify-feed-capacity.py@0ca53012559a512d61a55a5eca373dca2f8f139c",
+    "verifierSha256": "54a82dde1c1b266e43daeacd4901e9bb59499aa3e7fd045fa87af5f9f9c9729d",
+    "method": "Imported exact git-show source and called verify() in memory; did not run the writing CLI",
+    "recomputedGateEqualsOriginal": true,
+    "gateStatus": "passed",
+    "failingChecks": [],
+    "loadRerun": false,
+    "originalInputBytesModified": false
+  },
+  "cleanup": {
+    "command": "docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v",
+    "stepConclusion": "success",
+    "evidence": "execution-evidence.json and actions-source-cleanup.log",
+    "laterIndependentResourceReadback": false
+  },
+  "gateBoundary": {
+    "performanceAcceptancePassed": true,
+    "deletionRecoveryEvidencePassed": true,
+    "resourceCoveragePassed": true,
+    "cloudflareCapacityProven": false,
+    "realOAuthProven": false,
+    "monthlyAvailabilityProven": false,
+    "productionCapacityProven": false,
+    "independentFeedProcessCpuProven": false
+  },
+  "measurementBoundary": {
+    "harnessProcess": "The Go harness contains load scheduling/client, httptest Feed API and resource observer in one process; CPU/heap/GC samples describe that combined process.",
+    "externalMetrics": "Docker PostgreSQL/MinIO and host-vm samples establish bounded coverage/context; not causal attribution.",
+    "queryPlanArtifactPresent": false,
+    "deleteUnrelatedZeroValueFieldsPreserved": true
+  },
+  "previousFailure": {
+    "path": "../feed-linux-capacity-1bc35c3",
+    "releaseSha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4",
+    "githubRunId": 34257139145,
+    "originalFailureRetained": true
+  }
+}

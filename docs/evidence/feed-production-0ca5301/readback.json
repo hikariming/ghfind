@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-09-08T18:41:55.013714+00:00",
+  "accountId": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "script": "ghfind",
+  "expectedReleaseSha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "ciRun": 34263794374,
+  "productionRun": 34264155390,
+  "flags": {
+    "FEED_BACKEND": [],
+    "FEED_STORE_PROFILE": [],
+    "FEED_SOURCE_OUTBOX_ENABLED": []
+  },
+  "d1Bindings": [
+    {
+      "name": "GHFIND_D1",
+      "type": "d1",
+      "id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d"
+    },
+    {
+      "name": "GHFIND_FEED_D1",
+      "type": "d1",
+      "id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf"
+    }
+  ],
+  "deployment": {
+    "id": "a5cce821-ba39-44d1-8e16-a937c69176fc",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "annotations": {
+      "workers/message": "release-0ca53012559a512d61a55a5eca373dca2f8f139c-from-upstream-main",
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "3fac2561-fc17-4592-bc47-5fffc8460acb",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-09-08T18:39:25.375626Z"
+  }
+}

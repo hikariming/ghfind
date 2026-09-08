@@ -1,0 +1,73 @@
+{
+  "loadStartedAt": "0001-01-01T00:00:00Z",
+  "baseline": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "scope": "local PostgreSQL synthetic capacity; signed gateway fixture is NOT real OAuth or Cloudflare evidence",
+  "phase": "delete",
+  "startedAt": "2026-09-08T18:50:00.018531289Z",
+  "durationSeconds": 4.7083294559999995,
+  "Scheduled": 0,
+  "Completed": 0,
+  "Successful": 0,
+  "ErrorRate": 0,
+  "P50MS": 0,
+  "P95MS": 0,
+  "P99MS": 0,
+  "MaxMS": 0,
+  "GoVersion": "go1.23.0",
+  "CPUSeconds": 0,
+  "MaxHeapBytes": 0,
+  "MaxRSSBytes": 0,
+  "pgDockerStats": null,
+  "candidateCounts": null,
+  "counts": {
+    "databaseBytes": 1007892147,
+    "events": 750000,
+    "project_submission_evidence": 50000,
+    "project_tags": 100000,
+    "projects": 50000,
+    "requests": 10997,
+    "served_items": 169950,
+    "users": 5000
+  },
+  "observations": null,
+  "deletion": {
+    "acceptedAttempt": {
+      "status": 202,
+      "durationMs": 1393.394,
+      "items": 0
+    },
+    "acceptedResponse": {
+      "deletionId": "feed_delete_e313edd6bc97b532f405a31876dd4a2e",
+      "status": "queued"
+    },
+    "cancellationObservedActiveCascade": true,
+    "cancelledAttempt": {
+      "status": 0,
+      "durationMs": 9.873,
+      "items": 0,
+      "error": "transport_error"
+    },
+    "cleanupAdapterReopened": true,
+    "cleanupFailures": 1,
+    "cleanupPersistedFailure": {
+      "status": "queued",
+      "phase": "archive",
+      "failures": 1,
+      "errorCode": "capacity_injected_s3_outage"
+    },
+    "cleanupPhase": "completed",
+    "cleanupRecovery": {
+      "status": "completed",
+      "deletionId": "feed_delete_e313edd6bc97b532f405a31876dd4a2e",
+      "steps": 3,
+      "processed": 1
+    },
+    "eventsAfter": 0,
+    "eventsBefore": 250000,
+    "recreatedProfileVersion": 2,
+    "rollbackPreservedEvents": true,
+    "s3FailureCode": "capacity_injected_s3_outage",
+    "s3FailureObserved": true,
+    "s3FailureRequests": 2
+  }
+}

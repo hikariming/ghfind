@@ -1,0 +1,58 @@
+Synthetic 10 RPS and deletion recovery	Run actions/checkout@v4	2026-09-08T18:38:20.1749211Z   ref: 0ca53012559a512d61a55a5eca373dca2f8f139c
+Synthetic 10 RPS and deletion recovery	Run actions/checkout@v4	2026-09-08T18:38:21.8850460Z [command]/usr/bin/git rev-parse --verify --quiet 0ca53012559a512d61a55a5eca373dca2f8f139c^{object}
+Synthetic 10 RPS and deletion recovery	Run actions/checkout@v4	2026-09-08T18:38:21.8852697Z 0ca53012559a512d61a55a5eca373dca2f8f139c
+Synthetic 10 RPS and deletion recovery	Run actions/checkout@v4	2026-09-08T18:38:22.0141787Z HEAD is now at 0ca5301 Merge pull request #255 from hikariming/codex/feed-tag-recall-performance
+Synthetic 10 RPS and deletion recovery	Run actions/checkout@v4	2026-09-08T18:38:22.0231125Z 0ca53012559a512d61a55a5eca373dca2f8f139c
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1291157Z [36;1m[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]][0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1292637Z [36;1mtest "$(git rev-parse HEAD)" = "$RELEASE_SHA"[0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1294360Z [36;1mgit merge-base --is-ancestor "$RELEASE_SHA" origin/main[0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1296505Z [36;1mgh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \[0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1298881Z [36;1m  -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \[0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.1301742Z [36;1m  --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'[0m
+Synthetic 10 RPS and deletion recovery	Verify exact main source and successful required CI	2026-09-08T18:38:22.6510311Z true
+Synthetic 10 RPS and deletion recovery	Check the capacity evidence gate and build the exact harness	2026-09-08T18:38:38.4572282Z Ran 44 tests in 4.452s
+Synthetic 10 RPS and deletion recovery	Check the capacity evidence gate and build the exact harness	2026-09-08T18:38:38.4572663Z OK
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.5065208Z [36;1mpython3 scripts/observe-feed-capacity.py --out "$RUNNER_TEMP/feed-capacity-report" --stop-file "$RUNNER_TEMP/feed-capacity-observer.stop" &[0m
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.5066381Z [36;1mobserver_pid=$![0m
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.5067653Z [36;1mtrap 'capacity_exit_status=$?; touch "$RUNNER_TEMP/feed-capacity-observer.stop"; if ! wait "$observer_pid"; then exit 1; fi; exit "$capacity_exit_status"' EXIT[0m
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.5069181Z [36;1m"$RUNNER_TEMP/feed-capacity" -phase load -baseline "$RELEASE_SHA" \[0m
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.5070224Z [36;1m  -pg-container ghfind-feed-capacity-postgres-1 -out "$RUNNER_TEMP/feed-capacity-report"[0m
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:39:56.6467369Z 2026/09/08 18:39:56 load progress scheduled=0/6000 elapsed=0s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:40:26.6468629Z 2026/09/08 18:40:26 load progress scheduled=300/6000 elapsed=30s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:40:56.6462112Z 2026/09/08 18:40:56 load progress scheduled=600/6000 elapsed=60s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:41:26.6464838Z 2026/09/08 18:41:26 load progress scheduled=900/6000 elapsed=90s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:41:56.6462694Z 2026/09/08 18:41:56 load progress scheduled=1200/6000 elapsed=120s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:42:26.6461596Z 2026/09/08 18:42:26 load progress scheduled=1500/6000 elapsed=150s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:42:56.6463490Z 2026/09/08 18:42:56 load progress scheduled=1800/6000 elapsed=180s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:43:26.6469088Z 2026/09/08 18:43:26 load progress scheduled=2100/6000 elapsed=210s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:43:56.6462995Z 2026/09/08 18:43:56 load progress scheduled=2400/6000 elapsed=240s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:44:26.6466712Z 2026/09/08 18:44:26 load progress scheduled=2700/6000 elapsed=270s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:44:56.6461382Z 2026/09/08 18:44:56 load progress scheduled=3000/6000 elapsed=300s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:45:26.6459328Z 2026/09/08 18:45:26 load progress scheduled=3300/6000 elapsed=330s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:45:56.6463349Z 2026/09/08 18:45:56 load progress scheduled=3600/6000 elapsed=360s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:46:26.6465708Z 2026/09/08 18:46:26 load progress scheduled=3900/6000 elapsed=390s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:46:56.6462290Z 2026/09/08 18:46:56 load progress scheduled=4200/6000 elapsed=420s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:47:26.6469625Z 2026/09/08 18:47:26 load progress scheduled=4500/6000 elapsed=450s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:47:56.6468484Z 2026/09/08 18:47:56 load progress scheduled=4800/6000 elapsed=480s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:48:26.6465081Z 2026/09/08 18:48:26 load progress scheduled=5100/6000 elapsed=510s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:48:56.6465825Z 2026/09/08 18:48:56 load progress scheduled=5400/6000 elapsed=540s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:49:26.6468357Z 2026/09/08 18:49:26 load progress scheduled=5700/6000 elapsed=570s
+Synthetic 10 RPS and deletion recovery	Offer exactly 6000 requests over at least 600 seconds	2026-09-08T18:49:56.7511123Z 2026/09/08 18:49:56 phase=load completed=6000 p95=57.3ms p99=60.5ms errors=0.0000 output=/home/runner/work/_temp/feed-capacity-report
+Synthetic 10 RPS and deletion recovery	Verify bounded cancellation, deletion and archive outage recovery	2026-09-08T18:49:59.9995749Z [36;1m"$RUNNER_TEMP/feed-capacity" -phase delete -baseline "$RELEASE_SHA" -out "$RUNNER_TEMP/feed-capacity-report"[0m
+Synthetic 10 RPS and deletion recovery	Verify bounded cancellation, deletion and archive outage recovery	2026-09-08T18:50:04.7989212Z 2026/09/08 18:50:04 phase=delete completed=0 p95=0.0ms p99=0.0ms errors=0.0000 output=/home/runner/work/_temp/feed-capacity-report
+Synthetic 10 RPS and deletion recovery	Enforce complete evidence, latency and offered-request error gates	2026-09-08T18:50:05.0203743Z Feed capacity gate: passed; 0 issue(s). Finite-run engineering gate only; monthly availability is not proven.
+Synthetic 10 RPS and deletion recovery	Preserve bounded synthetic evidence including failed runs	2026-09-08T18:50:05.5855208Z SHA256 digest of uploaded artifact zip is d2115cd2b5636ffcba10b63f891f0a192de41621796032ef257356c14e9dfe5c
+Synthetic 10 RPS and deletion recovery	Preserve bounded synthetic evidence including failed runs	2026-09-08T18:50:05.7866032Z Artifact feed-linux-capacity-0ca53012559a512d61a55a5eca373dca2f8f139c-1.zip successfully finalized. Artifact ID 10071579469
+Synthetic 10 RPS and deletion recovery	Preserve bounded synthetic evidence including failed runs	2026-09-08T18:50:05.7868063Z Artifact feed-linux-capacity-0ca53012559a512d61a55a5eca373dca2f8f139c-1 has been successfully uploaded! Final size is 243526 bytes. Artifact ID is 10071579469
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:05.8008160Z [36;1mdocker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v[0m
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:05.8797048Z  Container ghfind-feed-capacity-postgres-1  Stopping
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.0031716Z  Container ghfind-feed-capacity-minio-1  Stopped
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.0033253Z  Container ghfind-feed-capacity-minio-1  Removing
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.0107900Z  Container ghfind-feed-capacity-minio-1  Removed
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.1916944Z  Container ghfind-feed-capacity-postgres-1  Stopped
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.1919098Z  Container ghfind-feed-capacity-postgres-1  Removing
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.1960321Z  Container ghfind-feed-capacity-postgres-1  Removed
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.1968508Z  Network ghfind-feed-capacity_default  Removing
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.1975196Z  Volume ghfind-feed-capacity_capacity_data  Removing
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.3799636Z  Volume ghfind-feed-capacity_capacity_data  Removed
+Synthetic 10 RPS and deletion recovery	Remove only this job's synthetic fixture	2026-09-08T18:50:06.4231735Z  Network ghfind-feed-capacity_default  Removed

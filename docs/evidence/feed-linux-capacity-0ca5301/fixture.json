@@ -1,0 +1,16 @@
+{
+  "baseline": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "counts": {
+    "databaseBytes": 754480819,
+    "events": 1000000,
+    "project_submission_evidence": 50000,
+    "project_tags": 100000,
+    "projects": 50000,
+    "requests": 5000,
+    "served_items": 50000,
+    "users": 5000
+  },
+  "fixtureVersion": "synthetic-capacity-v1",
+  "scope": "synthetic-only; no historical data imported or reclassified",
+  "seedSeconds": 66.658545128
+}
