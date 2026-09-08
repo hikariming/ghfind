@@ -28,6 +28,10 @@ function keys(value, expected) {
 function text(value, min, max) {
   return (
     typeof value === "string" &&
+    Array.from(value).every((character) => {
+      const point = character.codePointAt(0);
+      return point < 0xd800 || point > 0xdfff;
+    }) &&
     Buffer.byteLength(value) >= min &&
     Buffer.byteLength(value) <= max &&
     (min === 0 || value.trim().length > 0) &&

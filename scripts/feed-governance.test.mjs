@@ -173,6 +173,7 @@ test("default is offline and strict commands cannot select production, SQL, arbi
     (c) => (c.body.assignment.confidence = 1.1),
     (c) => (c.body.reason = "短"),
     (c) => (c.body.operator = "reviewer\nforged"),
+    (c) => (c.body.reason = "Reviewed \ud800"),
     (c) => (c.body.writerEpoch = 2),
   ]) {
     const copy = structuredClone(command);
