@@ -30,7 +30,7 @@ export class FeedArchive {
     return store.sql(
       `INSERT INTO feed_archive_guards(id,writer_ok,profile_ok,payload_ok) VALUES(?,
       CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_control WHERE id=1 AND writer_epoch=? AND writes_enabled=1) THEN 1 ELSE 0 END,
-      CASE WHEN EXISTS(SELECT 1 FROM feed_users u WHERE github_id=? AND profile_version>=? AND ?>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=u.github_id),0)) THEN 1 ELSE 0 END,
+      CASE WHEN EXISTS(SELECT 1 FROM feed_users u WHERE github_id=? AND profile_version=? AND ?>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=u.github_id),0)) THEN 1 ELSE 0 END,
       CASE WHEN NOT EXISTS(SELECT 1 FROM feed_archive_objects WHERE object_key=? AND (payload_hash<>? OR status='erased')) THEN 1 ELSE 0 END)`,
       command,
       epoch,

@@ -4,14 +4,17 @@ import { executorSchemas, type ExecutorOperation } from "./executor-contract";
 import { FeedJobs } from "./jobs";
 import { FeedCleanup, cleanupSchemas } from "./cleanup";
 import { FeedOperator, operatorSchemas } from "./operator";
+import { handleArchive } from "./archive-http";
 import { FeedDelivery, deliverySchemas } from "./delivery";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
   const limit =
-    operation === "sessions.put" || operation === "requests.save"
-      ? 2 * 1024 * 1024
-      : MAX_BODY;
+    operation === "archive"
+      ? 6 * 1024 * 1024
+      : operation === "sessions.put" || operation === "requests.save"
+        ? 2 * 1024 * 1024
+        : MAX_BODY;
   if (
     !request.headers
       .get("content-type")
@@ -136,12 +139,13 @@ export default {
     const headers = { "Cache-Control": "no-store", "X-Feed-Contract": "1" };
     try {
       const url = new URL(request.url),
+        archive = url.pathname.startsWith("/internal/feed/archive/v1/"),
         cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
         operator = url.pathname.startsWith("/internal/feed/admin/v1/"),
         delivery = url.pathname.startsWith("/internal/feed/delivery/v1/");
       const secret = delivery
         ? env.FEED_DELIVERY_SECRET
-        : cleanup
+        : cleanup || archive
           ? env.FEED_EXECUTOR_SECRET
           : operator
             ? env.FEED_OPERATOR_SECRET
@@ -153,6 +157,16 @@ export default {
       if (request.headers.get("x-feed-contract") !== "1")
         throw new BridgeError(409, "contract_version_changed");
       if (url.search) throw new BridgeError(404, "operation_not_found");
+      if (archive) {
+        return Response.json(
+          await handleArchive(
+            url.pathname.slice("/internal/feed/archive/v1/".length),
+            await body(request, "archive"),
+            env,
+          ),
+          { headers },
+        );
+      }
       if (cleanup || operator || delivery) {
         const operation = url.pathname.split("/").at(-1)!;
         if (
