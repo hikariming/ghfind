@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	FeedAlgorithmVersion = "baseline-v1"
-	FeedSessionTTL       = 30 * time.Minute
-	FeedImpressionTTL    = 24 * time.Hour
+	FeedAlgorithmVersion         = "baseline-v1"
+	FeedPortableAlgorithmVersion = "baseline-v2-portable"
+	FeedSessionTTL               = 30 * time.Minute
+	FeedImpressionTTL            = 24 * time.Hour
 )
 
 type FeedTag struct {
