@@ -28,7 +28,7 @@ func NewCFFeedStore(endpoint, secret string, client *http.Client) (*CFFeedStore,
 	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Scheme != "https" && parsed.Scheme != "http") || len(secret) < 32 {
 		return nil, fmt.Errorf("valid bridge endpoint and secret (>=32 bytes) are required")
 	}
-	if parsed.Scheme == "http" && parsed.Hostname() != "feed-bindings.internal" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+	if parsed.Scheme == "http" && parsed.Hostname() != "feed-bindings.internal" && parsed.Hostname() != "feed-cleanup.internal" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
 		return nil, fmt.Errorf("bridge HTTP requires private container handler or loopback")
 	}
 	if client == nil {
@@ -39,6 +39,10 @@ func NewCFFeedStore(endpoint, secret string, client *http.Client) (*CFFeedStore,
 	return &CFFeedStore{endpoint: strings.TrimRight(endpoint, "/"), secret: secret, client: &clone, writerEpoch: 1}, nil
 }
 func (s *CFFeedStore) call(ctx context.Context, op string, input, output any) error {
+	return s.callPath(ctx, "/internal/feed/v1/"+op, input, output)
+}
+func (s *CFFeedStore) callPath(ctx context.Context, path string, input, output any) error {
+	op := path
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
@@ -46,7 +50,7 @@ func (s *CFFeedStore) call(ctx context.Context, op string, input, output any) er
 	if len(body) > 2<<20 {
 		return fmt.Errorf("bridge request too large")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint+"/internal/feed/v1/"+op, bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
