@@ -1,0 +1,24 @@
+{
+  "sourceSha": "a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e",
+  "imageId": "sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f",
+  "startedAt": "2026-09-08T17:23:21.990531+00:00",
+  "requests": [],
+  "checks": {},
+  "scope": "ordinary Docker synthetic fixture; source is health-only; no OAuth, assessment, queue, Cloudflare, capacity or production evidence",
+  "result": "failed",
+  "error": "RuntimeError(\"command failed: ['go', 'run', './cmd/ghfind-feed-migrate']\")",
+  "cleanup": {
+    "at": "2026-09-08T17:23:33.702591+00:00",
+    "containersRemoved": true,
+    "volumeRemoved": true,
+    "networkRemoved": true,
+    "otherGhfindContainers": [
+      "ghfind-feed-api-compatible",
+      "ghfind-feed-api-contract",
+      "ghfind-feed-crossprofile-pg",
+      "ghfind-feed-contract-minio-1",
+      "ghfind-portable-feed-pg-contract"
+    ]
+  },
+  "finishedAt": "2026-09-08T17:23:33.702618+00:00"
+}
