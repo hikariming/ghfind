@@ -126,6 +126,10 @@ jobs:
       CI: "true"
       FEED_TEST_DATABASE_URL: postgres://feed:feed-ci-only@127.0.0.1:5432/ghfind_feed_contract_test?sslmode=disable
       FEED_REQUIRE_POSTGRES_TESTS: "1"
+      FEED_REQUIRE_S3_TESTS: "1"
+      FEED_TEST_S3_ENDPOINT: http://127.0.0.1:59001
+      FEED_TEST_S3_ACCESS_KEY_ID: feed-local
+      FEED_TEST_S3_SECRET_ACCESS_KEY: feed-local-only-password
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -139,8 +143,16 @@ jobs:
         run: test -n "$FEED_TEST_DATABASE_URL"
       - name: Enable pgvector in the disposable CI database
         run: psql "$FEED_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS vector'
+      - name: Start an isolated real S3 contract service
+        run: |
+          docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml up -d
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 1 http://127.0.0.1:59001/minio/health/live; then exit 0; fi
+            sleep 1
+          done
+          exit 1
       - name: PostgreSQL and pgvector contracts including migration replay
-        run: go test -count=1 -v ./internal/backend -run 'TestPortablePostgresContracts|TestPostgresFeedStoreIntegration'
+        run: go test -count=1 -v ./internal/backend -run 'TestPortablePostgresContracts|TestPostgresFeedStoreIntegration|TestPortablePostgresS3Cleanup'
       - name: Install locked Worker contract dependencies
         working-directory: platform/feed
         run: pnpm install --frozen-lockfile
@@ -155,6 +167,9 @@ jobs:
         run: pnpm build
       - name: Identical API contracts against PostgreSQL and workerd
         run: node scripts/test-feed-crossprofile.mjs
+      - name: Remove disposable S3 service
+        if: always()
+        run: docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml down
 
   release-verify:
     name: Verify release
