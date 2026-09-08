@@ -27,18 +27,21 @@ records; no production migration is run by this command.
 
 Baseline is the adapter at commit `6326cda` (prior Feed schema migrations through
 0006), before candidate changes. Raw baseline observations, including SQL and
-`EXPLAIN QUERY PLAN`, are in `evidence/baseline.json`. Optimized query code is commit `4fe8e6e`. Optimized observations are
+`EXPLAIN QUERY PLAN`, are in `evidence/baseline.json`. The initial query
+optimization is commit `4fe8e6e`. Current observations include
+governance/assessment fences at `65cfb2f`; the harness records the full checked-out
+implementation SHA automatically. Optimized observations are
 in `../capacity-results/candidate-capacity.json`; that report records applied
 migration names and tool versions. Migration 0008 is index-only and changes no
 facts, epoch or reader/writer compatibility contract. This independent branch
 does not contain the integrator's schema-compatibility migration 0007; it does
 not affect the measured candidate queries.
 
-| User preference | Baseline total rows read | Optimized total rows read | Tag/latest/quality/discovery | Merged items |
+| User preference | Baseline total rows read | Current total rows read (`65cfb2f`) | Tag/latest/quality/discovery | Merged items |
 | --- | ---: | ---: | --- | ---: |
-| No positive tags | 151,069 | 708 | 0 / 40 / 20 / 20 | 78 |
-| Common `artifact:micro-tool` | 2,085 | 2,238 | 80 / 40 / 20 / 20 | 154 |
-| Rare `artifact:database-infra` | 201,546 | 1,490 | 50 / 40 / 20 / 20 | 127 |
+| No positive tags | 151,069 | 709 | 0 / 40 / 20 / 20 | 78 |
+| Common `artifact:micro-tool` | 2,085 | 2,240 | 80 / 40 / 20 / 20 | 154 |
+| Rare `artifact:database-infra` | 201,546 | 1,492 | 50 / 40 / 20 / 20 | 127 |
 
 Totals include the actual user/preference reads, all recall queries, tag hydration
 and impression lookup performed by the store. They exclude fixture generation,
@@ -65,8 +68,9 @@ The changes address that observed behavior:
   explicit positive preference) for 20 items, versus 401 or 421. EXPLAIN uses
   `idx_feed_projects_discovery_order` without a temporary ordering sort.
 
-The common-tag total rises by 153 reads: the new probe costs 514 and the discovery
-index saves 361. This tradeoff removes the much larger empty/rare scans without
+The initial common-tag total rose by 153 reads: the new probe costs 514 and
+the discovery index saves 361. With the later taxonomy and current-assessment
+fences, the total difference is 155 reads (2,240 versus 2,085). This tradeoff removes the much larger empty/rare scans without
 forcing dense tags to materialize and sort the entire catalog. Concurrent writes
 between probe and recall can change the best plan, but both plans always query
 the full current matching set and preserve eligibility. Large numbers of hard
@@ -76,8 +80,9 @@ this experiment does not establish a universal per-request read bound.
 ## Timing and acceptance boundaries
 
 The baseline single method samples were 244 / 7 / 262 ms (empty/common/rare).
-The final recorded optimized pass was 6 / 10 / 4 ms; an earlier pass was
-13 / 16 / 12 ms, illustrating local sample variability. These are small local samples on a shared development
+The initial optimized record was 6 / 10 / 4 ms; another pass was 13 / 16 / 12 ms.
+After governance/assessment fences, the recorded pass is 5 / 6 / 4 ms,
+illustrating local sample variability. These are small local samples on a shared development
 machine, with no HTTP gateway, Container startup, Go ranking, network latency,
 remote D1, or 10 RPS load. They are not p95/p99 measurements or SLO acceptance.
 Each query's `durationMs` includes waiting for the real binding while recall
@@ -92,6 +97,14 @@ explicit-tag-negative reasons. They also recheck withdrawal after recall and
 reapply the index migration twice without changing facts. The 50,000-project
 experiment compares exact ordered repo IDs for every branch with the previous
 SQL and enforces fixture-specific read regression bounds.
+
+The follow-up at `65cfb2f` additionally checks the same 50,000 current-assessment
+fixture after tag membership/hydration and behavior filters were restricted to
+the current analysis. All ordered branch candidate IDs still match the pre-change
+queries on this fixture. Dedicated governance tests cover stale assignments on
+both sides of the sparse/dense threshold; this capacity fixture intentionally
+contains current assignments only. No records or source evidence were removed
+to obtain the measured improvement.
 
 Remaining release gates include 5,000 users and 1,000,000 events, complete Go/API
 contracts at scale, the prescribed bounded staging concurrency run, D1 remote

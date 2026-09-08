@@ -7,6 +7,7 @@ import { deriveProjectBoardEligibility } from "../../../src/lib/project-ranking"
 import { syntheticTemplate } from "./synthetic-template";
 import baseline from "./evidence/baseline.json";
 import packageJson from "../package.json";
+declare const __CAPACITY_IMPLEMENTATION_SHA__: string;
 
 type Observation = {
   sql: string;
@@ -272,6 +273,7 @@ it("measures bounded recall against 50,000 synthetic receipt-backed projections"
     JSON.stringify(
       {
         generatedAt: new Date().toISOString(),
+        implementationCommit: __CAPACITY_IMPLEMENTATION_SHA__,
         synthetic: true,
         remote: false,
         projects: 50000,
