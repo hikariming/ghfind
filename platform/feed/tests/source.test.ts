@@ -2,6 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { hash } from "../src/contract";
 import type { SourceEvent } from "../src/source";
+import { appSubmissionReceiptStatement } from "../../../src/lib/feed-source-outbox";
 
 const secret = "local-source-test-key-separate-32-characters-minimum";
 async function call(operation: string, payload: unknown, key = secret) {
@@ -75,6 +76,56 @@ beforeEach(async () => {
 });
 
 describe("core source binding capabilities", () => {
+  it("commits the exact app receipt statement with run creation and rolls both back on D1 failure", async () => {
+    const now = Date.now();
+    const insert = env.CORE_DB.prepare(
+      `INSERT INTO project_analysis_runs(id,repo_key,canonical_url,active_key,idempotency_key,status,phase,schema_version,rubric_version,agent_version,skill_version,created_at,updated_at)
+      VALUES('atomic-run','owner/repo','https://github.com/owner/repo','active-run-key','atomic-request','queued','queued','v1','v1','v1','v1',?,?)`,
+    ).bind(now, now);
+    const receipt = appSubmissionReceiptStatement(
+      { activeKey: "active-run-key" },
+      now,
+    );
+    await env.CORE_DB.exec(
+      "CREATE TRIGGER reject_test_receipt BEFORE INSERT ON feed_submission_receipts BEGIN SELECT RAISE(ABORT,'injected-receipt-failure'); END",
+    );
+    try {
+      await expect(
+        env.CORE_DB.batch([
+          insert,
+          env.CORE_DB.prepare(receipt.sql).bind(...receipt.args),
+        ]),
+      ).rejects.toThrow();
+      expect(
+        await env.CORE_DB.prepare(
+          "SELECT id FROM project_analysis_runs WHERE id='atomic-run'",
+        ).first(),
+      ).toBeNull();
+    } finally {
+      await env.CORE_DB.exec("DROP TRIGGER reject_test_receipt");
+    }
+    await env.CORE_DB.batch([
+      insert,
+      env.CORE_DB.prepare(receipt.sql).bind(...receipt.args),
+    ]);
+    expect(
+      await env.CORE_DB.prepare(
+        "SELECT id,analysis_id,source_kind FROM feed_submission_receipts",
+      ).first(),
+    ).toEqual({
+      id: "app:atomic-run",
+      analysis_id: "atomic-run",
+      source_kind: "app_submission",
+    });
+    await env.CORE_DB.prepare(receipt.sql)
+      .bind(...receipt.args)
+      .run();
+    expect(
+      await env.CORE_DB.prepare(
+        "SELECT COUNT(*) AS n FROM feed_submission_receipts",
+      ).first<number>("n"),
+    ).toBe(1);
+  });
   it("uses an independent credential and verifies health against migrated core tables", async () => {
     expect(
       (

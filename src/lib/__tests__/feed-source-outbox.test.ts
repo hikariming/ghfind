@@ -3,6 +3,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { POST } from "../../app/api/project-analyses/route";
 import { validProjectAnalysis, validRuntimeEvidence } from "./project-analysis-contract.test";
 import type { ProjectAnalysisArtifact } from "../project-analysis-contract";
 import { claimFeedSourceEvents, finishFeedSourceDelivery, replayFeedSourceEvent } from "../feed-source-outbox";
@@ -11,10 +13,10 @@ import * as analyses from "../project-analysis-db";
 let dir: string;
 let connection: Client;
 
-const newRun = (id: string) => analyses.createProjectAnalysisRun({
-  id, repoKey: "owner/useful-tool", canonicalUrl: "https://github.com/owner/useful-tool", requestedRef: null,
+const newRun = (id: string, options?: analyses.ProjectAnalysisSubmissionOptions, repoKey="owner/useful-tool") => analyses.createProjectAnalysisRun({
+  id, repoKey, canonicalUrl: `https://github.com/${repoKey}`, requestedRef: null,
   schemaVersion: "ghfind.project-analysis.v1", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v1", skillVersion: "ghfind-project-evaluator-v1",
-});
+},options);
 const finish = (id: string) => analyses.finalizeProjectAnalysis({
   analysisId: id, analysis: validProjectAnalysis as ProjectAnalysisArtifact, analysisJson: JSON.stringify(validProjectAnalysis),
   evidenceJson: JSON.stringify(validRuntimeEvidence), reportMarkdown: "# Existing result preserved",
@@ -35,10 +37,43 @@ beforeEach(async () => {
 });
 afterEach(() => {
   connection.close(); analyses.resetProjectAnalysisDbForTests();
-  vi.unstubAllEnvs(); vi.restoreAllMocks(); rmSync(dir, { recursive: true, force: true });
+  vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); rmSync(dir, { recursive: true, force: true });
 });
 
 describe("assessment source receipt and outbox", () => {
+  it("rolls back run creation when provenance fails, and records only one receipt for an active-run race",async()=>{
+    await connection.executeMultiple("CREATE TRIGGER reject_submission BEFORE INSERT ON feed_submission_receipts BEGIN SELECT RAISE(ABORT,'injected-receipt-failure'); END;");
+    await expect(newRun("atomic-run",{appSubmission:true},"owner/new-submission")).rejects.toThrow();
+    expect((await connection.execute("SELECT id FROM project_analysis_runs WHERE id='atomic-run'")).rows).toHaveLength(0);
+    expect((await connection.execute("SELECT id FROM feed_submission_receipts")).rows).toHaveLength(0);
+    await connection.execute("DROP TRIGGER reject_submission");
+    const created=await newRun("atomic-run",{appSubmission:true},"owner/new-submission");
+    expect(created.created).toBe(true);
+    const duplicate=await newRun("duplicate-attempt",{appSubmission:true},"owner/new-submission");
+    expect(duplicate).toMatchObject({created:false,run:{id:"atomic-run"}});
+    expect((await connection.execute("SELECT id,requested_repo_key,source_kind FROM feed_submission_receipts")).rows).toEqual([{id:"app:atomic-run",requested_repo_key:"owner/new-submission",source_kind:"app_submission"}]);
+    await newRun("background-run",undefined,"owner/background");
+    expect((await connection.execute("SELECT id FROM feed_submission_receipts WHERE analysis_id='background-run'")).rows).toHaveLength(0);
+  });
+  it("persists POST submission intent before any external thread is created", async()=>{
+    vi.stubEnv("MOSOO_API_BASE","https://mosoo.test/api/v1");
+    vi.stubEnv("MOSOO_API_TOKEN","test-token");
+    vi.stubEnv("MOSOO_PROJECT_AGENT_ID","project-agent");
+    vi.stubEnv("UPSTASH_REDIS_REST_URL","");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN","");
+    let receiptBeforeExternalCall=false;
+    vi.stubGlobal("fetch",vi.fn(async()=>{
+      const receipts=await connection.execute("SELECT s.id FROM feed_submission_receipts s JOIN project_analysis_runs r ON r.id=s.analysis_id WHERE r.repo_key='owner/atomic-intent'");
+      receiptBeforeExternalCall=receipts.rows.length===1;
+      return Response.json({
+        thread:{id:"intent-thread",agent_id:"project-agent",kind:"cattle",status:"RUNNING",client_external_ref:null},
+        run:{id:"intent-run",status:"running",createdAt:"2026-09-08T00:00:00.000Z",startedAt:"2026-09-08T00:00:00.000Z",completedAt:null,updatedAt:"2026-09-08T00:00:00.000Z",trigger:"user_prompt"},
+      });
+    }));
+    const response=await POST(new NextRequest("http://localhost/api/project-analyses",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({repositoryUrl:"owner/atomic-intent"})}));
+    expect(response.status).toBe(202);
+    expect(receiptBeforeExternalCall).toBe(true);
+  });
   it("commits assessment plus outbox, deduplicates receipt/finalization and survives unavailable downstream Feed", async () => {
     await analyses.recordProjectAnalysisSubmission("analysis-1");
     expect((await connection.execute("SELECT * FROM feed_source_outbox")).rows).toHaveLength(0);

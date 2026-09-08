@@ -12,6 +12,7 @@ import {
 import {
   attachMosooThread,
   createProjectAnalysisRun,
+  recordProjectAnalysisSubmission,
   failProjectAnalysis,
   finalizeProjectAnalysis,
   findReusableCompletedProjectAnalysisRun,
@@ -25,6 +26,7 @@ import {
   updateProjectAnalysisState,
   updateProjectAnalysisActivities,
   type ProjectAnalysisRun,
+  type ProjectAnalysisSubmissionOptions,
   type ReusableProjectAnalysisRunInput,
 } from "./project-analysis-db";
 import {
@@ -380,6 +382,7 @@ async function createOrResumeMosooThread(run: ProjectAnalysisRun): Promise<Proje
 
 export async function createProjectAnalysis(
   input: CreateProjectAnalysisInput,
+  options: ProjectAnalysisSubmissionOptions = {},
 ): Promise<ProjectAnalysisRun> {
   let repository;
   try {
@@ -395,7 +398,10 @@ export async function createProjectAnalysis(
   const reusable = await findReusableProjectAnalysisByIdentity(
     reusableProjectAnalysisInput(repository.repoKey, requestedRef),
   );
-  if (reusable) return reusable;
+  if (reusable) {
+    if (options.appSubmission) await recordProjectAnalysisSubmission(reusable.id);
+    return reusable;
+  }
 
   const created = await createProjectAnalysisRun({
     id: randomUUID(),
@@ -406,7 +412,7 @@ export async function createProjectAnalysis(
     rubricVersion: PROJECT_RUBRIC_VERSION,
     agentVersion: PROJECT_AGENT_VERSION,
     skillVersion: PROJECT_SKILL_VERSION,
-  });
+  }, options);
   if (!created.created) return created.run;
   return createOrResumeMosooThread(created.run);
 }

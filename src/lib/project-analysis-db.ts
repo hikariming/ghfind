@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createClient, type Client, type InValue } from "@libsql/client/web";
+import { createClient, type Client, type InValue, type ResultSet } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import {
   projectAnalysisArtifactSchema,
@@ -11,7 +11,7 @@ import {
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
 import { syncFeedProjectProjection } from "./feed";
-import { assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
+import { appSubmissionReceiptStatement, assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
 
 export type ProjectBoard = "treasure" | "classic" | "all";
 export type TreasureEntryStatus = "active" | "graduated" | "removed";
@@ -32,6 +32,12 @@ export interface CreateProjectAnalysisRunInput {
   rubricVersion: string;
   agentVersion: string;
   skillVersion: string;
+}
+
+// Server-only option. It is never parsed from a client's request body or used
+// to label background/import work as an explicit submission.
+export interface ProjectAnalysisSubmissionOptions {
+  appSubmission?: true;
 }
 
 export interface ProjectAnalysisRun {
@@ -346,13 +352,14 @@ async function selectRun(db: Client, analysisId: string): Promise<ProjectAnalysi
 
 export async function createProjectAnalysisRun(
   input: CreateProjectAnalysisRunInput,
+  options: ProjectAnalysisSubmissionOptions = {},
 ): Promise<CreateProjectAnalysisRunResult> {
   const db = database();
   await ensureSchema(db);
   const now = Date.now();
   const key = activeKey(input);
   const idempotencyKey = `ghfind-project-${input.id}`;
-  const insert = await db.execute({
+  const insertStatement = {
     sql: `INSERT OR IGNORE INTO project_analysis_runs (
             id, repo_key, canonical_url, requested_ref, active_key,
             idempotency_key, status, phase, progress,
@@ -373,12 +380,27 @@ export async function createProjectAnalysisRun(
       now,
       now,
     ],
-  });
-  const created = insert.rowsAffected === 1;
-  const result = await db.execute({
+  };
+  const selectStatement = {
     sql: `SELECT * FROM project_analysis_runs WHERE active_key = ? LIMIT 1`,
     args: [key],
-  });
+  };
+  let insert: ResultSet, result: ResultSet;
+  if (options.appSubmission && feedSourceOutboxEnabled()) {
+    // The successful run insert (or active-run reuse) and its provenance are
+    // inseparable. No external thread can start if this receipt write fails.
+    const results = await db.batch([
+      insertStatement,
+      appSubmissionReceiptStatement({ activeKey: key }, now),
+      selectStatement,
+    ], "write");
+    insert = results[0];
+    result = results[2];
+  } else {
+    insert = await db.execute(insertStatement);
+    result = await db.execute(selectStatement);
+  }
+  const created = insert.rowsAffected === 1;
   const row = result.rows[0];
   if (!row) throw new ProjectAnalysisDatabaseError("Failed to create or find analysis run.");
   return { run: mapRun(row as Record<string, unknown>), created };

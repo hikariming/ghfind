@@ -115,8 +115,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const run = await createProjectAnalysis(input);
-    await recordProjectAnalysisSubmission(run.id);
+    const run = await createProjectAnalysis(input, { appSubmission: true });
     const location = `/api/project-analyses/${run.id}`;
     return NextResponse.json(
       {
