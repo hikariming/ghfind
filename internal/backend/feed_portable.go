@@ -91,6 +91,8 @@ func writeFeedMutationError(w http.ResponseWriter, err error) bool {
 		code = "writer_epoch_changed"
 	case errors.Is(err, ErrFeedProfileChanged):
 		code = "profile_version_changed"
+	case errors.Is(err, ErrFeedTaxonomyChanged):
+		code = "taxonomy_version_changed"
 	case errors.Is(err, ErrFeedEventConflict):
 		code = "event_id_conflict"
 	}
