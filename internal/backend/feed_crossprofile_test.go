@@ -84,7 +84,21 @@ func (crossProfileTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 	return response, err
 }
 
+// A nil transport retains the in-process dual-profile contract. A supplied
+// transport sends the same public business assertions to a separately run API.
+type portableAPIContractTransport func(*http.Request) (*http.Response, error)
+
+type portableAPIContractResult struct {
+	FirstCursor, ImpressionToken, RepoKey, DeletionID string
+	EventDuplicate                                    FeedEventAppendResult
+}
+
 func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfileStore) {
+	runPortableAPIContractWithTransport(t, ctx, store, nil)
+	runPortableSessionIdentityContract(t, ctx, store)
+}
+
+func runPortableAPIContractWithTransport(t *testing.T, ctx context.Context, store crossProfileStore, transport portableAPIContractTransport) portableAPIContractResult {
 	t.Helper()
 	if err := store.Ping(ctx); err != nil {
 		t.Fatal(err)
@@ -129,15 +143,22 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := NewStandaloneFeedHandler(FeedModeBaseline, strings.Repeat("s", 32), store, store, func(r *http.Request, now time.Time) *OAuthSession {
-		claims, err := verifier.Verify(r, now)
+	if transport == nil {
+		handler, err := NewStandaloneFeedHandler(FeedModeBaseline, strings.Repeat("s", 32), store, store, func(r *http.Request, now time.Time) *OAuthSession {
+			claims, err := verifier.Verify(r, now)
+			if err != nil {
+				return nil
+			}
+			return &OAuthSession{GitHubID: claims.GitHubID, Login: claims.Login, AvatarURL: claims.AvatarURL}
+		})
 		if err != nil {
-			return nil
+			t.Fatal(err)
 		}
-		return &OAuthSession{GitHubID: claims.GitHubID, Login: claims.Login, AvatarURL: claims.AvatarURL}
-	})
-	if err != nil {
-		t.Fatal(err)
+		transport = func(r *http.Request) (*http.Response, error) {
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+			return w.Result(), nil
+		}
 	}
 	call := func(actor int64, method, path string, input any, expected int) []byte {
 		t.Helper()
@@ -148,7 +169,7 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 				t.Fatal(err)
 			}
 		}
-		r := httptest.NewRequest(method, path, bytes.NewReader(body))
+		r := httptest.NewRequest(method, path, bytes.NewReader(body)).WithContext(ctx)
 		r.Header.Set("Content-Type", "application/json")
 		if actor > 0 {
 			now := time.Now()
@@ -159,15 +180,22 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 			}
 			r.Header.Set(feedauth.Header, token)
 		}
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-		if w.Code != expected {
-			t.Fatalf("%s %s status=%d want=%d body=%s", method, path, w.Code, expected, w.Body)
+		response, err := transport(r)
+		if err != nil {
+			t.Fatalf("%s %s transport failed", method, r.URL.Path)
 		}
-		if w.Header().Get("Cache-Control") != "no-store" {
-			t.Fatalf("missing no-store: %s", path)
+		defer response.Body.Close()
+		data, err := io.ReadAll(io.LimitReader(response.Body, 2<<20+1))
+		if err != nil || len(data) > 2<<20 {
+			t.Fatal("contract response read failed or exceeded bound")
 		}
-		return w.Body.Bytes()
+		if response.StatusCode != expected {
+			t.Fatalf("%s %s status=%d want=%d", method, r.URL.Path, response.StatusCode, expected)
+		}
+		if response.Header.Get("Cache-Control") != "no-store" {
+			t.Fatalf("missing no-store: %s", r.URL.Path)
+		}
+		return data
 	}
 	call(0, "GET", "/api/feed/projects", nil, 401)
 	tags, _, err := store.ListFeedTags(ctx)
@@ -245,5 +273,5 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 	}
 	call(4243, "GET", "/api/feed/profile/deletions/"+deleted.DeletionID, nil, 404)
 	call(4242, "PUT", statePath, map[string]any{"saved": true, "impressionToken": item.ImpressionToken}, 400)
-	runPortableSessionIdentityContract(t, ctx, store)
+	return portableAPIContractResult{FirstCursor: *first.NextCursor, ImpressionToken: item.ImpressionToken, RepoKey: item.Project.RepoKey, DeletionID: deleted.DeletionID, EventDuplicate: duplicate}
 }
