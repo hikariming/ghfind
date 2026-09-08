@@ -110,9 +110,10 @@ type FeedDeletionStore interface {
 }
 
 type PostgresFeedStore struct {
-	db          *sql.DB
-	mode        FeedMode
-	writerEpoch int64
+	db             *sql.DB
+	mode           FeedMode
+	writerEpoch    int64
+	archiveObjects FeedArchiveObjects
 }
 
 func OpenPostgresFeedStore(config Config) (*PostgresFeedStore, error) {
@@ -904,13 +905,17 @@ func (s *PostgresFeedStore) DeleteFeedProfile(ctx context.Context, githubID int6
 	}
 	payload, _ := json.Marshal(map[string]any{"deletionId": deletionID, "gorseUserId": fmt.Sprintf("gh:%d", githubID), "requestedAt": now})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.user_deletion_tombstones
-	  (deletion_id,github_id,gorse_user_id,requested_at,profile_version) VALUES ($1,$2,$3,$4,GREATEST(COALESCE((SELECT profile_version FROM feed.users WHERE github_id=$2),1),COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),1)))`,
-		deletionID, githubID, fmt.Sprintf("gh:%d", githubID), now); err != nil {
+	  (deletion_id,github_id,gorse_user_id,requested_at,portable_cleanup,profile_version) VALUES ($1,$2,$3,$4,$5,GREATEST(COALESCE((SELECT profile_version FROM feed.users WHERE github_id=$2),1),COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),1)))`,
+		deletionID, githubID, fmt.Sprintf("gh:%d", githubID), now, s.writerEpoch > 0); err != nil {
 		return "", fmt.Errorf("persist Feed user deletion tombstone: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.event_outbox (aggregate_key, topic, payload)
+	// Portable cleanup owns its persistent tombstone lease. Do not also publish
+	// the legacy Gorse deletion topic, whose acknowledgement cannot certify S3 erasure.
+	if s.writerEpoch == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO feed.event_outbox (aggregate_key, topic, payload)
       VALUES ($1, 'feed.user-delete.v1', $2::jsonb)`, fmt.Sprintf("gh:%d", githubID), string(payload)); err != nil {
-		return "", fmt.Errorf("queue Feed user deletion: %w", err)
+			return "", fmt.Errorf("queue Feed user deletion: %w", err)
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM feed.users WHERE github_id = $1`, githubID); err != nil {
 		return "", fmt.Errorf("delete Feed profile: %w", err)
