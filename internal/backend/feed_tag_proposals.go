@@ -119,11 +119,25 @@ func (s *PostgresFeedStore) ProposeFeedTag(ctx context.Context, id int64, input 
 	if err := s.guardFeedWrite(ctx, tx, id, 0); err != nil {
 		return out, err
 	}
+	var profileVersion, floor int64
+	if err = tx.QueryRowContext(ctx, `SELECT profile_version,COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$1),0) FROM feed.users WHERE github_id=$1 AND deleted_at IS NULL`, id).Scan(&profileVersion, &floor); err != nil {
+		return out, ErrFeedProfileChanged
+	}
 	var storedHash string
-	err = tx.QueryRowContext(ctx, `SELECT r.payload_hash,p.id,p.status FROM feed.tag_proposal_commands r JOIN feed.tag_proposals p ON p.id=r.proposal_id WHERE r.github_id=$1 AND r.command_id=$2`, id, input.ID).Scan(&storedHash, &out.ProposalID, &out.Status)
+	var storedProposal sql.NullString
+	var storedVersion int64
+	err = tx.QueryRowContext(ctx, `SELECT payload_hash,proposal_id,profile_version FROM feed.tag_proposal_commands WHERE github_id=$1 AND command_id=$2`, id, input.ID).Scan(&storedHash, &storedProposal, &storedVersion)
 	if err == nil {
-		if storedHash != hash {
+		if !storedProposal.Valid || storedVersion <= floor || storedVersion > profileVersion || storedHash != hash {
 			return out, ErrFeedProposalConflict
+		}
+		err = tx.QueryRowContext(ctx, `SELECT p.id,p.status FROM feed.tag_proposals p JOIN feed.user_proposal_authors a ON a.proposal_id=p.id
+   WHERE p.id=$1 AND p.source='user' AND a.github_id=$2 AND a.profile_version=$3 AND a.redacted_at IS NULL`, storedProposal.String, id, storedVersion).Scan(&out.ProposalID, &out.Status)
+		if errors.Is(err, sql.ErrNoRows) {
+			return out, ErrFeedProposalConflict
+		}
+		if err != nil {
+			return out, err
 		}
 		return out, tx.Commit()
 	}
@@ -144,12 +158,17 @@ func (s *PostgresFeedStore) ProposeFeedTag(ctx context.Context, id int64, input 
 		return out, err
 	}
 	err = tx.QueryRowContext(ctx, `INSERT INTO feed.tag_proposals(id,namespace,slug,label_zh,label_en,source,source_ref,evidence_ids,status,taxonomy_version,analysis_id,namespace_inferred)
- VALUES($1,$2,$3,$4,$5,'user',$6,$7::jsonb,'proposed',(SELECT version FROM feed.taxonomy_versions WHERE state='active'),$8,false)
- ON CONFLICT(namespace,slug,source,source_ref,analysis_id) DO UPDATE SET id=feed.tag_proposals.id RETURNING id,status`, proposalID, input.Namespace, input.Slug, input.LabelZH, input.LabelEN, input.RepoKey, string(evidence), analysisID).Scan(&out.ProposalID, &out.Status)
+ VALUES($1,$2,$3,$4,$5,'user',$6,$7::jsonb,'proposed',(SELECT version FROM feed.taxonomy_versions WHERE state='active'),$8,false) RETURNING id,status`, proposalID, input.Namespace, input.Slug, input.LabelZH, input.LabelEN, input.RepoKey, string(evidence), analysisID).Scan(&out.ProposalID, &out.Status)
 	if err != nil {
 		return out, err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_proposal_commands(github_id,command_id,proposal_id,payload_hash) VALUES($1,$2,$3,$4)`, id, input.ID, out.ProposalID, hash); err != nil {
+	// Ownership is immutable per accepted command, independent of the user's
+	// cascading profile rows. Profile changes remain valid until deletion's floor.
+	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.user_proposal_authors(proposal_id,github_id,profile_version)
+ SELECT $1,github_id,profile_version FROM feed.users WHERE github_id=$2 AND deleted_at IS NULL`, out.ProposalID, id); err != nil {
+		return out, err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_proposal_commands(github_id,command_id,proposal_id,payload_hash,profile_version) VALUES($1,$2,$3,$4,$5)`, id, input.ID, out.ProposalID, hash, profileVersion); err != nil {
 		return out, err
 	}
 	return out, tx.Commit()

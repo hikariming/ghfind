@@ -46,11 +46,11 @@ func TestPortablePostgresSchemaCompatibility(t *testing.T) {
 	if err := s.Ping(ctx); err != nil {
 		t.Fatal("additive compatibility", err)
 	}
-	sql(`UPDATE feed.schema_compatibility SET min_writer_contract=2,max_writer_contract=2 WHERE singleton`)
+	sql(`UPDATE feed.schema_compatibility SET min_writer_contract=3,max_writer_contract=3 WHERE singleton`)
 	if err := s.Ping(ctx); err == nil {
 		t.Fatal("incompatible writer accepted")
 	}
-	sql(`UPDATE feed.schema_compatibility SET min_writer_contract=1,max_writer_contract=1 WHERE singleton`)
+	sql(`UPDATE feed.schema_compatibility SET min_writer_contract=2,max_writer_contract=2 WHERE singleton`)
 	sql(`UPDATE feed.schema_migrations SET name='0015_mismatched.sql' WHERE version=15`)
 	if err := s.Ping(ctx); err == nil {
 		t.Fatal("changed known migration accepted")

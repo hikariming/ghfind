@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// Storage writer compatibility is independent of the public and bridge wire
+// contracts, which remain version 1. Writer 2 enforces user proposal erasure.
+const FeedStorageWriterVersion = 2
+
 type feedProfileVersionKey struct{}
 
 func withFeedProfileVersion(ctx context.Context, version int64) context.Context {

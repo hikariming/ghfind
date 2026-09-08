@@ -141,8 +141,8 @@ func TestPostgresGovernanceIndividualCommands(t *testing.T) {
 	if assignments != 1 {
 		t.Fatal("parallel assignments", assignments)
 	}
-	govSQL(t, ctx, s, `INSERT INTO feed.tag_proposals(id,namespace,slug,source,source_ref,evidence_ids,status,taxonomy_version,analysis_id) VALUES('stale-proposal','domain','stale-only','user','missing/repo','[]','proposed',1,'stale-analysis')`)
-	reject := FeedGovernanceReview{FeedGovernanceCommand: govBase(3, 3), FeedGovernanceTarget: FeedGovernanceTarget{"user", "stale-proposal"}, ExpectedAnalysisID: "stale-analysis", Action: "reject"}
+	govSQL(t, ctx, s, `INSERT INTO feed.tag_proposals(id,namespace,slug,source,source_ref,evidence_ids,status,taxonomy_version,analysis_id) VALUES('stale-proposal','domain','stale-only','agent','missing/repo','[]','proposed',1,'stale-analysis')`)
+	reject := FeedGovernanceReview{FeedGovernanceCommand: govBase(3, 3), FeedGovernanceTarget: FeedGovernanceTarget{"assessment", "stale-proposal"}, ExpectedAnalysisID: "stale-analysis", Action: "reject"}
 	if status, b = govHTTP(t, h, "review", reject); status != 200 {
 		t.Fatalf("reject stale %d %s", status, b)
 	}
