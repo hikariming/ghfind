@@ -1,0 +1,533 @@
+{
+  "baseline": "8ec38e7b8d39465d5205b30affbc12914a807a14",
+  "scope": "local PostgreSQL synthetic capacity; signed gateway fixture is NOT real OAuth or Cloudflare evidence",
+  "phase": "profile",
+  "startedAt": "2026-09-08T04:10:41.959929Z",
+  "durationSeconds": 3.213457,
+  "Scheduled": 100,
+  "Completed": 100,
+  "Successful": 100,
+  "ErrorRate": 0,
+  "P50MS": 0,
+  "P95MS": 0,
+  "P99MS": 0,
+  "MaxMS": 0,
+  "GoVersion": "go1.26.1",
+  "CPUSeconds": 1.05383,
+  "MaxHeapBytes": 0,
+  "MaxRSSBytes": 0,
+  "pgDockerStats": null,
+  "candidateCounts": null,
+  "counts": {
+    "databaseBytes": 975419059,
+    "events": 750000,
+    "project_submission_evidence": 50000,
+    "project_tags": 100000,
+    "projects": 50000,
+    "requests": 11078,
+    "served_items": 171570,
+    "users": 5000
+  },
+  "observations": [
+    {
+      "status": 200,
+      "durationMs": 72.699,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 34.687,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 33.271,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.43,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 49.233,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.003,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.126,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.255,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.64,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 34.563,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.793,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.874,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.514,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.816,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.083,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.901,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.566,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.799,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.871,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 34.034,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.466,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.459,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.068,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.085,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.285,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.083,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.618,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.202,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.877,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.652,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.973,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 25.729,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 36.012,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 51.923,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 36.744,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.386,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.258,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.958,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.921,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.525,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.822,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.262,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.439,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.045,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 32.833,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 62.169,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 35.961,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.701,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 37.558,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 37.569,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 32.683,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.428,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.142,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 34.156,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.338,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.556,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.678,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.319,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.548,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.507,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.617,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.855,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.732,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.873,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.811,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.198,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.784,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.089,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.89,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.774,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.414,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.787,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.484,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.695,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.743,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 32.34,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.944,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.693,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.306,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 30.815,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.833,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.759,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.111,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.444,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.835,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.872,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.483,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 32.169,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.354,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 31.428,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.467,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 29.753,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 26.506,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.484,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 28.213,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.316,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.508,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.704,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.851,
+      "items": 20
+    },
+    {
+      "status": 200,
+      "durationMs": 27.908,
+      "items": 20
+    }
+  ]
+}

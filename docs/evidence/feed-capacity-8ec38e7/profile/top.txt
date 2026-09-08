@@ -1,0 +1,208 @@
+File: ghfind-feed-capacity-optimized
+Type: cpu
+Time: 2026-09-08 12:10:41 HKT
+Duration: 3.21s, Total samples = 890ms (27.76%)
+Showing nodes accounting for 890ms, 100% of 890ms total
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      360ms 40.45%  runtime.systemstack
+         0     0%     0%      300ms 33.71%  runtime.mcall
+         0     0%     0%      300ms 33.71%  runtime.schedule
+         0     0%     0%      290ms 32.58%  runtime.findRunnable
+         0     0%     0%      230ms 25.84%  github.com/hikariming/ghfind/internal/backend.(*APIServer).feedProjects
+         0     0%     0%      230ms 25.84%  github.com/hikariming/ghfind/internal/backend.NewStandaloneFeedHandler.withFeedRequestTimeout.func5
+         0     0%     0%      230ms 25.84%  github.com/hikariming/ghfind/internal/feed/runtime.WithHealth.func3
+         0     0%     0%      230ms 25.84%  net/http.(*ServeMux).ServeHTTP
+         0     0%     0%      230ms 25.84%  net/http.(*conn).serve
+         0     0%     0%      230ms 25.84%  net/http.HandlerFunc.ServeHTTP
+         0     0%     0%      230ms 25.84%  net/http.serverHandler.ServeHTTP
+         0     0%     0%      210ms 23.60%  runtime.park_m
+         0     0%     0%      150ms 16.85%  runtime.semasleep
+         0     0%     0%      140ms 15.73%  runtime.(*mheap).alloc.func1
+         0     0%     0%      140ms 15.73%  runtime.(*mheap).allocSpan
+         0     0%     0%      140ms 15.73%  runtime.mPark (inline)
+     140ms 15.73% 15.73%      140ms 15.73%  runtime.madvise
+         0     0% 15.73%      140ms 15.73%  runtime.notesleep
+     140ms 15.73% 31.46%      140ms 15.73%  runtime.pthread_cond_wait
+         0     0% 31.46%      140ms 15.73%  runtime.stopm
+     130ms 14.61% 46.07%      130ms 14.61%  runtime.kevent
+         0     0% 46.07%      130ms 14.61%  runtime.notewakeup
+     130ms 14.61% 60.67%      130ms 14.61%  runtime.pthread_cond_signal
+         0     0% 60.67%      130ms 14.61%  runtime.semawakeup
+         0     0% 60.67%      130ms 14.61%  runtime.sysUsed (inline)
+         0     0% 60.67%      130ms 14.61%  runtime.sysUsedOS (inline)
+         0     0% 60.67%      120ms 13.48%  database/sql.withLock
+         0     0% 60.67%      120ms 13.48%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 60.67%      120ms 13.48%  runtime.netpoll
+         0     0% 60.67%      120ms 13.48%  runtime.startm
+         0     0% 60.67%      120ms 13.48%  runtime.wakep
+     120ms 13.48% 74.16%      120ms 13.48%  syscall.rawsyscalln
+         0     0% 74.16%      120ms 13.48%  syscall.syscall
+         0     0% 74.16%      120ms 13.48%  syscall.syscalln
+         0     0% 74.16%       90ms 10.11%  runtime.gcBgMarkWorker.func2
+      20ms  2.25% 76.40%       90ms 10.11%  runtime.gcDrain
+         0     0% 76.40%       90ms 10.11%  runtime.goexit0
+         0     0% 76.40%       80ms  8.99%  github.com/jackc/pgx/v5/pgconn.(*PgConn).peekMessage
+         0     0% 76.40%       80ms  8.99%  github.com/jackc/pgx/v5/pgconn/internal/bgreader.(*BGReader).Read
+         0     0% 76.40%       80ms  8.99%  github.com/jackc/pgx/v5/pgproto3.(*Frontend).Receive
+         0     0% 76.40%       80ms  8.99%  github.com/jackc/pgx/v5/pgproto3.(*chunkReader).Next
+         0     0% 76.40%       80ms  8.99%  internal/poll.(*FD).Read
+         0     0% 76.40%       80ms  8.99%  io.ReadAtLeast
+         0     0% 76.40%       80ms  8.99%  net.(*conn).Read
+         0     0% 76.40%       80ms  8.99%  net.(*netFD).Read
+         0     0% 76.40%       80ms  8.99%  syscall.Read (inline)
+         0     0% 76.40%       80ms  8.99%  syscall.read
+      40ms  4.49% 80.90%       70ms  7.87%  github.com/hikariming/ghfind/internal/backend.RankFeedCandidates
+         0     0% 80.90%       70ms  7.87%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 80.90%       70ms  7.87%  runtime.newproc.func1
+         0     0% 80.90%       60ms  6.74%  database/sql.(*Rows).Next
+         0     0% 80.90%       60ms  6.74%  database/sql.(*Rows).Next.func1
+         0     0% 80.90%       60ms  6.74%  database/sql.(*Rows).nextLocked
+         0     0% 80.90%       60ms  6.74%  github.com/hikariming/ghfind/internal/backend.(*PostgresFeedStore).LoadFeedCandidates
+         0     0% 80.90%       60ms  6.74%  github.com/jackc/pgx/v5/stdlib.(*Rows).Next
+         0     0% 80.90%       50ms  5.62%  github.com/hikariming/ghfind/internal/backend.(*APIServer).serveFeedPage
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5.(*baseRows).Next
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5/pgconn.(*PgConn).ExecPrepared
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5/pgconn.(*PgConn).execExtendedSuffix
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5/pgconn.(*PgConn).receiveMessage
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5/pgconn.(*ResultReader).NextRow
+         0     0% 80.90%       50ms  5.62%  github.com/jackc/pgx/v5/pgconn.(*ResultReader).receiveMessage
+         0     0% 80.90%       50ms  5.62%  runtime.gcBgMarkWorker
+         0     0% 80.90%       40ms  4.49%  github.com/hikariming/ghfind/internal/backend.(*PostgresFeedStore).SaveFeedRequest
+         0     0% 80.90%       40ms  4.49%  internal/poll.(*FD).Write
+         0     0% 80.90%       40ms  4.49%  net.(*conn).Write
+         0     0% 80.90%       40ms  4.49%  net.(*netFD).Write
+         0     0% 80.90%       40ms  4.49%  runtime.(*gcControllerState).enlistWorker
+         0     0% 80.90%       40ms  4.49%  syscall.Write (inline)
+         0     0% 80.90%       40ms  4.49%  syscall.write
+         0     0% 80.90%       30ms  3.37%  database/sql.(*DB).queryDC
+         0     0% 80.90%       30ms  3.37%  database/sql.(*DB).queryDC.func1
+         0     0% 80.90%       30ms  3.37%  database/sql.(*DB).retry
+         0     0% 80.90%       30ms  3.37%  database/sql.ctxDriverQuery
+         0     0% 80.90%       30ms  3.37%  encoding/json.(*encodeState).marshal
+         0     0% 80.90%       30ms  3.37%  encoding/json.(*encodeState).reflectValue
+         0     0% 80.90%       30ms  3.37%  encoding/json.Marshal
+         0     0% 80.90%       30ms  3.37%  encoding/json.arrayEncoder.encode
+         0     0% 80.90%       30ms  3.37%  encoding/json.sliceEncoder.encode
+         0     0% 80.90%       30ms  3.37%  encoding/json.structEncoder.encode
+         0     0% 80.90%       30ms  3.37%  github.com/hikariming/ghfind/internal/backend.(*PostgresFeedStore).PutFeedSession
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5.(*Conn).Exec
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5.(*Conn).Query
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5.(*Conn).exec
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5/pgconn.(*PgConn).flushWithPotentialWriteReadDeadlock
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5/pgconn.(*ResultReader).readUntilRowDescription
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5/pgproto3.(*Frontend).Flush
+         0     0% 80.90%       30ms  3.37%  github.com/jackc/pgx/v5/stdlib.(*Conn).QueryContext
+         0     0% 80.90%       30ms  3.37%  runtime.preemptM
+         0     0% 80.90%       30ms  3.37%  runtime.preemptone
+      30ms  3.37% 84.27%       30ms  3.37%  runtime.pthread_kill
+         0     0% 84.27%       30ms  3.37%  runtime.signalM (inline)
+         0     0% 84.27%       20ms  2.25%  bytes.(*Buffer).grow
+         0     0% 84.27%       20ms  2.25%  bytes.growSlice
+         0     0% 84.27%       20ms  2.25%  database/sql.(*DB).QueryContext
+         0     0% 84.27%       20ms  2.25%  database/sql.(*DB).QueryContext.func1
+         0     0% 84.27%       20ms  2.25%  database/sql.(*DB).execDC
+         0     0% 84.27%       20ms  2.25%  database/sql.(*DB).execDC.func2
+         0     0% 84.27%       20ms  2.25%  database/sql.(*DB).query
+         0     0% 84.27%       20ms  2.25%  database/sql.(*Tx).ExecContext
+         0     0% 84.27%       20ms  2.25%  database/sql.ctxDriverExec
+         0     0% 84.27%       20ms  2.25%  github.com/hikariming/ghfind/internal/backend.(*APIServer).ensureFeedUser
+         0     0% 84.27%       20ms  2.25%  github.com/hikariming/ghfind/internal/backend.(*PostgresFeedStore).EnsureFeedUser
+         0     0% 84.27%       20ms  2.25%  github.com/hikariming/ghfind/internal/backend.(*PostgresFeedStore).GetFeedUser
+         0     0% 84.27%       20ms  2.25%  github.com/jackc/pgx/v5.(*Conn).execPrepared
+         0     0% 84.27%       20ms  2.25%  github.com/jackc/pgx/v5/stdlib.(*Conn).ExecContext
+         0     0% 84.27%       20ms  2.25%  runtime.(*mcache).nextFree
+         0     0% 84.27%       20ms  2.25%  runtime.(*mcache).refill
+         0     0% 84.27%       20ms  2.25%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 84.27%       20ms  2.25%  runtime.lock (inline)
+         0     0% 84.27%       20ms  2.25%  runtime.lock2
+         0     0% 84.27%       20ms  2.25%  runtime.lockWithRank (inline)
+         0     0% 84.27%       20ms  2.25%  runtime.mallocgc
+         0     0% 84.27%       20ms  2.25%  runtime.mallocgcSmallNoscan
+      20ms  2.25% 86.52%       20ms  2.25%  runtime.memclrNoHeapPointers
+         0     0% 86.52%       20ms  2.25%  runtime.osyield (inline)
+         0     0% 86.52%       20ms  2.25%  runtime.scanObject
+      20ms  2.25% 88.76%       20ms  2.25%  runtime.tryDeferToSpanScan
+      20ms  2.25% 91.01%       20ms  2.25%  runtime.usleep
+         0     0% 91.01%       10ms  1.12%  bufio.(*Writer).Flush
+         0     0% 91.01%       10ms  1.12%  bufio.(*Writer).Write
+         0     0% 91.01%       10ms  1.12%  bytes.(*Buffer).Write
+         0     0% 91.01%       10ms  1.12%  bytes.(*Buffer).WriteString
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).BeginTx
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).BeginTx.func1
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).QueryRowContext (inline)
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).begin
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).beginDC
+         0     0% 91.01%       10ms  1.12%  database/sql.(*DB).beginDC.func1
+         0     0% 91.01%       10ms  1.12%  database/sql.(*Tx).QueryContext
+         0     0% 91.01%       10ms  1.12%  database/sql.(*Tx).QueryRowContext (inline)
+         0     0% 91.01%       10ms  1.12%  database/sql.ctxDriverBegin
+         0     0% 91.01%       10ms  1.12%  encoding/json.(*Encoder).Encode
+         0     0% 91.01%       10ms  1.12%  encoding/json.floatEncoder.encode
+         0     0% 91.01%       10ms  1.12%  encoding/json.stringEncoder
+         0     0% 91.01%       10ms  1.12%  gcWriteBarrier
+         0     0% 91.01%       10ms  1.12%  github.com/hikariming/ghfind/internal/backend.feedCandidateSimilarity
+         0     0% 91.01%       10ms  1.12%  github.com/hikariming/ghfind/internal/backend.feedRequestPayloadHash
+         0     0% 91.01%       10ms  1.12%  github.com/hikariming/ghfind/internal/backend.softmaxMMR
+         0     0% 91.01%       10ms  1.12%  github.com/hikariming/ghfind/internal/backend.weightedTagJaccard
+         0     0% 91.01%       10ms  1.12%  github.com/hikariming/ghfind/internal/backend.writeJSON
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5.(*Conn).BeginTx
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5.(*Conn).execSimpleProtocol
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5/pgconn.(*PgConn).Exec
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5/pgtype.scanPlanString.Scan
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5/stdlib.(*Conn).BeginTx
+         0     0% 91.01%       10ms  1.12%  github.com/jackc/pgx/v5/stdlib.(*Rows).Next.func14
+      10ms  1.12% 92.13%       10ms  1.12%  internal/chacha8rand.(*State).Next (inline)
+      10ms  1.12% 93.26%       10ms  1.12%  internal/chacha8rand.block
+      10ms  1.12% 94.38%       10ms  1.12%  internal/runtime/atomic.(*Int64).Add (inline)
+         0     0% 94.38%       10ms  1.12%  internal/runtime/atomic.(*Pointer[go.shape.struct { runtime.spanSetBlockHeader2; runtime.spans [512]runtime.atomicMSpanPointer }]).StoreNoWB (inline)
+      10ms  1.12% 95.51%       10ms  1.12%  internal/runtime/atomic.(*UnsafePointer).StoreNoWB (inline)
+         0     0% 95.51%       10ms  1.12%  internal/strconv.AppendFloat (inline)
+         0     0% 95.51%       10ms  1.12%  internal/strconv.dboxDigits
+         0     0% 95.51%       10ms  1.12%  internal/strconv.dboxFtoa
+         0     0% 95.51%       10ms  1.12%  internal/strconv.dboxFtoa64
+         0     0% 95.51%       10ms  1.12%  internal/strconv.genericFtoa
+         0     0% 95.51%       10ms  1.12%  math.Exp (inline)
+      10ms  1.12% 96.63%       10ms  1.12%  math.archExp
+         0     0% 96.63%       10ms  1.12%  net/http.(*chunkWriter).Write
+         0     0% 96.63%       10ms  1.12%  net/http.(*response).Write
+         0     0% 96.63%       10ms  1.12%  net/http.(*response).write
+         0     0% 96.63%       10ms  1.12%  net/http.checkConnErrorWriter.Write
+         0     0% 96.63%       10ms  1.12%  runtime.(*mcentral).cacheSpan
+         0     0% 96.63%       10ms  1.12%  runtime.(*mcentral).grow
+         0     0% 96.63%       10ms  1.12%  runtime.(*mcentral).uncacheSpan
+         0     0% 96.63%       10ms  1.12%  runtime.(*mheap).alloc
+         0     0% 96.63%       10ms  1.12%  runtime.(*pageAlloc).allocToCache
+         0     0% 96.63%       10ms  1.12%  runtime.(*pageAlloc).scavenge.func1
+         0     0% 96.63%       10ms  1.12%  runtime.(*pageAlloc).scavengeOne
+      10ms  1.12% 97.75%       10ms  1.12%  runtime.(*scavChunkData).alloc
+         0     0% 97.75%       10ms  1.12%  runtime.(*scavengeIndex).alloc
+         0     0% 97.75%       10ms  1.12%  runtime.(*spanSet).push
+         0     0% 97.75%       10ms  1.12%  runtime.entersyscallWakeSysmon
+         0     0% 97.75%       10ms  1.12%  runtime.forEachPInternal
+         0     0% 97.75%       10ms  1.12%  runtime.gcMarkDone.forEachP.func5
+         0     0% 97.75%       10ms  1.12%  runtime.gcStart.func2
+         0     0% 97.75%       10ms  1.12%  runtime.gopreempt_m (inline)
+         0     0% 97.75%       10ms  1.12%  runtime.goschedImpl
+         0     0% 97.75%       10ms  1.12%  runtime.makeslice
+         0     0% 97.75%       10ms  1.12%  runtime.morestack
+         0     0% 97.75%       10ms  1.12%  runtime.netpollBreak (inline)
+         0     0% 97.75%       10ms  1.12%  runtime.newstack
+         0     0% 97.75%       10ms  1.12%  runtime.notetsleep
+         0     0% 97.75%       10ms  1.12%  runtime.notetsleep_internal
+         0     0% 97.75%       10ms  1.12%  runtime.preemptall
+      10ms  1.12% 98.88%       10ms  1.12%  runtime.pthread_cond_timedwait_relative_np
+         0     0% 98.88%       10ms  1.12%  runtime.rand
+         0     0% 98.88%       10ms  1.12%  runtime.ready
+         0     0% 98.88%       10ms  1.12%  runtime.resetspinning
+         0     0% 98.88%       10ms  1.12%  runtime.runSafePointFn
+         0     0% 98.88%       10ms  1.12%  runtime.send.goready.func1
+         0     0% 98.88%       10ms  1.12%  runtime.slicebytetostring
+         0     0% 98.88%       10ms  1.12%  runtime.stopTheWorldWithSema
+         0     0% 98.88%       10ms  1.12%  runtime.sysUnused (inline)
+         0     0% 98.88%       10ms  1.12%  runtime.sysUnusedOS (inline)
+      10ms  1.12%   100%       10ms  1.12%  runtime.typePointers.next
+         0     0%   100%       10ms  1.12%  runtime.wakeNetpoll
+         0     0%   100%       10ms  1.12%  runtime.wbBufFlush
+         0     0%   100%       10ms  1.12%  runtime.wbBufFlush.func1
+         0     0%   100%       10ms  1.12%  runtime.wbBufFlush1
+         0     0%   100%       10ms  1.12%  strconv.AppendFloat (inline)
