@@ -8,26 +8,35 @@ const NO_STORE = { "Cache-Control": "no-store" };
 type FeedViewer = { githubId: number; login: string; image: string | null };
 
 export class FeedBodyTooLarge extends Error {}
+export class FeedBodyTimeout extends Error {}
 
 // Content-Length is advisory: chunked requests and dishonest clients must also
 // be bounded before signing, parsing or forwarding their bodies.
-export async function readBoundedBody(body: ReadableStream<Uint8Array> | null, limit: number): Promise<Uint8Array> {
+export async function readBoundedBody(body: ReadableStream<Uint8Array> | null, limit: number, timeoutMs = 5_000): Promise<Uint8Array> {
   if (!body) return new Uint8Array();
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new FeedBodyTimeout("Feed body read timed out.")), timeoutMs);
+  });
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      const { done, value } = await Promise.race([reader.read(), timeout]);
       if (done) break;
       size += value.byteLength;
       if (size > limit) {
-        await reader.cancel();
         throw new FeedBodyTooLarge("Feed body exceeds its limit.");
       }
       chunks.push(value);
     }
+  } catch (error) {
+    // A peer's cancellation promise must not extend the bounded read deadline.
+    void reader.cancel().catch(() => {});
+    throw error;
   } finally {
+    clearTimeout(timer);
     reader.releaseLock();
   }
   const bytes = new Uint8Array(size);
@@ -122,8 +131,8 @@ export async function forwardFeedRequest(request: Request, viewer: FeedViewer): 
     if (retryAfter && /^\d{1,4}$/.test(retryAfter)) responseHeaders.set("Retry-After", retryAfter);
     return NextResponse.json(result, { status: response.status, headers: responseHeaders });
   } catch (error) {
-    if (error instanceof FeedBodyTooLarge && !requestBodyRead) {
-      return NextResponse.json({ error: "invalid_body", message: "Feed request body is too large." }, { status: 400, headers: NO_STORE });
+    if ((error instanceof FeedBodyTooLarge || error instanceof FeedBodyTimeout) && !requestBodyRead) {
+      return NextResponse.json({ error: "invalid_body", message: error instanceof FeedBodyTimeout ? "Feed request body timed out." : "Feed request body is too large." }, { status: 400, headers: NO_STORE });
     }
     // Avoid logging headers, signed claims, response bodies or OAuth identifiers.
     console.error("feed.gateway_unavailable");
