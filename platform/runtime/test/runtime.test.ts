@@ -1,0 +1,407 @@
+import { strict as assert } from "node:assert";
+import { createHmac, createHash } from "node:crypto";
+import { test } from "node:test";
+import {
+  handleRequest,
+  type Dispatch,
+  type RuntimeSettings,
+  type Target,
+} from "../src/router";
+import { deliver, sourceEvent } from "../src/queue";
+import { relayOnce } from "../src/relay";
+import { readBounded, HTTPError } from "../src/security";
+
+const env: RuntimeSettings = {
+  FEED_ENVIRONMENT: "staging",
+  FEED_SOURCE_RELAY_ENABLED: "true",
+  FEED_SOURCE_SECRET: "o".repeat(32),
+  FEED_RELEASE_SHA: "a".repeat(40),
+  FEED_IMAGE_REFERENCE: `registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:${"b".repeat(64)}`,
+  FEED_MODE: "baseline",
+  FEED_WRITER_EPOCH: "1",
+  FEED_EXECUTOR_ENABLED: "true",
+  FEED_GATEWAY_SECRET: "g".repeat(32),
+  FEED_SIGNING_SECRET: "s".repeat(32),
+  FEED_BRIDGE_SECRET: "b".repeat(32),
+  FEED_RUNTIME_ADMIN_SECRET: "a".repeat(32),
+  FEED_EXECUTOR_SECRET: "e".repeat(32),
+  WORKER_VERSION: {
+    id: "worker-version",
+    tag: "test",
+    timestamp: "2026-09-08T00:00:00Z",
+  },
+};
+function signed(body = "", change: Record<string, unknown> = {}): Request {
+  const now = Date.now();
+  const claims = {
+    version: 1,
+    audience: "feed-api",
+    githubId: 12,
+    login: "test-user",
+    issuedAt: now,
+    expiresAt: now + 30000,
+    method: "POST",
+    target: "/api/feed/events?a=1",
+    bodySha256: createHash("sha256").update(body).digest("hex"),
+    ...change,
+  };
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  const signature = createHmac("sha256", env.FEED_GATEWAY_SECRET)
+    .update(`feed-gateway-v1\n${payload}`)
+    .digest("base64url");
+  return new Request("https://runtime/api/feed/events?a=1", {
+    method: "POST",
+    body,
+    headers: {
+      "x-feed-gateway": `${payload}.${signature}`,
+      cookie: "private",
+      "x-github-id": "999",
+      "user-agent": "untrusted",
+      authorization: "Bearer fake",
+    },
+  });
+}
+function dispatch(overrides: Partial<Dispatch> = {}): Dispatch {
+  return {
+    fetch: async (target) =>
+      Response.json({
+        ready: true,
+        service: target === "executor-0" ? "feed-worker" : "feed-api",
+        version: env.FEED_RELEASE_SHA,
+        contractVersion: "1",
+        storeProfile: "cf_d1_r2",
+        writerEpoch: 1,
+      }),
+    stop: async () => {},
+    ...overrides,
+  };
+}
+function admin(path: string, method = "GET") {
+  return new Request(`https://runtime${path}`, {
+    method,
+    headers: { authorization: `Bearer ${env.FEED_RUNTIME_ADMIN_SECRET}` },
+  });
+}
+
+test("anonymous callers cannot wake containers or access operations", async () => {
+  let calls = 0;
+  const d = dispatch({
+    fetch: async () => {
+      calls++;
+      throw new Error("must not dispatch");
+    },
+  });
+  for (const path of [
+    "/api/feed/events",
+    "/readyz",
+    "/internal/runtime/api-0/ready",
+  ]) {
+    const result = await handleRequest(
+      new Request(`https://runtime${path}`),
+      env,
+      d,
+    );
+    assert.equal(result.status, 401);
+    assert.equal(result.headers.get("cache-control"), "no-store");
+  }
+  assert.equal(calls, 0);
+});
+test("valid request binds identity/body/target and strips untrusted headers", async () => {
+  const response = await handleRequest(
+    signed('{"events":[]}'),
+    env,
+    dispatch({
+      fetch: async (target, request) => {
+        assert.equal(target, "api-0");
+        for (const header of [
+          "cookie",
+          "x-github-id",
+          "authorization",
+          "user-agent",
+        ])
+          assert.equal(request.headers.get(header), null);
+        assert.equal(await request.text(), '{"events":[]}');
+        return Response.json(
+          { ok: true },
+          { headers: { "x-internal-score": "secret", "set-cookie": "bad" } },
+        );
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-internal-score"), null);
+  assert.equal(response.headers.get("set-cookie"), null);
+});
+test("tampered, stale, wrong-audience and wrong-body claims reject before dispatch", async () => {
+  const d = dispatch({
+    fetch: async () => {
+      throw new Error("must not dispatch");
+    },
+  });
+  for (const changes of [
+    { target: "/api/feed/events" },
+    { audience: "other" },
+    { bodySha256: "0".repeat(64) },
+    { expiresAt: Date.now() - 10000 },
+    { githubId: 0 },
+    { issuedAt: Date.now() + 60000 },
+  ]) {
+    assert.equal(
+      (await handleRequest(signed("{}", changes), env, d)).status,
+      401,
+    );
+  }
+  const req = signed();
+  req.headers.set("x-feed-gateway", "a.b");
+  assert.equal((await handleRequest(req, env, d)).status, 401);
+});
+test("actual streaming size is bounded when Content-Length is absent", async () => {
+  const response = await handleRequest(
+    signed("x".repeat(128 * 1024 + 1)),
+    env,
+    dispatch(),
+  );
+  assert.equal(response.status, 413);
+});
+test("readiness requires all fixed slots, current binary and contract", async () => {
+  const targets: Target[] = [];
+  const response = await handleRequest(
+    admin("/readyz"),
+    env,
+    dispatch({
+      fetch: async (target, request) => {
+        targets.push(target);
+        return dispatch().fetch(target, request);
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(targets.sort(), ["api-0", "api-1", "executor-0"]);
+  const mismatch = dispatch({
+    fetch: async () =>
+      Response.json({ ready: true, version: "old", contractVersion: "1" }),
+  });
+  assert.equal(
+    (await handleRequest(admin("/readyz"), env, mismatch)).status,
+    503,
+  );
+  assert.equal(
+    (
+      await handleRequest(
+        admin("/readyz"),
+        { ...env, FEED_EXECUTOR_ENABLED: "false" },
+        dispatch(),
+      )
+    ).status,
+    503,
+  );
+  assert.equal(
+    (
+      await handleRequest(
+        admin("/readyz"),
+        { ...env, FEED_RELEASE_SHA: "UNCONFIGURED" },
+        dispatch(),
+      )
+    ).status,
+    503,
+  );
+});
+test("stops are staging-only and arbitrary instance identifiers cannot expand capacity", async () => {
+  let stops = 0;
+  const d = dispatch({
+    stop: async (target) => {
+      assert.equal(target, "api-0");
+      stops++;
+    },
+  });
+  assert.equal(
+    (
+      await handleRequest(
+        admin("/internal/runtime/api-99/stop", "POST"),
+        env,
+        d,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await handleRequest(
+        admin("/internal/runtime/api-0/stop", "POST"),
+        { ...env, FEED_ENVIRONMENT: "production" },
+        d,
+      )
+    ).status,
+    405,
+  );
+  assert.equal(
+    (await handleRequest(admin("/internal/runtime/api-0/stop", "POST"), env, d))
+      .status,
+    200,
+  );
+  assert.equal(stops, 1);
+});
+const event = {
+  contractVersion: 1,
+  eventId: "event:1",
+  aggregateKey: "owner/repo",
+  sourceVersion: 1,
+  kind: "assessment.completed",
+  analysisId: "analysis",
+  receiptId: "receipt",
+  sourceHash: "a".repeat(64),
+  occurredAt: Date.now(),
+};
+test("queue completion requires durable outcome for the exact event", async () => {
+  for (const result of [
+    { status: "accepted", eventId: event.eventId },
+    { status: "completed", eventId: "other" },
+  ]) {
+    await assert.rejects(
+      deliver(
+        event,
+        env,
+        dispatch({ fetch: async () => Response.json(result) }),
+      ),
+    );
+  }
+  for (const status of ["completed", "duplicate"]) {
+    await deliver(
+      event,
+      env,
+      dispatch({
+        fetch: async (target, request) => {
+          assert.equal(target, "executor-0");
+          assert.equal(
+            new URL(request.url).pathname,
+            "/internal/feed/jobs/execute",
+          );
+          assert.equal(
+            request.headers.get("authorization"),
+            `Bearer ${env.FEED_EXECUTOR_SECRET}`,
+          );
+          return Response.json({ status, eventId: event.eventId });
+        },
+      }),
+    );
+  }
+  assert.throws(() =>
+    sourceEvent({ ...event, analysis: { raw: "forbidden" } }),
+  );
+});
+
+test("source relay sends bounded reference envelopes before marking delivery", async () => {
+  let queued = false;
+  let finishes = 0;
+  const summary = await relayOnce(env, {
+    source: async (request) => {
+      assert.equal(
+        request.headers.get("authorization"),
+        `Bearer ${env.FEED_SOURCE_SECRET}`,
+      );
+      assert.equal(request.headers.get("x-feed-contract"), "1");
+      const body = (await request.json()) as Record<string, unknown>;
+      if (new URL(request.url).pathname.endsWith("/claim")) {
+        assert.equal(body.limit, 100);
+        return Response.json({
+          events: [{ ...event, leaseToken: body.leaseToken, attempts: 2 }],
+        });
+      }
+      assert.equal(queued, true);
+      assert.equal(body.delivered, true);
+      assert.equal(body.sequence, event.sourceVersion);
+      assert.equal(body.errorCode, undefined);
+      finishes++;
+      return Response.json({ updated: true });
+    },
+    send: async (events) => {
+      assert.deepEqual(events, [event]);
+      queued = true;
+    },
+  });
+  assert.equal(finishes, 1);
+  assert.deepEqual(summary, {
+    claimed: 1,
+    delivered: 1,
+    retried: 0,
+    leaseConflicts: 0,
+    disabled: false,
+  });
+});
+test("failed publication stays retryable and expired finish cannot claim success", async () => {
+  for (const conflict of [false, true]) {
+    const summary = await relayOnce(env, {
+      source: async (request) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        if (new URL(request.url).pathname.endsWith("/claim"))
+          return Response.json({
+            events: [{ ...event, leaseToken: body.leaseToken, attempts: 1 }],
+          });
+        assert.equal(body.delivered, false);
+        assert.equal(body.errorCode, "queue_unavailable");
+        return Response.json({ updated: !conflict });
+      },
+      send: async () => {
+        throw new Error("queue unavailable");
+      },
+    });
+    assert.equal(summary.delivered, 0);
+    assert.equal(summary.retried, conflict ? 0 : 1);
+    assert.equal(summary.leaseConflicts, conflict ? 1 : 0);
+  }
+});
+test("relay rejects foreign leases, raw assessment data and oversized claims before publication", async () => {
+  for (const kind of ["wrong-lease", "raw-data", "too-many"]) {
+    let publications = 0;
+    await assert.rejects(
+      relayOnce(env, {
+        source: async (request) => {
+          const body = (await request.json()) as Record<string, unknown>;
+          const value = {
+            ...event,
+            leaseToken: kind === "wrong-lease" ? "foreign" : body.leaseToken,
+            attempts: 1,
+            ...(kind === "raw-data" ? { rawAssessment: "forbidden" } : {}),
+          };
+          return Response.json({
+            events: Array.from(
+              { length: kind === "too-many" ? 101 : 1 },
+              () => value,
+            ),
+          });
+        },
+        send: async () => {
+          publications++;
+        },
+      }),
+    );
+    assert.equal(publications, 0);
+  }
+  const result = await relayOnce(
+    { ...env, FEED_SOURCE_RELAY_ENABLED: "false" },
+    {
+      source: async () => {
+        throw new Error("disabled must not read");
+      },
+      send: async () => {
+        throw new Error("disabled must not send");
+      },
+    },
+  );
+  assert.equal(result.disabled, true);
+});
+
+test("slow bodies expire without waiting for a stalled stream cancellation", async () => {
+  const response = new Response(
+    new ReadableStream({
+      pull() {},
+      cancel() {
+        return new Promise(() => {});
+      },
+    }),
+  );
+  await assert.rejects(
+    readBounded(response, 128, 20),
+    (error: unknown) => error instanceof HTTPError && error.status === 408,
+  );
+});

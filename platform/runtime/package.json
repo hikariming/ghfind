@@ -1,0 +1,20 @@
+{
+  "name": "@ghfind/feed-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types --env-interface RuntimeEnv --strict-vars=false && node scripts/normalize-types.mjs",
+    "test": "tsx --test test/*.test.ts",
+    "build": "wrangler deploy --dry-run --outdir dist"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "wrangler": "4.129.1",
+    "typescript": "5.9.3",
+    "tsx": "4.22.4",
+    "@types/node": "22.19.15"
+  }
+}
