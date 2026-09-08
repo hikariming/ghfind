@@ -100,18 +100,54 @@ export async function claimFeedSourceEvents(db: Client, input: { limit: number; 
   })).sort((a, b) => a.sourceVersion - b.sourceVersion);
 }
 
-// Replay is an operator command with a fresh audit reference, never an automatic
-// unbounded retry. Event identity/sourceVersion remain unchanged.
-export async function replayFeedSourceEvent(db: Client, input: { sequence: number; reason: string; now: number }): Promise<boolean> {
-  if (!Number.isSafeInteger(input.sequence) || input.sequence < 1 || !input.reason.trim() || input.reason.length > 256) throw new Error("Invalid replay request.");
-  const result = await db.execute({
-    sql: `UPDATE feed_source_outbox SET status = 'pending', attempts = 0,
-      available_at = ?, lease_token = NULL, lease_expires_at = NULL,
-      replay_count = replay_count + 1, replay_reason = ?, replayed_at = ?
-      WHERE sequence = ? AND status = 'failed'`,
-    args: [input.now, input.reason, input.now, input.sequence],
-  });
-  return result.rowsAffected === 1;
+export interface FeedSourceReplayCommand {
+  sequence: number;
+  commandId: string;
+  operator: string;
+  reason: string;
+  now: number;
+}
+
+// Shared by the Workers operator capability and the standalone core helper.
+// These fixed statements are a single core transaction, never arbitrary SQL RPC.
+export function sourceReplayStatements(input: FeedSourceReplayCommand): {sql:string;args:InValue[]}[] {
+  if (!Number.isSafeInteger(input.sequence) || input.sequence < 1 ||
+      !Number.isSafeInteger(input.now) || input.now < 0 ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.commandId) ||
+      !input.operator.trim() || input.operator.length > 100 ||
+      [...input.reason.trim()].length < 8 || input.reason.length > 500) {
+    throw new Error("Invalid source replay command.");
+  }
+  const command=crypto.randomUUID();
+  return [
+    {
+      sql:`INSERT INTO feed_source_operator_guards(id,identity_ok,eligible_ok) VALUES(?,
+        CASE WHEN NOT EXISTS(SELECT 1 FROM feed_source_operator_commands WHERE command_id=?
+          AND (sequence<>? OR operator<>? OR reason<>?)) THEN 1 ELSE 0 END,
+        CASE WHEN EXISTS(SELECT 1 FROM feed_source_operator_commands WHERE command_id=?)
+          OR EXISTS(SELECT 1 FROM feed_source_outbox WHERE sequence=? AND status='failed') THEN 1 ELSE 0 END)`,
+      args:[command,input.commandId,input.sequence,input.operator,input.reason,input.commandId,input.sequence],
+    },
+    {
+      sql:`UPDATE feed_source_outbox SET status='pending',attempts=0,available_at=?,lease_token=NULL,
+        lease_expires_at=NULL,delivered_at=NULL,last_error=NULL,replay_count=replay_count+1,replay_reason=?,replayed_at=?
+        WHERE sequence=? AND NOT EXISTS(SELECT 1 FROM feed_source_operator_commands WHERE command_id=?)`,
+      args:[input.now,input.reason,input.now,input.sequence,input.commandId],
+    },
+    {
+      sql:`INSERT INTO feed_source_operator_commands(command_id,sequence,event_id,source_hash,operator,reason,accepted_at)
+        SELECT ?,sequence,event_id,source_hash,?,?,? FROM feed_source_outbox WHERE sequence=? ON CONFLICT(command_id) DO NOTHING`,
+      args:[input.commandId,input.operator,input.reason,input.now,input.sequence],
+    },
+    {sql:"DELETE FROM feed_source_operator_guards WHERE id=?",args:[command]},
+  ];
+}
+
+// Success means durable command acceptance; an exact retry remains accepted
+// after subsequent leasing/delivery without resetting that later state.
+export async function replayFeedSourceEvent(db: Client, input: FeedSourceReplayCommand): Promise<boolean> {
+  await db.batch(sourceReplayStatements(input), "write");
+  return true;
 }
 
 export async function finishFeedSourceDelivery(db: Client, input: {

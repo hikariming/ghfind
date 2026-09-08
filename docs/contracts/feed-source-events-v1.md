@@ -45,7 +45,14 @@ lease token and expiry. Losing acknowledgement may redeliver the same event;
 execution must be idempotent and durable before queue acknowledgement. A worker
 lost on attempt ten becomes a persisted failed record after lease expiry.
 Operator replay retains identity and source version and records its reason,
-count and timestamp. No unbounded automatic replay or catalog scan is used.
+count and timestamp. Stage 4 core migration `0006_feed_source_replay_audit.sql`
+adds a stable command/actor audit. Protected admin `kind:"coreSource"` uses a
+positive decimal sequence ID and deliberately has no Feed writer epoch. Only
+failed source delivery can accept a new command; exact retries remain accepted
+without restarting subsequent work. Source cron then publishes the unchanged
+event. `ok:true` means command acceptance, and source `delivered` means queue
+publication, neither proves Feed execution. No unbounded automatic replay or
+catalog scan is used.
 
 Local source-seam tests cover transaction rollback, explicit reuse, downstream
 unavailability, deduplication, lease races, acknowledgement loss and final-attempt
