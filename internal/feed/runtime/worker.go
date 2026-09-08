@@ -49,7 +49,24 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 	if err != nil {
 		return nil, err
 	}
-	return WithHealth(executor, c.Config, version, "feed-worker", func(ctx context.Context) error {
+	mux := http.NewServeMux()
+	mux.Handle("/internal/feed/jobs/execute", executor)
+	if c.StoreProfile == "cf_d1_r2" {
+		cleanupStore, err := backend.NewHTTPFeedCleanupStore(c.BridgeEndpoint, c.ExecutorSecret)
+		if err != nil {
+			return nil, err
+		}
+		cleanup, err := backend.NewFeedCleanupExecutor(cleanupStore, c.WriterEpoch, c.ExecutorSecret)
+		if err != nil {
+			return nil, err
+		}
+		mux.Handle("/internal/feed/jobs/cleanup", cleanup)
+	} else {
+		mux.HandleFunc("/internal/feed/jobs/cleanup", func(w http.ResponseWriter, r *http.Request) {
+			writeStatus(w, 503, map[string]string{"error": "archive_cleanup_unconfigured"})
+		})
+	}
+	return WithHealth(mux, c.Config, version, "feed-worker", func(ctx context.Context) error {
 		if err := store.Ping(ctx); err != nil {
 			return err
 		}
