@@ -1,7 +1,8 @@
 import { BridgeError, type Fence, type Input, type User } from "./contract";
+import { recallTags, type CatalogRow } from "./catalog";
 
 type Value = string | number | null;
-type Row = Record<string, string | number | null>;
+type Row = CatalogRow;
 export class FeedStore {
   constructor(readonly db: D1Database) {}
   sql(query: string, ...values: Value[]) {
@@ -214,15 +215,11 @@ export class FeedStore {
     if (!actor) throw new BridgeError(409, "profile_version_changed");
     const params: Value[] = [input.githubId, input.githubId];
     const base = `SELECT p.* FROM feed_projects p WHERE ${this.eligible()}`;
-    const positive = JSON.stringify(
-      actor.preferences.filter((p) => p.value > 0).map((p) => p.tagId),
-    );
+    const positive = actor.preferences
+      .filter((p) => p.value > 0)
+      .map((p) => p.tagId);
     const recalled = await Promise.all([
-      this.rows(
-        `${base} AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.tag_id IN(SELECT value FROM json_each(?))) ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80`,
-        ...params,
-        positive,
-      ),
+      recallTags(this.db, this.eligible(), input.githubId, positive),
       this.rows(
         `${base} ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40`,
         ...params,

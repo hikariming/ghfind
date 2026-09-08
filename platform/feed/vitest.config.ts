@@ -32,5 +32,9 @@ export default defineConfig({
       },
     }),
   ],
-  test: { setupFiles: ["./tests/setup.ts"], fileParallelism: false },
+  test: {
+    include: ["tests/**/*.test.ts"],
+    setupFiles: ["./tests/setup.ts"],
+    fileParallelism: false,
+  },
 });
