@@ -4,6 +4,11 @@ import { defineConfig } from "vitest/config";
 // Resolve the `@/` path alias (from tsconfig `paths`) so tests can import real
 // modules by their alias, not only relative paths / mocks.
 export default defineConfig({
+  // Worker packages own workerd-backed configs and must not run in Node's
+  // default pool. CI invokes each package's required contract suite explicitly.
+  test: {
+    exclude: ["**/node_modules/**", "**/.git/**", "platform/**", "scripts/feed-platform-*.test.mjs", "scripts/feed-operator.test.mjs"],
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

@@ -248,6 +248,20 @@ export function GET() {
           },
         },
       },
+      "/api/feed/tags/proposals": {
+        post: {
+          tags: ["feed"], operationId: "proposeFeedTag", summary: "Propose a governed project tag for review",
+          description: "Requires the independent Feed runtime. A proposal never creates a canonical tag or grants moderation authority. Replaying the same id and content returns its current moderation status.",
+          security: [{ sessionCookie: [] }],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/FeedTagProposalInput" } } } },
+          responses: {
+            "202": { description: "Proposal persisted for review", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedTagProposalResult" } } } },
+            "400": { description: "Invalid proposal or unknown fields" }, "401": { description: "GitHub OAuth session required" },
+            "404": { description: "Project not in Feed catalog" }, "409": { description: "Proposal ID reused with different content" },
+            "503": { description: "Feed unavailable" },
+          },
+        },
+      },
       "/api/feed/projects": {
         get: {
           tags: ["feed"], operationId: "getProjectFeed", summary: "Get one deterministic personalized Feed page",
@@ -293,9 +307,26 @@ export function GET() {
       },
       "/api/feed/profile": {
         delete: {
-          tags: ["feed"], operationId: "deleteFeedProfile", summary: "Delete Feed profile facts",
+          tags: ["feed"], operationId: "deleteFeedProfile", summary: "Fence a Feed profile and request durable cleanup",
+          description: "The independent runtime invalidates previous sessions and writes before cleanup. Poll the caller-owned deletion status; queued does not mean archives or indexes are already erased.",
           security: [{ sessionCookie: [] }],
-          responses: { "200": { description: "Feed profile facts deleted", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } }, "401": { description: "GitHub OAuth session required" }, "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } } },
+          responses: {
+            "200": { description: "Legacy runtime synchronous deletion", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } },
+            "202": { description: "Deletion fenced and cleanup queued", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } },
+            "401": { description: "GitHub OAuth session required" }, "503": { description: "Feed storage unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } } },
+          },
+        },
+      },
+      "/api/feed/profile/deletions/{id}": {
+        get: {
+          tags: ["feed"], operationId: "getFeedDeletion", summary: "Read your Feed deletion progress",
+          security: [{ sessionCookie: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          responses: {
+            "200": { description: "Durable cleanup state across all required sinks", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedProfileDeletion" } } } },
+            "401": { description: "GitHub OAuth session required" }, "404": { description: "Unknown or another user's deletion" },
+            "503": { description: "Deletion status storage unavailable" },
+          },
         },
       },
       "/api/roast": {
@@ -593,7 +624,7 @@ export function GET() {
           type: "object", required: ["requestId", "algorithmVersion", "taxonomyVersion", "items", "degraded"], properties: { requestId: { type: "string" }, algorithmVersion: { type: "string", example: "baseline-v1" }, taxonomyVersion: { type: "integer" }, items: { type: "array", items: { $ref: "#/components/schemas/FeedItem" } }, nextCursor: { type: ["string", "null"] }, degraded: { type: "array", items: { type: "string", enum: ["cursor_store_unavailable", "gorse_unavailable", "gorse_hydration_unavailable"] } } },
         },
         FeedEventInput: {
-          type: "object", required: ["id", "type", "repoKey", "occurredAt", "impressionToken"],
+          type: "object", additionalProperties: false, required: ["id", "type", "repoKey", "occurredAt", "impressionToken"],
           properties: { id: { type: "string", format: "uuid" }, type: { type: "string", enum: ["impression", "detail_open", "dwell", "github_outbound", "share"] }, repoKey: { type: "string" }, occurredAt: { type: "string", format: "date-time" }, impressionToken: { type: "string" }, durationMs: { type: "integer", minimum: 0, maximum: 1800000 } },
         },
         FeedProjectState: {
@@ -603,7 +634,23 @@ export function GET() {
           type: "object", required: ["accepted", "duplicate"], properties: { accepted: { type: "integer", minimum: 0 }, duplicate: { type: "integer", minimum: 0 } },
         },
         FeedProfileDeletion: {
-          type: "object", required: ["deletionId", "status"], properties: { deletionId: { type: "string" }, status: { type: "string", enum: ["completed"] } },
+          type: "object", required: ["deletionId", "status"], properties: { deletionId: { type: "string" }, status: { type: "string", enum: ["queued", "running", "failed", "completed"] } },
+        },
+        FeedTagProposalInput: {
+          type: "object", additionalProperties: false, required: ["id", "repoKey", "namespace", "slug", "evidence"],
+          description: "At least one label must be non-empty; labels are bounded to 160 UTF-8 bytes and each evidence entry to 256 UTF-8 bytes.",
+          properties: {
+            id: { type: "string", format: "uuid" }, repoKey: { type: "string" },
+            namespace: { type: "string", enum: ["domain", "use_case", "audience", "artifact", "stack", "stage"] },
+            slug: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", maxLength: 80 },
+            labelZh: { type: "string", maxLength: 160 }, labelEn: { type: "string", maxLength: 160 },
+            evidence: { type: "array", minItems: 1, maxItems: 16, items: { type: "string", minLength: 1, maxLength: 256 } },
+          },
+        },
+        FeedTagProposalResult: {
+          type: "object", required: ["proposalId", "status"], properties: {
+            proposalId: { type: "string" }, status: { type: "string", enum: ["proposed", "mapped", "rejected", "superseded"] },
+          },
         },
         Error: {
           type: "object",

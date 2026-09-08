@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "core": [
+    {
+      "name": "0001_init.sql",
+      "sha256": "43d73b9ce6a18d4e81dfa62f49b617e0f8994a65625381f26dde8279404df04d"
+    },
+    {
+      "name": "0002_user_resume_libraries.sql",
+      "sha256": "7d5ee99f2198ccc671583307c69b307728b522e847384f690a893ffed6cdf492"
+    },
+    {
+      "name": "0002_v10_risk_columns.sql",
+      "sha256": "3f7eb40c47367002a9385ddf527ca295bec569f3967588c97cba9fd08ddcb92d"
+    },
+    {
+      "name": "0003_v10_read_fallback.sql",
+      "sha256": "dcb25b1f7fe74f5052c55752bceecf8d37539297c7180c12bebd88bb86ceefe3"
+    },
+    {
+      "name": "0004_project_assessment_sync_index.sql",
+      "sha256": "ee6f09dc11be81cb49006b8753cd4470e3d8d67e5335712649fb2f94c899a83a"
+    }
+  ],
+  "feed": [
+    {
+      "name": "0001_feed_baseline.sql",
+      "sha256": "482dab46a823d91082f2ea2dc9044950f12e2e075ac05fc5d73e36f4f33ce383"
+    },
+    {
+      "name": "0002_feed_candidate_order.sql",
+      "sha256": "3a05c0acfcce90bd58216d3c83ae635aa20f69ac8b5018c94c1b0c1179916216"
+    }
+  ]
+}

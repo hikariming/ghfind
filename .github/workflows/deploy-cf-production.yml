@@ -132,8 +132,9 @@ jobs:
           # Wrangler skips the confirmation prompt in CI and captures a D1
           # backup. This must complete before the first v10 write can replace
           # a v9 row; otherwise the immutable read fallback cannot be used.
-          pnpm exec wrangler d1 migrations apply ghfind --remote --env production
-          pnpm exec wrangler d1 migrations apply ghfind-feed --remote --env production
+          release_config="$(node scripts/feed-platform-schema-release.mjs production "$RUNNER_TEMP/approved-application-schema")"
+          pnpm exec wrangler d1 migrations apply ghfind --remote --config "$release_config"
+          pnpm exec wrangler d1 migrations apply ghfind-feed --remote --config "$release_config"
           core_schema_file="$RUNNER_TEMP/cf-production-core-schema.json"
           pnpm exec wrangler d1 execute ghfind --remote --env production --json \
             --command "SELECT COUNT(*) AS risk_columns FROM pragma_table_info('scores') WHERE name IN ('risk_assessment','risk_notes'); SELECT COUNT(*) AS fallback_tables FROM sqlite_master WHERE type='table' AND name='score_release_fallbacks';" \

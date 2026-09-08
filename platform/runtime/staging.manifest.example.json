@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "environment": "staging",
+  "accountId": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "runtimeWorker": "ghfind-feed-runtime-staging",
+  "adapterWorker": "ghfind-feed-adapter-staging",
+  "coreDatabase": {
+    "name": "ghfind-feed-staging-core",
+    "id": null
+  },
+  "feedDatabase": {
+    "name": "ghfind-feed-staging-db",
+    "id": null
+  },
+  "archiveBucket": "ghfind-feed-staging-archive",
+  "queue": "ghfind-feed-staging-jobs",
+  "deadLetterQueue": "ghfind-feed-staging-dlq",
+  "billing": {
+    "confirmed": false,
+    "evidence": null,
+    "maximumMonthlyUSD": 100,
+    "projectedMonthlyUSD": null
+  },
+  "isolation": {
+    "reviewed": false,
+    "evidence": null
+  },
+  "executorImplemented": false,
+  "terminalParkingQueue": "ghfind-feed-staging-terminal-parking"
+}

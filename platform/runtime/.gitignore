@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+wrangler.staging.generated.json
+*.evidence.json
+provision.evidence.json.*.tmp

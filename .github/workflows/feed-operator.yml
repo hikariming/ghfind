@@ -1,0 +1,146 @@
+name: Feed staging recovery operation
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact tested and deployed main commit (40 hex characters)
+        type: string
+        required: true
+      action:
+        description: Read status or submit one replay command
+        type: choice
+        options: [status, replay]
+        required: true
+      kind:
+        description: Durable task type
+        type: choice
+        options: [sourceEvent, deletion, coreSource]
+        required: true
+      id:
+        description: Exact event/deletion ID or core outbox sequence; no wildcard or batch
+        type: string
+        required: true
+      reason:
+        description: Replay reason (8-500 characters); exclude personal data and secrets
+        type: string
+        required: false
+      command_id:
+        description: Existing command UUID for an uncertain prior replay; otherwise leave blank
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+
+concurrency:
+  group: feed-operator-staging
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: source
+        name: Require exact main source and successful CI
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+            -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
+            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+      - name: Require an actually protected operations environment
+        run: |
+          set -euo pipefail
+          gh api repos/hikariming/ghfind/environments/Feed%20staging%20operations > "$RUNNER_TEMP/feed-operator-environment.json"
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          const env=JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/feed-operator-environment.json`,'utf8'));
+          const review=env.protection_rules?.find(rule=>rule.type==='required_reviewers');
+          if(!review?.reviewers?.length || review.prevent_self_review!==true || env.can_admins_bypass!==false)throw new Error('Feed staging operations requires reviewers, prevention of self-review, and disabled administrator bypass');
+          JS
+      - name: Test the bounded operator client
+        run: node --test scripts/feed-operator.test.mjs
+
+  operate:
+    needs: validate
+    environment: Feed staging operations
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+      OPERATION: ${{ inputs.action }}
+      TASK_KIND: ${{ inputs.kind }}
+      TASK_ID: ${{ inputs.id }}
+      REASON: ${{ inputs.reason }}
+      COMMAND_ID: ${{ inputs.command_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize the exact approved command and release evidence
+        env:
+          STAGING_MANIFEST: ${{ vars.FEED_STAGING_MANIFEST }}
+          RELEASE_EVIDENCE: ${{ vars.FEED_STAGING_RELEASE_EVIDENCE }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          node --input-type=module - <<'JS'
+          import {writeFileSync} from 'node:fs';
+          import {runCommandId,validateCommand,validateRelease} from './scripts/feed-operator.mjs';
+          const command={action:process.env.OPERATION,target:'staging',kind:process.env.TASK_KIND,id:process.env.TASK_ID};
+          if(command.action==='replay')Object.assign(command,{commandId:process.env.COMMAND_ID || runCommandId(process.env.GITHUB_REPOSITORY,process.env.GITHUB_RUN_ID,command.kind,command.id),operator:process.env.GITHUB_ACTOR,reason:process.env.REASON});
+          validateCommand(command);
+          const manifest=JSON.parse(process.env.STAGING_MANIFEST || '{}');
+          const release=JSON.parse(process.env.RELEASE_EVIDENCE || '{}');
+          validateRelease(release,manifest,process.env.RELEASE_SHA);
+          for(const [name,value] of [['command',command],['manifest',manifest],['release',release]])writeFileSync(`${process.env.RUNNER_TEMP}/feed-operator-${name}.json`,JSON.stringify(value),{mode:0o600});
+          JS
+      - name: Verify the target and perform the bounded operation
+        env:
+          FEED_STAGING_RUNTIME_URL: ${{ vars.FEED_STAGING_RUNTIME_URL }}
+          CF_FEED_STAGING_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+          FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
+          FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+        run: |
+          node scripts/feed-operator.mjs --execute \
+            --command "$RUNNER_TEMP/feed-operator-command.json" \
+            --manifest "$RUNNER_TEMP/feed-operator-manifest.json" \
+            --release "$RUNNER_TEMP/feed-operator-release.json" \
+            --sha "$RELEASE_SHA" \
+            --output "$RUNNER_TEMP/feed-operator-result.json"
+      - name: Preserve bounded operation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-operator-staging-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/feed-operator-result.json
+      - name: Remove temporary command files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/feed-operator-command.json" "$RUNNER_TEMP/feed-operator-manifest.json" "$RUNNER_TEMP/feed-operator-release.json"
