@@ -59,16 +59,31 @@ def slow(row, duration=801):
     row.update(durationMs=duration, finishedOffsetMs=row["startedOffsetMs"] + duration)
 
 
+def external_rows():
+    rows = []
+    for second in range(600):
+        at = (START + dt.timedelta(seconds=second)).isoformat()
+        rows.append({"at": at, "source": "host-vm", "line": " 1 0 100 200 0 0 0 0 0 0 1 99 0 0 0"})
+        if second % 2 == 0:
+            for name in VERIFIER.CONTAINERS:
+                stats = {"Name": name, "Container": name, "CPUPerc": "1.50%", "MemUsage": "30MiB / 2GiB"}
+                rows.append({"at": at, "source": "docker", "line": "\x1b[H" + json.dumps(stats) + "\x1b[K"})
+    return rows
+
+
 class CapacityVerifierTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
         self.docs = documents()
+        self.external = external_rows()
 
     def save(self):
         for name, report in self.docs.items():
             (self.directory / (name + ".json")).write_text(json.dumps(report), encoding="utf-8")
+        if self.external is not None:
+            (self.directory / "external-resources.jsonl").write_text("".join(json.dumps(row) + "\n" for row in self.external), encoding="utf-8")
 
     def verify(self, sha=SHA):
         self.save()
@@ -84,7 +99,7 @@ class CapacityVerifierTests(unittest.TestCase):
         self.assertEqual(result["metrics"]["load"]["admittedP95Ms"], 100)
         self.assertFalse(result["monthlyAvailabilityProven"])
         self.assertFalse(result["cloudflareCapacityProven"])
-        self.assertEqual(len(result["inputs"]), 3)
+        self.assertEqual(len(result["inputs"]), 4)
 
     def test_six_of_6000_failures_inclusive_boundary(self):
         for row in self.docs["load"]["observations"][:6]:
@@ -131,6 +146,12 @@ class CapacityVerifierTests(unittest.TestCase):
         for row in self.docs["load"]["observations"]:
             slow(row, 800)
         self.assertTrue(self.verify()["passed"])
+
+    def test_empty_200_cannot_pass_fixed_synthetic_page_gate(self):
+        self.docs["load"]["observations"][0]["items"] = 0
+        result = self.verify()
+        self.check_issue(result, "load.fixturePageSize", "threshold")
+        self.assertEqual(result["metrics"]["load"]["failures"], 1)
 
     def test_missing_offered_slot_and_wrong_denominator(self):
         self.docs["load"]["observations"].pop()
@@ -271,6 +292,67 @@ class CapacityVerifierTests(unittest.TestCase):
         directory = self.directory / "new"
         self.assertEqual(VERIFIER.main(["--directory", str(directory), "--release-sha", SHA]), 1)
         self.assertEqual(json.loads((directory / "gate.json").read_text())["status"], "incomplete")
+
+    def test_cli_argument_failure_invalidates_stale_gate(self):
+        path = self.directory / "gate.json"
+        path.write_text('{"passed":true}')
+        self.assertEqual(VERIFIER.main(["--directory", str(self.directory)]), 1)
+        self.check_issue(json.loads(path.read_text()), "arguments", "invalid")
+
+    def test_external_ansi_docker_and_host_coverage(self):
+        result = self.verify()
+        self.assertTrue(result["passed"], result["issues"])
+        coverage = result["metrics"]["externalResources"]["coverage"]
+        self.assertEqual(coverage["host-vm"]["distinctSeconds"], 600)
+        self.assertEqual(coverage[VERIFIER.CONTAINERS[0]]["distinctSeconds"], 300)
+        self.assertEqual(coverage[VERIFIER.CONTAINERS[0]]["spanSeconds"], 598)
+
+    def test_missing_external_resource_file_is_incomplete(self):
+        self.external = None
+        self.check_issue(self.verify(), "external-resources.jsonl", "incomplete")
+
+    def test_external_error_and_observer_ended_rows_not_samples(self):
+        for row in self.external:
+            row["line"] = "observer failure: connection refused"
+        self.external.append({"at": START.isoformat(), "source": "docker", "observerEnded": True})
+        result = self.verify()
+        for name in (*VERIFIER.CONTAINERS, "host-vm"):
+            self.check_issue(result, "externalResources." + name + ".coverage", "incomplete")
+        self.assertEqual(result["metrics"]["externalResources"]["observerEndedLines"], 1)
+
+    def test_external_short_stream_despite_many_samples(self):
+        for row in self.external:
+            at = dt.datetime.fromisoformat(row["at"])
+            row["at"] = (START + (at - START) / 2).isoformat()
+        result = self.verify()
+        for name in (*VERIFIER.CONTAINERS, "host-vm"):
+            self.check_issue(result, "externalResources." + name + ".coverage", "incomplete")
+
+    def test_external_duplicate_seconds_not_coverage(self):
+        self.external = [copy.deepcopy(row) for row in self.external[:3]] * 600
+        result = self.verify()
+        for name in (*VERIFIER.CONTAINERS, "host-vm"):
+            self.check_issue(result, "externalResources." + name + ".coverage", "incomplete")
+
+    def test_external_window_and_fixture_identity(self):
+        for row in self.external:
+            row["at"] = (dt.datetime.fromisoformat(row["at"]) - dt.timedelta(hours=1)).isoformat()
+        result = self.verify()
+        self.check_issue(result, "externalResources.host-vm.coverage", "incomplete")
+        self.external = external_rows()
+        stats = {"Name": "other-container", "Container": "other-container", "CPUPerc": "1.0%", "MemUsage": "1MB"}
+        self.external[1]["line"] = json.dumps(stats)
+        self.check_issue(self.verify(), "external-resources.jsonl", "invalid")
+
+    def test_external_truncation_is_incomplete(self):
+        self.save()
+        path = self.directory / "external-resources.jsonl"
+        raw = path.read_bytes()
+        path.write_bytes(raw[:-1])
+        result = VERIFIER.verify(self.directory, SHA)
+        self.check_issue(result, "external-resources.jsonl", "incomplete")
+        path.write_bytes(raw + b'{"at":')
+        self.check_issue(VERIFIER.verify(self.directory, SHA), "external-resources.jsonl", "invalid")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 
 The 800 ms p95 / 0.1% failure limits are engineering gates for this finite run.
 They do not statistically establish monthly 99.9% availability or CF capacity.
-Only raw fixture.json, load.json, and delete.json are inputs; reported summary
+Raw fixture.json, load.json, delete.json, and external-resources.jsonl are inputs; reported summary
 percentiles and failure rates are deliberately not used to decide the gate.
 """
 
@@ -27,6 +27,8 @@ EXPECTED_COUNTS = {
     "project_submission_evidence": 50000,
 }
 S3_FAILURE = "capacity_injected_s3_outage"
+CONTAINERS = ("ghfind-feed-capacity-postgres-1", "ghfind-feed-capacity-minio-1")
+ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def number(value):
@@ -243,7 +245,7 @@ def check_load(gate, report):
         return
     if len(rows) != OFFERED:
         gate.issue("load.observations.count", "incomplete", "Exactly 6000 offered observations must be present; completed-only samples are insufficient.")
-    successes, failures, admission, transport = 0, 0, 0, 0
+    successes, failures, admission, transport, wrong_page_size = 0, 0, 0, 0, 0
     latency, wall_latency, lateness = [], [], []
     for index, row in enumerate(rows[:OFFERED]):
         path = "load.observations[" + str(index) + "]"
@@ -261,7 +263,9 @@ def check_load(gate, report):
         if not isinstance(error, str):
             gate.issue(path + ".error", "invalid", "Error classification must be a string.")
             error = "invalid_error"
-        if status == 200 and not error:
+        if status == 200 and not error and items != 20:
+            wrong_page_size += 1
+        if status == 200 and not error and items == 20:
             successes += 1
         else:
             failures += 1
@@ -295,6 +299,8 @@ def check_load(gate, report):
     failure_rate = failures / len(rows) if rows else None
     p95 = percentile(latency, 0.95)
     max_late = max(lateness) if lateness else None
+    if wrong_page_size:
+        gate.issue("load.fixturePageSize", "threshold", "Every successful page in this fixed 50000-project synthetic fixture must contain exactly 20 items; this does not change production short-page behavior.")
     if len(rows) == OFFERED and failures > 6:
         gate.issue("load.failureRate", "threshold", "Failures including admission and transport errors exceed 6 of 6000 offered requests.")
     if p95 is None:
@@ -306,6 +312,7 @@ def check_load(gate, report):
     gate.result["metrics"]["load"] = {
         "offered": len(rows), "successful": successes, "failures": failures,
         "admissionRejected": admission, "transportErrors": transport,
+        "unexpectedSuccessfulPageSizes": wrong_page_size,
         "admitted": len(rows) - admission, "failureRateOffered": failure_rate,
         "admittedLatencySamples": len(latency), "admittedP50Ms": percentile(latency, 0.5),
         "admittedP95Ms": p95, "admittedP99Ms": percentile(latency, 0.99),
@@ -372,15 +379,121 @@ def check_delete(gate, report):
     }
 
 
+def check_external_resources(gate, directory, load):
+    path = Path(directory) / "external-resources.jsonl"
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(descriptor, "rb") as file:
+            info = os.fstat(file.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_REPORT_BYTES:
+                raise ValueError("invalid resource file")
+            raw = file.read(MAX_REPORT_BYTES + 1)
+        if len(raw) > MAX_REPORT_BYTES:
+            raise ValueError("resource file too large")
+        gate.result["inputs"][path.name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+        lines = raw.decode("utf-8").splitlines()
+    except FileNotFoundError:
+        gate.issue(path.name, "incomplete", "Required external resource observation file is missing.")
+        return
+    except (OSError, ValueError, UnicodeError):
+        gate.issue(path.name, "invalid", "External resource evidence must be a bounded regular UTF-8 JSONL file.")
+        return
+    if not raw.endswith(b"\n"):
+        gate.issue(path.name, "incomplete", "External resource stream is empty or lacks its final complete newline.")
+    if len(lines) > 20000:
+        gate.issue(path.name, "invalid", "External resource evidence exceeds the bounded line count.")
+        return
+    load_start = timestamp(load.get("loadStartedAt")) if isinstance(load, dict) else None
+    observations = load.get("observations") if isinstance(load, dict) else None
+    finishes = [r["finishedOffsetMs"] for r in observations[:OFFERED] if isinstance(r, dict) and number(r.get("finishedOffsetMs"))] if isinstance(observations, list) else []
+    end = max(finishes) if finishes else None
+    if load_start is None or end is None:
+        gate.issue("externalResources.window", "incomplete", "A valid load start and observed request completion window are required.")
+        return
+    offsets = {name: [] for name in (*CONTAINERS, "host-vm")}
+    malformed, ignored, outside, ended = 0, 0, 0, 0
+    for line in lines:
+        try:
+            row = json.loads(line, object_pairs_hook=unique_object, parse_constant=no_constant)
+        except (ValueError, RecursionError):
+            malformed += 1
+            continue
+        if not isinstance(row, dict):
+            malformed += 1
+            continue
+        at = timestamp(row.get("at"))
+        source = row.get("source")
+        if at is None or at.utcoffset() != dt.timedelta(0) or source not in ("docker", "host-vm"):
+            malformed += 1
+            continue
+        if row.get("observerEnded") is True:
+            ended += 1
+            continue
+        payload = row.get("line")
+        if not isinstance(payload, str):
+            malformed += 1
+            continue
+        offset = (at - load_start).total_seconds() * 1000
+        if not -2000 <= offset <= end + 5000:
+            outside += 1
+            continue
+        if source == "host-vm":
+            # Linux vmstat / macOS vm_stat headers, errors, and termination
+            # messages never count. Only the numeric data rows are coverage.
+            if re.match(r"^\s*\d", payload) and len(payload.split()) >= 10:
+                offsets[source].append(offset)
+            else:
+                ignored += 1
+            continue
+        cleaned = ANSI.sub("", payload).strip()
+        try:
+            docker = json.loads(cleaned, object_pairs_hook=unique_object, parse_constant=no_constant)
+        except (ValueError, RecursionError):
+            ignored += 1
+            continue
+        if not isinstance(docker, dict):
+            ignored += 1
+            continue
+        name = docker.get("Name")
+        cpu = docker.get("CPUPerc")
+        memory = docker.get("MemUsage")
+        valid_cpu = isinstance(cpu, str) and re.fullmatch(r"\d+(?:\.\d+)?%", cpu) is not None
+        if not (name in CONTAINERS and docker.get("Container") == name and valid_cpu
+                and number(float(cpu[:-1])) and isinstance(memory, str) and memory.strip()):
+            malformed += 1
+            continue
+        offsets[name].append(offset)
+    if malformed:
+        gate.issue(path.name, "invalid", "External resource stream contains malformed JSONL, identity, timestamp, or Docker metric evidence.")
+    coverage = {}
+    for name, values in offsets.items():
+        seconds = len({math.floor(v / 1000) for v in values})
+        span = (max(values) - min(values)) / 1000 if values else 0
+        required = 550 if name == "host-vm" else 250
+        coverage[name] = {"validSamples": len(values), "distinctSeconds": seconds, "spanSeconds": span,
+                          "firstOffsetMs": min(values) if values else None, "lastOffsetMs": max(values) if values else None}
+        if seconds < required or span < 590:
+            gate.issue("externalResources." + name + ".coverage", "incomplete", "Observer must cover at least 590 seconds and the required distinct sampled seconds within the load window.")
+    gate.result["metrics"]["externalResources"] = {
+        "coverage": coverage, "malformedLines": malformed, "ignoredNonSampleLines": ignored,
+        "outOfWindowLines": outside, "observerEndedLines": ended,
+        "interpretation": "Checks observation coverage only; sampled host/container metrics do not establish CPU, GC, memory, or database causality.",
+    }
+
+
 def verify(directory, release_sha):
     gate = Gate(release_sha)
     if gate.result["releaseSha"] is None:
         gate.issue("releaseSha", "invalid", "An exact 40-hex release SHA is required.")
+    load = None
     for name, check in (("fixture", check_fixture), ("load", check_load), ("delete", check_delete)):
         report = read_report(Path(directory) / (name + ".json"), gate)
+        if name == "load":
+            load = report
         if report is not None:
             check_baseline(gate, report, name, release_sha)
             check(gate, report)
+    check_external_resources(gate, directory, load)
     return gate.finish()
 
 
@@ -398,11 +511,36 @@ def write_gate(directory, result):
             os.unlink(name)
 
 
+class GateArgumentParser(argparse.ArgumentParser):
+    def error(self, _message):
+        raise ValueError("invalid arguments")
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    parser = GateArgumentParser(description=__doc__)
     parser.add_argument("--directory", required=True, type=Path)
     parser.add_argument("--release-sha", required=True)
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(arguments)
+    except ValueError:
+        # Even a bad invocation should invalidate stale output when the intended
+        # output directory is unambiguous. Never echo arbitrary argument values.
+        directories = []
+        for index, value in enumerate(arguments):
+            if value == "--directory" and index + 1 < len(arguments) and not arguments[index + 1].startswith("--"):
+                directories.append(arguments[index + 1])
+            elif value.startswith("--directory=") and value != "--directory=":
+                directories.append(value.split("=", 1)[1])
+        if len(directories) == 1:
+            gate = Gate(None)
+            gate.issue("arguments", "invalid", "Use --directory and --release-sha with an exact 40-hex release SHA.")
+            try:
+                write_gate(directories[0], gate.finish())
+            except (OSError, ValueError):
+                pass
+        print("Feed capacity gate incomplete: invalid CLI arguments.", file=sys.stderr)
+        return 1
     try:
         result = verify(args.directory, args.release_sha)
     except Exception:
