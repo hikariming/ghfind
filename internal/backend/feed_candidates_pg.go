@@ -13,7 +13,7 @@ import (
 func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUser, limit int) ([]FeedCandidate, map[string]int, error) {
 	provenance := ""
 	if s.writerEpoch > 0 {
-		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key) "
+		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) "
 		user.Embedding = nil
 	}
 	if limit < 1 {

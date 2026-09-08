@@ -121,6 +121,9 @@ func (s *PostgresFeedStore) DeleteFeedSessionForUser(ctx context.Context, id int
 func (s *PostgresFeedStore) GetFeedDeletion(ctx context.Context, id int64, key string) (FeedBridgeDeleteResponse, error) {
 	out := FeedBridgeDeleteResponse{DeletionID: key}
 	err := s.db.QueryRowContext(ctx, `SELECT cleanup_status FROM feed.user_deletion_tombstones WHERE deletion_id=$1 AND github_id=$2`, key, id).Scan(&out.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, ErrFeedDeletionNotFound
+	}
 	return out, err
 }
 func (s *PostgresFeedStore) checkFeedAttribution(ctx context.Context, tx *sql.Tx, id int64, requestID, repoKey string) error {
@@ -128,7 +131,7 @@ func (s *PostgresFeedStore) checkFeedAttribution(ctx context.Context, tx *sql.Tx
 		return nil
 	}
 	var found bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM feed.requests r JOIN feed.served_items si ON si.request_id=r.id WHERE r.id=$1 AND r.github_id=$2 AND si.repo_key=$3)`, requestID, id, repoKey).Scan(&found)
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM feed.requests r JOIN feed.served_items si ON si.request_id=r.id WHERE r.id=$1 AND r.github_id=$2 AND si.repo_key=$3 AND r.profile_version<=(SELECT profile_version FROM feed.users WHERE github_id=$2) AND r.profile_version>COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),0))`, requestID, id, repoKey).Scan(&found)
 	if err != nil {
 		return err
 	}
