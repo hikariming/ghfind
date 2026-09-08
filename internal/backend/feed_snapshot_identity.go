@@ -64,10 +64,7 @@ func (s *PostgresFeedStore) AvailableFeedProjects(ctx context.Context, id int64,
 	for _, p := range identities {
 		keys = append(keys, p.RepoKey)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key,p.analysis_id,p.source_hash FROM feed.projects p
- WHERE p.repo_key=ANY($1) AND p.publishable=true
- AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL)
- AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true) `+feedNegativePreferenceSQL("$2"), keys, id)
+	rows, err := s.db.QueryContext(ctx, feedSnapshotAvailableSQL(), keys, id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +125,7 @@ func guardFeedSnapshotTx(ctx context.Context, tx *sql.Tx, record FeedRequestReco
 		return ErrFeedCatalogChanged
 	}
 	var eligible int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.projects p WHERE p.repo_key=ANY($1) AND p.publishable=true AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL) AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true) `+feedNegativePreferenceSQL("$2"), keys, record.User.GitHubID).Scan(&eligible); err != nil {
+	if err := tx.QueryRowContext(ctx, feedSnapshotEligibleSQL(), keys, record.User.GitHubID).Scan(&eligible); err != nil {
 		return err
 	}
 	if eligible != len(keys) {

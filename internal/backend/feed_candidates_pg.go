@@ -11,16 +11,8 @@ import (
 )
 
 func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUser, limit int) ([]FeedCandidate, map[string]int, error) {
-	provenance := ""
-	preferenceSQL := `SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1`
+	provenance, preferenceSQL := feedRecallPredicates(s.writerEpoch > 0)
 	if s.writerEpoch > 0 {
-		preferenceSQL = `SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC`
-		// Keep this correlated probe inside the ordered project index scan.
-		// Flattening it into a semi-join caused full catalog/evidence scans and
-		// sorting before a Top20/40 LIMIT at 50k projects. OFFSET 0 preserves
-		// identical eligibility semantics without truncating unverified rows
-		// before the filter or changing PostgreSQL planner settings.
-		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0) " + feedNegativePreferenceSQL("$1")
 		user.Embedding = nil
 	}
 	if limit < 1 {
@@ -63,32 +55,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	// confidence fanout; the final affinity query then selects the global Top80.
 	// This is a candidate-recall approximation, never a governance decision.
 	if len(user.Preferences) > 0 {
-		tagRows, err := s.db.QueryContext(ctx, `WITH prefs AS MATERIALIZED (
-          `+preferenceSQL+`
-        ), sampled AS MATERIALIZED (
-          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
-          FROM prefs pref
-          CROSS JOIN LATERAL (
-            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
-            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
-            WHERE pt.tag_id=pref.tag_id
-            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
-            LIMIT 160
-          ) pt
-        )
-        SELECT sampled.repo_key,
-          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
-            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
-        FROM sampled
-        CROSS JOIN LATERAL (
-          SELECT 1 FROM feed.projects p
-          WHERE p.repo_key=sampled.repo_key AND p.publishable=true `+provenance+` OFFSET 0
-        ) p
-        WHERE NOT EXISTS (
-          SELECT 1 FROM feed.user_project_state ups
-          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
-        )
-        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80`, user.GitHubID)
+		tagRows, err := s.db.QueryContext(ctx, feedTagRecallSQL(provenance, preferenceSQL), user.GitHubID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load tag Feed candidates: %w", err)
 		}
@@ -151,10 +118,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		{name: "quality", order: "p.product_score DESC, p.confidence DESC, p.repo_key", limit: 20},
 		{name: "discovery", order: "CASE p.exposure_band WHEN 'low' THEN 0 WHEN 'emerging' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END, p.product_score DESC, p.repo_key", limit: 20},
 	} {
-		rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key FROM feed.projects p
-          LEFT JOIN feed.user_project_state ups ON ups.github_id = $1 AND ups.repo_key = p.repo_key
-          WHERE p.publishable = true `+provenance+` AND COALESCE(ups.not_interested, false) = false
-          ORDER BY `+source.order+` LIMIT $2`, user.GitHubID, source.limit)
+		rows, err := s.db.QueryContext(ctx, feedOrderedRecallSQL(provenance, source.order), user.GitHubID, source.limit)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load %s Feed candidates: %w", source.name, err)
 		}
@@ -189,16 +153,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		keys = keys[:limit]
 	}
 
-	rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key, p.item_id, p.owner_login, p.name, p.canonical_url,
-      p.summary, p.language, p.topics, p.project_type, p.lifecycle, p.product_score, p.confidence,
-      p.verification_level, p.exposure_band, p.treasure_eligible, p.classic_eligible, p.analyzed_at,
-      p.publishable, COALESCE(p.analysis_id,''), COALESCE(p.source_hash,''), ups.not_interested,
-      (SELECT MAX(e.occurred_at) FROM feed.events e WHERE e.github_id = $1 AND e.repo_key = p.repo_key AND e.event_type = 'impression'),
-      pe.embedding::text
-      FROM feed.projects p
-      LEFT JOIN feed.user_project_state ups ON ups.github_id = $1 AND ups.repo_key = p.repo_key
-      LEFT JOIN feed.project_embeddings pe ON pe.repo_key = p.repo_key AND pe.active = true
-      WHERE p.repo_key = ANY($2)`, user.GitHubID, keys)
+	rows, err := s.db.QueryContext(ctx, feedHydrateCandidatesSQL(), user.GitHubID, keys)
 	if err != nil {
 		return nil, nil, fmt.Errorf("hydrate Feed candidates: %w", err)
 	}
@@ -252,11 +207,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		return nil, nil, err
 	}
 
-	tagRows, err := s.db.QueryContext(ctx, `SELECT DISTINCT ON(pt.repo_key,td.namespace,td.slug) pt.repo_key, td.id, td.namespace, td.slug, td.label_zh,
-      td.label_en, td.description, pt.weight, pt.confidence, pt.taxonomy_version
-      FROM feed.project_tags pt JOIN feed.tag_definitions td ON td.id = pt.tag_id
-      JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
-      WHERE pt.repo_key = ANY($1) AND td.status = 'canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') ORDER BY pt.repo_key, td.namespace, td.slug,CASE pt.source WHEN 'editor' THEN 0 ELSE 1 END,pt.weight DESC,pt.confidence DESC,pt.source`, keys)
+	tagRows, err := s.db.QueryContext(ctx, feedHydrateTagsSQL(), keys)
 	if err != nil {
 		return nil, nil, fmt.Errorf("hydrate Feed candidate tags: %w", err)
 	}
