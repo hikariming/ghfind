@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Post-repatriation route registry (阶段2 complete, 2026-08-29). The Go
- * backend extraction is fully reversed: every API surface is served in-app on
- * Cloudflare Workers, and next.config.ts carries no backend-origin rewrites.
+ * Next owns public route registration. Feed routes select the legacy handler
+ * or the signed independent Go gateway; unrelated routes remain in-app.
+ * next.config.ts carries no catch-all backend-origin rewrites.
  * The registry keeps the old discipline — a new route file must be reviewed
  * and listed here, so nothing ships as an unclassified public surface.
  */
@@ -30,9 +30,11 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",
   "src/app/api/feed/profile/route.ts",
+  "src/app/api/feed/profile/deletions/[id]/route.ts",
   "src/app/api/feed/projects/[owner]/[repo]/state/route.ts",
   "src/app/api/feed/projects/route.ts",
   "src/app/api/feed/tags/route.ts",
+  "src/app/api/feed/tags/proposals/route.ts",
   "src/app/api/facet-rank/[username]/route.ts",
   "src/app/api/leaderboard/route.ts",
   "src/app/api/score/[username]/route.ts",
