@@ -116,7 +116,11 @@ func (e *FeedCleanupExecutor) Execute(ctx context.Context) (FeedCleanupResult, e
 	if err != nil {
 		return out, err
 	}
-	lease, err := e.store.ClaimFeedCleanup(ctx, FeedCleanupClaim{e.epoch, owner, 90})
+	// Keep a separate work deadline so a normal time-budget yield still has
+	// time to durably release its lease before the outer 60-second request ends.
+	work, stopWork := context.WithTimeout(ctx, 50*time.Second)
+	defer stopWork()
+	lease, err := e.store.ClaimFeedCleanup(work, FeedCleanupClaim{e.epoch, owner, 90})
 	if err != nil {
 		return out, err
 	}
@@ -128,7 +132,6 @@ func (e *FeedCleanupExecutor) Execute(ctx context.Context) (FeedCleanupResult, e
 	}
 	command := FeedCleanupCommand{WriterEpoch: e.epoch, DeletionID: lease.DeletionID, LeaseOwner: owner}
 	out.DeletionID = lease.DeletionID
-	started := time.Now()
 	fail := func(cause error) (FeedCleanupResult, error) {
 		failure, cancel := context.WithTimeout(context.WithoutCancel(ctx), 4*time.Second)
 		defer cancel()
@@ -138,9 +141,21 @@ func (e *FeedCleanupExecutor) Execute(ctx context.Context) (FeedCleanupResult, e
 		}
 		return out, cause
 	}
-	for out.Steps < 8 && time.Since(started) < 50*time.Second {
-		progress, err := e.store.StepFeedCleanup(ctx, command)
+	yield := func() (FeedCleanupResult, error) {
+		release, cancel := context.WithTimeout(context.WithoutCancel(ctx), 4*time.Second)
+		defer cancel()
+		if err := e.store.ReleaseFeedCleanup(release, command); err != nil {
+			return out, err
+		}
+		out.Status = "queued"
+		return out, nil
+	}
+	for out.Steps < 8 && work.Err() == nil {
+		progress, err := e.store.StepFeedCleanup(work, command)
 		if err != nil {
+			if work.Err() != nil {
+				return yield()
+			}
 			return fail(err)
 		}
 		if progress.Processed < 0 || progress.Processed > 100 || (progress.Status != "running" && progress.Status != "completed") {
@@ -156,9 +171,5 @@ func (e *FeedCleanupExecutor) Execute(ctx context.Context) (FeedCleanupResult, e
 			return out, nil
 		}
 	}
-	if err := e.store.ReleaseFeedCleanup(ctx, command); err != nil {
-		return fail(err)
-	}
-	out.Status = "queued"
-	return out, nil
+	return yield()
 }
