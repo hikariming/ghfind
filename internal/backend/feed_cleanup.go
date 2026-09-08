@@ -19,6 +19,7 @@ type FeedCleanupLease struct {
 	ProfileFloor int64      `json:"profileFloor,omitempty"`
 	Phase        string     `json:"phase,omitempty"`
 	Attempts     int        `json:"attempts,omitempty"`
+	Failures     int        `json:"failures,omitempty"`
 	LeaseUntil   *time.Time `json:"leaseUntil,omitempty"`
 }
 type FeedCleanupCommand struct {
