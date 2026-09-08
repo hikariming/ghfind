@@ -1,65 +1,96 @@
 # Feed stage 3 implementation handoff
 
-Base: `3cdb66cc21028e1b7159ce30f769ff8fcd9b4d33`, the merged stage 2 storage
-foundation. This PR adds the authenticated Next gateway and publishes the new
-proposal/deletion contracts, plus measured-hotspot ranking/recall optimizations.
-It does not activate production Go routing. Public/storage contract stays 1,
-taxonomy stays 1, portable algorithm stays `baseline-v2-portable`; PostgreSQL
-adds index-only migration 0020 while D1 adds index-only migration 0008 and retains runtime schema 7.
+Base: `b47b2ee4ab94fb2f833a3d613886ea41524c03bd`, the merged isolated runtime
+foundation. This delivery adds the opt-in authenticated Next gateway, governed
+taxonomy operations and measured recall/ranking improvements. Production routing
+continues to default to legacy. The public/HTTP/read contract is 1, the storage
+writer contract is 2, and the algorithm is `baseline-v2-portable`. PostgreSQL is
+through 0022; D1 is through 0011, with runtime control value 7 and an explicit
+writer-2 compatibility window. These migrations remain outside the production
+application's approved schema manifest.
 
 ## Commit boundaries
 
-1. Signed same-origin gateway: authenticate with the existing GitHub OAuth
-   session, strip all client identity/forwarding/cookie headers, sign a 30-second
-   request/user/audience/body-bound context, limit streamed bodies and responses,
-   preserve no-store and existing route methods. `FEED_BACKEND` defaults to legacy;
-   invalid Go configuration returns unavailable instead of silently changing stores.
-2. Public proposal and caller-owned deletion status documentation; normalize D1
-   pending state to the same queued public status as PostgreSQL. Shared fixtures
-   compare deletion response contents, not merely HTTP 200.
-3. Freeze three complete private ranking-output hashes before optimizing; cache
-   each candidate's maximum similarity to selected items without changing output,
-   probabilities or quota rules. PostgreSQL recalls use ordered index scans with
-   correlated provenance checks; 0020 supplies the full quality ordering index.
-   Hard filters still precede the final candidate limit. D1 skips empty tag
-   recall and chooses an indexed sparse-tag plan using a bounded probe; the probe
-   never truncates business candidates. Discovery gets a matching partial index.
+1. `b1d2b3a` / `c16693a`: signed same-origin gateway and public proposal/deletion
+   routes. Existing GitHub OAuth authenticates the user; the gateway strips client
+   identity, cookies and forwarding headers, then signs a 30-second request,
+   audience and body-bound context. Requests and responses have byte/deadline
+   limits. Invalid Go configuration fails closed.
+2. `fe4ad03` / `56dd3bb` / `217ded3`: measured recall and ranking improvements.
+   The ranker caches maximum selected-item similarity. Complete output remains
+   equal to a frozen pre-optimization oracle on each tested CPU architecture;
+   cross-architecture float-only normalization accommodates observed sub-ULP
+   differences without changing production math. PostgreSQL and D1 retain hard
+   filters before bounded candidate limits and use indexed sparse-tag recall.
+3. Governance commits through `b82a33e`: operator-only read/review/deprecate and
+   immutable command receipts, exact retries, independent secrets, strict Unicode
+   and numeric handling, bounded HTTP, real transport timeouts, and lazy taxonomy
+   fences. Canonical tags from the current assessment alone affect recall,
+   hydration and behavior. At most 100 effective canonical tags can be assigned.
+4. `ea9a82d`: private sessions retain assessment and projection identity. Missing
+   identity or changed published content expires the cursor with 410. The bounded
+   availability check and atomic request write both compare identities; the latter
+   prevents a projection change between checking and recording a served page.
+5. `d1bde39` / `9b77315` / `0f72b56` / `62038fc` / `fd6a66e`: user-proposal
+   authorship and deletion fences, controlled evidence references, bounded erasure
+   of original text and request lineage, nonshared proposal identities, historical
+   quarantine inventory, and readiness that verifies the actual privacy schema.
+   `efcbcad` runs the same deletion/governance interactions through both profiles.
 
-The Go API, durable sessions, governed proposals, behavior effects and complete
-conditional probability implementation were introduced with the stage 2 shared
-storage fixtures. This PR exposes them through the stable Next gateway when an
-explicit later rollout enables the independent runtime. It does not introduce
-Next catch-all rewrites, semantic retrieval or migration of unrelated APIs.
+Existing pending proposals are not automatically approved. Operators review one
+proposal at a time through the separate protected capability; neither an ordinary
+user nor the Go API gains that credential. Public Actions artifacts contain only
+allowlisted identifiers, hashes and receipts, never raw evidence or review text.
+There is no new Feed page, moderation UI, Next catch-all rewrite or semantic recall.
 
-## Evidence and next entry conditions
+## Evidence and acceptance boundary
 
-Stage 2 CI passed on exact head `0bfdd94fe684e9c7ac2cb6859a8fdf67fad5df9d`
-and merged as the base above. This PR must pass its own exact-head CI: application
-checks and the real PostgreSQL/MinIO/workerd contracts. The storage CI now runs
-all backend tests against actual dependencies so future contract tests cannot be
-silently omitted by a stale name filter. Cross-profile API/archive tests have
-another required workerd step.
+CI passed on earlier exact heads `217ded32e67ea72f7638651e9fe3de4e35ed87a4`
+([run](https://github.com/hikariming/ghfind/actions/runs/34187476125)) and
+`b82a33ea9732469889c5dc942c4c7e3e3c30c4f4`
+([run](https://github.com/hikariming/ghfind/actions/runs/34189680276)). Those runs do
+not establish acceptance of the later privacy/session fixes. The final PR head
+must pass its own application, storage and image-build CI before merging.
 
-The earlier local 50k-project/5k-user/1m-event capacity baseline failed: p95
-2573.884 ms with 421 of 6000 offered requests rejected by the concurrency bound.
-A CPU profile attributed 89.76% of sampled CPU to ranking. Fixed private-output
-hashes stay unchanged with the similarity cache; a full 600-second capacity
-retest is required and tracked independently. Microbenchmarks and query plans
-are not end-to-end SLO acceptance.
+The integrated local implementation at `7f660f2` passed all Go packages with actual
+PostgreSQL/pgvector and MinIO, 103 real workerd/D1 tests, adapter typecheck/build,
+and identical API/archive/governance contracts through PostgreSQL and workerd.
+These include deletion before/after approval, exact replay after deletion,
+recreated profiles, later assignments surviving another author's cleanup, actual
+transaction-lock contention, old cursor and attribution rejection, and request
+persistence after a concurrent projection. TypeScript/lint and 721 application
+tests passed on the unchanged application/gateway source. The runtime has 34
+transport/routing checks; the operator CLIs have 13 checks. No UI presentation
+changed, so the theme-layout checklist is not triggered.
 
-No UI presentation changed; the theme-layout checklist is not triggered.
-Typecheck, lint, gateway authentication/size/header tests, complete ranking golden
-fixtures and both storage profiles remain required. Real OAuth, real assessment,
-remote CF performance, queue recovery, migrations and controlled production
-cutover belong to the integration gates and are not replaced by synthetic signing.
+The retained 50k-project/5k-user/1m-event local capacity baseline failed: 6000
+offered requests over 600 seconds, p95 2573.884 ms, 421 concurrency rejections.
+The optimized `8ec38e7` retest produced 5981 HTTP 200 responses, p95 97.533 ms and
+19 concurrency rejections. Its lower latency is evidence of the optimization,
+not full reliability acceptance. The privacy/session writer-2 baseline requires
+its own measured run; local data does not establish CF latency, cold start or cost.
 
-Stage 5 receives stable route/identity contracts and an opt-in gateway. It must
-first combine stage 1 deployment evidence and stage 4 recovery evidence. Production
-keeps its current Feed D1. Application rollback uses a compatible binary/gateway
-on that same fact source; it never changes `FEED_STORE_PROFILE` to reverse writes.
-The previous application SHA is the rollback anchor until a later release records
-a new manifest. No credentials or remote resource changes are part of this PR.
+Unknown historical authorship is not guessed. Remaining unowned proposal bodies
+are hidden from inspection/review and counted by fixed quarantine queries. A
+nonzero retained-body inventory blocks production/migration promotion until its
+disposition is evidenced. Normal redacted rows are not themselves a blocker.
+Real GitHub OAuth, real assessment execution, remote CF lifecycle/load/cost,
+complete recovery and controlled production cutover remain integration gates.
 
-The operator governance command and lazy taxonomy-version fences are still being
-implemented in this draft. Keep this stage open until both stores pass those
-contracts; proposal submission alone is not a completed moderation workflow.
+## Handoff to stages 4 and 5
+
+Stage 4 receives the writer-2 migrations, proposal erasure contract and private
+session identity fixture. Its recovery registry and actual restore drill must
+include schema 11; an older schema 7/9 report cannot satisfy that gate. Stage 5
+must also receive stage 1's actual CF runtime evidence before admitting traffic.
+The initial production runtime cutover keeps the current Feed D1 fact source.
+
+Before this incompatible writer transition, quiesce writes, fence the old epoch,
+apply/verify migrations, and start the paired Go and adapter SHA before reopening
+writes. An old adapter's strict DTO parser cannot accept the new session identity
+fields. A pre-privacy writer, including `998ceda`, is not a compatible rollback
+image. Register and exercise a writer-2 rollback SHA window with the same privacy
+and taxonomy semantics; never switch the store-profile variable to reverse data
+writes. Exact ready versions and registry image digests belong in the later
+release manifest. This PR creates no remote credentials/resources and enables no
+production Go traffic or production governance target.
