@@ -5,6 +5,7 @@ import { runScheduled } from "./scheduled";
 import { handleAdminRequest } from "./admin";
 import {
   bindingBridge,
+  executorBindingBridge,
   assessmentSource,
   deletionCleanup,
   archiveObjects,
@@ -43,7 +44,7 @@ export class FeedExecutor extends Container<RuntimeEnv> {
 
 FeedAPI.outboundByHost = { "feed-bindings.internal": bindingBridge };
 FeedExecutor.outboundByHost = {
-  "feed-bindings.internal": bindingBridge,
+  "feed-bindings.internal": executorBindingBridge,
   "feed-source.internal": assessmentSource,
   "feed-cleanup.internal": deletionCleanup,
   "feed-archive.internal": archiveObjects,

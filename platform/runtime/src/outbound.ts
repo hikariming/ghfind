@@ -33,7 +33,13 @@ function bridge(
 }
 export const bindingBridge = bridge(
   "feed-bindings.internal",
-  /^\/internal\/feed\/v1\/[a-z][a-z.-]*$/,
+  /^\/internal\/feed\/v1\/(health|taxonomy\.(list|propose)|users\.(ensure|get)|preferences\.replace|candidates\.load|projects\.available|requests\.save|state\.set|events\.append|profile\.(delete|deletion\.get)|sessions\.(put|get|delete))$/,
+  (env) => env.FEED_BRIDGE_SECRET,
+  8000,
+);
+export const executorBindingBridge = bridge(
+  "feed-bindings.internal",
+  /^\/internal\/feed\/v1\/(health|jobs\.(claim|complete|fail)|projection\.apply)$/,
   (env) => env.FEED_BRIDGE_SECRET,
   8000,
 );

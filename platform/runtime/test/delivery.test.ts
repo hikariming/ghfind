@@ -313,6 +313,10 @@ test("operator and delivery secrets never enter Go; archive endpoint belongs onl
     assert.equal(result.FEED_OPERATOR_SECRET, undefined);
     assert.equal(result.FEED_DELIVERY_SECRET, undefined);
     assert.equal(result.FEED_RUNTIME_ADMIN_SECRET, undefined);
+    assert.equal(result.FEED_SOURCE_SECRET, role === "executor" ? env.FEED_SOURCE_SECRET : undefined);
+    assert.equal(result.FEED_EXECUTOR_SECRET, role === "executor" ? env.FEED_EXECUTOR_SECRET : undefined);
+    assert.equal(result.FEED_GATEWAY_SECRET, role === "api" ? env.FEED_GATEWAY_SECRET : undefined);
+    assert.equal(result.FEED_SIGNING_SECRET, role === "api" ? env.FEED_SIGNING_SECRET : undefined);
     assert.equal(
       result.FEED_ARCHIVE_ENDPOINT,
       role === "executor" ? "http://feed-archive.internal" : undefined,

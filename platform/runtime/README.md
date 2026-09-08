@@ -222,3 +222,13 @@ of all handoff material. The stage 0
 [audit](../../docs/audits/2026-09-08-feed-platform.md) and
 [operator prerequisites](../../docs/operations/feed-platform-prerequisites.md)
 remain the factual source for unresolved account and release protection gates.
+
+### Credentials and container roles
+
+Only API containers receive gateway and Feed token signing keys. Only the executor
+receives source and executor keys and source/cleanup/archive endpoints. Both use
+the private storage bridge with role-specific outbound operation allowlists: API
+serving commands and executor job/projection commands cannot cross those routes.
+The operator, delivery and runtime administration keys never enter either Go
+container. CF executor readiness probes the archive binding as well as Feed D1
+and the assessment source.

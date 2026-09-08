@@ -10,7 +10,7 @@ import {
 import { deliver, sourceEvent, initialDelivery } from "../src/queue";
 import { relayOnce } from "../src/relay";
 import { cleanupOnce, runScheduled } from "../src/scheduled";
-import { deletionCleanup } from "../src/outbound";
+import { deletionCleanup, bindingBridge, executorBindingBridge } from "../src/outbound";
 import { handleAdminRequest } from "../src/admin";
 import { readBounded, HTTPError } from "../src/security";
 
@@ -781,4 +781,27 @@ test("core source operator command uses a strict positive sequence and never acq
   ])
     assert.equal((await call(bad)).status, 400);
   assert.equal(forwards, 1);
+});
+
+
+test("container storage transports reject cross-role capabilities before binding access", async () => {
+  let calls = 0;
+  const bindings = { ...env, FEED_ADAPTER: { fetch: async () => { calls++; return Response.json({ ok: true }); } } };
+  const request = (operation: string) => new Request(`http://feed-bindings.internal/internal/feed/v1/${operation}`, {
+    method: "POST", headers: { authorization: `Bearer ${env.FEED_BRIDGE_SECRET}`, "x-feed-contract": "1" }, body: "{}",
+  });
+  for (const op of ["jobs.claim", "jobs.complete", "jobs.fail", "projection.apply"]) {
+    assert.equal((await bindingBridge(request(op), bindings)).status, 401);
+    assert.equal((await executorBindingBridge(request(op), bindings)).status, 200);
+  }
+  for (const op of ["users.ensure", "preferences.replace", "events.append", "sessions.put", "profile.delete"]) {
+    assert.equal((await executorBindingBridge(request(op), bindings)).status, 401);
+    assert.equal((await bindingBridge(request(op), bindings)).status, 200);
+  }
+  for (const bridge of [bindingBridge, executorBindingBridge]) {
+    assert.equal((await bridge(request("health"), bindings)).status, 200);
+    assert.equal((await bridge(request("sql.execute"), bindings)).status, 401);
+    assert.equal((await bridge(request("taxonomy.approve"), bindings)).status, 401);
+  }
+  assert.equal(calls, 11);
 });
