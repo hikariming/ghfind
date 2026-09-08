@@ -8,8 +8,13 @@ test locally while account administrators complete their respective items.
 
 ## Repository administrator: required checks and environments
 
-The audited user has `WRITE` permission, not demonstrated administration access.
-Do not use the reported ruleset bypass ability to avoid a PR or required review.
+The audited user has `WRITE` permission, not demonstrated settings administration
+access. The project owner subsequently explicitly authorized merge bypass for
+this implementation. It has succeeded on reviewed PRs after their complete CI
+passed; record the PR head, actual CI checkout and merge SHA for each use. This
+authorization does not waive validation or authorize changing protection rules.
+Environment management still returns 403/404 with the available session. Do not
+infer environment or ruleset administration from a successful merge bypass.
 
 1. Open repository **Settings → Rules → Rulesets → Protect main**
    (`18206694`). Keep the current PR/review, deletion and force-push rules.
