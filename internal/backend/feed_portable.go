@@ -32,18 +32,29 @@ func NewStandaloneFeedHandler(mode FeedMode, signingSecret string, store FeedSer
 	s := &APIServer{config: Config{FeedMode: mode, FeedSigningSecret: signingSecret}, feed: store, feedSessions: sessions, feedSigner: signer, metrics: NewBackendMetrics(), clock: time.Now, feedAuthenticate: authenticate, portableFeed: true}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/feed/tags", withFeedRequestTimeout(s.feedTags))
+	mux.HandleFunc("POST /api/feed/tags/proposals", withFeedRequestTimeout(s.proposeFeedTag))
 	mux.HandleFunc("GET /api/feed/preferences", withFeedRequestTimeout(s.feedPreferences))
 	mux.HandleFunc("PUT /api/feed/preferences", withFeedRequestTimeout(s.feedPreferences))
 	mux.HandleFunc("GET /api/feed/projects", withFeedRequestTimeout(s.feedProjects))
 	mux.HandleFunc("PUT /api/feed/projects/{owner}/{repo}/state", withFeedRequestTimeout(s.feedProjectState))
+	mux.HandleFunc("PATCH /api/feed/projects/{owner}/{repo}/state", withFeedRequestTimeout(s.feedProjectState))
 	mux.HandleFunc("POST /api/feed/events", withFeedRequestTimeout(s.feedEvents))
 	mux.HandleFunc("DELETE /api/feed/profile", withFeedRequestTimeout(s.deleteFeedProfile))
 	mux.HandleFunc("GET /api/feed/profile/deletions/{deletionId}", withFeedRequestTimeout(s.feedDeletionStatus))
 	return mux, nil
 }
+
+type feedVerifiedIdentityKey struct{}
+type feedVerifiedIdentity struct{ session *OAuthSession }
+
 func (s *APIServer) feedOAuth(request *http.Request, now time.Time) *OAuthSession {
 	if s.feedAuthenticate != nil {
-		return s.feedAuthenticate(request, now)
+		if cached, ok := request.Context().Value(feedVerifiedIdentityKey{}).(feedVerifiedIdentity); ok {
+			return cached.session
+		}
+		session := s.feedAuthenticate(request, now)
+		*request = *request.WithContext(context.WithValue(request.Context(), feedVerifiedIdentityKey{}, feedVerifiedIdentity{session}))
+		return session
 	}
 	return s.sessionFromRequest(request, now)
 }
@@ -60,8 +71,32 @@ func (s *APIServer) feedDeletionStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := store.GetFeedDeletion(r.Context(), user.GitHubID, r.PathValue("deletionId"))
 	if err != nil {
+		if !errors.Is(err, ErrFeedDeletionNotFound) {
+			writeJSON(w, 503, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
+			return
+		}
 		writeJSON(w, 404, map[string]string{"error": "deletion_not_found"}, noStoreHeaders())
 		return
 	}
 	writeJSON(w, 200, state, noStoreHeaders())
+}
+
+var ErrFeedDeletionNotFound = errors.New("feed deletion not found")
+var ErrFeedEventConflict = errors.New("feed event identity conflict")
+
+func writeFeedMutationError(w http.ResponseWriter, err error) bool {
+	code := ""
+	switch {
+	case errors.Is(err, ErrFeedWriterEpoch):
+		code = "writer_epoch_changed"
+	case errors.Is(err, ErrFeedProfileChanged):
+		code = "profile_version_changed"
+	case errors.Is(err, ErrFeedEventConflict):
+		code = "event_id_conflict"
+	}
+	if code == "" {
+		return false
+	}
+	writeJSON(w, http.StatusConflict, map[string]string{"error": code}, noStoreHeaders())
+	return true
 }

@@ -171,6 +171,9 @@ func (s *APIServer) feedPreferences(w http.ResponseWriter, request *http.Request
 			return
 		}
 		if err != nil {
+			if writeFeedMutationError(w, err) {
+				return
+			}
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_preferences"}, noStoreHeaders())
 			return
 		}
@@ -260,7 +263,12 @@ func (s *APIServer) feedProjects(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	seed := s.feedSeed(user.GitHubID, sessionID)
-	items := RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 240, Seed: seed, OwnerCap: 2, ExplorationPageSize: 20, ExplorationRate: feedExplorationRate})
+	options := FeedRankOptions{Now: now, Limit: 240, Seed: seed, OwnerCap: 2, ExplorationPageSize: limit}
+	if s.portableFeed {
+		options.ExplorationPageSize = 20
+		options.ExplorationRate = feedExplorationRate
+	}
+	items := RankFeedCandidates(candidates, options)
 	feedSession := FeedSession{
 		ID: sessionID, GitHubID: user.GitHubID, AlgorithmVersion: FeedAlgorithmVersion,
 		TaxonomyVersion: user.TaxonomyVersion, ProfileVersion: user.ProfileVersion, PageSize: limit,
@@ -418,6 +426,9 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	record := FeedRequestRecord{ID: requestID, User: user, Seed: session.Seed,
 		CandidateCounts: session.CandidateCounts, Degraded: session.Degraded, Duration: time.Since(started), Items: items}
 	if err := s.feed.SaveFeedRequest(request.Context(), record); err != nil {
+		if writeFeedMutationError(w, err) {
+			return
+		}
 		s.metrics.recordFeedRequest("error", time.Since(started))
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
@@ -476,7 +487,7 @@ func (s *APIServer) feedProjectState(w http.ResponseWriter, request *http.Reques
 	}
 	if body.ImpressionToken != "" {
 		claims, parseErr := s.feedSigner.ParseImpression(body.ImpressionToken, oauth.GitHubID, normalized.RepoKey, s.clock().UTC())
-		if parseErr != nil || (s.portableFeed && claims.ProfileVersion != user.ProfileVersion) {
+		if parseErr != nil || (s.portableFeed && (claims.ProfileVersion <= user.ProfileFloor || claims.ProfileVersion > user.ProfileVersion)) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_impression_token"}, noStoreHeaders())
 			return
 		}
@@ -488,6 +499,9 @@ func (s *APIServer) feedProjectState(w http.ResponseWriter, request *http.Reques
 		return
 	}
 	if err != nil {
+		if writeFeedMutationError(w, err) {
+			return
+		}
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
@@ -507,9 +521,7 @@ func (s *APIServer) feedEvents(w http.ResponseWriter, request *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
-	var body struct {
-		Events []FeedEventInput `json:"events"`
-	}
+	var body feedEventsPayload
 	if err := decodeFeedJSON(request, &body); err != nil || len(body.Events) == 0 || len(body.Events) > feedMaxEvents {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_events"}, noStoreHeaders())
 		return
@@ -526,7 +538,7 @@ func (s *APIServer) feedEvents(w http.ResponseWriter, request *http.Request) {
 		}
 		seenIDs[input.ID] = true
 		claims, err := s.feedSigner.ParseImpression(input.ImpressionToken, oauth.GitHubID, input.RepoKey, now)
-		if err != nil || (s.portableFeed && claims.ProfileVersion != user.ProfileVersion) {
+		if err != nil || (s.portableFeed && (claims.ProfileVersion <= user.ProfileFloor || claims.ProfileVersion > user.ProfileVersion)) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_impression_token"}, noStoreHeaders())
 			return
 		}
@@ -543,6 +555,9 @@ func (s *APIServer) feedEvents(w http.ResponseWriter, request *http.Request) {
 	}
 	result, err := s.feed.AppendFeedEvents(withFeedProfileVersion(request.Context(), user.ProfileVersion), oauth.GitHubID, accepted)
 	if err != nil {
+		if writeFeedMutationError(w, err) {
+			return
+		}
 		for _, event := range accepted {
 			s.metrics.recordFeedEvents(event.Input.Type, "error", 1)
 		}
@@ -581,6 +596,9 @@ func (s *APIServer) deleteFeedProfile(w http.ResponseWriter, request *http.Reque
 	}
 	deletionID, err := s.feed.DeleteFeedProfile(ctx, oauth.GitHubID, s.clock().UTC())
 	if err != nil {
+		if writeFeedMutationError(w, err) {
+			return
+		}
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
@@ -662,4 +680,26 @@ func (s *APIServer) allowFeedRequest(w http.ResponseWriter, request *http.Reques
 		return false
 	}
 	return true
+}
+
+// The original same-origin API accepts either an event array or {events}.
+// Each shape has the same strict field and byte limits.
+type feedEventsPayload struct {
+	Events []FeedEventInput `json:"events"`
+}
+
+func (p *feedEventsPayload) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	trimmed := strings.TrimSpace(string(data))
+	if strings.HasPrefix(trimmed, "[") {
+		return decoder.Decode(&p.Events)
+	}
+	type object feedEventsPayload
+	var value object
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	p.Events = value.Events
+	return nil
 }

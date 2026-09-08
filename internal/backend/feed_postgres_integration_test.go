@@ -19,6 +19,9 @@ import (
 func TestPostgresFeedStoreIntegration(t *testing.T) {
 	databaseURL := os.Getenv("FEED_TEST_DATABASE_URL")
 	if databaseURL == "" {
+		if os.Getenv("FEED_REQUIRE_POSTGRES_TESTS") == "1" {
+			t.Fatal("FEED_TEST_DATABASE_URL required")
+		}
 		t.Skip("FEED_TEST_DATABASE_URL is not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
