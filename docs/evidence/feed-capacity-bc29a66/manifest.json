@@ -1,0 +1,15 @@
+{
+  "sourceBaseline": "bc29a66",
+  "harnessCommit": "b8900e7",
+  "files": {
+    "delete.json": "20cce2c2d6eae547950aa87db1e7cc5d322d05a44e10ddb9ba6ad6d74715ee01",
+    "fixture.json": "c0916fddbab1420809b01f8040d70242d80adbde54d802dd3fc7a0101203a914",
+    "load-summary.json": "d404b6acc98ee3ebcf20b4a51d1fdd4885264e58e2c0eb2c6df3c03a4a2f6079",
+    "observations.json.gz": "b1c80dd2fa86e8677f9cce840272eeab71f5daa9071c5a8ed3dda8ee534454c0",
+    "query-plans.json": "33a29b1b702480fa46d6fc1e2f29fe55d640a83a9f0df3528c1a877adf11ce8a",
+    "README.md": "7054414f83ca2cff9be6d10026f6499e2671c3ccf8b9c06be2bb5247f47d633b"
+  },
+  "executedLoadBinarySha256": "63f608b99e7f6318ab252ca6a89b22de5ec8b11b571cb2798510d0f8adef4b87",
+  "executedDeletionBinarySha256": "feeca3b8609bea86f9e0ae8e7341cbce28b1b9e3ca01cd7554c877891757b132",
+  "loadHarnessSourceNote": "Built during harness development; load path unchanged in b8900e7, deletion binary rebuilt with final recovery checks."
+}
