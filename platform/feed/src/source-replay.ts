@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { BridgeError } from "./contract";
-import { sourceReplayStatements } from "../../../src/lib/feed-source-outbox";
+import { sourceReplayStatements } from "../../shared/feed-source-statements";
 
 const target = {
   kind: z.literal("coreSource"),
