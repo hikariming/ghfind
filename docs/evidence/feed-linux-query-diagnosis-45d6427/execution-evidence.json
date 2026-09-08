@@ -1,0 +1,461 @@
+{
+  "format": "ghfind-feed-actions-execution-evidence-v1",
+  "observedAt": "2026-09-08T18:37:45.242167+00:00",
+  "repository": "hikariming/ghfind",
+  "diagnosisRun": {
+    "id": 34262883561,
+    "name": "Feed isolated Linux query diagnosis",
+    "head_branch": "main",
+    "head_sha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+    "path": ".github/workflows/feed-diagnose.yml",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34262883561",
+    "run_attempt": 1,
+    "created_at": "2026-09-08T18:24:52Z",
+    "updated_at": "2026-09-08T18:28:02Z"
+  },
+  "diagnosisJob": {
+    "id": 102184979298,
+    "run_id": 34262883561,
+    "name": "Bounded synthetic query diagnosis",
+    "head_branch": "main",
+    "head_sha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34262883561/job/102184979298",
+    "started_at": "2026-09-08T18:24:57Z",
+    "completed_at": "2026-09-08T18:28:02Z",
+    "labels": [
+      "ubuntu-24.04"
+    ],
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-09-08T18:24:57Z",
+        "completed_at": "2026-09-08T18:24:59Z"
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-09-08T18:24:59Z",
+        "completed_at": "2026-09-08T18:25:02Z"
+      },
+      {
+        "name": "Initialize evidence before preflight or build can fail",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-09-08T18:25:02Z",
+        "completed_at": "2026-09-08T18:25:02Z"
+      },
+      {
+        "name": "Verify exact main source and successful required CI",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-09-08T18:25:02Z",
+        "completed_at": "2026-09-08T18:25:02Z"
+      },
+      {
+        "name": "Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-09-08T18:25:02Z",
+        "completed_at": "2026-09-08T18:25:11Z"
+      },
+      {
+        "name": "Test and build the exact diagnostic harness",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-09-08T18:25:11Z",
+        "completed_at": "2026-09-08T18:26:11Z"
+      },
+      {
+        "name": "Start the isolated pinned fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-09-08T18:26:11Z",
+        "completed_at": "2026-09-08T18:26:21Z"
+      },
+      {
+        "name": "Seed the fixed 50000 project fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-09-08T18:26:21Z",
+        "completed_at": "2026-09-08T18:27:31Z"
+      },
+      {
+        "name": "Diagnose actual query paths within 100 requests and 120 seconds",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-09-08T18:27:31Z",
+        "completed_at": "2026-09-08T18:27:52Z"
+      },
+      {
+        "name": "Retain diagnostic evidence including incomplete attempts",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10,
+        "started_at": "2026-09-08T18:27:52Z",
+        "completed_at": "2026-09-08T18:27:54Z"
+      },
+      {
+        "name": "Remove only this job's synthetic fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-09-08T18:27:54Z",
+        "completed_at": "2026-09-08T18:27:55Z"
+      },
+      {
+        "name": "Post Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 21,
+        "started_at": "2026-09-08T18:27:55Z",
+        "completed_at": "2026-09-08T18:27:59Z"
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 22,
+        "started_at": "2026-09-08T18:27:59Z",
+        "completed_at": "2026-09-08T18:27:59Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 23,
+        "started_at": "2026-09-08T18:27:59Z",
+        "completed_at": "2026-09-08T18:27:59Z"
+      }
+    ]
+  },
+  "sourceCIPrecedingDiagnosis": [
+    {
+      "id": 34262236855,
+      "name": "CI",
+      "head_branch": "main",
+      "head_sha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+      "path": ".github/workflows/ci.yml",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34262236855",
+      "run_attempt": 1,
+      "created_at": "2026-09-08T18:18:20Z",
+      "updated_at": "2026-09-08T18:22:14Z"
+    }
+  ],
+  "initialRunMetadataScope": "run.json is unchanged initialization evidence written before preflight; the successful preflight step and retained true/checkout log lines are independent later evidence",
+  "pr255": {
+    "prHeadSha": "75a031849cedeae9a67170077ada7692487a7cf9",
+    "testedMergeSha": "28a729464c49d977f6f89bc7b220c1a07038a971",
+    "baseSha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+    "headIsNotTestedMergeSha": true,
+    "run": {
+      "id": 34263081942,
+      "name": "CI",
+      "head_branch": "codex/feed-tag-recall-performance",
+      "head_sha": "75a031849cedeae9a67170077ada7692487a7cf9",
+      "path": ".github/workflows/ci.yml",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263081942",
+      "run_attempt": 1,
+      "created_at": "2026-09-08T18:26:50Z",
+      "updated_at": "2026-09-08T18:30:20Z"
+    },
+    "job": {
+      "id": 102185626480,
+      "run_id": 34263081942,
+      "name": "Feed storage contracts",
+      "head_branch": "codex/feed-tag-recall-performance",
+      "head_sha": "75a031849cedeae9a67170077ada7692487a7cf9",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263081942/job/102185626480",
+      "started_at": "2026-09-08T18:26:53Z",
+      "completed_at": "2026-09-08T18:29:04Z",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-09-08T18:26:54Z",
+          "completed_at": "2026-09-08T18:26:56Z"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-09-08T18:26:56Z",
+          "completed_at": "2026-09-08T18:27:10Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-09-08T18:27:10Z",
+          "completed_at": "2026-09-08T18:27:11Z"
+        },
+        {
+          "name": "Run pnpm/action-setup@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-09-08T18:27:11Z",
+          "completed_at": "2026-09-08T18:27:12Z"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-09-08T18:27:12Z",
+          "completed_at": "2026-09-08T18:27:13Z"
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-09-08T18:27:13Z",
+          "completed_at": "2026-09-08T18:27:24Z"
+        },
+        {
+          "name": "Require a real PostgreSQL contract environment",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-09-08T18:27:24Z",
+          "completed_at": "2026-09-08T18:27:24Z"
+        },
+        {
+          "name": "Enable pgvector in the disposable CI database",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-09-08T18:27:24Z",
+          "completed_at": "2026-09-08T18:27:25Z"
+        },
+        {
+          "name": "Start an isolated real S3 contract service",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-09-08T18:27:25Z",
+          "completed_at": "2026-09-08T18:27:31Z"
+        },
+        {
+          "name": "PostgreSQL and pgvector contracts including migration replay",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-09-08T18:27:31Z",
+          "completed_at": "2026-09-08T18:27:56Z"
+        },
+        {
+          "name": "Install locked Worker contract dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-09-08T18:27:56Z",
+          "completed_at": "2026-09-08T18:28:00Z"
+        },
+        {
+          "name": "Typecheck Worker capabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-09-08T18:28:00Z",
+          "completed_at": "2026-09-08T18:28:03Z"
+        },
+        {
+          "name": "Real workerd D1 and R2 contracts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-09-08T18:28:03Z",
+          "completed_at": "2026-09-08T18:28:27Z"
+        },
+        {
+          "name": "Build the binding adapter",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-09-08T18:28:27Z",
+          "completed_at": "2026-09-08T18:28:29Z"
+        },
+        {
+          "name": "Identical API contracts against PostgreSQL and workerd",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-09-08T18:28:29Z",
+          "completed_at": "2026-09-08T18:28:48Z"
+        },
+        {
+          "name": "Rehearse isolated D1 restore and deletion-generation fencing",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-09-08T18:28:48Z",
+          "completed_at": "2026-09-08T18:28:59Z"
+        },
+        {
+          "name": "Remove disposable S3 service",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-09-08T18:28:59Z",
+          "completed_at": "2026-09-08T18:28:59Z"
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 30,
+          "started_at": "2026-09-08T18:28:59Z",
+          "completed_at": "2026-09-08T18:28:59Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31,
+          "started_at": "2026-09-08T18:28:59Z",
+          "completed_at": "2026-09-08T18:29:00Z"
+        },
+        {
+          "name": "Post Run pnpm/action-setup@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32,
+          "started_at": "2026-09-08T18:29:00Z",
+          "completed_at": "2026-09-08T18:29:00Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33,
+          "started_at": "2026-09-08T18:29:00Z",
+          "completed_at": "2026-09-08T18:29:00Z"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 34,
+          "started_at": "2026-09-08T18:29:00Z",
+          "completed_at": "2026-09-08T18:29:00Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 35,
+          "started_at": "2026-09-08T18:29:00Z",
+          "completed_at": "2026-09-08T18:29:00Z"
+        }
+      ]
+    },
+    "tests": [
+      "TestPostgresTagRecallCurrentAnalysisBeforeFanout",
+      "TestPostgresGovernanceInvalidatesTaxonomyLazily",
+      "TestPostgresGovernanceTagCapacityAndCurrentAnalysis"
+    ],
+    "postgresRequired": true,
+    "evidence": "actual RUN/PASS lines retained in pr255-required-pg.log, not reconstructed local stdout"
+  },
+  "logExcerpts": [
+    {
+      "sourceReadCommand": "gh run view 34262883561 --repo hikariming/ghfind --log",
+      "sourceLogSha256": "f5eb8944e7e7f80102344f015e14407cafd3676932e260e9b3936f2e2fc383a7",
+      "sourceLogBytes": 114825,
+      "sourceLineNumbers": [
+        37,
+        53,
+        147,
+        154,
+        172,
+        174,
+        175,
+        211,
+        212,
+        213,
+        214,
+        215,
+        222,
+        687,
+        693,
+        694,
+        695,
+        696,
+        697,
+        698,
+        699,
+        700,
+        701,
+        702,
+        703,
+        704
+      ],
+      "excerptPath": "actions-source-cleanup.log",
+      "excerptSha256": "e055630ef0b707e2a7030dcf9de977857d206415f5bde3f2fe97b83584de2cb5",
+      "method": "selected complete original lines in original order, without rewriting; omitted lines are not part of the excerpt"
+    },
+    {
+      "sourceReadCommand": "gh run view 34263081942 --repo hikariming/ghfind --job 102185626480 --log",
+      "sourceLogSha256": "daf70b7e65cc083edcc3ed1e766cb428c5443a76a35cefa86aa3a81371f0b1c2",
+      "sourceLogBytes": 240401,
+      "sourceLineNumbers": [
+        245,
+        247,
+        248,
+        532,
+        538,
+        651,
+        652,
+        653,
+        654,
+        794,
+        795,
+        1177,
+        1178
+      ],
+      "excerptPath": "pr255-required-pg.log",
+      "excerptSha256": "5357cca1cbb332cf5513e2ceeea42d0b089425e4db3df85fc904e5129c9f7f43",
+      "method": "selected complete original lines in original order, without rewriting; omitted lines are not part of the excerpt"
+    }
+  ],
+  "cleanup": {
+    "stepNumber": 11,
+    "conclusion": "success",
+    "evidence": "Actions reports success and actual Removed output for both containers, capacity_data volume, and default network. No subsequent independent runner readback is claimed."
+  }
+}

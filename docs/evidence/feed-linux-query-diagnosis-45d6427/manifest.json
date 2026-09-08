@@ -1,0 +1,150 @@
+{
+  "format": "ghfind-feed-linux-query-evidence-v1",
+  "sourceSha": "45d6427a22943d23ce3acb413cff20dd9f4ef61b",
+  "evidenceBranchBase": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "runId": 34262883561,
+  "runAttempt": 1,
+  "jobId": 102184979298,
+  "capacityAcceptance": false,
+  "githubArtifact": {
+    "id": 10070704621,
+    "name": "feed-linux-query-diagnosis-45d6427a22943d23ce3acb413cff20dd9f4ef61b-1",
+    "size_in_bytes": 99676,
+    "digest": "sha256:c5cedc809ccc2949a3528ad3cf7d26c36862ec7f9a5a06429ead2f5ac9ccb49d",
+    "created_at": "2026-09-08T18:27:54Z",
+    "expires_at": "2026-10-08T18:27:53Z"
+  },
+  "archiveVerification": {
+    "method": "downloaded GitHub artifact ZIP in memory, independently SHA256 checked against GitHub digest, all 13 entries matched supplied local raw files byte for byte; ZIP not retained",
+    "downloadedZipSha256": "c5cedc809ccc2949a3528ad3cf7d26c36862ec7f9a5a06429ead2f5ac9ccb49d",
+    "downloadedZipBytes": 99676,
+    "matchedFileCount": 13
+  },
+  "rawArtifacts": [
+    {
+      "sourceName": "actual-query-plans.json",
+      "path": "actual-query-plans.json.gz",
+      "encoding": "gzip",
+      "sourceBytes": 406669,
+      "sourceSha256": "c10fb75d885eb5735e987aa077fad3fb55786f7a5f96631079202b429ca1edbb",
+      "storedBytes": 17301,
+      "storedSha256": "089a577d15350118f6d06749a25a0ccb74e4c4ddd854c864be6312b7877ad7b4"
+    },
+    {
+      "sourceName": "binary.sha256",
+      "path": "binary.sha256",
+      "encoding": "identity",
+      "sourceBytes": 104,
+      "sourceSha256": "c1c5d3f38052432d23dcad8403eb7c481fa33029f399f6873cfa603cb3965048",
+      "storedBytes": 104,
+      "storedSha256": "c1c5d3f38052432d23dcad8403eb7c481fa33029f399f6873cfa603cb3965048"
+    },
+    {
+      "sourceName": "build-result.json",
+      "path": "build-result.json",
+      "encoding": "identity",
+      "sourceBytes": 15,
+      "sourceSha256": "3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af",
+      "storedBytes": 15,
+      "storedSha256": "3edd82d4e49f89c30270dee752ac018539f4dc6848d7a33b1553404e6f8b58af"
+    },
+    {
+      "sourceName": "build.log",
+      "path": "build.log",
+      "encoding": "identity",
+      "sourceBytes": 0,
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 0,
+      "storedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "sourceName": "containers.txt",
+      "path": "containers.txt",
+      "encoding": "identity",
+      "sourceBytes": 271,
+      "sourceSha256": "a86bd458ed8e4912c4dbf9c2964c5f4423c11be3edc84355f168f0d06807a4d0",
+      "storedBytes": 271,
+      "storedSha256": "a86bd458ed8e4912c4dbf9c2964c5f4423c11be3edc84355f168f0d06807a4d0"
+    },
+    {
+      "sourceName": "diagnose.json",
+      "path": "diagnose.json.gz",
+      "encoding": "gzip",
+      "sourceBytes": 1388855,
+      "sourceSha256": "dd4b29d9eaf1eb18028a6470e206499467c0245900f0eae521c7bf7b7c2b205b",
+      "storedBytes": 63469,
+      "storedSha256": "681658a4e39a89ddf998e8ae33cda7be3bd5916053cbc63a5acbf5c3e3966b77"
+    },
+    {
+      "sourceName": "external-resources.jsonl",
+      "path": "external-resources.jsonl.gz",
+      "encoding": "gzip",
+      "sourceBytes": 56904,
+      "sourceSha256": "c2a9ebd016caacd7fb030788f4d9508adda0dd0c3c3fa6ccb96aab801c840514",
+      "storedBytes": 2847,
+      "storedSha256": "b9e5556ebcb5fc6759efd44410911a92e57fdcd8d9af22ed47c515b8ca5fdde8"
+    },
+    {
+      "sourceName": "fixture.json",
+      "path": "fixture.json",
+      "encoding": "identity",
+      "sourceBytes": 444,
+      "sourceSha256": "e71553b571b94c2e922c2c5967cc1127db3f0a998cb3f2632033ddec1101f004",
+      "storedBytes": 444,
+      "storedSha256": "e71553b571b94c2e922c2c5967cc1127db3f0a998cb3f2632033ddec1101f004"
+    },
+    {
+      "sourceName": "go-version.txt",
+      "path": "go-version.txt",
+      "encoding": "identity",
+      "sourceBytes": 32,
+      "sourceSha256": "9a7036e247707dbe4ae2c4ba17fcef8bc438f0093fa60ee68ab7d8de04778c28",
+      "storedBytes": 32,
+      "storedSha256": "9a7036e247707dbe4ae2c4ba17fcef8bc438f0093fa60ee68ab7d8de04778c28"
+    },
+    {
+      "sourceName": "run.json",
+      "path": "run.json",
+      "encoding": "identity",
+      "sourceBytes": 377,
+      "sourceSha256": "9be92300c663bfa9787eac1fa686bbe40749abe21edb9d86326bf0570f12d37b",
+      "storedBytes": 377,
+      "storedSha256": "9be92300c663bfa9787eac1fa686bbe40749abe21edb9d86326bf0570f12d37b"
+    },
+    {
+      "sourceName": "runner-cpu.txt",
+      "path": "runner-cpu.txt",
+      "encoding": "identity",
+      "sourceBytes": 3190,
+      "sourceSha256": "9f982b13b1e81600f7a4db23218d261466a69d5d7140571edefc4902deb4bc98",
+      "storedBytes": 3190,
+      "storedSha256": "9f982b13b1e81600f7a4db23218d261466a69d5d7140571edefc4902deb4bc98"
+    },
+    {
+      "sourceName": "runner-memory.txt",
+      "path": "runner-memory.txt",
+      "encoding": "identity",
+      "sourceBytes": 207,
+      "sourceSha256": "a55c206e8d1058a622d70a2db990b123a3c4a51736ccec4c509f9ad3609a3fdd",
+      "storedBytes": 207,
+      "storedSha256": "a55c206e8d1058a622d70a2db990b123a3c4a51736ccec4c509f9ad3609a3fdd"
+    },
+    {
+      "sourceName": "test.log",
+      "path": "test.log",
+      "encoding": "identity",
+      "sourceBytes": 1983,
+      "sourceSha256": "167a4edb143b5b43f836ae36c4e24b6de33c2c8ccdf8a780604d6d1f05c5bd75",
+      "storedBytes": 1983,
+      "storedSha256": "167a4edb143b5b43f836ae36c4e24b6de33c2c8ccdf8a780604d6d1f05c5bd75"
+    }
+  ],
+  "binary": {
+    "sha256": "ce3921c3b9f969780012a78d920b313c0fd8e66ceca28ae3c1e892da0cb726e3",
+    "retained": false,
+    "goVersion": "go version go1.23.0 linux/amd64"
+  },
+  "rawFilesUnmodified": true,
+  "checksums": "SHA256SUMS covers every preserved/derived file except itself; source and stored hashes are distinct for gzip files",
+  "scope": "Linux amd64, isolated synthetic PostgreSQL plus MinIO fixture, sequential loopback Feed HTTP diagnosis and read-only plans; no new tests/load/Cloudflare/prod calls during preservation"
+}

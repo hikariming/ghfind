@@ -35,6 +35,23 @@ jobs:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Initialize evidence before preflight or build can fail
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/feed-capacity-report"
+          python3 - <<'PY'
+          import datetime, json, os, pathlib, subprocess
+          report = pathlib.Path(os.environ['RUNNER_TEMP']) / 'feed-capacity-report'
+          metadata = {
+              'format': 'ghfind-feed-capacity-run-v1',
+              'observedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'requestedSha': os.environ['RELEASE_SHA'],
+              'checkedOutSha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'runId': os.environ['GITHUB_RUN_ID'],
+              'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'scope': 'isolated synthetic capacity; source preflight and acceptance not yet evaluated',
+          }
+          (report / 'run.json').write_text(json.dumps(metadata, indent=2) + '\n')
+          PY
       - name: Verify exact main source and successful required CI
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,10 +69,10 @@ jobs:
       - name: Check the capacity evidence gate and build the exact harness
         run: |
           set -euo pipefail
+          trap 'build_exit_status=$?; printf "{\"exitCode\":%s}\n" "$build_exit_status" > "$RUNNER_TEMP/feed-capacity-report/build-result.json"; exit "$build_exit_status"' EXIT
           command -v vmstat
-          python3 scripts/test-feed-capacity-verifier.py
-          go build -trimpath -o "$RUNNER_TEMP/feed-capacity" ./cmd/feed-capacity
-          mkdir -m 700 "$RUNNER_TEMP/feed-capacity-report"
+          python3 scripts/test-feed-capacity-verifier.py 2>&1 | tee "$RUNNER_TEMP/feed-capacity-report/test.log"
+          go build -trimpath -o "$RUNNER_TEMP/feed-capacity" ./cmd/feed-capacity 2>&1 | tee "$RUNNER_TEMP/feed-capacity-report/build.log"
           sha256sum "$RUNNER_TEMP/feed-capacity" > "$RUNNER_TEMP/feed-capacity-report/binary.sha256"
           go version > "$RUNNER_TEMP/feed-capacity-report/go-version.txt"
       - name: Start only the isolated pinned fixture
@@ -110,7 +127,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - name: Remove only this job's synthetic fixture
-        if: always()
+        if: ${{ always() && (steps.fixture.outcome == 'success' || steps.fixture.outcome == 'failure' || steps.fixture.outcome == 'cancelled') }}
         run: |
           touch "$RUNNER_TEMP/feed-capacity-observer.stop"
           docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v

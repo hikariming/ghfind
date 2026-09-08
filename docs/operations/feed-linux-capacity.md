@@ -58,7 +58,11 @@ rerun or profile phase. A load-step failure remains a failed workflow even if th
 independent deletion check succeeds. Reports, including failed gates, are kept in
 an Actions artifact for 30 days. Download and retain meaningful results before
 that retention expires; this artifact is a public synthetic test report, not a
-backup destination. Cleanup removes only this job's named Compose project and
-its synthetic volume. A successful run still leaves real CF lifecycle, bounded
+backup destination. Initial source/run metadata is written before preflight and
+build; it is not proof that those steps passed. Build/test output and exit status
+are retained even when they fail. A checkout failure is visible only in Actions
+logs. Cleanup runs only if fixture startup was attempted after source verification;
+it removes this job's named Compose project and its synthetic volume. A successful
+run still leaves real CF lifecycle, bounded
 staging load, measured cost, actual OAuth/assessment and production rollout gates
 open.
