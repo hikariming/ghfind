@@ -96,7 +96,7 @@ func validateDSN(raw string) error {
 	return nil
 }
 func run() error {
-	phase := flag.String("phase", "seed", "seed, load, profile, or delete")
+	phase := flag.String("phase", "seed", "seed, load, profile, diagnose, or delete")
 	out := flag.String("out", "/tmp/ghfind-feed-capacity", "report directory")
 	baseline := flag.String("baseline", "unknown", "exact source baseline SHA")
 	container := flag.String("pg-container", "", "exclusive local container to sample")
@@ -105,11 +105,14 @@ func run() error {
 	if err := validateDSN(dsn); err != nil {
 		return err
 	}
-	if *phase != "seed" && *phase != "load" && *phase != "delete" && *phase != "profile" {
+	if *phase != "seed" && *phase != "load" && *phase != "delete" && *phase != "profile" && *phase != "diagnose" {
 		return errors.New("invalid phase")
 	}
 	if err := os.MkdirAll(*out, 0700); err != nil {
 		return err
+	}
+	if *phase == "diagnose" {
+		return diagnose(dsn, *out, *baseline)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -193,7 +196,7 @@ func seed(ctx context.Context, db *sql.DB, dsn, out, baseline string) error {
 	if err := os.WriteFile(filepath.Join(out, "fixture.json"), encoded, 0600); err != nil {
 		return err
 	}
-	return plans(ctx, db, out)
+	return nil // Actual serving plans are captured only by the bounded diagnose phase.
 }
 func counts(ctx context.Context, db *sql.DB) map[string]int64 {
 	result := map[string]int64{}
