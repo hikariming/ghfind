@@ -64,6 +64,7 @@ class Harness:
         self.names = self.plan['resources']
         self.attempted = []
         self.image_id = None
+        self.image_build_attempted = False
         self.report = {**self.plan, 'format': 'ghfind-docker-http-run-v1', 'startedAt': utc(),
                        'status': 'incomplete', 'commands': [], 'created': [], 'cleanup': []}
 
@@ -156,6 +157,9 @@ class Harness:
             except Exception:
                 failed = True
                 self.report['cleanup'].append({'kind': 'image', 'status': 'cleanup_failed'})
+        elif self.image_build_attempted:
+            failed = True
+            self.report['cleanup'].append({'kind': 'image', 'status': 'build_identity_uncertain_not_claimed_absent'})
         self.report['cleanupSuccessful'] = not failed
         self.save()
         return not failed
@@ -185,6 +189,9 @@ class Harness:
                     listener.bind(('127.0.0.1', port))
             labels = ['--label', OWNER_LABEL + '=' + self.owner, '--label', SHA_LABEL + '=' + self.sha]
             iid = self.out / 'api-image-id.txt'
+            self.image_build_attempted = True
+            self.report['apiImageBuildAttempted'] = True
+            self.save()
             self.run(['docker', 'build', '--platform', 'linux/amd64', '--target', 'api', '-f', 'Dockerfile.feed', '--build-arg', 'VERSION=' + self.sha, '--iidfile', str(iid), *labels, '.'], timeout=300, log='build.log')
             self.image_id = iid.read_text().strip()
             if not re.fullmatch(r'sha256:[a-f0-9]{64}', self.image_id):
