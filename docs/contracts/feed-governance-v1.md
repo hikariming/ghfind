@@ -37,7 +37,8 @@ outside v1.
   canonical ID is `namespace:slug`. At least one label must be nonblank.
   The namespace/slug cannot already be a definition or alias.
 - `action:"map"` also requires `canonicalTagId` and the same explicit assignment.
-  The target must be canonical in the same namespace. A global alias may be
+  The target must be canonical in the same namespace with its definition version
+  no newer than the active taxonomy. A global alias may be
   created, but an existing conflicting alias or different canonical definition
   must not be overwritten.
 - `action:"reject"` accepts no additional fields.
@@ -124,6 +125,9 @@ without SQL, credentials or proposal bodies in logs.
 Governance does not update every user/session. FeedUser.taxonomyVersion returns
 the global active version; the user row retains the last explicit-preference
 version. Preference and positive/negative tag reads use current canonical tags.
+Candidate matching, returned project tags and behavioral materialization also
+require the assignment analysis ID to equal the current project analysis ID.
+Old assessment assignments remain in storage but are ineffective.
 Deprecated tags remain historical references, not active filters or preferences.
 
 Session writes and request persistence check active taxonomy inside their write

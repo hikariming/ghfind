@@ -31,10 +31,10 @@ export async function recallTags(
     ? db
         .prepare(
           `WITH matching AS MATERIALIZED (
-            SELECT DISTINCT repo_key FROM feed_project_tags
+            SELECT DISTINCT repo_key,analysis_id FROM feed_project_tags
             WHERE tag_id IN (SELECT value FROM json_each(?))
           )
-          SELECT p.* FROM matching CROSS JOIN feed_projects p ON p.repo_key=matching.repo_key
+          SELECT p.* FROM matching CROSS JOIN feed_projects p ON p.repo_key=matching.repo_key AND p.analysis_id=matching.analysis_id
           WHERE ${eligibility}
           ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80`,
         )
@@ -42,7 +42,7 @@ export async function recallTags(
     : db
         .prepare(
           `SELECT p.* FROM feed_projects p WHERE ${eligibility}
-          AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.tag_id IN(SELECT value FROM json_each(?)))
+          AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND pt.tag_id IN(SELECT value FROM json_each(?)))
           ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80`,
         )
         .bind(githubId, githubId, positive);
