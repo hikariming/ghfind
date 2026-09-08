@@ -1,0 +1,12 @@
+**
+!Dockerfile.feed
+!Dockerfile.feed.dockerignore
+!go.mod
+!go.sum
+!internal/
+!internal/**
+!cmd/
+!cmd/feed-api/
+!cmd/feed-api/**
+!cmd/feed-worker/
+!cmd/feed-worker/**
