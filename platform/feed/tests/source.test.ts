@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { hash } from "../src/contract";
 import type { SourceEvent } from "../src/source";
-import { appSubmissionReceiptStatement } from "../../../src/lib/feed-source-outbox";
+import { appSubmissionReceiptStatement } from "../../shared/feed-source-statements";
 
 const secret = "local-source-test-key-separate-32-characters-minimum";
 async function call(operation: string, payload: unknown, key = secret) {
