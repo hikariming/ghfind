@@ -1,0 +1,40 @@
+{
+  "kind": "old-docker-reader-writer-compatibility",
+  "oldBinary": "0c23f3b",
+  "newMigration": "0020_feed_candidate_recall_indexes.sql",
+  "additive": {
+    "httpStatus": 200,
+    "response": {
+      "contractVersion": "1",
+      "ready": true,
+      "service": "feed-api",
+      "storeProfile": "postgres",
+      "version": "0c23f3b",
+      "writerEpoch": 1
+    }
+  },
+  "incompatibleWriter": {
+    "httpStatus": 503,
+    "response": {
+      "contractVersion": "1",
+      "ready": false,
+      "service": "feed-api",
+      "storeProfile": "postgres",
+      "version": "0c23f3b",
+      "writerEpoch": 1
+    }
+  },
+  "restoredCompatible": {
+    "httpStatus": 200,
+    "response": {
+      "contractVersion": "1",
+      "ready": true,
+      "service": "feed-api",
+      "storeProfile": "postgres",
+      "version": "0c23f3b",
+      "writerEpoch": 1
+    }
+  },
+  "observedAt": "2026-09-08T04:12:42.167717+00:00",
+  "environment": "isolated local PostgreSQL and Docker"
+}
