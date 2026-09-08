@@ -1,0 +1,227 @@
+2026-09-08T05:45:43.135724085Z 2026-09-08 05:45:43.135 UTC [62] LOG:  checkpoint starting: time
+2026-09-08T05:50:13.029133043Z 2026-09-08 05:50:13.029 UTC [62] LOG:  checkpoint complete: wrote 10213 buffers (31.2%); 0 WAL file(s) added, 0 removed, 12 recycled; write=269.867 s, sync=0.018 s, total=269.894 s; sync files=90, longest=0.003 s, average=0.001 s; distance=192900 kB, estimate=511405 kB; lsn=0/5728FF40, redo lsn=0/4F463C80
+2026-09-08T05:50:43.062509168Z 2026-09-08 05:50:43.062 UTC [62] LOG:  checkpoint starting: time
+2026-09-08T05:55:13.398478002Z 2026-09-08 05:55:13.398 UTC [62] LOG:  checkpoint complete: wrote 6146 buffers (18.8%); 0 WAL file(s) added, 2 removed, 7 recycled; write=270.010 s, sync=0.204 s, total=270.336 s; sync files=48, longest=0.095 s, average=0.005 s; distance=143324 kB, estimate=474597 kB; lsn=0/60678CF0, redo lsn=0/5805AD10
+2026-09-08T05:55:19.285590963Z 2026-09-08 05:55:19.283 UTC [178] ERROR:  canceling statement due to user request
+2026-09-08T05:55:19.286253921Z 2026-09-08 05:55:19.283 UTC [178] STATEMENT:  SELECT COUNT(*) FROM feed.projects p WHERE p.repo_key=ANY($1) AND p.publishable=true AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL) AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:19.286267171Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:19.286273088Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:19.286274088Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$2) 
+2026-09-08T05:55:19.779286630Z 2026-09-08 05:55:19.775 UTC [147] ERROR:  canceling statement due to user request
+2026-09-08T05:55:19.779328755Z 2026-09-08 05:55:19.775 UTC [147] STATEMENT:  SELECT p.repo_key FROM feed.projects p
+2026-09-08T05:55:19.779331921Z 	          LEFT JOIN feed.user_project_state ups ON ups.github_id = $1 AND ups.repo_key = p.repo_key
+2026-09-08T05:55:19.779334046Z 	          WHERE p.publishable = true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:19.779335796Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:19.779337546Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:19.779338963Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  AND COALESCE(ups.not_interested, false) = false
+2026-09-08T05:55:19.779340380Z 	          ORDER BY p.analyzed_at DESC, p.repo_key LIMIT $2
+2026-09-08T05:55:19.968565130Z 2026-09-08 05:55:19.966 UTC [190] ERROR:  canceling statement due to user request
+2026-09-08T05:55:19.968664255Z 2026-09-08 05:55:19.966 UTC [190] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:19.968669380Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:19.968677630Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:19.968678880Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:19.968680088Z 	          FROM prefs pref
+2026-09-08T05:55:19.968681255Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:19.968682255Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:19.968683296Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:19.968684421Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:19.968685463Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:19.968686546Z 	            LIMIT 160
+2026-09-08T05:55:19.968687505Z 	          ) pt
+2026-09-08T05:55:19.968688463Z 	        )
+2026-09-08T05:55:19.968689421Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:19.968690421Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:19.968691546Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:19.968692671Z 	        FROM sampled
+2026-09-08T05:55:19.968694130Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:19.968695171Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:19.968696213Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:19.968697671Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:19.968698963Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:19.968701463Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:19.968702546Z 	        ) p
+2026-09-08T05:55:19.968703505Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:19.968729838Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:19.968732338Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:19.968733463Z 	        )
+2026-09-08T05:55:19.968734505Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.072084755Z 2026-09-08 05:55:20.071 UTC [191] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.072106797Z 2026-09-08 05:55:20.071 UTC [191] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.072108130Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.072109630Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.072110297Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.072110922Z 	          FROM prefs pref
+2026-09-08T05:55:20.072111505Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.072112047Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.072112672Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.072113297Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.072113838Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.072114422Z 	            LIMIT 160
+2026-09-08T05:55:20.072114963Z 	          ) pt
+2026-09-08T05:55:20.072115505Z 	        )
+2026-09-08T05:55:20.072116005Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.072116588Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.072117422Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.072118088Z 	        FROM sampled
+2026-09-08T05:55:20.072118588Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.072119130Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.072119713Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.072120588Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.072121422Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.072132797Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.072134255Z 	        ) p
+2026-09-08T05:55:20.072134797Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.072135338Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.072135922Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.072136547Z 	        )
+2026-09-08T05:55:20.072137088Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.171562505Z 2026-09-08 05:55:20.171 UTC [192] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.171608547Z 2026-09-08 05:55:20.171 UTC [192] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.171611380Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.171613672Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.171614713Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.171615797Z 	          FROM prefs pref
+2026-09-08T05:55:20.171616838Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.171617880Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.171618963Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.171620547Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.171621547Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.171622588Z 	            LIMIT 160
+2026-09-08T05:55:20.171623547Z 	          ) pt
+2026-09-08T05:55:20.171624505Z 	        )
+2026-09-08T05:55:20.171625463Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.171626463Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.171627547Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.171628672Z 	        FROM sampled
+2026-09-08T05:55:20.171629630Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.171639755Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.171640838Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.171672838Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.171682213Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.171684630Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.171685797Z 	        ) p
+2026-09-08T05:55:20.171686838Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.171687838Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.171688838Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.171689922Z 	        )
+2026-09-08T05:55:20.171690838Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.272087088Z 2026-09-08 05:55:20.271 UTC [193] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.272117422Z 2026-09-08 05:55:20.271 UTC [193] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.272120047Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.272122297Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.272123297Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.272124422Z 	          FROM prefs pref
+2026-09-08T05:55:20.272125422Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.272126505Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.272127547Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.272128630Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.272129672Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.272130713Z 	            LIMIT 160
+2026-09-08T05:55:20.272131672Z 	          ) pt
+2026-09-08T05:55:20.272132630Z 	        )
+2026-09-08T05:55:20.272133588Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.272134588Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.272135713Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.272160672Z 	        FROM sampled
+2026-09-08T05:55:20.272163755Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.272164880Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.272166047Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.272167505Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.272168797Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.272170297Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.272171380Z 	        ) p
+2026-09-08T05:55:20.272172338Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.272173297Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.272174338Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.272175380Z 	        )
+2026-09-08T05:55:20.272176338Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.377596130Z 2026-09-08 05:55:20.368 UTC [194] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.377634130Z 2026-09-08 05:55:20.368 UTC [194] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.377636630Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.377638880Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.377639922Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.377641130Z 	          FROM prefs pref
+2026-09-08T05:55:20.377642130Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.377643088Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.377644255Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.377645380Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.377646422Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.377647422Z 	            LIMIT 160
+2026-09-08T05:55:20.377648380Z 	          ) pt
+2026-09-08T05:55:20.377649380Z 	        )
+2026-09-08T05:55:20.377690047Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.377692380Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.377693547Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.377694713Z 	        FROM sampled
+2026-09-08T05:55:20.377695630Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.377696713Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.377697755Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.377699213Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.377700463Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.377702297Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.377703380Z 	        ) p
+2026-09-08T05:55:20.377704297Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.377705255Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.377706255Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.377707338Z 	        )
+2026-09-08T05:55:20.377708297Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.480627880Z 2026-09-08 05:55:20.480 UTC [197] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.480649088Z 2026-09-08 05:55:20.480 UTC [197] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.480651172Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.480653088Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.480653713Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.480654380Z 	          FROM prefs pref
+2026-09-08T05:55:20.480654922Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.480655713Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.480656338Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.480663088Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.480663797Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.480664422Z 	            LIMIT 160
+2026-09-08T05:55:20.480664963Z 	          ) pt
+2026-09-08T05:55:20.480665505Z 	        )
+2026-09-08T05:55:20.480666047Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.480666588Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.480667213Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.480667880Z 	        FROM sampled
+2026-09-08T05:55:20.480668380Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.480668963Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.480669547Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.480670380Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.480671088Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.480672255Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.480672880Z 	        ) p
+2026-09-08T05:55:20.480673422Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.480673963Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.480674505Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.480675130Z 	        )
+2026-09-08T05:55:20.480675672Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
+2026-09-08T05:55:20.570554047Z 2026-09-08 05:55:20.570 UTC [196] ERROR:  canceling statement due to user request
+2026-09-08T05:55:20.570572463Z 2026-09-08 05:55:20.570 UTC [196] STATEMENT:  WITH prefs AS MATERIALIZED (
+2026-09-08T05:55:20.570574463Z 	          SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC
+2026-09-08T05:55:20.570576172Z 	        ), sampled AS MATERIALIZED (
+2026-09-08T05:55:20.570576963Z 	          SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
+2026-09-08T05:55:20.570577797Z 	          FROM prefs pref
+2026-09-08T05:55:20.570584922Z 	          CROSS JOIN LATERAL (
+2026-09-08T05:55:20.570585797Z 	            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+2026-09-08T05:55:20.570586547Z 	            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+2026-09-08T05:55:20.570587297Z 	            WHERE pt.tag_id=pref.tag_id
+2026-09-08T05:55:20.570587963Z 	            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
+2026-09-08T05:55:20.570588672Z 	            LIMIT 160
+2026-09-08T05:55:20.570589297Z 	          ) pt
+2026-09-08T05:55:20.570589963Z 	        )
+2026-09-08T05:55:20.570590588Z 	        SELECT sampled.repo_key,
+2026-09-08T05:55:20.570591255Z 	          SUM(sampled.value * sampled.strength * sampled.weight * sampled.confidence) /
+2026-09-08T05:55:20.570592005Z 	            NULLIF(SUM(ABS(sampled.value * sampled.strength * sampled.weight * sampled.confidence)), 0) AS affinity
+2026-09-08T05:55:20.570592755Z 	        FROM sampled
+2026-09-08T05:55:20.570593380Z 	        CROSS JOIN LATERAL (
+2026-09-08T05:55:20.570594047Z 	          SELECT 1 FROM feed.projects p
+2026-09-08T05:55:20.570594755Z 	          WHERE p.repo_key=sampled.repo_key AND p.publishable=true  AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0)  AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+2026-09-08T05:55:20.570595797Z 	 JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+2026-09-08T05:55:20.570596672Z 	 JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+2026-09-08T05:55:20.570597922Z 	 WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=$1)  OFFSET 0
+2026-09-08T05:55:20.570598630Z 	        ) p
+2026-09-08T05:55:20.570599297Z 	        WHERE NOT EXISTS (
+2026-09-08T05:55:20.570599922Z 	          SELECT 1 FROM feed.user_project_state ups
+2026-09-08T05:55:20.570600588Z 	          WHERE ups.github_id=$1 AND ups.repo_key=sampled.repo_key AND ups.not_interested=true
+2026-09-08T05:55:20.570601297Z 	        )
+2026-09-08T05:55:20.570601922Z 	        GROUP BY sampled.repo_key ORDER BY affinity DESC,sampled.repo_key LIMIT 80
