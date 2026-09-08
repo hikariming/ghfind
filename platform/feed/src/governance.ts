@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BridgeError, hash } from "./contract";
 import { FeedStore } from "./store";
+import { liveUserProposal } from "./user-proposal";
 
 const text = (min: number, max: number) =>
   z
@@ -160,7 +161,7 @@ export class FeedGovernance extends FeedStore {
       `SELECT q.*,p.analysis_id AS current_analysis_id,
       CASE WHEN ${validEvidence} THEN 1 ELSE 0 END AS current_evidence,
       (SELECT version FROM feed_taxonomy_versions WHERE status='active') AS taxonomy_version
-      FROM ${tables[input.proposalKind]} q LEFT JOIN feed_projects p ON p.repo_key=q.repo_key WHERE q.id=?`,
+      FROM ${tables[input.proposalKind]} q LEFT JOIN feed_projects p ON p.repo_key=q.repo_key WHERE q.id=?${input.proposalKind === "user" ? ` AND ${liveUserProposal()}` : ""}`,
       input.proposalId,
     );
     return row;
@@ -206,6 +207,8 @@ export class FeedGovernance extends FeedStore {
       // erased. Its immutable command receipt remains sufficient for a retry.
       const completed = await this.receipt(input.commandId, digest);
       if (completed) return completed;
+      if (input.proposalKind === "user")
+        throw new BridgeError(409, "governance_proposal_deleted");
       throw new BridgeError(404, "governance_proposal_not_found");
     }
     // Rejection must remain possible for malformed or obsolete stored evidence.
@@ -251,6 +254,10 @@ export class FeedGovernance extends FeedStore {
     const writer = `EXISTS(SELECT 1 FROM feed_runtime_control WHERE id=1 AND writer_epoch=${bind(input.writerEpoch)} AND writes_enabled=1)`;
     const taxonomy = `EXISTS(SELECT 1 FROM feed_taxonomy_versions WHERE status='active' AND version=${bind(input.expectedTaxonomyVersion)})${changeTaxonomy ? ` AND NOT EXISTS(SELECT 1 FROM feed_taxonomy_versions WHERE version=${bind(newVersion)})` : ""}`;
     const table = isReview ? tables[input.proposalKind] : "feed_tag_proposals";
+    const author =
+      isReview && input.proposalKind === "user"
+        ? `EXISTS(SELECT 1 FROM feed_user_tag_proposals q WHERE q.id=${bind(input.proposalId)} AND ${liveUserProposal()})`
+        : "1";
     const proposal =
       row && isReview
         ? `EXISTS(SELECT 1 FROM ${table} q WHERE q.id=${bind(input.proposalId)} AND q.analysis_id=${bind(input.expectedAnalysisId)} AND q.analysis_id=${bind(row.analysis_id)} AND q.namespace=${bind(row.namespace)} AND q.slug=${bind(row.slug)} AND q.evidence_json=${bind(row.evidence_json)} AND q.label_zh=${bind(row.label_zh)} AND q.label_en=${bind(row.label_en)})`
@@ -294,10 +301,11 @@ export class FeedGovernance extends FeedStore {
     const statements = [
       this.sql(
         `WITH retry AS (SELECT CASE WHEN ${repeat} THEN 1 ELSE 0 END AS duplicate)
-      INSERT INTO feed_governance_guards(id,identity_ok,writer_ok,taxonomy_ok,proposal_ok,state_ok,evidence_ok,tag_ok,apply)
+      INSERT INTO feed_governance_guards(id,identity_ok,writer_ok,taxonomy_ok,author_ok,proposal_ok,state_ok,evidence_ok,tag_ok,apply)
       SELECT '${token}',CASE WHEN ${identity} THEN 1 ELSE 0 END,
       CASE WHEN duplicate=1 OR (${writer}) THEN 1 ELSE 0 END,
       CASE WHEN duplicate=1 OR (${taxonomy}) THEN 1 ELSE 0 END,
+      CASE WHEN duplicate=1 OR (${author}) THEN 1 ELSE 0 END,
       CASE WHEN duplicate=1 OR (${proposal}) THEN 1 ELSE 0 END,
       CASE WHEN duplicate=1 OR (${pending}) THEN 1 ELSE 0 END,
       CASE WHEN duplicate=1 OR (${evidence}) THEN 1 ELSE 0 END,
@@ -359,17 +367,20 @@ export class FeedGovernance extends FeedStore {
       if (input.action !== "reject")
         statements.push(
           this.sql(
-            `INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,evidence_json,analysis_id,taxonomy_version,created_at,updated_at)
-        SELECT ?,?,'admin',?,?,?,?,?,?,? WHERE ${allowed} ON CONFLICT(repo_key,tag_id) DO UPDATE SET source='admin',weight=excluded.weight,confidence=excluded.confidence,evidence_json=excluded.evidence_json,analysis_id=excluded.analysis_id,taxonomy_version=excluded.taxonomy_version,updated_at=excluded.updated_at`,
+            `INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,evidence_json,analysis_id,taxonomy_version,created_at,updated_at,origin_proposal_id)
+        SELECT ?,?,'admin',?,?,?,?,?,?,?,? WHERE ${allowed} ON CONFLICT(repo_key,tag_id) DO UPDATE SET source='admin',weight=excluded.weight,confidence=excluded.confidence,evidence_json=excluded.evidence_json,analysis_id=excluded.analysis_id,taxonomy_version=excluded.taxonomy_version,updated_at=excluded.updated_at,origin_proposal_id=excluded.origin_proposal_id`,
             row!.repo_key,
             tagId,
             input.assignment.weight,
             input.assignment.confidence,
-            row!.evidence_json,
+            input.proposalKind === "user"
+              ? JSON.stringify([`governance:${input.commandId}`])
+              : row!.evidence_json,
             row!.analysis_id,
             newVersion,
             now,
             now,
+            input.proposalKind === "user" ? input.proposalId : null,
           ),
         );
       const physicalStatus =
@@ -424,9 +435,16 @@ export class FeedGovernance extends FeedStore {
         response.at(-2)!.results[0].result_json,
       ) as GovernanceResult;
     } catch (error) {
+      if (isReview && input.proposalKind === "user") {
+        const completed = await this.receipt(input.commandId, digest);
+        if (completed) return completed;
+        if (!(await this.readProposal(input)))
+          throw new BridgeError(409, "governance_proposal_deleted");
+      }
       const message = error instanceof Error ? error.message : "";
       for (const code of [
         "governance_command_conflict",
+        "governance_proposal_deleted",
         "writer_epoch_changed",
         "taxonomy_version_changed",
         "governance_proposal_changed",

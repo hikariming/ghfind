@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BridgeError } from "./contract";
+import { BridgeError, hash } from "./contract";
 import { FeedStore } from "./store";
 import { FeedArchive } from "./archive";
 
@@ -246,17 +246,13 @@ export class FeedCleanup extends FeedStore {
     throw new BridgeError(409, "cleanup_checkpoint_changed");
   }
   private async primary(input: CleanupLease, j: Job) {
+    if (j.primary_table === 0) return this.redactProposals(input, j);
     const command = crypto.randomUUID(),
       now = Date.now(),
       id = j.github_id,
       floor = j.profile_floor,
       at = j.requested_at;
     const statements = [
-      this.sql(
-        "UPDATE feed_user_tag_proposals SET label_zh='',label_en='Deleted proposal',evidence_json='[]' WHERE id IN(SELECT proposal_id FROM feed_user_proposal_authors WHERE github_id=? AND profile_version<=? AND redacted_at IS NULL ORDER BY proposal_id LIMIT 100)",
-        id,
-        floor,
-      ),
       this.sql(
         "DELETE FROM feed_events WHERE rowid IN(SELECT e.rowid FROM feed_events e WHERE github_id=? AND created_at<=? AND NOT EXISTS(SELECT 1 FROM feed_runtime_requests r WHERE r.id=e.request_id AND r.profile_version>?) LIMIT 100)",
         id,
@@ -291,7 +287,7 @@ export class FeedCleanup extends FeedStore {
         floor,
       ),
       this.sql(
-        "DELETE FROM feed_tag_proposal_commands WHERE rowid IN(SELECT rowid FROM feed_tag_proposal_commands WHERE github_id=? AND profile_version<=? LIMIT 100)",
+        "UPDATE feed_tag_proposal_commands SET proposal_id='',payload_hash='deleted',created_at=0 WHERE rowid IN(SELECT rowid FROM feed_tag_proposal_commands WHERE github_id=? AND profile_version<=? AND (proposal_id<>'' OR payload_hash<>'deleted' OR created_at<>0) LIMIT 100)",
         id,
         floor,
       ),
@@ -301,35 +297,25 @@ export class FeedCleanup extends FeedStore {
         floor,
       ),
     ];
-    if (j.primary_table >= statements.length)
+    if (j.primary_table > statements.length)
       throw new BridgeError(409, "cleanup_checkpoint_changed");
     const result = await this.batch([
       this.guardLease(command, input),
-      statements[j.primary_table],
+      statements[j.primary_table - 1],
       this.sql(
         "UPDATE feed_cleanup_jobs SET primary_table=primary_table+CASE WHEN changes()<100 THEN 1 ELSE 0 END,updated_at=? WHERE deletion_id=?",
         now,
         input.deletionId,
       ),
-      ...(j.primary_table === 0
-        ? [
-            this.sql(
-              "UPDATE feed_user_proposal_authors SET redacted_at=? WHERE proposal_id IN(SELECT proposal_id FROM feed_user_proposal_authors WHERE github_id=? AND profile_version<=? AND redacted_at IS NULL ORDER BY proposal_id LIMIT 100)",
-              now,
-              id,
-              floor,
-            ),
-          ]
-        : []),
       this.sql(
         "UPDATE feed_profile_deletions SET status='running',primary_complete=CASE WHEN (SELECT primary_table FROM feed_cleanup_jobs WHERE deletion_id=?)>=? THEN 1 ELSE 0 END WHERE id=?",
         input.deletionId,
-        statements.length,
+        statements.length + 1,
         input.deletionId,
       ),
       this.sql(
         "UPDATE feed_cleanup_jobs SET phase=CASE WHEN primary_table>=? THEN 'archive' ELSE 'primary' END WHERE deletion_id=?",
-        statements.length,
+        statements.length + 1,
         input.deletionId,
       ),
       this.endLease(command),
@@ -337,11 +323,92 @@ export class FeedCleanup extends FeedStore {
     return {
       status: "running",
       phase:
-        j.primary_table === statements.length - 1 &&
-        result[1].meta.changes < 100
+        j.primary_table === statements.length && result[1].meta.changes < 100
           ? "archive"
           : "primary",
       processed: result[1].meta.changes,
     };
+  }
+
+  private async redactProposals(input: CleanupLease, j: Job) {
+    // Twenty bodies bound both hash work and conditional-write parameter bytes.
+    // The author checkpoint is advanced only after every attributed copy clears.
+    const authors = await this.rows<{ proposal_id: string }>(
+      "SELECT proposal_id FROM feed_user_proposal_authors WHERE github_id=? AND profile_version<=? AND redacted_at IS NULL ORDER BY proposal_id LIMIT 20",
+      j.github_id,
+      j.profile_floor,
+    );
+    const ids = JSON.stringify(authors.map((a) => a.proposal_id));
+    const legacy = await this.rows<{
+      proposal_id: string;
+      repo_key: string;
+      tag_id: string;
+      analysis_id: string;
+      taxonomy_version: number;
+      weight: number;
+      confidence: number;
+      updated_at: number;
+      evidence_json: string;
+      evidence_hash: string;
+    }>(
+      `SELECT c.proposal_id,p.repo_key,p.tag_id,p.analysis_id,p.taxonomy_version,p.weight,p.confidence,p.updated_at,p.evidence_json,c.evidence_hash
+       FROM feed_governance_commands c JOIN feed_project_tags p ON p.repo_key=c.repo_key AND p.tag_id=c.canonical_tag_id
+       AND p.source='admin' AND p.origin_proposal_id IS NULL AND p.analysis_id=c.analysis_id AND p.taxonomy_version=c.taxonomy_version
+       AND p.weight=c.assignment_weight AND p.confidence=c.assignment_confidence AND p.updated_at=c.created_at
+       WHERE c.proposal_kind='user' AND c.action IN ('create','map') AND c.proposal_id IN(SELECT value FROM json_each(?)) LIMIT 21`,
+      ids,
+    );
+    if (
+      legacy.length > 20 ||
+      legacy.some(
+        (p) => new TextEncoder().encode(p.evidence_json).length > 32768,
+      )
+    )
+      throw new BridgeError(409, "cleanup_legacy_evidence_unresolved");
+    const proofs = [];
+    for (const row of legacy)
+      if ((await hash(row.evidence_json)) === row.evidence_hash)
+        proofs.push(row);
+    const encoded = JSON.stringify(proofs),
+      command = crypto.randomUUID(),
+      now = Date.now();
+    // Matching hash is necessary but not sufficient: the same transaction pins
+    // all current assignment fields so a later review/projection is untouched.
+    const match = `p.origin_proposal_id IS NULL AND p.source='admin' AND p.repo_key=json_extract(v.value,'$.repo_key') AND p.tag_id=json_extract(v.value,'$.tag_id')
+      AND p.analysis_id=json_extract(v.value,'$.analysis_id') AND p.taxonomy_version=json_extract(v.value,'$.taxonomy_version')
+      AND p.weight=json_extract(v.value,'$.weight') AND p.confidence=json_extract(v.value,'$.confidence')
+      AND p.updated_at=json_extract(v.value,'$.updated_at') AND p.evidence_json=json_extract(v.value,'$.evidence_json')`;
+    await this.batch([
+      this.guardLease(command, input),
+      this.sql(
+        `UPDATE feed_project_tags AS p SET origin_proposal_id=(SELECT json_extract(v.value,'$.proposal_id') FROM json_each(?) v WHERE ${match})
+         WHERE EXISTS(SELECT 1 FROM json_each(?) v WHERE ${match})`,
+        encoded,
+        encoded,
+      ),
+      this.sql(
+        "UPDATE feed_project_tags SET evidence_json='[]' WHERE origin_proposal_id IN(SELECT value FROM json_each(?))",
+        ids,
+      ),
+      this.sql(
+        "UPDATE feed_user_tag_proposals SET slug='deleted-proposal',label_zh='',label_en='Deleted proposal',evidence_json='[]' WHERE id IN(SELECT value FROM json_each(?))",
+        ids,
+      ),
+      this.sql(
+        "UPDATE feed_user_proposal_authors SET redacted_at=? WHERE proposal_id IN(SELECT value FROM json_each(?)) AND github_id=? AND profile_version<=?",
+        now,
+        ids,
+        j.github_id,
+        j.profile_floor,
+      ),
+      this.sql(
+        "UPDATE feed_cleanup_jobs SET primary_table=CASE WHEN ?<20 THEN 1 ELSE 0 END,updated_at=? WHERE deletion_id=?",
+        authors.length,
+        now,
+        input.deletionId,
+      ),
+      this.endLease(command),
+    ]);
+    return { status: "running", phase: "primary", processed: authors.length };
   }
 }
