@@ -15,7 +15,9 @@
   "secrets": {
     "required": [
       "FEED_BRIDGE_SECRET",
-      "FEED_SOURCE_SECRET"
+      "FEED_SOURCE_SECRET",
+      "FEED_EXECUTOR_SECRET",
+      "FEED_OPERATOR_SECRET"
     ]
   },
   "d1_databases": [
@@ -37,5 +39,8 @@
       "binding": "FEED_ARCHIVE",
       "bucket_name": "ghfind-feed-isolated-placeholder"
     }
-  ]
+  ],
+  "vars": {
+    "FEED_SEMANTIC_STATE": "disabled"
+  }
 }
