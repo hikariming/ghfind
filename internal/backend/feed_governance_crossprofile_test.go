@@ -53,6 +53,7 @@ func TestPortableGovernanceBothProfiles(t *testing.T) {
 	if err = pg.EnablePortableRuntime(1); err != nil {
 		t.Fatal(err)
 	}
+	governanceArchiveFixture(t, ctx, pg)
 	pgHandler, err := NewFeedGovernanceHandler(pg, operatorSecret)
 	if err != nil {
 		t.Fatal(err)
@@ -63,18 +64,23 @@ func TestPortableGovernanceBothProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	cfCleanup, err := NewHTTPFeedCleanupStore(endpoint, os.Getenv("FEED_TEST_EXECUTOR_SECRET"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, profile := range []struct {
 		name           string
 		store          crossProfileStore
 		operatorOrigin string
-	}{{"postgres", pg, pgHTTP.URL}, {"cf_d1_r2", cf, endpoint}} {
+		cleanup        FeedCleanupStore
+	}{{"postgres", pg, pgHTTP.URL, pg}, {"cf_d1_r2", cf, endpoint, cfCleanup}} {
 		t.Run(profile.name, func(t *testing.T) {
-			runPortableGovernanceContract(t, ctx, profile.store, profile.operatorOrigin, operatorSecret, bridgeSecret)
+			runPortableGovernanceContract(t, ctx, profile.store, profile.operatorOrigin, operatorSecret, bridgeSecret, profile.cleanup)
 		})
 	}
 }
 
-func runPortableGovernanceContract(t *testing.T, ctx context.Context, store crossProfileStore, operatorOrigin, operatorSecret, bridgeSecret string) {
+func runPortableGovernanceContract(t *testing.T, ctx context.Context, store crossProfileStore, operatorOrigin, operatorSecret, bridgeSecret string, cleanup FeedCleanupStore) {
 	t.Helper()
 	const actor int64 = 7654321
 	const signingSecret = "synthetic-governance-feed-signature-0123456789"
@@ -120,7 +126,7 @@ func runPortableGovernanceContract(t *testing.T, ctx context.Context, store cros
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := func(method, path string, input any, expected int) []byte {
+	apiAs := func(who int64, method, path string, input any, expected int) []byte {
 		t.Helper()
 		var body []byte
 		if input != nil {
@@ -132,7 +138,7 @@ func runPortableGovernanceContract(t *testing.T, ctx context.Context, store cros
 		r := httptest.NewRequest(method, path, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		at := time.Now()
-		token, err := verifier.Sign(feedauth.Claims{Version: 1, Audience: "feed-api", GitHubID: actor, Login: "synthetic-gov-user", IssuedAt: at.UnixMilli(), ExpiresAt: at.Add(30 * time.Second).UnixMilli(), Method: method, Target: r.URL.RequestURI(), BodySHA256: feedauth.BodyHash(body)})
+		token, err := verifier.Sign(feedauth.Claims{Version: 1, Audience: "feed-api", GitHubID: who, Login: "synthetic-gov-user", IssuedAt: at.UnixMilli(), ExpiresAt: at.Add(30 * time.Second).UnixMilli(), Method: method, Target: r.URL.RequestURI(), BodySHA256: feedauth.BodyHash(body)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,6 +152,10 @@ func runPortableGovernanceContract(t *testing.T, ctx context.Context, store cros
 			t.Fatal("public cache contract")
 		}
 		return w.Body.Bytes()
+	}
+	api := func(method, path string, input any, expected int) []byte {
+		t.Helper()
+		return apiAs(actor, method, path, input, expected)
 	}
 	client := &http.Client{Timeout: 7 * time.Second}
 	operatorRaw := func(operation string, body []byte, headers map[string]string, expected int) []byte {
@@ -413,4 +423,124 @@ func runPortableGovernanceContract(t *testing.T, ctx context.Context, store cros
 	if !reflect.DeepEqual(retried, created) {
 		t.Fatal("old command retry changed after deprecation")
 	}
+	// Privacy continues through the same public/operator clients on both actual
+	// stores. New classification facts are public; the proposal body remains private.
+	privateInput := FeedTagProposalInput{ID: "76000000-0000-4000-8000-000000000501", RepoKey: repos[0], Namespace: "domain", Slug: "synthetic-private-contract", LabelEN: "Private proposal label", Evidence: []string{"private-user-synthetic-evidence"}}
+	var privateResult FeedTagProposalResult
+	decode(api("POST", "/api/feed/tags/proposals", privateInput, 202), &privateResult)
+	privateTarget := FeedGovernanceTarget{"user", privateResult.ProposalID}
+	privateCreate := FeedGovernanceReview{FeedGovernanceCommand: command(10, active+3), FeedGovernanceTarget: privateTarget, ExpectedAnalysisID: analyses[0], Action: "create", Labels: &FeedGovernanceLabels{LabelEN: "Independent public classification"}, Assignment: &FeedGovernanceAssignment{Weight: .4, Confidence: .7}}
+	var privateReceipt FeedGovernanceResult
+	decode(operator("review", privateCreate, 200), &privateReceipt)
+	privateInput.ID = "76000000-0000-4000-8000-000000000502"
+	var pendingPrivate, otherPrivate FeedTagProposalResult
+	decode(api("POST", "/api/feed/tags/proposals", privateInput, 202), &pendingPrivate)
+	decode(apiAs(actor+1, "POST", "/api/feed/tags/proposals", privateInput, 202), &otherPrivate)
+	if pendingPrivate.ProposalID == privateResult.ProposalID || pendingPrivate.ProposalID == otherPrivate.ProposalID {
+		t.Fatal("user proposals merged across actor/command identity")
+	}
+	beforeDelete, err := store.GetFeedUser(ctx, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deletion FeedBridgeDeleteResponse
+	decode(api("DELETE", "/api/feed/profile", nil, 202), &deletion)
+	if deletion.DeletionID == "" || deletion.Status != "queued" {
+		t.Fatalf("deletion must be queued %+v", deletion)
+	}
+	hidden := func(target FeedGovernanceTarget) {
+		t.Helper()
+		var out struct {
+			Proposal *FeedGovernanceProposal `json:"proposal"`
+		}
+		decode(operator("proposal", target, 200), &out)
+		if out.Proposal != nil {
+			t.Fatal("deleted user's proposal visible", out.Proposal)
+		}
+	}
+	for _, target := range append(targets[:], privateTarget, FeedGovernanceTarget{"user", pendingPrivate.ProposalID}) {
+		hidden(target)
+	}
+	for i, action := range []string{"create", "map", "reject"} {
+		blocked := FeedGovernanceReview{FeedGovernanceCommand: command(11+i, active+4), FeedGovernanceTarget: FeedGovernanceTarget{"user", pendingPrivate.ProposalID}, ExpectedAnalysisID: analyses[0], Action: action}
+		if action == "create" {
+			blocked.Labels = privateCreate.Labels
+			blocked.Assignment = privateCreate.Assignment
+		}
+		if action == "map" {
+			blocked.CanonicalTagID = *privateReceipt.CanonicalTagID
+			blocked.Assignment = privateCreate.Assignment
+		}
+		assertError(operator("review", blocked, 409), "governance_proposal_deleted")
+	}
+	decode(operator("review", privateCreate, 200), &retried)
+	if !reflect.DeepEqual(retried, privateReceipt) {
+		t.Fatal("safe receipt retry changed after deletion")
+	}
+	api("GET", "/api/feed/preferences", nil, 200)
+	returned, err := store.GetFeedUser(ctx, actor)
+	if err != nil || returned.ProfileVersion <= beforeDelete.ProfileVersion {
+		t.Fatal("recreation failed deletion generation fence", returned, err)
+	}
+	assertError(api("POST", "/api/feed/tags/proposals", privateInput, 409), "proposal_id_conflict")
+	oldPrivateInput := privateInput
+	privateInput.ID = "76000000-0000-4000-8000-000000000503"
+	var newPrivate FeedTagProposalResult
+	decode(api("POST", "/api/feed/tags/proposals", privateInput, 202), &newPrivate)
+	if newPrivate.ProposalID == pendingPrivate.ProposalID {
+		t.Fatal("new generation revived old proposal")
+	}
+	hidden(privateTarget)
+	executor, err := NewFeedCleanupExecutor(cleanup, 1, "synthetic-governance-cleanup-executor-0123456789")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deletionStore, ok := store.(FeedDeletionStore)
+	if !ok {
+		t.Fatal("queryable deletion status required")
+	}
+	completed := false
+	for i := 0; i < 20; i++ {
+		if _, err := executor.Execute(ctx); err != nil {
+			t.Fatal("durable governance cleanup", err)
+		}
+		state, err := deletionStore.GetFeedDeletion(ctx, actor, deletion.DeletionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state.Status == "completed" {
+			completed = true
+			break
+		}
+	}
+	if !completed {
+		t.Fatal("bounded cleanup did not complete all erasure sinks")
+	}
+	hidden(privateTarget)
+	hidden(FeedGovernanceTarget{"user", pendingPrivate.ProposalID})
+	assertError(api("POST", "/api/feed/tags/proposals", oldPrivateInput, 409), "proposal_id_conflict")
+	if p := inspect(FeedGovernanceTarget{"user", newPrivate.ProposalID}); !p.CurrentEvidence || !reflect.DeepEqual(p.Evidence, privateInput.Evidence) {
+		t.Fatal("cleanup erased recreated generation", p)
+	}
+	if p := inspect(FeedGovernanceTarget{"user", otherPrivate.ProposalID}); !p.CurrentEvidence || !reflect.DeepEqual(p.Evidence, privateInput.Evidence) {
+		t.Fatal("cleanup erased another author", p)
+	}
+	decode(operator("review", privateCreate, 200), &retried)
+	if !reflect.DeepEqual(retried, privateReceipt) {
+		t.Fatal("safe exact receipt changed after cleanup")
+	}
+	tags, _, err = store.ListFeedTags(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained := false
+	for _, tag := range tags {
+		if tag.ID == *privateReceipt.CanonicalTagID {
+			retained = true
+		}
+	}
+	if !retained {
+		t.Fatal("privacy cleanup deleted an independently approved public classification")
+	}
+
 }
