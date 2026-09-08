@@ -8,6 +8,7 @@ import {
   SCHEMA,
   SCHEMA_9,
   SCHEMA_10,
+  SCHEMA_11,
   selectSchema,
 } from "./feed-snapshot-schema.mjs";
 import {
@@ -43,6 +44,11 @@ function seed(table, schema = SCHEMA) {
       schema_version: 7,
       writer_epoch: 5,
       writes_enabled: 1,
+    });
+  if (table === "feed_schema_compatibility")
+    Object.assign(row, {
+      min_writer_contract: schema.writerContractVersion ?? 1,
+      max_writer_contract: schema.writerContractVersion ?? 1,
     });
   if (table === "feed_runtime_sessions") row.expires_at = now + 1000;
   if (table === "feed_archive_objects")
@@ -134,7 +140,7 @@ test("schema 7 fingerprints remain byte compatible and only explicitly registere
     rowRecord("feed_runtime_control", row, 7).sha256,
   );
   assert.notEqual(schemaFingerprint(9), SCHEMA_SHA256);
-  for (const version of [8, 11, "9", null, "__proto__"])
+  for (const version of [8, 12, "9", null, "__proto__"])
     assert.throws(
       () => selectSchema("cf_d1_r2", version, 1),
       /unsupported_snapshot_schema/,
@@ -281,7 +287,7 @@ test("schema 9 rejects missing governance inventory, nonempty guards, changed co
     );
   }));
 
-for (const schema of [SCHEMA, SCHEMA_9, SCHEMA_10])
+for (const schema of [SCHEMA, SCHEMA_9, SCHEMA_10, SCHEMA_11])
   test(`fixed schema ${schema.schemaVersion} registry matches migrated SQLite columns, PKs and full/partial unique constraints`, () => {
     const root = process.env.FEED_SNAPSHOT_SCHEMA_ROOT || process.cwd();
     const source = schema.migrations.map((m) => ({
@@ -700,3 +706,78 @@ test("stream boundaries preserve large UTF-8 rows and build/validate CLI pin the
       "项目摘要".repeat(24000),
     );
   }));
+
+for (const schema of [SCHEMA_10, SCHEMA_11])
+  test(`schema ${schema.schemaVersion} full artifact round trip retains proposal ownership and writer compatibility`, async () =>
+    local(async (directory) => {
+      const result = await build(directory, prepare(fixture(schema)));
+      await validateSnapshot({
+        directory: result.output,
+        expectedManifestSha256: result.report.manifestSha256,
+      });
+      const manifest = JSON.parse(
+        await readFile(join(result.output, "manifest.json"), "utf8"),
+      );
+      assert.equal(
+        manifest.schemaSha256,
+        schemaFingerprint(schema.schemaVersion),
+      );
+      assert.equal(
+        manifest.tables.reduce((n, t) => n + t.columns.length, 0),
+        350,
+      );
+      const invalid = fixture(schema);
+      const compatibility = invalid.rows.find(
+        (v) => v.table === "feed_schema_compatibility",
+      ).row;
+      compatibility.min_writer_contract = compatibility.max_writer_contract =
+        schema.schemaVersion === 11 ? 1 : 2;
+      await assert.rejects(
+        build(directory, prepare(invalid), "wrong-writer"),
+        /incompatible_runtime_contract/,
+      );
+    }));
+test("schema 7, 9 and 10 fingerprints remain unchanged when writer v2 registry is added", () => {
+  assert.equal(
+    schemaFingerprint(9),
+    "54a0be5ac43f003da8a2a5df740145bd3ba3186a5bafd28383ddfed3a5eedac0",
+  );
+  assert.equal(
+    schemaFingerprint(10),
+    "a35c0861cb3fa6cee95f2fc3b9b395ccae878202e8f69e1e4946be4517471630",
+  );
+  assert.equal(SCHEMA_11.writerContractVersion, 2);
+  assert.equal(SCHEMA_11.runtimeControlSchemaVersion, 7);
+});
+test("only schema 11's complete minimal proposal-command tombstone permits a zero timestamp", () => {
+  const row = {
+    ...seed("feed_tag_proposal_commands", SCHEMA_11),
+    proposal_id: "",
+    payload_hash: "deleted",
+    created_at: 0,
+  };
+  assert.ok(rowRecord("feed_tag_proposal_commands", row, 11));
+  for (const version of [7, 9, 10])
+    assert.throws(
+      () => rowRecord("feed_tag_proposal_commands", row, version),
+      /invalid_unix_ms_column/,
+    );
+  for (const changed of [
+    { proposal_id: "proposal" },
+    { payload_hash: "rawhash" },
+    { created_at: now },
+  ])
+    assert.throws(
+      () => rowRecord("feed_tag_proposal_commands", { ...row, ...changed }, 11),
+      /invalid_proposal_command_tombstone/,
+    );
+  assert.throws(
+    () =>
+      rowRecord(
+        "feed_users",
+        { ...seed("feed_users", SCHEMA_11), created_at: 0 },
+        11,
+      ),
+    /invalid_unix_ms_column/,
+  );
+});

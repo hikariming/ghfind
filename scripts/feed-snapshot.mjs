@@ -183,6 +183,14 @@ function rowFor(table, row, schema) {
       need(spec.nullable, "null_not_allowed");
       continue;
     }
+    if (
+      spec.proposalCommandTombstoneZero &&
+      (value === 0 || row.proposal_id === "" || row.payload_hash === "deleted")
+    )
+      need(
+        value === 0 && row.proposal_id === "" && row.payload_hash === "deleted",
+        "invalid_proposal_command_tombstone",
+      );
     switch (spec.kind) {
       case "integer":
         need(
@@ -199,7 +207,10 @@ function rowFor(table, row, schema) {
         );
         break;
       case "unix_ms":
-        need(time(value), "invalid_unix_ms_column");
+        need(
+          time(value) || (spec.proposalCommandTombstoneZero && value === 0),
+          "invalid_unix_ms_column",
+        );
         break;
       case "text":
         need(typeof value === "string", "invalid_text_column");
@@ -445,8 +456,8 @@ function checker(meta) {
         row.id === 1 &&
           row.min_reader_contract <= 1 &&
           row.max_reader_contract >= 1 &&
-          row.min_writer_contract <= 1 &&
-          row.max_writer_contract >= 1,
+          row.min_writer_contract <= (schema.writerContractVersion ?? 1) &&
+          row.max_writer_contract >= (schema.writerContractVersion ?? 1),
         "incompatible_runtime_contract",
       );
       controls.add(table);
@@ -674,12 +685,12 @@ export async function validateSnapshot({ directory, expectedManifestSha256 }) {
 async function main(args) {
   if (args.length === 0 || (args[0] === "schema" && args.length <= 2)) {
     need(
-      args.length < 2 || ["7", "9"].includes(args[1]),
+      args.length < 2 || Object.hasOwn(SCHEMAS, args[1]),
       "unsupported_snapshot_schema",
     );
     const schema = selectSchema(
       "cf_d1_r2",
-      args.length === 2 ? Number(args[1]) : 9,
+      args.length === 2 ? Number(args[1]) : 11,
       1,
     );
     console.log(

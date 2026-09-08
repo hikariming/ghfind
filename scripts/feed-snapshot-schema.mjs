@@ -1869,13 +1869,49 @@ export const SCHEMA_10 = {
   },
 };
 
+// Writer v2 fences the proposal-erasure semantics; HTTP/read contract and the
+// runtime control schema remain 1 and 7. No physical columns change in 0011.
+export const SCHEMA_11 = {
+  ...SCHEMA_10,
+  id: "cf-d1-feed-11",
+  schemaVersion: 11,
+  writerContractVersion: 2,
+  tables: {
+    ...SCHEMA_10.tables,
+    feed_tag_proposal_commands: {
+      ...SCHEMA_10.tables.feed_tag_proposal_commands,
+      columns: {
+        ...SCHEMA_10.tables.feed_tag_proposal_commands.columns,
+        created_at: {
+          kind: "unix_ms",
+          nullable: false,
+          proposalCommandTombstoneZero: true,
+        },
+      },
+    },
+  },
+  migrations: [
+    ...SCHEMA_10.migrations,
+    {
+      path: "migrations-feed/0011_user_proposal_tombstones.sql",
+      sha256:
+        "158add96337489e14af5193b8c06c3e1c0649395f2ea7ddbf1ea32b1b9ddc095",
+    },
+  ],
+};
+
 function freeze(value) {
   for (const child of Object.values(value))
     if (child && typeof child === "object" && !Object.isFrozen(child))
       freeze(child);
   return Object.freeze(value);
 }
-export const SCHEMAS = freeze({ 7: SCHEMA, 9: SCHEMA_9, 10: SCHEMA_10 });
+export const SCHEMAS = freeze({
+  7: SCHEMA,
+  9: SCHEMA_9,
+  10: SCHEMA_10,
+  11: SCHEMA_11,
+});
 export function selectSchema(profile, schemaVersion, contractVersion) {
   if (
     profile !== "cf_d1_r2" ||
