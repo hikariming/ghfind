@@ -17,6 +17,142 @@ SPEC.loader.exec_module(VERIFIER)
 SHA = "a" * 40
 START = dt.datetime(2026, 9, 9, tzinfo=dt.timezone.utc)
 
+# Unmodified metadata-only samples from retained feed-capacity-ebda1f9 evidence.
+REAL_CLOCK_SAMPLES = json.loads(r'''[
+  {
+    "at": "2026-09-08T05:45:29.630021Z",
+    "offsetMs": 1000.05,
+    "sampleDurationMs": 3.776,
+    "processCpuSeconds": 0.242659,
+    "heapBytes": 2931800,
+    "goroutines": 20,
+    "gcCount": 22,
+    "gcPauseTotalNs": 1380586,
+    "lastGcUnixNs": 1788846329627374000,
+    "postgresql": {
+      "activity": [
+        {
+          "state": "idle",
+          "wait_event": "ClientRead",
+          "connections": 2,
+          "wait_event_type": "Client"
+        },
+        {
+          "state": "idle in transaction",
+          "wait_event": "ClientRead",
+          "connections": 1,
+          "wait_event_type": "Client"
+        }
+      ],
+      "database": {
+        "commits": 275,
+        "blocksHit": 35214875,
+        "deadlocks": 0,
+        "rollbacks": 0,
+        "tempBytes": 19885135,
+        "blocksRead": 77332,
+        "blockReadMs": 948.702,
+        "blockWriteMs": 3485.903
+      },
+      "ungrantedLocks": 0
+    }
+  },
+  {
+    "at": "2026-09-08T05:45:44.63059Z",
+    "offsetMs": 16000.525,
+    "sampleDurationMs": 0.684,
+    "processCpuSeconds": 4.243136,
+    "heapBytes": 3881400,
+    "goroutines": 13,
+    "gcCount": 335,
+    "gcPauseTotalNs": 22500127,
+    "lastGcUnixNs": 1788846344615107000,
+    "postgresql": {
+      "activity": [
+        {
+          "state": "idle",
+          "wait_event": "ClientRead",
+          "connections": 2,
+          "wait_event_type": "Client"
+        },
+        {
+          "state": "idle in transaction",
+          "wait_event": "ClientRead",
+          "connections": 1,
+          "wait_event_type": "Client"
+        }
+      ],
+      "database": {
+        "commits": 2301,
+        "blocksHit": 38275037,
+        "deadlocks": 0,
+        "rollbacks": 0,
+        "tempBytes": 19885135,
+        "blocksRead": 77642,
+        "blockReadMs": 962.772,
+        "blockWriteMs": 3498.049
+      },
+      "ungrantedLocks": 0
+    }
+  },
+  {
+    "at": "2026-09-08T05:55:36.413557Z",
+    "offsetMs": 600000.269,
+    "sampleDurationMs": 30.712,
+    "processCpuSeconds": 150.189861,
+    "heapBytes": 4090032,
+    "goroutines": 38,
+    "gcCount": 9557,
+    "gcPauseTotalNs": 713513703,
+    "lastGcUnixNs": 1788846936372062000,
+    "postgresql": {
+      "activity": [
+        {
+          "state": "active",
+          "wait_event": null,
+          "connections": 4,
+          "wait_event_type": null
+        },
+        {
+          "state": "idle",
+          "wait_event": "ClientRead",
+          "connections": 3,
+          "wait_event_type": "Client"
+        },
+        {
+          "state": "idle in transaction",
+          "wait_event": "ClientRead",
+          "connections": 1,
+          "wait_event_type": "Client"
+        }
+      ],
+      "database": {
+        "commits": 79357,
+        "blocksHit": 155319719,
+        "deadlocks": 0,
+        "rollbacks": 13,
+        "tempBytes": 19885135,
+        "blocksRead": 87354,
+        "blockReadMs": 1192.875,
+        "blockWriteMs": 3976.07
+      },
+      "ungrantedLocks": 0
+    }
+  }
+]''')
+REAL_DOCKER_UNAVAILABLE = json.loads(r'''[
+  {
+    "at": "2026-09-08T05:55:24.459094+00:00",
+    "source": "docker",
+    "line": "\u001b[J\u001b[H{\"BlockIO\":\"--\",\"CPUPerc\":\"--\",\"Container\":\"ghfind-feed-capacity-postgres-1\",\"ID\":\"6833f7cc99e5\",\"MemPerc\":\"--\",\"MemUsage\":\"-- / --\",\"Name\":\"ghfind-feed-capacity-postgres-1\",\"NetIO\":\"--\",\"PIDs\":\"--\"}\u001b[K"
+  },
+  {
+    "at": "2026-09-08T05:55:24.459107+00:00",
+    "source": "docker",
+    "line": "{\"BlockIO\":\"--\",\"CPUPerc\":\"--\",\"Container\":\"ghfind-feed-capacity-minio-1\",\"ID\":\"820adaf2c035\",\"MemPerc\":\"--\",\"MemUsage\":\"-- / --\",\"Name\":\"ghfind-feed-capacity-minio-1\",\"NetIO\":\"--\",\"PIDs\":\"--\"}\u001b[K"
+  }
+]''')
+
 
 def documents():
     fixture = {"baseline": SHA, "fixtureVersion": "synthetic-capacity-v1", "counts": dict(VERIFIER.EXPECTED_COUNTS)}
@@ -237,6 +373,38 @@ class CapacityVerifierTests(unittest.TestCase):
         self.docs["load"]["resourceSamples"][0]["postgresql"] = {}
         self.check_issue(self.verify(), "load.resourceSamples")
 
+    def test_real_reduced_clock_samples_use_monotonic_coverage(self):
+        gate = VERIFIER.Gate(SHA)
+        VERIFIER.check_resources(gate, {"resourceSamples": REAL_CLOCK_SAMPLES},
+                                 VERIFIER.timestamp("2026-09-08T05:45:28.629964Z"), 608387.573)
+        result = gate.finish()
+        metrics = result["metrics"]["resources"]
+        self.assertEqual(metrics["validGoPostgresSamples"], 3)
+        self.assertEqual(metrics["validGoPostgresSeconds"], 3)
+        self.assertEqual(metrics["malformedSamples"], 0)
+        drift = metrics["clockComparison"]
+        self.assertAlmostEqual(drift["wallMinusMonotonicMsFirst"], 0.007, places=5)
+        self.assertAlmostEqual(drift["wallMinusMonotonicMsLast"], 7783.324, places=5)
+        self.assertEqual([i["check"] for i in result["issues"]], ["load.resourceSamples.coverage"])
+
+    def test_clock_drift_does_not_invalidate_full_monotonic_coverage(self):
+        for index, row in enumerate(self.docs["load"]["resourceSamples"]):
+            row["at"] = (dt.datetime.fromisoformat(row["at"]) + dt.timedelta(milliseconds=index * 13)).isoformat()
+        result = self.verify()
+        self.assertTrue(result["passed"], result["issues"])
+        metrics = result["metrics"]["resources"]
+        self.assertEqual(metrics["validGoPostgresSeconds"], 599)
+        self.assertAlmostEqual(metrics["clockComparison"]["wallMinusMonotonicMsMax"], 7774)
+
+    def test_go_rfc3339nano_fraction_widths_portable_to_python39(self):
+        for digits in range(1, 10):
+            fraction = "123456789"[:digits]
+            at = VERIFIER.timestamp("2026-09-08T05:45:44." + fraction + "Z")
+            self.assertIsNotNone(at)
+            self.assertEqual(at.microsecond, int(fraction.ljust(6, "0")[:6]))
+        self.assertIsNone(VERIFIER.timestamp("2026-09-08T05:45:44.1234567890Z"))
+        self.assertIsNone(VERIFIER.timestamp("2026-02-31T05:45:44.1Z"))
+
     def test_new_s3_evidence_missing_is_incomplete(self):
         del self.docs["delete"]["deletion"]["s3FailureObserved"]
         self.check_issue(self.verify(), "delete.deletion.s3FailureObserved", "incomplete")
@@ -353,6 +521,43 @@ class CapacityVerifierTests(unittest.TestCase):
         self.check_issue(result, "external-resources.jsonl", "incomplete")
         path.write_bytes(raw + b'{"at":')
         self.check_issue(VERIFIER.verify(self.directory, SHA), "external-resources.jsonl", "invalid")
+
+    def test_real_docker_unavailable_rows_are_retained_but_never_coverage(self):
+        self.external = copy.deepcopy(REAL_DOCKER_UNAVAILABLE)
+        self.save()
+        gate = VERIFIER.Gate(SHA)
+        load = {"loadStartedAt": "2026-09-08T05:45:28.629964Z", "observations": [{"finishedOffsetMs": 600000}]}
+        VERIFIER.check_external_resources(gate, self.directory, load)
+        result = gate.finish()
+        metrics = result["metrics"]["externalResources"]
+        self.assertEqual(metrics["malformedLines"], 0)
+        for name, row in zip(VERIFIER.CONTAINERS, REAL_DOCKER_UNAVAILABLE):
+            self.assertEqual(metrics["coverage"][name]["validSamples"], 0)
+            missing = metrics["unavailableDockerSamples"][name]
+            self.assertEqual(missing["count"], 1)
+            self.assertEqual(missing["firstAt"], row["at"])
+            self.assertEqual(missing["lastAt"], row["at"])
+            self.check_issue(result, "externalResources." + name + ".coverage", "incomplete")
+
+    def test_docker_unavailable_gap_does_not_fail_sufficient_valid_coverage(self):
+        row = self.external[1]
+        row["line"] = REAL_DOCKER_UNAVAILABLE[0]["line"]
+        result = self.verify()
+        self.assertTrue(result["passed"], result["issues"])
+        metrics = result["metrics"]["externalResources"]
+        name = VERIFIER.CONTAINERS[0]
+        self.assertEqual(metrics["coverage"][name]["distinctSeconds"], 299)
+        self.assertEqual(metrics["unavailableDockerSamples"][name]["count"], 1)
+
+    def test_unknown_docker_identity_non_numeric_cpu_or_bad_json_remain_invalid(self):
+        for value in ("-", "NaN%", "broken"):
+            self.external[1]["line"] = json.dumps({"Name": VERIFIER.CONTAINERS[0], "Container": VERIFIER.CONTAINERS[0],
+                                                   "CPUPerc": value, "MemUsage": "-- / --"})
+            self.check_issue(self.verify(), "external-resources.jsonl", "invalid")
+        self.external[1]["line"] = '{"Name":'
+        self.check_issue(self.verify(), "external-resources.jsonl", "invalid")
+        self.external[1]["line"] = json.dumps({"Name": "unknown", "Container": "unknown", "CPUPerc": "--", "MemUsage": "-- / --"})
+        self.check_issue(self.verify(), "external-resources.jsonl", "invalid")
 
 
 if __name__ == "__main__":
