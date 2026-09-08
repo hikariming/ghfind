@@ -127,7 +127,8 @@ jobs:
           # dedicated development Feed D1 in `pnpm cf:deploy:dev`. A failure
           # stops the release before the Worker can change and does not invoke
           # a redundant rollback.
-          pnpm exec wrangler d1 migrations apply ghfind --remote --env dev
+          release_config="$(node scripts/feed-platform-schema-release.mjs dev "$RUNNER_TEMP/approved-application-schema")"
+          pnpm exec wrangler d1 migrations apply ghfind --remote --config "$release_config"
 
       - name: Deploy (build + wrangler deploy --env dev + populateCache)
         id: deploy

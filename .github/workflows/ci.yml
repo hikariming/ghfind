@@ -63,6 +63,9 @@ jobs:
       - name: Verify Cloudflare release workflow contract
         run: pnpm ci:check-cf-release-workflow
 
+      - name: Verify approved application schema boundary
+        run: node --test scripts/feed-platform-schema-release.test.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
