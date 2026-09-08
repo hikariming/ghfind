@@ -15,7 +15,12 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	preferenceSQL := `SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1`
 	if s.writerEpoch > 0 {
 		preferenceSQL = `SELECT DISTINCT ON(tag_id) tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1 ORDER BY tag_id,CASE source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC`
-		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) "
+		// Keep this correlated probe inside the ordered project index scan.
+		// Flattening it into a semi-join caused full catalog/evidence scans and
+		// sorting before a Top20/40 LIMIT at 50k projects. OFFSET 0 preserves
+		// identical eligibility semantics without truncating unverified rows
+		// before the filter or changing PostgreSQL planner settings.
+		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id OFFSET 0) "
 		user.Embedding = nil
 	}
 	if limit < 1 {
