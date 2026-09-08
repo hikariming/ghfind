@@ -6,6 +6,7 @@ import {
   type Target,
 } from "./router";
 import { runScheduled } from "./scheduled";
+import { handleAdminRequest } from "./admin";
 import { bindingBridge, assessmentSource, deletionCleanup } from "./outbound";
 // Required by the Containers SDK for outboundByHost interception.
 export { ContainerProxy } from "@cloudflare/containers";
@@ -80,6 +81,10 @@ function dispatcher(env: RuntimeEnv): Dispatch {
 
 export default {
   fetch(request: Request, env: RuntimeEnv): Promise<Response> {
+    if (
+      new URL(request.url).pathname.startsWith("/internal/runtime/feed-admin/")
+    )
+      return handleAdminRequest(request, env);
     return handleRequest(request, env, dispatcher(env));
   },
   async scheduled(
