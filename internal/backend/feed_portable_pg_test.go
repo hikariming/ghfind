@@ -92,6 +92,21 @@ func TestPortablePostgresContracts(t *testing.T) {
 	if err := store.SaveFeedRequest(ctx, changed); err == nil {
 		t.Fatal("different request payload accepted")
 	}
+	withdrawnRequest := record
+	withdrawnRequest.ID = "request-withdrawal-race"
+	if _, err := store.db.ExecContext(ctx, `UPDATE feed.projects SET publishable=false WHERE repo_key=$1`, projection.RepoKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveFeedRequest(ctx, withdrawnRequest); !errors.Is(err, ErrFeedCatalogChanged) {
+		t.Fatal("commit accepted withdrawn project", err)
+	}
+	var recorded int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.requests WHERE id=$1`, withdrawnRequest.ID).Scan(&recorded); err != nil || recorded != 0 {
+		t.Fatal("failed page partially audited", recorded, err)
+	}
+	if _, err := store.db.ExecContext(ctx, `UPDATE feed.projects SET publishable=true WHERE repo_key=$1`, projection.RepoKey); err != nil {
+		t.Fatal(err)
+	}
 	event := AcceptedFeedEvent{Input: FeedEventInput{ID: "7f2c0529-4f65-453a-944d-ea3ef6f44df4", Type: FeedEventImpression, RepoKey: projection.RepoKey, OccurredAt: now}, RequestID: record.ID, Metadata: map[string]any{"rank": 0, "algorithmVersion": FeedAlgorithmVersion}}
 	eventCtx := withFeedProfileVersion(ctx, user.ProfileVersion)
 	if result, err := store.AppendFeedEvents(eventCtx, 42, []AcceptedFeedEvent{event}); err != nil || result.Accepted != 1 {

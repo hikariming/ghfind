@@ -265,7 +265,7 @@ func (s *APIServer) feedProjects(w http.ResponseWriter, request *http.Request) {
 	seed := s.feedSeed(user.GitHubID, sessionID)
 	options := FeedRankOptions{Now: now, Limit: 240, Seed: seed, OwnerCap: 2, ExplorationPageSize: limit}
 	if s.portableFeed {
-		options.ExplorationPageSize = 20
+		options.ExplorationWindowSize = 20
 		options.ExplorationRate = feedExplorationRate
 	}
 	items := RankFeedCandidates(candidates, options)
@@ -405,9 +405,14 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 		return
 	}
 	if s.portableFeed {
+		if probabilityUnavailable {
+			s.expireFeedSession(w, request, session)
+			return
+		}
 		for _, key := range remainingKeys {
 			if !available[key] {
-				probabilityUnavailable = true
+				s.expireFeedSession(w, request, session)
+				return
 			}
 		}
 	}
@@ -431,8 +436,10 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 				}
 			}
 			if owners >= 2 || (item.Exploration && explorations >= 2) {
-				probabilityUnavailable = true
-				continue
+				// Old or malformed snapshots cannot be repaired by skipping sampled
+				// items: that would change the conditional policy probabilities.
+				s.expireFeedSession(w, request, session)
+				return
 			}
 			servedTail = append(append([]int(nil), servedTail...), end-1)
 			if len(servedTail) > 19 {
@@ -440,12 +447,6 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 			}
 		}
 		items = append(items, item)
-	}
-	if s.portableFeed && probabilityUnavailable {
-		// The retained numeric values describe snapshot sampling only. Filtering
-		// changes the served policy distribution, which is not reconstructed here.
-		// Request-level evaluation MUST exclude these rows from propensity weighting.
-		session.Degraded = uniqueStrings(append(append([]string(nil), session.Degraded...), "policy_probability_unavailable"))
 	}
 	requestID, err := NewFeedID("feed_request")
 	if err != nil {
@@ -468,6 +469,10 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	record := FeedRequestRecord{ID: requestID, AlgorithmVersion: session.AlgorithmVersion, User: user, Seed: session.Seed,
 		CandidateCounts: session.CandidateCounts, Degraded: session.Degraded, Duration: time.Since(started), Items: items}
 	if err := s.feed.SaveFeedRequest(request.Context(), record); err != nil {
+		if errors.Is(err, ErrFeedCatalogChanged) {
+			s.expireFeedSession(w, request, session)
+			return
+		}
 		if writeFeedMutationError(w, err) {
 			return
 		}
@@ -496,6 +501,24 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	writeJSON(w, http.StatusOK, feedProjectsResponse{RequestID: requestID, AlgorithmVersion: session.AlgorithmVersion,
 		TaxonomyVersion: session.TaxonomyVersion, Items: items, NextCursor: nextCursor,
 		Degraded: uniqueStrings(session.Degraded)}, noStoreHeaders())
+}
+
+// Withdrawal invalidates the sampled continuation. Rebuilding from current
+// candidates preserves exact conditional propensities and immediate hard filters.
+func (s *APIServer) expireFeedSession(w http.ResponseWriter, request *http.Request, session FeedSession) {
+	if s.feedSessions != nil {
+		var err error
+		if scoped, ok := s.feedSessions.(ActorFeedSessionStore); ok {
+			err = scoped.DeleteFeedSessionForUser(withFeedProfileVersion(request.Context(), session.ProfileVersion), session.GitHubID, session.ID)
+		} else {
+			err = s.feedSessions.DeleteFeedSession(request.Context(), session.ID)
+		}
+		if err != nil {
+			writeJSON(w, 503, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
+			return
+		}
+	}
+	writeJSON(w, 410, map[string]string{"error": "feed_cursor_expired"}, noStoreHeaders())
 }
 
 func (s *APIServer) feedProjectState(w http.ResponseWriter, request *http.Request) {

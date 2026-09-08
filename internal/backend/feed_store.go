@@ -16,6 +16,7 @@ import (
 
 var (
 	ErrFeedTaxonomyChanged   = errors.New("Feed taxonomy version changed")
+	ErrFeedCatalogChanged    = errors.New("feed catalog changed")
 	ErrFeedProjectNotFound   = errors.New("Feed project not found")
 	ErrFeedInvalidStatePatch = errors.New("exactly one Feed project state field must be changed")
 )
@@ -585,6 +586,44 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 	}
 	if !errors.Is(lookupErr, sql.ErrNoRows) {
 		return lookupErr
+	}
+	if s.writerEpoch > 0 {
+		keys := make([]string, 0, len(record.Items))
+		for _, item := range record.Items {
+			keys = append(keys, item.Project.RepoKey)
+		}
+		// Lock project rows in a stable order. Catalog updates cannot change their
+		// eligibility between validation and atomic request+served-item commit.
+		rows, err := tx.QueryContext(ctx, `SELECT repo_key FROM feed.projects WHERE repo_key=ANY($1) ORDER BY repo_key FOR SHARE`, keys)
+		if err != nil {
+			return err
+		}
+		locked := 0
+		for rows.Next() {
+			var key string
+			if err := rows.Scan(&key); err != nil {
+				rows.Close()
+				return err
+			}
+			locked++
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if locked != len(keys) {
+			return ErrFeedCatalogChanged
+		}
+		var eligible int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.projects p WHERE p.repo_key=ANY($1) AND p.publishable=true AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true)`, keys, record.User.GitHubID).Scan(&eligible); err != nil {
+			return err
+		}
+		if eligible != len(keys) {
+			return ErrFeedCatalogChanged
+		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.requests
       (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms,payload_hash)
