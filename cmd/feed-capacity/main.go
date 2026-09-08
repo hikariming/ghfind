@@ -41,17 +41,23 @@ const tokenSecret = "capacity-fixture-tokens-only-0123456789abcdef"
 const highUser int64 = 900000001
 
 type observation struct {
-	Status     int     `json:"status"`
-	DurationMS float64 `json:"durationMs"`
-	Items      int     `json:"items"`
-	Error      string  `json:"error,omitempty"`
+	ScheduledOffsetMS float64 `json:"scheduledOffsetMs,omitempty"`
+	StartedOffsetMS   float64 `json:"startedOffsetMs,omitempty"`
+	FinishedOffsetMS  float64 `json:"finishedOffsetMs,omitempty"`
+	Inflight          int     `json:"inflight,omitempty"`
+	Status            int     `json:"status"`
+	DurationMS        float64 `json:"durationMs"`
+	Items             int     `json:"items"`
+	Error             string  `json:"error,omitempty"`
 }
 type report struct {
-	Baseline                              string    `json:"baseline"`
-	Scope                                 string    `json:"scope"`
-	Phase                                 string    `json:"phase"`
-	StartedAt                             time.Time `json:"startedAt"`
-	DurationSeconds                       float64   `json:"durationSeconds"`
+	LoadStartedAt                         time.Time                `json:"loadStartedAt,omitempty"`
+	Resources                             []capacityResourceSample `json:"resourceSamples,omitempty"`
+	Baseline                              string                   `json:"baseline"`
+	Scope                                 string                   `json:"scope"`
+	Phase                                 string                   `json:"phase"`
+	StartedAt                             time.Time                `json:"startedAt"`
+	DurationSeconds                       float64                  `json:"durationSeconds"`
 	Scheduled, Completed, Successful      int
 	ErrorRate, P50MS, P95MS, P99MS, MaxMS float64
 	GoVersion                             string
@@ -282,6 +288,11 @@ func load(ctx context.Context, db *sql.DB, origin string, signer *auth.Verifier,
 					data, err := exec.CommandContext(sample, "docker", "stats", "--no-stream", "--format", "{{json .}}", container).Output()
 					done()
 					if err == nil && json.Valid(data) {
+						var timed map[string]any
+						if json.Unmarshal(data, &timed) == nil {
+							timed["sampledAt"] = time.Now().UTC()
+							data, _ = json.Marshal(timed)
+						}
 						rep.CPUSamples = append(rep.CPUSamples, json.RawMessage(strings.TrimSpace(string(data))))
 					}
 				}
@@ -295,6 +306,9 @@ func load(ctx context.Context, db *sql.DB, origin string, signer *auth.Verifier,
 	var wg sync.WaitGroup
 	startCPU := cpuSeconds()
 	started := time.Now()
+	rep.LoadStartedAt = started.UTC()
+	samples.Add(1)
+	go func() { defer samples.Done(); sampleCapacityResources(sampleCtx, db, started, &rep.Resources) }()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for i := 0; i < total; i++ {
@@ -319,10 +333,18 @@ func load(ctx context.Context, db *sql.DB, origin string, signer *auth.Verifier,
 			go func(index int) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				rep.Observations[index], _ = call(ctx, client, origin, "GET", "/api/feed/projects?limit=20", highUser+int64(index%5000), signer)
+				began := float64(time.Since(started).Microseconds()) / 1000
+				inflight := len(sem)
+				obs, _ := call(ctx, client, origin, "GET", "/api/feed/projects?limit=20", highUser+int64(index%5000), signer)
+				obs.ScheduledOffsetMS = float64((index + 1) * 100)
+				obs.StartedOffsetMS = began
+				obs.FinishedOffsetMS = float64(time.Since(started).Microseconds()) / 1000
+				obs.Inflight = inflight
+				rep.Observations[index] = obs
 			}(i)
 		default:
-			rep.Observations[i] = observation{Error: "concurrency_limit"}
+			at := float64(time.Since(started).Microseconds()) / 1000
+			rep.Observations[i] = observation{Error: "concurrency_limit", ScheduledOffsetMS: float64((i + 1) * 100), StartedOffsetMS: at, FinishedOffsetMS: at, Inflight: len(sem)}
 		}
 	}
 	wg.Wait()
