@@ -11,9 +11,9 @@ import (
 
 type WorkerConfig struct {
 	Config
-	Enabled                                                       bool
-	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint string
-	ArchiveS3                                                     backend.FeedS3Config
+	Enabled                                                                        bool
+	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint, ArchiveEndpoint string
+	ArchiveS3                                                                      backend.FeedS3Config
 }
 
 func LoadWorkerConfig() (WorkerConfig, error) {
@@ -22,6 +22,10 @@ func LoadWorkerConfig() (WorkerConfig, error) {
 		return WorkerConfig{}, err
 	}
 	out := WorkerConfig{Config: c, Enabled: os.Getenv("FEED_EXECUTOR_ENABLED") == "true", ExecutorSecret: os.Getenv("FEED_EXECUTOR_SECRET"), SourceEndpoint: os.Getenv("FEED_SOURCE_ENDPOINT"), SourceSecret: os.Getenv("FEED_SOURCE_SECRET"), CleanupEndpoint: os.Getenv("FEED_CLEANUP_ENDPOINT")}
+	out.ArchiveEndpoint = os.Getenv("FEED_ARCHIVE_ENDPOINT")
+	if out.ArchiveEndpoint == "" {
+		out.ArchiveEndpoint = "http://feed-archive.internal"
+	}
 	out.ArchiveS3 = backend.FeedS3Config{Endpoint: os.Getenv("FEED_ARCHIVE_S3_ENDPOINT"), Region: os.Getenv("FEED_ARCHIVE_S3_REGION"), Bucket: os.Getenv("FEED_ARCHIVE_S3_BUCKET"), AccessKeyID: os.Getenv("FEED_ARCHIVE_S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("FEED_ARCHIVE_S3_SECRET_ACCESS_KEY"), UsePathStyle: os.Getenv("FEED_ARCHIVE_S3_PATH_STYLE") == "true"}
 	if out.CleanupEndpoint == "" {
 		out.CleanupEndpoint = "http://feed-cleanup.internal"
@@ -58,6 +62,11 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 	mux.Handle("/internal/feed/jobs/execute", executor)
 	var archiveReady func(context.Context) error
 	if c.StoreProfile == "cf_d1_r2" {
+		archives, err := backend.NewCFFeedArchiveStore(c.ArchiveEndpoint, c.ExecutorSecret, c.WriterEpoch, nil)
+		if err != nil {
+			return nil, err
+		}
+		archiveReady = archives.ArchiveReady
 		cleanupStore, err := backend.NewHTTPFeedCleanupStore(c.CleanupEndpoint, c.ExecutorSecret)
 		if err != nil {
 			return nil, err
