@@ -114,11 +114,12 @@ export class FeedCommands extends FeedStore {
       }),
       this.sql(
         `INSERT INTO feed_runtime_requests(id,github_id,profile_version,taxonomy_version,algorithm_version,payload_hash,seed,candidate_counts_json,degraded_json,duration_ms,created_at)
-        VALUES(?,?,?,?,'baseline-v1',?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`,
+        VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`,
         input.id,
         id,
         input.user.profileVersion,
         input.user.taxonomyVersion,
+        input.algorithmVersion ?? "baseline-v1",
         input.payloadHash,
         input.seed,
         JSON.stringify(input.candidateCounts),
@@ -128,9 +129,10 @@ export class FeedCommands extends FeedStore {
       ),
       this.sql(
         `INSERT INTO feed_served_items(request_id,github_id,repo_key,rank,algorithm_version,source,propensity,exploration,served_at)
-        SELECT ?,?,json_extract(value,'$.project.repoKey'),json_extract(value,'$.rank'),'baseline-v1',json_extract(value,'$.candidateSources[0]'),json_extract(value,'$.propensity'),json_extract(value,'$.exploration'),? FROM json_each(?) WHERE 1 ON CONFLICT(request_id,repo_key) DO NOTHING`,
+        SELECT ?,?,json_extract(value,'$.project.repoKey'),json_extract(value,'$.rank'),?,json_extract(value,'$.candidateSources[0]'),json_extract(value,'$.propensity'),json_extract(value,'$.exploration'),? FROM json_each(?) WHERE 1 ON CONFLICT(request_id,repo_key) DO NOTHING`,
         input.id,
         id,
+        input.algorithmVersion ?? "baseline-v1",
         now,
         items,
       ),

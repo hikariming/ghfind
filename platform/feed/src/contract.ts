@@ -199,6 +199,7 @@ export const schemas = {
     ...fence,
     payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
     id,
+    algorithmVersion: id.optional(),
     user,
     seed: id,
     candidateCounts: counts,
