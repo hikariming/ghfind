@@ -65,16 +65,18 @@ test(
     assert.equal(report.status, "passed");
     assert.notEqual(report.identities.source, report.identities.target);
     assert.equal(report.tables, 45);
-    assert.equal(report.schemaVersion, 9);
+    assert.equal(report.schemaVersion, 11);
+    assert.equal(report.writerContractVersion, 2);
     assert.equal(report.runtimeControlSchemaVersion, 7);
-    assert.equal(report.columns, 348);
+    assert.equal(report.columns, 350);
     assert.equal(report.governance.action, "create");
-    assert.equal(report.governance.activeTaxonomyVersion, 2);
-    assert.equal(report.governance.ledgerRows, 1);
+    assert.equal(report.governance.activeTaxonomyVersion, 3);
+    assert.equal(report.governance.originalAssessmentReceiptTaxonomyVersion, 2);
+    assert.equal(report.governance.ledgerRows, 2);
     assert.equal(report.governance.restoredCommandReceiptEqual, true);
     assert.equal(report.governance.exactReplayChangedNoRows, true);
     assert.equal(report.governance.storedUserTaxonomyVersion, 1);
-    assert.equal(report.governance.readUserTaxonomyVersion, 2);
+    assert.equal(report.governance.readUserTaxonomyVersion, 3);
     assert.equal(report.governance.storedPreferenceTaxonomyVersion, 1);
     assert.equal(report.governance.profileVersionUnchanged, true);
     assert.equal(report.backup.dataSha256, report.restored.dataSha256);
@@ -84,6 +86,29 @@ test(
     assert.equal(report.comparisons.failedBatchRolledBack, true);
     assert.equal(report.writerGateClosedAtEnd, true);
     assert.equal(report.promotionReady, false);
+    const privacy = report.privacyRecovery;
+    assert.equal(privacy.pendingAndReviewedProposalsRestored, 2);
+    assert.equal(privacy.immediateInspectStatus, null);
+    assert.equal(privacy.newReviewStatus, 409);
+    assert.equal(privacy.exactGovernanceReplayChangedNoRows, true);
+    assert.equal(privacy.priorTombstoneRestored, true);
+    assert.equal(privacy.primaryCleanupCompleted, true);
+    assert.equal(privacy.emptyLocalArchiveCleanupCompleted, true);
+    assert.equal(privacy.realR2ObjectRestoreVerified, false);
+    assert.equal(privacy.minimalCommandTombstones, 2);
+    assert.equal(privacy.erasedProposalBodies, 2);
+    assert.equal(privacy.removedOldAuthors, 2);
+    assert.equal(privacy.freshGenerationProposalPreserved, true);
+    assert.equal(privacy.publicCanonicalAssignmentPreserved, true);
+    assert.equal(privacy.assignmentEvidenceErased, true);
+    assert.equal(privacy.quarantine.retained_body_proposals, 1);
+    assert.equal(privacy.promotionReady, false);
+    assert.ok(privacy.steps <= privacy.invocations * 8);
+    assert.ok(
+      privacy.sourceCleanupBeforeBackup.steps <=
+        privacy.sourceCleanupBeforeBackup.invocations * 8,
+    );
+
     for (const name of [
       "feed_users",
       "feed_user_tag_preferences",
@@ -96,6 +121,9 @@ test(
       "feed_cleanup_jobs",
       "feed_runtime_control",
       "feed_governance_commands",
+      "feed_user_tag_proposals",
+      "feed_tag_proposal_commands",
+      "feed_user_proposal_authors",
     ])
       assert.ok(
         report.tableCounts[name] > 0,
