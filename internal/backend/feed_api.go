@@ -269,15 +269,19 @@ func (s *APIServer) feedProjects(w http.ResponseWriter, request *http.Request) {
 		options.ExplorationRate = feedExplorationRate
 	}
 	items := RankFeedCandidates(candidates, options)
+	algorithmVersion := FeedAlgorithmVersion
+	if s.portableFeed {
+		algorithmVersion = FeedPortableAlgorithmVersion
+	}
 	feedSession := FeedSession{
-		ID: sessionID, GitHubID: user.GitHubID, AlgorithmVersion: FeedAlgorithmVersion,
+		ID: sessionID, GitHubID: user.GitHubID, AlgorithmVersion: algorithmVersion,
 		TaxonomyVersion: user.TaxonomyVersion, ProfileVersion: user.ProfileVersion, PageSize: limit,
 		Seed: seed, CandidateCounts: counts, Degraded: degraded, Items: items, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL),
 	}
 	if s.feedSessions == nil || s.feedSessions.PutFeedSession(request.Context(), feedSession, FeedSessionTTL) != nil {
 		feedSession.Degraded = append(feedSession.Degraded, "cursor_store_unavailable")
 	}
-	s.serveFeedPage(w, request, *user, feedSession, 0, limit, started)
+	s.serveFeedPage(w, request, *user, feedSession, 0, limit, started, nil, false)
 }
 
 func (s *APIServer) feedGorseLiveEnabled(githubID int64) bool {
@@ -347,15 +351,12 @@ func (s *APIServer) serveFeedCursor(w http.ResponseWriter, request *http.Request
 	} else {
 		session, err = s.feedSessions.GetFeedSession(request.Context(), claims.SessionID)
 	}
-	if err != nil || session.GitHubID != oauth.GitHubID || session.ExpiresAt.Before(now) {
+	if err != nil || session == nil || session.GitHubID != oauth.GitHubID || session.ExpiresAt.Before(now) {
 		writeJSON(w, http.StatusGone, map[string]string{"error": "feed_cursor_expired"}, noStoreHeaders())
 		return
 	}
-	if claims.Offset >= len(session.Items) {
-		writeJSON(w, http.StatusOK, feedProjectsResponse{
-			RequestID: "", AlgorithmVersion: session.AlgorithmVersion,
-			TaxonomyVersion: session.TaxonomyVersion, Items: []FeedRankedItem{}, Degraded: session.Degraded,
-		}, noStoreHeaders())
+	if s.portableFeed && (claims.ServiceVersion != 1 || claims.Offset > len(session.Items) || len(claims.ServedTail) == 0) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_cursor"}, noStoreHeaders())
 		return
 	}
 	user, err := s.feed.GetFeedUser(request.Context(), oauth.GitHubID)
@@ -370,11 +371,18 @@ func (s *APIServer) serveFeedCursor(w http.ResponseWriter, request *http.Request
 		writeJSON(w, http.StatusGone, map[string]string{"error": "feed_cursor_expired"}, noStoreHeaders())
 		return
 	}
+	if claims.Offset >= len(session.Items) {
+		writeJSON(w, http.StatusOK, feedProjectsResponse{
+			RequestID: "", AlgorithmVersion: session.AlgorithmVersion,
+			TaxonomyVersion: session.TaxonomyVersion, Items: []FeedRankedItem{}, Degraded: session.Degraded,
+		}, noStoreHeaders())
+		return
+	}
 	pageSize := session.PageSize
 	if pageSize < 1 || pageSize > feedMaxPageSize {
 		pageSize = limit
 	}
-	s.serveFeedPage(w, request, *user, *session, claims.Offset, pageSize, time.Now())
+	s.serveFeedPage(w, request, *user, *session, claims.Offset, pageSize, time.Now(), claims.ServedTail, claims.ProbabilityUnavailable)
 }
 
 type feedProjectsResponse struct {
@@ -386,7 +394,7 @@ type feedProjectsResponse struct {
 	Degraded         []string         `json:"degraded"`
 }
 
-func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, user FeedUser, session FeedSession, offset, limit int, started time.Time) {
+func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, user FeedUser, session FeedSession, offset, limit int, started time.Time, servedTail []int, probabilityUnavailable bool) {
 	remainingKeys := make([]string, 0, len(session.Items)-offset)
 	for _, item := range session.Items[offset:] {
 		remainingKeys = append(remainingKeys, item.Project.RepoKey)
@@ -396,14 +404,48 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
+	if s.portableFeed {
+		for _, key := range remainingKeys {
+			if !available[key] {
+				probabilityUnavailable = true
+			}
+		}
+	}
 	items := make([]FeedRankedItem, 0, limit)
 	end := offset
 	for end < len(session.Items) && len(items) < limit {
 		item := session.Items[end]
 		end++
-		if available[item.Project.RepoKey] {
-			items = append(items, item)
+		if !available[item.Project.RepoKey] {
+			continue
 		}
+		if s.portableFeed {
+			owners, explorations := 0, 0
+			for _, prior := range servedTail {
+				previous := session.Items[prior]
+				if strings.EqualFold(previous.Project.OwnerLogin, item.Project.OwnerLogin) {
+					owners++
+				}
+				if previous.Exploration {
+					explorations++
+				}
+			}
+			if owners >= 2 || (item.Exploration && explorations >= 2) {
+				probabilityUnavailable = true
+				continue
+			}
+			servedTail = append(append([]int(nil), servedTail...), end-1)
+			if len(servedTail) > 19 {
+				servedTail = servedTail[len(servedTail)-19:]
+			}
+		}
+		items = append(items, item)
+	}
+	if s.portableFeed && probabilityUnavailable {
+		// The retained numeric values describe snapshot sampling only. Filtering
+		// changes the served policy distribution, which is not reconstructed here.
+		// Request-level evaluation MUST exclude these rows from propensity weighting.
+		session.Degraded = uniqueStrings(append(append([]string(nil), session.Degraded...), "policy_probability_unavailable"))
 	}
 	requestID, err := NewFeedID("feed_request")
 	if err != nil {
@@ -423,7 +465,7 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 		}
 		items[index].ImpressionToken = token
 	}
-	record := FeedRequestRecord{ID: requestID, User: user, Seed: session.Seed,
+	record := FeedRequestRecord{ID: requestID, AlgorithmVersion: session.AlgorithmVersion, User: user, Seed: session.Seed,
 		CandidateCounts: session.CandidateCounts, Degraded: session.Degraded, Duration: time.Since(started), Items: items}
 	if err := s.feed.SaveFeedRequest(request.Context(), record); err != nil {
 		if writeFeedMutationError(w, err) {
@@ -440,9 +482,13 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	s.metrics.recordFeedRequest("ok", time.Since(started))
 	var nextCursor *string
 	if end < len(session.Items) && !containsString(session.Degraded, "cursor_store_unavailable") {
-		token, signErr := s.feedSigner.SignCursor(FeedCursorClaims{
-			SessionID: session.ID, GitHubID: user.GitHubID, Offset: end, ExpiresAt: session.ExpiresAt.UnixMilli(),
-		})
+		claims := FeedCursorClaims{SessionID: session.ID, GitHubID: user.GitHubID, Offset: end, ExpiresAt: session.ExpiresAt.UnixMilli()}
+		if s.portableFeed {
+			claims.ServiceVersion = 1
+			claims.ServedTail = servedTail
+			claims.ProbabilityUnavailable = probabilityUnavailable
+		}
+		token, signErr := s.feedSigner.SignCursor(claims)
 		if signErr == nil {
 			nextCursor = &token
 		}

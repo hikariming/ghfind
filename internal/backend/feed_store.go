@@ -21,13 +21,14 @@ var (
 )
 
 type FeedRequestRecord struct {
-	ID              string
-	User            FeedUser
-	Seed            string
-	CandidateCounts map[string]int
-	Degraded        []string
-	Duration        time.Duration
-	Items           []FeedRankedItem
+	AlgorithmVersion string
+	ID               string
+	User             FeedUser
+	Seed             string
+	CandidateCounts  map[string]int
+	Degraded         []string
+	Duration         time.Duration
+	Items            []FeedRankedItem
 }
 
 type FeedStatePatch struct {
@@ -588,7 +589,7 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.requests
       (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms,payload_hash)
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9,$10)`, record.ID, record.User.GitHubID,
-		FeedAlgorithmVersion, record.User.TaxonomyVersion, record.User.ProfileVersion, record.Seed,
+		feedRequestAlgorithm(record), record.User.TaxonomyVersion, record.User.ProfileVersion, record.Seed,
 		string(candidateCounts), string(degraded), record.Duration.Milliseconds(), payloadHash)
 	if err != nil {
 		return fmt.Errorf("insert Feed request: %w", err)
@@ -1028,3 +1029,10 @@ func (s *PostgresFeedStore) FinalizeFeedProjectReconcile(ctx context.Context, se
 }
 
 var _ FeedDataStore = (*PostgresFeedStore)(nil)
+
+func feedRequestAlgorithm(r FeedRequestRecord) string {
+	if r.AlgorithmVersion != "" {
+		return r.AlgorithmVersion
+	}
+	return FeedAlgorithmVersion
+}
