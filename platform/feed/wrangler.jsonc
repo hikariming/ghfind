@@ -17,7 +17,8 @@
       "FEED_BRIDGE_SECRET",
       "FEED_SOURCE_SECRET",
       "FEED_EXECUTOR_SECRET",
-      "FEED_OPERATOR_SECRET"
+      "FEED_OPERATOR_SECRET",
+      "FEED_DELIVERY_SECRET"
     ]
   },
   "d1_databases": [
