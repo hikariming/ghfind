@@ -14,8 +14,13 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	provenance := ""
 	preferenceSQL := `SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1`
 	if s.writerEpoch > 0 {
-		preferenceSQL = `SELECT DISTINCT ON(tag_id) tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1 ORDER BY tag_id,CASE source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC`
-		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) "
+		preferenceSQL = `SELECT DISTINCT ON(up.tag_id) up.tag_id,up.value,up.strength FROM feed.user_tag_preferences up JOIN feed.tag_definitions td ON td.id=up.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE up.github_id=$1 ORDER BY up.tag_id,CASE up.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC`
+		// Keep this correlated probe inside the ordered project index scan.
+		// Flattening it into a semi-join caused full catalog/evidence scans and
+		// sorting before a Top20/40 LIMIT at 50k projects. OFFSET 0 preserves
+		// identical eligibility semantics without truncating unverified rows
+		// before the filter or changing PostgreSQL planner settings.
+		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL OFFSET 0) " + feedNegativePreferenceSQL("$1")
 		user.Embedding = nil
 	}
 	if limit < 1 {
@@ -64,9 +69,10 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
           SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
           FROM prefs pref
           CROSS JOIN LATERAL (
-            SELECT repo_key,weight,confidence FROM feed.project_tags pt
+            SELECT pt.repo_key,pt.weight,pt.confidence FROM feed.project_tags pt
+            JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
             WHERE pt.tag_id=pref.tag_id
-            ORDER BY (pt.weight * pt.confidence) DESC,repo_key
+            ORDER BY (pt.weight * pt.confidence) DESC,pt.repo_key
             LIMIT 160
           ) pt
         )
@@ -186,7 +192,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key, p.item_id, p.owner_login, p.name, p.canonical_url,
       p.summary, p.language, p.topics, p.project_type, p.lifecycle, p.product_score, p.confidence,
       p.verification_level, p.exposure_band, p.treasure_eligible, p.classic_eligible, p.analyzed_at,
-      p.publishable, ups.not_interested,
+      p.publishable, COALESCE(p.analysis_id,''), COALESCE(p.source_hash,''), ups.not_interested,
       (SELECT MAX(e.occurred_at) FROM feed.events e WHERE e.github_id = $1 AND e.repo_key = p.repo_key AND e.event_type = 'impression'),
       pe.embedding::text
       FROM feed.projects p
@@ -209,10 +215,14 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 			&candidate.Project.Lifecycle, &candidate.Project.ProductScore, &candidate.Project.Confidence,
 			&candidate.Project.VerificationLevel, &candidate.Project.ExposureBand, &candidate.Project.TreasureEligible,
 			&candidate.Project.ClassicEligible, &candidate.Project.AnalyzedAt, &candidate.Project.Publishable,
-			&notInterested, &seenAt, &embedding,
+			&candidate.Project.AnalysisID, &candidate.Project.SourceHash, &notInterested, &seenAt, &embedding,
 		); err != nil {
 			_ = rows.Close()
 			return nil, nil, fmt.Errorf("scan Feed candidate: %w", err)
+		}
+		if s.writerEpoch > 0 && (candidate.Project.AnalysisID == "" || candidate.Project.SourceHash == "") {
+			_ = rows.Close()
+			return nil, nil, ErrFeedCatalogChanged
 		}
 		if language.Valid {
 			candidate.Project.Language = &language.String
@@ -242,10 +252,11 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		return nil, nil, err
 	}
 
-	tagRows, err := s.db.QueryContext(ctx, `SELECT pt.repo_key, td.id, td.namespace, td.slug, td.label_zh,
+	tagRows, err := s.db.QueryContext(ctx, `SELECT DISTINCT ON(pt.repo_key,td.namespace,td.slug) pt.repo_key, td.id, td.namespace, td.slug, td.label_zh,
       td.label_en, td.description, pt.weight, pt.confidence, pt.taxonomy_version
       FROM feed.project_tags pt JOIN feed.tag_definitions td ON td.id = pt.tag_id
-      WHERE pt.repo_key = ANY($1) AND td.status = 'canonical' ORDER BY pt.repo_key, td.namespace, td.slug`, keys)
+      JOIN feed.projects current ON current.repo_key=pt.repo_key AND current.analysis_id=pt.analysis_id
+      WHERE pt.repo_key = ANY($1) AND td.status = 'canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') ORDER BY pt.repo_key, td.namespace, td.slug,CASE pt.source WHEN 'editor' THEN 0 ELSE 1 END,pt.weight DESC,pt.confidence DESC,pt.source`, keys)
 	if err != nil {
 		return nil, nil, fmt.Errorf("hydrate Feed candidate tags: %w", err)
 	}
@@ -310,4 +321,12 @@ func feedVectorDistanceExpressions(dimensions int) (embedding, parameter string)
 	default:
 		return "pe.embedding", "$1::vector"
 	}
+}
+
+// actorParameter is an internal fixed placeholder ($1 or $2), never client SQL.
+func feedNegativePreferenceSQL(actorParameter string) string {
+	return ` AND NOT EXISTS (SELECT 1 FROM feed.project_tags pt
+ JOIN feed.tag_definitions td ON td.id=pt.tag_id AND td.status='canonical' AND td.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active')
+ JOIN feed.user_tag_preferences up ON up.tag_id=pt.tag_id AND up.source='explicit' AND up.value=-1
+ WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND up.github_id=` + actorParameter + `) `
 }

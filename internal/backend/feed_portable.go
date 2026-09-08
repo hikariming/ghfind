@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// Storage writer compatibility is independent of the public and bridge wire
+// contracts, which remain version 1. Writer 2 enforces user proposal erasure.
+const FeedStorageWriterVersion = 2
+
 type feedProfileVersionKey struct{}
 
 func withFeedProfileVersion(ctx context.Context, version int64) context.Context {
@@ -24,6 +28,9 @@ type ActorFeedSessionStore interface {
 func NewStandaloneFeedHandler(mode FeedMode, signingSecret string, store FeedServingStore, sessions FeedSessionStore, authenticate func(*http.Request, time.Time) *OAuthSession) (http.Handler, error) {
 	if (mode != FeedModeOff && mode != FeedModeBaseline) || store == nil || sessions == nil || authenticate == nil {
 		return nil, errors.New("standalone Feed requires explicit store, sessions, authentication and baseline/off mode")
+	}
+	if _, ok := store.(FeedSnapshotCatalogStore); !ok {
+		return nil, errors.New("standalone Feed requires snapshot identity validation")
 	}
 	signer, err := NewFeedSigner(signingSecret)
 	if err != nil {
@@ -91,6 +98,8 @@ func writeFeedMutationError(w http.ResponseWriter, err error) bool {
 		code = "writer_epoch_changed"
 	case errors.Is(err, ErrFeedProfileChanged):
 		code = "profile_version_changed"
+	case errors.Is(err, ErrFeedTaxonomyChanged):
+		code = "taxonomy_version_changed"
 	case errors.Is(err, ErrFeedEventConflict):
 		code = "event_id_conflict"
 	}

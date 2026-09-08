@@ -1,0 +1,33 @@
+File: ghfind-feed-capacity-profile
+Type: cpu
+Time: 2026-09-08 11:46:27 HKT
+Duration: 60.85s, Total samples = 25.10s (41.25%)
+Showing nodes accounting for 21.27s, 84.74% of 25.10s total
+Dropped 273 nodes (cum <= 0.13s)
+Showing top 25 nodes out of 85
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     23.04s 91.79%  net/http.(*conn).serve
+         0     0%     0%     23.03s 91.75%  github.com/hikariming/ghfind/internal/backend.(*APIServer).feedProjects
+         0     0%     0%     23.03s 91.75%  github.com/hikariming/ghfind/internal/backend.NewStandaloneFeedHandler.withFeedRequestTimeout.func5
+         0     0%     0%     23.03s 91.75%  github.com/hikariming/ghfind/internal/feed/runtime.WithHealth.func3
+         0     0%     0%     23.03s 91.75%  net/http.(*ServeMux).ServeHTTP
+         0     0%     0%     23.03s 91.75%  net/http.HandlerFunc.ServeHTTP
+         0     0%     0%     23.03s 91.75%  net/http.serverHandler.ServeHTTP
+     1.30s  5.18%  5.18%     22.53s 89.76%  github.com/hikariming/ghfind/internal/backend.RankFeedCandidates
+     0.20s   0.8%  5.98%     20.67s 82.35%  github.com/hikariming/ghfind/internal/backend.feedCandidateSimilarity
+     1.30s  5.18% 11.16%     20.37s 81.16%  github.com/hikariming/ghfind/internal/backend.weightedTagJaccard
+     0.19s  0.76% 11.91%      5.46s 21.75%  runtime.mapIterStart
+     0.98s  3.90% 15.82%      5.44s 21.67%  runtime.mapaccess1_faststr
+     4.56s 18.17% 33.98%      5.25s 20.92%  internal/runtime/maps.(*Iter).Next
+     0.89s  3.55% 37.53%      4.86s 19.36%  runtime.mapassign_faststr
+     2.10s  8.37% 45.90%      4.34s 17.29%  internal/runtime/maps.(*Map).getWithoutKeySmallFastStr
+     2.54s 10.12% 56.02%      2.54s 10.12%  aeshashbody
+     2.06s  8.21% 64.22%      2.47s  9.84%  internal/runtime/maps.(*Map).putSlotSmallFastStr
+     0.18s  0.72% 64.94%         2s  7.97%  runtime.mapIterNext
+     0.51s  2.03% 66.97%      1.88s  7.49%  runtime.rand
+     0.64s  2.55% 69.52%      1.84s  7.33%  internal/runtime/maps.(*Iter).Init
+     1.20s  4.78% 74.30%      1.20s  4.78%  internal/chacha8rand.(*State).Next (inline)
+     0.22s  0.88% 75.18%      1.20s  4.78%  internal/runtime/maps.rand
+     0.95s  3.78% 78.96%      0.95s  3.78%  internal/chacha8rand.block
+     0.95s  3.78% 82.75%      0.95s  3.78%  runtime.memequal
+     0.50s  1.99% 84.74%      0.50s  1.99%  runtime.strhash

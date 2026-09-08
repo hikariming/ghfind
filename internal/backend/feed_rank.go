@@ -30,9 +30,10 @@ type FeedRankOptions struct {
 }
 
 type scoredFeedCandidate struct {
-	candidate FeedCandidate
-	score     float64
-	features  FeedFeatureSnapshot
+	candidate     FeedCandidate
+	score         float64
+	features      FeedFeatureSnapshot
+	maxSimilarity float64
 }
 
 type feedRankedIndex struct {
@@ -117,7 +118,6 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 
 	digest := sha256.Sum256([]byte(options.Seed))
 	rng := mathrand.New(mathrand.NewSource(int64(binary.BigEndian.Uint64(digest[:8])))) //nolint:gosec
-	selected := make([]scoredFeedCandidate, 0, minInt(options.Limit, len(remaining)))
 	result := make([]FeedRankedItem, 0, minInt(options.Limit, len(remaining)))
 	explorationCount := 0
 	for len(remaining) > 0 && len(result) < options.Limit {
@@ -144,11 +144,7 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 			if ownerCount >= options.OwnerCap {
 				continue
 			}
-			maxSimilarity := 0.0
-			for _, prior := range selected {
-				maxSimilarity = math.Max(maxSimilarity, feedCandidateSimilarity(remaining[index].candidate, prior.candidate))
-			}
-			mmr := options.MMRLambda*remaining[index].score - (1-options.MMRLambda)*maxSimilarity
+			mmr := options.MMRLambda*remaining[index].score - (1-options.MMRLambda)*remaining[index].maxSimilarity
 			available = append(available, feedRankedIndex{index: index, mmr: mmr})
 		}
 		if len(available) == 0 {
@@ -185,8 +181,18 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 			ReasonCodes: feedReasonCodes(item.candidate, item.features, exploration),
 			Score:       item.score, Rank: len(result), Exploration: exploration, Propensity: clamp01Positive(propensity), Features: item.features,
 		})
-		selected = append(selected, item)
 		remaining = append(remaining[:chosen.index], remaining[chosen.index+1:]...)
+		// The selected prefix only grows. Preserve its maximum similarity per
+		// candidate instead of recomputing every previous pair at each step.
+		// Update owner-blocked candidates too: they can become eligible later.
+		// This leaves sampling, probabilities and tie breaks unchanged while
+		// reducing pair comparisons from cubic to quadratic in candidate count.
+		if len(result) < options.Limit {
+			for index := range remaining {
+				remaining[index].maxSimilarity = math.Max(remaining[index].maxSimilarity,
+					feedCandidateSimilarity(remaining[index].candidate, item.candidate))
+			}
+		}
 	}
 	return result
 }

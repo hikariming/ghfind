@@ -1,0 +1,1754 @@
+{
+  "generatedAt": "2026-09-08T04:42:15.205Z",
+  "implementationCommit": "65cfb2f2101f177df53e894cc643c2052b7ecb8e",
+  "synthetic": true,
+  "remote": false,
+  "projects": 50000,
+  "users": 1,
+  "events": 0,
+  "dependencies": {
+    "@cloudflare/vitest-plugin": "1.1.4",
+    "@types/node": "24.10.1",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0",
+    "wrangler": "4.129.0"
+  },
+  "coreMigrations": [
+    "0001_init.sql",
+    "0002_v10_risk_columns.sql",
+    "0003_v10_read_fallback.sql",
+    "0004_project_assessment_sync_index.sql",
+    "0005_feed_source_outbox.sql",
+    "0006_feed_source_replay_audit.sql"
+  ],
+  "feedMigrations": [
+    "0001_feed_baseline.sql",
+    "0002_feed_candidate_order.sql",
+    "0003_feed_runtime_contract.sql",
+    "0004_feed_executor_protocol.sql",
+    "0005_feed_cleanup_checkpoints.sql",
+    "0006_feed_replay_delivery.sql",
+    "0008_candidate_recall_indexes.sql",
+    "0009_feed_governance_audit.sql"
+  ],
+  "oldQueryResultsMatched": true,
+  "seedMs": 12162,
+  "scenarios": [
+    {
+      "name": "empty",
+      "counts": {
+        "tag": 0,
+        "latest": 40,
+        "quality": 20,
+        "discovery": 20
+      },
+      "resultSize": 78,
+      "elapsedMs": 5,
+      "rowsRead": 709,
+      "queries": [
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 80,
+          "durationMs": 2,
+          "engineDurationMs": 1,
+          "resultSize": 40,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9999/synthetic-project-49999",
+            "synthetic-owner-9998/synthetic-project-49998",
+            "synthetic-owner-9997/synthetic-project-49997",
+            "synthetic-owner-9996/synthetic-project-49996",
+            "synthetic-owner-9995/synthetic-project-49995",
+            "synthetic-owner-9994/synthetic-project-49994",
+            "synthetic-owner-9993/synthetic-project-49993",
+            "synthetic-owner-9992/synthetic-project-49992",
+            "synthetic-owner-9991/synthetic-project-49991",
+            "synthetic-owner-9990/synthetic-project-49990",
+            "synthetic-owner-9989/synthetic-project-49989",
+            "synthetic-owner-9988/synthetic-project-49988",
+            "synthetic-owner-9987/synthetic-project-49987",
+            "synthetic-owner-9986/synthetic-project-49986",
+            "synthetic-owner-9985/synthetic-project-49985",
+            "synthetic-owner-9984/synthetic-project-49984",
+            "synthetic-owner-9983/synthetic-project-49983",
+            "synthetic-owner-9982/synthetic-project-49982",
+            "synthetic-owner-9981/synthetic-project-49981",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9979/synthetic-project-49979",
+            "synthetic-owner-9978/synthetic-project-49978",
+            "synthetic-owner-9977/synthetic-project-49977",
+            "synthetic-owner-9976/synthetic-project-49976",
+            "synthetic-owner-9975/synthetic-project-49975",
+            "synthetic-owner-9974/synthetic-project-49974",
+            "synthetic-owner-9973/synthetic-project-49973",
+            "synthetic-owner-9972/synthetic-project-49972",
+            "synthetic-owner-9971/synthetic-project-49971",
+            "synthetic-owner-9970/synthetic-project-49970",
+            "synthetic-owner-9969/synthetic-project-49969",
+            "synthetic-owner-9968/synthetic-project-49968",
+            "synthetic-owner-9967/synthetic-project-49967",
+            "synthetic-owner-9966/synthetic-project-49966",
+            "synthetic-owner-9965/synthetic-project-49965",
+            "synthetic-owner-9964/synthetic-project-49964",
+            "synthetic-owner-9963/synthetic-project-49963",
+            "synthetic-owner-9962/synthetic-project-49962",
+            "synthetic-owner-9961/synthetic-project-49961"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_runtime_latest (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 40,
+          "durationMs": 2,
+          "engineDurationMs": 0,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-9199/synthetic-project-49199",
+            "synthetic-owner-7969/synthetic-project-47969",
+            "synthetic-owner-6739/synthetic-project-46739",
+            "synthetic-owner-5509/synthetic-project-45509",
+            "synthetic-owner-4279/synthetic-project-44279",
+            "synthetic-owner-3049/synthetic-project-43049",
+            "synthetic-owner-1819/synthetic-project-41819",
+            "synthetic-owner-589/synthetic-project-40589",
+            "synthetic-owner-9359/synthetic-project-39359",
+            "synthetic-owner-8129/synthetic-project-38129",
+            "synthetic-owner-6899/synthetic-project-36899",
+            "synthetic-owner-5669/synthetic-project-35669",
+            "synthetic-owner-4439/synthetic-project-34439",
+            "synthetic-owner-3209/synthetic-project-33209",
+            "synthetic-owner-1979/synthetic-project-31979",
+            "synthetic-owner-749/synthetic-project-30749",
+            "synthetic-owner-9519/synthetic-project-29519",
+            "synthetic-owner-8289/synthetic-project-28289",
+            "synthetic-owner-7059/synthetic-project-27059",
+            "synthetic-owner-5829/synthetic-project-25829"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_candidate_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 40,
+          "durationMs": 2,
+          "engineDurationMs": 1,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9960/synthetic-project-49960",
+            "synthetic-owner-9940/synthetic-project-49940",
+            "synthetic-owner-9920/synthetic-project-49920",
+            "synthetic-owner-9900/synthetic-project-49900",
+            "synthetic-owner-9880/synthetic-project-49880",
+            "synthetic-owner-9860/synthetic-project-49860",
+            "synthetic-owner-9840/synthetic-project-49840",
+            "synthetic-owner-9820/synthetic-project-49820",
+            "synthetic-owner-9800/synthetic-project-49800",
+            "synthetic-owner-9780/synthetic-project-49780",
+            "synthetic-owner-9760/synthetic-project-49760",
+            "synthetic-owner-9740/synthetic-project-49740",
+            "synthetic-owner-9720/synthetic-project-49720",
+            "synthetic-owner-9700/synthetic-project-49700",
+            "synthetic-owner-9680/synthetic-project-49680",
+            "synthetic-owner-9660/synthetic-project-49660",
+            "synthetic-owner-9640/synthetic-project-49640",
+            "synthetic-owner-9620/synthetic-project-49620"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_discovery_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "common",
+      "counts": {
+        "tag": 80,
+        "latest": 40,
+        "quality": 20,
+        "discovery": 20
+      },
+      "resultSize": 154,
+      "elapsedMs": 6,
+      "rowsRead": 2240,
+      "queries": [
+        {
+          "sql": "SELECT COUNT(*) AS memberships FROM (\n        SELECT 1 FROM feed_project_tags\n        WHERE tag_id IN (SELECT value FROM json_each(?)) LIMIT 512\n      )",
+          "args": [
+            "[\"artifact:micro-tool\"]"
+          ],
+          "rowsRead": 514,
+          "durationMs": 2,
+          "engineDurationMs": 1,
+          "resultSize": 1,
+          "repoKeys": [],
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE (subquery-2)"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 100,
+              "detail": "SEARCH feed_project_tags USING COVERING INDEX idx_feed_project_tags_tag (tag_id=?)"
+            },
+            {
+              "id": 9,
+              "parent": 2,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 1"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 95,
+              "detail": "SCAN (subquery-2)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 120,
+          "durationMs": 2,
+          "engineDurationMs": 0,
+          "resultSize": 40,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9999/synthetic-project-49999",
+            "synthetic-owner-9998/synthetic-project-49998",
+            "synthetic-owner-9997/synthetic-project-49997",
+            "synthetic-owner-9996/synthetic-project-49996",
+            "synthetic-owner-9995/synthetic-project-49995",
+            "synthetic-owner-9994/synthetic-project-49994",
+            "synthetic-owner-9993/synthetic-project-49993",
+            "synthetic-owner-9992/synthetic-project-49992",
+            "synthetic-owner-9991/synthetic-project-49991",
+            "synthetic-owner-9990/synthetic-project-49990",
+            "synthetic-owner-9989/synthetic-project-49989",
+            "synthetic-owner-9988/synthetic-project-49988",
+            "synthetic-owner-9987/synthetic-project-49987",
+            "synthetic-owner-9986/synthetic-project-49986",
+            "synthetic-owner-9985/synthetic-project-49985",
+            "synthetic-owner-9984/synthetic-project-49984",
+            "synthetic-owner-9983/synthetic-project-49983",
+            "synthetic-owner-9982/synthetic-project-49982",
+            "synthetic-owner-9981/synthetic-project-49981",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9979/synthetic-project-49979",
+            "synthetic-owner-9978/synthetic-project-49978",
+            "synthetic-owner-9977/synthetic-project-49977",
+            "synthetic-owner-9976/synthetic-project-49976",
+            "synthetic-owner-9975/synthetic-project-49975",
+            "synthetic-owner-9974/synthetic-project-49974",
+            "synthetic-owner-9973/synthetic-project-49973",
+            "synthetic-owner-9972/synthetic-project-49972",
+            "synthetic-owner-9971/synthetic-project-49971",
+            "synthetic-owner-9970/synthetic-project-49970",
+            "synthetic-owner-9969/synthetic-project-49969",
+            "synthetic-owner-9968/synthetic-project-49968",
+            "synthetic-owner-9967/synthetic-project-49967",
+            "synthetic-owner-9966/synthetic-project-49966",
+            "synthetic-owner-9965/synthetic-project-49965",
+            "synthetic-owner-9964/synthetic-project-49964",
+            "synthetic-owner-9963/synthetic-project-49963",
+            "synthetic-owner-9962/synthetic-project-49962",
+            "synthetic-owner-9961/synthetic-project-49961"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_runtime_latest (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 60,
+          "durationMs": 2,
+          "engineDurationMs": 0,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-9199/synthetic-project-49199",
+            "synthetic-owner-7969/synthetic-project-47969",
+            "synthetic-owner-6739/synthetic-project-46739",
+            "synthetic-owner-5509/synthetic-project-45509",
+            "synthetic-owner-4279/synthetic-project-44279",
+            "synthetic-owner-3049/synthetic-project-43049",
+            "synthetic-owner-1819/synthetic-project-41819",
+            "synthetic-owner-589/synthetic-project-40589",
+            "synthetic-owner-9359/synthetic-project-39359",
+            "synthetic-owner-8129/synthetic-project-38129",
+            "synthetic-owner-6899/synthetic-project-36899",
+            "synthetic-owner-5669/synthetic-project-35669",
+            "synthetic-owner-4439/synthetic-project-34439",
+            "synthetic-owner-3209/synthetic-project-33209",
+            "synthetic-owner-1979/synthetic-project-31979",
+            "synthetic-owner-749/synthetic-project-30749",
+            "synthetic-owner-9519/synthetic-project-29519",
+            "synthetic-owner-8289/synthetic-project-28289",
+            "synthetic-owner-7059/synthetic-project-27059",
+            "synthetic-owner-5829/synthetic-project-25829"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_candidate_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 60,
+          "durationMs": 2,
+          "engineDurationMs": 0,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9960/synthetic-project-49960",
+            "synthetic-owner-9940/synthetic-project-49940",
+            "synthetic-owner-9920/synthetic-project-49920",
+            "synthetic-owner-9900/synthetic-project-49900",
+            "synthetic-owner-9880/synthetic-project-49880",
+            "synthetic-owner-9860/synthetic-project-49860",
+            "synthetic-owner-9840/synthetic-project-49840",
+            "synthetic-owner-9820/synthetic-project-49820",
+            "synthetic-owner-9800/synthetic-project-49800",
+            "synthetic-owner-9780/synthetic-project-49780",
+            "synthetic-owner-9760/synthetic-project-49760",
+            "synthetic-owner-9740/synthetic-project-49740",
+            "synthetic-owner-9720/synthetic-project-49720",
+            "synthetic-owner-9700/synthetic-project-49700",
+            "synthetic-owner-9680/synthetic-project-49680",
+            "synthetic-owner-9660/synthetic-project-49660",
+            "synthetic-owner-9640/synthetic-project-49640",
+            "synthetic-owner-9620/synthetic-project-49620"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_discovery_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id)\n          AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND pt.tag_id IN(SELECT value FROM json_each(?)))\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
+          "args": [
+            1,
+            1,
+            "[\"artifact:micro-tool\"]"
+          ],
+          "rowsRead": 401,
+          "durationMs": 1,
+          "engineDurationMs": 1,
+          "resultSize": 80,
+          "repoKeys": [
+            "synthetic-owner-9978/synthetic-project-49978",
+            "synthetic-owner-9937/synthetic-project-49937",
+            "synthetic-owner-9896/synthetic-project-49896",
+            "synthetic-owner-9855/synthetic-project-49855",
+            "synthetic-owner-9814/synthetic-project-49814",
+            "synthetic-owner-9773/synthetic-project-49773",
+            "synthetic-owner-9732/synthetic-project-49732",
+            "synthetic-owner-9691/synthetic-project-49691",
+            "synthetic-owner-9650/synthetic-project-49650",
+            "synthetic-owner-9609/synthetic-project-49609",
+            "synthetic-owner-9568/synthetic-project-49568",
+            "synthetic-owner-9527/synthetic-project-49527",
+            "synthetic-owner-9486/synthetic-project-49486",
+            "synthetic-owner-9445/synthetic-project-49445",
+            "synthetic-owner-9404/synthetic-project-49404",
+            "synthetic-owner-9363/synthetic-project-49363",
+            "synthetic-owner-9322/synthetic-project-49322",
+            "synthetic-owner-9281/synthetic-project-49281",
+            "synthetic-owner-9240/synthetic-project-49240",
+            "synthetic-owner-9199/synthetic-project-49199",
+            "synthetic-owner-9158/synthetic-project-49158",
+            "synthetic-owner-9117/synthetic-project-49117",
+            "synthetic-owner-9076/synthetic-project-49076",
+            "synthetic-owner-9035/synthetic-project-49035",
+            "synthetic-owner-8994/synthetic-project-48994",
+            "synthetic-owner-8953/synthetic-project-48953",
+            "synthetic-owner-8912/synthetic-project-48912",
+            "synthetic-owner-8871/synthetic-project-48871",
+            "synthetic-owner-8830/synthetic-project-48830",
+            "synthetic-owner-8789/synthetic-project-48789",
+            "synthetic-owner-8748/synthetic-project-48748",
+            "synthetic-owner-8707/synthetic-project-48707",
+            "synthetic-owner-8666/synthetic-project-48666",
+            "synthetic-owner-8625/synthetic-project-48625",
+            "synthetic-owner-8584/synthetic-project-48584",
+            "synthetic-owner-8543/synthetic-project-48543",
+            "synthetic-owner-8502/synthetic-project-48502",
+            "synthetic-owner-8461/synthetic-project-48461",
+            "synthetic-owner-8420/synthetic-project-48420",
+            "synthetic-owner-8379/synthetic-project-48379",
+            "synthetic-owner-8338/synthetic-project-48338",
+            "synthetic-owner-8297/synthetic-project-48297",
+            "synthetic-owner-8256/synthetic-project-48256",
+            "synthetic-owner-8215/synthetic-project-48215",
+            "synthetic-owner-8174/synthetic-project-48174",
+            "synthetic-owner-8133/synthetic-project-48133",
+            "synthetic-owner-8092/synthetic-project-48092",
+            "synthetic-owner-8051/synthetic-project-48051",
+            "synthetic-owner-8010/synthetic-project-48010",
+            "synthetic-owner-7969/synthetic-project-47969",
+            "synthetic-owner-7928/synthetic-project-47928",
+            "synthetic-owner-7887/synthetic-project-47887",
+            "synthetic-owner-7846/synthetic-project-47846",
+            "synthetic-owner-7805/synthetic-project-47805",
+            "synthetic-owner-7764/synthetic-project-47764",
+            "synthetic-owner-7723/synthetic-project-47723",
+            "synthetic-owner-7682/synthetic-project-47682",
+            "synthetic-owner-7641/synthetic-project-47641",
+            "synthetic-owner-7600/synthetic-project-47600",
+            "synthetic-owner-7559/synthetic-project-47559",
+            "synthetic-owner-7518/synthetic-project-47518",
+            "synthetic-owner-7477/synthetic-project-47477",
+            "synthetic-owner-7436/synthetic-project-47436",
+            "synthetic-owner-7395/synthetic-project-47395",
+            "synthetic-owner-7354/synthetic-project-47354",
+            "synthetic-owner-7313/synthetic-project-47313",
+            "synthetic-owner-7272/synthetic-project-47272",
+            "synthetic-owner-7231/synthetic-project-47231",
+            "synthetic-owner-7190/synthetic-project-47190",
+            "synthetic-owner-7149/synthetic-project-47149",
+            "synthetic-owner-7108/synthetic-project-47108",
+            "synthetic-owner-7067/synthetic-project-47067",
+            "synthetic-owner-7026/synthetic-project-47026",
+            "synthetic-owner-6985/synthetic-project-46985",
+            "synthetic-owner-6944/synthetic-project-46944",
+            "synthetic-owner-6903/synthetic-project-46903",
+            "synthetic-owner-6862/synthetic-project-46862",
+            "synthetic-owner-6821/synthetic-project-46821",
+            "synthetic-owner-6780/synthetic-project-46780",
+            "synthetic-owner-6739/synthetic-project-46739"
+          ],
+          "plan": [
+            {
+              "id": 8,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_catalog (published=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 19,
+              "parent": 14,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 35,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 40,
+              "parent": 35,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 56,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 61,
+              "parent": 56,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 74,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 79,
+              "parent": 74,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 95,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 105,
+              "parent": 95,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 116,
+              "parent": 95,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 126,
+              "parent": 95,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 139,
+              "parent": 95,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            },
+            {
+              "id": 156,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH pt EXISTS USING INDEX idx_feed_project_tags_repo (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 162,
+              "parent": 0,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 7"
+            },
+            {
+              "id": 164,
+              "parent": 162,
+              "notused": 0,
+              "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rare",
+      "counts": {
+        "tag": 50,
+        "latest": 40,
+        "quality": 20,
+        "discovery": 20
+      },
+      "resultSize": 127,
+      "elapsedMs": 4,
+      "rowsRead": 1492,
+      "queries": [
+        {
+          "sql": "SELECT COUNT(*) AS memberships FROM (\n        SELECT 1 FROM feed_project_tags\n        WHERE tag_id IN (SELECT value FROM json_each(?)) LIMIT 512\n      )",
+          "args": [
+            "[\"artifact:database-infra\"]"
+          ],
+          "rowsRead": 53,
+          "durationMs": 1,
+          "engineDurationMs": 0,
+          "resultSize": 1,
+          "repoKeys": [],
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CO-ROUTINE (subquery-2)"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 100,
+              "detail": "SEARCH feed_project_tags USING COVERING INDEX idx_feed_project_tags_tag (tag_id=?)"
+            },
+            {
+              "id": 9,
+              "parent": 2,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 1"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
+            },
+            {
+              "id": 34,
+              "parent": 0,
+              "notused": 95,
+              "detail": "SCAN (subquery-2)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 120,
+          "durationMs": 1,
+          "engineDurationMs": 1,
+          "resultSize": 40,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9999/synthetic-project-49999",
+            "synthetic-owner-9998/synthetic-project-49998",
+            "synthetic-owner-9997/synthetic-project-49997",
+            "synthetic-owner-9996/synthetic-project-49996",
+            "synthetic-owner-9995/synthetic-project-49995",
+            "synthetic-owner-9994/synthetic-project-49994",
+            "synthetic-owner-9993/synthetic-project-49993",
+            "synthetic-owner-9992/synthetic-project-49992",
+            "synthetic-owner-9991/synthetic-project-49991",
+            "synthetic-owner-9990/synthetic-project-49990",
+            "synthetic-owner-9989/synthetic-project-49989",
+            "synthetic-owner-9988/synthetic-project-49988",
+            "synthetic-owner-9987/synthetic-project-49987",
+            "synthetic-owner-9986/synthetic-project-49986",
+            "synthetic-owner-9985/synthetic-project-49985",
+            "synthetic-owner-9984/synthetic-project-49984",
+            "synthetic-owner-9983/synthetic-project-49983",
+            "synthetic-owner-9982/synthetic-project-49982",
+            "synthetic-owner-9981/synthetic-project-49981",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9979/synthetic-project-49979",
+            "synthetic-owner-9978/synthetic-project-49978",
+            "synthetic-owner-9977/synthetic-project-49977",
+            "synthetic-owner-9976/synthetic-project-49976",
+            "synthetic-owner-9975/synthetic-project-49975",
+            "synthetic-owner-9974/synthetic-project-49974",
+            "synthetic-owner-9973/synthetic-project-49973",
+            "synthetic-owner-9972/synthetic-project-49972",
+            "synthetic-owner-9971/synthetic-project-49971",
+            "synthetic-owner-9970/synthetic-project-49970",
+            "synthetic-owner-9969/synthetic-project-49969",
+            "synthetic-owner-9968/synthetic-project-49968",
+            "synthetic-owner-9967/synthetic-project-49967",
+            "synthetic-owner-9966/synthetic-project-49966",
+            "synthetic-owner-9965/synthetic-project-49965",
+            "synthetic-owner-9964/synthetic-project-49964",
+            "synthetic-owner-9963/synthetic-project-49963",
+            "synthetic-owner-9962/synthetic-project-49962",
+            "synthetic-owner-9961/synthetic-project-49961"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_runtime_latest (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 60,
+          "durationMs": 1,
+          "engineDurationMs": 0,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-9199/synthetic-project-49199",
+            "synthetic-owner-7969/synthetic-project-47969",
+            "synthetic-owner-6739/synthetic-project-46739",
+            "synthetic-owner-5509/synthetic-project-45509",
+            "synthetic-owner-4279/synthetic-project-44279",
+            "synthetic-owner-3049/synthetic-project-43049",
+            "synthetic-owner-1819/synthetic-project-41819",
+            "synthetic-owner-589/synthetic-project-40589",
+            "synthetic-owner-9359/synthetic-project-39359",
+            "synthetic-owner-8129/synthetic-project-38129",
+            "synthetic-owner-6899/synthetic-project-36899",
+            "synthetic-owner-5669/synthetic-project-35669",
+            "synthetic-owner-4439/synthetic-project-34439",
+            "synthetic-owner-3209/synthetic-project-33209",
+            "synthetic-owner-1979/synthetic-project-31979",
+            "synthetic-owner-749/synthetic-project-30749",
+            "synthetic-owner-9519/synthetic-project-29519",
+            "synthetic-owner-8289/synthetic-project-28289",
+            "synthetic-owner-7059/synthetic-project-27059",
+            "synthetic-owner-5829/synthetic-project-25829"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_candidate_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "args": [
+            1,
+            1
+          ],
+          "rowsRead": 60,
+          "durationMs": 1,
+          "engineDurationMs": 0,
+          "resultSize": 20,
+          "repoKeys": [
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9980/synthetic-project-49980",
+            "synthetic-owner-9960/synthetic-project-49960",
+            "synthetic-owner-9940/synthetic-project-49940",
+            "synthetic-owner-9920/synthetic-project-49920",
+            "synthetic-owner-9900/synthetic-project-49900",
+            "synthetic-owner-9880/synthetic-project-49880",
+            "synthetic-owner-9860/synthetic-project-49860",
+            "synthetic-owner-9840/synthetic-project-49840",
+            "synthetic-owner-9820/synthetic-project-49820",
+            "synthetic-owner-9800/synthetic-project-49800",
+            "synthetic-owner-9780/synthetic-project-49780",
+            "synthetic-owner-9760/synthetic-project-49760",
+            "synthetic-owner-9740/synthetic-project-49740",
+            "synthetic-owner-9720/synthetic-project-49720",
+            "synthetic-owner-9700/synthetic-project-49700",
+            "synthetic-owner-9680/synthetic-project-49680",
+            "synthetic-owner-9660/synthetic-project-49660",
+            "synthetic-owner-9640/synthetic-project-49640",
+            "synthetic-owner-9620/synthetic-project-49620"
+          ],
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH p USING INDEX idx_feed_projects_discovery_order (published=?)"
+            },
+            {
+              "id": 11,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 53,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 58,
+              "parent": 53,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 71,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 76,
+              "parent": 71,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 102,
+              "parent": 92,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            }
+          ]
+        },
+        {
+          "sql": "WITH matching AS MATERIALIZED (\n            SELECT DISTINCT repo_key,analysis_id FROM feed_project_tags\n            WHERE tag_id IN (SELECT value FROM json_each(?))\n          )\n          SELECT p.* FROM matching CROSS JOIN feed_projects p ON p.repo_key=matching.repo_key AND p.analysis_id=matching.analysis_id\n          WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id)\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
+          "args": [
+            "[\"artifact:database-infra\"]",
+            1,
+            1
+          ],
+          "rowsRead": 303,
+          "durationMs": 1,
+          "engineDurationMs": 1,
+          "resultSize": 50,
+          "repoKeys": [
+            "synthetic-owner-3000/synthetic-project-23000",
+            "synthetic-owner-6000/synthetic-project-46000",
+            "synthetic-owner-5000/synthetic-project-05000",
+            "synthetic-owner-8000/synthetic-project-28000",
+            "synthetic-owner-0/synthetic-project-10000",
+            "synthetic-owner-3000/synthetic-project-33000",
+            "synthetic-owner-5000/synthetic-project-15000",
+            "synthetic-owner-8000/synthetic-project-38000",
+            "synthetic-owner-0/synthetic-project-20000",
+            "synthetic-owner-3000/synthetic-project-43000",
+            "synthetic-owner-2000/synthetic-project-02000",
+            "synthetic-owner-5000/synthetic-project-25000",
+            "synthetic-owner-8000/synthetic-project-48000",
+            "synthetic-owner-7000/synthetic-project-07000",
+            "synthetic-owner-0/synthetic-project-30000",
+            "synthetic-owner-2000/synthetic-project-12000",
+            "synthetic-owner-5000/synthetic-project-35000",
+            "synthetic-owner-7000/synthetic-project-17000",
+            "synthetic-owner-0/synthetic-project-40000",
+            "synthetic-owner-2000/synthetic-project-22000",
+            "synthetic-owner-5000/synthetic-project-45000",
+            "synthetic-owner-4000/synthetic-project-04000",
+            "synthetic-owner-7000/synthetic-project-27000",
+            "synthetic-owner-0/synthetic-project-50000",
+            "synthetic-owner-9000/synthetic-project-09000",
+            "synthetic-owner-2000/synthetic-project-32000",
+            "synthetic-owner-4000/synthetic-project-14000",
+            "synthetic-owner-7000/synthetic-project-37000",
+            "synthetic-owner-9000/synthetic-project-19000",
+            "synthetic-owner-2000/synthetic-project-42000",
+            "synthetic-owner-1000/synthetic-project-01000",
+            "synthetic-owner-4000/synthetic-project-24000",
+            "synthetic-owner-7000/synthetic-project-47000",
+            "synthetic-owner-6000/synthetic-project-06000",
+            "synthetic-owner-9000/synthetic-project-29000",
+            "synthetic-owner-1000/synthetic-project-11000",
+            "synthetic-owner-4000/synthetic-project-34000",
+            "synthetic-owner-6000/synthetic-project-16000",
+            "synthetic-owner-9000/synthetic-project-39000",
+            "synthetic-owner-1000/synthetic-project-21000",
+            "synthetic-owner-4000/synthetic-project-44000",
+            "synthetic-owner-3000/synthetic-project-03000",
+            "synthetic-owner-6000/synthetic-project-26000",
+            "synthetic-owner-9000/synthetic-project-49000",
+            "synthetic-owner-8000/synthetic-project-08000",
+            "synthetic-owner-1000/synthetic-project-31000",
+            "synthetic-owner-3000/synthetic-project-13000",
+            "synthetic-owner-6000/synthetic-project-36000",
+            "synthetic-owner-8000/synthetic-project-18000",
+            "synthetic-owner-1000/synthetic-project-41000"
+          ],
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MATERIALIZE matching"
+            },
+            {
+              "id": 8,
+              "parent": 3,
+              "notused": 108,
+              "detail": "SEARCH feed_project_tags USING INDEX idx_feed_project_tags_tag (tag_id=?)"
+            },
+            {
+              "id": 12,
+              "parent": 3,
+              "notused": 0,
+              "detail": "LIST SUBQUERY 1"
+            },
+            {
+              "id": 14,
+              "parent": 12,
+              "notused": 0,
+              "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
+            },
+            {
+              "id": 41,
+              "parent": 3,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR DISTINCT"
+            },
+            {
+              "id": 49,
+              "parent": 0,
+              "notused": 65,
+              "detail": "SCAN matching"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH p USING INDEX sqlite_autoindex_feed_projects_1 (repo_key=?)"
+            },
+            {
+              "id": 63,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 68,
+              "parent": 63,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
+            },
+            {
+              "id": 84,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 4"
+            },
+            {
+              "id": 89,
+              "parent": 84,
+              "notused": 39,
+              "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
+            },
+            {
+              "id": 105,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 110,
+              "parent": 105,
+              "notused": 39,
+              "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
+            },
+            {
+              "id": 123,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
+            },
+            {
+              "id": 128,
+              "parent": 123,
+              "notused": 39,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
+            },
+            {
+              "id": 144,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 8"
+            },
+            {
+              "id": 154,
+              "parent": 144,
+              "notused": 63,
+              "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
+            },
+            {
+              "id": 165,
+              "parent": 144,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 175,
+              "parent": 144,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 188,
+              "parent": 144,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 7"
+            },
+            {
+              "id": 192,
+              "parent": 188,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            },
+            {
+              "id": 236,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

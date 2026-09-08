@@ -70,7 +70,16 @@ func (f *fakeFeedDataStore) SeedFeedGraphPreferences(context.Context, int64, []D
 	return false, nil
 }
 func (f *fakeFeedDataStore) LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error) {
-	return append([]FeedCandidate(nil), f.candidates...), map[string]int{"quality": len(f.candidates)}, nil
+	out := append([]FeedCandidate(nil), f.candidates...)
+	for i := range out {
+		if out[i].Project.AnalysisID == "" {
+			out[i].Project.AnalysisID = "fixture-analysis"
+		}
+		if out[i].Project.SourceHash == "" {
+			out[i].Project.SourceHash = "fixture-hash"
+		}
+	}
+	return out, map[string]int{"quality": len(f.candidates)}, nil
 }
 func (f *fakeFeedDataStore) LoadGorseFeedCandidates(context.Context, FeedUser, []string, int) ([]FeedCandidate, error) {
 	return append([]FeedCandidate(nil), f.gorseCandidates...), nil
@@ -83,6 +92,17 @@ func (f *fakeFeedDataStore) AvailableFeedRepoKeys(_ context.Context, _ int64, ke
 		}
 	}
 	return available, nil
+}
+
+func (f *fakeFeedDataStore) AvailableFeedProjects(ctx context.Context, id int64, identities []FeedProjectIdentity) (map[string]bool, error) {
+	if _, err := validateFeedProjectIdentities(identities); err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(identities))
+	for _, identity := range identities {
+		keys = append(keys, identity.RepoKey)
+	}
+	return f.AvailableFeedRepoKeys(ctx, id, keys)
 }
 
 type fakeFeedGorseRecommender struct {

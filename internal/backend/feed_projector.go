@@ -461,7 +461,7 @@ func upsertProjectedFeedTag(ctx context.Context, tx *sql.Tx, project FeedProject
       WHERE EXISTS (SELECT 1 FROM feed.tag_definitions WHERE id=$2 AND status='canonical' AND taxonomy_version <= $8)
       ON CONFLICT (repo_key,tag_id,source) DO UPDATE SET weight=excluded.weight,
         confidence=excluded.confidence, evidence_ids=excluded.evidence_ids,
-        analysis_id=excluded.analysis_id, taxonomy_version=excluded.taxonomy_version, updated_at=now()`,
+        analysis_id=excluded.analysis_id, taxonomy_version=excluded.taxonomy_version, origin_proposal_id=NULL, updated_at=now()`,
 		project.RepoKey, tagID, source, weight, confidence, string(encoded), project.AnalysisID, version)
 	if err != nil {
 		return fmt.Errorf("upsert projected Feed tag %s: %w", tagID, err)
@@ -486,7 +486,7 @@ func insertFeedTagProposal(ctx context.Context, tx *sql.Tx, project FeedProjectP
 	_, err := tx.ExecContext(ctx, `INSERT INTO feed.tag_proposals
       (id,namespace,slug,label_zh,label_en,source,source_ref,evidence_ids,status,taxonomy_version,analysis_id,namespace_inferred)
       VALUES ($1,$2,$3,$4,$5,'agent',$6,$7::jsonb,'proposed',$8,$9,$10)
-      ON CONFLICT (namespace,slug,source,source_ref,analysis_id) DO UPDATE SET
+      ON CONFLICT (namespace,slug,source,source_ref,analysis_id) WHERE source<>'user' DO UPDATE SET
         label_zh=excluded.label_zh, label_en=excluded.label_en,
         evidence_ids=excluded.evidence_ids, taxonomy_version=excluded.taxonomy_version,
         namespace_inferred=excluded.namespace_inferred

@@ -359,12 +359,18 @@ func (s *APIServer) serveFeedCursor(w http.ResponseWriter, request *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_cursor"}, noStoreHeaders())
 		return
 	}
+	if s.portableFeed {
+		if _, err := validateFeedProjectIdentities(feedProjectIdentities(session.Items)); err != nil {
+			s.expireFeedSession(w, request, *session)
+			return
+		}
+	}
 	user, err := s.feed.GetFeedUser(request.Context(), oauth.GitHubID)
 	if err != nil || user == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
-	if user.ProfileVersion != session.ProfileVersion {
+	if user.ProfileVersion != session.ProfileVersion || (s.portableFeed && user.TaxonomyVersion != session.TaxonomyVersion) {
 		// Preferences and project state are part of the ranking contract. Once
 		// either changes, continuing an old deterministic sequence would serve
 		// stale personalization (and could re-serve a newly blocked project).
@@ -399,7 +405,23 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	for _, item := range session.Items[offset:] {
 		remainingKeys = append(remainingKeys, item.Project.RepoKey)
 	}
-	available, err := s.feed.AvailableFeedRepoKeys(request.Context(), user.GitHubID, remainingKeys)
+	var available map[string]bool
+	var err error
+	if s.portableFeed {
+		identities := feedProjectIdentities(session.Items[offset:])
+		if _, identityErr := validateFeedProjectIdentities(identities); identityErr != nil {
+			s.expireFeedSession(w, request, session)
+			return
+		}
+		store, ok := s.feed.(FeedSnapshotCatalogStore)
+		if !ok {
+			writeJSON(w, 503, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
+			return
+		}
+		available, err = store.AvailableFeedProjects(request.Context(), user.GitHubID, identities)
+	} else {
+		available, err = s.feed.AvailableFeedRepoKeys(request.Context(), user.GitHubID, remainingKeys)
+	}
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
@@ -469,7 +491,7 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	record := FeedRequestRecord{ID: requestID, AlgorithmVersion: session.AlgorithmVersion, User: user, Seed: session.Seed,
 		CandidateCounts: session.CandidateCounts, Degraded: session.Degraded, Duration: time.Since(started), Items: items}
 	if err := s.feed.SaveFeedRequest(request.Context(), record); err != nil {
-		if errors.Is(err, ErrFeedCatalogChanged) {
+		if errors.Is(err, ErrFeedCatalogChanged) || errors.Is(err, ErrFeedTaxonomyChanged) {
 			s.expireFeedSession(w, request, session)
 			return
 		}

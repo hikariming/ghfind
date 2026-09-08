@@ -14,7 +14,7 @@ import (
 func TestPortableSnapshotPreservesPrivateFeatures(t *testing.T) {
 	feature := .63
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	session := FeedSession{ID: "s", GitHubID: 42, ProfileVersion: 9, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL), Items: []FeedRankedItem{{Project: FeedProject{RepoKey: "o/r", ItemID: "o:r", Publishable: true, SubmissionEvidence: true}, Rank: 8, Score: .7, Propensity: .012, Exploration: true, CandidateSources: []string{"tag", "latest"}, Features: FeedFeatureSnapshot{TagAffinity: &feature, MMRScore: .4}}}}
+	session := FeedSession{ID: "s", GitHubID: 42, ProfileVersion: 9, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL), Items: []FeedRankedItem{{Project: FeedProject{RepoKey: "o/r", ItemID: "o:r", AnalysisID: "analysis-1", SourceHash: "hash-1", Publishable: true, SubmissionEvidence: true}, Rank: 8, Score: .7, Propensity: .012, Exploration: true, CandidateSources: []string{"tag", "latest"}, Features: FeedFeatureSnapshot{TagAffinity: &feature, MMRScore: .4}}}}
 	encoded, err := json.Marshal(feedSessionDTO(session))
 	if err != nil {
 		t.Fatal(err)
@@ -25,11 +25,11 @@ func TestPortableSnapshotPreservesPrivateFeatures(t *testing.T) {
 	}
 	got := dto.session()
 	item := got.Items[0]
-	if item.Rank != 8 || item.Score != .7 || item.Propensity != .012 || !item.Project.Publishable || !item.Project.SubmissionEvidence || item.Project.ItemID != "o:r" || item.Features.TagAffinity == nil || *item.Features.TagAffinity != feature {
+	if item.Project.AnalysisID != "analysis-1" || item.Project.SourceHash != "hash-1" || item.Rank != 8 || item.Score != .7 || item.Propensity != .012 || !item.Project.Publishable || !item.Project.SubmissionEvidence || item.Project.ItemID != "o:r" || item.Features.TagAffinity == nil || *item.Features.TagAffinity != feature {
 		t.Fatalf("private snapshot data lost: %+v", item)
 	}
 	public, _ := json.Marshal(item)
-	for _, private := range []string{"candidateSources", "score", "rank", "propensity", "features", "submissionEvidence", "itemId", "publishable"} {
+	for _, private := range []string{"analysisId", "sourceHash", "candidateSources", "score", "rank", "propensity", "features", "submissionEvidence", "itemId", "publishable"} {
 		if bytes.Contains(public, []byte(`"`+private+`"`)) {
 			t.Fatalf("private field %s leaked: %s", private, public)
 		}

@@ -152,7 +152,7 @@ func (s *PostgresFeedStore) Ping(ctx context.Context) error {
 			return ErrFeedWriterEpoch
 		}
 		var compatible bool
-		if err := s.db.QueryRowContext(ctx, `SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 FROM feed.schema_compatibility WHERE singleton=true`).Scan(&compatible); err != nil {
+		if err := s.db.QueryRowContext(ctx, `SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=$1 AND max_writer_contract>=$1 FROM feed.schema_compatibility WHERE singleton=true`, FeedStorageWriterVersion).Scan(&compatible); err != nil {
 			return fmt.Errorf("read Feed schema compatibility: %w", err)
 		}
 		if !compatible {
@@ -341,10 +341,6 @@ func (s *PostgresFeedStore) ListFeedTags(ctx context.Context) ([]FeedTag, int64,
 }
 
 func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSession) (*FeedUser, error) {
-	version, err := s.ActiveTaxonomyVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -353,14 +349,18 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 	if err := s.guardFeedWrite(ctx, tx, session.GitHubID, 0); err != nil {
 		return nil, err
 	}
+	version, err := activeFeedTaxonomyTx(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	var profileVersion int64
 	err = tx.QueryRowContext(ctx, `INSERT INTO feed.users
       (github_id, login, avatar_url, taxonomy_version, profile_version)
       VALUES ($1, $2, NULLIF($3, ''), $4, COALESCE((SELECT MAX(profile_version)+1 FROM feed.user_deletion_tombstones WHERE github_id=$1),1))
       ON CONFLICT (github_id) DO UPDATE SET
         login = excluded.login, avatar_url = excluded.avatar_url,
-        taxonomy_version = excluded.taxonomy_version, updated_at = now(), deleted_at = NULL
-	  RETURNING profile_version`, session.GitHubID, strings.ToLower(session.Login), session.AvatarURL, version).Scan(&profileVersion)
+        taxonomy_version = CASE WHEN $5 THEN feed.users.taxonomy_version ELSE excluded.taxonomy_version END, updated_at = now(), deleted_at = NULL
+	  RETURNING profile_version`, session.GitHubID, strings.ToLower(session.Login), session.AvatarURL, version, s.writerEpoch > 0).Scan(&profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("upsert Feed user: %w", err)
 	}
@@ -379,8 +379,8 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 
 func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*FeedUser, error) {
 	var user FeedUser
-	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), taxonomy_version, profile_version,COALESCE((SELECT MAX(t.profile_version) FROM feed.user_deletion_tombstones t WHERE t.github_id=feed.users.github_id),0)
-      FROM feed.users WHERE github_id = $1 AND deleted_at IS NULL`, githubID).Scan(
+	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), CASE WHEN $2 THEN (SELECT version FROM feed.taxonomy_versions WHERE state='active') ELSE taxonomy_version END, profile_version,COALESCE((SELECT MAX(t.profile_version) FROM feed.user_deletion_tombstones t WHERE t.github_id=feed.users.github_id),0)
+      FROM feed.users WHERE github_id = $1 AND deleted_at IS NULL`, githubID, s.writerEpoch > 0).Scan(
 		&user.GitHubID, &user.Login, &user.AvatarURL, &user.TaxonomyVersion, &user.ProfileVersion, &user.ProfileFloor,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -390,7 +390,7 @@ func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*F
 	}
 	preferenceQuery := `SELECT tag_id, value, source, strength, taxonomy_version FROM feed.user_tag_preferences WHERE github_id = $1 ORDER BY source, tag_id`
 	if s.writerEpoch > 0 {
-		preferenceQuery = `SELECT DISTINCT ON(p.tag_id) p.tag_id,p.value,p.source,p.strength,p.taxonomy_version FROM feed.user_tag_preferences p JOIN feed.tag_definitions d ON d.id=p.tag_id AND d.status='canonical' WHERE p.github_id=$1 ORDER BY p.tag_id,CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC LIMIT 300`
+		preferenceQuery = `SELECT DISTINCT ON(p.tag_id) p.tag_id,p.value,p.source,p.strength,p.taxonomy_version FROM feed.user_tag_preferences p JOIN feed.tag_definitions d ON d.id=p.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed.taxonomy_versions WHERE state='active') WHERE p.github_id=$1 ORDER BY p.tag_id,CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC LIMIT 300`
 	}
 	rows, err := s.db.QueryContext(ctx, preferenceQuery, githubID)
 	if err != nil {
@@ -487,7 +487,7 @@ func (s *PostgresFeedStore) AvailableFeedRepoKeys(ctx context.Context, githubID 
 	  LEFT JOIN feed.user_project_state ups ON ups.github_id=$1 AND ups.repo_key=p.repo_key
 	  WHERE p.repo_key = ANY($2) AND p.publishable=true
 	    AND COALESCE(ups.not_interested,false)=false
- AND ($3=false OR EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id))`, githubID, repoKeys, s.writerEpoch > 0)
+ AND ($3=false OR (EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id AND e.revoked_at IS NULL) `+feedNegativePreferenceSQL("$1")+`))`, githubID, repoKeys, s.writerEpoch > 0)
 	if err != nil {
 		return nil, fmt.Errorf("revalidate Feed page: %w", err)
 	}
@@ -579,9 +579,17 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 	if err := s.guardFeedWrite(ctx, tx, record.User.GitHubID, record.User.ProfileVersion); err != nil {
 		return err
 	}
+	if err := s.checkFeedTaxonomyTx(ctx, tx, record.User.TaxonomyVersion); err != nil {
+		return err
+	}
 	payloadHash, hashErr := feedRequestPayloadHash(record)
 	if hashErr != nil {
 		return hashErr
+	}
+	if s.writerEpoch > 0 {
+		if err := guardFeedSnapshotTx(ctx, tx, record); err != nil {
+			return err
+		}
 	}
 	var existing sql.NullString
 	lookupErr := tx.QueryRowContext(ctx, `SELECT payload_hash FROM feed.requests WHERE id=$1`, record.ID).Scan(&existing)
@@ -593,44 +601,6 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 	}
 	if !errors.Is(lookupErr, sql.ErrNoRows) {
 		return lookupErr
-	}
-	if s.writerEpoch > 0 {
-		keys := make([]string, 0, len(record.Items))
-		for _, item := range record.Items {
-			keys = append(keys, item.Project.RepoKey)
-		}
-		// Lock project rows in a stable order. Catalog updates cannot change their
-		// eligibility between validation and atomic request+served-item commit.
-		rows, err := tx.QueryContext(ctx, `SELECT repo_key FROM feed.projects WHERE repo_key=ANY($1) ORDER BY repo_key FOR SHARE`, keys)
-		if err != nil {
-			return err
-		}
-		locked := 0
-		for rows.Next() {
-			var key string
-			if err := rows.Scan(&key); err != nil {
-				rows.Close()
-				return err
-			}
-			locked++
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return err
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		if locked != len(keys) {
-			return ErrFeedCatalogChanged
-		}
-		var eligible int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.projects p WHERE p.repo_key=ANY($1) AND p.publishable=true AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true)`, keys, record.User.GitHubID).Scan(&eligible); err != nil {
-			return err
-		}
-		if eligible != len(keys) {
-			return ErrFeedCatalogChanged
-		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.requests
       (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms,payload_hash)

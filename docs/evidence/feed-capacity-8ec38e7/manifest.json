@@ -1,0 +1,40 @@
+{
+  "sourceBaseline": "8ec38e7b8d39465d5205b30affbc12914a807a14",
+  "previousBaseline": "bc29a66",
+  "schemaVersions": [
+    19,
+    20
+  ],
+  "contractVersion": 1,
+  "algorithmVersion": "baseline-v2-portable",
+  "passed": [
+    "http_p95_below_800ms",
+    "deterministic_private_ranking_golden",
+    "postgres_filter_before_limit",
+    "250000_event_delete_cancel_rollback",
+    "s3_outage_cleanup_resume"
+  ],
+  "incomplete": [
+    "offered_request_error_rate_0.3167_percent",
+    "short_stall_root_cause",
+    "cloudflare_staging_capacity",
+    "real_oauth",
+    "monthly_cost",
+    "production_cutover"
+  ],
+  "isolatedFixtureRemovedAt": "2026-09-08T04:13:37.871460+00:00",
+  "files": {
+    "README.md": "eb64adb7f8dff3262e8e32e453a99ad8de01f2a159559fb62f88f853a3a5b4ae",
+    "delete.json": "8b821ad13f85e763353f5fb9c5c4c38448149290d0e87ecbc31494f4e516cede",
+    "environment.json": "be7c437c0c757c8ee7689143cfcf7669215d3e638c2ad628e512a5ddd4c32cf4",
+    "fixture.json": "76a393439d6bc1f8c675172cc030ae7f53ab82b23a91c8872c5ddaff2b24cda8",
+    "impression-hit-query-plan.json": "e89c7512eb6d81b741f80e73e1a8daec3fab3005517498e7a56ac3a5c82601ba",
+    "load-summary.json": "9c0ec0ed202641ccb5cc04b86211e83ff170200ab5cadd19af5db5952371f13e",
+    "observations.json.gz": "1140dfce62133b9e5378eb75e2890fc7c97178e0c0e3b8b19dcd54f163943e6e",
+    "postgres-load.log": "b3f5735b52e0fdd6edaf9745d58791ed689e97bcb0b7ef8cc759b1b3882b415b",
+    "profile/api-cpu.pprof": "f09cddd1e3aae9acd3bd03d3ab7375f7779eae001fcc3d208bab09dc0d486243",
+    "profile/profile.json": "7007f71f2c36fe417c04b5834fde9beff3d53dd7c9ef6622328a61a8e2fbea55",
+    "profile/top.txt": "013c9bd8da350adb959c4b504ded96482381858f7dfbe14558fa8531dfb0a0f2",
+    "query-plans.json": "a1ac44e03eb888f5e31a1fbb925a01bf8ae1b299fa07e808b5901ef184d4279e"
+  }
+}
