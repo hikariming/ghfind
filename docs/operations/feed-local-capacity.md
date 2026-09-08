@@ -92,3 +92,20 @@ which has only detail-open events. Its plan measured an index miss. The correcte
 `high_user_impression_hit` targets project00001 (25,000 impressions). The original
 trace remains unchanged; the optimized evidence includes a separately measured
 corrected plan on the same regenerated fixture.
+
+For a run investigating short stalls, the load report also records each request's
+nominal arrival, actual start/end offset and in-flight count. Once-per-second
+Go/PG observations include cumulative process CPU and GC pauses, sampled heap,
+connection wait categories, I/O timing and ungranted lock counts. The observer has
+a 700ms deadline and records its own elapsed time and failures. It does not log
+SQL, user IDs or credentials, and does not alter admission or timeout limits.
+These extra observations have overhead; record the instrumentation commit beside
+the frozen business source SHA when comparing runs.
+
+`scripts/observe-feed-capacity.py --out <new-report-directory> --stop-file
+<run-stop-file>` optionally records continuous Docker statistics for only the two
+capacity containers and host `vm_stat` counters with UTC timestamps. It stops at
+the marker or after 720 seconds and terminates its children. Start it immediately
+before load and create the marker when load finishes. Host/VM observations can
+locate a coincident stall; they do not by themselves prove its cause. Do not run
+other local integration/load tests during the measured ten-minute interval.
