@@ -1,0 +1,246 @@
+{
+  "format": "ghfind-feed-linux-capacity-execution-v1",
+  "retrievedAt": "2026-09-08T17:45:27.172402+00:00",
+  "metadataSource": "GitHub REST Actions run/job/artifact endpoints; selected non-secret fields only",
+  "run": {
+    "id": 34257139145,
+    "name": "Feed isolated Linux capacity",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "failure",
+    "head_branch": "main",
+    "head_sha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4",
+    "path": ".github/workflows/feed-capacity.yml",
+    "run_number": 1,
+    "run_attempt": 1,
+    "created_at": "2026-09-08T17:26:47Z",
+    "updated_at": "2026-09-08T17:39:11Z",
+    "run_started_at": "2026-09-08T17:26:47Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34257139145"
+  },
+  "job": {
+    "id": 102165686949,
+    "name": "Synthetic 10 RPS and deletion recovery",
+    "status": "completed",
+    "conclusion": "failure",
+    "head_sha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4",
+    "started_at": "2026-09-08T17:26:51Z",
+    "completed_at": "2026-09-08T17:39:10Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34257139145/job/102165686949",
+    "labels": [
+      "ubuntu-24.04"
+    ],
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-09-08T17:26:52Z",
+        "completed_at": "2026-09-08T17:26:53Z"
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-09-08T17:26:53Z",
+        "completed_at": "2026-09-08T17:26:55Z"
+      },
+      {
+        "name": "Verify exact main source and successful required CI",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-09-08T17:26:55Z",
+        "completed_at": "2026-09-08T17:26:56Z"
+      },
+      {
+        "name": "Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-09-08T17:26:56Z",
+        "completed_at": "2026-09-08T17:27:03Z"
+      },
+      {
+        "name": "Check the capacity evidence gate and build the exact harness",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-09-08T17:27:03Z",
+        "completed_at": "2026-09-08T17:27:38Z"
+      },
+      {
+        "name": "Start only the isolated pinned fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-09-08T17:27:38Z",
+        "completed_at": "2026-09-08T17:27:48Z"
+      },
+      {
+        "name": "Seed 50000 projects, 5000 users and 1000000 events",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-09-08T17:27:48Z",
+        "completed_at": "2026-09-08T17:28:56Z"
+      },
+      {
+        "name": "Offer exactly 6000 requests over at least 600 seconds",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-09-08T17:28:56Z",
+        "completed_at": "2026-09-08T17:39:01Z"
+      },
+      {
+        "name": "Verify bounded cancellation, deletion and archive outage recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-09-08T17:39:01Z",
+        "completed_at": "2026-09-08T17:39:06Z"
+      },
+      {
+        "name": "Enforce complete evidence, latency and offered-request error gates",
+        "status": "completed",
+        "conclusion": "failure",
+        "number": 10,
+        "started_at": "2026-09-08T17:39:06Z",
+        "completed_at": "2026-09-08T17:39:06Z"
+      },
+      {
+        "name": "Preserve bounded synthetic evidence including failed runs",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-09-08T17:39:06Z",
+        "completed_at": "2026-09-08T17:39:07Z"
+      },
+      {
+        "name": "Remove only this job's synthetic fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 12,
+        "started_at": "2026-09-08T17:39:07Z",
+        "completed_at": "2026-09-08T17:39:08Z"
+      },
+      {
+        "name": "Post Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 23,
+        "started_at": "2026-09-08T17:39:08Z",
+        "completed_at": "2026-09-08T17:39:08Z"
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 24,
+        "started_at": "2026-09-08T17:39:08Z",
+        "completed_at": "2026-09-08T17:39:08Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 25,
+        "started_at": "2026-09-08T17:39:08Z",
+        "completed_at": "2026-09-08T17:39:08Z"
+      }
+    ]
+  },
+  "requiredCi": {
+    "id": 34256682390,
+    "name": "CI",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "head_branch": "main",
+    "head_sha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4",
+    "path": ".github/workflows/ci.yml",
+    "run_attempt": 1,
+    "created_at": "2026-09-08T17:22:19Z",
+    "updated_at": "2026-09-08T17:26:00Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34256682390"
+  },
+  "artifact": {
+    "id": 10068804555,
+    "name": "feed-linux-capacity-1bc35c368a5b73a353d3b07234be653ce7cc3ac4-1",
+    "size_in_bytes": 268136,
+    "url": "https://api.github.com/repos/hikariming/ghfind/actions/artifacts/10068804555",
+    "expired": false,
+    "created_at": "2026-09-08T17:39:07Z",
+    "updated_at": "2026-09-08T17:39:07Z",
+    "expires_at": "2026-10-08T17:39:06Z",
+    "digest": "sha256:ab362634156b4524707b598fe6f607211d0b02322c5015c5f7cee43b68e5296d",
+    "workflow_run": {
+      "id": 34257139145,
+      "repository_id": 1281140983,
+      "head_repository_id": 1281140983,
+      "head_branch": "main",
+      "head_sha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4"
+    }
+  },
+  "selectedLogEvidence": [
+    {
+      "step": "Check the capacity evidence gate and build the exact harness",
+      "at": "2026-09-08T17:27:08.9467713Z",
+      "message": "Ran 44 tests in 5.005s"
+    },
+    {
+      "step": "Check the capacity evidence gate and build the exact harness",
+      "at": "2026-09-08T17:27:08.9468066Z",
+      "message": "OK"
+    },
+    {
+      "step": "Enforce complete evidence, latency and offered-request error gates",
+      "at": "2026-09-08T17:39:06.5303760Z",
+      "message": "Feed capacity gate: failed; 2 issue(s). Finite-run engineering gate only; monthly availability is not proven."
+    },
+    {
+      "step": "Enforce complete evidence, latency and offered-request error gates",
+      "at": "2026-09-08T17:39:06.5391450Z",
+      "message": "##[error]Process completed with exit code 1."
+    },
+    {
+      "step": "Preserve bounded synthetic evidence including failed runs",
+      "at": "2026-09-08T17:39:07.4629106Z",
+      "message": "SHA256 digest of uploaded artifact zip is ab362634156b4524707b598fe6f607211d0b02322c5015c5f7cee43b68e5296d"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.0233082Z",
+      "message": "Container ghfind-feed-capacity-minio-1  Stopped"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.0318444Z",
+      "message": "Container ghfind-feed-capacity-minio-1  Removed"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.1937082Z",
+      "message": "Container ghfind-feed-capacity-postgres-1  Stopped"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.1981889Z",
+      "message": "Container ghfind-feed-capacity-postgres-1  Removed"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.3944030Z",
+      "message": "Volume ghfind-feed-capacity_capacity_data  Removed"
+    },
+    {
+      "step": "Remove only this job's synthetic fixture",
+      "at": "2026-09-08T17:39:08.4636486Z",
+      "message": "Network ghfind-feed-capacity_default  Removed"
+    }
+  ],
+  "cleanupEvidenceScope": "Successful exact job cleanup step plus explicit resource removal log lines; no later independent Docker readback is claimed."
+}
