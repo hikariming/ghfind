@@ -222,3 +222,17 @@ audit. Workerd tests use the real core D1 binding to exercise ten failures, repl
 re-claim, publication confirmation, concurrent operators, lost command responses,
 audit-write failure rollback and role boundaries. Queue acceptance is represented
 by the source finish call; no real Cloudflare Queue delivery is claimed here.
+
+## Reader and writer compatibility (schema 7)
+
+Apply `0007_feed_schema_compatibility.sql` with the preceding Feed migrations.
+Readiness validates the explicit contract-1 reader/writer range and required
+tables. A later additive schema version may remain compatible; missing tables or
+an incompatible reader/writer range fail closed. The application deploy workflow
+applies only its approved schema manifest and does not deploy these new schemas.
+
+The typed executor-only archive HTTP capability is
+`POST /internal/feed/archive/v1/{health,put,get}`. Bodies are strict and actor /
+profile generation scoped. JSON payloads are at most 4 MiB (6 MiB encoded wire
+limit); reads verify registered hashes and visibility after R2 access. Refer to
+the shared archive fixture for identical PostgreSQL/S3 and D1/R2 behavior.
