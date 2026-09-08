@@ -83,9 +83,20 @@ before the deletion must receive the current deletion overlay before use. A
 schema 7 or 9 recovery report does not establish this later privacy migration's
 recovery behavior.
 
-The transport contract number and additive SQL compatibility range do not prove
-that an old implementation supports these taxonomy semantics. After governance
-is used, an allowed application rollback must retain the lazy taxonomy fences.
+The HTTP and public contract remain 1. PostgreSQL migration 0022 and D1 migration
+0011 require storage writer contract 2: user proposals no longer share a natural
+key, and the old PostgreSQL projector's conflict target is incompatible. This is
+not an additive writer upgrade. New readiness checks reject the previous writer
+contract and missing privacy dependencies while continuing to allow explicitly
+compatible future schemas. The D1 runtime control value remains 7; it is not a
+count of the migration files.
+
+Before applying this writer transition to any live Feed fact source, the release
+must quiesce writes, fence the old writer epoch, apply and verify the schema, and
+start the matching Go/adapter release before reopening writes. A readiness result
+alone cannot stop an old in-flight writer. The application schema allowlist does
+not apply these Feed migrations automatically. After governance is used, an
+allowed application rollback must retain the lazy taxonomy and deletion fences.
 Stage 5 must register and exercise that compatible implementation SHA window;
 rolling the adapter back to a pre-governance implementation is not an approved
 rollback. No operator command, taxonomy promotion, production activation or
