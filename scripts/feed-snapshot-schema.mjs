@@ -1,5 +1,5 @@
 // Fixed allowlist derived from the actual SQLite schema installed by migrations 0001–0007.
-// Schema 8 and PostgreSQL require explicit registrations, never automatic inference.
+// This schema-7 object is immutable format history: do not alter its fingerprint.
 export const SCHEMA = {
   id: "cf-d1-feed-7",
   profile: "cf_d1_r2",
@@ -1741,3 +1741,111 @@ export const SCHEMA = {
     },
   },
 };
+
+// Explicit migration-set registration. 0008 adds an index; 0009 adds governance
+// facts and a partial unique index. Neither changes the runtime control value.
+// Shared table definitions remain fixed reviewed data, never inferred from SQL.
+export const SCHEMA_9 = {
+  ...SCHEMA,
+  id: "cf-d1-feed-9",
+  schemaVersion: 9,
+  runtimeControlSchemaVersion: 7,
+  migrations: [
+    ...SCHEMA.migrations,
+    {
+      path: "migrations-feed/0008_candidate_recall_indexes.sql",
+      sha256:
+        "9a544d9915f480562a0e87731ab72135b70492618692eeb444fb20c1a2aec6c1",
+    },
+    {
+      path: "migrations-feed/0009_feed_governance_audit.sql",
+      sha256:
+        "4ed9ad89d6b752d70725e70f1004a935cbdbab799f85e0c6d60e15cedb84ac84",
+    },
+  ],
+  tables: {
+    ...SCHEMA.tables,
+    feed_governance_commands: {
+      primaryKey: ["command_id"],
+      columns: {
+        command_id: { kind: "text", nullable: false },
+        action: {
+          kind: "text",
+          nullable: false,
+          values: ["create", "map", "reject", "deprecate"],
+        },
+        writer_epoch: { kind: "integer", nullable: false },
+        expected_taxonomy_version: { kind: "integer", nullable: false },
+        proposal_kind: {
+          kind: "text",
+          nullable: true,
+          values: ["assessment", "user"],
+        },
+        proposal_id: { kind: "text", nullable: true },
+        repo_key: { kind: "text", nullable: true },
+        analysis_id: { kind: "text", nullable: true },
+        evidence_hash: { kind: "text", nullable: true },
+        canonical_tag_id: { kind: "text", nullable: true },
+        assignment_weight: {
+          kind: "number",
+          nullable: true,
+          minimum: 0,
+          maximum: 1,
+        },
+        assignment_confidence: {
+          kind: "number",
+          nullable: true,
+          minimum: 0,
+          maximum: 1,
+        },
+        operator: { kind: "text", nullable: false },
+        reason: { kind: "text", nullable: false },
+        payload_hash: { kind: "text", nullable: false },
+        result_json: { kind: "json_text", nullable: false },
+        taxonomy_version: { kind: "integer", nullable: false },
+        created_at: { kind: "unix_ms", nullable: false },
+      },
+      emptyOnly: false,
+      uniqueKeys: [],
+    },
+    feed_governance_guards: {
+      primaryKey: ["id"],
+      columns: {
+        id: { kind: "text", nullable: false },
+        identity_ok: { kind: "integer", nullable: false, values: [1] },
+        writer_ok: { kind: "integer", nullable: false, values: [1] },
+        taxonomy_ok: { kind: "integer", nullable: false, values: [1] },
+        proposal_ok: { kind: "integer", nullable: false, values: [1] },
+        state_ok: { kind: "integer", nullable: false, values: [1] },
+        evidence_ok: { kind: "integer", nullable: false, values: [1] },
+        tag_ok: { kind: "integer", nullable: false, values: [1] },
+        apply: { kind: "integer", nullable: false, values: [0, 1] },
+      },
+      emptyOnly: true,
+      uniqueKeys: [],
+    },
+    feed_taxonomy_versions: {
+      ...SCHEMA.tables.feed_taxonomy_versions,
+      // Retired rows may share their status. Do not model this as UNIQUE(status).
+      partialUniqueKeys: [{ columns: ["status"], where: "status='active'" }],
+    },
+  },
+};
+
+function freeze(value) {
+  for (const child of Object.values(value))
+    if (child && typeof child === "object" && !Object.isFrozen(child))
+      freeze(child);
+  return Object.freeze(value);
+}
+export const SCHEMAS = freeze({ 7: SCHEMA, 9: SCHEMA_9 });
+export function selectSchema(profile, schemaVersion, contractVersion) {
+  if (
+    profile !== "cf_d1_r2" ||
+    contractVersion !== 1 ||
+    !Number.isInteger(schemaVersion) ||
+    !Object.hasOwn(SCHEMAS, schemaVersion)
+  )
+    throw new Error("unsupported_snapshot_schema");
+  return SCHEMAS[schemaVersion];
+}
