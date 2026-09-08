@@ -1,10 +1,15 @@
-import { sourceEvent, type SourceEvent } from "./queue";
+import {
+  sourceEvent,
+  initialDelivery,
+  type SourceEvent,
+  type DeliveryEnvelope,
+} from "./queue";
 import { checkConfiguration, type RuntimeSettings } from "./router";
 import { readBounded } from "./security";
 
 export interface RelayBindings {
   source(request: Request): Promise<Response>;
-  send(events: SourceEvent[]): Promise<void>;
+  send(events: DeliveryEnvelope[]): Promise<void>;
 }
 interface Lease {
   event: SourceEvent;
@@ -90,7 +95,10 @@ export async function relayOnce(env: RuntimeSettings, bindings: RelayBindings) {
   try {
     // An uncertain timeout deliberately leaves retryable source work. A late
     // queue send can duplicate delivery; the executor's event ID deduplicates it.
-    await deadline(bindings.send(leases.map((lease) => lease.event)), 5000);
+    await deadline(
+      bindings.send(leases.map((lease) => initialDelivery(lease.event))),
+      5000,
+    );
     delivered = true;
   } catch {
     delivered = false;

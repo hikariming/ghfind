@@ -65,7 +65,7 @@ jobs:
           git diff --exit-code -- platform/runtime/worker-configuration.d.ts
           npm run typecheck --prefix platform/runtime
           npm test --prefix platform/runtime
-          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs
+          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs
           npm run build --prefix platform/runtime
           pnpm -C platform/feed typecheck
           pnpm -C platform/feed test
@@ -80,6 +80,7 @@ jobs:
           FEED_BRIDGE_SECRET: ${{ secrets.FEED_BRIDGE_SECRET }}
           FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
           FEED_EXECUTOR_SECRET: ${{ secrets.FEED_EXECUTOR_SECRET }}
+          FEED_DELIVERY_SECRET: ${{ secrets.FEED_DELIVERY_SECRET }}
           FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
           FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
         run: |

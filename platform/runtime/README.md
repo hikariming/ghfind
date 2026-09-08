@@ -24,23 +24,24 @@ generated Worker globals from the Next TypeScript and ESLint file sets.
 | `POST /internal/runtime/{slot}/stop` | Operations bearer, empty body and staging environment only; awaits `SIGTERM` stop. |
 | `feed-bindings.internal` | Container outbound allowlist to the `FEED_ADAPTER` service binding; private POST capability path, bridge bearer and contract header required. |
 | `feed-source.internal` | Executor only; source bearer and exact `health`/`assessment` paths. Source outbox claim/finish are unavailable to Go. |
+| `feed-archive.internal` | Executor only; executor bearer, exact `health`/`put`/`get` capabilities, 6 MiB wire and 4 MiB decoded object limits. |
 | `feed-cleanup.internal` | Executor only; executor bearer and exact `claim`/`step`/`fail`/`release` cleanup commands. Operator status/replay capabilities are unavailable to Go. |
 
 Outbound Internet access is disabled. The adapter owns the versioned D1/R2
 capabilities; it offers no arbitrary SQL or runtime DDL. `FEED_SOURCE_SECRET`,
 `FEED_BRIDGE_SECRET`, `FEED_EXECUTOR_SECRET`, `FEED_GATEWAY_SECRET`,
-`FEED_SIGNING_SECRET` and `FEED_RUNTIME_ADMIN_SECRET` must be independent values
+`FEED_SIGNING_SECRET`, `FEED_RUNTIME_ADMIN_SECRET` and `FEED_DELIVERY_SECRET` must be independent values
 of at least 32 bytes. Never place values in a manifest, evidence file or logs.
 `FEED_OPERATOR_SECRET` is an additional independent adapter-only credential for
 protected manual status/replay operations. It is never uploaded to the runtime
-Worker or injected into a Go Container. Semantic cleanup state remains explicitly
+Worker or injected into a Go Container. Delivery credentials belong only to runtime and adapter; neither the delivery nor runtime operations credential enters Go. Semantic cleanup state remains explicitly
 `disabled` until a later semantic rollout supplies and validates that capability.
 The gateway signature contains GitHub identity, service audience, short validity,
 HTTP method, exact path/query and SHA-256 of the body.
 
 The minute cron claims at most 100 indexed source-outbox records with a 60-second
 lease. It validates reference envelopes and excludes lease token and attempts
-from queue messages. Successful queue publication is followed by conditional
+from queue messages. Each message is `{contractVersion:1,deliveryId,event}`; initial delivery IDs are `source:<sourceVersion>`, and replay IDs are command UUIDs. Go receives only the validated inner event. Successful queue publication is followed by conditional
 source confirmation. Publication failure or uncertainty stays retryable; failed
 confirmation leaves the lease to expire. Confirmation uses bounded parallelism
 and deadlines below the source lease duration. This incremental relay never scans
@@ -52,18 +53,18 @@ does not start a Container. When work is due it calls Go
 `POST /internal/feed/jobs/cleanup` exactly once with `{}` and the executor
 credential. Go owns the 60-second task context, at most eight bounded steps,
 checkpointing and lease release; transport allows 75 seconds. `queued` remains
-unfinished work. Both branches are awaited even when one fails, and failures are
+unfinished work. A third branch checks durable replay delivery work, claims at most 20 leases with a fresh UUID and a 45-second total publication budget inside each 60-second lease, and confirms only successful queue publication. All three branches are awaited even when one fails, and failures are
 logged separately without deletion identifiers. Empty source claims likewise
 produce no queue delivery and do not wake Go. These checks prevent empty cron
 runs from making staging Containers permanently active.
 
-Queue configuration uses batch size one, concurrency one, five retries and an
-explicit DLQ. Executor calls have a 75-second transport deadline for the Go task's
+Main queue configuration uses batch size one, concurrency one, five retries and an
+explicit DLQ. Its consumer separately persists the terminal generation in D1 before acknowledgement; an old generation can be recorded without marking a new replay failed. DLQ persistence errors retry five times then move to a separate terminal-parking queue, with no automatic consumer and verified paid 14-day retention. Parking has finite retention; alert delivery and an assigned responder must be exercised before production. Do not treat queue retention as a substitute for reconstructible source outbox and delivery state. Executor calls have a 75-second transport deadline for the Go task's
 60-second budget. Only a matching event ID with persisted `completed` or
 `duplicate` outcome is acknowledged; `accepted`, bad JSON, errors and timeouts
 retry. Go storage must persist task deduplication, leases and projection before
 returning success. Invalid messages exhaust finite retries into DLQ. Source retry
-exhaustion, DLQ alerts/replay and durable task recovery require the next-stage
+exhaustion, real DLQ/parking alerts and durable task recovery require the next-stage
 operational checks; an error log alone is not configured alert delivery.
 
 ## Reproducible local checks
@@ -76,7 +77,7 @@ npm run types --prefix platform/runtime
 npm run typecheck --prefix platform/runtime
 npm test --prefix platform/runtime
 npm run build --prefix platform/runtime
-node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs
+node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs scripts/feed-operator.test.mjs
 node scripts/feed-platform-manifest.mjs
 node scripts/feed-platform-cost.mjs
 ```
@@ -90,7 +91,7 @@ they do not claim real D1, Container lifecycle or OAuth E2E evidence.
 ## Isolated staging release
 
 The integration owner provisions separate core D1, Feed D1, R2 archive, main
-queue and DLQ using the exact names emitted by the dry-run plan. An environment
+queue, DLQ and terminal-parking queue using the exact names emitted by the dry-run plan. An environment
 manifest records the resulting IDs, reviewed isolation evidence, paid billing
 qualification, a monthly estimate at or below USD 80 and completed durable
 executor implementation. `staging.manifest.example.json` intentionally fails
@@ -98,7 +99,7 @@ these gates. Known production/shared-development D1 IDs, equal database IDs,
 unknown fields, mutable image tags and credential-bearing evidence URLs reject.
 
 Use the protected GitHub environment **Feed staging**, dedicated
-`CF_FEED_STAGING_API_TOKEN`, six named runtime secrets plus the adapter-only `FEED_OPERATOR_SECRET`, and environment variables
+`CF_FEED_STAGING_API_TOKEN`, seven named runtime secrets plus the adapter-only `FEED_OPERATOR_SECRET`, and environment variables
 `FEED_STAGING_MANIFEST` (nonsecret JSON) and `FEED_STAGING_RUNTIME_URL` (the exact
 staging `workers.dev` origin). The token must support the isolated Workers,
 Containers/registry, D1 migrations, R2 metadata and queue operations needed by the
@@ -134,7 +135,7 @@ job leaves evidence and does not silently promote or roll back a database.
 ## Provisioning receipt and bounded recovery
 
 `scripts/feed-platform-provision.mjs` defaults to an offline five-resource plan
-with a SHA-256 plan hash. `--inspect` reads only those fixed staging names. An
+with its original SHA-256 plan hash. Terminal parking is a supplemental separately reviewed creation/readback receipt; it does not change that five-resource plan or invalidate an existing receipt. Deployment requires `terminalParkingQueue` in the manifest and independently checks 14-day retention and absence of a consumer. `--inspect` reads only those fixed staging names. An
 operator can execute the reviewed plan with:
 
 ```sh
@@ -175,7 +176,7 @@ explicitly accept that private host. Using the ordinary bridge endpoint for
 cleanup would fail the host/path/credential boundary. Coordinate those Go changes
 with the runtime change before deployment.
 
-The adapter must declare bridge, source, executor and operator secrets; staging
+The adapter must declare bridge, source, executor, operator and delivery secrets; staging
 secrets are divided between Worker roles. Its cleanup `pending` capability and
 cleanup schema must be deployed before the runtime cron. The isolated core
 migrations are needed for source readiness, and the Feed migrations for job,
@@ -209,7 +210,9 @@ cannot cap the bill. Semantic calls are not activated here.
 Official references checked 2026-09-08:
 [bindings through outbound handlers](https://developers.cloudflare.com/containers/configuration/workers-connections/),
 [nontransactional deployment and running-version checks](https://developers.cloudflare.com/containers/guides/deploy/),
-[Container instance prices and separately billed services](https://developers.cloudflare.com/containers/platform/pricing/).
+[Container instance prices and separately billed services](https://developers.cloudflare.com/containers/platform/pricing/),
+[DLQ retry exhaustion](https://developers.cloudflare.com/queues/configuration/dead-letter-queues/),
+[finite queue retention and limits](https://developers.cloudflare.com/queues/platform/limits/).
 
 Handoff records must include the reviewed source SHA, runtime/adapter/image and
 contract versions, schema versions, resource manifest, Actions run and evidence

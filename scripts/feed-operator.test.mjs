@@ -246,3 +246,43 @@ test("command UUID is stable across reruns and distinct across jobs and invalid 
   ])
     assert.throws(() => validateCommand(command));
 });
+
+test("core source replay omits Feed epoch and reports source delivery separately from Feed completion", async () => {
+  const f = scenario();
+  f.options.command = { ...f.options.command, kind: "coreSource", id: "42" };
+  const base = f.options.fetcher;
+  let status = 0;
+  f.options.fetcher = async (url, init) => {
+    if (url.endsWith("/status")) {
+      status++;
+      return Response.json({
+        job: {
+          id: "42",
+          sourceKind: "coreSource",
+          sequence: 42,
+          status: status === 1 ? "failed" : "delivered",
+          attempts: 10,
+          replayCount: 1,
+          replayedAt: 100,
+        },
+      });
+    }
+    if (url.endsWith("/replay")) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.writerEpoch, undefined);
+      assert.equal(body.kind, "coreSource");
+      assert.equal(body.id, "42");
+    }
+    return base(url, init);
+  };
+  const result = await executeOperator(f.options);
+  assert.equal(result.commandState, "accepted");
+  assert.equal(result.executionState, "source_delivered");
+  assert.equal(result.after.job.sequence, 42);
+  assert.equal(result.after.job.sourceKind, "coreSource");
+  for (const id of ["0", "01", "1e2", "-1", "9007199254740992"])
+    assert.throws(
+      () => validateCommand({ ...f.options.command, id }),
+      /invalid_/,
+    );
+});

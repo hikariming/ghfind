@@ -7,7 +7,7 @@ import {
   type RuntimeSettings,
   type Target,
 } from "../src/router";
-import { deliver, sourceEvent } from "../src/queue";
+import { deliver, sourceEvent, initialDelivery } from "../src/queue";
 import { relayOnce } from "../src/relay";
 import { cleanupOnce, runScheduled } from "../src/scheduled";
 import { deletionCleanup } from "../src/outbound";
@@ -16,6 +16,9 @@ import { readBounded, HTTPError } from "../src/security";
 
 const env: RuntimeSettings = {
   FEED_ENVIRONMENT: "staging",
+  FEED_DELIVERY_SECRET: "d".repeat(32),
+  FEED_QUEUE_NAME: "ghfind-feed-staging-jobs",
+  FEED_DLQ_NAME: "ghfind-feed-staging-dlq",
   FEED_SOURCE_RELAY_ENABLED: "true",
   FEED_SOURCE_SECRET: "o".repeat(32),
   FEED_RELEASE_SHA: "a".repeat(40),
@@ -231,7 +234,12 @@ test("stops are staging-only and arbitrary instance identifiers cannot expand ca
     (
       await handleRequest(
         admin("/internal/runtime/api-0/stop", "POST"),
-        { ...env, FEED_ENVIRONMENT: "production" },
+        {
+          ...env,
+          FEED_ENVIRONMENT: "production",
+          FEED_QUEUE_NAME: "ghfind-feed-production-jobs",
+          FEED_DLQ_NAME: "ghfind-feed-production-dlq",
+        },
         d,
       )
     ).status,
@@ -262,7 +270,7 @@ test("queue completion requires durable outcome for the exact event", async () =
   ]) {
     await assert.rejects(
       deliver(
-        event,
+        initialDelivery(sourceEvent(event)),
         env,
         dispatch({ fetch: async () => Response.json(result) }),
       ),
@@ -270,7 +278,7 @@ test("queue completion requires durable outcome for the exact event", async () =
   }
   for (const status of ["completed", "duplicate"]) {
     await deliver(
-      event,
+      initialDelivery(sourceEvent(event)),
       env,
       dispatch({
         fetch: async (target, request) => {
@@ -318,7 +326,7 @@ test("source relay sends bounded reference envelopes before marking delivery", a
       return Response.json({ updated: true });
     },
     send: async (events) => {
-      assert.deepEqual(events, [event]);
+      assert.deepEqual(events, [initialDelivery(sourceEvent(event))]);
       queued = true;
     },
   });
@@ -726,4 +734,51 @@ test("operator replay rejects arbitrary fields and stale epochs before an adapte
         .status,
       400,
     );
+});
+
+test("core source operator command uses a strict positive sequence and never acquires a Feed epoch", async () => {
+  let forwards = 0;
+  const bindings = {
+    ...env,
+    FEED_ADAPTER: {
+      fetch: async (request: Request) => {
+        forwards++;
+        const body = (await request.json()) as Record<string, unknown>;
+        assert.equal(body.writerEpoch, undefined);
+        assert.equal(body.kind, "coreSource");
+        return Response.json({ ok: true });
+      },
+    },
+  };
+  const body = {
+    kind: "coreSource",
+    id: "42",
+    commandId: "12345678-1234-4234-8234-123456789012",
+    operator: "octocat",
+    reason: "Core source failure resolved",
+  };
+  const call = (value: unknown) =>
+    handleAdminRequest(
+      new Request("https://runtime/internal/runtime/feed-admin/v1/replay", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${env.FEED_RUNTIME_ADMIN_SECRET}`,
+          "x-feed-operator": "x".repeat(32),
+          "x-feed-contract": "1",
+          "x-feed-target": "staging",
+          "x-feed-release": env.FEED_RELEASE_SHA,
+          "x-feed-writer-epoch": "1",
+        },
+        body: JSON.stringify(value),
+      }),
+      bindings,
+    );
+  assert.equal((await call(body)).status, 200);
+  for (const bad of [
+    { ...body, id: "01" },
+    { ...body, id: "9007199254740992" },
+    { ...body, writerEpoch: 1 },
+  ])
+    assert.equal((await call(bad)).status, 400);
+  assert.equal(forwards, 1);
 });

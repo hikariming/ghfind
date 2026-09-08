@@ -43,7 +43,7 @@ export function validateCommand(command) {
   ensure(command.target === "staging", "production_operator_not_enrolled");
   ensure(
     ["status", "replay"].includes(command.action) &&
-      ["sourceEvent", "deletion"].includes(command.kind),
+      ["sourceEvent", "deletion", "coreSource"].includes(command.kind),
     "invalid_operation",
   );
   const keys = [
@@ -63,6 +63,12 @@ export function validateCommand(command) {
       /^[A-Za-z0-9_.:-]{1,160}$/.test(command.id),
     "invalid_target_id",
   );
+  if (command.kind === "coreSource")
+    ensure(
+      /^[1-9][0-9]{0,15}$/.test(command.id) &&
+        Number.isSafeInteger(Number(command.id)),
+      "invalid_source_sequence",
+    );
   if (command.action === "replay") {
     ensure(
       typeof command.commandId === "string" && uuid.test(command.commandId),
@@ -97,7 +103,7 @@ function capabilityBody(command, action) {
     id: command.id,
     ...(action === "replay"
       ? {
-          writerEpoch: 1,
+          ...(command.kind === "coreSource" ? {} : { writerEpoch: 1 }),
           commandId: command.commandId,
           operator: command.operator,
           reason: command.reason,
@@ -153,6 +159,10 @@ export function statusEvidence(data, id) {
     id: "string",
     status: "string",
     phase: "string",
+    sourceKind: "string",
+    sequence: "number",
+    replayCount: "number",
+    replayedAt: "number",
     attempts: "number",
     failures: "number",
     claims: "number",
@@ -398,7 +408,12 @@ export async function executeOperator({
     ensure(after.ok, "operator_status_unavailable");
     evidence.after = statusEvidence(after.body, command.id);
     evidence.executionState =
-      evidence.after.job?.status === "completed" ? "completed" : "incomplete";
+      command.kind === "coreSource" &&
+      evidence.after.job?.status === "delivered"
+        ? "source_delivered"
+        : evidence.after.job?.status === "completed"
+          ? "completed"
+          : "incomplete";
   } catch {
     evidence.executionState = "unknown";
   }

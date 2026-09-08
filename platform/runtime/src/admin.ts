@@ -47,21 +47,35 @@ export async function handleAdminRequest(
     const fields =
       match[1] === "status"
         ? ["kind", "id"]
-        : ["kind", "id", "writerEpoch", "commandId", "operator", "reason"];
+        : [
+            "kind",
+            "id",
+            ...(body?.kind === "coreSource" ? [] : ["writerEpoch"]),
+            "commandId",
+            "operator",
+            "reason",
+          ];
     if (
       !body ||
       typeof body !== "object" ||
       Array.isArray(body) ||
       Object.keys(body).length !== fields.length ||
       Object.keys(body).some((key) => !fields.includes(key)) ||
-      !["sourceEvent", "deletion"].includes(String(body.kind)) ||
+      !["sourceEvent", "deletion", "coreSource"].includes(String(body.kind)) ||
       typeof body.id !== "string" ||
       !/^[A-Za-z0-9_.:-]{1,160}$/.test(body.id)
     )
       throw new HTTPError(400, "invalid_body");
     if (
+      body.kind === "coreSource" &&
+      (!/^[1-9][0-9]{0,15}$/.test(String(body.id)) ||
+        !Number.isSafeInteger(Number(body.id)))
+    )
+      throw new HTTPError(400, "invalid_body");
+    if (
       match[1] === "replay" &&
-      (body.writerEpoch !== Number(env.FEED_WRITER_EPOCH) ||
+      ((body.kind !== "coreSource" &&
+        body.writerEpoch !== Number(env.FEED_WRITER_EPOCH)) ||
         typeof body.commandId !== "string" ||
         !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(
           body.commandId,

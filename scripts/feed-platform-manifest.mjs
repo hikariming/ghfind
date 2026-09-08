@@ -19,6 +19,7 @@ const names = {
   archiveBucket: "ghfind-feed-staging-archive",
   queue: "ghfind-feed-staging-jobs",
   deadLetterQueue: "ghfind-feed-staging-dlq",
+  terminalParkingQueue: "ghfind-feed-staging-terminal-parking",
 };
 export const secretNames = [
   "FEED_GATEWAY_SECRET",
@@ -27,12 +28,14 @@ export const secretNames = [
   "FEED_RUNTIME_ADMIN_SECRET",
   "FEED_EXECUTOR_SECRET",
   "FEED_SOURCE_SECRET",
+  "FEED_DELIVERY_SECRET",
 ];
 export const adapterSecretNames = [
   "FEED_BRIDGE_SECRET",
   "FEED_SOURCE_SECRET",
   "FEED_EXECUTOR_SECRET",
   "FEED_OPERATOR_SECRET",
+  "FEED_DELIVERY_SECRET",
 ];
 export const allSecretNames = [
   ...new Set([...secretNames, ...adapterSecretNames]),
@@ -97,6 +100,7 @@ export function validateManifest(m) {
       "archiveBucket",
       "queue",
       "deadLetterQueue",
+      "terminalParkingQueue",
       "billing",
       "isolation",
       "executorImplemented",
@@ -123,6 +127,7 @@ export function validateManifest(m) {
     "archiveBucket",
     "queue",
     "deadLetterQueue",
+    "terminalParkingQueue",
   ])
     requireThat(m[key] === names[key], `unexpected ${key}`);
   for (const key of ["coreDatabase", "feedDatabase"]) {
@@ -186,6 +191,8 @@ export function renderRuntime(m, image, sha) {
     FEED_IMAGE_REFERENCE: image,
     FEED_EXECUTOR_ENABLED: "true",
     FEED_SOURCE_RELAY_ENABLED: "true",
+    FEED_QUEUE_NAME: m.queue,
+    FEED_DLQ_NAME: m.deadLetterQueue,
   };
   config.services = [{ binding: "FEED_ADAPTER", service: m.adapterWorker }];
   config.containers = config.containers.map((c) => ({
@@ -204,6 +211,14 @@ export function renderRuntime(m, image, sha) {
         max_retries: 5,
         max_concurrency: 1,
         dead_letter_queue: m.deadLetterQueue,
+      },
+      {
+        queue: m.deadLetterQueue,
+        max_batch_size: 1,
+        max_batch_timeout: 5,
+        max_retries: 5,
+        max_concurrency: 1,
+        dead_letter_queue: m.terminalParkingQueue,
       },
     ],
   };
@@ -226,6 +241,13 @@ export function resourcePlan() {
       ["wrangler", "queues", "create", names.deadLetterQueue],
       ["wrangler", "queues", "create", names.queue],
     ],
+    supplementalResource: {
+      name: names.terminalParkingQueue,
+      messageRetentionSeconds: 1209600,
+      automaticConsumer: false,
+      evidence:
+        "Separate serial creation/readback receipt; original five-resource provision hash remains unchanged",
+    },
     requiredGitHubEnvironment: "Feed staging",
     cloudflareActionsSecret: "CF_FEED_STAGING_API_TOKEN",
   };
@@ -239,7 +261,7 @@ export function renderAdapter(m) {
     adapterSecretNames.every((name) =>
       config.secrets?.required?.includes(name),
     ),
-    "source, bridge and cleanup adapter secret contracts must be implemented",
+    "source, bridge, cleanup and delivery adapter secret contracts must be implemented",
   );
   config.name = m.adapterWorker;
   config.account_id = ACCOUNT;
