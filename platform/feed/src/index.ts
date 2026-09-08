@@ -1,5 +1,6 @@
 import { BridgeError, schemas, type Input, type Operation } from "./contract";
 import { FeedCommands } from "./commands";
+import { handleSource } from "./source";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
@@ -125,14 +126,31 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const headers = { "Cache-Control": "no-store", "X-Feed-Contract": "1" };
     try {
-      if (!(await authorized(request, env.FEED_BRIDGE_SECRET)))
+      const url = new URL(request.url);
+      const source = url.pathname.startsWith("/internal/feed/source/v1/");
+      if (
+        !(await authorized(
+          request,
+          source ? env.FEED_SOURCE_SECRET : env.FEED_BRIDGE_SECRET,
+        ))
+      )
         throw new BridgeError(401, "unauthorized");
       if (request.method !== "POST")
         throw new BridgeError(405, "method_not_allowed");
       if (request.headers.get("x-feed-contract") !== "1")
         throw new BridgeError(409, "contract_version_changed");
-      const url = new URL(request.url),
-        operation = url.pathname.replace(/^\/internal\/feed\/v1\//, "");
+      if (source) {
+        if (url.search) throw new BridgeError(404, "operation_not_found");
+        return Response.json(
+          await handleSource(
+            url.pathname.slice("/internal/feed/source/v1/".length),
+            await body(request, "source"),
+            env.CORE_DB,
+          ),
+          { headers },
+        );
+      }
+      const operation = url.pathname.replace(/^\/internal\/feed\/v1\//, "");
       if (
         url.search ||
         !url.pathname.startsWith("/internal/feed/v1/") ||
