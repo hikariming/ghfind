@@ -166,7 +166,7 @@ func (s *CFFeedStore) AvailableFeedRepoKeys(ctx context.Context, id int64, keys 
 	if len(keys) > 240 {
 		return nil, errors.New("too many keys")
 	}
-	err := s.call(ctx, "projects.available", FeedBridgeAvailableRequest{id, keys}, &out)
+	err := s.call(ctx, "projects.available", FeedBridgeAvailableRequest{GitHubID: id, RepoKeys: keys}, &out)
 	return out.Available, err
 }
 func (s *CFFeedStore) SaveFeedRequest(ctx context.Context, r FeedRequestRecord) error {

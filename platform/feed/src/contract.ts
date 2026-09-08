@@ -39,7 +39,14 @@ const tag = z.strictObject({
   confidence: unit.optional(),
   taxonomyVersion: integer.positive(),
 });
+const projectIdentity = z.strictObject({
+  repoKey: repo,
+  analysisId: id,
+  sourceHash: z.string().min(1).max(256),
+});
 const project = z.strictObject({
+  analysisId: id.optional(),
+  sourceHash: z.string().min(1).max(256).optional(),
   repoKey: repo,
   itemId: id,
   ownerLogin: id,
@@ -194,6 +201,7 @@ export const schemas = {
   "projects.available": z.strictObject({
     ...actor,
     repoKeys: z.array(repo).max(240),
+    identities: z.array(projectIdentity).max(240).optional(),
   }),
   "requests.save": z.strictObject({
     ...fence,

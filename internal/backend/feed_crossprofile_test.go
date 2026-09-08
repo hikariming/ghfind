@@ -177,7 +177,7 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 	page := func(path string) feedProjectsResponse {
 		var out feedProjectsResponse
 		body := call(4242, "GET", path, nil, 200)
-		for _, field := range []string{"score", "features", "propensity", "embedding", "candidateSources"} {
+		for _, field := range []string{"analysisId", "sourceHash", "score", "features", "propensity", "embedding", "candidateSources"} {
 			if bytes.Contains(body, []byte(`"`+field+`"`)) {
 				t.Fatalf("public private-field leak: %s", field)
 			}
@@ -245,4 +245,5 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 	}
 	call(4243, "GET", "/api/feed/profile/deletions/"+deleted.DeletionID, nil, 404)
 	call(4242, "PUT", statePath, map[string]any{"saved": true, "impressionToken": item.ImpressionToken}, 400)
+	runPortableSessionIdentityContract(t, ctx, store)
 }

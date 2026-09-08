@@ -21,6 +21,9 @@ func TestPortableServedWindowStableAfterImpressions(t *testing.T) {
 		owner := fmt.Sprintf("owner%d", i%15)
 		candidates = append(candidates, feedCandidate(fmt.Sprintf("%s/repo%d", owner, i), owner, float64(100-i), 90, "low", now))
 	}
+	for i := range candidates {
+		candidates[i].Project.AnalysisID, candidates[i].Project.SourceHash = "fixture-analysis", "fixture-hash"
+	}
 	snapshot := FeedSession{ID: "stable", GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1, AlgorithmVersion: FeedPortableAlgorithmVersion, PageSize: 3, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL), Items: RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 65, Seed: "rolling", OwnerCap: 2, ExplorationRate: .1, ExplorationWindowSize: 20})}
 	if err := sessions.PutFeedSession(context.Background(), snapshot, FeedSessionTTL); err != nil {
 		t.Fatal(err)

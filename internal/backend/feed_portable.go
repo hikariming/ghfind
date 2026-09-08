@@ -25,6 +25,9 @@ func NewStandaloneFeedHandler(mode FeedMode, signingSecret string, store FeedSer
 	if (mode != FeedModeOff && mode != FeedModeBaseline) || store == nil || sessions == nil || authenticate == nil {
 		return nil, errors.New("standalone Feed requires explicit store, sessions, authentication and baseline/off mode")
 	}
+	if _, ok := store.(FeedSnapshotCatalogStore); !ok {
+		return nil, errors.New("standalone Feed requires snapshot identity validation")
+	}
 	signer, err := NewFeedSigner(signingSecret)
 	if err != nil {
 		return nil, err

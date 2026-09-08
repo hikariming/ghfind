@@ -109,8 +109,8 @@ export class FeedCommands extends FeedStore {
         payload:
           "CASE WHEN NOT EXISTS(SELECT 1 FROM feed_runtime_requests WHERE id=? AND (payload_hash<>? OR github_id<>?)) THEN 1 ELSE 0 END",
         payloadValues: [input.id, input.payloadHash, id],
-        relation: `CASE WHEN (SELECT COUNT(*) FROM feed_projects p WHERE ${this.eligible()} AND p.repo_key IN(SELECT json_extract(value,'$.project.repoKey') FROM json_each(?)))=? THEN 1 ELSE 0 END`,
-        relationValues: [id, id, items, input.items.length],
+        relation: `CASE WHEN (SELECT COUNT(*) FROM json_each(?) expected CROSS JOIN feed_projects p ON p.repo_key=json_extract(expected.value,'$.project.repoKey') WHERE ${this.eligible()} AND json_extract(expected.value,'$.project.analysisId')=p.analysis_id AND json_extract(expected.value,'$.project.sourceHash')=p.source_hash)=? THEN 1 ELSE 0 END`,
+        relationValues: [items, id, id, input.items.length],
       }),
       this.sql(
         `INSERT INTO feed_runtime_requests(id,github_id,profile_version,taxonomy_version,algorithm_version,payload_hash,seed,candidate_counts_json,degraded_json,duration_ms,created_at)

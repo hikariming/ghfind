@@ -399,3 +399,132 @@ describe("user tag proposal contract", () => {
     ).toBe(400);
   });
 });
+
+it("fences a served request against projection identity after an availability read", async () => {
+  const actor = await success<Record<string, unknown>>("users.ensure", {
+    writerEpoch: 1,
+    expectedProfileVersion: 0,
+    githubId: 9811,
+    login: "identity-fixture",
+    avatarUrl: "",
+  });
+  const user = actor.user as { profileVersion: number };
+  await claim(event(1));
+  expect((await apply(event(1))).status).toBe(200);
+  const before = await success<{
+    candidates: { project: Record<string, unknown> }[];
+  }>("candidates.load", { githubId: 9811, limit: 240 });
+  const old = before.candidates[0].project;
+  const available = {
+    githubId: 9811,
+    repoKeys: [old.repoKey],
+    identities: [
+      {
+        repoKey: old.repoKey,
+        analysisId: old.analysisId,
+        sourceHash: old.sourceHash,
+      },
+    ],
+  };
+  expect(await success("projects.available", available)).toEqual({
+    available: { [String(old.repoKey)]: true },
+  });
+  const bounded = Array.from({ length: 240 }, (_, i) =>
+    i === 0
+      ? available.identities[0]
+      : {
+          repoKey: `missing-${i}/repo`,
+          analysisId: "missing",
+          sourceHash: "missing",
+        },
+  );
+  expect(
+    await success("projects.available", {
+      githubId: 9811,
+      repoKeys: bounded.map((p) => p.repoKey),
+      identities: bounded,
+    }),
+  ).toEqual({ available: { [String(old.repoKey)]: true } });
+  await claim(event(2));
+  expect(
+    (
+      await apply(event(2), {
+        ...projection(2),
+        projectType: "sdk-library",
+        sourceHash: "e".repeat(64),
+      })
+    ).status,
+  ).toBe(200);
+  expect(await success("projects.available", available)).toEqual({
+    available: {},
+  });
+  const item = {
+    project: old,
+    candidateSources: ["latest"],
+    reasonCodes: ["recent_project"],
+    score: 0.7,
+    rank: 1,
+    exploration: false,
+    propensity: 1,
+    features: {
+      productScore: 0.8,
+      confidence: 0.9,
+      freshness: 1,
+      discoveryBoost: 1,
+      mmrScore: 0.7,
+    },
+  };
+  const input = {
+    writerEpoch: 1,
+    expectedProfileVersion: user.profileVersion,
+    payloadHash: "a".repeat(64),
+    id: "identity-race-test",
+    user,
+    seed: "fixture",
+    candidateCounts: { latest: 1 },
+    degraded: [],
+    durationMs: 1,
+    items: [item],
+  };
+  expect((await call("requests.save", input)).status).toBe(404);
+  const counts = await env.FEED_DB.prepare(
+    "SELECT (SELECT COUNT(*) FROM feed_runtime_requests WHERE id=?) + (SELECT COUNT(*) FROM feed_served_items WHERE request_id=?) AS n",
+  )
+    .bind(input.id, input.id)
+    .first<{ n: number }>();
+  expect(counts?.n).toBe(0);
+  const after = await success<{
+    candidates: { project: Record<string, unknown> }[];
+  }>("candidates.load", { githubId: 9811, limit: 240 });
+  expect(after.candidates[0].project).toMatchObject({
+    analysisId: "analysis-2",
+    sourceHash: "e".repeat(64),
+    summary: "Summary 2",
+    publishable: true,
+    projectType: "sdk-library",
+  });
+  // Missing identity is still accepted by the session decoder for explicit
+  // Go 410 compatibility, but is never allowed to persist served records.
+  const {
+    analysisId: _analysis,
+    sourceHash: _hash,
+    ...legacyProject
+  } = after.candidates[0].project;
+  expect(
+    (
+      await call("requests.save", {
+        ...input,
+        id: "identity-legacy-test",
+        items: [{ ...item, project: legacyProject }],
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await call("projects.available", {
+        ...available,
+        identities: [...available.identities, ...available.identities],
+      })
+    ).status,
+  ).toBe(400);
+});
