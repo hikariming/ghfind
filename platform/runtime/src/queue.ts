@@ -63,6 +63,42 @@ export function sourceEvent(value: unknown): SourceEvent {
   };
 }
 
+export interface DeliveryEnvelope {
+  contractVersion: 1;
+  deliveryId: string;
+  event: SourceEvent;
+}
+export function deliveryEnvelope(value: unknown): DeliveryEnvelope {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("invalid_delivery");
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).length !== 3 ||
+    Object.keys(v).some(
+      (key) => !["contractVersion", "deliveryId", "event"].includes(key),
+    ) ||
+    v.contractVersion !== 1 ||
+    typeof v.deliveryId !== "string"
+  )
+    throw new Error("invalid_delivery");
+  const event = sourceEvent(v.event);
+  if (
+    v.deliveryId !== `source:${event.sourceVersion}` &&
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(
+      v.deliveryId,
+    )
+  )
+    throw new Error("invalid_delivery_id");
+  return { contractVersion: 1, deliveryId: v.deliveryId, event };
+}
+export function initialDelivery(event: SourceEvent): DeliveryEnvelope {
+  return deliveryEnvelope({
+    contractVersion: 1,
+    deliveryId: `source:${event.sourceVersion}`,
+    event,
+  });
+}
+
 // A transport acknowledgement follows the executor's durable commit. Retry
 // deadlines and terminal failure records belong to its persistent job store.
 export async function deliver(
@@ -73,7 +109,7 @@ export async function deliver(
   checkConfiguration(env);
   if (env.FEED_EXECUTOR_ENABLED !== "true")
     throw new Error("executor_not_enabled");
-  const event = sourceEvent(value);
+  const { event } = deliveryEnvelope(value);
   const response = await dispatch.fetch(
     "executor-0",
     new Request("http://feed-container/internal/feed/jobs/execute", {

@@ -23,6 +23,9 @@ export type RuntimeSettings = Pick<
   | "FEED_EXECUTOR_ENABLED"
   | "FEED_SOURCE_RELAY_ENABLED"
   | "FEED_SOURCE_SECRET"
+  | "FEED_DELIVERY_SECRET"
+  | "FEED_QUEUE_NAME"
+  | "FEED_DLQ_NAME"
   | "FEED_GATEWAY_SECRET"
   | "FEED_SIGNING_SECRET"
   | "FEED_BRIDGE_SECRET"
@@ -39,9 +42,12 @@ export function checkConfiguration(env: RuntimeSettings): void {
     env.FEED_RUNTIME_ADMIN_SECRET,
     env.FEED_EXECUTOR_SECRET,
     env.FEED_SOURCE_SECRET,
+    env.FEED_DELIVERY_SECRET,
   ];
   if (
     !["staging", "production"].includes(env.FEED_ENVIRONMENT) ||
+    env.FEED_QUEUE_NAME !== `ghfind-feed-${env.FEED_ENVIRONMENT}-jobs` ||
+    env.FEED_DLQ_NAME !== `ghfind-feed-${env.FEED_ENVIRONMENT}-dlq` ||
     !/^[a-f0-9]{40}$/.test(env.FEED_RELEASE_SHA) ||
     !/^registry\.cloudflare\.com\/8f19bebe359e4ec1a24c68c5f49c1584\/ghfind-feed@sha256:[a-f0-9]{64}$/.test(
       env.FEED_IMAGE_REFERENCE,

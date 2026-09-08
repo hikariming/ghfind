@@ -1,3 +1,4 @@
+import { replayDeliveriesOnce } from "./delivery";
 import { relayOnce, type RelayBindings } from "./relay";
 import {
   checkConfiguration,
@@ -97,8 +98,12 @@ export async function runScheduled(
   dispatch: Dispatch,
   log: (entry: Record<string, unknown>, failed: boolean) => void,
 ): Promise<void> {
-  const operations = ["feed_source_relay", "feed_cleanup"] as const;
-  // Both branches start and settle independently: outbox/queue failure cannot
+  const operations = [
+    "feed_source_relay",
+    "feed_cleanup",
+    "feed_replay_delivery",
+  ] as const;
+  // All branches start and settle independently: outbox/queue failure cannot
   // starve deletion, and cleanup failure cannot prevent source publication.
   const results = await Promise.allSettled([
     (async () => {
@@ -108,6 +113,12 @@ export async function runScheduled(
       return summary;
     })(),
     cleanupOnce(env, bindings.source, dispatch),
+    (async () => {
+      const summary = await replayDeliveriesOnce(env, bindings);
+      if (summary.retried > 0 || summary.leaseConflicts > 0)
+        throw new Error("feed_replay_delivery_incomplete");
+      return summary;
+    })(),
   ]);
   const failed: string[] = [];
   results.forEach((result, index) => {

@@ -15,10 +15,10 @@ on:
       kind:
         description: Durable task type
         type: choice
-        options: [sourceEvent, deletion]
+        options: [sourceEvent, deletion, coreSource]
         required: true
       id:
-        description: Exact event ID or deletion ID; no wildcard or batch
+        description: Exact event/deletion ID or core outbox sequence; no wildcard or batch
         type: string
         required: true
       reason:

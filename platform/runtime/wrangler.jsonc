@@ -26,7 +26,9 @@
     "FEED_MODE": "off",
     "FEED_WRITER_EPOCH": "1",
     "FEED_EXECUTOR_ENABLED": "false",
-    "FEED_SOURCE_RELAY_ENABLED": "false"
+    "FEED_SOURCE_RELAY_ENABLED": "false",
+    "FEED_QUEUE_NAME": "unconfigured",
+    "FEED_DLQ_NAME": "unconfigured"
   },
   "secrets": {
     "required": [
@@ -35,7 +37,8 @@
       "FEED_BRIDGE_SECRET",
       "FEED_RUNTIME_ADMIN_SECRET",
       "FEED_EXECUTOR_SECRET",
-      "FEED_SOURCE_SECRET"
+      "FEED_SOURCE_SECRET",
+      "FEED_DELIVERY_SECRET"
     ]
   },
   "services": [

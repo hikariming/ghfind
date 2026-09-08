@@ -23,7 +23,7 @@ The precise proxy is `POST /internal/runtime/feed-admin/v1/{status,replay}`. It 
 
 ## One command and a verifiable outcome
 
-1. Run the workflow with action `status`, task kind `sourceEvent` or `deletion`, and one exact event/deletion ID. No wildcard or batch is supported. Inspect the artifact before requesting a replay.
+1. Run the workflow with action `status`, task kind `sourceEvent`, `deletion` or `coreSource`, and one exact event/deletion ID, or a positive decimal core outbox sequence. No wildcard or batch is supported. Inspect the artifact before requesting a replay.
 2. Correct the identified dependency or configuration failure through the normal release process. Replay does not bypass writer fencing, deletion state or source validation.
 3. Run `replay` for the same ID with an 8–500 character reason and an authorized reviewer. The workflow records `github.actor`. The command UUID is stable for a workflow run, including reruns; retain it in the incident record.
 4. Inspect `commandState` and `executionState` separately. `accepted` means the adapter accepted the durable command. Only a subsequent `job.status=completed` proves completion. The client performs one status read before, at most one replay POST, and one status read after; it does not poll until success.
@@ -33,11 +33,13 @@ A replay invocation makes at most seven requests: three metadata reads, one runt
 
 Source-event status includes `job`, current `delivery` and latest `terminalEvidence`. The delivery generation distinguishes a new replay from delayed messages from an older attempt. A terminal record with `isCurrent=false` is historical evidence and must not be interpreted as failure of the new generation. `published` proves queue publication was confirmed, not successful execution. A deletion is complete only when all necessary primary, archive and semantic cleanup phases are complete.
 
-The source core outbox is a different lifecycle. An assessment whose event never reached the Feed execution registry may return `job:null`; this interface cannot manufacture its payload or replay a failed source claim. Preserve the assessment/outbox ID and use the bounded source recovery procedure once that procedure is delivered. Do not use catalog reconciliation as an unbounded substitute.
+The source core outbox is a different lifecycle. An assessment whose event never reached the Feed execution registry may return `job:null` for `sourceEvent`; this does not mean its core transaction failed. Use `coreSource` with the exact positive decimal outbox sequence. Only a durable core `failed` record accepts a new command; pending, leased, delivered and unknown records reject. This strict command omits the Feed writer epoch and commits only against CORE_DB, while retaining the same dual operator authorization and runtime target checks. Status returns `sourceKind:coreSource`, `sequence`, source status/attempts/lease metadata and replay count/time. `source_delivered` proves only that the source queue accepted the event; check the Feed event separately for projection completion. No raw envelope is accepted or returned; do not use catalog reconciliation as an unbounded substitute.
 
 ## Failure and DLQ observation
 
-Record these signals for a recovery drill: source outbox age, execution pending/lease age, replay-delivery status, deletion phase/failures, queue backlog and oldest message age, and DLQ ingress plus persisted terminal evidence. Correlate by event/deletion ID and delivery generation. Use exact-ID `status` for the operator-facing evidence; use the Cloudflare Queues dashboard/API for queue metrics. Never dump queue message bodies into Actions logs.
+A DLQ consumer first persists terminal evidence in the adapter and then acknowledges. Its own five failed retries move the original wrapper to `ghfind-feed-staging-terminal-parking`, which has no automatic consumer. Deployment preflight must read back the paid 14-day retention (`1209600` seconds). This is a finite recovery window, not durable storage without expiry: assign a responder and recover within 14 days; the source outbox and Feed delivery records remain the reconstruction facts. Queue replay from parking is not a public RPC or an unrestricted operator payload upload. Cloudflare documents [deletion after retry exhaustion without a DLQ](https://developers.cloudflare.com/queues/configuration/dead-letter-queues/) and [finite configurable retention up to 14 days](https://developers.cloudflare.com/queues/platform/limits/).
+
+Record these signals for a recovery drill: source outbox age, execution pending/lease age, replay-delivery status, deletion phase/failures, queue backlog and oldest message age, and DLQ and parking ingress plus persisted terminal evidence. Correlate by event/deletion ID and delivery generation. Use exact-ID `status` for the operator-facing evidence; use the Cloudflare Queues dashboard/API for queue metrics. Never dump queue message bodies into Actions logs.
 
 For incident discovery before an ID is known, an administrator may use the reviewed read-only D1 diagnostics below against the **manifest-verified isolated Feed database**, with a row limit and a bound `now` in Unix milliseconds. These are administrative queries, never a runtime SQL endpoint. Confirm their query plan uses the status/lease indexes before running them against a larger target.
 
@@ -53,7 +55,7 @@ FROM feed_execution_jobs WHERE status='leased' AND lease_until<=:now
 ORDER BY lease_until LIMIT 20;
 ```
 
-Structured runtime failures and failed GitHub jobs are observable records. They are **not proof that an alert was delivered**. Before production acceptance, the release owner must record an assigned on-call owner, destination, thresholds for any DLQ ingress / stuck deletion / projection age over 60 seconds, deduplication and escalation rules, then inject a bounded staging failure and retain the actual notification receipt and acknowledgement. No alert destination or notification delivery is configured or claimed by this change.
+Structured runtime failures and failed GitHub jobs are observable records. They are **not proof that an alert was delivered**. Before production acceptance, the release owner must record an assigned on-call owner, destination, thresholds for any DLQ or parking ingress / stuck deletion / projection age over 60 seconds, deduplication and escalation rules, then inject a bounded staging failure and retain the actual notification receipt and acknowledgement. No alert destination or notification delivery is configured or claimed by this change.
 
 ## Handoff and remaining gates
 
