@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getScoreBrief, getWeeklyBaselines, resolveWeeklyDelta } from "@/lib/db";
 import { buildBadge, type BadgeLang } from "@/lib/badge";
 import { USERNAME_RE } from "@/lib/username";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET(
   const lang: BadgeLang =
     req.nextUrl.searchParams.get("lang") === "zh" ? "zh" : "en";
 
-  const name = decodeURIComponent(username ?? "").trim();
+  const name = decodeRouteParam(username ?? "").trim();
   if (!USERNAME_RE.test(name)) {
     return svg(buildBadge({ score: null, tier: null, lang }), UNRATED_CACHE);
   }

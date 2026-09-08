@@ -10,6 +10,7 @@ import {
 } from "@/lib/comments";
 import { getCollection } from "@/lib/collections";
 import { createCollectionComment, getCollectionComments } from "@/lib/db";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
 
 function collectionSlugFromParam(value: string | undefined): string | null {
   try {
-    const slug = normalizeBlogSlug(decodeURIComponent(value ?? ""));
+    const slug = normalizeBlogSlug(decodeRouteParam(value ?? ""));
     return slug && getCollection(slug) ? slug : null;
   } catch {
     return null;
