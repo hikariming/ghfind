@@ -161,6 +161,32 @@ describe("core source binding capabilities", () => {
       .run();
     expect((await call("assessment", event)).status).toBe(409);
   });
+  it("keeps older work recoverable when the newer stored artifact fails its actual hash", async () => {
+    const first = await seed(),
+      next = await seed("analysis-2");
+    const original = await env.CORE_DB.prepare(
+      "SELECT analysis_json FROM project_analysis_runs WHERE id=?",
+    )
+      .bind(next.analysisId)
+      .first<string>("analysis_json");
+    await env.CORE_DB.prepare(
+      "UPDATE project_analysis_runs SET analysis_json='{}' WHERE id=?",
+    )
+      .bind(next.analysisId)
+      .run();
+    expect((await call("assessment", next)).status).toBe(409);
+    const response = await call("assessment", first);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "source_facts_invalid" });
+    await env.CORE_DB.prepare(
+      "UPDATE project_analysis_runs SET analysis_json=? WHERE id=?",
+    )
+      .bind(original, next.analysisId)
+      .run();
+    expect(await (await call("assessment", first)).json()).toMatchObject({
+      status: "superseded",
+    });
+  });
   it("persists bounded leases and rejects stale acknowledgements after a relay restart", async () => {
     const event = await seed();
     const claims = await call("claim", { limit: 1, leaseToken: "first" });

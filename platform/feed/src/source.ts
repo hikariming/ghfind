@@ -75,6 +75,8 @@ async function assessment(db: D1Database, event: SourceEvent): Promise<object> {
     resolved_commit_sha: string;
     analyzed_at: number;
     newer_sequence: number | null;
+    newer_analysis_json: string | null;
+    newer_analysis_sha256: string | null;
   };
   const row = await db
     .prepare(
@@ -82,6 +84,8 @@ async function assessment(db: D1Database, event: SourceEvent): Promise<object> {
     r.status AS run_status, r.repo_key AS run_repo, r.analysis_json, r.analysis_sha256,
     a.latest_analysis_id, a.product_score, a.confidence, a.treasure_eligible,
     a.classic_eligible, a.resolved_commit_sha, a.analyzed_at,
+    CASE WHEN a.latest_analysis_id<>o.analysis_id THEN latest_run.analysis_json END AS newer_analysis_json,
+    latest_run.analysis_sha256 AS newer_analysis_sha256,
     (SELECT max(n.sequence) FROM feed_source_outbox n
       JOIN project_analysis_runs nr ON nr.id=n.analysis_id AND nr.status='completed'
         AND nr.analysis_sha256=n.source_hash AND nr.repo_key=n.aggregate_key
@@ -92,6 +96,7 @@ async function assessment(db: D1Database, event: SourceEvent): Promise<object> {
     JOIN feed_submission_receipts s ON s.id=o.receipt_id AND s.analysis_id=o.analysis_id
     JOIN project_analysis_runs r ON r.id=o.analysis_id
     JOIN project_assessments a ON a.repo_key=o.aggregate_key
+    LEFT JOIN project_analysis_runs latest_run ON latest_run.id=a.latest_analysis_id
     WHERE o.sequence=?`,
     )
     .bind(event.sourceVersion)
@@ -114,6 +119,17 @@ async function assessment(db: D1Database, event: SourceEvent): Promise<object> {
   if (row.latest_analysis_id !== event.analysisId) {
     if (!row.newer_sequence)
       throw new BridgeError(409, "source_version_unavailable");
+    // Stored hash columns alone cannot prove the replacement is recoverable.
+    // Validate bytes selected in the same D1 read as its completed run/receipt
+    // identity before telling the executor it may permanently complete old work.
+    if (
+      !row.newer_analysis_json ||
+      new TextEncoder().encode(row.newer_analysis_json).byteLength >
+        1024 * 1024 ||
+      (await hash(row.newer_analysis_json)) !== row.newer_analysis_sha256
+    ) {
+      throw new BridgeError(409, "source_facts_invalid");
+    }
     return { ...result, status: "superseded" };
   }
   return {
