@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA, SCHEMA_9, selectSchema } from "./feed-snapshot-schema.mjs";
 import {
   canonical,
   digest,
@@ -13,11 +13,13 @@ import {
   buildSnapshot,
   validateSnapshot,
   validateMetadata,
+  SCHEMA_SHA256,
+  schemaFingerprint,
 } from "./feed-snapshot.mjs";
 const now = 1788825600000;
-function seed(table) {
+function seed(table, schema = SCHEMA) {
   const row = {};
-  for (const [column, spec] of Object.entries(SCHEMA.tables[table].columns)) {
+  for (const [column, spec] of Object.entries(schema.tables[table].columns)) {
     row[column] = spec.nullable
       ? null
       : spec.values
@@ -48,15 +50,15 @@ function seed(table) {
     Object.assign(row, { saved: 0, not_interested: 0 });
   return row;
 }
-function fixture() {
-  const rows = Object.entries(SCHEMA.tables)
+function fixture(schema = SCHEMA) {
+  const rows = Object.entries(schema.tables)
     .filter(([, s]) => !s.emptyOnly)
-    .map(([table]) => ({ table, row: seed(table) }));
+    .map(([table]) => ({ table, row: seed(table, schema) }));
   const metadata = {
     snapshotId: "12345678-1234-4234-8234-123456789012",
     source: {
       profile: "cf_d1_r2",
-      schemaVersion: 7,
+      schemaVersion: schema.schemaVersion,
       contractVersion: 1,
       writerEpoch: 5,
       gitSHA: "a".repeat(40),
@@ -71,13 +73,18 @@ function fixture() {
   return { rows, metadata };
 }
 function prepare(f) {
-  for (const name of Object.keys(SCHEMA.tables)) f.metadata.inventory[name] = 0;
+  const schema = selectSchema(
+    f.metadata.source.profile,
+    f.metadata.source.schemaVersion,
+    f.metadata.source.contractVersion,
+  );
+  for (const name of Object.keys(schema.tables)) f.metadata.inventory[name] = 0;
   for (const record of f.rows) f.metadata.inventory[record.table]++;
   f.rows.sort((a, b) =>
     a.table === b.table
       ? compareKeys(
-          SCHEMA.tables[a.table].primaryKey.map((k) => a.row[k]),
-          SCHEMA.tables[b.table].primaryKey.map((k) => b.row[k]),
+          schema.tables[a.table].primaryKey.map((k) => a.row[k]),
+          schema.tables[b.table].primaryKey.map((k) => b.row[k]),
         )
       : a.table < b.table
         ? -1
@@ -107,55 +114,238 @@ async function rewriteManifest(output, mutate) {
   await writeFile(path, canonical(value) + "\n");
 }
 
-test("fixed registry reflects actual migrated SQLite columns, nullability, PK and unique constraints", () => {
-  const root = process.env.FEED_SNAPSHOT_SCHEMA_ROOT || process.cwd();
-  const source = SCHEMA.migrations.map((m) => ({
-    path: join(root, m.path),
-    sha256: m.sha256,
-  }));
-  const script = `import json,sys,sqlite3,hashlib\ndata=json.load(sys.stdin);db=sqlite3.connect(':memory:')\nfor item in data:\n b=open(item['path'],'rb').read();assert hashlib.sha256(b).hexdigest()==item['sha256'];db.executescript(b.decode())\nresult={}\nfor name, in db.execute("select name from sqlite_master where type='table' and name like 'feed_%' order by name"):\n columns=list(db.execute('pragma table_info('+name+')'));unique=[[r[2] for r in db.execute('pragma index_info('+idx[1]+')')] for idx in db.execute('pragma index_list('+name+')') if idx[2] and idx[3]!='pk'];result[name]={'columns':columns,'uniqueKeys':unique}\nprint(json.dumps(result))`;
-  const actual = JSON.parse(
-    execFileSync("python3", ["-c", script], {
-      input: JSON.stringify(source),
-      encoding: "utf8",
-    }),
+test("schema 7 fingerprints remain byte compatible and only explicitly registered versions select", () => {
+  assert.equal(
+    SCHEMA_SHA256,
+    "20a7df78a1d0cbf746460c39b4506dbe8f31c8a8352d310d5b23a678c74e2301",
   );
-  assert.deepEqual(Object.keys(actual), Object.keys(SCHEMA.tables));
-  for (const [table, definition] of Object.entries(SCHEMA.tables)) {
-    const columns = actual[table].columns;
-    assert.deepEqual(
-      columns.map((c) => c[1]),
-      Object.keys(definition.columns),
-      table,
+  const row = { id: 1, schema_version: 7, writer_epoch: 5, writes_enabled: 1 };
+  assert.equal(
+    rowRecord("feed_runtime_control", row).sha256,
+    "59a856ad9a9a3cef1e025ce0cbc47c167a44b8f70a8d8e089c51ade7ec75b6b9",
+  );
+  assert.notEqual(
+    rowRecord("feed_runtime_control", row, 9).sha256,
+    rowRecord("feed_runtime_control", row, 7).sha256,
+  );
+  assert.notEqual(schemaFingerprint(9), SCHEMA_SHA256);
+  for (const version of [8, 10, "9", null, "__proto__"])
+    assert.throws(
+      () => selectSchema("cf_d1_r2", version, 1),
+      /unsupported_snapshot_schema/,
     );
-    assert.deepEqual(
-      columns
-        .filter((c) => c[5])
-        .sort((a, b) => a[5] - b[5])
-        .map((c) => c[1]),
-      definition.primaryKey,
-      table,
-    );
-    assert.deepEqual(actual[table].uniqueKeys, definition.uniqueKeys, table);
-    for (const c of columns) {
-      assert.equal(
-        definition.columns[c[1]].nullable,
-        !(c[3] || c[5]),
-        `${table}.${c[1]}`,
-      );
-      assert.equal(
-        definition.columns[c[1]].kind === "unix_ms"
-          ? "INTEGER"
-          : definition.columns[c[1]].kind === "json_text"
-            ? "TEXT"
-            : { text: "TEXT", integer: "INTEGER", number: "REAL" }[
-                definition.columns[c[1]].kind
-              ],
-        c[2].toUpperCase(),
-      );
-    }
-  }
+  assert.throws(
+    () => selectSchema("postgres", 19, 1),
+    /unsupported_snapshot_schema/,
+  );
+  assert.throws(
+    () => selectSchema("cf_d1_r2", 9, 2),
+    /unsupported_snapshot_schema/,
+  );
+  assert.throws(
+    () =>
+      rowRecord(
+        "feed_governance_commands",
+        seed("feed_governance_commands", SCHEMA_9),
+        7,
+      ),
+    /unknown_snapshot_table/,
+  );
 });
+
+test("schema 9 round trip includes governance facts and multiple retired taxonomies with runtime control 7", async () =>
+  local(async (directory) => {
+    const f = fixture(SCHEMA_9);
+    for (const version of [2, 3])
+      f.rows.push({
+        table: "feed_taxonomy_versions",
+        row: { ...seed("feed_taxonomy_versions"), version, status: "retired" },
+      });
+    const first = await build(directory, prepare(f));
+    const manifest = JSON.parse(
+      await readFile(join(first.output, "manifest.json"), "utf8"),
+    );
+    assert.equal(manifest.schemaId, "cf-d1-feed-9");
+    assert.equal(manifest.schemaSha256, schemaFingerprint(9));
+    assert.equal(manifest.metadata.source.schemaVersion, 9);
+    assert.equal(
+      (
+        await validateSnapshot({
+          directory: first.output,
+          expectedManifestSha256: first.report.manifestSha256,
+        })
+      ).tables,
+      45,
+    );
+    const records = (await readFile(join(first.output, "rows.ndjson"), "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map(JSON.parse);
+    assert.equal(
+      records.find((v) => v.table === "feed_runtime_control").row
+        .schema_version,
+      7,
+    );
+    assert.equal(
+      records.filter((v) => v.table === "feed_governance_commands").length,
+      1,
+    );
+    const second = await build(
+      directory,
+      {
+        metadata: f.metadata,
+        rows: records.map(({ table, row }) => ({ table, row })),
+      },
+      "restored9",
+    );
+    assert.equal(second.report.dataSha256, first.report.dataSha256);
+    assert.equal(second.report.manifestSha256, first.report.manifestSha256);
+
+    await rewriteManifest(first.output, (value) => {
+      value.schemaId = SCHEMA.id;
+      value.schemaSha256 = SCHEMA_SHA256;
+    });
+    await assert.rejects(
+      validateSnapshot({ directory: first.output }),
+      /unsupported_snapshot_schema/,
+    );
+    await rewriteManifest(first.output, (value) => {
+      value.schemaId = manifest.schemaId;
+      value.schemaSha256 = manifest.schemaSha256;
+    });
+    const record = records.find((v) => v.table === "feed_runtime_control");
+    record.sha256 = rowRecord(record.table, record.row, 7).sha256;
+    await writeFile(
+      join(first.output, "rows.ndjson"),
+      records.map(canonical).join("\n") + "\n",
+    );
+    await assert.rejects(
+      validateSnapshot({ directory: first.output }),
+      /row_hash_mismatch/,
+    );
+  }));
+
+test("schema 9 rejects missing governance inventory, nonempty guards, changed control and invalid audit columns", async () =>
+  local(async (directory) => {
+    const missing = prepare(fixture(SCHEMA_9));
+    delete missing.metadata.inventory.feed_governance_commands;
+    assert.throws(
+      () => validateMetadata(missing.metadata),
+      /missing_or_unknown_inventory_table/,
+    );
+    const guard = prepare(fixture(SCHEMA_9));
+    guard.metadata.inventory.feed_governance_guards = 1;
+    assert.throws(
+      () => validateMetadata(guard.metadata),
+      /nonempty_transaction_guard/,
+    );
+    for (const changes of [
+      { action: "auto-approve" },
+      { proposal_kind: "owner-admin" },
+      { operator: null },
+      { writer_epoch: 1.5 },
+      { assignment_weight: -0.1 },
+      { assignment_confidence: 1.1 },
+      { result_json: "{" },
+      { created_at: 1788825600 },
+      { arbitrary_payload: "forbidden" },
+    ])
+      assert.throws(() =>
+        rowRecord(
+          "feed_governance_commands",
+          { ...seed("feed_governance_commands", SCHEMA_9), ...changes },
+          9,
+        ),
+      );
+    const control = fixture(SCHEMA_9);
+    control.rows.find(
+      (v) => v.table === "feed_runtime_control",
+    ).row.schema_version = 9;
+    await assert.rejects(
+      build(directory, prepare(control), "incorrect-control"),
+      /control_metadata_mismatch/,
+    );
+    const active = fixture(SCHEMA_9);
+    active.rows.push({
+      table: "feed_taxonomy_versions",
+      row: { ...seed("feed_taxonomy_versions"), version: 2, status: "active" },
+    });
+    await assert.rejects(
+      build(directory, prepare(active), "multiple-active"),
+      /missing_active_taxonomy/,
+    );
+  }));
+
+for (const schema of [SCHEMA, SCHEMA_9])
+  test(`fixed schema ${schema.schemaVersion} registry matches migrated SQLite columns, PKs and full/partial unique constraints`, () => {
+    const root = process.env.FEED_SNAPSHOT_SCHEMA_ROOT || process.cwd();
+    const source = schema.migrations.map((m) => ({
+      path: join(root, m.path),
+      sha256: m.sha256,
+    }));
+    const script = `import json,sys,sqlite3,hashlib,re
+config=json.load(sys.stdin);db=sqlite3.connect(':memory:')
+for item in config:
+ b=open(item['path'],'rb').read();assert hashlib.sha256(b).hexdigest()==item['sha256'];db.executescript(b.decode())
+result={}
+for name, in db.execute("select name from sqlite_master where type='table' and name like 'feed_%' order by name"):
+ columns=list(db.execute('pragma table_info('+name+')'));unique=[];partial=[]
+ for idx in db.execute('pragma index_list('+name+')'):
+  if not idx[2] or idx[3]=='pk': continue
+  keys=[r[2] for r in db.execute('pragma index_info('+idx[1]+')')]
+  if idx[4]:
+   sql=db.execute("select sql from sqlite_master where type='index' and name=?",(idx[1],)).fetchone()[0]
+   partial.append({'columns':keys,'where':re.search(r'\\bWHERE\\s+(.+?)\\s*$',sql,re.I).group(1)})
+  else: unique.append(keys)
+ result[name]={'columns':columns,'uniqueKeys':unique,'partialUniqueKeys':partial}
+print(json.dumps(result))`;
+    const actual = JSON.parse(
+      execFileSync("python3", ["-c", script], {
+        input: JSON.stringify(source),
+        encoding: "utf8",
+      }),
+    );
+    assert.deepEqual(Object.keys(actual), Object.keys(schema.tables).sort());
+    for (const [table, definition] of Object.entries(schema.tables)) {
+      const columns = actual[table].columns;
+      assert.deepEqual(
+        columns.map((c) => c[1]),
+        Object.keys(definition.columns),
+        table,
+      );
+      assert.deepEqual(
+        columns
+          .filter((c) => c[5])
+          .sort((a, b) => a[5] - b[5])
+          .map((c) => c[1]),
+        definition.primaryKey,
+        table,
+      );
+      assert.deepEqual(actual[table].uniqueKeys, definition.uniqueKeys, table);
+      assert.deepEqual(
+        actual[table].partialUniqueKeys,
+        definition.partialUniqueKeys ?? [],
+        table,
+      );
+      for (const c of columns) {
+        assert.equal(
+          definition.columns[c[1]].nullable,
+          !(c[3] || c[5]),
+          `${table}.${c[1]}`,
+        );
+        assert.equal(
+          definition.columns[c[1]].kind === "unix_ms"
+            ? "INTEGER"
+            : definition.columns[c[1]].kind === "json_text"
+              ? "TEXT"
+              : { text: "TEXT", integer: "INTEGER", number: "REAL" }[
+                  definition.columns[c[1]].kind
+                ],
+          c[2].toUpperCase(),
+        );
+      }
+    }
+  });
 test("synthetic all-table round trip preserves every row, composite key, hash and deletion/control fact", async () =>
   local(async (directory) => {
     const first = await build(directory);

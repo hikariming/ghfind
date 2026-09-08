@@ -5,7 +5,7 @@ import { createReadStream } from "node:fs";
 import { lstat, readFile, mkdir, open, rename } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA, SCHEMAS, selectSchema } from "./feed-snapshot-schema.mjs";
 
 export const FORMAT = "feed-relational-snapshot-v1";
 export const LIMITS = Object.freeze({
@@ -18,7 +18,6 @@ export const LIMITS = Object.freeze({
 });
 const timestampMinimum = 946684800000; // Admission range is explicit: 2000-01-01 through 9999-12-31 UTC.
 const timestampMaximum = 253402300799999;
-const names = Object.keys(SCHEMA.tables).sort();
 const shaPattern = /^[a-f0-9]{64}$/;
 const uuidPattern =
   /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -69,7 +68,17 @@ export function canonical(value) {
 export function digest(value) {
   return createHash("sha256").update(value).digest("hex");
 }
-export const SCHEMA_SHA256 = digest(canonical(SCHEMA));
+export const SCHEMA_SHA256 = digest(canonical(SCHEMA)); // Stable schema-7 fingerprint.
+export function schemaFingerprint(schemaVersion) {
+  return digest(canonical(selectSchema("cf_d1_r2", schemaVersion, 1)));
+}
+function metadataSchema(meta) {
+  return selectSchema(
+    meta.source.profile,
+    meta.source.schemaVersion,
+    meta.source.contractVersion,
+  );
+}
 const safety = Object.freeze({
   archiveObjectPayloadsIncluded: false,
   sourceCompletenessProven: false,
@@ -111,12 +120,8 @@ export function validateMetadata(meta) {
     ],
     "invalid_source_fields",
   );
-  need(
-    meta.source.profile === SCHEMA.profile &&
-      meta.source.schemaVersion === SCHEMA.schemaVersion &&
-      meta.source.contractVersion === SCHEMA.contractVersion,
-    "unsupported_snapshot_schema",
-  );
+  const schema = metadataSchema(meta),
+    names = Object.keys(schema.tables).sort();
   need(
     safeInteger(meta.source.writerEpoch) && meta.source.writerEpoch > 0,
     "invalid_writer_epoch",
@@ -151,7 +156,7 @@ export function validateMetadata(meta) {
     const rows = meta.inventory[name];
     need(safeInteger(rows) && rows >= 0, "invalid_inventory_count");
     total += rows;
-    if (SCHEMA.tables[name].emptyOnly)
+    if (schema.tables[name].emptyOnly)
       need(rows === 0, "nonempty_transaction_guard");
   }
   need(total <= LIMITS.rows, "snapshot_row_limit");
@@ -163,9 +168,9 @@ export function validateMetadata(meta) {
     need(meta.inventory[name] === 1, "missing_control_record");
   return meta;
 }
-function rowFor(table, row) {
-  const definition = SCHEMA.tables[table];
-  need(Object.hasOwn(SCHEMA.tables, table), "unknown_snapshot_table");
+function rowFor(table, row, schema) {
+  const definition = schema.tables[table];
+  need(Object.hasOwn(schema.tables, table), "unknown_snapshot_table");
   need(!definition.emptyOnly, "nonempty_transaction_guard");
   exact(
     row,
@@ -265,9 +270,10 @@ export function compareKeys(a, b) {
   }
   return 0;
 }
-export function rowRecord(table, row) {
-  const key = rowFor(table, row);
-  const sha256 = digest(canonical({ schema: SCHEMA.id, table, key, row }));
+export function rowRecord(table, row, schemaVersion = 7) {
+  const schema = selectSchema("cf_d1_r2", schemaVersion, 1);
+  const key = rowFor(table, row, schema);
+  const sha256 = digest(canonical({ schema: schema.id, table, key, row }));
   return { table, key, row, sha256 };
 }
 async function regular(path, limit) {
@@ -355,13 +361,15 @@ async function* lines(path, hash) {
   need(size === 0, "truncated_ndjson");
 }
 function checker(meta) {
+  const schema = metadataSchema(meta),
+    names = Object.keys(schema.tables).sort();
   const tables = Object.fromEntries(
     names.map((table) => [
       table,
       {
         table,
-        primaryKey: SCHEMA.tables[table].primaryKey,
-        columns: Object.keys(SCHEMA.tables[table].columns),
+        primaryKey: schema.tables[table].primaryKey,
+        columns: Object.keys(schema.tables[table].columns),
         rows: 0,
         hash: createHash("sha256"),
       },
@@ -385,14 +393,14 @@ function checker(meta) {
   }
   function accept(record, encoded) {
     exact(record, ["table", "key", "row", "sha256"], "invalid_record_fields");
-    const expected = rowRecord(record.table, record.row);
+    const expected = rowRecord(record.table, record.row, schema.schemaVersion);
     need(
       canonical(record.key) === canonical(expected.key),
       "primary_key_mismatch",
     );
     need(record.sha256 === expected.sha256, "row_hash_mismatch");
     const table = record.table,
-      definition = SCHEMA.tables[table],
+      definition = schema.tables[table],
       state = tables[table],
       row = record.row;
     if (table === previousTable)
@@ -425,7 +433,8 @@ function checker(meta) {
     if (table === "feed_runtime_control") {
       need(
         row.id === 1 &&
-          row.schema_version === SCHEMA.schemaVersion &&
+          row.schema_version ===
+            (schema.runtimeControlSchemaVersion ?? schema.schemaVersion) &&
           row.writer_epoch === meta.source.writerEpoch,
         "control_metadata_mismatch",
       );
@@ -484,10 +493,11 @@ function checker(meta) {
   return { accept, finish };
 }
 function manifest(meta, result, data) {
+  const schema = metadataSchema(meta);
   return {
     format: FORMAT,
-    schemaId: SCHEMA.id,
-    schemaSha256: SCHEMA_SHA256,
+    schemaId: schema.id,
+    schemaSha256: schemaFingerprint(schema.schemaVersion),
     metadata: meta,
     safety,
     data,
@@ -508,13 +518,15 @@ function checkManifest(value) {
     ],
     "invalid_manifest_fields",
   );
+  validateMetadata(value.metadata);
+  const schema = metadataSchema(value.metadata),
+    names = Object.keys(schema.tables).sort();
   need(
     value.format === FORMAT &&
-      value.schemaId === SCHEMA.id &&
-      value.schemaSha256 === SCHEMA_SHA256,
+      value.schemaId === schema.id &&
+      value.schemaSha256 === schemaFingerprint(schema.schemaVersion),
     "unsupported_snapshot_schema",
   );
-  validateMetadata(value.metadata);
   need(canonical(value.safety) === canonical(safety), "invalid_safety_claim");
   exact(
     value.data,
@@ -546,9 +558,9 @@ function checkManifest(value) {
     need(
       table.table === name &&
         canonical(table.primaryKey) ===
-          canonical(SCHEMA.tables[name].primaryKey) &&
+          canonical(schema.tables[name].primaryKey) &&
         canonical(table.columns) ===
-          canonical(Object.keys(SCHEMA.tables[name].columns)) &&
+          canonical(Object.keys(schema.tables[name].columns)) &&
         table.rows === value.metadata.inventory[name] &&
         shaPattern.test(table.sha256),
       "invalid_table_descriptor",
@@ -567,7 +579,11 @@ export async function buildSnapshot({ metadata, input, output }) {
   try {
     for await (const { value } of lines(input)) {
       exact(value, ["table", "row"], "invalid_input_record");
-      const record = rowRecord(value.table, value.row),
+      const record = rowRecord(
+          value.table,
+          value.row,
+          metadata.source.schemaVersion,
+        ),
         encoded = canonical(record) + "\n";
       const buffer = Buffer.from(encoded);
       need(buffer.length - 1 <= LIMITS.lineBytes, "snapshot_line_limit");
@@ -656,12 +672,22 @@ export async function validateSnapshot({ directory, expectedManifestSha256 }) {
   };
 }
 async function main(args) {
-  if (args.length === 0 || (args.length === 1 && args[0] === "schema")) {
+  if (args.length === 0 || (args[0] === "schema" && args.length <= 2)) {
+    need(
+      args.length < 2 || ["7", "9"].includes(args[1]),
+      "unsupported_snapshot_schema",
+    );
+    const schema = selectSchema(
+      "cf_d1_r2",
+      args.length === 2 ? Number(args[1]) : 9,
+      1,
+    );
     console.log(
       canonical({
         format: FORMAT,
-        schema: SCHEMA,
-        schemaSha256: SCHEMA_SHA256,
+        schema,
+        schemaSha256: schemaFingerprint(schema.schemaVersion),
+        supportedSchemaVersions: Object.keys(SCHEMAS).map(Number),
         limits: LIMITS,
         safety,
       }),
