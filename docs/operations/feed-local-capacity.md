@@ -86,3 +86,9 @@ sequential requests over at most90seconds and writes `api-cpu.pprof`; inspect wi
 `go tool pprof -top -cum /tmp/ghfind-feed-capacity /tmp/feed-capacity-report/api-cpu.pprof`.
 This is a diagnostic sample, not another ten-minute acceptance run. Keep the
 binary used for the profile until it has been inspected.
+
+The original baseline query named `high_user_impression` targeted project00000,
+which has only detail-open events. Its plan measured an index miss. The corrected
+`high_user_impression_hit` targets project00001 (25,000 impressions). The original
+trace remains unchanged; the optimized evidence includes a separately measured
+corrected plan on the same regenerated fixture.

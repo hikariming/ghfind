@@ -1,0 +1,48 @@
+{
+  "sourceSHA": "8ec38e7b8d39465d5205b30affbc12914a807a14",
+  "worktreeCleanAtLoad": true,
+  "executedBinarySHA256": "f4637f06510a8f576dd8cd6fdd0c0e59e9dbdf8837c2d8e3a8b5666907a810e7",
+  "goVersion": "go version go1.26.1 darwin/arm64",
+  "sourceFiles": {
+    "cmd/feed-capacity/main.go": "797ab865594fbc0882ae93e77606568544a879d3529f4b3dbddc64d824ca2e25",
+    "cmd/feed-capacity/seed.sql": "14ad3f1aad6573b618a6546569dc965daf114c25f1c3bf62431037a596e07678",
+    "cmd/feed-capacity/plans.go": "21e22662a516ec668b2396517685751510b27c8d4ac235cc62dbefd4de56e887",
+    "cmd/feed-capacity/deletion.go": "d060e466ddb54757ecdfeec45810a21fd4750f1a71bf01cf0c5e23b24580efe5",
+    "cmd/feed-capacity/profile.go": "2f142522cc65f8443abdc872df962d33efcda88295ad12ced2fbb0b1fe7dab80",
+    "ops/feed-capacity-compose.yaml": "9640340bb3142a3d6097beeca6c931b1156e139f343fc669134d816e405007b3",
+    "internal/backend/feed_candidates_pg.go": "36819a75abc3c950e53591333ba22aec1269c04d0b5128a6d8be3af7a397b52e",
+    "internal/backend/feed_rank.go": "7699e85dc38f7b8aa499d86154ef6dec58ffa0e924525116c5db8fbbcdfcdba0",
+    "internal/feedmigration/migrations/0019_feed_schema_compatibility.sql": "085aad985460e282ff6c3bec1a2c16eaffa6dd97eff27181b226957cfded3aa1",
+    "internal/feedmigration/migrations/0020_feed_candidate_recall_indexes.sql": "006f70d58e34943edcc7f10904d81e1823907beebac0cf72f2970008466dd49c"
+  },
+  "postgres": {
+    "imageId": "sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+    "configuredImage": "pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+    "nanoCPUs": 2000000000,
+    "memoryBytes": 2147483648,
+    "sharedMemoryBytes": 268435456,
+    "portBindings": {
+      "5432/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "55441"
+        }
+      ]
+    }
+  },
+  "minio": {
+    "imageId": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+    "configuredImage": "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+    "nanoCPUs": 500000000,
+    "memoryBytes": 536870912,
+    "sharedMemoryBytes": 67108864,
+    "portBindings": {
+      "9000/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "59002"
+        }
+      ]
+    }
+  }
+}

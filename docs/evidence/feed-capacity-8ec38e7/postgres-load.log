@@ -1,0 +1,4 @@
+2026-09-08 04:02:13.040 UTC [61] LOG:  checkpoint complete: wrote 12648 buffers (38.6%); 0 WAL file(s) added, 0 removed, 33 recycled; write=269.866 s, sync=0.026 s, total=269.910 s; sync files=89, longest=0.008 s, average=0.001 s; distance=540022 kB, estimate=540022 kB; lsn=0/537FC9E0, redo lsn=0/434FE2F8
+2026-09-08 04:02:43.072 UTC [61] LOG:  checkpoint starting: time
+2026-09-08 04:07:13.132 UTC [61] LOG:  checkpoint complete: wrote 17524 buffers (53.5%); 0 WAL file(s) added, 0 removed, 17 recycled; write=270.006 s, sync=0.037 s, total=270.061 s; sync files=90, longest=0.008 s, average=0.001 s; distance=277691 kB, estimate=513789 kB; lsn=0/5B8E0040, redo lsn=0/5442D1F8
+2026-09-08 04:07:43.167 UTC [61] LOG:  checkpoint starting: time
