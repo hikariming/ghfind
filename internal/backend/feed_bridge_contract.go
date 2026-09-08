@@ -68,6 +68,8 @@ type FeedSessionDTO struct {
 
 // health: {} -> FeedBridgeHealthResponse. Must probe schema and bindings.
 type FeedBridgeHealthResponse struct {
+	WriterEpoch     int64  `json:"writerEpoch"`
+	WritesEnabled   bool   `json:"writesEnabled"`
 	Ready           bool   `json:"ready"`
 	ContractVersion string `json:"contractVersion"`
 }
