@@ -4,7 +4,12 @@ import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { SCHEMA, SCHEMA_9, selectSchema } from "./feed-snapshot-schema.mjs";
+import {
+  SCHEMA,
+  SCHEMA_9,
+  SCHEMA_10,
+  selectSchema,
+} from "./feed-snapshot-schema.mjs";
 import {
   canonical,
   digest,
@@ -129,7 +134,7 @@ test("schema 7 fingerprints remain byte compatible and only explicitly registere
     rowRecord("feed_runtime_control", row, 7).sha256,
   );
   assert.notEqual(schemaFingerprint(9), SCHEMA_SHA256);
-  for (const version of [8, 10, "9", null, "__proto__"])
+  for (const version of [8, 11, "9", null, "__proto__"])
     assert.throws(
       () => selectSchema("cf_d1_r2", version, 1),
       /unsupported_snapshot_schema/,
@@ -276,7 +281,7 @@ test("schema 9 rejects missing governance inventory, nonempty guards, changed co
     );
   }));
 
-for (const schema of [SCHEMA, SCHEMA_9])
+for (const schema of [SCHEMA, SCHEMA_9, SCHEMA_10])
   test(`fixed schema ${schema.schemaVersion} registry matches migrated SQLite columns, PKs and full/partial unique constraints`, () => {
     const root = process.env.FEED_SNAPSHOT_SCHEMA_ROOT || process.cwd();
     const source = schema.migrations.map((m) => ({

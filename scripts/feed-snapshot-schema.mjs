@@ -1832,13 +1832,50 @@ export const SCHEMA_9 = {
   },
 };
 
+// Privacy schema 10 removes cross-actor proposal sharing and records exact
+// assignment provenance. The governance transport and control value remain 1/7.
+export const SCHEMA_10 = {
+  ...SCHEMA_9,
+  id: "cf-d1-feed-10",
+  schemaVersion: 10,
+  migrations: [
+    ...SCHEMA_9.migrations,
+    {
+      path: "migrations-feed/0010_user_proposal_privacy.sql",
+      sha256:
+        "134d49f5e25647d134dbe24d7150bf3d48ca7c65e86d1cd6b9b7150ec02964b7",
+    },
+  ],
+  tables: {
+    ...SCHEMA_9.tables,
+    feed_user_tag_proposals: {
+      ...SCHEMA_9.tables.feed_user_tag_proposals,
+      uniqueKeys: [],
+    },
+    feed_project_tags: {
+      ...SCHEMA_9.tables.feed_project_tags,
+      columns: {
+        ...SCHEMA_9.tables.feed_project_tags.columns,
+        origin_proposal_id: { kind: "text", nullable: true },
+      },
+    },
+    feed_governance_guards: {
+      ...SCHEMA_9.tables.feed_governance_guards,
+      columns: {
+        ...SCHEMA_9.tables.feed_governance_guards.columns,
+        author_ok: { kind: "integer", nullable: false, values: [1] },
+      },
+    },
+  },
+};
+
 function freeze(value) {
   for (const child of Object.values(value))
     if (child && typeof child === "object" && !Object.isFrozen(child))
       freeze(child);
   return Object.freeze(value);
 }
-export const SCHEMAS = freeze({ 7: SCHEMA, 9: SCHEMA_9 });
+export const SCHEMAS = freeze({ 7: SCHEMA, 9: SCHEMA_9, 10: SCHEMA_10 });
 export function selectSchema(profile, schemaVersion, contractVersion) {
   if (
     profile !== "cf_d1_r2" ||
