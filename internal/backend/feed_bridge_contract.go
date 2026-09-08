@@ -9,6 +9,15 @@ import "time"
 // Times use RFC3339 UTC. JSON numbers representing IDs must be safe integers.
 const FeedBridgeVersion = "1"
 
+// Every mutation atomically verifies the active writer epoch. Profile mutations
+// additionally compare expectedProfileVersion, a monotonic generation that must
+// never reset when a deleted actor creates a new profile. Zero is permitted only
+// when creating/ensuring a user or deleting an already-absent profile.
+type FeedMutationFence struct {
+	WriterEpoch            int64 `json:"writerEpoch"`
+	ExpectedProfileVersion int64 `json:"expectedProfileVersion"`
+}
+
 // Private DTOs are intentionally separate from public structs with json:"-".
 // Losing rank or features on a cache round-trip corrupts attribution.
 type FeedProjectDTO struct {
@@ -71,6 +80,7 @@ type FeedBridgeTagsResponse struct {
 
 // users.ensure: FeedBridgeEnsureUserRequest -> FeedBridgeUserResponse.
 type FeedBridgeEnsureUserRequest struct {
+	FeedMutationFence
 	GitHubID  int64  `json:"githubId"`
 	Login     string `json:"login"`
 	AvatarURL string `json:"avatarUrl"`
@@ -87,6 +97,7 @@ type FeedBridgeUserResponse struct {
 // preferences.replace: atomic preferences + profile version + associated outbox.
 // taxonomy conflict is HTTP 409 {"error":"taxonomy_version_changed"}.
 type FeedBridgePreferencesRequest struct {
+	FeedMutationFence
 	GitHubID        int64            `json:"githubId"`
 	TaxonomyVersion int64            `json:"taxonomyVersion"`
 	Preferences     []FeedPreference `json:"preferences"`
@@ -116,6 +127,8 @@ type FeedBridgeAvailableResponse struct {
 // requests.save atomically inserts request and every served item. Existing ID
 // with a different payload is a conflict; exact retries are safe.
 type FeedBridgeSaveRequest struct {
+	FeedMutationFence
+	PayloadHash     string              `json:"payloadHash"`
 	ID              string              `json:"id"`
 	User            FeedUserDTO         `json:"user"`
 	Seed            string              `json:"seed"`
@@ -128,6 +141,7 @@ type FeedBridgeSaveRequest struct {
 // state.set: atomic state + deduped event + profile version + outbox. Requires
 // requestId belonging to this actor and repo. Exactly one bool is present.
 type FeedBridgeStateRequest struct {
+	FeedMutationFence
 	GitHubID      int64     `json:"githubId"`
 	RepoKey       string    `json:"repoKey"`
 	RequestID     string    `json:"requestId"`
@@ -149,12 +163,14 @@ type FeedEventMetadataDTO struct {
 	Qualified        bool   `json:"qualified,omitempty"`
 }
 type FeedBridgeEventsRequest struct {
+	FeedMutationFence
 	GitHubID int64                  `json:"githubId"`
 	Events   []FeedAcceptedEventDTO `json:"events"`
 }
 
 // profile.delete immediately fences old sessions/tokens and durably queues cleanup.
 type FeedBridgeDeleteRequest struct {
+	FeedMutationFence
 	GitHubID int64     `json:"githubId"`
 	Now      time.Time `json:"now"`
 }
@@ -169,13 +185,16 @@ type FeedBridgeDeletionRequest struct {
 	DeletionID string `json:"deletionId"`
 }
 
-// sessions.put: {session}, sessions.get/delete: {id}. put checks user's profile
+// sessions.put: {session,...fence}, sessions.get/delete: {id,githubId,...fence}. put checks user's profile
 // version and expiresAt<=createdAt+30min. get returns 404 session_not_found.
 type FeedBridgePutSessionRequest struct {
+	FeedMutationFence
 	Session FeedSessionDTO `json:"session"`
 }
 type FeedBridgeSessionRequest struct {
-	ID string `json:"id"`
+	FeedMutationFence
+	GitHubID int64  `json:"githubId"`
+	ID       string `json:"id"`
 }
 type FeedBridgeSessionResponse struct {
 	Session FeedSessionDTO `json:"session"`
