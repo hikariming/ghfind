@@ -16,7 +16,7 @@ existing error codes such as `invalid_body`, `invalid_cursor`,
 | GET / PUT `/api/feed/preferences` | Explicit canonical preferences and taxonomy version; atomic replacement |
 | GET `/api/feed/tags` | Governed active taxonomy |
 | POST `/api/feed/events` | At most 50 typed events, 202 on acceptance, stable event IDs deduplicate |
-| PATCH `/api/feed/projects/:owner/:repo/state` | Exactly one of saved/notInterested plus a valid same-user, same-project impression token |
+| PUT `/api/feed/projects/:owner/:repo/state` (PATCH alias) | Preserve existing PUT; exactly one of saved/notInterested plus a valid same-user, same-project impression token |
 | DELETE `/api/feed/profile` | Fence immediately, persist cleanup, return deletionId and status; works when serving is off |
 | GET `/api/feed/profile/deletions/:id` | Caller-owned durable cleanup status; completed only after all required sinks are clean |
 | POST `/api/feed/tags/proposals` | Proposal only; no client authority to approve or mint canonical tags |

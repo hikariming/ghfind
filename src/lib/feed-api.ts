@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, authConfigured } from "@/lib/auth";
 import { FeedError } from "@/lib/feed";
+import { FEED_BODY_LIMIT, readBoundedBody } from "@/lib/feed-gateway";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -48,7 +49,8 @@ export async function feedJsonBody(request: Request): Promise<unknown> {
     throw new FeedError("invalid_body", 400, "Feed request body is too large.");
   }
   try {
-    return await request.json();
+    const body = await readBoundedBody(request.body, FEED_BODY_LIMIT);
+    return JSON.parse(new TextDecoder().decode(body));
   } catch {
     throw new FeedError("invalid_body", 400, "Feed request body is invalid JSON.");
   }
