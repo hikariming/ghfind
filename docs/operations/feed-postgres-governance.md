@@ -28,6 +28,15 @@ revokes no existing receipt. It does not create a withdrawal endpoint. As with
 other schema changes, apply it through the migration/release workflow, never by
 runtime DDL. Do not use the legacy batch-review API for this capability.
 
+Migration 0022 adds durable user-proposal authorship and exact assignment origin,
+separates user proposal identities and upgrades storage writer compatibility to
+2. The HTTP contract remains 1. Apply this with an explicit writer pause/fence and
+a matching executable: the old projector's natural-key conflict SQL is no longer
+compatible. A pre-privacy image such as `998ceda` cannot be an allowed rollback
+target. Historical bodies with unprovable authorship stay hidden and require a
+recorded disposition before promotion; they are not silently attributed to the
+current profile or counted as successfully erased.
+
 Each mutation takes the `runtime_control` row's exclusive lock; portable writes
 hold its shared lock until their transaction commits. A changed epoch or active
 taxonomy rejects a new command. Taxonomy changes, one proposal, one effective
