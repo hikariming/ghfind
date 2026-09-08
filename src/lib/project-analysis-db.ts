@@ -11,6 +11,7 @@ import {
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
 import { syncFeedProjectProjection } from "./feed";
+import { assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
 
 export type ProjectBoard = "treasure" | "classic" | "all";
 export type TreasureEntryStatus = "active" | "graduated" | "removed";
@@ -389,6 +390,13 @@ export async function getProjectAnalysisRun(
   const db = database();
   await ensureSchema(db);
   return selectRun(db, analysisId);
+}
+
+export async function recordProjectAnalysisSubmission(analysisId: string): Promise<void> {
+  if (!feedSourceOutboxEnabled()) return;
+  const db = database();
+  await ensureSchema(db);
+  await recordAppSubmission(db, analysisId);
 }
 
 export async function findReusableCompletedProjectAnalysisRun(
@@ -847,8 +855,23 @@ export async function finalizeProjectAnalysis(
     ],
   });
 
+  let updateResultIndex = statements.length - 1;
+  if (feedSourceOutboxEnabled()) {
+    const guardId = randomUUID();
+    statements.unshift({
+      sql: `INSERT INTO feed_source_assertions (id, valid) VALUES (?, CASE WHEN EXISTS (
+        SELECT 1 FROM project_analysis_runs WHERE id = ?
+        AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+      ) THEN 1 ELSE 0 END)`,
+      args: [guardId, input.analysisId],
+    });
+    updateResultIndex += 1;
+    statements.push(assessmentOutboxStatement(input.analysisId, now), {
+      sql: "DELETE FROM feed_source_assertions WHERE id = ?", args: [guardId],
+    });
+  }
   const results = await db.batch(statements, "write");
-  const updateResult = results.at(-1);
+  const updateResult = results[updateResultIndex];
   if (!updateResult || updateResult.rowsAffected !== 1) {
     throw new ProjectAnalysisDatabaseError("Analysis finalization lost its state race.");
   }

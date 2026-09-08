@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ProjectAnalysisDatabaseError } from "@/lib/project-analysis-db";
+import { ProjectAnalysisDatabaseError, recordProjectAnalysisSubmission } from "@/lib/project-analysis-db";
 import {
   createProjectAnalysis,
   getReusableProjectAnalysis,
@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     };
     const reusable = await getReusableProjectAnalysis(input);
     if (reusable) {
+      await recordProjectAnalysisSubmission(reusable.id);
       const location = `/api/project-analyses/${reusable.id}`;
       return NextResponse.json(
         {
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     const run = await createProjectAnalysis(input);
+    await recordProjectAnalysisSubmission(run.id);
     const location = `/api/project-analyses/${run.id}`;
     return NextResponse.json(
       {
