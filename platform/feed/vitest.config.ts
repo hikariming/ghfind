@@ -22,6 +22,10 @@ export default defineConfig({
         bindings: {
           TEST_MIGRATIONS: migrationsFrom("../../migrations-feed"),
           TEST_CORE_MIGRATIONS: migrationsFrom("../../migrations"),
+          FEED_EXECUTOR_SECRET:
+            "local-test-only-executor-key-32-characters-minimum",
+          FEED_OPERATOR_SECRET:
+            "local-test-only-operator-key-32-characters-minimum",
           FEED_BRIDGE_SECRET:
             "local-test-only-bridge-key-32-characters-minimum",
           FEED_SOURCE_SECRET:

@@ -536,10 +536,17 @@ describe("real workerd D1 capability contract", () => {
     ).toHaveLength(20);
   });
   it("archives via R2 binding and deletes only the requested generation", async () => {
-    const archive = new FeedArchive(env.FEED_ARCHIVE);
-    await archive.put(1, 1, "event", new TextEncoder().encode("{}"));
-    await archive.put(1, 2, "event", new TextEncoder().encode("{}"));
-    expect((await archive.deleteBatch(1, 1)).complete).toBe(true);
+    await ensure();
+    const archive = new FeedArchive(env.FEED_ARCHIVE, env.FEED_DB);
+    await archive.put(1, 1, "event", new TextEncoder().encode("{}"), 1);
+    await json("profile.delete", {
+      ...fence,
+      githubId: 1,
+      now: new Date().toISOString(),
+    });
+    await ensure();
+    await archive.put(1, 2, "event", new TextEncoder().encode("{}"), 1);
+    expect(await archive.eraseRegistered(1, 1, Date.now())).toBe(1);
     expect(await archive.get(1, 1, "event")).toBeNull();
     expect(await archive.get(1, 2, "event")).not.toBeNull();
   });
