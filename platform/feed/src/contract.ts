@@ -67,6 +67,7 @@ export const user = z.strictObject({
   avatarUrl: z.string().max(500).optional(),
   taxonomyVersion: integer.positive(),
   profileVersion: integer.positive(),
+  profileFloor: integer.nonnegative(),
   preferences: z.array(preference).max(300),
   embedding: z.array(finite).max(4096).optional(),
   embeddingModel: id.optional(),
@@ -135,6 +136,44 @@ const event = z.strictObject({
 export const schemas = {
   health: z.strictObject({}),
   "taxonomy.list": z.strictObject({}),
+  "taxonomy.propose": z
+    .strictObject({
+      ...fence,
+      ...actor,
+      id: z.uuid(),
+      repoKey: repo,
+      namespace: z.enum([
+        "domain",
+        "use_case",
+        "audience",
+        "artifact",
+        "stack",
+        "stage",
+      ]),
+      slug: z
+        .string()
+        .max(80)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+      labelZh: z
+        .string()
+        .refine((v) => new TextEncoder().encode(v).length <= 160),
+      labelEn: z
+        .string()
+        .refine((v) => new TextEncoder().encode(v).length <= 160),
+      evidence: z
+        .array(
+          z
+            .string()
+            .refine(
+              (v) =>
+                v.trim().length > 0 &&
+                new TextEncoder().encode(v).length <= 256,
+            ),
+        )
+        .min(1)
+        .max(16),
+    })
+    .refine((v) => v.labelZh.trim().length > 0 || v.labelEn.trim().length > 0),
   "users.ensure": z.strictObject({
     ...fence,
     ...actor,
