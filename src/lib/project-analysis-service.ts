@@ -504,6 +504,20 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun): Promise<ProjectAna
   try {
     artifacts = await readMosooProjectAnalysisArtifacts(run.mosooThreadId!, run.id);
   } catch (error) {
+    // The evaluator has completed. A failed artifact download must not turn a
+    // recoverable source commit into a terminal run or another paid evaluation.
+    // Body-stream failures occur after mosooFetch returns its Response, so they
+    // can retain the platform's TypeError/AbortError instead of its wrapper.
+    const retryableTransport = error instanceof TypeError ||
+      (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name));
+    if ((error instanceof MosooProjectAnalysisError && isRetryableMosooCreateError(error)) || retryableTransport) {
+      if (run.status !== "finalizing") {
+        await updateProjectAnalysisState({ analysisId: run.id, status: "finalizing", phase: "persisting", progress: 90 });
+      }
+      // Keep an existing finalizing timestamp: transient retries must not renew
+      // the bounded grace for a subsequent successful but incomplete file list.
+      throw new ProjectAnalysisServiceError("analysis_persistence_unavailable", "Completed analysis artifacts are temporarily unavailable; retry the same analysis.", 503);
+    }
     if (
       error instanceof MosooProjectAnalysisError &&
       error.code === "artifact_missing" &&
