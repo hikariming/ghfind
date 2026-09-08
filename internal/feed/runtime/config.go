@@ -109,7 +109,7 @@ func WithHealth(handler http.Handler, c Config, version, service string, ready f
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeStatus(w, 200, map[string]any{"healthy": true, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion})
+		writeStatus(w, 200, map[string]any{"healthy": true, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion, "storageWriterVersion": backend.FeedStorageWriterVersion})
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
@@ -119,7 +119,7 @@ func WithHealth(handler http.Handler, c Config, version, service string, ready f
 		if err != nil {
 			status = 503
 		}
-		writeStatus(w, status, map[string]any{"ready": err == nil, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion, "storeProfile": c.StoreProfile, "writerEpoch": c.WriterEpoch})
+		writeStatus(w, status, map[string]any{"ready": err == nil, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion, "storageWriterVersion": backend.FeedStorageWriterVersion, "storeProfile": c.StoreProfile, "writerEpoch": c.WriterEpoch})
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
