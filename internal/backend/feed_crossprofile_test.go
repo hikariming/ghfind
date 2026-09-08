@@ -236,7 +236,13 @@ func runPortableAPIContract(t *testing.T, ctx context.Context, store crossProfil
 	if err := json.Unmarshal(call(4242, "DELETE", "/api/feed/profile", nil, 202), &deleted); err != nil {
 		t.Fatal(err)
 	}
-	call(4242, "GET", "/api/feed/profile/deletions/"+deleted.DeletionID, nil, 200)
+	var deletionStatus FeedBridgeDeleteResponse
+	if err := json.Unmarshal(call(4242, "GET", "/api/feed/profile/deletions/"+deleted.DeletionID, nil, 200), &deletionStatus); err != nil {
+		t.Fatal(err)
+	}
+	if deleted.Status != "queued" || deletionStatus.Status != "queued" || deletionStatus.DeletionID != deleted.DeletionID {
+		t.Fatalf("deletion acceptance/status contract diverged: %+v / %+v", deleted, deletionStatus)
+	}
 	call(4243, "GET", "/api/feed/profile/deletions/"+deleted.DeletionID, nil, 404)
 	call(4242, "PUT", statePath, map[string]any{"saved": true, "impressionToken": item.ImpressionToken}, 400)
 }
