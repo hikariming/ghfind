@@ -8,6 +8,9 @@ import {
   validateImage,
   renderRuntime,
   resourcePlan,
+  secretNames,
+  adapterSecretNames,
+  allSecretNames,
 } from "./feed-platform-manifest.mjs";
 const image = `registry.cloudflare.com/${ACCOUNT}/ghfind-feed@sha256:${"a".repeat(64)}`;
 const sha = "b".repeat(40);
@@ -114,4 +117,12 @@ test("render preserves instance caps, private adapter and exact pre-pushed image
   assert.equal(c.queues.consumers[0].max_batch_size, 1);
   assert.equal(c.queues.consumers[0].max_retries, 5);
   assert.equal(c.queues.consumers[0].dead_letter_queue, m.deadLetterQueue);
+});
+
+test("operator credential stays adapter-only while all staging credentials remain distinct", () => {
+  assert.equal(secretNames.includes("FEED_OPERATOR_SECRET"), false);
+  assert.equal(adapterSecretNames.includes("FEED_OPERATOR_SECRET"), true);
+  assert.equal(adapterSecretNames.includes("FEED_EXECUTOR_SECRET"), true);
+  assert.equal(allSecretNames.length, 7);
+  assert.equal(new Set(allSecretNames).size, allSecretNames.length);
 });

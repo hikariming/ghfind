@@ -9,6 +9,8 @@ import {
 } from "../src/router";
 import { deliver, sourceEvent } from "../src/queue";
 import { relayOnce } from "../src/relay";
+import { cleanupOnce, runScheduled } from "../src/scheduled";
+import { deletionCleanup } from "../src/outbound";
 import { readBounded, HTTPError } from "../src/security";
 
 const env: RuntimeSettings = {
@@ -404,4 +406,204 @@ test("slow bodies expire without waiting for a stalled stream cancellation", asy
     readBounded(response, 128, 20),
     (error: unknown) => error instanceof HTTPError && error.status === 408,
   );
+});
+
+test("idle cleanup polls durable pending state without waking a Container", async () => {
+  let reads = 0;
+  const result = await cleanupOnce(
+    env,
+    async (request) => {
+      reads++;
+      assert.equal(
+        new URL(request.url).pathname,
+        "/internal/feed/cleanup/v1/pending",
+      );
+      assert.equal(
+        request.headers.get("authorization"),
+        `Bearer ${env.FEED_EXECUTOR_SECRET}`,
+      );
+      assert.equal(request.headers.get("x-feed-contract"), "1");
+      assert.equal(await request.text(), "{}");
+      return Response.json({ pending: false });
+    },
+    dispatch({
+      fetch: async () => {
+        assert.fail("idle cleanup must not wake");
+      },
+    }),
+  );
+  assert.equal(reads, 1);
+  assert.equal(result.skipped, true);
+  assert.equal(result.status, "idle");
+});
+test("due cleanup invokes Go once and validates a bounded durable outcome", async () => {
+  let calls = 0;
+  const d = dispatch({
+    fetch: async (target, request) => {
+      calls++;
+      assert.equal(target, "executor-0");
+      assert.equal(
+        new URL(request.url).pathname,
+        "/internal/feed/jobs/cleanup",
+      );
+      assert.equal(
+        request.headers.get("authorization"),
+        `Bearer ${env.FEED_EXECUTOR_SECRET}`,
+      );
+      assert.equal(await request.text(), "{}");
+      return Response.json({
+        status: "queued",
+        deletionId: "deletion:1",
+        steps: 8,
+        processed: 800,
+      });
+    },
+  });
+  assert.deepEqual(
+    await cleanupOnce(env, async () => Response.json({ pending: true }), d),
+    { status: "queued", steps: 8, processed: 800, skipped: false },
+  );
+  assert.equal(calls, 1);
+  for (const outcome of [
+    { status: "accepted", steps: 1, processed: 1 },
+    { status: "completed", deletionId: "deletion:1", steps: 9, processed: 900 },
+    { status: "completed", steps: 1, processed: 1 },
+  ]) {
+    await assert.rejects(
+      cleanupOnce(
+        env,
+        async () => Response.json({ pending: true }),
+        dispatch({ fetch: async () => Response.json(outcome) }),
+      ),
+    );
+  }
+});
+test("relay failure cannot starve cleanup and both cron branches are awaited", async () => {
+  let cleaned = false;
+  const logs: Record<string, unknown>[] = [];
+  await assert.rejects(
+    runScheduled(
+      env,
+      {
+        source: async (request) =>
+          new URL(request.url).pathname.endsWith("/pending")
+            ? Response.json({ pending: true })
+            : new Response(null, { status: 503 }),
+        send: async () => {
+          assert.fail("failed claim cannot send");
+        },
+      },
+      dispatch({
+        fetch: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 15));
+          cleaned = true;
+          return Response.json({
+            status: "completed",
+            deletionId: "deletion:private",
+            steps: 2,
+            processed: 30,
+          });
+        },
+      }),
+      (entry) => {
+        logs.push(entry);
+      },
+    ),
+    /feed_source_relay/,
+  );
+  assert.equal(cleaned, true);
+  assert.equal(
+    logs.some((v) => v.event === "feed_cleanup" && v.status === "completed"),
+    true,
+  );
+  assert.equal(JSON.stringify(logs).includes("deletion:private"), false);
+});
+test("cleanup failure cannot prevent source queue publication and errors stay separate", async () => {
+  let sent = 0;
+  let confirmed = 0;
+  const logs: Record<string, unknown>[] = [];
+  await assert.rejects(
+    runScheduled(
+      env,
+      {
+        source: async (request) => {
+          const path = new URL(request.url).pathname;
+          if (path.endsWith("/pending"))
+            return new Response(null, { status: 503 });
+          const body = (await request.json()) as Record<string, unknown>;
+          if (path.endsWith("/claim"))
+            return Response.json({
+              events: [{ ...event, leaseToken: body.leaseToken, attempts: 1 }],
+            });
+          confirmed++;
+          return Response.json({ updated: true });
+        },
+        send: async () => {
+          sent++;
+        },
+      },
+      dispatch({
+        fetch: async () => {
+          assert.fail("failed pending must not wake");
+        },
+      }),
+      (entry) => {
+        logs.push(entry);
+      },
+    ),
+    /feed_cleanup/,
+  );
+  assert.equal(sent, 1);
+  assert.equal(confirmed, 1);
+  assert.equal(
+    logs.some((v) => v.event === "feed_source_relay" && v.delivered === 1),
+    true,
+  );
+  assert.equal(
+    logs.some((v) => v.event === "feed_cleanup_failed"),
+    true,
+  );
+});
+test("cleanup outbound permits only executor-authenticated discrete commands", async () => {
+  let calls = 0;
+  const bindings = {
+    ...env,
+    FEED_ADAPTER: {
+      fetch: async () => {
+        calls++;
+        return Response.json({ ok: true });
+      },
+    },
+  };
+  const request = (operation: string, secret = env.FEED_EXECUTOR_SECRET) =>
+    new Request(
+      `http://feed-cleanup.internal/internal/feed/cleanup/v1/${operation}`,
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${secret}`, "x-feed-contract": "1" },
+        body: "{}",
+      },
+    );
+  for (const operation of ["claim", "step", "fail", "release"])
+    assert.equal(
+      (await deletionCleanup(request(operation), bindings)).status,
+      200,
+    );
+  for (const operation of [
+    "pending",
+    "status",
+    "replay",
+    "claim?other=1",
+    "sql",
+  ])
+    assert.equal(
+      (await deletionCleanup(request(operation), bindings)).status,
+      401,
+    );
+  assert.equal(
+    (await deletionCleanup(request("claim", env.FEED_BRIDGE_SECRET), bindings))
+      .status,
+    401,
+  );
+  assert.equal(calls, 4);
 });

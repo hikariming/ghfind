@@ -28,6 +28,15 @@ export const secretNames = [
   "FEED_EXECUTOR_SECRET",
   "FEED_SOURCE_SECRET",
 ];
+export const adapterSecretNames = [
+  "FEED_BRIDGE_SECRET",
+  "FEED_SOURCE_SECRET",
+  "FEED_EXECUTOR_SECRET",
+  "FEED_OPERATOR_SECRET",
+];
+export const allSecretNames = [
+  ...new Set([...secretNames, ...adapterSecretNames]),
+];
 export function template() {
   return {
     schemaVersion: 1,
@@ -205,7 +214,9 @@ export function resourcePlan() {
     mode: "dry-run",
     accountId: ACCOUNT,
     resources: template(),
-    secretNames,
+    secretNames: allSecretNames,
+    runtimeSecretNames: secretNames,
+    adapterSecretNames,
     instructions:
       "These are argument arrays for the release owner; no commands were executed. Use account-pinned reviewed Actions provision workflow. Read existing named resources before creation; do not reuse production IDs.",
     commands: [
@@ -225,9 +236,10 @@ export function renderAdapter(m) {
     readFileSync(resolve(root, "platform/feed/wrangler.jsonc"), "utf8"),
   );
   requireThat(
-    config.secrets?.required?.includes("FEED_BRIDGE_SECRET") &&
-      config.secrets.required.includes("FEED_SOURCE_SECRET"),
-    "source and bridge adapter secret contracts must be implemented",
+    adapterSecretNames.every((name) =>
+      config.secrets?.required?.includes(name),
+    ),
+    "source, bridge and cleanup adapter secret contracts must be implemented",
   );
   config.name = m.adapterWorker;
   config.account_id = ACCOUNT;
@@ -247,6 +259,7 @@ export function renderAdapter(m) {
       migrations_dir: "../../migrations",
     },
   ];
+  config.vars = { ...config.vars, FEED_SEMANTIC_STATE: "disabled" };
   config.r2_buckets = [
     { binding: "FEED_ARCHIVE", bucket_name: m.archiveBucket },
   ];

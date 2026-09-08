@@ -6,7 +6,7 @@ request authentication, private binding access, bounded source-outbox relay and
 at-least-once queue delivery. Feed business logic lives in Go. No request-derived
 instance ID can expand the population; configuration caps API at two `basic`
 instances and executor at one. API sleeps after two minutes idle; executor after
-one minute. Container files are temporary and contain no durable task state.
+ten seconds. Container files are temporary and contain no durable task state.
 
 The checked-in config is deliberately unconfigured. Local build is a Wrangler
 **dry run**; it is not a deployment or proof of Container compatibility. The
@@ -24,12 +24,17 @@ generated Worker globals from the Next TypeScript and ESLint file sets.
 | `POST /internal/runtime/{slot}/stop` | Operations bearer, empty body and staging environment only; awaits `SIGTERM` stop. |
 | `feed-bindings.internal` | Container outbound allowlist to the `FEED_ADAPTER` service binding; private POST capability path, bridge bearer and contract header required. |
 | `feed-source.internal` | Executor only; source bearer and exact `health`/`assessment` paths. Source outbox claim/finish are unavailable to Go. |
+| `feed-cleanup.internal` | Executor only; executor bearer and exact `claim`/`step`/`fail`/`release` cleanup commands. Operator status/replay capabilities are unavailable to Go. |
 
 Outbound Internet access is disabled. The adapter owns the versioned D1/R2
 capabilities; it offers no arbitrary SQL or runtime DDL. `FEED_SOURCE_SECRET`,
 `FEED_BRIDGE_SECRET`, `FEED_EXECUTOR_SECRET`, `FEED_GATEWAY_SECRET`,
 `FEED_SIGNING_SECRET` and `FEED_RUNTIME_ADMIN_SECRET` must be independent values
 of at least 32 bytes. Never place values in a manifest, evidence file or logs.
+`FEED_OPERATOR_SECRET` is an additional independent adapter-only credential for
+protected manual status/replay operations. It is never uploaded to the runtime
+Worker or injected into a Go Container. Semantic cleanup state remains explicitly
+`disabled` until a later semantic rollout supplies and validates that capability.
 The gateway signature contains GitHub identity, service audience, short validity,
 HTTP method, exact path/query and SHA-256 of the body.
 
@@ -40,6 +45,17 @@ source confirmation. Publication failure or uncertainty stays retryable; failed
 confirmation leaves the lease to expire. Confirmation uses bounded parallelism
 and deadlines below the source lease duration. This incremental relay never scans
 the project catalog or infers deletion from missing scan results.
+
+The same cron independently checks the adapter's indexed
+`POST /internal/feed/cleanup/v1/pending` capability. When no deletion is due it
+does not start a Container. When work is due it calls Go
+`POST /internal/feed/jobs/cleanup` exactly once with `{}` and the executor
+credential. Go owns the 60-second task context, at most eight bounded steps,
+checkpointing and lease release; transport allows 75 seconds. `queued` remains
+unfinished work. Both branches are awaited even when one fails, and failures are
+logged separately without deletion identifiers. Empty source claims likewise
+produce no queue delivery and do not wake Go. These checks prevent empty cron
+runs from making staging Containers permanently active.
 
 Queue configuration uses batch size one, concurrency one, five retries and an
 explicit DLQ. Executor calls have a 75-second transport deadline for the Go task's
@@ -82,7 +98,7 @@ these gates. Known production/shared-development D1 IDs, equal database IDs,
 unknown fields, mutable image tags and credential-bearing evidence URLs reject.
 
 Use the protected GitHub environment **Feed staging**, dedicated
-`CF_FEED_STAGING_API_TOKEN`, six named runtime secrets, and environment variables
+`CF_FEED_STAGING_API_TOKEN`, six named runtime secrets plus the adapter-only `FEED_OPERATOR_SECRET`, and environment variables
 `FEED_STAGING_MANIFEST` (nonsecret JSON) and `FEED_STAGING_RUNTIME_URL` (the exact
 staging `workers.dev` origin). The token must support the isolated Workers,
 Containers/registry, D1 migrations, R2 metadata and queue operations needed by the
@@ -148,6 +164,25 @@ also stops on explicit creation errors. Partial resources remain isolated and
 are listed in the receipt. Copy their two D1 IDs to the deployment manifest and
 separately supply actual isolation/qualification evidence; creation does not
 mark billing, executor implementation, runtime compatibility or E2E as passed.
+
+## Local startup compatibility review
+
+The runtime must export the SDK's `ContainerProxy`; Containers SDK 0.3.7 otherwise
+throws before installing outbound host handlers. The Worker now exports it and
+its dry-run bundle is checked. The Go executor must consume
+`FEED_CLEANUP_ENDPOINT=http://feed-cleanup.internal`, and its HTTP transport must
+explicitly accept that private host. Using the ordinary bridge endpoint for
+cleanup would fail the host/path/credential boundary. Coordinate those Go changes
+with the runtime change before deployment.
+
+The adapter must declare bridge, source, executor and operator secrets; staging
+secrets are divided between Worker roles. Its cleanup `pending` capability and
+cleanup schema must be deployed before the runtime cron. The isolated core
+migrations are needed for source readiness, and the Feed migrations for job,
+request/session and cleanup readiness. Image push and version inspection
+explicitly select the Feed runtime config, so they cannot inherit the existing
+production Worker's root config. Reviewed readiness fields, auth DTO names and
+writer epoch match the current Go runtime; deployment still must prove them.
 
 ## Evidence still required
 
