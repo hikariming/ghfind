@@ -10,7 +10,7 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/),
     .max(100)
     .nullable()
     .transform((v) => v ?? []);
-const sourceEvent = z.strictObject({
+export const sourceEvent = z.strictObject({
   contractVersion: z.literal(1),
   eventId: id,
   aggregateKey: repo,
