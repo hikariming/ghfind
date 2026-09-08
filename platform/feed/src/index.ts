@@ -6,6 +6,7 @@ import { FeedJobs } from "./jobs";
 import { FeedCleanup, cleanupSchemas } from "./cleanup";
 import { FeedOperator, operatorSchemas } from "./operator";
 import { handleArchive } from "./archive-http";
+import { FeedDelivery, deliverySchemas } from "./delivery";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
@@ -92,10 +93,10 @@ export async function handleOperation(
       );
       await env.FEED_ARCHIVE.head("health/capability-v1");
       const [tables] = await store.rows<{ count: number }>(
-        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN ('feed_runtime_sessions','feed_runtime_requests','feed_runtime_events','feed_execution_jobs','feed_project_source_versions','feed_user_tag_proposals')",
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN ('feed_runtime_sessions','feed_runtime_requests','feed_runtime_events','feed_execution_jobs','feed_project_source_versions','feed_user_tag_proposals','feed_replay_deliveries','feed_delivery_heads','feed_delivery_terminals')",
       );
       return {
-        ready: control?.schema_version === 5 && tables.count === 6,
+        ready: control?.schema_version === 6 && tables.count === 9,
         contractVersion: "1",
         writerEpoch: control?.writer_epoch ?? 0,
         writesEnabled: control?.writes_enabled === 1,
@@ -142,14 +143,17 @@ export default {
         source = url.pathname.startsWith("/internal/feed/source/v1/"),
         archive = url.pathname.startsWith("/internal/feed/archive/v1/"),
         cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
-        operator = url.pathname.startsWith("/internal/feed/admin/v1/");
+        operator = url.pathname.startsWith("/internal/feed/admin/v1/"),
+        delivery = url.pathname.startsWith("/internal/feed/delivery/v1/");
       const secret = source
         ? env.FEED_SOURCE_SECRET
-        : cleanup || archive
-          ? env.FEED_EXECUTOR_SECRET
-          : operator
-            ? env.FEED_OPERATOR_SECRET
-            : env.FEED_BRIDGE_SECRET;
+        : delivery
+          ? env.FEED_DELIVERY_SECRET
+          : cleanup || archive
+            ? env.FEED_EXECUTOR_SECRET
+            : operator
+              ? env.FEED_OPERATOR_SECRET
+              : env.FEED_BRIDGE_SECRET;
       if (!(await authorized(request, secret)))
         throw new BridgeError(401, "unauthorized");
       if (request.method !== "POST")
@@ -177,18 +181,20 @@ export default {
           { headers },
         );
       }
-      if (cleanup || operator) {
+      if (cleanup || operator || delivery) {
         const operation = url.pathname.split("/").at(-1)!;
         if (
           url.pathname !==
-          `/internal/feed/${cleanup ? "cleanup" : "admin"}/v1/${operation}`
+          `/internal/feed/${cleanup ? "cleanup" : delivery ? "delivery" : "admin"}/v1/${operation}`
         )
           throw new BridgeError(404, "operation_not_found");
         const raw = await body(request, operation);
         return Response.json(
-          cleanup
-            ? await handleCleanup(operation, raw, env)
-            : await handleOperator(operation, raw, env),
+          delivery
+            ? await handleDelivery(operation, raw, env)
+            : cleanup
+              ? await handleCleanup(operation, raw, env)
+              : await handleOperator(operation, raw, env),
           { headers },
         );
       }
@@ -296,6 +302,34 @@ async function handleOperator(operation: string, raw: unknown, env: Env) {
       const parsed = operatorSchemas.replay.safeParse(raw);
       if (!parsed.success) throw new BridgeError(400, "invalid_request");
       return store.replay(parsed.data);
+    }
+    default:
+      throw new BridgeError(404, "operation_not_found");
+  }
+}
+
+async function handleDelivery(operation: string, raw: unknown, env: Env) {
+  const store = new FeedDelivery(env.FEED_DB);
+  switch (operation) {
+    case "pending": {
+      const parsed = deliverySchemas.pending.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.pending();
+    }
+    case "claim": {
+      const parsed = deliverySchemas.claim.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.claimDelivery(parsed.data);
+    }
+    case "finish": {
+      const parsed = deliverySchemas.finish.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.finishDelivery(parsed.data);
+    }
+    case "terminal": {
+      const parsed = deliverySchemas.terminal.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.terminal(parsed.data);
     }
     default:
       throw new BridgeError(404, "operation_not_found");

@@ -118,6 +118,15 @@ export class FeedJobs extends FeedStore {
             now,
             input.eventId,
           ),
+      ...(!failed
+        ? [
+            this.sql(
+              "UPDATE feed_replay_deliveries SET status='cancelled',lease_owner=NULL,lease_until=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','leased')",
+              now,
+              input.eventId,
+            ),
+          ]
+        : []),
       this.executionEnd(command),
     ]);
     return { ok: true };

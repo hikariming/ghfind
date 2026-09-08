@@ -114,8 +114,9 @@ marker garbage collector has not been enabled in this delivery.
 `POST /internal/feed/admin/v1/status` accepts `{kind,id}` where kind is `sourceEvent`
 or `deletion`. `replay` requires `{writerEpoch,kind,id,commandId,operator,reason}`.
 Both require the separate **operator** secret, which must never enter Go API
-containers or ordinary bridge routing. Replay is limited to dead-letter source
-jobs or failed cleanup jobs; live/completed work is rejected. The command ID is a
+containers or ordinary bridge routing. Replay permits dead-letter source jobs, source jobs with confirmed transport
+termination or exhausted dispatch, and failed cleanup jobs. Active execution
+leases and completed work are rejected. The command ID is a
 UUID, exact retries are safe, and operator/reason are durably audited. Only a
 protected manual GitHub Actions workflow should expose these operations.
 
@@ -123,3 +124,65 @@ Workerd fault tests cover 100-object R2 pagination, generation preservation,
 create-only write races, a real R2 key-validation rejection followed by recovery,
 lease expiry, normal release, semantic cleanup refusal, and operator isolation.
 These tests do not claim a remote R2 outage or production recovery rehearsal.
+
+## Durable queue replay (schema 6)
+
+Apply additive `0006_feed_replay_delivery.sql`. An operator replay commits the job
+reset, audit command, current delivery ID, and pending dispatch row in **one D1
+batch**. `{ok:true}` means the recovery command is durable, not that a queue has
+accepted it or that execution is completed. An exact command retry keeps the first
+result. A different command cannot replay ordinary pending work without evidence.
+
+`POST /internal/feed/delivery/v1/{pending,claim,finish,terminal}` requires the new
+**FEED_DELIVERY_SECRET**, available only to the runtime queue adapter. It is
+separate from bridge, source, executor and operator credentials and must not enter
+Go containers or their outbound allowlist. All requests are strict JSON, require
+`X-Feed-Contract: 1`, and have a streaming 128 KiB body limit.
+
+- `pending {}` returns `{pending:boolean}` using indexed due/expired checks.
+- `claim {writerEpoch,leaseOwner,limit,leaseSeconds:60}` leases at most 20 deliveries;
+  the caller must generate a **fresh UUID leaseOwner per claim** and use each
+  returned leaseOwner for finish. Returns
+  `{deliveries:[{deliveryId,event,leaseOwner,attempts}]}`. An empty array is idle.
+- Publish exactly `{contractVersion:1,deliveryId,event}` to the queue. Initial core
+  outbox delivery IDs are `source:${event.sourceVersion}`; replay IDs are the
+  operator command UUID. The Go executor receives only the inner event. It still
+  verifies immutable core facts before projection. Source version, event ID,
+  aggregate and envelope hash are checked together when recording terminal evidence.
+- After **awaiting** queue acceptance, call
+  `finish {writerEpoch,deliveryId,leaseOwner,delivered:true}`. Publish failure uses
+  `delivered:false` and optional `errorCode:queue_unavailable|invalid_event`.
+  Returns `{updated:boolean}`. A stale/duplicate completion is false, not a new
+  side effect. Lost confirmation or worker restart leaves a recoverable lease;
+  subsequent dispatch uses the same event and delivery ID. Retry delay is capped
+  at five minutes and eight failed/expired attempts leave queryable `failed` state.
+- The configured **DLQ consumer**, not the normal queue handler or Go API, calls
+  `terminal {writerEpoch,deliveryId,event,messageId,queue,attempts}` and acknowledges
+  only after the adapter returns `{ok:true,current:boolean}`. Queue/message ID and
+  the full immutable event bind the evidence; duplicate DLQ receipts are safe.
+  `attempts` is the attempts value observed by the DLQ consumer, not an assertion
+  of how many Go executions happened. Old delivery generations return current=false
+  and cannot terminate a replay. Active Go leases are preserved; after expiry their
+  recorded current-generation terminal evidence permits an audited replay.
+
+A queue can exhaust its retries before Go's eight execution attempts, or before
+Go starts at all. The durable terminal receipt supports both cases without giving
+operators an arbitrary event injection endpoint. Ordinary pending jobs remain
+ineligible. Published deliveries can still have pending execution; these states
+are intentionally reported separately. An exhausted dispatch can be replayed with
+a new audited command. Completed execution cancels outstanding dispatch and cannot
+be reopened by late DLQ messages.
+
+Source-event `admin/status` additionally returns `delivery` (current replay or
+null) and `terminalEvidence` (latest receipt or null). Delivery fields are
+`deliveryId,status,attempts,availableAt,leaseUntil,lastError,publishedAt`; terminal
+fields are `deliveryId,messageId,queue,attempts,receivedAt,isCurrent`. All status
+timestamps are Unix milliseconds or null. Responses never contain source analysis
+JSON. Dispatch states are pending, leased, published, failed, superseded, cancelled.
+
+The runtime must run dispatch independently of source relay and cleanup; a source
+relay failure must not skip replay delivery. It must retain the existing job queue
+and add a DLQ consumer before enabling this protocol. This adapter commit alone
+is not queue deployment evidence. Tests execute real local workerd/D1 transactions,
+including an injected SQL write failure, and model a lost publish confirmation;
+actual Cloudflare Queue delivery and remote failure drills remain release gates.
