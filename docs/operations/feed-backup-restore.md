@@ -1,6 +1,6 @@
 # Feed snapshot validation and restore handoff
 
-The delivered tooling is an **offline relational snapshot format and validator**, not a database backup scheduler, importer or promotion controller. `scripts/feed-snapshot.mjs` has no network client, database connection or arbitrary SQL interface. It builds a new local artifact from an already exported file and verifies that artifact independently. It does not certify a consistent live export, physical object recovery, RPO, RTO or deletion safety after the snapshot time.
+The tooling provides an **offline relational snapshot format and validator**, plus a bounded recovery drill using two newly created local workerd/D1 databases. It is not a production backup scheduler or promotion controller. `scripts/feed-snapshot.mjs` has no network client, database connection or arbitrary SQL interface. It builds a new local artifact from an already exported file and verifies that artifact independently. The separate `feed-snapshot-local.mjs` fixture exercises actual local D1 export/import and later deletion replay; it does not certify a live production export, physical object recovery, RPO or RTO.
 
 ## Registered source and scope
 
@@ -26,14 +26,14 @@ Records are sorted first by table name using that deterministic text order, then
 
 Metadata has exactly these fields:
 
-| Field | Required meaning |
-| --- | --- |
-| `snapshotId` | UUID retained across the artifact's records and release evidence |
-| `source` | Exact `profile`, `schemaVersion`, `contractVersion`, positive `writerEpoch`, 40-character `gitSHA` and source database `resourceId` UUID |
-| `watermarks` | `stream: "core_feed_outbox_sequence"`, nonnegative decimal-string `start` and `end`, with start ≤ end and signed-64-bit range |
-| `startedAt`, `endedAt` | Export interval, integer Unix milliseconds, start ≤ end |
-| `timeUnit` | Exactly `unix_ms` |
-| `inventory` | Every registered table mapped to its independently captured expected row count; missing or extra table names reject |
+| Field                  | Required meaning                                                                                                                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `snapshotId`           | UUID retained across the artifact's records and release evidence                                                                         |
+| `source`               | Exact `profile`, `schemaVersion`, `contractVersion`, positive `writerEpoch`, 40-character `gitSHA` and source database `resourceId` UUID |
+| `watermarks`           | `stream: "core_feed_outbox_sequence"`, nonnegative decimal-string `start` and `end`, with start ≤ end and signed-64-bit range            |
+| `startedAt`, `endedAt` | Export interval, integer Unix milliseconds, start ≤ end                                                                                  |
+| `timeUnit`             | Exactly `unix_ms`                                                                                                                        |
+| `inventory`            | Every registered table mapped to its independently captured expected row count; missing or extra table names reject                      |
 
 Registered timestamp columns also use integer Unix milliseconds. The admission range is explicitly 2000-01-01 through 9999-12-31 UTC; a seconds-valued timestamp or a historical sentinel outside this range requires an explicit format extension or repair, not automatic conversion. Durations, counters and versions are distinct integer fields. A row's `source_version` cannot exceed the ending core source watermark.
 
@@ -41,9 +41,9 @@ The source watermark describes **core assessment events only**. It is not a comp
 
 The output directory contains:
 
-| File | Content |
-| --- | --- |
-| `rows.ndjson` | Canonical records containing `table`, ordered `key`, original typed `row`, and per-row SHA-256 |
+| File            | Content                                                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rows.ndjson`   | Canonical records containing `table`, ordered `key`, original typed `row`, and per-row SHA-256                                                                          |
 | `manifest.json` | Format/schema fingerprints, exact metadata, required safety declarations, all table descriptors with counts and hashes, total count, byte length and whole-file SHA-256 |
 
 A row hash covers canonical `{schema,table,key,row}`. A table hash covers its exact output NDJSON lines, including newlines. The file hash covers all exact file bytes, independent of row or table hashes. The builder reports a separate manifest-file SHA-256 for a trusted release record. Hashes detect corruption and inconsistency; they are not signatures and cannot authenticate an attacker-controlled manifest plus data pair.
@@ -59,7 +59,7 @@ node scripts/feed-snapshot.mjs validate --dir new-snapshot-directory --expected-
 node --test scripts/feed-snapshot.test.mjs
 ```
 
-For an independent worktree awaiting the schema commits, the **test only** may set `FEED_SNAPSHOT_SCHEMA_ROOT` to the reviewed checkout containing those migrations. Missing files and changed migration hashes fail the schema test; they are not skipped. Normal integrated CI should use the current checkout without this override.
+For an independent worktree awaiting the schema commits, the schema test and local drill may set `FEED_SNAPSHOT_SCHEMA_ROOT` to the reviewed checkout containing those migrations and adapter source. This is a read-only source-code location; it is never a database or persistence path. Missing files and changed migration hashes fail; they are not skipped. Normal integrated CI should use the current checkout without this override.
 
 Generate input with `canonical(record) + "\n"`; do not concatenate unescaped SQL output or client JSON. The build destination must not already exist. The tool creates it with mode 0700 and files with mode 0600, writes `rows.partial`, verifies all records/counts/deletion facts, then writes and renames the completion manifest. An interrupted or failed build leaves diagnostic partial files and no accepted manifest. It never overwrites, resumes, deletes or replaces an existing snapshot. Retain or remove that incomplete local artifact deliberately before choosing a new destination. Treat all snapshot files as sensitive behavior data despite credential exclusion.
 
@@ -75,7 +75,35 @@ Snapshots preserve every explicit deletion floor and cleanup/archive marker. A d
 
 Every accepted result explicitly retains `archiveObjectPayloadsIncluded:false`, `sourceCompletenessProven:false`, `consistentSourceReadProven:false`, `postSnapshotDeletionReplayRequired:true`, and `promotionReady:false`. The validator rejects altered safety claims rather than trusting a manifest flag to convert integrity validation into restore acceptance.
 
-## Required next-stage restore drill
+## Reproducible local D1 restore drill
+
+Install the existing isolated packages, then run:
+
+```sh
+pnpm -C platform/runtime install --frozen-lockfile
+pnpm -C platform/feed install --frozen-lockfile
+node scripts/feed-snapshot-local.mjs plan
+node scripts/feed-snapshot-local.mjs run
+node --test scripts/feed-snapshot.test.mjs scripts/feed-snapshot-local.test.mjs
+```
+
+Only `plan` and `run` are accepted. There is no URL, resource ID, `--remote`, existing database path, output-directory override, resume or production mode. `run` allocates a new mode-0700 temporary directory, independent random D1 identifiers and separate source/target persistence directories. Its generated Worker listens only on `127.0.0.1`, requires a new random local token, disables telemetry/CF metadata fetching, and rejects external Worker requests. No credentials from the environment or Wrangler login are used. The local harness must never be deployed; it is a test fixture with fixed migration, export and restoration commands, and accepts no caller-provided SQL.
+
+The drill reads and verifies the exact seven registered migration hashes, installs those statements in real local D1, and compares `PRAGMA table_info`, primary/unique keys and physical types to the registry. Restoration includes all 321 physical columns without coercion or default substitution. SQLite/D1 internal tables and migration bookkeeping are outside the business snapshot. The actual `foreign_key_list` determines insertion order; constraints remain enabled. Installation seeds are removed only from the newly allocated target; the singleton writer control remains closed throughout restoration. A deliberately failing two-row import batch verifies that D1 rolls back the first insert when the second conflicts.
+
+The source fixture compiles the checked-out adapter and uses its real business commands for users, explicit preferences, served requests, events, saved state, sessions and deletion. Three synthetic actors are used: 101 survives, 303 is deleted before backup, and 202 is deleted after backup. A synthetic project/provenance receipt admits one candidate without contacting GitHub or pretending this is real OAuth or assessment evidence. Export enumerates every registered table under the local writer fence; each table has a 1,000-row fixture limit. Canonical NDJSON is built and independently validated, read back from the artifact and imported in batches of at most 20 rows. Every actual business key, complete row, state/version and row hash is compared, and the re-exported whole-file hash must match. Foreign-key and quick-integrity checks must pass.
+
+The later deletion uses the source adapter's actual `profile.delete` transaction. Its resulting floor, deletion record, cleanup job and delete outbox row are independently captured in `post-snapshot-deletion.json`, bound to the backup manifest hash and given both row and whole-payload hashes. The target verifies and applies those facts while closed, removes the same immediately invalidated user-visible state as the source deletion command, and must then equal the entire post-deletion source database by every row. Repeating the overlay must leave identical rows. This is a bounded one-actor fixture; it is not a general deletion journal exporter or completeness proof for a live system.
+
+Only the fresh local target is briefly reopened to test application behavior. Both previously deleted actors must have no old user/session, reject stale preference writes and old-request event replay, and receive a profile generation above the preserved floor on `users.ensure`. Their new candidate results must not read old impressions while physical cleanup is pending. The surviving actor's profile and session must still work. The target is closed again at the end. No route or primary is promoted.
+
+Successful runs emit the auto-created artifact directory and write `evidence.json` only after all assertions pass. That report records migration hashes, actual source/target IDs, adapter bundle hash, counts, file/manifest hashes, deletion-overlay hash and visibility results. The Git SHA describes the checkout; the bundle hash identifies the exact compiled working-tree contents. Failures leave `failure.json` and their isolated diagnostic artifacts without a successful report. Each request has a 15-second deadline, CLI execution has a 180-second deadline, and the integration test fails rather than falling back to a mock or skipping unavailable workerd/D1. Test-created successful directories are cleaned; an explicit CLI run retains its own synthetic evidence directory for review.
+
+The installed Miniflare 5 prerelease can start workerd but its Node `getD1Database` proxy was observed to stall. This harness calls its fixed loopback Worker using standard HTTP; D1 operations run inside workerd. This follows the actual D1 binding execution model rather than substituting a SQLite client. See [Cloudflare's local D1 testing documentation](https://developers.cloudflare.com/workers/testing/miniflare/storage/d1/).
+
+The R2 binding is empty and local, used only to satisfy adapter health dependencies. **R2 object bytes, archive recovery, physical deletion completion, queue recovery, real OAuth, production availability and RPO/RTO are excluded.** Older event/request rows legitimately remain pending physical cleanup; generation and read fences must prevent them from becoming active behavior again. `cleanupCompleted:false` and `promotionReady:false` remain explicit in this drill's report. A quick synthetic execution time is not a recovered-service RTO.
+
+## Required production and cross-profile restore work
 
 1. Produce a source export using a verified consistent read or an approved bounded write fence, with external source inventory evidence and complete Feed change-log coverage. Preserve the core source facts separately; the core watermark alone is insufficient for preferences, events or deletions.
 2. Store the relational artifact and its independently pinned manifest hash in the approved encrypted/archive environment. Export required R2 object bytes with registry key, object checksum, generation and retention/deletion evidence. Verify transferred bytes independently.
@@ -84,4 +112,4 @@ Every accepted result explicitly retains `archiveObjectPayloadsIncluded:false`, 
 5. Replay complete increments through the final watermark, compare business keys, state, versions, deletion floors and object checksums, then run no-side-effect shadow reads and application E2E. A count-only comparison is insufficient. A D1→PostgreSQL→D1 drill also requires a separately tested physical-to-portable mapper; renaming table prefixes is not a migration.
 6. Record actual RPO ≤15 minutes and RTO ≤60 minutes from the recovered application and data. Promotion requires the later writer-fence/epoch protocol and one release owner; timeout before promotion resumes the original primary. Once the new primary accepts writes, returning to the old primary requires reverse replay and another fence.
 
-The current evidence consists of synthetic all-table encode/validate/rebuild equality, SQLite schema introspection, numeric/composite key ordering, duplicate business-key rejection, null/type/JSON/time validation, lost marker/control rejection, truncation/corruption detection and no-overwrite tests. There has been no live export/import, archive transfer, restoration of a database, alert delivery, application recovery, RPO measurement or promotion in this delivery.
+The format tests cover all-table encode/validate/rebuild equality, SQLite schema introspection, numeric/composite key ordering, duplicate business-key rejection, null/type/JSON/time validation, lost marker/control rejection, truncation/corruption detection and no-overwrite behavior. The separate local D1 drill provides actual isolated database export/import and application-level deletion-fence evidence when its emitted report says `passed`. Neither constitutes live production backup, archive transfer, external alert delivery, a complete application recovery, RPO measurement or promotion.
