@@ -378,8 +378,11 @@ func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*F
 		}
 		return nil, fmt.Errorf("read Feed user: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT tag_id, value, source, strength, taxonomy_version
-      FROM feed.user_tag_preferences WHERE github_id = $1 ORDER BY source, tag_id`, githubID)
+	preferenceQuery := `SELECT tag_id, value, source, strength, taxonomy_version FROM feed.user_tag_preferences WHERE github_id = $1 ORDER BY source, tag_id`
+	if s.writerEpoch > 0 {
+		preferenceQuery = `SELECT DISTINCT ON(p.tag_id) p.tag_id,p.value,p.source,p.strength,p.taxonomy_version FROM feed.user_tag_preferences p JOIN feed.tag_definitions d ON d.id=p.tag_id AND d.status='canonical' WHERE p.github_id=$1 ORDER BY p.tag_id,CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC LIMIT 300`
+	}
+	rows, err := s.db.QueryContext(ctx, preferenceQuery, githubID)
 	if err != nil {
 		return nil, fmt.Errorf("read Feed preferences: %w", err)
 	}
@@ -633,6 +636,29 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 	if err := s.checkFeedAttribution(ctx, tx, githubID, patch.RequestID, repoKey); err != nil {
 		return FeedProjectState{}, err
 	}
+	if s.writerEpoch > 0 {
+		prior := FeedProjectState{RepoKey: repoKey}
+		err := tx.QueryRowContext(ctx, `SELECT saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).Scan(&prior.Saved, &prior.NotInterested)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return FeedProjectState{}, err
+		}
+		next := prior
+		if patch.Saved != nil {
+			next.Saved = *patch.Saved
+			if next.Saved {
+				next.NotInterested = false
+			}
+		} else {
+			next.NotInterested = *patch.NotInterested
+			if next.NotInterested {
+				next.Saved = false
+			}
+		}
+		if prior == next {
+			return prior, tx.Commit()
+		}
+	}
+
 	var state FeedProjectState
 	changed := true
 	if patch.Saved != nil {
@@ -644,9 +670,10 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
           (github_id, repo_key, saved, saved_at, updated_at)
 		  VALUES ($1, $2, $3, CASE WHEN $3 THEN $4::timestamptz ELSE NULL END, $4::timestamptz)
 		  ON CONFLICT (github_id, repo_key) DO UPDATE SET saved = excluded.saved,
+ not_interested=CASE WHEN $5 AND excluded.saved THEN false ELSE feed.user_project_state.not_interested END,
 		    saved_at = excluded.saved_at, updated_at = excluded.updated_at
-		  WHERE feed.user_project_state.saved IS DISTINCT FROM excluded.saved
-		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.Saved, now).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
+		  WHERE feed.user_project_state.saved IS DISTINCT FROM excluded.saved OR ($5 AND excluded.saved AND feed.user_project_state.not_interested)
+		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.Saved, now, s.writerEpoch > 0).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
 		if errors.Is(err, sql.ErrNoRows) {
 			changed = false
 			err = tx.QueryRowContext(ctx, `SELECT repo_key,saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).
@@ -663,9 +690,10 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
           (github_id, repo_key, not_interested, not_interested_at, updated_at)
 		  VALUES ($1, $2, $3, CASE WHEN $3 THEN $4::timestamptz ELSE NULL END, $4::timestamptz)
 		  ON CONFLICT (github_id, repo_key) DO UPDATE SET not_interested = excluded.not_interested,
+ saved=CASE WHEN $5 AND excluded.not_interested THEN false ELSE feed.user_project_state.saved END,
 		    not_interested_at = excluded.not_interested_at, updated_at = excluded.updated_at
-		  WHERE feed.user_project_state.not_interested IS DISTINCT FROM excluded.not_interested
-		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.NotInterested, now).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
+		  WHERE feed.user_project_state.not_interested IS DISTINCT FROM excluded.not_interested OR ($5 AND excluded.not_interested AND feed.user_project_state.saved)
+		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.NotInterested, now, s.writerEpoch > 0).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
 		if errors.Is(err, sql.ErrNoRows) {
 			changed = false
 			err = tx.QueryRowContext(ctx, `SELECT repo_key,saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).
@@ -681,6 +709,11 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 		return FeedProjectState{}, fmt.Errorf("update Feed project state: %w", err)
 	}
 	if changed {
+		if s.writerEpoch > 0 {
+			if err := setFeedSavedSignalTx(ctx, tx, githubID, repoKey, state.Saved, now); err != nil {
+				return FeedProjectState{}, err
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `UPDATE feed.users SET profile_version=profile_version+1,updated_at=now() WHERE github_id=$1`, githubID); err != nil {
 			return FeedProjectState{}, fmt.Errorf("bump Feed profile state version: %w", err)
 		}
@@ -798,6 +831,16 @@ func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64
 			}
 		} else {
 			result.Duplicate++
+		}
+	}
+	if s.writerEpoch > 0 {
+		ids := make([]string, 0, len(insertedIDs))
+		for id := range insertedIDs {
+			ids = append(ids, id)
+		}
+		profileChanged, err = insertFeedBehaviorSignalsTx(ctx, tx, githubID, ids)
+		if err != nil {
+			return result, err
 		}
 	}
 	if profileChanged {
