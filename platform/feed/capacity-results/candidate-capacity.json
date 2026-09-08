@@ -1,5 +1,6 @@
 {
-  "generatedAt": "2026-09-08T04:03:10.925Z",
+  "generatedAt": "2026-09-08T04:42:15.205Z",
+  "implementationCommit": "65cfb2f2101f177df53e894cc643c2052b7ecb8e",
   "synthetic": true,
   "remote": false,
   "projects": 50000,
@@ -28,10 +29,11 @@
     "0004_feed_executor_protocol.sql",
     "0005_feed_cleanup_checkpoints.sql",
     "0006_feed_replay_delivery.sql",
-    "0008_candidate_recall_indexes.sql"
+    "0008_candidate_recall_indexes.sql",
+    "0009_feed_governance_audit.sql"
   ],
   "oldQueryResultsMatched": true,
-  "seedMs": 15699,
+  "seedMs": 12162,
   "scenarios": [
     {
       "name": "empty",
@@ -42,18 +44,18 @@
         "discovery": 20
       },
       "resultSize": 78,
-      "elapsedMs": 6,
-      "rowsRead": 708,
+      "elapsedMs": 5,
+      "rowsRead": 709,
       "queries": [
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
           "args": [
             1,
             1
           ],
           "rowsRead": 80,
           "durationMs": 2,
-          "engineDurationMs": 0,
+          "engineDurationMs": 1,
           "resultSize": 40,
           "repoKeys": [
             "synthetic-owner-0/synthetic-project-50000",
@@ -156,24 +158,42 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
@@ -263,31 +283,49 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
           ],
           "rowsRead": 40,
           "durationMs": 2,
-          "engineDurationMs": 0,
+          "engineDurationMs": 1,
           "resultSize": 20,
           "repoKeys": [
             "synthetic-owner-0/synthetic-project-50000",
@@ -370,19 +408,37 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         }
@@ -397,8 +453,8 @@
         "discovery": 20
       },
       "resultSize": 154,
-      "elapsedMs": 10,
-      "rowsRead": 2238,
+      "elapsedMs": 6,
+      "rowsRead": 2240,
       "queries": [
         {
           "sql": "SELECT COUNT(*) AS memberships FROM (\n        SELECT 1 FROM feed_project_tags\n        WHERE tag_id IN (SELECT value FROM json_each(?)) LIMIT 512\n      )",
@@ -407,7 +463,7 @@
           ],
           "rowsRead": 514,
           "durationMs": 2,
-          "engineDurationMs": 0,
+          "engineDurationMs": 1,
           "resultSize": 1,
           "repoKeys": [],
           "plan": [
@@ -444,7 +500,7 @@
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
           "args": [
             1,
             1
@@ -554,30 +610,48 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
           ],
           "rowsRead": 60,
-          "durationMs": 1,
+          "durationMs": 2,
           "engineDurationMs": 0,
           "resultSize": 20,
           "repoKeys": [
@@ -661,30 +735,48 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
           ],
           "rowsRead": 60,
-          "durationMs": 1,
+          "durationMs": 2,
           "engineDurationMs": 0,
           "resultSize": 20,
           "repoKeys": [
@@ -768,32 +860,50 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key)\n          AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.tag_id IN(SELECT value FROM json_each(?)))\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id)\n          AND EXISTS(SELECT 1 FROM feed_project_tags pt WHERE pt.repo_key=p.repo_key AND pt.analysis_id=p.analysis_id AND pt.tag_id IN(SELECT value FROM json_each(?)))\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
           "args": [
             1,
             1,
             "[\"artifact:micro-tool\"]"
           ],
           "rowsRead": 401,
-          "durationMs": 2,
-          "engineDurationMs": 2,
+          "durationMs": 1,
+          "engineDurationMs": 1,
           "resultSize": 80,
           "repoKeys": [
             "synthetic-owner-9978/synthetic-project-49978",
@@ -879,92 +989,110 @@
           ],
           "plan": [
             {
-              "id": 7,
+              "id": 8,
               "parent": 0,
               "notused": 61,
               "detail": "SEARCH p USING INDEX idx_feed_projects_catalog (published=?)"
             },
             {
-              "id": 13,
+              "id": 14,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 1"
             },
             {
-              "id": 18,
-              "parent": 13,
+              "id": 19,
+              "parent": 14,
               "notused": 39,
               "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
             },
             {
-              "id": 34,
+              "id": 35,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 2"
             },
             {
-              "id": 39,
-              "parent": 34,
+              "id": 40,
+              "parent": 35,
               "notused": 39,
               "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
             },
             {
-              "id": 55,
+              "id": 56,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 3"
             },
             {
-              "id": 60,
-              "parent": 55,
+              "id": 61,
+              "parent": 56,
               "notused": 39,
               "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
             },
             {
-              "id": 73,
+              "id": 74,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 4"
             },
             {
-              "id": 78,
-              "parent": 73,
+              "id": 79,
+              "parent": 74,
               "notused": 39,
               "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
             },
             {
-              "id": 94,
+              "id": 95,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 100,
-              "parent": 94,
+              "id": 105,
+              "parent": 95,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 111,
-              "parent": 94,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "id": 116,
+              "parent": 95,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
             },
             {
-              "id": 122,
+              "id": 126,
+              "parent": 95,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 139,
+              "parent": 95,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            },
+            {
+              "id": 156,
               "parent": 0,
-              "notused": 54,
-              "detail": "SEARCH pt EXISTS USING COVERING INDEX idx_feed_project_tags_repo (repo_key=? AND tag_id=?)"
+              "notused": 62,
+              "detail": "SEARCH pt EXISTS USING INDEX idx_feed_project_tags_repo (repo_key=? AND tag_id=?)"
             },
             {
-              "id": 128,
+              "id": 162,
               "parent": 0,
               "notused": 0,
-              "detail": "LIST SUBQUERY 6"
+              "detail": "LIST SUBQUERY 7"
             },
             {
-              "id": 130,
-              "parent": 128,
+              "id": 164,
+              "parent": 162,
               "notused": 0,
               "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
             }
@@ -982,7 +1110,7 @@
       },
       "resultSize": 127,
       "elapsedMs": 4,
-      "rowsRead": 1490,
+      "rowsRead": 1492,
       "queries": [
         {
           "sql": "SELECT COUNT(*) AS memberships FROM (\n        SELECT 1 FROM feed_project_tags\n        WHERE tag_id IN (SELECT value FROM json_each(?)) LIMIT 512\n      )",
@@ -1028,14 +1156,14 @@
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 40",
           "args": [
             1,
             1
           ],
           "rowsRead": 120,
           "durationMs": 1,
-          "engineDurationMs": 0,
+          "engineDurationMs": 1,
           "resultSize": 40,
           "repoKeys": [
             "synthetic-owner-0/synthetic-project-50000",
@@ -1138,24 +1266,42 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) ORDER BY p.product_score DESC,p.confidence DESC,p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
@@ -1245,24 +1391,42 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
+          "sql": "SELECT p.* FROM feed_projects p WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id) AND (p.treasure_eligible=1 OR p.exposure_band='low') ORDER BY p.analyzed_at DESC,p.repo_key LIMIT 20",
           "args": [
             1,
             1
@@ -1352,24 +1516,42 @@
               "id": 92,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 5"
+              "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 98,
+              "id": 102,
               "parent": 92,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 109,
+              "id": 113,
               "parent": 92,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+            },
+            {
+              "id": 123,
+              "parent": 92,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 136,
+              "parent": 92,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 5"
+            },
+            {
+              "id": 140,
+              "parent": 136,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
             }
           ]
         },
         {
-          "sql": "WITH matching AS MATERIALIZED (\n            SELECT DISTINCT repo_key FROM feed_project_tags\n            WHERE tag_id IN (SELECT value FROM json_each(?))\n          )\n          SELECT p.* FROM matching CROSS JOIN feed_projects p ON p.repo_key=matching.repo_key\n          WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key)\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
+          "sql": "WITH matching AS MATERIALIZED (\n            SELECT DISTINCT repo_key,analysis_id FROM feed_project_tags\n            WHERE tag_id IN (SELECT value FROM json_each(?))\n          )\n          SELECT p.* FROM matching CROSS JOIN feed_projects p ON p.repo_key=matching.repo_key AND p.analysis_id=matching.analysis_id\n          WHERE p.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL)\n      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL))\n      AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=p.repo_key AND s.not_interested=1)\n      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=p.repo_key AND t.analysis_id=p.analysis_id)\n          ORDER BY p.product_score DESC,p.analyzed_at DESC,p.repo_key LIMIT 80",
           "args": [
             "[\"artifact:database-infra\"]",
             1,
@@ -1377,7 +1559,7 @@
           ],
           "rowsRead": 303,
           "durationMs": 1,
-          "engineDurationMs": 0,
+          "engineDurationMs": 1,
           "resultSize": 50,
           "repoKeys": [
             "synthetic-owner-3000/synthetic-project-23000",
@@ -1439,109 +1621,127 @@
               "detail": "MATERIALIZE matching"
             },
             {
-              "id": 7,
+              "id": 8,
               "parent": 3,
-              "notused": 100,
-              "detail": "SEARCH feed_project_tags USING COVERING INDEX idx_feed_project_tags_tag (tag_id=?)"
+              "notused": 108,
+              "detail": "SEARCH feed_project_tags USING INDEX idx_feed_project_tags_tag (tag_id=?)"
             },
             {
-              "id": 11,
+              "id": 12,
               "parent": 3,
               "notused": 0,
               "detail": "LIST SUBQUERY 1"
             },
             {
-              "id": 13,
-              "parent": 11,
+              "id": 14,
+              "parent": 12,
               "notused": 0,
               "detail": "SCAN json_each VIRTUAL TABLE INDEX 1:"
             },
             {
-              "id": 38,
+              "id": 41,
               "parent": 3,
               "notused": 0,
               "detail": "USE TEMP B-TREE FOR DISTINCT"
             },
             {
-              "id": 46,
+              "id": 49,
               "parent": 0,
               "notused": 65,
               "detail": "SCAN matching"
             },
             {
-              "id": 48,
+              "id": 51,
               "parent": 0,
               "notused": 46,
               "detail": "SEARCH p USING INDEX sqlite_autoindex_feed_projects_1 (repo_key=?)"
             },
             {
-              "id": 57,
+              "id": 63,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 3"
             },
             {
-              "id": 62,
-              "parent": 57,
+              "id": 68,
+              "parent": 63,
               "notused": 39,
               "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_submission_provenance_1 (repo_key=?)"
             },
             {
-              "id": 78,
+              "id": 84,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 4"
             },
             {
-              "id": 83,
-              "parent": 78,
+              "id": 89,
+              "parent": 84,
               "notused": 39,
               "detail": "SEARCH v USING INDEX sqlite_autoindex_feed_project_source_versions_1 (repo_key=?)"
             },
             {
-              "id": 99,
+              "id": 105,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 5"
             },
             {
-              "id": 104,
-              "parent": 99,
+              "id": 110,
+              "parent": 105,
               "notused": 39,
               "detail": "SEARCH m USING INDEX sqlite_autoindex_feed_project_moderation_1 (repo_key=?)"
             },
             {
-              "id": 117,
+              "id": 123,
               "parent": 0,
               "notused": 0,
               "detail": "CORRELATED SCALAR SUBQUERY 6"
             },
             {
-              "id": 122,
-              "parent": 117,
+              "id": 128,
+              "parent": 123,
               "notused": 39,
               "detail": "SEARCH s USING INDEX sqlite_autoindex_feed_user_project_states_1 (github_id=? AND repo_key=?)"
             },
             {
-              "id": 138,
+              "id": 144,
               "parent": 0,
               "notused": 0,
-              "detail": "CORRELATED SCALAR SUBQUERY 7"
+              "detail": "CORRELATED SCALAR SUBQUERY 8"
             },
             {
-              "id": 144,
-              "parent": 138,
+              "id": 154,
+              "parent": 144,
               "notused": 63,
               "detail": "SEARCH u USING INDEX sqlite_autoindex_feed_user_tag_preferences_1 (github_id=?)"
             },
             {
-              "id": 155,
-              "parent": 138,
-              "notused": 45,
-              "detail": "SEARCH t USING COVERING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
+              "id": 165,
+              "parent": 144,
+              "notused": 47,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_feed_project_tags_1 (repo_key=? AND tag_id=?)"
             },
             {
-              "id": 197,
+              "id": 175,
+              "parent": 144,
+              "notused": 46,
+              "detail": "SEARCH d USING INDEX sqlite_autoindex_feed_tag_definitions_1 (id=?)"
+            },
+            {
+              "id": 188,
+              "parent": 144,
+              "notused": 0,
+              "detail": "SCALAR SUBQUERY 7"
+            },
+            {
+              "id": 192,
+              "parent": 188,
+              "notused": 44,
+              "detail": "SEARCH feed_taxonomy_versions USING COVERING INDEX idx_feed_taxonomy_one_active (status=?)"
+            },
+            {
+              "id": 236,
               "parent": 0,
               "notused": 0,
               "detail": "USE TEMP B-TREE FOR ORDER BY"
