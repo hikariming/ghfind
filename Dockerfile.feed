@@ -1,0 +1,25 @@
+FROM golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY internal ./internal
+COPY cmd/feed-api ./cmd/feed-api
+COPY cmd/feed-worker ./cmd/feed-worker
+ARG VERSION=development
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-api ./cmd/feed-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-worker ./cmd/feed-worker
+FROM scratch AS runtime
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /out/feed-api /out/feed-worker /usr/local/bin/
+USER 65532:65532
+EXPOSE 8080
+
+FROM runtime AS api
+ENTRYPOINT ["/usr/local/bin/feed-api"]
+
+FROM runtime AS worker
+ENTRYPOINT ["/usr/local/bin/feed-worker"]
+
+# Unqualified builds retain the API default; both images contain identical Go
+# artifacts and can run on Cloudflare Containers or an ordinary Docker host.
+FROM api AS default

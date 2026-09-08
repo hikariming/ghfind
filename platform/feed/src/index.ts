@@ -1,5 +1,6 @@
 import { BridgeError, schemas, type Input, type Operation } from "./contract";
 import { FeedCommands } from "./commands";
+import { handleSource } from "./source";
 import { executorSchemas, type ExecutorOperation } from "./executor-contract";
 import { FeedJobs } from "./jobs";
 import { FeedCleanup, cleanupSchemas } from "./cleanup";
@@ -145,17 +146,20 @@ export default {
     const headers = { "Cache-Control": "no-store", "X-Feed-Contract": "1" };
     try {
       const url = new URL(request.url),
+        source = url.pathname.startsWith("/internal/feed/source/v1/"),
         archive = url.pathname.startsWith("/internal/feed/archive/v1/"),
         cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
         operator = url.pathname.startsWith("/internal/feed/admin/v1/"),
         delivery = url.pathname.startsWith("/internal/feed/delivery/v1/");
-      const secret = delivery
-        ? env.FEED_DELIVERY_SECRET
-        : cleanup || archive
-          ? env.FEED_EXECUTOR_SECRET
-          : operator
-            ? env.FEED_OPERATOR_SECRET
-            : env.FEED_BRIDGE_SECRET;
+      const secret = source
+        ? env.FEED_SOURCE_SECRET
+        : delivery
+          ? env.FEED_DELIVERY_SECRET
+          : cleanup || archive
+            ? env.FEED_EXECUTOR_SECRET
+            : operator
+              ? env.FEED_OPERATOR_SECRET
+              : env.FEED_BRIDGE_SECRET;
       if (!(await authorized(request, secret)))
         throw new BridgeError(401, "unauthorized");
       if (request.method !== "POST")
@@ -169,6 +173,16 @@ export default {
             url.pathname.slice("/internal/feed/archive/v1/".length),
             await body(request, "archive"),
             env,
+          ),
+          { headers },
+        );
+      }
+      if (source) {
+        return Response.json(
+          await handleSource(
+            url.pathname.slice("/internal/feed/source/v1/".length),
+            await body(request, "source"),
+            env.CORE_DB,
           ),
           { headers },
         );
@@ -283,7 +297,7 @@ async function handleCleanup(operation: string, raw: unknown, env: Env) {
   }
 }
 async function handleOperator(operation: string, raw: unknown, env: Env) {
-  const store = new FeedOperator(env.FEED_DB);
+  const store = new FeedOperator(env.FEED_DB, env.CORE_DB);
   switch (operation) {
     case "status": {
       const parsed = operatorSchemas.status.safeParse(raw);

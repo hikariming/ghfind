@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "kind": "local-docker-portability-probe",
+  "version": "0c23f3b",
+  "containerRootfsReadOnly": true,
+  "applicationUser": "65532:65532",
+  "tmpfsBytes": 1048576,
+  "imageId": "sha256:ba8ce7cb25d298f7917283b94851f0b24744e578616f8736bd26e7157ccd4031",
+  "observations": [
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 63.002,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/healthz",
+      "status": 200,
+      "durationMs": 3.243,
+      "response": {
+        "contractVersion": "1",
+        "healthy": true,
+        "service": "feed-api",
+        "version": "0c23f3b"
+      }
+    },
+    {
+      "path": "/api/feed/projects",
+      "status": 401,
+      "durationMs": 5.122,
+      "response": {
+        "error": "authentication_required"
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 61.452,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 36.619,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 8.473,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 48.585,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 52.959,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 53.239,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 13.831,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 62.811,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 62.541,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 21.596,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 12.819,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 11.578,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    },
+    {
+      "path": "/readyz",
+      "status": 200,
+      "durationMs": 8.379,
+      "response": {
+        "contractVersion": "1",
+        "ready": true,
+        "service": "feed-api",
+        "storeProfile": "postgres",
+        "version": "0c23f3b",
+        "writerEpoch": 1
+      }
+    }
+  ],
+  "notProven": [
+    "Cloudflare Containers",
+    "real OAuth",
+    "real assessment",
+    "production rollout",
+    "load SLO",
+    "database migration or restore"
+  ],
+  "sigtermDurationMs": 197.523,
+  "sigtermExitCode": 0,
+  "temporaryDiskCleared": true,
+  "successful": true,
+  "observedAt": "2026-09-08T03:53:25Z"
+}
