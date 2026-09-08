@@ -1,0 +1,147 @@
+{
+  "cloudflareCapacityProven": false,
+  "format": "ghfind-feed-capacity-gate-v1",
+  "inputs": {
+    "delete.json": {
+      "bytes": 1937,
+      "sha256": "4db51ce1fab443b2dfff4b1dd793743fc3284f00f90a9834b6aef9bb23afd65c"
+    },
+    "external-resources.jsonl": {
+      "bytes": 1935332,
+      "sha256": "5eac570fbbe52d168cf936ab536941e50e5ae95d73b8cb0058fd23ee2dcca2c2"
+    },
+    "fixture.json": {
+      "bytes": 444,
+      "sha256": "cc29df96bc593d3f34527f3b332ecdb3687a965f6b9bc3b7650ca932a823429c"
+    },
+    "load.json": {
+      "bytes": 1781292,
+      "sha256": "0d267a7b60c275cc5d038b173194722136cda8b1aa278090848c4765ededeca9"
+    }
+  },
+  "issues": [],
+  "limits": {
+    "admittedP95Ms": 800,
+    "intervalMs": 100,
+    "maximumFailureRate": 0.001,
+    "maximumFailures": 6,
+    "maximumSchedulingLatenessMs": 1000,
+    "minimumDurationSeconds": 600,
+    "minimumValidGoPostgresSeconds": 550,
+    "offered": 6000
+  },
+  "metrics": {
+    "deletion": {
+      "accepted202": true,
+      "adapterReopened": true,
+      "completed": true,
+      "eventsAfter": 0,
+      "eventsBefore": 250000,
+      "recreatedProfileVersion": 2,
+      "s3FailureObserved": true
+    },
+    "externalResources": {
+      "coverage": {
+        "ghfind-feed-capacity-minio-1": {
+          "distinctSeconds": 601,
+          "firstOffsetMs": 529.308,
+          "lastOffsetMs": 600029.418,
+          "spanSeconds": 599.50011,
+          "validSamples": 2400
+        },
+        "ghfind-feed-capacity-postgres-1": {
+          "distinctSeconds": 601,
+          "firstOffsetMs": 529.261,
+          "lastOffsetMs": 600029.412,
+          "spanSeconds": 599.500151,
+          "validSamples": 2400
+        },
+        "host-vm": {
+          "distinctSeconds": 601,
+          "firstOffsetMs": 45.157999999999994,
+          "lastOffsetMs": 600191.1830000001,
+          "spanSeconds": 600.146025,
+          "validSamples": 601
+        }
+      },
+      "ignoredNonSampleLines": 1258,
+      "interpretation": "Checks observation coverage only; sampled host/container metrics do not establish CPU, GC, memory, or database causality.",
+      "malformedLines": 0,
+      "observerEndedLines": 0,
+      "outOfWindowLines": 0,
+      "unavailableDockerSamples": {
+        "ghfind-feed-capacity-minio-1": {
+          "count": 0,
+          "firstAt": null,
+          "firstOffsetMs": null,
+          "lastAt": null,
+          "lastOffsetMs": null
+        },
+        "ghfind-feed-capacity-postgres-1": {
+          "count": 0,
+          "firstAt": null,
+          "firstOffsetMs": null,
+          "lastAt": null,
+          "lastOffsetMs": null
+        }
+      }
+    },
+    "load": {
+      "admissionRejected": 0,
+      "admitted": 6000,
+      "admittedLatencySamples": 6000,
+      "admittedMaxMs": 85.536,
+      "admittedObservedIntervalP95Ms": 57.32900000002701,
+      "admittedP50Ms": 54.939,
+      "admittedP95Ms": 57.326,
+      "admittedP99Ms": 60.488,
+      "durationSeconds": 600.081426574,
+      "failureRateOffered": 0.0,
+      "failures": 0,
+      "latencyMethod": "Nearest-rank durationMs for all admitted HTTP attempts, including transport errors; concurrency_limit slots excluded.",
+      "loadWindowSeconds": 600.0691895740001,
+      "maximumSchedulingLatenessMs": 1.2430000000167638,
+      "offered": 6000,
+      "successful": 6000,
+      "transportErrors": 0,
+      "unexpectedSuccessfulPageSizes": 0
+    },
+    "resources": {
+      "clockComparison": {
+        "coverageClock": "monotonic offsetMs",
+        "interpretation": "Wall/monotonic clock drift is recorded without an equality threshold; its cause is unknown.",
+        "wallMinusMonotonicMsFirst": 0.00100000000009004,
+        "wallMinusMonotonicMsLast": 0.0009999999310821295,
+        "wallMinusMonotonicMsMax": 0.0010000000474974513,
+        "wallMinusMonotonicMsMin": -5.820766091346741e-11
+      },
+      "firstOffsetMs": 1000.376,
+      "gcCountFirst": 23,
+      "gcCountLast": 13741,
+      "gcPauseTotalNsFirst": 1725319,
+      "gcPauseTotalNsLast": 881115971,
+      "interpretation": "Observed resource ranges are context only; no CPU, GC, or database causal attribution is established.",
+      "lastOffsetMs": 600000.082,
+      "malformedSamples": 0,
+      "maxGoroutines": 14,
+      "maxHeapBytes": 4855592,
+      "observerErrorSamples": 0,
+      "processCpuSecondsFirst": 0.284986,
+      "processCpuSecondsLast": 172.117577,
+      "totalSamples": 600,
+      "validGoPostgresSamples": 600,
+      "validGoPostgresSeconds": 600
+    },
+    "seedCounts": {
+      "events": 1000000,
+      "project_submission_evidence": 50000,
+      "projects": 50000,
+      "users": 5000
+    }
+  },
+  "monthlyAvailabilityProven": false,
+  "passed": true,
+  "releaseSha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+  "scope": "Local synthetic finite-run engineering gate; not statistical proof of monthly 99.9% availability or Cloudflare capacity.",
+  "status": "passed"
+}
