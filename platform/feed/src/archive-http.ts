@@ -61,7 +61,7 @@ export async function handleArchive(operation: string, raw: unknown, env: Env) {
     if (bytes.toString("base64") !== encoded)
       throw new BridgeError(400, "invalid_archive_body");
     try {
-      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+      JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes));
     } catch {
       throw new BridgeError(400, "invalid_archive_body");
     }
