@@ -1,0 +1,154 @@
+name: Feed staging taxonomy operation
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact tested and deployed main commit (40 hex characters)
+        type: string
+        required: true
+      operation:
+        description: Read one proposal/receipt or review/deprecate one target
+        type: choice
+        options: [proposal, command, review, deprecate]
+        required: true
+      command_json:
+        description: Exact governance v1 body; operator is set to the authenticated Actions actor
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+
+concurrency:
+  group: feed-operator-staging
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: source
+        name: Require exact main source and successful CI
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+            -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
+            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+      - name: Require an actually protected operations environment
+        run: |
+          set -euo pipefail
+          gh api repos/hikariming/ghfind/environments/Feed%20staging%20operations > "$RUNNER_TEMP/feed-governance-environment.json"
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          const env=JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/feed-governance-environment.json`,'utf8'));
+          const review=env.protection_rules?.find(rule=>rule.type==='required_reviewers');
+          if(!review?.reviewers?.length || review.prevent_self_review!==true || env.can_admins_bypass!==false)throw new Error('Feed staging operations requires reviewers, prevention of self-review, and disabled administrator bypass');
+          JS
+      - name: Test the bounded operator client
+        run: node --test scripts/feed-operator.test.mjs scripts/feed-governance.test.mjs
+
+  operate:
+    needs: validate
+    environment: Feed staging operations
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+      OPERATION: ${{ inputs.operation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Materialize the exact approved command and release evidence
+        env:
+          STAGING_MANIFEST: ${{ vars.FEED_STAGING_MANIFEST }}
+          RELEASE_EVIDENCE: ${{ vars.FEED_STAGING_RELEASE_EVIDENCE }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          node --input-type=module - <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {validateRelease} from './scripts/feed-operator.mjs';
+          import {validateGovernanceCommand} from './scripts/feed-governance.mjs';
+          // Do not use env or script interpolation for review text: the public
+          // Actions runner prints step environment values before executing it.
+          let body;
+          try {
+            const raw=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')).inputs.command_json;
+            if(typeof raw!=='string' || Buffer.byteLength(raw)>32768)throw new Error();
+            body=JSON.parse(raw);
+          } catch { throw new Error('invalid_governance_command_json'); }
+          if(!body || typeof body!=='object' || Array.isArray(body))throw new Error('invalid_governance_command_json');
+          if(['review','deprecate'].includes(process.env.OPERATION)){
+            if(body.operator && body.operator!==process.env.GITHUB_ACTOR)throw new Error('operator_identity_mismatch');
+            body.operator=process.env.GITHUB_ACTOR;
+          }
+          const command={target:'staging',operation:process.env.OPERATION,body};
+          validateGovernanceCommand(command);
+          const manifest=JSON.parse(process.env.STAGING_MANIFEST || '{}');
+          const release=JSON.parse(process.env.RELEASE_EVIDENCE || '{}');
+          validateRelease(release,manifest,process.env.RELEASE_SHA);
+          for(const [name,value] of [['command',command],['manifest',manifest],['release',release]])writeFileSync(`${process.env.RUNNER_TEMP}/feed-governance-${name}.json`,JSON.stringify(value),{mode:0o600});
+          JS
+      - name: Verify the target and perform the bounded operation
+        env:
+          FEED_STAGING_RUNTIME_URL: ${{ vars.FEED_STAGING_RUNTIME_URL }}
+          CF_FEED_STAGING_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+          FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
+          FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+        run: |
+          node scripts/feed-governance.mjs --execute \
+            --command "$RUNNER_TEMP/feed-governance-command.json" \
+            --manifest "$RUNNER_TEMP/feed-governance-manifest.json" \
+            --release "$RUNNER_TEMP/feed-governance-release.json" \
+            --sha "$RELEASE_SHA" \
+            --output "$RUNNER_TEMP/feed-governance-result.json"
+      - name: Record requester and actual run trigger without changing command identity
+        if: always()
+        run: |
+          node --input-type=module - <<'JS'
+          import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+          const path=`${process.env.RUNNER_TEMP}/feed-governance-result.json`;
+          if(existsSync(path)){
+            const result=JSON.parse(readFileSync(path,'utf8'));
+            result.executionContext={repository:process.env.GITHUB_REPOSITORY,runId:process.env.GITHUB_RUN_ID,runAttempt:process.env.GITHUB_RUN_ATTEMPT,requestedBy:process.env.GITHUB_ACTOR,triggeredBy:process.env.GITHUB_TRIGGERING_ACTOR};
+            writeFileSync(path,JSON.stringify(result,null,2)+'\n',{mode:0o600});
+          }
+          JS
+      - name: Preserve bounded operation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-governance-staging-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/feed-governance-result.json
+      - name: Remove temporary command files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/feed-governance-command.json" "$RUNNER_TEMP/feed-governance-manifest.json" "$RUNNER_TEMP/feed-governance-release.json"
