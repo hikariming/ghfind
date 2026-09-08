@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ghfind-feed-adapter-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "secrets": {
+    "required": [
+      "FEED_BRIDGE_SECRET",
+      "FEED_SOURCE_SECRET"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "FEED_DB",
+      "database_name": "ghfind-feed-isolated-placeholder",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../migrations-feed"
+    },
+    {
+      "binding": "CORE_DB",
+      "database_name": "ghfind-feed-core-isolated-placeholder",
+      "database_id": "11111111-1111-1111-1111-111111111111",
+      "migrations_dir": "../../migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FEED_ARCHIVE",
+      "bucket_name": "ghfind-feed-isolated-placeholder"
+    }
+  ]
+}
