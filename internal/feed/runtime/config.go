@@ -33,7 +33,8 @@ type Config struct {
 	WriterEpoch    int64
 }
 
-func LoadConfig() (Config, error) {
+func LoadConfig() (Config, error) { return loadConfig(true) }
+func loadConfig(api bool) (Config, error) {
 	c := Config{Port: os.Getenv("PORT"), Mode: backend.ParseFeedMode(os.Getenv("FEED_MODE")), StoreProfile: os.Getenv("FEED_STORE_PROFILE"), DatabaseURL: os.Getenv("FEED_DATABASE_URL"), BridgeEndpoint: os.Getenv("FEED_BRIDGE_ENDPOINT"), BridgeSecret: os.Getenv("FEED_BRIDGE_SECRET"), GatewaySecret: os.Getenv("FEED_GATEWAY_SECRET"), SigningSecret: os.Getenv("FEED_SIGNING_SECRET"), WriterEpoch: 1}
 	if c.Port == "" {
 		c.Port = "8080"
@@ -54,10 +55,10 @@ func LoadConfig() (Config, error) {
 	if c.StoreProfile != "cf_d1_r2" && c.StoreProfile != "postgres" {
 		return c, errors.New("FEED_STORE_PROFILE must be cf_d1_r2 or postgres")
 	}
-	if len(c.GatewaySecret) < 32 || len(c.SigningSecret) < 32 || c.GatewaySecret == c.SigningSecret {
+	if api && (len(c.GatewaySecret) < 32 || len(c.SigningSecret) < 32 || c.GatewaySecret == c.SigningSecret) {
 		return c, errors.New("distinct gateway and Feed signing secrets (>=32 bytes) required")
 	}
-	if c.StoreProfile == "cf_d1_r2" && (c.BridgeSecret == c.SigningSecret || c.BridgeSecret == c.GatewaySecret) {
+	if c.StoreProfile == "cf_d1_r2" && (len(c.BridgeSecret) < 32 || (c.SigningSecret != "" && c.BridgeSecret == c.SigningSecret) || (c.GatewaySecret != "" && c.BridgeSecret == c.GatewaySecret)) {
 		return c, errors.New("bridge secret must be independent")
 	}
 	return c, nil
@@ -134,11 +135,14 @@ func writeStatus(w http.ResponseWriter, status int, v any) {
 
 // Serve drains in-flight work on SIGTERM without holding ephemeral task state.
 func Serve(port string, handler http.Handler) error {
+	return ServeWithWriteTimeout(port, handler, 30*time.Second)
+}
+func ServeWithWriteTimeout(port string, handler http.Handler, writeTimeout time.Duration) error {
 	listener, err := net.Listen("tcp", ":"+strings.TrimSpace(port))
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: writeTimeout, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)
