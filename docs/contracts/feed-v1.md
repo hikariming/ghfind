@@ -52,6 +52,8 @@ with a dedicated bridge credential. DTOs are defined by
 `internal/backend/feed_bridge_contract.go`. Use explicit private snapshot DTOs:
 public Go fields marked `json:"-"` must not disappear when sessions are persisted.
 Timestamps use RFC3339 UTC; identities and versions must be JSON-safe integers.
+Private item ranks are zero-based snapshot positions (0–239), matching the Go
+ranker, impression token and PostgreSQL constraint. They are not public scores.
 
 The adapter checks persistent writer epoch and expected user profile/deletion
 version for every mutation. Old writers, sessions and delayed messages fail after
@@ -72,15 +74,44 @@ Candidates require verifiable submission, a valid completed assessment and
 current public eligibility. Recall caps: tags 80, latest 40, quality 20, long-tail
 20; semantics may add 80; total at most 240. Missing feature weights renormalize.
 MMR defaults to 0.78. Exploration probability 0.10 with at most two exploratory
-choices in each 20-item block; any rolling 20 results contain at most two from
-the same owner. Short pages are valid when hard constraints exhaust candidates.
+choices in any rolling 20 results; the same rolling window contains at most two
+from the same owner. Short pages are valid when hard constraints exhaust candidates.
 
-Persist the selected sequence for 30 minutes. Page impressions do not change
-that sequence. Before serving each page recheck deletion, withdrawal and negative
-state; preference version changes invalidate the session. Compute and store the
-actual conditional policy probability after eligibility, quota, deterministic
-choice and exploration mixture; neither constant 0.9 nor branch probability alone
-is a valid propensity.
+The portable service uses algorithm `baseline-v2-portable`; legacy keeps
+`baseline-v1`. `requests.save.algorithmVersion` is explicit for portable requests
+and defaults to the legacy version when absent. Persist the selected sequence for
+30 minutes. Page impressions do not change the sequence, profile version or
+eligibility check. Signed cursors bind the actor, session, expiry, offset and up to
+19 strictly increasing prior served snapshot indices (`serviceVersion: 1`). Owner
+and exploration history comes from that immutable server snapshot, never a bare
+client-supplied owner list. Repeated cursor reads preserve the same choices when
+eligibility is unchanged.
+
+Before serving a portable page, recheck all remaining sampled projects against
+current deletion, withdrawal and negative state. A failed hard filter invalidates
+and deletes the snapshot and returns HTTP 410 `feed_cursor_expired`, with no served
+items or request audit committed. The client rebuilds using a request without a
+cursor. A withdrawal racing the first page can return the same 410. Preference
+version changes also invalidate the session. This intentionally replaces portable
+page compression: skipping a sampled item would alter both the quota history and
+the conditional probability. Legacy page filtering remains unchanged. The atomic
+request command rechecks eligibility under the same PostgreSQL transaction or D1
+batch as all served records, covering a withdrawal racing the earlier read.
+
+Sampling applies the owner filter before forming the candidate pool. Exploration
+uses softmax at temperature 0.15 over at most the top 50 MMR candidates. For the
+actual prior sampled history, including prior exploration flags, let `epsilon`
+be 0.10 while fewer than two prior rolling-window choices explored, otherwise 0.
+The complete conditional probability is
+`P(i | history) = (1 - epsilon) * I(i is deterministic best) + epsilon * softmax(i)`.
+The best item can be selected by either branch, so both masses must be included.
+Candidates outside the exploration pool have zero exploration mass. Exhausted
+exploration quota gives the deterministic best probability 1. Golden fixtures
+cover best-branch overlap, non-best exploration, mass conservation, bounded pools,
+rolling quota exhaustion, and stable continuation after an impression. No served
+portable request may contain `policy_probability_unavailable`; cursors left from
+the earlier filtering implementation carrying that marker must expire instead of
+being served. Numeric probabilities remain internal audit data.
 
 Explicit preferences override behavioral signals; graph hints are weak priors.
 Deduplicated saves, outbound clicks and qualified detail dwell update future

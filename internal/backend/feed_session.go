@@ -17,10 +17,10 @@ type FeedSessionStore interface {
 	DeleteFeedSession(context.Context, string) error
 }
 
-func feedSessionKey(id string) string { return "feed:session:v1:" + id }
+func feedSessionKey(id string) string { return "feed:session:v2:" + id }
 
 func (s *UpstashStatusStore) PutFeedSession(ctx context.Context, session FeedSession, ttl time.Duration) error {
-	encoded, err := json.Marshal(session)
+	encoded, err := json.Marshal(feedSessionDTO(session))
 	if err != nil {
 		return fmt.Errorf("encode Feed session: %w", err)
 	}
@@ -47,10 +47,11 @@ func (s *UpstashStatusStore) GetFeedSession(ctx context.Context, id string) (*Fe
 	if err := json.Unmarshal(result, &encoded); err != nil {
 		return nil, fmt.Errorf("decode Feed session envelope: %w", err)
 	}
-	var session FeedSession
-	if err := json.Unmarshal([]byte(encoded), &session); err != nil {
+	var snapshot FeedSessionDTO
+	if err := json.Unmarshal([]byte(encoded), &snapshot); err != nil {
 		return nil, fmt.Errorf("decode Feed session: %w", err)
 	}
+	session := snapshot.session()
 	return &session, nil
 }
 

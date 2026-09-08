@@ -16,18 +16,20 @@ import (
 
 var (
 	ErrFeedTaxonomyChanged   = errors.New("Feed taxonomy version changed")
+	ErrFeedCatalogChanged    = errors.New("feed catalog changed")
 	ErrFeedProjectNotFound   = errors.New("Feed project not found")
 	ErrFeedInvalidStatePatch = errors.New("exactly one Feed project state field must be changed")
 )
 
 type FeedRequestRecord struct {
-	ID              string
-	User            FeedUser
-	Seed            string
-	CandidateCounts map[string]int
-	Degraded        []string
-	Duration        time.Duration
-	Items           []FeedRankedItem
+	AlgorithmVersion string
+	ID               string
+	User             FeedUser
+	Seed             string
+	CandidateCounts  map[string]int
+	Degraded         []string
+	Duration         time.Duration
+	Items            []FeedRankedItem
 }
 
 type FeedStatePatch struct {
@@ -53,23 +55,41 @@ type FeedEventAppendResult struct {
 	Duplicate int `json:"duplicate"`
 }
 
-type FeedDataStore interface {
-	Ping(context.Context) error
+// Capabilities expose business commands; atomic commands include their events
+// and outbox effects. Adapters never expose caller-provided SQL.
+type CatalogStore interface {
 	ActiveTaxonomyVersion(context.Context) (int64, error)
 	ListFeedTags(context.Context) ([]FeedTag, int64, error)
+	LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error)
+	AvailableFeedRepoKeys(context.Context, int64, []string) (map[string]bool, error)
+}
+type PreferenceStore interface {
 	EnsureFeedUser(context.Context, OAuthSession) (*FeedUser, error)
 	GetFeedUser(context.Context, int64) (*FeedUser, error)
+	ReplaceExplicitFeedPreferences(context.Context, int64, int64, []FeedPreference) (*FeedUser, error)
+	SetFeedProjectState(context.Context, int64, string, FeedStatePatch, time.Time) (FeedProjectState, error)
+	DeleteFeedProfile(context.Context, int64, time.Time) (string, error)
+}
+type EventStore interface {
+	SaveFeedRequest(context.Context, FeedRequestRecord) error
+	AppendFeedEvents(context.Context, int64, []AcceptedFeedEvent) (FeedEventAppendResult, error)
+}
+type FeedServingStore interface {
+	CatalogStore
+	PreferenceStore
+	EventStore
+	Ping(context.Context) error
+	Close() error
+}
+type FeedGraphPreferenceStore interface {
 	ClaimFeedGraphRefresh(context.Context, int64, int64, time.Time, time.Duration, time.Duration) (bool, error)
 	FailFeedGraphRefresh(context.Context, int64, time.Time, time.Duration) error
-	ReplaceExplicitFeedPreferences(context.Context, int64, int64, []FeedPreference) (*FeedUser, error)
 	SeedFeedGraphPreferences(context.Context, int64, []DeveloperFacet) (bool, error)
-	LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error)
+}
+type FeedGorseCandidateStore interface {
 	LoadGorseFeedCandidates(context.Context, FeedUser, []string, int) ([]FeedCandidate, error)
-	AvailableFeedRepoKeys(context.Context, int64, []string) (map[string]bool, error)
-	SaveFeedRequest(context.Context, FeedRequestRecord) error
-	SetFeedProjectState(context.Context, int64, string, FeedStatePatch, time.Time) (FeedProjectState, error)
-	AppendFeedEvents(context.Context, int64, []AcceptedFeedEvent) (FeedEventAppendResult, error)
-	DeleteFeedProfile(context.Context, int64, time.Time) (string, error)
+}
+type FeedProjectionStore interface {
 	UpsertFeedProject(context.Context, FeedProjectProjection) error
 	FeedProjectSourceHashes(context.Context, []string) (map[string]string, error)
 	AcquireFeedReconcileLease(context.Context, string, time.Time, time.Duration) (bool, error)
@@ -78,12 +98,24 @@ type FeedDataStore interface {
 	MarkFeedReconcile(context.Context, string, time.Time, bool) error
 	LoadFeedProjectChangeCursor(context.Context) (FeedProjectChangeCursor, bool, error)
 	SaveFeedProjectChangeCursor(context.Context, FeedProjectChangeCursor) error
-	Close() error
+}
+
+// FeedDataStore preserves the existing legacy worker contract through composition.
+type FeedDataStore interface {
+	FeedServingStore
+	FeedGraphPreferenceStore
+	FeedGorseCandidateStore
+	FeedProjectionStore
+}
+type FeedDeletionStore interface {
+	GetFeedDeletion(context.Context, int64, string) (FeedBridgeDeleteResponse, error)
 }
 
 type PostgresFeedStore struct {
-	db   *sql.DB
-	mode FeedMode
+	db             *sql.DB
+	mode           FeedMode
+	writerEpoch    int64
+	archiveObjects FeedArchiveObjects
 }
 
 func OpenPostgresFeedStore(config Config) (*PostgresFeedStore, error) {
@@ -110,6 +142,24 @@ func OpenPostgresFeedStore(config Config) (*PostgresFeedStore, error) {
 func (s *PostgresFeedStore) Close() error { return s.db.Close() }
 
 func (s *PostgresFeedStore) Ping(ctx context.Context) error {
+	if s.writerEpoch > 0 {
+		var epoch int64
+		var enabled bool
+		if err := s.db.QueryRowContext(ctx, `SELECT writer_epoch,writes_enabled FROM feed.runtime_control WHERE singleton=true`).Scan(&epoch, &enabled); err != nil {
+			return err
+		}
+		if epoch != s.writerEpoch || !enabled {
+			return ErrFeedWriterEpoch
+		}
+		var compatible bool
+		if err := s.db.QueryRowContext(ctx, `SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 FROM feed.schema_compatibility WHERE singleton=true`).Scan(&compatible); err != nil {
+			return fmt.Errorf("read Feed schema compatibility: %w", err)
+		}
+		if !compatible {
+			return fmt.Errorf("Feed schema does not support runtime contract 1")
+		}
+	}
+
 	var projectsTable *string
 	var vectorInstalled bool
 	if err := s.db.QueryRowContext(ctx, `SELECT to_regclass('feed.projects')::text,
@@ -147,7 +197,7 @@ func (s *PostgresFeedStore) Ping(ctx context.Context) error {
 	if err := rows.Close(); err != nil {
 		return fmt.Errorf("close Feed migration ledger: %w", err)
 	}
-	if len(applied) != len(required) {
+	if len(applied) < len(required) || (s.writerEpoch == 0 && len(applied) != len(required)) {
 		return fmt.Errorf("Feed PostgreSQL migrations are incomplete: applied=%d required=%d", len(applied), len(required))
 	}
 	for _, migration := range required {
@@ -300,10 +350,13 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, session.GitHubID, 0); err != nil {
+		return nil, err
+	}
 	var profileVersion int64
 	err = tx.QueryRowContext(ctx, `INSERT INTO feed.users
-      (github_id, login, avatar_url, taxonomy_version)
-      VALUES ($1, $2, NULLIF($3, ''), $4)
+      (github_id, login, avatar_url, taxonomy_version, profile_version)
+      VALUES ($1, $2, NULLIF($3, ''), $4, COALESCE((SELECT MAX(profile_version)+1 FROM feed.user_deletion_tombstones WHERE github_id=$1),1))
       ON CONFLICT (github_id) DO UPDATE SET
         login = excluded.login, avatar_url = excluded.avatar_url,
         taxonomy_version = excluded.taxonomy_version, updated_at = now(), deleted_at = NULL
@@ -326,17 +379,20 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 
 func (s *PostgresFeedStore) GetFeedUser(ctx context.Context, githubID int64) (*FeedUser, error) {
 	var user FeedUser
-	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), taxonomy_version, profile_version
+	if err := s.db.QueryRowContext(ctx, `SELECT github_id, login, COALESCE(avatar_url, ''), taxonomy_version, profile_version,COALESCE((SELECT MAX(t.profile_version) FROM feed.user_deletion_tombstones t WHERE t.github_id=feed.users.github_id),0)
       FROM feed.users WHERE github_id = $1 AND deleted_at IS NULL`, githubID).Scan(
-		&user.GitHubID, &user.Login, &user.AvatarURL, &user.TaxonomyVersion, &user.ProfileVersion,
+		&user.GitHubID, &user.Login, &user.AvatarURL, &user.TaxonomyVersion, &user.ProfileVersion, &user.ProfileFloor,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("read Feed user: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT tag_id, value, source, strength, taxonomy_version
-      FROM feed.user_tag_preferences WHERE github_id = $1 ORDER BY source, tag_id`, githubID)
+	preferenceQuery := `SELECT tag_id, value, source, strength, taxonomy_version FROM feed.user_tag_preferences WHERE github_id = $1 ORDER BY source, tag_id`
+	if s.writerEpoch > 0 {
+		preferenceQuery = `SELECT DISTINCT ON(p.tag_id) p.tag_id,p.value,p.source,p.strength,p.taxonomy_version FROM feed.user_tag_preferences p JOIN feed.tag_definitions d ON d.id=p.tag_id AND d.status='canonical' WHERE p.github_id=$1 ORDER BY p.tag_id,CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC LIMIT 300`
+	}
+	rows, err := s.db.QueryContext(ctx, preferenceQuery, githubID)
 	if err != nil {
 		return nil, fmt.Errorf("read Feed preferences: %w", err)
 	}
@@ -430,7 +486,8 @@ func (s *PostgresFeedStore) AvailableFeedRepoKeys(ctx context.Context, githubID 
 	  FROM feed.projects p
 	  LEFT JOIN feed.user_project_state ups ON ups.github_id=$1 AND ups.repo_key=p.repo_key
 	  WHERE p.repo_key = ANY($2) AND p.publishable=true
-	    AND COALESCE(ups.not_interested,false)=false`, githubID, repoKeys)
+	    AND COALESCE(ups.not_interested,false)=false
+ AND ($3=false OR EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id))`, githubID, repoKeys, s.writerEpoch > 0)
 	if err != nil {
 		return nil, fmt.Errorf("revalidate Feed page: %w", err)
 	}
@@ -466,6 +523,9 @@ func (s *PostgresFeedStore) ReplaceExplicitFeedPreferences(ctx context.Context, 
 		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return nil, err
+	}
 	var activeVersion int64
 	if err := tx.QueryRowContext(ctx, `SELECT version FROM feed.taxonomy_versions WHERE state = 'active' LIMIT 1`).Scan(&activeVersion); err != nil {
 		return nil, fmt.Errorf("read active Feed taxonomy: %w", err)
@@ -516,11 +576,67 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, record.User.GitHubID, record.User.ProfileVersion); err != nil {
+		return err
+	}
+	payloadHash, hashErr := feedRequestPayloadHash(record)
+	if hashErr != nil {
+		return hashErr
+	}
+	var existing sql.NullString
+	lookupErr := tx.QueryRowContext(ctx, `SELECT payload_hash FROM feed.requests WHERE id=$1`, record.ID).Scan(&existing)
+	if lookupErr == nil {
+		if existing.Valid && existing.String == payloadHash {
+			return tx.Commit()
+		}
+		return fmt.Errorf("feed request identity conflict")
+	}
+	if !errors.Is(lookupErr, sql.ErrNoRows) {
+		return lookupErr
+	}
+	if s.writerEpoch > 0 {
+		keys := make([]string, 0, len(record.Items))
+		for _, item := range record.Items {
+			keys = append(keys, item.Project.RepoKey)
+		}
+		// Lock project rows in a stable order. Catalog updates cannot change their
+		// eligibility between validation and atomic request+served-item commit.
+		rows, err := tx.QueryContext(ctx, `SELECT repo_key FROM feed.projects WHERE repo_key=ANY($1) ORDER BY repo_key FOR SHARE`, keys)
+		if err != nil {
+			return err
+		}
+		locked := 0
+		for rows.Next() {
+			var key string
+			if err := rows.Scan(&key); err != nil {
+				rows.Close()
+				return err
+			}
+			locked++
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if locked != len(keys) {
+			return ErrFeedCatalogChanged
+		}
+		var eligible int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.projects p WHERE p.repo_key=ANY($1) AND p.publishable=true AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) AND NOT EXISTS(SELECT 1 FROM feed.user_project_state ups WHERE ups.github_id=$2 AND ups.repo_key=p.repo_key AND ups.not_interested=true)`, keys, record.User.GitHubID).Scan(&eligible); err != nil {
+			return err
+		}
+		if eligible != len(keys) {
+			return ErrFeedCatalogChanged
+		}
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.requests
-      (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)`, record.ID, record.User.GitHubID,
-		FeedAlgorithmVersion, record.User.TaxonomyVersion, record.User.ProfileVersion, record.Seed,
-		string(candidateCounts), string(degraded), record.Duration.Milliseconds())
+      (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms,payload_hash)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9,$10)`, record.ID, record.User.GitHubID,
+		feedRequestAlgorithm(record), record.User.TaxonomyVersion, record.User.ProfileVersion, record.Seed,
+		string(candidateCounts), string(degraded), record.Duration.Milliseconds(), payloadHash)
 	if err != nil {
 		return fmt.Errorf("insert Feed request: %w", err)
 	}
@@ -562,6 +678,35 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 		return FeedProjectState{}, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return FeedProjectState{}, err
+	}
+	if err := s.checkFeedAttribution(ctx, tx, githubID, patch.RequestID, repoKey); err != nil {
+		return FeedProjectState{}, err
+	}
+	if s.writerEpoch > 0 {
+		prior := FeedProjectState{RepoKey: repoKey}
+		err := tx.QueryRowContext(ctx, `SELECT saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).Scan(&prior.Saved, &prior.NotInterested)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return FeedProjectState{}, err
+		}
+		next := prior
+		if patch.Saved != nil {
+			next.Saved = *patch.Saved
+			if next.Saved {
+				next.NotInterested = false
+			}
+		} else {
+			next.NotInterested = *patch.NotInterested
+			if next.NotInterested {
+				next.Saved = false
+			}
+		}
+		if prior == next {
+			return prior, tx.Commit()
+		}
+	}
+
 	var state FeedProjectState
 	changed := true
 	if patch.Saved != nil {
@@ -573,9 +718,10 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
           (github_id, repo_key, saved, saved_at, updated_at)
 		  VALUES ($1, $2, $3, CASE WHEN $3 THEN $4::timestamptz ELSE NULL END, $4::timestamptz)
 		  ON CONFLICT (github_id, repo_key) DO UPDATE SET saved = excluded.saved,
+ not_interested=CASE WHEN $5 AND excluded.saved THEN false ELSE feed.user_project_state.not_interested END,
 		    saved_at = excluded.saved_at, updated_at = excluded.updated_at
-		  WHERE feed.user_project_state.saved IS DISTINCT FROM excluded.saved
-		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.Saved, now).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
+		  WHERE feed.user_project_state.saved IS DISTINCT FROM excluded.saved OR ($5 AND excluded.saved AND feed.user_project_state.not_interested)
+		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.Saved, now, s.writerEpoch > 0).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
 		if errors.Is(err, sql.ErrNoRows) {
 			changed = false
 			err = tx.QueryRowContext(ctx, `SELECT repo_key,saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).
@@ -592,9 +738,10 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
           (github_id, repo_key, not_interested, not_interested_at, updated_at)
 		  VALUES ($1, $2, $3, CASE WHEN $3 THEN $4::timestamptz ELSE NULL END, $4::timestamptz)
 		  ON CONFLICT (github_id, repo_key) DO UPDATE SET not_interested = excluded.not_interested,
+ saved=CASE WHEN $5 AND excluded.not_interested THEN false ELSE feed.user_project_state.saved END,
 		    not_interested_at = excluded.not_interested_at, updated_at = excluded.updated_at
-		  WHERE feed.user_project_state.not_interested IS DISTINCT FROM excluded.not_interested
-		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.NotInterested, now).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
+		  WHERE feed.user_project_state.not_interested IS DISTINCT FROM excluded.not_interested OR ($5 AND excluded.not_interested AND feed.user_project_state.saved)
+		  RETURNING repo_key, saved, not_interested`, githubID, repoKey, *patch.NotInterested, now, s.writerEpoch > 0).Scan(&state.RepoKey, &state.Saved, &state.NotInterested)
 		if errors.Is(err, sql.ErrNoRows) {
 			changed = false
 			err = tx.QueryRowContext(ctx, `SELECT repo_key,saved,not_interested FROM feed.user_project_state WHERE github_id=$1 AND repo_key=$2`, githubID, repoKey).
@@ -610,6 +757,11 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 		return FeedProjectState{}, fmt.Errorf("update Feed project state: %w", err)
 	}
 	if changed {
+		if s.writerEpoch > 0 {
+			if err := setFeedSavedSignalTx(ctx, tx, githubID, repoKey, state.Saved, now); err != nil {
+				return FeedProjectState{}, err
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `UPDATE feed.users SET profile_version=profile_version+1,updated_at=now() WHERE github_id=$1`, githubID); err != nil {
 			return FeedProjectState{}, fmt.Errorf("bump Feed profile state version: %w", err)
 		}
@@ -630,6 +782,31 @@ func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64
 		return result, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return result, err
+	}
+	for _, event := range events {
+		if err := s.checkFeedAttribution(ctx, tx, githubID, event.RequestID, event.Input.RepoKey); err != nil {
+			return result, err
+		}
+	}
+	if s.writerEpoch > 0 {
+		for _, event := range events {
+			metadata, err := json.Marshal(event.Metadata)
+			if err != nil {
+				return result, err
+			}
+			var matches bool
+			err = tx.QueryRowContext(ctx, `SELECT github_id=$2 AND repo_key=$3 AND request_id IS NOT DISTINCT FROM NULLIF($4,'') AND event_type=$5 AND occurred_at=$6 AND metadata=$7::jsonb FROM feed.events WHERE id=$1`, event.Input.ID, githubID, strings.ToLower(event.Input.RepoKey), event.RequestID, event.Input.Type, event.Input.OccurredAt, string(metadata)).Scan(&matches)
+			if err == nil && !matches {
+				return result, ErrFeedEventConflict
+			}
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return result, err
+			}
+		}
+	}
+
 	type eventRow struct {
 		ID         string         `json:"id"`
 		RepoKey    string         `json:"repo_key"`
@@ -704,6 +881,16 @@ func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64
 			result.Duplicate++
 		}
 	}
+	if s.writerEpoch > 0 {
+		ids := make([]string, 0, len(insertedIDs))
+		for id := range insertedIDs {
+			ids = append(ids, id)
+		}
+		profileChanged, err = insertFeedBehaviorSignalsTx(ctx, tx, githubID, ids)
+		if err != nil {
+			return result, err
+		}
+	}
 	if profileChanged {
 		if _, err := tx.ExecContext(ctx, `UPDATE feed.users SET profile_version=profile_version+1,updated_at=now() WHERE github_id=$1`, githubID); err != nil {
 			return result, fmt.Errorf("bump Feed behavior profile version: %w", err)
@@ -760,15 +947,22 @@ func (s *PostgresFeedStore) DeleteFeedProfile(ctx context.Context, githubID int6
 		return "", err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return "", err
+	}
 	payload, _ := json.Marshal(map[string]any{"deletionId": deletionID, "gorseUserId": fmt.Sprintf("gh:%d", githubID), "requestedAt": now})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.user_deletion_tombstones
-	  (deletion_id,github_id,gorse_user_id,requested_at) VALUES ($1,$2,$3,$4)`,
-		deletionID, githubID, fmt.Sprintf("gh:%d", githubID), now); err != nil {
+	  (deletion_id,github_id,gorse_user_id,requested_at,portable_cleanup,profile_version) VALUES ($1,$2,$3,$4,$5,GREATEST(COALESCE((SELECT profile_version FROM feed.users WHERE github_id=$2),1),COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),1)))`,
+		deletionID, githubID, fmt.Sprintf("gh:%d", githubID), now, s.writerEpoch > 0); err != nil {
 		return "", fmt.Errorf("persist Feed user deletion tombstone: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.event_outbox (aggregate_key, topic, payload)
+	// Portable cleanup owns its persistent tombstone lease. Do not also publish
+	// the legacy Gorse deletion topic, whose acknowledgement cannot certify S3 erasure.
+	if s.writerEpoch == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO feed.event_outbox (aggregate_key, topic, payload)
       VALUES ($1, 'feed.user-delete.v1', $2::jsonb)`, fmt.Sprintf("gh:%d", githubID), string(payload)); err != nil {
-		return "", fmt.Errorf("queue Feed user deletion: %w", err)
+			return "", fmt.Errorf("queue Feed user deletion: %w", err)
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM feed.users WHERE github_id = $1`, githubID); err != nil {
 		return "", fmt.Errorf("delete Feed profile: %w", err)
@@ -881,3 +1075,10 @@ func (s *PostgresFeedStore) FinalizeFeedProjectReconcile(ctx context.Context, se
 }
 
 var _ FeedDataStore = (*PostgresFeedStore)(nil)
+
+func feedRequestAlgorithm(r FeedRequestRecord) string {
+	if r.AlgorithmVersion != "" {
+		return r.AlgorithmVersion
+	}
+	return FeedAlgorithmVersion
+}

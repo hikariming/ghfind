@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	FeedAlgorithmVersion = "baseline-v1"
-	FeedSessionTTL       = 30 * time.Minute
-	FeedImpressionTTL    = 24 * time.Hour
+	FeedAlgorithmVersion         = "baseline-v1"
+	FeedPortableAlgorithmVersion = "baseline-v2-portable"
+	FeedSessionTTL               = 30 * time.Minute
+	FeedImpressionTTL            = 24 * time.Hour
 )
 
 type FeedTag struct {
@@ -26,25 +27,26 @@ type FeedTag struct {
 }
 
 type FeedProject struct {
-	RepoKey           string    `json:"repoKey"`
-	ItemID            string    `json:"-"`
-	OwnerLogin        string    `json:"ownerLogin"`
-	Name              string    `json:"name"`
-	CanonicalURL      string    `json:"canonicalUrl"`
-	Summary           string    `json:"summary"`
-	Language          *string   `json:"language"`
-	Topics            []string  `json:"topics"`
-	ProjectType       string    `json:"projectType"`
-	Lifecycle         string    `json:"lifecycle"`
-	ProductScore      float64   `json:"productScore"`
-	Confidence        float64   `json:"confidence"`
-	VerificationLevel string    `json:"verificationLevel"`
-	ExposureBand      string    `json:"exposureBand"`
-	TreasureEligible  bool      `json:"treasureEligible"`
-	ClassicEligible   bool      `json:"classicEligible"`
-	AnalyzedAt        time.Time `json:"analyzedAt"`
-	Publishable       bool      `json:"-"`
-	Tags              []FeedTag `json:"tags"`
+	RepoKey            string    `json:"repoKey"`
+	ItemID             string    `json:"-"`
+	OwnerLogin         string    `json:"ownerLogin"`
+	Name               string    `json:"name"`
+	CanonicalURL       string    `json:"canonicalUrl"`
+	Summary            string    `json:"summary"`
+	Language           *string   `json:"language"`
+	Topics             []string  `json:"topics"`
+	ProjectType        string    `json:"projectType"`
+	Lifecycle          string    `json:"lifecycle"`
+	ProductScore       float64   `json:"productScore"`
+	Confidence         float64   `json:"confidence"`
+	VerificationLevel  string    `json:"verificationLevel"`
+	ExposureBand       string    `json:"exposureBand"`
+	TreasureEligible   bool      `json:"treasureEligible"`
+	ClassicEligible    bool      `json:"classicEligible"`
+	AnalyzedAt         time.Time `json:"analyzedAt"`
+	Publishable        bool      `json:"-"`
+	SubmissionEvidence bool      `json:"-"`
+	Tags               []FeedTag `json:"tags"`
 }
 
 type FeedPreference struct {
@@ -61,6 +63,7 @@ type FeedUser struct {
 	AvatarURL           string           `json:"avatarUrl,omitempty"`
 	TaxonomyVersion     int64            `json:"taxonomyVersion"`
 	ProfileVersion      int64            `json:"profileVersion"`
+	ProfileFloor        int64            `json:"profileFloor"`
 	Preferences         []FeedPreference `json:"preferences"`
 	Embedding           []float64        `json:"-"`
 	embeddingModel      string

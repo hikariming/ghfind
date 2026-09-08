@@ -18,35 +18,35 @@ import (
 // this structure; Feed-specific moderation and taxonomy decisions live only in
 // PostgreSQL.
 type FeedProjectProjection struct {
-	RepoKey              string
-	ItemID               string
-	OwnerLogin           string
-	Name                 string
-	CanonicalURL         string
-	Summary              string
-	PainStatement        string
-	TargetUsers          []string
-	Language             *string
-	Topics               []string
-	ProjectType          string
-	Lifecycle            string
-	ProductScore         float64
-	Confidence           float64
-	VerificationLevel    string
-	ExposureBand         string
-	TreasureEligible     bool
-	ClassicEligible      bool
-	Risks                []ProjectRisk
-	AnalysisID           string
-	ResolvedCommitSHA    string
-	AnalyzedAt           time.Time
-	Descriptor           string
-	DescriptorHash       string
-	SourceHash           string
-	Publishable          bool
-	BlockedReason        string
-	RiskOverrideEligible bool
-	ProductTags          []ProductTag
+	RepoKey              string        `json:"repoKey"`
+	ItemID               string        `json:"itemId"`
+	OwnerLogin           string        `json:"ownerLogin"`
+	Name                 string        `json:"name"`
+	CanonicalURL         string        `json:"canonicalUrl"`
+	Summary              string        `json:"summary"`
+	PainStatement        string        `json:"painStatement"`
+	TargetUsers          []string      `json:"targetUsers"`
+	Language             *string       `json:"language"`
+	Topics               []string      `json:"topics"`
+	ProjectType          string        `json:"projectType"`
+	Lifecycle            string        `json:"lifecycle"`
+	ProductScore         float64       `json:"productScore"`
+	Confidence           float64       `json:"confidence"`
+	VerificationLevel    string        `json:"verificationLevel"`
+	ExposureBand         string        `json:"exposureBand"`
+	TreasureEligible     bool          `json:"treasureEligible"`
+	ClassicEligible      bool          `json:"classicEligible"`
+	Risks                []ProjectRisk `json:"risks"`
+	AnalysisID           string        `json:"analysisId"`
+	ResolvedCommitSHA    string        `json:"resolvedCommitSha"`
+	AnalyzedAt           time.Time     `json:"analyzedAt"`
+	Descriptor           string        `json:"descriptor"`
+	DescriptorHash       string        `json:"descriptorHash"`
+	SourceHash           string        `json:"sourceHash"`
+	Publishable          bool          `json:"publishable"`
+	BlockedReason        string        `json:"blockedReason"`
+	RiskOverrideEligible bool          `json:"riskOverrideEligible"`
+	ProductTags          []ProductTag  `json:"productTags"`
 }
 
 var feedHighRiskBlockingCategories = map[string]struct{}{
@@ -255,18 +255,27 @@ func feedProjectionHash(project FeedProjectProjection) (string, error) {
 }
 
 func (s *PostgresFeedStore) UpsertFeedProject(ctx context.Context, project FeedProjectProjection) error {
-	targetUsers, _ := json.Marshal(project.TargetUsers)
-	topics, _ := json.Marshal(project.Topics)
-	risks, _ := json.Marshal(project.Risks)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback()
+	if err := s.guardFeedWrite(ctx, tx, 0, 0); err != nil {
+		return err
+	}
+	if err := upsertFeedProjectTx(ctx, tx, project); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+func upsertFeedProjectTx(ctx context.Context, tx *sql.Tx, project FeedProjectProjection) error {
+	targetUsers, _ := json.Marshal(project.TargetUsers)
+	topics, _ := json.Marshal(project.Topics)
+	risks, _ := json.Marshal(project.Risks)
 
 	var appliedRepo string
 	var projectionVersion int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO feed.projects
+	err := tx.QueryRowContext(ctx, `INSERT INTO feed.projects
       (repo_key, item_id, owner_login, name, canonical_url, summary, pain_statement, target_users,
        language, topics, project_type, lifecycle, product_score, confidence, verification_level,
        exposure_band, treasure_eligible, classic_eligible, risks, analysis_id, resolved_commit_sha,
@@ -384,9 +393,6 @@ func (s *PostgresFeedStore) UpsertFeedProject(ctx context.Context, project FeedP
       ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
 		project.RepoKey, string(projectPayload), fmt.Sprintf("project-sync:%s:%d", project.RepoKey, projectionVersion)); err != nil {
 		return fmt.Errorf("queue Feed project projection: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Feed project projection: %w", err)
 	}
 	return nil
 }
