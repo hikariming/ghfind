@@ -73,6 +73,25 @@ class SafetyTests(unittest.TestCase):
             h.run=lambda *a,**kw: subprocess.CompletedProcess([],1,'','Cannot connect to the Docker daemon')
             with self.assertRaises(RuntimeError): h.inspect('volume','owned')
 
+    def test_build_uncertainty_cannot_claim_clean_without_image_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            h=m.Harness(pathlib.Path(temp),pathlib.Path(temp),SHA,OWNER)
+            h.image_build_attempted=True
+            h.run=lambda *a,**kw: self.fail('cannot remove an unknown image')
+            self.assertFalse(h.cleanup())
+            self.assertEqual(h.report['cleanup'][-1]['status'],'build_identity_uncertain_not_claimed_absent')
+
+    def test_recovers_owned_iid_after_build_client_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            h=m.Harness(pathlib.Path(temp),pathlib.Path(temp),SHA,OWNER)
+            h.image_build_attempted=True
+            iid='sha256:'+'c'*64
+            (pathlib.Path(temp)/'api-image-id.txt').write_text(iid+'\n')
+            h.inspect=lambda *_: {'Config':{'Labels':{m.OWNER_LABEL:OWNER,m.SHA_LABEL:SHA}}}
+            calls=[];h.run=lambda args,**kw:calls.append(args)
+            self.assertTrue(h.cleanup())
+            self.assertEqual(calls,[['docker','image','rm','--no-prune',iid]])
+
     def test_dry_run_never_calls_subprocess_or_creates_directory(self):
         with tempfile.TemporaryDirectory() as temp:
             out = pathlib.Path(temp) / 'fresh'
