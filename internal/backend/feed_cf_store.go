@@ -39,6 +39,10 @@ func NewCFFeedStore(endpoint, secret string, client *http.Client) (*CFFeedStore,
 	return &CFFeedStore{endpoint: strings.TrimRight(endpoint, "/"), secret: secret, client: &clone, writerEpoch: 1}, nil
 }
 func (s *CFFeedStore) call(ctx context.Context, op string, input, output any) error {
+	return s.callPath(ctx, "/internal/feed/v1/"+op, input, output)
+}
+func (s *CFFeedStore) callPath(ctx context.Context, path string, input, output any) error {
+	op := path
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
@@ -46,7 +50,7 @@ func (s *CFFeedStore) call(ctx context.Context, op string, input, output any) er
 	if len(body) > 2<<20 {
 		return fmt.Errorf("bridge request too large")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint+"/internal/feed/v1/"+op, bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
