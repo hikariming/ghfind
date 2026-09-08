@@ -11,8 +11,8 @@ import (
 
 type WorkerConfig struct {
 	Config
-	Enabled                                      bool
-	ExecutorSecret, SourceEndpoint, SourceSecret string
+	Enabled                                                       bool
+	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint string
 }
 
 func LoadWorkerConfig() (WorkerConfig, error) {
@@ -20,7 +20,10 @@ func LoadWorkerConfig() (WorkerConfig, error) {
 	if err != nil {
 		return WorkerConfig{}, err
 	}
-	out := WorkerConfig{Config: c, Enabled: os.Getenv("FEED_EXECUTOR_ENABLED") == "true", ExecutorSecret: os.Getenv("FEED_EXECUTOR_SECRET"), SourceEndpoint: os.Getenv("FEED_SOURCE_ENDPOINT"), SourceSecret: os.Getenv("FEED_SOURCE_SECRET")}
+	out := WorkerConfig{Config: c, Enabled: os.Getenv("FEED_EXECUTOR_ENABLED") == "true", ExecutorSecret: os.Getenv("FEED_EXECUTOR_SECRET"), SourceEndpoint: os.Getenv("FEED_SOURCE_ENDPOINT"), SourceSecret: os.Getenv("FEED_SOURCE_SECRET"), CleanupEndpoint: os.Getenv("FEED_CLEANUP_ENDPOINT")}
+	if out.CleanupEndpoint == "" {
+		out.CleanupEndpoint = "http://feed-cleanup.internal"
+	}
 	if out.Enabled && (len(out.ExecutorSecret) < 32 || len(out.SourceSecret) < 32 || out.SourceSecret == out.ExecutorSecret || out.ExecutorSecret == c.BridgeSecret || out.SourceSecret == c.BridgeSecret) {
 		return out, errors.New("executor, source and bridge secrets must be independent and at least32bytes")
 	}
@@ -52,7 +55,7 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 	mux := http.NewServeMux()
 	mux.Handle("/internal/feed/jobs/execute", executor)
 	if c.StoreProfile == "cf_d1_r2" {
-		cleanupStore, err := backend.NewHTTPFeedCleanupStore(c.BridgeEndpoint, c.ExecutorSecret)
+		cleanupStore, err := backend.NewHTTPFeedCleanupStore(c.CleanupEndpoint, c.ExecutorSecret)
 		if err != nil {
 			return nil, err
 		}
