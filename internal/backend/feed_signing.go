@@ -26,6 +26,7 @@ type FeedCursorClaims struct {
 }
 
 type FeedImpressionClaims struct {
+	ProfileVersion   int64  `json:"profileVersion,omitempty"`
 	Kind             string `json:"kind"`
 	GitHubID         int64  `json:"githubId"`
 	RequestID        string `json:"requestId"`

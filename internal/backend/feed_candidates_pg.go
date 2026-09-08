@@ -11,6 +11,11 @@ import (
 )
 
 func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUser, limit int) ([]FeedCandidate, map[string]int, error) {
+	provenance := ""
+	if s.writerEpoch > 0 {
+		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key) "
+		user.Embedding = nil
+	}
 	if limit < 1 {
 		limit = 240
 	}
@@ -69,7 +74,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
         FROM sampled
         CROSS JOIN LATERAL (
           SELECT 1 FROM feed.projects p
-          WHERE p.repo_key=sampled.repo_key AND p.publishable=true OFFSET 0
+          WHERE p.repo_key=sampled.repo_key AND p.publishable=true `+provenance+` OFFSET 0
         ) p
         WHERE NOT EXISTS (
           SELECT 1 FROM feed.user_project_state ups
@@ -140,7 +145,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	} {
 		rows, err := s.db.QueryContext(ctx, `SELECT p.repo_key FROM feed.projects p
           LEFT JOIN feed.user_project_state ups ON ups.github_id = $1 AND ups.repo_key = p.repo_key
-          WHERE p.publishable = true AND COALESCE(ups.not_interested, false) = false
+          WHERE p.publishable = true `+provenance+` AND COALESCE(ups.not_interested, false) = false
           ORDER BY `+source.order+` LIMIT $2`, user.GitHubID, source.limit)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load %s Feed candidates: %w", source.name, err)
@@ -227,6 +232,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 		}
 		candidate.Sources = uniqueStrings(candidate.Sources)
 		candidate.TagAffinity, candidate.SemanticSimilarity = signal.tag, signal.semantic
+		candidate.Project.SubmissionEvidence = s.writerEpoch > 0
 		candidates = append(candidates, candidate)
 		byKey[candidate.Project.RepoKey] = len(candidates) - 1
 	}

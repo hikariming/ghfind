@@ -64,11 +64,13 @@ type APIServer struct {
 	projectAnalysisCache     ProjectAnalysisResultCache
 	projectAnalysisLimiter   ProjectAnalysisRateLimiter
 	projectAnalysisPublisher ProjectAnalysisJobPublisher
-	feed                     FeedDataStore
+	feed                     FeedServingStore
 	feedSessions             FeedSessionStore
 	feedSigner               *FeedSigner
 	feedLimiter              FeedRateLimiter
 	feedGorse                FeedGorseRecommender
+	feedAuthenticate         func(*http.Request, time.Time) *OAuthSession
+	portableFeed             bool
 	metrics                  *BackendMetrics
 	githubOAuthOrigin        string
 	githubAPIOrigin          string
