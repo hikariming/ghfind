@@ -39,6 +39,7 @@ func (id FeedArchiveIdentity) Key() (string, error) {
 }
 
 type ArchiveStore interface {
+	ArchiveReady(context.Context) error
 	PutFeedArchive(context.Context, FeedArchiveIdentity, []byte) (string, error)
 	GetFeedArchive(context.Context, FeedArchiveIdentity) ([]byte, error)
 }

@@ -18,7 +18,8 @@ const wrangler = join(root, 'platform/feed/node_modules/.bin/wrangler');
 const config = join(root, 'platform/feed/wrangler.jsonc');
 const temporary = await mkdtemp(join(tmpdir(), 'ghfind-crossprofile-'));
 const env = { ...process.env, WRANGLER_SEND_METRICS: 'false', WRANGLER_LOG: 'error',
-  FEED_BRIDGE_SECRET: randomBytes(32).toString('hex'), FEED_SOURCE_SECRET: randomBytes(32).toString('hex') };
+  FEED_BRIDGE_SECRET: randomBytes(32).toString('hex'), FEED_SOURCE_SECRET: randomBytes(32).toString('hex'),
+  FEED_EXECUTOR_SECRET: randomBytes(32).toString('hex'), FEED_OPERATOR_SECRET: randomBytes(32).toString('hex'), FEED_DELIVERY_SECRET: randomBytes(32).toString('hex') };
 const run = (binary, args, childEnv = env) => new Promise((resolve, reject) => {
   const child = spawn(binary, args, { cwd: root, env: childEnv, stdio: 'inherit' });
   child.once('error', reject);
@@ -52,8 +53,8 @@ try {
     await delay(250);
   }
   if (!ready) throw new Error('workerd failed readiness before the bounded deadline');
-  await run('go', ['test', '-count=1', '-timeout=150s', '-v', './internal/backend', '-run', '^TestPortableAPIBothProfiles$'], {
-    ...env, FEED_REQUIRE_CROSSPROFILE_TESTS: '1', FEED_TEST_BRIDGE_ENDPOINT: endpoint, FEED_TEST_BRIDGE_SECRET: env.FEED_BRIDGE_SECRET,
+  await run('go', ['test', '-count=1', '-timeout=150s', '-v', './internal/backend', '-run', '^TestPortable(API|Archive)BothProfiles$'], {
+    ...env, FEED_REQUIRE_CROSSPROFILE_TESTS: '1', FEED_TEST_BRIDGE_ENDPOINT: endpoint, FEED_TEST_BRIDGE_SECRET: env.FEED_BRIDGE_SECRET, FEED_TEST_EXECUTOR_SECRET: env.FEED_EXECUTOR_SECRET,
   });
 } finally {
   if (worker && worker.exitCode === null) {

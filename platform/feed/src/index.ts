@@ -5,13 +5,16 @@ import { executorSchemas, type ExecutorOperation } from "./executor-contract";
 import { FeedJobs } from "./jobs";
 import { FeedCleanup, cleanupSchemas } from "./cleanup";
 import { FeedOperator, operatorSchemas } from "./operator";
+import { handleArchive } from "./archive-http";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
   const limit =
-    operation === "sessions.put" || operation === "requests.save"
-      ? 2 * 1024 * 1024
-      : MAX_BODY;
+    operation === "archive"
+      ? 6 * 1024 * 1024
+      : operation === "sessions.put" || operation === "requests.save"
+        ? 2 * 1024 * 1024
+        : MAX_BODY;
   if (
     !request.headers
       .get("content-type")
@@ -137,11 +140,12 @@ export default {
     try {
       const url = new URL(request.url),
         source = url.pathname.startsWith("/internal/feed/source/v1/"),
+        archive = url.pathname.startsWith("/internal/feed/archive/v1/"),
         cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
         operator = url.pathname.startsWith("/internal/feed/admin/v1/");
       const secret = source
         ? env.FEED_SOURCE_SECRET
-        : cleanup
+        : cleanup || archive
           ? env.FEED_EXECUTOR_SECRET
           : operator
             ? env.FEED_OPERATOR_SECRET
@@ -153,6 +157,16 @@ export default {
       if (request.headers.get("x-feed-contract") !== "1")
         throw new BridgeError(409, "contract_version_changed");
       if (url.search) throw new BridgeError(404, "operation_not_found");
+      if (archive) {
+        return Response.json(
+          await handleArchive(
+            url.pathname.slice("/internal/feed/archive/v1/".length),
+            await body(request, "archive"),
+            env,
+          ),
+          { headers },
+        );
+      }
       if (source) {
         return Response.json(
           await handleSource(
