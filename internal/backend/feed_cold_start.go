@@ -173,10 +173,11 @@ func (s *APIServer) ensureFeedUser(ctx context.Context, session OAuthSession) (*
 		return nil, err
 	}
 	source, ok := s.scores.(FeedColdStartSource)
-	if !ok {
+	graph, supportsGraph := s.feed.(FeedGraphPreferenceStore)
+	if !ok || !supportsGraph {
 		return user, nil
 	}
-	claimed, err := s.feed.ClaimFeedGraphRefresh(ctx, session.GitHubID, user.TaxonomyVersion, time.Now().UTC(), feedGraphRefreshAfter, feedGraphRefreshLease)
+	claimed, err := graph.ClaimFeedGraphRefresh(ctx, session.GitHubID, user.TaxonomyVersion, time.Now().UTC(), feedGraphRefreshAfter, feedGraphRefreshLease)
 	if err != nil {
 		return nil, err
 	}
@@ -185,12 +186,12 @@ func (s *APIServer) ensureFeedUser(ctx context.Context, session OAuthSession) (*
 	}
 	facets, err := source.GetFeedColdStartFacets(ctx, session.Login)
 	if err != nil {
-		_ = s.feed.FailFeedGraphRefresh(ctx, session.GitHubID, time.Now().UTC(), feedGraphRefreshBackoff)
+		_ = graph.FailFeedGraphRefresh(ctx, session.GitHubID, time.Now().UTC(), feedGraphRefreshBackoff)
 		return user, nil
 	}
-	changed, err := s.feed.SeedFeedGraphPreferences(ctx, session.GitHubID, facets)
+	changed, err := graph.SeedFeedGraphPreferences(ctx, session.GitHubID, facets)
 	if err != nil {
-		_ = s.feed.FailFeedGraphRefresh(ctx, session.GitHubID, time.Now().UTC(), feedGraphRefreshBackoff)
+		_ = graph.FailFeedGraphRefresh(ctx, session.GitHubID, time.Now().UTC(), feedGraphRefreshBackoff)
 		return nil, err
 	}
 	if changed {

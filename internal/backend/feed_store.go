@@ -53,23 +53,41 @@ type FeedEventAppendResult struct {
 	Duplicate int `json:"duplicate"`
 }
 
-type FeedDataStore interface {
-	Ping(context.Context) error
+// Capabilities expose business commands; atomic commands include their events
+// and outbox effects. Adapters never expose caller-provided SQL.
+type CatalogStore interface {
 	ActiveTaxonomyVersion(context.Context) (int64, error)
 	ListFeedTags(context.Context) ([]FeedTag, int64, error)
+	LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error)
+	AvailableFeedRepoKeys(context.Context, int64, []string) (map[string]bool, error)
+}
+type PreferenceStore interface {
 	EnsureFeedUser(context.Context, OAuthSession) (*FeedUser, error)
 	GetFeedUser(context.Context, int64) (*FeedUser, error)
+	ReplaceExplicitFeedPreferences(context.Context, int64, int64, []FeedPreference) (*FeedUser, error)
+	SetFeedProjectState(context.Context, int64, string, FeedStatePatch, time.Time) (FeedProjectState, error)
+	DeleteFeedProfile(context.Context, int64, time.Time) (string, error)
+}
+type EventStore interface {
+	SaveFeedRequest(context.Context, FeedRequestRecord) error
+	AppendFeedEvents(context.Context, int64, []AcceptedFeedEvent) (FeedEventAppendResult, error)
+}
+type FeedServingStore interface {
+	CatalogStore
+	PreferenceStore
+	EventStore
+	Ping(context.Context) error
+	Close() error
+}
+type FeedGraphPreferenceStore interface {
 	ClaimFeedGraphRefresh(context.Context, int64, int64, time.Time, time.Duration, time.Duration) (bool, error)
 	FailFeedGraphRefresh(context.Context, int64, time.Time, time.Duration) error
-	ReplaceExplicitFeedPreferences(context.Context, int64, int64, []FeedPreference) (*FeedUser, error)
 	SeedFeedGraphPreferences(context.Context, int64, []DeveloperFacet) (bool, error)
-	LoadFeedCandidates(context.Context, FeedUser, int) ([]FeedCandidate, map[string]int, error)
+}
+type FeedGorseCandidateStore interface {
 	LoadGorseFeedCandidates(context.Context, FeedUser, []string, int) ([]FeedCandidate, error)
-	AvailableFeedRepoKeys(context.Context, int64, []string) (map[string]bool, error)
-	SaveFeedRequest(context.Context, FeedRequestRecord) error
-	SetFeedProjectState(context.Context, int64, string, FeedStatePatch, time.Time) (FeedProjectState, error)
-	AppendFeedEvents(context.Context, int64, []AcceptedFeedEvent) (FeedEventAppendResult, error)
-	DeleteFeedProfile(context.Context, int64, time.Time) (string, error)
+}
+type FeedProjectionStore interface {
 	UpsertFeedProject(context.Context, FeedProjectProjection) error
 	FeedProjectSourceHashes(context.Context, []string) (map[string]string, error)
 	AcquireFeedReconcileLease(context.Context, string, time.Time, time.Duration) (bool, error)
@@ -78,12 +96,23 @@ type FeedDataStore interface {
 	MarkFeedReconcile(context.Context, string, time.Time, bool) error
 	LoadFeedProjectChangeCursor(context.Context) (FeedProjectChangeCursor, bool, error)
 	SaveFeedProjectChangeCursor(context.Context, FeedProjectChangeCursor) error
-	Close() error
+}
+
+// FeedDataStore preserves the existing legacy worker contract through composition.
+type FeedDataStore interface {
+	FeedServingStore
+	FeedGraphPreferenceStore
+	FeedGorseCandidateStore
+	FeedProjectionStore
+}
+type FeedDeletionStore interface {
+	GetFeedDeletion(context.Context, int64, string) (FeedBridgeDeleteResponse, error)
 }
 
 type PostgresFeedStore struct {
-	db   *sql.DB
-	mode FeedMode
+	db          *sql.DB
+	mode        FeedMode
+	writerEpoch int64
 }
 
 func OpenPostgresFeedStore(config Config) (*PostgresFeedStore, error) {
@@ -110,6 +139,17 @@ func OpenPostgresFeedStore(config Config) (*PostgresFeedStore, error) {
 func (s *PostgresFeedStore) Close() error { return s.db.Close() }
 
 func (s *PostgresFeedStore) Ping(ctx context.Context) error {
+	if s.writerEpoch > 0 {
+		var epoch int64
+		var enabled bool
+		if err := s.db.QueryRowContext(ctx, `SELECT writer_epoch,writes_enabled FROM feed.runtime_control WHERE singleton=true`).Scan(&epoch, &enabled); err != nil {
+			return err
+		}
+		if epoch != s.writerEpoch || !enabled {
+			return ErrFeedWriterEpoch
+		}
+	}
+
 	var projectsTable *string
 	var vectorInstalled bool
 	if err := s.db.QueryRowContext(ctx, `SELECT to_regclass('feed.projects')::text,
@@ -300,10 +340,13 @@ func (s *PostgresFeedStore) EnsureFeedUser(ctx context.Context, session OAuthSes
 		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, session.GitHubID, 0); err != nil {
+		return nil, err
+	}
 	var profileVersion int64
 	err = tx.QueryRowContext(ctx, `INSERT INTO feed.users
-      (github_id, login, avatar_url, taxonomy_version)
-      VALUES ($1, $2, NULLIF($3, ''), $4)
+      (github_id, login, avatar_url, taxonomy_version, profile_version)
+      VALUES ($1, $2, NULLIF($3, ''), $4, COALESCE((SELECT MAX(profile_version)+1 FROM feed.user_deletion_tombstones WHERE github_id=$1),1))
       ON CONFLICT (github_id) DO UPDATE SET
         login = excluded.login, avatar_url = excluded.avatar_url,
         taxonomy_version = excluded.taxonomy_version, updated_at = now(), deleted_at = NULL
@@ -430,7 +473,8 @@ func (s *PostgresFeedStore) AvailableFeedRepoKeys(ctx context.Context, githubID 
 	  FROM feed.projects p
 	  LEFT JOIN feed.user_project_state ups ON ups.github_id=$1 AND ups.repo_key=p.repo_key
 	  WHERE p.repo_key = ANY($2) AND p.publishable=true
-	    AND COALESCE(ups.not_interested,false)=false`, githubID, repoKeys)
+	    AND COALESCE(ups.not_interested,false)=false
+ AND ($3=false OR EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key))`, githubID, repoKeys, s.writerEpoch > 0)
 	if err != nil {
 		return nil, fmt.Errorf("revalidate Feed page: %w", err)
 	}
@@ -466,6 +510,9 @@ func (s *PostgresFeedStore) ReplaceExplicitFeedPreferences(ctx context.Context, 
 		return nil, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return nil, err
+	}
 	var activeVersion int64
 	if err := tx.QueryRowContext(ctx, `SELECT version FROM feed.taxonomy_versions WHERE state = 'active' LIMIT 1`).Scan(&activeVersion); err != nil {
 		return nil, fmt.Errorf("read active Feed taxonomy: %w", err)
@@ -516,11 +563,29 @@ func (s *PostgresFeedStore) SaveFeedRequest(ctx context.Context, record FeedRequ
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, record.User.GitHubID, record.User.ProfileVersion); err != nil {
+		return err
+	}
+	payloadHash, hashErr := feedRequestPayloadHash(record)
+	if hashErr != nil {
+		return hashErr
+	}
+	var existing sql.NullString
+	lookupErr := tx.QueryRowContext(ctx, `SELECT payload_hash FROM feed.requests WHERE id=$1`, record.ID).Scan(&existing)
+	if lookupErr == nil {
+		if existing.Valid && existing.String == payloadHash {
+			return tx.Commit()
+		}
+		return fmt.Errorf("feed request identity conflict")
+	}
+	if !errors.Is(lookupErr, sql.ErrNoRows) {
+		return lookupErr
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO feed.requests
-      (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)`, record.ID, record.User.GitHubID,
+      (id, github_id, algorithm_version, taxonomy_version, profile_version, seed, candidate_counts, degraded, duration_ms,payload_hash)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9,$10)`, record.ID, record.User.GitHubID,
 		FeedAlgorithmVersion, record.User.TaxonomyVersion, record.User.ProfileVersion, record.Seed,
-		string(candidateCounts), string(degraded), record.Duration.Milliseconds())
+		string(candidateCounts), string(degraded), record.Duration.Milliseconds(), payloadHash)
 	if err != nil {
 		return fmt.Errorf("insert Feed request: %w", err)
 	}
@@ -562,6 +627,12 @@ func (s *PostgresFeedStore) SetFeedProjectState(ctx context.Context, githubID in
 		return FeedProjectState{}, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return FeedProjectState{}, err
+	}
+	if err := s.checkFeedAttribution(ctx, tx, githubID, patch.RequestID, repoKey); err != nil {
+		return FeedProjectState{}, err
+	}
 	var state FeedProjectState
 	changed := true
 	if patch.Saved != nil {
@@ -630,6 +701,14 @@ func (s *PostgresFeedStore) AppendFeedEvents(ctx context.Context, githubID int64
 		return result, err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return result, err
+	}
+	for _, event := range events {
+		if err := s.checkFeedAttribution(ctx, tx, githubID, event.RequestID, event.Input.RepoKey); err != nil {
+			return result, err
+		}
+	}
 	type eventRow struct {
 		ID         string         `json:"id"`
 		RepoKey    string         `json:"repo_key"`
@@ -760,9 +839,12 @@ func (s *PostgresFeedStore) DeleteFeedProfile(ctx context.Context, githubID int6
 		return "", err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	if err := s.guardFeedWrite(ctx, tx, githubID, 0); err != nil {
+		return "", err
+	}
 	payload, _ := json.Marshal(map[string]any{"deletionId": deletionID, "gorseUserId": fmt.Sprintf("gh:%d", githubID), "requestedAt": now})
 	if _, err := tx.ExecContext(ctx, `INSERT INTO feed.user_deletion_tombstones
-	  (deletion_id,github_id,gorse_user_id,requested_at) VALUES ($1,$2,$3,$4)`,
+	  (deletion_id,github_id,gorse_user_id,requested_at,profile_version) VALUES ($1,$2,$3,$4,GREATEST(COALESCE((SELECT profile_version FROM feed.users WHERE github_id=$2),1),COALESCE((SELECT MAX(profile_version) FROM feed.user_deletion_tombstones WHERE github_id=$2),1)))`,
 		deletionID, githubID, fmt.Sprintf("gh:%d", githubID), now); err != nil {
 		return "", fmt.Errorf("persist Feed user deletion tombstone: %w", err)
 	}

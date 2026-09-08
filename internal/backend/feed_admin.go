@@ -436,7 +436,12 @@ func (s *APIServer) reconcileFeedProjects(w http.ResponseWriter, request *http.R
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_source_unavailable"}, feedUnavailableHeaders())
 		return
 	}
-	reconciler := NewFeedProjectReconciler(source, s.feed, nil)
+	target, supportsProjection := s.feed.(FeedDataStore)
+	if !supportsProjection {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_source_unavailable"}, noStoreHeaders())
+		return
+	}
+	reconciler := NewFeedProjectReconciler(source, target, nil)
 	ctx, cancel := context.WithTimeout(request.Context(), 2*time.Minute)
 	defer cancel()
 	result, err := reconciler.Reconcile(ctx)
