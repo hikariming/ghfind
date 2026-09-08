@@ -1,0 +1,24 @@
+{
+  "input": {
+    "commandId": "00000000-0000-4000-8000-000000000019",
+    "writerEpoch": 1,
+    "expectedTaxonomyVersion": 1,
+    "operator": "审核员",
+    "reason": "独立审核 <>&  ",
+    "proposalKind": "assessment",
+    "proposalId": "gov-assessment-one",
+    "expectedAnalysisId": "gov-analysis-one",
+    "action": "create",
+    "labels": {
+      "labelZh": "治理工具",
+      "labelEn": "A <tool> & \"tag\"",
+      "description": "U+2028:  U+2029: "
+    },
+    "assignment": {
+      "weight": 1e-7,
+      "confidence": 0
+    }
+  },
+  "canonicalJSON": "{\"action\":\"create\",\"assignment\":{\"confidence\":0,\"weight\":1e-7},\"commandId\":\"00000000-0000-4000-8000-000000000019\",\"expectedAnalysisId\":\"gov-analysis-one\",\"expectedTaxonomyVersion\":1,\"labels\":{\"description\":\"U+2028:  U+2029: \",\"labelEn\":\"A <tool> & \\\"tag\\\"\",\"labelZh\":\"治理工具\"},\"operator\":\"审核员\",\"proposalId\":\"gov-assessment-one\",\"proposalKind\":\"assessment\",\"reason\":\"独立审核 <>&  \",\"writerEpoch\":1}",
+  "sha256": "a3d2b7eff3fe6456f1181379666ea441cafa5c3da2234715c1e80e19b38256fd"
+}

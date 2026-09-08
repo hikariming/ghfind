@@ -45,6 +45,7 @@ export class FeedStore {
       allowAbsent?: boolean;
       ensure?: boolean;
       taxonomy?: number;
+      taxonomyRequestIds?: string[];
       relation?: string;
       relationValues?: Value[];
       payload?: string;
@@ -57,9 +58,11 @@ export class FeedStore {
         ? "CASE WHEN COALESCE((SELECT profile_version FROM feed_users WHERE github_id=?),0)=? THEN 1 ELSE 0 END"
         : "CASE WHEN EXISTS(SELECT 1 FROM feed_users WHERE github_id=? AND profile_version=?) THEN 1 ELSE 0 END";
     const taxonomy =
-      options.taxonomy === undefined
-        ? "1"
-        : "CASE WHEN (SELECT version FROM feed_taxonomy_versions WHERE status='active')=? THEN 1 ELSE 0 END";
+      options.taxonomy !== undefined
+        ? "CASE WHEN (SELECT version FROM feed_taxonomy_versions WHERE status='active')=? THEN 1 ELSE 0 END"
+        : options.taxonomyRequestIds !== undefined
+          ? "CASE WHEN EXISTS(SELECT 1 FROM feed_taxonomy_versions WHERE status='active') AND NOT EXISTS(SELECT 1 FROM feed_runtime_requests WHERE github_id=? AND id IN(SELECT value FROM json_each(?)) AND taxonomy_version<>(SELECT version FROM feed_taxonomy_versions WHERE status='active')) THEN 1 ELSE 0 END"
+          : "1";
     return this.sql(
       `INSERT INTO feed_command_guards(id,writer_ok,profile_ok,taxonomy_ok,relation_ok,payload_ok)
       VALUES (?,CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_control WHERE id=1 AND writer_epoch=? AND writes_enabled=1) THEN 1 ELSE 0 END,
@@ -67,7 +70,11 @@ export class FeedStore {
       command,
       fence.writerEpoch,
       ...(options.ensure ? [] : [githubId, fence.expectedProfileVersion]),
-      ...(options.taxonomy === undefined ? [] : [options.taxonomy]),
+      ...(options.taxonomy !== undefined
+        ? [options.taxonomy]
+        : options.taxonomyRequestIds !== undefined
+          ? [githubId, JSON.stringify(options.taxonomyRequestIds)]
+          : []),
       ...(options.relationValues ?? []),
       ...(options.payloadValues ?? []),
     );
@@ -107,14 +114,16 @@ export class FeedStore {
   }
   async user(githubId: number): Promise<User | null> {
     const users = await this.rows<Omit<User, "preferences">>(
-      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,taxonomy_version AS taxonomyVersion,profile_version AS profileVersion,COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=feed_users.github_id),0) AS profileFloor FROM feed_users WHERE github_id=?",
+      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,(SELECT version FROM feed_taxonomy_versions WHERE status='active') AS taxonomyVersion,profile_version AS profileVersion,COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=feed_users.github_id),0) AS profileFloor FROM feed_users WHERE github_id=?",
       githubId,
     );
     if (!users.length) return null;
+    if (!users[0].taxonomyVersion)
+      throw new BridgeError(503, "feed_unavailable");
     const preferences = await this.rows<User["preferences"][number]>(
       `SELECT p.tag_id AS tagId,p.value,p.source,p.strength,p.taxonomy_version AS taxonomyVersion
       FROM feed_user_tag_preferences p JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical'
-      WHERE p.github_id=? AND NOT EXISTS(SELECT 1 FROM feed_user_tag_preferences x WHERE x.github_id=p.github_id AND x.tag_id=p.tag_id
+      WHERE p.github_id=? AND t.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') AND NOT EXISTS(SELECT 1 FROM feed_user_tag_preferences x WHERE x.github_id=p.github_id AND x.tag_id=p.tag_id
         AND CASE x.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END > CASE p.source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END)
       ORDER BY p.tag_id LIMIT 300`,
       githubId,
@@ -197,7 +206,7 @@ export class FeedStore {
       OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL))
       AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=${alias}.repo_key AND m.removed=1)
       AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=${alias}.repo_key AND s.not_interested=1)
-      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key)`;
+      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key)`;
   }
   async available(input: Input<"projects.available">) {
     const rows = await this.rows<{ repo_key: string }>(
