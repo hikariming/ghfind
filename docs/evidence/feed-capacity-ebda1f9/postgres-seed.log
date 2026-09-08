@@ -1,0 +1,61 @@
+2026-09-08T05:39:28.246287717Z The files belonging to this database system will be owned by user "postgres".
+2026-09-08T05:39:28.246313425Z This user must also own the server process.
+2026-09-08T05:39:28.246315217Z 
+2026-09-08T05:39:28.246417134Z The database cluster will be initialized with locale "en_US.utf8".
+2026-09-08T05:39:28.246420675Z The default database encoding has accordingly been set to "UTF8".
+2026-09-08T05:39:28.246421759Z The default text search configuration will be set to "english".
+2026-09-08T05:39:28.246422467Z 
+2026-09-08T05:39:28.246423050Z Data page checksums are disabled.
+2026-09-08T05:39:28.246423675Z 
+2026-09-08T05:39:28.246424217Z fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-09-08T05:39:28.247336259Z creating subdirectories ... ok
+2026-09-08T05:39:28.247411050Z selecting dynamic shared memory implementation ... posix
+2026-09-08T05:39:28.272928092Z selecting default "max_connections" ... 100
+2026-09-08T05:39:28.287323676Z selecting default "shared_buffers" ... 128MB
+2026-09-08T05:39:28.291879842Z selecting default time zone ... Etc/UTC
+2026-09-08T05:39:28.293774842Z creating configuration files ... ok
+2026-09-08T05:39:28.405299092Z running bootstrap script ... ok
+2026-09-08T05:39:28.609481551Z performing post-bootstrap initialization ... ok
+2026-09-08T05:39:28.698145426Z syncing data to disk ... ok
+2026-09-08T05:39:28.698161342Z 
+2026-09-08T05:39:28.698163301Z 
+2026-09-08T05:39:28.698165384Z Success. You can now start the database server using:
+2026-09-08T05:39:28.698166384Z 
+2026-09-08T05:39:28.698166884Z     pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-09-08T05:39:28.698167467Z 
+2026-09-08T05:39:28.698144759Z initdb: warning: enabling "trust" authentication for local connections
+2026-09-08T05:39:28.698169592Z initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-09-08T05:39:28.718833426Z waiting for server to start....2026-09-08 05:39:28.718 UTC [48] LOG:  starting PostgreSQL 17.8 (Debian 17.8-1.pgdg13+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-08T05:39:28.719385384Z 2026-09-08 05:39:28.719 UTC [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-09-08T05:39:28.721081384Z 2026-09-08 05:39:28.721 UTC [51] LOG:  database system was shut down at 2026-09-08 05:39:28 UTC
+2026-09-08T05:39:28.723048842Z 2026-09-08 05:39:28.722 UTC [48] LOG:  database system is ready to accept connections
+2026-09-08T05:39:28.808612509Z  done
+2026-09-08T05:39:28.808624384Z server started
+2026-09-08T05:39:28.860568967Z CREATE DATABASE
+2026-09-08T05:39:28.860797134Z 
+2026-09-08T05:39:28.860851092Z 
+2026-09-08T05:39:28.860853217Z /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-09-08T05:39:28.860854092Z 
+2026-09-08T05:39:28.861271592Z waiting for server to shut down....2026-09-08 05:39:28.861 UTC [48] LOG:  received fast shutdown request
+2026-09-08T05:39:28.862519842Z 2026-09-08 05:39:28.862 UTC [48] LOG:  aborting any active transactions
+2026-09-08T05:39:28.863085009Z 2026-09-08 05:39:28.863 UTC [48] LOG:  background worker "logical replication launcher" (PID 54) exited with exit code 1
+2026-09-08T05:39:28.863122759Z 2026-09-08 05:39:28.863 UTC [49] LOG:  shutting down
+2026-09-08T05:39:28.863543467Z 2026-09-08 05:39:28.863 UTC [49] LOG:  checkpoint starting: shutdown immediate
+2026-09-08T05:39:28.895826051Z 2026-09-08 05:39:28.895 UTC [49] LOG:  checkpoint complete: wrote 925 buffers (2.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.021 s, total=0.033 s; sync files=301, longest=0.010 s, average=0.001 s; distance=4256 kB, estimate=4256 kB; lsn=0/19159A0, redo lsn=0/19159A0
+2026-09-08T05:39:28.897961676Z 2026-09-08 05:39:28.897 UTC [48] LOG:  database system is shut down
+2026-09-08T05:39:28.966730759Z  done
+2026-09-08T05:39:28.966763134Z server stopped
+2026-09-08T05:39:28.967425509Z 
+2026-09-08T05:39:28.967429301Z PostgreSQL init process complete; ready for start up.
+2026-09-08T05:39:28.967430009Z 
+2026-09-08T05:39:28.976960676Z 2026-09-08 05:39:28.976 UTC [1] LOG:  starting PostgreSQL 17.8 (Debian 17.8-1.pgdg13+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-09-08T05:39:28.977912093Z 2026-09-08 05:39:28.977 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-09-08T05:39:28.978713093Z 2026-09-08 05:39:28.978 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-09-08T05:39:28.979547051Z 2026-09-08 05:39:28.979 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-09-08T05:39:28.980939343Z 2026-09-08 05:39:28.980 UTC [64] LOG:  database system was shut down at 2026-09-08 05:39:28 UTC
+2026-09-08T05:39:28.982673551Z 2026-09-08 05:39:28.982 UTC [1] LOG:  database system is ready to accept connections
+2026-09-08T05:40:27.703527009Z 2026-09-08 05:40:27.702 UTC [62] LOG:  checkpoint starting: wal
+2026-09-08T05:40:41.895525626Z 2026-09-08 05:40:41.894 UTC [62] LOG:  checkpoint complete: wrote 25509 buffers (77.8%); 0 WAL file(s) added, 0 removed, 33 recycled; write=13.883 s, sync=0.183 s, total=14.191 s; sync files=317, longest=0.053 s, average=0.001 s; distance=533449 kB, estimate=533449 kB; lsn=0/404C0D28, redo lsn=0/22207DE8
+2026-09-08T05:40:43.222411252Z 2026-09-08 05:40:43.222 UTC [62] LOG:  checkpoints are occurring too frequently (16 seconds apart)
+2026-09-08T05:40:43.222476502Z 2026-09-08 05:40:43.222 UTC [62] HINT:  Consider increasing the configuration parameter "max_wal_size".
+2026-09-08T05:40:43.222478793Z 2026-09-08 05:40:43.222 UTC [62] LOG:  checkpoint starting: wal

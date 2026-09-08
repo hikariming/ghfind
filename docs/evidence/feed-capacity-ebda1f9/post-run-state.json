@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-09-08T16:46:37.732157+00:00",
+  "loadSha256BeforeCleanup": "5980f917e6c063dc698fded9b3bd6586f058d1f3e2950569d6434a0592201227",
+  "binarySha256": "5bc45401ca7c4e8e769377fcbe88b6caf14a7b79730424915e437c3d9279c060",
+  "containers": [
+    {
+      "name": "ghfind-feed-capacity-postgres-1",
+      "id": "6833f7cc99e5716fb458ca0fd19f6bbc6a29b891a51bcfd430b0b70a5a7aa793",
+      "restartCount": 0,
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 33444,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T05:39:28.105602675Z",
+        "FinishedAt": "0001-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": "ghfind-feed-capacity-minio-1",
+      "id": "820adaf2c035cdeda878e242e2a584e2a3d41d424435670a6a8e806357173e92",
+      "restartCount": 0,
+      "state": {
+        "Status": "running",
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 33445,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-08T05:39:28.104314342Z",
+        "FinishedAt": "0001-01-01T00:00:00Z"
+      }
+    }
+  ]
+}
