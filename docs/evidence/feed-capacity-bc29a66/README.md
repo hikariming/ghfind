@@ -52,3 +52,11 @@ is unchanged in `b8900e7`. The deletion binary was rebuilt with the final explic
 cascade-observation and durable recovery checks. Both exact executable hashes and
 all evidence file hashes are retained in `manifest.json`. Reproduction commands
 are in `docs/operations/feed-local-capacity.md`.
+
+A subsequent diagnostic profile used 100 sequential API requests after the
+high-volume deletion check (750,000 remaining events, unchanged 50,000-project
+catalog). The profile lasted60.85s, sampled25.10 CPU seconds, and attributed89.76%
+of sampled CPU cumulatively to `RankFeedCandidates` and81.16% to
+`weightedTagJaccard`. See `profile/api-cpu.pprof` and `profile/top.txt`. This
+confirms repeated similarity computation as a separate application CPU bottleneck;
+it is not a replacement capacity measurement.

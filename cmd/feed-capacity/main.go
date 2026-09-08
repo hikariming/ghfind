@@ -90,7 +90,7 @@ func validateDSN(raw string) error {
 	return nil
 }
 func run() error {
-	phase := flag.String("phase", "seed", "seed, load, or delete")
+	phase := flag.String("phase", "seed", "seed, load, profile, or delete")
 	out := flag.String("out", "/tmp/ghfind-feed-capacity", "report directory")
 	baseline := flag.String("baseline", "unknown", "exact source baseline SHA")
 	container := flag.String("pg-container", "", "exclusive local container to sample")
@@ -99,7 +99,7 @@ func run() error {
 	if err := validateDSN(dsn); err != nil {
 		return err
 	}
-	if *phase != "seed" && *phase != "load" && *phase != "delete" {
+	if *phase != "seed" && *phase != "load" && *phase != "delete" && *phase != "profile" {
 		return errors.New("invalid phase")
 	}
 	if err := os.MkdirAll(*out, 0700); err != nil {
@@ -138,6 +138,8 @@ func run() error {
 	rep := report{Baseline: *baseline, Scope: "local PostgreSQL synthetic capacity; signed gateway fixture is NOT real OAuth or Cloudflare evidence", Phase: *phase, StartedAt: time.Now().UTC(), GoVersion: runtime.Version()}
 	if *phase == "load" {
 		err = load(ctx, db, server.URL, signer, *container, &rep)
+	} else if *phase == "profile" {
+		err = profile(ctx, server.URL, signer, &rep, *out)
 	} else {
 		err = deletion(ctx, db, store.(*backend.PostgresFeedStore), server.URL, signer, &rep)
 	}
