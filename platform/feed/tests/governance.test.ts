@@ -7,6 +7,7 @@ import {
 } from "../src/governance";
 import { FeedCommands } from "../src/commands";
 import { schemas, type Input } from "../src/contract";
+import digestFixture from "../../../docs/contracts/fixtures/feed-governance-v1-digest.json";
 
 const db = env.FEED_DB;
 const governance = new FeedGovernance(db);
@@ -601,6 +602,210 @@ it("lazily fences old sessions, requests, events and states without updating use
     }),
   ).rejects.toMatchObject({ code: "project_not_found" });
 });
+
+it("shares canonical command digests across profiles and rejects control characters", async () => {
+  const input = {
+    ...digestFixture.input,
+    assignment: { ...digestFixture.input.assignment, confidence: -0 },
+  };
+  const result = await handleGovernance("review", input, db);
+  expect(
+    await db
+      .prepare(
+        "SELECT payload_hash FROM feed_governance_commands WHERE command_id=?",
+      )
+      .bind(input.commandId)
+      .first("payload_hash"),
+  ).toBe(digestFixture.sha256);
+  expect(
+    await handleGovernance(
+      "review",
+      Object.fromEntries(Object.entries(input).reverse()),
+      db,
+    ),
+  ).toEqual(result);
+  for (const control of [
+    String.fromCharCode(0),
+    String.fromCharCode(10),
+    String.fromCharCode(31),
+    String.fromCharCode(127),
+  ]) {
+    await expect(
+      handleGovernance(
+        "review",
+        { ...create(), reason: `review reason${control}` },
+        db,
+      ),
+    ).rejects.toMatchObject({ code: "invalid_request" });
+    await expect(
+      handleGovernance(
+        "proposal",
+        { proposalKind: "assessment", proposalId: `proposal${control}` },
+        db,
+      ),
+    ).rejects.toMatchObject({ code: "invalid_request" });
+  }
+});
+
+it("does not map or deprecate canonical definitions from a future taxonomy", async () => {
+  await db.batch([
+    db.prepare(
+      "UPDATE feed_tag_definitions SET taxonomy_version=99 WHERE id='artifact:micro-tool'",
+    ),
+    db.prepare(
+      "UPDATE feed_user_tag_proposals SET namespace='artifact',slug='gov-future' WHERE id='gov-user-one'",
+    ),
+  ]);
+  await expect(
+    governance.review({
+      ...common(),
+      action: "map",
+      proposalKind: "user",
+      proposalId: "gov-user-one",
+      expectedAnalysisId: "gov-analysis-one",
+      canonicalTagId: "artifact:micro-tool",
+      assignment: { weight: 1, confidence: 1 },
+    }),
+  ).rejects.toMatchObject({ code: "governance_tag_conflict" });
+  await expect(
+    governance.deprecate({
+      ...common(),
+      canonicalTagId: "artifact:micro-tool",
+    }),
+  ).rejects.toMatchObject({ code: "governance_not_pending" });
+  expect(await active()).toBe(1);
+});
+
+it("limits effective canonical assignments to 100 and does not count or hydrate stale tags", async () => {
+  const numbers = JSON.stringify(Array.from({ length: 101 }, (_, n) => n));
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO feed_tag_definitions(id,namespace,slug,label_zh,label_en,status,taxonomy_version,created_at,updated_at) SELECT 'use_case:gov-limit-'||value,'use_case','gov-limit-'||value,'合成标签','Synthetic tag','canonical',1,0,0 FROM json_each(?)",
+      )
+      .bind(numbers),
+    db
+      .prepare(
+        "INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,analysis_id,taxonomy_version,created_at,updated_at) SELECT 'gov-owner/one','use_case:gov-limit-'||value,'assessment',0.5,0.5,CASE WHEN value=100 THEN 'old-analysis' ELSE 'gov-analysis-one' END,1,0,0 FROM json_each(?)",
+      )
+      .bind(numbers),
+  ]);
+  await expect(governance.review(create())).rejects.toMatchObject({
+    code: "governance_tag_conflict",
+  });
+  const mapped: GovernanceReview = {
+    ...common(),
+    action: "map",
+    proposalKind: "assessment",
+    proposalId: "gov-assessment-one",
+    expectedAnalysisId: "gov-analysis-one",
+    canonicalTagId: "use_case:gov-limit-100",
+    assignment: { weight: 0.4, confidence: 0.8 },
+  };
+  await expect(governance.review(mapped)).rejects.toMatchObject({
+    code: "governance_tag_conflict",
+  });
+  await governance.review({
+    ...mapped,
+    canonicalTagId: "use_case:gov-limit-0",
+  });
+  await commands.ensure({
+    writerEpoch: 1,
+    expectedProfileVersion: 0,
+    githubId: 1,
+    login: "synthetic-limit",
+    avatarUrl: "",
+  });
+  const candidate = (
+    await commands.candidates({ githubId: 1, limit: 240 })
+  ).candidates.find((c) => c.project.repoKey === "gov-owner/one")!;
+  expect(candidate.project.tags).toHaveLength(100);
+  expect(
+    candidate.project.tags.some((tag) => tag.id === "use_case:gov-limit-100"),
+  ).toBe(false);
+  expect(
+    await db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM feed_project_tags WHERE repo_key='gov-owner/one'",
+      )
+      .first("n"),
+  ).toBe(101);
+});
+
+it.each([1, 520])(
+  "ignores %i stale tag memberships in recall, negative filtering and behavior",
+  async (count) => {
+    const data = JSON.stringify(Array.from({ length: count }, (_, n) => n));
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO feed_projects(repo_key,analysis_id,owner_login,name,canonical_url,summary,project_type,lifecycle,product_score,confidence,verification_level,exposure_band,analyzed_at,risks_json,published,source_hash,projected_at) SELECT 'gov-stale-'||value||'/project','current-analysis-'||value,'gov-stale-'||value,'project','https://github.com/gov-stale-'||value||'/project','SYNTHETIC historical tag fixture','micro-tool','feature-complete',80,90,'verified','low',0,'[]',1,'synthetic',0 FROM json_each(?)",
+        )
+        .bind(data),
+      db
+        .prepare(
+          "INSERT INTO feed_submission_provenance(repo_key,analysis_id,source_event_id,source_version,evidence_kind,evidence_ref,submitted_at) SELECT 'gov-stale-'||value||'/project','current-analysis-'||value,'source-stale-'||value,1,'verified_historical','SYNTHETIC current evidence',0 FROM json_each(?)",
+        )
+        .bind(data),
+      db
+        .prepare(
+          "INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,analysis_id,taxonomy_version,created_at,updated_at) SELECT 'gov-stale-'||value||'/project','artifact:web-app','assessment',1,1,'old-analysis-'||value,1,0,0 FROM json_each(?)",
+        )
+        .bind(data),
+      db.prepare(
+        "INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,analysis_id,taxonomy_version,created_at,updated_at) VALUES('gov-stale-0/project','artifact:micro-tool','assessment',1,1,'current-analysis-0',1,0,0)",
+      ),
+    ]);
+    await commands.ensure({
+      writerEpoch: 1,
+      expectedProfileVersion: 0,
+      githubId: 1,
+      login: "synthetic-stale",
+      avatarUrl: "",
+    });
+    await db
+      .prepare(
+        "INSERT INTO feed_user_tag_preferences(github_id,tag_id,value,source,strength,taxonomy_version,updated_at) VALUES(1,'artifact:web-app',1,'explicit',1,1,0)",
+      )
+      .run();
+    const result = await commands.candidates({ githubId: 1, limit: 240 });
+    expect(result.counts.tag).toBe(0);
+    expect(
+      result.candidates.every(
+        (candidate) =>
+          !candidate.project.tags.some((tag) => tag.id === "artifact:web-app"),
+      ),
+    ).toBe(true);
+    await db
+      .prepare(
+        "UPDATE feed_user_tag_preferences SET value=-1 WHERE github_id=1",
+      )
+      .run();
+    expect(
+      (
+        await commands.available({
+          githubId: 1,
+          repoKeys: ["gov-stale-0/project"],
+        })
+      ).available,
+    ).toEqual({ "gov-stale-0/project": true });
+    await db
+      .prepare(
+        "INSERT INTO feed_behavior_signals(github_id,repo_key,signal,occurred_at) VALUES(1,'gov-stale-0/project','saved',0)",
+      )
+      .run();
+    await db.batch(commands.rebuildBehavior(1, Date.now()));
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT tag_id FROM feed_user_tag_preferences WHERE github_id=1 AND source='behavior'",
+          )
+          .all()
+      ).results,
+    ).toEqual([{ tag_id: "artifact:micro-tool" }]);
+  },
+);
 
 it("deprecates canonical tags without rewriting references or retaining negative hard filters", async () => {
   await commands.ensure({

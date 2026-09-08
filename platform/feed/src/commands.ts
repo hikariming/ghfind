@@ -83,7 +83,7 @@ export class FeedCommands extends FeedStore {
       this.sql(
         `INSERT INTO feed_user_tag_preferences(github_id,tag_id,value,source,strength,taxonomy_version,updated_at)
         SELECT ?,t.tag_id,1,'behavior',MIN(0.6,SUM(CASE s.signal WHEN 'saved' THEN 0.3 WHEN 'outbound' THEN 0.1 ELSE 0.05 END * t.weight)),MAX(t.taxonomy_version),?
-        FROM feed_behavior_signals s JOIN feed_project_tags t ON t.repo_key=s.repo_key JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical'
+        FROM feed_behavior_signals s JOIN feed_project_tags t ON t.repo_key=s.repo_key JOIN feed_projects p ON p.repo_key=t.repo_key AND p.analysis_id=t.analysis_id JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active')
         WHERE s.github_id=? GROUP BY t.tag_id`,
         githubId,
         now,
