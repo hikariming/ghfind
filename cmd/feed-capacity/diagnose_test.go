@@ -99,3 +99,26 @@ func TestDiagnosticPlanUsesExactRegisteredRuntimeSQL(t *testing.T) {
 		}
 	}
 }
+
+func TestDiagnosticTraceCapturesStdlibFormatOptions(t *testing.T) {
+	tracer := newDiagnosticTracer()
+	keys := []string{"synthetic-owner/project"}
+	query := backend.FeedDiagnosticReadQueries()["candidates.hydrate"]
+	ctx := context.WithValue(context.Background(), diagnosticRequestKey{}, 1)
+	ctx = tracer.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: query, Args: []any{pgx.QueryResultFormatsByOID{20: 1, 25: 0}, int64(highUser), keys}})
+	tracer.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{})
+	keys[0] = "changed-after-trace"
+	examples := tracer.exemplars()
+	if len(examples) != 1 || len(examples[0].args) != 2 {
+		t.Fatalf("stdlib trace not captured: %#v", examples)
+	}
+	if examples[0].args[0] != highUser || examples[0].args[1].([]string)[0] != "synthetic-owner/project" {
+		t.Fatal("format metadata shifted args or slice was not cloned")
+	}
+	if _, ok := diagnosticCloneArgs([]any{int64(1), pgx.QueryResultFormatsByOID{20: 1}}); ok {
+		t.Fatal("accepted metadata inside bind arguments")
+	}
+	if _, ok := diagnosticCloneArgs([]any{map[string]string{"private": "payload"}}); ok {
+		t.Fatal("accepted unsupported arbitrary payload")
+	}
+}

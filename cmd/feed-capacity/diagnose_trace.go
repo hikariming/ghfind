@@ -92,6 +92,19 @@ func (t *diagnosticTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, dat
 	return context.WithValue(ctx, diagnosticTraceKey{}, start)
 }
 func diagnosticCloneArgs(args []any) ([]any, bool) {
+	// pgx traces the call before it consumes these leading result-format options.
+	// database/sql's stdlib adapter always adds QueryResultFormatsByOID. They are
+	// driver metadata, not SQL bind arguments, and must never shift placeholders.
+options:
+	for len(args) > 0 {
+		switch args[0].(type) {
+		case pgx.QueryResultFormatsByOID, pgx.QueryResultFormats:
+			args = args[1:]
+		default:
+			break options
+		}
+	}
+
 	out := make([]any, len(args))
 	for i, arg := range args {
 		switch v := arg.(type) {
