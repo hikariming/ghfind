@@ -82,6 +82,20 @@ describe("Feed gateway boundary", () => {
     expect(response?.status).toBe(503);
   });
 
+  it("bounds stalled streams even when peer cancellation never completes", async () => {
+    for (const oversized of [false, true]) {
+      let cancelled = false;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) { if (oversized) controller.enqueue(new Uint8Array(FEED_BODY_LIMIT + 1)); },
+        cancel() { cancelled = true; return new Promise<void>(() => {}); },
+      });
+      const started = Date.now();
+      await expect(readBoundedBody(body, FEED_BODY_LIMIT, 20)).rejects.toThrow(oversized ? "exceeds" : "timed out");
+      expect(cancelled).toBe(true);
+      expect(Date.now() - started).toBeLessThan(1_000);
+    }
+  });
+
   it("rejects shared OAuth signing secrets and non-origin upstream configuration", async () => {
     enable();
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
