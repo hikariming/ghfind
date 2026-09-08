@@ -18,14 +18,15 @@ const (
 )
 
 type FeedRankOptions struct {
-	Now                 time.Time
-	Limit               int
-	Seed                string
-	MMRLambda           float64
-	ExplorationRate     float64
-	MaxExploration      int
-	ExplorationPageSize int
-	OwnerCap            int
+	Now                   time.Time
+	Limit                 int
+	Seed                  string
+	MMRLambda             float64
+	ExplorationRate       float64
+	MaxExploration        int
+	ExplorationWindowSize int
+	ExplorationPageSize   int
+	OwnerCap              int
 }
 
 type scoredFeedCandidate struct {
@@ -120,7 +121,14 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 	result := make([]FeedRankedItem, 0, minInt(options.Limit, len(remaining)))
 	explorationCount := 0
 	for len(remaining) > 0 && len(result) < options.Limit {
-		if len(result) > 0 && len(result)%options.ExplorationPageSize == 0 {
+		if options.ExplorationWindowSize > 0 {
+			explorationCount = 0
+			for _, prior := range result[maxInt(0, len(result)-options.ExplorationWindowSize+1):] {
+				if prior.Exploration {
+					explorationCount++
+				}
+			}
+		} else if len(result) > 0 && len(result)%options.ExplorationPageSize == 0 {
 			explorationCount = 0
 		}
 		available := make([]feedRankedIndex, 0, len(remaining))

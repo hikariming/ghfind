@@ -11,25 +11,17 @@ import (
 	"testing"
 )
 
-func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
+func TestPortableServedWindowStableAfterImpressions(t *testing.T) {
 	server, store, sessions := feedAPITestServer(t)
 	server.portableFeed = true
 	store.user = FeedUser{GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1}
-	store.unavailable = map[string]bool{}
 	now := server.clock()
-	snapshot := FeedSession{ID: "compressed", GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1, AlgorithmVersion: FeedPortableAlgorithmVersion, PageSize: 3, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL)}
+	candidates := []FeedCandidate{}
 	for i := 0; i < 65; i++ {
-		owner := fmt.Sprintf("owner%d", i)
-		explore := i%20 < 2
-		if i%20 < 2 {
-			owner = "repeated"
-		}
-		key := fmt.Sprintf("%s/repo%d", owner, i)
-		snapshot.Items = append(snapshot.Items, FeedRankedItem{Project: FeedProject{RepoKey: key, OwnerLogin: owner, Publishable: true, SubmissionEvidence: true}, Rank: i, Exploration: explore, Propensity: .1})
-		if i >= 2 && i <= 18 {
-			store.unavailable[key] = true
-		}
+		owner := fmt.Sprintf("owner%d", i%15)
+		candidates = append(candidates, feedCandidate(fmt.Sprintf("%s/repo%d", owner, i), owner, float64(100-i), 90, "low", now))
 	}
+	snapshot := FeedSession{ID: "stable", GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1, AlgorithmVersion: FeedPortableAlgorithmVersion, PageSize: 3, CreatedAt: now, ExpiresAt: now.Add(FeedSessionTTL), Items: RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 65, Seed: "rolling", OwnerCap: 2, ExplorationRate: .1, ExplorationWindowSize: 20})}
 	if err := sessions.PutFeedSession(context.Background(), snapshot, FeedSessionTTL); err != nil {
 		t.Fatal(err)
 	}
@@ -51,9 +43,9 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 	if page.NextCursor == nil {
 		t.Fatal("missing cursor")
 	}
-	firstClaims, err := server.feedSigner.ParseCursor(*page.NextCursor, 42, now)
-	if err != nil || !reflect.DeepEqual(firstClaims.ServedTail, []int{0, 1, 19}) || firstClaims.ServiceVersion != 1 || !firstClaims.ProbabilityUnavailable {
-		t.Fatalf("actual served tail %+v %v", firstClaims, err)
+	claims, err := server.feedSigner.ParseCursor(*page.NextCursor, 42, now)
+	if err != nil || !reflect.DeepEqual(claims.ServedTail, []int{0, 1, 2}) || claims.ServiceVersion != 1 || claims.ProbabilityUnavailable {
+		t.Fatalf("actual served tail %+v %v", claims, err)
 	}
 	all := append([]FeedRankedItem(nil), page.Items...)
 	call := func(cursor string) feedProjectsResponse {
@@ -63,6 +55,9 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 		return decode(response)
 	}
 	repeated := call(*page.NextCursor)
+	if _, err := store.AppendFeedEvents(context.Background(), 42, []AcceptedFeedEvent{{Input: FeedEventInput{Type: FeedEventImpression}}}); err != nil {
+		t.Fatal(err)
+	}
 	repeatedAgain := call(*page.NextCursor)
 	keys := func(p feedProjectsResponse) []string {
 		out := []string{}
@@ -72,10 +67,7 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 		return out
 	}
 	if !reflect.DeepEqual(keys(repeated), keys(repeatedAgain)) || repeated.NextCursor == nil || *repeated.NextCursor != *repeatedAgain.NextCursor {
-		t.Fatal("same cursor changed continuation")
-	}
-	if repeated.Items[0].Project.OwnerLogin == "repeated" {
-		t.Fatal("third owner survived compressed boundary")
+		t.Fatal("impression changed cursor continuation")
 	}
 	page = repeated
 	for pages := 0; ; pages++ {
@@ -83,13 +75,16 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 			t.Fatal("unbounded continuation")
 		}
 		all = append(all, page.Items...)
-		if !containsString(page.Degraded, "policy_probability_unavailable") {
-			t.Fatal("lost probability uncertainty across cursor")
+		if containsString(page.Degraded, "policy_probability_unavailable") {
+			t.Fatal("served an unevaluable probability")
 		}
 		if page.NextCursor == nil {
 			break
 		}
 		page = call(*page.NextCursor)
+	}
+	if len(all) != len(snapshot.Items) {
+		t.Fatal("sampled choices were skipped")
 	}
 	for start := range all {
 		counts := map[string]int{}
@@ -99,7 +94,6 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 			if counts[item.Project.OwnerLogin] > 2 {
 				t.Fatalf("owner window%d %+v", start, counts)
 			}
-			// The public item hides exploration; resolve its immutable snapshot record.
 			for _, ranked := range snapshot.Items {
 				if ranked.Project.RepoKey == item.Project.RepoKey && ranked.Exploration {
 					explore++
@@ -111,20 +105,18 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 		}
 	}
 	for _, record := range store.requests {
-		if record.AlgorithmVersion != FeedPortableAlgorithmVersion || !containsString(record.Degraded, "policy_probability_unavailable") {
-			t.Fatal("request audit lost serving policy/uncertainty")
+		if record.AlgorithmVersion != FeedPortableAlgorithmVersion || containsString(record.Degraded, "policy_probability_unavailable") {
+			t.Fatal("invalid request policy audit")
 		}
 	}
 	loaded, err := sessions.GetFeedSession(context.Background(), snapshot.ID)
-	if err != nil || !reflect.DeepEqual(loaded.Items, snapshot.Items) || len(loaded.Degraded) != 0 {
-		t.Fatal("page mutated immutable snapshot")
+	if err != nil || !reflect.DeepEqual(loaded.Items, snapshot.Items) {
+		t.Fatal("mutated immutable snapshot")
 	}
-	// Changing either session identity or tail while retaining the signature fails.
 	pieces := strings.Split(*repeated.NextCursor, ".")
 	payload, _ := base64.RawURLEncoding.DecodeString(pieces[0])
-	var claims FeedCursorClaims
 	json.Unmarshal(payload, &claims)
-	for _, mutate := range []func(*FeedCursorClaims){func(c *FeedCursorClaims) { c.SessionID = "other-session" }, func(c *FeedCursorClaims) { c.ServedTail = []int{19} }} {
+	for _, mutate := range []func(*FeedCursorClaims){func(c *FeedCursorClaims) { c.SessionID = "other-session" }, func(c *FeedCursorClaims) { c.ServedTail = []int{0} }} {
 		changed := claims
 		mutate(&changed)
 		encoded, _ := json.Marshal(changed)
@@ -132,6 +124,47 @@ func TestPortableServedWindowSurvivesHardFilterCompression(t *testing.T) {
 		if _, err := server.feedSigner.ParseCursor(tampered, 42, now); err == nil {
 			t.Fatal("tampered history accepted")
 		}
+	}
+}
+
+func TestPortableWithdrawalExpiresSessionBeforeServingOrAudit(t *testing.T) {
+	server, store, sessions := feedAPITestServer(t)
+	server.portableFeed = true
+	store.user = FeedUser{GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1}
+	snapshot := FeedSession{ID: "withdrawn", GitHubID: 42, ProfileVersion: 1, PageSize: 2, AlgorithmVersion: FeedPortableAlgorithmVersion, ExpiresAt: server.clock().Add(FeedSessionTTL)}
+	for i := 0; i < 25; i++ {
+		owner := fmt.Sprintf("distinct%d", i)
+		snapshot.Items = append(snapshot.Items, FeedRankedItem{Project: FeedProject{OwnerLogin: owner, RepoKey: owner + "/repo"}, Rank: i, Propensity: .1})
+	}
+	if err := sessions.PutFeedSession(context.Background(), snapshot, FeedSessionTTL); err != nil {
+		t.Fatal(err)
+	}
+	store.unavailable = map[string]bool{snapshot.Items[5].Project.RepoKey: true}
+	response := httptest.NewRecorder()
+	server.serveFeedPage(response, httptest.NewRequest("GET", "/api/feed/projects", nil), store.user, snapshot, 0, 2, server.clock(), nil, false)
+	if response.Code != 410 || len(store.requests) != 0 {
+		t.Fatalf("withdrawn status%d audited%d", response.Code, len(store.requests))
+	}
+	store.unavailable = nil
+	if _, err := sessions.GetFeedSession(context.Background(), snapshot.ID); err == nil {
+		t.Fatal("withdrawn snapshot can revive")
+	}
+}
+
+func TestPortableRejectsOldQuotaViolatingSnapshot(t *testing.T) {
+	server, store, sessions := feedAPITestServer(t)
+	server.portableFeed = true
+	store.user = FeedUser{GitHubID: 42, ProfileVersion: 1}
+	snapshot := FeedSession{ID: "old-budget", GitHubID: 42, ProfileVersion: 1, ExpiresAt: server.clock().Add(FeedSessionTTL)}
+	for i := 0; i < 3; i++ {
+		owner := fmt.Sprintf("distinct%d", i)
+		snapshot.Items = append(snapshot.Items, FeedRankedItem{Project: FeedProject{OwnerLogin: owner, RepoKey: owner + "/repo"}, Rank: i, Exploration: true, Propensity: .1})
+	}
+	sessions.PutFeedSession(context.Background(), snapshot, FeedSessionTTL)
+	response := httptest.NewRecorder()
+	server.serveFeedPage(response, httptest.NewRequest("GET", "/api/feed/projects", nil), store.user, snapshot, 0, 20, server.clock(), nil, false)
+	if response.Code != 410 || len(store.requests) != 0 {
+		t.Fatal("quota repaired by silently changing sampled distribution")
 	}
 }
 
@@ -145,41 +178,5 @@ func TestFeedCursorRejectsMalformedSignedServedTail(t *testing.T) {
 		if _, err := server.feedSigner.ParseCursor(token, 42, server.clock()); err == nil {
 			t.Fatalf("accepted signed malformed tail%v", tail)
 		}
-	}
-}
-
-func TestPortableExplorationCapUsesServedWindowWithDistinctOwners(t *testing.T) {
-	server, store, _ := feedAPITestServer(t)
-	server.portableFeed = true
-	store.user = FeedUser{GitHubID: 42, ProfileVersion: 1, TaxonomyVersion: 1}
-	store.unavailable = map[string]bool{}
-	snapshot := FeedSession{ID: "exploration-compression", GitHubID: 42, ProfileVersion: 1, AlgorithmVersion: FeedPortableAlgorithmVersion, ExpiresAt: server.clock().Add(FeedSessionTTL)}
-	for i := 0; i < 25; i++ {
-		owner := fmt.Sprintf("distinct%d", i)
-		key := owner + "/repo"
-		snapshot.Items = append(snapshot.Items, FeedRankedItem{Project: FeedProject{OwnerLogin: owner, RepoKey: key}, Rank: i, Exploration: i%20 < 2, Propensity: .1})
-		if i >= 2 && i <= 18 {
-			store.unavailable[key] = true
-		}
-	}
-	response := httptest.NewRecorder()
-	server.serveFeedPage(response, httptest.NewRequest("GET", "/api/feed/projects", nil), store.user, snapshot, 0, 20, server.clock(), nil, false)
-	if response.Code != 200 {
-		t.Fatal(response.Body.String())
-	}
-	if len(store.requests) != 1 {
-		t.Fatal("missing request")
-	}
-	explore := 0
-	for _, item := range store.requests[0].Items {
-		if item.Exploration {
-			explore++
-		}
-		if item.Rank == 20 || item.Rank == 21 {
-			t.Fatal("third exploration crossed compacted window")
-		}
-	}
-	if explore != 2 {
-		t.Fatalf("exploration count%d", explore)
 	}
 }
