@@ -60,7 +60,7 @@ npm run types --prefix platform/runtime
 npm run typecheck --prefix platform/runtime
 npm test --prefix platform/runtime
 npm run build --prefix platform/runtime
-node --test scripts/feed-platform-manifest.test.mjs
+node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs
 node scripts/feed-platform-manifest.mjs
 node scripts/feed-platform-cost.mjs
 ```
@@ -114,6 +114,40 @@ digest in a response alone is not evidence of a running image. Prebuilding does
 not make Worker/Container rollout transactional; keep the contract compatibility
 window and hold subsequent promotion until all versions agree. A failed staging
 job leaves evidence and does not silently promote or roll back a database.
+
+## Provisioning receipt and bounded recovery
+
+`scripts/feed-platform-provision.mjs` defaults to an offline five-resource plan
+with a SHA-256 plan hash. `--inspect` reads only those fixed staging names. An
+operator can execute the reviewed plan with:
+
+```sh
+node scripts/feed-platform-provision.mjs --plan
+node scripts/feed-platform-provision.mjs --inspect
+node scripts/feed-platform-provision.mjs --apply --reviewed-plan REVIEWED_PLAN_HASH --receipt platform/runtime/provision.evidence.json
+```
+
+Provide `CLOUDFLARE_API_TOKEN` through the runner environment, never an argument.
+For the existing Wrangler OAuth context, the exported `provision()` accepts an
+authenticated `request({method,path,body})` transport returning only
+`{status,success,result,result_info}`, plus a persistent `onReceipt` callback.
+This avoids storing credentials in the provision journal. The account is fixed;
+only five exact creation bodies and their metadata reads are accepted. Official
+schemas: [D1 creation](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/create/),
+[R2 creation](https://developers.cloudflare.com/api/resources/r2/subresources/buckets/methods/create/),
+[queue creation](https://developers.cloudflare.com/api/resources/queues/methods/create/).
+
+All names are inspected before the first write. Unknown existing resources,
+ambiguous listings, production IDs, absent recorded resources or permission
+failures stop execution. The journal is persisted **before** each create, then
+the resource is read back by its exact name and ID. A completed receipt can be
+rerun without duplicate creates. An uncertain response leaves a pending record;
+there is no automatic retry, adoption or deletion. The release owner must inspect
+and reconcile that one pending resource before resuming. This conservatively
+also stops on explicit creation errors. Partial resources remain isolated and
+are listed in the receipt. Copy their two D1 IDs to the deployment manifest and
+separately supply actual isolation/qualification evidence; creation does not
+mark billing, executor implementation, runtime compatibility or E2E as passed.
 
 ## Evidence still required
 
