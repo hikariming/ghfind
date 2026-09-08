@@ -4,14 +4,18 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"math"
+	"reflect"
 	"testing"
 	"time"
 )
 
-// Captured before the incremental MMR optimization at 5a3333d. These fixtures
-// fix the complete private ranked output, including conditional probabilities,
-// selection branch, features and reasons, rather than only the public order.
-// Binary-exact tag weights avoid summation-order noise in weighted Jaccard.
+// Each platform compares complete private output exactly with the frozen
+// pre-optimization algorithm from 5a3333d. The cross-platform digest rounds
+// numeric JSON leaves to 12 decimal places because Go math.Exp differs by an
+// ulp between arm64 and amd64. Order, branches and strings remain exact; numeric
+// precision exceeds the policy probability contract. Binary-exact tag weights
+// avoid map summation-order noise in the reference Jaccard implementation.
 func feedRankCapacityFixture() ([]FeedCandidate, time.Time) {
 	now := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
 	candidates := make([]FeedCandidate, 0, 240)
@@ -51,18 +55,29 @@ func TestFeedRankIncrementalMMRGolden(t *testing.T) {
 		rolling bool
 		digest  string
 	}{
-		{"capacity-a", true, "44886065ca60e1178ca6b0a1cde33dc0c6cf3e793713001fb8a26b8d7c51a2e1"}, {"capacity-b", true, "3b90753095a3802798db595689e46590df86a8e27042b0f6cb6d22a3eefbba84"}, {"capacity-c", false, "f05bae7cdae8ae0a7a7be92092e8bbbfb28093d3e5e7ec6dce7cc7cc9796498c"},
+		{"capacity-a", true, "fee233358044c8936217e31bbbd7aaa719d8bf68fdd7cd156a8083adafa25704"}, {"capacity-b", true, "8d91a386182ebf9470f97d4c9609fc1129b0afd9ea7f3472e3eff35cb8b283b8"}, {"capacity-c", false, "0d6602ce7762b0e38cde1dd9b460a78a456691753cacd7e72143a13660792a59"},
 	} {
 		options := FeedRankOptions{Now: now, Limit: 240, Seed: tc.seed, OwnerCap: 2, ExplorationRate: .1}
 		if tc.rolling {
 			options.ExplorationWindowSize = 20
 		}
 		ranked := RankFeedCandidates(candidates, options)
+		if reference := referenceRankFeedCandidates(candidates, options); !reflect.DeepEqual(ranked, reference) {
+			t.Fatalf("%s: optimized complete output differs from frozen original", tc.seed)
+		}
 		dto := make([]FeedRankedItemDTO, 0, len(ranked))
 		for _, item := range ranked {
 			dto = append(dto, feedRankedItemDTO(item))
 		}
 		encoded, err := json.Marshal(dto)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var canonical any
+		if err := json.Unmarshal(encoded, &canonical); err != nil {
+			t.Fatal(err)
+		}
+		encoded, err = json.Marshal(normalizeFeedRankGolden(canonical))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -79,4 +94,20 @@ func BenchmarkFeedRankCapacity(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 240, Seed: "capacity-a", OwnerCap: 2, ExplorationRate: .1, ExplorationWindowSize: 20})
 	}
+}
+
+func normalizeFeedRankGolden(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, item := range x {
+			x[k] = normalizeFeedRankGolden(item)
+		}
+	case []any:
+		for i, item := range x {
+			x[i] = normalizeFeedRankGolden(item)
+		}
+	case float64:
+		return math.Round(x*1e12) / 1e12
+	}
+	return v
 }
