@@ -130,14 +130,15 @@ type FeedBridgeAvailableResponse struct {
 // with a different payload is a conflict; exact retries are safe.
 type FeedBridgeSaveRequest struct {
 	FeedMutationFence
-	PayloadHash     string              `json:"payloadHash"`
-	ID              string              `json:"id"`
-	User            FeedUserDTO         `json:"user"`
-	Seed            string              `json:"seed"`
-	CandidateCounts map[string]int      `json:"candidateCounts"`
-	Degraded        []string            `json:"degraded"`
-	DurationMS      int64               `json:"durationMs"`
-	Items           []FeedRankedItemDTO `json:"items"`
+	AlgorithmVersion string              `json:"algorithmVersion,omitempty"`
+	PayloadHash      string              `json:"payloadHash"`
+	ID               string              `json:"id"`
+	User             FeedUserDTO         `json:"user"`
+	Seed             string              `json:"seed"`
+	CandidateCounts  map[string]int      `json:"candidateCounts"`
+	Degraded         []string            `json:"degraded"`
+	DurationMS       int64               `json:"durationMs"`
+	Items            []FeedRankedItemDTO `json:"items"`
 }
 
 // state.set: atomic state + deduped event + profile version + outbox. Requires

@@ -168,7 +168,7 @@ func (s *CFFeedStore) AvailableFeedRepoKeys(ctx context.Context, id int64, keys 
 	return out.Available, err
 }
 func (s *CFFeedStore) SaveFeedRequest(ctx context.Context, r FeedRequestRecord) error {
-	in := FeedBridgeSaveRequest{FeedMutationFence: s.fence(ctx, r.User.ProfileVersion), ID: r.ID, User: feedUserDTO(r.User), Seed: r.Seed, CandidateCounts: r.CandidateCounts, Degraded: r.Degraded, DurationMS: r.Duration.Milliseconds(), Items: []FeedRankedItemDTO{}}
+	in := FeedBridgeSaveRequest{AlgorithmVersion: feedRequestAlgorithm(r), FeedMutationFence: s.fence(ctx, r.User.ProfileVersion), ID: r.ID, User: feedUserDTO(r.User), Seed: r.Seed, CandidateCounts: r.CandidateCounts, Degraded: r.Degraded, DurationMS: r.Duration.Milliseconds(), Items: []FeedRankedItemDTO{}}
 	for _, i := range r.Items {
 		in.Items = append(in.Items, feedRankedItemDTO(i))
 	}

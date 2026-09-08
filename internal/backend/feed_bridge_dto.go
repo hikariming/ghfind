@@ -51,7 +51,7 @@ func (d FeedSessionDTO) session() FeedSession {
 }
 
 func feedRequestPayloadHash(r FeedRequestRecord) (string, error) {
-	dto := FeedBridgeSaveRequest{ID: r.ID, User: feedUserDTO(r.User), Seed: r.Seed, CandidateCounts: r.CandidateCounts, Degraded: r.Degraded, DurationMS: r.Duration.Milliseconds(), Items: []FeedRankedItemDTO{}}
+	dto := FeedBridgeSaveRequest{AlgorithmVersion: feedRequestAlgorithm(r), ID: r.ID, User: feedUserDTO(r.User), Seed: r.Seed, CandidateCounts: r.CandidateCounts, Degraded: r.Degraded, DurationMS: r.Duration.Milliseconds(), Items: []FeedRankedItemDTO{}}
 	for _, item := range r.Items {
 		dto.Items = append(dto.Items, feedRankedItemDTO(item))
 	}

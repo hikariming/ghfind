@@ -18,11 +18,14 @@ var (
 )
 
 type FeedCursorClaims struct {
-	Kind      string `json:"kind"`
-	SessionID string `json:"sessionId"`
-	GitHubID  int64  `json:"githubId"`
-	Offset    int    `json:"offset"`
-	ExpiresAt int64  `json:"expiresAt"`
+	Kind                   string `json:"kind"`
+	SessionID              string `json:"sessionId"`
+	GitHubID               int64  `json:"githubId"`
+	Offset                 int    `json:"offset"`
+	ExpiresAt              int64  `json:"expiresAt"`
+	ServiceVersion         int    `json:"serviceVersion,omitempty"`
+	ServedTail             []int  `json:"servedTail,omitempty"`
+	ProbabilityUnavailable bool   `json:"probabilityUnavailable,omitempty"`
 }
 
 type FeedImpressionClaims struct {
@@ -57,6 +60,16 @@ func (s *FeedSigner) ParseCursor(token string, githubID int64, now time.Time) (F
 	}
 	if claims.Kind != "cursor" || claims.SessionID == "" || claims.GitHubID != githubID || claims.Offset < 0 {
 		return FeedCursorClaims{}, ErrInvalidFeedToken
+	}
+	if claims.ServiceVersion < 0 || claims.ServiceVersion > 1 || len(claims.ServedTail) > 19 || (claims.ServiceVersion == 0 && len(claims.ServedTail) != 0) {
+		return FeedCursorClaims{}, ErrInvalidFeedToken
+	}
+	prior := -1
+	for _, index := range claims.ServedTail {
+		if index <= prior || index >= claims.Offset {
+			return FeedCursorClaims{}, ErrInvalidFeedToken
+		}
+		prior = index
 	}
 	if claims.ExpiresAt <= now.UnixMilli() {
 		return FeedCursorClaims{}, ErrExpiredFeedToken
@@ -98,6 +111,9 @@ func (s *FeedSigner) sign(value any) (string, error) {
 }
 
 func (s *FeedSigner) verify(token string, target any) error {
+	if len(token) > 8192 {
+		return ErrInvalidFeedToken
+	}
 	payload, signature, ok := strings.Cut(strings.TrimSpace(token), ".")
 	if !ok || payload == "" || signature == "" {
 		return ErrInvalidFeedToken
