@@ -7,55 +7,20 @@ import { FeedCleanup, cleanupSchemas } from "./cleanup";
 import { FeedOperator, operatorSchemas } from "./operator";
 import { handleArchive } from "./archive-http";
 import { FeedDelivery, deliverySchemas } from "./delivery";
+import { handleGovernance } from "./governance";
 
-const MAX_BODY = 128 * 1024;
+import { readJSONBody } from "./body";
+
 async function body(request: Request, operation: string): Promise<unknown> {
   const limit =
     operation === "archive"
       ? 6 * 1024 * 1024
       : operation === "sessions.put" || operation === "requests.save"
         ? 2 * 1024 * 1024
-        : MAX_BODY;
-  if (
-    !request.headers
-      .get("content-type")
-      ?.toLowerCase()
-      .startsWith("application/json")
-  )
-    throw new BridgeError(415, "unsupported_media_type");
-  if (Number(request.headers.get("content-length")) > limit)
-    throw new BridgeError(413, "request_too_large");
-  if (!request.body) throw new BridgeError(400, "invalid_request");
-  const reader = request.body.getReader(),
-    chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const part = await reader.read();
-      if (part.done) break;
-      size += part.value.byteLength;
-      if (size > limit) {
-        await reader.cancel();
-        throw new BridgeError(413, "request_too_large");
-      }
-      chunks.push(part.value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  try {
-    return JSON.parse(
-      new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes),
-    );
-  } catch {
-    throw new BridgeError(400, "invalid_request");
-  }
+        : operation === "governance"
+          ? 32 * 1024
+          : 128 * 1024;
+  return readJSONBody(request, limit);
 }
 async function authorized(request: Request, secret: string): Promise<boolean> {
   if (!secret || secret.length < 32) return false;
@@ -150,6 +115,7 @@ export default {
         archive = url.pathname.startsWith("/internal/feed/archive/v1/"),
         cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
         operator = url.pathname.startsWith("/internal/feed/admin/v1/"),
+        governance = url.pathname.startsWith("/internal/feed/governance/v1/"),
         delivery = url.pathname.startsWith("/internal/feed/delivery/v1/");
       const secret = source
         ? env.FEED_SOURCE_SECRET
@@ -157,7 +123,7 @@ export default {
           ? env.FEED_DELIVERY_SECRET
           : cleanup || archive
             ? env.FEED_EXECUTOR_SECRET
-            : operator
+            : operator || governance
               ? env.FEED_OPERATOR_SECRET
               : env.FEED_BRIDGE_SECRET;
       if (!(await authorized(request, secret)))
@@ -167,6 +133,21 @@ export default {
       if (request.headers.get("x-feed-contract") !== "1")
         throw new BridgeError(409, "contract_version_changed");
       if (url.search) throw new BridgeError(404, "operation_not_found");
+      if (governance) {
+        const match =
+          /^\/internal\/feed\/governance\/v1\/(proposal|command|review|deprecate)$/.exec(
+            url.pathname,
+          );
+        if (!match) throw new BridgeError(404, "operation_not_found");
+        return Response.json(
+          await handleGovernance(
+            match[1],
+            await body(request, "governance"),
+            env.FEED_DB,
+          ),
+          { headers },
+        );
+      }
       if (archive) {
         return Response.json(
           await handleArchive(
