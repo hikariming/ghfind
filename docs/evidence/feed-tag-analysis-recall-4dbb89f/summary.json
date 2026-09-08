@@ -1,0 +1,84 @@
+{
+  "sourceSha": "4dbb89fe1ea5c014b9649ce40a6bb1adaae05d73",
+  "status": "passed",
+  "durationSeconds": 0.332164,
+  "attempted": 8,
+  "queries": [
+    {
+      "cohort": 0,
+      "durationMs": 122.064,
+      "operation": "select",
+      "orderedResultSHA256": "a247431ce53fffefafdd43a4e428c1e7687e70c41a0631585a9f22ccfe557b54",
+      "outcome": "ok",
+      "rowCount": 80,
+      "variant": 0
+    },
+    {
+      "cohort": 0,
+      "durationMs": 5.041,
+      "operation": "select",
+      "orderedResultSHA256": "a247431ce53fffefafdd43a4e428c1e7687e70c41a0631585a9f22ccfe557b54",
+      "outcome": "ok",
+      "rowCount": 80,
+      "variant": 1
+    },
+    {
+      "cohort": 0,
+      "durationMs": 60.47,
+      "operation": "explain",
+      "outcome": "ok",
+      "sqlSHA256": "bfc6027e4092aebfc544cb657490738bf41cbd19138a18b327e24bd4075103e5",
+      "variant": 0,
+      "executionMs": 57.319,
+      "sharedHitBlocks": 13084
+    },
+    {
+      "cohort": 0,
+      "durationMs": 6.711,
+      "operation": "explain",
+      "outcome": "ok",
+      "sqlSHA256": "6adc2b6d31dc703bf1cf0a1152bbda7ad3eddac95be61392706dfbc4bb3bcf3e",
+      "variant": 1,
+      "executionMs": 2.833,
+      "sharedHitBlocks": 3376
+    },
+    {
+      "cohort": 1,
+      "durationMs": 47.486,
+      "operation": "select",
+      "orderedResultSHA256": "a247431ce53fffefafdd43a4e428c1e7687e70c41a0631585a9f22ccfe557b54",
+      "outcome": "ok",
+      "rowCount": 80,
+      "variant": 0
+    },
+    {
+      "cohort": 1,
+      "durationMs": 3.605,
+      "operation": "select",
+      "orderedResultSHA256": "a247431ce53fffefafdd43a4e428c1e7687e70c41a0631585a9f22ccfe557b54",
+      "outcome": "ok",
+      "rowCount": 80,
+      "variant": 1
+    },
+    {
+      "cohort": 1,
+      "durationMs": 61.39,
+      "operation": "explain",
+      "outcome": "ok",
+      "sqlSHA256": "bfc6027e4092aebfc544cb657490738bf41cbd19138a18b327e24bd4075103e5",
+      "variant": 0,
+      "executionMs": 59.307,
+      "sharedHitBlocks": 13084
+    },
+    {
+      "cohort": 1,
+      "durationMs": 4.749,
+      "operation": "explain",
+      "outcome": "ok",
+      "sqlSHA256": "6adc2b6d31dc703bf1cf0a1152bbda7ad3eddac95be61392706dfbc4bb3bcf3e",
+      "variant": 1,
+      "executionMs": 2.84,
+      "sharedHitBlocks": 3376
+    }
+  ]
+}
