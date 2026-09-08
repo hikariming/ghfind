@@ -1,0 +1,16 @@
+FROM golang:1.25.1-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY internal ./internal
+COPY cmd/feed-api ./cmd/feed-api
+COPY cmd/feed-worker ./cmd/feed-worker
+ARG VERSION=development
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-api ./cmd/feed-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-worker ./cmd/feed-worker
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates && addgroup -S feed && adduser -S -G feed feed
+COPY --from=build /out/feed-api /out/feed-worker /usr/local/bin/
+USER feed
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/feed-api"]
