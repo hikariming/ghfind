@@ -1,0 +1,90 @@
+{
+  "recordedAt": "2026-09-08T17:29:58.989172+00:00",
+  "sourceSha": "a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e",
+  "sourceTreeCleanBeforeEvidence": true,
+  "hostArchitecture": "arm64",
+  "hostSystem": "Darwin",
+  "hostRelease": "25.5.0",
+  "goHostVersion": "go version go1.26.1 darwin/arm64",
+  "dockerVersion": {
+    "Client": {
+      "Platform": {
+        "Name": "Docker Engine - Community"
+      },
+      "Version": "29.4.0",
+      "ApiVersion": "1.54",
+      "DefaultAPIVersion": "1.54",
+      "GitCommit": "9d7ad9ff18",
+      "GoVersion": "go1.26.1",
+      "Os": "darwin",
+      "Arch": "arm64",
+      "BuildTime": "Fri Apr  3 14:24:17 2026",
+      "Context": "desktop-linux"
+    },
+    "Server": {
+      "Platform": {
+        "Name": "Docker Desktop 4.69.0 (224084)"
+      },
+      "Version": "29.4.0",
+      "ApiVersion": "1.54",
+      "MinAPIVersion": "1.40",
+      "Os": "linux",
+      "Arch": "arm64",
+      "Components": [
+        {
+          "Name": "Engine",
+          "Version": "29.4.0",
+          "Details": {
+            "ApiVersion": "1.54",
+            "Arch": "arm64",
+            "BuildTime": "Tue Apr  7 08:36:25 2026",
+            "Experimental": "false",
+            "GitCommit": "daa0cb7",
+            "GoVersion": "go1.26.1",
+            "KernelVersion": "6.12.76-linuxkit",
+            "MinAPIVersion": "1.40",
+            "Module": "github.com/moby/moby/v2",
+            "ModuleVersion": "v2.0.0+unknown",
+            "Os": "linux"
+          }
+        },
+        {
+          "Name": "containerd",
+          "Version": "v2.2.1",
+          "Details": {
+            "GitCommit": "dea7da592f5d1d2b7755e3a161be07f43fad8f75"
+          }
+        },
+        {
+          "Name": "runc",
+          "Version": "1.3.4",
+          "Details": {
+            "GitCommit": "v1.3.4-0-gd6d73eb8"
+          }
+        },
+        {
+          "Name": "docker-init",
+          "Version": "0.19.0",
+          "Details": {
+            "GitCommit": "de40ad0"
+          }
+        }
+      ],
+      "GitCommit": "daa0cb7",
+      "GoVersion": "go1.26.1",
+      "KernelVersion": "6.12.76-linuxkit",
+      "BuildTime": "2026-04-07T08:36:25.000000000+00:00"
+    }
+  },
+  "helperBinarySha256": "1fea3f36ad552fd38664edfa602ce6f9f0173bcda6df349d30804c27f99c722d",
+  "businessSourceFiles": {
+    "Dockerfile.feed": "e314f795044ef505a24818f0b25f2a0d248c139c34bb5032a3be673de1e674fc",
+    "Dockerfile.feed.dockerignore": "358162382c45749bdc2fcee1f0ba51a4ad33efa418a0ce6e710d0ec2bc74176c",
+    "go.mod": "7af39c65fc4f1653232d65f1f61332fce249fce0127c3b052cbc758994092ee6",
+    "go.sum": "bd01fd4f14e9e16765325787a8ac1efbab9238202cabea71880a39c00a7d281b",
+    "cmd/feed-api/main.go": "b29764cdcbe46164e4b70ad78434c51970b90fc1bc10be9c56088d84bfcaa413",
+    "cmd/feed-worker/main.go": "64d31d526b0b99e6555d7cee91b065ac181aa87f64ac764413ffe8c92cace038",
+    "internal/feed/runtime/config.go": "89440859ba3979487651bd5244ee6193acd3a565950b6fd2cc16802a0ae15d0f",
+    "internal/feed/runtime/worker.go": "9cf4900ed5be1a93b4c3e748c3fe863e1e318fe9fbdaf98cffeea3d415a29559"
+  }
+}
