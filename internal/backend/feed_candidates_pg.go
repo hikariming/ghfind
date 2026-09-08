@@ -12,7 +12,9 @@ import (
 
 func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUser, limit int) ([]FeedCandidate, map[string]int, error) {
 	provenance := ""
+	preferenceSQL := `SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1`
 	if s.writerEpoch > 0 {
+		preferenceSQL = `SELECT DISTINCT ON(tag_id) tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1 ORDER BY tag_id,CASE source WHEN 'explicit' THEN 3 WHEN 'behavior' THEN 2 ELSE 1 END DESC`
 		provenance = " AND EXISTS(SELECT 1 FROM feed.project_submission_evidence e WHERE e.repo_key=p.repo_key AND e.analysis_id=p.analysis_id) "
 		user.Embedding = nil
 	}
@@ -57,7 +59,7 @@ func (s *PostgresFeedStore) LoadFeedCandidates(ctx context.Context, user FeedUse
 	// This is a candidate-recall approximation, never a governance decision.
 	if len(user.Preferences) > 0 {
 		tagRows, err := s.db.QueryContext(ctx, `WITH prefs AS MATERIALIZED (
-          SELECT tag_id,value,strength FROM feed.user_tag_preferences WHERE github_id=$1
+          `+preferenceSQL+`
         ), sampled AS MATERIALIZED (
           SELECT pref.tag_id,pref.value,pref.strength,pt.repo_key,pt.weight,pt.confidence
           FROM prefs pref

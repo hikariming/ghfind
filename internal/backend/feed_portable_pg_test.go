@@ -145,6 +145,7 @@ func TestPortablePostgresContracts(t *testing.T) {
 		t.Fatal("predeletion user update accepted", err)
 	}
 	testPortableJobsAndProposals(t, ctx, store, recreated)
+	testPortableBehavior(t, ctx, store, recreated)
 }
 
 // Called within the same disposable database test; it cannot race a second
@@ -219,5 +220,94 @@ func testPortableJobsAndProposals(t *testing.T, ctx context.Context, store *Post
 	var approved int
 	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.tag_definitions WHERE id='use_case:new-proposal'`).Scan(&approved); err != nil || approved != 0 {
 		t.Fatal("proposal granted canonical status", err)
+	}
+}
+
+func testPortableBehavior(t *testing.T, ctx context.Context, store *PostgresFeedStore, user *FeedUser) {
+	t.Helper()
+	candidates, counts, err := store.LoadFeedCandidates(ctx, *user, 240)
+	if err != nil || len(candidates) == 0 {
+		t.Fatalf("behavior fixture candidates %d %v", len(candidates), err)
+	}
+	items := RankFeedCandidates(candidates, FeedRankOptions{Limit: 20, Seed: "behavior", OwnerCap: 2})
+	record := FeedRequestRecord{ID: "behavior-request", User: *user, Seed: "behavior", CandidateCounts: counts, Degraded: []string{}, Items: items}
+	if err := store.SaveFeedRequest(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	repo := items[0].Project.RepoKey
+	truth, falsity := true, false
+	set := func(patch FeedStatePatch) FeedProjectState {
+		t.Helper()
+		current, err := store.GetFeedUser(ctx, user.GitHubID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		patch.RequestID = record.ID
+		state, err := store.SetFeedProjectState(withFeedProfileVersion(ctx, current.ProfileVersion), user.GitHubID, repo, patch, time.Now().UTC())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return state
+	}
+	set(FeedStatePatch{Saved: &truth})
+	saved, err := store.GetFeedUser(ctx, user.GitHubID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Preferences) == 0 || saved.Preferences[0].Source != "behavior" {
+		t.Fatal("save did not materialize preference", saved.Preferences)
+	}
+	set(FeedStatePatch{Saved: &falsity})
+	cleared, err := store.GetFeedUser(ctx, user.GitHubID)
+	if err != nil || len(cleared.Preferences) != 0 {
+		t.Fatal("unsave retained saved signal", cleared, err)
+	}
+	event := AcceptedFeedEvent{Input: FeedEventInput{ID: "7f2c0529-4f65-453a-944d-ea3ef6f44da0", Type: FeedEventGitHubOutbound, RepoKey: repo, OccurredAt: time.Now().UTC()}, RequestID: record.ID, Metadata: map[string]any{"rank": items[0].Rank, "algorithmVersion": FeedAlgorithmVersion}}
+	result, err := store.AppendFeedEvents(withFeedProfileVersion(ctx, cleared.ProfileVersion), user.GitHubID, []AcceptedFeedEvent{event})
+	if err != nil || result.Accepted != 1 {
+		t.Fatal(result, err)
+	}
+	first, _ := store.GetFeedUser(ctx, user.GitHubID)
+	if len(first.Preferences) == 0 {
+		t.Fatal("outbound did not materialize preference")
+	}
+	event.Input.ID = "7f2c0529-4f65-453a-944d-ea3ef6f44da1"
+	if _, err := store.AppendFeedEvents(withFeedProfileVersion(ctx, first.ProfileVersion), user.GitHubID, []AcceptedFeedEvent{event}); err != nil {
+		t.Fatal(err)
+	}
+	repeated, _ := store.GetFeedUser(ctx, user.GitHubID)
+	if repeated.ProfileVersion != first.ProfileVersion {
+		t.Fatal("repeated outbound amplified profile")
+	}
+	event.Input.ID = "7f2c0529-4f65-453a-944d-ea3ef6f44da2"
+	event.Input.Type = FeedEventDetailOpen
+	if _, err := store.AppendFeedEvents(withFeedProfileVersion(ctx, repeated.ProfileVersion), user.GitHubID, []AcceptedFeedEvent{event}); err != nil {
+		t.Fatal(err)
+	}
+	opened, _ := store.GetFeedUser(ctx, user.GitHubID)
+	if opened.ProfileVersion != first.ProfileVersion {
+		t.Fatal("detail_open became positive feedback")
+	}
+	pref := FeedPreference{TagID: first.Preferences[0].TagID, Value: -1, Source: "explicit", Strength: 1, TaxonomyVersion: first.TaxonomyVersion}
+	explicit, err := store.ReplaceExplicitFeedPreferences(withFeedProfileVersion(ctx, opened.ProfileVersion), user.GitHubID, opened.TaxonomyVersion, []FeedPreference{pref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, p := range explicit.Preferences {
+		if p.TagID == pref.TagID {
+			found++
+			if p.Source != "explicit" || p.Value != -1 {
+				t.Fatal("behavior overrode explicit preference", p)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatal("duplicate sources for explicit tag", explicit.Preferences)
+	}
+	set(FeedStatePatch{Saved: &truth})
+	state := set(FeedStatePatch{NotInterested: &truth})
+	if state.Saved || !state.NotInterested {
+		t.Fatal("negative state failed to clear saved", state)
 	}
 }
