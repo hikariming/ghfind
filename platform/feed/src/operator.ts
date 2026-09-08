@@ -1,22 +1,38 @@
 import { z } from "zod";
 import { FeedStore } from "./store";
+import { BridgeError } from "./contract";
+import { CoreSourceOperator, coreSourceOperatorSchemas } from "./source-replay";
 
 const target = {
   kind: z.enum(["sourceEvent", "deletion"]),
   id: z.string().min(1).max(160),
 };
 export const operatorSchemas = {
-  status: z.strictObject(target),
-  replay: z.strictObject({
-    ...target,
-    writerEpoch: z.number().int().safe().positive(),
-    commandId: z.uuid(),
-    operator: z.string().min(1).max(100),
-    reason: z.string().min(8).max(500),
-  }),
+  status: z.union([z.strictObject(target), coreSourceOperatorSchemas.status]),
+  replay: z.union([
+    z.strictObject({
+      ...target,
+      writerEpoch: z.number().int().safe().positive(),
+      commandId: z.uuid(),
+      operator: z.string().min(1).max(100),
+      reason: z.string().min(8).max(500),
+    }),
+    coreSourceOperatorSchemas.replay,
+  ]),
 };
 export class FeedOperator extends FeedStore {
+  constructor(
+    db: D1Database,
+    readonly coreDb?: D1Database,
+  ) {
+    super(db);
+  }
+  private core() {
+    if (!this.coreDb) throw new BridgeError(503, "core_source_unavailable");
+    return new CoreSourceOperator(this.coreDb);
+  }
   async status(input: z.infer<typeof operatorSchemas.status>) {
+    if (input.kind === "coreSource") return this.core().status(input);
     const rows =
       input.kind === "sourceEvent"
         ? await this.rows(
@@ -52,6 +68,7 @@ export class FeedOperator extends FeedStore {
     };
   }
   async replay(input: z.infer<typeof operatorSchemas.replay>) {
+    if (input.kind === "coreSource") return this.core().replay(input);
     const command = crypto.randomUUID(),
       now = Date.now();
     const eligible =

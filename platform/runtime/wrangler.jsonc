@@ -1,0 +1,93 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ghfind-feed-runtime-unconfigured",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "limits": {
+    "cpu_ms": 10000
+  },
+  "version_metadata": {
+    "binding": "WORKER_VERSION"
+  },
+  "vars": {
+    "FEED_ENVIRONMENT": "unconfigured",
+    "FEED_RELEASE_SHA": "UNCONFIGURED",
+    "FEED_IMAGE_REFERENCE": "UNCONFIGURED",
+    "FEED_MODE": "off",
+    "FEED_WRITER_EPOCH": "1",
+    "FEED_EXECUTOR_ENABLED": "false",
+    "FEED_SOURCE_RELAY_ENABLED": "false",
+    "FEED_QUEUE_NAME": "unconfigured",
+    "FEED_DLQ_NAME": "unconfigured"
+  },
+  "secrets": {
+    "required": [
+      "FEED_GATEWAY_SECRET",
+      "FEED_SIGNING_SECRET",
+      "FEED_BRIDGE_SECRET",
+      "FEED_RUNTIME_ADMIN_SECRET",
+      "FEED_EXECUTOR_SECRET",
+      "FEED_SOURCE_SECRET",
+      "FEED_DELIVERY_SECRET"
+    ]
+  },
+  "services": [
+    {
+      "binding": "FEED_ADAPTER",
+      "service": "ghfind-feed-adapter-unconfigured"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FEED_API",
+        "class_name": "FeedAPI"
+      },
+      {
+        "name": "FEED_EXECUTOR",
+        "class_name": "FeedExecutor"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FeedAPI",
+        "FeedExecutor"
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "FeedAPI",
+      "image": "registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "instance_type": "basic",
+      "max_instances": 2
+    },
+    {
+      "class_name": "FeedExecutor",
+      "image": "registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "FEED_JOBS_QUEUE",
+        "queue": "ghfind-feed-jobs-unconfigured"
+      }
+    ]
+  }
+}

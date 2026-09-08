@@ -187,6 +187,42 @@ is not queue deployment evidence. Tests execute real local workerd/D1 transactio
 including an injected SQL write failure, and model a lost publish confirmation;
 actual Cloudflare Queue delivery and remote failure drills remain release gates.
 
+## Core outbox operator recovery (core schema 0006)
+
+Core source publication can exhaust its ten attempts before any Feed execution
+job exists. It is recovered independently through admin `kind: "coreSource"`.
+Apply `migrations/0006_feed_source_replay_audit.sql` to the isolated core DB for
+this stage, and construct `FeedOperator(FEED_DB, CORE_DB)` in the adapter entry.
+This migration and capability belong to stage 4, not the stage 2 storage release.
+The operator credential remains separate from source/bridge/executor/delivery
+credentials. No Feed writer epoch is checked or accepted for this kind.
+
+`status {kind:"coreSource",id:"123"}` returns `{job:null}` for an unknown sequence,
+or a job containing only `id,sourceKind:"coreSource",sequence,status,attempts,
+availableAt,leaseUntil,lastError,replayCount,replayedAt`. IDs are positive decimal
+strings without leading zeros and must fit a JavaScript safe integer. Time fields
+are Unix milliseconds or null. No analysis body or queue envelope is returned.
+
+`replay {kind:"coreSource",id:"123",commandId,operator,reason}` requires a fresh
+UUID command, nonempty operator (at most 100 characters), and a reason of 8–500
+characters. It uses one **CORE_DB batch** to check command identity and failed
+state, reset source delivery, and store an append-only audit receipt containing
+the original event ID/hash. It never rewrites the source version or facts. Missing,
+pending, leased, or delivered sources reject new replay commands with 409.
+An exact previously accepted command returns `{ok:true}` even after later leasing,
+delivery, or failure; it never resets those later states. Reusing the command for
+another source, operator or reason returns 409. A later incident needs a new
+command. Source cron owns the subsequent publication using its existing durable
+claim/finish protocol.
+
+`ok:true` is acceptance; source `delivered` means the queue accepted publication.
+Neither means Feed projection completed. The standalone core helper requires the
+same command/actor/reason and uses the same guarded SQL, so it cannot bypass the
+audit. Workerd tests use the real core D1 binding to exercise ten failures, replay,
+re-claim, publication confirmation, concurrent operators, lost command responses,
+audit-write failure rollback and role boundaries. Queue acceptance is represented
+by the source finish call; no real Cloudflare Queue delivery is claimed here.
+
 ## Reader and writer compatibility (schema 7)
 
 Apply `0007_feed_schema_compatibility.sql` with the preceding Feed migrations.
