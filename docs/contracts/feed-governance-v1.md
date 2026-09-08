@@ -44,6 +44,19 @@ table. Other sources are not silently upgraded. Review retains the proposal's
 stored namespace, including legacy inferred namespaces; reclassification is
 outside v1.
 
+Each user proposal belongs to the author and profile generation that created its
+actor-scoped command. New commands never merge bodies by project/slug, including
+across authors. Inspection requires that original generation to be above its
+deletion floor and the author association to remain live. A deleted, redacted or
+unattributed user proposal returns `{proposal:null}`. New create/map/reject commands
+return 409 `governance_proposal_deleted`; a preexisting exact successful governance
+receipt still returns its safe original result without copying any body again.
+The deletion transaction's floor is the immediate fence; physical cleanup need
+not finish first. Cleaned user command receipts retain only actor, command and
+generation to reject replay. Their proposal reference is empty, payload hash is
+the constant `deleted`, and creation time is zero. A new generation must use a
+new command ID; an old command returns 409 `proposal_id_conflict` after cleanup.
+
 `review` accepts a strict union with these common fields:
 
 ```json
@@ -125,8 +138,11 @@ pending state and proposal expectedAnalysisId, and may reject stale or malformed
 stored evidence. It retains only the original evidence-byte hash in its audit;
 it never writes project tags/aliases or advances taxonomy.
 
-Create/map write one project tag with explicit weight/confidence and the original
-proposal evidence/analysis. D1 uses `admin`; PostgreSQL uses `editor`. D1 replaces
+Create/map write one project tag with explicit weight/confidence and proposal
+analysis. Assessment evidence is preserved. User evidence is instead the single
+controlled reference `governance:<commandId>`, with `origin_proposal_id` tracking
+that assignment's source; raw user evidence is never copied into a new assignment.
+D1 uses `admin`; PostgreSQL uses `editor`. D1 replaces
 its single `(repo,tag)` row atomically; PostgreSQL must keep one effective
 reviewed assignment despite its source-aware primary key. The selected proposal
 must not increase the project beyond 100 effective canonical tag IDs, counting
@@ -158,7 +174,8 @@ copied into the ledger. Evidence hashes identify the adapter's stored evidence
 bytes and are opaque audit references.
 
 Errors use `{error:string}`. Invalid DTOs return 400 `invalid_request`; unknown
-proposal mutations return 404 `governance_proposal_not_found`; unknown operations
+assessment proposal mutations return 404 `governance_proposal_not_found`; missing
+or no-longer-live user proposals return 409 `governance_proposal_deleted`. Unknown operations
 return 404 `operation_not_found`. Conflicts return 409:
 `governance_command_conflict`, `writer_epoch_changed`, `taxonomy_version_changed`,
 `governance_proposal_changed`, `governance_not_pending`,
@@ -203,3 +220,34 @@ implementations with these fences. Structural compatibility does not imply
 business compatibility: an application rollback must not reactivate old sessions
 or event attribution. Release manifests and protected Actions must enforce the
 allowed implementation window.
+
+Migration 0010 removes user natural-key sharing while preserving existing rows,
+adds assignment origin and the transactional author guard, and restarts unfinished
+primary cleanup under the stronger protocol. Cleanup first verifies any legacy
+copy against the ledger hash and every current assignment field, clears only that
+origin's evidence, redacts the proposal body and slug, tombstones its command
+receipts, then removes its author association.
+It retains independently reviewed public classification, aliases, weight and
+confidence. Assessment or later-review overwrites clear/replace origin, so an old
+deletion cannot clear new evidence. Minimal command tombstones retain neither an
+original body hash nor a link to the business proposal and remain through the
+replay/backup retention window. The scrubbed slug is `deleted-proposal`.
+
+Migration 0011 also counts retained raw slugs and reopens completed deletions with
+provable command or author remnants. It can attribute an already-redacted shared
+slug through a retained legacy command because the old natural key required that
+same slug; it never infers authorship of an intact body from that link alone.
+Migrations 0010–0011 require storage writer contract **2**. HTTP, public and read
+contract versions remain **1**, and the runtime control schema remains **7**.
+The rollout must fence writes and serially upgrade all writers; a writer-v1
+implementation cannot be a rollback target after applying this migration.
+
+D1 has no migration SQL SHA-256 primitive. Its real cleanup performs bounded
+application hashing followed by transactional full-field compare-and-set; it
+does not claim the same migration-time repair as PostgreSQL. Unattributed legacy
+bodies are quarantined, not silently erased or assigned to another user.
+`SELECT quarantined_proposals,retained_body_proposals FROM
+feed_user_proposal_quarantine_summary` exposes only counts. The first count also
+includes already-redacted minimal rows; **`retained_body_proposals>0` blocks
+production and recovery promotion** pending a documented, protected historical
+repair. Completing one attributable deletion does not satisfy this separate gate.

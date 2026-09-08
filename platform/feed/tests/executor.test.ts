@@ -383,16 +383,25 @@ describe("user tag proposal contract", () => {
     )
       .bind(first.proposalId)
       .run();
-    expect(
-      await success("taxonomy.propose", {
+    const independent = await success<{ proposalId: string; status: string }>(
+      "taxonomy.propose",
+      {
         ...input,
         id: crypto.randomUUID(),
         evidence: ["new evidence"],
-      }),
-    ).toEqual({ proposalId: first.proposalId, status: "rejected" });
+      },
+    );
+    expect(independent.proposalId).not.toBe(first.proposalId);
+    expect(independent.status).toBe("proposed");
+    expect(await success("taxonomy.propose", input)).toEqual({
+      proposalId: first.proposalId,
+      status: "rejected",
+    });
     const row = await env.FEED_DB.prepare(
-      "SELECT evidence_json FROM feed_user_tag_proposals",
-    ).first<{ evidence_json: string }>();
+      "SELECT evidence_json FROM feed_user_tag_proposals WHERE id=?",
+    )
+      .bind(first.proposalId)
+      .first<{ evidence_json: string }>();
     expect(JSON.parse(row!.evidence_json)).toEqual(input.evidence);
     expect(
       (await call("taxonomy.propose", { ...input, source: "admin" })).status,

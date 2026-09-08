@@ -249,8 +249,8 @@ export class FeedJobs extends FeedStore {
         command,
       ),
       this.sql(
-        `${resolve} INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,evidence_json,analysis_id,taxonomy_version,created_at,updated_at)
-        SELECT ?,tag_id,MIN(source),MAX(weight),MAX(confidence),MIN(evidence),?,(SELECT version FROM feed_taxonomy_versions WHERE status='active'),?,? FROM resolved WHERE tag_id IS NOT NULL AND EXISTS(SELECT 1 FROM feed_projection_commands WHERE id=? AND applied=1) GROUP BY tag_id`,
+        `${resolve} INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,evidence_json,analysis_id,taxonomy_version,created_at,updated_at,origin_proposal_id)
+        SELECT ?,tag_id,MIN(source),MAX(weight),MAX(confidence),MIN(evidence),?,(SELECT version FROM feed_taxonomy_versions WHERE status='active'),?,?,NULL FROM resolved WHERE tag_id IS NOT NULL AND EXISTS(SELECT 1 FROM feed_projection_commands WHERE id=? AND applied=1) GROUP BY tag_id`,
         encodedTags,
         p.repoKey,
         p.analysisId,

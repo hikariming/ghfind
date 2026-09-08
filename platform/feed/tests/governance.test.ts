@@ -49,6 +49,21 @@ async function proposal(
     )
     .bind(id, repo, analysis, namespace, slug)
     .run();
+  if (kind === "user") {
+    const { user } = await commands.ensure({
+      writerEpoch: 1,
+      expectedProfileVersion: 0,
+      githubId: 99,
+      login: "synthetic-proposal-author",
+      avatarUrl: "",
+    });
+    await db
+      .prepare(
+        "INSERT INTO feed_user_proposal_authors(proposal_id,github_id,profile_version) VALUES(?,99,?)",
+      )
+      .bind(id, user!.profileVersion)
+      .run();
+  }
 }
 beforeEach(async () => {
   await db.batch([
@@ -74,6 +89,7 @@ beforeEach(async () => {
       "feed_profile_floors",
       "feed_tag_proposals",
       "feed_user_tag_proposals",
+      "feed_user_proposal_authors",
       "feed_tag_aliases",
     ].map((name) => db.prepare(`DELETE FROM ${name}`)),
     db.prepare("DELETE FROM feed_tag_definitions WHERE slug LIKE 'gov-%'"),
@@ -653,7 +669,7 @@ it("returns immutable retries after proposal erasure and epoch changes, while re
   ).rejects.toMatchObject({ code: "writer_epoch_changed" });
   await expect(
     governance.review({ ...input, commandId: crypto.randomUUID() }),
-  ).rejects.toMatchObject({ code: "governance_proposal_not_found" });
+  ).rejects.toMatchObject({ code: "governance_proposal_deleted" });
   expect(await governance.command({ commandId: crypto.randomUUID() })).toEqual({
     command: null,
   });

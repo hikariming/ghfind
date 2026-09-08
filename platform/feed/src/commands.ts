@@ -20,16 +20,16 @@ export class FeedCommands extends FeedStore {
         relationValues: [input.repoKey],
       }),
       this.sql(
-        "INSERT INTO feed_proposal_guards(id,valid) VALUES(?,CASE WHEN NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=? AND payload_hash<>?) THEN 1 ELSE 0 END)",
+        "INSERT INTO feed_proposal_guards(id,valid) VALUES(?,CASE WHEN NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands c WHERE github_id=? AND command_id=? AND (payload_hash<>? OR profile_version<=COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=c.github_id),0) OR profile_version>?)) THEN 1 ELSE 0 END)",
         command,
         input.githubId,
         input.id,
         digest,
+        input.expectedProfileVersion,
       ),
       this.sql(
         `INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at)
-        SELECT ?,repo_key,analysis_id,?,?,?,?,?,'proposed',?,? FROM feed_projects WHERE repo_key=? AND NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=?)
-        ON CONFLICT(repo_key,analysis_id,namespace,slug) DO NOTHING`,
+        SELECT ?,repo_key,analysis_id,?,?,?,?,?,'proposed',?,? FROM feed_projects WHERE repo_key=? AND NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=?)`,
         proposalId,
         input.namespace,
         input.slug,
@@ -44,16 +44,13 @@ export class FeedCommands extends FeedStore {
       ),
       this.sql(
         `INSERT INTO feed_tag_proposal_commands(github_id,command_id,proposal_id,profile_version,payload_hash,created_at)
-        SELECT ?,?,p.id,?,?,? FROM feed_user_tag_proposals p JOIN feed_projects f ON f.repo_key=p.repo_key AND f.analysis_id=p.analysis_id
-        WHERE p.repo_key=? AND p.namespace=? AND p.slug=? ON CONFLICT(github_id,command_id) DO NOTHING`,
+        SELECT ?,?,p.id,?,?,? FROM feed_user_tag_proposals p WHERE p.id=? ON CONFLICT(github_id,command_id) DO NOTHING`,
         input.githubId,
         input.id,
         input.expectedProfileVersion,
         digest,
         now,
-        input.repoKey,
-        input.namespace,
-        input.slug,
+        proposalId,
       ),
       this.sql(
         "INSERT INTO feed_user_proposal_authors(proposal_id,github_id,profile_version) SELECT id,?,? FROM feed_user_tag_proposals WHERE id=? ON CONFLICT(proposal_id) DO NOTHING",
