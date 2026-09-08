@@ -1,0 +1,116 @@
+name: Feed isolated Linux capacity
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main commit with successful required CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: feed-isolated-linux-capacity
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    name: Synthetic 10 RPS and deletion recovery
+    if: ${{ github.repository == 'hikariming/ghfind' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      # These credentials belong only to this job's new loopback fixture.
+      FEED_CAPACITY_DATABASE_URL: postgres://postgres:capacity-local-only@127.0.0.1:55441/feed_capacity_test?sslmode=disable
+      FEED_CAPACITY_S3_ENDPOINT: http://127.0.0.1:59002
+      FEED_CAPACITY_S3_ACCESS_KEY_ID: capacity-local
+      FEED_CAPACITY_S3_SECRET_ACCESS_KEY: capacity-local-only-password
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify exact main source and successful required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+            -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
+            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check the capacity evidence gate and build the exact harness
+        run: |
+          set -euo pipefail
+          command -v vmstat
+          python3 scripts/test-feed-capacity-verifier.py
+          go build -trimpath -o "$RUNNER_TEMP/feed-capacity" ./cmd/feed-capacity
+          mkdir -m 700 "$RUNNER_TEMP/feed-capacity-report"
+          sha256sum "$RUNNER_TEMP/feed-capacity" > "$RUNNER_TEMP/feed-capacity-report/binary.sha256"
+          go version > "$RUNNER_TEMP/feed-capacity-report/go-version.txt"
+      - name: Start only the isolated pinned fixture
+        id: fixture
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml up -d
+          for attempt in {1..60}; do
+            if docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml exec -T postgres pg_isready -U postgres -d feed_capacity_test >/dev/null && \
+              curl --fail --silent --max-time 1 http://127.0.0.1:59002/minio/health/live >/dev/null; then
+              docker inspect --format '{{.Name}} {{.Image}} cpu={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}}' \
+                ghfind-feed-capacity-postgres-1 ghfind-feed-capacity-minio-1 > "$RUNNER_TEMP/feed-capacity-report/containers.txt"
+              lscpu > "$RUNNER_TEMP/feed-capacity-report/runner-cpu.txt"
+              free -b > "$RUNNER_TEMP/feed-capacity-report/runner-memory.txt"
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Seed 50000 projects, 5000 users and 1000000 events
+        id: seed
+        timeout-minutes: 5
+        run: |
+          "$RUNNER_TEMP/feed-capacity" -phase seed -baseline "$RELEASE_SHA" -out "$RUNNER_TEMP/feed-capacity-report"
+      - name: Offer exactly 6000 requests over at least 600 seconds
+        id: load
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          python3 scripts/observe-feed-capacity.py --out "$RUNNER_TEMP/feed-capacity-report" --stop-file "$RUNNER_TEMP/feed-capacity-observer.stop" &
+          observer_pid=$!
+          trap 'capacity_exit_status=$?; touch "$RUNNER_TEMP/feed-capacity-observer.stop"; if ! wait "$observer_pid"; then exit 1; fi; exit "$capacity_exit_status"' EXIT
+          "$RUNNER_TEMP/feed-capacity" -phase load -baseline "$RELEASE_SHA" \
+            -pg-container ghfind-feed-capacity-postgres-1 -out "$RUNNER_TEMP/feed-capacity-report"
+      - name: Verify bounded cancellation, deletion and archive outage recovery
+        # A failed load remains failed. Recovery may still produce independent evidence.
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 3
+        run: |
+          "$RUNNER_TEMP/feed-capacity" -phase delete -baseline "$RELEASE_SHA" -out "$RUNNER_TEMP/feed-capacity-report"
+      - name: Enforce complete evidence, latency and offered-request error gates
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        run: |
+          python3 scripts/verify-feed-capacity.py --directory "$RUNNER_TEMP/feed-capacity-report" --release-sha "$RELEASE_SHA"
+      - name: Preserve bounded synthetic evidence including failed runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-linux-capacity-${{ inputs.release_sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-capacity-report/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove only this job's synthetic fixture
+        if: always()
+        run: |
+          touch "$RUNNER_TEMP/feed-capacity-observer.stop"
+          docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v

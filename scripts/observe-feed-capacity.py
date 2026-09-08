@@ -22,6 +22,10 @@ commands = {
 }
 if shutil.which("vm_stat"):
     commands["host-vm"] = ["vm_stat", "1"]
+elif shutil.which("vmstat"):
+    commands["host-vm"] = ["vmstat", "-w", "1"]
+else:
+    raise SystemExit("A host VM sampler (vm_stat or vmstat) is required")
 children = []
 threads = []
 
@@ -43,11 +47,15 @@ try:
     deadline = time.monotonic() + 720
     with (args.out / "external-resources.jsonl").open("x") as output:
         while time.monotonic() < deadline and not args.stop_file.exists():
+            if any(child.poll() is not None for child in children):
+                raise RuntimeError("A resource sampler exited before the stop signal")
             try:
                 output.write(json.dumps(messages.get(timeout=0.25), ensure_ascii=False) + "\n")
                 output.flush()
             except queue.Empty:
                 pass
+        if not args.stop_file.exists():
+            raise TimeoutError("Resource observation exceeded its 720-second limit")
 finally:
     for child in children:
         child.terminate()
