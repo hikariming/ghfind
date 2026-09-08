@@ -18,35 +18,35 @@ import (
 // this structure; Feed-specific moderation and taxonomy decisions live only in
 // PostgreSQL.
 type FeedProjectProjection struct {
-	RepoKey              string
-	ItemID               string
-	OwnerLogin           string
-	Name                 string
-	CanonicalURL         string
-	Summary              string
-	PainStatement        string
-	TargetUsers          []string
-	Language             *string
-	Topics               []string
-	ProjectType          string
-	Lifecycle            string
-	ProductScore         float64
-	Confidence           float64
-	VerificationLevel    string
-	ExposureBand         string
-	TreasureEligible     bool
-	ClassicEligible      bool
-	Risks                []ProjectRisk
-	AnalysisID           string
-	ResolvedCommitSHA    string
-	AnalyzedAt           time.Time
-	Descriptor           string
-	DescriptorHash       string
-	SourceHash           string
-	Publishable          bool
-	BlockedReason        string
-	RiskOverrideEligible bool
-	ProductTags          []ProductTag
+	RepoKey              string        `json:"repoKey"`
+	ItemID               string        `json:"itemId"`
+	OwnerLogin           string        `json:"ownerLogin"`
+	Name                 string        `json:"name"`
+	CanonicalURL         string        `json:"canonicalUrl"`
+	Summary              string        `json:"summary"`
+	PainStatement        string        `json:"painStatement"`
+	TargetUsers          []string      `json:"targetUsers"`
+	Language             *string       `json:"language"`
+	Topics               []string      `json:"topics"`
+	ProjectType          string        `json:"projectType"`
+	Lifecycle            string        `json:"lifecycle"`
+	ProductScore         float64       `json:"productScore"`
+	Confidence           float64       `json:"confidence"`
+	VerificationLevel    string        `json:"verificationLevel"`
+	ExposureBand         string        `json:"exposureBand"`
+	TreasureEligible     bool          `json:"treasureEligible"`
+	ClassicEligible      bool          `json:"classicEligible"`
+	Risks                []ProjectRisk `json:"risks"`
+	AnalysisID           string        `json:"analysisId"`
+	ResolvedCommitSHA    string        `json:"resolvedCommitSha"`
+	AnalyzedAt           time.Time     `json:"analyzedAt"`
+	Descriptor           string        `json:"descriptor"`
+	DescriptorHash       string        `json:"descriptorHash"`
+	SourceHash           string        `json:"sourceHash"`
+	Publishable          bool          `json:"publishable"`
+	BlockedReason        string        `json:"blockedReason"`
+	RiskOverrideEligible bool          `json:"riskOverrideEligible"`
+	ProductTags          []ProductTag  `json:"productTags"`
 }
 
 var feedHighRiskBlockingCategories = map[string]struct{}{
