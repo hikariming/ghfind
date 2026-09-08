@@ -11,9 +11,9 @@ import (
 
 type WorkerConfig struct {
 	Config
-	Enabled                                                                        bool
-	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint, ArchiveEndpoint string
-	ArchiveS3                                                                      backend.FeedS3Config
+	Enabled                                                                                        bool
+	ExecutorSecret, SourceEndpoint, SourceSecret, CleanupEndpoint, ArchiveEndpoint, OperatorSecret string
+	ArchiveS3                                                                                      backend.FeedS3Config
 }
 
 func LoadWorkerConfig() (WorkerConfig, error) {
@@ -22,6 +22,7 @@ func LoadWorkerConfig() (WorkerConfig, error) {
 		return WorkerConfig{}, err
 	}
 	out := WorkerConfig{Config: c, Enabled: os.Getenv("FEED_EXECUTOR_ENABLED") == "true", ExecutorSecret: os.Getenv("FEED_EXECUTOR_SECRET"), SourceEndpoint: os.Getenv("FEED_SOURCE_ENDPOINT"), SourceSecret: os.Getenv("FEED_SOURCE_SECRET"), CleanupEndpoint: os.Getenv("FEED_CLEANUP_ENDPOINT")}
+	out.OperatorSecret = os.Getenv("FEED_OPERATOR_SECRET")
 	out.ArchiveEndpoint = os.Getenv("FEED_ARCHIVE_ENDPOINT")
 	if out.ArchiveEndpoint == "" {
 		out.ArchiveEndpoint = "http://feed-archive.internal"
@@ -32,6 +33,9 @@ func LoadWorkerConfig() (WorkerConfig, error) {
 	}
 	if out.Enabled && (len(out.ExecutorSecret) < 32 || len(out.SourceSecret) < 32 || out.SourceSecret == out.ExecutorSecret || out.ExecutorSecret == c.BridgeSecret || out.SourceSecret == c.BridgeSecret) {
 		return out, errors.New("executor, source and bridge secrets must be independent and at least32bytes")
+	}
+	if out.OperatorSecret != "" && (out.StoreProfile != "postgres" || len(out.OperatorSecret) < 32 || out.OperatorSecret == out.ExecutorSecret || out.OperatorSecret == out.SourceSecret || out.OperatorSecret == out.BridgeSecret || out.OperatorSecret == out.GatewaySecret || out.OperatorSecret == out.SigningSecret) {
+		return out, errors.New("independent operator secret is supported only on PostgreSQL executor")
 	}
 	return out, nil
 }
@@ -59,6 +63,20 @@ func WorkerHandler(c WorkerConfig, version string, store backend.FeedServingStor
 		return nil, err
 	}
 	mux := http.NewServeMux()
+	if c.OperatorSecret != "" {
+		if c.StoreProfile != "postgres" || len(c.OperatorSecret) < 32 || c.OperatorSecret == c.ExecutorSecret || c.OperatorSecret == c.SourceSecret || c.OperatorSecret == c.BridgeSecret || c.OperatorSecret == c.GatewaySecret || c.OperatorSecret == c.SigningSecret {
+			return nil, errors.New("invalid governance operator boundary")
+		}
+		governanceStore, ok := store.(backend.FeedGovernanceStore)
+		if !ok {
+			return nil, errors.New("governance store unavailable")
+		}
+		governance, err := backend.NewFeedGovernanceHandler(governanceStore, c.OperatorSecret)
+		if err != nil {
+			return nil, err
+		}
+		mux.Handle("/internal/feed/governance/v1/", governance)
+	}
 	mux.Handle("/internal/feed/jobs/execute", executor)
 	var archiveReady func(context.Context) error
 	if c.StoreProfile == "cf_d1_r2" {

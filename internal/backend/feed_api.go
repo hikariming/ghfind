@@ -364,7 +364,7 @@ func (s *APIServer) serveFeedCursor(w http.ResponseWriter, request *http.Request
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "feed_unavailable"}, feedUnavailableHeaders())
 		return
 	}
-	if user.ProfileVersion != session.ProfileVersion {
+	if user.ProfileVersion != session.ProfileVersion || (s.portableFeed && user.TaxonomyVersion != session.TaxonomyVersion) {
 		// Preferences and project state are part of the ranking contract. Once
 		// either changes, continuing an old deterministic sequence would serve
 		// stale personalization (and could re-serve a newly blocked project).
@@ -469,7 +469,7 @@ func (s *APIServer) serveFeedPage(w http.ResponseWriter, request *http.Request, 
 	record := FeedRequestRecord{ID: requestID, AlgorithmVersion: session.AlgorithmVersion, User: user, Seed: session.Seed,
 		CandidateCounts: session.CandidateCounts, Degraded: session.Degraded, Duration: time.Since(started), Items: items}
 	if err := s.feed.SaveFeedRequest(request.Context(), record); err != nil {
-		if errors.Is(err, ErrFeedCatalogChanged) {
+		if errors.Is(err, ErrFeedCatalogChanged) || errors.Is(err, ErrFeedTaxonomyChanged) {
 			s.expireFeedSession(w, request, session)
 			return
 		}
