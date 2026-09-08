@@ -1,10 +1,4 @@
-import {
-  BridgeError,
-  type Fence,
-  type Input,
-  type Project,
-  type User,
-} from "./contract";
+import { BridgeError, type Fence, type Input, type User } from "./contract";
 
 type Value = string | number | null;
 type Row = Record<string, string | number | null>;
@@ -27,6 +21,9 @@ export class FeedStore {
         "taxonomy_version_changed",
         "project_not_found",
         "idempotency_conflict",
+        "source_identity_mismatch",
+        "job_lease_lost",
+        "proposal_id_conflict",
       ]) {
         if (message.includes(code))
           throw new BridgeError(code === "project_not_found" ? 404 : 409, code);
@@ -106,7 +103,7 @@ export class FeedStore {
   }
   async user(githubId: number): Promise<User | null> {
     const users = await this.rows<Omit<User, "preferences">>(
-      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,taxonomy_version AS taxonomyVersion,profile_version AS profileVersion FROM feed_users WHERE github_id=?",
+      "SELECT github_id AS githubId,login,COALESCE(avatar_url,'') AS avatarUrl,taxonomy_version AS taxonomyVersion,profile_version AS profileVersion,COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=feed_users.github_id),0) AS profileFloor FROM feed_users WHERE github_id=?",
       githubId,
     );
     if (!users.length) return null;
@@ -192,7 +189,8 @@ export class FeedStore {
     return { user: await this.user(input.githubId) };
   }
   eligible(alias = "p") {
-    return `${alias}.published=1 AND EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL)
+    return `${alias}.published=1 AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL)
+      OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL))
       AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=${alias}.repo_key AND m.removed=1)
       AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=${alias}.repo_key AND s.not_interested=1)
       AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key)`;
@@ -284,7 +282,7 @@ export class FeedStore {
         : null;
       const project = {
         repoKey: r.repo_key,
-        itemId: `repo:${r.repo_key}`,
+        itemId: String(r.repo_key).replace("/", ":"),
         ownerLogin: r.owner_login,
         name: r.name,
         canonicalUrl: r.canonical_url,

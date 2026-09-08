@@ -1,6 +1,8 @@
 import { BridgeError, schemas, type Input, type Operation } from "./contract";
 import { FeedCommands } from "./commands";
 import { handleSource } from "./source";
+import { executorSchemas, type ExecutorOperation } from "./executor-contract";
+import { FeedJobs } from "./jobs";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
@@ -84,8 +86,11 @@ export async function handleOperation(
         "SELECT schema_version,writer_epoch,writes_enabled FROM feed_runtime_control WHERE id=1",
       );
       await env.FEED_ARCHIVE.head("health/capability-v1");
+      const [tables] = await store.rows<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN ('feed_runtime_sessions','feed_runtime_requests','feed_runtime_events','feed_execution_jobs','feed_project_source_versions','feed_user_tag_proposals')",
+      );
       return {
-        ready: control?.schema_version === 3,
+        ready: control?.schema_version === 4 && tables.count === 6,
         contractVersion: "1",
         writerEpoch: control?.writer_epoch ?? 0,
         writesEnabled: control?.writes_enabled === 1,
@@ -94,6 +99,8 @@ export async function handleOperation(
     case "taxonomy.list":
       parse(operation);
       return store.taxonomy();
+    case "taxonomy.propose":
+      return store.propose(parse(operation));
     case "users.ensure":
       return store.ensure(parse(operation));
     case "users.get":
@@ -154,15 +161,15 @@ export default {
       if (
         url.search ||
         !url.pathname.startsWith("/internal/feed/v1/") ||
-        !Object.hasOwn(schemas, operation)
+        (!Object.hasOwn(schemas, operation) &&
+          !Object.hasOwn(executorSchemas, operation))
       )
         throw new BridgeError(404, "operation_not_found");
+      const raw = await body(request, operation);
       return Response.json(
-        await handleOperation(
-          operation as Operation,
-          await body(request, operation),
-          env,
-        ),
+        Object.hasOwn(executorSchemas, operation)
+          ? await handleExecutor(operation as ExecutorOperation, raw, env)
+          : await handleOperation(operation as Operation, raw, env),
         { headers },
       );
     } catch (error) {
@@ -185,3 +192,29 @@ export default {
     }
   },
 } satisfies ExportedHandler<Env>;
+
+async function handleExecutor(
+  operation: ExecutorOperation,
+  raw: unknown,
+  env: Env,
+) {
+  const store = new FeedJobs(env.FEED_DB);
+  switch (operation) {
+    case "jobs.claim": {
+      const input = executorSchemas[operation].safeParse(raw);
+      if (!input.success) throw new BridgeError(400, "invalid_request");
+      return store.claim(input.data);
+    }
+    case "jobs.complete":
+    case "jobs.fail": {
+      const input = executorSchemas[operation].safeParse(raw);
+      if (!input.success) throw new BridgeError(400, "invalid_request");
+      return store.finish(input.data, operation === "jobs.fail");
+    }
+    case "projection.apply": {
+      const input = executorSchemas[operation].safeParse(raw);
+      if (!input.success) throw new BridgeError(400, "invalid_request");
+      return store.apply(input.data);
+    }
+  }
+}
