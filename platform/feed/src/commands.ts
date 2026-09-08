@@ -2,8 +2,71 @@ import { BridgeError, hash, type Input } from "./contract";
 import { FeedStore } from "./store";
 
 export class FeedCommands extends FeedStore {
+  async propose(input: Input<"taxonomy.propose">) {
+    const command = crypto.randomUUID(),
+      proposalId = `proposal_${crypto.randomUUID()}`,
+      now = Date.now();
+    const {
+      writerEpoch: _epoch,
+      expectedProfileVersion: _version,
+      githubId: _actor,
+      ...payload
+    } = input;
+    const digest = await hash(JSON.stringify(payload));
+    const result = await this.batch([
+      this.guard(command, input, input.githubId, {
+        relation:
+          "CASE WHEN EXISTS(SELECT 1 FROM feed_projects WHERE repo_key=?) THEN 1 ELSE 0 END",
+        relationValues: [input.repoKey],
+      }),
+      this.sql(
+        "INSERT INTO feed_proposal_guards(id,valid) VALUES(?,CASE WHEN NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=? AND payload_hash<>?) THEN 1 ELSE 0 END)",
+        command,
+        input.githubId,
+        input.id,
+        digest,
+      ),
+      this.sql(
+        `INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at)
+        SELECT ?,repo_key,analysis_id,?,?,?,?,?,'proposed',?,? FROM feed_projects WHERE repo_key=? AND NOT EXISTS(SELECT 1 FROM feed_tag_proposal_commands WHERE github_id=? AND command_id=?)
+        ON CONFLICT(repo_key,analysis_id,namespace,slug) DO NOTHING`,
+        proposalId,
+        input.namespace,
+        input.slug,
+        input.labelZh,
+        input.labelEn,
+        JSON.stringify(input.evidence),
+        now,
+        now,
+        input.repoKey,
+        input.githubId,
+        input.id,
+      ),
+      this.sql(
+        `INSERT INTO feed_tag_proposal_commands(github_id,command_id,proposal_id,profile_version,payload_hash,created_at)
+        SELECT ?,?,p.id,?,?,? FROM feed_user_tag_proposals p JOIN feed_projects f ON f.repo_key=p.repo_key AND f.analysis_id=p.analysis_id
+        WHERE p.repo_key=? AND p.namespace=? AND p.slug=? ON CONFLICT(github_id,command_id) DO NOTHING`,
+        input.githubId,
+        input.id,
+        input.expectedProfileVersion,
+        digest,
+        now,
+        input.repoKey,
+        input.namespace,
+        input.slug,
+      ),
+      this.sql(
+        "SELECT p.id AS proposalId,p.status FROM feed_tag_proposal_commands c JOIN feed_user_tag_proposals p ON p.id=c.proposal_id WHERE c.github_id=? AND c.command_id=?",
+        input.githubId,
+        input.id,
+      ),
+      this.sql("DELETE FROM feed_proposal_guards WHERE id=?", command),
+      this.end(command),
+    ]);
+    return result[4].results[0] as { proposalId: string; status: string };
+  }
   relation() {
-    return `CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON s.request_id=r.id WHERE r.id=? AND r.github_id=? AND r.profile_version=? AND s.repo_key=?) THEN 1 ELSE 0 END`;
+    return `CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON s.request_id=r.id WHERE r.id=? AND r.github_id=? AND r.profile_version<=? AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=r.github_id),0) AND s.repo_key=?) THEN 1 ELSE 0 END`;
   }
   rebuildBehavior(githubId: number, now: number) {
     return [
@@ -218,7 +281,7 @@ export class FeedCommands extends FeedStore {
     const encoded = JSON.stringify(events);
     const result = await this.batch([
       this.guard(command, input, input.githubId, {
-        relation: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON r.id=s.request_id WHERE r.id=json_extract(e.value,'$.requestId') AND r.github_id=? AND r.profile_version=? AND s.repo_key=json_extract(e.value,'$.repoKey') AND s.rank=json_extract(e.value,'$.rank') AND s.algorithm_version=json_extract(e.value,'$.algorithmVersion'))) THEN 1 ELSE 0 END`,
+        relation: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) e WHERE NOT EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON r.id=s.request_id WHERE r.id=json_extract(e.value,'$.requestId') AND r.github_id=? AND r.profile_version<=? AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=r.github_id),0) AND s.repo_key=json_extract(e.value,'$.repoKey') AND s.rank=json_extract(e.value,'$.rank') AND s.algorithm_version=json_extract(e.value,'$.algorithmVersion'))) THEN 1 ELSE 0 END`,
         relationValues: [encoded, input.githubId, input.expectedProfileVersion],
         payload: `CASE WHEN NOT EXISTS(SELECT 1 FROM json_each(?) j JOIN feed_runtime_events e ON e.id=json_extract(j.value,'$.id') WHERE e.github_id<>? OR e.payload_hash<>json_extract(j.value,'$.hash')) THEN 1 ELSE 0 END`,
         payloadValues: [encoded, input.githubId],
