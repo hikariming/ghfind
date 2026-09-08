@@ -222,7 +222,7 @@ func (s *CFFeedStore) GetFeedSession(ctx context.Context, id string) (*FeedSessi
 }
 func (s *CFFeedStore) GetFeedSessionForUser(ctx context.Context, githubID int64, id string) (*FeedSession, error) {
 	var out FeedBridgeSessionResponse
-	if err := s.call(ctx, "sessions.get", FeedBridgeSessionRequest{GitHubID: githubID, ID: id}, &out); err != nil {
+	if err := s.call(ctx, "sessions.get", FeedBridgeSessionRequest{FeedMutationFence: s.fence(ctx, 0), GitHubID: githubID, ID: id}, &out); err != nil {
 		return nil, err
 	}
 	session := out.Session.session()
