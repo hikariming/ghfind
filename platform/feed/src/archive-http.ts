@@ -30,9 +30,15 @@ export async function handleArchive(operation: string, raw: unknown, env: Env) {
       "SELECT schema_version,writer_epoch,writes_enabled FROM feed_runtime_control WHERE id=1",
     );
     await store.rows("SELECT object_key FROM feed_archive_objects LIMIT 0");
+    const [compatibility] = await store.rows<{ compatible: number }>(
+      "SELECT min_reader_contract<=1 AND max_reader_contract>=1 AND min_writer_contract<=1 AND max_writer_contract>=1 AS compatible FROM feed_schema_compatibility WHERE id=1",
+    );
     await env.FEED_ARCHIVE.head("health/archive-v1");
     return {
-      ready: control.schema_version >= 5 && control.writes_enabled === 1,
+      ready:
+        control.schema_version >= 7 &&
+        control.writes_enabled === 1 &&
+        compatibility?.compatible === 1,
       contractVersion: "1",
       writerEpoch: control.writer_epoch,
     };
@@ -61,7 +67,11 @@ export async function handleArchive(operation: string, raw: unknown, env: Env) {
     if (bytes.toString("base64") !== encoded)
       throw new BridgeError(400, "invalid_archive_body");
     try {
-      JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes));
+      JSON.parse(
+        new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
+          bytes,
+        ),
+      );
     } catch {
       throw new BridgeError(400, "invalid_archive_body");
     }
