@@ -1,6 +1,7 @@
 # Feed stage 5 integration status and entry gates
 
 Runtime validation baseline: `0ca53012559a512d61a55a5eca373dca2f8f139c`, updated 2026-09-09.
+Integrated main baseline: `2a8373be4ce1d5141c2269bd9f4cfc29b0c424c6` (PR #260).
 Stage 5 is **in progress; production Go cutover is not accepted**. The initial
 application releases retain the existing Feed D1 and legacy runtime. Storage
 selection in configuration is not an authorized database migration operation.
@@ -12,6 +13,7 @@ selection in configuration is not an authorized database migration operation.
 | Stage 4 source/recovery | PR #249 tested head `4fee486dc15aca81766c012f3b63d994a81a935b`, merge `a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e` | Source finalization/outbox seam, privacy-compatible snapshot fixtures and recovery tests; source flags remain off |
 | Linux capacity workflow | PR #251 tested head `85e6b47a6777b71ce603ef9565da7e9ec2424b72`, merge `1bc35c368a5b73a353d3b07234be653ce7cc3ac4` | Exact-main/CI preflight, isolated synthetic fixture, raw evidence gate, failure artifacts and cleanup |
 | Ordinary Docker writer 2 | [Same-image evidence](../evidence/feed-portability-a3c3f84/README.md) at exact `a3c3f84` | API/executor startup, dependency readiness, authentication rejection and idle lifecycle; source fixture is health-only |
+| Ordinary Docker business HTTP | PR #260 tested head `5c2a094aae65e61047dd530e700d524995b88c8e`, merge `2a8373be4ce1d5141c2269bd9f4cfc29b0c424c6`; [actual run and retained setup failure](../evidence/feed-docker-http/README.md) at exact `39def663ab662e66e0b3473dfc06285e761c2a26` | Standard API image with PostgreSQL passed 21 HTTP calls; synthetic identities and direct projections; deletion cleanup remains queued, no worker/S3/source/OAuth E2E |
 | Transfer v1 preparation | PR #253, merge `2444482e49b4e88e375d9ecdc82cb80d97f1a20d`; [contract](../contracts/feed-transfer-v1.md) | Strict source/target identity, transaction hashes and deletion overlays; no capture, mapping or database promotion; whole-transaction limits cannot yet represent large deletion cascades |
 | Segmented transfer preparation | PR #258 head `e5e6edfc900289d560d1f6d85f948f26628953a8`, merge `a6e2199a94d64caa7b8429b61b6a1c2ec5e893d0`; [v2 contract](../contracts/feed-transfer-segments-v2.md) | 250,000 synthetic changes in bounded segments, complete deletion-semantic passes and exact lost-ack confirmation; v1 unchanged, no actual capture/staging/apply |
 | Actual-query diagnosis | PR #254, merge `45d6427a22943d23ce3acb413cff20dd9f4ef61b`; [Linux evidence](../evidence/feed-linux-query-diagnosis-45d6427/README.md) | 100 sequential synthetic requests and 16 exact-template plans; diagnosis is not capacity acceptance |
@@ -70,6 +72,33 @@ after this passing result. This is one finite PostgreSQL/MinIO engineering gate,
 not statistical monthly availability, a Container benchmark, remote D1/R2 recovery
 or CF cost acceptance.
 
+## Ordinary Docker business result
+
+The corrected Docker run used the standard API entrypoint and image
+`sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a`,
+built from exact source `39def663ab662e66e0b3473dfc06285e761c2a26`.
+After validating all 34 tables' expected initial state, the bounded contract
+seeded 50 synthetic projects and submission receipts, then passed 21 HTTP calls
+in 0.657723959 seconds. It checked authentication rejection, stable pagination,
+owner caps, event replay, user isolation and deletion fencing. A recreated user
+advanced from deleted generation 4 to generation 5. Cleanup status remained
+`queued`: the API did not execute the background deletion task.
+
+The [evidence package](../evidence/feed-docker-http/README.md) preserves the initial
+setup failure and successful rerun, image/build identities and original reports.
+Independent byte/hash verification covered 18 retained original files and four
+omitted helper binaries; the separate cleanup readback matched all nine owned
+resource identities and reported them absent. The successful source predates
+PR #257, so its health reports do not contain `storageWriterVersion`; the original
+fields are unchanged. Neither image was pushed or deployed to Cloudflare.
+
+PR #260's complete [CI](https://github.com/hikariming/ghfind/actions/runs/34267105628)
+and its exact-main [CI](https://github.com/hikariming/ghfind/actions/runs/34267663737)
+passed. Those checks include the original real dual-store contract, Docker/Worker
+builds and pure harness guards; the separately recorded Docker execution is the
+business-HTTP evidence. A complete portable core E2E still needs the executor,
+source tasks, object cleanup/recovery and the relevant authenticated flow.
+
 ## Open acceptance gates
 
 | Gate | Current evidence and next required result |
@@ -82,8 +111,9 @@ or CF cost acceptance.
 | Object recovery and data targets | Local snapshot/deletion tests and MinIO outage recovery do not prove real R2 object transfer, full journals, an isolated restore's RPO ≤15 min / RTO ≤60 min, or a database round trip. |
 | Production rollout | No Go internal-account/1%/10%/100% canary or rollback has run. Wait for stages 1, 3 and 4 operational acceptance and keep Feed D1 for the first runtime cutover. |
 
-Historical Turso credentials were found, but two minimal authorized reads returned
-HTTP 502; the [audit](../audits/2026-09-09-turso-history-readonly.md) cannot establish
+Historical Turso credentials were found, but the two initial minimal authorized
+reads and a later single bounded availability recheck returned HTTP 502;
+the [audit](../audits/2026-09-09-turso-history-readonly.md) cannot establish
 historical completeness. Core D1 remains the verified current source. The old
 Railway backup failure and unattributed historical proposal quarantine remain
 explicit unresolved items.
@@ -94,8 +124,9 @@ Public/HTTP/read contract is 1; storage writer is 2. Feed D1 migrations are thro
 0011 (runtime control schema value 7), PostgreSQL through 0022, core source through
 0005/0006. The new migrations are outside the production application's approved
 migration allowlist. A pre-privacy writer is not a compatible rollback target.
-The ordinary local image ID in the linked report has not been pushed; it is not
-a Cloudflare deployment manifest.
+The ordinary local image IDs in the linked reports have not been pushed; they
+are not Cloudflare deployment manifests. The two images created for the bounded
+business-HTTP attempts were removed after their reports were retained.
 
 Query diagnosis, migration protocol preparation and evidence review can proceed
 in separate worktrees. Shared migration numbering and source transaction changes

@@ -1,7 +1,7 @@
 # Turso history follow-up — 2026-09-09
 
 The existing ghfind Turso connection was located, but historical assessment
-completeness is **still unverified**. Both bounded `SELECT 1` probes returned
+completeness is **still unverified**. The initial two bounded `SELECT 1` probes returned
 HTTP 502 without a connection row. No Turso assessment keys or content were
 retrieved, so there is no Turso/core-D1 count, key, version or content-hash
 comparison to accept. A server error does not establish that the database was
@@ -71,6 +71,16 @@ response; it is excluded from remote failure counts. An uncleared local timer
 after the failed SDK request also printed a timeout marker; this is not a second
 remote response or evidence that Turso timed out. The table above retains only
 actual observed SDK/HTTP outcomes.
+
+A later availability recheck ran once at `2026-09-08T19:13:48.877Z` and finished
+at `19:13:49.192Z` (September 9, 03:13 in Hong Kong). It used the existing API
+configuration, verified the same hostname fingerprint, and sent only
+`SELECT 1 AS connection_ok` plus stream close to HTTPS `/v2/pipeline`, with a
+20-second bound. The response was again HTTP 502, `application/json`, 86 bytes,
+about 308 ms, with no connection row. No retry, business-table query or D1 query
+followed. Credentials and the error body remained unprinted and unretained.
+This dated follow-up does not rewrite the original structured record or resolve
+any historical data comparison.
 
 No database write statement, runtime DDL, arbitrary remote SQL interface or
 migration was executed. No user records, assessment prose or raw artifact
