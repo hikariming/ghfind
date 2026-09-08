@@ -1,0 +1,97 @@
+name: Feed isolated Linux query diagnosis
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main commit with successful required CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: feed-isolated-linux-query-diagnosis
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Bounded synthetic query diagnosis
+    if: ${{ github.repository == 'hikariming/ghfind' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      # Only this job's disposable loopback database is reachable by the harness.
+      FEED_CAPACITY_DATABASE_URL: postgres://postgres:capacity-local-only@127.0.0.1:55441/feed_capacity_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify exact main source and successful required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+            -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
+            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test and build the exact diagnostic harness
+        run: |
+          set -euo pipefail
+          go test ./cmd/feed-capacity
+          go build -trimpath -o "$RUNNER_TEMP/feed-capacity" ./cmd/feed-capacity
+          mkdir -m 700 "$RUNNER_TEMP/feed-query-report"
+          sha256sum "$RUNNER_TEMP/feed-capacity" > "$RUNNER_TEMP/feed-query-report/binary.sha256"
+          go version > "$RUNNER_TEMP/feed-query-report/go-version.txt"
+      - name: Start the isolated pinned fixture
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml up -d
+          for attempt in {1..60}; do
+            if docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml exec -T postgres pg_isready -U postgres -d feed_capacity_test >/dev/null; then
+              docker inspect --format '{{.Name}} {{.Image}} cpu={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}}' \
+                ghfind-feed-capacity-postgres-1 ghfind-feed-capacity-minio-1 > "$RUNNER_TEMP/feed-query-report/containers.txt"
+              lscpu > "$RUNNER_TEMP/feed-query-report/runner-cpu.txt"
+              free -b > "$RUNNER_TEMP/feed-query-report/runner-memory.txt"
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Seed the fixed 50000 project fixture
+        timeout-minutes: 5
+        run: |
+          "$RUNNER_TEMP/feed-capacity" -phase seed -baseline "$RELEASE_SHA" -out "$RUNNER_TEMP/feed-query-report"
+      - name: Diagnose actual query paths within 100 requests and 120 seconds
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python3 scripts/observe-feed-capacity.py --out "$RUNNER_TEMP/feed-query-report" --stop-file "$RUNNER_TEMP/feed-query-observer.stop" &
+          observer_pid=$!
+          trap 'diagnostic_exit_status=$?; touch "$RUNNER_TEMP/feed-query-observer.stop"; if ! wait "$observer_pid"; then exit 1; fi; exit "$diagnostic_exit_status"' EXIT
+          "$RUNNER_TEMP/feed-capacity" -phase diagnose -baseline "$RELEASE_SHA" -out "$RUNNER_TEMP/feed-query-report"
+      - name: Retain diagnostic evidence including incomplete attempts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-linux-query-diagnosis-${{ inputs.release_sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-query-report/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove only this job's synthetic fixture
+        if: always()
+        run: |
+          touch "$RUNNER_TEMP/feed-query-observer.stop"
+          docker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v
