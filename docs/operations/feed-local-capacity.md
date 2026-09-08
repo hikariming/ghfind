@@ -109,3 +109,17 @@ the marker or after 720 seconds and terminates its children. Start it immediatel
 before load and create the marker when load finishes. Host/VM observations can
 locate a coincident stall; they do not by themselves prove its cause. Do not run
 other local integration/load tests during the measured ten-minute interval.
+
+For runs with the one-second observations, summarize an existing report without
+starting another load:
+
+```sh
+python3 scripts/summarize-feed-capacity.py --source /tmp/feed-capacity-report --destination /tmp/feed-capacity-summary
+```
+
+The summary retains the exact original report as deterministic gzip, separates
+HTTP-response latency from admitted-request latency including transport failures,
+and keeps admission rejections in the offered-request error denominator. Docker
+summary samples are restricted to the measured request window; the complete
+external stream is also retained. The latency clusters combine failures and
+responses above 800ms only to correlate observations, not to assign causality.
