@@ -1,0 +1,63 @@
+{
+  "loadStartedAt": "0001-01-01T00:00:00Z",
+  "baseline": "ebda1f9d43c4092ec038f2513ef0be32f6d0a80f",
+  "scope": "local PostgreSQL synthetic capacity; signed gateway fixture is NOT real OAuth or Cloudflare evidence",
+  "phase": "delete",
+  "startedAt": "2026-09-08T16:45:41.368212Z",
+  "durationSeconds": 6.394927,
+  "Scheduled": 0,
+  "Completed": 0,
+  "Successful": 0,
+  "ErrorRate": 0,
+  "P50MS": 0,
+  "P95MS": 0,
+  "P99MS": 0,
+  "MaxMS": 0,
+  "GoVersion": "go1.26.1",
+  "CPUSeconds": 0,
+  "MaxHeapBytes": 0,
+  "MaxRSSBytes": 0,
+  "pgDockerStats": null,
+  "candidateCounts": null,
+  "counts": {
+    "databaseBytes": 1004533427,
+    "events": 750000,
+    "project_submission_evidence": 50000,
+    "project_tags": 100000,
+    "projects": 50000,
+    "requests": 10909,
+    "served_items": 168190,
+    "users": 5000
+  },
+  "observations": null,
+  "deletion": {
+    "acceptedAttempt": {
+      "status": 202,
+      "durationMs": 2882.593,
+      "items": 0
+    },
+    "acceptedResponse": {
+      "deletionId": "feed_delete_42fc338cf09e98f07dc83cbfaef764b4",
+      "status": "queued"
+    },
+    "cancellationObservedActiveCascade": true,
+    "cancelledAttempt": {
+      "status": 0,
+      "durationMs": 16.066,
+      "items": 0,
+      "error": "transport_error"
+    },
+    "cleanupFailures": 1,
+    "cleanupPhase": "completed",
+    "cleanupRecovery": {
+      "status": "completed",
+      "deletionId": "feed_delete_42fc338cf09e98f07dc83cbfaef764b4",
+      "steps": 3,
+      "processed": 1
+    },
+    "eventsAfter": 0,
+    "eventsBefore": 250000,
+    "recreatedProfileVersion": 2,
+    "rollbackPreservedEvents": true
+  }
+}
