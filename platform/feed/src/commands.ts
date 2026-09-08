@@ -56,6 +56,12 @@ export class FeedCommands extends FeedStore {
         input.slug,
       ),
       this.sql(
+        "INSERT INTO feed_user_proposal_authors(proposal_id,github_id,profile_version) SELECT id,?,? FROM feed_user_tag_proposals WHERE id=? ON CONFLICT(proposal_id) DO NOTHING",
+        input.githubId,
+        input.expectedProfileVersion,
+        proposalId,
+      ),
+      this.sql(
         "SELECT p.id AS proposalId,p.status FROM feed_tag_proposal_commands c JOIN feed_user_tag_proposals p ON p.id=c.proposal_id WHERE c.github_id=? AND c.command_id=?",
         input.githubId,
         input.id,
@@ -63,7 +69,7 @@ export class FeedCommands extends FeedStore {
       this.sql("DELETE FROM feed_proposal_guards WHERE id=?", command),
       this.end(command),
     ]);
-    return result[4].results[0] as { proposalId: string; status: string };
+    return result[5].results[0] as { proposalId: string; status: string };
   }
   relation() {
     return `CASE WHEN EXISTS(SELECT 1 FROM feed_runtime_requests r JOIN feed_served_items s ON s.request_id=r.id WHERE r.id=? AND r.github_id=? AND r.profile_version<=? AND r.profile_version>COALESCE((SELECT profile_floor FROM feed_profile_floors f WHERE f.github_id=r.github_id),0) AND s.repo_key=?) THEN 1 ELSE 0 END`;
@@ -384,8 +390,13 @@ export class FeedCommands extends FeedStore {
     return { ok: true };
   }
   async deleteProfile(input: Input<"profile.delete">) {
+    const [generation] = await this.rows<{ value: number }>(
+      "SELECT COALESCE((SELECT profile_version FROM feed_users WHERE github_id=?),(SELECT profile_floor FROM feed_profile_floors WHERE github_id=?),1) AS value",
+      input.githubId,
+      input.githubId,
+    );
     const command = crypto.randomUUID(),
-      deletionId = `feed_delete_${command}`,
+      deletionId = `feed_delete_${await hash(`${input.githubId}:${generation.value}`)}`,
       now = Date.now();
     await this.batch([
       this.guard(command, input, input.githubId, { allowAbsent: true }),
@@ -397,10 +408,16 @@ export class FeedCommands extends FeedStore {
         now,
       ),
       this.sql(
-        "INSERT INTO feed_profile_deletions(id,github_id,profile_floor,status,requested_at) SELECT ?,github_id,profile_floor,'pending',? FROM feed_profile_floors WHERE github_id=?",
+        "INSERT INTO feed_profile_deletions(id,github_id,profile_floor,status,requested_at) SELECT ?,github_id,profile_floor,'pending',? FROM feed_profile_floors WHERE github_id=? ON CONFLICT(id) DO NOTHING",
         deletionId,
         now,
         input.githubId,
+      ),
+      this.sql(
+        "INSERT INTO feed_cleanup_jobs(deletion_id,github_id,profile_floor,requested_at,status,phase,available_at,updated_at) SELECT id,github_id,profile_floor,requested_at,'pending','primary',?,? FROM feed_profile_deletions WHERE id=? ON CONFLICT(deletion_id) DO NOTHING",
+        now,
+        now,
+        deletionId,
       ),
       this.outbox(
         deletionId,
@@ -426,9 +443,17 @@ export class FeedCommands extends FeedStore {
         input.githubId,
       ),
       this.sql("DELETE FROM feed_users WHERE github_id=?", input.githubId),
+      this.sql(
+        "DELETE FROM feed_rate_windows WHERE github_id=?",
+        input.githubId,
+      ),
       this.end(command),
     ]);
-    return { deletionId, status: "pending" };
+    const [deletion] = await this.rows<{ status: string }>(
+      "SELECT status FROM feed_profile_deletions WHERE id=?",
+      deletionId,
+    );
+    return { deletionId, status: deletion.status };
   }
   async deletion(input: Input<"profile.deletion.get">) {
     const rows = await this.rows<{ deletionId: string; status: string }>(

@@ -24,6 +24,8 @@ export class FeedStore {
         "source_identity_mismatch",
         "job_lease_lost",
         "proposal_id_conflict",
+        "archive_id_conflict",
+        "replay_not_allowed",
       ]) {
         if (message.includes(code))
           throw new BridgeError(code === "project_not_found" ? 404 : 409, code);

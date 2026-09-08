@@ -3,6 +3,8 @@ import { FeedCommands } from "./commands";
 import { handleSource } from "./source";
 import { executorSchemas, type ExecutorOperation } from "./executor-contract";
 import { FeedJobs } from "./jobs";
+import { FeedCleanup, cleanupSchemas } from "./cleanup";
+import { FeedOperator, operatorSchemas } from "./operator";
 
 const MAX_BODY = 128 * 1024;
 async function body(request: Request, operation: string): Promise<unknown> {
@@ -90,7 +92,7 @@ export async function handleOperation(
         "SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN ('feed_runtime_sessions','feed_runtime_requests','feed_runtime_events','feed_execution_jobs','feed_project_source_versions','feed_user_tag_proposals')",
       );
       return {
-        ready: control?.schema_version === 4 && tables.count === 6,
+        ready: control?.schema_version === 5 && tables.count === 6,
         contractVersion: "1",
         writerEpoch: control?.writer_epoch ?? 0,
         writesEnabled: control?.writes_enabled === 1,
@@ -133,27 +135,46 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const headers = { "Cache-Control": "no-store", "X-Feed-Contract": "1" };
     try {
-      const url = new URL(request.url);
-      const source = url.pathname.startsWith("/internal/feed/source/v1/");
-      if (
-        !(await authorized(
-          request,
-          source ? env.FEED_SOURCE_SECRET : env.FEED_BRIDGE_SECRET,
-        ))
-      )
+      const url = new URL(request.url),
+        source = url.pathname.startsWith("/internal/feed/source/v1/"),
+        cleanup = url.pathname.startsWith("/internal/feed/cleanup/v1/"),
+        operator = url.pathname.startsWith("/internal/feed/admin/v1/");
+      const secret = source
+        ? env.FEED_SOURCE_SECRET
+        : cleanup
+          ? env.FEED_EXECUTOR_SECRET
+          : operator
+            ? env.FEED_OPERATOR_SECRET
+            : env.FEED_BRIDGE_SECRET;
+      if (!(await authorized(request, secret)))
         throw new BridgeError(401, "unauthorized");
       if (request.method !== "POST")
         throw new BridgeError(405, "method_not_allowed");
       if (request.headers.get("x-feed-contract") !== "1")
         throw new BridgeError(409, "contract_version_changed");
+      if (url.search) throw new BridgeError(404, "operation_not_found");
       if (source) {
-        if (url.search) throw new BridgeError(404, "operation_not_found");
         return Response.json(
           await handleSource(
             url.pathname.slice("/internal/feed/source/v1/".length),
             await body(request, "source"),
             env.CORE_DB,
           ),
+          { headers },
+        );
+      }
+      if (cleanup || operator) {
+        const operation = url.pathname.split("/").at(-1)!;
+        if (
+          url.pathname !==
+          `/internal/feed/${cleanup ? "cleanup" : "admin"}/v1/${operation}`
+        )
+          throw new BridgeError(404, "operation_not_found");
+        const raw = await body(request, operation);
+        return Response.json(
+          cleanup
+            ? await handleCleanup(operation, raw, env)
+            : await handleOperator(operation, raw, env),
           { headers },
         );
       }
@@ -216,5 +237,53 @@ async function handleExecutor(
       if (!input.success) throw new BridgeError(400, "invalid_request");
       return store.apply(input.data);
     }
+  }
+}
+
+async function handleCleanup(operation: string, raw: unknown, env: Env) {
+  const store = new FeedCleanup(env);
+  switch (operation) {
+    case "pending": {
+      const parsed = cleanupSchemas.pending.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.pending();
+    }
+    case "claim": {
+      const parsed = cleanupSchemas.claim.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.claim(parsed.data);
+    }
+    case "step":
+    case "release": {
+      const parsed = cleanupSchemas[operation].safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return operation === "step"
+        ? store.step(parsed.data)
+        : store.finish(parsed.data);
+    }
+    case "fail": {
+      const parsed = cleanupSchemas.fail.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.finish(parsed.data, parsed.data.errorCode);
+    }
+    default:
+      throw new BridgeError(404, "operation_not_found");
+  }
+}
+async function handleOperator(operation: string, raw: unknown, env: Env) {
+  const store = new FeedOperator(env.FEED_DB);
+  switch (operation) {
+    case "status": {
+      const parsed = operatorSchemas.status.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.status(parsed.data);
+    }
+    case "replay": {
+      const parsed = operatorSchemas.replay.safeParse(raw);
+      if (!parsed.success) throw new BridgeError(400, "invalid_request");
+      return store.replay(parsed.data);
+    }
+    default:
+      throw new BridgeError(404, "operation_not_found");
   }
 }
