@@ -5,8 +5,12 @@ Updated 2026-09-09. Main integration baseline:
 The stage-4 branch incorporated that baseline at `bc46f93`; its implementation
 head before this documentation delivery is
 `d04f5527b95e9f8045974d025de5ec83bb579670`.
-[PR #249](https://github.com/hikariming/ghfind/pull/249) awaits exact-head CI and
-release integration; this document records the pre-merge evidence boundary.
+[PR #249](https://github.com/hikariming/ghfind/pull/249) subsequently merged as
+`a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e` after exact-head CI passed at
+`4fee486dc15aca81766c012f3b63d994a81a935b`. The
+[retained production readback](../evidence/feed-production-a3c3f84/README.md)
+records the automatic application release, with the new source/runtime flags off.
+The implementation history below retains its original pre-merge baseline.
 These are implementation and evidence handoff points, not a claim that stage 4
 has met every acceptance criterion or deployed to production.
 
@@ -127,9 +131,10 @@ suite and cannot stand in for exact-head CI on the integrated stage-4 PR.
 Stage 4 is implemented in bounded local pieces; complete operational acceptance
 remains open. Before stage 5 admits production traffic, retain evidence for:
 
-1. Exact integrated PR-head CI after the main/schema-11 merge, followed by the
-   actual isolated CF staging release, compatible Go/adapter image digests,
+1. The actual isolated CF staging release, compatible Go/adapter image digests,
    readiness, lifecycle and bounded cost/latency evidence from stage 1.
+   Exact integrated PR-head CI and the legacy/off application release have passed;
+   those checks do not replace remote Feed runtime acceptance.
 2. Real source-commit/delivery failures, duplicate or lost acknowledgements,
    executor restart, retry exhaustion, DLQ/parking recovery and operator replay
    through remote CF Queues. Log output is not proof of delivered alerts;
