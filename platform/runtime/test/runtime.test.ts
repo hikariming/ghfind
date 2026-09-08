@@ -11,6 +11,7 @@ import { deliver, sourceEvent } from "../src/queue";
 import { relayOnce } from "../src/relay";
 import { cleanupOnce, runScheduled } from "../src/scheduled";
 import { deletionCleanup } from "../src/outbound";
+import { handleAdminRequest } from "../src/admin";
 import { readBounded, HTTPError } from "../src/security";
 
 const env: RuntimeSettings = {
@@ -606,4 +607,123 @@ test("cleanup outbound permits only executor-authenticated discrete commands", a
     401,
   );
   assert.equal(calls, 4);
+});
+
+function operatorRequest(
+  operation = "status",
+  changes: Record<string, string> = {},
+  body: unknown = { kind: "deletion", id: "del:1" },
+) {
+  return new Request(
+    `https://runtime/internal/runtime/feed-admin/v1/${operation}`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env.FEED_RUNTIME_ADMIN_SECRET}`,
+        "x-feed-operator": "x".repeat(32),
+        "x-feed-contract": "1",
+        "x-feed-target": "staging",
+        "x-feed-release": env.FEED_RELEASE_SHA,
+        "x-feed-writer-epoch": "1",
+        ...changes,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+test("operator proxy needs both credentials, current target context and an exact capability", async () => {
+  let calls = 0;
+  const bindings = {
+    ...env,
+    FEED_ADAPTER: {
+      fetch: async (request: Request) => {
+        calls++;
+        assert.equal(
+          new URL(request.url).pathname,
+          "/internal/feed/admin/v1/status",
+        );
+        assert.equal(
+          request.headers.get("authorization"),
+          `Bearer ${"x".repeat(32)}`,
+        );
+        assert.equal(request.headers.get("x-feed-operator"), null);
+        assert.equal(request.headers.get("x-feed-release"), null);
+        return Response.json({ job: null });
+      },
+    },
+  };
+  assert.equal(
+    (await handleAdminRequest(operatorRequest(), bindings)).status,
+    200,
+  );
+  assert.equal(
+    (
+      await handleAdminRequest(
+        operatorRequest("status", { authorization: "Bearer wrong" }),
+        bindings,
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await handleAdminRequest(
+        operatorRequest("status", { "x-feed-operator": "" }),
+        bindings,
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await handleAdminRequest(
+        operatorRequest("status", { "x-feed-release": "b".repeat(40) }),
+        bindings,
+      )
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await handleAdminRequest(operatorRequest("sql"), bindings)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await handleAdminRequest(operatorRequest(), {
+        ...bindings,
+        FEED_ENVIRONMENT: "production",
+      })
+    ).status,
+    503,
+  );
+  assert.equal(calls, 1);
+});
+test("operator replay rejects arbitrary fields and stale epochs before an adapter mutation", async () => {
+  const bindings = {
+    ...env,
+    FEED_ADAPTER: {
+      fetch: async () => {
+        assert.fail("invalid command must not forward");
+      },
+    },
+  };
+  const command = {
+    kind: "sourceEvent",
+    id: "event:1",
+    writerEpoch: 1,
+    commandId: "12345678-1234-4234-8234-123456789012",
+    operator: "octocat",
+    reason: "Retry after source recovery",
+  };
+  for (const body of [
+    { ...command, writerEpoch: 2 },
+    { ...command, sql: "select 1" },
+    { ...command, commandId: "bad" },
+    { ...command, reason: "short" },
+  ])
+    assert.equal(
+      (await handleAdminRequest(operatorRequest("replay", {}, body), bindings))
+        .status,
+      400,
+    );
 });
