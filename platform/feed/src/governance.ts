@@ -237,7 +237,7 @@ export class FeedGovernance extends FeedStore {
     const pending =
       row && isReview
         ? `EXISTS(SELECT 1 FROM ${table} WHERE id=${bind(input.proposalId)} AND status='proposed')`
-        : `EXISTS(SELECT 1 FROM feed_tag_definitions WHERE id=${bind(tagId)} AND status='canonical')`;
+        : `EXISTS(SELECT 1 FROM feed_tag_definitions WHERE id=${bind(tagId)} AND status='canonical' AND taxonomy_version<=${bind(input.expectedTaxonomyVersion)})`;
     const evidence =
       row && input.action !== "reject"
         ? `EXISTS(SELECT 1 FROM ${table} q WHERE q.id=${bind(row.id)} AND ${validEvidence})`
@@ -246,7 +246,7 @@ export class FeedGovernance extends FeedStore {
       input.action === "create"
         ? `NOT EXISTS(SELECT 1 FROM feed_tag_definitions WHERE id=${bind(tagId)} OR (namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)})) AND NOT EXISTS(SELECT 1 FROM feed_tag_aliases WHERE namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)})`
         : input.action === "map"
-          ? `EXISTS(SELECT 1 FROM feed_tag_definitions WHERE id=${bind(tagId)} AND namespace=${bind(row!.namespace)} AND status='canonical') AND NOT EXISTS(SELECT 1 FROM feed_tag_aliases WHERE namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)} AND canonical_tag_id<>${bind(tagId)}) AND NOT EXISTS(SELECT 1 FROM feed_tag_definitions WHERE namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)} AND (id<>${bind(tagId)} OR status<>'canonical'))`
+          ? `EXISTS(SELECT 1 FROM feed_tag_definitions WHERE id=${bind(tagId)} AND namespace=${bind(row!.namespace)} AND status='canonical' AND taxonomy_version<=${bind(input.expectedTaxonomyVersion)}) AND NOT EXISTS(SELECT 1 FROM feed_tag_aliases WHERE namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)} AND canonical_tag_id<>${bind(tagId)}) AND NOT EXISTS(SELECT 1 FROM feed_tag_definitions WHERE namespace=${bind(row!.namespace)} AND slug=${bind(row!.slug)} AND (id<>${bind(tagId)} OR status<>'canonical'))`
           : "1";
     const tagCapacity =
       row && (input.action === "create" || input.action === "map")

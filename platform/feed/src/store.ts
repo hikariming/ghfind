@@ -206,7 +206,7 @@ export class FeedStore {
       OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=${alias}.repo_key AND v.analysis_id=${alias}.analysis_id AND v.revoked_at IS NULL))
       AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=${alias}.repo_key AND m.removed=1)
       AND NOT EXISTS(SELECT 1 FROM feed_user_project_states s WHERE s.github_id=? AND s.repo_key=${alias}.repo_key AND s.not_interested=1)
-      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key)`;
+      AND NOT EXISTS(SELECT 1 FROM feed_project_tags t JOIN feed_tag_definitions d ON d.id=t.tag_id AND d.status='canonical' AND d.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') JOIN feed_user_tag_preferences u ON u.tag_id=t.tag_id AND u.github_id=? AND u.source='explicit' AND u.value=-1 WHERE t.repo_key=${alias}.repo_key AND t.analysis_id=${alias}.analysis_id)`;
   }
   async available(input: Input<"projects.available">) {
     const rows = await this.rows<{ repo_key: string }>(
@@ -256,7 +256,7 @@ export class FeedStore {
       keys = JSON.stringify(selected.map((v) => v.row.repo_key));
     const [tags, seen] = await Promise.all([
       this.rows(
-        `SELECT p.repo_key,t.id,t.namespace,t.slug,t.label_zh AS labelZh,t.label_en AS labelEn,t.description,p.weight,p.confidence,p.taxonomy_version AS taxonomyVersion FROM feed_project_tags p JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical' WHERE p.repo_key IN(SELECT value FROM json_each(?)) ORDER BY p.repo_key,t.id`,
+        `SELECT p.repo_key,t.id,t.namespace,t.slug,t.label_zh AS labelZh,t.label_en AS labelEn,t.description,p.weight,p.confidence,p.taxonomy_version AS taxonomyVersion FROM feed_project_tags p JOIN feed_projects current ON current.repo_key=p.repo_key AND current.analysis_id=p.analysis_id JOIN feed_tag_definitions t ON t.id=p.tag_id AND t.status='canonical' AND t.taxonomy_version<=(SELECT version FROM feed_taxonomy_versions WHERE status='active') WHERE p.repo_key IN(SELECT value FROM json_each(?)) ORDER BY p.repo_key,t.id`,
         keys,
       ),
       this.rows<{ repo_key: string; seen_at: number }>(
