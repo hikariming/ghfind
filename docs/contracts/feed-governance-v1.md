@@ -14,7 +14,25 @@ Paths begin `/internal/feed/governance/v1/`.
 Unknown IDs return `{proposal:null}`; known IDs return:
 
 ```json
-{"proposal":{"proposalKind":"assessment","proposalId":"proposal-example","repoKey":"owner/repo","analysisId":"analysis-example","namespace":"use_case","slug":"focused-tooling","labelZh":"工具","labelEn":"Tooling","evidence":["E1"],"status":"proposed","reviewedBy":null,"reviewReason":null,"currentAnalysisId":"analysis-example","currentEvidence":true,"taxonomyVersion":1}}
+{
+  "proposal": {
+    "proposalKind": "assessment",
+    "proposalId": "proposal-example",
+    "repoKey": "owner/repo",
+    "analysisId": "analysis-example",
+    "namespace": "use_case",
+    "slug": "focused-tooling",
+    "labelZh": "工具",
+    "labelEn": "Tooling",
+    "evidence": ["E1"],
+    "status": "proposed",
+    "reviewedBy": null,
+    "reviewReason": null,
+    "currentAnalysisId": "analysis-example",
+    "currentEvidence": true,
+    "taxonomyVersion": 1
+  }
+}
 ```
 
 `currentEvidence` requires matching current project analysis, unrevoked submission
@@ -29,7 +47,16 @@ outside v1.
 `review` accepts a strict union with these common fields:
 
 ```json
-{"commandId":"00000000-0000-4000-8000-000000000001","writerEpoch":1,"expectedTaxonomyVersion":1,"operator":"reviewer-name","reason":"Evidence reviewed individually","proposalKind":"assessment","proposalId":"proposal-example","expectedAnalysisId":"analysis-example"}
+{
+  "commandId": "00000000-0000-4000-8000-000000000001",
+  "writerEpoch": 1,
+  "expectedTaxonomyVersion": 1,
+  "operator": "reviewer-name",
+  "reason": "Evidence reviewed individually",
+  "proposalKind": "assessment",
+  "proposalId": "proposal-example",
+  "expectedAnalysisId": "analysis-example"
+}
 ```
 
 - `action:"create"` also requires `labels:{labelZh,labelEn,description}` and
@@ -53,7 +80,16 @@ is supported, without replacement or bulk reference/preference migration.
 Successful mutation result:
 
 ```json
-{"commandId":"00000000-0000-4000-8000-000000000001","action":"create","proposalKind":"assessment","proposalId":"proposal-example","canonicalTagId":"use_case:focused-tooling","status":"mapped","taxonomyVersion":2,"appliedAt":1800000000000}
+{
+  "commandId": "00000000-0000-4000-8000-000000000001",
+  "action": "create",
+  "proposalKind": "assessment",
+  "proposalId": "proposal-example",
+  "canonicalTagId": "use_case:focused-tooling",
+  "status": "mapped",
+  "taxonomyVersion": 2,
+  "appliedAt": 1800000000000
+}
 ```
 
 Reject uses `canonicalTagId:null,status:"rejected"`. Deprecate omits proposalKind
@@ -62,12 +98,21 @@ milliseconds. Success means this storage transaction completed, not that a
 queue or semantic index completed. Exact retries return the same timestamp and
 version; no changing duplicate flag is added.
 
-All text fields reject C0 and DEL control characters. IDs are nonblank ≤160 UTF-8 bytes, command IDs UUIDs, versions positive safe
-integers. Operator is 1–100 UTF-8 bytes; reason 8–500 and nonblank. Each label is
+All text fields reject C0 and DEL control characters and unpaired UTF-16
+surrogates. Valid Unicode scalar values, including paired emoji, remain intact
+for command identity. Nonblank uses the ECMAScript `trim` whitespace set on both
+profiles (U+FEFF is whitespace; U+0085 is not). IDs are nonblank ≤160 UTF-8 bytes;
+command IDs are case-insensitive UUID versions 1–8 with the RFC variant, excluding
+nil/max sentinels. Versions are positive safe integers; JSON spellings `1`, `1.0`
+and `1e0` represent the same version. Operator is 1–100 UTF-8 bytes; reason
+8–500 and nonblank. Each label is
 ≤160 bytes, description ≤1000. Assignment values are finite numbers in [0,1].
 Creation requires a stored slug ≤80 characters matching
-`^[a-z0-9]+(-[a-z0-9]+)*$` and an approved namespace. Inspection bounds evidence
-to 64 string entries of at most 256 bytes. No assignment value is inferred.
+`^[a-z0-9]+(-[a-z0-9]+)*$` and an approved namespace. Inspection and create/map
+require evidence to be an array of at most 64 actual string entries, each at most
+256 UTF-8 bytes and obeying the same control/surrogate rules; null entries are not
+empty strings. Empty arrays/strings remain valid historical evidence shapes.
+No assignment value is inferred.
 
 ## Transactions and idempotency
 
@@ -76,7 +121,8 @@ same transaction as the changes and receipt. Create/map require a pending
 proposal, its analysis ID equal to expectedAnalysisId and the current project's
 analysis, unrevoked submission evidence, and no moderation removal. Pre-read
 namespace, slug, labels and evidence are rechecked before use. Reject checks
-pending state and proposal expectedAnalysisId, and may reject stale evidence;
+pending state and proposal expectedAnalysisId, and may reject stale or malformed
+stored evidence. It retains only the original evidence-byte hash in its audit;
 it never writes project tags/aliases or advances taxonomy.
 
 Create/map write one project tag with explicit weight/confidence and the original
@@ -117,7 +163,9 @@ return 404 `operation_not_found`. Conflicts return 409:
 `governance_command_conflict`, `writer_epoch_changed`, `taxonomy_version_changed`,
 `governance_proposal_changed`, `governance_not_pending`,
 `governance_evidence_changed`, `governance_tag_conflict`. Invalid stored evidence
-on inspection returns 409 `governance_evidence_invalid`. Storage errors are 503
+on inspection or create/map returns 409 `governance_evidence_invalid`. A stored
+malformed JSON string in historical D1 rows has the same conflict response.
+Storage errors are 503
 without SQL, credentials or proposal bodies in logs.
 
 ## Lazy taxonomy invalidation

@@ -2,11 +2,12 @@ import { env } from "cloudflare:workers";
 import { beforeEach, expect, it } from "vitest";
 import {
   FeedGovernance,
+  governanceSchemas,
   handleGovernance,
   type GovernanceReview,
 } from "../src/governance";
 import { FeedCommands } from "../src/commands";
-import { schemas, type Input } from "../src/contract";
+import { hash, schemas, type Input } from "../src/contract";
 import digestFixture from "../../../docs/contracts/fixtures/feed-governance-v1-digest.json";
 
 const db = env.FEED_DB;
@@ -118,6 +119,227 @@ const active = () =>
   db
     .prepare("SELECT version FROM feed_taxonomy_versions WHERE status='active'")
     .first<number>("version");
+
+it("uses portable UUID and Unicode boundaries without inferring omitted assignments", async () => {
+  for (const commandId of [
+    "00000000-0000-0000-0000-000000000000",
+    "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "00000000-0000-9000-8000-000000000001",
+    "00000000-0000-4000-0000-000000000001",
+  ]) {
+    for (const [operation, input] of [
+      ["command", { commandId }],
+      ["review", { ...create(), commandId }],
+      [
+        "deprecate",
+        { ...common(), commandId, canonicalTagId: "artifact:micro-tool" },
+      ],
+    ] as const)
+      await expect(
+        handleGovernance(operation, input, db),
+      ).rejects.toMatchObject({
+        status: 400,
+        code: "invalid_request",
+      });
+  }
+  for (const version of [1, 4, 7, 8])
+    expect(
+      governanceSchemas.command.safeParse({
+        commandId: `ABCDEFAB-ABCD-${version}000-ABCD-ABCDEFABCDEF`,
+      }).success,
+    ).toBe(true);
+  for (const assignment of [
+    null,
+    { confidence: 1 },
+    { weight: null, confidence: 1 },
+    { weight: 0, confidence: null },
+  ])
+    await expect(
+      handleGovernance("review", { ...create(), assignment }, db),
+    ).rejects.toMatchObject({ code: "invalid_request" });
+  for (const invalid of [
+    "Reviewed \ud800",
+    "Reviewed \udc00",
+    "Reviewed \ud800x",
+    "Reviewed \udc00\ud800",
+  ])
+    expect(
+      governanceSchemas.review.safeParse({ ...create(), reason: invalid })
+        .success,
+    ).toBe(false);
+  expect(
+    governanceSchemas.review.safeParse({
+      ...create(),
+      reason: "Reviewed 😀 中文",
+    }).success,
+  ).toBe(true);
+  expect(
+    governanceSchemas.review.safeParse({ ...create(), operator: "\ufeff" })
+      .success,
+  ).toBe(false);
+  expect(
+    governanceSchemas.review.safeParse({ ...create(), operator: "\u0085" })
+      .success,
+  ).toBe(true);
+  for (const lexeme of ["1", "1.0", "1e0"])
+    expect(
+      governanceSchemas.review.safeParse({
+        ...create(),
+        writerEpoch: JSON.parse(lexeme),
+      }).success,
+    ).toBe(true);
+  expect(await active()).toBe(1);
+});
+
+it.each([
+  ["object", "{}"],
+  ["null", "null"],
+  ["non-string member", "[1]"],
+  ["null member", "[null]"],
+  ["too many items", JSON.stringify(Array(65).fill("E"))],
+  ["too many UTF-8 bytes", JSON.stringify(["中".repeat(86)])],
+  ["control", JSON.stringify(["bad\nvalue"])],
+  ["DEL", JSON.stringify(["bad\u007fvalue"])],
+  ["unpaired surrogate", '["\\ud800"]'],
+])(
+  "blocks %s stored evidence for inspection/promotion, retaining audited rejection",
+  async (_label, encoded) => {
+    for (const kind of ["assessment", "user"] as const) {
+      const table =
+        kind === "assessment"
+          ? "feed_tag_proposals"
+          : "feed_user_tag_proposals";
+      const proposalId =
+        kind === "assessment" ? "gov-assessment-one" : "gov-user-one";
+      await db
+        .prepare(
+          `UPDATE ${table} SET namespace='artifact',evidence_json=? WHERE id=?`,
+        )
+        .bind(encoded, proposalId)
+        .run();
+      const input = { ...create(proposalId), proposalKind: kind };
+      await expect(
+        governance.proposal({ proposalKind: kind, proposalId }),
+      ).rejects.toMatchObject({ code: "governance_evidence_invalid" });
+      await expect(governance.review(input)).rejects.toMatchObject({
+        code: "governance_evidence_invalid",
+      });
+      await expect(
+        governance.review({
+          ...common(),
+          action: "map",
+          proposalKind: kind,
+          proposalId,
+          expectedAnalysisId: input.expectedAnalysisId,
+          canonicalTagId: "artifact:micro-tool",
+          assignment: { weight: 1, confidence: 1 },
+        }),
+      ).rejects.toMatchObject({ code: "governance_evidence_invalid" });
+      expect(await governance.command({ commandId: input.commandId })).toEqual({
+        command: null,
+      });
+      const rejected: GovernanceReview = {
+        ...common(),
+        action: "reject",
+        proposalKind: kind,
+        proposalId,
+        expectedAnalysisId: input.expectedAnalysisId,
+      };
+      const result = await governance.review(rejected);
+      expect(result).toMatchObject({
+        status: "rejected",
+        canonicalTagId: null,
+        taxonomyVersion: 1,
+      });
+      expect(await governance.review(rejected)).toEqual(result);
+      expect(
+        await db
+          .prepare(
+            "SELECT evidence_hash FROM feed_governance_commands WHERE command_id=?",
+          )
+          .bind(rejected.commandId)
+          .first("evidence_hash"),
+      ).toBe(await hash(encoded));
+    }
+    expect(await active()).toBe(1);
+    expect(
+      await db
+        .prepare("SELECT COUNT(*) AS n FROM feed_project_tags")
+        .first("n"),
+    ).toBe(0);
+    expect(
+      await db.prepare("SELECT COUNT(*) AS n FROM feed_tag_aliases").first("n"),
+    ).toBe(0);
+    expect(
+      await db
+        .prepare("SELECT COUNT(*) AS n FROM feed_governance_commands")
+        .first("n"),
+    ).toBe(2);
+  },
+);
+
+it("handles invalid historical JSON syntax as evidence conflict and permits rejection", async () => {
+  await db
+    .prepare(
+      "UPDATE feed_tag_proposals SET evidence_json='{' WHERE id='gov-assessment-one'",
+    )
+    .run();
+  await expect(
+    governance.proposal({
+      proposalKind: "assessment",
+      proposalId: "gov-assessment-one",
+    }),
+  ).rejects.toMatchObject({ status: 409, code: "governance_evidence_invalid" });
+  await expect(governance.review(create())).rejects.toMatchObject({
+    status: 409,
+    code: "governance_evidence_invalid",
+  });
+  const rejected: GovernanceReview = {
+    ...common(),
+    action: "reject",
+    proposalKind: "assessment",
+    proposalId: "gov-assessment-one",
+    expectedAnalysisId: "gov-analysis-one",
+  };
+  expect(await governance.review(rejected)).toMatchObject({
+    status: "rejected",
+    taxonomyVersion: 1,
+  });
+  expect(
+    await db
+      .prepare(
+        "SELECT evidence_hash FROM feed_governance_commands WHERE command_id=?",
+      )
+      .bind(rejected.commandId)
+      .first("evidence_hash"),
+  ).toBe(await hash("{"));
+});
+
+it("preserves valid evidence at byte and item limits and persisted retries after evidence changes", async () => {
+  const evidence = ["中".repeat(85) + "a", "😀", ...Array<string>(62).fill("")];
+  await db
+    .prepare(
+      "UPDATE feed_tag_proposals SET evidence_json=? WHERE id='gov-assessment-one'",
+    )
+    .bind(JSON.stringify(evidence))
+    .run();
+  expect(
+    (
+      await governance.proposal({
+        proposalKind: "assessment",
+        proposalId: "gov-assessment-one",
+      })
+    ).proposal!.evidence,
+  ).toEqual(evidence);
+  const input = create(),
+    result = await governance.review(input);
+  await db
+    .prepare(
+      "UPDATE feed_tag_proposals SET evidence_json='null' WHERE id='gov-assessment-one'",
+    )
+    .run();
+  expect(await governance.review(input)).toEqual(result);
+});
 
 it("reviews one assessment with explicit assignment and keeps same-slug proposals pending", async () => {
   const input = create(),
