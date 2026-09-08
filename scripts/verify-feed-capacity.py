@@ -45,12 +45,18 @@ def integer(value):
 
 
 def timestamp(value):
-    if not isinstance(value, str) or not re.fullmatch(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})", value
-    ):
+    match = re.fullmatch(
+        r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})", value
+    ) if isinstance(value, str) else None
+    if match is None:
         return None
     try:
-        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # Go RFC3339Nano trims trailing zeroes. Python 3.9 fromisoformat only
+        # accepts certain fraction widths, so normalize to datetime's microsecond
+        # precision without rejecting otherwise valid 1..9 digit timestamps.
+        fraction = "." + match[2].ljust(6, "0")[:6] if match[2] else ""
+        zone = "+00:00" if match[3] == "Z" else match[3]
+        return dt.datetime.fromisoformat(match[1] + fraction + zone)
     except ValueError:
         return None
 
@@ -190,8 +196,7 @@ def check_resources(gate, report, load_start, end_ms):
         offset, at = row.get("offsetMs"), timestamp(row.get("at"))
         basic = (
             number(offset) and 0 <= offset <= end_ms and offset > previous_offset
-            and at is not None and load_start is not None
-            and abs((at - load_start).total_seconds() * 1000 - offset) <= 2
+            and at is not None and at.utcoffset() == dt.timedelta(0) and load_start is not None
             and number(row.get("sampleDurationMs")) and 0 <= row["sampleDurationMs"] <= 2000
             and number(row.get("processCpuSeconds")) and row["processCpuSeconds"] >= 0
             and all(integer(row.get(k)) and row[k] >= 0 for k in ("heapBytes", "goroutines", "gcCount", "gcPauseTotalNs", "lastGcUnixNs"))
@@ -217,11 +222,19 @@ def check_resources(gate, report, load_start, end_ms):
     metrics = {"totalSamples": len(rows), "validGoPostgresSamples": len(valid), "validGoPostgresSeconds": len(seconds), "observerErrorSamples": observer_errors, "malformedSamples": malformed,
                "interpretation": "Observed resource ranges are context only; no CPU, GC, or database causal attribution is established."}
     if valid:
+        # The Go offset uses a monotonic clock; UTC timestamps use the wall
+        # clock. Clock adjustments must not turn a valid sampled second into
+        # missing evidence or be attributed to resource pressure.
+        drift = [(timestamp(r["at"]) - load_start).total_seconds() * 1000 - r["offsetMs"] for r in valid]
         metrics.update({"firstOffsetMs": valid[0]["offsetMs"], "lastOffsetMs": valid[-1]["offsetMs"],
                         "processCpuSecondsFirst": valid[0]["processCpuSeconds"], "processCpuSecondsLast": valid[-1]["processCpuSeconds"],
                         "maxHeapBytes": max(r["heapBytes"] for r in valid), "maxGoroutines": max(r["goroutines"] for r in valid),
                         "gcCountFirst": valid[0]["gcCount"], "gcCountLast": valid[-1]["gcCount"],
-                        "gcPauseTotalNsFirst": valid[0]["gcPauseTotalNs"], "gcPauseTotalNsLast": valid[-1]["gcPauseTotalNs"]})
+                        "gcPauseTotalNsFirst": valid[0]["gcPauseTotalNs"], "gcPauseTotalNsLast": valid[-1]["gcPauseTotalNs"],
+                        "clockComparison": {"coverageClock": "monotonic offsetMs",
+                                            "wallMinusMonotonicMsFirst": drift[0], "wallMinusMonotonicMsLast": drift[-1],
+                                            "wallMinusMonotonicMsMin": min(drift), "wallMinusMonotonicMsMax": max(drift),
+                                            "interpretation": "Wall/monotonic clock drift is recorded without an equality threshold; its cause is unknown."}})
     gate.result["metrics"]["resources"] = metrics
 
 
@@ -411,6 +424,7 @@ def check_external_resources(gate, directory, load):
         gate.issue("externalResources.window", "incomplete", "A valid load start and observed request completion window are required.")
         return
     offsets = {name: [] for name in (*CONTAINERS, "host-vm")}
+    unavailable = {name: [] for name in CONTAINERS}
     malformed, ignored, outside, ended = 0, 0, 0, 0
     for line in lines:
         try:
@@ -449,7 +463,10 @@ def check_external_resources(gate, directory, load):
         try:
             docker = json.loads(cleaned, object_pairs_hook=unique_object, parse_constant=no_constant)
         except (ValueError, RecursionError):
-            ignored += 1
+            if cleaned.startswith(("{", "[")):
+                malformed += 1
+            else:
+                ignored += 1
             continue
         if not isinstance(docker, dict):
             ignored += 1
@@ -457,6 +474,9 @@ def check_external_resources(gate, directory, load):
         name = docker.get("Name")
         cpu = docker.get("CPUPerc")
         memory = docker.get("MemUsage")
+        if name in CONTAINERS and docker.get("Container") == name and cpu == "--" and memory == "-- / --":
+            unavailable[name].append((offset, row["at"]))
+            continue
         valid_cpu = isinstance(cpu, str) and re.fullmatch(r"\d+(?:\.\d+)?%", cpu) is not None
         if not (name in CONTAINERS and docker.get("Container") == name and valid_cpu
                 and number(float(cpu[:-1])) and isinstance(memory, str) and memory.strip()):
@@ -477,6 +497,13 @@ def check_external_resources(gate, directory, load):
     gate.result["metrics"]["externalResources"] = {
         "coverage": coverage, "malformedLines": malformed, "ignoredNonSampleLines": ignored,
         "outOfWindowLines": outside, "observerEndedLines": ended,
+        "unavailableDockerSamples": {
+            name: {"count": len(values), "firstAt": min(values)[1] if values else None,
+                   "lastAt": max(values)[1] if values else None,
+                   "firstOffsetMs": min(values)[0] if values else None,
+                   "lastOffsetMs": max(values)[0] if values else None}
+            for name, values in unavailable.items()
+        },
         "interpretation": "Checks observation coverage only; sampled host/container metrics do not establish CPU, GC, memory, or database causality.",
     }
 
