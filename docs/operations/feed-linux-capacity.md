@@ -4,7 +4,8 @@ The `Feed isolated Linux capacity` workflow runs the portable Go HTTP handler
 against a fresh loopback PostgreSQL/pgvector and MinIO fixture on one GitHub
 Actions Linux runner. It is the next controlled observation after the retained
 [writer-2 local reliability failure](../evidence/feed-capacity-ebda1f9/README.md).
-Changing the host is a separate experiment; a Linux result cannot retrospectively
+The [clock interpretation review](../evidence/feed-capacity-clock-review/README.md)
+records an observed wall/monotonic discrepancy in that run. Changing the host is a separate experiment; a Linux result cannot retrospectively
 explain or erase the macOS failure.
 
 The workflow accepts one exact 40-character commit already on `main` with
