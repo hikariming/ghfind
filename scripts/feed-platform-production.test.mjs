@@ -9,6 +9,7 @@ import {
   validateReceipt,
   expectedBindings,
   validateReadiness,
+  disableConsumers,
 } from "./feed-platform-production.mjs";
 import {
   validateManifest as stagingValidate,
@@ -278,7 +279,7 @@ test("bootstrap off has no asynchronous entrypoints; production resources and ca
   assert.equal(c.vars.FEED_MODE, "off");
   assert.equal(c.vars.FEED_SOURCE_RELAY_ENABLED, "false");
   assert.equal(c.vars.FEED_EXECUTOR_ENABLED, "true");
-  assert.equal(c.triggers, undefined);
+  assert.deepEqual(c.triggers, { crons: [] });
   assert.equal(c.queues.consumers, undefined);
   assert.deepEqual(
     c.containers.map((c) => [c.instance_type, c.max_instances, c.image]),
@@ -578,7 +579,7 @@ test("baseline rejects foreign, pull, duplicate, stale or expanded consumer poli
     );
   }
   for (const change of [
-    (rows) => [],
+    (_rows) => [],
     (rows) => [...rows, ...rows],
     (rows) => rows.map((c) => ({ ...c, consumer_id: "b".repeat(32) })),
   ]) {
@@ -662,5 +663,236 @@ test("documented script_name and pinned Wrangler legacy script/service agree wit
         .asyncTriggers.verified,
       true,
     );
+  }
+});
+
+const productionActions = {
+  GITHUB_ACTIONS: "true",
+  GITHUB_REPOSITORY: "hikariming/ghfind",
+  GITHUB_REF: "refs/heads/main",
+  GITHUB_WORKFLOW_REF:
+    "hikariming/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main",
+  GITHUB_RUN_ID: "123",
+  GITHUB_RUN_ATTEMPT: "1",
+  CLOUDFLARE_API_TOKEN: "synthetic-cf-token-".repeat(3),
+};
+function consumerDetachFixture({
+  empty = false,
+  mutate = () => {},
+  failure,
+  retained = false,
+} = {}) {
+  const queues = [m.queue, m.deadLetterQueue].map((name, index) => ({
+    name,
+    id: String(index + 1).repeat(32),
+    reads: 0,
+    consumers: empty
+      ? []
+      : [
+          {
+            consumer_id: String(index + 3).repeat(32),
+            type: "worker",
+            script_name: m.runtimeWorker,
+            environment: "production",
+          },
+        ],
+  }));
+  const calls = [];
+  return {
+    queues,
+    calls,
+    options: {
+      env: productionActions,
+      fetcher: async (url, options) => {
+        const request = new URL(url);
+        assert.equal(request.origin, "https://api.cloudflare.com");
+        assert.equal(
+          options.headers.authorization,
+          `Bearer ${productionActions.CLOUDFLARE_API_TOKEN}`,
+        );
+        assert.equal(options.redirect, "error");
+        assert.equal(options.signal.aborted, false);
+        const path = request.pathname.replace(
+          `/client/v4/accounts/${m.accountId}`,
+          "",
+        );
+        calls.push({ method: options.method, path });
+        let result;
+        if (path === "/queues") {
+          assert.equal(options.method, "GET");
+          const q = queues.find(
+            (q) => q.name === request.searchParams.get("name"),
+          );
+          assert.ok(q, "only the two pinned queues may be read");
+          result = [{ queue_name: q.name, queue_id: q.id }];
+        } else {
+          const q = queues.find((q) =>
+            path.startsWith(`/queues/${q.id}/consumers`),
+          );
+          assert.ok(
+            q,
+            "must not access/delete queue, messages, parking, or arbitrary resources",
+          );
+          if (options.method === "DELETE") {
+            assert.ok(
+              queues.every((v) => v.reads >= 1),
+              "both owners must be verified before mutation",
+            );
+            assert.equal(
+              path,
+              `/queues/${q.id}/consumers/${q.consumers[0]?.consumer_id}`,
+            );
+            if (failure === "delete")
+              throw new Error("synthetic transport timeout");
+            if (!retained) q.consumers = [];
+            result = null;
+          } else {
+            assert.equal(options.method, "GET");
+            assert.equal(path, `/queues/${q.id}/consumers`);
+            q.reads++;
+            result = structuredClone(q.consumers);
+            mutate(q, result);
+          }
+        }
+        return Response.json(
+          { success: failure !== "api", result },
+          { status: failure === "api" ? 403 : 200 },
+        );
+      },
+    },
+  };
+}
+test("consumer detach is production Actions-only before any API request", async () => {
+  for (const changed of [
+    { GITHUB_ACTIONS: "false" },
+    { GITHUB_REPOSITORY: "other/repo" },
+    { GITHUB_REF: "refs/heads/dev" },
+    {
+      GITHUB_WORKFLOW_REF:
+        "hikariming/ghfind/.github/workflows/ci.yml@refs/heads/main",
+    },
+    { CLOUDFLARE_API_TOKEN: "" },
+  ]) {
+    const f = consumerDetachFixture();
+    await assert.rejects(
+      disableConsumers(m, {
+        ...f.options,
+        env: { ...productionActions, ...changed },
+      }),
+    );
+    assert.equal(f.calls.length, 0);
+  }
+});
+test("detaches only owned subscriptions and independently verifies empty final inventories", async () => {
+  for (const empty of [false, true]) {
+    const f = consumerDetachFixture({ empty });
+    const r = await disableConsumers(m, f.options);
+    assert.equal(r.status, "passed");
+    assert.equal(r.consumersAbsent, true);
+    assert.equal(r.removed.length, empty ? 0 : 2);
+    assert.equal(r.requests, empty ? 8 : 10);
+    assert.equal(r.messagesDeleted, false);
+    assert.equal(r.queuesDeleted, false);
+    assert.equal(r.runId, "123");
+    assert.equal(
+      JSON.stringify(r).includes(productionActions.CLOUDFLARE_API_TOKEN),
+      false,
+    );
+    assert.equal(
+      f.calls.filter((c) => c.method === "DELETE").length,
+      empty ? 0 : 2,
+    );
+  }
+});
+test("a foreign or ambiguous second consumer blocks deletion from both queues", async () => {
+  for (const change of [
+    (c) => {
+      c.script_name = "foreign-worker";
+    },
+    (c) => {
+      c.script = "foreign-worker";
+    },
+    (c) => {
+      c.environment = "staging";
+    },
+    (c) => {
+      c.type = "http_pull";
+    },
+    (c) => {
+      delete c.script_name;
+    },
+    (c) => {
+      c.consumer_id = "not-a-queue-id";
+    },
+    (c) => {
+      c.queue_name = "foreign-queue";
+    },
+  ]) {
+    const f = consumerDetachFixture({
+      mutate(q, rows) {
+        if (q.name === m.deadLetterQueue && rows.length) change(rows[0]);
+      },
+    });
+    await assert.rejects(
+      disableConsumers(m, f.options),
+      (error) =>
+        error.receipt.status === "failed" && error.receipt.removed.length === 0,
+    );
+    assert.equal(
+      f.calls.some((c) => c.method === "DELETE"),
+      false,
+    );
+  }
+  const f = consumerDetachFixture({
+    mutate(_q, rows) {
+      rows.push({ ...rows[0] });
+    },
+  });
+  await assert.rejects(disableConsumers(m, f.options));
+  assert.equal(
+    f.calls.some((c) => c.method === "DELETE"),
+    false,
+  );
+});
+test("ownership aliases agree and identity changes before DELETE fail closed", async () => {
+  for (const alias of ["script", "service"]) {
+    const f = consumerDetachFixture({
+      mutate(_q, rows) {
+        for (const c of rows) {
+          c[alias] = c.script_name;
+          delete c.script_name;
+        }
+      },
+    });
+    assert.equal((await disableConsumers(m, f.options)).status, "passed");
+  }
+  const f = consumerDetachFixture({
+    mutate(q, rows) {
+      if (q.reads === 2 && rows.length) rows[0].consumer_id = "f".repeat(32);
+    },
+  });
+  await assert.rejects(disableConsumers(m, f.options));
+  assert.equal(
+    f.calls.some((c) => c.method === "DELETE"),
+    false,
+  );
+});
+test("uncertain DELETE and incomplete post-readback never produce a passed receipt", async () => {
+  for (const options of [
+    { failure: "api" },
+    { failure: "delete" },
+    { retained: true },
+  ]) {
+    const f = consumerDetachFixture(options);
+    await assert.rejects(disableConsumers(m, f.options), (error) => {
+      assert.equal(error.receipt.status, "failed");
+      assert.equal(error.receipt.consumersAbsent, false);
+      if (options.failure === "delete") {
+        assert.equal(error.receipt.deleteAttempts.length, 1);
+        assert.equal(error.receipt.removed.length, 0);
+      }
+      assert.ok(error.receipt.requests <= 14);
+      return true;
+    });
   }
 });

@@ -209,8 +209,9 @@ function runtimeConfiguration(m, image, sha, mode) {
         }
       : {}),
   };
-  if (mode === "baseline") c.triggers = { crons: ["* * * * *"] };
-  else delete c.triggers;
+  // Wrangler preserves remote schedules when crons is omitted; an explicit
+  // empty array makes the off deployment remove existing schedules.
+  c.triggers = { crons: mode === "baseline" ? ["* * * * *"] : [] };
   return c;
 }
 export function renderAdapter(m, sha) {
@@ -438,11 +439,184 @@ export function validateReadiness(data, m, sha, image, mode, versionId) {
     };
   });
 }
+// Wrangler only adds/updates configured consumers. Omitting a consumer from an
+// off deployment does not detach it. Detach owned subscriptions explicitly;
+// queues, retained messages and the terminal parking queue are never deleted.
+export async function disableConsumers(
+  m,
+  { env = process.env, fetcher = fetch } = {},
+) {
+  validateManifest(m);
+  const { authorizeMutation } = await import("./feed-production-release.mjs");
+  authorizeMutation(env);
+  requireThat(
+    typeof env.CLOUDFLARE_API_TOKEN === "string" &&
+      env.CLOUDFLARE_API_TOKEN.length >= 32,
+    "production CF credential missing",
+  );
+  const signal = AbortSignal.timeout(120000);
+  const receipt = {
+    format: "ghfind-feed-production-consumers-off-v1",
+    status: "incomplete",
+    accountId: ACCOUNT,
+    runtimeWorker: m.runtimeWorker,
+    runId: env.GITHUB_RUN_ID ?? null,
+    runAttempt: env.GITHUB_RUN_ATTEMPT ?? null,
+    startedAt: new Date().toISOString(),
+    observedAt: null,
+    requests: 0,
+    queues: [],
+    removed: [],
+    deleteAttempts: [],
+    messagesDeleted: false,
+    queuesDeleted: false,
+    consumersAbsent: false,
+  };
+  async function api(path, method = "GET") {
+    signal.throwIfAborted();
+    requireThat(
+      ++receipt.requests <= 14,
+      "consumer detach request budget exceeded",
+    );
+    const response = await fetcher(
+      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`,
+      {
+        method,
+        headers: { authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` },
+        redirect: "error",
+        signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
+      },
+    );
+    const { boundedJSON } = await import("./feed-platform-web-verify.mjs");
+    const data = await boundedJSON(response, 65536);
+    signal.throwIfAborted();
+    requireThat(
+      response.ok && data.success === true,
+      `consumer detach metadata HTTP ${response.status}`,
+    );
+    return data.result;
+  }
+  function owned(rows, name) {
+    requireThat(
+      Array.isArray(rows) && rows.length <= 1,
+      "unexpected consumer population",
+    );
+    for (const c of rows) {
+      const owners = [c?.script_name, c?.script, c?.service].filter(
+        (v) => v !== undefined,
+      );
+      requireThat(
+        c?.type === "worker" &&
+          /^[a-f0-9]{32}$/.test(c.consumer_id) &&
+          owners.length > 0 &&
+          owners.every((v) => v === m.runtimeWorker) &&
+          (c.queue_name === undefined || c.queue_name === name) &&
+          (c.environment === undefined || c.environment === "production") &&
+          (c.service === undefined || c.environment === "production"),
+        "foreign or ambiguous consumer owner",
+      );
+    }
+    return rows.map((c) => c.consumer_id);
+  }
+  try {
+    // Complete ownership preflight for BOTH queues before the first mutation.
+    for (const name of [m.queue, m.deadLetterQueue]) {
+      const found = await api(`/queues?name=${encodeURIComponent(name)}`);
+      requireThat(
+        Array.isArray(found) &&
+          found.length === 1 &&
+          found[0]?.queue_name === name &&
+          /^[a-f0-9]{32}$/.test(found[0].queue_id),
+        "production queue missing or ambiguous",
+      );
+      const queueId = found[0].queue_id;
+      requireThat(
+        !receipt.queues.some((q) => q.queueId === queueId),
+        "production queues must be distinct",
+      );
+      const ids = owned(await api(`/queues/${queueId}/consumers`), name);
+      receipt.queues.push({ name, queueId, consumerIds: ids });
+    }
+    for (const queue of receipt.queues) {
+      // Re-read just before DELETE: refuse changed IDs/owners, including a new
+      // subscription on a queue whose initial inventory was empty. The CF API
+      // has no conditional DELETE; serialized release ownership remains needed.
+      const ids = owned(
+        await api(`/queues/${queue.queueId}/consumers`),
+        queue.name,
+      );
+      requireThat(
+        JSON.stringify(ids) === JSON.stringify(queue.consumerIds),
+        "consumer inventory changed during detach",
+      );
+      for (const consumerId of ids) {
+        const identity = { queueId: queue.queueId, consumerId };
+        receipt.deleteAttempts.push(identity);
+        await api(`/queues/${queue.queueId}/consumers/${consumerId}`, "DELETE");
+        receipt.removed.push(identity);
+      }
+    }
+    for (const queue of receipt.queues)
+      requireThat(
+        owned(await api(`/queues/${queue.queueId}/consumers`), queue.name)
+          .length === 0,
+        "consumer detach not confirmed",
+      );
+    receipt.status = "passed";
+    receipt.consumersAbsent = true;
+    receipt.observedAt = new Date().toISOString();
+    return receipt;
+  } catch (error) {
+    receipt.status = "failed";
+    receipt.observedAt = new Date().toISOString();
+    // Keep attempted-but-unconfirmed IDs for operator follow-up. Never infer
+    // deletion from a timeout or replay a DELETE without fresh ownership reads.
+    throw Object.assign(
+      new Error("production consumer detach failed", { cause: error }),
+      { receipt },
+    );
+  }
+}
 async function main(args) {
   const [command, path, sha, image, mode, receiptOrOutput] = args;
   if (command === "template" && args.length === 1)
     return console.log(JSON.stringify(template(), null, 2));
   const m = validateManifest(JSON.parse(readFileSync(path, "utf8")));
+  if (command === "disable-consumers" && args.length === 3) {
+    const output = args[2];
+    writeFileSync(
+      output,
+      JSON.stringify({
+        format: "ghfind-feed-production-consumers-off-v1",
+        status: "incomplete",
+      }) + "\n",
+      { flag: "wx", mode: 0o600 },
+    );
+    try {
+      const result = await disableConsumers(m);
+      writeFileSync(output, JSON.stringify(result, null, 2) + "\n", {
+        mode: 0o600,
+      });
+      return console.log(
+        "Owned production consumers detached and absence verified; queues and messages retained",
+      );
+    } catch (error) {
+      writeFileSync(
+        output,
+        JSON.stringify(
+          error.receipt ?? {
+            format: "ghfind-feed-production-consumers-off-v1",
+            status: "failed",
+            requests: 0,
+          },
+          null,
+          2,
+        ) + "\n",
+        { mode: 0o600 },
+      );
+      throw error;
+    }
+  }
   if (command === "validate" && args.length === 2)
     return console.log(
       "Pinned production manifest and budget evidence validated",
@@ -479,7 +653,7 @@ async function main(args) {
     );
   }
   throw new Error(
-    "usage: feed-platform-production.mjs template | validate MANIFEST | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT",
+    "usage: feed-platform-production.mjs template | validate MANIFEST | disable-consumers MANIFEST RECEIPT | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT",
   );
 }
 if (
