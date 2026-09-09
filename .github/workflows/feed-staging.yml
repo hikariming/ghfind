@@ -110,7 +110,7 @@ jobs:
           git diff --exit-code -- platform/runtime/worker-configuration.d.ts
           npm run typecheck --prefix platform/runtime
           npm test --prefix platform/runtime
-          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs
+          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs scripts/feed-platform-verify-deployment.test.mjs
           npm run build --prefix platform/runtime
           pnpm -C platform/feed typecheck
           pnpm -C platform/feed test
@@ -199,9 +199,10 @@ jobs:
       - name: Confirm active Worker and each running Container image version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+          FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
         run: |
-          node scripts/feed-platform-verify-deployment.mjs "$RUNNER_TEMP/feed-staging-core-manifest.json" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json" "$RUNNER_TEMP/feed-runtime-deployment.json"
+          node scripts/feed-platform-verify-deployment.mjs "$RUNNER_TEMP/feed-staging-manifest.json" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json" "$RUNNER_TEMP/feed-runtime-deployment.json"
       - name: Deploy dedicated OAuth Web after isolated migrations and runtime readiness
         timeout-minutes: 8
         env:
