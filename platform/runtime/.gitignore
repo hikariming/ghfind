@@ -3,5 +3,7 @@ dist/
 .wrangler/
 .dev.vars
 wrangler.staging.generated.json
+wrangler.web.staging.generated.json
+web-configuration.generated.d.ts
 *.evidence.json
 provision.evidence.json.*.tmp
