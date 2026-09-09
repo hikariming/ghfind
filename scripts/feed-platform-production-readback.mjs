@@ -22,9 +22,10 @@ export const limits = Object.freeze({
   initialReadinessAttempts: 8,
   initialReadinessIntervalMs: 2500,
   initialReadinessConvergenceMs: 60000,
-  // Original 23 + 14 instance retries + 14 application retries + final identity read.
+  // 19 fixed reads + 7 paired detail rounds (14) + 16 instance reads +
+  // 2 final details = 51, below the unchanged hard quota of 52.
   metadataReads: 52,
-  applicationAttempts: 8,
+  applicationAttempts: 8, // Includes the reserved final detail read for each app.
   applicationIntervalMs: 2500,
   applicationConvergenceMs: 60000,
   instanceAttempts: 8,
@@ -95,6 +96,61 @@ export function validatePreviousApplications(apps, m) {
   }
   return previous;
 }
+const requiredHealthCounters = [
+  "active",
+  "healthy",
+  "failed",
+  "starting",
+  "scheduling",
+];
+const optionalHealthCounters = ["assigned", "stopped"];
+const healthCounters = [...requiredHealthCounters, ...optionalHealthCounters];
+function directApplication(raw) {
+  const h = raw?.health,
+    counts = h?.instances;
+  const countValid = (k) => Number.isSafeInteger(counts[k]) && counts[k] >= 0;
+  const valid =
+    h &&
+    typeof h === "object" &&
+    !Array.isArray(h) &&
+    (h.errors === undefined || Array.isArray(h.errors)) &&
+    counts &&
+    typeof counts === "object" &&
+    !Array.isArray(counts) &&
+    requiredHealthCounters.every(countValid) &&
+    optionalHealthCounters.every(
+      (k) => !Object.hasOwn(counts, k) || countValid(k),
+    );
+  // Pinned Wrangler 4.129.1 derives these states from the same direct health
+  // counters. Errors are additionally fail-closed; raw error/config text is never
+  // emitted. Zero active instances is legitimate idle, not evidence of startup.
+  const state = !valid
+    ? "unknown"
+    : h.errors?.length || counts.failed > 0
+      ? "degraded"
+      : counts.starting > 0 || counts.scheduling > 0
+        ? "provisioning"
+        : counts.active > 0
+          ? "active"
+          : "ready";
+  return {
+    id: raw?.id,
+    name: raw?.name,
+    version: raw?.version,
+    image: raw?.configuration?.image,
+    state,
+    health: {
+      errorCount: Array.isArray(h?.errors) ? h.errors.length : null,
+      instances: valid
+        ? Object.fromEntries(
+            healthCounters
+              .filter((k) => Object.hasOwn(counts, k))
+              .map((k) => [k, counts[k]]),
+          )
+        : null,
+    },
+  };
+}
 function inspectApplication(apps, name, image, prior, previous) {
   const matches = Array.isArray(apps)
     ? apps.filter((a) => a?.name === name)
@@ -154,6 +210,7 @@ function observedApplications(matches, name) {
     name: app?.name === name ? app.name : null,
     state: applicationStates.has(app?.state) ? app.state : "invalid",
     version: scalarVersion(app?.version) ? app.version : null,
+    health: app?.health ?? null,
     imageDigest:
       typeof app?.image === "string"
         ? (/^registry\.cloudflare\.com\/[a-f0-9]{32}\/ghfind-feed@sha256:([a-f0-9]{64})$/.exec(
@@ -519,11 +576,10 @@ export async function verifyDeployment(
     applicationObservations = [],
     readinessObservations = [];
   const expectedApplicationPins = new Map();
-  const applicationAttempts = new Map(),
-    applicationSequences = new Map();
-  let latestApplications,
-    latestApplicationsAt,
-    applicationSequence = 0;
+  const applicationDetails = new Map();
+  let applicationRound = 0,
+    applicationAnchors,
+    runtimeNamespaces;
   function signal(timeout, extra = run.signal) {
     return AbortSignal.any([run.signal, extra, AbortSignal.timeout(timeout)]);
   }
@@ -558,45 +614,6 @@ export async function verifyDeployment(
     });
     extra.throwIfAborted();
     run.signal.throwIfAborted();
-    if (args[0] === "containers" && args[1] === "list") applicationSequence++;
-    if (
-      previousApplications !== undefined &&
-      args[0] === "containers" &&
-      args[1] === "list"
-    ) {
-      latestApplications = result;
-      latestApplicationsAt = new Date().toISOString();
-      // Every actual list read witnesses both registered apps. Once either
-      // reaches the target digest, another app's retry must not hide rollback.
-      for (const suffix of ["feedapi", "feedexecutor"]) {
-        const name = `${m.runtimeWorker}-${suffix}`;
-        const verdict = inspectApplication(
-          result,
-          name,
-          image,
-          expectedApplicationPins.get(name),
-          previous.get(name),
-        );
-        if (verdict.status === "rejected") {
-          observeApplication(
-            result,
-            name,
-            expectedApplicationPins.get(name),
-            latestApplicationsAt,
-            "snapshot",
-            null,
-          );
-          throw new Error(
-            `immutable application identity or health summary differs: ${verdict.reason}`,
-          );
-        }
-        if (verdict.app.image === image)
-          expectedApplicationPins.set(name, {
-            id: verdict.app.id,
-            version: verdict.app.version,
-          });
-      }
-    }
     return result;
   }
   async function ready(
@@ -725,6 +742,7 @@ export async function verifyDeployment(
     );
     applicationObservations.push({
       observedAt,
+      metadataSource: "containers_info",
       phase,
       attempt,
       applicationName: name,
@@ -735,71 +753,162 @@ export async function verifyDeployment(
     });
     return verdict;
   }
-  async function convergeApplication(
-    initialApps,
-    initialObservedAt,
-    name,
-    convergence,
-    identityOnly = false,
-    initialSequence = applicationSequence,
-  ) {
-    let apps = initialApps,
-      observedAt = initialObservedAt,
-      prior,
-      sequence = initialSequence;
-    for (;;) {
-      convergence.throwIfAborted();
-      let attempt = applicationAttempts.get(name) ?? 0,
-        verdict;
-      if (applicationSequences.get(name) !== sequence) {
-        requireThat(
-          attempt < bounds.applicationAttempts,
-          `application summary convergence attempts exhausted: ${name}`,
-        );
-        applicationAttempts.set(name, ++attempt);
-        applicationSequences.set(name, sequence);
-        verdict = observeApplication(
-          apps,
-          name,
-          prior,
-          observedAt,
-          identityOnly ? "identity" : "convergence",
-          attempt,
-        );
-      } else {
-        // The same cached identity snapshot can be rechecked after ready. It
-        // neither resets attempts nor counts as another actual metadata read.
-        verdict = inspectApplication(
-          apps,
-          name,
-          image,
-          expectedApplicationPins.get(name) ?? prior,
-          previous.get(name),
+  async function discoverApplications(convergence) {
+    const listed = await wrangler(
+      ["containers", "list", "--json"],
+      convergence,
+    );
+    const ids = new Set();
+    return ["feedapi", "feedexecutor"].map((suffix) => {
+      const name = `${m.runtimeWorker}-${suffix}`;
+      const rows = Array.isArray(listed)
+        ? listed.filter((a) => a?.name === name)
+        : [];
+      const app = rows[0];
+      let reason = null;
+      if (!Array.isArray(listed) || rows.length !== 1)
+        reason = "application_population_invalid";
+      else if (!uuid.test(app?.id) || ids.has(app.id))
+        reason = "application_identity_invalid";
+      else if (previous.has(name) && previous.get(name).id !== app.id)
+        reason = "application_identity_changed";
+      if (reason) {
+        applicationObservations.push({
+          observedAt: new Date().toISOString(),
+          phase: "discovery",
+          attempt: null,
+          applicationName: name,
+          status: "rejected",
+          reason,
+          matchCount: rows.length,
+          applications: rows
+            .slice(0, 2)
+            .map((a) => ({
+              id: uuid.test(a?.id) ? a.id : null,
+              name: a?.name === name ? name : null,
+            })),
+        });
+        throw new Error(
+          `immutable application identity or health summary differs: ${reason}`,
         );
       }
+      ids.add(app.id);
+      // /dash/applications can lag direct /applications/{id}. Only name and UUID
+      // are discovery facts; never authorize or reject from its version/state/image.
+      return { id: app.id, name };
+    });
+  }
+  function configurationError(configuration, anchor) {
+    const apiRole = anchor.name.endsWith("-feedapi");
+    const basic =
+      configuration?.configuration?.instance_type === "basic" ||
+      (configuration?.configuration?.vcpu === 0.25 &&
+        configuration.configuration.memory_mib === 1024 &&
+        configuration.configuration.disk?.size_mb === 4000);
+    if (configuration?.max_instances !== (apiRole ? 2 : 1) || !basic)
+      return "actual application capacity/image differs";
+    const namespaceId = runtimeNamespaces.find(
+      (d) => d.className === (apiRole ? "FeedAPI" : "FeedExecutor"),
+    )?.namespaceId;
+    if (
+      !namespaceId ||
+      configuration?.durable_objects?.namespace_id !== namespaceId
+    )
+      return "application is not linked to runtime namespace";
+    return null;
+  }
+  async function readApplications(phase, extra, final = false) {
+    if (!final) {
       requireThat(
-        verdict.status !== "rejected",
-        `immutable application identity or health summary differs: ${verdict.reason}`,
+        applicationRound < bounds.applicationAttempts - 1,
+        "application summary convergence attempts exhausted (final details reserved)",
       );
-      // The first target-image identity is pinned even while provisioning. A new
-      // version/UUID/digest never resets the bounded convergence window.
+      applicationRound++;
+    }
+    // Both independent details settle before either is trusted. Checking both on
+    // every round prevents one application's retry from hiding the other's drift.
+    const reads = await Promise.allSettled(
+      applicationAnchors.map((a) =>
+        wrangler(["containers", "info", a.id, "--json"], extra),
+      ),
+    );
+    let readFailure;
+    const verdicts = [];
+    for (let i = 0; i < reads.length; i++) {
+      const read = reads[i],
+        anchor = applicationAnchors[i];
+      if (read.status === "rejected") {
+        readFailure ??= read.reason;
+        continue;
+      }
+      const raw = read.value;
+      const app = directApplication(raw);
+      // Match direct identity to the UUID discovered once, regardless of any
+      // different UUID/name returned by the endpoint addressed with that UUID.
+      const apps =
+        app?.id === anchor.id && app?.name === anchor.name ? [app] : [];
+      const verdict = observeApplication(
+        apps,
+        anchor.name,
+        null,
+        new Date().toISOString(),
+        phase,
+        final ? applicationRound + 1 : applicationRound,
+      );
+      verdicts.push(verdict);
+      if (verdict.status !== "rejected") {
+        const invalidConfiguration = configurationError(raw, anchor);
+        if (invalidConfiguration) {
+          Object.assign(verdict, {
+            status: "rejected",
+            reason: "application_configuration_changed",
+          });
+          Object.assign(applicationObservations.at(-1), {
+            status: verdict.status,
+            reason: verdict.reason,
+          });
+          readFailure ??= new Error(invalidConfiguration);
+        }
+      }
+      if (verdict.status === "rejected") {
+        readFailure ??= new Error(
+          `immutable application identity or health summary differs: ${verdict.reason}`,
+        );
+        continue;
+      }
+      applicationDetails.set(anchor.name, raw);
       if (verdict.app.image === image)
-        prior ??= { id: verdict.app.id, version: verdict.app.version };
+        expectedApplicationPins.set(anchor.name, {
+          id: verdict.app.id,
+          version: verdict.app.version,
+        });
+    }
+    if (readFailure) throw readFailure;
+    return verdicts;
+  }
+  async function convergeApplications(convergence, identityOnly, initial) {
+    let verdicts = initial;
+    for (;;) {
+      convergence.throwIfAborted();
+      if (!verdicts)
+        verdicts = await readApplications(
+          identityOnly ? "identity" : "convergence",
+          convergence,
+        );
       if (
-        verdict.status === "converged" ||
-        (identityOnly && verdict.app.image === image)
+        verdicts.every((v) =>
+          identityOnly ? v.app.image === image : v.status === "converged",
+        )
       )
-        return verdict.app;
+        return verdicts;
       requireThat(
-        attempt < bounds.applicationAttempts,
-        `application summary convergence attempts exhausted: ${name}`,
+        applicationRound < bounds.applicationAttempts - 1,
+        "application summary convergence attempts exhausted (final details reserved)",
       );
       await sleep(bounds.applicationIntervalMs, undefined, {
         signal: convergence,
       });
-      apps = await wrangler(["containers", "list", "--json"], convergence);
-      observedAt = new Date().toISOString();
-      sequence = applicationSequence;
+      verdicts = null;
     }
   }
   // Deploy returns before every instance is replaced; metadata may still be
@@ -876,40 +985,17 @@ export async function verifyDeployment(
       await api(`/workers/scripts/${m.adapterWorker}/versions/${adapterId}`),
       await api(`/workers/scripts/${m.adapterWorker}/subdomain`),
     );
-    let applicationConvergence,
-      apps,
-      appsObservedAt,
-      initialApplicationSequence;
-    const identitySnapshots = new Map();
-    if (previousApplications !== undefined) {
-      stage = "application_identity_convergence";
-      applicationConvergence = AbortSignal.any([
-        run.signal,
-        AbortSignal.timeout(bounds.applicationConvergenceMs),
-      ]);
-      apps = await wrangler(
-        ["containers", "list", "--json"],
-        applicationConvergence,
-      );
-      appsObservedAt = latestApplicationsAt;
-      initialApplicationSequence = applicationSequence;
-      for (const suffix of ["feedapi", "feedexecutor"]) {
-        const app = await convergeApplication(
-          latestApplications,
-          latestApplicationsAt,
-          `${m.runtimeWorker}-${suffix}`,
-          applicationConvergence,
-          true,
-          applicationSequence,
-        );
-        if (["active", "ready"].includes(app.state))
-          identitySnapshots.set(app.name, {
-            apps: latestApplications,
-            observedAt: latestApplicationsAt,
-            sequence: applicationSequence,
-          });
-      }
-    }
+    runtimeNamespaces = runtime.durableNamespaces;
+    stage = "application_identity_convergence";
+    const applicationConvergence = AbortSignal.any([
+      run.signal,
+      AbortSignal.timeout(bounds.applicationConvergenceMs),
+    ]);
+    applicationAnchors = await discoverApplications(applicationConvergence);
+    const identityVerdicts = await convergeApplications(
+      applicationConvergence,
+      true,
+    );
     // Verify both fixed Worker configurations before trusting the protected
     // dependency-only code. An old process/unknown 503 never grants a retry.
     stage = "initial_readiness";
@@ -934,51 +1020,22 @@ export async function verifyDeployment(
       }
     })();
     stage = "application_convergence";
-    // Start before the first shared metadata request. Both summaries settle
-    // within this same 60s window, before inspecting any instance; the overall
-    // 180s timer still governs all later work. No cached first read is uncounted.
-    if (!applicationConvergence) {
-      applicationConvergence = AbortSignal.any([
-        run.signal,
-        AbortSignal.timeout(bounds.applicationConvergenceMs),
-      ]);
-      apps = await wrangler(
-        ["containers", "list", "--json"],
-        applicationConvergence,
-      );
-      appsObservedAt = new Date().toISOString();
-      initialApplicationSequence = applicationSequence;
-    }
-    const settledApplications = [];
-    for (const [suffix, names] of [
-      ["feedapi", ["api-0", "api-1"]],
-      ["feedexecutor", ["executor-0"]],
-    ]) {
-      // Wrangler 4.129.1 derives the summary from health counters. Provisioning
-      // may be observed during rollout, but is never accepted as successful.
-      const name = `${m.runtimeWorker}-${suffix}`;
-      const knownHealthy = identitySnapshots.get(name);
-      const app = await convergeApplication(
-        knownHealthy?.apps ?? latestApplications ?? apps,
-        knownHealthy?.observedAt ?? latestApplicationsAt ?? appsObservedAt,
-        name,
-        applicationConvergence,
-        false,
-        knownHealthy?.sequence ??
-          (latestApplications
-            ? applicationSequence
-            : initialApplicationSequence),
-      );
-      settledApplications.push({ app, suffix, names });
-    }
+    // Identity and health share seven paired direct reads and the same 60s
+    // deadline, including discovery/startup. Cold idle is not an instance proof.
+    const settled = await convergeApplications(
+      applicationConvergence,
+      false,
+      identityVerdicts,
+    );
+    const settledApplications = settled.map(({ app }, i) => ({
+      app,
+      suffix: i === 0 ? "feedapi" : "feedexecutor",
+      names: i === 0 ? ["api-0", "api-1"] : ["executor-0"],
+    }));
     const applications = [];
     for (const { app, suffix, names } of settledApplications) {
-      const configuration = await wrangler([
-        "containers",
-        "info",
-        app.id,
-        "--json",
-      ]);
+      // Reuse the validated direct detail; do not spend another metadata call.
+      const configuration = applicationDetails.get(app.name);
       const basic =
         configuration.configuration?.instance_type === "basic" ||
         (configuration.configuration?.vcpu === 0.25 &&
@@ -1032,22 +1089,11 @@ export async function verifyDeployment(
       );
     }
     stage = "final_application_identity";
-    const finalApps = await wrangler(["containers", "list", "--json"]);
-    const finalAppsObservedAt = new Date().toISOString();
-    for (const prior of applications) {
-      const verdict = observeApplication(
-        finalApps,
-        prior.name,
-        { id: prior.applicationId, version: prior.version },
-        finalAppsObservedAt,
-        "final",
-        null,
-      );
-      requireThat(
-        verdict.status === "converged",
-        "application changed during readback",
-      );
-    }
+    const finalVerdicts = await readApplications("final", run.signal, true);
+    requireThat(
+      finalVerdicts.every((v) => v.status === "converged"),
+      "application changed during readback",
+    );
     heartbeat.abort();
     await loop;
     if (heartbeatFailure) throw heartbeatFailure;
