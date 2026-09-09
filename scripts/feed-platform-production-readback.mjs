@@ -431,13 +431,18 @@ export async function verifyDeployment(
           (a) => a.name === `${m.runtimeWorker}-${suffix}`,
         ),
         app = matches[0];
+      // Wrangler 4.129.1 containers/list.ts derives this summary from
+      // health.instances: no failed/starting/scheduling/active count => ready.
+      // It is independent of app.instances and is not proof of running instances;
+      // the named instance/version checks below and authenticated readiness remain
+      // mandatory. Never accept degraded/provisioning/unknown summaries.
       requireThat(
         matches.length === 1 &&
           uuid.test(app.id) &&
           app.image === image &&
-          app.state === "active" &&
+          ["active", "ready"].includes(app.state) &&
           scalarVersion(app.version),
-        "immutable application not active",
+        "immutable application identity or health summary differs",
       );
       const configuration = await wrangler([
         "containers",

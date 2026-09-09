@@ -182,6 +182,7 @@ function fixture(mode = "off", options = {}) {
     name: `${m.runtimeWorker}-${suffix}`,
     image,
     state: "active",
+    instances: i === 0 ? 2 : 1,
     version: 7,
     env: { SECRET: "must-not-upload" },
   }));
@@ -190,7 +191,10 @@ function fixture(mode = "off", options = {}) {
     assert.ok(signal instanceof AbortSignal);
     if (options.delay && metadataCalls === 1)
       await sleep(options.delay, undefined, { signal });
-    if (args[1] === "list") return applications;
+    if (args[1] === "list")
+      return options.applications
+        ? options.applications(structuredClone(applications))
+        : applications;
     if (args[1] === "info") {
       const a = applications.find((a) => a.id === args[2]);
       const result = {
@@ -211,7 +215,7 @@ function fixture(mode = "off", options = {}) {
     assert.deepEqual(args.slice(0, 2), ["containers", "instances"]);
     assert.deepEqual(args.slice(3), ["--per-page", "10", "--json"]);
     const names = args[2] === id(3) ? ["api-0", "api-1"] : ["executor-0"];
-    return {
+    const result = {
       instances: names.map((name) => ({
         id: `instance-${name}`,
         name,
@@ -222,6 +226,7 @@ function fixture(mode = "off", options = {}) {
       })),
       result_info: {},
     };
+    return options.instances ? options.instances(result) : result;
   };
   return {
     fetcher,
@@ -357,6 +362,143 @@ test("actual readback whitelists all published identity fields and gates baselin
     () => renderRuntime(m, image, sha, "baseline", { ...r, applications: [] }),
     /missing/,
   );
+});
+test("Wrangler ready application summary still requires all named running instances and readiness", async () => {
+  // Match the observed first production list: API active/2, executor ready/1.
+  // Also cover ready for both applications: app.instances is an independent count.
+  for (const states of [
+    ["active", "ready"],
+    ["ready", "ready"],
+  ]) {
+    const f = fixture("off", {
+      applications: (apps) =>
+        apps.map((app, i) => ({ ...app, state: states[i] })),
+    });
+    const r = await verifyDeployment(m, sha, image, "off", f.options);
+    assert.equal(r.status, "passed");
+    assert.equal(r.keepWarm.metadataReads, 23);
+    assert.deepEqual(
+      r.applications.map((a) =>
+        a.instances.map((i) => [i.name, i.state, i.version]),
+      ),
+      [
+        [
+          ["api-0", "running", 7],
+          ["api-1", "running", 7],
+        ],
+        [["executor-0", "running", 7]],
+      ],
+    );
+    assert.equal(r.readiness.length, 3);
+    assert.ok(f.count().readyCalls >= 2);
+  }
+});
+test("application summaries other than active or ready fail despite healthy named instances", async () => {
+  for (const state of [
+    "degraded",
+    "provisioning",
+    "unknown",
+    "running",
+    "inactive",
+    null,
+    undefined,
+  ]) {
+    const f = fixture("off", {
+      applications: (apps) => apps.map((app) => ({ ...app, state })),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /application identity or health summary/,
+    );
+  }
+});
+test("ready application summary cannot hide immutable application identity drift", async () => {
+  for (const transform of [
+    (apps) => [
+      { ...apps[0], image: image.replace(/b{64}$/, "c".repeat(64)) },
+      apps[1],
+    ],
+    (apps) => [{ ...apps[0], id: "unknown" }, apps[1]],
+    (apps) => [{ ...apps[0], version: null }, apps[1]],
+    (apps) => [{ ...apps[0], name: "foreign-feedapi" }, apps[1]],
+    (apps) => [...apps, apps[0]],
+  ]) {
+    const f = fixture("off", {
+      applications: (apps) =>
+        transform(apps.map((app) => ({ ...app, state: "ready" }))),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /application identity or health summary/,
+    );
+  }
+});
+test("ready application summary cannot replace running instance, version or population proof", async () => {
+  const changes = [
+    // Wrangler uses running, not active; inactive/null is a registered DO without a running instance.
+    ...[
+      "active",
+      "inactive",
+      "provisioning",
+      "failed",
+      "stopping",
+      "stopped",
+      "unhealthy",
+      "unknown",
+    ].map((state) => (result) => ({
+      ...result,
+      instances: result.instances.map((i) => ({
+        ...i,
+        state,
+        ...(state === "inactive" ? { version: null } : {}),
+      })),
+    })),
+    (result) => ({
+      ...result,
+      instances: result.instances.map((i) => ({ ...i, version: 6 })),
+    }),
+    (result) => ({
+      ...result,
+      instances: result.instances.map((i) => ({ ...i, name: "foreign" })),
+    }),
+    (result) => ({
+      ...result,
+      instances: result.instances.map((i) => ({ ...i, id: null })),
+    }),
+    (result) => ({ ...result, instances: result.instances.slice(1) }),
+    (result) => ({
+      ...result,
+      instances: result.instances.map(() => result.instances[0]),
+    }),
+    (result) => ({
+      ...result,
+      result_info: { next_page_token: "another-page" },
+    }),
+  ];
+  for (const instances of changes) {
+    const f = fixture("off", {
+      applications: (apps) => apps.map((app) => ({ ...app, state: "ready" })),
+      instances,
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /instance version\/state differs|unexpected instance population/,
+    );
+  }
+});
+test("ready summary and matching instances cannot hide a final process readiness change", async () => {
+  const f = fixture("baseline", {
+    applications: (apps) => apps.map((app) => ({ ...app, state: "ready" })),
+    ready: (r, call) => {
+      if (call > 1) r.containers[2].mode = "off";
+      return r;
+    },
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "baseline", f.options),
+    /container readiness differs/,
+  );
+  assert.equal(f.count().metadataCalls, 5);
 });
 test("both runtime and adapter active deployments must stay fixed through readback", async () => {
   for (const changedWorker of [m.runtimeWorker, m.adapterWorker]) {
