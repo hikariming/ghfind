@@ -23,6 +23,10 @@ receipts and actual repository protection. The workflow then:
 2. Reads the pinned production D1 databases; creates only the separately named
    production archive bucket and three bounded queues if absent. No production
    database is created, copied, promoted or deleted.
+   Preflights all queue identities, retention and delivery settings. If the
+   optional delivery pause field is absent, initializes explicit `false` and
+   requires a fresh exact readback; an explicit operator pause or settings drift
+   stops the release. Existing queues and messages are preserved.
 3. Applies only the file/hash approvals in `ops/feed-production-schema-release.json`.
    The dev/legacy application migration allowlist remains unchanged.
 4. Detaches only the owned queue consumers, preserving queues and messages.
