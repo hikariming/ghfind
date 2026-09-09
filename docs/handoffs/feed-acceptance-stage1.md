@@ -40,7 +40,7 @@ image E2E and actual migration/restore acceptance remain stage 4.
 | Required checks and environments | Administrator must apply and read back the [guarded configuration](../feed-github-protection.md). No E2E or PR bypass exempts this gate. |
 | Dedicated credentials | Staging CF, service, OAuth and provider credentials must be installed in the dedicated environment. No values belong in the repository or evidence. |
 | Two identities and approved repositories | Names/IDs and up to four repository keys must be supplied; holders complete their first dedicated OAuth login. |
-| Isolated resources | Existing core/feed D1, archive and three queues have audited IDs. Business schema, consumers and the new Web cache still need Actions provisioning/deployment/readback. |
+| Isolated resources | Existing core/feed D1, archive and three queues have audited IDs. The empty private Web cache was created and read back at 11:49 Hong Kong time. Business schema, consumers and Workers still need Actions deployment/readback. |
 | Full integrated local E2E | Must rerun at the final clean branch HEAD before every push, including after any subsequent fix/rebase. Intermediate worktree passes cannot authorize another SHA. |
 | Real CF E2E | Not run. No Container, Web Worker or runtime has been deployed by this delivery yet. No merge until it passes. |
 

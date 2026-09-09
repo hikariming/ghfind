@@ -57,3 +57,17 @@ Do not weaken the release gate to work around this prerequisite.
 No Worker, Container, database schema, queue consumer or production route was
 deployed by this prerequisite verification. Historical partial Docker and Linux
 capacity reports retain their original scope and source identities.
+
+## Isolated Web cache creation and readback
+
+At 11:49 Hong Kong time the pinned-account Wrangler read returned R2 code
+`10006` for `ghfind-feed-staging-web-cache`: the bucket did not exist. The
+approved stage 1 resource was then created with `--update-config=false`, APAC
+location hint and Standard storage class. Remote creation time is
+`2026-09-09T03:49:45.259Z`. Subsequent reads confirmed the exact name, APAC,
+Standard, zero objects/bytes and disabled public `r2.dev` access.
+
+This is an empty staging resource creation, not a Worker deployment or business
+acceptance. The existing five-resource provisioning receipt/hash is unchanged;
+the Web cache has its own [readback record](../evidence/feed-stage1-web-cache.json).
+No schema, queue consumer, production binding or traffic flag changed.
