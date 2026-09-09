@@ -132,6 +132,9 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Pause Go writes for compatible runtime update"
           node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-update-paused.json"
           sleep 35
+      - name: Detach only the owned consumers before installing off-mode runtime
+        run: |
+          node scripts/feed-platform-production.mjs disable-consumers ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/consumer-pause.json"
       - name: Deploy private adapter and off-mode candidate by immutable digest
         run: |
           set -euo pipefail

@@ -25,7 +25,8 @@ receipts and actual repository protection. The workflow then:
    database is created, copied, promoted or deleted.
 3. Applies only the file/hash approvals in `ops/feed-production-schema-release.json`.
    The dev/legacy application migration allowlist remains unchanged.
-4. Installs the private adapter and off-mode runtime. Authenticated readback checks
+4. Detaches only the owned queue consumers, preserving queues and messages.
+   Unknown ownership fails closed. Installs the private adapter and off-mode runtime. Authenticated readback checks
    both actual Worker versions, bindings, each actual application image, basic
    sizes, instance limits (API 2 / executor 1) and all three Go readiness identities.
 5. Publishes a 100% Go-only **paused** Web and enables source outbox. New assessment
