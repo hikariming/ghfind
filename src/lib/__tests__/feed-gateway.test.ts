@@ -16,6 +16,14 @@ function enable() {
   vi.stubEnv("FEED_API_ORIGIN", "https://feed.example.test");
 }
 
+function rollout(mode = "internal", points = "0") {
+  enable();
+  vi.stubEnv("FEED_ROLLOUT_MODE", mode);
+  vi.stubEnv("FEED_ROLLOUT_GITHUB_IDS", String(viewer.githubId));
+  vi.stubEnv("FEED_ROLLOUT_SEED", "fixture-stable-seed-v1");
+  vi.stubEnv("FEED_ROLLOUT_BASIS_POINTS", points);
+}
+
 describe("Feed gateway boundary", () => {
   it("keeps legacy enabled by default without reading the body or making a call", async () => {
     vi.stubEnv("FEED_BACKEND", "legacy");
@@ -88,6 +96,63 @@ describe("Feed gateway boundary", () => {
     expect(response?.status).toBe(200);
     expect(service.fetch).toHaveBeenCalledOnce();
     expect(external).not.toHaveBeenCalled();
+  });
+
+  it("admits the internal OAuth viewer and returns route proof only to that account", async () => {
+    rollout();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async () => new Response('{"items":[]}', { headers: { "content-type": "application/json", "x-feed-gateway-backend": "forged-upstream", "x-feed-runtime-sha": "unverified" } })) };
+    platform.env.FEED_RUNTIME = service;
+    const response = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), viewer);
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get("x-feed-gateway-backend")).toBe("go");
+    expect(response?.headers.get("x-feed-gateway-rollout")).toBe("internal");
+    expect(response?.headers.get("x-feed-runtime-sha")).toBeNull();
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+
+    rollout("all", "10000");
+    const other = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), { ...viewer, githubId: 456 });
+    expect(other?.status).toBe(200);
+    expect(other?.headers.get("x-feed-gateway-backend")).toBeNull();
+    expect(other?.headers.get("x-feed-gateway-rollout")).toBeNull();
+  });
+
+  it.each(["internal", "paused"])("does not read a rejected user's body, trust client overrides or invoke either writer in %s mode", async mode => {
+    rollout(mode);
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const service = { fetch: vi.fn() }; platform.env.FEED_RUNTIME = service;
+    const request = new Request("https://ghfind.test/api/feed/events?backend=go&githubId=123&rollout=all", {
+      method: "POST", body: "{}", headers: { "x-github-id": "123", "x-feed-gateway": "forged", "x-feed-backend": "go", "x-feed-rollout": "all" },
+    });
+    const response = await forwardFeedRequest(request, { ...viewer, githubId: 456 });
+    expect(response?.status).toBe(503);
+    expect(response?.headers.get("cache-control")).toBe("no-store");
+    expect(request.bodyUsed).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(service.fetch).not.toHaveBeenCalled();
+  });
+
+  it("never falls back after a selected Go mutation fails", async () => {
+    rollout();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async () => { throw new Error("connection lost after upstream commit"); }) };
+    platform.env.FEED_RUNTIME = service;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const request = new Request("https://ghfind.test/api/feed/preferences", { method: "PUT", body: "{}" });
+    expect((await forwardFeedRequest(request, viewer))?.status).toBe(503);
+    expect(request.bodyUsed).toBe(true);
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+  });
+
+  it("rejects a backend-only rollback while writer-v2 rollout configuration remains", async () => {
+    rollout();
+    vi.stubEnv("FEED_BACKEND", "legacy");
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const request = new Request("https://ghfind.test/api/feed/profile", { method: "DELETE" });
+    expect((await forwardFeedRequest(request, viewer))?.status).toBe(503);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it.each([null, {}, { fetch: "invalid" }, { fetch: async () => { throw new Error("service unavailable"); } }])(

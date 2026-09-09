@@ -1,6 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
+import { feedRoutingDecision } from "./feed-rollout";
 
 export const FEED_BODY_LIMIT = 128 * 1024;
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
@@ -100,9 +101,9 @@ function feedTransport(): typeof fetch {
 // Only authenticated route handlers may call this function. null deliberately
 // leaves the existing implementation in control while the rollout is disabled.
 export async function forwardFeedRequest(request: Request, viewer: FeedViewer): Promise<NextResponse | null> {
-  const backend = process.env.FEED_BACKEND ?? "legacy";
-  if (backend === "legacy") return null;
-  if (backend !== "go") return unavailable();
+  const routing = feedRoutingDecision(viewer.githubId);
+  if (routing.backend === "legacy") return null;
+  if (routing.backend !== "go") return unavailable();
 
   const secret = process.env.FEED_GATEWAY_SECRET ?? "";
   const configuredOrigin = process.env.FEED_API_ORIGIN;
@@ -146,6 +147,13 @@ export async function forwardFeedRequest(request: Request, viewer: FeedViewer): 
     // Parsing ensures an ingress error page cannot masquerade as a Feed result.
     const result: unknown = JSON.parse(new TextDecoder().decode(bytes));
     const responseHeaders = new Headers(NO_STORE);
+    // Only configured internal accounts, already authenticated by the route,
+    // receive routing diagnostics. This proves which transport was invoked;
+    // it does not pretend a configured SHA is the Container's running build.
+    if (routing.internal) {
+      responseHeaders.set("X-Feed-Gateway-Backend", "go");
+      responseHeaders.set("X-Feed-Gateway-Rollout", routing.mode);
+    }
     const retryAfter = response.headers.get("retry-after");
     if (retryAfter && /^\d{1,4}$/.test(retryAfter)) responseHeaders.set("Retry-After", retryAfter);
     return NextResponse.json(result, { status: response.status, headers: responseHeaders });
