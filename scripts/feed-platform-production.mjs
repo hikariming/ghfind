@@ -276,6 +276,10 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
     "incomplete actual deployment readback",
   );
   requireThat(
+    r.asyncTriggers?.verified === true && r.asyncTriggers.mode === mode,
+    "actual queue consumers and schedules must be verified",
+  );
+  requireThat(
     r.applications?.length === 2 && r.readiness?.length === 3,
     "missing actual instance/readiness evidence",
   );
