@@ -54,7 +54,7 @@ test('default discovery and plan use GET only; missing environment requires a co
   assert.equal(data.writes.length, 0);
 });
 
-test('ruleset plan preserves bypass and every review requirement while forbidding squash and adding actual PR checks', async () => {
+test('ruleset plan preserves all merge options, bypass and review requirements while adding actual PR checks', async () => {
   const { data, request } = server();
   const plan = buildPlan(await captureState(request), workflow);
   const update = plan.operations.find(operation => operation.kind === 'ruleset').body;
@@ -62,8 +62,8 @@ test('ruleset plan preserves bypass and every review requirement while forbiddin
   assert.deepEqual(update.conditions, data.ruleset.conditions);
   assert.deepEqual(update.rules.slice(0, 2), data.ruleset.rules.slice(0, 2));
   const before = data.ruleset.rules[2].parameters, after = update.rules[2].parameters;
-  assert.deepEqual({ ...after, allowed_merge_methods: before.allowed_merge_methods }, before);
-  assert.deepEqual(after.allowed_merge_methods, ['merge', 'rebase']);
+  assert.deepEqual(after, before);
+  assert.deepEqual(after.allowed_merge_methods, ['merge', 'squash', 'rebase']);
   const statuses = update.rules.find(rule => rule.type === 'required_status_checks').parameters;
   assert.equal(statuses.strict_required_status_checks_policy, true);
   assert.deepEqual(statuses.required_status_checks.map(check => check.context), ['Application checks', 'Feed storage contracts', 'Feed runtime builds', 'Complete local Feed E2E']);
@@ -196,8 +196,37 @@ test('verify-existing accepts enforced public policy using read-only non-admin a
   assert.equal(report.status, 'passed');
   assert.equal(report.format, 'ghfind-github-protection-verification-v1');
   assert.equal(report.requiredChecks.length, 4);
+  assert.deepEqual(report.mergeMethods, ['merge', 'squash', 'rebase']);
   assert.equal(data.writes.length, 0);
   assert.equal(JSON.stringify(report).includes('bypass_actors'), false);
+});
+
+test('rebase delivery preserves either existing merge policy and requires no settings write once configured', async () => {
+  for (const methods of [['rebase'], ['merge', 'squash', 'rebase']]) {
+    const { data, request } = server();
+    data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.allowed_merge_methods = methods;
+    const plan = buildPlan(await captureState(request), workflow);
+    await applyPlan(plan, plan.currentHash, { request, workflow });
+    const count = data.writes.length;
+    const next = buildPlan(await captureState(request), workflow);
+    assert.deepEqual(next.operations, []);
+    await applyPlan(next, next.currentHash, { request, workflow });
+    assert.equal(data.writes.length, count);
+    assert.deepEqual((await verifyExisting(request)).mergeMethods, methods);
+  }
+});
+
+test('planning and readback reject unavailable rebase without silently changing merge options', async () => {
+  for (const methods of [undefined, [], ['squash'], ['merge', 'squash']]) {
+    const { data, request } = await configuredServer();
+    const parameters = data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters;
+    if (methods === undefined) delete parameters.allowed_merge_methods;
+    else parameters.allowed_merge_methods = methods;
+    const state = await captureState(request);
+    assert.throws(() => buildPlan(state, workflow), /requested PR rebase merge must be allowed/);
+    assert.throws(() => verifyExistingState(state), error => error.code === 'PROTECTION_NOT_ENFORCED' && /requested PR rebase merge/.test(error.message));
+    assert.equal(data.writes.length, 0);
+  }
 });
 
 test('verify-existing rejects missing or auto-created empty environments and every missing required check', async () => {
@@ -215,11 +244,10 @@ test('verify-existing rejects missing or auto-created empty environments and eve
   }
 });
 
-test('verify-existing rejects squash, inactive rules, weakened reviews, broad branches and alternative operations approvers', async () => {
+test('verify-existing rejects inactive rules, weakened reviews, broad branches and alternative operations approvers', async () => {
   const { request } = await configuredServer(); const snapshot = await captureState(request);
   for (const mutate of [
     state => { state.ruleset.enforcement = 'disabled'; },
-    state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.allowed_merge_methods.push('squash'); },
     state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.require_last_push_approval = false; },
     state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.strict_required_status_checks_policy = false; },
     state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks[0].integration_id = 999; },
