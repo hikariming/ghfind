@@ -55,6 +55,7 @@ test("Web config has only isolated D1/cache/runtime and no inherited production 
   const m = fixture(), sha = "a".repeat(40), c = renderWeb(m, sha);
   assert.deepEqual(c.d1_databases.map(d => d.database_id), [m.coreDatabase.id, m.feedDatabase.id]);
   assert.deepEqual(c.services, [{ binding: "FEED_RUNTIME", service: m.runtimeWorker }]);
+  assert.equal(c.vars.FEED_SOURCE_OUTBOX_ENABLED, "true");
   assert.equal(c.vars.FEED_BACKEND, "go"); assert.equal(c.vars.GHFIND_DEPLOY_ENV, "feed-staging");
   assert.equal(c.vars.FEED_STAGING_ALLOWED_GITHUB_IDS, "10001,10002");
   assert.equal(c.vars.PROJECT_ANALYSIS_RUNTIME_ALLOWLIST, "");
@@ -188,6 +189,12 @@ test("response and built artifact inventories are bounded and content-sensitive"
     writeFileSync(join(dir, "worker.js"), "export default {fetch(){}}");
     assert.notEqual(artifactInventory(dir).sha256, before.sha256);
     symlinkSync(join(dir, "worker.js"), join(dir, "assets/linked.js"));
+    assert.throws(() => artifactInventory(dir), /symlink/);
+    rmSync(join(dir, "assets/linked.js"));
+    symlinkSync("worker.js", join(dir, "internal.js"));
+    const linked = artifactInventory(dir);
+    assert.equal(linked.files.find(f => f.path === "internal.js").symlink, "worker.js");
+    symlinkSync("../outside", join(dir, "outside.js"));
     assert.throws(() => artifactInventory(dir), /symlink/);
   } finally { rmSync(dir, { recursive: true }); }
 });

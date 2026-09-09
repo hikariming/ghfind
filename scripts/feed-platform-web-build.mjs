@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Real Next/OpenNext compilation with a minimal public environment. No deploy.
-import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync, openSync, readSync, closeSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync, openSync, readSync, closeSync, readlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve, relative } from "node:path";
@@ -12,7 +12,17 @@ export function artifactInventory(path) {
   function visit(directory) {
     for (const name of readdirSync(directory).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))) {
       const file = resolve(directory, name), stat = lstatSync(file);
-      if (stat.isSymbolicLink()) throw new Error("build artifact symlink rejected");
+      if (stat.isSymbolicLink()) {
+        // OpenNext retains pnpm links in intermediate bundle trees, including
+        // unused dangling links. Hash link text, never follow it. Wrangler's
+        // dry-run separately validates the reachable deployed module graph.
+        const link = readlinkSync(file), target = resolve(directory, link);
+        if (relative(path, file).startsWith("assets/") || link.startsWith("/") ||
+            !target.startsWith(resolve(path) + "/") || entries.length >= 20000)
+          throw new Error("unsafe build artifact symlink rejected");
+        entries.push({ path: relative(path, file), symlink: link });
+        continue;
+      }
       if (stat.isDirectory()) { visit(file); continue; }
       if (!stat.isFile() || entries.length >= 20000 || (bytes += stat.size) > 1024 * 1024 * 1024) throw new Error("build artifact inventory exceeds limits");
       const hash = createHash("sha256"), fd = openSync(file, "r"), buffer = Buffer.alloc(1024 * 1024);
@@ -42,12 +52,17 @@ export function compileWeb({ manifest, sha, output, root = repository, runner = 
   });
   if (run.error || run.status !== 0) throw new Error("Next/OpenNext staging build failed");
   assertNoLocalEnvironmentFiles(root);
+  const bundle = runner(process.execPath, [resolve(root, "platform/runtime/node_modules/wrangler/bin/wrangler.js"),
+    "deploy", "--dry-run", "--config", configuredPath], {
+    cwd: root, env: safeBuildEnvironment(manifest, sha), timeout: 120000, stdio: "inherit",
+  });
+  if (bundle.error || bundle.status !== 0) throw new Error("Wrangler staging bundle validation failed");
   const inventory = artifactInventory(resolve(root, ".open-next"));
   const result = { format: "ghfind-feed-web-build-v1", status: "passed", sourceSha: sha, sourceTree,
     startedAt, finishedAt: new Date().toISOString(), origin: manifest.web.origin,
     compiler: { next: JSON.parse(readFileSync(resolve(root, "node_modules/next/package.json"))).version,
       openNext: JSON.parse(readFileSync(resolve(root, "node_modules/@opennextjs/cloudflare/package.json"))).version },
-    publicBuildEnvironment: safeBuildEnvironment(manifest, sha, {}), runtimeSecretsPresentDuringBuild: false,
+    publicBuildEnvironment: safeBuildEnvironment(manifest, sha, {}), runtimeSecretsPresentDuringBuild: false, wranglerDryRunPassed: true,
     inventory, configSHA256: createHash("sha256").update(JSON.stringify(config)).digest("hex"),
     note: "Build receipt only; deployment and real OAuth journey are separate gates." };
   writeFileSync(out, JSON.stringify(result, null, 2) + "\n", { flag: "wx" });
