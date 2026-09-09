@@ -246,6 +246,7 @@ async function harness(t, settings = {}) {
         init.method === "GET"
       ) {
         h.polls++;
+        h.clock += settings.statusDurationMs ?? 0;
         const status =
           settings.statuses?.[
             Math.min(h.polls - 1, settings.statuses.length - 1)
@@ -543,4 +544,54 @@ test("receipt SHA and stable identity cannot be altered to repurpose a prior int
     /invalid_assessment_receipt/,
   );
   assert.equal(h.posts, 1);
+});
+
+test("public finalization gets 60s while management reads keep 15s", async (t) => {
+  const durations = [];
+  const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => {
+    durations.push(ms);
+    return originalTimeout(ms);
+  });
+  const h = await harness(t, { statusDurationMs: 30000 });
+  await startAssessment(SHA, h.receipt, h.options);
+  await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(durations.length, h.calls.length);
+  for (let i = 0; i < h.calls.length; i++) {
+    assert.equal(
+      durations[i],
+      h.calls[i].url.startsWith(`${ORIGIN}/api/project-analyses`)
+        ? 60000
+        : 15000,
+    );
+  }
+  assert.equal(h.posts, 1);
+  assert.equal(h.polls, 1);
+  assert.equal(h.clock - 100000, 30000);
+});
+
+test("last public GET cannot extend the persisted 15-minute budget", async (t) => {
+  const durations = [];
+  const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => {
+    durations.push(ms);
+    return originalTimeout(ms);
+  });
+  const h = await harness(t, { rows: [run()], statusDurationMs: 30000 });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  // Simulate a recovered receipt with only 10s left in its durable wait budget.
+  await writeFile(
+    h.receipt,
+    JSON.stringify({
+      ...r,
+      waitStartedAt: h.clock - LIMITS.publicWaitMs + 10000,
+    }),
+  );
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /assessment_deadline_exceeded/,
+  );
+  assert.equal(durations.at(-1), 10000);
+  assert.equal(h.polls, 1);
+  assert.equal(h.posts, 0);
 });
