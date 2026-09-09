@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyPlan, buildPlan, captureState, environmentTargets, hash, owner, repository, rulesetId, validatePRChecks } from './feed-github-protection.mjs';
+import { applyPlan, buildPlan, captureState, environmentTargets, hash, owner, repository, rulesetId, validatePRChecks, verifyExisting, verifyExistingState } from './feed-github-protection.mjs';
 
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -177,4 +177,79 @@ test('unrelated protection drift after a write stops the sequence instead of bei
   };
   await assert.rejects(applyPlan(plan, plan.currentHash, { request: driftingRequest, workflow }), error => error.code === 'STALE_PROTECTION_PLAN' && error.message.includes('Unrelated protection drift'));
   assert.equal(data.writes.length, 1);
+});
+
+
+async function configuredServer() {
+  const fixture = server();
+  const plan = buildPlan(await captureState(fixture.request), workflow);
+  await applyPlan(plan, plan.currentHash, { request: fixture.request, workflow });
+  fixture.data.writes = [];
+  fixture.data.admin = false;
+  delete fixture.data.ruleset.bypass_actors;
+  return fixture;
+}
+
+test('verify-existing accepts enforced public policy using read-only non-admin access with redacted bypass actors', async () => {
+  const { data, request } = await configuredServer();
+  const report = await verifyExisting(request);
+  assert.equal(report.status, 'passed');
+  assert.equal(report.format, 'ghfind-github-protection-verification-v1');
+  assert.equal(report.requiredChecks.length, 4);
+  assert.equal(data.writes.length, 0);
+  assert.equal(JSON.stringify(report).includes('bypass_actors'), false);
+});
+
+test('verify-existing rejects missing or auto-created empty environments and every missing required check', async () => {
+  const { request } = await configuredServer();
+  const snapshot = await captureState(request);
+  for (const name of Object.keys(environmentTargets)) {
+    for (const value of [null, { name, can_admins_bypass: true, protection_rules: [], deployment_branch_policy: null, branch_policies: [] }]) {
+      const state = clone(snapshot); state.environments[name] = value;
+      assert.throws(() => verifyExistingState(state), error => error.code === 'PROTECTION_NOT_ENFORCED');
+    }
+  }
+  for (let index = 0; index < 4; index++) {
+    const state = clone(snapshot); state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks.splice(index, 1);
+    assert.throws(() => verifyExistingState(state), /Missing strict GitHub Actions required check/);
+  }
+});
+
+test('verify-existing rejects squash, inactive rules, weakened reviews, broad branches and alternative operations approvers', async () => {
+  const { request } = await configuredServer(); const snapshot = await captureState(request);
+  for (const mutate of [
+    state => { state.ruleset.enforcement = 'disabled'; },
+    state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.allowed_merge_methods.push('squash'); },
+    state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.require_last_push_approval = false; },
+    state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.strict_required_status_checks_policy = false; },
+    state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks[0].integration_id = 999; },
+    state => { state.environments['Feed staging'].branch_policies.push({ name: '*', type: 'branch' }); },
+    state => { state.environments.Production.branch_policies[0].type = 'tag'; },
+    state => { state.environments['Feed staging operations'].protection_rules.find(rule => rule.type === 'required_reviewers').reviewers.push({ type: 'User', id: 99 }); },
+  ]) { const state = clone(snapshot); mutate(state); assert.throws(() => verifyExistingState(state), error => error.code === 'PROTECTION_NOT_ENFORCED'); }
+});
+
+test('verify-existing preserves additional stricter rules and Production approval without needing administrator access', async () => {
+  const { data, request } = await configuredServer();
+  data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.required_approving_review_count = 2;
+  data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.required_review_thread_resolution = true;
+  data.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks.push({ context: 'Security audit', integration_id: 99 });
+  data.environments.Production.can_admins_bypass = false;
+  data.environments.Production.protection_rules.push({ type: 'wait_timer', wait_timer: 30 }, { type: 'required_reviewers', prevent_self_review: true, reviewers: [{ type: 'User', reviewer: { id: 88 } }] });
+  const before = clone(data.environments.Production);
+  const result = await verifyExisting(request);
+  assert.equal(result.status, 'passed');
+  assert.equal(result.environments.Production.waitMinutes, 30);
+  assert.deepEqual(data.environments.Production, before);
+  assert.equal(data.writes.length, 0);
+});
+
+test('verify-existing fails closed on an environment read error without treating 403 as absent or creating anything', async () => {
+  const { data, request } = await configuredServer();
+  const forbidden = async (method, path, body) => {
+    if (path.includes('/environments?')) { const error = new Error('403 Forbidden'); error.code = 'GITHUB_READ_FAILED'; throw error; }
+    return request(method, path, body);
+  };
+  await assert.rejects(verifyExisting(forbidden), error => error.code === 'GITHUB_READ_FAILED');
+  assert.equal(data.writes.length, 0);
 });

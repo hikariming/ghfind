@@ -134,6 +134,41 @@ export function buildPlan(state, workflow) {
   return { format: 'ghfind-github-protection-plan-v1', repository, rulesetId, currentHash, current: state, requiredPRChecks: checks, administratorRequired: true, readyToApply: blockers.length === 0, blockers, operations, notes };
 }
 
+/** Read-only deploy gate: public policy must already exist. Admin/bypass
+ * visibility is deliberately irrelevant; this never creates environments. */
+export function verifyExistingState(state, checkedAt = new Date().toISOString()) {
+  assert(state.format === 'ghfind-github-protection-state-v1' && state.repository === repository, 'Unexpected existing protection state');
+  const rule = state.ruleset;
+  assert(rule.name === 'Protect main' && rule.target === 'branch' && rule.enforcement === 'active', 'Protect main is not active', 'PROTECTION_NOT_ENFORCED');
+  assert(rule.conditions?.ref_name?.exclude?.length === 0 && rule.conditions.ref_name.include.some(ref => ref === '~DEFAULT_BRANCH' || ref === 'refs/heads/main'), 'Protect main does not unambiguously cover main', 'PROTECTION_NOT_ENFORCED');
+  for (const type of ['deletion', 'non_fast_forward']) assert(rule.rules.some(item => item.type === type), `${type} protection missing`, 'PROTECTION_NOT_ENFORCED');
+  const reviews = rule.rules.filter(item => item.type === 'pull_request');
+  assert(reviews.length === 1, 'Mandatory PR review rule missing or ambiguous', 'PROTECTION_NOT_ENFORCED');
+  const review = reviews[0].parameters;
+  assert(Number.isSafeInteger(review.required_approving_review_count) && review.required_approving_review_count >= 1, 'At least one independent PR approval is required', 'PROTECTION_NOT_ENFORCED');
+  for (const field of ['dismiss_stale_reviews_on_push', 'require_code_owner_review', 'require_last_push_approval', 'require_extra_approval_for_unattributed_changes']) assert(review[field] === true, `Existing PR protection ${field} was weakened`, 'PROTECTION_NOT_ENFORCED');
+  assert(Array.isArray(review.allowed_merge_methods) && review.allowed_merge_methods.length > 0 && review.allowed_merge_methods.every(method => ['merge', 'rebase'].includes(method)), 'PR merge methods must exclude squash', 'PROTECTION_NOT_ENFORCED');
+  const statuses = rule.rules.filter(item => item.type === 'required_status_checks');
+  const requiredChecks = Object.values(requiredJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
+  for (const expected of requiredChecks) assert(statuses.some(status => status.parameters?.strict_required_status_checks_policy === true && status.parameters.required_status_checks?.some(check => check.context === expected.context && check.integration_id === expected.integration_id)), `Missing strict GitHub Actions required check ${expected.context}`, 'PROTECTION_NOT_ENFORCED');
+  const environments = {};
+  for (const [name, branches] of Object.entries(environmentTargets)) {
+    const actual = state.environments[name];
+    assert(actual !== null && actual !== undefined, `${name} does not exist; automatic empty environment creation is forbidden`, 'PROTECTION_NOT_ENFORCED');
+    assert(equal(actual.deployment_branch_policy, { protected_branches: false, custom_branch_policies: true }), `${name} has no exact custom branch restriction`, 'PROTECTION_NOT_ENFORCED');
+    const expectedPolicies = branches.map(branch => ({ name: branch, type: 'branch' })).sort((a, b) => a.name.localeCompare(b.name));
+    assert(equal(actual.branch_policies, expectedPolicies), `${name} branch/tag policy differs from its approved allowlist`, 'PROTECTION_NOT_ENFORCED');
+    const reviewers = actual.protection_rules.find(item => item.type === 'required_reviewers');
+    if (name === 'Feed staging operations') assert(equal(reviewers?.reviewers, [{ type: 'User', id: owner.id }]), 'Feed staging operations must require owner approval; reviewer alternatives use OR semantics', 'PROTECTION_NOT_ENFORCED');
+    environments[name] = { branchPolicies: actual.branch_policies, reviewers: reviewers?.reviewers ?? [], preventSelfReview: reviewers?.prevent_self_review ?? false, waitMinutes: actual.protection_rules.find(item => item.type === 'wait_timer')?.wait_timer ?? 0, additionalProtectionTypes: actual.protection_rules.filter(item => !['required_reviewers', 'wait_timer', 'branch_policy'].includes(item.type)).map(item => item.type) };
+  }
+  return { format: 'ghfind-github-protection-verification-v1', repository, rulesetId, checkedAt, status: 'passed', stateHash: hash(state), requiredChecks, mergeMethods: review.allowed_merge_methods, environments };
+}
+
+export async function verifyExisting(request = githubRequest) {
+  return verifyExistingState(await captureState(request));
+}
+
 function verifyOperation(operation, state) {
   if (operation.kind === 'ruleset') assert(equal(state.ruleset, operation.expected), 'Ruleset readback differs; stop without removing protection');
   else if (operation.kind === 'branch-policy') assert(state.environments[operation.name]?.branch_policies.some(policy => equal(policy, operation.expected)), `${operation.name} branch policy readback missing`);
@@ -213,12 +248,19 @@ async function main(args) {
   const options = {};
   for (let index = 0; index < args.length; index++) {
     const key = args[index];
-    assert(['--apply', '--plan', '--expected-current-hash', '--output'].includes(key) && !Object.hasOwn(options, key), 'Usage: feed-github-protection.mjs [--output plan.json] | --apply --plan plan.json --expected-current-hash <sha256> [--output result.json]');
+    assert(['--apply', '--plan', '--expected-current-hash', '--output', '--verify-existing'].includes(key) && !Object.hasOwn(options, key), 'Usage: feed-github-protection.mjs [--output plan.json] | --verify-existing <output.json> | --apply --plan plan.json --expected-current-hash <sha256> [--output result.json]');
     options[key] = key === '--apply' ? true : args[++index];
     assert(options[key] !== undefined && !String(options[key]).startsWith('--'), `Missing ${key} value`);
   }
   assert(options['--apply'] || (!options['--plan'] && !options['--expected-current-hash']), '--plan and --expected-current-hash are only accepted with --apply');
   assert(!options['--output'] || !existsSync(options['--output']), 'Output file already exists; choose a fresh path before any operation');
+  assert(!options['--verify-existing'] || Object.keys(options).length === 1, '--verify-existing cannot be combined with write or plan options');
+  if (options['--verify-existing']) {
+    assert(!existsSync(options['--verify-existing']), 'Verification output already exists; choose a fresh path');
+    const result = await verifyExisting();
+    writeFileSync(options['--verify-existing'], `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+    return;
+  }
   const result = options['--apply'] ? await applyPlan(JSON.parse(readFileSync(options['--plan'], 'utf8')), options['--expected-current-hash']) : buildPlan(await captureState());
   const output = `${JSON.stringify(result, null, 2)}\n`;
   if (options['--output']) writeFileSync(options['--output'], output, { mode: 0o600, flag: 'wx' });
