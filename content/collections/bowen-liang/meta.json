@@ -1,0 +1,28 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "梁博文:从广发证券大数据架构师到 Apache Kyuubi PMC 的开源进阶之路",
+    "en": "Bowen Liang: from big-data architect at GF Securities to Apache Kyuubi PMC and Dify plugin craftsman",
+    "ja": "梁博文:広発証券のビッグデータアーキテクトから Apache Kyuubi PMC、Dify プラグイン職人へ",
+    "ko": "梁博文: 광파증권 빅데이터 아키텍트에서 Apache Kyuubi PMC, Dify 플러그인 장인으로"
+  },
+  "intro": {
+    "zh": "曼彻斯特大学计算机科班出身,在广发证券落地承载上万个任务的大数据平台,2023 年一年内从 Apache Kyuubi Committer 晋升 PMC;随后投身 Dify 与 DeepSeek Harness 生态,写下 markdown-exporter、dsh-context 等热门插件——梁博文(bowenliang123)的轨迹,是金融数据基建与生成式 AI 两波浪潮交汇的样本。",
+    "en": "A Manchester-trained computer scientist who built GF Securities' big-data platform running 10,000+ jobs, went from Apache Kyuubi committer to PMC member within a single year, then turned to the Dify and DeepSeek Harness ecosystems with hit plugins like markdown-exporter and dsh-context — the trajectory of bowenliang123 sits at the crossroads of financial data infrastructure and generative AI.",
+    "ja": "マンチェスター大学で計算機科学を学び、広発証券で1万件超のタスクを支えるビッグデータプラットフォームを構築。2023年には Apache Kyuubi のコミッターから PMC メンバーへと一年で昇進し、その後 Dify と DeepSeek Harness のエコシステムで markdown-exporter や dsh-context などの人気プラグインを開発——梁博文(bowenliang123)の軌跡は、金融データ基盤と生成AIという二つの波の交差点にあります。",
+    "ko": "맨체스터 대학교에서 컴퓨터 과학을 전공하고, 광파증권에서 1만 개가 넘는 작업을 처리하는 빅데이터 플랫폼을 구축했으며, 2023년 한 해 동안 Apache Kyuubi 커미터에서 PMC 멤버로 승격했습니다. 이후 Dify와 DeepSeek Harness 생태계로 옮겨 markdown-exporter, dsh-context 같은 인기 플러그인을 만들었습니다 — bowenliang123의 궤적은 금융 데이터 인프라와 생성형 AI라는 두 물결이 교차하는 지점에 있습니다."
+  },
+  "publishedAt": "2026-09-09",
+  "tags": ["developer-story", "apache-kyuubi", "dify", "open-source"],
+  "subject": {
+    "kind": "developer",
+    "id": "bowenliang123",
+    "nickname": "梁博文 (Bowen Liang)",
+    "headline": {
+      "zh": "AIA Digital+ · Apache Kyuubi PMC 成员 · Dify 核心贡献者",
+      "en": "AIA Digital+ · Apache Kyuubi PMC member · Dify core contributor",
+      "ja": "AIA Digital+ · Apache Kyuubi PMCメンバー · Difyコアコントリビューター",
+      "ko": "AIA Digital+ · Apache Kyuubi PMC 멤버 · Dify 핵심 기여자"
+    }
+  }
+}

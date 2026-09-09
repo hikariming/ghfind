@@ -1,0 +1,41 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "DeepSeek Harness 与 Apache Maka:Agent 时代的“开放式底座”与“记录式工作台”",
+    "en": "DeepSeek Harness and Apache Maka: the open foundation and the record-keeping workbench of the agent era",
+    "ja": "DeepSeek Harness と Apache Maka:エージェント時代の「オープンな土台」と「記録するワークベンチ」",
+    "ko": "DeepSeek Harness와 Apache Maka: 에이전트 시대의 '열린 기반'과 '기록하는 워크벤치'"
+  },
+  "intro": {
+    "zh": "2026 年 8 月 13 日,DeepSeek 开源了“一切皆插件”的 Agent 运行时 Harness,同一天 Apache 孵化器接纳了首个以 Agent Harness 为核心定位的项目 Maka。一个以插件生态制胜、开源不到一个月斩获 21 万星,一个以“日志即运行时”立身、在 Terminal-Bench 2.1 的九 Harness 横评中以 77.5% 对 73.0% 领先前者——本篇对比这两条截然不同的 Agent 基础设施路线。",
+    "en": "On August 13, 2026, DeepSeek open-sourced its \"Everything is a Plugin\" agent runtime Harness — the same day the Apache Incubator accepted Maka, the first project positioned squarely as an agent harness. One wins through its plugin ecosystem, crossing 210k stars in under a month; the other stands on \"The Log is the Runtime\" and beat DeepSeek Harness 77.5% to 73.0% in a nine-harness Terminal-Bench 2.1 shootout. This piece compares two sharply different paths for agent infrastructure.",
+    "ja": "2026年8月13日、DeepSeek は「一切皆插件」を掲げるエージェントランタイム Harness をオープンソース化し、同じ日に Apache インキュベーターは初の Agent Harness プロジェクト Maka を受け入れました。片方はプラグインエコシステムで1か月足らずで21万スターを獲得、もう片方は「ログこそランタイム」の哲学で Terminal-Bench 2.1 の9 Harness 横評で 77.5% 対 73.0% と先着——本稿では、エージェントインフラの二つの異なる路線を比較します。",
+    "ko": "2026년 8월 13일, DeepSeek는 '모든 것이 플러그인'을 내건 에이전트 런타임 Harness를 오픈소스로 공개했고, 같은 날 Apache 인큐베이터는 최초의 Agent Harness 프로젝트 Maka를 받아들였습니다. 하나는 플러그인 생태계로 한 달도 안 돼 21만 스타를 달성했고, 다른 하나는 '로그가 곧 런타임'이라는 철학으로 Terminal-Bench 2.1의 9개 Harness 비교 평가에서 77.5% 대 73.0%로 앞섰습니다 — 이 글은 에이전트 인프라의 두 갈래 전혀 다른 노선을 비교합니다."
+  },
+  "publishedAt": "2026-09-09",
+  "tags": ["agent-harness", "deepseek", "apache-maka", "open-source"],
+  "items": [
+    {
+      "kind": "repo",
+      "id": "deepseek-ai/deepseek-harness",
+      "blurb": {
+        "zh": "“一切皆插件”的开源 Agent 运行时:模型、工具、会话、沙箱乃至 Agent 循环全部可替换,MIT 许可证,开源不到一个月即突破 21 万星。",
+        "en": "The open-source agent runtime where everything is a plugin: models, tools, sessions, sandboxes and even the agent loop itself are all replaceable. MIT-licensed, past 210k stars in under a month.",
+        "ja": "「一切皆插件」のオープンソース Agent ランタイム。モデル、ツール、セッション、サンドボックス、さらに Agent ループ自体まで全て差し替え可能。MIT ライセンスで、公開から1か月足らずで21万スターを突破。",
+        "ko": "'모든 것이 플러그인'인 오픈소스 에이전트 런타임. 모델, 도구, 세션, 샌드박스, 심지어 에이전트 루프까지 모두 교체 가능합니다. MIT 라이선스로 공개 한 달 만에 21만 스타를 돌파했습니다."
+      },
+      "stats": { "stars": 217000, "language": "TypeScript", "description": "DeepSeek Harness: Everything is a Plugin." }
+    },
+    {
+      "kind": "repo",
+      "id": "apache/maka",
+      "blurb": {
+        "zh": "Apache 孵化器首个 Agent Harness 项目:本地优先,“日志即运行时”,把每一次模型消息、工具调用与权限决定记录为只追加的 RuntimeEvent。",
+        "en": "The Apache Incubator's first agent harness: local-first, \"the log is the runtime\" — every model message, tool call and permission decision is recorded as an append-only RuntimeEvent.",
+        "ja": "Apache インキュベーター初の Agent Harness プロジェクト。ローカルファーストで「ログこそランタイム」——モデルメッセージ、ツール呼び出し、権限決定のすべてを追記専用の RuntimeEvent として記録します。",
+        "ko": "Apache 인큐베이터 최초의 Agent Harness 프로젝트. 로컬 우선이며 '로그가 곧 런타임' — 모든 모델 메시지, 도구 호출, 권한 결정을 추가 전용 RuntimeEvent로 기록합니다."
+      },
+      "stats": { "stars": 5100, "language": "TypeScript", "description": "Apache Maka (Incubating) is a high-performance agent workspace that keeps a complete record of everything it did." }
+    }
+  ]
+}
