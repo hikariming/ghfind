@@ -86,21 +86,26 @@ export async function probe(
       signal: AbortSignal.timeout(10000),
     }),
   );
-  if (!response.ok) throw new HTTPError(503, "container_not_ready");
   const data: Record<string, unknown> = JSON.parse(
     new TextDecoder().decode(await readBounded(response, 4096)),
   );
   if (
-    data.ready !== true ||
+    !data || typeof data !== "object" || Array.isArray(data) ||
     data.version !== env.FEED_RELEASE_SHA ||
     data.contractVersion !== "1" ||
     data.storageWriterVersion !== 2 ||
-    (env.FEED_ENVIRONMENT === "production" && data.mode !== env.FEED_MODE) ||
+    data.mode !== env.FEED_MODE ||
     data.service !== (target === "executor-0" ? "feed-worker" : "feed-api") ||
     data.storeProfile !== "cf_d1_r2" ||
-    String(data.writerEpoch) !== env.FEED_WRITER_EPOCH
+    data.writerEpoch !== Number(env.FEED_WRITER_EPOCH)
   )
     throw new HTTPError(503, "container_version_or_contract_mismatch");
+  // Only the actual expected Go process may report a retryable dependency.
+  // SDK exceptions and malformed responses never acquire this classification.
+  if (response.status === 503 && data.ready === false)
+    throw new HTTPError(503, "container_dependency_not_ready");
+  if (response.status !== 200 || data.ready !== true)
+    throw new HTTPError(503, "container_not_ready");
   // The authenticated probe is still a whitelist: dependency responses cannot
   // smuggle environment values, credentials or user information into evidence.
   return { target, ready: true, version: data.version, contractVersion: data.contractVersion,
@@ -137,9 +142,19 @@ export async function handleRequest(
       if (url.pathname === "/readyz" && request.method === "GET") {
         if (env.FEED_EXECUTOR_ENABLED !== "true")
           throw new HTTPError(503, "executor_not_enabled");
-        const containers = await Promise.all(
+        const outcomes = await Promise.allSettled(
           TARGETS.map((target) => probe(target, env, dispatch)),
         );
+        // A fast dependency error cannot hide a later identity/transport error.
+        const failures = outcomes.filter((outcome) => outcome.status === "rejected");
+        const failure = failures.find(({ reason }) =>
+          !(reason instanceof HTTPError && reason.status === 503 && reason.code === "container_dependency_not_ready"),
+        ) ?? failures[0];
+        if (failure) throw failure.reason;
+        const containers = outcomes.map((outcome) => {
+          if (outcome.status === "rejected") throw outcome.reason;
+          return outcome.value;
+        });
         return json({
           ready: true,
           service: "feed-runtime",
