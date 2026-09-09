@@ -430,7 +430,7 @@ export class FeedGovernance extends FeedStore {
       this.sql("DELETE FROM feed_governance_guards WHERE id=?", token),
     );
     try {
-      const response = await this.db.batch<{ result_json: string }>(statements);
+      const response = await this.batch<{ result_json: string }>(statements);
       return JSON.parse(
         response.at(-2)!.results[0].result_json,
       ) as GovernanceResult;
