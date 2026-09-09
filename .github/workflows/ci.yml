@@ -163,6 +163,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -184,9 +185,10 @@ jobs:
           exit 1
       - name: PostgreSQL and pgvector contracts including migration replay
         run: go test -count=1 -v ./internal/backend
-      - name: Install locked Worker contract dependencies
-        working-directory: platform/feed
-        run: pnpm install --frozen-lockfile
+      - name: Install locked application and Worker contract dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C platform/feed install --frozen-lockfile
       - name: Typecheck Worker capabilities
         working-directory: platform/feed
         run: pnpm typecheck
