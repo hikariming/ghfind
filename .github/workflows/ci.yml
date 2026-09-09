@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [dev, main]
+    branches: [dev, main, "codex/feed-**"]
 
 permissions:
   contents: read
@@ -32,6 +32,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -59,6 +61,9 @@ jobs:
           else
             pnpm versions:check
           fi
+
+      - name: Verify exact-checkout evidence rejection cases
+        run: node --test scripts/feed-ci-evidence.test.mjs scripts/check-cf-release-workflow.test.mjs
 
       - name: Verify Cloudflare release workflow contract
         run: pnpm ci:check-cf-release-workflow
@@ -119,6 +124,16 @@ jobs:
       - name: Cloudflare Worker build
         run: pnpm cf:build
 
+      - name: Record actual successful verify checkout
+        run: node scripts/feed-ci-evidence.mjs record-job verify "$RUNNER_TEMP/verify.json"
+      - name: Preserve verify checkout receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-ci-job-${{ github.run_id }}-${{ github.run_attempt }}-verify
+          path: ${{ runner.temp }}/verify.json
+          if-no-files-found: error
+          retention-days: 7
+
   feed-contracts:
     name: Feed storage contracts
     runs-on: ubuntu-latest
@@ -145,6 +160,9 @@ jobs:
       FEED_TEST_S3_SECRET_ACCESS_KEY: feed-local-only-password
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -188,12 +206,25 @@ jobs:
         if: always()
         run: docker compose -p ghfind-feed-contract-ci -f ops/feed-portable-compose.yaml down
 
+      - name: Record actual successful feed-contracts checkout
+        run: node scripts/feed-ci-evidence.mjs record-job feed-contracts "$RUNNER_TEMP/feed-contracts.json"
+      - name: Preserve feed-contracts checkout receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-ci-job-${{ github.run_id }}-${{ github.run_attempt }}-feed-contracts
+          path: ${{ runner.temp }}/feed-contracts.json
+          if-no-files-found: error
+          retention-days: 7
+
   feed-runtime:
     name: Feed runtime builds
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -227,19 +258,95 @@ jobs:
           platforms: linux/amd64
           push: false
 
+      - name: Record actual successful feed-runtime checkout
+        run: node scripts/feed-ci-evidence.mjs record-job feed-runtime "$RUNNER_TEMP/feed-runtime.json"
+      - name: Preserve feed-runtime checkout receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-ci-job-${{ github.run_id }}-${{ github.run_attempt }}-feed-runtime
+          path: ${{ runner.temp }}/feed-runtime.json
+          if-no-files-found: error
+          retention-days: 7
+
+  feed-e2e:
+    name: Complete local Feed E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      GH_TOKEN: ""
+      GITHUB_TOKEN: ""
+      TURSO_DATABASE_URL: ""
+      TURSO_AUTH_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - name: Install locked complete E2E dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -C platform/feed install --frozen-lockfile
+          npm ci --prefix platform/runtime
+          pnpm exec playwright install --with-deps chromium
+      - name: Complete both profile journeys without skipped dependencies
+        run: python3 scripts/run-feed-e2e.py --release-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/feed-complete-e2e" --execute
+      - name: Validate full E2E and record actual checkout
+        env:
+          FEED_LOCAL_E2E_RECEIPT: ${{ runner.temp }}/feed-complete-e2e/run.json
+        run: node scripts/feed-ci-evidence.mjs record-job feed-e2e "$RUNNER_TEMP/feed-e2e.json"
+      - name: Preserve feed-e2e checkout receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-ci-job-${{ github.run_id }}-${{ github.run_attempt }}-feed-e2e
+          path: ${{ runner.temp }}/feed-e2e.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve nonsecret full E2E outcome including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-local-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-complete-e2e/run.json
+          if-no-files-found: warn
+          retention-days: 7
+
   release-verify:
     name: Verify release
     if: always()
-    needs: [verify, feed-contracts, feed-runtime]
+    needs: [verify, feed-contracts, feed-runtime, feed-e2e]
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     env:
-      APPLICATION_RESULT: ${{ needs.verify.result }}
-      STORAGE_RESULT: ${{ needs.feed-contracts.result }}
-      RUNTIME_RESULT: ${{ needs.feed-runtime.result }}
+      CI_JOB_RESULTS: ${{ toJSON(needs) }}
     steps:
-      - name: Require every release dependency to pass
-        run: |
-          test "$APPLICATION_RESULT" = success
-          test "$STORAGE_RESULT" = success
-          test "$RUNTIME_RESULT" = success
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download this run attempt's actual checkout receipts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: feed-ci-job-${{ github.run_id }}-${{ github.run_attempt }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/feed-ci-jobs
+      - name: Require every result and actual checkout to agree
+        run: node scripts/feed-ci-evidence.mjs aggregate "$RUNNER_TEMP/feed-ci-jobs" "$RUNNER_TEMP/feed-ci-evidence.json"
+      - name: Publish exact-checkout evidence for staging
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-ci-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-ci-evidence.json
+          if-no-files-found: error
+          retention-days: 7
