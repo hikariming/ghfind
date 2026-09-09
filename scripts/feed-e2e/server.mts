@@ -5,8 +5,10 @@ import { createServer } from 'node:http';
 import { readFile, readdir, mkdir, open, rename, unlink, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import next from 'next';
 import { installProviders } from './provider-fixtures.mjs';
+import { verifyAckLoss } from './ack-loss.mjs';
 import { relayOnce } from '../../platform/runtime/src/relay';
 import type { RuntimeSettings } from '../../platform/runtime/src/router';
 import { consumeBatch } from '../../platform/runtime/src/consumer';
@@ -51,6 +53,7 @@ await new Promise<void>((done, reject) => { web.once('error', reject); web.liste
 const queueDirectory = join(config.directory, 'queue');
 await mkdir(queueDirectory, { mode: 0o700 });
 let published = 0, acknowledged = 0, redelivered = 0;
+const redeliveryProofs: { first: string; second: string; snapshotHash: string }[] = [];
 const settings = {
   ...process.env, FEED_ENVIRONMENT: 'staging', FEED_RELEASE_SHA: config.sourceSha,
   // The production relay validates shape; local transport does not use/push a registry image.
@@ -74,6 +77,27 @@ async function persist(name: string, data: unknown) {
   const directory = await open(queueDirectory, 'r');
   try { await directory.sync(); } finally { await directory.close(); }
 }
+async function projectionSnapshot() {
+  // Private fixture databases contain only three submitted projects. Read every
+  // field, including job attempts/timestamps and governance proposals, so a
+  // duplicate status cannot conceal re-execution or a rewritten projection.
+  const tables = config.profile === 'postgres'
+    ? { jobs: 'feed.jobs', projects: 'feed.projects', evidence: 'feed.project_submission_evidence', tags: 'feed.project_tags', proposals: 'feed.tag_proposals' }
+    : { jobs: 'feed_execution_jobs', projects: 'feed_projects', evidence: 'feed_project_source_versions', tags: 'feed_project_tags', proposals: 'feed_tag_proposals' };
+  if (config.profile === 'postgres') {
+    assert.equal(config.postgresContainer, `ghfind-e2e-${config.owner.slice(0, 8)}-pg`);
+    // All identifiers and SQL are fixed by this file; no caller supplies SQL or
+    // a target. The harness created and checked this owned loopback container.
+    const sql = 'SELECT json_build_object(' + Object.entries(tables).map(([key, table]) => `'${key}',(SELECT coalesce(json_agg(t ORDER BY to_jsonb(t)::text),'[]'::json) FROM (SELECT * FROM ${table} LIMIT 1001) t)`).join(',') + ')';
+    const output = execFileSync('docker', ['exec', config.postgresContainer, 'psql', '-U', 'postgres', '-d', 'feed_complete_e2e_test', '-v', 'ON_ERROR_STOP=1', '-Atq', '-c', sql], { encoding: 'utf8', timeout: 10_000, maxBuffer: 2 * 1024 * 1024 });
+    const snapshot = JSON.parse(output);
+    assert(Object.values(snapshot).every(rows => Array.isArray(rows) && rows.length <= 1000));
+    return snapshot;
+  }
+  const results = await feed.batch(Object.values(tables).map(table => feed.prepare(`SELECT * FROM ${table} ORDER BY rowid LIMIT 1001`)));
+  assert(results.every(result => result.success && result.results.length <= 1000));
+  return Object.fromEntries(Object.keys(tables).map((key, index) => [key, results[index].results]));
+}
 async function drain() {
   const summary = await relayOnce(settings, { source: adapter, send: async (messages) => {
     for (const message of messages) { await persist(`${randomUUID()}.json`, { body: message, attempts: 0 }); published++; }
@@ -86,26 +110,30 @@ async function drain() {
   for (const name of files) {
     const path = join(queueDirectory, name);
     const data = JSON.parse(await readFile(path, 'utf8'));
-    data.attempts++;
-    let ack = false, retry = false;
-    await consumeBatch({ queue: settings.FEED_QUEUE_NAME, messages: [{ body: data.body, id: name.slice(0, -5), attempts: data.attempts,
-      ack: () => { ack = true; }, retry: () => { retry = true; } }] }, settings, dispatch, adapter, (entry, failed) => { if (failed) console.error(JSON.stringify(entry)); });
-    assert(ack && !retry, 'real executor must durably complete before acknowledgement');
     // Deliberate ack loss: repeat the same persisted delivery against its durable
     // completed job. The real executor must report a duplicate, then acknowledge.
-    if (ack && !data.redeliveryVerified) {
-      let duplicateAck = false;
-      await consumeBatch({ queue: settings.FEED_QUEUE_NAME, messages: [{ body: data.body, id: name.slice(0, -5), attempts: 2,
-        ack: () => { duplicateAck = true; }, retry: () => {} }] }, settings, dispatch, adapter, () => {});
-      assert(duplicateAck, 'ack-loss redelivery failed'); redelivered++;
-    }
+    const proof = await verifyAckLoss({ event: data.body.event, readSnapshot: projectionSnapshot, deliver: async (attempt: number) => {
+      let ack = false, retry = false;
+      const responses: unknown[] = [];
+      const observedDispatch = { ...dispatch, fetch: async (target: string, request: Request) => {
+        const response = await dispatch.fetch(target, request);
+        responses.push(await response.clone().json());
+        return response;
+      } };
+      await consumeBatch({ queue: settings.FEED_QUEUE_NAME, messages: [{ body: data.body, id: name.slice(0, -5), attempts: attempt,
+        ack: () => { ack = true; }, retry: () => { retry = true; } }] }, settings, observedDispatch, adapter, (entry, failed) => { if (failed) console.error(JSON.stringify(entry)); });
+      assert(ack && !retry, 'real executor must durably complete before acknowledgement');
+      assert.equal(responses.length, 1, 'consumer must invoke the standalone executor once per delivery');
+      return responses[0];
+    } });
+    redeliveryProofs.push(proof); redelivered++;
     await unlink(path); acknowledged++;
   }
   return { published, acknowledged, redelivered, pending: (await readdir(queueDirectory)).length };
 }
 async function inspect() {
   const facts = await core.prepare("SELECT (SELECT count(*) FROM project_analysis_runs WHERE status='completed') AS completed,(SELECT count(*) FROM project_assessments) AS assessments,(SELECT count(*) FROM feed_submission_receipts) AS receipts,(SELECT count(*) FROM feed_source_outbox WHERE status='delivered') AS delivered,(SELECT count(*) FROM feed_source_outbox) AS outbox").first();
-  return { providers, source: facts, queue: { published, acknowledged, redelivered, pending: (await readdir(queueDirectory)).length }, migrations: migrationReport };
+  return { providers, source: facts, queue: { published, acknowledged, redelivered, pending: (await readdir(queueDirectory)).length, redeliveryProofs }, migrations: migrationReport };
 }
 let controlBusy = false;
 const control = createServer(async (req, res) => {

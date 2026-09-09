@@ -86,7 +86,24 @@ class Harness:
 
     def command(self, args, label, *, timeout=60, env=None, input=None, check=True):
         start = time.monotonic()
-        result = subprocess.run(args, cwd=self.root, env=env or self.env, text=True, input=input, capture_output=True, timeout=timeout)
+        process = subprocess.Popen(args, cwd=self.root, env=env or self.env, text=True,
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   start_new_session=True)
+        self.processes.append((process, None))
+        timed_out = False
+        try:
+            stdout, stderr = process.communicate(input=input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            if not self.stop_process(process):
+                raise RuntimeError('local_process_cleanup_failed')
+            stdout, stderr = process.communicate(timeout=5)
+        finally:
+            # A successful/failed parent may leave children behind, too. These
+            # commands have their own group just like the long-running servers.
+            if not self.stop_process(process):
+                raise RuntimeError('local_process_cleanup_failed')
+        result = subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
         # Logs are private fixture-only files; command environment/credentials are
         # never serialized in the evidence receipt.
         log_text = result.stdout + result.stderr
@@ -94,8 +111,10 @@ class Harness:
             log_text = log_text.replace(value, '[redacted-local-fixture-credential]')
         (self.out / (label + '.log')).write_text(log_text)
         (self.out / (label + '.log')).chmod(0o600)
-        self.report['commands'].append({'name': label, 'exitCode': result.returncode, 'durationSeconds': time.monotonic() - start})
+        self.report['commands'].append({'name': label, 'exitCode': result.returncode, 'durationSeconds': time.monotonic() - start, **({'timedOut': True} if timed_out else {})})
         self.save()
+        if timed_out:
+            raise RuntimeError(label + '_timeout')
         if check and result.returncode:
             raise RuntimeError(label + '_failed')
         return result
@@ -107,22 +126,54 @@ class Harness:
         self.processes.append((process, stream))
         return process
 
+    def group_exists(self, process):
+        # Only Popen handles registered immediately after start_new_session=True
+        # are eligible. Never accept an arbitrary PID or our own process group.
+        if not any(entry[0] is process for entry in self.processes) or process.pid <= 1 or process.pid == os.getpgrp():
+            raise RuntimeError('unowned_process_group')
+        try:
+            os.killpg(process.pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            # macOS briefly returns EPERM for a group whose leader is a zombie.
+            # Treat it as present until reaping proves the whole group absent.
+            return True
+
+    def stop_process(self, process, term_seconds=12, kill_seconds=5):
+        entry = next((entry for entry in self.processes if entry[0] is process), None)
+        if entry is None:
+            return True  # Already confirmed absent and removed from tracking.
+        try:
+            for sig, seconds in [(signal.SIGTERM, term_seconds), (signal.SIGKILL, kill_seconds)]:
+                process.poll()
+                if not self.group_exists(process):
+                    break
+                try:
+                    os.killpg(process.pid, sig)
+                except ProcessLookupError:
+                    break
+                except PermissionError:
+                    pass  # Still require subsequent absence; never claim clean.
+                deadline = time.monotonic() + seconds
+                while self.group_exists(process) and time.monotonic() < deadline:
+                    process.poll()  # Reap our child; descendants can outlive it.
+                    time.sleep(.05)
+            process.poll()
+            if self.group_exists(process) or process.poll() is None:
+                return False
+        except OSError:
+            return False
+        if entry[1] is not None:
+            entry[1].close()
+        self.processes.remove(entry)
+        return True
+
     def stop_processes(self):
         successful = True
-        for process, stream in reversed(self.processes):
-            if process.poll() is None:
-                try:
-                    os.killpg(process.pid, signal.SIGTERM)
-                    process.wait(timeout=12)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait(timeout=5)
-                except ProcessLookupError:
-                    pass
-            if process.poll() is None:
-                successful = False
-            stream.close()
-        self.processes.clear()
+        for process, _ in reversed(self.processes.copy()):
+            successful = self.stop_process(process) and successful
         return successful
 
     def inspect(self, name):
@@ -181,11 +232,11 @@ class Harness:
             if response.status != 200:
                 raise RuntimeError('s3_bucket_create_failed')
 
-    def profile(self, profile, pg_port, s3_port):
+    def profile(self, profile, pg_port, s3_port, pg_container):
         directory = self.out / profile
         directory.mkdir(mode=0o700)
         ports = {key: free_port() for key in ['webPort', 'apiPort', 'executorPort', 'adapterPort', 'controlPort']}
-        config = {'format': 'ghfind-local-e2e-config-v1', 'sourceSha': self.sha, 'sourceTree': self.report['sourceTree'], 'owner': self.owner, 'profile': profile, 'directory': str(directory), **ports}
+        config = {'format': 'ghfind-local-e2e-config-v1', 'sourceSha': self.sha, 'sourceTree': self.report['sourceTree'], 'owner': self.owner, 'profile': profile, 'postgresContainer': pg_container, 'directory': str(directory), **ports}
         config_path = directory / 'config.json'
         config_path.write_text(json.dumps(config)); config_path.chmod(0o600)
         origin = f'http://127.0.0.1:{ports["webPort"]}'
@@ -265,7 +316,7 @@ class Harness:
             self.wait_http(f'http://127.0.0.1:{s3_port}/minio/health/live')
             self.create_bucket(s3_port)
             for profile in ['cf_d1_r2', 'postgres']:
-                self.profile(profile, pg_port, s3_port)
+                self.profile(profile, pg_port, s3_port, prefix + '-pg')
             success = True
         except (Exception, KeyboardInterrupt) as error:
             self.report['errorCode'] = str(error) if isinstance(error, RuntimeError) else type(error).__name__
