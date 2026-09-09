@@ -134,12 +134,25 @@ export function installProviders() {
       const path = url.pathname.replace(/^\/api\/v1/, "");
       if (path === "/agents/local-e2e-agent/threads" && request.method === "POST") {
         const body = await request.json();
-        const prompt = body.input?.content?.[0]?.text ?? "";
+        const prompt = body?.input?.content?.[0]?.text ?? "";
         const repo = /^repository_url: https:\/\/github.com\/([a-z0-9-]+\/[a-z0-9-]+)$/m.exec(prompt)?.[1];
-        if (!repo || !body.client_external_ref) throw new Error("invalid_fixture_assessment_request");
-        runs.set(body.client_external_ref, { repo, files: artifacts(body.client_external_ref, repo) });
+        const analysisId = /^analysis_id: ([A-Za-z0-9-]+)$/m.exec(prompt)?.[1];
+        // Model the current Public Thread API, so an obsolete request cannot
+        // make the complete local journey pass while failing against Mosoo.
+        if (!body || typeof body !== "object" || Array.isArray(body) ||
+            Object.keys(body).some(key => !["userId", "input"].includes(key)) ||
+            typeof body.userId !== "string" || !body.userId.trim() || body.userId.length > 255 ||
+            body.input?.type !== "user.message" || Object.keys(body.input).some(key => !["type", "content"].includes(key)) ||
+            !Array.isArray(body.input.content) || body.input.content.length !== 1 ||
+            body.input.content[0]?.type !== "text" ||
+            Object.keys(body.input.content[0]).some(key => !["type", "text"].includes(key)) ||
+            typeof prompt !== "string" || !prompt || prompt.length > 32_000 ||
+            !repo || !analysisId || !request.headers.get("Idempotency-Key")) {
+          return Response.json({ error: { code: "invalid_request", message: "Invalid fixture assessment request." } }, { status: 400 });
+        }
+        runs.set(analysisId, { repo, userId: body.userId, files: artifacts(analysisId, repo) });
         counts.assessmentCreate++;
-        return Response.json(thread(body.client_external_ref));
+        return Response.json(thread(analysisId));
       }
       const match = /^\/threads\/([^/]+)(?:\/(events|files))?$/.exec(path);
       if (match && runs.has(match[1])) {
@@ -157,7 +170,7 @@ export function installProviders() {
   };
   function thread(id) {
     const now = new Date().toISOString();
-    return { thread: { id, agent_id: "local-e2e-agent", kind: "cattle", status: "IDLE", client_external_ref: id }, run: { id: `run-${id}`, status: "completed", createdAt: now, startedAt: now, completedAt: now, updatedAt: now, trigger: "user_prompt" } };
+    return { thread: { id, agent_id: "local-e2e-agent", kind: "cattle", status: "IDLE", userId: runs.get(id).userId }, run: { id: `run-${id}`, status: "completed", createdAt: now, startedAt: now, completedAt: now, updatedAt: now, trigger: "user_prompt" } };
   }
   return counts;
 }
