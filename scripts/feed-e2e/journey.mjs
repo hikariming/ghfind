@@ -88,8 +88,15 @@ export async function runBusinessJourney({ page, other, submitRepositories, drai
   assert.equal(otherProfile.preferences.length, 0, 'forged identity modified other user');
   event.id = randomUUID(); event.type = 'github_outbound';
   await browserCall(page, 'POST', '/api/feed/events', { events: [event] }, 202);
+  const outboundProfile = await browserCall(page, 'GET', '/api/feed/preferences');
+  const behaviorStrength = profile => profile.preferences.find(preference => preference.tagId === reviewed.canonicalTagId && preference.source === 'behavior')?.strength ?? 0;
+  assert(outboundProfile.profileVersion > savedProfile.profileVersion, 'outbound did not affect profile version');
+  assert(behaviorStrength(outboundProfile) > behaviorStrength(savedProfile), 'outbound did not strengthen the governed tag signal');
   const duplicate = await browserCall(page, 'POST', '/api/feed/events', { events: [event] }, 202);
   assert.equal(duplicate.accepted, 0); assert.equal(duplicate.duplicate, 1);
+  const duplicateProfile = await browserCall(page, 'GET', '/api/feed/preferences');
+  assert.equal(duplicateProfile.profileVersion, outboundProfile.profileVersion, 'duplicate outbound changed profile version');
+  assert.equal(behaviorStrength(duplicateProfile), behaviorStrength(outboundProfile), 'duplicate outbound changed behavior strength');
   milestone.events = true;
 
 
