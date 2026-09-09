@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -14,6 +20,7 @@ import {
   validateReadiness,
   disableConsumers,
   verifyProductionToFile,
+  readPreviousApplicationSnapshot,
 } from "./feed-platform-production.mjs";
 import {
   validateManifest as stagingValidate,
@@ -22,6 +29,7 @@ import {
 import {
   verifyDeployment,
   limits,
+  validatePreviousApplications,
 } from "./feed-platform-production-readback.mjs";
 
 const m = {
@@ -85,6 +93,10 @@ function fixture(mode = "off", options = {}) {
       readyCalls++;
       assert.equal(u.pathname, "/readyz");
       assert.equal(init.headers.authorization, `Bearer ${admin}`);
+      if (options.readyResponse) {
+        const response = options.readyResponse(readyCalls);
+        if (response) return response;
+      }
       return Response.json(
         options.ready
           ? options.ready(structuredClone(ready), readyCalls, { metadataCalls })
@@ -249,6 +261,9 @@ function fixture(mode = "off", options = {}) {
       fetcher,
       metadata,
       ...(options.bounds ? { limits: options.bounds } : {}),
+      ...(Object.hasOwn(options, "previousApplications")
+        ? { previousApplications: options.previousApplications }
+        : {}),
     },
     count: () => ({
       total,
@@ -259,6 +274,486 @@ function fixture(mode = "off", options = {}) {
     ready,
   };
 }
+
+function previousApps(previousImage = image.replace(/b{64}$/, "c".repeat(64))) {
+  return ["feedapi", "feedexecutor"].map((suffix, index) => ({
+    id: id(index + 3),
+    name: `${m.runtimeWorker}-${suffix}`,
+    version: 6,
+    image: previousImage,
+    state: "ready",
+    arbitrarySecret: "never-upload-snapshot",
+  }));
+}
+test("predeployment snapshot permits only the exact prior digest/version until the expected app converges", async () => {
+  const previous = previousApps();
+  let appsRead = 0;
+  const f = fixture("off", {
+    previousApplications: previous,
+    bounds: { applicationIntervalMs: 1 },
+    applications: (apps, call) => {
+      appsRead = call;
+      return apps.map((app, i) =>
+        call < i + 2 ? { ...app, ...previous[i] } : app,
+      );
+    },
+    ready: (r) => {
+      assert.ok(
+        appsRead >= 3,
+        "never wake an old-image process while app metadata is pending",
+      );
+      return r;
+    },
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.status, "passed");
+  assert.equal(
+    r.applicationObservations.filter(
+      (o) => o.reason === "prior_application_pending",
+    ).length,
+    2,
+  );
+  assert.ok(
+    r.applications.every(
+      (a) =>
+        a.image === image &&
+        a.version === 7 &&
+        a.instances.every((i) => i.state === "running" && i.version === 7),
+    ),
+  );
+  assert.equal(JSON.stringify(r).includes("never-upload-snapshot"), false);
+  assert.deepEqual(
+    r.previousApplications,
+    previous.map(({ id, name, version, image }) => ({
+      id,
+      name,
+      version,
+      image,
+    })),
+  );
+  const strict = fixture("off", { applications: () => previous });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", strict.options),
+    /application_image_changed/,
+  );
+  assert.equal(strict.count().metadataCalls, 1);
+});
+test("target-image provisioning may reach initial process readiness before application health converges", async () => {
+  let readyObserved = false;
+  const f = fixture("off", {
+    previousApplications: previousApps(),
+    bounds: { applicationIntervalMs: 1 },
+    ready: (r) => {
+      readyObserved = true;
+      return r;
+    },
+    applications: (apps) =>
+      apps.map((app) => ({
+        ...app,
+        state: readyObserved ? "active" : "provisioning",
+      })),
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.status, "passed");
+  assert.equal(
+    r.applicationObservations.filter(
+      (o) => o.phase === "identity" && o.reason === "application_provisioning",
+    ).length,
+    2,
+  );
+  assert.equal(
+    r.applicationObservations.filter(
+      (o) => o.phase === "convergence" && o.status === "converged",
+    ).length,
+    2,
+  );
+  assert.ok(
+    r.applications.every((app) =>
+      app.instances.every((i) => i.state === "running"),
+    ),
+  );
+});
+test("first-install missing targets grant no old-image permission and unrelated applications are ignored", async () => {
+  for (const snapshot of [
+    [],
+    [
+      {
+        name: "unrelated-application",
+        id: "unparsed",
+        image: "private-registry",
+        version: null,
+      },
+    ],
+    previousApps().slice(1),
+  ]) {
+    const f = fixture("off", { previousApplications: snapshot });
+    assert.equal(
+      (await verifyDeployment(m, sha, image, "off", f.options)).status,
+      "passed",
+    );
+  }
+  const f = fixture("off", {
+    previousApplications: [],
+    applications: () => previousApps(),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", f.options),
+    /application_image_changed/,
+  );
+});
+test("malformed snapshots reject before any network read and bounded snapshot files remain parseable", async () => {
+  const previous = previousApps();
+  for (const snapshot of [
+    null,
+    {},
+    [...previous, previous[0]],
+    [previous[0], { ...previous[1], id: previous[0].id }],
+    ...[
+      { id: "bad" },
+      { version: null },
+      { image: "https://not-a-pinned-registry/image" },
+      { image: image.replace(m.accountId, "e".repeat(32)) },
+    ].map((patch) => [{ ...previous[0], ...patch }, previous[1]]),
+  ]) {
+    const f = fixture("off", { previousApplications: snapshot });
+    await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
+    assert.equal(f.count().total, 0);
+  }
+  const dir = mkdtempSync(join(tmpdir(), "feed-app-snapshot-"));
+  try {
+    const file = join(dir, "applications.json");
+    writeFileSync(file, JSON.stringify(previous));
+    assert.equal(
+      validatePreviousApplications(readPreviousApplicationSnapshot(file), m)
+        .size,
+      2,
+    );
+    writeFileSync(file, " ".repeat(4 * 1024 * 1024 + 1));
+    assert.throws(() => readPreviousApplicationSnapshot(file), /exceeds bound/);
+    writeFileSync(file, "not json");
+    assert.throws(() => readPreviousApplicationSnapshot(file));
+    assert.throws(() => readPreviousApplicationSnapshot(dir), /not a file/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test("snapshot never permits a third digest, wrong UUID/version, unhealthy prior or stale version with the new image", async () => {
+  const previous = previousApps();
+  for (const patch of [
+    { image: image.replace(/b{64}$/, "d".repeat(64)) },
+    { id: id(999) },
+    { version: 5 },
+    { version: 7 },
+    { state: "degraded" },
+    { state: "unknown" },
+    { image, version: 6 },
+    { image, version: 5 },
+    { image, version: "5" },
+    { image, version: "06" },
+  ]) {
+    const f = fixture("off", {
+      previousApplications: previous,
+      applications: (apps) => [
+        { ...apps[0], ...previous[0], ...patch },
+        apps[1],
+      ],
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /immutable application/,
+    );
+    assert.equal(f.count().metadataCalls, 1);
+    assert.equal(f.count().instanceCalls, 0);
+  }
+});
+test("expected-image entry pins version across both application retry streams and final readback", async () => {
+  const previous = previousApps();
+  for (const patch of [
+    previous[1],
+    { ...previous[1], image, version: 8 },
+    { ...previous[1], image, version: 7, id: id(999) },
+  ]) {
+    const f = fixture("off", {
+      previousApplications: previous,
+      bounds: { applicationIntervalMs: 1 },
+      applications: (apps, call) => [
+        call < 3 ? { ...apps[0], ...previous[0] } : apps[0],
+        call < 2 ? apps[1] : patch,
+      ],
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /immutable application/,
+    );
+    assert.equal(
+      f.count().metadataCalls,
+      2,
+      "a second app cannot regress unseen while the first app waits",
+    );
+  }
+  const final = fixture("off", {
+    previousApplications: previous,
+    applications: (apps, call) => (call === 1 ? apps : previous),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", final.options),
+    /immutable application/,
+  );
+});
+test("prior application waiting shares the original attempts and deadline without accepting an old digest", async () => {
+  for (const bound of [
+    { applicationAttempts: 3, applicationIntervalMs: 1 },
+    { applicationConvergenceMs: 20, applicationIntervalMs: 100 },
+  ]) {
+    const previous = previousApps();
+    const f = fixture("off", {
+      previousApplications: previous,
+      bounds: bound,
+      applications: () => previous,
+    });
+    const started = performance.now();
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (error) => {
+        assert.ok(
+          error.readbackFailure.applicationObservations.every(
+            (o) => o.reason === "prior_application_pending",
+          ),
+        );
+        assert.throws(() =>
+          renderRuntime(m, image, sha, "baseline", error.readbackFailure),
+        );
+        return true;
+      },
+    );
+    assert.ok(performance.now() - started < 500);
+    assert.equal(f.count().instanceCalls, 0);
+  }
+});
+test("same-image baseline can retain the application version but cannot retain off-mode process readiness", async () => {
+  const previous = previousApps(image).map((app) => ({ ...app, version: 7 }));
+  const f = fixture("baseline", { previousApplications: previous });
+  assert.equal(
+    (await verifyDeployment(m, sha, image, "baseline", f.options)).status,
+    "passed",
+  );
+  const old = fixture("baseline", {
+    previousApplications: previous,
+    ready: (r) => ({
+      ...r,
+      containers: r.containers.map((i) => ({ ...i, mode: "off" })),
+    }),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "baseline", old.options),
+    /container readiness differs/,
+  );
+  assert.equal(old.count().readyCalls, 1);
+});
+test("prior-image and instance maximum attempts still fit 52 metadata reads without resetting application budgets", async () => {
+  const previous = previousApps();
+  const f = fixture("off", {
+    previousApplications: previous,
+    bounds: { applicationIntervalMs: 1, instanceIntervalMs: 1 },
+    applications: (apps, call) =>
+      apps.map((app, i) =>
+        call < (i === 0 ? 8 : 15) ? { ...app, ...previous[i] } : app,
+      ),
+    instances: (r, { attempt }) =>
+      attempt < 8
+        ? {
+            ...r,
+            instances: r.instances.map((i) => ({
+              ...i,
+              state: "provisioning",
+            })),
+          }
+        : r,
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.keepWarm.metadataReads, 52);
+  assert.equal(r.applicationObservations.length, 18);
+  assert.equal(r.instanceObservations.length, 16);
+  assert.equal(r.keepWarm.readinessRequests, 18);
+  assert.ok(
+    r.applicationObservations
+      .filter((o) => o.phase !== "final")
+      .every((o) => o.attempt <= 8),
+  );
+});
+test("initial protected dependency failures retry only after both Worker identities are verified", async () => {
+  const f = fixture("off", {
+    bounds: { initialReadinessIntervalMs: 1 },
+    readyResponse: (call) =>
+      call < 3
+        ? Response.json(
+            {
+              error: "container_dependency_not_ready",
+              private: "never-upload-error",
+            },
+            { status: 503 },
+          )
+        : null,
+  });
+  const checked = new Set();
+  f.options.fetcher = async (url, init) => {
+    const u = new URL(url);
+    if (u.pathname.includes("/versions/"))
+      checked.add(u.pathname.split("/scripts/")[1].split("/")[0]);
+    if (u.origin === m.runtimeOrigin)
+      assert.deepEqual(
+        [...checked].sort(),
+        [m.runtimeWorker, m.adapterWorker].sort(),
+      );
+    return f.fetcher(url, init);
+  };
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.deepEqual(
+    r.readinessObservations
+      .filter((o) => o.phase === "initial")
+      .map(({ attempt, status, errorCode }) => ({
+        attempt,
+        status,
+        errorCode,
+      })),
+    [
+      { attempt: 1, status: 503, errorCode: "container_dependency_not_ready" },
+      { attempt: 2, status: 503, errorCode: "container_dependency_not_ready" },
+      { attempt: 3, status: 200, errorCode: null },
+    ],
+  );
+  assert.equal(JSON.stringify(r).includes("never-upload-error"), false);
+  assert.equal(r.keepWarm.readinessRequests, 6);
+});
+test("nondependency HTTP failures and malformed error responses preserve safe diagnostics without retry", async () => {
+  for (const makeResponse of [
+    () =>
+      Response.json(
+        { error: "container_dependency_not_ready" },
+        { status: 401 },
+      ),
+    () => Response.json({ error: "unauthorized" }, { status: 403 }),
+    () =>
+      Response.json(
+        { error: "container_version_or_contract_mismatch" },
+        { status: 503 },
+      ),
+    () => Response.json({ error: "container_not_ready" }, { status: 503 }),
+    () => Response.json({ error: "feed_unavailable" }, { status: 503 }),
+    () => Response.json({ error: "SECRET-must-not-upload" }, { status: 503 }),
+    () =>
+      new Response("<html>SECRET-must-not-upload</html>", {
+        status: 503,
+        headers: { "content-type": "text/html" },
+      }),
+    () =>
+      new Response('{"error":"container_dependency_not_ready"}', {
+        status: 503,
+        headers: { "content-type": "text/html" },
+      }),
+    () =>
+      new Response("not-json", {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      }),
+    () =>
+      Response.json(
+        { error: "container_dependency_not_ready", padding: "x".repeat(17000) },
+        { status: 503 },
+      ),
+  ]) {
+    const f = fixture("off", { readyResponse: makeResponse });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (error) => {
+        const r = error.readbackFailure;
+        assert.equal(r.stage, "initial_readiness");
+        assert.equal(r.readinessObservations.length, 1);
+        assert.ok(r.readinessObservations[0].status >= 400);
+        assert.equal(
+          JSON.stringify(r).includes("SECRET-must-not-upload"),
+          false,
+        );
+        assert.equal(r.lastValidatedReadiness, null);
+        return true;
+      },
+    );
+    assert.equal(f.count().readyCalls, 1);
+    assert.equal(f.count().metadataCalls, 0);
+  }
+});
+test("initial dependency retry exhaustion, request body deadline and global quotas all remain finite", async () => {
+  assert.equal(limits.durationMs, 180000);
+  assert.equal(limits.readinessRequests, 95);
+  assert.equal(limits.initialReadinessAttempts, 8);
+  assert.equal(limits.initialReadinessConvergenceMs, 60000);
+  for (const bounds of [
+    { initialReadinessAttempts: 3, initialReadinessIntervalMs: 1 },
+    { initialReadinessConvergenceMs: 20, initialReadinessIntervalMs: 100 },
+    { readinessRequests: 2, initialReadinessIntervalMs: 1 },
+    { durationMs: 20, initialReadinessIntervalMs: 100 },
+  ]) {
+    const f = fixture("off", {
+      bounds,
+      readyResponse: () =>
+        Response.json(
+          { error: "container_dependency_not_ready" },
+          { status: 503 },
+        ),
+    });
+    const at = performance.now();
+    await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
+    assert.ok(performance.now() - at < 500);
+    assert.ok(f.count().readyCalls <= 3);
+    assert.equal(f.count().metadataCalls, 0);
+  }
+  const slow = fixture("off", {
+    bounds: { requestMs: 20 },
+    readyResponse: () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"error":'));
+          },
+        }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      ),
+  });
+  const at = performance.now();
+  await assert.rejects(verifyDeployment(m, sha, image, "off", slow.options));
+  assert.ok(performance.now() - at < 500);
+  assert.equal(slow.count().readyCalls, 1);
+});
+test("dependency code after initial success cannot hide a heartbeat failure", async () => {
+  const f = fixture("off", {
+    delay: 1000,
+    bounds: { intervalMs: 5 },
+    readyResponse: (call) =>
+      call > 1
+        ? Response.json(
+            { error: "container_dependency_not_ready" },
+            { status: 503 },
+          )
+        : null,
+  });
+  const at = performance.now();
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", f.options),
+    (error) => {
+      assert.equal(
+        error.readbackFailure.readinessObservations.at(-1).phase,
+        "heartbeat",
+      );
+      assert.equal(
+        error.readbackFailure.readinessObservations.at(-1).errorCode,
+        "container_dependency_not_ready",
+      );
+      return true;
+    },
+  );
+  assert.ok(performance.now() - at < 500);
+  assert.equal(f.count().readyCalls, 2);
+});
 
 test("production manifest is independently pinned and staging refuses production/dev IDs", () => {
   assert.equal(validateManifest(m), m);
