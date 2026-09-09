@@ -30,8 +30,12 @@ for (const job of [authorization,deployJob]) for (const fragment of ['ref: ${{ g
 for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api repos/hikariming/ghfind/git/ref/heads/main', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
   if (!deployJob.includes(fragment)) throw new Error(`Production job missing ${fragment}`);
 }
-const order = ['Build and push the portable image','Apply and verify explicitly approved','Detach only the owned consumers','Deploy private adapter and off-mode','Install a compatible paused gateway','Start or resume the single real production assessment','Activate executor and verify actual baseline','Require real assessment finalization and durable queue projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
+const order = ['Build and push the portable image','Apply and verify explicitly approved','Pause an already active Go gateway','Detach only the owned consumers','Deploy private adapter and off-mode','Install a compatible paused gateway','Start or resume the single real production assessment','Activate executor and verify actual baseline','Require real assessment finalization and durable queue projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
 for (let i=1;i<order.length;i++) if(deployJob.indexOf(order[i])<=deployJob.indexOf(order[i-1])) throw new Error('Unsafe deployment ordering');
+// Traffic is already legacy or Go-paused. Replace the private fleet in one
+// platform rollout step, but retain all actual readiness/instance gates.
+const runtimeDeploys = deployJob.split('\n').filter(line => line.includes('wrangler deploy --config platform/runtime/wrangler.production.generated.json'));
+if (runtimeDeploys.length !== 2 || runtimeDeploys.some(line => !line.includes('--containers-rollout=immediate'))) throw new Error('Paused production runtime requires explicit immediate Container rollout');
 if (/^  (push|workflow_dispatch):/m.test(workflow) || workflow.includes('secrets: inherit') || deployJob.includes('previous_version') || /continue-on-error:\s*true/.test(deployJob)) throw new Error('Unsafe bypass, inherited secrets, legacy rollback or optional production gate');
 
 const ciPath = resolve(process.cwd(), ".github/workflows/ci.yml");

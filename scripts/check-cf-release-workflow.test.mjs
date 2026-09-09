@@ -43,3 +43,11 @@ test('optional E2E and broad inherited production secrets are rejected', () => {
   const production = originals['deploy-cf-production.yml'].replace('    needs: [authorize]\n', '    needs: [authorize]\n    secrets: inherit\n');
   assert.throws(() => check({ 'deploy-cf-production.yml': production }));
 });
+
+test('private runtime rollout stays immediate after the existing Go gateway pause', () => {
+  const production = originals['deploy-cf-production.yml'];
+  for (const replacement of ['', '--containers-rollout=none']) {
+    assert.throws(() => check({ 'deploy-cf-production.yml': production.replace('--containers-rollout=immediate', replacement) }));
+  }
+  assert.throws(() => check({ 'deploy-cf-production.yml': production.replace('Pause an already active Go gateway', 'Missing pre-update pause') }));
+});
