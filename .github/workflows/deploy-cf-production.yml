@@ -139,7 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" off
-          platform/runtime/node_modules/.bin/wrangler containers list --config platform/runtime/wrangler.jsonc --json > "$RUNNER_TEMP/feed-production-evidence/applications-before-off.json"
+          node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-off.json"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.adapter.production.generated.json --secrets-file "$RUNNER_TEMP/feed-adapter-secrets.json" --tag "production-$RELEASE_SHA"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
           sleep 130
@@ -167,7 +167,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-off.json"
-          platform/runtime/node_modules/.bin/wrangler containers list --config platform/runtime/wrangler.jsonc --json > "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
+          node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
           # Same image can still carry old env until the Container is idle.
           # Do not probe and keep old off-mode instances alive during this wait.

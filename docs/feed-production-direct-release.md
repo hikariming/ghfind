@@ -34,7 +34,11 @@ receipts and actual repository protection. The workflow then:
    both actual Worker versions, bindings, each actual application image, basic
    sizes, instance limits (API 2 / executor 1) and all three Go readiness identities.
    Before each off/baseline runtime deployment, records the two application
-   identities. During bounded convergence only that exact preceding identity may
+   identities from direct Application details (`containers info`), not the
+   dashboard list's potentially delayed version/image. List responses discover
+   unique IDs only; direct details govern subsequent and final identity checks.
+   The predeployment capture reads at most three metadata responses within 60s
+   and stores only name, UUID, version and digest. During bounded convergence only that exact preceding identity may
    remain pending; acceptance always requires the expected new image. Once the
    new image appears its version is pinned, and identity drift or regression stops
    the release. Snapshots never authorize serving traffic from an old image.

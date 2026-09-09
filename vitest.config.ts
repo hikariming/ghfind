@@ -7,7 +7,7 @@ export default defineConfig({
   // Worker packages own workerd-backed configs and must not run in Node's
   // default pool. CI invokes each package's required contract suite explicitly.
   test: {
-    exclude: ["**/node_modules/**", "**/.git/**", "platform/**", "scripts/feed-platform-*.test.mjs", "scripts/feed-operator.test.mjs", "scripts/feed-governance.test.mjs", "scripts/feed-snapshot*.test.mjs", "scripts/feed-ci-evidence.test.mjs", "scripts/check-cf-release-workflow.test.mjs", "scripts/feed-github-protection.test.mjs", "scripts/feed-e2e-remote.test.mjs", "scripts/feed-e2e/ack-loss.test.mjs", "scripts/feed-production-release.test.mjs", "scripts/feed-production-compatibility.test.mjs", "scripts/feed-production-pause.test.mjs", "scripts/feed-production-assessment.test.mjs", "scripts/feed-production-assessment-recovery.test.mjs"],
+    exclude: ["**/node_modules/**", "**/.git/**", "platform/**", "scripts/feed-platform-*.test.mjs", "scripts/feed-operator.test.mjs", "scripts/feed-governance.test.mjs", "scripts/feed-snapshot*.test.mjs", "scripts/feed-ci-evidence.test.mjs", "scripts/check-cf-release-workflow.test.mjs", "scripts/feed-github-protection.test.mjs", "scripts/feed-e2e-remote.test.mjs", "scripts/feed-e2e/ack-loss.test.mjs", "scripts/feed-production-release.test.mjs", "scripts/feed-production-compatibility.test.mjs", "scripts/feed-production-pause.test.mjs", "scripts/feed-production-assessment.test.mjs", "scripts/feed-production-assessment-recovery.test.mjs", "scripts/feed-production-application-snapshot.test.mjs"],
   },
   resolve: {
     alias: {

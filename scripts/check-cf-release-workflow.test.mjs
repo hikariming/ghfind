@@ -65,7 +65,7 @@ test('public production smoke checks the canonical custom domain even through wo
 test('each runtime deployment captures and verifies its own preceding application identities', () => {
   const production = originals['deploy-cf-production.yml'];
   for (const mode of ['off', 'baseline']) {
-    const capture = `          platform/runtime/node_modules/.bin/wrangler containers list --config platform/runtime/wrangler.jsonc --json > "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"\n`;
+    const capture = `          node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"\n`;
     assert.throws(() => check({ 'deploy-cf-production.yml': production.replace(capture, '') }));
     assert.throws(() => check({ 'deploy-cf-production.yml': production.replace(capture, '').replace('          sleep 130\n', `          sleep 130\n${capture}`) }));
     const verify = ` ${mode} "$RUNNER_TEMP/feed-production-evidence/runtime-${mode}.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
