@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   template,
   validateManifest,
@@ -10,6 +13,7 @@ import {
   expectedBindings,
   validateReadiness,
   disableConsumers,
+  verifyProductionToFile,
 } from "./feed-platform-production.mjs";
 import {
   validateManifest as stagingValidate,
@@ -37,7 +41,9 @@ const admin = "r".repeat(32),
 function fixture(mode = "off", options = {}) {
   let total = 0,
     readyCalls = 0,
-    metadataCalls = 0;
+    metadataCalls = 0,
+    listCalls = 0;
+  const instanceCalls = new Map();
   const workerId = id(1),
     adapterId = id(2),
     deployments = {};
@@ -81,7 +87,7 @@ function fixture(mode = "off", options = {}) {
       assert.equal(init.headers.authorization, `Bearer ${admin}`);
       return Response.json(
         options.ready
-          ? options.ready(structuredClone(ready), readyCalls)
+          ? options.ready(structuredClone(ready), readyCalls, { metadataCalls })
           : ready,
       );
     }
@@ -191,10 +197,12 @@ function fixture(mode = "off", options = {}) {
     assert.ok(signal instanceof AbortSignal);
     if (options.delay && metadataCalls === 1)
       await sleep(options.delay, undefined, { signal });
-    if (args[1] === "list")
+    if (args[1] === "list") {
+      listCalls++;
       return options.applications
-        ? options.applications(structuredClone(applications))
+        ? options.applications(structuredClone(applications), listCalls)
         : applications;
+    }
     if (args[1] === "info") {
       const a = applications.find((a) => a.id === args[2]);
       const result = {
@@ -226,7 +234,11 @@ function fixture(mode = "off", options = {}) {
       })),
       result_info: {},
     };
-    return options.instances ? options.instances(result) : result;
+    const attempt = (instanceCalls.get(args[2]) ?? 0) + 1;
+    instanceCalls.set(args[2], attempt);
+    return options.instances
+      ? options.instances(result, { appId: args[2], attempt, signal })
+      : result;
   };
   return {
     fetcher,
@@ -238,7 +250,12 @@ function fixture(mode = "off", options = {}) {
       metadata,
       ...(options.bounds ? { limits: options.bounds } : {}),
     },
-    count: () => ({ total, readyCalls, metadataCalls }),
+    count: () => ({
+      total,
+      readyCalls,
+      metadataCalls,
+      instanceCalls: [...instanceCalls.values()].reduce((a, b) => a + b, 0),
+    }),
     ready,
   };
 }
@@ -311,7 +328,7 @@ test("bootstrap off has no asynchronous entrypoints; production resources and ca
 test("actual readback whitelists all published identity fields and gates baseline", async () => {
   const f = fixture();
   const r = await verifyDeployment(m, sha, image, "off", f.options);
-  assert.equal(r.keepWarm.metadataReads, 23);
+  assert.equal(r.keepWarm.metadataReads, 24);
   assert.equal(r.keepWarm.stopped, true);
   assert.equal(r.status, "passed");
   assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
@@ -376,7 +393,7 @@ test("Wrangler ready application summary still requires all named running instan
     });
     const r = await verifyDeployment(m, sha, image, "off", f.options);
     assert.equal(r.status, "passed");
-    assert.equal(r.keepWarm.metadataReads, 23);
+    assert.equal(r.keepWarm.metadataReads, 24);
     assert.deepEqual(
       r.applications.map((a) =>
         a.instances.map((i) => [i.name, i.state, i.version]),
@@ -479,6 +496,7 @@ test("ready application summary cannot replace running instance, version or popu
     const f = fixture("off", {
       applications: (apps) => apps.map((app) => ({ ...app, state: "ready" })),
       instances,
+      bounds: { instanceAttempts: 2, instanceIntervalMs: 1 },
     });
     await assert.rejects(
       verifyDeployment(m, sha, image, "off", f.options),
@@ -489,8 +507,8 @@ test("ready application summary cannot replace running instance, version or popu
 test("ready summary and matching instances cannot hide a final process readiness change", async () => {
   const f = fixture("baseline", {
     applications: (apps) => apps.map((app) => ({ ...app, state: "ready" })),
-    ready: (r, call) => {
-      if (call > 1) r.containers[2].mode = "off";
+    ready: (r, _call, { metadataCalls }) => {
+      if (metadataCalls === 6) r.containers[2].mode = "off";
       return r;
     },
   });
@@ -498,7 +516,255 @@ test("ready summary and matching instances cannot hide a final process readiness
     verifyDeployment(m, sha, image, "baseline", f.options),
     /container readiness differs/,
   );
-  assert.equal(f.count().metadataCalls, 5);
+  assert.equal(f.count().metadataCalls, 6);
+});
+test("bounded placement convergence preserves each actual snapshot and requires fresh process readiness", async () => {
+  const f = fixture("off", {
+    bounds: { instanceIntervalMs: 1 },
+    instances: (result, { appId, attempt }) => {
+      if (appId === id(3) && attempt < 4) {
+        const patch = [
+          { state: "inactive", version: null },
+          { state: "stopped", version: 6 },
+          { state: "running", version: 6 },
+        ][attempt - 1];
+        Object.assign(result.instances[1], patch);
+      }
+      return result;
+    },
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.status, "passed");
+  assert.equal(r.keepWarm.metadataReads, 27);
+  assert.equal(f.count().instanceCalls, 5);
+  assert.ok(f.count().readyCalls >= 7);
+  assert.deepEqual(
+    r.instanceObservations.map((o) => o.status),
+    ["pending", "pending", "pending", "converged", "converged"],
+  );
+  assert.deepEqual(
+    r.instanceObservations
+      .slice(0, 4)
+      .map((o) => [o.instances[1].state, o.instances[1].version]),
+    [
+      ["inactive", null],
+      ["stopped", 6],
+      ["running", 6],
+      ["running", 7],
+    ],
+  );
+  for (const o of r.instanceObservations) {
+    assert.equal(o.applicationVersion, 7);
+    assert.ok(Date.parse(o.readinessObservedAt) <= Date.parse(o.observedAt));
+    assert.deepEqual(Object.keys(o.instances[0]), [
+      "id",
+      "name",
+      "state",
+      "version",
+    ]);
+  }
+  assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
+  assert.equal(JSON.stringify(r).includes("arbitraryBody"), false);
+});
+test("permanent placement lag exhausts attempts, persists safe diagnostics and cannot authorize baseline", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ghfind-readback-"));
+  const output = join(directory, "failed.json");
+  try {
+    const f = fixture("off", {
+      bounds: { instanceAttempts: 3, instanceIntervalMs: 1 },
+      instances: (result) => ({
+        ...result,
+        instances: result.instances.map((i) => ({
+          ...i,
+          state: "inactive",
+          version: null,
+        })),
+      }),
+    });
+    await assert.rejects(
+      verifyProductionToFile(m, sha, image, "off", output, f.options),
+      /convergence attempts exhausted/,
+    );
+    assert.equal(f.count().instanceCalls, 3);
+    const report = JSON.parse(readFileSync(output, "utf8"));
+    assert.equal(report.status, "failed");
+    assert.equal(report.keepWarm.completed, false);
+    assert.equal(report.keepWarm.stopped, true);
+    assert.equal(report.stage, "instance_convergence");
+    assert.equal(report.instanceObservations.length, 3);
+    assert.equal(report.lastValidatedReadiness.length, 3);
+    assert.equal(JSON.stringify(report).includes("must-not-upload"), false);
+    assert.equal(JSON.stringify(report).includes("arbitraryBody"), false);
+    assert.equal(statSync(output).mode & 0o777, 0o600);
+    assert.throws(
+      () => validateReceipt(report, m, sha, image, "off"),
+      /matching/,
+    );
+    assert.throws(
+      () => renderRuntime(m, image, sha, "baseline", report),
+      /matching/,
+    );
+    const saved = readFileSync(output, "utf8");
+    await assert.rejects(
+      verifyProductionToFile(m, sha, image, "off", output, {
+        secret: "invalid",
+        token,
+      }),
+      /EEXIST/,
+    );
+    assert.equal(readFileSync(output, "utf8"), saved);
+    const before = f.count().total;
+    await sleep(20);
+    assert.equal(f.count().total, before);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+test("invalid instance shape or unhealthy placement fails without any retry", async () => {
+  for (const instances of [
+    () => null,
+    (r) => ({ ...r, result_info: undefined }),
+    (r) => ({ ...r, instances: [null, null] }),
+    (r) => ({
+      ...r,
+      instances: r.instances.map((i) => ({ ...i, id: "same-id" })),
+    }),
+    (r) => ({
+      ...r,
+      instances: r.instances.map((i) => ({ ...i, version: null })),
+    }),
+    ...["failed", "unhealthy", "unknown", "active"].map((state) => (r) => ({
+      ...r,
+      instances: r.instances.map((i) => ({ ...i, state })),
+    })),
+  ]) {
+    const f = fixture("off", { instances });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (error) => {
+        assert.equal(error.readbackFailure.instanceObservations.length, 1);
+        assert.equal(
+          error.readbackFailure.instanceObservations[0].status,
+          "rejected",
+        );
+        return true;
+      },
+    );
+    assert.equal(f.count().instanceCalls, 1);
+  }
+});
+test("instance retry cannot mask wrong actual mode on the next authenticated readiness", async () => {
+  const f = fixture("baseline", {
+    bounds: { instanceIntervalMs: 1 },
+    ready: (r, call) => {
+      if (call >= 3) r.containers[1].mode = "off";
+      return r;
+    },
+    instances: (r) => ({
+      ...r,
+      instances: r.instances.map((i) => ({
+        ...i,
+        state: "stopped",
+        version: 6,
+      })),
+    }),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "baseline", f.options),
+    /container readiness differs/,
+  );
+  assert.equal(f.count().instanceCalls, 1);
+});
+test("per-app deadline cancels waiting or metadata and never accepts a late snapshot", async () => {
+  for (const blocked of ["wait", "metadata"]) {
+    const f = fixture("off", {
+      bounds: { instanceConvergenceMs: 30, instanceIntervalMs: 100 },
+      instances: async (r, { signal }) => {
+        if (blocked === "metadata") await sleep(1000, undefined, { signal });
+        return {
+          ...r,
+          instances: r.instances.map((i) => ({
+            ...i,
+            state: "inactive",
+            version: null,
+          })),
+        };
+      },
+    });
+    const start = performance.now();
+    await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
+    assert.ok(performance.now() - start < 500);
+    assert.equal(f.count().instanceCalls, 1);
+    const before = f.count().total;
+    await sleep(20);
+    assert.equal(f.count().total, before);
+  }
+});
+test("heartbeat failure aborts in-flight convergence metadata without another attempt", async () => {
+  const f = fixture("off", {
+    bounds: { intervalMs: 5 },
+    ready: (r, call) => {
+      if (call >= 3) r.containers[0].storageWriterVersion = 1;
+      return r;
+    },
+    instances: async (r, { signal }) => {
+      await sleep(1000, undefined, { signal });
+      return r;
+    },
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", f.options),
+    /container readiness differs/,
+  );
+  assert.equal(f.count().instanceCalls, 1);
+  const before = f.count().total;
+  await sleep(20);
+  assert.equal(f.count().total, before);
+});
+test("final application snapshot must retain exact application, image and version", async () => {
+  for (const patch of [
+    { version: 8 },
+    { image: "mutable:latest" },
+    { id: id(900) },
+    { state: "degraded" },
+  ]) {
+    const f = fixture("off", {
+      applications: (apps, call) =>
+        call === 2 ? [{ ...apps[0], ...patch }, apps[1]] : apps,
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /application changed during readback/,
+    );
+    assert.equal(f.count().instanceCalls, 2);
+  }
+});
+test("fixed readback quotas cover both maximum attempt series without widening time or transport bounds", async () => {
+  assert.equal(limits.durationMs, 180000);
+  assert.equal(limits.metadataReads, 23 + 14 + 1);
+  assert.equal(limits.readinessRequests, 95);
+  assert.equal(limits.instanceAttempts, 8);
+  assert.equal(limits.instanceConvergenceMs, 60000);
+  assert.equal(limits.metadataMs, 30000);
+  assert.equal(limits.requestMs, 10000);
+  const f = fixture("off", {
+    bounds: { instanceIntervalMs: 1 },
+    instances: (r, { attempt }) =>
+      attempt < 8
+        ? {
+            ...r,
+            instances: r.instances.map((i) => ({
+              ...i,
+              state: "provisioning",
+              version: 7,
+            })),
+          }
+        : r,
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.instanceObservations.length, 16);
+  assert.equal(r.keepWarm.metadataReads, limits.metadataReads);
+  assert.equal(r.keepWarm.readinessRequests, 18);
 });
 test("both runtime and adapter active deployments must stay fixed through readback", async () => {
   for (const changedWorker of [m.runtimeWorker, m.adapterWorker]) {
@@ -646,7 +912,7 @@ test("actual async wiring is checked for off and baseline and retains only polic
   for (const mode of ["off", "baseline"]) {
     const f = fixture(mode),
       r = await verifyDeployment(m, sha, image, mode, f.options);
-    assert.equal(r.keepWarm.metadataReads, 23);
+    assert.equal(r.keepWarm.metadataReads, 24);
     assert.equal(r.asyncTriggers.verified, true);
     assert.equal(r.asyncTriggers.mode, mode);
     assert.deepEqual(

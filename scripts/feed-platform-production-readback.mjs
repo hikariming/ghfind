@@ -17,8 +17,13 @@ import {
 
 export const limits = Object.freeze({
   durationMs: 180000,
-  readinessRequests: 75,
-  metadataReads: 23,
+  // 72 heartbeat slots + 16 per-attempt checks + initial/final checks <= 95.
+  readinessRequests: 95,
+  // Original 23 + 14 additional instance reads + final application identity read.
+  metadataReads: 38,
+  instanceAttempts: 8,
+  instanceIntervalMs: 2500,
+  instanceConvergenceMs: 60000,
   intervalMs: 2500,
   requestMs: 10000,
   metadataMs: 30000,
@@ -31,6 +36,70 @@ function scalarVersion(v) {
     (Number.isSafeInteger(v) && v >= 0) ||
     (typeof v === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(v))
   );
+}
+// CLI placement states from pinned Wrangler 4.129.1 containers/instances.ts.
+const instanceStates = new Set([
+  "running",
+  "inactive",
+  "provisioning",
+  "stopping",
+  "stopped",
+  "failed",
+  "unhealthy",
+  "unknown",
+]);
+function inspectInstances(result, names, expectedVersion) {
+  if (
+    !result ||
+    !Array.isArray(result.instances) ||
+    !result.result_info ||
+    typeof result.result_info !== "object" ||
+    Array.isArray(result.result_info) ||
+    result.result_info.next_page_token ||
+    result.instances.length !== names.length
+  )
+    return { status: "rejected", reason: "unexpected_instance_population" };
+  const ids = new Set();
+  let pending = false;
+  for (const name of names) {
+    const rows = result.instances.filter((i) => i?.name === name);
+    if (rows.length !== 1 || !shortIdentity(rows[0].id) || ids.has(rows[0].id))
+      return { status: "rejected", reason: "instance_identity_invalid" };
+    const row = rows[0];
+    ids.add(row.id);
+    if (
+      !instanceStates.has(row.state) ||
+      (row.state === "inactive"
+        ? row.version !== null
+        : !scalarVersion(row.version))
+    )
+      return {
+        status: "rejected",
+        reason: "instance_state_or_version_invalid",
+      };
+    if (["failed", "unhealthy", "unknown"].includes(row.state))
+      return { status: "rejected", reason: "instance_unhealthy" };
+    if (
+      row.state !== "running" ||
+      String(row.version) !== String(expectedVersion)
+    )
+      pending = true;
+  }
+  return {
+    status: pending ? "pending" : "converged",
+    reason: pending ? "instance_state_or_version_pending" : null,
+  };
+}
+function observedInstances(result, names) {
+  // Never copy arbitrary rows, names, environment, placement detail or bodies.
+  return (Array.isArray(result?.instances) ? result.instances : [])
+    .slice(0, names.length)
+    .map((row) => ({
+      id: shortIdentity(row?.id) ? row.id : null,
+      name: names.includes(row?.name) ? row.name : null,
+      state: instanceStates.has(row?.state) ? row.state : "invalid",
+      version: scalarVersion(row?.version) ? row.version : null,
+    }));
 }
 export function activeVersion(active) {
   const d = active?.deployments?.[0];
@@ -312,7 +381,11 @@ export async function verifyDeployment(
     readinessRequests = 0,
     lastReadiness,
     loop,
-    heartbeatFailure;
+    heartbeatFailure,
+    lastReadinessAt = null,
+    stage = "initial_readiness",
+    failureReceipt;
+  const instanceObservations = [];
   function signal(timeout, extra = run.signal) {
     return AbortSignal.any([run.signal, extra, AbortSignal.timeout(timeout)]);
   }
@@ -340,9 +413,12 @@ export async function verifyDeployment(
     run.signal.throwIfAborted();
     return data.result;
   }
-  async function wrangler(args) {
+  async function wrangler(args, extra = run.signal) {
     countMetadata();
-    const result = await metadata(args, { signal: signal(bounds.metadataMs) });
+    const result = await metadata(args, {
+      signal: signal(bounds.metadataMs, extra),
+    });
+    extra.throwIfAborted();
     run.signal.throwIfAborted();
     return result;
   }
@@ -368,6 +444,49 @@ export async function verifyDeployment(
       workerVersionId,
     );
     run.signal.throwIfAborted();
+    lastReadinessAt = new Date().toISOString();
+  }
+  // Deploy returns before every instance is replaced; metadata may still be
+  // transitional. https://developers.cloudflare.com/containers/guides/deploy/
+  async function convergeInstances(app, names, runtimeId) {
+    const convergence = AbortSignal.any([
+      run.signal,
+      AbortSignal.timeout(bounds.instanceConvergenceMs),
+    ]);
+    for (let attempt = 1; attempt <= bounds.instanceAttempts; attempt++) {
+      convergence.throwIfAborted();
+      // A stale placement snapshot is retryable; a stale actual Go process is not.
+      await ready(runtimeId, convergence);
+      convergence.throwIfAborted();
+      const result = await wrangler(
+        ["containers", "instances", app.id, "--per-page", "10", "--json"],
+        convergence,
+      );
+      const verdict = inspectInstances(result, names, app.version);
+      instanceObservations.push({
+        observedAt: new Date().toISOString(),
+        applicationId: app.id,
+        applicationName: app.name,
+        applicationVersion: app.version,
+        applicationSummary: app.state,
+        attempt,
+        readinessObservedAt: lastReadinessAt,
+        ...verdict,
+        instances: observedInstances(result, names),
+      });
+      requireThat(
+        verdict.status !== "rejected",
+        `instance version/state differs or unexpected instance population: ${verdict.reason}`,
+      );
+      if (verdict.status === "converged") return result;
+      requireThat(
+        attempt < bounds.instanceAttempts,
+        `instance version/state differs: convergence attempts exhausted for ${names.join(",")}`,
+      );
+      await sleep(bounds.instanceIntervalMs, undefined, {
+        signal: convergence,
+      });
+    }
   }
   try {
     // Obtain the expected Worker ID before waking Containers; once awake, keep
@@ -396,6 +515,7 @@ export async function verifyDeployment(
         }
       }
     })();
+    stage = "platform_identity";
     const runtime = verifyVersion(
       m,
       sha,
@@ -472,30 +592,8 @@ export async function verifyDeployment(
           configuration.durable_objects?.namespace_id === namespaceId,
         "application is not linked to runtime namespace",
       );
-      const result = await wrangler([
-        "containers",
-        "instances",
-        app.id,
-        "--per-page",
-        "10",
-        "--json",
-      ]);
-      requireThat(
-        !result.result_info?.next_page_token &&
-          result.instances?.length === names.length,
-        "unexpected instance population",
-      );
-      for (const name of names) {
-        const rows = result.instances.filter((i) => i.name === name);
-        requireThat(
-          rows.length === 1 &&
-            shortIdentity(rows[0].id) &&
-            rows[0].state === "running" &&
-            scalarVersion(rows[0].version) &&
-            String(rows[0].version) === String(app.version),
-          `instance version/state differs: ${name}`,
-        );
-      }
+      stage = "instance_convergence";
+      const result = await convergeInstances(app, names, runtimeId);
       applications.push({
         applicationId: app.id,
         name: app.name,
@@ -512,6 +610,7 @@ export async function verifyDeployment(
         })),
       });
     }
+    stage = "async_triggers";
     const asyncTriggers = await verifyAsyncTriggers(m, mode, api);
     for (const prior of [runtime, adapter]) {
       const after = activeVersion(
@@ -523,9 +622,28 @@ export async function verifyDeployment(
         "deployment changed during readback",
       );
     }
+    stage = "final_application_identity";
+    const finalApps = await wrangler(["containers", "list", "--json"]);
+    requireThat(
+      Array.isArray(finalApps),
+      "invalid final application inventory",
+    );
+    for (const prior of applications) {
+      const matches = finalApps.filter((app) => app?.name === prior.name);
+      requireThat(
+        matches.length === 1 &&
+          matches[0].id === prior.applicationId &&
+          matches[0].image === prior.image &&
+          String(matches[0].version) === String(prior.version) &&
+          scalarVersion(matches[0].version) &&
+          ["active", "ready"].includes(matches[0].state),
+        "application changed during readback",
+      );
+    }
     heartbeat.abort();
     await loop;
     if (heartbeatFailure) throw heartbeatFailure;
+    stage = "final_readiness";
     await ready(runtimeId);
     return {
       format: "ghfind-feed-production-readiness-v1",
@@ -539,6 +657,7 @@ export async function verifyDeployment(
       runtime,
       adapter,
       applications,
+      instanceObservations,
       readiness: lastReadiness,
       bindingsVerified: true,
       asyncTriggers,
@@ -561,11 +680,38 @@ export async function verifyDeployment(
       note: "Read-only exact release readiness. Bootstrap off is not an application rollback; baseline must be separately deployed and read back.",
     };
   } catch (error) {
-    throw heartbeatFailure ?? (run.signal.aborted ? run.signal.reason : error);
+    const failure =
+      heartbeatFailure ?? (run.signal.aborted ? run.signal.reason : error);
+    failureReceipt = {
+      format: "ghfind-feed-production-readback-failure-v1",
+      status: "failed",
+      failureCode: "production_readback_failed",
+      stage,
+      accountId: ACCOUNT,
+      environment: "production",
+      ...identity,
+      observedAt: new Date().toISOString(),
+      readinessObservedAt: lastReadinessAt,
+      instanceObservations,
+      // Only validateReadiness's approved projection; never an unchecked response.
+      lastValidatedReadiness: lastReadiness ?? null,
+      keepWarm: {
+        completed: false,
+        stopped: false,
+        durationMs: Math.round(performance.now() - started),
+        readinessRequests,
+        metadataReads,
+        limits: bounds,
+      },
+      note: "Failed diagnostic only. Does not authorize baseline or traffic admission.",
+    };
+    failure.readbackFailure = failureReceipt;
+    throw failure;
   } finally {
     heartbeat.abort();
     run.abort();
     clearTimeout(timer);
     await loop;
+    if (failureReceipt) failureReceipt.keepWarm.stopped = true;
   }
 }

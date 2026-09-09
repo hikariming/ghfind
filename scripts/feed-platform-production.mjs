@@ -247,6 +247,41 @@ export function renderAdapter(m, sha) {
   c.r2_buckets = [{ binding: "FEED_ARCHIVE", bucket_name: m.archiveBucket }];
   return c;
 }
+// A failed readback also gets an exclusive, sanitized diagnostic artifact.
+// It has a distinct format/status and can never satisfy validateReceipt.
+export async function verifyProductionToFile(
+  m,
+  sha,
+  image,
+  mode,
+  output,
+  options,
+) {
+  const { verifyDeployment } = await import(
+    "./feed-platform-production-readback.mjs"
+  );
+  let result;
+  try {
+    result = await verifyDeployment(m, sha, image, mode, options);
+  } catch (error) {
+    const failure = error.readbackFailure ?? {
+      format: "ghfind-feed-production-readback-failure-v1",
+      status: "failed",
+      failureCode: "readback_configuration_rejected",
+      observedAt: new Date().toISOString(),
+    };
+    writeFileSync(output, JSON.stringify(failure, null, 2) + "\n", {
+      flag: "wx",
+      mode: 0o600,
+    });
+    throw error;
+  }
+  writeFileSync(output, JSON.stringify(result, null, 2) + "\n", {
+    flag: "wx",
+    mode: 0o600,
+  });
+  return result;
+}
 export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
   const expected = releaseIdentity(m, sha, image, mode);
   requireThat(
@@ -638,15 +673,9 @@ async function main(args) {
     );
   }
   if (command === "verify" && args.length === 6) {
-    const { verifyDeployment } = await import(
-      "./feed-platform-production-readback.mjs"
-    );
-    const result = await verifyDeployment(m, sha, image, mode, {
+    await verifyProductionToFile(m, sha, image, mode, receiptOrOutput, {
       secret: process.env.FEED_RUNTIME_ADMIN_SECRET,
       token: process.env.CLOUDFLARE_API_TOKEN,
-    });
-    writeFileSync(receiptOrOutput, JSON.stringify(result, null, 2) + "\n", {
-      flag: "wx",
     });
     return console.log(
       "Production immutable deployment and authenticated readiness verified; no OAuth, load or cost acceptance claimed",
