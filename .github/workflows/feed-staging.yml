@@ -30,8 +30,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  protection:
+    name: Verify actual repository release protections
+    if: ${{ github.repository == 'hikariming/ghfind' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # No environment reference: GitHub must not silently create an unprotected
+    # environment before this readback proves the required policies exist.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify enforced checks and deployment policies without changing them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-github-protection.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feed-protection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-github-protection.json
+          if-no-files-found: error
+          retention-days: 30
+
   deploy:
     name: Validate and deploy isolated Feed staging
+    needs: [protection]
     if: ${{ github.repository == 'hikariming/ghfind' }}
     environment: Feed staging
     runs-on: ubuntu-latest

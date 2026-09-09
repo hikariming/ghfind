@@ -63,7 +63,7 @@ jobs:
           fi
 
       - name: Verify exact-checkout evidence rejection cases
-        run: node --test scripts/feed-ci-evidence.test.mjs scripts/check-cf-release-workflow.test.mjs
+        run: node --test scripts/feed-ci-evidence.test.mjs scripts/check-cf-release-workflow.test.mjs scripts/feed-github-protection.test.mjs scripts/feed-e2e-remote.test.mjs
 
       - name: Verify Cloudflare release workflow contract
         run: pnpm ci:check-cf-release-workflow
@@ -237,6 +237,7 @@ jobs:
           npm --prefix platform/runtime test
           node --test scripts/feed-platform-manifest.test.mjs
           node --test scripts/feed-platform-provision.test.mjs
+          node --test scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs
           node --test scripts/feed-operator.test.mjs
           node --test scripts/feed-governance.test.mjs
       - name: Build the Container Worker without deployment
@@ -298,7 +299,9 @@ jobs:
           npm ci --prefix platform/runtime
           pnpm exec playwright install --with-deps chromium
       - name: Complete both profile journeys without skipped dependencies
-        run: python3 scripts/run-feed-e2e.py --release-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/feed-complete-e2e" --execute
+        run: |
+          python3 scripts/feed-e2e/harness.test.py
+          python3 scripts/run-feed-e2e.py --release-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/feed-complete-e2e" --execute
       - name: Validate full E2E and record actual checkout
         env:
           FEED_LOCAL_E2E_RECEIPT: ${{ runner.temp }}/feed-complete-e2e/run.json
