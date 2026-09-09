@@ -91,8 +91,8 @@ export function buildPlan(state, workflow) {
   const pullRequests = desiredRuleset.rules.filter(rule => rule.type === 'pull_request');
   assert(pullRequests.length === 1 && pullRequests[0].parameters.required_approving_review_count >= 1, 'Existing mandatory PR review rule absent or ambiguous');
   const methods = pullRequests[0].parameters.allowed_merge_methods;
-  assert(Array.isArray(methods) && methods.some(method => method === 'merge' || method === 'rebase'), 'Existing merge methods require manual review');
-  pullRequests[0].parameters.allowed_merge_methods = methods.filter(method => method !== 'squash');
+  assert(Array.isArray(methods) && methods.includes('rebase'), 'The requested PR rebase merge must be allowed');
+  // This delivery uses rebase; preserve the repository's other merge options.
   const statusRules = desiredRuleset.rules.filter(rule => rule.type === 'required_status_checks');
   assert(statusRules.length <= 1, 'Multiple status-check rules require manual review');
   let statusRule = statusRules[0];
@@ -147,7 +147,7 @@ export function verifyExistingState(state, checkedAt = new Date().toISOString())
   const review = reviews[0].parameters;
   assert(Number.isSafeInteger(review.required_approving_review_count) && review.required_approving_review_count >= 1, 'At least one independent PR approval is required', 'PROTECTION_NOT_ENFORCED');
   for (const field of ['dismiss_stale_reviews_on_push', 'require_code_owner_review', 'require_last_push_approval', 'require_extra_approval_for_unattributed_changes']) assert(review[field] === true, `Existing PR protection ${field} was weakened`, 'PROTECTION_NOT_ENFORCED');
-  assert(Array.isArray(review.allowed_merge_methods) && review.allowed_merge_methods.length > 0 && review.allowed_merge_methods.every(method => ['merge', 'rebase'].includes(method)), 'PR merge methods must exclude squash', 'PROTECTION_NOT_ENFORCED');
+  assert(Array.isArray(review.allowed_merge_methods) && review.allowed_merge_methods.includes('rebase'), 'The requested PR rebase merge must be allowed', 'PROTECTION_NOT_ENFORCED');
   const statuses = rule.rules.filter(item => item.type === 'required_status_checks');
   const requiredChecks = Object.values(requiredJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
   for (const expected of requiredChecks) assert(statuses.some(status => status.parameters?.strict_required_status_checks_policy === true && status.parameters.required_status_checks?.some(check => check.context === expected.context && check.integration_id === expected.integration_id)), `Missing strict GitHub Actions required check ${expected.context}`, 'PROTECTION_NOT_ENFORCED');

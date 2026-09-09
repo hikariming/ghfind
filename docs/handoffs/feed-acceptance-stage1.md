@@ -2,6 +2,8 @@
 
 Base main: `aa8c683fefca182428a48c180af7e862f7469929`.
 Branch: `codex/feed-acceptance-stage1`.
+Merge method: **rebase**, as requested on September 9. Preserve the repository's
+squash option; disabling it is not an acceptance prerequisite.
 Status: implementation and local validation in progress; **not accepted in CF,
 not merged, no production rollout**. Exact final pre-push SHA, raw local receipt,
 CI run and post-push CF observation belong in the PR's evidence section.
@@ -58,8 +60,9 @@ cannot support Feed. Do not activate external PaaS or weaken checks to bypass it
    Its environment lock covers deploy, E2E and final readback.
 4. Attach source/tree, commands, raw artifacts, image digest, Worker/Container
    versions, schema/resource identities, flags, costs and remaining gaps to the PR.
-   Merge only after the real remote gate passes. Use **merge commit** by default;
-   rebase is allowed with a fresh validation cycle. **Never squash.**
+   Merge only after the real remote gate passes. Use **rebase** for this PR and
+   validate the resulting main SHA afresh. Do not squash this delivery; other
+   repository merge options remain unchanged.
 5. Validate the actual merged main SHA afresh. Production cannot borrow the
    branch's receipt, an older run attempt, mocked login, or a green badge alone.
 

@@ -2,13 +2,15 @@
 
 此文档对应 `scripts/feed-github-protection.mjs`。脚本默认只执行 GET，并输出可以审核的配置计划；只有显式 `--apply` 才会写入 GitHub。它不创建 token、不写 secret、不部署 Cloudflare、不合并 PR。
 
+2026-09-09 用户更新：保留仓库的 squash 选项，本次 PR 使用 rebase 合入。是否允许其他 PR 使用 squash 不属于部署门禁；脚本不修改已有合并方式。准确 SHA CI、真实 CF E2E、required checks 和环境保护要求继续有效。
+
 目标固定为 `hikariming/ghfind`、ruleset `18206694`（`Protect main`）。当前账号具有 PR bypass 能力，但远端环境写入已返回 `403 Must have admin rights to Repository`；这不等于拥有仓库配置权限。2026-09-09 的只读核验也未返回 `bypass_actors`，该字段因缺少 ruleset 写权限而被 GitHub 隐藏，不能解释为没有 bypass 配置。[GitHub ruleset API](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)
 
 ## 预期变化
 
 | 配置 | 必须达到的状态 |
 | --- | --- |
-| Protect main | 保留原有分支范围、active 状态、所有 review 条件、其他 rules 和 bypass actors；只移除 `squash`，保留已有 `merge` / `rebase` |
+| Protect main | 保留原有分支范围、active 状态、所有合并方式、review 条件、其他 rules 和 bypass actors；确认本次 PR 可以使用 `rebase` |
 | Required checks | `Application checks`、`Feed storage contracts`、`Feed runtime builds`、`Complete local Feed E2E`；来源固定为已核验的 GitHub Actions integration `15368`；strict 模式 |
 | Feed staging | 自定义 branch policy，仅 `main` 和 `codex/feed-*`；不允许 tag；不新增人工等待 |
 | Feed staging operations | 仅 `main`；新增环境时 reviewer 为仓库 owner `hikariming`（User ID `23065064`） |
@@ -61,6 +63,6 @@ node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-git
 
 只有该 job 成功，声明 `Feed staging` 环境的部署 job 才能运行。这样 GitHub 不会因为 workflow 提及了一个缺失环境，就先自动创建没有保护的空环境。
 
-该模式只执行 GET，不要求管理员身份，也不要求看到被隐藏的 bypass actors。它核验 active 的固定 ruleset、原有 PR review 约束、禁止 squash、来源固定的四个 strict required checks、三个环境的精确 branch allowlist，以及 operations 的 owner reviewer。既有更严格的 review、wait timer、额外 status checks 和保护规则不会被改写。
+该模式只执行 GET，不要求管理员身份，也不要求看到被隐藏的 bypass actors。它核验 active 的固定 ruleset、原有 PR review 约束、允许本次 PR 使用 rebase、来源固定的四个 strict required checks、三个环境的精确 branch allowlist，以及 operations 的 owner reviewer。仓库可以同时允许 squash 和 merge commit。既有更严格的 review、wait timer、额外 status checks 和保护规则不会被改写。
 
 成功输出 `ghfind-github-protection-verification-v1` 证据，包含核验时间、状态 hash、checks 和环境策略；不包含 bypass 列表。任何缺失、策略不符或 403 等读取错误都会失败，且不生成可用的通过证据。`--verify-existing` 不能与 `--apply`、计划输入或其他输出选项混用。
