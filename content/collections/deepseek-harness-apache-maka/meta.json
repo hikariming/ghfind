@@ -24,7 +24,7 @@
         "ja": "「一切皆插件」のオープンソース Agent ランタイム。モデル、ツール、セッション、サンドボックス、さらに Agent ループ自体まで全て差し替え可能。MIT ライセンスで、公開から1か月足らずで21万スターを突破。",
         "ko": "'모든 것이 플러그인'인 오픈소스 에이전트 런타임. 모델, 도구, 세션, 샌드박스, 심지어 에이전트 루프까지 모두 교체 가능합니다. MIT 라이선스로 공개 한 달 만에 21만 스타를 돌파했습니다."
       },
-      "stats": { "stars": "217k", "language": "TypeScript", "description": "DeepSeek Harness: Everything is a Plugin." }
+      "stats": { "stars": 217000, "language": "TypeScript", "description": "DeepSeek Harness: Everything is a Plugin." }
     },
     {
       "kind": "repo",
@@ -35,7 +35,7 @@
         "ja": "Apache インキュベーター初の Agent Harness プロジェクト。ローカルファーストで「ログこそランタイム」——モデルメッセージ、ツール呼び出し、権限決定のすべてを追記専用の RuntimeEvent として記録します。",
         "ko": "Apache 인큐베이터 최초의 Agent Harness 프로젝트. 로컬 우선이며 '로그가 곧 런타임' — 모든 모델 메시지, 도구 호출, 권한 결정을 추가 전용 RuntimeEvent로 기록합니다."
       },
-      "stats": { "stars": "5.1k", "language": "TypeScript", "description": "Apache Maka (Incubating) is a high-performance agent workspace that keeps a complete record of everything it did." }
+      "stats": { "stars": 5100, "language": "TypeScript", "description": "Apache Maka (Incubating) is a high-performance agent workspace that keeps a complete record of everything it did." }
     }
   ]
 }
