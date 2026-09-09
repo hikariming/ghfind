@@ -29,7 +29,7 @@ func clean(s string, max int) bool {
 	return true
 }
 func validIdentity(v Identity) error {
-	r, err := RequiredRegistry(v.Profile)
+	r, err := RegistryForSchema(v.Profile, v.Schema)
 	if err != nil {
 		return err
 	}
@@ -68,13 +68,13 @@ func ValidateManifest(m Manifest) error {
 	if (m.FromSequence == 0) != (m.AnchorHash == zero) {
 		return invalid("anchor")
 	}
-	r, _ := RequiredRegistry(m.Source.Profile)
+	r, _ := RegistryForSchema(m.Source.Profile, m.Source.Schema)
 	if len(m.Coverage) != len(r.Tables) {
 		return invalid("coverage")
 	}
 	for i, v := range m.Coverage {
 		want := r.Tables[i]
-		if v.Table != want.Table || v.Mode != want.Mode || v.Category != want.Category || !safe(v.SnapshotRows) || (v.Mode == "empty" && v.SnapshotRows != 0) {
+		if v.Table != want.Table || v.Mode != want.Mode || v.Category != want.Category || !safe(v.SnapshotRows) || (v.Mode == "empty" && v.SnapshotRows != 0) || (v.Mode == "reinitialize" && v.SnapshotRows != 1) {
 			return invalid("coverage")
 		}
 	}
@@ -135,7 +135,7 @@ func validateTransaction(m Manifest, v Transaction) error {
 	seen := map[string]bool{}
 	images := 0
 	for _, c := range v.Changes {
-		rule, ok := tableRule(m.Source.Profile, c.Table)
+		rule, ok := tableRule(m.Source.Profile, m.Source.Schema, c.Table)
 		if !ok || rule.Mode != "capture" {
 			return invalid("change_coverage")
 		}
@@ -370,7 +370,7 @@ func ValidateBatch(m Manifest, b Batch, checkpoint Checkpoint, prior *Receipt) (
 					action = "tombstone"
 				}
 			case "upsert":
-				rule, _ := tableRule(m.Source.Profile, c.Table)
+				rule, _ := tableRule(m.Source.Profile, m.Source.Schema, c.Table)
 				if isAuthority(c.Table) {
 					action = "stage_control"
 				} else if isFloor(c.Table) {
