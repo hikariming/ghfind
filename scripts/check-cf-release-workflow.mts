@@ -7,91 +7,32 @@ const workflowPath = resolve(
 );
 const workflow = readFileSync(workflowPath, "utf8");
 
-const requiredFragments = [
-  'workflow_run:',
-  'workflows: ["CI"]',
-  "types: [completed]",
-  "uses: ./.github/workflows/feed-staging.yml",
-  "needs: [staging, staging-evidence]",
-  "environment: Production",
-  'node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/feed-ci-evidence.json"',
-  'node scripts/feed-platform-staging-evidence.mjs verify "$RUNNER_TEMP/feed-staging-acceptance/feed-staging-evidence.json" "$RELEASE_SHA" "$EXPECTED_EVIDENCE_SHA256"',
-  "needs.staging.outputs.evidence_artifact",
-  "needs.staging.outputs.evidence_sha256",
-  "branches: [main]",
-  "github.repository == 'hikariming/ghfind'",
-  "github.event.workflow_run.conclusion == 'success'",
-  "github.event.workflow_run.event == 'push'",
-  "github.event.workflow_run.head_branch == 'main'",
-  "github.event.workflow_run.repository.full_name == 'hikariming/ghfind'",
-  "ref: ${{ github.event.workflow_run.head_sha }}",
-  "persist-credentials: false",
-  "cancel-in-progress: false",
-  "EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584",
-  "CF_VERSION_TAG: main-${{ github.event.workflow_run.head_sha }}",
-  "CF_VERSION_MESSAGE: release-${{ github.event.workflow_run.head_sha }}-from-upstream-main",
-  "secrets.CF_API_TOKEN",
-  "wrangler deployments status",
-  "Apply and verify production D1 migrations",
-  'node scripts/feed-platform-schema-release.mjs production "$RUNNER_TEMP/approved-application-schema"',
-  'wrangler d1 migrations apply ghfind --remote --config "$release_config"',
-  'wrangler d1 migrations apply ghfind-feed --remote --config "$release_config"',
-  "wrangler d1 execute ghfind --remote --env production --json",
-  "wrangler d1 execute ghfind-feed --remote --env production --json",
-  "score_release_fallbacks",
-  "wrangler rollback",
-  "steps.release.outputs.previous_version",
-  "steps.deploy.outcome == 'failure'",
-  "steps.active.outcome == 'failure'",
-  "steps.smoke.outcome == 'failure'",
-  "id: rollback_smoke",
-];
-
-for (const fragment of requiredFragments) {
-  if (!workflow.includes(fragment)) {
-    throw new Error(`Cloudflare release workflow is missing: ${fragment}`);
-  }
-}
-
-if (/^  push:/m.test(workflow) || /^  workflow_dispatch:/m.test(workflow)) {
-  throw new Error(
-    "Production deploy must remain workflow_run-only; do not add a direct trigger.",
-  );
-}
-
-if (workflow.includes('test "$previous_author" = "beiming1201@gmail.com"')) {
-  throw new Error(
-    "Do not use Cloudflare author_email as the production account gate; validate the pinned account ID instead.",
-  );
-}
-
-if (!workflow.includes("Previous active author (audit metadata only)")) {
-  throw new Error(
-    "Production release must label Cloudflare author_email as audit metadata only.",
-  );
-}
-
-const unescapedSummaryInterpolation = /echo\s+"[^"\n]*?(?<!\\)`\$[A-Za-z_][A-Za-z0-9_]*`/;
-if (unescapedSummaryInterpolation.test(workflow)) {
-  throw new Error(
-    "Cloudflare release summary must escape Markdown backticks so shell does not execute interpolated values.",
-  );
-}
-
-// Check job ownership as well as token presence: a correct-looking guard in a
-// comment or another job must not authorize production deployment.
+// The user explicitly replaced the staging prerequisite with direct production.
+// Retain exact-CI authorization, serialized resources, authenticated actual
+// Container identity, and Go-compatible containment instead of legacy rollback.
 function jobBody(source: string, job: string): string {
   const jobs = source.slice(source.indexOf("\njobs:\n"));
   const match = new RegExp(`^  ${job}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:|$(?![\\s\\S]))`, "m").exec(jobs);
   if (!match) throw new Error(`Required workflow job ${job} absent`);
   return match[1].split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
 }
+const authorization = jobBody(workflow, "authorize");
 const deployJob = jobBody(workflow, "deploy");
-for (const fragment of ["needs: [staging, staging-evidence]", "environment: Production", "ref: ${{ github.event.workflow_run.head_sha }}"]) {
-  if (!deployJob.includes(fragment)) throw new Error(`Production job itself must require ${fragment}`);
+for (const fragment of ['workflow_run:', 'workflows: ["CI"]', 'types: [completed]', 'branches: [main]', 'cancel-in-progress: false']) {
+  if (!workflow.includes(fragment)) throw new Error(`Production trigger missing ${fragment}`);
 }
-if (workflow.includes("secrets: inherit")) throw new Error("Staging must use its dedicated environment, not inherited production credentials.");
-if (/FEED_BACKEND:\s*["']?go/m.test(workflow)) throw new Error("This release phase cannot activate Go production traffic.");
+for (const fragment of ["github.repository == 'hikariming/ghfind'", "github.event.workflow_run.conclusion == 'success'", "github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'", "github.event.workflow_run.repository.full_name == 'hikariming/ghfind'", 'node scripts/feed-ci-evidence.mjs verify-ci-remote', 'node scripts/feed-github-protection.mjs --verify-existing']) {
+  if (!authorization.includes(fragment)) throw new Error(`Authorization missing ${fragment}`);
+}
+for (const job of [authorization,deployJob]) for (const fragment of ['ref: ${{ github.event.workflow_run.head_sha }}','persist-credentials: false']) {
+  if (!job.includes(fragment)) throw new Error(`Exact checkout missing ${fragment}`);
+}
+for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api repos/hikariming/ghfind/git/ref/heads/main', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
+  if (!deployJob.includes(fragment)) throw new Error(`Production job missing ${fragment}`);
+}
+const order = ['Build and push the portable image','Apply and verify explicitly approved','Deploy private adapter and off-mode','Install a compatible paused gateway','Start or resume the single real production assessment','Activate executor and verify actual baseline','Require real assessment finalization and durable queue projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
+for (let i=1;i<order.length;i++) if(deployJob.indexOf(order[i])<=deployJob.indexOf(order[i-1])) throw new Error('Unsafe deployment ordering');
+if (/^  (push|workflow_dispatch):/m.test(workflow) || workflow.includes('secrets: inherit') || deployJob.includes('previous_version') || /continue-on-error:\s*true/.test(deployJob)) throw new Error('Unsafe bypass, inherited secrets, legacy rollback or optional production gate');
 
 const ciPath = resolve(process.cwd(), ".github/workflows/ci.yml");
 const ci = readFileSync(ciPath, "utf8");

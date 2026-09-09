@@ -82,7 +82,7 @@ receipts or build-time frontend environment variables.
    the baseline deployment completed. Only the separately read-back baseline
    can precede Web admission, bounded production smoke and the real journey.
 
-Readback performs at most 13 metadata reads and 75 authenticated readiness
+Readback performs at most 23 metadata reads and 75 authenticated readiness
 requests within 180 seconds. Each metadata operation has a 30-second timeout;
 readiness has a 10-second timeout. Initial readiness failure fails this attempt;
 it is not an unbounded provisioning loop. While metadata runs asynchronously,
@@ -119,11 +119,13 @@ changed Worker, wrong application namespace, expanded capacity, expired receipts
 secret-bearing extra fields, and cancellation. Wrangler 4.129.1 dry-run builds
 validate generated runtime and adapter configuration without a remote mutation.
 
-These checks do not prove actual CF deployment, queue consumer/parking policy,
+The production readback additionally verifies actual queue consumers, DLQ chain,
+retention and cron against their respective remote APIs.
+
+Local tests do not prove actual CF deployment,
 real OAuth/assessment, production Feed journeys, recovery, database promotion,
-load/cold SLO, monthly cost or availability. The workflow must separately verify
-queue/DLQ/parking configuration (including 14-day parking without an automatic
-consumer), source outbox delivery, and the authorized production smoke. A previous
+load/cold SLO, monthly cost or availability. The workflow must separately execute
+source outbox delivery and the authorized production smoke. A previous
 compatible Go program on the same fact source is the application rollback path;
 legacy Next Feed or a backward schema migration is not.
 

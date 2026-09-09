@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "core": [
+    {
+      "name": "0001_init.sql",
+      "sha256": "43d73b9ce6a18d4e81dfa62f49b617e0f8994a65625381f26dde8279404df04d"
+    },
+    {
+      "name": "0002_user_resume_libraries.sql",
+      "sha256": "7d5ee99f2198ccc671583307c69b307728b522e847384f690a893ffed6cdf492"
+    },
+    {
+      "name": "0002_v10_risk_columns.sql",
+      "sha256": "3f7eb40c47367002a9385ddf527ca295bec569f3967588c97cba9fd08ddcb92d"
+    },
+    {
+      "name": "0003_v10_read_fallback.sql",
+      "sha256": "dcb25b1f7fe74f5052c55752bceecf8d37539297c7180c12bebd88bb86ceefe3"
+    },
+    {
+      "name": "0004_project_assessment_sync_index.sql",
+      "sha256": "ee6f09dc11be81cb49006b8753cd4470e3d8d67e5335712649fb2f94c899a83a"
+    },
+    {
+      "name": "0005_feed_source_outbox.sql",
+      "sha256": "c00fe844cf2cd8153fb07526a04bf19b3e4545241a0deee335143f87379936fb"
+    },
+    {
+      "name": "0006_feed_source_replay_audit.sql",
+      "sha256": "8c02a2c9fae9e2e6eebae4d45f91428c3fe664113b34468e3d42fee98113ef35"
+    }
+  ],
+  "feed": [
+    {
+      "name": "0001_feed_baseline.sql",
+      "sha256": "482dab46a823d91082f2ea2dc9044950f12e2e075ac05fc5d73e36f4f33ce383"
+    },
+    {
+      "name": "0002_feed_candidate_order.sql",
+      "sha256": "3a05c0acfcce90bd58216d3c83ae635aa20f69ac8b5018c94c1b0c1179916216"
+    },
+    {
+      "name": "0003_feed_runtime_contract.sql",
+      "sha256": "5d867296ce8d44aaac5f8b96e1da5ada81496c4a34266c5c5a110269657a695c"
+    },
+    {
+      "name": "0004_feed_executor_protocol.sql",
+      "sha256": "15c2fed1934254c79ba3772da856944eef9bd083cbad9fe422585aab64a7c0df"
+    },
+    {
+      "name": "0005_feed_cleanup_checkpoints.sql",
+      "sha256": "8873606ca31ffb0d45abdca114aad72878fa82059567ea031e05a18bc6d83116"
+    },
+    {
+      "name": "0006_feed_replay_delivery.sql",
+      "sha256": "00cc4f44efc9ff680aac2a1118d68271263820d38bdd637b5ba45af07194f1a6"
+    },
+    {
+      "name": "0007_feed_schema_compatibility.sql",
+      "sha256": "9b291f0391fb1396cf7825bf87df08665a002d2a5e546c23f4acd903fa5352b6"
+    },
+    {
+      "name": "0008_candidate_recall_indexes.sql",
+      "sha256": "9a544d9915f480562a0e87731ab72135b70492618692eeb444fb20c1a2aec6c1"
+    },
+    {
+      "name": "0009_feed_governance_audit.sql",
+      "sha256": "4ed9ad89d6b752d70725e70f1004a935cbdbab799f85e0c6d60e15cedb84ac84"
+    },
+    {
+      "name": "0010_user_proposal_privacy.sql",
+      "sha256": "134d49f5e25647d134dbe24d7150bf3d48ca7c65e86d1cd6b9b7150ec02964b7"
+    },
+    {
+      "name": "0011_user_proposal_tombstones.sql",
+      "sha256": "158add96337489e14af5193b8c06c3e1c0649395f2ea7ddbf1ea32b1b9ddc095"
+    },
+    {
+      "name": "0012_feed_legacy_writer_fence.sql",
+      "sha256": "26bd945ec52baab00e4307f81258aa39dfef9dea75d979deefbe286c5cda0182"
+    }
+  ]
+}

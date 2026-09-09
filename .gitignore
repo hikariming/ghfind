@@ -69,3 +69,4 @@ scripts/repo-research/out/
 .wrangler/
 .dev.vars
 tmp/
+/platform/runtime/wrangler.web.production.generated.json

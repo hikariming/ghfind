@@ -16,12 +16,12 @@ function check(change = {}) {
   } finally { rmSync(temporary, { recursive: true, force: true }); }
 }
 
-test('current exact-checkout CI, reusable staging and Production gates satisfy the workflow contract', () => {
+test('current exact-checkout CI, direct production and containment gates satisfy the workflow contract', () => {
   assert.match(check(), /workflow contract passed/);
 });
 
 test('gate text elsewhere does not compensate for a production job that lost its dependency or environment', () => {
-  for (const removed of ['    needs: [staging, staging-evidence]\n', '    environment: Production\n']) {
+  for (const removed of ['    needs: [authorize]\n', '    environment: Production\n']) {
     const content = originals['deploy-cf-production.yml'].replace(removed, '') + `\n# Documentation only: ${removed.trim()}\n`;
     assert.throws(() => check({ 'deploy-cf-production.yml': content }));
   }
@@ -40,6 +40,6 @@ test('a job using default checkout or missing a receipt cannot borrow another jo
 test('optional E2E and broad inherited production secrets are rejected', () => {
   const ci = originals['ci.yml'].replace('    name: Complete local Feed E2E\n', '    name: Complete local Feed E2E\n    continue-on-error: true\n');
   assert.throws(() => check({ 'ci.yml': ci }));
-  const production = originals['deploy-cf-production.yml'].replace('    uses: ./.github/workflows/feed-staging.yml\n', '    uses: ./.github/workflows/feed-staging.yml\n    secrets: inherit\n');
+  const production = originals['deploy-cf-production.yml'].replace('    needs: [authorize]\n', '    needs: [authorize]\n    secrets: inherit\n');
   assert.throws(() => check({ 'deploy-cf-production.yml': production }));
 });
