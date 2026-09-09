@@ -51,6 +51,19 @@ export async function cf(path, body, method) {
   if(!response.ok || data.success!==true) throw Object.assign(new Error(`Cloudflare request failed (${response.status}; ${(data.errors??[]).map(e=>e.code).join(',')})`),{status:response.status});
   return data.result;
 }
+function queueIdentity(q, name, id) {
+  requireThat(q && q.queue_name===name && typeof q.queue_id==='string' && /^[a-f0-9]{32}$/.test(q.queue_id) && (id===undefined || q.queue_id===id),'queue identity mismatch');
+}
+function queueSettings(q, target, requireExplicit=false) {
+  queueIdentity(q,target.name,target.id);
+  const s=q.settings;
+  requireThat(s && typeof s==='object' && !Array.isArray(s) && s.message_retention_period===target.retention && s.delivery_delay===0,'queue retention/delivery settings differ');
+  const explicit=Object.hasOwn(s,'delivery_paused');
+  // Missing is an initialization candidate, never evidence that delivery is on.
+  // Do not undo an operator pause or coerce malformed API values to false.
+  requireThat(explicit ? s.delivery_paused===false : !requireExplicit,'queue delivery pause must be explicitly false');
+  return explicit;
+}
 export async function ensureResources(m, api=cf) {
   validateManifest(m); authorizeMutation();
   const resources=[];
@@ -66,9 +79,38 @@ export async function ensureResources(m, api=cf) {
   requireThat(bucket.name===m.archiveBucket,'archive identity mismatch');resources.push({kind:'r2',name:bucket.name});
   const queues=[];
   for(let page=1;page<=20;page++) { const rows=await api(`/queues?per_page=100&page=${page}`);requireThat(Array.isArray(rows),'invalid queue list');queues.push(...rows);if(rows.length<100)break;requireThat(page<20,'queue inventory exceeds bound'); }
+  const targets=[];
   for(const name of [m.queue,m.deadLetterQueue,m.terminalParkingQueue]) {
-    const found=queues.filter(q=>q.queue_name===name);requireThat(found.length<=1,'ambiguous queue identity');
-    const q=found[0]??await api('/queues',{queue_name:name,settings:{message_retention_period:name===m.terminalParkingQueue?1209600:345600,delivery_delay:0}});requireThat(q.queue_name===name && /^[a-f0-9]{32}$/.test(q.queue_id),'queue identity mismatch');resources.push({kind:'queue',name,id:q.queue_id});
+    const found=queues.filter(q=>q?.queue_name===name);requireThat(found.length<=1,'ambiguous queue identity');
+    if(found[0])queueIdentity(found[0],name);
+    targets.push({name,id:found[0]?.queue_id,retention:name===m.terminalParkingQueue?1209600:345600});
+  }
+  const existingIds=targets.filter(t=>t.id!==undefined).map(t=>t.id);
+  requireThat(new Set(existingIds).size===existingIds.length,'ambiguous queue identity');
+  // Preflight every existing target before any queue POST/PUT. In particular, a
+  // paused or changed third queue must not partially initialize the first two.
+  for(const target of targets) {
+    if(target.id!==undefined)target.explicit=queueSettings(await api(`/queues/${target.id}`),target);
+  }
+  for(const target of targets) {
+    const settings={message_retention_period:target.retention,delivery_delay:0,delivery_paused:false};
+    if(target.id===undefined) {
+      const created=await api('/queues',{queue_name:target.name,settings});
+      queueIdentity(created,target.name);
+      requireThat(!existingIds.includes(created.queue_id),'ambiguous queue identity');
+      target.id=created.queue_id;existingIds.push(target.id);
+      queueSettings(await api(`/queues/${target.id}`),target,true);
+    } else if(!target.explicit) {
+      // Re-read immediately before a full configuration PUT. Abort if a pause,
+      // retention/delay edit or identity change appeared after the preflight.
+      // https://developers.cloudflare.com/api/resources/queues/methods/update/
+      if(!queueSettings(await api(`/queues/${target.id}`),target)) {
+        const updated=await api(`/queues/${target.id}`,{queue_name:target.name,settings},'PUT');
+        queueIdentity(updated,target.name,target.id);
+        queueSettings(await api(`/queues/${target.id}`),target,true);
+      }
+    }
+    resources.push({kind:'queue',name:target.name,id:target.id});
   }
   return {status:'verified',accountId:ACCOUNT,observedAt:new Date().toISOString(),existingBackend:backend,previousWebVersion:active[0].version_id,resources};
 }
