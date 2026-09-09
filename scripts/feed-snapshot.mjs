@@ -164,6 +164,7 @@ export function validateMetadata(meta) {
     "feed_runtime_control",
     "feed_schema_compatibility",
     "feed_cleanup_policy",
+    ...(schema.schemaVersion >= 12 ? ["feed_adapter_write_fence"] : []),
   ])
     need(meta.inventory[name] === 1, "missing_control_record");
   return meta;
@@ -466,6 +467,10 @@ function checker(meta) {
       need(row.id === 1, "invalid_cleanup_control");
       controls.add(table);
     }
+    if (table === "feed_adapter_write_fence") {
+      need(row.id === 1 && row.enabled === 1, "legacy_writer_fence_required");
+      controls.add(table);
+    }
     if (table === "feed_taxonomy_versions" && row.status === "active")
       activeTaxonomies++;
     if (table === "feed_profile_floors")
@@ -479,7 +484,10 @@ function checker(meta) {
       );
   }
   function finish() {
-    need(controls.size === 3, "missing_control_record");
+    need(
+      controls.size === (schema.schemaVersion >= 12 ? 4 : 3),
+      "missing_control_record",
+    );
     need(activeTaxonomies === 1, "missing_active_taxonomy");
     for (const [actor, floor] of requiredFloors)
       need(
@@ -690,7 +698,7 @@ async function main(args) {
     );
     const schema = selectSchema(
       "cf_d1_r2",
-      args.length === 2 ? Number(args[1]) : 11,
+      args.length === 2 ? Number(args[1]) : 12,
       1,
     );
     console.log(

@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { SCHEMA_11 as SCHEMA } from "./feed-snapshot-schema.mjs";
+import { unstable_splitSqlQuery } from "wrangler";
+import { SCHEMA_12 as SCHEMA } from "./feed-snapshot-schema.mjs";
 import {
   canonical,
   digest,
@@ -73,73 +74,10 @@ function exact(value, keys, code) {
     code,
   );
 }
-// The migration hashes are pinned before parsing. This parser supports the SQL
-// used by the pinned 0001–0011 migration set; triggers and explicit transaction blocks are not accepted.
+// Hash pins establish the accepted migration bytes. Wrangler's own D1 parser
+// preserves compound CREATE TRIGGER bodies; execution performs SQL validation.
 export function splitPinnedSQL(sql) {
-  const statements = [];
-  let current = "",
-    quote = null,
-    lineComment = false,
-    blockComment = false;
-  for (let i = 0; i < sql.length; i++) {
-    const c = sql[i],
-      next = sql[i + 1];
-    if (lineComment) {
-      if (c === "\n") {
-        lineComment = false;
-        current += "\n";
-      }
-      continue;
-    }
-    if (blockComment) {
-      if (c === "*" && next === "/") {
-        blockComment = false;
-        current += " ";
-        i++;
-      }
-      continue;
-    }
-    if (quote) {
-      current += c;
-      if (c === quote) {
-        if (next === quote) {
-          current += next;
-          i++;
-        } else quote = null;
-      }
-      continue;
-    }
-    if (c === "-" && next === "-") {
-      lineComment = true;
-      i++;
-      continue;
-    }
-    if (c === "/" && next === "*") {
-      blockComment = true;
-      i++;
-      continue;
-    }
-    if (c === "'" || c === '"' || c === "`") {
-      quote = c;
-      current += c;
-      continue;
-    }
-    if (c === ";") {
-      if (current.trim()) statements.push(current.trim());
-      current = "";
-    } else current += c;
-  }
-  need(!quote && !blockComment, "migration_sql_truncated");
-  need(!current.trim(), "migration_statement_missing_terminator");
-  need(
-    statements.length > 0 &&
-      statements.every(
-        (s) =>
-          !/^(?:CREATE\s+(?:TEMP\s+)?TRIGGER|BEGIN|COMMIT|ROLLBACK)\b/i.test(s),
-      ),
-    "unsupported_local_migration_sql",
-  );
-  return statements;
+  return unstable_splitSqlQuery(sql);
 }
 export function inspectSchema(actual) {
   exact(actual, ["tables", "restoreOrder"], "invalid_d1_schema_response");
@@ -948,6 +886,8 @@ export async function runLocalDrill() {
       target = await startRuntime("target");
     await source.local("install");
     await target.local("install");
+    const initialFence = await source.local("legacy-fence");
+    await target.local("legacy-fence");
     const actualSchema = await source.local("inspect"),
       restoreOrder = inspectSchema(actualSchema);
     assert.deepEqual(
@@ -1070,6 +1010,12 @@ export async function runLocalDrill() {
       for (let i = 0; i < rows.length; i += 20)
         await target.local("restore", { table, rows: rows.slice(i, i + 20) });
     }
+    for (const [table, row] of [
+      ["feed_adapter_write_fence", { id: 1, enabled: 0 }],
+      ["feed_adapter_write_context", { id: 1, token: randomUUID() }],
+    ])
+      await target.local("restore", { table, rows: [row] }, { status: 400 });
+    const restoredFence = await target.local("legacy-fence");
     const restored = await collect(target);
     compareRows(before, restored, "snapshot restore");
     assert.deepEqual(
@@ -1307,8 +1253,18 @@ export async function runLocalDrill() {
       0,
       "the fixture must not require external services",
     );
+    const finalSourceFence = await source.local("legacy-fence");
+    const finalTargetFence = await target.local("legacy-fence");
     const report = {
       ...LOCAL_PLAN,
+      legacyWriterFence: {
+        initial: initialFence,
+        restored: restoredFence,
+        finalSource: finalSourceFence,
+        finalTarget: finalTargetFence,
+        disabledFenceImportRejected: true,
+        authorizationContextImportRejected: true,
+      },
       status: "passed",
       startedAt: start,
       finishedAt: Date.now(),

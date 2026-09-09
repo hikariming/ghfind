@@ -40,20 +40,34 @@ test("local CLI rejects remote URLs, identifiers and persistence paths without s
   assert.equal(plan.status, 0);
   assert.deepEqual(JSON.parse(plan.stdout), LOCAL_PLAN);
 });
-test("pinned migration parser handles comments and quoted semicolons and rejects truncation/transactions", () => {
+test("Wrangler parser preserves comments, quoted semicolons and compound trigger bodies", async () => {
   assert.deepEqual(
     splitPinnedSQL(
       "-- comment;\n CREATE TABLE a(v TEXT); /* comment; */ INSERT INTO a VALUES('it''s; safe');",
     ),
     ["CREATE TABLE a(v TEXT)", "INSERT INTO a VALUES('it''s; safe')"],
   );
-  assert.throws(() => splitPinnedSQL("SELECT 'open;"), /truncated/);
-  assert.throws(() => splitPinnedSQL("SELECT 1"), /missing_terminator/);
-  assert.throws(
-    () => splitPinnedSQL("BEGIN; SELECT 1; COMMIT;"),
-    /unsupported/,
+  const sql =
+    "CREATE TRIGGER guard BEFORE UPDATE ON a BEGIN SELECT CASE WHEN NEW.v='a;b' THEN RAISE(ABORT,'blocked; value') END; SELECT 1; END; SELECT 2;";
+  assert.deepEqual(splitPinnedSQL(sql), [
+    sql.slice(0, sql.lastIndexOf(" SELECT 2;") - 1),
+    "SELECT 2",
+  ]);
+  const migration = await readFile(
+    new URL(
+      "../migrations-feed/0012_feed_legacy_writer_fence.sql",
+      import.meta.url,
+    ),
+    "utf8",
   );
-  assert.throws(() => splitPinnedSQL("CREATE TRIGGER foo;"), /unsupported/);
+  const parsed = splitPinnedSQL(migration);
+  assert.equal(parsed.length, 42);
+  assert.equal(parsed.filter((s) => s.startsWith("CREATE TRIGGER")).length, 39);
+  for (const statement of parsed.filter((s) => s.startsWith("CREATE TRIGGER")))
+    assert.match(
+      statement,
+      /BEGIN SELECT RAISE\(ABORT,'legacy_feed_writer_fenced'\); END$/,
+    );
 });
 test(
   "actual isolated workerd D1 restore preserves facts and overlays later deletions before new-generation reads",
@@ -64,11 +78,11 @@ test(
     const report = await runLocalDrill();
     assert.equal(report.status, "passed");
     assert.notEqual(report.identities.source, report.identities.target);
-    assert.equal(report.tables, 45);
-    assert.equal(report.schemaVersion, 11);
+    assert.equal(report.tables, 47);
+    assert.equal(report.schemaVersion, 12);
     assert.equal(report.writerContractVersion, 2);
     assert.equal(report.runtimeControlSchemaVersion, 7);
-    assert.equal(report.columns, 350);
+    assert.equal(report.columns, 354);
     assert.equal(report.governance.action, "create");
     assert.equal(report.governance.activeTaxonomyVersion, 3);
     assert.equal(report.governance.originalAssessmentReceiptTaxonomyVersion, 2);
@@ -86,6 +100,19 @@ test(
     assert.equal(report.comparisons.failedBatchRolledBack, true);
     assert.equal(report.writerGateClosedAtEnd, true);
     assert.equal(report.promotionReady, false);
+    for (const key of ["initial", "restored", "finalSource", "finalTarget"])
+      assert.deepEqual(report.legacyWriterFence[key], {
+        enabled: 1,
+        contextRows: 0,
+        legacyWriteRejected: true,
+      });
+    assert.equal(report.legacyWriterFence.disabledFenceImportRejected, true);
+    assert.equal(
+      report.legacyWriterFence.authorizationContextImportRejected,
+      true,
+    );
+    assert.equal(report.tableCounts.feed_adapter_write_fence, 1);
+    assert.equal(report.tableCounts.feed_adapter_write_context, 0);
     const privacy = report.privacyRecovery;
     assert.equal(privacy.pendingAndReviewedProposalsRestored, 2);
     assert.equal(privacy.immediateInspectStatus, null);
