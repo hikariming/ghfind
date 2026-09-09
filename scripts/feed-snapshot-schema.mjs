@@ -1900,6 +1900,44 @@ export const SCHEMA_11 = {
   ],
 };
 
+// Schema 12 records the activated legacy-writer fence. A restore can never
+// import an authorization marker or downgrade an enabled fence. Installation
+// initially seeds enabled=0, but that pre-activation state is not recoverable.
+export const SCHEMA_12 = {
+  ...SCHEMA_11,
+  id: "cf-d1-feed-12",
+  schemaVersion: 12,
+  tables: {
+    ...SCHEMA_11.tables,
+    feed_adapter_write_fence: {
+      primaryKey: ["id"],
+      columns: {
+        id: { kind: "integer", nullable: false, values: [1] },
+        enabled: { kind: "integer", nullable: false, values: [1] },
+      },
+      emptyOnly: false,
+      uniqueKeys: [],
+    },
+    feed_adapter_write_context: {
+      primaryKey: ["id"],
+      columns: {
+        id: { kind: "integer", nullable: false, values: [1] },
+        token: { kind: "text", nullable: false },
+      },
+      emptyOnly: true,
+      uniqueKeys: [],
+    },
+  },
+  migrations: [
+    ...SCHEMA_11.migrations,
+    {
+      path: "migrations-feed/0012_feed_legacy_writer_fence.sql",
+      sha256:
+        "26bd945ec52baab00e4307f81258aa39dfef9dea75d979deefbe286c5cda0182",
+    },
+  ],
+};
+
 function freeze(value) {
   for (const child of Object.values(value))
     if (child && typeof child === "object" && !Object.isFrozen(child))
@@ -1911,6 +1949,7 @@ export const SCHEMAS = freeze({
   9: SCHEMA_9,
   10: SCHEMA_10,
   11: SCHEMA_11,
+  12: SCHEMA_12,
 });
 export function selectSchema(profile, schemaVersion, contractVersion) {
   if (

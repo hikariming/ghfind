@@ -9,6 +9,7 @@ import {
   SCHEMA_9,
   SCHEMA_10,
   SCHEMA_11,
+  SCHEMA_12,
   selectSchema,
 } from "./feed-snapshot-schema.mjs";
 import {
@@ -140,7 +141,7 @@ test("schema 7 fingerprints remain byte compatible and only explicitly registere
     rowRecord("feed_runtime_control", row, 7).sha256,
   );
   assert.notEqual(schemaFingerprint(9), SCHEMA_SHA256);
-  for (const version of [8, 12, "9", null, "__proto__"])
+  for (const version of [8, 13, "9", null, "__proto__"])
     assert.throws(
       () => selectSchema("cf_d1_r2", version, 1),
       /unsupported_snapshot_schema/,
@@ -287,7 +288,7 @@ test("schema 9 rejects missing governance inventory, nonempty guards, changed co
     );
   }));
 
-for (const schema of [SCHEMA, SCHEMA_9, SCHEMA_10, SCHEMA_11])
+for (const schema of [SCHEMA, SCHEMA_9, SCHEMA_10, SCHEMA_11, SCHEMA_12])
   test(`fixed schema ${schema.schemaVersion} registry matches migrated SQLite columns, PKs and full/partial unique constraints`, () => {
     const root = process.env.FEED_SNAPSHOT_SCHEMA_ROOT || process.cwd();
     const source = schema.migrations.map((m) => ({
@@ -746,6 +747,10 @@ test("schema 7, 9 and 10 fingerprints remain unchanged when writer v2 registry i
     schemaFingerprint(10),
     "a35c0861cb3fa6cee95f2fc3b9b395ccae878202e8f69e1e4946be4517471630",
   );
+  assert.equal(
+    schemaFingerprint(11),
+    "e78ddb0ae7b07462f9a3dc595132f8c2182236c900336e612181f681c9304f34",
+  );
   assert.equal(SCHEMA_11.writerContractVersion, 2);
   assert.equal(SCHEMA_11.runtimeControlSchemaVersion, 7);
 });
@@ -781,3 +786,46 @@ test("only schema 11's complete minimal proposal-command tombstone permits a zer
     /invalid_unix_ms_column/,
   );
 });
+
+// Schema 12 is additive format history; old snapshot bytes/digests remain valid.
+test("schema 12 requires an enabled legacy fence and forbids importing authorization context", async () =>
+  local(async (directory) => {
+    const f = prepare(fixture(SCHEMA_12));
+    const { output, report } = await build(directory, f, "schema12");
+    await validateSnapshot({
+      directory: output,
+      expectedManifestSha256: report.manifestSha256,
+    });
+    assert.equal(f.metadata.inventory.feed_adapter_write_fence, 1);
+    assert.equal(f.metadata.inventory.feed_adapter_write_context, 0);
+    assert.notEqual(schemaFingerprint(11), schemaFingerprint(12));
+    const missing = fixture(SCHEMA_12);
+    missing.rows = missing.rows.filter(
+      (r) => r.table !== "feed_adapter_write_fence",
+    );
+    assert.throws(
+      () => validateMetadata(prepare(missing).metadata),
+      /missing_control_record/,
+    );
+    const disabled = fixture(SCHEMA_12);
+    disabled.rows.find(
+      (r) => r.table === "feed_adapter_write_fence",
+    ).row.enabled = 0;
+    await assert.rejects(
+      build(directory, prepare(disabled), "disabled-fence"),
+      /invalid_enum_column/,
+    );
+    const dirty = fixture(SCHEMA_12);
+    dirty.rows.push({
+      table: "feed_adapter_write_context",
+      row: { id: 1, token: "12345678-1234-4234-8234-123456789012" },
+    });
+    assert.throws(
+      () => validateMetadata(prepare(dirty).metadata),
+      /nonempty_transaction_guard/,
+    );
+    assert.throws(
+      () => rowRecord("feed_adapter_write_context", dirty.rows.at(-1).row, 12),
+      /nonempty_transaction_guard/,
+    );
+  }));

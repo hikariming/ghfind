@@ -1,7 +1,7 @@
 // Bundled only by feed-snapshot-local.mjs into a fresh loopback Miniflare instance.
 // The imports below are resolved by that builder; this is never a deployed Worker.
 import adapter from "local-drill-adapter";
-import { SCHEMA_11 as SCHEMA } from "./feed-snapshot-schema.mjs";
+import { SCHEMA_12 as SCHEMA } from "./feed-snapshot-schema.mjs";
 
 const migrations = LOCAL_DRILL_MIGRATIONS;
 const names = Object.keys(SCHEMA.tables).sort();
@@ -78,7 +78,37 @@ async function rows(db, sql, ...params) {
       .all()
   ).results;
 }
+// These fixed fixture operations use the same atomic authorization lifetime as
+// the adapter. A persisted marker is an error, never a recoverable snapshot row.
+async function fence(db) {
+  const [state] = await rows(
+    db,
+    "SELECT enabled FROM feed_adapter_write_fence WHERE id=1",
+  );
+  const [{ count }] = await rows(
+    db,
+    "SELECT COUNT(*) AS count FROM feed_adapter_write_context",
+  );
+  need(state?.enabled === 1 && count === 0, "local_legacy_fence_mismatch");
+  return { enabled: state.enabled, contextRows: count };
+}
+async function fixtureBatch(db, statements) {
+  await fence(db);
+  const token = crypto.randomUUID();
+  const result = await db.batch([
+    db
+      .prepare("INSERT INTO feed_adapter_write_context(id,token) VALUES(1,?)")
+      .bind(token),
+    ...statements,
+    db
+      .prepare("DELETE FROM feed_adapter_write_context WHERE id=1 AND token=?")
+      .bind(token),
+  ]);
+  await fence(db);
+  return result.slice(1, -1);
+}
 async function gate(db, closed) {
+  await fence(db);
   const [control] = await rows(
     db,
     "SELECT * FROM feed_runtime_control WHERE id=1",
@@ -125,10 +155,42 @@ async function local(op, raw, env) {
     );
     for (const statements of migrations)
       await db.batch(statements.map((sql) => db.prepare(sql)));
+    await db
+      .prepare("UPDATE feed_adapter_write_fence SET enabled=1 WHERE id=1")
+      .run();
+    await fence(db);
     installed = true;
     return { installed: true };
   }
   need(installed, "local_schema_not_installed");
+  if (op === "legacy-fence") {
+    exact(raw, []);
+    await fence(db);
+    // This row exists both after installation and after restore; a no-op value
+    // update still fires SQLite's BEFORE trigger. No business mutation succeeds.
+    const [row] = await rows(
+      db,
+      "SELECT version FROM feed_taxonomy_versions WHERE status='active'",
+    );
+    need(row, "missing_active_taxonomy");
+    let blocked = false;
+    try {
+      await db
+        .prepare(
+          "UPDATE feed_taxonomy_versions SET status=status WHERE version=?",
+        )
+        .bind(row.version)
+        .run();
+    } catch (error) {
+      need(
+        String(error).includes("legacy_feed_writer_fenced"),
+        "unexpected_legacy_probe_error",
+      );
+      blocked = true;
+    }
+    need(blocked, "legacy_write_not_fenced");
+    return { ...(await fence(db)), legacyWriteRejected: true };
+  }
   if (op === "inspect") {
     exact(raw, []);
     const actual = await rows(
@@ -169,7 +231,7 @@ async function local(op, raw, env) {
     need(env.LOCAL_ROLE === "source", "source_only");
     await gate(db, false);
     const now = Date.now();
-    await db.batch([
+    await fixtureBatch(db, [
       db
         .prepare(
           `INSERT INTO feed_projects(repo_key,analysis_id,owner_login,name,canonical_url,summary,topics_json,project_type,lifecycle,product_score,confidence,verification_level,exposure_band,treasure_eligible,analyzed_at,risks_json,published,source_hash,projected_at) VALUES('snapshot-owner/repo','snapshot-analysis','snapshot-owner','repo','https://github.com/snapshot-owner/repo','Synthetic local recovery fixture','[]','micro-tool','active-evolution',80,90,'verified','low',1,?,'{}',1,'synthetic-source-hash',?)`,
@@ -186,18 +248,18 @@ async function local(op, raw, env) {
         )
         .bind(now),
     ]);
-    await db
-      .prepare(
-        `INSERT INTO feed_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-governance-proposal','snapshot-owner/repo','snapshot-analysis','use_case','local-recovery-governed','本地恢复治理','Local recovery governed','["synthetic-local-evidence"]','proposed',?,?)`,
-      )
-      .bind(now, now)
-      .run();
-    await db
-      .prepare(
-        "INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-unowned-proposal','snapshot-owner/repo','snapshot-analysis','use_case','unknown-private-body','Unknown author','Unknown historical body','[\"unknown-local-evidence\"]','proposed',?,?)",
-      )
-      .bind(now, now)
-      .run();
+    await fixtureBatch(db, [
+      db
+        .prepare(
+          `INSERT INTO feed_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-governance-proposal','snapshot-owner/repo','snapshot-analysis','use_case','local-recovery-governed','本地恢复治理','Local recovery governed','["synthetic-local-evidence"]','proposed',?,?)`,
+        )
+        .bind(now, now),
+      db
+        .prepare(
+          "INSERT INTO feed_user_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('local-unowned-proposal','snapshot-owner/repo','snapshot-analysis','use_case','unknown-private-body','Unknown author','Unknown historical body','[\"unknown-local-evidence\"]','proposed',?,?)",
+        )
+        .bind(now, now),
+    ]);
     return { synthetic: true };
   }
   if (op === "gate") {
@@ -248,8 +310,16 @@ async function local(op, raw, env) {
     // Remove installation seeds only in this new target. Keep the closed writer control.
     const deletionOrder = (await order(db))
       .reverse()
-      .filter((name) => name !== "feed_runtime_control");
-    await db.batch(
+      .filter(
+        (name) =>
+          ![
+            "feed_runtime_control",
+            "feed_adapter_write_fence",
+            "feed_adapter_write_context",
+          ].includes(name),
+      );
+    await fixtureBatch(
+      db,
       deletionOrder.map((name) => db.prepare(`DELETE FROM ${name}`)),
     );
     reset = true;
@@ -276,7 +346,18 @@ async function local(op, raw, env) {
           raw.rows[0].writes_enabled === 0,
         "restore_requires_closed_gate",
       );
-    await db.batch(
+    if (raw.table === "feed_adapter_write_fence") {
+      need(raw.rows.length === 1, "legacy_writer_fence_required");
+      exact(raw.rows[0], ["id", "enabled"]);
+      need(
+        raw.rows[0].id === 1 && raw.rows[0].enabled === 1,
+        "legacy_writer_fence_required",
+      );
+      await fence(db); // Keep the installed enabled fence; never import control state.
+      return { restored: 1 };
+    }
+    await fixtureBatch(
+      db,
       raw.rows.map((row) =>
         insertion(db, raw.table, row, raw.table === "feed_runtime_control"),
       ),
@@ -331,7 +412,7 @@ async function local(op, raw, env) {
     need(!newerUser, "overlay_newer_generation_present");
     // Match the immediate visibility fence in the real profile.delete transaction.
     // Event/request physical cleanup remains pending and is never reported completed.
-    await db.batch([
+    await fixtureBatch(db, [
       ...overlayTables.map((t) => insertion(db, t, byTable.get(t), true)),
       ...visibleTables.map((t) =>
         db.prepare(`DELETE FROM ${t} WHERE github_id=202`),
