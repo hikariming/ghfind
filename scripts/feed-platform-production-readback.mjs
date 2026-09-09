@@ -43,16 +43,25 @@ function scalarVersion(v) {
     (typeof v === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(v))
   );
 }
+function numericVersion(value) {
+  return Number.isSafeInteger(value) ||
+    (typeof value === "string" && /^\d+$/.test(value))
+    ? BigInt(value)
+    : null;
+}
 function versionAdvanced(current, previous) {
   if (String(current) === String(previous)) return false;
-  const numeric = (value) =>
-    Number.isSafeInteger(value) ||
-    (typeof value === "string" && /^\d+$/.test(value))
-      ? BigInt(value)
-      : null;
-  const next = numeric(current),
-    before = numeric(previous);
+  const next = numericVersion(current),
+    before = numericVersion(previous);
   return next === null || before === null || next > before;
+}
+function sameImageVersionAllowed(current, previous) {
+  if (String(current) === String(previous)) return true;
+  const next = numericVersion(current),
+    before = numericVersion(previous);
+  // Same-image rollout may keep its version or numerically advance it. An
+  // opaque change cannot establish order and must not authorize rollback.
+  return next !== null && before !== null && next >= before;
 }
 const applicationStates = new Set([
   "active",
@@ -125,6 +134,12 @@ function inspectApplication(apps, name, image, prior, previous) {
     !versionAdvanced(app.version, previous.version)
   )
     reason = "application_version_not_advanced";
+  else if (
+    previous &&
+    previous.image === image &&
+    !sameImageVersionAllowed(app.version, previous.version)
+  )
+    reason = "application_version_regressed_or_unordered";
   if (reason) return { app, matches, status: "rejected", reason };
   return {
     app,

@@ -550,6 +550,78 @@ test("same-image baseline can retain the application version but cannot retain o
   );
   assert.equal(old.count().readyCalls, 1);
 });
+test("same-image versions cannot regress and only equal or ordered numeric versions pass", async () => {
+  for (const previousVersion of [8, "8", "release-eight"]) {
+    for (const observed of [7, "7"]) {
+      const f = fixture("baseline", {
+        previousApplications: previousApps(image).map((app) => ({
+          ...app,
+          version: previousVersion,
+        })),
+        applications: (apps) =>
+          apps.map((app) => ({ ...app, version: observed })),
+      });
+      await assert.rejects(
+        verifyDeployment(m, sha, image, "baseline", f.options),
+        /application_version_regressed_or_unordered/,
+      );
+      assert.equal(f.count().readyCalls, 0);
+      assert.equal(f.count().metadataCalls, 1);
+    }
+  }
+  for (const previousVersion of [6, "6", 7, "7", "07"]) {
+    for (const observed of [7, "7"]) {
+      const f = fixture("baseline", {
+        previousApplications: previousApps(image).map((app) => ({
+          ...app,
+          version: previousVersion,
+        })),
+        applications: (apps) =>
+          apps.map((app) => ({ ...app, version: observed })),
+      });
+      assert.equal(
+        (await verifyDeployment(m, sha, image, "baseline", f.options)).status,
+        "passed",
+      );
+    }
+  }
+  for (const observed of ["release-seven", "release-eight"]) {
+    const f = fixture("baseline", {
+      previousApplications: previousApps(image).map((app) => ({
+        ...app,
+        version: "release-seven",
+      })),
+      applications: (apps) =>
+        apps.map((app) => ({ ...app, version: observed })),
+      instances: (r) => ({
+        ...r,
+        instances: r.instances.map((i) => ({ ...i, version: observed })),
+      }),
+    });
+    if (observed === "release-seven")
+      assert.equal(
+        (await verifyDeployment(m, sha, image, "baseline", f.options)).status,
+        "passed",
+      );
+    else
+      await assert.rejects(
+        verifyDeployment(m, sha, image, "baseline", f.options),
+        /application_version_regressed_or_unordered/,
+      );
+  }
+  const pinned = fixture("baseline", {
+    previousApplications: previousApps(image).map((app) => ({
+      ...app,
+      version: 6,
+    })),
+    applications: (apps, call) =>
+      apps.map((app) => ({ ...app, version: call === 1 ? 7 : 8 })),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "baseline", pinned.options),
+    /application_identity_changed/,
+  );
+});
 test("prior-image and instance maximum attempts still fit 52 metadata reads without resetting application budgets", async () => {
   const previous = previousApps();
   const f = fixture("off", {
