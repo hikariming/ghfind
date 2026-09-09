@@ -5,6 +5,7 @@ Run from a clean, isolated worktree with no real `.env` files:
 ```sh
 pnpm install --frozen-lockfile
 pnpm --dir platform/feed install --frozen-lockfile
+npm ci --prefix platform/runtime
 pnpm exec playwright install --with-deps chromium
 python3 scripts/feed-e2e/harness.test.py
 node --test scripts/feed-e2e/ack-loss.test.mjs
