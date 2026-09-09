@@ -50,6 +50,12 @@ The reusable `feed-staging.yml` accepts `release_sha` and returns
 its own `Feed staging` environment; callers do not use `secrets: inherit`.
 Read-only GitHub permissions and one staging concurrency lock cover the run.
 
+An environment-free `protection` job first reads the enforced main ruleset and
+all three deployment environment policies with `--verify-existing`. Missing or
+unreadable checks/policies fail before the deployment job can enter `Feed staging`;
+GitHub's automatic creation of empty environments cannot satisfy the prerequisite.
+The nonsecret protection receipt is retained as its own current-run artifact.
+
 1. `feed-ci-evidence.mjs verify-ci-remote` verifies the exact successful push
    CI, actual source/tree receipts, and complete local CF plus PostgreSQL E2E.
    A pull-request merge check or a head-SHA green badge is insufficient.

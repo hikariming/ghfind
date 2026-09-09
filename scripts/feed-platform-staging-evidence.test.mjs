@@ -90,4 +90,9 @@ test("workflow keeps exact CI, image-first isolation and private browser state o
   const upload = workflow.slice(workflow.indexOf("name: Preserve nonsecret"), workflow.indexOf("name: Remove temporary"));
   assert.equal(/storage-state|secrets\.json/.test(upload), false);
   assert.ok(workflow.includes('timeout-minutes: 60'));
+  const protection = workflow.slice(workflow.indexOf("  protection:"), workflow.indexOf("  deploy:"));
+  assert.ok(protection.includes("--verify-existing"), "actual remote protection must be verified");
+  assert.equal(/^    environment:/m.test(protection), false, "preflight cannot create or enter an unverified environment");
+  const deploy = workflow.slice(workflow.indexOf("  deploy:"));
+  assert.ok(deploy.includes("needs: [protection]"), "deployment must wait for actual protection readback");
 });
