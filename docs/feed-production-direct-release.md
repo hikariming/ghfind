@@ -51,6 +51,14 @@ Independent staging workflows stay isolated and cannot accept production IDs.
 No local `wrangler deploy` is part of the production release path. Deployment,
 resource changes, migrations and containment are serialized in GitHub Actions.
 
+The two private runtime deployments use `--containers-rollout=immediate` after
+the existing Go gateway has been paused (or while the first-release Web still
+uses legacy Feed). This requests one 100% Container replacement step instead of
+the platform default gradual steps for a two-instance application. It does not
+make rollout transactional or prove instances finished replacing. The actual
+image, application/instance version, running state and fresh authenticated
+readiness checks still gate admission. See [Cloudflare rollout semantics](https://developers.cloudflare.com/containers/configuration/rollouts/).
+
 ## Compatibility and containment
 
 See `feed-production-compatibility-20260909.md` for real workerd counterexamples.
