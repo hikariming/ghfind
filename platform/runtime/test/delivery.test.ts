@@ -12,7 +12,7 @@ const env: RuntimeSettings = {
   FEED_ENVIRONMENT: "staging",
   FEED_RELEASE_SHA: "a".repeat(40),
   FEED_IMAGE_REFERENCE: `registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:${"b".repeat(64)}`,
-  FEED_MODE: "off",
+  FEED_MODE: "baseline",
   FEED_WRITER_EPOCH: "1",
   FEED_EXECUTOR_ENABLED: "true",
   FEED_SOURCE_RELAY_ENABLED: "true",
@@ -313,10 +313,22 @@ test("operator and delivery secrets never enter Go; archive endpoint belongs onl
     assert.equal(result.FEED_OPERATOR_SECRET, undefined);
     assert.equal(result.FEED_DELIVERY_SECRET, undefined);
     assert.equal(result.FEED_RUNTIME_ADMIN_SECRET, undefined);
-    assert.equal(result.FEED_SOURCE_SECRET, role === "executor" ? env.FEED_SOURCE_SECRET : undefined);
-    assert.equal(result.FEED_EXECUTOR_SECRET, role === "executor" ? env.FEED_EXECUTOR_SECRET : undefined);
-    assert.equal(result.FEED_GATEWAY_SECRET, role === "api" ? env.FEED_GATEWAY_SECRET : undefined);
-    assert.equal(result.FEED_SIGNING_SECRET, role === "api" ? env.FEED_SIGNING_SECRET : undefined);
+    assert.equal(
+      result.FEED_SOURCE_SECRET,
+      role === "executor" ? env.FEED_SOURCE_SECRET : undefined,
+    );
+    assert.equal(
+      result.FEED_EXECUTOR_SECRET,
+      role === "executor" ? env.FEED_EXECUTOR_SECRET : undefined,
+    );
+    assert.equal(
+      result.FEED_GATEWAY_SECRET,
+      role === "api" ? env.FEED_GATEWAY_SECRET : undefined,
+    );
+    assert.equal(
+      result.FEED_SIGNING_SECRET,
+      role === "api" ? env.FEED_SIGNING_SECRET : undefined,
+    );
     assert.equal(
       result.FEED_ARCHIVE_ENDPOINT,
       role === "executor" ? "http://feed-archive.internal" : undefined,
@@ -412,4 +424,55 @@ test("archive transport rejects wrong capabilities, oversized decoded bodies and
     FEED_ADAPTER: { fetch: async () => Response.json({ bodyBase64: huge }) },
   });
   assert.equal(response.status, 413);
+});
+
+test("off retries main and DLQ deliveries without execution, terminal writes, or acknowledgements", async () => {
+  for (const environment of ["staging", "production"] as const) {
+    const paused = {
+      ...env,
+      FEED_ENVIRONMENT: environment,
+      FEED_MODE: "off",
+      FEED_QUEUE_NAME: `ghfind-feed-${environment}-jobs`,
+      FEED_DLQ_NAME: `ghfind-feed-${environment}-dlq`,
+    };
+    for (const queue of [paused.FEED_QUEUE_NAME, paused.FEED_DLQ_NAME]) {
+      for (const body of [initialDelivery(event), null]) {
+        const { state, value } = message(body);
+        value.attempts = 100;
+        const logs: Record<string, unknown>[] = [];
+        await consumeBatch(
+          { queue, messages: [value] },
+          paused,
+          noGo,
+          noAdapter,
+          (entry) => logs.push(entry),
+        );
+        assert.equal(state.acked, 0);
+        assert.deepEqual(state.retries, [300]);
+        assert.equal(logs[0]?.event, "feed_queue_paused");
+        assert.equal(JSON.stringify(logs).includes("sourceHash"), false);
+      }
+    }
+    const { value } = message();
+    await assert.rejects(
+      consumeBatch(
+        { queue: "foreign", messages: [value] },
+        paused,
+        noGo,
+        noAdapter,
+        () => {},
+      ),
+      /unexpected_queue/,
+    );
+    await assert.rejects(
+      consumeBatch(
+        { queue: paused.FEED_QUEUE_NAME, messages: [value, value] },
+        paused,
+        noGo,
+        noAdapter,
+        () => {},
+      ),
+      /unexpected_queue_batch/,
+    );
+  }
 });
