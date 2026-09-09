@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
 export const FEED_BODY_LIMIT = 128 * 1024;
@@ -78,6 +79,24 @@ function unavailable(): NextResponse {
   });
 }
 
+// The binding changes transport only. Authentication still uses the same
+// signed actor, request target and body as the portable HTTP deployment.
+function feedTransport(): typeof fetch {
+  let binding: unknown;
+  try {
+    binding = (getCloudflareContext().env as { FEED_RUNTIME?: unknown }).FEED_RUNTIME;
+  } catch {
+    // Ordinary Node/Docker has no Cloudflare request context.
+    return fetch;
+  }
+  if (binding === undefined) return fetch;
+  if (!binding || typeof (binding as { fetch?: unknown }).fetch !== "function") {
+    throw new Error("Invalid Feed runtime service binding.");
+  }
+  const service = binding as { fetch: typeof fetch };
+  return service.fetch.bind(service);
+}
+
 // Only authenticated route handlers may call this function. null deliberately
 // leaves the existing implementation in control while the rollout is disabled.
 export async function forwardFeedRequest(request: Request, viewer: FeedViewer): Promise<NextResponse | null> {
@@ -111,7 +130,7 @@ export async function forwardFeedRequest(request: Request, viewer: FeedViewer): 
     if (body.byteLength > 0) headers.set("Content-Type", request.headers.get("content-type") ?? "application/octet-stream");
     // Construct the headers from scratch: no client identity, cookie,
     // Authorization, forwarding/IP header or administrative credential escapes.
-    const response = await fetch(`${upstream.origin}${target}`, {
+    const response = await feedTransport()(`${upstream.origin}${target}`, {
       method: request.method,
       headers,
       body: body.byteLength ? Buffer.from(body) : undefined,

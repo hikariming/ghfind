@@ -2,10 +2,13 @@ import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FEED_BODY_LIMIT, forwardFeedRequest, readBoundedBody, signFeedGateway } from "../feed-gateway";
 
+const platform = vi.hoisted(() => ({ env: {} as Record<string, unknown> }));
+vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext: () => ({ env: platform.env }) }));
+
 const secret = "gateway-test-only-secret-with-at-least-32-bytes";
 const viewer = { githubId: 123, login: "example", image: null };
 
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { platform.env = {}; vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 function enable() {
   vi.stubEnv("FEED_BACKEND", "go");
@@ -65,6 +68,39 @@ describe("Feed gateway boundary", () => {
     });
     expect(token.split(".")[1]).toBe("jGCAotv6ohscgkhltuUn3vOUo1f1AQHLyuU1i_pmQ-I");
   });
+
+  it("uses the service binding with signed identity and no client credentials", async () => {
+    enable();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async function (this: unknown, _url: string, init?: RequestInit) {
+      expect(this).toBe(service);
+      const headers = new Headers(init?.headers);
+      expect([...headers.keys()].sort()).toEqual(["accept", "cache-control", "x-feed-gateway"]);
+      const claims = JSON.parse(Buffer.from(headers.get("x-feed-gateway")!.split(".")[0], "base64url").toString());
+      expect(claims.githubId).toBe(viewer.githubId);
+      expect(claims.target).toBe("/api/feed/projects?cursor=a%2Fb");
+      return new Response('{"projects":[]}', { headers: { "content-type": "application/json" } });
+    }) };
+    platform.env.FEED_RUNTIME = service;
+    const response = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects?cursor=a%2Fb", {
+      headers: { Cookie: "secret=1", "X-Feed-Gateway": "forged", "x-github-id": "999" },
+    }), viewer);
+    expect(response?.status).toBe(200);
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+  });
+
+  it.each([null, {}, { fetch: "invalid" }, { fetch: async () => { throw new Error("service unavailable"); } }])(
+    "does not escape to the network when a configured service binding fails",
+    async (binding) => {
+      enable();
+      platform.env.FEED_RUNTIME = binding;
+      const external = vi.fn(); vi.stubGlobal("fetch", external);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      expect((await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), viewer))?.status).toBe(503);
+      expect(external).not.toHaveBeenCalled();
+    },
+  );
 
   it("bounds chunked bodies even without Content-Length", async () => {
     let cancelled = false;
