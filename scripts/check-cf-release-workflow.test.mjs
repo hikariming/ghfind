@@ -51,3 +51,13 @@ test('private runtime rollout stays immediate after the existing Go gateway paus
   }
   assert.throws(() => check({ 'deploy-cf-production.yml': production.replace('Pause an already active Go gateway', 'Missing pre-update pause') }));
 });
+
+test('public production smoke checks the canonical custom domain even through workers.dev', () => {
+  const production = originals['deploy-cf-production.yml'];
+  for (const replacement of ['', '          SMOKE_EXPECTED_ORIGIN: https://ghfind.beiming1201.workers.dev\n']) {
+    assert.throws(() => check({ 'deploy-cf-production.yml': production.replace('          SMOKE_EXPECTED_ORIGIN: https://ghfind.com\n', replacement) }));
+  }
+  const misplaced = production.replace('          SMOKE_EXPECTED_ORIGIN: https://ghfind.com\n', '')
+    .replace('    env:\n', '    env:\n      SMOKE_EXPECTED_ORIGIN: https://ghfind.com\n');
+  assert.throws(() => check({ 'deploy-cf-production.yml': misplaced }));
+});

@@ -189,6 +189,7 @@ jobs:
         id: smoke
         env:
           SMOKE_BASE_URL: https://ghfind.beiming1201.workers.dev
+          SMOKE_EXPECTED_ORIGIN: https://ghfind.com
           SMOKE_CANARY_HANDLE: octocat
           SMOKE_FACET_TYPE: language
           SMOKE_FACET_VALUE: TypeScript

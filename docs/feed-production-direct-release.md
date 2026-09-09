@@ -48,7 +48,8 @@ receipts and actual repository protection. The workflow then:
    authenticated service-contract smoke with nonempty eligible candidates.
 7. Publishes the same Web build in `all` mode and reads back its runtime binding,
    source SHA, production D1, outbox flag, secrets inventory and all routing vars.
-   Public smoke runs at the WAF-free production workers.dev origin. The custom
+   Public smoke requests the production workers.dev origin and explicitly checks
+   canonical links against `https://ghfind.com` via `SMOKE_EXPECTED_ORIGIN`. The custom
    domain and actual OAuth Feed journey are also checked in the holder browser.
 
 Independent staging workflows stay isolated and cannot accept production IDs.

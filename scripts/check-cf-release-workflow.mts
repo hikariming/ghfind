@@ -36,6 +36,10 @@ for (let i=1;i<order.length;i++) if(deployJob.indexOf(order[i])<=deployJob.index
 // platform rollout step, but retain all actual readiness/instance gates.
 const runtimeDeploys = deployJob.split('\n').filter(line => line.includes('wrangler deploy --config platform/runtime/wrangler.production.generated.json'));
 if (runtimeDeploys.length !== 2 || runtimeDeploys.some(line => !line.includes('--containers-rollout=immediate'))) throw new Error('Paused production runtime requires explicit immediate Container rollout');
+const publicSmoke = /      - name: Bounded public production smoke\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+for (const fragment of ['SMOKE_BASE_URL: https://ghfind.beiming1201.workers.dev', 'SMOKE_EXPECTED_ORIGIN: https://ghfind.com', 'run: pnpm smoke:deployment']) {
+  if (!publicSmoke.includes(fragment)) throw new Error(`Production smoke must preserve its transport and canonical origin: ${fragment}`);
+}
 if (/^  (push|workflow_dispatch):/m.test(workflow) || workflow.includes('secrets: inherit') || deployJob.includes('previous_version') || /continue-on-error:\s*true/.test(deployJob)) throw new Error('Unsafe bypass, inherited secrets, legacy rollback or optional production gate');
 
 const ciPath = resolve(process.cwd(), ".github/workflows/ci.yml");
