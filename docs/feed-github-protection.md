@@ -49,3 +49,18 @@ GitHub 环境匹配的 `*` 不跨越 `/`，交付分支使用 `codex/feed-阶段
 - 写入失败输出具体 method/path、`ADMIN_REQUIRED` 等原因和已读回成功的操作清单；不会把失败写成通过，也不会为回滚而删除刚添加的保护。若已部分完成，先重新读取实际状态再制定剩余操作。
 - 若部分失败留下了非空但未完整的自定义 branch policy，脚本会要求管理员核对，而不会自动扩大它。根据原审核计划补齐固定名称后再重新读取。
 - 环境 secret、变量、OAuth 身份和 CF 资源配置独立交付；本脚本没有访问它们的逻辑。[环境保护 API](https://docs.github.com/en/rest/deployments/environments#create-or-update-an-environment)
+
+
+## Actions 部署前的只读门禁
+
+在**没有 `environment:` 的独立 preflight job** 中运行以下命令，使用只有 `contents: read`、`actions: read` 的 `GITHUB_TOKEN`（通过 `GH_TOKEN` 环境变量传入）：
+
+```sh
+node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-github-protection.json"
+```
+
+只有该 job 成功，声明 `Feed staging` 环境的部署 job 才能运行。这样 GitHub 不会因为 workflow 提及了一个缺失环境，就先自动创建没有保护的空环境。
+
+该模式只执行 GET，不要求管理员身份，也不要求看到被隐藏的 bypass actors。它核验 active 的固定 ruleset、原有 PR review 约束、禁止 squash、来源固定的四个 strict required checks、三个环境的精确 branch allowlist，以及 operations 的 owner reviewer。既有更严格的 review、wait timer、额外 status checks 和保护规则不会被改写。
+
+成功输出 `ghfind-github-protection-verification-v1` 证据，包含核验时间、状态 hash、checks 和环境策略；不包含 bypass 列表。任何缺失、策略不符或 403 等读取错误都会失败，且不生成可用的通过证据。`--verify-existing` 不能与 `--apply`、计划输入或其他输出选项混用。
