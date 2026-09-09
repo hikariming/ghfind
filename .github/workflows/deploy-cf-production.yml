@@ -3,13 +3,14 @@ name: Deploy production (Cloudflare)
 # Replaces the retired Vercel/Railway gate: ghfind.com is now served by the
 # Next-on-Workers (OpenNext) build. This workflow is production-owned by
 # hikariming/ghfind; a copied workflow in a fork must fail its provenance guard.
-# A successful CI run for a `main` commit is the only automatic production
-# trigger; main branch protection is optional. The workflow checks out the exact
-# SHA that CI verified, then runs the build, `wrangler deploy --env production`,
-# R2 incremental-cache population, and a read-only public smoke. Any failure
-# after the rollback anchor is captured restores the previous Worker version.
-# Frontend and backend are one Worker in the current topology, so that single
-# rollback covers both request surfaces.
+# A successful exact-checkout push CI run for main starts isolated staging.
+# The reusable staging workflow verifies the CI artifact, deploys the same SHA,
+# and requires real OAuth/business/async E2E plus actual CF version readback.
+# Only its verified receipt permits the Production environment job below.
+# This stage preserves the existing legacy Feed runtime and approved schema
+# boundary; it does not activate the independent Go production runtime.
+# After the rollback anchor is captured, deployment failures restore the
+# previous application Worker. Schema failures do not issue redundant rollback.
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
@@ -23,14 +24,62 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: deploy-cf-production-main
   cancel-in-progress: false
 
 jobs:
+  staging:
+    name: Verify exact main SHA in isolated Cloudflare staging
+    if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
+    uses: ./.github/workflows/feed-staging.yml
+    with:
+      release_sha: ${{ github.event.workflow_run.head_sha }}
+    # The called job uses its dedicated Feed staging environment credentials.
+    # Do not inherit the repository-wide production CF_API_TOKEN.
+
+  staging-evidence:
+    name: Verify current staging run evidence
+    needs: [staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Require the reusable workflow's exact source
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_SHA: ${{ needs.staging.outputs.release_sha }}
+        run: |
+          test "$STAGING_SHA" = "$RELEASE_SHA"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+      - name: Revalidate current main checkout CI before production authorization
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/feed-ci-evidence.json"
+      - name: Download this staging run's nonsecret acceptance receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.staging.outputs.evidence_artifact }}
+          path: ${{ runner.temp }}/feed-staging-acceptance
+      - name: Verify real E2E, actual deployment identities and current run binding
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_EVIDENCE_SHA256: ${{ needs.staging.outputs.evidence_sha256 }}
+        run: node scripts/feed-platform-staging-evidence.mjs verify "$RUNNER_TEMP/feed-staging-acceptance/feed-staging-evidence.json" "$RELEASE_SHA" "$EXPECTED_EVIDENCE_SHA256"
+
   deploy:
     name: Build and deploy to Cloudflare Workers (production)
+    needs: [staging, staging-evidence]
+    environment: Production
     if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30

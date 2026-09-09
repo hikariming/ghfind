@@ -11,6 +11,13 @@ const requiredFragments = [
   'workflow_run:',
   'workflows: ["CI"]',
   "types: [completed]",
+  "uses: ./.github/workflows/feed-staging.yml",
+  "needs: [staging, staging-evidence]",
+  "environment: Production",
+  'node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/feed-ci-evidence.json"',
+  'node scripts/feed-platform-staging-evidence.mjs verify "$RUNNER_TEMP/feed-staging-acceptance/feed-staging-evidence.json" "$RELEASE_SHA" "$EXPECTED_EVIDENCE_SHA256"',
+  "needs.staging.outputs.evidence_artifact",
+  "needs.staging.outputs.evidence_sha256",
   "branches: [main]",
   "github.repository == 'hikariming/ghfind'",
   "github.event.workflow_run.conclusion == 'success'",
@@ -71,6 +78,36 @@ if (unescapedSummaryInterpolation.test(workflow)) {
   );
 }
 
+// Check job ownership as well as token presence: a correct-looking guard in a
+// comment or another job must not authorize production deployment.
+function jobBody(source: string, job: string): string {
+  const jobs = source.slice(source.indexOf("\njobs:\n"));
+  const match = new RegExp(`^  ${job}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:|$(?![\\s\\S]))`, "m").exec(jobs);
+  if (!match) throw new Error(`Required workflow job ${job} absent`);
+  return match[1].split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
+}
+const deployJob = jobBody(workflow, "deploy");
+for (const fragment of ["needs: [staging, staging-evidence]", "environment: Production", "ref: ${{ github.event.workflow_run.head_sha }}"]) {
+  if (!deployJob.includes(fragment)) throw new Error(`Production job itself must require ${fragment}`);
+}
+if (workflow.includes("secrets: inherit")) throw new Error("Staging must use its dedicated environment, not inherited production credentials.");
+if (/FEED_BACKEND:\s*["']?go/m.test(workflow)) throw new Error("This release phase cannot activate Go production traffic.");
+
+const ciPath = resolve(process.cwd(), ".github/workflows/ci.yml");
+const ci = readFileSync(ciPath, "utf8");
+for (const fragment of ["pull_request:", 'branches: [dev, main, "codex/feed-**"]', 'needs: [verify, feed-contracts, feed-runtime, feed-e2e]', 'CI_JOB_RESULTS: ${{ toJSON(needs) }}']) {
+  if (!ci.includes(fragment)) throw new Error(`Exact-checkout CI contract missing ${fragment}`);
+}
+for (const id of ["verify", "feed-contracts", "feed-runtime", "feed-e2e", "release-verify"]) {
+  const job = jobBody(ci, id);
+  if (!job.includes("ref: ${{ github.sha }}") || !job.includes("persist-credentials: false")) throw new Error(`${id} must check out the actual event SHA without persisted credentials`);
+  if (id !== "release-verify" && !job.includes(`record-job ${id}`)) throw new Error(`${id} must record its actual checkout after its checks pass`);
+}
+const e2eJob = jobBody(ci, "feed-e2e");
+if (!e2eJob.includes('python3 scripts/run-feed-e2e.py --release-sha "$GITHUB_SHA" --directory "$RUNNER_TEMP/feed-complete-e2e" --execute')) throw new Error("Complete dual-profile E2E must execute in its mandatory job.");
+if (/continue-on-error:\s*true/.test(e2eJob)) throw new Error("Complete E2E must not continue on error.");
+const gateJob = jobBody(ci, "release-verify");
+if (!gateJob.includes('node scripts/feed-ci-evidence.mjs aggregate') || !gateJob.includes('if: always()')) throw new Error("CI aggregation must validate failed/skipped dependencies and exact checkout receipts.");
 console.log(`Cloudflare release workflow contract passed (${workflowPath})`);
 
 const reconcileWorkflowPath = resolve(
