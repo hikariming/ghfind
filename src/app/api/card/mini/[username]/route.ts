@@ -29,6 +29,7 @@ import { tierFor } from "@/lib/score-presentation";
 import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE } from "../../shared";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function GET(
   const theme = parseMiniCardTheme(params.get("theme"));
   const lang = parseMiniCardLang(params.get("lang"));
 
-  const name = decodeURIComponent(username ?? "").trim();
+  const name = decodeRouteParam(username ?? "").trim();
   const presentation = USERNAME_RE.test(name) ? await getGoProfilePresentation(name) : null;
   const detail = presentation?.detail ?? null;
   if (!detail) {

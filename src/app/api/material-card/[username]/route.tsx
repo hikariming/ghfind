@@ -8,13 +8,14 @@ import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE, qrDataUrl, qrModuleColor } from "../../card/shared";
 import { parseTheme } from "../../card/[username]/cards";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, ctx: { params: Promise<{ username: string }> }) {
   const { username } = await ctx.params;
-  const name = decodeURIComponent(username ?? "").trim();
+  const name = decodeRouteParam(username ?? "").trim();
   const detail = USERNAME_RE.test(name)
     ? (await getGoProfilePresentation(name))?.detail ?? null
     : null;

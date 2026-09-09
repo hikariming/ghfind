@@ -32,6 +32,7 @@ import { TIER_KEY } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 import { localeAlternates, localePath } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd } from "@/components/JsonLd";
+import { decodeRouteParam } from "@/lib/route-params";
 
 // Keep this long-tail route out of ISR. The URL space is ~10k buckets × 9
 // locales, and verified crawlers overwhelmingly request each URL only once.
@@ -56,7 +57,7 @@ function parseFacetType(raw: string): FacetType | null {
  *  language/org are single-segment. Each segment is decoded, then rejoined with
  *  "/" so it matches the stored `facet_value` exactly. */
 function facetValueFromSegments(segments: string[] | undefined): string {
-  return (segments ?? []).map((s) => decodeURIComponent(s)).join("/");
+  return (segments ?? []).map((s) => decodeRouteParam(s)).join("/");
 }
 
 type BucketHeadingKey =

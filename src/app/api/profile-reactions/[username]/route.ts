@@ -7,6 +7,7 @@ import {
   setProfileReaction,
 } from "../../../../lib/db";
 import { isProfileReaction } from "../../../../lib/reactions";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export async function PUT(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const target = normalizeGitHubUsername(decodeURIComponent(username ?? ""));
+  const target = normalizeGitHubUsername(decodeRouteParam(username ?? ""));
   if (!target) return jsonNoStore({ error: "invalid_username" }, { status: 400 });
 
   const viewer = await authenticatedViewer();
@@ -81,7 +82,7 @@ export async function DELETE(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const target = normalizeGitHubUsername(decodeURIComponent(username ?? ""));
+  const target = normalizeGitHubUsername(decodeRouteParam(username ?? ""));
   if (!target) return jsonNoStore({ error: "invalid_username" }, { status: 400 });
 
   const viewer = await authenticatedViewer();
