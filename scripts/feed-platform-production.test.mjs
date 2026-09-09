@@ -410,10 +410,9 @@ test("Wrangler ready application summary still requires all named running instan
     assert.ok(f.count().readyCalls >= 2);
   }
 });
-test("application summaries other than active or ready fail despite healthy named instances", async () => {
+test("unhealthy or invalid application summaries fail despite healthy named instances", async () => {
   for (const state of [
     "degraded",
-    "provisioning",
     "unknown",
     "running",
     "inactive",
@@ -428,6 +427,201 @@ test("application summaries other than active or ready fail despite healthy name
       /application identity or health summary/,
     );
   }
+});
+test("only correctly identified provisioning applications can converge before strict instance checks", async () => {
+  const f = fixture("off", {
+    bounds: { applicationIntervalMs: 1 },
+    applications: (apps, call) =>
+      apps.map((app, i) => ({
+        ...app,
+        state: call < (i === 0 ? 3 : 4) ? "provisioning" : "active",
+      })),
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(r.status, "passed");
+  assert.equal(r.keepWarm.metadataReads, 27);
+  assert.deepEqual(
+    r.applicationObservations.map((o) => o.status),
+    [
+      "pending",
+      "pending",
+      "converged",
+      "pending",
+      "converged",
+      "converged",
+      "converged",
+    ],
+  );
+  assert.equal(
+    r.applicationObservations[0].observedAt,
+    r.applicationObservations[3].observedAt,
+  );
+  assert.equal(
+    r.applicationObservations[0].applications[0].imageDigest,
+    "b".repeat(64),
+  );
+  assert.deepEqual(
+    r.applicationObservations.slice(-2).map((o) => o.phase),
+    ["final", "final"],
+  );
+  assert.ok(
+    r.applications.every((a) =>
+      a.instances.every((i) => i.state === "running" && i.version === 7),
+    ),
+  );
+  assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
+});
+test("permanent provisioning persists bounded application observations without approving baseline", async () => {
+  const f = fixture("off", {
+    bounds: { applicationAttempts: 3, applicationIntervalMs: 1 },
+    applications: (apps) =>
+      apps.map((app) => ({ ...app, state: "provisioning" })),
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", f.options),
+    (error) => {
+      assert.match(error.message, /summary convergence attempts exhausted/);
+      const r = error.readbackFailure;
+      assert.equal(r.status, "failed");
+      assert.equal(r.stage, "application_convergence");
+      assert.equal(r.applicationObservations.length, 3);
+      assert.ok(
+        r.applicationObservations.every(
+          (o) => o.reason === "application_provisioning",
+        ),
+      );
+      assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
+      assert.throws(
+        () => renderRuntime(m, image, sha, "baseline", r),
+        /matching/,
+      );
+      return true;
+    },
+  );
+  assert.equal(f.count().metadataCalls, 3);
+  assert.equal(f.count().instanceCalls, 0);
+});
+test("provisioning cannot conceal changed identity, digest or version and malformed health never retries", async () => {
+  for (const patch of [
+    { id: id(900) },
+    { version: 8 },
+    { image: image.replace(/b{64}$/, "c".repeat(64)) },
+    { state: "degraded" },
+    { state: "unknown" },
+    { state: null },
+    { version: null },
+  ]) {
+    const f = fixture("off", {
+      bounds: { applicationIntervalMs: 1 },
+      applications: (apps, call) =>
+        apps.map((app) => ({
+          ...app,
+          state: "provisioning",
+          ...(call > 1 ? patch : {}),
+        })),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (error) => {
+        assert.match(
+          error.message,
+          /application identity or health summary differs/,
+        );
+        assert.equal(error.readbackFailure.applicationObservations.length, 2);
+        assert.equal(
+          error.readbackFailure.applicationObservations[1].status,
+          "rejected",
+        );
+        return true;
+      },
+    );
+    assert.equal(f.count().metadataCalls, 2);
+    assert.equal(f.count().instanceCalls, 0);
+  }
+  for (const applications of [
+    () => null,
+    () => [null],
+    () => [],
+    (apps) => [...apps, apps[0]],
+  ]) {
+    const f = fixture("off", { applications });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (error) => {
+        assert.equal(
+          error.readbackFailure.applicationObservations[0].reason,
+          "application_population_invalid",
+        );
+        return true;
+      },
+    );
+    assert.equal(f.count().metadataCalls, 1);
+  }
+});
+test("application convergence deadline and heartbeat failure stop all summary retries", async () => {
+  for (const failure of ["deadline", "heartbeat"]) {
+    const f = fixture("off", {
+      bounds: {
+        applicationConvergenceMs: 30,
+        applicationIntervalMs: 100,
+        ...(failure === "heartbeat" ? { intervalMs: 5 } : {}),
+      },
+      applications: (apps) =>
+        apps.map((app) => ({ ...app, state: "provisioning" })),
+      ready: (r, call) => {
+        if (failure === "heartbeat" && call > 1)
+          r.containers[0].mode = "baseline";
+        return r;
+      },
+    });
+    const start = performance.now();
+    await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
+    assert.ok(performance.now() - start < 500);
+    assert.equal(f.count().metadataCalls, 1);
+    const before = f.count().total;
+    await sleep(20);
+    assert.equal(f.count().total, before);
+  }
+});
+test("the first shared application metadata request is included in the convergence deadline", async () => {
+  const f = fixture("off", {
+    delay: 1000,
+    bounds: { applicationConvergenceMs: 30 },
+  });
+  const started = performance.now();
+  await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
+  assert.ok(performance.now() - started < 500);
+  assert.equal(f.count().metadataCalls, 1);
+  assert.equal(f.count().instanceCalls, 0);
+});
+test("maximal application and instance convergence stays within fixed 180s and 52 metadata quotas", async () => {
+  const f = fixture("off", {
+    bounds: { applicationIntervalMs: 1, instanceIntervalMs: 1 },
+    applications: (apps, call) =>
+      apps.map((app, i) => ({
+        ...app,
+        state: call < (i === 0 ? 8 : 15) ? "provisioning" : "ready",
+      })),
+    instances: (r, { attempt }) =>
+      attempt < 8
+        ? {
+            ...r,
+            instances: r.instances.map((i) => ({
+              ...i,
+              state: "provisioning",
+            })),
+          }
+        : r,
+  });
+  const r = await verifyDeployment(m, sha, image, "off", f.options);
+  assert.equal(limits.durationMs, 180000);
+  assert.equal(limits.readinessRequests, 95);
+  assert.equal(limits.applicationAttempts, 8);
+  assert.equal(limits.applicationConvergenceMs, 60000);
+  assert.equal(r.applicationObservations.length, 18);
+  assert.equal(r.instanceObservations.length, 16);
+  assert.equal(r.keepWarm.metadataReads, 52);
+  assert.equal(r.keepWarm.readinessRequests, 18);
 });
 test("ready application summary cannot hide immutable application identity drift", async () => {
   for (const transform of [
@@ -741,7 +935,7 @@ test("final application snapshot must retain exact application, image and versio
 });
 test("fixed readback quotas cover both maximum attempt series without widening time or transport bounds", async () => {
   assert.equal(limits.durationMs, 180000);
-  assert.equal(limits.metadataReads, 23 + 14 + 1);
+  assert.equal(limits.metadataReads, 23 + 14 + 14 + 1);
   assert.equal(limits.readinessRequests, 95);
   assert.equal(limits.instanceAttempts, 8);
   assert.equal(limits.instanceConvergenceMs, 60000);
@@ -763,7 +957,7 @@ test("fixed readback quotas cover both maximum attempt series without widening t
   });
   const r = await verifyDeployment(m, sha, image, "off", f.options);
   assert.equal(r.instanceObservations.length, 16);
-  assert.equal(r.keepWarm.metadataReads, limits.metadataReads);
+  assert.equal(r.keepWarm.metadataReads, 38);
   assert.equal(r.keepWarm.readinessRequests, 18);
 });
 test("both runtime and adapter active deployments must stay fixed through readback", async () => {
