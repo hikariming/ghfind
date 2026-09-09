@@ -50,7 +50,10 @@ function fixture(mode = "off", options = {}) {
   let total = 0,
     readyCalls = 0,
     metadataCalls = 0,
-    listCalls = 0;
+    listCalls = 0,
+    infoRound = 0,
+    roundApplications,
+    delayUsed = false;
   const instanceCalls = new Map();
   const workerId = id(1),
     adapterId = id(2),
@@ -207,30 +210,67 @@ function fixture(mode = "off", options = {}) {
   const metadata = async (args, { signal }) => {
     metadataCalls++;
     assert.ok(signal instanceof AbortSignal);
-    if (options.delay && metadataCalls === 1)
+    const delayAt = options.delayOn ?? "list";
+    if (
+      options.delay &&
+      !delayUsed &&
+      (args[1] === delayAt ||
+        (delayAt === "info-after-first" &&
+          args[1] === "info" &&
+          args[2] === id(3) &&
+          infoRound === 1))
+    ) {
+      delayUsed = true;
       await sleep(options.delay, undefined, { signal });
+    }
+    // Discovery deliberately does not share the direct detail overrides. The
+    // applications callback below models /applications/{id}, not /dash/apps.
     if (args[1] === "list") {
       listCalls++;
-      return options.applications
-        ? options.applications(structuredClone(applications), listCalls)
+      return options.discovery
+        ? options.discovery(structuredClone(applications), listCalls)
         : applications;
     }
     if (args[1] === "info") {
-      const a = applications.find((a) => a.id === args[2]);
+      const index = args[2] === id(3) ? 0 : 1;
+      if (index === 0) {
+        infoRound++;
+        roundApplications = options.applications
+          ? options.applications(structuredClone(applications), infoRound)
+          : structuredClone(applications);
+      }
+      const a = roundApplications?.[index];
       const result = {
-        id: a.id,
-        name: a.name,
-        max_instances: a.name.endsWith("feedapi") ? 2 : 1,
-        durable_objects: {
-          namespace_id: id(a.name.endsWith("feedapi") ? 31 : 32),
-        },
+        id: a?.id,
+        name: a?.name,
+        version: a?.version,
+        max_instances: index === 0 ? 2 : 1,
+        durable_objects: { namespace_id: id(index === 0 ? 31 : 32) },
         configuration: {
-          image,
+          image: a?.image,
           instance_type: "basic",
           env: { SECRET: "must-not-upload" },
         },
+        health: ["active", "ready", "provisioning", "degraded"].includes(
+          a?.state,
+        )
+          ? {
+              errors: [],
+              instances: {
+                active: a.state === "active" ? 1 : 0,
+                assigned: 0,
+                healthy: 0,
+                stopped: 0,
+                failed: a.state === "degraded" ? 1 : 0,
+                scheduling: 0,
+                starting: a.state === "provisioning" ? 1 : 0,
+              },
+            }
+          : null,
       };
-      return options.appInfo ? options.appInfo(result) : result;
+      return options.appInfo
+        ? options.appInfo(result, { round: infoRound, index, signal })
+        : result;
     }
     assert.deepEqual(args.slice(0, 2), ["containers", "instances"]);
     assert.deepEqual(args.slice(3), ["--per-page", "10", "--json"]);
@@ -269,6 +309,8 @@ function fixture(mode = "off", options = {}) {
       total,
       readyCalls,
       metadataCalls,
+      listCalls,
+      infoRound,
       instanceCalls: [...instanceCalls.values()].reduce((a, b) => a + b, 0),
     }),
     ready,
@@ -285,6 +327,166 @@ function previousApps(previousImage = image.replace(/b{64}$/, "c".repeat(64))) {
     arbitrarySecret: "never-upload-snapshot",
   }));
 }
+test("stale dashboard versions and health cannot override current authoritative application details", async () => {
+  for (const previousApplications of [undefined, previousApps()]) {
+    const f = fixture("off", {
+      ...(previousApplications ? { previousApplications } : {}),
+      discovery: (apps) =>
+        apps.map((a, i) => ({
+          ...a,
+          image: previousApps()[i].image,
+          version: 6,
+          state: i ? "unknown" : "degraded",
+        })),
+    });
+    const r = await verifyDeployment(m, sha, image, "off", f.options);
+    assert.equal(r.status, "passed");
+    assert.equal(f.count().listCalls, 1);
+    assert.equal(
+      f.count().infoRound,
+      2,
+      "one paired direct read, then one paired final read",
+    );
+    assert.equal(r.keepWarm.metadataReads, 25);
+    assert.ok(
+      r.applications.every((a) => a.version === 7 && a.image === image),
+    );
+    assert.ok(
+      r.applicationObservations.every(
+        (o) =>
+          o.metadataSource === "containers_info" && o.status === "converged",
+      ),
+    );
+  }
+});
+test("discovery authorizes only distinct registered names and UUIDs, never an identity redirect", async () => {
+  for (const discovery of [
+    (apps) => [apps[0], { ...apps[1], id: apps[0].id }],
+    (apps) => [{ ...apps[0], id: id(999) }, apps[1]],
+    (apps) => [...apps, apps[1]],
+  ]) {
+    const f = fixture("off", {
+      previousApplications: previousApps(),
+      discovery,
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /immutable application/,
+    );
+    assert.equal(f.count().listCalls, 1);
+    assert.equal(f.count().infoRound, 0);
+    assert.equal(f.count().readyCalls, 0);
+  }
+});
+test("direct health accepts documented optional absence and actual cold idle but rejects errors or malformed counters", async () => {
+  for (const appInfo of [
+    (r) => {
+      delete r.health.errors;
+      delete r.health.instances.assigned;
+      delete r.health.instances.stopped;
+      return r;
+    },
+    (r) => {
+      // Actual cold-idle fixture: healthy counts are prepared placements, not
+      // proof of a currently running Go process. Instance checks still follow.
+      Object.assign(r.health.instances, {
+        active: 0,
+        healthy: r.max_instances,
+      });
+      delete r.configuration.instance_type;
+      Object.assign(r.configuration, {
+        vcpu: 0.25,
+        memory_mib: 1024,
+        disk: { size_mb: 4000 },
+      });
+      return r;
+    },
+  ]) {
+    const f = fixture("off", { appInfo });
+    const r = await verifyDeployment(m, sha, image, "off", f.options);
+    assert.equal(r.status, "passed");
+    assert.equal(f.count().instanceCalls, 2);
+    assert.equal(r.readiness.length, 3);
+  }
+  for (const appInfo of [
+    (r) => ({ ...r, health: undefined }),
+    (r) => ({ ...r, health: {} }),
+    ...[null, {}, "private-error", ["private-error"]].map((errors) => (r) => ({
+      ...r,
+      health: { ...r.health, errors },
+    })),
+    ...[undefined, null, -1, 1.5, "0", Number.MAX_SAFE_INTEGER + 1].map(
+      (active) => (r) => ({
+        ...r,
+        health: { ...r.health, instances: { ...r.health.instances, active } },
+      }),
+    ),
+    (r) => ({
+      ...r,
+      health: {
+        ...r.health,
+        instances: { ...r.health.instances, assigned: null },
+      },
+    }),
+    (r) => ({
+      ...r,
+      health: {
+        ...r.health,
+        instances: { ...r.health.instances, stopped: -1 },
+      },
+    }),
+    (r) => ({
+      ...r,
+      health: { ...r.health, instances: { ...r.health.instances, failed: 1 } },
+    }),
+  ]) {
+    const f = fixture("off", { appInfo });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (e) => {
+        assert.match(e.message, /application_health_rejected/);
+        assert.equal(
+          JSON.stringify(e.readbackFailure).includes("private-error"),
+          false,
+        );
+        assert.equal(e.readbackFailure.applicationObservations.length, 2);
+        return true;
+      },
+    );
+    assert.equal(f.count().infoRound, 1);
+    assert.equal(f.count().readyCalls, 0);
+  }
+});
+test("final direct details also recheck capacity, namespace and health without trusting cached configuration", async () => {
+  for (const patch of [
+    (r) => ({ ...r, max_instances: 99 }),
+    (r) => ({ ...r, durable_objects: { namespace_id: id(999) } }),
+    (r) => ({ ...r, health: { ...r.health, errors: ["private-final-error"] } }),
+    (r) => ({
+      ...r,
+      image,
+      configuration: { ...r.configuration, image: undefined },
+    }),
+  ]) {
+    const f = fixture("off", {
+      appInfo: (r, { round }) => (round === 2 ? patch(r) : r),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      (e) => {
+        assert.equal(e.readbackFailure.stage, "final_application_identity");
+        assert.equal(e.readbackFailure.status, "failed");
+        assert.equal(
+          JSON.stringify(e.readbackFailure).includes("private-final-error"),
+          false,
+        );
+        return true;
+      },
+    );
+    assert.equal(f.count().infoRound, 2);
+    assert.equal(f.count().instanceCalls, 2);
+  }
+});
 test("predeployment snapshot permits only the exact prior digest/version until the expected app converges", async () => {
   const previous = previousApps();
   let appsRead = 0;
@@ -311,7 +513,7 @@ test("predeployment snapshot permits only the exact prior digest/version until t
     r.applicationObservations.filter(
       (o) => o.reason === "prior_application_pending",
     ).length,
-    2,
+    3,
   );
   assert.ok(
     r.applications.every(
@@ -336,7 +538,7 @@ test("predeployment snapshot permits only the exact prior digest/version until t
     verifyDeployment(m, sha, image, "off", strict.options),
     /application_image_changed/,
   );
-  assert.equal(strict.count().metadataCalls, 1);
+  assert.equal(strict.count().metadataCalls, 3);
 });
 test("target-image provisioning may reach initial process readiness before application health converges", async () => {
   let readyObserved = false;
@@ -462,7 +664,7 @@ test("snapshot never permits a third digest, wrong UUID/version, unhealthy prior
       verifyDeployment(m, sha, image, "off", f.options),
       /immutable application/,
     );
-    assert.equal(f.count().metadataCalls, 1);
+    assert.equal(f.count().metadataCalls, 3);
     assert.equal(f.count().instanceCalls, 0);
   }
 });
@@ -487,7 +689,7 @@ test("expected-image entry pins version across both application retry streams an
     );
     assert.equal(
       f.count().metadataCalls,
-      2,
+      5,
       "a second app cannot regress unseen while the first app waits",
     );
   }
@@ -566,7 +768,7 @@ test("same-image versions cannot regress and only equal or ordered numeric versi
         /application_version_regressed_or_unordered/,
       );
       assert.equal(f.count().readyCalls, 0);
-      assert.equal(f.count().metadataCalls, 1);
+      assert.equal(f.count().metadataCalls, 3);
     }
   }
   for (const previousVersion of [6, "6", 7, "7", "07"]) {
@@ -622,15 +824,13 @@ test("same-image versions cannot regress and only equal or ordered numeric versi
     /application_identity_changed/,
   );
 });
-test("prior-image and instance maximum attempts still fit 52 metadata reads without resetting application budgets", async () => {
+test("prior-image and instance maximum attempts fit 51 metadata reads without resetting application budgets", async () => {
   const previous = previousApps();
   const f = fixture("off", {
     previousApplications: previous,
     bounds: { applicationIntervalMs: 1, instanceIntervalMs: 1 },
     applications: (apps, call) =>
-      apps.map((app, i) =>
-        call < (i === 0 ? 8 : 15) ? { ...app, ...previous[i] } : app,
-      ),
+      apps.map((app, i) => (call < 7 ? { ...app, ...previous[i] } : app)),
     instances: (r, { attempt }) =>
       attempt < 8
         ? {
@@ -643,8 +843,16 @@ test("prior-image and instance maximum attempts still fit 52 metadata reads with
         : r,
   });
   const r = await verifyDeployment(m, sha, image, "off", f.options);
-  assert.equal(r.keepWarm.metadataReads, 52);
-  assert.equal(r.applicationObservations.length, 18);
+  assert.equal(r.keepWarm.metadataReads, 51);
+  assert.equal(f.count().listCalls, 1);
+  assert.equal(f.count().infoRound, 8);
+  assert.deepEqual(
+    r.applicationObservations
+      .filter((o) => o.phase === "final")
+      .map((o) => o.attempt),
+    [8, 8],
+  );
+  assert.equal(r.applicationObservations.length, 16);
   assert.equal(r.instanceObservations.length, 16);
   assert.equal(r.keepWarm.readinessRequests, 18);
   assert.ok(
@@ -751,7 +959,7 @@ test("nondependency HTTP failures and malformed error responses preserve safe di
       },
     );
     assert.equal(f.count().readyCalls, 1);
-    assert.equal(f.count().metadataCalls, 0);
+    assert.equal(f.count().metadataCalls, 3);
   }
 });
 test("initial dependency retry exhaustion, request body deadline and global quotas all remain finite", async () => {
@@ -777,7 +985,7 @@ test("initial dependency retry exhaustion, request body deadline and global quot
     await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
     assert.ok(performance.now() - at < 500);
     assert.ok(f.count().readyCalls <= 3);
-    assert.equal(f.count().metadataCalls, 0);
+    assert.equal(f.count().metadataCalls, 3);
   }
   const slow = fixture("off", {
     bounds: { requestMs: 20 },
@@ -799,6 +1007,8 @@ test("initial dependency retry exhaustion, request body deadline and global quot
 test("dependency code after initial success cannot hide a heartbeat failure", async () => {
   const f = fixture("off", {
     delay: 1000,
+    delayOn: "info-after-first",
+    applications: (apps) => apps.map((a) => ({ ...a, state: "provisioning" })),
     bounds: { intervalMs: 5 },
     readyResponse: (call) =>
       call > 1
@@ -895,7 +1105,7 @@ test("bootstrap off has no asynchronous entrypoints; production resources and ca
 test("actual readback whitelists all published identity fields and gates baseline", async () => {
   const f = fixture();
   const r = await verifyDeployment(m, sha, image, "off", f.options);
-  assert.equal(r.keepWarm.metadataReads, 24);
+  assert.equal(r.keepWarm.metadataReads, 25);
   assert.equal(r.keepWarm.stopped, true);
   assert.equal(r.status, "passed");
   assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
@@ -960,7 +1170,7 @@ test("Wrangler ready application summary still requires all named running instan
     });
     const r = await verifyDeployment(m, sha, image, "off", f.options);
     assert.equal(r.status, "passed");
-    assert.equal(r.keepWarm.metadataReads, 24);
+    assert.equal(r.keepWarm.metadataReads, 25);
     assert.deepEqual(
       r.applications.map((a) =>
         a.instances.map((i) => [i.name, i.state, i.version]),
@@ -1006,22 +1216,26 @@ test("only correctly identified provisioning applications can converge before st
   });
   const r = await verifyDeployment(m, sha, image, "off", f.options);
   assert.equal(r.status, "passed");
-  assert.equal(r.keepWarm.metadataReads, 27);
+  assert.equal(r.keepWarm.metadataReads, 31);
   assert.deepEqual(
     r.applicationObservations.map((o) => o.status),
     [
       "pending",
       "pending",
+      "pending",
+      "pending",
       "converged",
       "pending",
       "converged",
       "converged",
       "converged",
+      "converged",
     ],
   );
-  assert.equal(
-    r.applicationObservations[0].observedAt,
-    r.applicationObservations[3].observedAt,
+  assert.ok(
+    r.applicationObservations.every(
+      (o) => o.metadataSource === "containers_info",
+    ),
   );
   assert.equal(
     r.applicationObservations[0].applications[0].imageDigest,
@@ -1051,7 +1265,7 @@ test("permanent provisioning persists bounded application observations without a
       const r = error.readbackFailure;
       assert.equal(r.status, "failed");
       assert.equal(r.stage, "application_convergence");
-      assert.equal(r.applicationObservations.length, 3);
+      assert.equal(r.applicationObservations.length, 4);
       assert.ok(
         r.applicationObservations.every(
           (o) => o.reason === "application_provisioning",
@@ -1065,7 +1279,7 @@ test("permanent provisioning persists bounded application observations without a
       return true;
     },
   );
-  assert.equal(f.count().metadataCalls, 3);
+  assert.equal(f.count().metadataCalls, 5);
   assert.equal(f.count().instanceCalls, 0);
 });
 test("provisioning cannot conceal changed identity, digest or version and malformed health never retries", async () => {
@@ -1094,15 +1308,15 @@ test("provisioning cannot conceal changed identity, digest or version and malfor
           error.message,
           /application identity or health summary differs/,
         );
-        assert.equal(error.readbackFailure.applicationObservations.length, 2);
+        assert.equal(error.readbackFailure.applicationObservations.length, 4);
         assert.equal(
-          error.readbackFailure.applicationObservations[1].status,
+          error.readbackFailure.applicationObservations[2].status,
           "rejected",
         );
         return true;
       },
     );
-    assert.equal(f.count().metadataCalls, 2);
+    assert.equal(f.count().metadataCalls, 5);
     assert.equal(f.count().instanceCalls, 0);
   }
   for (const applications of [
@@ -1111,7 +1325,7 @@ test("provisioning cannot conceal changed identity, digest or version and malfor
     () => [],
     (apps) => [...apps, apps[0]],
   ]) {
-    const f = fixture("off", { applications });
+    const f = fixture("off", { discovery: applications });
     await assert.rejects(
       verifyDeployment(m, sha, image, "off", f.options),
       (error) => {
@@ -1144,7 +1358,7 @@ test("application convergence deadline and heartbeat failure stop all summary re
     const start = performance.now();
     await assert.rejects(verifyDeployment(m, sha, image, "off", f.options));
     assert.ok(performance.now() - start < 500);
-    assert.equal(f.count().metadataCalls, 1);
+    assert.equal(f.count().metadataCalls, 3);
     const before = f.count().total;
     await sleep(20);
     assert.equal(f.count().total, before);
@@ -1167,7 +1381,7 @@ test("maximal application and instance convergence stays within fixed 180s and 5
     applications: (apps, call) =>
       apps.map((app, i) => ({
         ...app,
-        state: call < (i === 0 ? 8 : 15) ? "provisioning" : "ready",
+        state: call < 7 ? "provisioning" : "ready",
       })),
     instances: (r, { attempt }) =>
       attempt < 8
@@ -1185,9 +1399,9 @@ test("maximal application and instance convergence stays within fixed 180s and 5
   assert.equal(limits.readinessRequests, 95);
   assert.equal(limits.applicationAttempts, 8);
   assert.equal(limits.applicationConvergenceMs, 60000);
-  assert.equal(r.applicationObservations.length, 18);
+  assert.equal(r.applicationObservations.length, 16);
   assert.equal(r.instanceObservations.length, 16);
-  assert.equal(r.keepWarm.metadataReads, 52);
+  assert.equal(r.keepWarm.metadataReads, 51);
   assert.equal(r.keepWarm.readinessRequests, 18);
 });
 test("ready application summary cannot hide immutable application identity drift", async () => {
@@ -1199,7 +1413,6 @@ test("ready application summary cannot hide immutable application identity drift
     (apps) => [{ ...apps[0], id: "unknown" }, apps[1]],
     (apps) => [{ ...apps[0], version: null }, apps[1]],
     (apps) => [{ ...apps[0], name: "foreign-feedapi" }, apps[1]],
-    (apps) => [...apps, apps[0]],
   ]) {
     const f = fixture("off", {
       applications: (apps) =>
@@ -1269,7 +1482,7 @@ test("ready summary and matching instances cannot hide a final process readiness
   const f = fixture("baseline", {
     applications: (apps) => apps.map((app) => ({ ...app, state: "ready" })),
     ready: (r, _call, { metadataCalls }) => {
-      if (metadataCalls === 6) r.containers[2].mode = "off";
+      if (metadataCalls === 7) r.containers[2].mode = "off";
       return r;
     },
   });
@@ -1277,7 +1490,7 @@ test("ready summary and matching instances cannot hide a final process readiness
     verifyDeployment(m, sha, image, "baseline", f.options),
     /container readiness differs/,
   );
-  assert.equal(f.count().metadataCalls, 6);
+  assert.equal(f.count().metadataCalls, 7);
 });
 test("bounded placement convergence preserves each actual snapshot and requires fresh process readiness", async () => {
   const f = fixture("off", {
@@ -1296,7 +1509,7 @@ test("bounded placement convergence preserves each actual snapshot and requires 
   });
   const r = await verifyDeployment(m, sha, image, "off", f.options);
   assert.equal(r.status, "passed");
-  assert.equal(r.keepWarm.metadataReads, 27);
+  assert.equal(r.keepWarm.metadataReads, 28);
   assert.equal(f.count().instanceCalls, 5);
   assert.ok(f.count().readyCalls >= 7);
   assert.deepEqual(
@@ -1495,14 +1708,14 @@ test("final application snapshot must retain exact application, image and versio
     });
     await assert.rejects(
       verifyDeployment(m, sha, image, "off", f.options),
-      /application changed during readback/,
+      /immutable application/,
     );
     assert.equal(f.count().instanceCalls, 2);
   }
 });
 test("fixed readback quotas cover both maximum attempt series without widening time or transport bounds", async () => {
   assert.equal(limits.durationMs, 180000);
-  assert.equal(limits.metadataReads, 23 + 14 + 14 + 1);
+  assert.equal(limits.metadataReads, 52);
   assert.equal(limits.readinessRequests, 95);
   assert.equal(limits.instanceAttempts, 8);
   assert.equal(limits.instanceConvergenceMs, 60000);
@@ -1524,7 +1737,7 @@ test("fixed readback quotas cover both maximum attempt series without widening t
   });
   const r = await verifyDeployment(m, sha, image, "off", f.options);
   assert.equal(r.instanceObservations.length, 16);
-  assert.equal(r.keepWarm.metadataReads, 38);
+  assert.equal(r.keepWarm.metadataReads, 39);
   assert.equal(r.keepWarm.readinessRequests, 18);
 });
 test("both runtime and adapter active deployments must stay fixed through readback", async () => {
@@ -1554,7 +1767,7 @@ test("same digest old off process and incompatible writer/epoch/profile are reje
       verifyDeployment(m, sha, image, "baseline", f.options),
       /container readiness differs/,
     );
-    assert.equal(f.count().metadataCalls, 0);
+    assert.equal(f.count().metadataCalls, 3);
   }
   const f = fixture();
   assert.throws(
@@ -1609,7 +1822,7 @@ test(
   "metadata longer than 10-second executor idle window receives bounded readiness and finally stops",
   { timeout: 15000 },
   async () => {
-    const f = fixture("off", { delay: 11000 });
+    const f = fixture("off", { delay: 11000, delayOn: "instances" });
     const r = await verifyDeployment(m, sha, image, "off", f.options);
     assert.ok(r.keepWarm.durationMs >= 11000);
     assert.ok(r.keepWarm.readinessRequests >= 6);
@@ -1654,7 +1867,7 @@ test("remote application size or image drift cannot be hidden by healthy fixed i
     const f = fixture("off", { appInfo });
     await assert.rejects(
       verifyDeployment(m, sha, image, "off", f.options),
-      /capacity\/image differs/,
+      /capacity\/image differs|application_image_changed/,
     );
   }
 });
@@ -1673,7 +1886,7 @@ test("actual async wiring is checked for off and baseline and retains only polic
   for (const mode of ["off", "baseline"]) {
     const f = fixture(mode),
       r = await verifyDeployment(m, sha, image, mode, f.options);
-    assert.equal(r.keepWarm.metadataReads, 24);
+    assert.equal(r.keepWarm.metadataReads, 25);
     assert.equal(r.asyncTriggers.verified, true);
     assert.equal(r.asyncTriggers.mode, mode);
     assert.deepEqual(
