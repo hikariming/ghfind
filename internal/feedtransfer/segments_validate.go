@@ -128,7 +128,7 @@ func validateProgress(m Manifest, s TransactionSeal, p StageProgress) error {
 		if p.NextOrdinal < p.NextSegment || p.NextOrdinal > p.NextSegment*MaxChanges || p.ContentBytes == 0 || p.LastSegmentHash == emptyChain() || p.LastRow == nil || !clean(p.LastRow.Key, 1024) {
 			return invalid("seg_progress")
 		}
-		rule, ok := tableRule(m.Source.Profile, p.LastRow.Table)
+		rule, ok := tableRule(m.Source.Profile, m.Source.Schema, p.LastRow.Table)
 		if !ok || rule.Mode != "capture" {
 			return invalid("seg_progress")
 		}
@@ -410,7 +410,7 @@ func verifyStagedRows(m Manifest, s TransactionSeal, before Checkpoint, q Segmen
 					action = "tombstone"
 				}
 			case "upsert":
-				rule, _ := tableRule(m.Source.Profile, c.Table)
+				rule, _ := tableRule(m.Source.Profile, m.Source.Schema, c.Table)
 				if isAuthority(c.Table) {
 					action = "stage_control"
 				} else if isFloor(c.Table) {

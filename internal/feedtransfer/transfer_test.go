@@ -35,7 +35,12 @@ func manifest(t *testing.T, profile string, through int64, floors []Floor) Manif
 	}
 	m := Manifest{Version: 1, Stream: "feed_transaction_journal", MigrationID: "11111111-1111-4111-8111-111111111111", JournalID: "22222222-2222-4222-8222-222222222222", Source: Identity{profile, "33333333-3333-4333-8333-333333333333", r.Schema, 2, 4, 8}, Target: Identity{other, "44444444-4444-4444-8444-444444444444", target.Schema, 2, 1, 9}, SnapshotSHA256: strings.Repeat("a", 64), ArchiveInventorySHA256: strings.Repeat("b", 64), DeletionFloorsSHA256: fh, DeletionFloorActors: int64(len(floors)), FromSequence: 0, ThroughSequence: through, AnchorHash: strings.Repeat("0", 64), Coverage: []Coverage{}}
 	for _, v := range r.Tables {
-		m.Coverage = append(m.Coverage, Coverage{v.Table, v.Mode, v.Category, 0})
+		m.Coverage = append(m.Coverage, Coverage{v.Table, v.Mode, v.Category, func() int64 {
+			if v.Mode == "reinitialize" {
+				return 1
+			}
+			return 0
+		}()})
 	}
 	return m
 }
@@ -353,7 +358,7 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	files, err := filepath.Glob("../../migrations-feed/*.sql")
-	if err != nil || len(files) != 11 {
+	if err != nil || len(files) != 12 {
 		t.Fatal("register the new D1 schema before use")
 	}
 	for _, path := range files {
@@ -393,8 +398,8 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 		}
 	}
 	assertNames("cf_d1_r2", cf)
-	if len(cf) != 45 {
-		t.Fatal("snapshot11 inventory")
+	if len(cf) != 47 {
+		t.Fatal("snapshot12 inventory")
 	}
 	// PG check inventories declarations only; actual PG migration/row semantics
 	// remain the existing mandatory database suite, not this protocol test.
@@ -600,4 +605,43 @@ func TestAggregateBoundsAndCanonicalIntegerTokens(t *testing.T) {
 	}
 	_, err = Begin(m, []Floor{{42, 5}, {42, 6}})
 	code(t, err, "duplicate_floor")
+}
+
+func TestAdapterAuthorizationControlsNeverTransfer(t *testing.T) {
+	m := manifest(t, "cf_d1_r2", 1, nil)
+	for _, table := range []string{"feed_adapter_write_context", "feed_adapter_write_fence"} {
+		rule, ok := tableRule(m.Source.Profile, m.Source.Schema, table)
+		if !ok || rule.Category != "derived" || rule.Mode == "capture" {
+			t.Fatalf("unsafe adapter metadata rule: %+v", rule)
+		}
+		cp := begin(t, m, nil)
+		tx := Transaction{Sequence: 1, TransactionID: m.JournalID + ":1", PreviousHash: cp.CommitHash, Changes: []Change{{Table: table, Key: "1", Operation: "upsert", Image: []byte(`{"id":1,"enabled":0}`)}}}
+		_, err := TransactionHash(m, tx)
+		code(t, err, "change_coverage")
+		_, _, err = SegmentHash(m, segmentEnvelope(m, 0, 0, emptyChain(), []SegmentChange{{Row: tx.Changes[0]}}))
+		code(t, err, "change_coverage")
+		for _, count := range []int64{0, 1, 2} {
+			bad := clone(m)
+			for i := range bad.Coverage {
+				if bad.Coverage[i].Table == table {
+					bad.Coverage[i].SnapshotRows = count
+				}
+			}
+			valid := table == "feed_adapter_write_context" && count == 0 || table == "feed_adapter_write_fence" && count == 1
+			if err := ValidateManifest(bad); valid {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				code(t, err, "coverage")
+			}
+		}
+	}
+	old, err := RegistryForSchema("cf_d1_r2", 11)
+	if err != nil || old.Schema != 11 || len(old.Tables) != 45 {
+		t.Fatal("historical registry changed", err)
+	}
+	if _, ok := tableRule("cf_d1_r2", 11, "feed_adapter_write_context"); ok {
+		t.Fatal("schema11 accepted schema12 context")
+	}
 }

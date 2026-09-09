@@ -96,7 +96,9 @@ source evidence. The current capacity bound is 100,000 distinct floor actors.
 
 ## Coverage means inventory, not mapping completeness
 
-`RequiredRegistry` is the authoritative declaration for the two source schemas.
+`RequiredRegistry` selects current D1 schema 12 / PostgreSQL schema 22.
+`RegistryForSchema` separately retains D1 schema 11 for historical manifests and
+unchanged v1/v2 fixture hashes; neither registry implements a target mapper.
 Coverage must contain every registered physical relation exactly once, in ASCII
 table-name order, with its exact mode/category and nonnegative snapshot row count.
 Missing relations, duplicate entries, unknown relations, category changes and
@@ -114,8 +116,15 @@ D1 schema 11 has 45 physical tables in the existing snapshot registry. Eight
 transaction guard tables have `mode=empty`: archive, command, delivery,
 execution, operator, projection-command, proposal and governance guards. Their
 snapshot count must be zero and journal changes to them are forbidden: temporary
-guards must never survive a committed business transaction. All other registered
-relations have `mode=capture`.
+guards must never survive a committed business transaction. All other schema-11 relations have `mode=capture`.
+
+D1 schema 12 adds two derived runtime controls: `feed_adapter_write_context` has
+`mode=empty` and a zero snapshot count; `feed_adapter_write_fence` has
+`mode=reinitialize` and exactly one source inventory row. Journal mutations to
+either table are rejected in both v1 and v2. A future schema-aware adapter must
+initialize the target fence to `{id:1,enabled:1}` and verify the context is empty;
+it must never replay a source marker or enable legacy writes. These are explicit
+reinitialization obligations, not an implemented mapper or promotion receipt.
 
 PostgreSQL schema 22 has a different inventory. It includes source-aware tags,
 proposals, user generations, deletion/cleanup state and older derived/legacy
@@ -127,7 +136,7 @@ not business row streams: schema identity and migration verification cover them.
 Core assessment facts, OAuth/session facts outside Feed and source outbox tables
 belong to separate resources and are outside this Feed database transfer.
 
-The unit inventory check installs all 11 D1 SQL files in local SQLite and compares
+The unit inventory check installs all 12 D1 SQL files in local SQLite and compares
 physical table names; it is not a Workers transaction test. PostgreSQL inventory
 is checked against all 22 SQL declaration files, not by pretending that SQLite
 runs PostgreSQL migrations. Existing mandatory database suites remain necessary.
