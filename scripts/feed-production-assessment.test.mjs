@@ -144,7 +144,7 @@ async function harness(t, settings = {}) {
     },
     fetcher: async (url, init) => {
       url = String(url);
-      h.calls.push({ url, method: init.method, body: init.body });
+      h.calls.push({ url, method: init.method, body: init.body, at: h.clock });
       assert.equal(init.redirect, "error");
       assert.equal(init.credentials, "omit");
       assert.ok(init.signal);
@@ -693,4 +693,85 @@ test("terminal revalidation does not trust a past result when current source or 
   assert.equal((await h.read()).terminalRevalidations, 2);
   assert.equal(h.posts, 0);
   assert.equal(h.polls, 1);
+});
+
+test("first selecting completed source gets all five projection slots without public GET or POST", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    projectionReadyAt: 100000 + 124000,
+  });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  assert.equal(r.status, "completed");
+  assert.equal(r.projectionPolls, 0);
+  assert.equal(r.projectionStartedAt, undefined);
+  assert.equal(r.completionObservedAt, undefined);
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.verification, "normal_projection_window");
+  assert.equal(result.projectionPolls, 5);
+  assert.equal(result.terminalRevalidations, 0);
+  assert.equal(h.clock, 240000);
+  assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
+});
+
+test("restart before next projection slot preserves original start, cadence and remaining checks", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    projectionReadyAt: 224000,
+  });
+  const initial = await startAssessment(SHA, h.receipt, h.options);
+  const realSleep = h.options.sleep;
+  h.options.sleep = async () => {
+    throw new Error("simulated_process_stop_before_next_slot");
+  };
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /simulated_process_stop/,
+  );
+  const checkpoint = await h.read();
+  assert.equal(checkpoint.projectionStartedAt, 100000);
+  assert.equal(checkpoint.projectionPolls, 1);
+  h.clock = 110000;
+  const sleeps = [];
+  h.options.sleep = async (ms) => {
+    sleeps.push(ms);
+    await realSleep(ms);
+  };
+  const restored = await startAssessment(SHA, h.receipt, h.options);
+  assert.equal(restored.phase, "selected");
+  assert.equal(restored.intentId, initial.intentId);
+  assert.equal(restored.completionObservedAt, checkpoint.completionObservedAt);
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.deepEqual(sleeps, [25000, 35000, 35000, 35000]);
+  assert.deepEqual(
+    h.calls.filter((c) => c.body?.includes(SQL.projection)).map((c) => c.at),
+    [100000, 135000, 170000, 205000, 240000],
+  );
+  assert.equal(
+    (await h.read()).projectionStartedAt,
+    checkpoint.projectionStartedAt,
+  );
+  assert.equal(result.projectionPolls, 5);
+  assert.equal(result.terminalRevalidations, 0);
+  assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
+});
+
+test("start preserves previously verified projection so a rerun cannot mint a fresh window", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })] });
+  await startAssessment(SHA, h.receipt, h.options);
+  const first = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(first.projectionPolls, 1);
+  const recovered = await startAssessment(SHA, h.receipt, h.options);
+  assert.equal(recovered.phase, "completed");
+  const next = await waitAssessment(
+    h.receipt,
+    join(h.result, "..", "revalidated.json"),
+    h.options,
+  );
+  assert.equal(next.verification, "readonly_terminal_revalidation");
+  assert.equal(next.projectionPolls, 1);
+  assert.equal(next.terminalRevalidations, 1);
+  assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
 });
