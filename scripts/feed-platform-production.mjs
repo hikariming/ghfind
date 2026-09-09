@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Production has a separate pinned contract. Never pass these IDs through the
 // staging validator or relax its production/dev denylist.
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -612,8 +612,21 @@ export async function disableConsumers(
     );
   }
 }
+export function readPreviousApplicationSnapshot(path) {
+  const stat = statSync(path);
+  requireThat(
+    stat.isFile() && stat.size > 0 && stat.size <= 4 * 1024 * 1024,
+    "previous application snapshot exceeds bound or is not a file",
+  );
+  const bytes = readFileSync(path);
+  requireThat(
+    bytes.length <= 4 * 1024 * 1024,
+    "previous application snapshot exceeds bound",
+  );
+  return JSON.parse(bytes.toString("utf8"));
+}
 async function main(args) {
-  const [command, path, sha, image, mode, receiptOrOutput] = args;
+  const [command, path, sha, image, mode, receiptOrOutput, previousPath] = args;
   if (command === "template" && args.length === 1)
     return console.log(JSON.stringify(template(), null, 2));
   const m = validateManifest(JSON.parse(readFileSync(path, "utf8")));
@@ -672,17 +685,22 @@ async function main(args) {
       `Rendered production ${mode} config; no resource or traffic mutation executed`,
     );
   }
-  if (command === "verify" && args.length === 6) {
+  if (command === "verify" && [6, 7].includes(args.length)) {
     await verifyProductionToFile(m, sha, image, mode, receiptOrOutput, {
       secret: process.env.FEED_RUNTIME_ADMIN_SECRET,
       token: process.env.CLOUDFLARE_API_TOKEN,
+      ...(previousPath
+        ? {
+            previousApplications: readPreviousApplicationSnapshot(previousPath),
+          }
+        : {}),
     });
     return console.log(
       "Production immutable deployment and authenticated readiness verified; no OAuth, load or cost acceptance claimed",
     );
   }
   throw new Error(
-    "usage: feed-platform-production.mjs template | validate MANIFEST | disable-consumers MANIFEST RECEIPT | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT",
+    "usage: feed-platform-production.mjs template | validate MANIFEST | disable-consumers MANIFEST RECEIPT | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT [PREVIOUS_APPLICATIONS]",
   );
 }
 if (

@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { createHash } from "node:crypto";
-import { ACCOUNT } from "./feed-platform-manifest.mjs";
+import { ACCOUNT, validateImage } from "./feed-platform-manifest.mjs";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
 import {
   repository,
@@ -17,8 +17,11 @@ import {
 
 export const limits = Object.freeze({
   durationMs: 180000,
-  // 72 heartbeat slots + 16 per-attempt checks + initial/final checks <= 95.
+  // Initial retries consume time before heartbeats begin and share this quota.
   readinessRequests: 95,
+  initialReadinessAttempts: 8,
+  initialReadinessIntervalMs: 2500,
+  initialReadinessConvergenceMs: 60000,
   // Original 23 + 14 instance retries + 14 application retries + final identity read.
   metadataReads: 52,
   applicationAttempts: 8,
@@ -40,6 +43,17 @@ function scalarVersion(v) {
     (typeof v === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(v))
   );
 }
+function versionAdvanced(current, previous) {
+  if (String(current) === String(previous)) return false;
+  const numeric = (value) =>
+    Number.isSafeInteger(value) ||
+    (typeof value === "string" && /^\d+$/.test(value))
+      ? BigInt(value)
+      : null;
+  const next = numeric(current),
+    before = numeric(previous);
+  return next === null || before === null || next > before;
+}
 const applicationStates = new Set([
   "active",
   "ready",
@@ -47,7 +61,32 @@ const applicationStates = new Set([
   "degraded",
   "unknown",
 ]);
-function inspectApplication(apps, name, image, prior) {
+export function validatePreviousApplications(apps, m) {
+  requireThat(Array.isArray(apps), "previous applications must be an array");
+  const previous = new Map(),
+    ids = new Set();
+  for (const suffix of ["feedapi", "feedexecutor"]) {
+    const name = `${m.runtimeWorker}-${suffix}`;
+    const rows = apps.filter((a) => a?.name === name);
+    requireThat(rows.length <= 1, "duplicate previous application");
+    if (!rows.length) continue; // First install grants no old-image permission.
+    const app = rows[0];
+    requireThat(
+      uuid.test(app.id) && scalarVersion(app.version) && !ids.has(app.id),
+      "invalid previous application identity",
+    );
+    validateImage(app.image);
+    ids.add(app.id);
+    previous.set(name, {
+      id: app.id,
+      name,
+      version: app.version,
+      image: app.image,
+    });
+  }
+  return previous;
+}
+function inspectApplication(apps, name, image, prior, previous) {
   const matches = Array.isArray(apps)
     ? apps.filter((a) => a?.name === name)
     : [];
@@ -57,14 +96,35 @@ function inspectApplication(apps, name, image, prior) {
     reason = "application_population_invalid";
   else if (!uuid.test(app.id) || !scalarVersion(app.version))
     reason = "application_identity_invalid";
-  else if (app.image !== image) reason = "application_image_changed";
-  else if (
+  else if (previous && app.id !== previous.id)
+    reason = "application_identity_changed";
+  else if (!["active", "ready", "provisioning"].includes(app.state))
+    reason = "application_health_rejected";
+  else if (app.image !== image) {
+    if (
+      !prior &&
+      previous &&
+      app.image === previous.image &&
+      String(app.version) === String(previous.version)
+    )
+      return {
+        app,
+        matches,
+        status: "pending",
+        reason: "prior_application_pending",
+      };
+    reason = "application_image_changed";
+  } else if (
     prior &&
     (app.id !== prior.id || String(app.version) !== String(prior.version))
   )
     reason = "application_identity_changed";
-  else if (!["active", "ready", "provisioning"].includes(app.state))
-    reason = "application_health_rejected";
+  else if (
+    previous &&
+    previous.image !== image &&
+    !versionAdvanced(app.version, previous.version)
+  )
+    reason = "application_version_not_advanced";
   if (reason) return { app, matches, status: "rejected", reason };
   return {
     app,
@@ -393,9 +453,14 @@ export async function verifyDeployment(
     fetcher = fetch,
     metadata = wranglerMetadata,
     limits: narrower = {},
+    previousApplications,
   } = {},
 ) {
   const identity = releaseIdentity(m, sha, image, mode);
+  const previous =
+    previousApplications === undefined
+      ? new Map()
+      : validatePreviousApplications(previousApplications, m);
   requireThat(
     typeof secret === "string" &&
       Buffer.byteLength(secret) >= 32 &&
@@ -436,7 +501,14 @@ export async function verifyDeployment(
     stage = "initial_readiness",
     failureReceipt;
   const instanceObservations = [],
-    applicationObservations = [];
+    applicationObservations = [],
+    readinessObservations = [];
+  const expectedApplicationPins = new Map();
+  const applicationAttempts = new Map(),
+    applicationSequences = new Map();
+  let latestApplications,
+    latestApplicationsAt,
+    applicationSequence = 0;
   function signal(timeout, extra = run.signal) {
     return AbortSignal.any([run.signal, extra, AbortSignal.timeout(timeout)]);
   }
@@ -471,23 +543,110 @@ export async function verifyDeployment(
     });
     extra.throwIfAborted();
     run.signal.throwIfAborted();
+    if (args[0] === "containers" && args[1] === "list") applicationSequence++;
+    if (
+      previousApplications !== undefined &&
+      args[0] === "containers" &&
+      args[1] === "list"
+    ) {
+      latestApplications = result;
+      latestApplicationsAt = new Date().toISOString();
+      // Every actual list read witnesses both registered apps. Once either
+      // reaches the target digest, another app's retry must not hide rollback.
+      for (const suffix of ["feedapi", "feedexecutor"]) {
+        const name = `${m.runtimeWorker}-${suffix}`;
+        const verdict = inspectApplication(
+          result,
+          name,
+          image,
+          expectedApplicationPins.get(name),
+          previous.get(name),
+        );
+        if (verdict.status === "rejected") {
+          observeApplication(
+            result,
+            name,
+            expectedApplicationPins.get(name),
+            latestApplicationsAt,
+            "snapshot",
+            null,
+          );
+          throw new Error(
+            `immutable application identity or health summary differs: ${verdict.reason}`,
+          );
+        }
+        if (verdict.app.image === image)
+          expectedApplicationPins.set(name, {
+            id: verdict.app.id,
+            version: verdict.app.version,
+          });
+      }
+    }
     return result;
   }
-  async function ready(workerVersionId, extra = run.signal) {
+  async function ready(
+    workerVersionId,
+    extra = run.signal,
+    phase = "strict",
+    attempt = null,
+  ) {
     run.signal.throwIfAborted();
     requireThat(
       ++readinessRequests <= bounds.readinessRequests,
       "readiness request budget exhausted",
     );
+    const requestSignal = signal(bounds.requestMs, extra);
     const response = await fetcher(new URL("/readyz", m.runtimeOrigin), {
       method: "GET",
       redirect: "error",
       headers: { authorization: `Bearer ${secret}` },
-      signal: signal(bounds.requestMs, extra),
+      signal: requestSignal,
     });
-    requireThat(response.ok, `runtime readiness HTTP ${response.status}`);
+    const observation = {
+      observedAt: new Date().toISOString(),
+      phase,
+      attempt,
+      status: response.status,
+      errorCode: null,
+    };
+    readinessObservations.push(observation);
+    if (!response.ok) {
+      // Closed code list, never arbitrary upstream messages, body or headers.
+      const codes = new Set([
+        "container_dependency_not_ready",
+        "container_not_ready",
+        "container_version_or_contract_mismatch",
+        "runtime_unconfigured",
+        "unauthorized",
+        "feed_unavailable",
+        "not_found",
+        "method_not_allowed",
+      ]);
+      try {
+        requireThat(
+          response.headers
+            .get("content-type")
+            ?.toLowerCase()
+            .startsWith("application/json"),
+          "readiness error is not JSON",
+        );
+        const data = await readinessJSON(response, requestSignal);
+        if (codes.has(data?.error)) observation.errorCode = data.error;
+      } catch {
+        /* HTTP status remains useful even for non-JSON/error bodies. */
+      }
+      throw Object.assign(
+        new Error(`runtime readiness HTTP ${response.status}`),
+        {
+          readinessHTTP: {
+            status: response.status,
+            errorCode: observation.errorCode,
+          },
+        },
+      );
+    }
     lastReadiness = validateReadiness(
-      await boundedJSON(response, 16384),
+      await readinessJSON(response, requestSignal),
       m,
       sha,
       image,
@@ -497,8 +656,58 @@ export async function verifyDeployment(
     run.signal.throwIfAborted();
     lastReadinessAt = new Date().toISOString();
   }
+  async function readinessJSON(response, requestSignal) {
+    requestSignal.throwIfAborted();
+    let onAbort;
+    const aborted = new Promise((_, reject) => {
+      onAbort = () => reject(requestSignal.reason);
+      requestSignal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([boundedJSON(response, 16384), aborted]);
+    } finally {
+      requestSignal.removeEventListener("abort", onAbort);
+    }
+  }
+  async function initialReady(workerVersionId) {
+    const convergence = AbortSignal.any([
+      run.signal,
+      AbortSignal.timeout(bounds.initialReadinessConvergenceMs),
+    ]);
+    for (
+      let attempt = 1;
+      attempt <= bounds.initialReadinessAttempts;
+      attempt++
+    ) {
+      convergence.throwIfAborted();
+      try {
+        await ready(workerVersionId, convergence, "initial", attempt);
+        convergence.throwIfAborted();
+        return;
+      } catch (error) {
+        if (
+          error.readinessHTTP?.status !== 503 ||
+          error.readinessHTTP.errorCode !== "container_dependency_not_ready"
+        )
+          throw error;
+        requireThat(
+          attempt < bounds.initialReadinessAttempts,
+          "initial dependency readiness attempts exhausted",
+        );
+      }
+      await sleep(bounds.initialReadinessIntervalMs, undefined, {
+        signal: convergence,
+      });
+    }
+  }
   function observeApplication(apps, name, prior, observedAt, phase, attempt) {
-    const verdict = inspectApplication(apps, name, image, prior);
+    const verdict = inspectApplication(
+      apps,
+      name,
+      image,
+      expectedApplicationPins.get(name) ?? prior,
+      previous.get(name),
+    );
     applicationObservations.push({
       observedAt,
       phase,
@@ -516,28 +725,56 @@ export async function verifyDeployment(
     initialObservedAt,
     name,
     convergence,
+    identityOnly = false,
+    initialSequence = applicationSequence,
   ) {
     let apps = initialApps,
       observedAt = initialObservedAt,
-      prior;
-    for (let attempt = 1; attempt <= bounds.applicationAttempts; attempt++) {
+      prior,
+      sequence = initialSequence;
+    for (;;) {
       convergence.throwIfAborted();
-      const verdict = observeApplication(
-        apps,
-        name,
-        prior,
-        observedAt,
-        "convergence",
-        attempt,
-      );
+      let attempt = applicationAttempts.get(name) ?? 0,
+        verdict;
+      if (applicationSequences.get(name) !== sequence) {
+        requireThat(
+          attempt < bounds.applicationAttempts,
+          `application summary convergence attempts exhausted: ${name}`,
+        );
+        applicationAttempts.set(name, ++attempt);
+        applicationSequences.set(name, sequence);
+        verdict = observeApplication(
+          apps,
+          name,
+          prior,
+          observedAt,
+          identityOnly ? "identity" : "convergence",
+          attempt,
+        );
+      } else {
+        // The same cached identity snapshot can be rechecked after ready. It
+        // neither resets attempts nor counts as another actual metadata read.
+        verdict = inspectApplication(
+          apps,
+          name,
+          image,
+          expectedApplicationPins.get(name) ?? prior,
+          previous.get(name),
+        );
+      }
       requireThat(
         verdict.status !== "rejected",
         `immutable application identity or health summary differs: ${verdict.reason}`,
       );
-      // The first valid identity is pinned even while provisioning. A new
+      // The first target-image identity is pinned even while provisioning. A new
       // version/UUID/digest never resets the bounded convergence window.
-      prior ??= { id: verdict.app.id, version: verdict.app.version };
-      if (verdict.status === "converged") return verdict.app;
+      if (verdict.app.image === image)
+        prior ??= { id: verdict.app.id, version: verdict.app.version };
+      if (
+        verdict.status === "converged" ||
+        (identityOnly && verdict.app.image === image)
+      )
+        return verdict.app;
       requireThat(
         attempt < bounds.applicationAttempts,
         `application summary convergence attempts exhausted: ${name}`,
@@ -547,6 +784,7 @@ export async function verifyDeployment(
       });
       apps = await wrangler(["containers", "list", "--json"], convergence);
       observedAt = new Date().toISOString();
+      sequence = applicationSequence;
     }
   }
   // Deploy returns before every instance is replaced; metadata may still be
@@ -598,26 +836,6 @@ export async function verifyDeployment(
       `/workers/scripts/${m.runtimeWorker}/deployments`,
     );
     const runtimeId = activeVersion(runtimeActive).versionId;
-    await ready(runtimeId); // no retry loop that can keep an old off process alive
-    loop = (async () => {
-      try {
-        while (!heartbeat.signal.aborted) {
-          await sleep(bounds.intervalMs, undefined, {
-            signal: heartbeat.signal,
-          });
-          await ready(runtimeId, heartbeat.signal);
-        }
-      } catch (error) {
-        if (
-          !heartbeat.signal.aborted ||
-          (error !== heartbeat.signal.reason &&
-            error?.cause !== heartbeat.signal.reason)
-        ) {
-          heartbeatFailure = error;
-          run.abort(error);
-        }
-      }
-    })();
     stage = "platform_identity";
     const runtime = verifyVersion(
       m,
@@ -643,19 +861,79 @@ export async function verifyDeployment(
       await api(`/workers/scripts/${m.adapterWorker}/versions/${adapterId}`),
       await api(`/workers/scripts/${m.adapterWorker}/subdomain`),
     );
+    let applicationConvergence,
+      apps,
+      appsObservedAt,
+      initialApplicationSequence;
+    const identitySnapshots = new Map();
+    if (previousApplications !== undefined) {
+      stage = "application_identity_convergence";
+      applicationConvergence = AbortSignal.any([
+        run.signal,
+        AbortSignal.timeout(bounds.applicationConvergenceMs),
+      ]);
+      apps = await wrangler(
+        ["containers", "list", "--json"],
+        applicationConvergence,
+      );
+      appsObservedAt = latestApplicationsAt;
+      initialApplicationSequence = applicationSequence;
+      for (const suffix of ["feedapi", "feedexecutor"]) {
+        const app = await convergeApplication(
+          latestApplications,
+          latestApplicationsAt,
+          `${m.runtimeWorker}-${suffix}`,
+          applicationConvergence,
+          true,
+          applicationSequence,
+        );
+        if (["active", "ready"].includes(app.state))
+          identitySnapshots.set(app.name, {
+            apps: latestApplications,
+            observedAt: latestApplicationsAt,
+            sequence: applicationSequence,
+          });
+      }
+    }
+    // Verify both fixed Worker configurations before trusting the protected
+    // dependency-only code. An old process/unknown 503 never grants a retry.
+    stage = "initial_readiness";
+    await initialReady(runtimeId);
+    loop = (async () => {
+      try {
+        while (!heartbeat.signal.aborted) {
+          await sleep(bounds.intervalMs, undefined, {
+            signal: heartbeat.signal,
+          });
+          await ready(runtimeId, heartbeat.signal, "heartbeat");
+        }
+      } catch (error) {
+        if (
+          !heartbeat.signal.aborted ||
+          (error !== heartbeat.signal.reason &&
+            error?.cause !== heartbeat.signal.reason)
+        ) {
+          heartbeatFailure = error;
+          run.abort(error);
+        }
+      }
+    })();
     stage = "application_convergence";
     // Start before the first shared metadata request. Both summaries settle
     // within this same 60s window, before inspecting any instance; the overall
     // 180s timer still governs all later work. No cached first read is uncounted.
-    const applicationConvergence = AbortSignal.any([
-      run.signal,
-      AbortSignal.timeout(bounds.applicationConvergenceMs),
-    ]);
-    const apps = await wrangler(
-      ["containers", "list", "--json"],
-      applicationConvergence,
-    );
-    const appsObservedAt = new Date().toISOString();
+    if (!applicationConvergence) {
+      applicationConvergence = AbortSignal.any([
+        run.signal,
+        AbortSignal.timeout(bounds.applicationConvergenceMs),
+      ]);
+      apps = await wrangler(
+        ["containers", "list", "--json"],
+        applicationConvergence,
+      );
+      appsObservedAt = new Date().toISOString();
+      initialApplicationSequence = applicationSequence;
+    }
     const settledApplications = [];
     for (const [suffix, names] of [
       ["feedapi", ["api-0", "api-1"]],
@@ -663,11 +941,18 @@ export async function verifyDeployment(
     ]) {
       // Wrangler 4.129.1 derives the summary from health counters. Provisioning
       // may be observed during rollout, but is never accepted as successful.
+      const name = `${m.runtimeWorker}-${suffix}`;
+      const knownHealthy = identitySnapshots.get(name);
       const app = await convergeApplication(
-        apps,
-        appsObservedAt,
-        `${m.runtimeWorker}-${suffix}`,
+        knownHealthy?.apps ?? latestApplications ?? apps,
+        knownHealthy?.observedAt ?? latestApplicationsAt ?? appsObservedAt,
+        name,
         applicationConvergence,
+        false,
+        knownHealthy?.sequence ??
+          (latestApplications
+            ? applicationSequence
+            : initialApplicationSequence),
       );
       settledApplications.push({ app, suffix, names });
     }
@@ -752,7 +1037,7 @@ export async function verifyDeployment(
     await loop;
     if (heartbeatFailure) throw heartbeatFailure;
     stage = "final_readiness";
-    await ready(runtimeId);
+    await ready(runtimeId, run.signal, "final");
     return {
       format: "ghfind-feed-production-readiness-v1",
       status: "passed",
@@ -767,6 +1052,8 @@ export async function verifyDeployment(
       applications,
       instanceObservations,
       applicationObservations,
+      readinessObservations,
+      previousApplications: [...previous.values()],
       readiness: lastReadiness,
       bindingsVerified: true,
       asyncTriggers,
@@ -803,6 +1090,8 @@ export async function verifyDeployment(
       readinessObservedAt: lastReadinessAt,
       instanceObservations,
       applicationObservations,
+      readinessObservations,
+      previousApplications: [...previous.values()],
       // Only validateReadiness's approved projection; never an unchecked response.
       lastValidatedReadiness: lastReadiness ?? null,
       keepWarm: {
