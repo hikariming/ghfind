@@ -9,6 +9,10 @@ import tempfile
 import time
 import unittest
 
+# Self-tests must not dirty the exact checkout they subsequently validate.
+# Linux writes imported modules beside their source; Apple Python uses a cache
+# outside the checkout, which otherwise conceals this CI-only difference.
+sys.dont_write_bytecode = True
 source = pathlib.Path(__file__).resolve().parents[1] / 'run-feed-e2e.py'
 spec = importlib.util.spec_from_file_location('feed_e2e', source)
 module = importlib.util.module_from_spec(spec)
