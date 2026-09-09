@@ -156,8 +156,28 @@ function context(
     controller.signal.throwIfAborted();
     check(now() < deadline, "assessment_deadline_exceeded");
   };
-  async function request(url, init, maximum = 1048576) {
+  async function request(
+    url,
+    init,
+    maximum = 1048576,
+    requestDeadline = deadline,
+  ) {
     budget();
+    const target = new URL(url);
+    // Reconciliation includes sequential snapshot, file-list and artifact phases.
+    // The caller's remaining overall budget still bounds this longer request.
+    const publicAssessment =
+      target.origin === ORIGIN &&
+      target.search === "" &&
+      target.hash === "" &&
+      ((init.method === "POST" &&
+        target.pathname === "/api/project-analyses") ||
+        (init.method === "GET" &&
+          /^\/api\/project-analyses\/[A-Za-z0-9_.:-]{1,160}$/.test(
+            target.pathname,
+          )));
+    const remaining = Math.min(deadline, requestDeadline) - now();
+    check(remaining > 0, "assessment_deadline_exceeded");
     const r = await fetcher(url, {
       ...init,
       redirect: "error",
@@ -165,14 +185,13 @@ function context(
       signal: AbortSignal.any([
         controller.signal,
         AbortSignal.timeout(
-          init.method === "POST" && String(url).startsWith(ORIGIN)
-            ? 60000
-            : 15000,
+          Math.min(publicAssessment ? 60000 : 15000, remaining),
         ),
       ]),
     });
     const data = await boundedJSON(r, maximum);
     budget();
+    check(now() < requestDeadline, "assessment_deadline_exceeded");
     return { response: r, data };
   }
   async function cf(path, body) {
@@ -578,6 +597,7 @@ export async function waitAssessment(path, output, options = {}) {
         `${ORIGIN}/api/project-analyses/${encodeURIComponent(r.analysisId)}`,
         { method: "GET", headers: { accept: "application/json" } },
         4 * 1024 * 1024,
+        r.waitStartedAt + LIMITS.publicWaitMs,
       );
       check(
         response.ok &&
