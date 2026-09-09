@@ -43,17 +43,36 @@ export async function runBusinessJourney({ page, other, submitRepositories, drai
   assert.equal(source.queue.redelivered, submitRepositories.length);
   assert.equal(source.queue.pending, 0);
   milestone.sourceOutbox = true;
-  let first = await browserCall(page, 'GET', '/api/feed/projects?limit=1');
-  assert.equal(first.items.length, 1);
+  const governedRepo = submitRepositories[0];
+  const proposal = await browserCall(page, 'POST', '/api/feed/tags/proposals', { id: randomUUID(), repoKey: governedRepo, namespace: 'domain', slug: 'e2e-reviewed-tool', labelZh: '本地治理测试', labelEn: 'Local governance fixture', evidence: ['readme-contract'] }, 202);
+  assert.equal(proposal.status, 'proposed');
+  const tags = await browserCall(page, 'GET', '/api/feed/tags');
+  const command = { commandId: randomUUID(), writerEpoch: 1, expectedTaxonomyVersion: tags.taxonomyVersion, operator: 'local-e2e-governor', reason: 'Review isolated fixture evidence', proposalKind: 'user', proposalId: proposal.proposalId, expectedAnalysisId: analyses.get(governedRepo), action: 'create', labels: { labelZh: '本地治理测试', labelEn: 'Local governance fixture', description: 'Explicit isolated human-review transport fixture' }, assignment: { weight: 1, confidence: .9 } };
+  await governance('review', command, false, 401);
+  const reviewed = await governance('review', command, true, 200);
+  assert.equal(reviewed.status, 'mapped');
+  assert.equal(reviewed.taxonomyVersion, tags.taxonomyVersion + 1);
+  assert.deepEqual(await governance('review', command, true, 200), reviewed, 'governance replay changed result');
+  milestone.governance = true;
+
+  const first = await browserCall(page, 'GET', '/api/feed/projects?limit=2');
+  assert.equal(first.items.length, 2);
   assert(first.nextCursor, 'snapshot must retain next page');
-  const item = first.items[0];
-  assert(analyses.has(item.project.repoKey));
   for (const privateField of ['analysisId', 'sourceHash', 'score', 'features', 'propensity', 'embedding', 'candidateSources']) assert(!JSON.stringify(first).includes(`"${privateField}":`), `private field leaked: ${privateField}`);
-  const event = { id: randomUUID(), type: 'impression', repoKey: item.project.repoKey, impressionToken: item.impressionToken, occurredAt: new Date().toISOString() };
-  await browserCall(page, 'POST', '/api/feed/events', { events: [event] }, 202);
-  const second = await browserCall(page, 'GET', `/api/feed/projects?limit=1&cursor=${encodeURIComponent(first.nextCursor)}`);
+  // Keep the governance fixture unseen so its later negative-preference test
+  // cannot pass accidentally because the impression suppression filtered it.
+  const shown = first.items.find(candidate => candidate.project.repoKey !== governedRepo);
+  assert(shown);
+  const impression = { id: randomUUID(), type: 'impression', repoKey: shown.project.repoKey, impressionToken: shown.impressionToken, occurredAt: new Date().toISOString() };
+  await browserCall(page, 'POST', '/api/feed/events', { events: [impression] }, 202);
+  const second = await browserCall(page, 'GET', `/api/feed/projects?limit=2&cursor=${encodeURIComponent(first.nextCursor)}`);
   assert.equal(second.items.length, 1);
-  assert.notEqual(second.items[0].project.repoKey, item.project.repoKey, 'impression invalidated or repeated snapshot page');
+  const items = [...first.items, ...second.items];
+  assert.equal(new Set(items.map(candidate => candidate.project.repoKey)).size, 3, 'impression invalidated or repeated snapshot page');
+  const item = items.find(candidate => candidate.project.repoKey === governedRepo);
+  assert(item, 'governed project not available');
+  assert(item.project.tags.some(tag => tag.id === reviewed.canonicalTagId), 'governance did not assign project tag');
+  const event = { id: randomUUID(), type: 'github_outbound', repoKey: item.project.repoKey, impressionToken: item.impressionToken, occurredAt: new Date().toISOString() };
   milestone.executorProjection = true;
 
   // Authenticated client attempts to override the OAuth subject. The gateway
@@ -73,17 +92,8 @@ export async function runBusinessJourney({ page, other, submitRepositories, drai
   assert.equal(duplicate.accepted, 0); assert.equal(duplicate.duplicate, 1);
   milestone.events = true;
 
-  const proposal = await browserCall(page, 'POST', '/api/feed/tags/proposals', { id: randomUUID(), repoKey: item.project.repoKey, namespace: 'domain', slug: 'e2e-reviewed-tool', labelZh: '本地治理测试', labelEn: 'Local governance fixture', evidence: ['readme-contract'] }, 202);
-  assert.equal(proposal.status, 'proposed');
-  const tags = await browserCall(page, 'GET', '/api/feed/tags');
-  const command = { commandId: randomUUID(), writerEpoch: 1, expectedTaxonomyVersion: tags.taxonomyVersion, operator: 'local-e2e-governor', reason: 'Review isolated fixture evidence', proposalKind: 'user', proposalId: proposal.proposalId, expectedAnalysisId: analyses.get(item.project.repoKey), action: 'create', labels: { labelZh: '本地治理测试', labelEn: 'Local governance fixture', description: 'Explicit isolated human-review transport fixture' }, assignment: { weight: 1, confidence: .9 } };
-  await governance('review', command, false, 401);
-  const reviewed = await governance('review', command, true, 200);
-  assert.equal(reviewed.status, 'mapped');
-  assert.equal(reviewed.taxonomyVersion, tags.taxonomyVersion + 1);
-  assert.deepEqual(await governance('review', command, true, 200), reviewed, 'governance replay changed result');
-  milestone.governance = true;
-  await browserCall(page, 'PUT', '/api/feed/preferences', { taxonomyVersion: reviewed.taxonomyVersion, preferences: [{ tagId: reviewed.canonicalTagId, value: -2 }] });
+
+  await browserCall(page, 'PUT', '/api/feed/preferences', { taxonomyVersion: reviewed.taxonomyVersion, preferences: [{ tagId: reviewed.canonicalTagId, value: -1 }] });
   const filtered = await browserCall(page, 'GET', '/api/feed/projects?limit=20');
   assert(filtered.items.every(candidate => candidate.project.repoKey !== item.project.repoKey), 'explicit negative preference did not filter reviewed project');
   await browserCall(page, 'PUT', '/api/feed/preferences', { taxonomyVersion: reviewed.taxonomyVersion, preferences: [] });
@@ -119,24 +129,31 @@ async function main() {
       const context = await browser.newContext();
       // This is only GitHub's external authorize page. State was issued by the
       // application and the callback must exchange the returned code itself.
-      await context.route('https://github.com/login/oauth/authorize**', async route => {
+      await context.route('**/*', async route => {
         const authorize = new URL(route.request().url());
+        if (authorize.origin === origin) return route.continue();
+        if (authorize.origin !== 'https://github.com' || authorize.pathname !== '/login/oauth/authorize') return route.abort('blockedbyclient');
         assert.equal(authorize.searchParams.get('client_id'), 'local-e2e-oauth');
         assert.equal(authorize.searchParams.get('redirect_uri'), `${origin}/api/auth/callback/github`);
         const callback = new URL(authorize.searchParams.get('redirect_uri'));
         callback.searchParams.set('state', authorize.searchParams.get('state'));
         callback.searchParams.set('code', code);
-        await route.fulfill({ status: 302, headers: { location: callback.href } });
-      });
-      await context.route('**/*', async route => {
-        const url = new URL(route.request().url());
-        if (url.origin === origin || (url.origin === 'https://github.com' && url.pathname === '/login/oauth/authorize')) return route.fallback();
-        return route.abort('blockedbyclient');
+        // A minimal external provider consent page; browser navigation, not
+        // manually supplied cookies, returns the application-issued state.
+        await route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><title>Local GitHub provider fixture</title><a id="authorize" href="${callback.href.replaceAll('&', '&amp;')}">Authorize fixture identity</a>` });
       });
       const page = await context.newPage();
       await page.goto(`${origin}/api/feed/projects`);
       await browserCall(page, 'GET', '/api/feed/projects', undefined, 401);
-      await page.goto(`${origin}/api/auth/github?callbackUrl=/api/feed/preferences`);
+      const begin = await context.request.get(`${origin}/api/auth/github?callbackUrl=/api/feed/preferences`, { maxRedirects: 0 });
+      assert.equal(begin.status(), 302);
+      const authorizeLocation = new URL(begin.headers().location);
+      assert.equal(authorizeLocation.origin, 'https://github.com');
+      // Playwright routes only the initial URL of a redirected request. The
+      // shared browser-context request stores the real application's Set-Cookie,
+      // then navigation starts at the external provider fixture explicitly.
+      await page.goto(authorizeLocation.href);
+      await page.locator('#authorize').click();
       await page.waitForURL(`${origin}/api/feed/preferences`);
       const cookies = await context.cookies(origin);
       assert(cookies.some(cookie => cookie.name === 'ghfind_session' && cookie.httpOnly), 'real OAuth callback did not issue HttpOnly session');
