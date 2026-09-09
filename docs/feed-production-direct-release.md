@@ -33,6 +33,14 @@ receipts and actual repository protection. The workflow then:
    Unknown ownership fails closed. Installs the private adapter and off-mode runtime. Authenticated readback checks
    both actual Worker versions, bindings, each actual application image, basic
    sizes, instance limits (API 2 / executor 1) and all three Go readiness identities.
+   Before each off/baseline runtime deployment, records the two application
+   identities. During bounded convergence only that exact preceding identity may
+   remain pending; acceptance always requires the expected new image. Once the
+   new image appears its version is pinned, and identity drift or regression stops
+   the release. Snapshots never authorize serving traffic from an old image.
+   Initial readiness may wait only for an explicit dependency-not-ready response
+   after all returned Go identities have been validated. Unknown errors and
+   identity mismatches stop immediately; all later heartbeat checks stay strict.
 5. Publishes a 100% Go-only **paused** Web and enables source outbox. New assessment
    intent is persisted in the source database even while delivery is paused.
    Activates the database legacy-writer fence after the paused Web is read back.
