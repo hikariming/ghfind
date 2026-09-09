@@ -7,6 +7,7 @@ import {
   ProjectAnalysisServiceError,
 } from "@/lib/project-analysis-service";
 import { MosooProjectAnalysisError } from "@/lib/mosoo-project-analysis";
+import { authorizeStagingAssessment } from "@/lib/feed-staging-access";
 import {
   checkProjectAnalysisRateLimit,
   rateLimitHeaders,
@@ -80,6 +81,8 @@ export async function POST(req: NextRequest) {
       repositoryUrl: body.repositoryUrl,
       requestedRef: body.ref as string | null | undefined,
     };
+    const stagingRejection = await authorizeStagingAssessment(input.repositoryUrl, input.requestedRef);
+    if (stagingRejection) return stagingRejection;
     const reusable = await getReusableProjectAnalysis(input);
     if (reusable) {
       await recordProjectAnalysisSubmission(reusable.id);
