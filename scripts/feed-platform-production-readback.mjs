@@ -18,7 +18,7 @@ import {
 export const limits = Object.freeze({
   durationMs: 180000,
   readinessRequests: 75,
-  metadataReads: 13,
+  metadataReads: 23,
   intervalMs: 2500,
   requestMs: 10000,
   metadataMs: 30000,
@@ -115,6 +115,118 @@ export function verifyVersion(
       .digest("hex"),
   };
 }
+// GET schemas checked 2026-09-09:
+// https://developers.cloudflare.com/api/resources/queues/subresources/consumers/methods/list/
+// https://developers.cloudflare.com/api/resources/queues/methods/get/
+// https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/schedules/methods/get/
+// Wrangler 4.129.1 updateQueueConsumers maps max_batch_timeout seconds to
+// max_wait_time_ms, and its legacy list responses use script/service instead
+// of the documented script_name. Conflicting aliases never select a target.
+function queueConsumer(c, queue, deadLetterQueue, runtimeWorker) {
+  const names = [c?.script_name, c?.script, c?.service].filter(
+    (v) => v !== undefined,
+  );
+  requireThat(
+    c?.type === "worker" &&
+      /^[a-f0-9]{32}$/.test(c.consumer_id) &&
+      names.length > 0 &&
+      names.every((v) => v === runtimeWorker) &&
+      (c.queue_name === undefined || c.queue_name === queue) &&
+      (c.environment === undefined || c.environment === "production") &&
+      (c.service === undefined || c.environment === "production") &&
+      c.dead_letter_queue === deadLetterQueue &&
+      c.settings?.batch_size === 1 &&
+      c.settings.max_concurrency === 1 &&
+      c.settings.max_retries === 5 &&
+      c.settings.max_wait_time_ms === 5000,
+    "production queue consumer policy differs",
+  );
+  return {
+    consumerId: c.consumer_id,
+    type: "worker",
+    worker: runtimeWorker,
+    deadLetterQueue,
+    batchSize: 1,
+    maxConcurrency: 1,
+    maxRetries: 5,
+    maxWaitTimeMs: 5000,
+  };
+}
+export async function verifyAsyncTriggers(m, mode, api) {
+  requireThat(["off", "baseline"].includes(mode), "unknown asynchronous mode");
+  const queues = [],
+    seen = new Set();
+  for (const [name, deadLetterQueue, retentionSeconds] of [
+    [m.queue, m.deadLetterQueue, 345600],
+    [m.deadLetterQueue, m.terminalParkingQueue, 345600],
+    [m.terminalParkingQueue, null, 1209600],
+  ]) {
+    const lookup = await api(`/queues?name=${encodeURIComponent(name)}`);
+    requireThat(
+      Array.isArray(lookup) &&
+        lookup.length === 1 &&
+        lookup[0]?.queue_name === name &&
+        /^[a-f0-9]{32}$/.test(lookup[0].queue_id),
+      "production queue missing or ambiguous",
+    );
+    const queueId = lookup[0].queue_id;
+    requireThat(!seen.has(queueId), "production queue IDs must be distinct");
+    seen.add(queueId);
+    const details = await api(`/queues/${queueId}`);
+    const consumers = await api(`/queues/${queueId}/consumers`);
+    requireThat(
+      details?.queue_id === queueId &&
+        details.queue_name === name &&
+        Array.isArray(details.consumers) &&
+        Array.isArray(consumers) &&
+        details.consumers.length === consumers.length &&
+        (details.consumers_total_count === undefined ||
+          details.consumers_total_count === consumers.length),
+      "production queue consumer snapshot incomplete or changed",
+    );
+    requireThat(
+      details.settings?.message_retention_period === retentionSeconds &&
+        details.settings.delivery_delay === 0 &&
+        details.settings.delivery_paused === false,
+      "production queue retention/delivery settings differ",
+    );
+    // These queues are dedicated to this production runtime. Even a foreign
+    // consumer in off is unsafe ownership drift, not an idle bootstrap.
+    const wanted = mode === "baseline" && deadLetterQueue !== null ? 1 : 0;
+    requireThat(
+      consumers.length === wanted,
+      "production asynchronous consumer population differs",
+    );
+    const verified = consumers.map((c) =>
+      queueConsumer(c, name, deadLetterQueue, m.runtimeWorker),
+    );
+    const detailed = details.consumers.map((c) =>
+      queueConsumer(c, name, deadLetterQueue, m.runtimeWorker),
+    );
+    requireThat(
+      JSON.stringify(verified) === JSON.stringify(detailed),
+      "production queue consumer snapshot changed",
+    );
+    queues.push({
+      name,
+      queueId,
+      retentionSeconds,
+      deliveryDelaySeconds: 0,
+      deliveryPaused: false,
+      consumers: verified,
+    });
+  }
+  const schedules = await api(`/workers/scripts/${m.runtimeWorker}/schedules`);
+  const expected = mode === "baseline" ? ["* * * * *"] : [];
+  requireThat(
+    Array.isArray(schedules?.schedules) &&
+      schedules.schedules.length === expected.length &&
+      schedules.schedules.every((row, i) => row?.cron === expected[i]),
+    "production cron schedules differ",
+  );
+  return { verified: true, mode, queues, schedules: expected };
+}
+
 export async function wranglerMetadata(args, { signal }) {
   const env = Object.fromEntries(
     ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "CLOUDFLARE_API_TOKEN"]
@@ -395,6 +507,7 @@ export async function verifyDeployment(
         })),
       });
     }
+    const asyncTriggers = await verifyAsyncTriggers(m, mode, api);
     for (const prior of [runtime, adapter]) {
       const after = activeVersion(
         await api(`/workers/scripts/${prior.worker}/deployments`),
@@ -423,6 +536,7 @@ export async function verifyDeployment(
       applications,
       readiness: lastReadiness,
       bindingsVerified: true,
+      asyncTriggers,
       keepWarm: {
         completed: true,
         stopped: true,

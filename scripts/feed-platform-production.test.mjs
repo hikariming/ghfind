@@ -87,8 +87,54 @@ function fixture(mode = "off", options = {}) {
     assert.equal(u.origin, "https://api.cloudflare.com");
     assert.equal(init.headers.authorization, `Bearer ${token}`);
     const path = u.pathname.split(`/accounts/${m.accountId}`)[1];
+    if (path === "/queues" || path.startsWith("/queues/")) {
+      const names = [m.queue, m.deadLetterQueue, m.terminalParkingQueue];
+      const ids = names.map((_, i) => String(i + 1).repeat(32));
+      const index =
+        path === "/queues"
+          ? names.indexOf(u.searchParams.get("name"))
+          : ids.indexOf(path.split("/")[2]);
+      assert.ok(index >= 0, `unexpected queue lookup: ${u}`);
+      const name = names[index],
+        queue_id = ids[index];
+      const consumer = {
+        consumer_id: String(index + 4).repeat(32),
+        queue_name: name,
+        type: "worker",
+        script_name: m.runtimeWorker,
+        dead_letter_queue: names[index + 1],
+        settings: {
+          batch_size: 1,
+          max_concurrency: 1,
+          max_retries: 5,
+          max_wait_time_ms: 5000,
+        },
+        ignoredSecret: "must-not-upload",
+      };
+      const consumers = mode === "baseline" && index < 2 ? [consumer] : [];
+      let result =
+        path === "/queues"
+          ? [{ queue_name: name, queue_id }]
+          : path.endsWith("/consumers")
+            ? consumers
+            : {
+                queue_name: name,
+                queue_id,
+                consumers,
+                consumers_total_count: consumers.length,
+                settings: {
+                  message_retention_period: index < 2 ? 345600 : 1209600,
+                  delivery_delay: 0,
+                  delivery_paused: false,
+                },
+                ignoredSecret: "must-not-upload",
+              };
+      if (options.queue)
+        result = options.queue(path, structuredClone(result), name);
+      return Response.json({ success: true, result });
+    }
     const match =
-      /^\/workers\/scripts\/(ghfind-feed-(?:runtime|adapter)-production)\/(deployments|versions\/[^/]+|subdomain)$/.exec(
+      /^\/workers\/scripts\/(ghfind-feed-(?:runtime|adapter)-production)\/(deployments|versions\/[^/]+|subdomain|schedules)$/.exec(
         path,
       );
     assert.ok(match, path);
@@ -102,6 +148,13 @@ function fixture(mode = "off", options = {}) {
         result.deployments[0].versions[0].version_id = id(999);
     } else if (op === "subdomain")
       result = { enabled: role === "runtime", previews_enabled: false };
+    else if (op === "schedules")
+      result = {
+        schedules:
+          mode === "baseline"
+            ? [{ cron: "* * * * *", ignoredSecret: "must-not-upload" }]
+            : [],
+      };
     else
       result = {
         id: role === "runtime" ? workerId : adapterId,
@@ -252,7 +305,7 @@ test("bootstrap off has no asynchronous entrypoints; production resources and ca
 test("actual readback whitelists all published identity fields and gates baseline", async () => {
   const f = fixture();
   const r = await verifyDeployment(m, sha, image, "off", f.options);
-  assert.equal(r.keepWarm.metadataReads, 13);
+  assert.equal(r.keepWarm.metadataReads, 23);
   assert.equal(r.keepWarm.stopped, true);
   assert.equal(r.status, "passed");
   assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
@@ -444,4 +497,170 @@ test("a healthy application with the wrong Durable Object namespace cannot stand
     verifyDeployment(m, sha, image, "off", f.options),
     /not linked/,
   );
+});
+
+test("actual async wiring is checked for off and baseline and retains only policy evidence", async () => {
+  for (const mode of ["off", "baseline"]) {
+    const f = fixture(mode),
+      r = await verifyDeployment(m, sha, image, mode, f.options);
+    assert.equal(r.keepWarm.metadataReads, 23);
+    assert.equal(r.asyncTriggers.verified, true);
+    assert.equal(r.asyncTriggers.mode, mode);
+    assert.deepEqual(
+      r.asyncTriggers.schedules,
+      mode === "baseline" ? ["* * * * *"] : [],
+    );
+    assert.deepEqual(
+      r.asyncTriggers.queues.map((q) => q.consumers.length),
+      mode === "baseline" ? [1, 1, 0] : [0, 0, 0],
+    );
+    assert.deepEqual(
+      r.asyncTriggers.queues.map((q) => q.retentionSeconds),
+      [345600, 345600, 1209600],
+    );
+    assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
+  }
+});
+test("off rejects leftover or foreign queue consumers and any actual cron", async () => {
+  const leftover = {
+    consumer_id: "a".repeat(32),
+    type: "worker",
+    script_name: m.runtimeWorker,
+  };
+  for (const who of [
+    leftover,
+    { ...leftover, script_name: "foreign-worker" },
+    { type: "http_pull" },
+  ]) {
+    const f = fixture("off", {
+      queue: (path, result) => {
+        if (path.endsWith("/consumers")) return [who];
+        if (result.consumers)
+          return { ...result, consumers: [who], consumers_total_count: 1 };
+        return result;
+      },
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "off", f.options),
+      /consumer population/,
+    );
+  }
+  const f = fixture("off", {
+    platform: (path, result) =>
+      path.endsWith("/schedules")
+        ? { schedules: [{ cron: "* * * * *" }] }
+        : result,
+  });
+  await assert.rejects(
+    verifyDeployment(m, sha, image, "off", f.options),
+    /cron/,
+  );
+});
+test("baseline rejects foreign, pull, duplicate, stale or expanded consumer policy", async () => {
+  for (const change of [
+    (c) => ({ ...c, script_name: "foreign" }),
+    (c) => ({ ...c, type: "http_pull" }),
+    (c) => ({ ...c, dead_letter_queue: m.queue }),
+    (c) => ({ ...c, settings: { ...c.settings, batch_size: 2 } }),
+    (c) => ({ ...c, settings: { ...c.settings, max_concurrency: null } }),
+    (c) => ({ ...c, settings: { ...c.settings, max_retries: 6 } }),
+    (c) => ({ ...c, settings: { ...c.settings, max_wait_time_ms: 10000 } }),
+    (c) => ({ ...c, service: "foreign" }),
+    (c) => ({ ...c, service: m.runtimeWorker, environment: "staging" }),
+  ]) {
+    const f = fixture("baseline", {
+      queue: (path, result) =>
+        path.endsWith("/consumers") ? result.map(change) : result,
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "baseline", f.options),
+      /consumer policy/,
+    );
+  }
+  for (const change of [
+    (rows) => [],
+    (rows) => [...rows, ...rows],
+    (rows) => rows.map((c) => ({ ...c, consumer_id: "b".repeat(32) })),
+  ]) {
+    const f = fixture("baseline", {
+      queue: (path, result) =>
+        path.endsWith("/consumers") ? change(result) : result,
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "baseline", f.options),
+      /snapshot/,
+    );
+  }
+});
+test("queue lookup, retention, pause and exact cron evidence cannot default to success", async () => {
+  for (const change of [
+    (r) => ({
+      ...r,
+      settings: { ...r.settings, message_retention_period: 3600 },
+    }),
+    (r) => ({ ...r, settings: { ...r.settings, delivery_paused: true } }),
+    (r) => ({ ...r, settings: { ...r.settings, delivery_delay: 10 } }),
+    (r) => ({ ...r, consumers_total_count: 20 }),
+    (r) => ({ ...r, consumers: undefined }),
+  ]) {
+    const f = fixture("baseline", {
+      queue: (path, result) => (result.settings ? change(result) : result),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "baseline", f.options),
+      /settings|snapshot/,
+    );
+  }
+  for (const queue of [
+    (path, r) => (path === "/queues" ? [] : r),
+    (path, r) => (path === "/queues" ? [...r, ...r] : r),
+    (path, r) =>
+      path === "/queues" ? [{ ...r[0], queue_name: "foreign" }] : r,
+  ]) {
+    const f = fixture("baseline", { queue });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "baseline", f.options),
+      /missing or ambiguous/,
+    );
+  }
+  for (const schedules of [
+    {},
+    { schedules: [] },
+    { schedules: [{ cron: "* * * * *" }, { cron: "0 * * * *" }] },
+    { schedules: [{ cron: "*/5 * * * *" }] },
+  ]) {
+    const f = fixture("baseline", {
+      platform: (path, r) => (path.endsWith("/schedules") ? schedules : r),
+    });
+    await assert.rejects(
+      verifyDeployment(m, sha, image, "baseline", f.options),
+      /cron/,
+    );
+  }
+});
+test("documented script_name and pinned Wrangler legacy script/service agree without granting another environment", async () => {
+  for (const alias of [
+    (c) => {
+      const { script_name: _name, ...rest } = c;
+      return { ...rest, script: m.runtimeWorker };
+    },
+    (c) => {
+      const { script_name: _name, ...rest } = c;
+      return { ...rest, service: m.runtimeWorker, environment: "production" };
+    },
+  ]) {
+    const f = fixture("baseline", {
+      queue: (path, result) => {
+        if (path.endsWith("/consumers")) return result.map(alias);
+        if (result.consumers)
+          return { ...result, consumers: result.consumers.map(alias) };
+        return result;
+      },
+    });
+    assert.equal(
+      (await verifyDeployment(m, sha, image, "baseline", f.options))
+        .asyncTriggers.verified,
+      true,
+    );
+  }
 });
