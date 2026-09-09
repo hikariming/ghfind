@@ -102,6 +102,13 @@ function validateReceipt(r, sha = r?.sourceSha) {
   );
   if (r.analysisId !== null) check(id(r.analysisId), "invalid_analysis_id");
   check(
+    (r.projectionStartedAt === undefined ||
+      (Number.isSafeInteger(r.projectionStartedAt) &&
+        r.projectionStartedAt > 0)) &&
+      (r.projectionPolls === 0 || r.projectionStartedAt !== undefined),
+    "invalid_assessment_receipt",
+  );
+  check(
     r.terminalRevalidations === undefined ||
       (Number.isSafeInteger(r.terminalRevalidations) &&
         r.terminalRevalidations >= 0 &&
@@ -378,7 +385,12 @@ export async function startAssessment(sha, path, options = {}) {
     if (r) {
       const existing = await oneRun(c, sha, r.analysisId);
       check(existing, "uncertain_post_outcome_no_retry");
-      r = { ...r, ...existing, phase: "selected", resume: true };
+      r = {
+        ...r,
+        ...existing,
+        phase: r.phase === "completed" ? "completed" : "selected",
+        resume: true,
+      };
       await save(path, r);
       return r;
     }
@@ -600,12 +612,19 @@ export async function waitAssessment(path, output, options = {}) {
       return result;
     }
     check(r.analysisId && id(r.analysisId), "uncertain_post_outcome_no_retry");
-    // This route never drives provider reconciliation. The full source proof is
-    // still required on every invocation, even after an earlier passed receipt.
-    const terminalRead =
+    // A completed source skips provider reconciliation but still gets its
+    // unused projection window. Only an exhausted window or a previously
+    // verified projection uses the separately bounded terminal revalidation.
+    const sourceCompleted =
       r.completionObservedAt !== undefined ||
       r.status === "completed" ||
       r.phase === "completed";
+    const windowExhausted =
+      r.projectionPolls >= LIMITS.projectionPolls ||
+      (r.projectionStartedAt !== undefined &&
+        c.now() >= r.projectionStartedAt + LIMITS.projectionWaitMs);
+    const terminalRead =
+      r.phase === "completed" || (sourceCompleted && windowExhausted);
     if (terminalRead)
       check(
         (r.terminalRevalidations ?? 0) < LIMITS.terminalRevalidations,
@@ -681,8 +700,9 @@ export async function waitAssessment(path, output, options = {}) {
     }
     r = { ...r, phase: "waiting", waitStartedAt: r.waitStartedAt ?? c.now() };
     await save(path, r);
-    let completed = false;
+    let completed = sourceCompleted;
     while (
+      !completed &&
       r.polls < LIMITS.publicPolls &&
       c.now() < r.waitStartedAt + LIMITS.publicWaitMs
     ) {
@@ -717,12 +737,18 @@ export async function waitAssessment(path, output, options = {}) {
       else break;
     }
     check(completed, "assessment_wait_exhausted");
+    r.completionObservedAt ??= c.now();
     r.projectionStartedAt ??= c.now();
     await save(path, r);
     while (
       r.projectionPolls < LIMITS.projectionPolls &&
       c.now() < r.projectionStartedAt + LIMITS.projectionWaitMs
     ) {
+      // Persisted slots preserve cadence through a restart between checks.
+      const nextSlot =
+        r.projectionStartedAt + r.projectionPolls * LIMITS.projectionIntervalMs;
+      if (c.now() < nextSlot) await c.sleep(nextSlot - c.now());
+      if (c.now() >= r.projectionStartedAt + LIMITS.projectionWaitMs) break;
       r.projectionPolls++;
       await save(path, r);
       const { source, projection } = await observeProjection(
@@ -731,12 +757,6 @@ export async function waitAssessment(path, output, options = {}) {
       if (projection) {
         return finish(source, projection);
       }
-      if (
-        r.projectionPolls < LIMITS.projectionPolls &&
-        c.now() + LIMITS.projectionIntervalMs <
-          r.projectionStartedAt + LIMITS.projectionWaitMs
-      )
-        await c.sleep(LIMITS.projectionIntervalMs);
     }
     throw new Error("projection_wait_exhausted");
   } finally {
