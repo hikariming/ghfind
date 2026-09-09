@@ -75,6 +75,7 @@ function dispatch(overrides: Partial<Dispatch> = {}): Dispatch {
         service: target === "executor-0" ? "feed-worker" : "feed-api",
         version: env.FEED_RELEASE_SHA,
         contractVersion: "1",
+        storageWriterVersion: 2,
         storeProfile: "cf_d1_r2",
         writerEpoch: 1,
       }),
