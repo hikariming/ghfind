@@ -8,6 +8,19 @@ on:
         required: true
         type: string
 
+  workflow_call:
+    inputs:
+      release_sha:
+        required: true
+        type: string
+    outputs:
+      release_sha:
+        value: ${{ jobs.deploy.outputs.release_sha }}
+      evidence_artifact:
+        value: ${{ jobs.deploy.outputs.evidence_artifact }}
+      evidence_sha256:
+        value: ${{ jobs.deploy.outputs.evidence_sha256 }}
+
 permissions:
   contents: read
   actions: read
@@ -22,7 +35,11 @@ jobs:
     if: ${{ github.repository == 'hikariming/ghfind' }}
     environment: Feed staging
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
+    outputs:
+      release_sha: ${{ steps.receipt.outputs.release_sha }}
+      evidence_artifact: ${{ steps.receipt.outputs.evidence_artifact }}
+      evidence_sha256: ${{ steps.receipt.outputs.evidence_sha256 }}
     env:
       CI: "true"
       WRANGLER_SEND_METRICS: "false"
@@ -34,30 +51,27 @@ jobs:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify exact source and successful CI
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$GITHUB_REPOSITORY" = "hikariming/ghfind"
-          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
-            -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
-            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: platform/runtime/package-lock.json
+      - name: Require exact push CI and complete local dual-profile E2E
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/feed-ci-evidence.json"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       - name: Install locked platform dependencies
         run: |
+          pnpm install --frozen-lockfile
           npm ci --prefix platform/runtime
           pnpm -C platform/feed install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
       - name: Verify source contracts and builds
         run: |
           set -euo pipefail
@@ -65,13 +79,13 @@ jobs:
           git diff --exit-code -- platform/runtime/worker-configuration.d.ts
           npm run typecheck --prefix platform/runtime
           npm test --prefix platform/runtime
-          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs
+          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs
           npm run build --prefix platform/runtime
           pnpm -C platform/feed typecheck
           pnpm -C platform/feed test
           pnpm -C platform/feed build
           go test ./cmd/feed-api ./cmd/feed-worker
-      - name: Require reviewed isolation, budget and dedicated secrets
+      - name: Require isolated Web, source provider, OAuth registration and private holder sessions
         env:
           STAGING_MANIFEST: ${{ vars.FEED_STAGING_MANIFEST }}
           CF_FEED_STAGING_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
@@ -83,27 +97,40 @@ jobs:
           FEED_DELIVERY_SECRET: ${{ secrets.FEED_DELIVERY_SECRET }}
           FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
           FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
+          MOSOO_API_TOKEN: ${{ secrets.MOSOO_API_TOKEN }}
+          FEED_E2E_ORDINARY_STORAGE_STATE: ${{ secrets.FEED_E2E_ORDINARY_STORAGE_STATE }}
+          FEED_E2E_GOVERNANCE_STORAGE_STATE: ${{ secrets.FEED_E2E_GOVERNANCE_STORAGE_STATE }}
         run: |
           set -euo pipefail
           node --input-type=module - <<'JS'
           import {writeFileSync} from 'node:fs';
-          import {secretNames,adapterSecretNames,allSecretNames,validateManifest} from './scripts/feed-platform-manifest.mjs';
-          if(!process.env.CF_FEED_STAGING_API_TOKEN)throw new Error('Dedicated CF_FEED_STAGING_API_TOKEN is absent');
-          const manifest=validateManifest(JSON.parse(process.env.STAGING_MANIFEST || '{}'));
-          const secrets=Object.fromEntries(allSecretNames.map(name=>{
-            const value=process.env[name];
-            if(!value || Buffer.byteLength(value)<32)throw new Error(`Missing/short ${name}`);
-            return [name,value];
-          }));
-          if(new Set(Object.values(secrets)).size!==allSecretNames.length)throw new Error('Runtime secrets must be distinct');
-          writeFileSync(`${process.env.RUNNER_TEMP}/feed-staging-manifest.json`,JSON.stringify(manifest));
-          writeFileSync(`${process.env.RUNNER_TEMP}/feed-runtime-secrets.json`,JSON.stringify(Object.fromEntries(secretNames.map(name=>[name,secrets[name]]))),{mode:0o600});
-          writeFileSync(`${process.env.RUNNER_TEMP}/feed-adapter-secrets.json`,JSON.stringify(Object.fromEntries(adapterSecretNames.map(name=>[name,secrets[name]]))),{mode:0o600});
+          import {validateWebManifest} from './scripts/feed-platform-web.mjs';
+          import {validateLoginState,validateTarget} from './scripts/feed-e2e-remote.mjs';
+          if(!process.env.CF_FEED_STAGING_API_TOKEN) throw new Error('Dedicated staging CF token is absent');
+          const manifest=validateTarget(validateWebManifest(JSON.parse(process.env.STAGING_MANIFEST || '{}')));
+          writeFileSync(`${process.env.RUNNER_TEMP}/feed-staging-manifest.json`,JSON.stringify(manifest),{flag:'wx'});
+          for(const role of ['ORDINARY','GOVERNANCE']) {
+            const raw=process.env[`FEED_E2E_${role}_STORAGE_STATE`];
+            if(!raw || Buffer.byteLength(raw)>1048576) throw new Error(`Real ${role} browser storage state prerequisite is absent/oversized`);
+            let state; try { state=JSON.parse(raw); } catch { throw new Error(`Invalid ${role} browser storage state`); }
+            validateLoginState(state);
+            writeFileSync(`${process.env.RUNNER_TEMP}/feed-${role.toLowerCase()}-storage-state.json`,raw,{mode:0o600,flag:'wx'});
+          }
           JS
-      - name: Read back isolated resources before any mutation
+          node scripts/feed-platform-web.mjs prepare "$RUNNER_TEMP/feed-staging-manifest.json" "$RUNNER_TEMP"
+          node scripts/feed-platform-web.mjs render-web "$RUNNER_TEMP/feed-staging-manifest.json" "$RELEASE_SHA"
+      - name: Read back all isolated resources before any mutation
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
-        run: node scripts/feed-platform-verify-resources.mjs "$RUNNER_TEMP/feed-staging-manifest.json"
+        run: node scripts/feed-platform-web-verify.mjs resources "$RUNNER_TEMP/feed-staging-manifest.json" "$RUNNER_TEMP/feed-staging-resources.json"
+      - name: Build real Web without runtime credentials or dotenv files
+        timeout-minutes: 13
+        run: |
+          set -euo pipefail
+          platform/runtime/node_modules/.bin/wrangler types platform/runtime/web-configuration.generated.d.ts --config platform/runtime/wrangler.web.staging.generated.json --env-interface FeedWebEnv --strict-vars=false
+          node scripts/feed-platform-web-build.mjs "$RUNNER_TEMP/feed-staging-manifest.json" "$RELEASE_SHA" "$RUNNER_TEMP/feed-web-build.json"
       - name: Build one portable amd64 image before Worker changes
         run: docker build --platform linux/amd64 --build-arg VERSION="$RELEASE_SHA" -f Dockerfile.feed -t "ghfind-feed:$RELEASE_SHA" .
       - name: Push image and capture registry digest
@@ -115,8 +142,7 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler containers push "ghfind-feed:$RELEASE_SHA" --config platform/runtime/wrangler.jsonc
           image_ref="$(docker image inspect "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed:$RELEASE_SHA" --format '{{json .RepoDigests}}' | jq -er --arg prefix "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed@sha256:" '[.[] | select(startswith($prefix))] | if length == 1 then .[0] else error("unambiguous pushed digest required") end')"
           echo "reference=$image_ref" >> "$GITHUB_OUTPUT"
-          node scripts/feed-platform-manifest.mjs render "$RUNNER_TEMP/feed-staging-manifest.json" "$image_ref" "$RELEASE_SHA" platform/runtime/wrangler.staging.generated.json
-          node scripts/feed-platform-manifest.mjs render-adapter "$RUNNER_TEMP/feed-staging-manifest.json" platform/feed/wrangler.staging.generated.json
+          node scripts/feed-platform-web.mjs render "$RUNNER_TEMP/feed-staging-manifest.json" "$image_ref" "$RELEASE_SHA"
       - name: Apply isolated Feed schema and deploy private adapter
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
@@ -134,26 +160,74 @@ jobs:
       - name: Bounded startup, SIGTERM and concurrency checks
         env:
           FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
-          STAGING_RUNTIME_URL: ${{ vars.FEED_STAGING_RUNTIME_URL }}
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
         run: |
-          node scripts/feed-platform-probe.mjs "$RUNNER_TEMP/feed-staging-manifest.json" "$STAGING_RUNTIME_URL" "$RELEASE_SHA" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json"
+          set -euo pipefail
+          runtime_origin="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.env.RUNNER_TEMP+"/feed-staging-manifest.json")).web.runtimeOrigin')"
+          node scripts/feed-platform-probe.mjs "$RUNNER_TEMP/feed-staging-core-manifest.json" "$runtime_origin" "$RELEASE_SHA" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json"
       - name: Confirm active Worker and each running Container image version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
         run: |
-          node scripts/feed-platform-verify-deployment.mjs "$RUNNER_TEMP/feed-staging-manifest.json" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json" "$RUNNER_TEMP/feed-runtime-deployment.json"
-      - name: Preserve nonsecret release evidence
+          node scripts/feed-platform-verify-deployment.mjs "$RUNNER_TEMP/feed-staging-core-manifest.json" "$IMAGE_REFERENCE" "$RUNNER_TEMP/feed-runtime-probes.json" "$RUNNER_TEMP/feed-runtime-deployment.json"
+      - name: Deploy dedicated OAuth Web after isolated migrations and runtime readiness
+        timeout-minutes: 8
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.staging.generated.json --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "staging-$RELEASE_SHA"
+          node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.staging.generated.json --cacheChunkSize 10
+          node scripts/feed-platform-web-verify.mjs deployment "$RUNNER_TEMP/feed-staging-manifest.json" "$RELEASE_SHA" "$RUNNER_TEMP/feed-web-deployment-before.json"
+      - name: Execute actual two-identity OAuth, assessment, Feed and deletion journey
+        timeout-minutes: 26
+        env:
+          CF_FEED_STAGING_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+          FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
+          FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+          FEED_E2E_ORDINARY_STORAGE_STATE_FILE: ${{ runner.temp }}/feed-ordinary-storage-state.json
+          FEED_E2E_GOVERNANCE_STORAGE_STATE_FILE: ${{ runner.temp }}/feed-governance-storage-state.json
+        run: |
+          node scripts/feed-e2e-remote.mjs --manifest "$RUNNER_TEMP/feed-staging-manifest.json" --release-sha "$RELEASE_SHA" --directory "$RUNNER_TEMP/feed-remote-e2e" --execute
+      - name: Confirm active Web has not changed during the real journey
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_FEED_STAGING_API_TOKEN }}
+        run: node scripts/feed-platform-web-verify.mjs deployment "$RUNNER_TEMP/feed-staging-manifest.json" "$RELEASE_SHA" "$RUNNER_TEMP/feed-web-deployment.json"
+      - name: Derive current-run passing receipt only after all gates
+        id: receipt
+        run: |
+          set -euo pipefail
+          evidence_hash="$(node scripts/feed-platform-staging-evidence.mjs create \
+            "$RUNNER_TEMP/feed-staging-manifest.json" "$RUNNER_TEMP/feed-ci-evidence.json" \
+            "$RUNNER_TEMP/feed-staging-resources.json" "$RUNNER_TEMP/feed-web-build.json" \
+            "$RUNNER_TEMP/feed-runtime-probes.json" "$RUNNER_TEMP/feed-runtime-deployment.json" \
+            "$RUNNER_TEMP/feed-web-deployment.json" "$RUNNER_TEMP/feed-remote-e2e/feed-e2e-remote.json" \
+            "$RUNNER_TEMP/feed-staging-evidence.json")"
+          node scripts/feed-platform-staging-evidence.mjs verify "$RUNNER_TEMP/feed-staging-evidence.json" "$RELEASE_SHA" "$evidence_hash"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "evidence_artifact=feed-staging-$RELEASE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "evidence_sha256=$evidence_hash" >> "$GITHUB_OUTPUT"
+      - name: Preserve nonsecret release evidence, including failed attempt boundaries
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: feed-staging-${{ inputs.release_sha }}
+          name: feed-staging-${{ inputs.release_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: warn
+          retention-days: 30
           path: |
+            ${{ runner.temp }}/feed-staging-evidence.json
             ${{ runner.temp }}/feed-staging-manifest.json
+            ${{ runner.temp }}/feed-ci-evidence.json
+            ${{ runner.temp }}/feed-staging-resources.json
+            ${{ runner.temp }}/feed-web-build.json
             ${{ runner.temp }}/feed-runtime-probes.json
             ${{ runner.temp }}/feed-runtime-deployment.json
+            ${{ runner.temp }}/feed-web-deployment-before.json
+            ${{ runner.temp }}/feed-web-deployment.json
+            ${{ runner.temp }}/feed-remote-e2e/feed-e2e-remote.json
       - name: Remove temporary secret files
         if: always()
-        run: rm -f "$RUNNER_TEMP/feed-runtime-secrets.json" "$RUNNER_TEMP/feed-adapter-secrets.json"
+        run: |
+          rm -f "$RUNNER_TEMP/feed-runtime-secrets.json" "$RUNNER_TEMP/feed-adapter-secrets.json" "$RUNNER_TEMP/feed-web-secrets.json" \
+            "$RUNNER_TEMP/feed-ordinary-storage-state.json" "$RUNNER_TEMP/feed-governance-storage-state.json"

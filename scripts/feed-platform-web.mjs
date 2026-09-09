@@ -93,7 +93,7 @@ export function webVariables(m, sha) {
     GHFIND_DEPLOY_ENV: "feed-staging", FEED_ENVIRONMENT: "staging", FEED_RELEASE_SHA: sha,
     PUBLIC_SITE_URL: m.web.origin, NEXT_PUBLIC_SITE_URL: m.web.origin,
     NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM: "cloudflare", AUTH_GITHUB_ID: m.web.oauth.clientId,
-    FEED_BACKEND: "go", FEED_API_ORIGIN: m.web.runtimeOrigin,
+    FEED_BACKEND: "go", FEED_API_ORIGIN: m.web.runtimeOrigin, FEED_SOURCE_OUTBOX_ENABLED: "true",
     FEED_STAGING_ALLOWED_GITHUB_IDS: m.web.oauth.identities.map(i => i.githubId).join(","),
     FEED_STAGING_ALLOWED_REPOSITORIES: m.web.sourceProvider.repositories.join(","),
     MOSOO_API_BASE: m.web.sourceProvider.apiBase, MOSOO_PROJECT_AGENT_ID: m.web.sourceProvider.agentId,

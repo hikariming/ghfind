@@ -27,7 +27,9 @@ if (!/^[a-f0-9]{40}$/.test(sha))
 const secret = process.env.FEED_RUNTIME_ADMIN_SECRET;
 if (!secret || Buffer.byteLength(secret) < 32)
   throw new Error("Runtime operations secret required");
+const startedAt = new Date().toISOString();
 const observations = [];
+const readiness = [];
 async function request(path, method = "GET") {
   const started = performance.now();
   const response = await fetch(new URL(path, url), {
@@ -58,6 +60,9 @@ function version(data, target) {
     data.service !== (target === "executor-0" ? "feed-worker" : "feed-api")
   )
     throw new Error(`Readiness/version mismatch: ${target}`);
+  readiness.push({ target, ready: data.ready, version: data.version, contractVersion: data.contractVersion,
+    storageWriterVersion: data.storageWriterVersion, storeProfile: data.storeProfile,
+    writerEpoch: Number(data.writerEpoch), service: data.service });
 }
 const targets = ["api-0", "api-1", "executor-0"];
 let successful = false;
@@ -105,7 +110,7 @@ try {
     configuredImage: image,
     workerVersionId,
     successful,
-    observations,
+    startedAt, finishedAt: new Date().toISOString(), observations, readiness,
     limits: {
       provisioningAttempts: 18,
       lifecycleStopCalls: 3,
