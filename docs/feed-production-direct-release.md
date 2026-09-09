@@ -96,6 +96,17 @@ An uncertain POST is reconciled against the source database, never blindly sent
 again. A missing prior receipt after a possible POST fails closed. Future releases
 may reuse a genuinely eligible existing projection, explicitly reporting reuse.
 
+After source completion, at most five projection observations run 35 seconds
+apart within a 180-second hard deadline. This includes a full minute source-relay
+cycle and executor time; it is a release observation bound, not evidence that
+projection latency meets the 60-second operational target. Each CF request is
+also bounded by the remaining window and 15 seconds, with at most 22 management
+reads per invocation. Once actual completion is persisted, rerunning the same
+intent uses only current Web identity, source and projection reads. It performs
+no public assessment GET or POST, consumes at most one terminal revalidation per
+invocation and two cumulatively, and keeps prior polling counters and timestamps.
+Changed identities, withdrawn eligibility and missing finalization still fail.
+
 A new published Mosoo project agent `01M22PWZR0A7ZYCDKWTEA0YEHQ` was provisioned
 using the owner's StepFun credentials. Initially named `ghfind-feed-staging`, it
 is assigned to this direct production release; the isolated staging Web has not
