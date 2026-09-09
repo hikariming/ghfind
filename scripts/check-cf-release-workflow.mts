@@ -38,7 +38,7 @@ const runtimeDeploys = deployJob.split('\n').filter(line => line.includes('wrang
 if (runtimeDeploys.length !== 2 || runtimeDeploys.some(line => !line.includes('--containers-rollout=immediate'))) throw new Error('Paused production runtime requires explicit immediate Container rollout');
 for (const [mode, title] of [['off', 'Deploy private adapter and off-mode candidate by immutable digest'], ['baseline', 'Activate executor and verify actual baseline instances before gateway traffic']]) {
   const step = new RegExp(`      - name: ${title}\\n([\\s\\S]*?)(?=      - name:)`).exec(deployJob)?.[1] ?? '';
-  const capture = `platform/runtime/node_modules/.bin/wrangler containers list --config platform/runtime/wrangler.jsonc --json > "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
+  const capture = `node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
   const verify = ` ${mode} "$RUNNER_TEMP/feed-production-evidence/runtime-${mode}.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
   const deployAt = step.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json');
   if (!step.includes(capture) || !step.includes(verify) || step.indexOf(capture) >= deployAt || step.indexOf(verify) <= deployAt) throw new Error(`Production ${mode} requires its own predeployment application snapshot`);

@@ -239,7 +239,7 @@ jobs:
         run: |
           npm --prefix platform/runtime run typecheck
           npm --prefix platform/runtime test
-          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-production.test.mjs
+          node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-production.test.mjs scripts/feed-production-application-snapshot.test.mjs
           node --test scripts/feed-platform-provision.test.mjs
           node --test scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs scripts/feed-platform-verify-deployment.test.mjs
           node --test scripts/feed-operator.test.mjs

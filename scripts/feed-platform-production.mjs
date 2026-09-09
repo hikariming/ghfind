@@ -625,11 +625,54 @@ export function readPreviousApplicationSnapshot(path) {
   );
   return JSON.parse(bytes.toString("utf8"));
 }
+// Dashboard list responses can lag the application detail after a completed
+// rollout. Use them only to discover IDs; record prior identities from GET /id.
+export async function captureProductionApplications(m, { metadata } = {}) {
+  validateManifest(m);
+  const { wranglerMetadata, validatePreviousApplications } = await import(
+    "./feed-platform-production-readback.mjs"
+  );
+  const read = metadata ?? wranglerMetadata;
+  const signal = AbortSignal.timeout(60000);
+  const listing = await read(["containers", "list", "--json"], { signal });
+  signal.throwIfAborted();
+  requireThat(Array.isArray(listing), "invalid application discovery response");
+  const selected = [], ids = new Set();
+  for (const suffix of ["feedapi", "feedexecutor"]) {
+    const name = `${m.runtimeWorker}-${suffix}`;
+    const rows = listing.filter((a) => a?.name === name);
+    requireThat(rows.length <= 1, "duplicate application discovery");
+    if (!rows.length) continue; // First install supplies no prior-image allowance.
+    const { id } = rows[0];
+    requireThat(
+      typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id) && !ids.has(id),
+      "invalid discovered application identity",
+    );
+    ids.add(id);
+    selected.push({ id, name });
+  }
+  const snapshot = [];
+  for (const prior of selected) {
+    const detail = await read(["containers", "info", prior.id, "--json"], { signal });
+    signal.throwIfAborted();
+    requireThat(detail?.id === prior.id && detail?.name === prior.name,
+      "discovered application identity changed");
+    snapshot.push({ id: detail.id, name: detail.name, version: detail.version,
+      image: detail.configuration?.image });
+  }
+  validatePreviousApplications(snapshot, m);
+  return snapshot;
+}
 async function main(args) {
   const [command, path, sha, image, mode, receiptOrOutput, previousPath] = args;
   if (command === "template" && args.length === 1)
     return console.log(JSON.stringify(template(), null, 2));
   const m = validateManifest(JSON.parse(readFileSync(path, "utf8")));
+  if (command === "snapshot" && args.length === 3) {
+    const snapshot = await captureProductionApplications(m);
+    writeFileSync(args[2], JSON.stringify(snapshot, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+    return console.log("Recorded direct application identities before deployment");
+  }
   if (command === "disable-consumers" && args.length === 3) {
     const output = args[2];
     writeFileSync(
@@ -700,7 +743,7 @@ async function main(args) {
     );
   }
   throw new Error(
-    "usage: feed-platform-production.mjs template | validate MANIFEST | disable-consumers MANIFEST RECEIPT | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT [PREVIOUS_APPLICATIONS]",
+    "usage: feed-platform-production.mjs template | validate MANIFEST | snapshot MANIFEST OUTPUT | disable-consumers MANIFEST RECEIPT | render MANIFEST SHA IMAGE off | render MANIFEST SHA IMAGE baseline OFF_RECEIPT | verify MANIFEST SHA IMAGE off|baseline OUTPUT [PREVIOUS_APPLICATIONS]",
   );
 }
 if (
