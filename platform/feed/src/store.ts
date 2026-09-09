@@ -11,9 +11,17 @@ export class FeedStore {
   async rows<T = Row>(query: string, ...values: Value[]): Promise<T[]> {
     return (await this.sql(query, ...values).all<T>()).results;
   }
-  async batch(statements: D1PreparedStatement[]) {
+  async batch<T = Record<string, unknown>>(statements: D1PreparedStatement[]) {
     try {
-      return await this.db.batch(statements);
+      // The marker and all capability writes commit together. Old Worker SQL
+      // cannot borrow a marker from another uncommitted D1 transaction.
+      const token = crypto.randomUUID();
+      const results = await this.db.batch<T>([
+        this.sql("INSERT INTO feed_adapter_write_context(id,token) VALUES(1,?)", token),
+        ...statements,
+        this.sql("DELETE FROM feed_adapter_write_context WHERE id=1 AND token=?", token),
+      ]);
+      return results.slice(1, -1);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       for (const code of [
