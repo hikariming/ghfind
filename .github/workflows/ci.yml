@@ -57,6 +57,9 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
         run: |
           if [ -n "$BASE_REF" ] && [ "$BASE_REF" != "0000000000000000000000000000000000000000" ]; then
+            # Rebase pushes may remove event.before from every advertised ref.
+            # Fetch that exact comparison commit; never skip its version check.
+            git cat-file -e "${BASE_REF}^{commit}" 2>/dev/null || git fetch --no-tags origin "$BASE_REF"
             pnpm versions:check --base-ref "$BASE_REF"
           else
             pnpm versions:check
