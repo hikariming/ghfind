@@ -108,7 +108,7 @@ export default async function AdventureXPage({
               </span>
             </a>
           </div>
-          <h1 className="mt-8 max-w-none whitespace-nowrap text-[clamp(0.625rem,3vw,2.625rem)] font-black leading-none tracking-[-0.04em] text-zinc-100">
+          <h1 className="mt-8 max-w-none text-balance text-[clamp(1.5rem,6vw,2.625rem)] font-black leading-tight tracking-[-0.04em] text-zinc-100">
             {copy.subtitle.lead}
             {copy.subtitle.accent ? (
               <span className="advx-accent-text inline-block align-[-0.08em] text-[1.65em] leading-none">
