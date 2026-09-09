@@ -21,6 +21,7 @@ import {
   assessmentOutboxStatement,
   appSubmissionReceiptStatement,
 } from "../platform/shared/feed-source-statements.ts";
+import { FeedStore } from "../platform/feed/src/store.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const OLD = "aa8c683fefca182428a48c180af7e862f7469929";
@@ -91,6 +92,7 @@ test(
         bindings: {
           FEED_BRIDGE_SECRET: bridge,
           FEED_EXECUTOR_SECRET: bridge + "executor",
+          FEED_OPERATOR_SECRET: bridge + "operator",
           FEED_SEMANTIC_STATE: "disabled",
         },
         outboundService: () => {
@@ -102,6 +104,18 @@ test(
     const evidence = {
       format: "ghfind-production-compatibility-v1",
       sourceSHA,
+      cleanCheckout: git("status", "--porcelain") === "",
+      testedFiles: Object.fromEntries(
+        await Promise.all(
+          [
+            "scripts/feed-production-compatibility.test.mjs",
+            "migrations-feed/0012_feed_legacy_writer_fence.sql",
+            "platform/feed/src/store.ts",
+            "platform/feed/src/governance.ts",
+            "platform/feed/src/schema-readiness.ts",
+          ].map(async (name) => [name, hash(await readFile(join(root, name)))]),
+        ),
+      ),
       historicalSHA,
       historicalFeedSourceSHA256: hash(historicalSource),
       fixture: "synthetic, not production facts",
@@ -127,7 +141,7 @@ test(
       evidence.cleanupSuccessful = true;
       evidence.blockedOutboundRequests = outbound;
       evidence.status =
-        fullRunCompleted && evidence.checks.length === 9 && outbound === 0
+        fullRunCompleted && evidence.checks.length === 13 && outbound === 0
           ? "passed"
           : "failed";
       await writeFile(
@@ -266,7 +280,7 @@ test(
     );
 
     await t.test(
-      "0003..0011 preserve existing facts and pending governance without inventing consent",
+      "0003..0012 with inactive legacy fence preserve existing facts and pending governance without inventing consent",
       async () => {
         await apply(feed, "migrations-feed", (n) => n >= "0003");
         await apply(core, "migrations", (n) => n >= "0005");
@@ -311,6 +325,8 @@ test(
           ],
         );
         assert.equal((await call("health", {})).ready, true);
+        assert.deepEqual(await rows(feed, "SELECT * FROM feed_adapter_write_fence"), [{ id: 1, enabled: 0 }]);
+        assert.deepEqual(await rows(feed, "SELECT * FROM feed_adapter_write_context"), []);
         await ensure(101);
         assert.deepEqual(
           (await call("candidates.load", { githubId: 101, limit: 240 }))
@@ -690,6 +706,141 @@ test(
         );
       },
     );
+
+    // Activate only after the deliberately unsafe legacy examples above. This
+    // models the first release: installing 0012 is additive; activation is an
+    // explicit operation after the Go-only paused gateway has been verified.
+    const store = new FeedStore(feed);
+    const markerAbsent = async () =>
+      assert.deepEqual(await rows(feed, "SELECT * FROM feed_adapter_write_context"), []);
+    await t.test("active database fence rejects all 39 legacy table DML shapes", async () => {
+      const seeds = [
+        "INSERT INTO feed_tag_aliases VALUES('artifact','synthetic-alias','artifact:micro-tool',1,1000)",
+        "INSERT INTO feed_project_moderation VALUES('synthetic-0/tool',0,0,'synthetic',1000)",
+        "INSERT INTO feed_project_tags(repo_key,tag_id,source,weight,confidence,evidence_json,analysis_id,taxonomy_version,created_at,updated_at) VALUES('synthetic-0/tool','artifact:micro-tool','assessment',1,1,'[]','synthetic-analysis-0',1,1000,1000)",
+        "INSERT INTO feed_user_tag_preferences VALUES(101,'artifact:micro-tool',1,'explicit',1,1,1000)",
+        "INSERT INTO feed_user_project_states VALUES(101,'synthetic-0/tool',0,0,1000)",
+        "INSERT INTO feed_events VALUES('synthetic-old-event',101,'synthetic-0/tool','impression',1000,NULL,'synthetic-old-request',0,1000)",
+        "INSERT INTO feed_served_items VALUES('synthetic-old-request',101,'synthetic-0/tool',0,'synthetic-algorithm','tags',1,0,1000)",
+        "INSERT INTO feed_rate_windows VALUES(101,'synthetic',1000,1)",
+        "INSERT INTO feed_tag_proposals(id,repo_key,analysis_id,namespace,slug,label_zh,label_en,evidence_json,status,created_at,updated_at) VALUES('synthetic-related','synthetic-0/tool','synthetic-analysis-0','use_case','synthetic-related','合成关联提议','Synthetic related proposal','[\"synthetic\"]','proposed',1000,1000)",
+      ];
+      await feed.batch(seeds.map(sql => feed.prepare(sql)));
+      const tables = [...execFileSync("git", ["show", `${historicalSHA}:migrations-feed/0001_feed_baseline.sql`], { cwd: root, encoding: "utf8" }).matchAll(/CREATE TABLE (feed_[a-z_]+) \(/g)].map(match => match[1]);
+      assert.equal(tables.length, 13, "inspect every historical business table");
+      await feed.prepare("UPDATE feed_adapter_write_fence SET enabled=1 WHERE id=1").run();
+      for (const table of tables) {
+        const [row] = await rows(feed, `SELECT rowid AS fixture_rowid,* FROM ${table} LIMIT 1`);
+        assert.ok(row, `${table} has a real synthetic row to update/delete`);
+        const { fixture_rowid: rowid, ...values } = row;
+        const columns = Object.keys(values);
+        const snapshot = await rows(feed, `SELECT * FROM ${table} ORDER BY rowid`);
+        const statements = [
+          feed.prepare(`INSERT INTO ${table}(${columns.join(",")}) VALUES(${columns.map(() => "?").join(",")})`).bind(...Object.values(values)),
+          feed.prepare(`UPDATE ${table} SET ${columns[0]}=${columns[0]} WHERE rowid=?`).bind(rowid),
+          feed.prepare(`DELETE FROM ${table} WHERE rowid=?`).bind(rowid),
+        ];
+        for (const statement of statements) {
+          await assert.rejects(statement.run(), /legacy_feed_writer_fenced/, table);
+          await markerAbsent();
+        }
+        assert.deepEqual(await rows(feed, `SELECT * FROM ${table} ORDER BY rowid`), snapshot, `${table} was not partially changed`);
+      }
+      await assert.rejects(legacy.getFeedPreferences(viewer(107)), /legacy_feed_writer_fenced/);
+      await assert.rejects(legacy.getFeedPreferences(viewer(101)), /legacy_feed_writer_fenced/);
+      const userBefore = await rows(feed, "SELECT * FROM feed_users WHERE github_id=101");
+      await assert.rejects(legacy.deleteFeedProfile(viewer(101)), /legacy_feed_writer_fenced/);
+      assert.deepEqual(await rows(feed, "SELECT * FROM feed_users WHERE github_id=101"), userBefore);
+      assert.deepEqual(await rows(feed, "SELECT * FROM feed_adapter_write_fence"), [{ id: 1, enabled: 1 }]);
+      await markerAbsent();
+      evidence.checks.push("active physical fence rejects 39 DML shapes across all 13 legacy tables and real historical Next GET/delete");
+    });
+
+    await t.test("fenced adapter user and governance commands preserve results and deletion generations", async () => {
+      assert.equal((await ensure(108)).user.profileVersion, 1);
+      const preferences = await call("preferences.replace", {
+        githubId: 108, writerEpoch: 1, expectedProfileVersion: 1, taxonomyVersion: 1,
+        preferences: [{ tagId: "artifact:micro-tool", value: 1, source: "explicit", strength: 1, taxonomyVersion: 1 }],
+      });
+      assert.equal(preferences.user.profileVersion, 2);
+      assert.equal(preferences.user.preferences[0].value, 1);
+      async function governance(operation, body, status = 200) {
+        const response = await mf.dispatchFetch(`http://localhost/internal/feed/governance/v1/${operation}`, {
+          method: "POST", headers: { authorization: `Bearer ${bridge}operator`, "x-feed-contract": "1", "content-type": "application/json" }, body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        assert.equal(response.status, status, JSON.stringify(result));
+        await markerAbsent();
+        return result;
+      }
+      const command = { commandId: randomUUID(), writerEpoch: 1, expectedTaxonomyVersion: 1, operator: "synthetic-local-operator", reason: "Synthetic local writer fence compatibility test" };
+      const created = await governance("review", { ...command, action: "create", proposalKind: "assessment", proposalId: "synthetic-pending", expectedAnalysisId: "synthetic-analysis-0", labels: { labelZh: "合成测试标签", labelEn: "Synthetic test tag", description: "Synthetic local compatibility fixture" }, assignment: { weight: 1, confidence: 1 } });
+      assert.equal(created.status, "mapped");
+      assert.equal(created.taxonomyVersion, 2);
+      assert.equal(created.commandId, command.commandId);
+      const mapped = await governance("review", { ...command, commandId: randomUUID(), expectedTaxonomyVersion: 2, action: "map", proposalKind: "assessment", proposalId: "synthetic-related", expectedAnalysisId: "synthetic-analysis-0", canonicalTagId: created.canonicalTagId, assignment: { weight: 1, confidence: 1 } });
+      assert.equal(mapped.status, "mapped");
+      assert.equal(mapped.taxonomyVersion, 3);
+      assert.equal(mapped.canonicalTagId, created.canonicalTagId);
+      assert.equal((await rows(feed, "SELECT canonical_tag_id FROM feed_tag_aliases WHERE namespace='use_case' AND slug='synthetic-related'"))[0].canonical_tag_id, created.canonicalTagId);
+      assert.equal((await rows(feed, "SELECT status FROM feed_tag_proposals WHERE id='synthetic-pending'"))[0].status, "accepted");
+      const badCommand = { ...command, commandId: randomUUID(), canonicalTagId: created.canonicalTagId };
+      assert.equal((await governance("deprecate", badCommand, 409)).error, "taxonomy_version_changed");
+      assert.equal((await rows(feed, "SELECT COUNT(*) n FROM feed_governance_commands WHERE command_id=?", badCommand.commandId))[0].n, 0);
+      const deprecated = await governance("deprecate", { ...badCommand, commandId: randomUUID(), expectedTaxonomyVersion: 3 });
+      assert.equal(deprecated.status, "deprecated");
+      assert.equal(deprecated.taxonomyVersion, 4);
+      const deletion = await call("profile.delete", { githubId: 108, writerEpoch: 1, expectedProfileVersion: 2, now: new Date().toISOString() });
+      assert.equal(deletion.status, "pending");
+      await assert.rejects(legacy.getFeedPreferences(viewer(108)), /legacy_feed_writer_fenced/);
+      assert.equal((await ensure(108)).user.profileVersion, 3);
+      await markerAbsent();
+      evidence.checks.push("real fenced adapter ensure/preferences/governance create/map/deprecate/delete/re-entry succeed; failed governance leaves no marker or receipt");
+    });
+
+    await t.test("a later D1 constraint failure rolls back the marker and preceding allowed write", async () => {
+      const before = await rows(feed, "SELECT * FROM feed_users WHERE github_id=108");
+      await assert.rejects(store.batch([
+        store.sql("UPDATE feed_users SET login='SYNTHETIC must roll back' WHERE github_id=108"),
+        store.sql("UPDATE feed_projects SET published=2 WHERE repo_key='synthetic-0/tool'"),
+      ]), /CHECK constraint failed/);
+      assert.deepEqual(await rows(feed, "SELECT * FROM feed_users WHERE github_id=108"), before);
+      await markerAbsent();
+      assert.equal((await ensure(109)).user.profileVersion, 1, "a failed transaction must not poison subsequent adapter writes");
+      const result = await store.batch([
+        store.sql("UPDATE feed_users SET login='synthetic-after-rollback' WHERE github_id=109"),
+        store.sql("SELECT login FROM feed_users WHERE github_id=109"),
+      ]);
+      assert.equal(result.length, 2, "marker commands must not shift result indexes");
+      assert.equal(result[0].meta.changes, 1);
+      assert.deepEqual(result[1].results, [{ login: "synthetic-after-rollback" }]);
+      await markerAbsent();
+      evidence.checks.push("mid-batch CHECK failure rolls back prior facts and marker; later adapter writes and result indexes remain correct");
+    });
+
+    await t.test("concurrent legacy requests cannot borrow an adapter transaction marker", async () => {
+      for (let round = 0; round < 4; round++) {
+        // Keep the actual D1 batch busy without a process sleep or a mock lock.
+        // Independent legacy RPCs race it; a marker may never escape the batch.
+        const operation = store.batch([
+          store.sql("WITH RECURSIVE work(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM work WHERE n<100000) SELECT SUM(n) AS sum FROM work"),
+          store.sql("UPDATE feed_users SET login=? WHERE github_id=109", `synthetic-round-${round}`),
+        ]);
+        const races = Array.from({ length: 12 }, () => feed.prepare("UPDATE feed_users SET login='SYNTHETIC legacy must be rejected' WHERE github_id=109").run());
+        const reads = Array.from({ length: 4 }, () => rows(feed, "SELECT * FROM feed_adapter_write_context"));
+        const [allowed, denied, observed] = await Promise.all([operation, Promise.allSettled(races), Promise.all(reads)]);
+        assert.equal(allowed[0].results[0].sum, 5000050000);
+        assert.equal(allowed[1].meta.changes, 1);
+        for (const attempt of denied) {
+          assert.equal(attempt.status, "rejected");
+          assert.match(attempt.reason.message, /legacy_feed_writer_fenced/);
+        }
+        for (const marker of observed) assert.deepEqual(marker, []);
+        assert.deepEqual(await rows(feed, "SELECT login FROM feed_users WHERE github_id=109"), [{ login: `synthetic-round-${round}` }]);
+        await markerAbsent();
+      }
+      evidence.checks.push("4 real D1 races reject all 48 concurrent legacy writes; 16 concurrent reads never see a transaction marker");
+    });
     assert.equal(outbound, 0);
     assert.deepEqual(await rows(feed, "PRAGMA foreign_key_check"), []);
     fullRunCompleted = true;
