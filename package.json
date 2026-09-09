@@ -68,6 +68,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "knip": "^6.32.2",
+    "playwright": "1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5",
