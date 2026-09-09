@@ -36,6 +36,13 @@ for (let i=1;i<order.length;i++) if(deployJob.indexOf(order[i])<=deployJob.index
 // platform rollout step, but retain all actual readiness/instance gates.
 const runtimeDeploys = deployJob.split('\n').filter(line => line.includes('wrangler deploy --config platform/runtime/wrangler.production.generated.json'));
 if (runtimeDeploys.length !== 2 || runtimeDeploys.some(line => !line.includes('--containers-rollout=immediate'))) throw new Error('Paused production runtime requires explicit immediate Container rollout');
+for (const [mode, title] of [['off', 'Deploy private adapter and off-mode candidate by immutable digest'], ['baseline', 'Activate executor and verify actual baseline instances before gateway traffic']]) {
+  const step = new RegExp(`      - name: ${title}\\n([\\s\\S]*?)(?=      - name:)`).exec(deployJob)?.[1] ?? '';
+  const capture = `platform/runtime/node_modules/.bin/wrangler containers list --config platform/runtime/wrangler.jsonc --json > "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
+  const verify = ` ${mode} "$RUNNER_TEMP/feed-production-evidence/runtime-${mode}.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-${mode}.json"`;
+  const deployAt = step.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json');
+  if (!step.includes(capture) || !step.includes(verify) || step.indexOf(capture) >= deployAt || step.indexOf(verify) <= deployAt) throw new Error(`Production ${mode} requires its own predeployment application snapshot`);
+}
 const publicSmoke = /      - name: Bounded public production smoke\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 for (const fragment of ['SMOKE_BASE_URL: https://ghfind.beiming1201.workers.dev', 'SMOKE_EXPECTED_ORIGIN: https://ghfind.com', 'run: pnpm smoke:deployment']) {
   if (!publicSmoke.includes(fragment)) throw new Error(`Production smoke must preserve its transport and canonical origin: ${fragment}`);
