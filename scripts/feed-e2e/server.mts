@@ -20,11 +20,11 @@ const own = createRequire(join(root, 'platform/feed/package.json'));
 const wranglerRequire = createRequire(own.resolve('wrangler'));
 const { Miniflare, convertV4MiniflareOptions } = wranglerRequire('miniflare');
 const { build } = wranglerRequire('esbuild');
-const { splitSqlQuery } = own('wrangler');
+const { unstable_splitSqlQuery: splitSqlQuery } = own('wrangler');
 const bundle = join(config.directory, 'adapter.mjs');
 await build({ entryPoints: [join(root, 'platform/feed/src/index.ts')], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', outfile: bundle, external: ['cloudflare:*', 'node:*'] });
 const secrets = Object.fromEntries(['FEED_BRIDGE_SECRET', 'FEED_SOURCE_SECRET', 'FEED_EXECUTOR_SECRET', 'FEED_OPERATOR_SECRET', 'FEED_DELIVERY_SECRET'].map(key => [key, process.env[key]]));
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: bundle, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], host: '127.0.0.1', port: config.adapterPort,
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, script: await readFile(bundle, 'utf8'), compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], host: '127.0.0.1', port: config.adapterPort,
   bindings: { ...secrets, FEED_SEMANTIC_STATE: 'disabled' }, d1Databases: { CORE_DB: 'e2e-core', FEED_DB: 'e2e-feed' }, r2Buckets: ['FEED_ARCHIVE'],
   d1Persist: join(config.directory, 'd1'), r2Persist: join(config.directory, 'r2') }));
 await mf.ready;
