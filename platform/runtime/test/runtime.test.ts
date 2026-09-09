@@ -78,6 +78,7 @@ function dispatch(overrides: Partial<Dispatch> = {}): Dispatch {
         storageWriterVersion: 2,
         storeProfile: "cf_d1_r2",
         writerEpoch: 1,
+        mode: env.FEED_MODE,
       }),
     stop: async () => {},
     ...overrides,
