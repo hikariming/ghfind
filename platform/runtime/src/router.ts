@@ -94,12 +94,19 @@ export async function probe(
     data.ready !== true ||
     data.version !== env.FEED_RELEASE_SHA ||
     data.contractVersion !== "1" ||
+    data.storageWriterVersion !== 2 ||
+    (env.FEED_ENVIRONMENT === "production" && data.mode !== env.FEED_MODE) ||
     data.service !== (target === "executor-0" ? "feed-worker" : "feed-api") ||
     data.storeProfile !== "cf_d1_r2" ||
     String(data.writerEpoch) !== env.FEED_WRITER_EPOCH
   )
     throw new HTTPError(503, "container_version_or_contract_mismatch");
-  return { target, ...data };
+  // The authenticated probe is still a whitelist: dependency responses cannot
+  // smuggle environment values, credentials or user information into evidence.
+  return { target, ready: true, version: data.version, contractVersion: data.contractVersion,
+    storageWriterVersion: data.storageWriterVersion, service: data.service,
+    storeProfile: data.storeProfile, writerEpoch: data.writerEpoch,
+    ...(env.FEED_ENVIRONMENT === "production" ? { mode: data.mode } : {}) };
 }
 
 export async function handleRequest(
@@ -110,6 +117,8 @@ export async function handleRequest(
   try {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/healthz") {
+      if (env.FEED_ENVIRONMENT === "production")
+        return json({ healthy: true, service: "feed-runtime" });
       return json({
         healthy: true,
         service: "feed-runtime",
@@ -138,6 +147,7 @@ export async function handleRequest(
           contractVersion: "1",
           workerVersionId: env.WORKER_VERSION.id,
           configuredImage: env.FEED_IMAGE_REFERENCE,
+          ...(env.FEED_ENVIRONMENT === "production" ? { mode: env.FEED_MODE } : {}),
           containers,
         });
       }
@@ -175,6 +185,10 @@ export async function handleRequest(
       body,
       env.FEED_GATEWAY_SECRET,
     );
+    // Keep the edge closed even if an old Container is still running baseline
+    // during the non-transactional Worker/Container rollout.
+    if (env.FEED_ENVIRONMENT === "production" && env.FEED_MODE === "off")
+      throw new HTTPError(503, "feed_disabled");
     const headers = new Headers({
       "x-feed-gateway": request.headers.get("x-feed-gateway")!,
       "content-type": "application/json",
