@@ -171,7 +171,11 @@ async function harness(t, settings = {}) {
             candidate: h.candidates,
             runs: h.rows,
             source: h.sources,
-            projection: h.projections,
+            projection:
+              settings.projectionReadyAt !== undefined &&
+              h.clock < settings.projectionReadyAt
+                ? []
+                : h.projections,
           }[kind];
           return json({
             success: true,
@@ -507,7 +511,7 @@ test("60 polls and 15-minute persisted deadline bound repeated waits, without re
   assert.equal(h.posts, 0);
 });
 
-test("five projection rounds persist across retries and stay below one minute", async (t) => {
+test("five projection rounds cover cron plus executor and preserve counts for finite terminal reads", async (t) => {
   const h = await harness(t, { rows: [run()], projections: [] });
   await startAssessment(SHA, h.receipt, h.options);
   await assert.rejects(
@@ -515,16 +519,19 @@ test("five projection rounds persist across retries and stay below one minute", 
     /projection_wait_exhausted/,
   );
   assert.equal((await h.read()).projectionPolls, 5);
-  assert.equal(h.clock - 100000, 48000);
+  assert.equal(h.clock - 100000, 140000);
   const count = h.calls.filter((c) => c.body?.includes(SQL.projection)).length;
   await assert.rejects(
     waitAssessment(h.receipt, h.result, h.options),
-    /projection_wait_exhausted/,
+    /terminal_projection_not_ready/,
   );
   assert.equal(
     h.calls.filter((c) => c.body?.includes(SQL.projection)).length,
-    count,
+    count + 1,
   );
+  assert.equal((await h.read()).projectionPolls, 5);
+  assert.equal((await h.read()).terminalRevalidations, 1);
+  assert.equal(h.polls, 1);
 });
 
 test("receipt SHA and stable identity cannot be altered to repurpose a prior intent", async (t) => {
@@ -594,4 +601,96 @@ test("last public GET cannot extend the persisted 15-minute budget", async (t) =
   assert.equal(durations.at(-1), 10000);
   assert.equal(h.polls, 1);
   assert.equal(h.posts, 0);
+});
+
+test("normal projection succeeds after next cron plus a full bounded executor run", async (t) => {
+  // Finalization just missed cron: 59s wait + 5s queue batching + 60s executor.
+  const h = await harness(t, {
+    rows: [run()],
+    projectionReadyAt: 100000 + 124000,
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.status, "passed");
+  assert.equal(result.projectionPolls, 5);
+  assert.equal(result.terminalRevalidations, 0);
+  assert.equal(result.verification, "normal_projection_window");
+  assert.equal(h.clock - 100000, 140000);
+  assert.equal(h.polls, 1);
+  assert.equal(h.posts, 0);
+  assert.ok(
+    h.calls.filter((c) => c.url.startsWith("https://api.cloudflare.com/"))
+      .length <= LIMITS.management,
+  );
+});
+
+test("later same-intent completed revalidation is one read per invocation and two cumulative reads maximum", async (t) => {
+  const h = await harness(t, { rows: [run()], projections: [] });
+  const initial = await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /projection_wait_exhausted/,
+  );
+  const original = await h.read();
+  assert.equal(original.completionObservedAt, 100000);
+  h.clock += 3600000; // An Actions rerun may occur after the old public deadline.
+  h.rows = [run({ status: "completed" })];
+  h.projections = [projection()];
+  const resumed = await startAssessment(SHA, h.receipt, h.options);
+  assert.equal(resumed.intentId, initial.intentId);
+  const before = h.calls.length;
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.verification, "readonly_terminal_revalidation");
+  assert.equal(result.terminalRevalidations, 1);
+  assert.equal(result.polls, original.polls);
+  assert.equal(result.projectionPolls, original.projectionPolls);
+  assert.equal(h.calls.length - before, 4); // two Web identity reads + source + projection
+  assert.ok(
+    h.calls
+      .slice(before)
+      .every((c) => c.url.startsWith("https://api.cloudflare.com/")),
+  );
+  assert.equal((await h.read()).waitStartedAt, original.waitStartedAt);
+  assert.equal(
+    (await h.read()).projectionStartedAt,
+    original.projectionStartedAt,
+  );
+  const again = await waitAssessment(
+    h.receipt,
+    join(h.result, "..", "second.json"),
+    h.options,
+  );
+  assert.equal(again.terminalRevalidations, 2);
+  const bound = h.calls.length;
+  await assert.rejects(
+    waitAssessment(h.receipt, join(h.result, "..", "third.json"), h.options),
+    /terminal_revalidation_exhausted/,
+  );
+  assert.equal(h.calls.length, bound);
+  assert.equal(h.polls, 1);
+  assert.equal(h.posts, 0);
+});
+
+test("terminal revalidation does not trust a past result when current source or publication differs", async (t) => {
+  const h = await harness(t, { rows: [run()] });
+  await startAssessment(SHA, h.receipt, h.options);
+  await waitAssessment(h.receipt, h.result, h.options);
+  h.sources = [source({ source_hash: COMPOSITE })];
+  await assert.rejects(
+    waitAssessment(
+      h.receipt,
+      join(h.result, "..", "wrong-source.json"),
+      h.options,
+    ),
+    /source_finalization_identity_mismatch/,
+  );
+  h.sources = [source()];
+  h.projections = [projection({ revoked_at: 1000 })];
+  await assert.rejects(
+    waitAssessment(h.receipt, join(h.result, "..", "revoked.json"), h.options),
+    /project_not_eligible_after_assessment/,
+  );
+  assert.equal((await h.read()).terminalRevalidations, 2);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 1);
 });

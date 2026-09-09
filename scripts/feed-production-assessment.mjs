@@ -19,8 +19,10 @@ export const LIMITS = Object.freeze({
   pollIntervalMs: 15000,
   publicWaitMs: 900000,
   projectionPolls: 5,
-  projectionIntervalMs: 12000,
-  projectionWaitMs: 60000,
+  projectionIntervalMs: 35000,
+  projectionWaitMs: 180000,
+  terminalRevalidations: 2,
+  terminalWaitMs: 60000,
   management: 22,
 });
 const check = (v, code) => {
@@ -99,6 +101,20 @@ function validateReceipt(r, sha = r?.sourceSha) {
     "invalid_assessment_receipt",
   );
   if (r.analysisId !== null) check(id(r.analysisId), "invalid_analysis_id");
+  check(
+    r.terminalRevalidations === undefined ||
+      (Number.isSafeInteger(r.terminalRevalidations) &&
+        r.terminalRevalidations >= 0 &&
+        r.terminalRevalidations <= LIMITS.terminalRevalidations),
+    "invalid_assessment_receipt",
+  );
+  check(
+    r.completionObservedAt === undefined ||
+      (Number.isSafeInteger(r.completionObservedAt) &&
+        r.completionObservedAt > 0 &&
+        r.analysisId !== null),
+    "invalid_assessment_receipt",
+  );
   return r;
 }
 async function load(path) {
@@ -194,7 +210,7 @@ function context(
     check(now() < requestDeadline, "assessment_deadline_exceeded");
     return { response: r, data };
   }
-  async function cf(path, body) {
+  async function cf(path, body, requestDeadline = deadline) {
     check(++management <= LIMITS.management, "management_budget_exhausted");
     const { response, data } = await request(
       `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`,
@@ -206,17 +222,23 @@ function context(
         },
         ...(body ? { body: JSON.stringify(body) } : {}),
       },
+      1048576,
+      requestDeadline,
     );
     check(response.ok && data.success === true, "cloudflare_read_failed");
     return data.result;
   }
-  async function query(kind, params) {
+  async function query(kind, params, requestDeadline = deadline) {
     const db = ["candidate", "projection"].includes(kind) ? FEED : CORE;
     check(Object.hasOwn(SQL, kind), "unknown_read_query");
-    const rows = await cf(`/d1/database/${db}/query`, {
-      sql: SQL[kind],
-      params,
-    });
+    const rows = await cf(
+      `/d1/database/${db}/query`,
+      {
+        sql: SQL[kind],
+        params,
+      },
+      requestDeadline,
+    );
     check(
       Array.isArray(rows) &&
         rows.length === 1 &&
@@ -578,12 +600,85 @@ export async function waitAssessment(path, output, options = {}) {
       return result;
     }
     check(r.analysisId && id(r.analysisId), "uncertain_post_outcome_no_retry");
+    // This route never drives provider reconciliation. The full source proof is
+    // still required on every invocation, even after an earlier passed receipt.
+    const terminalRead =
+      r.completionObservedAt !== undefined ||
+      r.status === "completed" ||
+      r.phase === "completed";
+    if (terminalRead)
+      check(
+        (r.terminalRevalidations ?? 0) < LIMITS.terminalRevalidations,
+        "terminal_revalidation_exhausted",
+      );
+    const terminalDeadline = c.now() + LIMITS.terminalWaitMs;
     const web = await c.web(r.sourceSha);
     if (r.web)
       check(
         web.agentId === r.web.agentId,
         "provider_changed_during_assessment",
       );
+    async function finish(source, projection) {
+      const result = {
+        format: "ghfind-production-assessment-result-v1",
+        status: "passed",
+        sourceSha: r.sourceSha,
+        intentId: r.intentId,
+        repository: REPO,
+        origin: ORIGIN,
+        assessment:
+          r.reusedLogicalRun || r.apiReused === true
+            ? "reused_logical_assessment"
+            : "public_post_logical_assessment",
+        apiReused: r.apiReused,
+        providerExecution: "real_artifacts_and_provider_identity_observed",
+        newProviderExecutionClaimed: false,
+        publicPostReserved: r.postIssued,
+        source,
+        projection,
+        polls: r.polls,
+        projectionPolls: r.projectionPolls,
+        terminalRevalidations: r.terminalRevalidations ?? 0,
+        verification: terminalRead
+          ? "readonly_terminal_revalidation"
+          : "normal_projection_window",
+        observedAt: c.now(),
+        notProven: [
+          "real OAuth",
+          "personalized Feed journey",
+          "single provider thread when retry suffix is present",
+          "permanent client idempotency after losing intent receipt",
+        ],
+      };
+      await save(output, result, true);
+      r.phase = "completed";
+      await save(path, r);
+      return result;
+    }
+    async function observeProjection(deadline) {
+      const sources = await c.query("source", [r.analysisId, REPO], deadline);
+      check(sources.length === 1, "source_finalization_missing");
+      const source = sourceIdentity(
+        sources[0],
+        r.sourceSha,
+        r.analysisId,
+        web.agentId,
+      );
+      const rows = await c.query("projection", [REPO], deadline);
+      check(rows.length <= 1, "ambiguous_projection");
+      return {
+        source,
+        projection: projectionIdentity(rows[0], source, r.sourceSha),
+      };
+    }
+    if (terminalRead) {
+      r.terminalRevalidations = (r.terminalRevalidations ?? 0) + 1;
+      // Reserve the finite read before transmission. Crash/ack loss consumes it.
+      await save(path, r);
+      const { source, projection } = await observeProjection(terminalDeadline);
+      check(projection, "terminal_projection_not_ready");
+      return finish(source, projection);
+    }
     r = { ...r, phase: "waiting", waitStartedAt: r.waitStartedAt ?? c.now() };
     await save(path, r);
     let completed = false;
@@ -609,6 +704,9 @@ export async function waitAssessment(path, output, options = {}) {
       );
       if (data.status === "completed") {
         completed = true;
+        r.status = "completed";
+        r.completionObservedAt = c.now();
+        await save(path, r);
         break;
       }
       if (
@@ -627,49 +725,11 @@ export async function waitAssessment(path, output, options = {}) {
     ) {
       r.projectionPolls++;
       await save(path, r);
-      const sources = await c.query("source", [r.analysisId, REPO]);
-      check(sources.length === 1, "source_finalization_missing");
-      const source = sourceIdentity(
-        sources[0],
-        r.sourceSha,
-        r.analysisId,
-        web.agentId,
+      const { source, projection } = await observeProjection(
+        r.projectionStartedAt + LIMITS.projectionWaitMs,
       );
-      const rows = await c.query("projection", [REPO]);
-      check(rows.length <= 1, "ambiguous_projection");
-      const projection = projectionIdentity(rows[0], source, r.sourceSha);
       if (projection) {
-        const result = {
-          format: "ghfind-production-assessment-result-v1",
-          status: "passed",
-          sourceSha: r.sourceSha,
-          intentId: r.intentId,
-          repository: REPO,
-          origin: ORIGIN,
-          assessment:
-            r.reusedLogicalRun || r.apiReused === true
-              ? "reused_logical_assessment"
-              : "public_post_logical_assessment",
-          apiReused: r.apiReused,
-          providerExecution: "real_artifacts_and_provider_identity_observed",
-          newProviderExecutionClaimed: false,
-          publicPostReserved: r.postIssued,
-          source,
-          projection,
-          polls: r.polls,
-          projectionPolls: r.projectionPolls,
-          observedAt: c.now(),
-          notProven: [
-            "real OAuth",
-            "personalized Feed journey",
-            "single provider thread when retry suffix is present",
-            "permanent client idempotency after losing intent receipt",
-          ],
-        };
-        await save(output, result, true);
-        r.phase = "completed";
-        await save(path, r);
-        return result;
+        return finish(source, projection);
       }
       if (
         r.projectionPolls < LIMITS.projectionPolls &&
