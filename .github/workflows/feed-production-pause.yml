@@ -1,0 +1,91 @@
+name: Feed production pause (containment only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact main-history SHA with current-head CI and unexpired E2E evidence
+        required: true
+        type: string
+      paused_web_version:
+        description: Explicit captured Go-only paused Web version UUID; never a legacy version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+# Share the production writer lock. Do not race an ordinary release.
+concurrency:
+  group: deploy-cf-production-main
+  cancel-in-progress: false
+
+jobs:
+  protection:
+    name: Verify manual main context and existing production protections
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate explicit input and read enforced policies before referencing Production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          PAUSED_WEB_VERSION: ${{ inputs.paused_web_version }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module -e 'import { authorizeApply, validateInput } from "./scripts/feed-production-pause.mjs"; authorizeApply(); validateInput(process.env.SOURCE_SHA, process.env.PAUSED_WEB_VERSION);'
+          node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-pause-protection.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feed-production-pause-protection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/feed-pause-protection.json
+          if-no-files-found: error
+          retention-days: 30
+  pause:
+    name: Verify exact candidate, pause Web and read back actual containment
+    needs: [protection]
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    environment: Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the locked control-plane CLI only
+        run: npm ci --prefix platform/runtime
+      - name: Perform explicit Go-only pause after exact CI and immutable candidate checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          PAUSED_WEB_VERSION: ${{ inputs.paused_web_version }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/feed-production-pause.mjs --source-sha "$SOURCE_SHA" --paused-web-version "$PAUSED_WEB_VERSION" --directory "$RUNNER_TEMP/feed-production-pause" --apply
+      - name: Retain only nonsecret verification and containment evidence, including failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-production-pause-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/feed-production-pause/pause.json
+            ${{ runner.temp }}/feed-production-pause/ci.json
+          if-no-files-found: warn
+          retention-days: 30
