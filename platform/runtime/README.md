@@ -1,5 +1,8 @@
 # Independent Feed runtime on Cloudflare
 
+Production bootstrap has a separately pinned [production contract](PRODUCTION.md).
+The staging workflows and validators below remain isolated.
+
 This Worker runs the same `Dockerfile.feed` image in two API slots (`api-0`,
 `api-1`) and one executor slot (`executor-0`). It supplies platform routing,
 request authentication, private binding access, bounded source-outbox relay and
