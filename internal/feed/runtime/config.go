@@ -119,7 +119,7 @@ func WithHealth(handler http.Handler, c Config, version, service string, ready f
 		if err != nil {
 			status = 503
 		}
-		writeStatus(w, status, map[string]any{"ready": err == nil, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion, "storageWriterVersion": backend.FeedStorageWriterVersion, "storeProfile": c.StoreProfile, "writerEpoch": c.WriterEpoch})
+		writeStatus(w, status, map[string]any{"ready": err == nil, "service": service, "version": version, "contractVersion": backend.FeedBridgeVersion, "storageWriterVersion": backend.FeedStorageWriterVersion, "storeProfile": c.StoreProfile, "writerEpoch": c.WriterEpoch, "mode": c.Mode})
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
