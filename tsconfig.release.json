@@ -8,6 +8,8 @@
     "target": "ES2022"
   },
   "include": [
+    "scripts/pr-review-label.mts",
+    "scripts/pr-review-label.test.ts",
     "scripts/check-release-versions.mts",
     "scripts/smoke-backend-async.mts",
     "scripts/smoke-backend-async-selftest.mts",
