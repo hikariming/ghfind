@@ -256,6 +256,30 @@ function ensureSchema(db: Client): Promise<void> {
              removed_at INTEGER,
              removed_reason TEXT
            )`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_recovery_guards (
+            id TEXT PRIMARY KEY, valid INTEGER NOT NULL CHECK (valid = 1)
+          )`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_recoveries (
+  analysis_id TEXT PRIMARY KEY REFERENCES project_analysis_runs(id),
+  request_id TEXT NOT NULL UNIQUE,
+  action TEXT NOT NULL CHECK (action IN ('retry_interrupted', 'finalize_completed')),
+  requested_ref TEXT NOT NULL,
+  original_thread_id TEXT NOT NULL,
+  original_run_id TEXT NOT NULL,
+  original_idempotency_key TEXT NOT NULL,
+  original_started_at INTEGER,
+  original_create_attempts INTEGER NOT NULL,
+  original_error_code TEXT NOT NULL,
+  original_error_message TEXT,
+  original_completed_at INTEGER,
+  original_updated_at INTEGER NOT NULL,
+  operator_ref TEXT NOT NULL,
+  requested_at INTEGER NOT NULL,
+  execution_deadline_at INTEGER,
+  next_idempotency_key TEXT NOT NULL,
+  CHECK ((action = 'retry_interrupted' AND execution_deadline_at > requested_at)
+    OR (action = 'finalize_completed' AND execution_deadline_at IS NULL))
+)`,
           `CREATE INDEX IF NOT EXISTS idx_treasure_entries_repo_selected
              ON treasure_entries(repo_key, selected_at DESC)`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_treasure_entries_one_active
@@ -484,7 +508,7 @@ export async function reserveProjectAnalysisExecutionSlot(
     sql: `UPDATE project_analysis_runs
           SET status = 'creating_thread', phase = 'creating_thread', progress = 5,
               create_attempts = create_attempts + 1, create_retry_at = ?,
-              started_at = COALESCE(started_at, ?), updated_at = ?
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
           WHERE id = ? AND status = 'queued'
             AND (create_retry_at IS NULL OR create_retry_at <= ?)
             AND (
@@ -536,7 +560,7 @@ export async function attachMosooThread(input: AttachMosooThreadInput): Promise<
           SET status = 'running', phase = 'classifying', progress = 10,
               mosoo_agent_id = ?, mosoo_thread_id = ?, mosoo_run_id = ?,
               create_retry_at = NULL,
-              started_at = COALESCE(started_at, ?), updated_at = ?
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
           WHERE id = ? AND status IN ('queued', 'creating_thread', 'running')`,
     args: [input.agentId, input.threadId, input.runId, now, now, input.analysisId],
   });
@@ -575,6 +599,97 @@ export async function prepareProjectAnalysisRetry(
     ],
   });
   return result.rowsAffected === 1 ? selectRun(db, analysisId) : null;
+}
+
+export interface ProjectAnalysisRecoveryInput {
+  analysisId: string;
+  requestedRef: string;
+  expectedThreadId: string;
+  expectedRunId: string;
+  requestId: string;
+  operatorRef: string;
+  action: "retry_interrupted" | "finalize_completed";
+}
+
+export interface ProjectAnalysisRecovery extends ProjectAnalysisRecoveryInput {
+  createdAt: number;
+  originalIdempotencyKey: string;
+  originalStartedAt: number | null;
+  originalCreateAttempts: number;
+  executionDeadlineAt: number | null;
+  nextIdempotencyKey: string;
+}
+
+export async function getProjectAnalysisRecovery(analysisId: string): Promise<ProjectAnalysisRecovery | null> {
+  const db = database();
+  await ensureSchema(db);
+  const result = await db.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id = ?", args: [analysisId] });
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    analysisId: rowString(row.analysis_id), requestedRef: rowString(row.requested_ref),
+    expectedThreadId: rowString(row.original_thread_id), expectedRunId: rowString(row.original_run_id),
+    requestId: rowString(row.request_id), operatorRef: rowString(row.operator_ref),
+    action: rowString(row.action) as ProjectAnalysisRecoveryInput["action"],
+    createdAt: Number(row.requested_at),
+    originalIdempotencyKey: rowString(row.original_idempotency_key),
+    originalStartedAt: nullableNumber(row.original_started_at),
+    originalCreateAttempts: Number(row.original_create_attempts),
+    executionDeadlineAt: nullableNumber(row.execution_deadline_at),
+    nextIdempotencyKey: rowString(row.next_idempotency_key),
+  };
+}
+
+// One operator recovery per logical assessment. The old provider identity and
+// deadline remain durable; a restarted caller cannot grant another attempt.
+export async function claimProjectAnalysisRecovery(
+  input: ProjectAnalysisRecoveryInput,
+  expectedUpdatedAt: number,
+): Promise<ProjectAnalysisRun | null> {
+  const db = database();
+  await ensureSchema(db);
+  const current = await selectRun(db, input.analysisId);
+  if (!current) return null;
+  const retry = input.action === "retry_interrupted";
+  const nextKey = retry ? `ghfind-project-${input.analysisId}-retry-1` : current.idempotencyKey;
+  const now = Date.now();
+  const executionDeadlineAt = retry ? now + 30 * 60_000 : null;
+  const results = await db.batch([
+    {
+      sql: `INSERT INTO project_analysis_recoveries (
+        analysis_id, request_id, action, requested_ref, original_thread_id, original_run_id,
+        original_idempotency_key, original_started_at, original_create_attempts,
+        original_error_code, original_error_message, original_completed_at, original_updated_at,
+        operator_ref, requested_at, execution_deadline_at, next_idempotency_key
+      ) SELECT id, ?, ?, requested_ref, mosoo_thread_id, mosoo_run_id, idempotency_key,
+        started_at, create_attempts, error_code, error_message, completed_at, updated_at, ?, ?, ?, ?
+        FROM project_analysis_runs p WHERE id = ? AND requested_ref = ?
+        AND status = 'expired' AND error_code = 'analysis_timeout'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND (? = 0 OR idempotency_key = ?)
+        AND NOT EXISTS (SELECT 1 FROM project_analysis_runs newer
+          WHERE newer.repo_key = p.repo_key AND newer.id <> p.id AND newer.created_at >= p.created_at)
+        ON CONFLICT(analysis_id) DO NOTHING`,
+      args: [input.requestId, input.action, input.operatorRef, now, executionDeadlineAt, nextKey,
+        input.analysisId, input.requestedRef, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt,
+        retry ? 1 : 0, `ghfind-project-${input.analysisId}`],
+    },
+    {
+      sql: `UPDATE project_analysis_runs SET status = ?, phase = ?, progress = ?,
+        active_key = ?, idempotency_key = ?, create_attempts = ?, create_retry_at = NULL,
+        mosoo_thread_id = ?, mosoo_run_id = ?, error_code = NULL, error_message = NULL,
+        completed_at = NULL, updated_at = ?
+        WHERE id = ? AND status = 'expired' AND error_code = 'analysis_timeout'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id
+          AND a.request_id = ? AND a.original_updated_at = project_analysis_runs.updated_at)`,
+      args: [retry ? "queued" : "finalizing", retry ? "queued" : "persisting", retry ? 0 : 90,
+        retry ? activeKey(current) : null, nextKey, retry ? 0 : current.createAttempts,
+        retry ? null : current.mosooThreadId, retry ? null : current.mosooRunId, now,
+        input.analysisId, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt, input.requestId],
+    },
+  ], "write");
+  return results[1]?.rowsAffected === 1 ? selectRun(db, input.analysisId) : null;
 }
 
 export interface UpdateProjectAnalysisStateInput {
@@ -878,6 +993,18 @@ export async function finalizeProjectAnalysis(
   });
 
   let updateResultIndex = statements.length - 1;
+  if (await getProjectAnalysisRecovery(input.analysisId)) {
+    const recoveryGuard = randomUUID();
+    statements.unshift({
+      sql: `INSERT INTO project_analysis_recovery_guards (id, valid) VALUES (?, CASE WHEN NOT EXISTS (
+        SELECT 1 FROM project_analysis_runs newer JOIN project_analysis_runs recovered ON recovered.id = ?
+        WHERE newer.repo_key = recovered.repo_key AND newer.id <> recovered.id AND newer.created_at >= recovered.created_at
+      ) THEN 1 ELSE 0 END)`,
+      args: [recoveryGuard, input.analysisId],
+    });
+    updateResultIndex += 1;
+    statements.push({ sql: "DELETE FROM project_analysis_recovery_guards WHERE id = ?", args: [recoveryGuard] });
+  }
   if (feedSourceOutboxEnabled()) {
     const guardId = randomUUID();
     statements.unshift({

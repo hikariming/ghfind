@@ -111,6 +111,8 @@ export interface MosooProjectAnalysisConfig {
 
 export interface MosooThreadSnapshot {
   threadId: string;
+  agentId: string;
+  completedAt: string | null;
   runId: string;
   runStatus: MosooRunStatus;
   kind: "pet" | "cattle";
@@ -343,6 +345,8 @@ export async function createMosooProjectAnalysisThread(
   }
   return {
     threadId: parsed.data.thread.id,
+    agentId: parsed.data.thread.agent_id,
+    completedAt: parsed.data.run.completedAt,
     runId: parsed.data.run.id,
     runStatus: parsed.data.run.status,
     kind: parsed.data.thread.kind,
@@ -371,6 +375,8 @@ export async function getMosooProjectAnalysisSnapshot(
   }
   return {
     threadId: thread.data.thread.id,
+    agentId: thread.data.thread.agent_id,
+    completedAt: thread.data.run.completedAt,
     runId: thread.data.run.id,
     runStatus: thread.data.run.status,
     kind: thread.data.thread.kind,
