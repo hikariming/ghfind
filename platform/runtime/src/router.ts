@@ -1,3 +1,4 @@
+import { validateTransition, type TransitionRequest } from "./transition";
 import {
   bearerAuthorized,
   HTTPError,
@@ -16,6 +17,7 @@ export type NativeProbe = { actorId: string; running: boolean } & (
 export interface Dispatch {
   fetch(target: Target, request: Request): Promise<Response>;
   stop(target: Target): Promise<void>;
+  restart?(target: Target, input: TransitionRequest): Promise<unknown>;
   // These are binding-only capabilities, never client-provided identities.
   probe?(target: Target): Promise<NativeProbe>;
   actorId?(target: Target): string;
@@ -286,7 +288,7 @@ export async function handleRequest(
         });
       }
       const match =
-        /^\/internal\/runtime\/(api-[01]|executor-0)\/(ready|stop)$/.exec(
+        /^\/internal\/runtime\/(api-[01]|executor-0)\/(ready|stop|restart)$/.exec(
           url.pathname,
         );
       if (!match?.[1] || !match[2] || url.search)
@@ -294,6 +296,15 @@ export async function handleRequest(
       const target = targetFrom(match[1]);
       if (target === "executor-0" && env.FEED_EXECUTOR_ENABLED !== "true")
         throw new HTTPError(503, "executor_not_enabled");
+      if (match[2] === "restart" && request.method === "POST" && env.FEED_ENVIRONMENT === "production") {
+        const body = await readBounded(request, 512);
+        let input: unknown;
+        try { input = JSON.parse(new TextDecoder().decode(body)); }
+        catch { throw new HTTPError(400, "invalid_transition"); }
+        validateTransition(input, env);
+        if (!dispatch.restart) throw new HTTPError(503, "transition_unavailable");
+        return json(await dispatch.restart(target, input));
+      }
       if (match[2] === "ready" && request.method === "GET")
         return json(await probe(target, env, dispatch));
       if (
