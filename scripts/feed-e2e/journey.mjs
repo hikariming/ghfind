@@ -197,7 +197,7 @@ async function main() {
         assert.equal(response.status, expected, `operator recovery: ${JSON.stringify(result)}`);
         return result;
       };
-      await recover('forged-local-operator', 401);
+      await recover('forged-local-operator', 403);
       const recovered = await recover(process.env.PROJECT_ANALYSIS_RECONCILE_SECRET, 200);
       assert.equal(recovered.analysisId, created.analysisId);
       assert.equal(recovered.startedAt, original.startedAt);
