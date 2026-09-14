@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -16,30 +16,37 @@ function fixture(t, histories = [], currentAttempt = 1) {
   const directory = mkdtempSync(join(tmpdir(), 'ghfind-assessment-recovery-test-')), destination = join(directory, 'assessment-intent.json');
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const run = (runId, attempt = 1) => ({ id: runId, run_attempt: attempt, head_sha: sourceSha, path: workflowPath,
-    repository: { full_name: repository }, head_repository: { full_name: repository }, event: 'workflow_run', head_branch: 'main', status: 'completed' });
+    repository: { full_name: repository }, head_repository: { full_name: repository }, event: 'workflow_run', head_branch: 'main', status: 'completed', created_at: `2026-09-14T01:${String(runId).padStart(2, '0')}:00Z` });
   const current = run(20, currentAttempt), runs = new Map([[20, current]]);
   const responses = new Map(), calls = [];
   const artifactsByRun = new Map();
   let artifactId = 100;
   for (const history of histories) {
+    const historySha = history.headSha ?? sourceSha;
     const runId = history.runId ?? 10, attempt = history.attempt ?? 1;
-    if (runId !== 20) runs.set(runId, run(runId, Math.max(attempt, runs.get(runId)?.run_attempt ?? 0)));
-    responses.set(`/repos/${repository}/actions/runs/${runId}/attempts/${attempt}`, { ...run(runId, attempt), ...history.runChanges });
+    if (runId !== 20) runs.set(runId, { ...run(runId, Math.max(attempt, runs.get(runId)?.run_attempt ?? 0)), head_sha: historySha });
+    responses.set(`/repos/${repository}/actions/runs/${runId}/attempts/${attempt}`, { ...run(runId, attempt), head_sha: historySha, ...history.runChanges });
     const step = history.prestart ? { name: 'Build Web', status: 'completed', conclusion: 'failure' } : { name: startStep, status: 'completed', conclusion: history.skipped ? 'skipped' : 'failure' };
-    responses.set(`/repos/${repository}/actions/runs/${runId}/attempts/${attempt}/jobs?per_page=100`, { total_count: 1, jobs: [{ run_id: runId, head_sha: sourceSha, steps: [step] }] });
+    responses.set(`/repos/${repository}/actions/runs/${runId}/attempts/${attempt}/jobs?per_page=100`, { total_count: 1, jobs: [{ run_id: runId, head_sha: historySha, steps: [step] }] });
     if (!history.missingArtifact) {
       const bytes = Buffer.from(JSON.stringify(history.receipt ?? receipt()));
       const artifact = { id: ++artifactId, name: `feed-production-${runId}-${attempt}`, expired: false,
-        workflow_run: { id: runId, head_sha: sourceSha }, created_at: history.createdAt ?? `2026-09-09T12:${String(runId + attempt).padStart(2, '0')}:00Z`,
+        workflow_run: { id: runId, head_sha: historySha }, created_at: history.createdAt ?? `2026-09-09T12:${String(runId + attempt).padStart(2, '0')}:00Z`,
         digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, ...history.artifactChanges };
       const artifacts = artifactsByRun.get(runId) ?? []; artifacts.push(artifact); artifactsByRun.set(runId, artifacts);
       responses.set(`/repos/${repository}/actions/artifacts/${artifact.id}/zip`, bytes);
     }
   }
-  responses.set(`/repos/${repository}/actions/workflows/deploy-cf-production.yml/runs?head_sha=${sourceSha}&per_page=100`, { total_count: runs.size, workflow_runs: [...runs.values()] });
+  responses.set(`/repos/${repository}/actions/workflows/deploy-cf-production.yml/runs?head_sha=${sourceSha}&per_page=100`, { total_count: [...runs.values()].filter(r => r.head_sha === sourceSha).length, workflow_runs: [...runs.values()].filter(r => r.head_sha === sourceSha) });
   for (const runId of runs.keys()) {
+    responses.set(`/repos/${repository}/actions/runs/${runId}`, runs.get(runId));
     const artifacts = artifactsByRun.get(runId) ?? [];
     responses.set(`/repos/${repository}/actions/runs/${runId}/artifacts?per_page=100`, { total_count: artifacts.length, artifacts });
+  }
+  if (runs.has(10)) {
+    const interval = `${runs.get(10).created_at}..${current.created_at}`;
+    responses.set(`/repos/${repository}/actions/workflows/deploy-cf-production.yml/runs?branch=main&event=workflow_run&created=${encodeURIComponent(interval)}&per_page=100`,
+      { total_count: runs.size, workflow_runs: [...runs.values()] });
   }
   const request = async (path, binary = false) => { calls.push({ path, binary }); assert.ok(responses.has(path), path); return responses.get(path); };
   return { destination, calls, responses, deps: { env: { ...env, GITHUB_RUN_ATTEMPT: String(currentAttempt) }, request,
@@ -160,4 +167,79 @@ test('artifact redirect uses GET without forwarding GH_TOKEN and a denied API re
   let denied = 0;
   await assert.rejects(githubReader(token, async () => { denied++; return new Response(null, { status: 403 }); })(`/repos/${repository}/actions/runs/1`), /403/);
   assert.equal(denied, 1);
+});
+
+
+const oldSha = 'b'.repeat(40);
+const paidId = '22222222-2222-4222-8222-222222222222';
+const carryover = { format: 'ghfind-production-assessment-carryover-v1', runId: 10, attempt: 1,
+  sourceSha: oldSha, intentId, analysisId: paidId };
+const paidReceipt = changes => receipt({ sourceSha: oldSha, analysisId: paidId, ...changes });
+function withCarryover(f, manifest = carryover) {
+  const path = join(f.destination, '..', 'carryover.json');
+  writeFileSync(path, JSON.stringify(manifest));
+  return { ...f.deps, env: { ...f.deps.env, FEED_ASSESSMENT_CARRYOVER: path } };
+}
+test('explicit predecessor restores original assessed SHA without relabeling its receipt', async t => {
+  const saved = paidReceipt();
+  const f = fixture(t, [{ headSha: oldSha, receipt: saved }]);
+  const result = await recover(sourceSha, f.destination, withCarryover(f));
+  assert.equal(result.status, 'recovered');
+  assert.equal(result.releaseSha, sourceSha);
+  assert.equal(result.assessmentSourceSha, oldSha);
+  assert.deepEqual(JSON.parse(readFileSync(f.destination)), saved);
+});
+test('current-release rerun preserves newer predecessor receipt counters and anchors', async t => {
+  const latest = paidReceipt({ phase: 'waiting', polls: 12, projectionPolls: 2, projectionStartedAt: 100000, waitStartedAt: 1000 });
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt(), createdAt: '2026-09-14T01:00:00Z' },
+    { runId: 20, receipt: latest, createdAt: '2026-09-14T02:00:00Z' }], 2);
+  await recover(sourceSha, f.destination, withCarryover(f));
+  assert.deepEqual(JSON.parse(readFileSync(f.destination)), latest);
+});
+test('carryover rejects uncertain, changed analysis, relabeled source and missing predecessor evidence', async t => {
+  for (const change of [{ receipt: paidReceipt({ phase: 'uncertain', analysisId: null }) },
+    { receipt: paidReceipt({ analysisId: '33333333-3333-4333-8333-333333333333' }) },
+    { receipt: paidReceipt({ sourceSha }) }, { missingArtifact: true }, { skipped: true },
+    { artifactChanges: { expired: true } }, { runChanges: { status: 'in_progress' } }]) {
+    const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt(), ...change }]);
+    await assert.rejects(recover(sourceSha, f.destination, withCarryover(f)));
+    assert.equal(existsSync(f.destination), false);
+  }
+});
+test('carryover cannot hide a second current-release assessment behind its pinned predecessor', async t => {
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() },
+    { runId: 20, receipt: receipt() }], 2);
+  await assert.rejects(recover(sourceSha, f.destination, withCarryover(f)));
+  assert.equal(existsSync(f.destination), false);
+});
+test('all predecessor attempts are reconciled and the pinned attempt must actually have selected its receipt', async t => {
+  const newest = paidReceipt({ polls: 20, phase: 'waiting' });
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() },
+    { headSha: oldSha, attempt: 2, receipt: newest }]);
+  await recover(sourceSha, f.destination, withCarryover(f));
+  assert.deepEqual(JSON.parse(readFileSync(f.destination)), newest);
+  const missing = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+  await assert.rejects(recover(sourceSha, missing.destination, withCarryover(missing, { ...carryover, attempt: 2 })));
+});
+
+
+test('intervening release receipts preserve consumed quotas across a third release', async t => {
+  const latest = paidReceipt({ phase: 'waiting', polls: 59, projectionPolls: 5, terminalRevalidations: 2 });
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt(), createdAt: '2026-09-14T01:00:00Z' },
+    { runId: 15, headSha: 'c'.repeat(40), receipt: latest, createdAt: '2026-09-14T02:00:00Z' }]);
+  const result = await recover(sourceSha, f.destination, withCarryover(f));
+  assert.equal(result.recoveredRunId, 15);
+  assert.deepEqual(JSON.parse(readFileSync(f.destination)), latest);
+});
+test('an intervening unknown paid start or truncated interval fails without resetting intent', async t => {
+  for (const missing of [true, false]) {
+    const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() },
+      { runId: 15, headSha: 'c'.repeat(40), receipt: paidReceipt(), missingArtifact: missing }]);
+    if (!missing) {
+      const key = [...f.responses.keys()].find(key => key.includes('created='));
+      f.responses.get(key).total_count++;
+    }
+    await assert.rejects(recover(sourceSha, f.destination, withCarryover(f)));
+    assert.equal(existsSync(f.destination), false);
+  }
 });

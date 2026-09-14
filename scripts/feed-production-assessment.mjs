@@ -9,6 +9,11 @@ import { resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pause } from "node:timers/promises";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
+import {
+  loadCarryover,
+  validateCarryoverReceipt,
+  validateContext,
+} from "./feed-production-assessment-recovery.mjs";
 export const ACCOUNT = "8f19bebe359e4ec1a24c68c5f49c1584";
 export const ORIGIN = "https://ghfind.beiming1201.workers.dev";
 export const REPO = "hikariming/ghfind";
@@ -405,19 +410,38 @@ async function oneRun(c, sha, wantedId) {
   check(rows.length <= 1, "multiple_logical_assessments_refused");
   return rows.length ? runIdentity(rows[0], sha, wantedId) : null;
 }
+function releaseContext(requestedSha, options) {
+  const env = options.env ?? process.env;
+  const carryover = loadCarryover(env);
+  if (!carryover) return { releaseSha: requestedSha, carryover: null };
+  const { sourceSha: releaseSha } = validateContext(env.RELEASE_SHA, env);
+  check(
+    (requestedSha === undefined || requestedSha === releaseSha) &&
+      carryover.sourceSha !== releaseSha,
+    "carryover_release_context_mismatch",
+  );
+  return { releaseSha, carryover };
+}
 export async function startAssessment(sha, path, options = {}) {
   validateSHA(sha);
+  const { carryover } = releaseContext(sha, options);
+  const assessmentSha = carryover?.sourceSha ?? sha;
   const c = context(options, 90000);
   try {
     let r = await load(path);
-    if (r) validateReceipt(r, sha);
+    if (r) validateReceipt(r, assessmentSha);
+    if (carryover) {
+      // Recovery must provide a selected, authenticated predecessor receipt.
+      // Missing/uncertain evidence never reaches the fresh assessment POST path.
+      validateCarryoverReceipt(r, carryover);
+    }
     const eligible = await c.query("candidate", [null, null]);
     if (r?.phase === "skipped") {
       check(eligible.length === 1, "existing_candidate_no_longer_eligible");
       return r;
     }
     if (r) {
-      const existing = await oneRun(c, sha, r.analysisId);
+      const existing = await oneRun(c, assessmentSha, r.analysisId);
       check(existing, "uncertain_post_outcome_no_retry");
       r = {
         ...r,
@@ -684,6 +708,9 @@ export async function waitAssessment(path, output, options = {}) {
   const initial = await load(path);
   check(initial, "assessment_receipt_required");
   let r = validateReceipt(initial);
+  const execution = releaseContext(undefined, options);
+  if (execution.carryover) validateCarryoverReceipt(r, execution.carryover);
+  const releaseSha = execution.releaseSha ?? r.sourceSha;
   const now = options.now ?? Date.now;
   // Older journals could persist delivery before persisting the projection
   // anchor. Recover from that durable observation before selecting a window;
@@ -734,6 +761,7 @@ export async function waitAssessment(path, output, options = {}) {
         format: "ghfind-production-assessment-result-v1",
         status: "passed",
         sourceSha: r.sourceSha,
+        releaseSha,
         intentId: r.intentId,
         assessment: "skipped_existing_eligible",
         providerExecution: "not_requested",
@@ -754,7 +782,7 @@ export async function waitAssessment(path, output, options = {}) {
         "terminal_revalidation_exhausted",
       );
     const terminalDeadline = c.now() + LIMITS.terminalWaitMs;
-    const web = await c.web(r.sourceSha);
+    const web = await c.web(releaseSha);
     if (r.web)
       check(
         web.agentId === r.web.agentId,
@@ -765,6 +793,7 @@ export async function waitAssessment(path, output, options = {}) {
         format: "ghfind-production-assessment-result-v1",
         status: "passed",
         sourceSha: r.sourceSha,
+        releaseSha,
         intentId: r.intentId,
         repository: REPO,
         origin: ORIGIN,

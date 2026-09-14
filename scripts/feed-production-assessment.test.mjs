@@ -126,9 +126,9 @@ const candidate = () => ({
   analysis_id: ID,
   source_hash: COMPOSITE,
 });
-function webBindings() {
+function webBindings(releaseSha = SHA) {
   return Object.entries({
-    FEED_RELEASE_SHA: SHA,
+    FEED_RELEASE_SHA: releaseSha,
     FEED_SOURCE_OUTBOX_ENABLED: "true",
     FEED_ROLLOUT_MODE: "paused",
     MOSOO_API_BASE: "https://cloud.mosoo.ai/api/v1",
@@ -230,13 +230,13 @@ async function harness(t, settings = {}) {
             },
           });
         if (url.endsWith(`/versions/${WORKER}`)) {
-          const bindings = webBindings();
+          const bindings = webBindings(settings.releaseSha);
           settings.mutateBindings?.(bindings);
           return json({
             success: true,
             result: {
               id: WORKER,
-              annotations: { "workers/tag": `production-${SHA}` },
+              annotations: { "workers/tag": `production-${settings.releaseSha ?? SHA}` },
               resources: { bindings },
             },
           });
@@ -1341,5 +1341,96 @@ test("delivery and projection anchors are persisted together before a failed fir
   assert.equal(result.terminalRevalidations, 1);
   assert.equal((await h.read()).projectionStartedAt, 100000);
   assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
+});
+
+
+const NEXT_RELEASE = "e".repeat(40);
+async function carryoverOptions(h, changes = {}) {
+  const saved = await h.read();
+  saved.postIssued = true;
+  saved.web = { workerVersionId: "old-worker-version", agentId: AGENT };
+  Object.assign(saved, changes);
+  await writeFile(h.receipt, JSON.stringify(saved));
+  const manifestPath = join(h.receipt, "..", "carryover.json");
+  await writeFile(manifestPath, JSON.stringify({
+    format: "ghfind-production-assessment-carryover-v1",
+    runId: 10, attempt: 1, sourceSha: SHA,
+    intentId: saved.intentId, analysisId: ID,
+  }));
+  return {
+    ...h.options,
+    env: {
+      GITHUB_ACTIONS: "true", GITHUB_REPOSITORY: REPO,
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_WORKFLOW_REF: `${REPO}/.github/workflows/deploy-cf-production.yml@refs/heads/main`,
+      GITHUB_RUN_ID: "20", GITHUB_RUN_ATTEMPT: "1",
+      RELEASE_SHA: NEXT_RELEASE, FEED_ASSESSMENT_CARRYOVER: manifestPath,
+    },
+  };
+}
+test("cross-release resume checks the new Web but retains the original assessed source and never POSTs", async (t) => {
+  const h = await harness(t, { rows: [run()], releaseSha: NEXT_RELEASE });
+  await startAssessment(SHA, h.receipt, h.options);
+  const options = await carryoverOptions(h);
+  const original = await h.read();
+  const resumed = await startAssessment(NEXT_RELEASE, h.receipt, options);
+  assert.equal(resumed.sourceSha, SHA);
+  assert.equal(resumed.analysisId, ID);
+  assert.equal(resumed.intentId, original.intentId);
+  const result = await waitAssessment(h.receipt, h.result, options);
+  assert.equal(result.status, "passed");
+  assert.equal(result.releaseSha, NEXT_RELEASE);
+  assert.equal(result.sourceSha, SHA);
+  assert.equal(result.projection.resolvedCommitSha, SHA);
+  assert.equal((await h.read()).sourceSha, SHA);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 1);
+  assert.ok(h.calls.every(c => c.url !== `${ORIGIN}/api/project-analyses`));
+});
+test("cross-release missing or uncertain receipt cannot fall through to a second paid POST", async (t) => {
+  for (const change of ["missing", "uncertain", "other-analysis"]) {
+    const h = await harness(t, { rows: [run()] });
+    await startAssessment(SHA, h.receipt, h.options);
+    const options = await carryoverOptions(h, change === "uncertain"
+      ? { phase: "uncertain", analysisId: null }
+      : change === "other-analysis" ? { analysisId: "other-assessment" } : {});
+    if (change === "missing") await rm(h.receipt);
+    const before = h.calls.length;
+    await assert.rejects(startAssessment(NEXT_RELEASE, h.receipt, options));
+    assert.equal(h.calls.length, before);
+    assert.equal(h.posts, 0);
+  }
+});
+test("cross-release wait requires current Actions release context and matching new Web", async (t) => {
+  for (const change of ["missing-release", "wrong-release", "foreign-context", "old-web"]) {
+    const h = await harness(t, { rows: [run({ status: "completed" })],
+      releaseSha: change === "old-web" ? SHA : NEXT_RELEASE });
+    await startAssessment(SHA, h.receipt, h.options);
+    const options = await carryoverOptions(h);
+    if (change === "missing-release") delete options.env.RELEASE_SHA;
+    if (change === "wrong-release") options.env.RELEASE_SHA = SHA;
+    if (change === "foreign-context") options.env.GITHUB_REF = "refs/heads/topic";
+    await assert.rejects(waitAssessment(h.receipt, h.result, options));
+    assert.equal(reads(h, "projection").length, 0);
+    assert.equal(h.posts, 0);
+    assert.equal(h.polls, 0);
+  }
+});
+test("cross-release continuation retains exhausted quotas rather than opening a new projection window", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })], releaseSha: NEXT_RELEASE });
+  await startAssessment(SHA, h.receipt, h.options);
+  const options = await carryoverOptions(h, {
+    phase: "waiting", status: "completed", polls: LIMITS.publicPolls,
+    waitStartedAt: 1000, completionObservedAt: 1000,
+    projectionStartedAt: 1000, projectionPolls: LIMITS.projectionPolls,
+    terminalRevalidations: LIMITS.terminalRevalidations,
+  });
+  await startAssessment(NEXT_RELEASE, h.receipt, options);
+  const before = h.calls.length;
+  await assert.rejects(waitAssessment(h.receipt, h.result, options), /terminal_revalidation_exhausted/);
+  assert.equal(h.calls.length, before);
+  assert.equal((await h.read()).projectionStartedAt, 1000);
+  assert.equal((await h.read()).projectionPolls, LIMITS.projectionPolls);
   assert.equal(h.posts, 0);
 });
