@@ -74,3 +74,32 @@ test('failure to persist pre-POST intent prevents the mutation',async()=>{
   const f=setup({record:r=>{if(r.attempts.length)throw new Error('disk full');}});
   await assert.rejects(recoverInterrupted(releaseSha,manifest,carryover,f.receipt,f.deps),/disk full/);assert.equal(f.posts.length,0);
 });
+test('lost acknowledgement and later Actions resume retain one server audit, retry key and deadline through finalizing',async()=>{
+  const server=reply('finalizing');
+  const lost=setup({send:async()=>({status:null,uncertain:true})});
+  await assert.rejects(recoverInterrupted(releaseSha,manifest,carryover,lost.receipt,lost.deps),/two identical requests/);
+  const recovered=setup({env:{...env,GITHUB_RUN_ID:'457'},send:async()=>({status:200,uncertain:false,value:server})});
+  const accepted=await recoverInterrupted(releaseSha,manifest,carryover,recovered.receipt,recovered.deps);
+  assert.equal(accepted.result.status,'finalizing');
+  const resumed={...structuredClone(original),idempotencyKey:server.idempotencyKey,polls:17,waitStartedAt:server.recovery.createdAt,
+    operatorRecovery:{...server.recovery,priorReceiptSHA256:accepted.originalReceiptSHA256,previousAttempt:structuredClone(original)}};
+  const before=structuredClone(resumed);
+  const deps=setup({env:{...env,GITHUB_RUN_ID:'458'},send:async()=>({status:200,uncertain:false,value:server})}).deps;
+  const result=await recoverInterrupted(releaseSha,manifest,carryover,resumed,deps);
+  assert.equal(result.result.recovery.executionDeadlineAt,accepted.result.recovery.executionDeadlineAt);
+  assert.equal(result.result.idempotencyKey,`ghfind-project-${analysisId}-retry-1`);assert.deepEqual(resumed,before);
+  assert.equal(resumed.polls,17);assert.equal(result.request.operatorRef,'github-actions:458:1');
+  for(const patch of [{createdAt:3000,executionDeadlineAt:1803000},{requestId:intentId}]) {
+    const bad=setup({send:async()=>({status:200,uncertain:false,value:{...server,recovery:{...server.recovery,...patch}}})});
+    await assert.rejects(recoverInterrupted(releaseSha,manifest,carryover,resumed,bad.deps));
+  }
+});
+test('same retry key without matching operator audit and any retry-2 key are refused before POST',async()=>{
+  for(const receipt of [{...original,idempotencyKey:`ghfind-project-${analysisId}-retry-1`},
+    {...original,idempotencyKey:`ghfind-project-${analysisId}-retry-2`},
+    {...original,idempotencyKey:`ghfind-project-${analysisId}-retry-1`,operatorRecovery:{...reply().recovery,requestId:intentId}}]) {
+    const f=setup();await assert.rejects(recoverInterrupted(releaseSha,manifest,carryover,receipt,f.deps));assert.equal(f.posts.length,0);
+  }
+  const f=setup({send:async()=>({status:200,uncertain:false,value:{...reply(),idempotencyKey:`ghfind-project-${analysisId}-retry-2`,recovery:{...reply().recovery,nextIdempotencyKey:`ghfind-project-${analysisId}-retry-2`}}})});
+  await assert.rejects(recoverInterrupted(releaseSha,manifest,carryover,f.receipt,f.deps));
+});

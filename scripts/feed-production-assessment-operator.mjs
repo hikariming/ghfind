@@ -20,14 +20,25 @@ export function validateOperator(manifest, carryover, receipt) {
     manifest.analysisId === carryover.analysisId && manifest.requestedRef === carryover.sourceSha &&
     receipt.web?.agentId === manifest.agentId && typeof receipt.idempotencyKey === 'string' && receipt.idempotencyKey.length > 0,
     'operator manifest must identify the pinned paid assessment and provider');
+  const baseKey = `ghfind-project-${manifest.analysisId}`, nextKey = `${baseKey}-retry-1`;
+  requireThat(receipt.idempotencyKey === baseKey || receipt.idempotencyKey === nextKey,
+    'operator recovery must retain the original or first retry provider key');
+  if (receipt.idempotencyKey === nextKey || receipt.operatorRecovery) {
+    const audit = receipt.operatorRecovery;
+    requireThat(audit?.requestId === manifest.requestId && audit.action === 'retry_interrupted' &&
+      audit.priorThreadId === manifest.expectedThreadId && audit.priorRunId === manifest.expectedRunId &&
+      audit.nextIdempotencyKey === nextKey && Number.isSafeInteger(audit.createdAt) && audit.createdAt > 0 &&
+      Number.isSafeInteger(audit.executionDeadlineAt) && audit.executionDeadlineAt - audit.createdAt === 1800000,
+      'resumed operator receipt must retain the same persisted recovery audit');
+  }
   return manifest;
 }
 function validateResult(value, manifest, receipt) {
   const recovery = value?.recovery;
   requireThat(value?.analysisId === manifest.analysisId && value.requestedRef === manifest.requestedRef &&
-    ['queued','creating_thread','running','completed'].includes(value.status) &&
+    ['queued','creating_thread','running','finalizing','completed'].includes(value.status) &&
     typeof value.idempotencyKey === 'string' && value.idempotencyKey.length > 0 && value.idempotencyKey.length <= 200 &&
-    value.idempotencyKey !== receipt.idempotencyKey &&
+    value.idempotencyKey === `ghfind-project-${manifest.analysisId}-retry-1` &&
     recovery?.requestId === manifest.requestId && recovery.action === 'retry_interrupted' &&
     recovery.priorThreadId === manifest.expectedThreadId && recovery.priorRunId === manifest.expectedRunId &&
     recovery.nextIdempotencyKey === value.idempotencyKey &&
@@ -38,9 +49,14 @@ function validateResult(value, manifest, receipt) {
     (value.threadId === null || ulid(value.threadId)) && (value.runId === null || ulid(value.runId)) &&
     (value.startedAt === null || (Number.isSafeInteger(value.startedAt) && value.startedAt > 0)),
     'operator recovery response identity or independent deadline differs');
-  if (['running','completed'].includes(value.status)) requireThat(ulid(value.threadId) && ulid(value.runId), 'active recovery must have actual provider identity');
+  if (['running','finalizing','completed'].includes(value.status)) requireThat(ulid(value.threadId) && ulid(value.runId), 'active recovery must have actual provider identity');
   if (value.threadId !== null) requireThat(value.threadId !== manifest.expectedThreadId, 'recovery must not reuse interrupted provider thread');
   if (value.runId !== null) requireThat(value.runId !== manifest.expectedRunId, 'recovery must not reuse interrupted provider run');
+  if (receipt.operatorRecovery) {
+    const audit = receipt.operatorRecovery;
+    requireThat(['requestId','action','createdAt','executionDeadlineAt','priorThreadId','priorRunId','nextIdempotencyKey']
+      .every(key => audit[key] === recovery[key]), 'resumed recovery audit or deadline changed');
+  }
   return { analysisId:value.analysisId, requestedRef:value.requestedRef, status:value.status,
     idempotencyKey:value.idempotencyKey, threadId:value.threadId, runId:value.runId, startedAt:value.startedAt, createAttempts:value.createAttempts,
     recovery:{requestId:recovery.requestId, action:recovery.action, executionDeadlineAt:recovery.executionDeadlineAt,
@@ -76,6 +92,7 @@ export async function recoverInterrupted(releaseSha, manifest, carryover, receip
   const context=validateContext(releaseSha,env);
   validateOperator(manifest,carryover,receipt);
   requireThat(env.MOSOO_PROJECT_AGENT_ID === manifest.agentId, 'operator provider must match current production configuration');
+  // Hash the canonical parsed journal, not indentation/trailing newlines of its file.
   const original=JSON.stringify(receipt), receiptSHA256=createHash('sha256').update(original).digest('hex');
   const body={action:'retry_interrupted',analysisId:manifest.analysisId,requestedRef:manifest.requestedRef,
     expectedThreadId:manifest.expectedThreadId,expectedRunId:manifest.expectedRunId,requestId:manifest.requestId,
