@@ -56,6 +56,7 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
       NEXT_TELEMETRY_DISABLED: "1"
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json
       EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       CLOUDFLARE_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -175,9 +176,9 @@ jobs:
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-off.json"
           node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
-          # Same image can still carry old env until the Container is idle.
-          # Do not probe and keep old off-mode instances alive during this wait.
-          sleep 130
+          # Explicitly stop and restart each fixed actor with baseline env.
+          # The SDK does not replace envVars in an already running process.
+          timeout --signal=TERM --kill-after=5s 240s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-baseline.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
       - name: Require real assessment finalization and durable queue projection
         run: |

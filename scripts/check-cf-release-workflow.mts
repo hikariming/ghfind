@@ -59,6 +59,14 @@ for (const [mode, title] of [['off', 'Deploy private adapter and off-mode candid
   const deployAt = step.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json');
   if (!step.includes(capture) || !step.includes(verify) || step.indexOf(capture) >= deployAt || step.indexOf(verify) <= deployAt) throw new Error(`Production ${mode} requires its own predeployment application snapshot`);
 }
+const baselineStep = /      - name: Activate executor and verify actual baseline[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+const transitionAt = baselineStep.indexOf('240s node scripts/feed-production-transition.mjs');
+if (transitionAt < baselineStep.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json') ||
+    transitionAt >= baselineStep.indexOf('node scripts/feed-platform-production.mjs verify') ||
+    !baselineStep.includes('mode-transition.json') || baselineStep.includes('sleep 130'))
+  throw new Error('Baseline requires explicit bounded native mode transition before strict readiness');
+if (!deployJob.includes('FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json'))
+  throw new Error('Existing first-cutover assessment must retain its explicit predecessor identity');
 const publicSmoke = /      - name: Bounded public production smoke\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 for (const fragment of ['SMOKE_BASE_URL: https://ghfind.beiming1201.workers.dev', 'SMOKE_EXPECTED_ORIGIN: https://ghfind.com', 'run: pnpm smoke:deployment']) {
   if (!publicSmoke.includes(fragment)) throw new Error(`Production smoke must preserve its transport and canonical origin: ${fragment}`);

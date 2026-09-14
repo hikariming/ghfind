@@ -62,7 +62,14 @@ receipts and actual repository protection. The workflow then:
    writers cannot be fallback.
    Subsequent releases pause an already-active Go Web before replacing its runtime.
 6. Starts or resumes the one real assessment, then deploys baseline runtime with queue consumers and bounded source relay, then
-   allows existing instances to idle before validating their **actual** Go mode.
+   explicitly transitions the three fixed actors while the gateway remains paused.
+   The operation first matches the existing image/Go identity, sends SIGTERM,
+   waits for native `running=false` (15-second limit), then starts the new env
+   and strictly verifies readiness (30-second total per actor). The Actions
+   orchestrator rechecks the paused Web before each actor and afterward, records
+   intent before each mutation, performs no blind retry, and has a 240-second
+   deadline. It then runs the full ordinary baseline verification. A fixed sleep
+   cannot replace this: SDK 0.3.7 does not apply new envVars to a running process.
    A Worker variable change alone cannot prove the container changed modes.
    Requires real assessment finalization and queue projection, then bounded
    authenticated service-contract smoke with nonempty eligible candidates.
@@ -185,3 +192,15 @@ versions, public smoke and holder-browser OAuth/business evidence in the PR and
 final handoff. Distinguish automated signed service-contract smoke from the real
 OAuth journey. Empty candidates, missing browser evidence or no actual queue
 projection cannot be reported as a completed business acceptance.
+
+
+### First-cutover assessment continuation
+
+Run `34802112436` passed off-mode native verification and created analysis
+`ae16bdc6-a82c-484e-a197-33291206d85f`, then failed baseline mode verification.
+The gateway remained Go-paused, with the writer fence enabled. Its source SHA
+is `2f9e5b141599debdd216f4ed8e76e7cff49b92e6`; subsequent corrective release
+SHAs must not relabel that source or create another paid assessment. The
+explicit carryover manifest pins the original run/attempt/intent/analysis.
+Recovery verifies its GitHub artifact provenance; release Web identity and
+assessment source identity remain separate throughout validation.
