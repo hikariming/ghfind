@@ -26,7 +26,7 @@ export function renderWeb(sha, mode, provider) {
     d1_databases: [['GHFIND_D1',production.coreDatabase,'../../migrations'],['GHFIND_FEED_D1',production.feedDatabase,'../../migrations-feed']].map(([binding,d,migrations_dir])=>({binding,database_name:d.name,database_id:d.id,migrations_dir})),
     r2_buckets: [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'ghfind-next-cache' }],
     services: [{ binding: 'FEED_RUNTIME', service: production.runtimeWorker }],
-    secrets: { required: ['FEED_GATEWAY_SECRET', 'MOSOO_API_TOKEN'] },
+    secrets: { required: ['FEED_GATEWAY_SECRET', 'MOSOO_API_TOKEN', 'PROJECT_ANALYSIS_RECONCILE_SECRET'] },
     vars: { GHFIND_DEPLOY_ENV: 'production', PUBLIC_SITE_URL: 'https://ghfind.com', NEXT_PUBLIC_SITE_URL: 'https://ghfind.com',
       FEED_BACKEND: 'go', FEED_API_ORIGIN: production.runtimeOrigin, FEED_STORE_PROFILE: 'cf_d1_r2', FEED_RELEASE_SHA: sha,
       FEED_SOURCE_OUTBOX_ENABLED: 'true', FEED_ROLLOUT_MODE: mode, FEED_ROLLOUT_GITHUB_IDS: '109743670',
@@ -40,7 +40,8 @@ export function prepareSecrets(env) {
   const values = names.map(n => env[n]);
   requireThat(values.every(v=>typeof v==='string' && v.length>=32 && v.length<=512 && !/[\r\n]/.test(v)) && new Set(values).size===values.length, 'distinct production role credentials required');
   requireThat(typeof env.MOSOO_API_TOKEN==='string' && env.MOSOO_API_TOKEN.length>=32 && !values.includes(env.MOSOO_API_TOKEN), 'published provider token required');
-  return { runtime: Object.fromEntries(secretNames.map(n=>[n,env[n]])), adapter: Object.fromEntries(adapterSecretNames.map(n=>[n,env[n]])), web: { FEED_GATEWAY_SECRET: env.FEED_GATEWAY_SECRET, MOSOO_API_TOKEN: env.MOSOO_API_TOKEN } };
+  requireThat(typeof env.PROJECT_ANALYSIS_RECONCILE_SECRET==='string' && env.PROJECT_ANALYSIS_RECONCILE_SECRET.length>=32 && env.PROJECT_ANALYSIS_RECONCILE_SECRET.length<=512 && !/[\r\n]/.test(env.PROJECT_ANALYSIS_RECONCILE_SECRET) && ![...values,env.MOSOO_API_TOKEN].includes(env.PROJECT_ANALYSIS_RECONCILE_SECRET), 'distinct reconciliation credential required');
+  return { runtime: Object.fromEntries(secretNames.map(n=>[n,env[n]])), adapter: Object.fromEntries(adapterSecretNames.map(n=>[n,env[n]])), web: { FEED_GATEWAY_SECRET: env.FEED_GATEWAY_SECRET, MOSOO_API_TOKEN: env.MOSOO_API_TOKEN, PROJECT_ANALYSIS_RECONCILE_SECRET: env.PROJECT_ANALYSIS_RECONCILE_SECRET } };
 }
 export function safeBuildEnv(env = process.env) {
   return {...Object.fromEntries(['PATH','HOME','TMPDIR','TMP','TEMP','PNPM_HOME'].filter(k=>typeof env[k]==='string').map(k=>[k,env[k]])), NODE_ENV:'production', CI:'true', NEXT_TELEMETRY_DISABLED:'1', WRANGLER_SEND_METRICS:'false', NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM:'cloudflare', NEXT_PUBLIC_SITE_URL:'https://ghfind.com', PUBLIC_SITE_URL:'https://ghfind.com', GHFIND_DEPLOY_ENV:'production'};

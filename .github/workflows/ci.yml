@@ -72,7 +72,7 @@ jobs:
         run: pnpm ci:check-cf-release-workflow
 
       - name: Verify approved application schema boundary
-        run: node --test scripts/feed-platform-schema-release.test.mjs scripts/feed-production-release.test.mjs scripts/feed-production-pause.test.mjs scripts/feed-production-assessment.test.mjs scripts/feed-production-assessment-recovery.test.mjs
+        run: node --test scripts/feed-platform-schema-release.test.mjs scripts/feed-production-release.test.mjs scripts/feed-production-pause.test.mjs scripts/feed-production-assessment.test.mjs scripts/feed-production-assessment-recovery.test.mjs scripts/feed-production-assessment-operator.test.mjs scripts/feed-e2e/provider-fixtures.test.mjs
 
       - name: Verify bounded snapshot format and integrity
         run: node --test scripts/feed-snapshot.test.mjs

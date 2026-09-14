@@ -25,11 +25,12 @@ test('paused and all configurations share only the production D1 writer and priv
  assert.throws(()=>renderWeb(sha,'all',{...provider,MOSOO_API_BASE:'https://attacker.invalid'}));
 });
 test('runtime credentials are distinct and never enter the Web build environment',()=>{
- const names=['FEED_GATEWAY_SECRET','FEED_SIGNING_SECRET','FEED_BRIDGE_SECRET','FEED_RUNTIME_ADMIN_SECRET','FEED_EXECUTOR_SECRET','FEED_SOURCE_SECRET','FEED_DELIVERY_SECRET','FEED_OPERATOR_SECRET','MOSOO_API_TOKEN'];
+ const names=['FEED_GATEWAY_SECRET','FEED_SIGNING_SECRET','FEED_BRIDGE_SECRET','FEED_RUNTIME_ADMIN_SECRET','FEED_EXECUTOR_SECRET','FEED_SOURCE_SECRET','FEED_DELIVERY_SECRET','FEED_OPERATOR_SECRET','MOSOO_API_TOKEN','PROJECT_ANALYSIS_RECONCILE_SECRET'];
  const env=Object.fromEntries(names.map((n,i)=>[n,`${i}`.repeat(48)]));
- assert.equal(Object.keys(prepareSecrets(env).web).length,2);
+ assert.equal(Object.keys(prepareSecrets(env).web).length,3);
  assert.throws(()=>prepareSecrets({...env,FEED_BRIDGE_SECRET:env.FEED_GATEWAY_SECRET}));
  assert.throws(()=>prepareSecrets({...env,MOSOO_API_TOKEN:''}));
+ for(const value of ['',env.MOSOO_API_TOKEN,env.FEED_GATEWAY_SECRET,'x'.repeat(513),'x'.repeat(48)+'\n']) assert.throws(()=>prepareSecrets({...env,PROJECT_ANALYSIS_RECONCILE_SECRET:value}));
  const build=safeBuildEnv({...env,PATH:'/bin',NODE_OPTIONS:'--require malicious.cjs',NEXT_PUBLIC_API_SECRET:'do-not-leak',CLOUDFLARE_API_TOKEN:'do-not-leak'});
  assert.deepEqual(Object.keys(build).filter(k=>/SECRET|TOKEN|NODE_OPTIONS/.test(k)),[]);
  assert.equal(build.NEXT_PUBLIC_SITE_URL,'https://ghfind.com');
@@ -102,7 +103,7 @@ test('Web readback rejects malformed, split, replaced or changed deployments inc
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));
- const r=await approvedSchemas(m);assert.equal(r.core.length,7);assert.equal(r.feed.length,12);
+ const r=await approvedSchemas(m);assert.equal(r.core.length,8);assert.equal(r.feed.length,12);
  const legacy=JSON.parse(readFileSync(new URL('../ops/feed-application-schema-release.json',import.meta.url)));
  assert.equal(legacy.feed.length,2);
  assert.ok(!legacy.core.some(e=>e.name==='0005_feed_source_outbox.sql'));

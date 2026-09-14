@@ -94,3 +94,13 @@ test('baseline cannot replace native mode transition with an idle wait or move i
   assert.throws(() => check({'deploy-cf-production.yml':production.replace('          # Explicitly stop and restart','          sleep 130\n          # Explicitly stop and restart')}));
   assert.throws(() => check({'deploy-cf-production.yml':production.replace('      FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json\n','')}));
 });
+
+test('paid recovery waits for native baseline and cannot bypass its journal or credential', () => {
+  const production = originals['deploy-cf-production.yml'];
+  for (const fragment of ['node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'])
+    assert.throws(() => check({'deploy-cf-production.yml': production.replace(fragment, 'removed')}));
+  const a = production.indexOf('      - name: Activate executor');
+  const b = production.indexOf('      - name: Start or resume');
+  const c = production.indexOf('      - name: Require real assessment');
+  assert.throws(() => check({'deploy-cf-production.yml': production.slice(0,a) + production.slice(b,c) + production.slice(a,b) + production.slice(c)}));
+});

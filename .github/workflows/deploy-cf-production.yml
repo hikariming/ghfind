@@ -69,6 +69,7 @@ jobs:
       FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
       FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
       MOSOO_API_TOKEN: ${{ secrets.MOSOO_API_TOKEN }}
+      PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}
       MOSOO_API_BASE: ${{ vars.MOSOO_API_BASE }}
       MOSOO_PROJECT_AGENT_ID: ${{ vars.MOSOO_PROJECT_AGENT_ID }}
       MOSOO_PROJECT_USER_ID: ${{ vars.MOSOO_PROJECT_USER_ID }}
@@ -163,13 +164,6 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$RUNNER_TEMP/approved-feed-production-schema/wrangler.json" --command "UPDATE feed_adapter_write_fence SET enabled=1 WHERE id=1;" --json > "$RUNNER_TEMP/feed-production-evidence/writer-fence-activation.json"
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$RUNNER_TEMP/approved-feed-production-schema/wrangler.json" --command "SELECT enabled FROM feed_adapter_write_fence WHERE id=1; SELECT COUNT(*) AS leaked_contexts FROM feed_adapter_write_context; SELECT COUNT(*) AS legacy_triggers FROM sqlite_master WHERE type='trigger' AND (name LIKE 'feed_%_adapter_insert' OR name LIKE 'feed_%_adapter_update' OR name LIKE 'feed_%_adapter_delete');" --json > "$RUNNER_TEMP/feed-production-evidence/writer-fence.json"
           jq -e '.[0].results[0].enabled == 1 and .[1].results[0].leaked_contexts == 0 and .[2].results[0].legacy_triggers == 39' "$RUNNER_TEMP/feed-production-evidence/writer-fence.json" >/dev/null
-      - name: Start or resume the single real production assessment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
-          node scripts/feed-production-assessment.mjs start "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Activate executor and verify actual baseline instances before gateway traffic
         run: |
           set -euo pipefail
@@ -180,6 +174,15 @@ jobs:
           # The SDK does not replace envVars in an already running process.
           timeout --signal=TERM --kill-after=5s 240s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-baseline.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
+      - name: Start or resume the single real production assessment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
+          node scripts/feed-production-assessment-operator.mjs "$RELEASE_SHA" ops/feed-production-assessment-operator.json ops/feed-production-assessment-carryover.json "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-operator.json"
+          node scripts/feed-production-assessment.mjs operator-window "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-operator.json" "$GITHUB_WORKSPACE/ops/feed-production-assessment-operator.json" "$RELEASE_SHA"
+          node scripts/feed-production-assessment.mjs start "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Require real assessment finalization and durable queue projection
         run: |
           node scripts/feed-production-assessment.mjs wait "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-result.json"

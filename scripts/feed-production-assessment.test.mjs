@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,6 +14,7 @@ import {
   LIMITS,
   authorize,
   startAssessment,
+  applyOperatorWindow,
   waitAssessment,
   sourceIdentity,
   projectionIdentity,
@@ -1433,4 +1435,54 @@ test("cross-release continuation retains exhausted quotas rather than opening a 
   assert.equal((await h.read()).projectionStartedAt, 1000);
   assert.equal((await h.read()).projectionPolls, LIMITS.projectionPolls);
   assert.equal(h.posts, 0);
+});
+
+async function operatorWindowFixture(t) {
+  const h = await harness(t, { rows: [run()] });
+  const original = { ...await startAssessment(SHA, h.receipt, h.options), polls: 1, waitStartedAt: 1000 };
+  await writeFile(h.receipt, JSON.stringify(original));
+  const manifest = { format: "ghfind-production-assessment-operator-v1", requestId: WORKER,
+    analysisId: ID, requestedRef: SHA, expectedThreadId: "original-thread", expectedRunId: "original-run" };
+  const result = { format: "ghfind-production-assessment-operator-result-v1", status: "accepted", releaseSha: SHA,
+    originalReceiptSHA256: createHash("sha256").update(JSON.stringify(await h.read())).digest("hex"),
+    request: { action: "retry_interrupted", requestId: WORKER, analysisId: ID, requestedRef: SHA,
+      expectedThreadId: manifest.expectedThreadId, expectedRunId: manifest.expectedRunId },
+    result: { analysisId: ID, requestedRef: SHA, status: "running", idempotencyKey: `ghfind-project-${ID}-retry-1`,
+      recovery: { action: "retry_interrupted", requestId: WORKER, createdAt: 5000000, executionDeadlineAt: 6800000,
+        priorThreadId: manifest.expectedThreadId, priorRunId: manifest.expectedRunId, nextIdempotencyKey: `ghfind-project-${ID}-retry-1` } } };
+  const manifestPath = h.receipt + ".manifest.json", resultPath = h.receipt + ".operator.json";
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await writeFile(resultPath, JSON.stringify(result));
+  return { h, original, manifestPath, resultPath, result };
+}
+
+test("operator attempt preserves the entire failed journal and grants only its database-anchored window", async t => {
+  const f = await operatorWindowFixture(t);
+  const updated = await applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA);
+  assert.equal(updated.waitStartedAt, 5000000); assert.equal(updated.polls, 0);
+  assert.deepEqual(updated.operatorRecovery.previousAttempt, f.original);
+  assert.equal(updated.operatorRecovery.priorReceiptSHA256, f.result.originalReceiptSHA256);
+  assert.equal(updated.intentId, f.original.intentId); assert.equal(updated.analysisId, f.original.analysisId);
+  // Simulate subsequent polling and a fresh same-operation receipt on rerun.
+  updated.polls = 15;
+  await writeFile(f.h.receipt, JSON.stringify(updated));
+  f.result.originalReceiptSHA256 = createHash("sha256").update(JSON.stringify(await f.h.read())).digest("hex");
+  await writeFile(f.resultPath, JSON.stringify(f.result));
+  const resumed = await applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA);
+  assert.deepEqual(resumed, updated);
+  f.result.result.recovery.createdAt += 1; f.result.result.recovery.executionDeadlineAt += 1;
+  await writeFile(f.resultPath, JSON.stringify(f.result));
+  await assert.rejects(applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA), /operator_window_already_consumed/);
+});
+
+test("operator budget rejects unverified identity, changed original receipt, deadline drift and terminal result", async t => {
+  for (const change of [r => r.status = "uncertain", r => r.releaseSha = "b".repeat(40),
+    r => r.originalReceiptSHA256 = "0".repeat(64), r => r.result.analysisId = WORKER,
+    r => r.result.status = "expired", r => r.result.recovery.executionDeadlineAt++,
+    r => r.result.recovery.priorRunId = "wrong-run", r => r.request.action = "finalize_completed"]) {
+    const f = await operatorWindowFixture(t); change(f.result);
+    await writeFile(f.resultPath, JSON.stringify(f.result));
+    await assert.rejects(applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA), /operator_window_evidence_invalid/);
+    assert.deepEqual(await f.h.read(), f.original);
+  }
 });
