@@ -19,15 +19,15 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("complete local E2E Mosoo transport contract", () => {
   it("accepts userId and correlates artifacts through the analysis prompt", async () => {
-    const counts = installProviders();
+    const { counts } = installProviders();
     const response = await create({ userId: "ghfind-feed-staging", input });
     expect(response.status).toBe(200);
     const created = await response.json();
     expect(created.thread).toMatchObject({ id: "analysis-1", userId: "ghfind-feed-staging", kind: "cattle" });
     expect(created.thread).not.toHaveProperty("client_external_ref");
-    const snapshot = await fetch("https://feed-e2e-provider.invalid/api/v1/threads/analysis-1");
+    const snapshot = await fetch(`https://feed-e2e-provider.invalid/api/v1/threads/${created.thread.id}`);
     expect((await snapshot.json()).thread.userId).toBe("ghfind-feed-staging");
-    const files = await fetch("https://feed-e2e-provider.invalid/api/v1/threads/analysis-1/files");
+    const files = await fetch(`https://feed-e2e-provider.invalid/api/v1/threads/${created.thread.id}/files`);
     expect((await files.json()).files.map((file: { name: string }) => file.name).sort()).toEqual([
       "project-analysis-analysis-1.json", "project-report-analysis-1.md", "runtime-evidence-analysis-1.json",
     ]);
@@ -48,7 +48,7 @@ describe("complete local E2E Mosoo transport contract", () => {
     { input: { ...input, content: [{ ...input.content[0], extra: true }] }, userId: "ghfind" },
     null,
   ])("rejects an invalid API body without recording an assessment (%#)", async (body) => {
-    const counts = installProviders();
+    const { counts } = installProviders();
     const response = await create(body);
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: { code: "invalid_request" } });
@@ -56,7 +56,7 @@ describe("complete local E2E Mosoo transport contract", () => {
   });
 
   it("requires the application's stable idempotency key", async () => {
-    const counts = installProviders();
+    const { counts } = installProviders();
     expect((await create({ userId: "ghfind", input }, "")).status).toBe(400);
     expect(counts.assessmentCreate).toBe(0);
   });
