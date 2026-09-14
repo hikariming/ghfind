@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-export const MILESTONES = ['oauthCallback', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted'];
+export const MILESTONES = ['oauthCallback', 'assessmentOperatorRecovery', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted'];
 
 /** Browser fetch retains actual HttpOnly OAuth cookies; no cookie is minted here. */
 export async function browserCall(page, method, path, body, expected = 200, extraHeaders = {}) {
@@ -16,10 +16,12 @@ export async function browserCall(page, method, path, body, expected = 200, extr
   return result.value;
 }
 
-export async function runBusinessJourney({ page, other, submitRepositories, drain, governance, cleanup, inspect, milestone }) {
+export async function runBusinessJourney({ page, other, submitRepositories, drain, governance, cleanup, inspect, recoverAssessment, milestone }) {
   const analyses = new Map();
   for (const repo of submitRepositories) {
-    const created = await browserCall(page, 'POST', '/api/project-analyses', { repositoryUrl: `https://github.com/${repo}` }, 202);
+    const recoveryTarget = repo === submitRepositories[0] && recoverAssessment;
+    const created = await browserCall(page, 'POST', '/api/project-analyses', { repositoryUrl: `https://github.com/${repo}`, ...(recoveryTarget ? { ref: "a".repeat(40) } : {}) }, 202);
+    if (recoveryTarget) await recoverAssessment(created);
     let completed;
     for (let attempt = 0; attempt < 8; attempt++) {
       completed = await browserCall(page, 'GET', created.statusUrl);
@@ -170,8 +172,8 @@ async function main() {
     };
     const page = await login('local-ordinary'), other = await login('local-governor');
     report.milestones.oauthCallback = true;
-    const control = async (path) => {
-      const response = await fetch(`http://127.0.0.1:${config.controlPort}${path}`, { method: 'POST', headers: { authorization: `Bearer ${config.owner}` } });
+    const control = async (path, body) => {
+      const response = await fetch(`http://127.0.0.1:${config.controlPort}${path}`, { method: 'POST', headers: { authorization: `Bearer ${config.owner}`, 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       assert.equal(response.status, 200); return response.json();
     };
     const operatorOrigin = `http://127.0.0.1:${config.profile === 'postgres' ? config.executorPort : config.adapterPort}`;
@@ -183,10 +185,46 @@ async function main() {
       const response = await fetch(`http://127.0.0.1:${config.executorPort}/internal/feed/jobs/cleanup`, { method: 'POST', headers: { authorization: `Bearer ${process.env.FEED_EXECUTOR_SECRET}`, 'content-type': 'application/json' }, body: '{}' });
       assert.equal(response.status, 200); return response.json();
     };
-    report.result = await runBusinessJourney({ page, other, submitRepositories: ['e2e-owner-one/tool-one', 'e2e-owner-two/tool-two', 'e2e-owner-three/tool-three'], drain: () => control('/drain'), inspect: () => control('/inspect'), governance, cleanup, milestone: report.milestones });
+    const recoverAssessment = async created => {
+      const original = await control('/interrupt-assessment', { analysisId: created.analysisId });
+      const expired = await browserCall(page, 'GET', created.statusUrl);
+      assert.equal(expired.status, 'expired');
+      assert.equal(expired.error.code, 'analysis_timeout');
+      const command = { action: 'retry_interrupted', analysisId: created.analysisId, requestedRef: 'a'.repeat(40), expectedThreadId: original.threadId, expectedRunId: original.runId, requestId: randomUUID(), operatorRef: 'github-actions:local-e2e-fault-fixture' };
+      const recover = async (secret, expected) => {
+        const response = await fetch(`${origin}/api/internal/project-analyses/reconcile`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' }, body: JSON.stringify(command) });
+        const result = await response.json();
+        assert.equal(response.status, expected, `operator recovery: ${JSON.stringify(result)}`);
+        return result;
+      };
+      await recover('forged-local-operator', 401);
+      const recovered = await recover(process.env.PROJECT_ANALYSIS_RECONCILE_SECRET, 200);
+      assert.equal(recovered.analysisId, created.analysisId);
+      assert.equal(recovered.startedAt, original.startedAt);
+      assert.equal(recovered.idempotencyKey, `${original.idempotencyKey}-retry-1`);
+      const beforeReplay = await control('/recovery-inspect');
+      await recover(process.env.PROJECT_ANALYSIS_RECONCILE_SECRET, 200);
+      const afterReplay = await control('/recovery-inspect');
+      assert.equal(beforeReplay.providerAttempts, 2);
+      assert.equal(afterReplay.providerAttempts, beforeReplay.providerAttempts, 'operator replay created another provider attempt');
+      assert.equal(afterReplay.logicalAnalyses, 1);
+      assert.equal(afterReplay.run.started_at, original.startedAt);
+      assert.equal(afterReplay.audit.length, 1);
+      const audit = afterReplay.audit[0];
+      assert.equal(audit.request_id, command.requestId);
+      assert.equal(audit.original_thread_id, original.threadId);
+      assert.equal(audit.original_run_id, original.runId);
+      assert.equal(audit.original_started_at, original.startedAt);
+      assert.equal(audit.original_error_code, 'analysis_timeout');
+      assert.equal(audit.execution_deadline_at - audit.requested_at, 30 * 60_000);
+      assert.equal(audit.next_idempotency_key, recovered.idempotencyKey);
+      report.milestones.assessmentOperatorRecovery = true;
+      report.operatorRecovery = { status: 'passed', fault: original.fault, logicalAnalyses: 1, providerAttempts: 2, auditRows: 1, originalStartedAtPreserved: true, replayCreatedAttempt: false };
+    };
+    report.result = await runBusinessJourney({ page, other, submitRepositories: ['e2e-owner-one/tool-one', 'e2e-owner-two/tool-two', 'e2e-owner-three/tool-three'], drain: () => control('/drain'), inspect: () => control('/inspect'), governance, cleanup, recoverAssessment, milestone: report.milestones });
     assert.equal(report.result.source.providers.oauthTokenExchange, 2);
     assert.equal(report.result.source.providers.oauthProfile, 2);
-    assert.equal(report.result.source.providers.assessmentCreate, 3);
+    assert.equal(report.result.source.providers.assessmentCreate, 4);
     assert.equal(report.result.source.providers.artifactDownloads, 9);
     assert.equal(report.result.source.providers.unexpectedExternal, 0);
     for (const key of MILESTONES) assert.equal(report.milestones[key], true);
