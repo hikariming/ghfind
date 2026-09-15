@@ -21,6 +21,7 @@ import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,7 +173,7 @@ export async function GET(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const handle = normalizeUsername(decodeURIComponent(username ?? ""));
+  const handle = normalizeUsername(decodeRouteParam(username ?? ""));
   if (!handle) {
     return json(
       {
