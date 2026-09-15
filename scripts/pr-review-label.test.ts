@@ -307,6 +307,39 @@ describe("scoreToLabel", () => {
 });
 
 describe("fetchScore", () => {
+  it("decodes JSON when UTF-8 characters span response chunks", async () => {
+    const bytes = new TextEncoder().encode('\uFEFF{"final_score":70,"name":"喵"}');
+    const body = new ReadableStream({
+      start(controller) {
+        for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+    expect(await fetchScore("octocat")).toBe(70);
+    expect(body.locked).toBe(false);
+  });
+
+  it.each([200, 403])("cancels and unlocks a stalled HTTP %s body before retrying", async (status) => {
+    vi.useFakeTimers();
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
+    const body = new ReadableStream({
+      start(controller) { controller.enqueue(new TextEncoder().encode("{")); },
+      cancel,
+    });
+    const fetch = vi.fn().mockResolvedValueOnce(new Response(body, { status }))
+      .mockResolvedValue(new Response(null, { status: 404 }));
+    vi.stubGlobal("fetch", fetch);
+    const result = fetchScore("octocat");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(body.locked).toBe(false);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await result).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("reads final_score from the public API in one unauthenticated GET", async () => {
     const fetch = vi.fn().mockResolvedValue(Response.json({ final_score: 70 }));
     vi.stubGlobal("fetch", fetch);
@@ -425,7 +458,7 @@ describe("fetchScore", () => {
       const pending = () => new Promise((_, reject) => {
         signal.addEventListener("abort", () => reject(signal.reason), { once: true });
       });
-      return phase === "headers" ? pending() : Promise.resolve({ ok: true, json: pending });
+      return phase === "headers" ? pending() : Promise.resolve(new Response(new ReadableStream()));
     });
     vi.stubGlobal("fetch", fetch);
     const result = fetchScore("octocat");
@@ -447,10 +480,19 @@ describe("fetchScore", () => {
     const fetch = vi.fn((_url: string, init: RequestInit) => {
       if (++requests > 1) return Promise.resolve(new Response(null, { status: 404 }));
       signal = init.signal!;
-      const late = () => new Promise((resolve) => {
-        setTimeout(() => resolve(phase === "headers" ? Response.json(body) : body), 65_000);
+      if (phase === "headers") return new Promise((resolve) => {
+        setTimeout(() => resolve(Response.json(body)), 65_000);
       });
-      return phase === "headers" ? late() : Promise.resolve({ ok: true, json: late });
+      let timer: ReturnType<typeof setTimeout>;
+      return Promise.resolve(new Response(new ReadableStream({
+        start(controller) {
+          timer = setTimeout(() => {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify(body)));
+            controller.close();
+          }, 65_000);
+        },
+        cancel() { clearTimeout(timer); },
+      })));
     });
     vi.stubGlobal("fetch", fetch);
     let settled = false;
@@ -672,7 +714,7 @@ describe("main", () => {
           scores++;
           signals.push(init.signal!);
           if (mode === "rate-limit") return new Response(null, { status: 429, headers: { "Retry-After": "600" } });
-          if (mode === "body") return { ok: true, json: () => new Promise(() => {}) };
+          if (mode === "body") return new Response(new ReadableStream());
           return new Promise(() => {});
         }
         if (url.includes("/repos/base-owner/project/labels?")) {

@@ -42,7 +42,31 @@ async function waitUntil(time: number, context: RetryContext): Promise<void> {
   if (Date.now() >= context.deadline) throw new RunDeadlineError();
 }
 
-async function httpError(response: Response, github: boolean, context: RetryContext, message: string): Promise<Error> {
+async function readResponseText(response: Response, signal: AbortSignal): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  // Keep ownership of the reader: body.cancel() cannot cancel a locked stream,
+  // and Node 22's fetch abort alone may leave its response socket alive.
+  const cancel = () => { void reader.cancel(signal.reason).catch(() => {}); };
+  signal.addEventListener("abort", cancel, { once: true });
+  const decoder = new TextDecoder();
+  let text = "";
+  try {
+    if (signal.aborted) cancel();
+    signal.throwIfAborted();
+    for (;;) {
+      const { done, value } = await reader.read();
+      signal.throwIfAborted();
+      if (done) return text + decoder.decode();
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    reader.releaseLock();
+  }
+}
+
+async function httpError(response: Response, github: boolean, context: RetryContext, message: string, signal: AbortSignal): Promise<Error> {
   const status = response.status;
   let limited = status === 429 || (github && status === 403 && (
     response.headers.get("x-ratelimit-remaining") === "0" ||
@@ -51,7 +75,7 @@ async function httpError(response: Response, github: boolean, context: RetryCont
   let bodyFailed = false;
   if (status === 403 && !limited) {
     try {
-      const detail = await response.text();
+      const detail = await readResponseText(response, signal);
       limited = github && /secondary rate limit|rate limit exceeded|abuse detection/i.test(detail);
     } catch {
       bodyFailed = true;
@@ -108,16 +132,19 @@ async function request(
           } catch {
             throw transportError("Network request failed");
           }
-          if (controller.signal.aborted) throw transportError("Request completed after its deadline");
+          if (controller.signal.aborted) {
+            void response.body?.cancel().catch(() => {});
+            throw transportError("Request completed after its deadline");
+          }
           if (!response.ok) throw await httpError(response, new URL(url).hostname === "api.github.com", context,
-            `${init.method ?? "GET"} ${url} failed (HTTP ${response.status})`);
+            `${init.method ?? "GET"} ${url} failed (HTTP ${response.status})`, controller.signal);
           if (!readJSON) {
             // Successful writes must not depend on response body cleanup completing.
             void response.body?.cancel().catch(() => {});
             return;
           }
           try {
-            return await response.json();
+            return JSON.parse(await readResponseText(response, controller.signal));
           } catch (error) {
             if (error instanceof SyntaxError) throw error;
             throw transportError("Response body could not be read");
