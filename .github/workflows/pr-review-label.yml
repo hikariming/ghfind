@@ -3,6 +3,14 @@ name: PR review level
 on:
   pull_request_target:
     types: [opened]
+  push:
+    paths: [.github/workflows/pr-review-label.yml, scripts/pr-review-label.mts]
+  workflow_dispatch:
+    inputs:
+      initialize:
+        description: Create missing review-level labels (preserve existing configuration)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -10,6 +18,7 @@ permissions:
 
 jobs:
   label:
+    if: github.event_name == 'pull_request_target' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,9 +36,22 @@ jobs:
         with:
           node-version: 22
 
-      # Pre-create all five review-level labels in repository settings.
+      # Owner onboarding and score ranges: README.md / README.zh.md, PR review bot.
+      - name: Check all five repository labels
+        if: github.event_name != 'pull_request_target' && !inputs.initialize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node --experimental-strip-types scripts/pr-review-label.mts --check-labels
+
+      - name: Initialize missing repository labels
+        if: github.event_name == 'workflow_dispatch' && inputs.initialize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node --experimental-strip-types scripts/pr-review-label.mts --init-labels
+
       # Node runs this dependency-free script directly; no install step is needed.
       - name: Sync review level
+        if: github.event_name == 'pull_request_target'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node --experimental-strip-types scripts/pr-review-label.mts

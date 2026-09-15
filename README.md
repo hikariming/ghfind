@@ -48,6 +48,38 @@ Every assessment can generate a live badge and light/dark developer card for you
 
 The scoring core comes from the open-source Claude skill `github-account-value`. This site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
 
+## PR review bot: repository owner setup
+
+<img src="src/app/icon.svg" alt="ghbot avatar" width="96" height="96" />
+
+For any GitHub.com repository, copy the [workflow](.github/workflows/pr-review-label.yml) and [standalone script](scripts/pr-review-label.mts) to the same paths on its default branch. Enable GitHub Actions and allow `contents: read` and `pull-requests: write`. No project dependencies are needed. When a PR first opens, the bot labels it using its author's ghfind score:
+
+| Required repository label | Author score range |
+| --- | --- |
+| `review-level: low` | `0 ≤ score < 40` |
+| `review-level: medium` | `40 ≤ score < 70` |
+| `review-level: high` | `70 ≤ score < 90` |
+| `review-level: xhigh` | `90 ≤ score ≤ 100` |
+| `review-level: unavailable` | No valid score, API failure, or invalid value; distinct from a zero score |
+
+Initialization and synchronization require these exact, case-sensitive names. If an existing label differs only in capitalization, rename it to the spelling above before initializing; the bot does not rename existing labels automatically.
+
+The bot has an eight-minute execution budget. Scoring stops by minute four, reserving the final four minutes for GitHub labeling; a score timeout falls back to `review-level: unavailable`. Requests time out after 60 seconds and share at most seven retries across the run. A ghfind `Retry-After` delay does not block GitHub requests. Persistent GitHub failures can still prevent labeling.
+
+**One-time initialization:** open the target repository's **Actions → PR review level → Run workflow**, select its default branch, enable **initialize**, and run. This creates all missing labels. Repeated runs preserve existing names, colors, descriptions, and unrelated custom labels. Leave initialize unchecked for a read-only check.
+
+For manual setup, open `https://github.com/OWNER/REPO/labels` (replace OWNER/REPO with your repository), choose **New label**, and enter each exact name from the table. Choose any colors and descriptions. You can also reach this page through **Issues / Pull requests → Labels**.
+
+**Optional local commands:** use Node.js 22, set the target repository, and securely load `GITHUB_TOKEN` into your environment. The token must have access to the repository; initialization needs Issues or Pull requests write permission. From the repository containing the copied script, run:
+
+```sh
+export GITHUB_REPOSITORY='OWNER/REPO'
+node --experimental-strip-types scripts/pr-review-label.mts --check-labels
+node --experimental-strip-types scripts/pr-review-label.mts --init-labels
+```
+
+Adding or updating the workflow/script on the default branch automatically checks all five labels. Each new PR also checks before scoring. A failed check lists every missing label, the target Labels page, the initialization workflow, and the repair command. If setup did not trigger a push check, run the workflow manually; successful initialization confirms all five labels without a test PR. For HTTP 403/404, verify the repository, token access, and organization Actions policy. After repair, rerun any previously failed PR job from Actions.
+
 ## How it works
 
 ```

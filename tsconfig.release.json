@@ -10,6 +10,7 @@
   "include": [
     "scripts/pr-review-label.mts",
     "scripts/pr-review-label.test.ts",
+    "scripts/pr-review-label-native-selftest.mts",
     "scripts/check-release-versions.mts",
     "scripts/smoke-backend-async.mts",
     "scripts/smoke-backend-async-selftest.mts",

@@ -99,6 +99,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Verify score deadline with native Node fetch
+        run: node --experimental-strip-types scripts/pr-review-label-native-selftest.mts
+
       - name: Verify Cloudflare D1 migrations from an empty database
         run: |
           pnpm exec wrangler d1 migrations apply ghfind --local --persist-to "$RUNNER_TEMP/ghfind-d1-migrations"

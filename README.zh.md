@@ -48,6 +48,38 @@ ghfind 不只负责打分，更是一台开发者发现引擎。你可以通过�
 
 评分核心来自开源 Claude 技能 `github-account-value`。网站把它的 Python 打分逻辑 **逐行移植成 TypeScript**，并用单元测试锁定二者输出一致。
 
+## PR review bot：仓库 owner 接入
+
+<img src="src/app/icon.svg" alt="ghbot avatar" width="96" height="96" />
+
+任何 GitHub.com 仓库均可接入：把 [workflow](.github/workflows/pr-review-label.yml) 和 [独立脚本](scripts/pr-review-label.mts) 按原路径复制到目标仓库的默认分支，启用 GitHub Actions，并允许 workflow 使用 `contents: read` 和 `pull-requests: write`。无需安装项目依赖。bot 在 PR 首次打开时读取作者的 ghfind 评分并添加对应标签：
+
+| 必需的仓库 label | 作者评分区间 |
+| --- | --- |
+| `review-level: low` | `0 ≤ score < 40` |
+| `review-level: medium` | `40 ≤ score < 70` |
+| `review-level: high` | `70 ≤ score < 90` |
+| `review-level: xhigh` | `90 ≤ score ≤ 100` |
+| `review-level: unavailable` | 无有效评分、接口失败或返回无效值；不等于 0 分 |
+
+初始化和同步均严格区分大小写，标签名称必须与上表完全一致。若已有标签仅大小写不同，请先手动改名为上表写法再初始化；bot 不会自动重命名已有标签。
+
+bot 总执行预算为 8 分钟，评分最迟在第 4 分钟结束，为 GitHub 打标预留最后 4 分钟；评分超时后使用 `review-level: unavailable`。单次请求超时为 60 秒，全程共享最多 7 次重试。ghfind 的 `Retry-After` 等待不会阻塞 GitHub 请求；若 GitHub 持续失败，仍可能无法完成打标。
+
+**一次性初始化：**进入目标仓库 **Actions → PR review level → Run workflow**，选择默认分支，勾选 **initialize** 后运行。它会补齐所有缺失标签；重复运行保留已有标签的名称、颜色、描述及其他自定义标签。不勾选 initialize 时只检查，不创建标签。
+
+也可手工设置：打开 `https://github.com/OWNER/REPO/labels`（将 OWNER/REPO 替换为目标仓库），点击 **New label**，逐一填写上表中的完整名称；颜色和描述可自定。该入口也可从仓库 **Issues / Pull requests → Labels** 进入。
+
+**本地命令（可选）：**使用 Node.js 22，设置目标仓库及已安全载入的 `GITHUB_TOKEN`。令牌须能访问该仓库，初始化需仓库 Issues 或 Pull requests 写权限。然后在已复制脚本的仓库中运行：
+
+```sh
+export GITHUB_REPOSITORY='OWNER/REPO'
+node --experimental-strip-types scripts/pr-review-label.mts --check-labels
+node --experimental-strip-types scripts/pr-review-label.mts --init-labels
+```
+
+workflow 或脚本加入/更新默认分支时自动预检五档标签，每个新 PR 也会在评分前预检。缺失时检查失败，日志一次列出全部缺失名称、目标仓库 Labels 页面、手动初始化 workflow 入口和补齐命令。若接入时未触发 push 检查，请手动运行上述 workflow 完成检查；初始化成功即表示五档齐全，无需开测试 PR。若报 HTTP 403/404，请核对仓库地址、令牌访问范围和组织的 Actions 权限策略。补齐后可在 Actions 中重新运行此前失败的 PR 任务。
+
 ## 工作原理
 
 ```
