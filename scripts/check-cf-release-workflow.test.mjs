@@ -72,3 +72,35 @@ test('each runtime deployment captures and verifies its own preceding applicatio
     assert.throws(() => check({ 'deploy-cf-production.yml': production.replace(verify, ` ${mode} "$RUNNER_TEMP/feed-production-evidence/runtime-${mode}.json"`) }));
   }
 });
+
+test('cancelled or incomplete cutover cannot escape containment after admission begins', () => {
+  const original=originals['deploy-cf-production.yml'];
+  for(const replacement of ['failure()', 'cancelled()'])
+    assert.throws(()=>check({'deploy-cf-production.yml': original.replace('always() && steps.paused',replacement+' && steps.paused')}));
+  assert.throws(()=>check({'deploy-cf-production.yml':original.replace("steps.smoke.outcome != 'success'", "steps.smoke.outcome == 'failure'")}));
+  assert.throws(()=>check({'deploy-cf-production.yml':original.replace('          echo "started=true" >> "$GITHUB_OUTPUT"','          true')}));
+});
+
+test('a configured image identity does not replace inspection of both compiled entrypoints', () => {
+  const original=originals['deploy-cf-production.yml'];
+  for(const fragment of ['--build-arg IMAGE_BUILD_ID="$FEED_IMAGE_BUILD_ID"','--entrypoint /usr/local/bin/feed-worker','node scripts/feed-image-proof.mjs "$image_ref"'])
+    assert.throws(()=>check({'deploy-cf-production.yml':original.replace(fragment,'')}));
+});
+
+
+test('baseline cannot replace native mode transition with an idle wait or move it after readiness', () => {
+  const production = originals['deploy-cf-production.yml'];
+  assert.throws(() => check({'deploy-cf-production.yml':production.replace('240s node scripts/feed-production-transition.mjs','240s node missing-transition.mjs')}));
+  assert.throws(() => check({'deploy-cf-production.yml':production.replace('          # Explicitly stop and restart','          sleep 130\n          # Explicitly stop and restart')}));
+  assert.throws(() => check({'deploy-cf-production.yml':production.replace('      FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json\n','')}));
+});
+
+test('paid recovery waits for native baseline and cannot bypass its journal or credential', () => {
+  const production = originals['deploy-cf-production.yml'];
+  for (const fragment of ['node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'])
+    assert.throws(() => check({'deploy-cf-production.yml': production.replace(fragment, 'removed')}));
+  const a = production.indexOf('      - name: Activate executor');
+  const b = production.indexOf('      - name: Start or resume');
+  const c = production.indexOf('      - name: Require real assessment');
+  assert.throws(() => check({'deploy-cf-production.yml': production.slice(0,a) + production.slice(b,c) + production.slice(a,b) + production.slice(c)}));
+});

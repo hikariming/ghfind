@@ -12,6 +12,23 @@ import {
   adapterSecretNames,
 } from "./feed-platform-manifest.mjs";
 
+export const readbackLimits = Object.freeze({
+  durationMs: 180000,
+  // Initial retries consume time before heartbeats begin and share this quota.
+  readinessRequests: 95,
+  initialReadinessAttempts: 8,
+  initialReadinessIntervalMs: 2500,
+  initialReadinessConvergenceMs: 60000,
+  // 19 fixed reads + 7 paired details (14) + 2 final details = 35.
+  // Native DO evidence comes from the existing bounded readiness requests.
+  metadataReads: 52,
+  applicationAttempts: 8, // Includes the reserved final detail read for each app.
+  applicationIntervalMs: 2500,
+  applicationConvergenceMs: 60000,
+  intervalMs: 2500,
+  requestMs: 10000,
+  metadataMs: 30000,
+});
 export const repository = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -151,16 +168,19 @@ export function releaseIdentity(m, sha, image, mode) {
     ["off", "baseline"].includes(mode),
     "only off or baseline modes are supported",
   );
+  const imageBuildId = process.env.FEED_IMAGE_BUILD_ID;
+  requireThat(/^[a-f0-9]{64}$/.test(imageBuildId ?? ""), "compiled image build identity required");
   return {
     sourceSha: sha,
     image,
+    imageBuildId,
     mode,
     writerEpoch: m.writerEpoch,
     manifestSHA256: manifestHash(m),
   };
 }
 function runtimeConfiguration(m, image, sha, mode) {
-  releaseIdentity(m, sha, image, mode);
+  const { imageBuildId } = releaseIdentity(m, sha, image, mode);
   const c = JSON.parse(
     readFileSync(
       resolve(repository, "platform/runtime/wrangler.jsonc"),
@@ -176,6 +196,7 @@ function runtimeConfiguration(m, image, sha, mode) {
     FEED_ENVIRONMENT: "production",
     FEED_RELEASE_SHA: sha,
     FEED_IMAGE_REFERENCE: image,
+    FEED_IMAGE_BUILD_ID: imageBuildId,
     FEED_MODE: mode,
     FEED_WRITER_EPOCH: String(m.writerEpoch),
     FEED_EXECUTOR_ENABLED: "true",
@@ -285,7 +306,7 @@ export async function verifyProductionToFile(
 export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
   const expected = releaseIdentity(m, sha, image, mode);
   requireThat(
-    r?.format === "ghfind-feed-production-readiness-v1" &&
+    r?.format === "ghfind-feed-production-readiness-v2" &&
       r.status === "passed" &&
       r.accountId === ACCOUNT &&
       r.environment === "production" &&
@@ -297,6 +318,18 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
     Number.isFinite(age) && age >= 0 && age <= 15 * 60 * 1000,
     "production readiness receipt expired or future dated",
   );
+  const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const bounds = r.keepWarm?.limits;
+  requireThat(bounds && Object.keys(bounds).length === Object.keys(readbackLimits).length &&
+    Object.entries(readbackLimits).every(([key, maximum]) => Number.isSafeInteger(bounds[key]) && bounds[key] > 0 && bounds[key] <= maximum),
+    "readiness receipt must retain its bounded limits");
+  for (const key of ["durationMs", "readinessRequests", "metadataReads"])
+    requireThat(Number.isSafeInteger(r.keepWarm[key]) && r.keepWarm[key] >= (key === "durationMs" ? 0 : 1) &&
+      r.keepWarm[key] <= bounds[key], "readiness receipt counters missing or outside limits");
+  for (const worker of [r.runtime, r.adapter])
+    requireThat(uuid.test(worker?.deploymentId ?? "") && uuid.test(worker?.versionId ?? "") &&
+      worker.tag === `production-${sha}` && typeof worker.scriptEtag === "string" && worker.scriptEtag.length > 0 &&
+      /^[a-f0-9]{64}$/.test(worker.bindingIdentitySHA256 ?? ""), "incomplete immutable Worker receipt");
   requireThat(
     r.bindingsVerified === true &&
       r.keepWarm?.completed === true &&
@@ -315,10 +348,25 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
     r.asyncTriggers?.verified === true && r.asyncTriggers.mode === mode,
     "actual queue consumers and schedules must be verified",
   );
+  const queues = r.asyncTriggers.queues;
+  requireThat(Array.isArray(queues) && queues.length === 3 && new Set(queues.map(q => q?.queueId)).size === 3 &&
+    JSON.stringify(r.asyncTriggers.schedules) === JSON.stringify(mode === "baseline" ? ["* * * * *"] : []),
+    "incomplete queue and schedule evidence");
+  for (const [name, retention, dlq] of [[m.queue,345600,m.deadLetterQueue],
+    [m.deadLetterQueue,345600,m.terminalParkingQueue],[m.terminalParkingQueue,1209600,null]]) {
+    const rows = queues.filter(q => q?.name === name), q = rows[0];
+    requireThat(rows.length === 1 && /^[a-f0-9]{32}$/.test(q.queueId ?? "") && q.retentionSeconds === retention &&
+      q.deliveryDelaySeconds === 0 && q.deliveryPaused === false && Array.isArray(q.consumers) &&
+      q.consumers.length === (mode === "baseline" && dlq !== null ? 1 : 0), "incomplete queue policy receipt");
+    for (const c of q.consumers) requireThat(/^[a-f0-9]{32}$/.test(c.consumerId ?? "") && c.type === "worker" &&
+      c.worker === m.runtimeWorker && c.deadLetterQueue === dlq && c.batchSize === 1 && c.maxConcurrency === 1 &&
+      c.maxRetries === 5 && c.maxWaitTimeMs === 5000, "incomplete consumer policy receipt");
+  }
   requireThat(
     r.applications?.length === 2 && r.readiness?.length === 3,
     "missing actual instance/readiness evidence",
   );
+  const applicationIds = new Set();
   for (const [suffix, names] of [
     ["feedapi", ["api-0", "api-1"]],
     ["feedexecutor", ["executor-0"]],
@@ -328,13 +376,16 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
     );
     requireThat(
       apps.length === 1 &&
+        uuid.test(apps[0].applicationId ?? "") && !applicationIds.has(apps[0].applicationId) &&
         apps[0].image === image &&
         apps[0].instances?.length === names.length &&
-        apps[0].version != null &&
+        ((Number.isSafeInteger(apps[0].version) && apps[0].version >= 0) ||
+          (typeof apps[0].version === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(apps[0].version))) &&
         apps[0].instanceType === "basic" &&
         apps[0].maxInstances === names.length,
       "incomplete immutable application identity",
     );
+    applicationIds.add(apps[0].applicationId);
     const className = suffix === "feedapi" ? "FeedAPI" : "FeedExecutor";
     requireThat(
       r.runtime.durableNamespaces?.filter(
@@ -350,10 +401,11 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
       const instances = apps[0].instances.filter((i) => i.name === name);
       requireThat(
         instances.length === 1 &&
-          typeof instances[0].id === "string" &&
-          instances[0].id &&
+          /^[a-f0-9]{64}$/.test(instances[0].id ?? "") &&
           instances[0].state === "running" &&
-          String(instances[0].version) === String(apps[0].version),
+          instances[0].proofSource === "durable-object-native" &&
+          instances[0].imageBuildId === expected.imageBuildId &&
+          r.readiness.filter((p) => p.target === name && p.actorId === instances[0].id).length === 1,
         "incomplete running instance identity",
       );
     }
@@ -432,6 +484,7 @@ export function expectedBindings(m, sha, image, mode, role) {
   ];
 }
 export function validateReadiness(data, m, sha, image, mode, versionId) {
+  const { imageBuildId } = releaseIdentity(m, sha, image, mode);
   requireThat(
     data?.ready === true &&
       data.service === "feed-runtime" &&
@@ -443,7 +496,7 @@ export function validateReadiness(data, m, sha, image, mode, versionId) {
     "runtime readiness identity differs",
   );
   requireThat(
-    data.containers?.length === 3,
+    data.containers?.length === 3 && new Set(data.containers.map(r => r.actorId)).size === 3,
     "readiness target population differs",
   );
   return ["api-0", "api-1", "executor-0"].map((target) => {
@@ -452,6 +505,9 @@ export function validateReadiness(data, m, sha, image, mode, versionId) {
     requireThat(
       rows.length === 1 &&
         r.ready === true &&
+        r.running === true &&
+        /^[a-f0-9]{64}$/.test(r.actorId ?? "") &&
+        r.imageBuildId === imageBuildId &&
         r.version === sha &&
         r.contractVersion === "1" &&
         r.storageWriterVersion === 2 &&
@@ -464,6 +520,9 @@ export function validateReadiness(data, m, sha, image, mode, versionId) {
     return {
       target,
       ready: true,
+      running: true,
+      actorId: r.actorId,
+      imageBuildId: r.imageBuildId,
       version: sha,
       contractVersion: "1",
       storageWriterVersion: 2,

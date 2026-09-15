@@ -43,16 +43,18 @@ export function dryPlan(config) {
     warnings: ["No HTTP occurs without --execute.", "Authenticated GETs may persist profile, session, request and served-item rows.", "No preferences or state are overwritten, no events are sent and no user data is deleted.", "Web paused/all is a requested release stage, not proof of the Web Gateway's observed configuration.", "An empty Feed candidate result is incomplete and exits unsuccessfully."] };
 }
 
-function safeReadiness(data, config) {
+function safeReadiness(data, config, imageBuildId) {
   ensure(data?.ready === true && data.service === "feed-runtime" && data.version === config.releaseSHA && data.contractVersion === "1" && data.configuredImage === config.image && data.mode === config.runtimeMode, "runtime_identity_mismatch");
   ensure(typeof data.workerVersionId === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(data.workerVersionId), "runtime_worker_version_missing");
   ensure(Array.isArray(data.containers) && data.containers.length === 3, "container_readiness_missing");
-  const targets = new Set();
+  const targets = new Set(), actors = new Set();
   const containers = data.containers.map(item => {
     ensure(["api-0", "api-1", "executor-0"].includes(item?.target) && !targets.has(item.target), "container_target_mismatch");
     targets.add(item.target);
+    ensure(item.running === true && /^[a-f0-9]{64}$/.test(item.actorId ?? "") && !actors.has(item.actorId) && item.imageBuildId === imageBuildId, "container_native_identity_mismatch");
+    actors.add(item.actorId);
     ensure(item.ready === true && item.version === config.releaseSHA && item.contractVersion === "1" && item.storageWriterVersion === 2 && item.storeProfile === config.profile && item.writerEpoch === config.writerEpoch && item.mode === config.runtimeMode && item.service === (item.target === "executor-0" ? "feed-worker" : "feed-api"), "container_identity_mismatch");
-    return { target: item.target, ready: true, version: item.version, contractVersion: "1", storageWriterVersion: 2, storeProfile: item.storeProfile, writerEpoch: item.writerEpoch, mode: item.mode };
+    return { target: item.target, running: true, actorId: item.actorId, imageBuildId: item.imageBuildId, ready: true, version: item.version, contractVersion: "1", storageWriterVersion: 2, storeProfile: item.storeProfile, writerEpoch: item.writerEpoch, mode: item.mode };
   });
   return { version: data.version, workerVersionId: data.workerVersionId, configuredImage: data.configuredImage, mode: data.mode, containers };
 }
@@ -145,10 +147,11 @@ export async function runSmoke(config, { env = process.env, fetcher = fetch, sav
   try {
     ensure(typeof admin === "string" && Buffer.byteLength(admin) >= 32, "runtime_admin_secret_required");
     if (config.mode === "all") ensure(typeof gateway === "string" && Buffer.byteLength(gateway) >= 32 && gateway !== admin, "independent_gateway_secret_required");
+    ensure(/^[a-f0-9]{64}$/.test(env.FEED_IMAGE_BUILD_ID ?? ""), "compiled_image_identity_required");
     const authorization = { authorization: `Bearer ${admin}`, accept: "application/json" };
     const health = await request("runtime.health", `${RUNTIME_ORIGIN}/healthz`, authorization);
     ensure(health?.healthy === true && health.service === "feed-runtime", "runtime_health_invalid");
-    report.readiness = safeReadiness(await request("runtime.ready", `${RUNTIME_ORIGIN}/readyz`, authorization), config);
+    report.readiness = safeReadiness(await request("runtime.ready", `${RUNTIME_ORIGIN}/readyz`, authorization), config, env.FEED_IMAGE_BUILD_ID);
     await request("runtime.ready_unauthorized", `${RUNTIME_ORIGIN}/readyz`, {}, 401);
     await request("feed.anonymous", `${RUNTIME_ORIGIN}/api/feed/projects`, {}, 401);
     await request("feed.forged", `${RUNTIME_ORIGIN}/api/feed/projects`, { "x-github-id": String(ACTOR_ID), "x-feed-gateway": "forged.invalid.signature" }, 401);

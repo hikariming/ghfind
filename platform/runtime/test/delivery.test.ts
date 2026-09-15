@@ -431,6 +431,7 @@ test("off retries main and DLQ deliveries without execution, terminal writes, or
     const paused = {
       ...env,
       FEED_ENVIRONMENT: environment,
+      FEED_IMAGE_BUILD_ID: "d".repeat(64),
       FEED_MODE: "off",
       FEED_QUEUE_NAME: `ghfind-feed-${environment}-jobs`,
       FEED_DLQ_NAME: `ghfind-feed-${environment}-dlq`,

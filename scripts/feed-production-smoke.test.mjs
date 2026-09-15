@@ -7,14 +7,14 @@ import { ACTOR_ID, LIMITS, RUNTIME_ORIGIN, dryPlan, main, parseOptions, runSmoke
 
 const SHA = "a".repeat(40);
 const IMAGE = `registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:${"b".repeat(64)}`;
-const ENV = { FEED_RUNTIME_ADMIN_SECRET: "fixture-admin-secret-".repeat(3), FEED_GATEWAY_SECRET: "fixture-gateway-secret-".repeat(3) };
+const ENV = { FEED_IMAGE_BUILD_ID: "e".repeat(64), FEED_RUNTIME_ADMIN_SECRET: "fixture-admin-secret-".repeat(3), FEED_GATEWAY_SECRET: "fixture-gateway-secret-".repeat(3) };
 function args(mode = "all", runtime = "baseline") { return ["--mode", mode, "--runtime-mode", runtime, "--release-sha", SHA, "--image", IMAGE, "--writer-epoch", "3", "--profile", "cf_d1_r2", "--output", "/tmp/unused-service-smoke.json"]; }
 const configuration = () => parseOptions(args());
 const identity = { id: ACTOR_ID, login: "fixture-account", avatar_url: `https://avatars.githubusercontent.com/u/${ACTOR_ID}?v=4`, type: "User" };
 const prefs = () => ({ profileVersion: 7, taxonomyVersion: 1, preferences: [{ tagId: "tag-a", source: "explicit", value: 1, strength: 1, taxonomyVersion: 1 }] });
 function json(body, status = 200) { return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } }); }
 function ready(mode = "baseline") {
-  return { ready: true, service: "feed-runtime", version: SHA, contractVersion: "1", configuredImage: IMAGE, mode, workerVersionId: "11111111-1111-4111-8111-111111111111", containers: ["api-0", "api-1", "executor-0"].map(target => ({ target, ready: true, version: SHA, contractVersion: "1", storageWriterVersion: 2, storeProfile: "cf_d1_r2", writerEpoch: 3, mode, service: target === "executor-0" ? "feed-worker" : "feed-api" })) };
+  return { ready: true, service: "feed-runtime", version: SHA, contractVersion: "1", configuredImage: IMAGE, mode, workerVersionId: "11111111-1111-4111-8111-111111111111", containers: ["api-0", "api-1", "executor-0"].map(target => ({ target, running: true, actorId: String(["api-0","api-1","executor-0"].indexOf(target)+1).repeat(64), imageBuildId: ENV.FEED_IMAGE_BUILD_ID, ready: true, version: SHA, contractVersion: "1", storageWriterVersion: 2, storeProfile: "cf_d1_r2", writerEpoch: 3, mode, service: target === "executor-0" ? "feed-worker" : "feed-api" })) };
 }
 function fixture(overrides = {}) {
   const requests = [];
@@ -64,6 +64,15 @@ function fixture(overrides = {}) {
 afterEach(() => vi.useRealTimers());
 
 describe("production service-contract smoke", () => {
+  it("rejects a same-SHA old image or invalid native process proof before any user request", async () => {
+    for(const patch of [{imageBuildId:"f".repeat(64)},{running:false},{actorId:null}]) {
+      const r=ready();Object.assign(r.containers[0],patch);
+      const f=fixture({readiness:r});
+      const result=await runSmoke(configuration(),{env:ENV,fetcher:f.fetcher});
+      expect(result.status).toBe("incomplete");
+      expect(f.requests.every(r=>r.url.origin===RUNTIME_ORIGIN && !new Headers(r.init.headers).has("x-feed-gateway"))).toBe(true);
+    }
+  });
   it("defaults to a dry plan without reading secrets, contacting services or writing output", async () => {
     const fetcher = vi.fn(() => { throw new Error("network forbidden"); });
     const stdout = vi.fn();
@@ -85,7 +94,7 @@ describe("production service-contract smoke", () => {
 
   it("checks paused candidate infrastructure and authentication without a signed user request", async () => {
     const f = fixture({ readiness: ready("off") });
-    const result = await runSmoke(parseOptions(args("paused", "off")), { env: { FEED_RUNTIME_ADMIN_SECRET: ENV.FEED_RUNTIME_ADMIN_SECRET }, fetcher: f.fetcher });
+    const result = await runSmoke(parseOptions(args("paused", "off")), { env: { FEED_RUNTIME_ADMIN_SECRET: ENV.FEED_RUNTIME_ADMIN_SECRET, FEED_IMAGE_BUILD_ID: ENV.FEED_IMAGE_BUILD_ID }, fetcher: f.fetcher });
     expect(result.status).toBe("passed");
     expect(result.httpRequests).toBe(5);
     expect(result.journey).toBe("not_requested");

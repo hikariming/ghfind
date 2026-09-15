@@ -37,7 +37,7 @@ export function validateContext(context) {
   assert(numericPattern.test(context.runId ?? '') && numericPattern.test(context.runAttempt ?? ''), 'invalid run identity');
 }
 
-export const localMilestones = Object.freeze(['oauthCallback', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']);
+export const localMilestones = Object.freeze(['oauthCallback', 'assessmentOperatorRecovery', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']);
 
 export function validateLocalE2E(evidence, context) {
   assert(evidence?.format === 'ghfind-complete-local-e2e-v1', 'complete local E2E receipt required');

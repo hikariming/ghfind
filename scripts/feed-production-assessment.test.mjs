@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,9 +14,11 @@ import {
   LIMITS,
   authorize,
   startAssessment,
+  applyOperatorWindow,
   waitAssessment,
   sourceIdentity,
   projectionIdentity,
+  executionIdentity,
 } from "./feed-production-assessment.mjs";
 
 const SHA = "a".repeat(40),
@@ -91,14 +94,43 @@ const projection = (extra = {}) => ({
   published: 1,
   ...extra,
 });
+const execution = (extra = {}) => ({
+  event_id: "event-actual",
+  envelope_event_id: "event-actual",
+  aggregate_key: REPO,
+  source_version: 88,
+  event_source_version: 88,
+  analysis_id: ID,
+  receipt_id: "submission-actual",
+  source_hash: RAW,
+  contract_version: 1,
+  status: "pending",
+  event_kind: "assessment.completed",
+  ...extra,
+});
+const previousProjection = (extra = {}) =>
+  projection({
+    analysis_id: "previous-analysis",
+    version_analysis_id: "previous-analysis",
+    event_analysis_id: "previous-analysis",
+    event_id: "previous-event",
+    job_event_id: "previous-event",
+    source_version: 87,
+    job_source_version: 87,
+    event_source_version: 87,
+    receipt_id: "previous-receipt",
+    event_receipt_id: "previous-receipt",
+    resolved_commit_sha: "f".repeat(40),
+    ...extra,
+  });
 const candidate = () => ({
   repo_key: REPO,
   analysis_id: ID,
   source_hash: COMPOSITE,
 });
-function webBindings() {
+function webBindings(releaseSha = SHA) {
   return Object.entries({
-    FEED_RELEASE_SHA: SHA,
+    FEED_RELEASE_SHA: releaseSha,
     FEED_SOURCE_OUTBOX_ENABLED: "true",
     FEED_ROLLOUT_MODE: "paused",
     MOSOO_API_BASE: "https://cloud.mosoo.ai/api/v1",
@@ -134,6 +166,7 @@ async function harness(t, settings = {}) {
     candidates: settings.candidates ?? [],
     sources: settings.sources ?? [source()],
     projections: settings.projections ?? [projection()],
+    executions: settings.executions ?? [],
   };
   const read = async () => JSON.parse(await readFile(receipt, "utf8"));
   h.options = {
@@ -161,20 +194,27 @@ async function harness(t, settings = {}) {
           );
           assert.ok(
             url.startsWith(
-              `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${["candidate", "projection"].includes(kind) ? FEED : CORE}/query`,
+              `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${["candidate", "projection", "execution"].includes(kind) ? FEED : CORE}/query`,
             ),
           );
           if (kind === "runs") assert.deepEqual(params, [REPO, SHA]);
           if (kind === "source") assert.deepEqual(params, [ID, REPO]);
           if (kind === "projection") assert.deepEqual(params, [REPO]);
+          if (kind === "execution") assert.deepEqual(params, ["event-actual"]);
+          await settings.beforeQuery?.(kind, h);
           const rows = {
             candidate: h.candidates,
             runs: h.rows,
-            source: h.sources,
+            source:
+              settings.sourceDeliveredAt !== undefined &&
+              h.clock < settings.sourceDeliveredAt
+                ? [source({ outbox_status: "pending" })]
+                : h.sources,
+            execution: h.executions,
             projection:
               settings.projectionReadyAt !== undefined &&
               h.clock < settings.projectionReadyAt
-                ? []
+                ? (settings.projectionsBeforeReady ?? [])
                 : h.projections,
           }[kind];
           return json({
@@ -192,13 +232,13 @@ async function harness(t, settings = {}) {
             },
           });
         if (url.endsWith(`/versions/${WORKER}`)) {
-          const bindings = webBindings();
+          const bindings = webBindings(settings.releaseSha);
           settings.mutateBindings?.(bindings);
           return json({
             success: true,
             result: {
               id: WORKER,
-              annotations: { "workers/tag": `production-${SHA}` },
+              annotations: { "workers/tag": `production-${settings.releaseSha ?? SHA}` },
               resources: { bindings },
             },
           });
@@ -481,6 +521,97 @@ test("projection proof rejects wrong envelope/receipt/version, raw-vs-composite 
   );
 });
 
+test("a coherent older projection is pending, while equal/newer or corrupted identities still fail", () => {
+  const s = sourceIdentity(source(), SHA, ID, AGENT);
+  assert.equal(projectionIdentity(previousProjection(), s, SHA), null);
+  // A previous blocked/revoked projection can be replaced by a new assessment;
+  // its outcome is never used to approve the new version.
+  assert.equal(
+    projectionIdentity(
+      previousProjection({
+        source_kind: "verified_backfill",
+        published: 0,
+        blocked_reason: "old-risk",
+        revoked_at: 1000,
+        job_status: "dead_letter",
+      }),
+      s,
+      SHA,
+    ),
+    null,
+  );
+  for (const patch of [
+    ...[0, -1, "87", 87.5, 88, 89].map((version) => ({
+      source_version: version,
+      job_source_version: version,
+      event_source_version: version,
+    })),
+    { source_version: 87, event_source_version: 86 },
+    { version_analysis_id: "unrelated" },
+    { event_analysis_id: "unrelated" },
+    { job_event_id: "unrelated" },
+    { event_receipt_id: "unrelated" },
+    { job_repo: "other/repo" },
+    { event_contract_version: 2 },
+    { event_source_hash: null },
+    { version_source_hash: RAW },
+    { source_kind: "unknown" },
+    { job_status: "unknown" },
+    { published: true },
+    { removed: null },
+    { blocked_reason: null },
+    { revoked_at: -1 },
+    { resolved_commit_sha: "main" },
+  ])
+    assert.throws(
+      () => projectionIdentity(previousProjection(patch), s, SHA),
+      /projection_identity_mismatch/,
+    );
+});
+
+test("old projection then exact new projection uses the existing wait cadence without another public request", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    projectionReadyAt: 135000,
+    projectionsBeforeReady: [
+      previousProjection({ published: 0, blocked_reason: "old-risk" }),
+    ],
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.status, "passed");
+  assert.equal(result.projection.analysisId, ID);
+  assert.equal(result.projection.sourceVersion, 88);
+  assert.equal(result.projectionPolls, 2);
+  assert.equal(result.terminalRevalidations, 0);
+  assert.equal(h.clock, 135000);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 0);
+  assert.deepEqual(
+    h.calls
+      .filter((c) => c.body && JSON.parse(c.body).sql === SQL.projection)
+      .map((c) => c.at),
+    [100000, 135000],
+  );
+});
+
+test("permanent old projection exhausts the unchanged five checks and cannot become a passing receipt", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    projections: [previousProjection()],
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /projection_wait_exhausted/,
+  );
+  assert.equal((await h.read()).projectionPolls, 5);
+  assert.equal(h.clock, 240000);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 0);
+  await assert.rejects(readFile(h.result), { code: "ENOENT" });
+});
+
 test("public status rejects terminal failure and does not initiate replacement assessment", async (t) => {
   for (const status of ["failed", "cancelled", "expired"]) {
     const h = await harness(t, { rows: [run()], statuses: [status] });
@@ -585,6 +716,7 @@ test("last public GET cannot extend the persisted 15-minute budget", async (t) =
     return originalTimeout(ms);
   });
   const h = await harness(t, { rows: [run()], statusDurationMs: 30000 });
+  h.clock += LIMITS.publicWaitMs; // Keep the durable epoch positive in this clock fixture.
   const r = await startAssessment(SHA, h.receipt, h.options);
   // Simulate a recovered receipt with only 10s left in its durable wait budget.
   await writeFile(
@@ -774,4 +906,583 @@ test("start preserves previously verified projection so a rerun cannot mint a fr
   assert.equal(next.terminalRevalidations, 1);
   assert.equal(h.polls, 0);
   assert.equal(h.posts, 0);
+});
+
+const reads = (h, kind) =>
+  h.calls.filter((c) => c.body && JSON.parse(c.body).sql === SQL[kind]);
+
+test("cron bootstrap has six durable slots and a separate exhausted failure without projection", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sources: [source({ outbox_status: "pending" })],
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /relay_bootstrap_exhausted/,
+  );
+  const r = await h.read();
+  assert.equal(r.relayBootstrapStartedAt, 100000);
+  assert.equal(r.relayBootstrapPolls, 6);
+  assert.equal(r.projectionStartedAt, undefined);
+  assert.equal(r.projectionPolls, 0);
+  assert.equal(r.polls, 0);
+  assert.equal(r.terminalRevalidations, undefined);
+  assert.equal(h.clock, 1000000);
+  assert.deepEqual(
+    reads(h, "execution").map((c) => c.at),
+    [100000, 280000, 460000, 640000, 820000, 1000000],
+  );
+  assert.equal(reads(h, "source").length, 7); // Initial discovery plus six journaled slots.
+  assert.equal(reads(h, "projection").length, 0);
+  const n = h.calls.length;
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /relay_bootstrap_exhausted/,
+  );
+  assert.equal(h.calls.length, n + 2); // Only pinned Web identity reads; no uncounted source probe.
+  assert.equal((await h.read()).relayBootstrapPolls, 6);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 0);
+  await assert.rejects(readFile(h.result), { code: "ENOENT" });
+});
+
+test("delivered source starts fresh bounded projection after six bootstrap slots and old projection", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sourceDeliveredAt: 1000000,
+    projectionReadyAt: 1140000,
+    projectionsBeforeReady: [previousProjection()],
+    executions: [execution()],
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  const before = h.calls.length;
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.status, "passed");
+  assert.equal(result.relayBootstrapPolls, 6);
+  assert.equal(result.relayBootstrapStartedAt, 100000);
+  assert.equal(result.relayDeliveredObservedAt, 1000000);
+  assert.equal(result.relayBootstrapIsNormalProjectionLatency, false);
+  assert.equal(result.projectionPolls, 5);
+  assert.equal(result.polls, 0);
+  assert.equal(result.terminalRevalidations, 0);
+  assert.equal(result.managementRequests, 25);
+  assert.equal(h.calls.length - before, LIMITS.management);
+  assert.deepEqual(
+    reads(h, "projection").map((c) => c.at),
+    [1000000, 1035000, 1070000, 1105000, 1140000],
+  );
+  assert.equal((await h.read()).projectionStartedAt, 1000000);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 0);
+});
+
+test("bootstrap restart after lost read acknowledgement consumes its slot and preserves cadence", async (t) => {
+  let lost = true;
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sourceDeliveredAt: 280000,
+    beforeQuery: async (kind) => {
+      if (kind === "execution" && lost) {
+        lost = false;
+        throw new Error("fixture_ack_lost");
+      }
+    },
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /fixture_ack_lost/,
+  );
+  const r = await h.read();
+  assert.equal(r.relayBootstrapPolls, 1);
+  assert.equal(r.relayBootstrapStartedAt, 100000);
+  assert.equal(r.projectionPolls, 0);
+  assert.equal(r.projectionStartedAt, undefined);
+  h.clock += 10000;
+  const before = h.calls.length;
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.relayBootstrapPolls, 2);
+  assert.equal(result.relayDeliveredObservedAt, 280000);
+  assert.deepEqual(
+    reads(h, "execution").map((c) => c.at),
+    [100000, 280000],
+  );
+  assert.deepEqual(
+    h.calls
+      .slice(before)
+      .filter((c) => c.body && JSON.parse(c.body).sql === SQL.source)
+      .map((c) => c.at),
+    [280000, 280000],
+  );
+  assert.equal((await h.read()).waitStartedAt, r.waitStartedAt);
+  assert.equal(result.polls, 0);
+  assert.equal(h.posts, 0);
+});
+
+test("bootstrap source failure, DLQ, ambiguous execution and changed envelope fail immediately", async (t) => {
+  for (const failure of ["failed", "dlq", "identity", "ambiguous"]) {
+    let probes = 0;
+    const h = await harness(t, {
+      rows: [run({ status: "completed" })],
+      sources: [source({ outbox_status: "leased" })],
+      executions:
+        failure === "dlq"
+          ? [execution({ status: "dead_letter" })]
+          : failure === "identity"
+            ? [execution({ source_hash: "f".repeat(64) })]
+            : failure === "ambiguous"
+              ? [execution(), execution()]
+              : [],
+      beforeQuery: async (kind, state) => {
+        if (kind === "source" && ++probes === 2 && failure === "failed")
+          state.sources = [source({ outbox_status: "failed" })];
+      },
+    });
+    await startAssessment(SHA, h.receipt, h.options);
+    await assert.rejects(
+      waitAssessment(h.receipt, h.result, h.options),
+      /source_delivery_terminal_failure|projection_terminal_failure|execution_identity_mismatch|ambiguous_execution/,
+    );
+    assert.equal((await h.read()).relayBootstrapPolls, 1);
+    assert.equal((await h.read()).projectionStartedAt, undefined);
+    assert.equal(h.clock, 100000);
+    assert.equal(reads(h, "projection").length, 0);
+  }
+});
+
+test("bootstrap execution lookup verifies the requested new event independent of old projection", () => {
+  const s = sourceIdentity(source(), SHA, ID, AGENT);
+  assert.doesNotThrow(() => executionIdentity(undefined, s));
+  for (const status of ["pending", "leased", "completed"])
+    assert.doesNotThrow(() => executionIdentity(execution({ status }), s));
+  for (const [key, value] of Object.entries({
+    event_id: "other",
+    envelope_event_id: "other",
+    aggregate_key: "other/repo",
+    source_version: 87,
+    event_source_version: 87,
+    analysis_id: "other",
+    receipt_id: "other",
+    source_hash: "f".repeat(64),
+    contract_version: 2,
+    event_kind: "other.event",
+  }))
+    assert.throws(
+      () => executionIdentity(execution({ [key]: value }), s),
+      /execution_identity_mismatch/,
+    );
+  for (const status of ["dead_letter", "failed", "unknown"])
+    assert.throws(
+      () => executionIdentity(execution({ status }), s),
+      /projection_terminal_failure/,
+    );
+});
+
+test("last bootstrap slot permits only its 15s read and fails closed on exhausted restart", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sources: [source({ outbox_status: "pending" })],
+  });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  await writeFile(
+    h.receipt,
+    JSON.stringify({
+      ...r,
+      completionObservedAt: 100000,
+      waitStartedAt: 100000,
+      relayBootstrapStartedAt: 100000,
+      relayBootstrapPolls: 5,
+      relayBootstrapSource: {
+        eventId: "event-actual",
+        receiptId: "submission-actual",
+        sourceVersion: 88,
+        sourceHash: RAW,
+      },
+    }),
+  );
+  h.clock = 1000000 + 15000;
+  const before = h.calls.length;
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /relay_bootstrap_exhausted/,
+  );
+  assert.equal(h.calls.length, before + 2);
+  assert.equal((await h.read()).relayBootstrapPolls, 5);
+  assert.equal(reads(h, "execution").length, 0);
+});
+
+test("combined 1980s deadline remains anchored across restart", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sources: [source({ outbox_status: "pending" })],
+  });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  await writeFile(
+    h.receipt,
+    JSON.stringify({
+      ...r,
+      completionObservedAt: 100000,
+      waitStartedAt: 100000,
+    }),
+  );
+  h.clock = 100000 + LIMITS.waitMs;
+  const before = h.calls.length;
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /assessment_deadline_exceeded/,
+  );
+  assert.equal(h.calls.length, before);
+  assert.equal((await h.read()).waitStartedAt, 100000);
+  assert.equal((await h.read()).relayBootstrapStartedAt, undefined);
+});
+
+test("delivered sources do not acquire a bootstrap budget and old terminal recovery stays finite", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })] });
+  await startAssessment(SHA, h.receipt, h.options);
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.relayBootstrapPolls, 0);
+  assert.equal(result.relayBootstrapStartedAt, null);
+  assert.equal(reads(h, "execution").length, 0);
+  assert.equal(result.managementRequests, 5);
+  const r = await h.read();
+  h.clock += LIMITS.waitMs;
+  await rm(h.result);
+  const again = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(again.verification, "readonly_terminal_revalidation");
+  assert.equal(again.terminalRevalidations, 1);
+  assert.equal(again.managementRequests, 4);
+  assert.equal((await h.read()).waitStartedAt, r.waitStartedAt);
+  assert.equal((await h.read()).projectionStartedAt, r.projectionStartedAt);
+});
+
+test("last bootstrap slot shares one 15s response-body deadline across both reads", async (t) => {
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sourceDeliveredAt: 1000000,
+    beforeQuery: async (kind, state) => {
+      if (kind === "source" && state.clock === 1000000) {
+        await Promise.resolve(); // Both transports start before the delayed body arrives.
+        state.clock += 16000;
+      }
+    },
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /assessment_deadline_exceeded/,
+  );
+  assert.equal((await h.read()).relayBootstrapPolls, 6);
+  assert.equal((await h.read()).relayDeliveredObservedAt, undefined);
+  assert.equal((await h.read()).projectionStartedAt, undefined);
+  assert.equal(reads(h, "execution").length, 6);
+  assert.equal(h.clock, 1016000);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /relay_bootstrap_exhausted/,
+  );
+  assert.equal(reads(h, "execution").length, 6);
+});
+
+test("remaining combined deadline clips each bootstrap fetch rather than minting another 1980s", async (t) => {
+  const durations = [];
+  const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => {
+    durations.push(ms);
+    return originalTimeout(ms);
+  });
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    sources: [source({ outbox_status: "pending" })],
+  });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  await writeFile(
+    h.receipt,
+    JSON.stringify({
+      ...r,
+      completionObservedAt: 100000,
+      waitStartedAt: 100000,
+      relayBootstrapStartedAt: 1170000,
+      relayBootstrapPolls: 5,
+      relayBootstrapSource: {
+        eventId: "event-actual",
+        receiptId: "submission-actual",
+        sourceVersion: 88,
+        sourceHash: RAW,
+      },
+    }),
+  );
+  h.clock = 2070000;
+  const before = h.calls.length;
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /relay_bootstrap_exhausted/,
+  );
+  assert.equal(h.calls.length - before, 4); // Web2 + last reserved source/execution2.
+  assert.deepEqual(durations.slice(-4), [10000, 10000, 10000, 10000]);
+  assert.equal((await h.read()).relayBootstrapPolls, 6);
+  assert.equal((await h.read()).projectionStartedAt, undefined);
+});
+
+test("a failed or DLQ event appearing in a later bootstrap slot stops without consuming remaining slots", async (t) => {
+  for (const failure of ["source", "execution"]) {
+    const h = await harness(t, {
+      rows: [run({ status: "completed" })],
+      sources: [source({ outbox_status: "pending" })],
+      beforeQuery: async (kind, state) => {
+        if (state.clock === 280000 && kind === failure) {
+          if (kind === "source")
+            state.sources = [source({ outbox_status: "failed" })];
+          else state.executions = [execution({ status: "dead_letter" })];
+        }
+      },
+    });
+    await startAssessment(SHA, h.receipt, h.options);
+    await assert.rejects(
+      waitAssessment(h.receipt, h.result, h.options),
+      /source_delivery_terminal_failure|projection_terminal_failure/,
+    );
+    assert.equal((await h.read()).relayBootstrapPolls, 2);
+    assert.equal((await h.read()).projectionPolls, 0);
+    assert.deepEqual(
+      reads(h, "execution").map((c) => c.at),
+      [100000, 280000],
+    );
+  }
+});
+
+test("malformed durable bootstrap state fails before network and cannot reset slots", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })] });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  for (const change of [
+    { relayBootstrapPolls: 7 },
+    { relayBootstrapPolls: 1 },
+    { relayBootstrapPolls: -1 },
+    { relayBootstrapStartedAt: 100000 },
+    { waitStartedAt: 0 },
+    { relayDeliveredObservedAt: 0 },
+  ]) {
+    await writeFile(h.receipt, JSON.stringify({ ...r, ...change }));
+    const before = h.calls.length;
+    await assert.rejects(
+      waitAssessment(h.receipt, h.result, h.options),
+      /invalid_assessment_receipt/,
+    );
+    assert.equal(h.calls.length, before);
+  }
+});
+
+for (const elapsed of [10000, 180001, LIMITS.waitMs + 1]) {
+  test(`legacy delivery-only checkpoint resumes its original projection window after ${elapsed}ms`, async (t) => {
+    const h = await harness(t, { rows: [run({ status: "completed" })] });
+    await startAssessment(SHA, h.receipt, h.options);
+    const r = await h.read();
+    // Simulate interruption between the two saves used by the old release.
+    Object.assign(r, {
+      phase: "waiting",
+      status: "completed",
+      waitStartedAt: h.clock,
+      completionObservedAt: h.clock,
+      relayDeliveredObservedAt: h.clock,
+    });
+    assert.equal(r.projectionStartedAt, undefined);
+    await writeFile(h.receipt, JSON.stringify(r));
+    h.clock += elapsed;
+    const result = await waitAssessment(h.receipt, h.result, h.options);
+    assert.equal(
+      (await h.read()).projectionStartedAt,
+      r.relayDeliveredObservedAt,
+    );
+    assert.equal((await h.read()).waitStartedAt, r.waitStartedAt);
+    assert.equal(
+      result.verification,
+      elapsed < LIMITS.projectionWaitMs
+        ? "normal_projection_window"
+        : "readonly_terminal_revalidation",
+    );
+    assert.equal(
+      result.projectionPolls,
+      elapsed < LIMITS.projectionWaitMs ? 1 : 0,
+    );
+    assert.equal(
+      result.terminalRevalidations,
+      elapsed < LIMITS.projectionWaitMs ? 0 : 1,
+    );
+    assert.equal(reads(h, "projection").length, 1);
+    assert.equal(reads(h, "execution").length, 0);
+    assert.equal(h.polls, 0);
+    assert.equal(h.posts, 0);
+  });
+}
+
+test("delivery and projection anchors are persisted together before a failed first projection read", async (t) => {
+  let interrupted = true;
+  const h = await harness(t, {
+    rows: [run({ status: "completed" })],
+    beforeQuery: async (kind, state) => {
+      if (kind !== "projection" || !interrupted) return;
+      const checkpoint = JSON.parse(await readFile(state.receipt, "utf8"));
+      assert.equal(checkpoint.relayDeliveredObservedAt, 100000);
+      assert.equal(
+        checkpoint.projectionStartedAt,
+        checkpoint.relayDeliveredObservedAt,
+      );
+      interrupted = false;
+      throw new Error("fixture_projection_interrupted");
+    },
+  });
+  await startAssessment(SHA, h.receipt, h.options);
+  await assert.rejects(
+    waitAssessment(h.receipt, h.result, h.options),
+    /fixture_projection_interrupted/,
+  );
+  h.clock += LIMITS.projectionWaitMs + 1;
+  const result = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(result.verification, "readonly_terminal_revalidation");
+  assert.equal(result.projectionPolls, 1); // Interrupted read still consumes its slot.
+  assert.equal(result.terminalRevalidations, 1);
+  assert.equal((await h.read()).projectionStartedAt, 100000);
+  assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
+});
+
+
+const NEXT_RELEASE = "e".repeat(40);
+async function carryoverOptions(h, changes = {}) {
+  const saved = await h.read();
+  saved.postIssued = true;
+  saved.web = { workerVersionId: "old-worker-version", agentId: AGENT };
+  Object.assign(saved, changes);
+  await writeFile(h.receipt, JSON.stringify(saved));
+  const manifestPath = join(h.receipt, "..", "carryover.json");
+  await writeFile(manifestPath, JSON.stringify({
+    format: "ghfind-production-assessment-carryover-v1",
+    runId: 10, attempt: 1, sourceSha: SHA,
+    intentId: saved.intentId, analysisId: ID,
+  }));
+  return {
+    ...h.options,
+    env: {
+      GITHUB_ACTIONS: "true", GITHUB_REPOSITORY: REPO,
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_WORKFLOW_REF: `${REPO}/.github/workflows/deploy-cf-production.yml@refs/heads/main`,
+      GITHUB_RUN_ID: "20", GITHUB_RUN_ATTEMPT: "1",
+      RELEASE_SHA: NEXT_RELEASE, FEED_ASSESSMENT_CARRYOVER: manifestPath,
+    },
+  };
+}
+test("cross-release resume checks the new Web but retains the original assessed source and never POSTs", async (t) => {
+  const h = await harness(t, { rows: [run()], releaseSha: NEXT_RELEASE });
+  await startAssessment(SHA, h.receipt, h.options);
+  const options = await carryoverOptions(h);
+  const original = await h.read();
+  const resumed = await startAssessment(NEXT_RELEASE, h.receipt, options);
+  assert.equal(resumed.sourceSha, SHA);
+  assert.equal(resumed.analysisId, ID);
+  assert.equal(resumed.intentId, original.intentId);
+  const result = await waitAssessment(h.receipt, h.result, options);
+  assert.equal(result.status, "passed");
+  assert.equal(result.releaseSha, NEXT_RELEASE);
+  assert.equal(result.sourceSha, SHA);
+  assert.equal(result.projection.resolvedCommitSha, SHA);
+  assert.equal((await h.read()).sourceSha, SHA);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 1);
+  assert.ok(h.calls.every(c => c.url !== `${ORIGIN}/api/project-analyses`));
+});
+test("cross-release missing or uncertain receipt cannot fall through to a second paid POST", async (t) => {
+  for (const change of ["missing", "uncertain", "other-analysis"]) {
+    const h = await harness(t, { rows: [run()] });
+    await startAssessment(SHA, h.receipt, h.options);
+    const options = await carryoverOptions(h, change === "uncertain"
+      ? { phase: "uncertain", analysisId: null }
+      : change === "other-analysis" ? { analysisId: "other-assessment" } : {});
+    if (change === "missing") await rm(h.receipt);
+    const before = h.calls.length;
+    await assert.rejects(startAssessment(NEXT_RELEASE, h.receipt, options));
+    assert.equal(h.calls.length, before);
+    assert.equal(h.posts, 0);
+  }
+});
+test("cross-release wait requires current Actions release context and matching new Web", async (t) => {
+  for (const change of ["missing-release", "wrong-release", "foreign-context", "old-web"]) {
+    const h = await harness(t, { rows: [run({ status: "completed" })],
+      releaseSha: change === "old-web" ? SHA : NEXT_RELEASE });
+    await startAssessment(SHA, h.receipt, h.options);
+    const options = await carryoverOptions(h);
+    if (change === "missing-release") delete options.env.RELEASE_SHA;
+    if (change === "wrong-release") options.env.RELEASE_SHA = SHA;
+    if (change === "foreign-context") options.env.GITHUB_REF = "refs/heads/topic";
+    await assert.rejects(waitAssessment(h.receipt, h.result, options));
+    assert.equal(reads(h, "projection").length, 0);
+    assert.equal(h.posts, 0);
+    assert.equal(h.polls, 0);
+  }
+});
+test("cross-release continuation retains exhausted quotas rather than opening a new projection window", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })], releaseSha: NEXT_RELEASE });
+  await startAssessment(SHA, h.receipt, h.options);
+  const options = await carryoverOptions(h, {
+    phase: "waiting", status: "completed", polls: LIMITS.publicPolls,
+    waitStartedAt: 1000, completionObservedAt: 1000,
+    projectionStartedAt: 1000, projectionPolls: LIMITS.projectionPolls,
+    terminalRevalidations: LIMITS.terminalRevalidations,
+  });
+  await startAssessment(NEXT_RELEASE, h.receipt, options);
+  const before = h.calls.length;
+  await assert.rejects(waitAssessment(h.receipt, h.result, options), /terminal_revalidation_exhausted/);
+  assert.equal(h.calls.length, before);
+  assert.equal((await h.read()).projectionStartedAt, 1000);
+  assert.equal((await h.read()).projectionPolls, LIMITS.projectionPolls);
+  assert.equal(h.posts, 0);
+});
+
+async function operatorWindowFixture(t) {
+  const h = await harness(t, { rows: [run()] });
+  const original = { ...await startAssessment(SHA, h.receipt, h.options), polls: 1, waitStartedAt: 1000 };
+  await writeFile(h.receipt, JSON.stringify(original));
+  const manifest = { format: "ghfind-production-assessment-operator-v1", requestId: WORKER,
+    analysisId: ID, requestedRef: SHA, expectedThreadId: "original-thread", expectedRunId: "original-run" };
+  const result = { format: "ghfind-production-assessment-operator-result-v1", status: "accepted", releaseSha: SHA,
+    originalReceiptSHA256: createHash("sha256").update(JSON.stringify(await h.read())).digest("hex"),
+    request: { action: "retry_interrupted", requestId: WORKER, analysisId: ID, requestedRef: SHA,
+      expectedThreadId: manifest.expectedThreadId, expectedRunId: manifest.expectedRunId },
+    result: { analysisId: ID, requestedRef: SHA, status: "running", idempotencyKey: `ghfind-project-${ID}-retry-1`,
+      recovery: { action: "retry_interrupted", requestId: WORKER, createdAt: 5000000, executionDeadlineAt: 6800000,
+        priorThreadId: manifest.expectedThreadId, priorRunId: manifest.expectedRunId, nextIdempotencyKey: `ghfind-project-${ID}-retry-1` } } };
+  const manifestPath = h.receipt + ".manifest.json", resultPath = h.receipt + ".operator.json";
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await writeFile(resultPath, JSON.stringify(result));
+  return { h, original, manifestPath, resultPath, result };
+}
+
+test("operator attempt preserves the entire failed journal and grants only its database-anchored window", async t => {
+  const f = await operatorWindowFixture(t);
+  const updated = await applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA);
+  assert.equal(updated.waitStartedAt, 5000000); assert.equal(updated.polls, 0);
+  assert.deepEqual(updated.operatorRecovery.previousAttempt, f.original);
+  assert.equal(updated.operatorRecovery.priorReceiptSHA256, f.result.originalReceiptSHA256);
+  assert.equal(updated.intentId, f.original.intentId); assert.equal(updated.analysisId, f.original.analysisId);
+  // Simulate subsequent polling and a fresh same-operation receipt on rerun.
+  updated.polls = 15;
+  await writeFile(f.h.receipt, JSON.stringify(updated));
+  f.result.originalReceiptSHA256 = createHash("sha256").update(JSON.stringify(await f.h.read())).digest("hex");
+  await writeFile(f.resultPath, JSON.stringify(f.result));
+  const resumed = await applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA);
+  assert.deepEqual(resumed, updated);
+  f.result.result.recovery.createdAt += 1; f.result.result.recovery.executionDeadlineAt += 1;
+  await writeFile(f.resultPath, JSON.stringify(f.result));
+  await assert.rejects(applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA), /operator_window_already_consumed/);
+});
+
+test("operator budget rejects unverified identity, changed original receipt, deadline drift and terminal result", async t => {
+  for (const change of [r => r.status = "uncertain", r => r.releaseSha = "b".repeat(40),
+    r => r.originalReceiptSHA256 = "0".repeat(64), r => r.result.analysisId = WORKER,
+    r => r.result.status = "expired", r => r.result.recovery.executionDeadlineAt++,
+    r => r.result.recovery.priorRunId = "wrong-run", r => r.request.action = "finalize_completed"]) {
+    const f = await operatorWindowFixture(t); change(f.result);
+    await writeFile(f.resultPath, JSON.stringify(f.result));
+    await assert.rejects(applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA), /operator_window_evidence_invalid/);
+    assert.deepEqual(await f.h.read(), f.original);
+  }
 });

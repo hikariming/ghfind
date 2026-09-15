@@ -1,6 +1,7 @@
+import { ModeTransition, type TransitionRequest } from "./transition";
 import { containerEnvironment } from "./environment";
 import { Container, getContainer } from "@cloudflare/containers";
-import { handleRequest, type Dispatch, type Target } from "./router";
+import { captureNativeProbe, handleRequest, type Dispatch, type NativeProbe, type Target } from "./router";
 import { runScheduled } from "./scheduled";
 import { handleAdminRequest } from "./admin";
 import { handleGovernanceRequest } from "./governance";
@@ -27,6 +28,21 @@ export class FeedAPI extends Container<RuntimeEnv> {
     super(ctx, env);
     this.envVars = containerEnvironment(env, "api");
   }
+  // Accessible only through this namespace binding, not a public HTTP route.
+  private readonly modeTransition = new ModeTransition();
+  runtimeRestart(target: Target, input: TransitionRequest) {
+    return this.modeTransition.run(target, this.env, input, {
+      state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
+      fetch: (request) => super.fetch(request),
+      stop: () => super.stop("SIGTERM"),
+      start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
+    });
+  }
+  runtimeProbe(): Promise<NativeProbe> {
+    return captureNativeProbe((request) => super.fetch(request), () => ({
+      actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true,
+    }), (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }));
+  }
 }
 
 export class FeedExecutor extends Container<RuntimeEnv> {
@@ -40,6 +56,20 @@ export class FeedExecutor extends Container<RuntimeEnv> {
   ) {
     super(ctx, env);
     this.envVars = containerEnvironment(env, "executor");
+  }
+  private readonly modeTransition = new ModeTransition();
+  runtimeRestart(target: Target, input: TransitionRequest) {
+    return this.modeTransition.run(target, this.env, input, {
+      state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
+      fetch: (request) => super.fetch(request),
+      stop: () => super.stop("SIGTERM"),
+      start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
+    });
+  }
+  runtimeProbe(): Promise<NativeProbe> {
+    return captureNativeProbe((request) => super.fetch(request), () => ({
+      actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true,
+    }), (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }));
   }
 }
 
@@ -61,6 +91,10 @@ function dispatcher(env: RuntimeEnv): Dispatch {
   return {
     fetch: (target, request) => instance(target).fetch(request),
     stop: (target) => instance(target).stop("SIGTERM"),
+    restart: (target, input) => instance(target).runtimeRestart(target, input),
+    probe: (target) => instance(target).runtimeProbe(),
+    actorId: (target) => (target === "executor-0" ? env.FEED_EXECUTOR : env.FEED_API)
+      .idFromName(target).toString(),
   };
 }
 

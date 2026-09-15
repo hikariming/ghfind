@@ -56,6 +56,7 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
       NEXT_TELEMETRY_DISABLED: "1"
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json
       EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       CLOUDFLARE_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -68,6 +69,7 @@ jobs:
       FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
       FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
       MOSOO_API_TOKEN: ${{ secrets.MOSOO_API_TOKEN }}
+      PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}
       MOSOO_API_BASE: ${{ vars.MOSOO_API_BASE }}
       MOSOO_PROJECT_AGENT_ID: ${{ vars.MOSOO_PROJECT_AGENT_ID }}
       MOSOO_PROJECT_USER_ID: ${{ vars.MOSOO_PROJECT_USER_ID }}
@@ -108,9 +110,15 @@ jobs:
         id: image
         run: |
           set -euo pipefail
-          docker build --platform linux/amd64 --build-arg VERSION="$RELEASE_SHA" -f Dockerfile.feed -t "ghfind-feed:$RELEASE_SHA" .
+          export FEED_IMAGE_BUILD_ID="$(openssl rand -hex 32)"
+          echo "FEED_IMAGE_BUILD_ID=$FEED_IMAGE_BUILD_ID" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 --build-arg VERSION="$RELEASE_SHA" --build-arg IMAGE_BUILD_ID="$FEED_IMAGE_BUILD_ID" -f Dockerfile.feed -t "ghfind-feed:$RELEASE_SHA" .
+          # Inspect the compiled entrypoints themselves, without starting services.
+          docker run --rm --network none --entrypoint /usr/local/bin/feed-api "ghfind-feed:$RELEASE_SHA" --build-info > "$RUNNER_TEMP/feed-production-evidence/image-api.json"
+          docker run --rm --network none --entrypoint /usr/local/bin/feed-worker "ghfind-feed:$RELEASE_SHA" --build-info > "$RUNNER_TEMP/feed-production-evidence/image-worker.json"
           platform/runtime/node_modules/.bin/wrangler containers push "ghfind-feed:$RELEASE_SHA" --config platform/runtime/wrangler.jsonc
           image_ref="$(docker image inspect "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed:$RELEASE_SHA" --format '{{json .RepoDigests}}' | jq -er --arg prefix "registry.cloudflare.com/$CLOUDFLARE_ACCOUNT_ID/ghfind-feed@sha256:" '[.[] | select(startswith($prefix))] | if length == 1 then .[0] else error("unambiguous pushed digest required") end')"
+          node scripts/feed-image-proof.mjs "$image_ref" "$RUNNER_TEMP/feed-production-evidence"
           echo "reference=$image_ref" >> "$GITHUB_OUTPUT"
       - name: Ensure the pinned resources and record their actual identities
         id: resources
@@ -156,29 +164,35 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$RUNNER_TEMP/approved-feed-production-schema/wrangler.json" --command "UPDATE feed_adapter_write_fence SET enabled=1 WHERE id=1;" --json > "$RUNNER_TEMP/feed-production-evidence/writer-fence-activation.json"
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$RUNNER_TEMP/approved-feed-production-schema/wrangler.json" --command "SELECT enabled FROM feed_adapter_write_fence WHERE id=1; SELECT COUNT(*) AS leaked_contexts FROM feed_adapter_write_context; SELECT COUNT(*) AS legacy_triggers FROM sqlite_master WHERE type='trigger' AND (name LIKE 'feed_%_adapter_insert' OR name LIKE 'feed_%_adapter_update' OR name LIKE 'feed_%_adapter_delete');" --json > "$RUNNER_TEMP/feed-production-evidence/writer-fence.json"
           jq -e '.[0].results[0].enabled == 1 and .[1].results[0].leaked_contexts == 0 and .[2].results[0].legacy_triggers == 39' "$RUNNER_TEMP/feed-production-evidence/writer-fence.json" >/dev/null
-      - name: Start or resume the single real production assessment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
-          node scripts/feed-production-assessment.mjs start "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Activate executor and verify actual baseline instances before gateway traffic
         run: |
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-off.json"
           node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
-          # Same image can still carry old env until the Container is idle.
-          # Do not probe and keep old off-mode instances alive during this wait.
-          sleep 130
+          # Explicitly stop and restart each fixed actor with baseline env.
+          # The SDK does not replace envVars in an already running process.
+          timeout --signal=TERM --kill-after=5s 240s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-baseline.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
+      - name: Start or resume the single real production assessment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
+          node scripts/feed-production-assessment-operator.mjs "$RELEASE_SHA" ops/feed-production-assessment-operator.json ops/feed-production-assessment-carryover.json "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-operator.json"
+          node scripts/feed-production-assessment.mjs operator-window "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-operator.json" "$GITHUB_WORKSPACE/ops/feed-production-assessment-operator.json" "$RELEASE_SHA"
+          node scripts/feed-production-assessment.mjs start "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Require real assessment finalization and durable queue projection
         run: |
           node scripts/feed-production-assessment.mjs wait "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json" "$RUNNER_TEMP/feed-production-evidence/assessment-result.json"
       - name: Verify bounded authenticated Go service contracts before opening the gateway
         run: |
           node scripts/feed-production-smoke.mjs --mode all --runtime-mode baseline --release-sha "$RELEASE_SHA" --image "${{ steps.image.outputs.reference }}" --writer-epoch 1 --profile cf_d1_r2 --output "$RUNNER_TEMP/feed-production-evidence/service-smoke.json" --execute
+      - name: Record gateway admission intent before starting the cutover
+        id: admission
+        run: |
+          echo "started=true" >> "$GITHUB_OUTPUT"
       - name: Cut all Feed requests to the verified Go runtime
         id: cutover
         run: |
@@ -197,11 +211,15 @@ jobs:
           SMOKE_FACET_VALUE: TypeScript
         run: pnpm smoke:deployment
       - name: Contain failed cutover using the verified Go-only paused anchor
-        if: ${{ failure() && steps.paused.outputs.version != '' && (steps.cutover.outcome == 'failure' || steps.smoke.outcome == 'failure') }}
+        if: ${{ always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success' }}
+        timeout-minutes: 3
+        env:
+          PAUSED_ANCHOR: ${{ steps.paused.outputs.version }}
         run: |
           set -euo pipefail
-          platform/runtime/node_modules/.bin/wrangler rollback "${{ steps.paused.outputs.version }}" --name ghfind --message "Contain failed Go cutover; preserve writer2 data" --yes
-          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/containment.json"
+          node -e 'require("node:fs").writeFileSync(process.env.RUNNER_TEMP+"/feed-production-evidence/containment-attempt.json",JSON.stringify({status:"attempted_unverified",sourceSha:process.env.RELEASE_SHA,pausedAnchor:process.env.PAUSED_ANCHOR,observedAt:new Date().toISOString()}),{mode:0o600,flag:"wx"})'
+          timeout --signal=TERM --kill-after=5s 120s platform/runtime/node_modules/.bin/wrangler rollback "$PAUSED_ANCHOR" --name ghfind --message "Contain failed Go cutover; preserve writer2 data" --yes
+          timeout --signal=TERM --kill-after=5s 30s node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/containment.json"
       - name: Preserve nonsecret actual evidence, including failures
         if: always()
         uses: actions/upload-artifact@v4

@@ -3,7 +3,7 @@
 // uncertain previous POST is a stop condition, never permission to POST again.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,32 @@ export function validateContext(sourceSha, env = process.env) {
     env.GITHUB_WORKFLOW_REF === `${repository}/${workflowPath}@refs/heads/main` &&
     id(env.GITHUB_RUN_ID) && id(env.GITHUB_RUN_ATTEMPT), 'assessment recovery requires the pinned main production Actions context');
   return { sourceSha, currentRunId: Number(env.GITHUB_RUN_ID), currentAttempt: Number(env.GITHUB_RUN_ATTEMPT) };
+}
+export function loadCarryover(env = process.env) {
+  if (env.FEED_ASSESSMENT_CARRYOVER === undefined) return null;
+  requireThat(typeof env.FEED_ASSESSMENT_CARRYOVER === 'string' && env.FEED_ASSESSMENT_CARRYOVER.length > 0,
+    'assessment carryover manifest path is required');
+  const bytes = readFileSync(env.FEED_ASSESSMENT_CARRYOVER);
+  requireThat(bytes.length <= limits.receiptBytes, 'assessment carryover manifest exceeds bound');
+  let manifest; try { manifest = JSON.parse(bytes); } catch { throw new Error('invalid assessment carryover manifest JSON'); }
+  return validateCarryover(manifest);
+}
+export function validateCarryover(manifest) {
+  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
+  requireThat(manifest?.format === 'ghfind-production-assessment-carryover-v1' &&
+    id(manifest.runId) && Number.isInteger(manifest.attempt) && manifest.attempt > 0 && manifest.attempt <= limits.attempts &&
+    validSha(manifest.sourceSha) && uuid(manifest.intentId) && uuid(manifest.analysisId),
+    'invalid pinned assessment carryover identity');
+  return manifest;
+}
+export function validateCarryoverReceipt(receipt, manifest) {
+  validateCarryover(manifest);
+  requireThat(receipt?.sourceSha === manifest.sourceSha && receipt.intentId === manifest.intentId &&
+    receipt.analysisId === manifest.analysisId && receipt.postIssued === true &&
+    ['selected', 'waiting', 'completed'].includes(receipt.phase) && receipt.repository === repository &&
+    receipt.origin === 'https://ghfind.beiming1201.workers.dev',
+    'carryover requires the same selected paid assessment; uncertain or conflicting receipt refused');
+  return receipt;
 }
 export function validateRun(run, sourceSha) {
   requireThat(id(run?.id) && run.repository?.full_name === repository && run.head_repository?.full_name === repository &&
@@ -103,6 +129,9 @@ export function validateReceipt(bytes, sourceSha) {
 }
 export async function recover(sourceSha, destination, { env = process.env, request, extract = extractReceipt } = {}) {
   const context = validateContext(sourceSha, env), read = request ?? githubReader(env.GH_TOKEN);
+  const carryover = loadCarryover(env);
+  if (carryover) requireThat(carryover.sourceSha !== sourceSha && carryover.runId !== context.currentRunId,
+    'carryover must identify a distinct predecessor production release');
   const target = resolve(destination ?? '');
   requireThat(destination && target === destination && !existsSync(target) && existsSync(dirname(target)),
     'assessment recovery destination must be a new absolute file in an existing directory');
@@ -111,19 +140,44 @@ export async function recover(sourceSha, destination, { env = process.env, reque
   const listing = await get(`${base}/actions/workflows/deploy-cf-production.yml/runs?head_sha=${sourceSha}&per_page=100`);
   requireThat(Number.isInteger(listing?.total_count) && listing.total_count === listing.workflow_runs?.length && listing.total_count <= limits.runs,
     'complete bounded same-SHA production run history required');
-  const runs = listing.workflow_runs.map(run => validateRun(run, sourceSha));
+  let runs = listing.workflow_runs.map(run => validateRun(run, sourceSha));
   const current = runs.filter(run => run.id === context.currentRunId);
   requireThat(current.length === 1 && current[0].run_attempt === context.currentAttempt, 'current production run/attempt missing from history');
-  let restored, inspected = 0, possibleStarts = 0;
+  if (carryover) {
+    const predecessor = validateRun(await get(`${base}/actions/runs/${carryover.runId}`), carryover.sourceSha);
+    requireThat(predecessor.status === 'completed' && predecessor.run_attempt >= carryover.attempt,
+      'pinned predecessor assessment run is unresolved or attempt missing');
+    const beginning = Date.parse(predecessor.created_at), ending = Date.parse(current[0].created_at);
+    requireThat(Number.isFinite(beginning) && Number.isFinite(ending) && beginning <= ending,
+      'bounded carryover history timestamps are missing or reversed');
+    const interval = `${predecessor.created_at}..${current[0].created_at}`;
+    const history = await get(`${base}/actions/workflows/deploy-cf-production.yml/runs?branch=main&event=workflow_run&created=${encodeURIComponent(interval)}&per_page=100`);
+    requireThat(Number.isInteger(history?.total_count) && history.total_count === history.workflow_runs?.length &&
+      history.total_count <= limits.runs, 'complete bounded carryover release history required');
+    const intervalRuns = history.workflow_runs.map(run => {
+      requireThat(validSha(run.head_sha) && Date.parse(run.created_at) >= beginning && Date.parse(run.created_at) <= ending,
+        'carryover history contains an out-of-range run');
+      return validateRun(run, run.head_sha);
+    });
+    const byId = new Map(intervalRuns.map(run => [run.id, run]));
+    requireThat(byId.size === intervalRuns.length && runs.every(run => byId.get(run.id)?.head_sha === run.head_sha &&
+      byId.get(run.id)?.run_attempt === run.run_attempt) && byId.get(predecessor.id)?.head_sha === predecessor.head_sha &&
+      byId.get(predecessor.id)?.run_attempt === predecessor.run_attempt,
+      'carryover interval omits or conflicts with current or pinned predecessor history');
+    // Every intervening release can have consumed durable quotas. Inspect it,
+    // but only the explicitly pinned intent/analysis may ever be restored.
+    runs = intervalRuns;
+  }
+  let restored, inspected = 0, possibleStarts = 0, predecessorReceiptObserved = false;
   for (const run of runs) {
     const finalAttempt = run.id === context.currentRunId ? context.currentAttempt - 1 : run.run_attempt;
     let artifacts;
     for (let attempt = 1; attempt <= finalAttempt; attempt++) {
-      const historical = validateRun(await get(`${base}/actions/runs/${run.id}/attempts/${attempt}`), sourceSha);
+      const historical = validateRun(await get(`${base}/actions/runs/${run.id}/attempts/${attempt}`), run.head_sha);
       requireThat(historical.id === run.id && historical.run_attempt === attempt && historical.status === 'completed',
         'historical assessment attempt is unresolved or still running');
       const jobs = await get(`${base}/actions/runs/${run.id}/attempts/${attempt}/jobs?per_page=100`);
-      for (const job of jobs.jobs ?? []) requireThat(job.run_id === run.id && job.head_sha === sourceSha, 'historical job source/run differs');
+      for (const job of jobs.jobs ?? []) requireThat(job.run_id === run.id && job.head_sha === run.head_sha, 'historical job source/run differs');
       inspected++;
       if (!mayHaveStarted(jobs)) continue;
       possibleStarts++;
@@ -132,12 +186,16 @@ export async function recover(sourceSha, destination, { env = process.env, reque
         'complete historical artifact inventory required');
       const matches = artifacts.artifacts.filter(artifact => artifact.name === `feed-production-${run.id}-${attempt}`);
       requireThat(matches.length === 1 && matches[0].expired === false && id(matches[0].id) &&
-        matches[0].workflow_run?.id === run.id && matches[0].workflow_run?.head_sha === sourceSha,
+        matches[0].workflow_run?.id === run.id && matches[0].workflow_run?.head_sha === run.head_sha,
       'possible previous assessment POST has missing, expired or mismatched evidence artifact');
       const artifact = matches[0], archive = await get(`${base}/actions/artifacts/${artifact.id}/zip`, true);
       requireThat(/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? '') &&
         artifact.digest === `sha256:${createHash('sha256').update(archive).digest('hex')}`, 'historical artifact digest mismatch');
-      const bytes = extract(archive), receipt = validateReceipt(bytes, sourceSha);
+      const bytes = extract(archive), receipt = validateReceipt(bytes, carryover?.sourceSha ?? sourceSha);
+      if (carryover) {
+        validateCarryoverReceipt(receipt, carryover);
+        if (run.id === carryover.runId && attempt === carryover.attempt) predecessorReceiptObserved = true;
+      }
       const createdAt = Date.parse(artifact.created_at);
       requireThat(Number.isFinite(createdAt), 'historical artifact creation time is missing');
       if (restored) {
@@ -150,8 +208,10 @@ export async function recover(sourceSha, destination, { env = process.env, reque
         restored = { bytes, intentId: receipt.intentId, createdAt, runId: run.id, attempt };
     }
   }
+  if (carryover) requireThat(predecessorReceiptObserved && restored,
+    'pinned predecessor has no verified selected assessment receipt; fresh POST prohibited');
   if (restored) writeFileSync(target, restored.bytes, { mode: 0o600, flag: 'wx' });
-  return { status: restored ? 'recovered' : 'no_prior_start', sourceSha, inspectedAttempts: inspected,
+  return { status: restored ? 'recovered' : 'no_prior_start', sourceSha, ...(carryover ? { releaseSha: sourceSha, assessmentSourceSha: carryover.sourceSha } : {}), inspectedAttempts: inspected,
     possibleStarts, ...(restored ? { recoveredRunId: restored.runId, recoveredAttempt: restored.attempt } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))

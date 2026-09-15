@@ -101,18 +101,20 @@ const analysis = {
   },
   analyzed_at: "2026-07-15T00:00:00.000Z",
 };
-export function artifacts(analysisId, repoKey) {
+export function artifacts(analysisId, repoKey, requestedRef = null) {
   const result = structuredClone(analysis);
   result.analysis_id = analysisId;
   result.repository.repo_key = repoKey;
+  result.repository.requested_ref = requestedRef;
   result.repository.canonical_url = `https://github.com/${repoKey}`;
   result.analyzed_at = new Date().toISOString();
   const proof = { ...structuredClone(evidence), analysis_id: analysisId, repo_key: repoKey };
   return { analysis: JSON.stringify(result), evidence: JSON.stringify(proof), report: "# Local provider fixture assessment\n\nExternal evaluator fixture; application finalization is real." };
 }
-export function installProviders() {
+export function installProviders({ interruptedRepository = null } = {}) {
   const original = globalThis.fetch;
   const runs = new Map();
+  const idempotency = new Map();
   const counts = { oauthTokenExchange: 0, oauthProfile: 0, assessmentCreate: 0, artifactDownloads: 0, unexpectedExternal: 0 };
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -150,16 +152,21 @@ export function installProviders() {
             !repo || !analysisId || !request.headers.get("Idempotency-Key")) {
           return Response.json({ error: { code: "invalid_request", message: "Invalid fixture assessment request." } }, { status: 400 });
         }
-        runs.set(analysisId, { repo, userId: body.userId, files: artifacts(analysisId, repo) });
+        const key = request.headers.get("Idempotency-Key");
+        if (idempotency.has(key)) return Response.json(thread(idempotency.get(key)));
+        const attempt = [...runs.values()].filter(run => run.analysisId === analysisId).length;
+        const threadId = attempt ? `${analysisId}-retry-${attempt}` : analysisId;
+        runs.set(threadId, { analysisId, repo, userId: body.userId, files: artifacts(analysisId, repo, /^requested_ref: ([^\n]+)$/m.exec(prompt)?.[1] ?? null), status: repo === interruptedRepository && attempt === 0 ? "running" : "completed" });
+        idempotency.set(key, threadId);
         counts.assessmentCreate++;
-        return Response.json(thread(analysisId));
+        return Response.json(thread(threadId));
       }
       const match = /^\/threads\/([^/]+)(?:\/(events|files))?$/.exec(path);
       if (match && runs.has(match[1])) {
         if (!match[2]) return Response.json(thread(match[1]));
         if (match[2] === "events") return Response.json({ events: [], truncated: false });
         const run = runs.get(match[1]);
-        return Response.json({ files: Object.entries(run.files).map(([kind, content]) => ({ id: `${match[1]}:${kind}`, name: `${({ analysis: "project-analysis", evidence: "runtime-evidence", report: "project-report" })[kind]}-${match[1]}.${kind === "report" ? "md" : "json"}`, kind: "artifact", committed: true, size: Buffer.byteLength(content), mimeType: kind === "report" ? "text/markdown" : "application/json" })) });
+        return Response.json({ files: Object.entries(run.files).map(([kind, content]) => ({ id: `${match[1]}:${kind}`, name: `${({ analysis: "project-analysis", evidence: "runtime-evidence", report: "project-report" })[kind]}-${run.analysisId}.${kind === "report" ? "md" : "json"}`, kind: "artifact", committed: true, size: Buffer.byteLength(content), mimeType: kind === "report" ? "text/markdown" : "application/json" })) });
       }
       const file = /^\/files\/([^:]+):(analysis|evidence|report)\/content$/.exec(path);
       if (file && runs.has(file[1])) { counts.artifactDownloads++; return new Response(runs.get(file[1]).files[file[2]]); }
@@ -170,7 +177,12 @@ export function installProviders() {
   };
   function thread(id) {
     const now = new Date().toISOString();
-    return { thread: { id, agent_id: "local-e2e-agent", kind: "cattle", status: "IDLE", userId: runs.get(id).userId }, run: { id: `run-${id}`, status: "completed", createdAt: now, startedAt: now, completedAt: now, updatedAt: now, trigger: "user_prompt" } };
+    const run = runs.get(id);
+    return { thread: { id, agent_id: "local-e2e-agent", kind: "cattle", status: "IDLE", userId: runs.get(id).userId }, run: { id: `run-${id}`, status: run.status, createdAt: now, startedAt: now, completedAt: run.status === "running" ? null : now, updatedAt: now, trigger: "user_prompt", ...(run.status === "failed" ? { error: { code: "runtime.turn_interrupted", message: "Local external-provider fault fixture: interrupted turn.", retryable: true } } : {}) } };
   }
-  return counts;
+  return { counts, interrupt(analysisId) {
+    const run = runs.get(analysisId);
+    if (!run || run.repo !== interruptedRepository || run.status !== "running") throw new Error("invalid_interrupted_fixture_target");
+    run.status = "failed";
+  }, restore() { globalThis.fetch = original; } };
 }

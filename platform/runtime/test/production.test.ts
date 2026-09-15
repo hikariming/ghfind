@@ -1,3 +1,4 @@
+import { nativeDispatch } from './helpers/native-proof';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
@@ -5,7 +6,7 @@ import { handleRequest, type RuntimeSettings, type Dispatch } from '../src/route
 import { handleAdminRequest } from '../src/admin';
 import { handleGovernanceRequest } from '../src/governance';
 const env: RuntimeSettings = {
-  FEED_ENVIRONMENT: 'production', FEED_RELEASE_SHA: 'a'.repeat(40),
+  FEED_ENVIRONMENT: 'production', FEED_IMAGE_BUILD_ID: 'd'.repeat(64), FEED_RELEASE_SHA: 'a'.repeat(40),
   FEED_IMAGE_REFERENCE: `registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:${'b'.repeat(64)}`,
   FEED_MODE: 'off', FEED_WRITER_EPOCH: '1', FEED_EXECUTOR_ENABLED: 'true', FEED_SOURCE_RELAY_ENABLED: 'false',
   FEED_QUEUE_NAME: 'ghfind-feed-production-jobs', FEED_DLQ_NAME: 'ghfind-feed-production-dlq',
@@ -14,9 +15,9 @@ const env: RuntimeSettings = {
   WORKER_VERSION: { id: '12345678-1234-4234-8234-123456789012', tag: 'test', timestamp: '2026-09-09T00:00:00Z' },
 };
 function dispatch(mode = 'off', patch: Record<string, unknown> = {}): Dispatch {
-  return { fetch: async target => Response.json({ ready: true, version: env.FEED_RELEASE_SHA, contractVersion: '1', storageWriterVersion: 2,
+  return nativeDispatch(async target => Response.json({ ready: true, imageBuildId: env.FEED_IMAGE_BUILD_ID, version: env.FEED_RELEASE_SHA, contractVersion: '1', storageWriterVersion: 2,
     service: target === 'executor-0' ? 'feed-worker' : 'feed-api', storeProfile: 'cf_d1_r2', writerEpoch: 1, mode,
-    credentials: 'never-upload', ...patch }), stop: async () => assert.fail('production must never stop an instance') };
+    credentials: 'never-upload', ...patch }));
 }
 function admin(path: string, method = 'GET') {
   return new Request(`https://runtime${path}`, { method, headers: { authorization: `Bearer ${env.FEED_RUNTIME_ADMIN_SECRET}` } });

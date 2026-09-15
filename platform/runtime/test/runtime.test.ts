@@ -239,6 +239,7 @@ test("stops are staging-only and arbitrary instance identifiers cannot expand ca
         {
           ...env,
           FEED_ENVIRONMENT: "production",
+          FEED_IMAGE_BUILD_ID: "d".repeat(64),
           FEED_QUEUE_NAME: "ghfind-feed-production-jobs",
           FEED_DLQ_NAME: "ghfind-feed-production-dlq",
         },

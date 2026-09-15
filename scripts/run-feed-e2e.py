@@ -21,7 +21,7 @@ import uuid
 PG_IMAGE = 'pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf'
 MINIO_IMAGE = 'quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e'
 FORMAT = 'ghfind-complete-local-e2e-v1'
-MILESTONES = ['oauthCallback', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']
+MILESTONES = ['oauthCallback', 'assessmentOperatorRecovery', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']
 OWNER_LABEL = 'io.ghfind.fixture.owner'
 SHA_LABEL = 'io.ghfind.fixture.source'
 DB_NAME = 'feed_complete_e2e_test'
@@ -76,7 +76,7 @@ class Harness:
         self.env = isolated_environment()
         self.containers, self.processes = [], []
         self.report = {'format': FORMAT, 'sourceSha': sha, 'sourceTree': '', 'status': 'failed', 'startedAt': utc(), 'realOAuth': False, 'externalProviders': 'local-fixture-transports', 'profiles': {}, 'cleanupSuccessful': False, 'commands': [], 'cleanup': []}
-        self.keys = {key: uuid.uuid4().hex + uuid.uuid4().hex for key in ['FEED_GATEWAY_SECRET', 'FEED_SIGNING_SECRET', 'FEED_BRIDGE_SECRET', 'FEED_RUNTIME_ADMIN_SECRET', 'FEED_EXECUTOR_SECRET', 'FEED_SOURCE_SECRET', 'FEED_DELIVERY_SECRET', 'FEED_OPERATOR_SECRET', 'AUTH_SECRET', 'AUTH_GITHUB_SECRET']}
+        self.keys = {key: uuid.uuid4().hex + uuid.uuid4().hex for key in ['FEED_GATEWAY_SECRET', 'FEED_SIGNING_SECRET', 'FEED_BRIDGE_SECRET', 'FEED_RUNTIME_ADMIN_SECRET', 'FEED_EXECUTOR_SECRET', 'FEED_SOURCE_SECRET', 'FEED_DELIVERY_SECRET', 'FEED_OPERATOR_SECRET', 'AUTH_SECRET', 'AUTH_GITHUB_SECRET', 'PROJECT_ANALYSIS_RECONCILE_SECRET']}
         self.pg_password = uuid.uuid4().hex
         self.s3_password = uuid.uuid4().hex
 

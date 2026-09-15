@@ -4,11 +4,16 @@
 // journal must survive Actions reruns: the public API has no permanent client
 // idempotency-key input, so losing that journal is NOT permission to POST again.
 import { readFile, open, rename, lstat } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pause } from "node:timers/promises";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
+import {
+  loadCarryover,
+  validateCarryoverReceipt,
+  validateContext,
+} from "./feed-production-assessment-recovery.mjs";
 export const ACCOUNT = "8f19bebe359e4ec1a24c68c5f49c1584";
 export const ORIGIN = "https://ghfind.beiming1201.workers.dev";
 export const REPO = "hikariming/ghfind";
@@ -18,12 +23,19 @@ export const LIMITS = Object.freeze({
   publicPolls: 60,
   pollIntervalMs: 15000,
   publicWaitMs: 900000,
+  relayBootstrapPolls: 6,
+  relayBootstrapIntervalMs: 180000,
+  relayBootstrapWaitMs: 900000,
+  relayBootstrapReadMs: 15000,
+  waitMs: 1980000,
   projectionPolls: 5,
   projectionIntervalMs: 35000,
   projectionWaitMs: 180000,
   terminalRevalidations: 2,
   terminalWaitMs: 60000,
-  management: 22,
+  // Per invocation: Web 2 + initial source 1 + bootstrap 6×2 + projection 5×2.
+  // Terminal revalidation remains Web 2 + source/projection 2, at most twice.
+  management: 25,
 });
 const check = (v, code) => {
   if (!v) throw new Error(code);
@@ -52,6 +64,7 @@ export const SQL = Object.freeze({
   candidate: `SELECT p.repo_key,p.analysis_id,p.source_hash FROM feed_projects p WHERE p.published=1 AND (? IS NULL OR p.repo_key=?) AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL AND v.blocked_reason='')) AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1) ORDER BY p.repo_key LIMIT 1`,
   runs: `SELECT id,repo_key,requested_ref,status,idempotency_key,schema_version,rubric_version,agent_version,skill_version,created_at,create_attempts FROM project_analysis_runs WHERE repo_key=? AND requested_ref=? ORDER BY created_at LIMIT 2`,
   source: `SELECT pr.id,pr.repo_key,pr.requested_ref,pr.resolved_commit_sha,pr.status,pr.schema_version,pr.rubric_version,pr.agent_version,pr.skill_version,pr.idempotency_key,pr.create_attempts,pr.created_at,pr.completed_at,pr.mosoo_agent_id,pr.mosoo_thread_id,pr.mosoo_run_id,pr.analysis_sha256,pr.report_sha256,pr.evidence_sha256,pa.latest_analysis_id,pa.resolved_commit_sha AS current_commit_sha,sr.id AS receipt_id,sr.requested_repo_key,sr.source_kind,o.sequence,o.event_id,o.aggregate_key,o.source_hash,o.contract_version,o.status AS outbox_status FROM project_analysis_runs pr JOIN project_assessments pa ON pa.latest_analysis_id=pr.id JOIN feed_submission_receipts sr ON sr.analysis_id=pr.id JOIN feed_source_outbox o ON o.analysis_id=pr.id AND o.receipt_id=sr.id WHERE pr.id=? AND pr.repo_key=? LIMIT 2`,
+  execution: `SELECT event_id,aggregate_key,source_version,status,json_extract(envelope_json,'$.analysisId') AS analysis_id,json_extract(envelope_json,'$.receiptId') AS receipt_id,json_extract(envelope_json,'$.sourceHash') AS source_hash,json_extract(envelope_json,'$.sourceVersion') AS event_source_version,json_extract(envelope_json,'$.eventId') AS envelope_event_id,json_extract(envelope_json,'$.contractVersion') AS contract_version,json_extract(envelope_json,'$.kind') AS event_kind FROM feed_execution_jobs WHERE event_id=? LIMIT 2`,
   projection: `SELECT p.analysis_id,p.source_hash,p.published,v.analysis_id AS version_analysis_id,v.event_id,v.source_version,v.receipt_id,v.source_hash AS version_source_hash,v.resolved_commit_sha,v.source_kind,v.revoked_at,v.blocked_reason,j.status AS job_status,j.aggregate_key AS job_repo,j.source_version AS job_source_version,json_extract(j.envelope_json,'$.analysisId') AS event_analysis_id,json_extract(j.envelope_json,'$.receiptId') AS event_receipt_id,json_extract(j.envelope_json,'$.sourceHash') AS event_source_hash,json_extract(j.envelope_json,'$.sourceVersion') AS event_source_version,json_extract(j.envelope_json,'$.eventId') AS job_event_id,json_extract(j.envelope_json,'$.contractVersion') AS event_contract_version,COALESCE(m.removed,0) AS removed FROM feed_projects p JOIN feed_project_source_versions v ON v.repo_key=p.repo_key JOIN feed_execution_jobs j ON j.event_id=v.event_id LEFT JOIN feed_project_moderation m ON m.repo_key=p.repo_key WHERE p.repo_key=? LIMIT 2`,
 });
 export function safeError(e) {
@@ -101,6 +114,30 @@ function validateReceipt(r, sha = r?.sourceSha) {
     "invalid_assessment_receipt",
   );
   if (r.analysisId !== null) check(id(r.analysisId), "invalid_analysis_id");
+  check(
+    (r.waitStartedAt === undefined ||
+      (Number.isSafeInteger(r.waitStartedAt) && r.waitStartedAt > 0)) &&
+      (r.relayBootstrapStartedAt === undefined ||
+        (Number.isSafeInteger(r.relayBootstrapStartedAt) &&
+          r.relayBootstrapStartedAt > 0 &&
+          r.completionObservedAt !== undefined)) &&
+      (r.relayBootstrapPolls === undefined ||
+        (Number.isSafeInteger(r.relayBootstrapPolls) &&
+          r.relayBootstrapPolls >= 0 &&
+          r.relayBootstrapPolls <= LIMITS.relayBootstrapPolls)) &&
+      ((r.relayBootstrapPolls ?? 0) === 0 ||
+        r.relayBootstrapStartedAt !== undefined) &&
+      (r.relayDeliveredObservedAt === undefined ||
+        (Number.isSafeInteger(r.relayDeliveredObservedAt) &&
+          r.relayDeliveredObservedAt > 0)) &&
+      (r.relayBootstrapStartedAt === undefined ||
+        (id(r.relayBootstrapSource?.eventId) &&
+          id(r.relayBootstrapSource?.receiptId) &&
+          Number.isSafeInteger(r.relayBootstrapSource?.sourceVersion) &&
+          r.relayBootstrapSource.sourceVersion > 0 &&
+          hash(r.relayBootstrapSource?.sourceHash))),
+    "invalid_assessment_receipt",
+  );
   check(
     (r.projectionStartedAt === undefined ||
       (Number.isSafeInteger(r.projectionStartedAt) &&
@@ -236,7 +273,9 @@ function context(
     return data.result;
   }
   async function query(kind, params, requestDeadline = deadline) {
-    const db = ["candidate", "projection"].includes(kind) ? FEED : CORE;
+    const db = ["candidate", "projection", "execution"].includes(kind)
+      ? FEED
+      : CORE;
     check(Object.hasOwn(SQL, kind), "unknown_read_query");
     const rows = await cf(
       `/d1/database/${db}/query`,
@@ -371,19 +410,80 @@ async function oneRun(c, sha, wantedId) {
   check(rows.length <= 1, "multiple_logical_assessments_refused");
   return rows.length ? runIdentity(rows[0], sha, wantedId) : null;
 }
+function releaseContext(requestedSha, options) {
+  const env = options.env ?? process.env;
+  const carryover = loadCarryover(env);
+  if (!carryover) return { releaseSha: requestedSha, carryover: null };
+  const { sourceSha: releaseSha } = validateContext(env.RELEASE_SHA, env);
+  check(
+    (requestedSha === undefined || requestedSha === releaseSha) &&
+      carryover.sourceSha !== releaseSha,
+    "carryover_release_context_mismatch",
+  );
+  return { releaseSha, carryover };
+}
+// An explicit, persisted operator attempt earns exactly one new observation
+// window. The original journal remains intact inside the new journal; a rerun
+// with the same database audit can never replenish counters or move its clock.
+export async function applyOperatorWindow(path, resultPath, manifestPath, releaseSha) {
+  validateSHA(releaseSha);
+  const r = validateReceipt(await load(path));
+  const operation = await load(resultPath);
+  const manifest = await load(manifestPath);
+  const result = operation?.result;
+  const audit = result?.recovery;
+  check(manifest?.format === "ghfind-production-assessment-operator-v1" &&
+    uuid(manifest.requestId) && manifest.analysisId === r.analysisId && manifest.requestedRef === r.sourceSha &&
+    operation?.format === "ghfind-production-assessment-operator-result-v1" && operation.status === "accepted" &&
+    operation.releaseSha === releaseSha && operation.originalReceiptSHA256 === createHash("sha256").update(JSON.stringify(r)).digest("hex") &&
+    operation.request?.action === "retry_interrupted" && operation.request?.requestId === manifest.requestId &&
+    operation.request?.analysisId === r.analysisId && operation.request?.requestedRef === r.sourceSha &&
+    operation.request?.expectedThreadId === manifest.expectedThreadId && operation.request?.expectedRunId === manifest.expectedRunId &&
+    result?.analysisId === r.analysisId && result.requestedRef === r.sourceSha && active.has(result.status) &&
+    result.idempotencyKey === `ghfind-project-${r.analysisId}-retry-1` &&
+    audit?.action === "retry_interrupted" && audit.requestId === manifest.requestId &&
+    audit.priorThreadId === manifest.expectedThreadId && audit.priorRunId === manifest.expectedRunId &&
+    audit.nextIdempotencyKey === result.idempotencyKey && Number.isSafeInteger(audit.createdAt) && audit.createdAt > 0 &&
+    Number.isSafeInteger(audit.executionDeadlineAt) && audit.executionDeadlineAt - audit.createdAt === 1800000,
+    "operator_window_evidence_invalid");
+  if (r.operatorRecovery) {
+    const old = r.operatorRecovery;
+    check(old.requestId === audit.requestId && old.createdAt === audit.createdAt &&
+      old.executionDeadlineAt === audit.executionDeadlineAt && old.nextIdempotencyKey === audit.nextIdempotencyKey &&
+      r.waitStartedAt === audit.createdAt, "operator_window_already_consumed");
+    return r;
+  }
+  check(!["completed", "skipped"].includes(r.phase) && r.completionObservedAt === undefined &&
+    r.projectionPolls === 0 && !r.relayBootstrapStartedAt && r.createdAt <= audit.createdAt,
+    "operator_window_existing_success_or_projection");
+  const next = { ...r, phase: "selected", status: result.status, polls: 0,
+    waitStartedAt: audit.createdAt,
+    operatorRecovery: { ...audit, priorReceiptSHA256: operation.originalReceiptSHA256, previousAttempt: r } };
+  validateReceipt(next);
+  await save(path, next);
+  return next;
+}
+
 export async function startAssessment(sha, path, options = {}) {
   validateSHA(sha);
+  const { carryover } = releaseContext(sha, options);
+  const assessmentSha = carryover?.sourceSha ?? sha;
   const c = context(options, 90000);
   try {
     let r = await load(path);
-    if (r) validateReceipt(r, sha);
+    if (r) validateReceipt(r, assessmentSha);
+    if (carryover) {
+      // Recovery must provide a selected, authenticated predecessor receipt.
+      // Missing/uncertain evidence never reaches the fresh assessment POST path.
+      validateCarryoverReceipt(r, carryover);
+    }
     const eligible = await c.query("candidate", [null, null]);
     if (r?.phase === "skipped") {
       check(eligible.length === 1, "existing_candidate_no_longer_eligible");
       return r;
     }
     if (r) {
-      const existing = await oneRun(c, sha, r.analysisId);
+      const existing = await oneRun(c, assessmentSha, r.analysisId);
       check(existing, "uncertain_post_outcome_no_retry");
       r = {
         ...r,
@@ -537,8 +637,69 @@ export function sourceIdentity(row, sha, analysisId, agentId) {
     priorThreadIdentitiesAvailable: run.providerRunRetries === 0,
   };
 }
+export function executionIdentity(row, source) {
+  if (!row) return;
+  check(
+    row.event_id === source.eventId &&
+      row.envelope_event_id === source.eventId &&
+      row.aggregate_key === REPO &&
+      row.source_version === source.sourceVersion &&
+      row.event_source_version === source.sourceVersion &&
+      row.analysis_id === source.analysisId &&
+      row.receipt_id === source.receiptId &&
+      row.source_hash === source.sourceHash &&
+      row.contract_version === 1 &&
+      row.event_kind === "assessment.completed",
+    "execution_identity_mismatch",
+  );
+  check(
+    ["pending", "leased", "completed"].includes(row.status),
+    "projection_terminal_failure",
+  );
+}
 export function projectionIdentity(row, source, sha) {
   if (!row) return null;
+  if (
+    Number.isSafeInteger(row.source_version) &&
+    row.source_version > 0 &&
+    row.source_version < source.sourceVersion
+  ) {
+    // A previous projection remains visible until the new executor commits its
+    // atomic replacement. Only an internally coherent, strictly older record
+    // is pending; equal/newer or damaged identities retain the hard failure.
+    // Its former eligibility/job outcome cannot determine the new assessment's
+    // result, and returning null never authorizes this previous project.
+    check(
+      [row.analysis_id, row.event_id, row.receipt_id].every(id) &&
+        row.version_analysis_id === row.analysis_id &&
+        row.event_analysis_id === row.analysis_id &&
+        row.job_event_id === row.event_id &&
+        row.job_source_version === row.source_version &&
+        row.event_source_version === row.source_version &&
+        row.event_receipt_id === row.receipt_id &&
+        row.event_contract_version === 1 &&
+        row.job_repo === REPO &&
+        typeof row.resolved_commit_sha === "string" &&
+        /^[a-f0-9]{40}$/.test(row.resolved_commit_sha) &&
+        ["app_submission", "agent_submission", "verified_backfill"].includes(
+          row.source_kind,
+        ) &&
+        [row.source_hash, row.version_source_hash, row.event_source_hash].every(
+          hash,
+        ) &&
+        row.source_hash === row.version_source_hash &&
+        ["pending", "leased", "completed", "dead_letter"].includes(
+          row.job_status,
+        ) &&
+        [0, 1].includes(row.published) &&
+        [0, 1].includes(row.removed) &&
+        typeof row.blocked_reason === "string" &&
+        (row.revoked_at === null ||
+          (Number.isSafeInteger(row.revoked_at) && row.revoked_at >= 0)),
+      "projection_identity_mismatch",
+    );
+    return null;
+  }
   check(
     row.analysis_id === source.analysisId &&
       row.version_analysis_id === source.analysisId &&
@@ -589,7 +750,48 @@ export async function waitAssessment(path, output, options = {}) {
   const initial = await load(path);
   check(initial, "assessment_receipt_required");
   let r = validateReceipt(initial);
-  const c = context(options, LIMITS.publicWaitMs + LIMITS.projectionWaitMs);
+  const execution = releaseContext(undefined, options);
+  if (execution.carryover) validateCarryoverReceipt(r, execution.carryover);
+  const releaseSha = execution.releaseSha ?? r.sourceSha;
+  const now = options.now ?? Date.now;
+  // Older journals could persist delivery before persisting the projection
+  // anchor. Recover from that durable observation before selecting a window;
+  // a restart must never grant another 180 seconds.
+  if (
+    r.projectionStartedAt === undefined &&
+    r.relayDeliveredObservedAt !== undefined
+  ) {
+    r.projectionStartedAt = r.relayDeliveredObservedAt;
+    await save(path, r);
+  }
+  const sourceCompleted =
+    r.completionObservedAt !== undefined ||
+    r.status === "completed" ||
+    r.phase === "completed";
+  const windowExhausted =
+    r.projectionPolls >= LIMITS.projectionPolls ||
+    (r.projectionStartedAt !== undefined &&
+      now() >= r.projectionStartedAt + LIMITS.projectionWaitMs);
+  const terminalRead =
+    r.phase === "completed" || (sourceCompleted && windowExhausted);
+  // The combined provider/bootstrap/projection deadline is durable across reruns.
+  // Completed results retain only their pre-existing, finite read-only recovery.
+  if (!terminalRead && r.phase !== "skipped") {
+    r.waitStartedAt ??= now();
+    check(
+      now() < r.waitStartedAt + LIMITS.waitMs,
+      "assessment_deadline_exceeded",
+    );
+    await save(path, r);
+  }
+  const c = context(
+    options,
+    terminalRead
+      ? LIMITS.terminalWaitMs
+      : r.waitStartedAt === undefined
+        ? LIMITS.waitMs
+        : r.waitStartedAt + LIMITS.waitMs - now(),
+  );
   try {
     if (r.phase === "skipped") {
       const rows = await c.query("candidate", [
@@ -601,6 +803,7 @@ export async function waitAssessment(path, output, options = {}) {
         format: "ghfind-production-assessment-result-v1",
         status: "passed",
         sourceSha: r.sourceSha,
+        releaseSha,
         intentId: r.intentId,
         assessment: "skipped_existing_eligible",
         providerExecution: "not_requested",
@@ -615,23 +818,13 @@ export async function waitAssessment(path, output, options = {}) {
     // A completed source skips provider reconciliation but still gets its
     // unused projection window. Only an exhausted window or a previously
     // verified projection uses the separately bounded terminal revalidation.
-    const sourceCompleted =
-      r.completionObservedAt !== undefined ||
-      r.status === "completed" ||
-      r.phase === "completed";
-    const windowExhausted =
-      r.projectionPolls >= LIMITS.projectionPolls ||
-      (r.projectionStartedAt !== undefined &&
-        c.now() >= r.projectionStartedAt + LIMITS.projectionWaitMs);
-    const terminalRead =
-      r.phase === "completed" || (sourceCompleted && windowExhausted);
     if (terminalRead)
       check(
         (r.terminalRevalidations ?? 0) < LIMITS.terminalRevalidations,
         "terminal_revalidation_exhausted",
       );
     const terminalDeadline = c.now() + LIMITS.terminalWaitMs;
-    const web = await c.web(r.sourceSha);
+    const web = await c.web(releaseSha);
     if (r.web)
       check(
         web.agentId === r.web.agentId,
@@ -642,6 +835,7 @@ export async function waitAssessment(path, output, options = {}) {
         format: "ghfind-production-assessment-result-v1",
         status: "passed",
         sourceSha: r.sourceSha,
+        releaseSha,
         intentId: r.intentId,
         repository: REPO,
         origin: ORIGIN,
@@ -656,6 +850,11 @@ export async function waitAssessment(path, output, options = {}) {
         source,
         projection,
         polls: r.polls,
+        relayBootstrapPolls: r.relayBootstrapPolls ?? 0,
+        relayBootstrapStartedAt: r.relayBootstrapStartedAt ?? null,
+        relayDeliveredObservedAt: r.relayDeliveredObservedAt ?? null,
+        relayBootstrapIsNormalProjectionLatency: false,
+        managementRequests: c.counts().management,
         projectionPolls: r.projectionPolls,
         terminalRevalidations: r.terminalRevalidations ?? 0,
         verification: terminalRead
@@ -674,15 +873,13 @@ export async function waitAssessment(path, output, options = {}) {
       await save(path, r);
       return result;
     }
-    async function observeProjection(deadline) {
+    async function observeSource(deadline) {
       const sources = await c.query("source", [r.analysisId, REPO], deadline);
       check(sources.length === 1, "source_finalization_missing");
-      const source = sourceIdentity(
-        sources[0],
-        r.sourceSha,
-        r.analysisId,
-        web.agentId,
-      );
+      return sourceIdentity(sources[0], r.sourceSha, r.analysisId, web.agentId);
+    }
+    async function observeProjection(deadline) {
+      const source = await observeSource(deadline);
       const rows = await c.query("projection", [REPO], deadline);
       check(rows.length <= 1, "ambiguous_projection");
       return {
@@ -738,6 +935,81 @@ export async function waitAssessment(path, output, options = {}) {
     }
     check(completed, "assessment_wait_exhausted");
     r.completionObservedAt ??= c.now();
+    await save(path, r);
+    if (
+      r.projectionStartedAt === undefined &&
+      r.relayDeliveredObservedAt === undefined
+    ) {
+      // https://developers.cloudflare.com/workers/configuration/cron-triggers/
+      // Adding the production cron may propagate for up to 15 minutes. This
+      // separately journaled bootstrap applies only to a finalized source that
+      // is still pending/leased; it never refreshes provider/projection quotas.
+      const bootstrapAvailable = () => {
+        check(
+          (r.relayBootstrapPolls ?? 0) < LIMITS.relayBootstrapPolls &&
+            (r.relayBootstrapStartedAt === undefined ||
+              c.now() <
+                r.relayBootstrapStartedAt +
+                  LIMITS.relayBootstrapWaitMs +
+                  LIMITS.relayBootstrapReadMs),
+          "relay_bootstrap_exhausted",
+        );
+      };
+      bootstrapAvailable();
+      // Resume from the persisted immutable source anchor. Do not add an
+      // uncounted source probe on every restart or skip a reserved poll slot.
+      let source =
+        r.relayBootstrapSource === undefined
+          ? await observeSource()
+          : { ...r.relayBootstrapSource, outboxStatus: "pending" };
+      if (source.outboxStatus !== "delivered") {
+        r.relayBootstrapStartedAt ??= c.now();
+        r.relayBootstrapPolls ??= 0;
+        r.relayBootstrapSource ??= {
+          eventId: source.eventId,
+          receiptId: source.receiptId,
+          sourceVersion: source.sourceVersion,
+          sourceHash: source.sourceHash,
+        };
+        await save(path, r);
+        while (source.outboxStatus !== "delivered") {
+          bootstrapAvailable();
+          const slot =
+            r.relayBootstrapStartedAt +
+            r.relayBootstrapPolls * LIMITS.relayBootstrapIntervalMs;
+          if (c.now() < slot) await c.sleep(slot - c.now());
+          bootstrapAvailable();
+          // Slot six starts at +900s; its two parallel reads get at most 15s,
+          // also bounded by the original 1980s overall deadline.
+          const deadline = Math.min(
+            c.now() + LIMITS.relayBootstrapReadMs,
+            r.relayBootstrapStartedAt +
+              LIMITS.relayBootstrapWaitMs +
+              LIMITS.relayBootstrapReadMs,
+          );
+          r.relayBootstrapPolls++;
+          await save(path, r); // Reserve before I/O: interruption/ack loss consumes a slot.
+          const eventId = source.eventId;
+          const [next, jobs] = await Promise.all([
+            observeSource(deadline),
+            c.query("execution", [eventId], deadline),
+          ]);
+          check(
+            next.eventId === source.eventId &&
+              next.receiptId === source.receiptId &&
+              next.sourceVersion === source.sourceVersion &&
+              next.sourceHash === source.sourceHash,
+            "source_finalization_identity_mismatch",
+          );
+          check(jobs.length <= 1, "ambiguous_execution");
+          executionIdentity(jobs[0], next);
+          source = next;
+        }
+      }
+      r.relayDeliveredObservedAt = c.now();
+      r.projectionStartedAt = r.relayDeliveredObservedAt;
+      await save(path, r);
+    }
     r.projectionStartedAt ??= c.now();
     await save(path, r);
     while (
@@ -768,6 +1040,11 @@ async function main(args) {
   if (args[0] === "start" && args.length === 3) {
     await startAssessment(args[1], args[2]);
     console.log("assessment_start_journal_saved");
+    return;
+  }
+  if (args[0] === "operator-window" && args.length === 5) {
+    await applyOperatorWindow(args[1], args[2], args[3], args[4]);
+    console.log("assessment_operator_window_recorded");
     return;
   }
   if (args[0] === "wait" && args.length === 3) {

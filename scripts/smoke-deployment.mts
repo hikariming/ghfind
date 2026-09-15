@@ -5,6 +5,8 @@ type Check = {
   label: string;
   path: string;
   status: number;
+  headers?: Record<string, string>;
+  redirect?: RequestRedirect;
   validate?: (body: unknown, response: Response) => void;
   validateText?: (body: string, response: Response) => void;
 };
@@ -58,9 +60,10 @@ function originUrl(name: string, requiredValue: boolean): URL | null {
 
 async function runCheck(base: URL, check: Check): Promise<void> {
   const response = await fetch(new URL(check.path, base), {
-    redirect: "follow",
+    redirect: check.redirect ?? "follow",
+    credentials: "omit",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { Accept: "application/json, image/svg+xml, text/html;q=0.9" },
+    headers: { Accept: "application/json, image/svg+xml, text/html;q=0.9", ...check.headers },
   });
   if (response.status !== check.status) {
     throw new Error(`${check.label} returned ${response.status}; expected ${check.status}`);
@@ -229,7 +232,19 @@ async function main(): Promise<void> {
   }
   const facetValue = required("SMOKE_FACET_VALUE");
   const expectedOrigin = originUrl("SMOKE_EXPECTED_ORIGIN", false)?.origin ?? base.origin;
+  const rejectedFeed = (body: unknown, response: Response) => {
+    if (record(body).error !== "authentication_required" ||
+        response.headers.get("cache-control") !== "no-store" ||
+        !response.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+      throw new Error("Feed authentication rejection contract differs");
+    }
+  };
   const checks: Check[] = [
+    { label: "anonymous Feed rejection", path: "/api/feed/projects?limit=1", status: 401,
+      redirect: "manual", validate: rejectedFeed },
+    { label: "forged Feed identity rejection", path: "/api/feed/projects?limit=1", status: 401,
+      redirect: "manual", headers: { "x-github-id": "109743670", "x-github-login": "asperformias",
+        "x-feed-gateway": "forged.invalid.signature" }, validate: rejectedFeed },
     {
       label: "profile",
       path: `/u/${encodeURIComponent(canary)}`,

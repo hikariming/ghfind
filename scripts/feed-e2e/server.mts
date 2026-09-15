@@ -44,7 +44,8 @@ for (const [key, db, folder] of [['core', core, 'migrations'], ['feed', feed, 'm
 // The actual workerd proxy implements D1. This is the same OpenNext runtime
 // context symbol used by its production Worker and documented dev initializer.
 (globalThis as typeof globalThis & { [key: symbol]: unknown })[Symbol.for('__cloudflare-context__')] = { env: { GHFIND_D1: core, GHFIND_FEED_D1: feed }, ctx: { waitUntil: (p: Promise<unknown>) => p.catch(() => {}) }, cf: {} };
-const providers = installProviders();
+const providerFixture = installProviders({ interruptedRepository: 'e2e-owner-one/tool-one' });
+const providers = providerFixture.counts;
 const app = next({ dev: true, dir: root, hostname: '127.0.0.1', port: config.webPort });
 await app.prepare();
 const handler = app.getRequestHandler();
@@ -135,6 +136,30 @@ async function inspect() {
   const facts = await core.prepare("SELECT (SELECT count(*) FROM project_analysis_runs WHERE status='completed') AS completed,(SELECT count(*) FROM project_assessments) AS assessments,(SELECT count(*) FROM feed_submission_receipts) AS receipts,(SELECT count(*) FROM feed_source_outbox WHERE status='delivered') AS delivered,(SELECT count(*) FROM feed_source_outbox) AS outbox").first();
   return { providers, source: facts, queue: { published, acknowledged, redelivered, pending: (await readdir(queueDirectory)).length, redeliveryProofs }, migrations: migrationReport };
 }
+// Local-only clock/provider fault injection. Status transitions and recovery
+// remain real application HTTP operations; no assessment or projection is seeded.
+let interruptedAnalysis: { analysisId: string; startedAt: number; threadId: string; runId: string; idempotencyKey: string } | null = null;
+async function interruptAssessment(input: unknown) {
+  assert(input && typeof input === 'object' && Object.keys(input).length === 1);
+  const { analysisId } = input as { analysisId: string };
+  assert.match(analysisId, /^[0-9a-f-]{36}$/);
+  assert.equal(interruptedAnalysis, null, 'clock fault runs once per owned fixture');
+  const run = await core.prepare("SELECT id,repo_key,requested_ref,status,mosoo_thread_id,mosoo_run_id,idempotency_key FROM project_analysis_runs WHERE id=?").bind(analysisId).first();
+  assert(run && run.repo_key === 'e2e-owner-one/tool-one' && run.requested_ref === 'a'.repeat(40) && run.status === 'running');
+  const startedAt = Date.now() - 16 * 60_000;
+  const changed = await core.prepare("UPDATE project_analysis_runs SET started_at=? WHERE id=? AND status='running'").bind(startedAt, analysisId).run();
+  assert.equal(changed.meta.changes, 1);
+  providerFixture.interrupt(analysisId);
+  interruptedAnalysis = { analysisId, startedAt, threadId: String(run.mosoo_thread_id), runId: String(run.mosoo_run_id), idempotencyKey: String(run.idempotency_key) };
+  return { ...interruptedAnalysis, fault: 'local-provider-interruption-and-clock-fixture' };
+}
+async function recoverySnapshot() {
+  assert(interruptedAnalysis);
+  const run = await core.prepare("SELECT id,status,started_at,idempotency_key,mosoo_thread_id,mosoo_run_id FROM project_analysis_runs WHERE id=?").bind(interruptedAnalysis.analysisId).first();
+  const audit = await core.prepare("SELECT * FROM project_analysis_recoveries WHERE analysis_id=?").bind(interruptedAnalysis.analysisId).all();
+  const facts = await core.prepare("SELECT count(*) AS count FROM project_analysis_runs WHERE repo_key='e2e-owner-one/tool-one'").first();
+  return { run, audit: audit.results, logicalAnalyses: facts?.count, providerAttempts: providers.assessmentCreate };
+}
 let controlBusy = false;
 const control = createServer(async (req, res) => {
   try {
@@ -142,7 +167,11 @@ const control = createServer(async (req, res) => {
     assert(req.method === 'POST');
     assert(!controlBusy, 'one test control command at a time');
     controlBusy = true;
-    const result = req.url === '/drain' ? await drain() : req.url === '/inspect' ? await inspect() : null;
+    let body = '';
+    for await (const chunk of req) { body += chunk.toString(); assert(body.length <= 512); }
+    const result = req.url === '/drain' ? await drain() : req.url === '/inspect' ? await inspect()
+      : req.url === '/interrupt-assessment' ? await interruptAssessment(JSON.parse(body))
+      : req.url === '/recovery-inspect' ? await recoverySnapshot() : null;
     assert(result, 'unknown local control operation');
     res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result));
   } catch (error) {

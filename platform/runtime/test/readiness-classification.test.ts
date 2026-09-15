@@ -1,9 +1,10 @@
+import { nativeDispatch } from './helpers/native-proof';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers/promises';
-import { handleRequest, type Dispatch, type RuntimeSettings, type Target } from '../src/router';
+import { handleRequest, type RuntimeSettings, type Target } from '../src/router';
 const env: RuntimeSettings = {
-  FEED_ENVIRONMENT: 'production', FEED_RELEASE_SHA: 'a'.repeat(40),
+  FEED_ENVIRONMENT: 'production', FEED_IMAGE_BUILD_ID: 'd'.repeat(64), FEED_RELEASE_SHA: 'a'.repeat(40),
   FEED_IMAGE_REFERENCE: `registry.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/ghfind-feed@sha256:${'b'.repeat(64)}`,
   FEED_MODE: 'off', FEED_WRITER_EPOCH: '1', FEED_EXECUTOR_ENABLED: 'true', FEED_SOURCE_RELAY_ENABLED: 'false',
   FEED_QUEUE_NAME: 'ghfind-feed-production-jobs', FEED_DLQ_NAME: 'ghfind-feed-production-dlq',
@@ -12,10 +13,10 @@ const env: RuntimeSettings = {
   WORKER_VERSION: { id: '12345678-1234-4234-8234-123456789012', tag: 'test', timestamp: '2026-09-09T00:00:00Z' },
 };
 const ready = (target: Target, status = 200, patch: Record<string, unknown> = {}) => Response.json({
-  ready: true, version: env.FEED_RELEASE_SHA, mode: env.FEED_MODE, contractVersion: '1', storageWriterVersion: 2,
+  ready: true, imageBuildId: env.FEED_IMAGE_BUILD_ID, version: env.FEED_RELEASE_SHA, mode: env.FEED_MODE, contractVersion: '1', storageWriterVersion: 2,
   storeProfile: 'cf_d1_r2', writerEpoch: 1, service: target === 'executor-0' ? 'feed-worker' : 'feed-api', ...patch,
 }, { status });
-const dispatch = (fetch: Dispatch['fetch']): Dispatch => ({ fetch, stop: async () => assert.fail('no lifecycle mutation') });
+const dispatch = nativeDispatch;
 function request(path = '/readyz', authorized = true) {
   return new Request(`https://runtime${path}`, { headers: authorized ? { authorization: `Bearer ${env.FEED_RUNTIME_ADMIN_SECRET}` } : {} });
 }
@@ -30,7 +31,7 @@ test('exact-identity HTTP503 ready=false is a dependency on aggregate and single
 });
 test('every process identity field is checked before classifying an HTTP503', async () => {
   for (const patch of [{ version: 'b'.repeat(40) }, { mode: 'baseline' }, { mode: undefined }, { contractVersion: '2' },
-    { storageWriterVersion: 1 }, { writerEpoch: 2 }, { writerEpoch: '1' }, { storeProfile: 'postgres' }, { service: 'other' }]) {
+    { imageBuildId: 'e'.repeat(64) }, { imageBuildId: undefined }, { storageWriterVersion: 1 }, { writerEpoch: 2 }, { writerEpoch: '1' }, { storeProfile: 'postgres' }, { service: 'other' }]) {
     const response = await handleRequest(request('/internal/runtime/api-0/ready'), env, dispatch(async target => ready(target, 503, { ready: false, ...patch })));
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), { error: 'container_version_or_contract_mismatch' });

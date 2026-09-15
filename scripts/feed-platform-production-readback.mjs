@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { ACCOUNT, validateImage } from "./feed-platform-manifest.mjs";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
 import {
+  readbackLimits,
   repository,
   runtimeConfigPath,
   requireThat,
@@ -15,29 +16,8 @@ import {
   validateReadiness,
 } from "./feed-platform-production.mjs";
 
-export const limits = Object.freeze({
-  durationMs: 180000,
-  // Initial retries consume time before heartbeats begin and share this quota.
-  readinessRequests: 95,
-  initialReadinessAttempts: 8,
-  initialReadinessIntervalMs: 2500,
-  initialReadinessConvergenceMs: 60000,
-  // 19 fixed reads + 7 paired detail rounds (14) + 16 instance reads +
-  // 2 final details = 51, below the unchanged hard quota of 52.
-  metadataReads: 52,
-  applicationAttempts: 8, // Includes the reserved final detail read for each app.
-  applicationIntervalMs: 2500,
-  applicationConvergenceMs: 60000,
-  instanceAttempts: 8,
-  instanceIntervalMs: 2500,
-  instanceConvergenceMs: 60000,
-  intervalMs: 2500,
-  requestMs: 10000,
-  metadataMs: 30000,
-});
+export const limits = readbackLimits;
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
-const shortIdentity = (v) =>
-  typeof v === "string" && /^[A-Za-z0-9_.:-]{1,160}$/.test(v);
 function scalarVersion(v) {
   return (
     (Number.isSafeInteger(v) && v >= 0) ||
@@ -122,8 +102,8 @@ function directApplication(raw) {
       (k) => !Object.hasOwn(counts, k) || countValid(k),
     );
   // Pinned Wrangler 4.129.1 derives these states from the same direct health
-  // counters. Errors are additionally fail-closed; raw error/config text is never
-  // emitted. Zero active instances is legitimate idle, not evidence of startup.
+  // counters for display only. These unversioned telemetry aggregates do not
+  // prove current actor readiness. Raw error/config text is never emitted.
   const state = !valid
     ? "unknown"
     : h.errors?.length || counts.failed > 0
@@ -163,8 +143,6 @@ function inspectApplication(apps, name, image, prior, previous) {
     reason = "application_identity_invalid";
   else if (previous && app.id !== previous.id)
     reason = "application_identity_changed";
-  else if (!["active", "ready", "provisioning"].includes(app.state))
-    reason = "application_health_rejected";
   else if (app.image !== image) {
     if (
       !prior &&
@@ -200,8 +178,8 @@ function inspectApplication(apps, name, image, prior, previous) {
   return {
     app,
     matches,
-    status: app.state === "provisioning" ? "pending" : "converged",
-    reason: app.state === "provisioning" ? "application_provisioning" : null,
+    status: "converged",
+    reason: null,
   };
 }
 function observedApplications(matches, name) {
@@ -218,70 +196,6 @@ function observedApplications(matches, name) {
           )?.[1] ?? null)
         : null,
   }));
-}
-// CLI placement states from pinned Wrangler 4.129.1 containers/instances.ts.
-const instanceStates = new Set([
-  "running",
-  "inactive",
-  "provisioning",
-  "stopping",
-  "stopped",
-  "failed",
-  "unhealthy",
-  "unknown",
-]);
-function inspectInstances(result, names, expectedVersion) {
-  if (
-    !result ||
-    !Array.isArray(result.instances) ||
-    !result.result_info ||
-    typeof result.result_info !== "object" ||
-    Array.isArray(result.result_info) ||
-    result.result_info.next_page_token ||
-    result.instances.length !== names.length
-  )
-    return { status: "rejected", reason: "unexpected_instance_population" };
-  const ids = new Set();
-  let pending = false;
-  for (const name of names) {
-    const rows = result.instances.filter((i) => i?.name === name);
-    if (rows.length !== 1 || !shortIdentity(rows[0].id) || ids.has(rows[0].id))
-      return { status: "rejected", reason: "instance_identity_invalid" };
-    const row = rows[0];
-    ids.add(row.id);
-    if (
-      !instanceStates.has(row.state) ||
-      (row.state === "inactive"
-        ? row.version !== null
-        : !scalarVersion(row.version))
-    )
-      return {
-        status: "rejected",
-        reason: "instance_state_or_version_invalid",
-      };
-    if (["failed", "unhealthy", "unknown"].includes(row.state))
-      return { status: "rejected", reason: "instance_unhealthy" };
-    if (
-      row.state !== "running" ||
-      String(row.version) !== String(expectedVersion)
-    )
-      pending = true;
-  }
-  return {
-    status: pending ? "pending" : "converged",
-    reason: pending ? "instance_state_or_version_pending" : null,
-  };
-}
-function observedInstances(result, names) {
-  // Never copy arbitrary rows, names, environment, placement detail or bodies.
-  return (Array.isArray(result?.instances) ? result.instances : [])
-    .slice(0, names.length)
-    .map((row) => ({
-      id: shortIdentity(row?.id) ? row.id : null,
-      name: names.includes(row?.name) ? row.name : null,
-      state: instanceStates.has(row?.state) ? row.state : "invalid",
-      version: scalarVersion(row?.version) ? row.version : null,
-    }));
 }
 export function activeVersion(active) {
   const d = active?.deployments?.[0];
@@ -576,6 +490,7 @@ export async function verifyDeployment(
     applicationObservations = [],
     readinessObservations = [];
   const expectedApplicationPins = new Map();
+  const actorPins = new Map();
   const applicationDetails = new Map();
   let applicationRound = 0,
     applicationAnchors,
@@ -645,6 +560,7 @@ export async function verifyDeployment(
     if (!response.ok) {
       // Closed code list, never arbitrary upstream messages, body or headers.
       const codes = new Set([
+        "container_starting",
         "container_dependency_not_ready",
         "container_not_ready",
         "container_version_or_contract_mismatch",
@@ -685,6 +601,11 @@ export async function verifyDeployment(
       mode,
       workerVersionId,
     );
+    for (const row of lastReadiness) {
+      requireThat(!actorPins.has(row.target) || actorPins.get(row.target) === row.actorId,
+        "native actor changed during readback");
+      actorPins.set(row.target, row.actorId);
+    }
     run.signal.throwIfAborted();
     lastReadinessAt = new Date().toISOString();
   }
@@ -719,7 +640,7 @@ export async function verifyDeployment(
       } catch (error) {
         if (
           error.readinessHTTP?.status !== 503 ||
-          error.readinessHTTP.errorCode !== "container_dependency_not_ready"
+          !["container_dependency_not_ready", "container_starting"].includes(error.readinessHTTP.errorCode)
         )
           throw error;
         requireThat(
@@ -789,7 +710,7 @@ export async function verifyDeployment(
             })),
         });
         throw new Error(
-          `immutable application identity or health summary differs: ${reason}`,
+          `immutable application identity differs: ${reason}`,
         );
       }
       ids.add(app.id);
@@ -872,7 +793,7 @@ export async function verifyDeployment(
       }
       if (verdict.status === "rejected") {
         readFailure ??= new Error(
-          `immutable application identity or health summary differs: ${verdict.reason}`,
+          `immutable application identity differs: ${verdict.reason}`,
         );
         continue;
       }
@@ -911,47 +832,22 @@ export async function verifyDeployment(
       verdicts = null;
     }
   }
-  // Deploy returns before every instance is replaced; metadata may still be
-  // transitional. https://developers.cloudflare.com/containers/guides/deploy/
-  async function convergeInstances(app, names, runtimeId) {
-    const convergence = AbortSignal.any([
-      run.signal,
-      AbortSignal.timeout(bounds.instanceConvergenceMs),
-    ]);
-    for (let attempt = 1; attempt <= bounds.instanceAttempts; attempt++) {
-      convergence.throwIfAborted();
-      // A stale placement snapshot is retryable; a stale actual Go process is not.
-      await ready(runtimeId, convergence);
-      convergence.throwIfAborted();
-      const result = await wrangler(
-        ["containers", "instances", app.id, "--per-page", "10", "--json"],
-        convergence,
-      );
-      const verdict = inspectInstances(result, names, app.version);
-      instanceObservations.push({
-        observedAt: new Date().toISOString(),
-        applicationId: app.id,
-        applicationName: app.name,
-        applicationVersion: app.version,
-        applicationSummary: app.state,
-        attempt,
-        readinessObservedAt: lastReadinessAt,
-        ...verdict,
-        instances: observedInstances(result, names),
-      });
-      requireThat(
-        verdict.status !== "rejected",
-        `instance version/state differs or unexpected instance population: ${verdict.reason}`,
-      );
-      if (verdict.status === "converged") return result;
-      requireThat(
-        attempt < bounds.instanceAttempts,
-        `instance version/state differs: convergence attempts exhausted for ${names.join(",")}`,
-      );
-      await sleep(bounds.instanceIntervalMs, undefined, {
-        signal: convergence,
-      });
-    }
+  // Dashboard placement summaries are asynchronous and are not a process proof.
+  // Each protected readiness response is now captured inside the fixed DO after
+  // a real Go response, with native running, actor ID and compiled build ID.
+  async function verifyNativeInstances(app, names, runtimeId) {
+    await ready(runtimeId);
+    const instances = names.map(name => {
+      const proof = lastReadiness.find(row => row.target === name);
+      requireThat(proof?.running === true, "native instance is not running");
+      return { id: proof.actorId, name, state: "running",
+        imageBuildId: proof.imageBuildId, proofSource: "durable-object-native" };
+    });
+    instanceObservations.push({ observedAt: new Date().toISOString(),
+      applicationId: app.id, applicationName: app.name,
+      applicationVersion: app.version, readinessObservedAt: lastReadinessAt,
+      proofSource: "durable-object-native", status: "verified", instances });
+    return { instances };
   }
   try {
     // Obtain the expected Worker ID before waking Containers; once awake, keep
@@ -1020,8 +916,8 @@ export async function verifyDeployment(
       }
     })();
     stage = "application_convergence";
-    // Identity and health share seven paired direct reads and the same 60s
-    // deadline, including discovery/startup. Cold idle is not an instance proof.
+    // Only exact previous-image identity may await convergence. Aggregate health
+    // remains diagnostic; each fixed actor must independently prove readiness.
     const settled = await convergeApplications(
       applicationConvergence,
       false,
@@ -1059,7 +955,7 @@ export async function verifyDeployment(
         "application is not linked to runtime namespace",
       );
       stage = "instance_convergence";
-      const result = await convergeInstances(app, names, runtimeId);
+      const result = await verifyNativeInstances(app, names, runtimeId);
       applications.push({
         applicationId: app.id,
         name: app.name,
@@ -1068,12 +964,7 @@ export async function verifyDeployment(
         instanceType: "basic",
         maxInstances: names.length,
         namespaceId,
-        instances: result.instances.map((i) => ({
-          id: i.id,
-          name: i.name,
-          state: i.state,
-          version: i.version,
-        })),
+        instances: result.instances,
       });
     }
     stage = "async_triggers";
@@ -1100,7 +991,7 @@ export async function verifyDeployment(
     stage = "final_readiness";
     await ready(runtimeId, run.signal, "final");
     return {
-      format: "ghfind-feed-production-readiness-v1",
+      format: "ghfind-feed-production-readiness-v2",
       status: "passed",
       accountId: ACCOUNT,
       environment: "production",

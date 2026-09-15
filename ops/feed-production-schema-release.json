@@ -28,6 +28,10 @@
     {
       "name": "0006_feed_source_replay_audit.sql",
       "sha256": "8c02a2c9fae9e2e6eebae4d45f91428c3fe664113b34468e3d42fee98113ef35"
+    },
+    {
+      "name": "0007_project_analysis_recovery.sql",
+      "sha256": "641eae95ec4452ad9c974de2763c0f65e0e7210892788b60e493311a1ece01f1"
     }
   ],
   "feed": [

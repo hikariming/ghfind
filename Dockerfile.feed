@@ -6,8 +6,9 @@ COPY internal ./internal
 COPY cmd/feed-api ./cmd/feed-api
 COPY cmd/feed-worker ./cmd/feed-worker
 ARG VERSION=development
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-api ./cmd/feed-api && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/feed-worker ./cmd/feed-worker
+ARG IMAGE_BUILD_ID=development
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.imageBuildID=${IMAGE_BUILD_ID}" -o /out/feed-api ./cmd/feed-api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.imageBuildID=${IMAGE_BUILD_ID}" -o /out/feed-worker ./cmd/feed-worker
 FROM scratch AS runtime
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/feed-api /out/feed-worker /usr/local/bin/
