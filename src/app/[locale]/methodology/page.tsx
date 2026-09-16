@@ -67,7 +67,7 @@ export default async function MethodologyPage({
         </dl>
       </section>
 
-      {(["penalties", "determinism", "data"] as const).map((k) => (
+      {(["penalties", "determinism", "baseVsFinal", "data"] as const).map((k) => (
         <section key={k} className="mt-12">
           <h2 className="text-2xl font-bold text-[var(--foreground)]">
             {t(`${k}Heading`)}
