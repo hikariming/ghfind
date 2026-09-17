@@ -37,7 +37,13 @@ _SUB_SCORE_ORDER = [
 
 
 def _out(text: str = "") -> None:
-    sys.stdout.write(f"{text}\n")
+    try:
+        sys.stdout.write(f"{text}\n")
+        sys.stdout.flush()
+    except UnicodeEncodeError:
+        # Fallback for Windows consoles or non-UTF-8 stdout environments
+        sys.stdout.buffer.write(f"{text}\n".encode("utf-8", errors="replace"))
+        sys.stdout.buffer.flush()
 
 
 def _out_json(value: Any) -> None:
@@ -45,7 +51,12 @@ def _out_json(value: Any) -> None:
 
 
 def _fail(message: str, code: int = 1) -> "NoReturn":  # type: ignore[name-defined]
-    sys.stderr.write(f"{message}\n")
+    try:
+        sys.stderr.write(f"{message}\n")
+        sys.stderr.flush()
+    except UnicodeEncodeError:
+        sys.stderr.buffer.write(f"{message}\n".encode("utf-8", errors="replace"))
+        sys.stderr.buffer.flush()
     raise SystemExit(code)
 
 
