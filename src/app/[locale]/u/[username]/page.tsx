@@ -280,8 +280,7 @@ export default async function AccountPage({
   const battles = presentation?.battles ?? [];
   const facetRank = presentation?.facetRank ?? null;
   const commonProjects = presentation?.common_projects ?? [];
-  // Inline re-detect is self-service: only the signed-in owner sees it on their
-  // own profile. GitHub handles are case-insensitive, so compare normalized.
+  // GitHub handles are case-insensitive, so compare normalized.
   const isOwner =
     session?.user?.login?.toLowerCase() === d.username.toLowerCase();
   // Badge-landing hook: a visitor arriving from a GitHub README badge (Referer
@@ -697,9 +696,7 @@ export default async function AccountPage({
             <FollowButton username={d.username} className="mt-3" />
           </>
         )}
-        {isOwner && (
-          <RescanButton username={d.username} scannedAt={d.scanned_at} className="mt-3" />
-        )}
+        <RescanButton username={d.username} scannedAt={d.scanned_at} className="mt-3" />
       </div>
 
       {isAdvxCampaign && (
