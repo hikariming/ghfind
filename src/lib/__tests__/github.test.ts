@@ -3,10 +3,13 @@ import {
   boundedContributionYearsActive,
   collect,
   fetchDurablePullRequestPage,
+  firstCommitHistoryAfter,
   ghFetch,
   githubTokens,
   GitHubDataUnavailableError,
   hasGithubToken,
+  parseGithubNoreplyLogin,
+  resolveFirstCommitGithubLogin,
 } from "../github";
 
 const originalToken = process.env.GITHUB_TOKEN;
@@ -17,6 +20,244 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+function graphqlQuery(init?: RequestInit): string {
+  return (JSON.parse(String(init?.body ?? "{}")) as { query?: string }).query ?? "";
+}
+
+function firstCommitOrgCollectFetch(input: {
+  login: string;
+  owner: string;
+  name: string;
+  stars: number;
+  commits: number;
+  firstCommitLogin: string;
+}) {
+  const nameWithOwner = `${input.owner}/${input.name}`;
+  const repoNode = {
+    nameWithOwner,
+    stargazerCount: input.stars,
+    isPrivate: false,
+    isFork: false,
+    owner: { login: input.owner },
+  };
+  return vi.fn(async (raw: string | URL | Request, init?: RequestInit) => {
+    const url = typeof raw === "string" ? raw : raw instanceof URL ? raw.toString() : raw.url;
+
+    if (url === `https://api.github.com/users/${input.login}`) {
+      return jsonResponse({
+        login: input.login,
+        id: 1,
+        html_url: `https://github.com/${input.login}`,
+        avatar_url: null,
+        name: null,
+        bio: null,
+        company: null,
+        created_at: "2020-01-01T00:00:00Z",
+        followers: 0,
+        following: 0,
+        public_repos: 0,
+      });
+    }
+    if (url.includes(`/users/${input.login}/repos`)) return jsonResponse([]);
+    if (url.includes(`/users/${input.login}/events/public`)) return jsonResponse([]);
+    if (url === `https://api.github.com/repos/${nameWithOwner}`) {
+      return jsonResponse({
+        name: input.name,
+        full_name: nameWithOwner,
+        private: false,
+        fork: false,
+        size: 400,
+        stargazers_count: input.stars,
+        forks_count: 2,
+        open_issues_count: 1,
+        language: "Go",
+        description: "Production filesystem runtime with API and tests",
+        pushed_at: "2026-01-01T00:00:00Z",
+        owner: { login: input.owner, type: "Organization" },
+        topics: [],
+      });
+    }
+    if (url.startsWith(`https://api.github.com/repos/${nameWithOwner}/releases`)) {
+      return jsonResponse([]);
+    }
+    if (url.startsWith(`https://api.github.com/repos/${nameWithOwner}/tags`)) {
+      return jsonResponse([]);
+    }
+    if (url === `https://api.github.com/repos/${nameWithOwner}/readme`) {
+      return jsonResponse({
+        path: "README.md",
+        sha: "abc",
+        size: 200,
+        html_url: null,
+        content: Buffer.from(
+          "# runtime\n\nInstall the service, configure it, use the API, and run tests.\n",
+        ).toString("base64"),
+        encoding: "base64",
+      });
+    }
+    if (url === `https://api.github.com/repos/${nameWithOwner}/languages`) {
+      return jsonResponse({ Go: 1000 });
+    }
+    if (url === "https://api.github.com/graphql") {
+      const query = graphqlQuery(init);
+      if (query.includes("contributionsCollection(from:")) {
+        return jsonResponse({
+          data: {
+            user: {
+              y0: {
+                commitContributionsByRepository: [
+                  { repository: repoNode, contributions: { totalCount: input.commits } },
+                ],
+              },
+            },
+          },
+        });
+      }
+      if (query.includes("organizations(first:")) {
+        return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+      }
+      if (query.includes("pullRequests(first:") && query.includes("states: MERGED")) {
+        return jsonResponse({
+          data: {
+            user: {
+              pullRequests: {
+                nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        });
+      }
+      if (query.includes("issues(states: OPEN)")) {
+        return jsonResponse({ data: { r0: { issues: { totalCount: 0 } } } });
+      }
+      if (query.includes("pullRequests(first:")) {
+        return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+      }
+      if (query.includes("isFork") && query.includes("defaultBranchRef")) {
+        return jsonResponse({
+          data: {
+            repository: {
+              isFork: false,
+              defaultBranchRef: {
+                target: { oid: "cafebabe", history: { totalCount: input.commits } },
+              },
+            },
+          },
+        });
+      }
+      if (query.includes("authoredDate")) {
+        return jsonResponse({
+          data: {
+            repository: {
+              defaultBranchRef: {
+                target: {
+                  history: {
+                    nodes: [
+                      {
+                        oid: "deadbeef",
+                        url: `https://github.com/${nameWithOwner}/commit/deadbeef`,
+                        authoredDate: "2024-01-01T00:00:00Z",
+                        messageHeadline: "init",
+                        author: {
+                          name: input.firstCommitLogin,
+                          email: `1+${input.firstCommitLogin}@users.noreply.github.com`,
+                          user: { login: input.firstCommitLogin },
+                        },
+                        committer: {
+                          name: "GitHub",
+                          email: "noreply@github.com",
+                          user: null,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+      if (query.includes("repository(owner:")) {
+        return jsonResponse({
+          data: {
+            repository: {
+              stargazerCount: input.stars,
+              hasIssuesEnabled: true,
+              isMirror: false,
+              watchers: { totalCount: 10 },
+              issues: { totalCount: 10 },
+              pullRequests: { totalCount: 10 },
+            },
+          },
+        });
+      }
+      return jsonResponse({
+        data: {
+          user: {
+            pinnedItems: { nodes: [] },
+            mergedPRs: { totalCount: 0 },
+            allPRs: { totalCount: 0 },
+            closedPRs: { totalCount: 0, nodes: [] },
+            issues: { totalCount: 0 },
+            contributionsCollection: {
+              totalCommitContributions: input.commits,
+              totalPullRequestContributions: 0,
+              totalIssueContributions: 0,
+              totalPullRequestReviewContributions: 0,
+              restrictedContributionsCount: 0,
+              contributionCalendar: { totalContributions: input.commits },
+            },
+            contributionYears: { contributionYears: [2025] },
+          },
+        },
+      });
+    }
+    return jsonResponse({}, 404);
+  });
+}
+
+describe("first-commit identity", () => {
+  it("builds the default-branch history cursor from tip oid and length", () => {
+    expect(firstCommitHistoryAfter("abc", 1)).toBeNull();
+    expect(firstCommitHistoryAfter("abc", 2)).toBe("abc 0");
+    expect(firstCommitHistoryAfter("abc", 2706)).toBe("abc 2704");
+  });
+
+  it("parses only GitHub noreply mailbox logins", () => {
+    expect(parseGithubNoreplyLogin("48499089+yifanxuaaa@users.noreply.github.com")).toBe(
+      "yifanxuaaa",
+    );
+    expect(parseGithubNoreplyLogin("samzong@users.noreply.github.com")).toBe("samzong");
+    expect(parseGithubNoreplyLogin("person@example.com")).toBeNull();
+  });
+
+  it("resolves GitHub login in author, committer, then noreply order", () => {
+    expect(
+      resolveFirstCommitGithubLogin({
+        authorLogin: "alice",
+        committerLogin: "bot",
+        authorEmail: "1+other@users.noreply.github.com",
+      }),
+    ).toEqual({ login: "alice", source: "author.user" });
+    expect(
+      resolveFirstCommitGithubLogin({
+        authorLogin: null,
+        committerLogin: "bob",
+      }),
+    ).toEqual({ login: "bob", source: "committer.user" });
+    expect(
+      resolveFirstCommitGithubLogin({
+        authorEmail: "12+carol@users.noreply.github.com",
+      }),
+    ).toEqual({ login: "carol", source: "noreply-email" });
+    expect(resolveFirstCommitGithubLogin({ authorEmail: "carol@example.com" })).toEqual({
+      login: null,
+      source: "none",
+    });
+  });
+});
 
 describe("boundedContributionYearsActive", () => {
   const now = new Date("2026-07-01T00:00:00Z");
@@ -345,9 +586,119 @@ describe("collect", () => {
     expect(result.metrics.merged_pr_count).toBe(480);
     expect(result.metrics.issues_created).toBe(220);
     expect(result.metrics.merged_pr_contribution_aggregation_incomplete).toBe(true);
-    expect(boundedMergedAggregationCalls).toBe(0);
+    expect(boundedMergedAggregationCalls).toBe(1);
     // Approximated diversity: contributions + PRs + issues (reviews unknowable).
     expect(result.metrics.activity_type_count).toBe(3);
+  });
+
+  it("keeps the newest 300 merged PRs as an impact lower bound when history is larger", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === "https://api.github.com/users/prolific") {
+          return jsonResponse({
+            login: "prolific",
+            id: 4,
+            html_url: "https://github.com/prolific",
+            avatar_url: null,
+            name: null,
+            bio: null,
+            company: null,
+            created_at: "2018-01-01T00:00:00Z",
+            followers: 0,
+            following: 0,
+            public_repos: 0,
+          });
+        }
+
+        if (url.includes("/users/prolific/repos")) {
+          return jsonResponse([]);
+        }
+
+        if (url === "https://api.github.com/graphql") {
+          const query = graphqlQuery(init);
+          if (query.includes("contributionsCollection(from:")) {
+            return jsonResponse({
+              data: { user: { y0: { commitContributionsByRepository: [] } } },
+            });
+          }
+          if (query.includes("organizations(first:")) {
+            return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+          }
+          if (query.includes("pullRequests(first:") && query.includes("states: MERGED") && query.includes("$after")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: {
+                    nodes: [
+                      {
+                        mergedAt: "2026-01-02T00:00:00Z",
+                        repository: {
+                          nameWithOwner: "acme/core",
+                          stargazerCount: 12000,
+                          isPrivate: false,
+                          isFork: false,
+                          owner: { login: "acme" },
+                        },
+                      },
+                    ],
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                  },
+                },
+              },
+            });
+          }
+          if (query.includes("pullRequests(first:")) {
+            return jsonResponse({
+              data: {
+                user: {
+                  pullRequests: {
+                    nodes: [],
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                  },
+                },
+              },
+            });
+          }
+          return jsonResponse({
+            data: {
+              user: {
+                pinnedItems: { nodes: [] },
+                mergedPRs: { totalCount: 400 },
+                allPRs: { totalCount: 420 },
+                closedPRs: { totalCount: 0, nodes: [] },
+                issues: { totalCount: 0 },
+                contributionsCollection: {
+                  totalCommitContributions: 0,
+                  totalPullRequestContributions: 0,
+                  totalIssueContributions: 0,
+                  totalPullRequestReviewContributions: 0,
+                  contributionCalendar: { totalContributions: 0 },
+                },
+                contributionYears: { contributionYears: [2026] },
+              },
+            },
+          });
+        }
+
+        return jsonResponse({}, 404);
+      }),
+    );
+
+    const result = await collect("prolific");
+
+    expect(result.metrics.merged_pr_count).toBe(400);
+    expect(result.metrics.merged_pr_contribution_aggregation_incomplete).toBe(true);
+    expect(result.metrics.impact_pr_count).toBe(1);
+    expect(result.metrics.impact_commit_count).toBe(0);
+    expect(result.metrics.max_impact_repo_stars).toBe(12000);
   });
 
   it("attributes strongly maintained organization repos as original-project candidates", async () => {
@@ -548,6 +899,52 @@ ${"Useful project detail. ".repeat(50)}
       "https://api.github.com/repos/acme/core/readme",
       expect.anything(),
     );
+  });
+
+  it("attributes a long-term org repo when the first commit author is the scored user", async () => {
+    vi.stubGlobal(
+      "fetch",
+      firstCommitOrgCollectFetch({
+        login: "alice",
+        owner: "lab",
+        name: "layerfs",
+        stars: 80,
+        commits: 200,
+        firstCommitLogin: "alice",
+      }),
+    );
+
+    const result = await collect("alice");
+
+    expect(result.metrics.attributed_original_repo_count).toBe(1);
+    expect(result.top_repos[0]).toMatchObject({
+      name: "layerfs",
+      owner_login: "lab",
+      name_with_owner: "lab/layerfs",
+      attributed_original: true,
+    });
+    expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain(
+      "first commit author is alice",
+    );
+  });
+
+  it("does not attribute an org repo whose first commit belongs to someone else", async () => {
+    vi.stubGlobal(
+      "fetch",
+      firstCommitOrgCollectFetch({
+        login: "alice",
+        owner: "lab",
+        name: "sandbox",
+        stars: 400,
+        commits: 2000,
+        firstCommitLogin: "other-dev",
+      }),
+    );
+
+    const result = await collect("alice");
+
+    expect(result.metrics.attributed_original_repo_count).toBe(0);
+    expect(result.top_repos).toHaveLength(0);
   });
 
   it("does not count unmerged PR contribution graph entries as high-star impact", async () => {

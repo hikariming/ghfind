@@ -112,7 +112,7 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.recordAccountLookup).toHaveBeenCalledWith("DemoDev", "0.0.0.0");
   });
 
-  it("serves v5 only after the quick collector fails", async () => {
+  it("serves the previous collection tuple after the quick collector fails", async () => {
     mocks.buildScanResult.mockRejectedValue(new Error("github unavailable"));
     mocks.getLegacyReadFallbackScan.mockResolvedValue(quickScan);
 
@@ -122,7 +122,7 @@ describe("POST /api/scan immediate quick contract", () => {
     await expect(response.json()).resolves.toMatchObject({
       coverage: "legacy",
       legacy_read_fallback: true,
-      served_score_version: "v9",
+      served_score_version: "v10",
       served_roast_version: "v10",
       served_collection_version: "v4",
     });
