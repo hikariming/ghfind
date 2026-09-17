@@ -114,6 +114,14 @@ function canonicalPublicScorePredicate(alias: string): string {
   return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
 }
 
+function isTargetReleaseScoreRow(row: Record<string, unknown>): boolean {
+  return (
+    row.score_version === SCORE_CACHE_VERSION &&
+    (row.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION ||
+      row.collection_version === PUBLIC_SCAN_COLLECTION_VERSION)
+  );
+}
+
 function isLegacyReadFallbackScore(row: Record<string, unknown>): boolean {
   return (
     row.score_version === LEGACY_READ_FALLBACK.score &&
@@ -6143,11 +6151,10 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       args: [username.toLowerCase()],
     });
     const currentRow = (res.rows[0] as Record<string, unknown> | undefined) ?? null;
-    const currentScore = currentRow?.score_version === SCORE_CACHE_VERSION;
+    const currentScore = Boolean(currentRow && isTargetReleaseScoreRow(currentRow));
     const canonicalScore =
       currentScore &&
-      currentRow?.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
-      typeof currentRow.score_source_snapshot_hash === "string" &&
+      typeof currentRow?.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(currentRow.score_source_snapshot_hash);
     // A broken/incomplete target-version row must not hide the last verified
     // release during an incident. A canonical v10 row always wins; otherwise
@@ -6157,7 +6164,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : await getLegacyReadFallbackRow(db, username);
     const r = fallbackRow ?? currentRow;
     if (!r) return null;
-    const resolvedCurrentScore = r.score_version === SCORE_CACHE_VERSION;
+    const resolvedCurrentScore = isTargetReleaseScoreRow(r);
     const legacyReadFallback =
       !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
     const readableArtifacts = resolvedCurrentScore || legacyReadFallback;

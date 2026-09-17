@@ -282,7 +282,7 @@ describe("getArchivedRoast", () => {
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
   });
 
-  it("serves an exact v5/v5/v3 artifact as a stale read without changing its score", async () => {
+  it("serves an exact v10/v10/v4 artifact as a stale read without changing its score", async () => {
     const username = "legacy-read-fixture";
     await writeLegacyReadFallback(username);
 
@@ -309,7 +309,7 @@ describe("getArchivedRoast", () => {
     });
   });
 
-  it("keeps a v5 profile readable when its old v3 snapshot is no longer usable", async () => {
+  it("keeps a v10/v10/v4 profile readable when its old snapshot is no longer usable", async () => {
     const username = "legacy-fallback-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
@@ -332,7 +332,7 @@ describe("getArchivedRoast", () => {
     await expect(db.getLegacyReadFallbackScan(username)).resolves.toBeNull();
   });
 
-  it("does not turn a mismatched v3 snapshot into a complete scan", async () => {
+  it("does not turn a mismatched previous-collection snapshot into a complete scan", async () => {
     const username = "legacy-fallback-score-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });

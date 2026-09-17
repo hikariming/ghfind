@@ -1119,6 +1119,185 @@ function hasDocLikeTopic(repo: RestRepo): boolean {
   );
 }
 
+const MAX_ATTRIBUTED_ORIGINAL_REPOS = 8;
+
+const FIRST_COMMIT_META_QUERY = `query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    isFork
+    defaultBranchRef {
+      name
+      target {
+        ... on Commit {
+          oid
+          history(first: 1) { totalCount }
+        }
+      }
+    }
+  }
+}`;
+
+const FIRST_COMMIT_HISTORY_QUERY = `query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 1, after: $after) {
+            nodes {
+              oid
+              url
+              authoredDate
+              messageHeadline
+              author { name email user { login databaseId } }
+              committer { name email user { login databaseId } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+type FirstCommitAccountSource =
+  | "author.user"
+  | "committer.user"
+  | "noreply-email"
+  | "none";
+
+interface FirstCommitGithubAccount {
+  login: string | null;
+  source: FirstCommitAccountSource;
+  isFork: boolean;
+  oid: string | null;
+}
+
+interface FirstCommitActor {
+  name?: string | null;
+  email?: string | null;
+  user?: { login?: string | null } | null;
+}
+
+interface FirstCommitNode {
+  oid: string;
+  url: string;
+  authoredDate: string;
+  messageHeadline: string;
+  author: FirstCommitActor | null;
+  committer: FirstCommitActor | null;
+}
+
+export function firstCommitHistoryAfter(tipOid: string, totalCount: number): string | null {
+  if (totalCount < 2 || !tipOid) return null;
+  return `${tipOid} ${totalCount - 2}`;
+}
+
+export function parseGithubNoreplyLogin(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const plus = email.match(/^(\d+)\+([A-Za-z0-9-]+)@users\.noreply\.github\.com$/i);
+  if (plus) return plus[2];
+  const plain = email.match(/^([A-Za-z0-9-]+)@users\.noreply\.github\.com$/i);
+  return plain?.[1] ?? null;
+}
+
+export function resolveFirstCommitGithubLogin(input: {
+  authorLogin?: string | null;
+  committerLogin?: string | null;
+  authorEmail?: string | null;
+  committerEmail?: string | null;
+}): { login: string | null; source: FirstCommitAccountSource } {
+  const authorLogin = input.authorLogin?.trim() || null;
+  if (authorLogin) return { login: authorLogin, source: "author.user" };
+  const committerLogin = input.committerLogin?.trim() || null;
+  if (committerLogin) return { login: committerLogin, source: "committer.user" };
+  const fromEmail =
+    parseGithubNoreplyLogin(input.authorEmail) ?? parseGithubNoreplyLogin(input.committerEmail);
+  if (fromEmail) return { login: fromEmail, source: "noreply-email" };
+  return { login: null, source: "none" };
+}
+
+async function restAuthorLoginForCommit(
+  owner: string,
+  name: string,
+  sha: string,
+): Promise<string | null> {
+  const commit = await restGet<RestCommit>(`repos/${owner}/${name}/commits/${sha}`).catch(
+    () => null,
+  );
+  return commit?.author?.login?.trim() || null;
+}
+
+async function fetchDefaultBranchFirstCommit(
+  owner: string,
+  name: string,
+): Promise<FirstCommitGithubAccount> {
+  const empty: FirstCommitGithubAccount = {
+    login: null,
+    source: "none",
+    isFork: false,
+    oid: null,
+  };
+  try {
+    const meta = await graphql<{
+      repository: {
+        isFork: boolean;
+        defaultBranchRef: {
+          name: string;
+          target: { oid: string; history: { totalCount: number } } | null;
+        } | null;
+      } | null;
+    }>(FIRST_COMMIT_META_QUERY, { owner, name });
+    const repository = meta.repository;
+    if (!repository) return empty;
+    const target = repository.defaultBranchRef?.target;
+    const totalCount = target?.history.totalCount ?? 0;
+    if (!target || totalCount <= 0) {
+      return { ...empty, isFork: repository.isFork };
+    }
+
+    const after = firstCommitHistoryAfter(target.oid, totalCount);
+    const history = await graphql<{
+      repository: {
+        defaultBranchRef: { target: { history: { nodes: FirstCommitNode[] } } | null } | null;
+      } | null;
+    }>(FIRST_COMMIT_HISTORY_QUERY, { owner, name, after });
+    const commit = history.repository?.defaultBranchRef?.target?.history.nodes[0];
+    if (!commit) {
+      return { ...empty, isFork: repository.isFork };
+    }
+
+    let authorLogin = commit.author?.user?.login ?? null;
+    if (!authorLogin) {
+      authorLogin = await restAuthorLoginForCommit(owner, name, commit.oid);
+    }
+    const resolved = resolveFirstCommitGithubLogin({
+      authorLogin,
+      committerLogin: commit.committer?.user?.login ?? null,
+      authorEmail: commit.author?.email ?? null,
+      committerEmail: commit.committer?.email ?? null,
+    });
+    return {
+      login: resolved.login,
+      source: resolved.source,
+      isFork: repository.isFork,
+      oid: commit.oid,
+    };
+  } catch (error) {
+    if (error instanceof GitHubRateLimitError) throw error;
+    return empty;
+  }
+}
+
+function isPublicOrgMember(ownerLogin: string, organizations: string[]): boolean {
+  const owner = ownerLogin.toLowerCase();
+  return organizations.some((organization) => organization.toLowerCase() === owner);
+}
+
+function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): boolean {
+  if (repo.is_private || repo.is_fork) return false;
+  if (repo.owner_login.toLowerCase() === loginLower) return false;
+  if (isDocLikeRepo(repo.repo)) return false;
+  return hasStrongLongTermOrgContribution(repo);
+}
+
 async function collectAttributedOriginalRepos(input: {
   contribRepos: ContribRepoAgg[];
   organizations: string[];
@@ -1126,18 +1305,14 @@ async function collectAttributedOriginalRepos(input: {
   loginLower: string;
   profileUrl: string | null;
 }): Promise<TopRepo[]> {
-  if (input.organizations.length === 0) return [];
+  const structural = input.contribRepos.filter((repo) =>
+    isOrgOwnedLongTermCandidate(repo, input.loginLower),
+  );
+  if (structural.length === 0) return [];
 
-  const candidates = input.contribRepos
-    .filter((repo) =>
-      computeOrgRepoAttribution({
-        repo,
-        organizations: input.organizations,
-        pinnedRepos: input.pinnedRepos,
-      }),
-    )
+  const candidates = [...structural]
     .sort((a, b) => b.stars - a.stars || b.commits + b.prs - (a.commits + a.prs))
-    .slice(0, 8);
+    .slice(0, MAX_ATTRIBUTED_ORIGINAL_REPOS);
 
   const repos = await Promise.all(
     candidates.map(async (candidate) => {
@@ -1146,6 +1321,16 @@ async function collectAttributedOriginalRepos(input: {
       const detail = await fetchRepoDetails(owner, name);
       if (!detail || detail.private || detail.fork) return null;
       if (isDocLikeRepo(candidate.repo) || hasDocLikeTopic(detail)) return null;
+
+      const member = isPublicOrgMember(owner, input.organizations);
+      let firstCommitLogin: string | null | undefined;
+      if (!member) {
+        const first = await fetchDefaultBranchFirstCommit(owner, name);
+        if (first.isFork || !first.login || first.login.toLowerCase() !== input.loginLower) {
+          return null;
+        }
+        firstCommitLogin = first.login;
+      }
 
       const [releaseOrTagAuthorHit, maintainerFileHit] = await Promise.all([
         hasReleaseOrTagAuthor(owner, name, input.loginLower),
@@ -1157,6 +1342,8 @@ async function collectAttributedOriginalRepos(input: {
         pinnedRepos: input.pinnedRepos,
         releaseOrTagAuthorHit,
         maintainerFileHit,
+        scoredLogin: input.loginLower,
+        firstCommitLogin,
       });
       if (!attribution) return null;
       return repoToTopRepo(detail, owner, attribution);
@@ -2033,16 +2220,24 @@ export function computeOrgRepoAttribution(input: {
   pinnedRepos?: string[];
   releaseOrTagAuthorHit?: boolean;
   maintainerFileHit?: boolean;
+  scoredLogin?: string;
+  firstCommitLogin?: string | null;
 }): OrgRepoAttribution | null {
   const owner = input.repo.owner_login.toLowerCase();
   const organizations = new Set(input.organizations.map((o) => o.toLowerCase()));
-  if (!organizations.has(owner)) return null;
+  const member = organizations.has(owner);
+  const scoredLogin = input.scoredLogin?.trim().toLowerCase() ?? "";
+  const firstCommitLogin = input.firstCommitLogin?.trim().toLowerCase() ?? "";
+  const firstCommitMatch = scoredLogin.length > 0 && firstCommitLogin === scoredLogin;
+  if (!member && !firstCommitMatch) return null;
   if (input.repo.is_private || input.repo.is_fork) return null;
   if (isDocLikeRepo(input.repo.repo)) return null;
   if (!hasStrongLongTermOrgContribution(input.repo)) return null;
 
   const evidence = [
-    `org member of ${input.repo.owner_login}`,
+    member
+      ? `org member of ${input.repo.owner_login}`
+      : `first commit author is ${input.firstCommitLogin}`,
     `${input.repo.commits} commits + ${input.repo.prs} PRs across ${input.repo.active_years} years`,
   ];
   let score = 1 + 4;
@@ -2662,22 +2857,17 @@ export async function collect(username: string): Promise<{
     .filter((s): s is string => typeof s === "string");
   const closedPrNodes = overview.closedPRs?.nodes ?? [];
   const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
-  // The quick collector intentionally caps merged-PR aggregation at 300.
-  // For larger histories, publish neither a partial impact aggregate nor a
-  // score: the durable paginator owns the complete result.
   let mergedPrContribRepos: ContribRepoAgg[] = [];
   let mergedPrContributionAggregationIncomplete = mergedPrCount > 300;
   const [commitContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
     fetchWorkflowLandedPrs(login, overview.closedPRs?.totalCount ?? 0),
   ]);
-  if (!mergedPrContributionAggregationIncomplete) {
-    try {
-      mergedPrContribRepos = await fetchMergedPrContribRepos(login);
-    } catch (error) {
-      if (!(error instanceof GitHubResourceLimitError)) throw error;
-      mergedPrContributionAggregationIncomplete = true;
-    }
+  try {
+    mergedPrContribRepos = await fetchMergedPrContribRepos(login);
+  } catch (error) {
+    if (!(error instanceof GitHubResourceLimitError)) throw error;
+    mergedPrContributionAggregationIncomplete = true;
   }
   const commitContributionAggregationUnavailable =
     contributionYears.length > 0 && commitContribRepos === null;

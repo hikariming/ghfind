@@ -778,6 +778,71 @@ Run the CLI with the default config.
       }),
     ).toBeNull();
   });
+
+  it("attributes a long-term org repo when the first commit author is the scored user", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({
+        repo: "lab/layerfs",
+        owner_login: "lab",
+        commits: 200,
+        prs: 20,
+        active_years: 1,
+      }),
+      organizations: [],
+      scoredLogin: "alice",
+      firstCommitLogin: "alice",
+    });
+
+    expect(attribution?.repo).toBe("lab/layerfs");
+    expect(attribution?.score).toBeGreaterThanOrEqual(5);
+    expect(attribution?.evidence.join(" ")).toContain("first commit author is alice");
+  });
+
+  it("does not let a first-commit match skip the long-term maintenance gate", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({
+          repo: "lab/plugins",
+          owner_login: "lab",
+          commits: 54,
+          prs: 12,
+          active_years: 1,
+        }),
+        organizations: [],
+        scoredLogin: "alice",
+        firstCommitLogin: "alice",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not attribute when the first commit belongs to someone else", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({
+          repo: "lab/sandbox",
+          owner_login: "lab",
+          commits: 2000,
+          prs: 40,
+          active_years: 1,
+        }),
+        organizations: [],
+        scoredLogin: "alice",
+        firstCommitLogin: "other-dev",
+      }),
+    ).toBeNull();
+  });
+
+  it("prefers public membership evidence when both gates match", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({ commits: 90, prs: 8, active_years: 4 }),
+      organizations: ["org"],
+      scoredLogin: "alice",
+      firstCommitLogin: "alice",
+    });
+
+    expect(attribution?.evidence.join(" ")).toContain("org member of org");
+    expect(attribution?.evidence.join(" ")).not.toContain("first commit author");
+  });
 });
 
 describe("isExternalTrivialFarmPr (garbage into popular community repos)", () => {
