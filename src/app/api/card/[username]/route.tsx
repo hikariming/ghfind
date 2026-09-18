@@ -18,6 +18,7 @@ import {
 } from "./cards";
 import type { Identity } from "./cards";
 import { avatarDataUrl, fonts, png, qrDataUrl, qrModuleColor } from "../shared";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const theme = parseTheme(req);
   const palette = PALETTES[theme];
   const { username } = await ctx.params;
-  const name = decodeURIComponent(username ?? "").trim();
+  const name = decodeRouteParam(username ?? "").trim();
 
   // Satori rasterizes this away, so the full-size mark costs the response nothing.
   const sponsorLogo = await sponsorLogoDataUrl();
