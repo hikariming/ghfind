@@ -10,6 +10,7 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
+  clearCachedScan,
   coalesceScan,
   getCachedScan,
   rateLimitHeaders,
@@ -213,9 +214,15 @@ export async function POST(req: NextRequest) {
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
     });
   }
-  // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
-  // fresh snapshot immediately; admission/rate limits above still apply.
+  // `?force=1` (RescanButton) must reflect the fresh snapshot immediately.
+  // Skipping only this route-level read is not enough: `coalesceScan` →
+  // `protectedScan` re-reads the same `scan:` key internally and would return
+  // the stale snapshot before `collect()` ever runs, so the response is labeled
+  // `cached: false` while carrying pre-rescan data. Delete the key so the inner
+  // read misses and a real crawl happens. Admission/rate limits above still
+  // apply, and concurrent forced scans converge safely on the admission lock.
   const force = req.nextUrl.searchParams.get("force") === "1";
+  if (force) await clearCachedScan(username);
   const cached = force ? null : await getCachedScan(username);
   if (cached) {
     // The cached snapshot was persisted by its producing quick scan. Replaying
