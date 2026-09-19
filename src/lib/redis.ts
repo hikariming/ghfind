@@ -134,6 +134,21 @@ export async function clearCachedScan(username: string): Promise<void> {
   await r.del(scanKey(username)).catch(() => {});
 }
 
+export const scoreDetailKey = (username: string) =>
+  `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+
+/**
+ * Drop the cached indexed-score snapshot so the next GET /api/score re-reads
+ * Turso. The publish path must call this after writing a newer score, or the
+ * 22–24h `score-detail:` TTL keeps serving the pre-rescan snapshot with
+ * `stale: false` (mirrors `clearCachedScan` for the `scan:` key).
+ */
+export async function clearCachedScoreDetail(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(scoreDetailKey(username)).catch(() => {});
+}
+
 /** Cache-aside indexed score reads also serialize database repopulation. */
 export async function getCachedScoreDetail(
   username: string,
@@ -145,7 +160,7 @@ export async function getCachedScoreDetail(
     if (isProductionDeployment()) throw new ScanBusyError();
     return load();
   }
-  const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+  const key = scoreDetailKey(username);
   const result = await protectedScan({
     redis: r, key,
     read: async () => {

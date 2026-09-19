@@ -47,6 +47,7 @@ import { VS_MIN_SCORE } from "./site";
 import {
   bumpCampaignLeaderboardRevision,
   clearCachedReactionCounts,
+  clearCachedScoreDetail,
   getCachedReactionCounts,
   releaseLookupGate,
   setCachedReactionCounts,
@@ -1762,6 +1763,10 @@ export async function publishCompleteQuickScan(
       ],
     });
     await recordProfileSnapshot(materialized.scan);
+    // A newer score just landed in Turso. Drop the cache-aside score-detail
+    // snapshot so GET /api/score re-reads it instead of serving the pre-rescan
+    // snapshot (stale: false) until its 22–24h TTL expires.
+    await clearCachedScoreDetail(materialized.scoreEntry.username);
     return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("publish_quick_score", error);
