@@ -79,9 +79,9 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
         <div className="sidebar-group">
           <p className="sidebar-group-label">{t("career")}</p>
           <Link href="/resume" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/resume") ? "page" : undefined} aria-label={t("resume")} title={t("resume")}><FileUser size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("resume")}</span><span className="sidebar-soon sidebar-label">{t("preview")}</span></Link>
-          {[{ key: "talent", icon: BriefcaseBusiness }].map(({ key, icon: Icon }) => <button key={key} className="sidebar-link sidebar-upcoming" disabled aria-label={`${t(key)} · ${t("soon")}`} title={`${t(key)} · ${t("soon")}`}>
-            <Icon size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t(key)}</span><span className="sidebar-soon sidebar-label">{t("soon")}</span>
-          </button>)}
+          <Link href="/talent" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/talent") ? "page" : undefined} aria-label={t("talent")} title={t("talent")}>
+            <BriefcaseBusiness size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("talent")}</span><span className="sidebar-soon sidebar-label">{t("preview")}</span>
+          </Link>
         </div>
       </nav>
       <div className="sidebar-bottom">

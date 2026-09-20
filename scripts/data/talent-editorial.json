@@ -1,0 +1,897 @@
+[
+  {
+    "id": "bowenliang123",
+    "name": "梁博文 (Bowen Liang)",
+    "handle": "bowenliang123",
+    "role": "Apache Kyuubi PMC 成员 · Dify 贡献者",
+    "location": "广州",
+    "direction": "后端 / 基础设施",
+    "bio": "长期参与大数据平台与 AI 应用工具建设。在 Apache Kyuubi 参与认证授权等能力开发，也在 Dify 插件生态持续贡献工具。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "dsh-context",
+    "project_description": "DeepSeek Harness 上下文可视化插件",
+    "note": "从数据基础设施到 AI 工作流，关注他在成熟社区中的长期协作与插件实践。",
+    "available": 0,
+    "color": "blue",
+    "collection_slug": "bowen-liang",
+    "status": "published",
+    "sort_order": 10,
+    "skills": [
+      "Java",
+      "Python",
+      "Spark"
+    ],
+    "projects": [
+      {
+        "name": "bowenliang123/dsh-context",
+        "description": "DeepSeek Harness 上下文可视化插件",
+        "relationship": "own",
+        "contribution": "作者 / 维护者 · 持续迭代",
+        "url": "https://github.com/bowenliang123/dsh-context"
+      },
+      {
+        "name": "apache/kyuubi",
+        "description": "分布式多租户 SQL 网关，Apache 顶级项目",
+        "relationship": "pr",
+        "contribution": "PMC 成员 · Authz 认证插件、JDBC 认证等核心功能",
+        "url": "https://github.com/apache/kyuubi"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@bowenliang123 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/bowenliang123",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "梁博文：从广发证券大数据架构师到 Apache Kyuubi PMC 的开源进阶之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-09-09",
+        "url": "/collections/bowen-liang"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "jiangmuran",
+    "name": "姜睦然 (Jiang Muran)",
+    "handle": "jiangmuran",
+    "role": "全栈开发者 · vibepanel 作者",
+    "location": "北京",
+    "direction": "全栈开发",
+    "bio": "围绕 AI 编码代理、自动化工具与内容创作构建开源项目，代表作品包括 vibepanel、ClawFounder。注重本地优先、隐私与长期稳定性。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "vibepanel",
+    "project_description": "面向重度 AI 编码代理用户的 Web 控制台",
+    "note": "值得从作品的工程取舍认识他：会话状态、进程管理和使用体验，比年龄标签更能说明开发思路。",
+    "available": 0,
+    "color": "sage",
+    "collection_slug": "jiang-muran",
+    "status": "published",
+    "sort_order": 20,
+    "skills": [
+      "Go",
+      "TypeScript",
+      "C++"
+    ],
+    "projects": [
+      {
+        "name": "jiangmuran/vibepanel",
+        "description": "面向重度 AI 编码代理用户的 Web 控制台",
+        "relationship": "own",
+        "contribution": "作者 / 维护者 · “页面是视图，不是状态”",
+        "url": "https://github.com/jiangmuran/vibepanel"
+      },
+      {
+        "name": "jiangmuran/ClawFounder",
+        "description": "一句话启动的全自动 AI 创业流水线",
+        "relationship": "own",
+        "contribution": "作者 / 维护者",
+        "url": "https://github.com/jiangmuran/ClawFounder"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@jiangmuran 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/jiangmuran",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "姜睦然：14 岁少年开发者的 12 个开源项目",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-09-15",
+        "url": "/collections/jiang-muran"
+      },
+      {
+        "title": "姜睦然个人网站",
+        "publisher": "个人网站",
+        "url": "https://jiangmuran.com/",
+        "kind": "website",
+        "description": "人物文章所引用的公开资料"
+      }
+    ]
+  },
+  {
+    "id": "max-liu",
+    "name": "刘德泽 (Max Liu)",
+    "handle": null,
+    "role": "产品增长 · 开源社区建设",
+    "location": "未公开",
+    "direction": "产品 / 增长",
+    "bio": "站内人物特写介绍了他在 ListenHub、LobeHub 等 AI 产品中的增长与社区实践，关注内容分发、用户冷启动和商业化。",
+    "stars": null,
+    "contributions": null,
+    "source": "人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 产品增长与社区实践",
+    "note": "开源团队除了工程，也需要增长与社区建设能力。未关联个人 GitHub，保留个人网站与人物报道供进一步了解。",
+    "available": 0,
+    "color": "peach",
+    "collection_slug": "max-liu",
+    "status": "published",
+    "sort_order": 30,
+    "skills": [
+      "增长",
+      "社区运营",
+      "商业化"
+    ],
+    "projects": [],
+    "sources": [
+      {
+        "title": "刘德泽（Max Liu）：从奥克兰退学到 LobeHub 增长负责人",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-02",
+        "url": "/collections/max-liu"
+      },
+      {
+        "title": "Max Liu · AI Developer & Community Builder",
+        "publisher": "个人网站",
+        "url": "https://maxforai.com/",
+        "kind": "website",
+        "description": "人物文章所引用的公开资料"
+      },
+      {
+        "title": "从清北退学的年轻人，当月入五千的CEO",
+        "publisher": "36氪",
+        "url": "https://m.36kr.com/p/3428037218242178",
+        "kind": "article",
+        "description": "人物文章所引用的公开资料"
+      }
+    ]
+  },
+  {
+    "id": "tianyicui",
+    "name": "崔添翼 (Tianyi Cui)",
+    "handle": "tianyicui",
+    "role": "AI 基础设施 · 算法与工程",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "《背包问题九讲》作者。站内特写梳理了他从算法竞赛、量化工程到 DeepSeek Harness 团队的技术经历。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "deepseek-harness",
+    "project_description": "AI 智能体基础设施",
+    "note": "从算法知识分享与基础设施工程两条线索了解其工作；同名人物资料需结合原文辨别。",
+    "available": 0,
+    "color": "lavender",
+    "collection_slug": "tianyi-cui",
+    "status": "published",
+    "sort_order": 40,
+    "skills": [
+      "C++",
+      "OCaml",
+      "分布式系统"
+    ],
+    "projects": [
+      {
+        "name": "deepseek-ai/deepseek-harness",
+        "description": "AI 智能体基础设施",
+        "relationship": "pr",
+        "contribution": "团队负责人 · 2026 年 3 月组建 Harness 团队",
+        "url": "https://github.com/deepseek-ai/deepseek-harness"
+      },
+      {
+        "name": "tianyicui/pack",
+        "description": "《背包问题九讲》的算法竞赛经典教程",
+        "relationship": "own",
+        "contribution": "作者 · 跨越十余年的技术资产",
+        "url": "https://github.com/tianyicui/pack"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@tianyicui 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/tianyicui",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "从量化交易到 AI 智能体：崔添翼与 DeepSeek Harness 的技术长征",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-09-09",
+        "url": "/collections/tianyi-cui"
+      }
+    ]
+  },
+  {
+    "id": "zRzRzRzRzRzRzR",
+    "name": "张昱轩 (Yuxuan Zhang)",
+    "handle": "zRzRzRzRzRzRzR",
+    "role": "AI 算法工程师 · 开源模型贡献者",
+    "location": "厦门",
+    "direction": "AI / 机器学习",
+    "bio": "参与智谱开源模型与 Agent 生态，关注大语言模型、多模态和工程实践。站内特写介绍了 Open-AutoGLM、CogVideoX 等项目中的工作。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "Open-AutoGLM",
+    "project_description": "智谱开源的 AutoGLM 项目",
+    "note": "算法研究、开源实现与技术分享相互连接，可结合代码仓库和人物文章了解其贡献。",
+    "available": 0,
+    "color": "rose",
+    "collection_slug": "yuxuan-zhang",
+    "status": "published",
+    "sort_order": 50,
+    "skills": [
+      "Python",
+      "深度学习",
+      "计算机视觉"
+    ],
+    "projects": [
+      {
+        "name": "zai-org/Open-AutoGLM",
+        "description": "智谱开源的 AutoGLM 项目",
+        "relationship": "pr",
+        "contribution": "核心贡献者",
+        "url": "https://github.com/zai-org/Open-AutoGLM"
+      },
+      {
+        "name": "zai-org/CogVideo",
+        "description": "智谱开源视频生成与视觉 Agent 模型",
+        "relationship": "pr",
+        "contribution": "贡献者",
+        "url": "https://github.com/zai-org/CogVideo"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@zRzRzRzRzRzRzR 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/zRzRzRzRzRzRzR",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "张昱轩：00 后 AI 开发者的成长之路与开源贡献之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-01",
+        "url": "/collections/yuxuan-zhang"
+      },
+      {
+        "title": "清北硕博扎堆的AI独角兽企业，为何选中了这位西浦本科生？",
+        "publisher": "西交利物浦大学",
+        "url": "https://www.xjtlu.edu.cn/zh/news/2025/04/offer",
+        "kind": "article",
+        "description": "人物文章所引用的公开资料"
+      }
+    ]
+  },
+  {
+    "id": "LofiSu",
+    "name": "阿酥在coding (LofiSu)",
+    "handle": "LofiSu",
+    "role": "开源贡献者 · 前端与 AI Agent",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "参与 Apache Fory 与 DeerFlow 等开源项目，关注前端开发和 AI Agent。站内收录有相关人物档案，可结合原始贡献记录进一步了解。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "apache/fory",
+    "project_description": "多语言序列化框架 · 社区贡献",
+    "note": "本条为人物资料收录。具体职责与贡献范围以项目记录为准，不将社交媒体评价作为能力结论。",
+    "available": 0,
+    "color": "sand",
+    "collection_slug": "lofisu",
+    "status": "published",
+    "sort_order": 60,
+    "skills": [
+      "前端开发",
+      "AI Agent",
+      "开源协作"
+    ],
+    "projects": [
+      {
+        "name": "apache/fory",
+        "description": "多语言序列化框架",
+        "relationship": "pr",
+        "contribution": "社区贡献",
+        "url": "https://github.com/apache/fory"
+      },
+      {
+        "name": "bytedance/deer-flow",
+        "description": "AI Agent 框架",
+        "relationship": "pr",
+        "contribution": "社区贡献",
+        "url": "https://github.com/bytedance/deer-flow"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@LofiSu 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/LofiSu",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "阿酥在coding（LofiSu）：当\"身份工程\"遇上评分引擎",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-02",
+        "url": "/collections/lofisu"
+      }
+    ]
+  },
+  {
+    "id": "takatost",
+    "name": "John Wang",
+    "handle": "takatost",
+    "role": "Dify 联合创始人 · 工程实践",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "参与 Dify 的早期产品与工程建设。站内专题从项目演进和贡献记录出发，介绍了其在 AI 应用开发平台中的工作。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "lavender",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 70,
+    "skills": [
+      "AI 应用",
+      "平台工程"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@takatost 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/takatost",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "laipz8200",
+    "name": "-LAN-",
+    "handle": "laipz8200",
+    "role": "Dify 贡献者 · 工作流引擎",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "围绕 Dify 工作流引擎、节点执行与错误恢复等能力持续贡献，关注 AI 应用运行中的可靠性与工程实现。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "peach",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 80,
+    "skills": [
+      "工作流",
+      "后端开发"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@laipz8200 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/laipz8200",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "hyoban",
+    "name": "Stephen Zhou",
+    "handle": "hyoban",
+    "role": "前端开发者 · Dify 贡献者",
+    "location": "未公开",
+    "direction": "前端开发",
+    "bio": "参与 Dify 前端交互层的开发与维护，关注 Next.js、React 与 AI 应用的使用体验。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "sage",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 90,
+    "skills": [
+      "Next.js",
+      "React"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@hyoban 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/hyoban",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "kurokobo",
+    "name": "kurokobo",
+    "handle": "kurokobo",
+    "role": "开源开发者 · Dify 生态贡献者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "参与 Dify 开源生态，收录于站内 Dify 专题及其介绍的官方社区致谢名单。可从公开仓库与贡献记录了解其长期实践。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "blue",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 100,
+    "skills": [
+      "开源协作",
+      "AI 应用"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@kurokobo 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/kurokobo",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "junjiem",
+    "name": "Junjie.M",
+    "handle": "junjiem",
+    "role": "Dify 插件生态开发者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "围绕 MCP 代理与 Dify 插件生态构建工具，让 AI 工作流与外部能力连接。站内专题介绍了主仓之外的插件贡献。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "lavender",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 110,
+    "skills": [
+      "MCP",
+      "插件开发"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@junjiem 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/junjiem",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "fdb02983rhy",
+    "name": "fdb02983rhy",
+    "handle": "fdb02983rhy",
+    "role": "Dify 开源贡献者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "站内 Dify 专题介绍的社区贡献者之一，也出现在专题引用的官方致谢名单中。以代码协作和持续参与积累项目经验。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "langgenius/dify",
+    "project_description": "AI 应用开发平台 · 开源生态协作",
+    "note": "收录自《Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "peach",
+    "collection_slug": "dify",
+    "status": "published",
+    "sort_order": 120,
+    "skills": [
+      "开源协作",
+      "AI 应用"
+    ],
+    "projects": [
+      {
+        "name": "langgenius/dify",
+        "description": "Dify 从 2023 年 5 月的 RAG ChatBot 开发平台起步，经 2024 年的 Workflow 编排引擎、2025 年 v1.0 的插件化重构与 Agent 节点，到 2026 年 v1.16 正式成为 Agentic 工作流执行器",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/langgenius/dify"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@fdb02983rhy 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/fdb02983rhy",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "Dify.AI：从聊天编排工具到Agentic工作流执行器的开源进化史（2023-2026）",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/dify"
+      }
+    ]
+  },
+  {
+    "id": "arvinxx",
+    "name": "Arvin Xu",
+    "handle": "arvinxx",
+    "role": "LobeHub 创始人 · 产品与工程",
+    "location": "未公开",
+    "direction": "前端开发",
+    "bio": "有 Ant Design 社区背景，参与推动 LobeHub 从开源聊天工具发展为多 Agent 协作平台，兼顾产品体验与工程建设。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 开源生态协作",
+    "note": "收录自《LobeHub：从开源聊天工具到首席Agent官的演进之路》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "sage",
+    "collection_slug": "lobehub",
+    "status": "published",
+    "sort_order": 130,
+    "skills": [
+      "产品工程",
+      "前端开发",
+      "AI Agent"
+    ],
+    "projects": [
+      {
+        "name": "lobehub/lobehub",
+        "description": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/lobehub/lobehub"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@arvinxx 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/arvinxx",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/lobehub"
+      }
+    ]
+  },
+  {
+    "id": "nekomeowww",
+    "name": "Neko",
+    "handle": "nekomeowww",
+    "role": "开源开发者 · LobeHub 贡献者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "在自有开源项目之外参与 LobeHub 协作。站内专题从跨项目贡献的角度，介绍了这位持续建设开源工具的开发者。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 开源生态协作",
+    "note": "收录自《LobeHub：从开源聊天工具到首席Agent官的演进之路》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "blue",
+    "collection_slug": "lobehub",
+    "status": "published",
+    "sort_order": 140,
+    "skills": [
+      "开源协作",
+      "AI Agent"
+    ],
+    "projects": [
+      {
+        "name": "lobehub/lobehub",
+        "description": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/lobehub/lobehub"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@nekomeowww 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/nekomeowww",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/lobehub"
+      }
+    ]
+  },
+  {
+    "id": "Innei",
+    "name": "Innei",
+    "handle": "Innei",
+    "role": "独立开发者 · LobeHub 贡献者",
+    "location": "未公开",
+    "direction": "前端开发",
+    "bio": "构建 mx-space、Afilmory 等个人作品，同时参与 LobeHub 的代码协作，在独立产品与社区项目之间持续实践。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 开源生态协作",
+    "note": "收录自《LobeHub：从开源聊天工具到首席Agent官的演进之路》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "lavender",
+    "collection_slug": "lobehub",
+    "status": "published",
+    "sort_order": 150,
+    "skills": [
+      "独立开发",
+      "前端开发"
+    ],
+    "projects": [
+      {
+        "name": "lobehub/lobehub",
+        "description": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/lobehub/lobehub"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@Innei 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/Innei",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/lobehub"
+      }
+    ]
+  },
+  {
+    "id": "tjx666",
+    "name": "YuTengjing",
+    "handle": "tjx666",
+    "role": "开源开发者 · LobeHub 贡献者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "持续参与 LobeHub 的开发与维护。站内专题将其作为项目日常工程协作的重要贡献者介绍。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 开源生态协作",
+    "note": "收录自《LobeHub：从开源聊天工具到首席Agent官的演进之路》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "peach",
+    "collection_slug": "lobehub",
+    "status": "published",
+    "sort_order": 160,
+    "skills": [
+      "开源协作",
+      "产品工程"
+    ],
+    "projects": [
+      {
+        "name": "lobehub/lobehub",
+        "description": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/lobehub/lobehub"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@tjx666 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/tjx666",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/lobehub"
+      }
+    ]
+  },
+  {
+    "id": "MapleEve",
+    "name": "Maple Gao",
+    "handle": "MapleEve",
+    "role": "开源开发者 · LobeHub 贡献者",
+    "location": "未公开",
+    "direction": "AI / 机器学习",
+    "bio": "参与 LobeHub 等开源项目，站内专题关注其长期协作与代码贡献。适合从实际项目记录了解技术经验。",
+    "stars": null,
+    "contributions": null,
+    "source": "GitHub + 人工整理",
+    "project": "lobehub/lobehub",
+    "project_description": "多 Agent 协作平台 · 开源生态协作",
+    "note": "收录自《LobeHub：从开源聊天工具到首席Agent官的演进之路》（2026-08-07）。人物介绍依据该篇编辑资料，具体贡献可通过 GitHub 记录继续查看。",
+    "available": 0,
+    "color": "sage",
+    "collection_slug": "lobehub",
+    "status": "published",
+    "sort_order": 170,
+    "skills": [
+      "开源协作",
+      "AI Agent"
+    ],
+    "projects": [
+      {
+        "name": "lobehub/lobehub",
+        "description": "LobeHub 从 2023 年的开源聊天工具 LobeChat 起步，历经三次重大架构变革与两次品牌定位转型，最终发展为以「首席 Agent 运营官」（CAO）为核心的多智能体协作平台",
+        "relationship": "pr",
+        "contribution": "项目与生态贡献，详见站内专题",
+        "url": "https://github.com/lobehub/lobehub"
+      }
+    ],
+    "sources": [
+      {
+        "title": "@MapleEve 的公开主页",
+        "publisher": "GitHub",
+        "kind": "github",
+        "url": "https://github.com/MapleEve",
+        "description": "仓库、公开贡献与技术栈"
+      },
+      {
+        "title": "LobeHub：从开源聊天工具到首席Agent官的演进之路",
+        "publisher": "ghfind 合集",
+        "kind": "article",
+        "description": "站内编辑文章 · 发布于 2026-08-07",
+        "url": "/collections/lobehub"
+      }
+    ]
+  }
+]
