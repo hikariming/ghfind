@@ -111,3 +111,10 @@ test('journal preflight cannot be combined with mutation or bypass its failed re
   assert.throws(()=>check({'deploy-cf-production.yml':production.replace('Restore the assessment journal without provider mutations','Missing restore boundary')}));
   assert.throws(()=>check({'deploy-cf-production.yml':production.replace('      - name: Start or resume the single real production assessment\n', '      - name: Start or resume the single real production assessment\n        if: always()\n')}));
 });
+
+test('provider failure cannot strand the new public Web without its build cache', () => {
+  const production=originals['deploy-cf-production.yml'];
+  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('Populate new build cache before replacing the public Web','Missing early cache')}));
+  const command='run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10';
+  assert.throws(()=>check({'deploy-cf-production.yml':production.replace(command,'run: true')}));
+});

@@ -141,6 +141,8 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler d1 migrations apply ghfind --remote --config "$release_config"
           platform/runtime/node_modules/.bin/wrangler d1 migrations apply ghfind-feed --remote --config "$release_config"
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$release_config" --json --command "SELECT * FROM feed_runtime_control; SELECT * FROM feed_schema_compatibility; SELECT name FROM d1_migrations ORDER BY id;" > "$RUNNER_TEMP/feed-production-evidence/schema.json"
+      - name: Populate new build cache before replacing the public Web
+        run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
       - name: Pause an already active Go gateway before replacing its runtime
         if: ${{ steps.resources.outputs.backend == 'go' }}
         run: |

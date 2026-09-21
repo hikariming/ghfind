@@ -143,3 +143,9 @@ for (const command of assessmentOrder) {
 }
 if (!deployJob.includes('PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'))
   throw new Error('Production recovery requires its own reconciliation credential');
+
+const cachePreflight = deployJob.indexOf('name: Populate new build cache before replacing the public Web');
+const firstWebDeploy = deployJob.indexOf('wrangler deploy --config platform/runtime/wrangler.web.production.generated.json');
+if (cachePreflight < 0 || cachePreflight >= firstWebDeploy ||
+    !deployJob.slice(cachePreflight, firstWebDeploy).includes('populateCache remote --config platform/runtime/wrangler.web.production.generated.json'))
+  throw new Error('New build cache must be populated before replacing the public Web');
