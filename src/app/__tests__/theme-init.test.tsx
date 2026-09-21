@@ -7,7 +7,6 @@ vi.mock("next/font/google", () => ({
   Geist: () => ({ variable: "geist-sans" }),
   Geist_Mono: () => ({ variable: "geist-mono" }),
 }));
-vi.mock("@/components/AnalyticsGate", () => ({ default: () => null }));
 vi.mock("next/script", () => ({ default: () => null }));
 
 // Only native head scripts survive the next/script mock. Running the emitted
