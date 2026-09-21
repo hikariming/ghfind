@@ -280,6 +280,28 @@ function ensureSchema(db: Client): Promise<void> {
   CHECK ((action = 'retry_interrupted' AND execution_deadline_at > requested_at)
     OR (action = 'finalize_completed' AND execution_deadline_at IS NULL))
 )`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_final_recoveries (
+  analysis_id TEXT PRIMARY KEY REFERENCES project_analysis_runs(id),
+  request_id TEXT NOT NULL UNIQUE,
+  predecessor_request_id TEXT NOT NULL REFERENCES project_analysis_recoveries(request_id),
+  retry_number INTEGER NOT NULL DEFAULT 2 CHECK (retry_number = 2),
+  action TEXT NOT NULL CHECK (action = 'retry_interrupted_final'),
+  requested_ref TEXT NOT NULL,
+  original_thread_id TEXT NOT NULL,
+  original_run_id TEXT NOT NULL,
+  original_idempotency_key TEXT NOT NULL,
+  original_started_at INTEGER,
+  original_create_attempts INTEGER NOT NULL,
+  original_error_code TEXT NOT NULL,
+  original_error_message TEXT,
+  original_completed_at INTEGER,
+  original_updated_at INTEGER NOT NULL,
+  operator_ref TEXT NOT NULL,
+  requested_at INTEGER NOT NULL,
+  execution_deadline_at INTEGER,
+  next_idempotency_key TEXT NOT NULL,
+  CHECK (execution_deadline_at IS NOT NULL AND execution_deadline_at > requested_at)
+)`,
           `CREATE INDEX IF NOT EXISTS idx_treasure_entries_repo_selected
              ON treasure_entries(repo_key, selected_at DESC)`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_treasure_entries_one_active
@@ -608,7 +630,7 @@ export interface ProjectAnalysisRecoveryInput {
   expectedRunId: string;
   requestId: string;
   operatorRef: string;
-  action: "retry_interrupted" | "finalize_completed";
+  action: "retry_interrupted" | "retry_interrupted_final" | "finalize_completed";
 }
 
 export interface ProjectAnalysisRecovery extends ProjectAnalysisRecoveryInput {
@@ -623,7 +645,8 @@ export interface ProjectAnalysisRecovery extends ProjectAnalysisRecoveryInput {
 export async function getProjectAnalysisRecovery(analysisId: string): Promise<ProjectAnalysisRecovery | null> {
   const db = database();
   await ensureSchema(db);
-  const result = await db.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id = ?", args: [analysisId] });
+  const latest = await db.execute({ sql: "SELECT * FROM project_analysis_final_recoveries WHERE analysis_id = ?", args: [analysisId] });
+  const result = latest.rows.length ? latest : await db.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id = ?", args: [analysisId] });
   const row = result.rows[0];
   if (!row) return null;
   return {
@@ -640,12 +663,13 @@ export async function getProjectAnalysisRecovery(analysisId: string): Promise<Pr
   };
 }
 
-// One operator recovery per logical assessment. The old provider identity and
-// deadline remain durable; a restarted caller cannot grant another attempt.
+// The original recovery is preserved. The explicit final action can append
+// one last attempt; a restarted caller cannot renew either durable deadline.
 export async function claimProjectAnalysisRecovery(
   input: ProjectAnalysisRecoveryInput,
   expectedUpdatedAt: number,
 ): Promise<ProjectAnalysisRun | null> {
+  if (input.action === "retry_interrupted_final") return claimFinalProjectAnalysisRecovery(input, expectedUpdatedAt);
   const db = database();
   await ensureSchema(db);
   const current = await selectRun(db, input.analysisId);
@@ -692,7 +716,64 @@ export async function claimProjectAnalysisRecovery(
   return results[1]?.rowsAffected === 1 ? selectRun(db, input.analysisId) : null;
 }
 
+// The second audit is append-only: the original recovery remains unchanged.
+async function claimFinalProjectAnalysisRecovery(
+  input: ProjectAnalysisRecoveryInput,
+  expectedUpdatedAt: number,
+): Promise<ProjectAnalysisRun | null> {
+  const db = database();
+  await ensureSchema(db);
+  const current = await selectRun(db, input.analysisId);
+  if (!current) return null;
+  const nextKey = `ghfind-project-${input.analysisId}-retry-2`;
+  const now = Date.now();
+  const executionDeadlineAt = now + 30 * 60_000;
+  const results = await db.batch([
+    {
+      sql: `INSERT INTO project_analysis_final_recoveries (
+        analysis_id, request_id, action, requested_ref, original_thread_id, original_run_id,
+        original_idempotency_key, original_started_at, original_create_attempts,
+        original_error_code, original_error_message, original_completed_at, original_updated_at,
+        operator_ref, requested_at, execution_deadline_at, next_idempotency_key, predecessor_request_id
+      ) SELECT id, ?, ?, requested_ref, mosoo_thread_id, mosoo_run_id, idempotency_key,
+        started_at, create_attempts, error_code, error_message, completed_at, updated_at, ?, ?, ?, ?,
+        (SELECT request_id FROM project_analysis_recoveries a WHERE a.analysis_id = p.id AND a.action = 'retry_interrupted' AND a.next_idempotency_key = p.idempotency_key)
+        FROM project_analysis_runs p WHERE id = ? AND requested_ref = ?
+        AND status = 'failed' AND error_code = 'mosoo_run_failed'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND idempotency_key = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = p.id
+          AND a.action = 'retry_interrupted' AND a.next_idempotency_key = p.idempotency_key AND a.request_id <> ?)
+        AND NOT EXISTS (SELECT 1 FROM project_analysis_runs newer
+          WHERE newer.repo_key = p.repo_key AND newer.id <> p.id AND newer.created_at >= p.created_at)
+        ON CONFLICT(analysis_id) DO NOTHING`,
+      args: [input.requestId, input.action, input.operatorRef, now, executionDeadlineAt, nextKey,
+        input.analysisId, input.requestedRef, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt,
+        `ghfind-project-${input.analysisId}-retry-1`, input.requestId],
+    },
+    {
+      sql: `UPDATE project_analysis_runs SET status = ?, phase = ?, progress = ?,
+        active_key = ?, idempotency_key = ?, create_attempts = ?, create_retry_at = NULL,
+        mosoo_thread_id = ?, mosoo_run_id = ?, error_code = NULL, error_message = NULL,
+        completed_at = NULL, updated_at = ?
+        WHERE id = ? AND status = 'failed' AND error_code = 'mosoo_run_failed'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_final_recoveries a WHERE a.analysis_id = project_analysis_runs.id
+          AND a.request_id = ? AND a.original_updated_at = project_analysis_runs.updated_at
+          AND a.original_idempotency_key = project_analysis_runs.idempotency_key
+          AND a.original_thread_id = project_analysis_runs.mosoo_thread_id AND a.original_run_id = project_analysis_runs.mosoo_run_id
+          AND a.requested_ref = project_analysis_runs.requested_ref)`,
+      args: ["queued", "queued", 0, activeKey(current), nextKey, 0, null, null, now,
+        input.analysisId, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt, input.requestId],
+    },
+  ], "write");
+  return results[1]?.rowsAffected === 1 ? selectRun(db, input.analysisId) : null;
+}
+
+export type ProjectAnalysisExecutionIdentity = Pick<ProjectAnalysisRun, "idempotencyKey" | "mosooThreadId" | "mosooRunId">;
+
 export interface UpdateProjectAnalysisStateInput {
+  expectedExecution?: ProjectAnalysisExecutionIdentity;
   analysisId: string;
   status: ProjectAnalysisStatus;
   phase: ProjectAnalysisPhase;
@@ -711,7 +792,8 @@ export async function updateProjectAnalysisState(
           SET status = ?, phase = ?, progress = ?,
               mosoo_run_id = COALESCE(?, mosoo_run_id),
               activities_json = COALESCE(?, activities_json), updated_at = ?
-          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
+          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+          AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
     args: [
       input.status,
       input.phase,
@@ -720,6 +802,8 @@ export async function updateProjectAnalysisState(
       input.activities ? JSON.stringify(input.activities) : null,
       Date.now(),
       input.analysisId,
+      input.expectedExecution?.idempotencyKey ?? null, input.expectedExecution?.idempotencyKey ?? null,
+      input.expectedExecution?.mosooThreadId ?? null, input.expectedExecution?.mosooRunId ?? null,
     ],
   });
 }
@@ -727,14 +811,16 @@ export async function updateProjectAnalysisState(
 export async function updateProjectAnalysisActivities(
   analysisId: string,
   activities: ProjectAnalysisActivity[],
+  expectedExecution?: ProjectAnalysisExecutionIdentity,
 ): Promise<void> {
   const db = database();
   await ensureSchema(db);
   await db.execute({
     sql: `UPDATE project_analysis_runs
           SET activities_json = ?, updated_at = ?
-          WHERE id = ?`,
-    args: [JSON.stringify(activities), Date.now(), analysisId],
+          WHERE id = ? AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
+    args: [JSON.stringify(activities), Date.now(), analysisId, expectedExecution?.idempotencyKey ?? null,
+      expectedExecution?.idempotencyKey ?? null, expectedExecution?.mosooThreadId ?? null, expectedExecution?.mosooRunId ?? null],
   });
 }
 
@@ -744,6 +830,7 @@ export async function failProjectAnalysis(
   errorMessage: string,
   status: "failed" | "cancelled" | "expired" = "failed",
   activities?: ProjectAnalysisActivity[],
+  expectedExecution?: ProjectAnalysisExecutionIdentity,
 ): Promise<void> {
   const db = database();
   await ensureSchema(db);
@@ -753,7 +840,8 @@ export async function failProjectAnalysis(
           SET status = ?, active_key = NULL, error_code = ?, error_message = ?,
               activities_json = COALESCE(?, activities_json),
               create_retry_at = NULL, completed_at = ?, updated_at = ?
-          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
+          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+          AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
     args: [
       status,
       errorCode,
@@ -762,6 +850,8 @@ export async function failProjectAnalysis(
       now,
       now,
       analysisId,
+      expectedExecution?.idempotencyKey ?? null, expectedExecution?.idempotencyKey ?? null,
+      expectedExecution?.mosooThreadId ?? null, expectedExecution?.mosooRunId ?? null,
     ],
   });
 }

@@ -46,11 +46,13 @@ async function seed(expired = true) {
     expectedThreadId: original.mosooThreadId!, expectedRunId: original.mosooRunId!, requestId: `operator-request-${sequence}`, operatorRef: "github-actions:123:1" };
   return { input, original, repoKey };
 }
-function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: string; code?: string; wrongAgent?: boolean; failFirstPost?: boolean; invalidArtifact?: boolean } = {}) {
+function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: string; code?: string; wrongAgent?: boolean; failFirstPost?: boolean; invalidArtifact?: boolean; finalThread?: boolean } = {}) {
   const posts: string[] = [];
-  const response = (newThread = false) => ({ thread: { id: newThread ? `${f.input.analysisId}-new-thread` : f.input.expectedThreadId,
+  const nextThread = `${f.input.analysisId}-new-thread${options.finalThread ? "-2" : ""}`;
+  const nextRun = `${f.input.analysisId}-new-run${options.finalThread ? "-2" : ""}`;
+  const response = (newThread = false) => ({ thread: { id: newThread ? nextThread : f.input.expectedThreadId,
     agent_id: options.wrongAgent ? "other-agent" : "project-agent", kind: "cattle", status: "IDLE", userId: "ghfind" },
-    run: { id: newThread ? `${f.input.analysisId}-new-run` : f.input.expectedRunId, status: newThread ? "running" : options.status ?? "failed",
+    run: { id: newThread ? nextRun : f.input.expectedRunId, status: newThread ? "running" : options.status ?? "failed",
       createdAt: "2026-09-14T00:00:00Z", startedAt: "2026-09-14T00:00:01Z", completedAt: newThread ? null : "2026-09-14T00:02:00Z",
       updatedAt: "2026-09-14T00:02:00Z", trigger: "user_prompt", error: { code: options.code ?? "runtime.turn_interrupted", message: "interrupted" } } });
   const analysis: ProjectAnalysisArtifact = structuredClone(validProjectAnalysis);
@@ -74,7 +76,7 @@ function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: strin
     if (url.includes("/files/analysis/")) return new Response(options.invalidArtifact ? "{}" : JSON.stringify(analysis));
     if (url.includes("/files/evidence/")) return new Response(JSON.stringify(evidence));
     if (url.includes("/files/report/")) return new Response("# Completed report\n\nValid original provider output.");
-    if (url.endsWith(`${f.input.analysisId}-new-thread`)) return Response.json(response(true));
+    if (url.endsWith(nextThread) && nextThread !== f.input.expectedThreadId) return Response.json(response(true));
     return Response.json(response());
   }));
   return { posts };
@@ -182,6 +184,92 @@ describe("audited operator recovery", () => {
     expect(audit.originalStartedAt).toBeNull();
     now = audit.executionDeadlineAt! + 1;
     expect((await service.reconcileProjectAnalysis(f.input.analysisId)).status).toBe("expired");
+  });
+  async function firstAttemptFailed() {
+    const f = await seed(); provider(f);
+    const first = await service.recoverProjectAnalysis(f.input);
+    const latest = { ...f, input: { ...f.input, expectedThreadId: first.mosooThreadId!, expectedRunId: first.mosooRunId!,
+      action: "retry_interrupted_final" as const, requestId: `${f.input.requestId}-final` } };
+    provider(latest);
+    expect((await service.reconcileProjectAnalysis(first.id)).status).toBe("failed");
+    return { initial: f, latest };
+  }
+  it("appends one final retry audit, preserves the first audit and rejects a third attempt or stale replay", async () => {
+    const { initial, latest } = await firstAttemptFailed();
+    const oldAudit = (await raw.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id=?", args: [initial.input.analysisId] })).rows[0];
+    const staleExecution = (await db.getProjectAnalysisRun(initial.input.analysisId))!;
+    now += 1000;
+    const remote = provider(latest, { finalThread: true });
+    const recovered = await service.recoverProjectAnalysis(latest.input);
+    expect(recovered.idempotencyKey).toBe(`ghfind-project-${recovered.id}-retry-2`);
+    expect(recovered.startedAt).toBe(initial.original.startedAt);
+    await db.failProjectAnalysis(recovered.id, "mosoo_run_failed", "late first-attempt callback", "failed", undefined, staleExecution);
+    await db.updateProjectAnalysisState({ analysisId: recovered.id, status: "running", phase: "evaluating", progress: 99, expectedExecution: staleExecution });
+    await db.updateProjectAnalysisActivities(recovered.id, [{ id: "stale", kind: "failed", occurredAt: "2026-09-14T00:00:00Z" }], staleExecution);
+    expect(await db.getProjectAnalysisRun(recovered.id)).toMatchObject({ status: "running", progress: 10, activities: [] });
+    const finalAudit = (await db.getProjectAnalysisRecovery(recovered.id))!;
+    expect(finalAudit.action).toBe("retry_interrupted_final");
+    expect(finalAudit.originalIdempotencyKey).toBe(`ghfind-project-${recovered.id}-retry-1`);
+    expect(finalAudit.executionDeadlineAt! - finalAudit.createdAt).toBe(1800000);
+    expect(finalAudit.createdAt).toBe(now);
+    await service.recoverProjectAnalysis(latest.input);
+    expect(await db.getProjectAnalysisRecovery(recovered.id)).toEqual(finalAudit);
+    expect(remote.posts).toEqual([`ghfind-project-${recovered.id}-retry-2`]);
+    await expect(service.recoverProjectAnalysis({ ...latest.input, requestId: "third-request" })).rejects.toThrow("already consumed");
+    await expect(service.recoverProjectAnalysis(initial.input)).rejects.toThrow("already consumed");
+    const persistedFirst = (await raw.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id=?", args: [recovered.id] })).rows[0];
+    expect(persistedFirst).toEqual(oldAudit);
+    const persistedFinal = (await raw.execute({ sql: "SELECT predecessor_request_id,retry_number FROM project_analysis_final_recoveries WHERE analysis_id=?", args: [recovered.id] })).rows[0];
+    expect(persistedFinal).toMatchObject({ predecessor_request_id: initial.input.requestId, retry_number: 2 });
+    now = finalAudit.executionDeadlineAt! + 1;
+    expect((await service.reconcileProjectAnalysis(recovered.id)).status).toBe("expired");
+    await expect(service.recoverProjectAnalysis(latest.input)).rejects.toThrow("another retry is prohibited");
+    expect(remote.posts).toHaveLength(1);
+  });
+  it("a lost acknowledgement of the final attempt keeps the same key and does not renew the deadline", async () => {
+    const { latest } = await firstAttemptFailed();
+    const remote = provider(latest, { finalThread: true, failFirstPost: true });
+    expect((await service.recoverProjectAnalysis(latest.input)).status).toBe("queued");
+    const audit = await db.getProjectAnalysisRecovery(latest.input.analysisId);
+    now += 6000;
+    expect((await service.recoverProjectAnalysis(latest.input)).status).toBe("running");
+    expect(remote.posts).toEqual([`ghfind-project-${latest.input.analysisId}-retry-2`, `ghfind-project-${latest.input.analysisId}-retry-2`]);
+    expect(await db.getProjectAnalysisRecovery(latest.input.analysisId)).toEqual(audit);
+  });
+  it("concurrent final retry claims create at most one new provider execution", async () => {
+    const { latest } = await firstAttemptFailed();
+    const remote = provider(latest, { finalThread: true });
+    const result = await Promise.allSettled([service.recoverProjectAnalysis(latest.input), service.recoverProjectAnalysis(latest.input)]);
+    expect(result.some(value => value.status === "fulfilled")).toBe(true);
+    expect(remote.posts).toHaveLength(1);
+  });
+  it("final retry requires the exact first audit and fresh interrupted provider failure", async () => {
+    const original = await seed(); const fresh = provider(original);
+    await expect(service.recoverProjectAnalysis({ ...original.input, action: "retry_interrupted_final" })).rejects.toThrow();
+    expect(fresh.posts).toHaveLength(0);
+    const { latest } = await firstAttemptFailed();
+    const remote = provider(latest, { status: "running", finalThread: true });
+    await expect(service.recoverProjectAnalysis(latest.input)).rejects.toThrow();
+    expect(remote.posts).toHaveLength(0);
+    expect((await raw.execute({ sql: "SELECT COUNT(*) AS n FROM project_analysis_final_recoveries WHERE analysis_id=?", args: [latest.input.analysisId] })).rows[0].n).toBe(0);
+  });
+  it("a newer repository analysis prevents the final claim without consuming its audit slot", async () => {
+    const { latest } = await firstAttemptFailed();
+    const remote = provider(latest, { finalThread: true });
+    now += 1;
+    await db.createProjectAnalysisRun({ id: `${latest.input.analysisId}-newer-final`, repoKey: latest.repoKey,
+      canonicalUrl: `https://github.com/${latest.repoKey}`, requestedRef: "b".repeat(40),
+      schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+    await expect(service.recoverProjectAnalysis(latest.input)).rejects.toThrow("superseded");
+    expect(remote.posts).toHaveLength(0);
+    expect((await raw.execute({ sql: "SELECT COUNT(*) AS n FROM project_analysis_final_recoveries WHERE analysis_id=?", args: [latest.input.analysisId] })).rows[0].n).toBe(0);
+  });
+  it("final retry migration is repeatable and does not rewrite the existing first recovery", async () => {
+    const { initial } = await firstAttemptFailed();
+    const before = await db.getProjectAnalysisRecovery(initial.input.analysisId);
+    const migration = readFileSync("migrations/0009_project_analysis_final_recovery.sql", "utf8");
+    await raw.executeMultiple(migration); await raw.executeMultiple(migration);
+    expect(await db.getProjectAnalysisRecovery(initial.input.analysisId)).toEqual(before);
   });
   it("migration is repeatable and preserved audit rows retain their original timeout", async () => {
     const migration = readFileSync("migrations/0007_project_analysis_recovery.sql", "utf8");
