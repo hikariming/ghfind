@@ -230,9 +230,9 @@ function runtimeConfiguration(m, image, sha, mode) {
         }
       : {}),
   };
-  // Wrangler preserves remote schedules when crons is omitted; an explicit
-  // empty array makes the off deployment remove existing schedules.
-  c.triggers = { crons: mode === "baseline" ? ["* * * * *"] : [] };
+  // Keep the registration stable across off/baseline deployments: recreating it
+  // restarts global propagation. The scheduled handler makes off a strict no-op.
+  c.triggers = { crons: ["* * * * *"] };
   return c;
 }
 export function renderAdapter(m, sha) {
@@ -350,7 +350,7 @@ export function validateReceipt(r, m, sha, image, mode, now = Date.now()) {
   );
   const queues = r.asyncTriggers.queues;
   requireThat(Array.isArray(queues) && queues.length === 3 && new Set(queues.map(q => q?.queueId)).size === 3 &&
-    JSON.stringify(r.asyncTriggers.schedules) === JSON.stringify(mode === "baseline" ? ["* * * * *"] : []),
+    JSON.stringify(r.asyncTriggers.schedules) === JSON.stringify(["* * * * *"]),
     "incomplete queue and schedule evidence");
   for (const [name, retention, dlq] of [[m.queue,345600,m.deadLetterQueue],
     [m.deadLetterQueue,345600,m.terminalParkingQueue],[m.terminalParkingQueue,1209600,null]]) {

@@ -382,7 +382,7 @@ export async function verifyAsyncTriggers(m, mode, api) {
     });
   }
   const schedules = await api(`/workers/scripts/${m.runtimeWorker}/schedules`);
-  const expected = mode === "baseline" ? ["* * * * *"] : [];
+  const expected = ["* * * * *"];
   requireThat(
     Array.isArray(schedules?.schedules) &&
       schedules.schedules.length === expected.length &&

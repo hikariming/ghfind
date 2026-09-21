@@ -178,9 +178,7 @@ function fixture(mode = "off", options = {}) {
     else if (op === "schedules")
       result = {
         schedules:
-          mode === "baseline"
-            ? [{ cron: "* * * * *", ignoredSecret: "must-not-upload" }]
-            : [],
+          [{ cron: "* * * * *", ignoredSecret: "must-not-upload" }],
       };
     else
       result = {
@@ -1039,7 +1037,7 @@ test("bootstrap off has no asynchronous entrypoints; production resources and ca
   assert.equal(c.vars.FEED_MODE, "off");
   assert.equal(c.vars.FEED_SOURCE_RELAY_ENABLED, "false");
   assert.equal(c.vars.FEED_EXECUTOR_ENABLED, "true");
-  assert.deepEqual(c.triggers, { crons: [] });
+  assert.deepEqual(c.triggers, { crons: ["* * * * *"] });
   assert.equal(c.queues.consumers, undefined);
   assert.deepEqual(
     c.containers.map((c) => [c.instance_type, c.max_instances, c.image]),
@@ -1603,7 +1601,7 @@ test("actual async wiring is checked for off and baseline and retains only polic
     assert.equal(r.asyncTriggers.mode, mode);
     assert.deepEqual(
       r.asyncTriggers.schedules,
-      mode === "baseline" ? ["* * * * *"] : [],
+      ["* * * * *"],
     );
     assert.deepEqual(
       r.asyncTriggers.queues.map((q) => q.consumers.length),
@@ -1616,7 +1614,7 @@ test("actual async wiring is checked for off and baseline and retains only polic
     assert.equal(JSON.stringify(r).includes("must-not-upload"), false);
   }
 });
-test("off rejects leftover or foreign queue consumers and any actual cron", async () => {
+test("off rejects leftover or foreign queue consumers and a missing stable cron", async () => {
   const leftover = {
     consumer_id: "a".repeat(32),
     type: "worker",
@@ -1643,7 +1641,7 @@ test("off rejects leftover or foreign queue consumers and any actual cron", asyn
   const f = fixture("off", {
     platform: (path, result) =>
       path.endsWith("/schedules")
-        ? { schedules: [{ cron: "* * * * *" }] }
+        ? { schedules: [] }
         : result,
   });
   await assert.rejects(
