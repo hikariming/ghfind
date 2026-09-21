@@ -257,6 +257,17 @@ export async function handleRequest(
       if (!bearerAuthorized(request, env.FEED_RUNTIME_ADMIN_SECRET))
         throw new HTTPError(401, "unauthorized");
       checkConfiguration(env);
+      if (url.pathname === "/internal/runtime/configuration" &&
+          request.method === "GET" && !url.search && env.FEED_ENVIRONMENT === "production") {
+        // Configuration propagation is distinct from process readiness. Never
+        // wake, probe or restart a Container merely to identify this edge version.
+        return json({
+          service: "feed-runtime", version: env.FEED_RELEASE_SHA,
+          contractVersion: "1", workerVersionId: env.WORKER_VERSION.id,
+          configuredImage: env.FEED_IMAGE_REFERENCE, imageBuildId: env.FEED_IMAGE_BUILD_ID,
+          mode: env.FEED_MODE, writerEpoch: Number(env.FEED_WRITER_EPOCH),
+        });
+      }
       if (url.pathname === "/readyz" && request.method === "GET") {
         if (env.FEED_EXECUTOR_ENABLED !== "true")
           throw new HTTPError(503, "executor_not_enabled");
@@ -301,6 +312,13 @@ export async function handleRequest(
         let input: unknown;
         try { input = JSON.parse(new TextDecoder().decode(body)); }
         catch { throw new HTTPError(400, "invalid_transition"); }
+        if (env.FEED_MODE === "off") {
+          // A configuration GET and the following POST can reach different edge
+          // versions. Only this exact, validated pre-dispatch rejection proves
+          // that retrying cannot repeat a lifecycle mutation.
+          validateTransition(input, { ...env, FEED_MODE: "baseline" });
+          return json({ error: "transition_environment_not_ready", workerVersionId: env.WORKER_VERSION.id }, 409);
+        }
         validateTransition(input, env);
         if (!dispatch.restart) throw new HTTPError(503, "transition_unavailable");
         return json(await dispatch.restart(target, input));
