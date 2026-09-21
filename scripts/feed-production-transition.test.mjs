@@ -60,3 +60,19 @@ test('rejection whitelist permits only known off version and exact pre-dispatch 
  for(const value of [null,{}, {...valid,error:'transition_in_progress'},{...valid,workerVersionId:baselineVersion},{...valid,extra:true}])
  assert.throws(()=>validatePreDispatchRejection(value,offVersion));
 });
+
+test('successful lifecycle time between probes does not spend cumulative preflight allowance',async()=>{
+ let clock=1000,reads=0;
+ const preflight=edgePreflight(identity,off,{now:()=>clock,read:async()=>{reads++;clock+=100;return configuration();}});
+ await preflight(()=>{});clock+=90000;await preflight(()=>{});clock+=90000;await preflight(()=>{});
+ assert.equal(reads,3);
+});
+test('preflight wall time accumulates across calls and never gains a fresh allowance',async()=>{
+ let clock=1000,reads=0;
+ const preflight=edgePreflight(identity,off,{now:()=>clock,sleep:async ms=>{clock+=ms;},read:async()=>{reads++;clock+=15000;return configuration(reads===2?'off':'baseline');}});
+ await preflight(()=>{});clock+=90000;
+ await assert.rejects(preflight(()=>{}),/deadline exceeded/);
+ assert.equal(reads,3);
+ await assert.rejects(preflight(()=>{}),/exhausted/);
+ assert.equal(reads,3);
+});

@@ -16,9 +16,11 @@ export function validatePreDispatchRejection(rejection, offVersion) {
 }
 export function edgePreflight(identity, off, { read, now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   requireThat(/^[a-f0-9-]{36}$/.test(off?.runtime?.versionId ?? '') && typeof off.image === 'string', 'off edge identity required');
-  const deadline = now() + 45000;
+  let remainingMs = 45000;
   let attempts = 0, baselineVersion;
   return async (record) => {
+    const startedAt = now(), deadline = startedAt + remainingMs;
+    try {
     while (attempts < 15 && now() < deadline) {
       const attempt = ++attempts;
       record({ attempt, status: 'attempted_unverified' });
@@ -40,6 +42,11 @@ export function edgePreflight(identity, off, { read, now = Date.now, sleep = ms 
       else break;
     }
     throw new Error('runtime edge preflight exhausted');
+    } finally {
+      // Lifecycle and paused-Web checks between invocations do not spend the
+      // propagation allowance; reads and sleeps never replenish it.
+      remainingMs -= Math.max(0, now() - startedAt);
+    }
   };
 }
 export async function transitionActors(identity, { paused, send, preflight, record = () => {} }) {
