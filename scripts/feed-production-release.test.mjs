@@ -103,7 +103,7 @@ test('Web readback rejects malformed, split, replaced or changed deployments inc
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));
- const r=await approvedSchemas(m);assert.equal(r.core.length,8);assert.equal(r.feed.length,12);
+ const r=await approvedSchemas(m);assert.equal(r.core.length,9);assert.equal(r.feed.length,12);
  const legacy=JSON.parse(readFileSync(new URL('../ops/feed-application-schema-release.json',import.meta.url)));
  assert.equal(legacy.feed.length,2);
  assert.ok(!legacy.core.some(e=>e.name==='0005_feed_source_outbox.sql'));
