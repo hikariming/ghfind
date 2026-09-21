@@ -21,6 +21,26 @@ export function operatorPolicy(manifest) {
     'final operator retry requires a distinct request and exact predecessor');
   return { number: 2, action: 'retry_interrupted_final' };
 }
+export function validateFinalPredecessor(manifest, receipt) {
+  const base = `ghfind-project-${manifest.analysisId}`;
+  let first = receipt;
+  if (receipt.idempotencyKey === `${base}-retry-2`) {
+    const outer = receipt.operatorRecovery;
+    requireThat(outer?.previousAttempt && outer.priorReceiptSHA256 ===
+      createHash('sha256').update(JSON.stringify(outer.previousAttempt)).digest('hex'), 'final retry archive hash differs');
+    first = outer.previousAttempt;
+  }
+  const audit = first.operatorRecovery, original = audit?.previousAttempt;
+  requireThat(first.analysisId === manifest.analysisId && first.sourceSha === manifest.requestedRef &&
+    first.idempotencyKey === `${base}-retry-1` && first.providerRunRetries === 1 &&
+    audit?.requestId === manifest.predecessorRequestId && audit.action === 'retry_interrupted' &&
+    audit.nextIdempotencyKey === first.idempotencyKey && Number.isSafeInteger(audit.createdAt) && audit.createdAt > 0 &&
+    audit.executionDeadlineAt - audit.createdAt === 1800000 && original?.analysisId === manifest.analysisId &&
+    original.sourceSha === manifest.requestedRef && original.intentId === first.intentId &&
+    original.idempotencyKey === base && !original.operatorRecovery &&
+    audit.priorReceiptSHA256 === createHash('sha256').update(JSON.stringify(original)).digest('hex'),
+    'final retry requires both intact predecessor journals');
+}
 export function validateOperator(manifest, carryover, receipt) {
   const policy = operatorPolicy(manifest);
   validateCarryoverReceipt(receipt, carryover);
@@ -33,13 +53,7 @@ export function validateOperator(manifest, carryover, receipt) {
   const priorKey = policy.number === 1 ? baseKey : `${baseKey}-retry-1`;
   requireThat(receipt.idempotencyKey === priorKey || receipt.idempotencyKey === nextKey,
     'operator recovery must retain the original or first retry provider key');
-  if (policy.number === 2 && receipt.idempotencyKey === priorKey) {
-    const prior = receipt.operatorRecovery;
-    requireThat(prior?.requestId === manifest.predecessorRequestId && prior.action === 'retry_interrupted' &&
-      prior.nextIdempotencyKey === priorKey && prior.previousAttempt?.idempotencyKey === baseKey &&
-      prior.previousAttempt.analysisId === manifest.analysisId && Number.isSafeInteger(prior.createdAt) &&
-      prior.executionDeadlineAt - prior.createdAt === 1800000, 'final retry requires the complete first recovery audit');
-  }
+  if (policy.number === 2) validateFinalPredecessor(manifest, receipt);
   if (receipt.idempotencyKey === nextKey || (policy.number === 1 && receipt.operatorRecovery)) {
     const audit = receipt.operatorRecovery;
     requireThat(audit?.requestId === manifest.requestId && audit.action === policy.action &&

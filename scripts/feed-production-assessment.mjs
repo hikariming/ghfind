@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pause } from "node:timers/promises";
-import { operatorPolicy } from "./feed-production-assessment-operator.mjs";
+import { operatorPolicy, validateFinalPredecessor } from "./feed-production-assessment-operator.mjs";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
 import {
   loadCarryover,
@@ -432,6 +432,7 @@ export async function applyOperatorWindow(path, resultPath, manifestPath, releas
   const operation = await load(resultPath);
   const manifest = await load(manifestPath);
   const policy = operatorPolicy(manifest);
+  if (policy.number === 2) validateFinalPredecessor(manifest, r);
   const result = operation?.result;
   const audit = result?.recovery;
   check(uuid(manifest.requestId) && manifest.analysisId === r.analysisId && manifest.requestedRef === r.sourceSha &&

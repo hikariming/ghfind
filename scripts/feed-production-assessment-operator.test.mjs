@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { recoverInterrupted, operatorSender, limits } from './feed-production-assessment-operator.mjs';
@@ -106,7 +107,7 @@ test('same retry key without matching operator audit and any retry-2 key are ref
 test('final retry retains first audit and allows only one new distinct bounded operation',async()=>{
   const first=reply();
   const receipt={...structuredClone(original),idempotencyKey:first.idempotencyKey,providerRunRetries:1,
-    operatorRecovery:{...first.recovery,previousAttempt:structuredClone(original)}};
+    operatorRecovery:{...first.recovery,priorReceiptSHA256:createHash('sha256').update(JSON.stringify(original)).digest('hex'),previousAttempt:structuredClone(original)}};
   const finalManifest={...manifest,format:'ghfind-production-assessment-operator-v2',retryNumber:2,
     predecessorRequestId:requestId,requestId:intentId,expectedThreadId:first.threadId,expectedRunId:first.runId};
   const finalReply={...first,idempotencyKey:`${original.idempotencyKey}-retry-2`,threadId:manifest.expectedThreadId,runId:manifest.expectedRunId,
@@ -116,8 +117,11 @@ test('final retry retains first audit and allows only one new distinct bounded o
   const before=structuredClone(receipt);
   const accepted=await recoverInterrupted(releaseSha,finalManifest,carryover,receipt,f.deps);
   assert.equal(accepted.result.idempotencyKey,finalReply.idempotencyKey);assert.deepEqual(receipt,before);
-  const resumed={...receipt,idempotencyKey:finalReply.idempotencyKey,operatorRecovery:{...finalReply.recovery,previousAttempt:before},polls:29};
+  const resumed={...receipt,idempotencyKey:finalReply.idempotencyKey,operatorRecovery:{...finalReply.recovery,priorReceiptSHA256:createHash('sha256').update(JSON.stringify(before)).digest('hex'),previousAttempt:before},polls:29};
   await recoverInterrupted(releaseSha,finalManifest,carryover,resumed,f.deps);assert.equal(resumed.polls,29);
+  const broken=structuredClone(resumed);delete broken.operatorRecovery.previousAttempt;
+  await assert.rejects(recoverInterrupted(releaseSha,finalManifest,carryover,broken,f.deps));
+  await assert.rejects(recoverInterrupted(releaseSha,{...finalManifest,predecessorRequestId:analysisId},carryover,resumed,f.deps));
   for(const patch of [{retryNumber:3},{requestId},{predecessorRequestId:analysisId}])
     await assert.rejects(recoverInterrupted(releaseSha,{...finalManifest,...patch},carryover,receipt,f.deps));
   await assert.rejects(recoverInterrupted(releaseSha,finalManifest,carryover,original,f.deps));
