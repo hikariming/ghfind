@@ -44,7 +44,7 @@ for (const [key, db, folder] of [['core', core, 'migrations'], ['feed', feed, 'm
 // The actual workerd proxy implements D1. This is the same OpenNext runtime
 // context symbol used by its production Worker and documented dev initializer.
 (globalThis as typeof globalThis & { [key: symbol]: unknown })[Symbol.for('__cloudflare-context__')] = { env: { GHFIND_D1: core, GHFIND_FEED_D1: feed }, ctx: { waitUntil: (p: Promise<unknown>) => p.catch(() => {}) }, cf: {} };
-const providerFixture = installProviders({ interruptedRepository: 'e2e-owner-one/tool-one' });
+const providerFixture = installProviders({ interruptedRepository: 'e2e-owner-one/tool-one', interruptedAttempts: 2 });
 const providers = providerFixture.counts;
 const app = next({ dev: true, dir: root, hostname: '127.0.0.1', port: config.webPort });
 await app.prepare();
@@ -153,12 +153,24 @@ async function interruptAssessment(input: unknown) {
   interruptedAnalysis = { analysisId, startedAt, threadId: String(run.mosoo_thread_id), runId: String(run.mosoo_run_id), idempotencyKey: String(run.idempotency_key) };
   return { ...interruptedAnalysis, fault: 'local-provider-interruption-and-clock-fixture' };
 }
+let interruptedRetry = false;
+async function interruptRecovery() {
+  assert(interruptedAnalysis && !interruptedRetry, 'only the first recovery may receive the second fixture failure');
+  const run = await core.prepare("SELECT id,status,idempotency_key,mosoo_thread_id,mosoo_run_id,started_at FROM project_analysis_runs WHERE id=?").bind(interruptedAnalysis.analysisId).first();
+  assert(run && run.status === 'running' && run.idempotency_key === `${interruptedAnalysis.idempotencyKey}-retry-1`);
+  assert.equal(run.started_at, interruptedAnalysis.startedAt);
+  providerFixture.interrupt(String(run.mosoo_thread_id));
+  interruptedRetry = true;
+  // No database/audit timestamps or statuses are changed for this fault.
+  return { analysisId: run.id, threadId: run.mosoo_thread_id, runId: run.mosoo_run_id, fault: 'local-provider-interruption-fixture' };
+}
 async function recoverySnapshot() {
   assert(interruptedAnalysis);
   const run = await core.prepare("SELECT id,status,started_at,idempotency_key,mosoo_thread_id,mosoo_run_id FROM project_analysis_runs WHERE id=?").bind(interruptedAnalysis.analysisId).first();
   const audit = await core.prepare("SELECT * FROM project_analysis_recoveries WHERE analysis_id=?").bind(interruptedAnalysis.analysisId).all();
+  const finalAudit = await core.prepare("SELECT * FROM project_analysis_final_recoveries WHERE analysis_id=?").bind(interruptedAnalysis.analysisId).all();
   const facts = await core.prepare("SELECT count(*) AS count FROM project_analysis_runs WHERE repo_key='e2e-owner-one/tool-one'").first();
-  return { run, audit: audit.results, logicalAnalyses: facts?.count, providerAttempts: providers.assessmentCreate };
+  return { run, audit: audit.results, finalAudit: finalAudit.results, logicalAnalyses: facts?.count, providerAttempts: providers.assessmentCreate };
 }
 let controlBusy = false;
 const control = createServer(async (req, res) => {
@@ -171,6 +183,7 @@ const control = createServer(async (req, res) => {
     for await (const chunk of req) { body += chunk.toString(); assert(body.length <= 512); }
     const result = req.url === '/drain' ? await drain() : req.url === '/inspect' ? await inspect()
       : req.url === '/interrupt-assessment' ? await interruptAssessment(JSON.parse(body))
+      : req.url === '/interrupt-recovery' ? await interruptRecovery()
       : req.url === '/recovery-inspect' ? await recoverySnapshot() : null;
     assert(result, 'unknown local control operation');
     res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result));
