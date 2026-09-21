@@ -18,3 +18,45 @@ test('lost acknowledgements are recorded as failed and never replayed blindly',a
 test('wrong identity, targets, extra fields or an incomplete restart cannot advance',async()=>{
  for(const patch of [{sourceSha:'c'.repeat(40)},{imageBuildId:'c'.repeat(64)},{target:'api-1'},{mode:'off'},{writerEpoch:2},{restarted:false},{extra:'untrusted'}]){let sends=0;await assert.rejects(transitionActors(identity,{paused:async()=>anchor,send:async(target,body)=>{sends++;return {restarted:true,target,...body,...patch};}}));assert.equal(sends,1);}
 });
+
+import { edgePreflight } from './feed-production-transition.mjs';
+const offVersion='12345678-1234-4234-8234-123456789001', baselineVersion='12345678-1234-4234-8234-123456789002';
+const off={runtime:{versionId:offVersion},image:'image@sha256:exact'};
+const configuration=(mode='baseline')=>({service:'feed-runtime',version:identity.sourceSha,contractVersion:'1',workerVersionId:mode==='off'?offVersion:baselineVersion,configuredImage:off.image,imageBuildId:identity.imageBuildId,mode,writerEpoch:1});
+test('known off propagates to exact baseline before each mutation',async()=>{
+ let reads=0,clock=0;const observations=[];
+ const preflight=edgePreflight(identity,off,{now:()=>clock,sleep:async ms=>{clock+=ms;},read:async()=>configuration(++reads===1?'off':'baseline')});
+ const result=await transitionActors(identity,{paused:async()=>anchor,preflight,send:async(target,body)=>({restarted:true,target,...body}),record:e=>observations.push(JSON.parse(JSON.stringify(e)))});
+ assert.equal(reads,4);assert.equal(clock,2000);assert.equal(result.status,'passed');assert.equal(result.edgePreflight[1].status,'known_off');
+});
+test('bounded stale off and invalid identities fail without mutation',async()=>{
+ for(const patch of [null,{version:'c'.repeat(40)},{imageBuildId:'c'.repeat(64)},{configuredImage:'wrong'},{writerEpoch:2},{extra:true},{workerVersionId:baselineVersion,mode:'off'}]){
+ let reads=0,sends=0,clock=0;
+ const preflight=edgePreflight(identity,off,{now:()=>clock,sleep:async ms=>{clock+=ms;},read:async()=>{reads++;return patch?{...configuration(),...patch}:configuration('off');}});
+ await assert.rejects(transitionActors(identity,{paused:async()=>anchor,preflight,send:async()=>{sends++;}}));
+ assert.equal(sends,0);assert.equal(reads,patch?1:15);assert.ok(clock<45000);
+ }
+});
+test('only explicit pre-dispatch rejection repeats preflight and preserves unknown outcomes',async()=>{
+ for(const kind of ['rejected','transport','exhausted']){
+ let reads=0,sends=0;
+ const preflight=edgePreflight(identity,off,{read:async()=>{reads++;return configuration();}});
+ const work=transitionActors(identity,{paused:async()=>anchor,preflight,send:async(target,body)=>{sends++;if(kind==='transport')throw Error('lost');if(kind==='exhausted'||sends===1)return {rejectedWithoutMutation:true};return {restarted:true,target,...body};}});
+ if(kind==='rejected'){const result=await work;assert.equal(result.targets[0].rejectedWithoutMutation,1);assert.equal(sends,4);assert.equal(reads,4);}
+ else {await assert.rejects(work);assert.equal(sends,kind==='transport'?1:3);}
+ }
+});
+test('read transport error and overall deadline cannot reach restart',async()=>{
+ for(const slow of [false,true]){let clock=0,sends=0;
+ const preflight=edgePreflight(identity,off,{now:()=>clock,read:async()=>{if(!slow)throw Error('network');clock=45000;return configuration();}});
+ await assert.rejects(transitionActors(identity,{paused:async()=>anchor,preflight,send:async()=>{sends++;}}));assert.equal(sends,0);
+ }
+});
+
+import { validatePreDispatchRejection } from './feed-production-transition.mjs';
+test('rejection whitelist permits only known off version and exact pre-dispatch error',()=>{
+ const valid={error:'transition_environment_not_ready',workerVersionId:offVersion};
+ assert.doesNotThrow(()=>validatePreDispatchRejection(valid,offVersion));
+ for(const value of [null,{}, {...valid,error:'transition_in_progress'},{...valid,workerVersionId:baselineVersion},{...valid,extra:true}])
+ assert.throws(()=>validatePreDispatchRejection(value,offVersion));
+});
