@@ -64,6 +64,9 @@ scripts/_org-members.json
 # repo-research raw output (per-contributor scores stay private; published aggregates live in public/blog/)
 scripts/repo-research/out/
 
+# talent-import pipeline checkpoints and generated personas (regenerable)
+scripts/talent-import/out/
+
 # OpenNext / Cloudflare
 .open-next/
 .wrangler/

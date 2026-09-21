@@ -98,6 +98,12 @@ export async function runScheduled(
   dispatch: Dispatch,
   log: (entry: Record<string, unknown>, failed: boolean) => void,
 ): Promise<void> {
+  // Retain the platform schedule during deployment without activating any work.
+  // In particular, cleanup/replay must not run merely because their role is enabled.
+  if (env.FEED_MODE === "off") {
+    log({ event: "feed_scheduled", status: "disabled" }, false);
+    return;
+  }
   const operations = [
     "feed_source_relay",
     "feed_cleanup",

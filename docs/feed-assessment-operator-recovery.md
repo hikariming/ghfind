@@ -26,8 +26,9 @@ or evidence artifacts. Recovery retains the ordinary artifact validation and
 atomic assessment/source-outbox finalization. No source result or Feed projection
 is inserted by the release script.
 
-The production workflow first finishes native baseline verification, then
-recovers the historical assessment journal, invokes the pinned operator action,
+The production workflow restores the historical assessment journal in a separate
+read-only step before builds or production mutation. After native baseline
+verification, it invokes the pinned operator action,
 and records the database-anchored observation window. The complete old journal
 and its canonical JSON SHA-256 remain nested in the new journal. A repeat run
 cannot replenish the new window or polling counters. The original public POST
@@ -52,3 +53,40 @@ assessment and its outbox remain facts even if application rollout fails.
 
 This closes the interrupted-assessment release path, not the separate capacity,
 full cross-database migration, RPO/RTO or semantic-recall acceptance items.
+
+## Final retry after the provider fix (2026-09-21)
+
+Mosoo issue [629](https://github.com/langgenius/mosoo/issues/629) was closed with
+production verification on September 17. The reported failures were durable tool
+identity conflicts caused by changing an OpenCode tool display title, not proven
+container crashes. The original direct StepFun credential was not verified by
+Mosoo's separate OpenRouter canary; the final real execution must verify our own
+provider path.
+
+`retry_interrupted_final` is a separate, explicitly pinned action. It accepts only
+the failed first retry after checking the exact provider identity and interruption.
+Migration `0009_project_analysis_final_recovery.sql` adds a second append-only
+audit while preserving the original audit. The action uses `-retry-2` and one new
+30-minute deadline; request replays keep that key and deadline. Neither a third
+retry nor the original request can restart the terminal execution. Ordinary
+in-flight reconciliation must match the provider execution it observed before
+writing state, so an old attempt cannot overwrite its replacement.
+
+The version-2 operator manifest pins the original analysis/source, failed retry
+thread/run, predecessor request and one new request. Its journal nests both old
+attempts. A missing or mismatched predecessor is an error, not permission to
+allocate another assessment. Keep the provider off the production acceptance
+path until validated artifacts finalize and the source outbox reaches the Go
+projection. No mock or historical preview substitutes for this check.
+
+Historical Actions artifacts can expire. Any explicitly reviewed archive restore
+must bind the exact run, attempt, source SHA and journal hashes, preserve consumed
+budgets, and compare its original recovery audit with fresh D1 readback. A known
+read-only failure may be classified only with exact historical evidence; unknown
+missing receipts remain a hard failure. Do not present local archived evidence
+as a newly downloaded and verified GitHub artifact.
+
+Once retry-2 begins, the pre-0009 application is not a valid recovery target: it
+reads only the first attempt deadline. Use a compatible new paused Web/runtime
+as the rollback anchor; do not remove schema or replay an earlier program that
+can expire or modify the new attempt incorrectly.

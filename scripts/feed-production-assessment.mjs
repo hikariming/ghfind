@@ -8,6 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pause } from "node:timers/promises";
+import { operatorPolicy, validateFinalPredecessor } from "./feed-production-assessment-operator.mjs";
 import { boundedJSON } from "./feed-platform-web-verify.mjs";
 import {
   loadCarryover,
@@ -430,33 +431,45 @@ export async function applyOperatorWindow(path, resultPath, manifestPath, releas
   const r = validateReceipt(await load(path));
   const operation = await load(resultPath);
   const manifest = await load(manifestPath);
+  const policy = operatorPolicy(manifest);
+  if (policy.number === 2) validateFinalPredecessor(manifest, r);
   const result = operation?.result;
   const audit = result?.recovery;
-  check(manifest?.format === "ghfind-production-assessment-operator-v1" &&
-    uuid(manifest.requestId) && manifest.analysisId === r.analysisId && manifest.requestedRef === r.sourceSha &&
+  check(uuid(manifest.requestId) && manifest.analysisId === r.analysisId && manifest.requestedRef === r.sourceSha &&
     operation?.format === "ghfind-production-assessment-operator-result-v1" && operation.status === "accepted" &&
     operation.releaseSha === releaseSha && operation.originalReceiptSHA256 === createHash("sha256").update(JSON.stringify(r)).digest("hex") &&
-    operation.request?.action === "retry_interrupted" && operation.request?.requestId === manifest.requestId &&
+    operation.request?.action === policy.action && operation.request?.requestId === manifest.requestId &&
     operation.request?.analysisId === r.analysisId && operation.request?.requestedRef === r.sourceSha &&
     operation.request?.expectedThreadId === manifest.expectedThreadId && operation.request?.expectedRunId === manifest.expectedRunId &&
     result?.analysisId === r.analysisId && result.requestedRef === r.sourceSha && active.has(result.status) &&
-    result.idempotencyKey === `ghfind-project-${r.analysisId}-retry-1` &&
-    audit?.action === "retry_interrupted" && audit.requestId === manifest.requestId &&
+    result.idempotencyKey === `ghfind-project-${r.analysisId}-retry-${policy.number}` &&
+    audit?.action === policy.action && audit.requestId === manifest.requestId &&
     audit.priorThreadId === manifest.expectedThreadId && audit.priorRunId === manifest.expectedRunId &&
     audit.nextIdempotencyKey === result.idempotencyKey && Number.isSafeInteger(audit.createdAt) && audit.createdAt > 0 &&
     Number.isSafeInteger(audit.executionDeadlineAt) && audit.executionDeadlineAt - audit.createdAt === 1800000,
     "operator_window_evidence_invalid");
-  if (r.operatorRecovery) {
+  if (r.operatorRecovery && (policy.number === 1 || r.operatorRecovery.requestId === audit.requestId)) {
     const old = r.operatorRecovery;
     check(old.requestId === audit.requestId && old.createdAt === audit.createdAt &&
       old.executionDeadlineAt === audit.executionDeadlineAt && old.nextIdempotencyKey === audit.nextIdempotencyKey &&
       r.waitStartedAt === audit.createdAt, "operator_window_already_consumed");
     return r;
   }
+  if (policy.number === 2) {
+    const prior = r.operatorRecovery;
+    check(prior?.requestId === manifest.predecessorRequestId && prior.action === "retry_interrupted" &&
+      prior.nextIdempotencyKey === `ghfind-project-${r.analysisId}-retry-1` &&
+      r.idempotencyKey === prior.nextIdempotencyKey && r.providerRunRetries === 1 &&
+      prior.previousAttempt?.analysisId === r.analysisId &&
+      prior.previousAttempt.idempotencyKey === `ghfind-project-${r.analysisId}` &&
+      prior.createdAt < audit.createdAt && prior.executionDeadlineAt - prior.createdAt === 1800000,
+      "operator_window_predecessor_invalid");
+  }
   check(!["completed", "skipped"].includes(r.phase) && r.completionObservedAt === undefined &&
     r.projectionPolls === 0 && !r.relayBootstrapStartedAt && r.createdAt <= audit.createdAt,
     "operator_window_existing_success_or_projection");
   const next = { ...r, phase: "selected", status: result.status, polls: 0,
+    idempotencyKey: result.idempotencyKey, providerRunRetries: policy.number,
     waitStartedAt: audit.createdAt,
     operatorRecovery: { ...audit, priorReceiptSHA256: operation.originalReceiptSHA256, previousAttempt: r } };
   validateReceipt(next);
@@ -772,10 +785,15 @@ export async function waitAssessment(path, output, options = {}) {
     r.projectionPolls >= LIMITS.projectionPolls ||
     (r.projectionStartedAt !== undefined &&
       now() >= r.projectionStartedAt + LIMITS.projectionWaitMs);
+  const overallWindowExhausted =
+    r.waitStartedAt !== undefined &&
+    now() >= r.waitStartedAt + LIMITS.waitMs;
   const terminalRead =
-    r.phase === "completed" || (sourceCompleted && windowExhausted);
+    r.phase === "completed" ||
+    (sourceCompleted && (windowExhausted || overallWindowExhausted));
   // The combined provider/bootstrap/projection deadline is durable across reruns.
-  // Completed results retain only their pre-existing, finite read-only recovery.
+  // A durably completed source retains only the pre-existing finite read-only
+  // recovery after either deadline; it never gains more relay/projection polls.
   if (!terminalRead && r.phase !== "skipped") {
     r.waitStartedAt ??= now();
     check(
@@ -816,13 +834,17 @@ export async function waitAssessment(path, output, options = {}) {
     }
     check(r.analysisId && id(r.analysisId), "uncertain_post_outcome_no_retry");
     // A completed source skips provider reconciliation but still gets its
-    // unused projection window. Only an exhausted window or a previously
+    // unused projection window within the combined deadline. An exhausted window or a previously
     // verified projection uses the separately bounded terminal revalidation.
-    if (terminalRead)
+    if (terminalRead) {
       check(
         (r.terminalRevalidations ?? 0) < LIMITS.terminalRevalidations,
         "terminal_revalidation_exhausted",
       );
+      r.terminalRevalidations = (r.terminalRevalidations ?? 0) + 1;
+      // Reserve before any network read; a failed Web check or crash consumes it.
+      await save(path, r);
+    }
     const terminalDeadline = c.now() + LIMITS.terminalWaitMs;
     const web = await c.web(releaseSha);
     if (r.web)
@@ -888,9 +910,6 @@ export async function waitAssessment(path, output, options = {}) {
       };
     }
     if (terminalRead) {
-      r.terminalRevalidations = (r.terminalRevalidations ?? 0) + 1;
-      // Reserve the finite read before transmission. Crash/ack loss consumes it.
-      await save(path, r);
       const { source, projection } = await observeProjection(terminalDeadline);
       check(projection, "terminal_projection_not_ready");
       return finish(source, projection);

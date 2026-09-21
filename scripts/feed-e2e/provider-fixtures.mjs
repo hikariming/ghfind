@@ -111,7 +111,8 @@ export function artifacts(analysisId, repoKey, requestedRef = null) {
   const proof = { ...structuredClone(evidence), analysis_id: analysisId, repo_key: repoKey };
   return { analysis: JSON.stringify(result), evidence: JSON.stringify(proof), report: "# Local provider fixture assessment\n\nExternal evaluator fixture; application finalization is real." };
 }
-export function installProviders({ interruptedRepository = null } = {}) {
+export function installProviders({ interruptedRepository = null, interruptedAttempts = 1 } = {}) {
+  if (![1, 2].includes(interruptedAttempts)) throw new Error("invalid_interrupted_fixture_attempts");
   const original = globalThis.fetch;
   const runs = new Map();
   const idempotency = new Map();
@@ -156,7 +157,7 @@ export function installProviders({ interruptedRepository = null } = {}) {
         if (idempotency.has(key)) return Response.json(thread(idempotency.get(key)));
         const attempt = [...runs.values()].filter(run => run.analysisId === analysisId).length;
         const threadId = attempt ? `${analysisId}-retry-${attempt}` : analysisId;
-        runs.set(threadId, { analysisId, repo, userId: body.userId, files: artifacts(analysisId, repo, /^requested_ref: ([^\n]+)$/m.exec(prompt)?.[1] ?? null), status: repo === interruptedRepository && attempt === 0 ? "running" : "completed" });
+        runs.set(threadId, { analysisId, repo, userId: body.userId, files: artifacts(analysisId, repo, /^requested_ref: ([^\n]+)$/m.exec(prompt)?.[1] ?? null), status: repo === interruptedRepository && attempt < interruptedAttempts ? "running" : "completed" });
         idempotency.set(key, threadId);
         counts.assessmentCreate++;
         return Response.json(thread(threadId));
@@ -180,8 +181,8 @@ export function installProviders({ interruptedRepository = null } = {}) {
     const run = runs.get(id);
     return { thread: { id, agent_id: "local-e2e-agent", kind: "cattle", status: "IDLE", userId: runs.get(id).userId }, run: { id: `run-${id}`, status: run.status, createdAt: now, startedAt: now, completedAt: run.status === "running" ? null : now, updatedAt: now, trigger: "user_prompt", ...(run.status === "failed" ? { error: { code: "runtime.turn_interrupted", message: "Local external-provider fault fixture: interrupted turn.", retryable: true } } : {}) } };
   }
-  return { counts, interrupt(analysisId) {
-    const run = runs.get(analysisId);
+  return { counts, interrupt(threadId) {
+    const run = runs.get(threadId);
     if (!run || run.repo !== interruptedRepository || run.status !== "running") throw new Error("invalid_interrupted_fixture_target");
     run.status = "failed";
   }, restore() { globalThis.fetch = original; } };

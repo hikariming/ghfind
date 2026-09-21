@@ -243,3 +243,104 @@ test('an intervening unknown paid start or truncated interval fails without rese
     assert.equal(existsSync(f.destination), false);
   }
 });
+
+const reviewedHistory = JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url)));
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+function readonlyFixture(t, changes = {}) {
+  const archive = zip({ 'read-only-evidence.json': '{}' }), logs = Buffer.from('possible previous assessment POST lacks a unique intent receipt\nProcess completed with exit code 1.');
+  const f = fixture(t, [{}]);
+  const jobs = f.responses.get(`/repos/${repository}/actions/runs/10/attempts/1/jobs?per_page=100`); jobs.jobs[0].id = 500;
+  const artifact = f.responses.get(`/repos/${repository}/actions/runs/10/artifacts?per_page=100`).artifacts[0];
+  artifact.digest = `sha256:${digest(archive)}`;
+  f.responses.set(`/repos/${repository}/actions/artifacts/${artifact.id}/zip`, archive);
+  f.responses.set(`/repos/${repository}/actions/jobs/500/logs`, logs);
+  const item = { ...reviewedHistory.entries[0], runId: 10, attempt: 1, sourceSha, jobId: 500, artifactId: artifact.id,
+    artifactSHA256: digest(archive), logsSHA256: digest(logs), ...changes };
+  f.deps = { ...f.deps, extract: extractReceipt, historyEvidence: { format: reviewedHistory.format, entries: [item], archivedReceipts: [] } };
+  return f;
+}
+test('only hash-pinned readonly first-command failures may lack an intent', async t => {
+  const f = readonlyFixture(t);
+  const result = await recover(sourceSha, f.destination, f.deps);
+  assert.equal(result.readonlyFailures, 1); assert.equal(existsSync(f.destination), false);
+  for (const changes of [{ sourceSha: oldSha }, { attempt: 2 }, { runId: 11 }, { jobId: 501 },
+    { artifactId: 102 }, { artifactSHA256: '0'.repeat(64) }, { logsSHA256: '0'.repeat(64) },
+    { failureReason: 'possible previous assessment POST has missing, expired or mismatched evidence artifact' }]) {
+    const bad = readonlyFixture(t, changes);
+    await assert.rejects(recover(sourceSha, bad.destination, bad.deps)); assert.equal(existsSync(bad.destination), false);
+  }
+});
+test('reviewed readonly entry never conceals an existing receipt or an unsafe ZIP', async t => {
+  for (const entries of [{ 'assessment-intent.json': JSON.stringify(receipt({ polls: 19 })) }, { '../escape': 'bad' }]) {
+    const f = readonlyFixture(t), archive = zip(entries), item = f.deps.historyEvidence.entries[0];
+    item.artifactSHA256 = digest(archive);
+    f.responses.get(`/repos/${repository}/actions/runs/10/artifacts?per_page=100`).artifacts[0].digest = `sha256:${digest(archive)}`;
+    f.responses.set(`/repos/${repository}/actions/artifacts/101/zip`, archive);
+    if (entries['../escape']) await assert.rejects(recover(sourceSha, f.destination, f.deps), /unsafe/);
+    else { assert.equal((await recover(sourceSha, f.destination, f.deps)).readonlyFailures, 0); assert.equal(JSON.parse(readFileSync(f.destination)).polls, 19); }
+  }
+});
+
+// The unavailable retry-1 ZIP is an explicit manual recovery, not a claim that
+// its digest can still be verified against GitHub. Preserve every budget field.
+import { archivedReceiptBytes, validateHistoryEvidence } from './feed-production-assessment-recovery.mjs';
+const archived = reviewedHistory.archivedReceipts[0];
+const realCarryover = JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-carryover.json', import.meta.url)));
+function archiveAudit(t, value = [archived.databaseAudit]) {
+  const f = fixture(t), path = join(f.destination, '..', 'fresh-d1-audit.json');
+  writeFileSync(path, JSON.stringify(value)); return { FEED_ASSESSMENT_RECOVERY_AUDIT: path };
+}
+test('reviewed retry1 archive preserves complete nested journal and requires exact fresh D1 audit', t => {
+  for (const rows of [[archived.databaseAudit], [{ success: true, results: [archived.databaseAudit], meta: {} }]]) {
+    const restored = JSON.parse(archivedReceiptBytes(archived, realCarryover, archiveAudit(t, rows)));
+    assert.deepEqual(restored, archived.receipt);
+    assert.equal(restored.polls, 5); assert.equal(restored.providerRunRetries, 1);
+    assert.equal(restored.waitStartedAt, 1789360927994);
+    assert.equal(restored.operatorRecovery.previousAttempt.polls, 1);
+  }
+  assert.throws(() => archivedReceiptBytes(archived, realCarryover, {}), /fresh/);
+  for (const rows of [[], [archived.databaseAudit, archived.databaseAudit], [{ ...archived.databaseAudit, requested_at: 1 }],
+    [{ ...archived.databaseAudit, extra: 'unreviewed' }], [{ success: false, results: [archived.databaseAudit] }]])
+    assert.throws(() => archivedReceiptBytes(archived, realCarryover, archiveAudit(t, rows)), /differs/);
+  for (const item of [{ ...archived, receiptSHA256: '0'.repeat(64) }, { ...archived, operatorSHA256: '0'.repeat(64) },
+    { ...archived, sourceSha }, { ...archived, runId: 11 }])
+    assert.throws(() => archivedReceiptBytes(item, realCarryover, archiveAudit(t)));
+});
+test('history evidence rejects duplicate identities and unknown reason exemptions', () => {
+  validateHistoryEvidence(reviewedHistory);
+  assert.throws(() => validateHistoryEvidence({ ...reviewedHistory, entries: [...reviewedHistory.entries, reviewedHistory.entries[0]] }), /duplicate/);
+  assert.throws(() => validateHistoryEvidence({ ...reviewedHistory, entries: [{ ...reviewedHistory.entries[0], failureReason: 'any failure' }] }), /failure/);
+});
+
+test('whole carryover recovery crosses a missing reviewed retry1 artifact and preserves newer budgets', async t => {
+  for (const newer of [false, true]) {
+    const item = structuredClone(archived), middleSha = 'c'.repeat(40), log = Buffer.from('reviewed original upload log');
+    Object.assign(item, { runId: 11, sourceSha: middleSha, jobId: 501, logsSHA256: digest(log), createdAt: '2026-09-14T02:00:00Z' });
+    item.operator.releaseSha = middleSha; item.operator.request.operatorRef = 'github-actions:11:1';
+    item.operatorSHA256 = digest(JSON.stringify(item.operator)); item.databaseAudit.operator_ref = 'github-actions:11:1';
+    const latest = { ...item.receipt, polls: 17 };
+    const histories = [{ headSha: realCarryover.sourceSha, receipt: item.receipt.operatorRecovery.previousAttempt, createdAt: '2026-09-14T01:00:00Z' },
+      { runId: 11, headSha: middleSha, missingArtifact: true }];
+    if (newer) histories.push({ runId: 12, headSha: 'd'.repeat(40), receipt: latest, createdAt: '2026-09-14T03:00:00Z' });
+    const f = fixture(t, histories), deps = withCarryover(f, { ...realCarryover, runId: 10 });
+    const job = f.responses.get(`/repos/${repository}/actions/runs/11/attempts/1/jobs?per_page=100`).jobs[0];
+    job.id = 501; job.steps[0].conclusion = 'success';
+    f.responses.set(`/repos/${repository}/actions/jobs/501/logs`, log);
+    deps.historyEvidence = { format: reviewedHistory.format, entries: [], archivedReceipts: [item] };
+    deps.env = { ...deps.env, ...archiveAudit(t, [item.databaseAudit]) };
+    const result = await recover(sourceSha, f.destination, deps);
+    assert.equal(result.archivedRecoveries, 1);
+    assert.equal(result.recoveredRunId, newer ? 12 : 11);
+    assert.deepEqual(JSON.parse(readFileSync(f.destination)), newer ? latest : item.receipt);
+  }
+});
+
+test('archive cannot rehash altered lineage or consume another operator attempt', t => {
+  for (const change of [item => { item.receipt.operatorRecovery.previousAttempt.polls = 0; },
+    item => { item.receipt.providerRunRetries = 0; }, item => { item.operator.request.expectedRunId = 'different'; },
+    item => { item.operator.result.recovery.executionDeadlineAt++; }, item => { item.operator.result.idempotencyKey += '-retry-2'; }]) {
+    const item = structuredClone(archived); change(item);
+    item.receiptSHA256 = digest(JSON.stringify(item.receipt)); item.operatorSHA256 = digest(JSON.stringify(item.operator));
+    assert.throws(() => archivedReceiptBytes(item, realCarryover, archiveAudit(t)), /lineage/);
+  }
+});

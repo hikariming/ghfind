@@ -808,3 +808,15 @@ test("container storage transports reject cross-role capabilities before binding
   }
   assert.equal(calls, 11);
 });
+
+test("off mode retains a schedule but cannot touch adapter, queue or executor even with enabled roles", async () => {
+  const logs: Record<string, unknown>[] = [];
+  const forbidden = async () => { assert.fail("off cron must not perform work"); };
+  await runScheduled(
+    { ...env, FEED_ENVIRONMENT: "production", FEED_MODE: "off" },
+    { source: forbidden, send: forbidden },
+    dispatch({ fetch: forbidden, stop: forbidden, restart: forbidden, probe: forbidden }),
+    (entry, failed) => { assert.equal(failed, false); logs.push(entry); },
+  );
+  assert.deepEqual(logs, [{ event: "feed_scheduled", status: "disabled" }]);
+});

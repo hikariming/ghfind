@@ -1,0 +1,90 @@
+name: Feed reviewed production projection replay
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact current main SHA already deployed in baseline mode; only four reviewed risk-contract DLQ events
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: deploy-cf-production-main
+  cancel-in-progress: false
+jobs:
+  protection:
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify pinned manual context and existing protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          node --input-type=module -e 'import {authorize} from "./scripts/feed-production-projection-replay.mjs"; authorize();'
+          node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/replay-protection.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: projection-replay-protection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/replay-protection.json
+          if-no-files-found: error
+          retention-days: 30
+  replay:
+    needs: [protection]
+    environment: Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      EVIDENCE_DIRECTORY: ${{ github.workspace }}/.replay-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify exact checkout CI and E2E before production operations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/replay-ci.json"
+          node scripts/feed-production-projection-replay.mjs --prepare
+      - name: Persist reviewed command intent before any replay write
+        uses: actions/upload-artifact@v4
+        with:
+          name: projection-replay-intent-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ github.workspace }}/.replay-evidence/intent.json
+            ${{ runner.temp }}/replay-ci.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Replay reviewed events serially and verify actual projections
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
+          FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+        run: node scripts/feed-production-projection-replay.mjs --execute
+      - name: Retain sanitized success failure and uncertainty evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: projection-replay-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/.replay-evidence/result.json
+          if-no-files-found: warn
+          retention-days: 30

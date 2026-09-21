@@ -1130,9 +1130,12 @@ test("combined 1980s deadline remains anchored across restart", async (t) => {
   const before = h.calls.length;
   await assert.rejects(
     waitAssessment(h.receipt, h.result, h.options),
-    /assessment_deadline_exceeded/,
+    /terminal_projection_not_ready/,
   );
-  assert.equal(h.calls.length, before);
+  assert.equal(h.calls.length, before + 4); // Only Web and terminal source/projection reads.
+  assert.equal((await h.read()).terminalRevalidations, 1);
+  assert.equal(reads(h, "execution").length, 0);
+  assert.equal(h.polls, 0);
   assert.equal((await h.read()).waitStartedAt, 100000);
   assert.equal((await h.read()).relayBootstrapStartedAt, undefined);
 });
@@ -1485,4 +1488,130 @@ test("operator budget rejects unverified identity, changed original receipt, dea
     await assert.rejects(applyOperatorWindow(f.h.receipt, f.resultPath, f.manifestPath, SHA), /operator_window_evidence_invalid/);
     assert.deepEqual(await f.h.read(), f.original);
   }
+});
+test("final operator window nests both failed attempts and never replenishes the last window on replay", async t => {
+  const f=await operatorWindowFixture(t);
+  const first=await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA);
+  first.idempotencyKey=`ghfind-project-${ID}-retry-1`;first.providerRunRetries=1;first.polls=5;
+  await writeFile(f.h.receipt,JSON.stringify(first));
+  const manifest=JSON.parse(await readFile(f.manifestPath,'utf8'));
+  Object.assign(manifest,{format:'ghfind-production-assessment-operator-v2',retryNumber:2,
+    predecessorRequestId:manifest.requestId,requestId:'55555555-5555-4555-8555-555555555555',expectedThreadId:'retry1-thread',expectedRunId:'retry1-run'});
+  const op=f.result;
+  op.originalReceiptSHA256=createHash('sha256').update(JSON.stringify(first)).digest('hex');
+  Object.assign(op.request,{action:'retry_interrupted_final',requestId:manifest.requestId,expectedThreadId:manifest.expectedThreadId,expectedRunId:manifest.expectedRunId});
+  op.result.idempotencyKey=`ghfind-project-${ID}-retry-2`;
+  Object.assign(op.result.recovery,{action:'retry_interrupted_final',requestId:manifest.requestId,createdAt:9000000,executionDeadlineAt:10800000,
+    priorThreadId:manifest.expectedThreadId,priorRunId:manifest.expectedRunId,nextIdempotencyKey:op.result.idempotencyKey});
+  await writeFile(f.manifestPath,JSON.stringify(manifest));await writeFile(f.resultPath,JSON.stringify(op));
+  const next=await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA);
+  assert.deepEqual(next.operatorRecovery.previousAttempt,first);
+  assert.deepEqual(next.operatorRecovery.previousAttempt.operatorRecovery.previousAttempt,f.original);
+  assert.equal(next.waitStartedAt,9000000);assert.equal(next.polls,0);
+  assert.equal(next.idempotencyKey,op.result.idempotencyKey);assert.equal(next.providerRunRetries,2);
+  next.polls=31;await writeFile(f.h.receipt,JSON.stringify(next));
+  op.originalReceiptSHA256=createHash('sha256').update(JSON.stringify(next)).digest('hex');await writeFile(f.resultPath,JSON.stringify(op));
+  assert.deepEqual(await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA),next);
+  manifest.retryNumber=3;await writeFile(f.manifestPath,JSON.stringify(manifest));
+  await assert.rejects(applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA));
+});
+
+test("completed source after combined deadline gets only two read-only terminal observations without new windows", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })] });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  Object.assign(r, {
+    phase: "waiting", status: "completed", waitStartedAt: h.clock,
+    completionObservedAt: h.clock, polls: LIMITS.publicPolls,
+    relayBootstrapStartedAt: h.clock, relayBootstrapPolls: 5,
+    relayBootstrapSource: {
+      eventId: "event-actual", receiptId: "submission-actual",
+      sourceVersion: 88, sourceHash: RAW,
+    },
+  });
+  await writeFile(h.receipt, JSON.stringify(r));
+  h.clock += LIMITS.waitMs; // Exact boundary; no projection window was ever opened.
+  const before = h.calls.length;
+  for (const count of [1, 2]) {
+    if (count > 1) await rm(h.result);
+    const result = await waitAssessment(h.receipt, h.result, h.options);
+    assert.equal(result.verification, "readonly_terminal_revalidation");
+    assert.equal(result.terminalRevalidations, count);
+    const saved = await h.read();
+    for (const field of ["waitStartedAt", "completionObservedAt", "polls", "relayBootstrapStartedAt", "relayBootstrapPolls", "projectionStartedAt", "projectionPolls", "relayDeliveredObservedAt"])
+      assert.deepEqual(saved[field], r[field], field);
+  }
+  const exhausted = await h.read();
+  const calls = h.calls.length;
+  await assert.rejects(waitAssessment(h.receipt, h.result, h.options), /terminal_revalidation_exhausted/);
+  assert.equal(h.calls.length, calls);
+  assert.deepEqual(await h.read(), exhausted);
+  assert.equal(h.calls.length - before, 8); // Each: two Web reads plus source and projection SELECT.
+  assert.equal(reads(h, "source").length, 2);
+  assert.equal(reads(h, "projection").length, 2);
+  assert.equal(reads(h, "execution").length, 0);
+  assert.equal(h.polls, 0);
+  assert.equal(h.posts, 0);
+  assert.equal(h.clock, r.waitStartedAt + LIMITS.waitMs);
+});
+
+test("combined-deadline terminal read rejects pending, stale and mismatched facts and consumes its slot", async (t) => {
+  for (const change of [
+    { sources: [source({ outbox_status: "pending" })] },
+    { projections: [] },
+    { projections: [previousProjection()] },
+    { projections: [projection({ job_status: "pending" })] },
+    { projections: [projection({ event_id: "wrong-event" })] },
+    { sources: [source({ resolved_commit_sha: "f".repeat(40) })] },
+  ]) {
+    const h = await harness(t, { rows: [run({ status: "completed" })], ...change });
+    const r = await startAssessment(SHA, h.receipt, h.options);
+    Object.assign(r, { phase: "waiting", status: "completed", waitStartedAt: h.clock, completionObservedAt: h.clock });
+    await writeFile(h.receipt, JSON.stringify(r));
+    h.clock += LIMITS.waitMs + 1;
+    await assert.rejects(waitAssessment(h.receipt, h.result, h.options), /terminal_projection_not_ready|projection_identity_mismatch|source_finalization_identity_mismatch/);
+    const saved = await h.read();
+    assert.equal(saved.terminalRevalidations, 1);
+    assert.equal(saved.phase, "waiting");
+    assert.equal(saved.waitStartedAt, r.waitStartedAt);
+    assert.equal(saved.projectionStartedAt, undefined);
+    assert.equal(saved.projectionPolls, r.projectionPolls);
+    assert.equal(saved.relayBootstrapStartedAt, undefined);
+    assert.equal(h.polls, 0);
+    assert.equal(h.posts, 0);
+    assert.equal(reads(h, "execution").length, 0);
+    await assert.rejects(readFile(h.result), /ENOENT/);
+  }
+});
+
+test("unfinished source cannot gain terminal reads after combined deadline", async (t) => {
+  const h = await harness(t, { rows: [run()] });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  r.waitStartedAt = h.clock;
+  await writeFile(h.receipt, JSON.stringify(r));
+  h.clock += LIMITS.waitMs + 1;
+  const before = h.calls.length;
+  await assert.rejects(waitAssessment(h.receipt, h.result, h.options), /assessment_deadline_exceeded/);
+  assert.equal(h.calls.length, before);
+  assert.deepEqual(await h.read(), r);
+});
+
+test("expired completed-source terminal allowance is reserved before the first Web read", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })] });
+  const r = await startAssessment(SHA, h.receipt, h.options);
+  Object.assign(r, { waitStartedAt: h.clock, completionObservedAt: h.clock });
+  await writeFile(h.receipt, JSON.stringify(r));
+  h.clock += LIMITS.waitMs;
+  let transmissions = 0;
+  const options = { ...h.options, fetcher: async () => {
+    transmissions++;
+    assert.equal((await h.read()).terminalRevalidations, transmissions);
+    throw new Error("fixture_web_transport_interrupted");
+  }};
+  for (let attempt = 0; attempt < LIMITS.terminalRevalidations; attempt++)
+    await assert.rejects(waitAssessment(h.receipt, h.result, options), /fixture_web_transport_interrupted/);
+  await assert.rejects(waitAssessment(h.receipt, h.result, options), /terminal_revalidation_exhausted/);
+  assert.equal(transmissions, LIMITS.terminalRevalidations);
+  assert.equal((await h.read()).waitStartedAt, r.waitStartedAt);
+  assert.equal(h.posts, 0);
+  assert.equal(h.polls, 0);
 });

@@ -128,7 +128,13 @@ if (/^\s+(push|schedule|workflow_run):/m.test(reconcileWorkflow)) {
 console.log(`Feed reconciliation workflow contract passed (${reconcileWorkflowPath})`);
 
 const assessmentStep = /      - name: Start or resume the single real production assessment[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
-const assessmentOrder = ['node scripts/feed-production-assessment-recovery.mjs', 'node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'node scripts/feed-production-assessment.mjs start'];
+const restoreStep = /      - name: Restore the assessment journal without provider mutations[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+if (!restoreStep.includes('node scripts/feed-production-assessment-recovery.mjs') ||
+    /assessment-operator\.mjs|assessment\.mjs (start|operator-window)|continue-on-error|if:/.test(restoreStep) ||
+    deployJob.indexOf('Restore the assessment journal without provider mutations') >= deployJob.indexOf('Start or resume the single real production assessment') ||
+    /if:|continue-on-error|assessment-recovery\.mjs/.test(assessmentStep))
+  throw new Error('Read-only journal restoration must succeed in its own preceding step');
+const assessmentOrder = [ 'node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'node scripts/feed-production-assessment.mjs start'];
 let priorAssessment = -1;
 for (const command of assessmentOrder) {
   const position = assessmentStep.indexOf(command);
@@ -137,3 +143,9 @@ for (const command of assessmentOrder) {
 }
 if (!deployJob.includes('PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'))
   throw new Error('Production recovery requires its own reconciliation credential');
+
+const cachePreflight = deployJob.indexOf('name: Populate new build cache before replacing the public Web');
+const firstWebDeploy = deployJob.indexOf('wrangler deploy --config platform/runtime/wrangler.web.production.generated.json');
+if (cachePreflight < 0 || cachePreflight >= firstWebDeploy ||
+    !deployJob.slice(cachePreflight, firstWebDeploy).includes('populateCache remote --config platform/runtime/wrangler.web.production.generated.json'))
+  throw new Error('New build cache must be populated before replacing the public Web');

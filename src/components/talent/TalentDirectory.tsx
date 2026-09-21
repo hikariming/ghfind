@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDownUp, ArrowRight, ArrowUpRight, Bookmark, Check, CheckCheck, Code2, FolderGit2, GitFork, Globe2, LayoutGrid, List, MapPin, Plus, Search, SlidersHorizontal, Star, Users, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { ArrowDownUp, ArrowRight, ArrowUpRight, Bookmark, Check, CheckCheck, Code2, FolderGit2, Gauge, GitFork, Globe2, LayoutGrid, List, MapPin, Plus, Search, SlidersHorizontal, Star, Users, X } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import type { Talent } from './data';
 import { TalentAvatar } from './TalentAvatar';
@@ -12,15 +13,20 @@ import { submitTalentIntake } from './actions';
 
 const format = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
+// Filter states use untranslated sentinels; DB values for `source` contain
+// 'GitHub' / '人工整理' regardless of locale, so matching stays data-based.
+const ALL = 'all';
+
 export function TalentDirectory({ initialTalents }: { initialTalents: Talent[] }) {
+  const t = useTranslations('talent');
   const [talents] = useState(initialTalents);
   const [query, setQuery] = useState('');
-  const [direction, setDirection] = useState('全部方向');
+  const [direction, setDirection] = useState(ALL);
   const [saved, setSaved] = useState<string[]>([]);
   const [tab, setTab] = useState('all');
   const [filters, setFilters] = useState(false);
-  const [location, setLocation] = useState('全部地点');
-  const [source, setSource] = useState('全部来源');
+  const [location, setLocation] = useState(ALL);
+  const [source, setSource] = useState(ALL);
   const [available, setAvailable] = useState(false);
   const [sort, setSort] = useState('recommended');
   const [view, setView] = useState('grid');
@@ -30,10 +36,10 @@ export function TalentDirectory({ initialTalents }: { initialTalents: Talent[] }
   const [notice, setNotice] = useState('');
   const toggleSaved = (id: string) => setSaved(prev => prev.includes(id) ? prev.filter(value => value !== id) : [...prev, id]);
   const openTalent = (talent: Talent) => { setSelected(talent); };
-  const reset = () => { setQuery(''); setDirection('全部方向'); setLocation('全部地点'); setSource('全部来源'); setAvailable(false); };
-  const directions = ['全部方向', ...new Set(talents.map(t => t.direction))];
-  const activeFilters = Number(location !== '全部地点') + Number(source !== '全部来源') + Number(available);
-  const results = talents.filter(t => (tab !== 'saved' || saved.includes(t.id)) && (direction === '全部方向' || t.direction === direction) && (location === '全部地点' || t.location === location) && (source === '全部来源' || t.source.includes(source)) && (!available || t.available) && [t.name, t.handle, t.role, t.bio, t.location, ...t.skills].join(' ').toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => sort === 'stars' ? (b.stars ?? -1) - (a.stars ?? -1) : sort === 'activity' ? (b.contributions ?? -1) - (a.contributions ?? -1) : 0);
+  const reset = () => { setQuery(''); setDirection(ALL); setLocation(ALL); setSource(ALL); setAvailable(false); };
+  const directions = [ALL, ...new Set(talents.map(x => x.direction))];
+  const activeFilters = Number(location !== ALL) + Number(source !== ALL) + Number(available);
+  const results = talents.filter(x => (tab !== 'saved' || saved.includes(x.id)) && (direction === ALL || x.direction === direction) && (location === ALL || x.location === location) && (source === ALL || x.source.includes(source === 'github' ? 'GitHub' : '人工整理')) && (!available || x.available) && [x.name, x.handle, x.role, x.bio, x.location, ...x.skills].join(' ').toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => sort === 'stars' ? (b.stars ?? -1) - (a.stars ?? -1) : sort === 'activity' ? (b.contributions ?? -1) - (a.contributions ?? -1) : 0);
 
   async function addTalent(talent: Talent) {
     setSubmitting(true);
@@ -41,39 +47,39 @@ export function TalentDirectory({ initialTalents }: { initialTalents: Talent[] }
     setSubmitting(false);
     if (!result.ok) { setNotice(result.message); return; }
     setAdding(false); reset(); setTab('all'); setSort('recommended');
-    setNotice(`已收到对 ${talent.name} 的收录提交，仅保留公开字段，审核通过后展示。`);
+    setNotice(t('notice.submitted', { name: talent.name }));
   }
 
   return <main className={styles.page}>
-    <div className={styles.topline}><span>职业发展 <span className={styles.slash}>/</span> <strong>人才库</strong></span><span className={styles.preview}><span /> 社区收录 · 持续更新</span></div>
+    <div className={styles.topline}><span>{t('topline.section')} <span className={styles.slash}>/</span> <strong>{t('topline.current')}</strong></span><span className={styles.preview}><span /> {t('topline.badge')}</span></div>
     <section className={styles.hero}>
-      <h1>从一行代码，<br />发现<span>值得认识的人。</span><span className={styles.heroAsterisk}>✳</span></h1>
-      <p>不止是一份简历。透过开源项目、技术实践与真实作品，<br className={styles.desktopBreak} /> 认识开发者，也找到下一位同行者。</p>
-      <div className={styles.heroBottom}><div className={styles.people}><div className={styles.miniAvatars}>{talents.slice(0, 4).map(t => <TalentAvatar key={t.id} talent={t} />)}</div><span>以 GitHub 为起点，连接更多可能</span></div><button className={styles.primary} onClick={() => setAdding(true)}><Plus size={16} /> 收录人才</button></div>
-      <div className={styles.heroCode} aria-hidden="true"><Code2 size={32} /><span>built by humans.</span><div><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div>
+      <h1>{t('hero.titleLead')}<br />{t('hero.titleVerb')}<span>{t('hero.titleAccent')}</span><span className={styles.heroAsterisk}>✳</span></h1>
+      <p>{t('hero.subtitleLead')}<br className={styles.desktopBreak} /> {t('hero.subtitleTail')}</p>
+      <div className={styles.heroBottom}><div className={styles.people}><div className={styles.miniAvatars}>{talents.slice(0, 4).map(x => <TalentAvatar key={x.id} talent={x} />)}</div><span>{t('hero.people')}</span></div><button className={styles.primary} onClick={() => setAdding(true)}><Plus size={16} /> {t('hero.add')}</button></div>
+      <div className={styles.heroCode} aria-hidden="true"><Code2 size={32} /><span>{t('hero.code')}</span><div><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div>
     </section>
 
-    <section className={styles.directory} aria-label="人才发现">
-      <div className={styles.tabs}><div><button data-active={tab === 'all'} onClick={() => setTab('all')}><Users size={16} /> 发现人才 <span>{talents.length}</span></button><button data-active={tab === 'saved'} onClick={() => setTab('saved')}><Bookmark size={16} /> 我的收藏 <span>{saved.length}</span></button></div><span className={styles.sessionHint}>收藏仅在本次浏览中保留</span></div>
-      <div className={styles.searchRow}><label className={styles.search}><Search size={19} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索姓名、GitHub 用户名、技术栈或城市…" aria-label="搜索人才" />{query && <button aria-label="清空搜索" onClick={() => setQuery('')}><X size={15} /></button>}</label><button className={styles.secondary} data-active={filters} onClick={() => setFilters(!filters)} aria-expanded={filters}><SlidersHorizontal size={16} /> 筛选 {activeFilters > 0 && <span>{activeFilters}</span>}</button></div>
-      {filters && <div className={styles.filters}><label>所在地点<select value={location} onChange={e => setLocation(e.target.value)}>{['全部地点', ...new Set(talents.map(t => t.location))].map(s => <option key={s}>{s}</option>)}</select></label><label>数据来源<select value={source} onChange={e => setSource(e.target.value)}>{['全部来源', 'GitHub', '人工整理'].map(s => <option key={s}>{s}</option>)}</select></label><label className={styles.checkbox}><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} /> 仅看愿意交流的人才</label><button className={styles.textButton} onClick={reset}>重置筛选</button></div>}
-      <div className={styles.chips}>{directions.map(d => <button key={d} data-active={direction === d} onClick={() => setDirection(d)}>{d}</button>)}</div>
-      <div className={styles.resultsBar}><span>发现 <strong>{results.length}</strong> 位开发者 <span className={styles.resultSubtitle}>· 从作品开始了解</span></span><div><ArrowDownUp size={13} /><select aria-label="人才排序" value={sort} onChange={e => setSort(e.target.value)}><option value="recommended">精选排序</option><option value="stars">项目 Stars 优先</option><option value="activity">贡献活跃度优先</option></select><span className={styles.divider} /><button aria-label="卡片视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={18} /></button></div></div>
-      {notice && <div className={styles.notice} role="status"><CheckCheck size={16} />{notice}<button onClick={() => setNotice('')} aria-label="关闭提示"><X size={14} /></button></div>}
+    <section className={styles.directory} aria-label={t('tabs.aria')}>
+      <div className={styles.tabs}><div><button data-active={tab === 'all'} onClick={() => setTab('all')}><Users size={16} /> {t('tabs.all')} <span>{talents.length}</span></button><button data-active={tab === 'saved'} onClick={() => setTab('saved')}><Bookmark size={16} /> {t('tabs.saved')} <span>{saved.length}</span></button></div><span className={styles.sessionHint}>{t('tabs.sessionHint')}</span></div>
+      <div className={styles.searchRow}><label className={styles.search}><Search size={19} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search.placeholder')} aria-label={t('search.aria')} />{query && <button aria-label={t('search.clear')} onClick={() => setQuery('')}><X size={15} /></button>}</label><button className={styles.secondary} data-active={filters} onClick={() => setFilters(!filters)} aria-expanded={filters}><SlidersHorizontal size={16} /> {t('filters.toggle')} {activeFilters > 0 && <span>{activeFilters}</span>}</button></div>
+      {filters && <div className={styles.filters}><label>{t('filters.location')}<select value={location} onChange={e => setLocation(e.target.value)}>{[ALL, ...new Set(talents.map(x => x.location))].map(s => <option key={s} value={s}>{s === ALL ? t('filters.allLocations') : s}</option>)}</select></label><label>{t('filters.source')}<select value={source} onChange={e => setSource(e.target.value)}>{[[ALL, t('filters.allSources')], ['github', t('filters.sourceGithub')], ['manual', t('filters.sourceManual')]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className={styles.checkbox}><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} /> {t('filters.onlyAvailable')}</label><button className={styles.textButton} onClick={reset}>{t('filters.reset')}</button></div>}
+      <div className={styles.chips}>{directions.map(d => <button key={d} data-active={direction === d} onClick={() => setDirection(d)}>{d === ALL ? t('filters.allDirections') : d}</button>)}</div>
+      <div className={styles.resultsBar}><span>{t.rich('results.count', { count: results.length, strong: chunks => <strong>{chunks}</strong> })} <span className={styles.resultSubtitle}>{t('results.subtitle')}</span></span><div><ArrowDownUp size={13} /><select aria-label={t('results.sortAria')} value={sort} onChange={e => setSort(e.target.value)}><option value="recommended">{t('results.sortRecommended')}</option><option value="stars">{t('results.sortStars')}</option><option value="activity">{t('results.sortActivity')}</option></select><span className={styles.divider} /><button aria-label={t('results.gridView')} aria-pressed={view === 'grid'} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label={t('results.listView')} aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={18} /></button></div></div>
+      {notice && <div className={styles.notice} role="status"><CheckCheck size={16} />{notice}<button onClick={() => setNotice('')} aria-label={t('notice.close')}><X size={14} /></button></div>}
       <div className={`${styles.grid} ${view === 'list' ? styles.list : ''}`}>
-        {results.map(t => <article className={styles.card} key={t.id}>
-          <button className={styles.cardHitArea} onClick={() => openTalent(t)} aria-label={`查看${t.name}档案`} />
-          <div className={styles.cardTop}><div className={styles.identity}><TalentAvatar talent={t} badge /><span><strong>{t.name}</strong><small>{t.handle ? `@${t.handle}` : "手动收录"}</small></span></div><button className={styles.bookmark} aria-label={`${saved.includes(t.id) ? '取消收藏' : '收藏'}${t.name}`} aria-pressed={saved.includes(t.id)} onClick={() => toggleSaved(t.id)}><Bookmark size={18} fill={saved.includes(t.id) ? 'currentColor' : 'none'} /></button></div>
-          <h2>{t.role}</h2><p className={styles.bio}>{t.bio}</p><div className={styles.meta}><span><MapPin size={12} />{t.location}</span>{t.available ? <span className={styles.available}><i /> 愿意交流</span> : <span><Globe2 size={12} /> {t.pending ? "资料待补充" : "活跃于开源社区"}</span>}</div>
-          <div className={styles.skills}>{t.skills.map(s => <span key={s}>{s}</span>)}</div>
-          <div className={styles.project}><span><FolderGit2 size={15} /><strong>{t.project}</strong><ArrowUpRight size={14} /></span><small>{t.projectDescription}</small></div>
-          <div className={styles.metrics}><span><Star size={13} /><strong>{t.stars === null ? "—" : format(t.stars)}</strong> Stars</span><span><span className={styles.contributionIcon}>▥</span><strong>{t.contributions === null ? "—" : t.contributions.toLocaleString()}</strong> 年贡献</span></div>
-          <div className={styles.cardFooter}><span><Check size={12} />{t.source}</span><span className={styles.cardDetailLink}>查看档案 <ArrowUpRight size={14} /></span></div>
+        {results.map(x => <article className={styles.card} key={x.id}>
+          <button className={styles.cardHitArea} onClick={() => openTalent(x)} aria-label={t('card.viewProfileAria', { name: x.name })} />
+          <div className={styles.cardTop}><div className={styles.identity}><TalentAvatar talent={x} badge /><span><strong>{x.name}</strong><small>{x.handle ? `@${x.handle}` : t('card.manual')}</small></span></div><button className={styles.bookmark} aria-label={saved.includes(x.id) ? t('card.unsaveAria', { name: x.name }) : t('card.saveAria', { name: x.name })} aria-pressed={saved.includes(x.id)} onClick={() => toggleSaved(x.id)}><Bookmark size={18} fill={saved.includes(x.id) ? 'currentColor' : 'none'} /></button></div>
+          <h2>{x.role}</h2><p className={styles.bio}>{x.bio}</p><div className={styles.meta}><span><MapPin size={12} />{x.location}</span>{x.available ? <span className={styles.available}><i /> {t('card.available')}</span> : <span><Globe2 size={12} /> {x.pending ? t('card.pending') : t('card.community')}</span>}</div>
+          <div className={styles.skills}>{x.skills.map(s => <span key={s}>{s}</span>)}</div>
+          <div className={styles.project}><span><FolderGit2 size={15} /><strong>{x.project}</strong><ArrowUpRight size={14} /></span><small>{x.projectDescription}</small></div>
+          <div className={styles.metrics}>{typeof x.score === "number" && x.score >= 60 && <span><Gauge size={13} /><strong>{x.score.toFixed(1)}</strong> {t('card.score')}</span>}<span><Star size={13} /><strong>{x.stars === null ? "—" : format(x.stars)}</strong> Stars</span><span><span className={styles.contributionIcon}>▥</span><strong>{x.contributions === null ? "—" : x.contributions.toLocaleString()}</strong> {t('card.yearlyContributions')}</span></div>
+          <div className={styles.cardFooter}><span><Check size={12} />{x.source}</span><span className={styles.cardDetailLink}>{t('card.viewProfile')} <ArrowUpRight size={14} /></span></div>
         </article>)}
       </div>
-      {results.length === 0 && <div className={styles.empty}><Search size={28} /><h3>{tab === 'saved' && !saved.length ? '把想进一步了解的人，留在这里' : '暂时没有匹配的人才'}</h3><p>{tab === 'saved' && !saved.length ? '点击人才卡片右上角的收藏图标，建立你的候选清单。' : '试试其他技术栈，或放宽筛选条件。'}</p><button className={styles.secondary} onClick={() => { reset(); setTab('all'); }}>浏览全部人才 <ArrowRight size={14} /></button></div>}
-      <div className={styles.endline}><span /><p>好的人才，值得被看见</p><span /></div>
-      <div className={styles.bottomNote}><GitFork size={17} /><p><strong>源于开源，不止于开源</strong><br />GitHub 公开信息 × 人工精选补充，让每一份才华都有迹可循。</p><span>数据来源于 GitHub 公开信息与站内合集</span></div>
+      {results.length === 0 && <div className={styles.empty}><Search size={28} /><h3>{tab === 'saved' && !saved.length ? t('empty.savedTitle') : t('empty.title')}</h3><p>{tab === 'saved' && !saved.length ? t('empty.savedBody') : t('empty.body')}</p><button className={styles.secondary} onClick={() => { reset(); setTab('all'); }}>{t('empty.browseAll')} <ArrowRight size={14} /></button></div>}
+      <div className={styles.endline}><span /><p>{t('footer.endline')}</p><span /></div>
+      <div className={styles.bottomNote}><GitFork size={17} /><p><strong>{t('footer.title')}</strong><br />{t('footer.body')}</p><span>{t('footer.source')}</span></div>
     </section>
 
     <Dialog open={!!selected} onOpenChange={open => { if (!open) setSelected(null); }}>

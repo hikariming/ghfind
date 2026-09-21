@@ -17,7 +17,7 @@ export default async function TalentPage({ params }: { params: Promise<{ locale:
   setRequestLocale(locale);
   let talents: Talent[] = [];
   try {
-    talents = await listPublishedTalents();
+    talents = await listPublishedTalents(locale);
   } catch (error) {
     console.error('talent.load_failed', error);
   }

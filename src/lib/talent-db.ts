@@ -1,5 +1,6 @@
 import { createClient, type Client } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
+import { normLang } from "@/lib/lang";
 import type { Talent } from "@/components/talent/data";
 
 export class TalentDatabaseError extends Error {
@@ -58,12 +59,19 @@ const SCHEMA_STATEMENT = `CREATE TABLE IF NOT EXISTS talent_profiles (
   updated_at INTEGER NOT NULL
 )`;
 
+const I18N_STATEMENT = `ALTER TABLE talent_profiles ADD COLUMN content_i18n_json TEXT`;
+
 function ensureSchema(db: Client): Promise<void> {
   if (!schemaReady) {
-    schemaReady = db.execute(SCHEMA_STATEMENT).then(() => undefined).catch((error) => {
-      schemaReady = null;
-      throw error;
-    });
+    schemaReady = db.execute(SCHEMA_STATEMENT)
+      // Best-effort twin of migrations/0009_talent_i18n.sql for Turso/local;
+      // a duplicate-column error just means the column already exists.
+      .then(() => db.execute(I18N_STATEMENT).catch(() => undefined))
+      .then(() => undefined)
+      .catch((error) => {
+        schemaReady = null;
+        throw error;
+      });
   }
   return schemaReady;
 }
@@ -87,9 +95,17 @@ function parseJson<T>(raw: unknown, fallback: T): T {
 
 const AVATAR_COLORS = ["sage", "lavender", "peach", "blue", "rose", "sand"] as const;
 
-function mapTalent(row: Record<string, unknown>): Talent {
+type TalentI18nField = "role" | "direction" | "bio" | "note" | "project_description";
+type TalentI18n = { en?: Partial<Record<TalentI18nField, string>> };
+
+function mapTalent(row: Record<string, unknown>, lang: "zh" | "en" = "zh"): Talent {
   const name = rowString(row.name);
-  const direction = rowString(row.direction) || "未分类";
+  const i18n = lang === "en" ? parseJson<TalentI18n>(row.content_i18n_json, {}).en ?? {} : {};
+  const pick = (field: TalentI18nField, zh: string): string => {
+    const translated = i18n[field]?.trim();
+    return translated || zh;
+  };
+  const direction = pick("direction", rowString(row.direction) || "未分类");
   const skills = parseJson<string[]>(row.skills_json, []);
   const available = Number(row.available) === 1;
   return {
@@ -100,17 +116,18 @@ function mapTalent(row: Record<string, unknown>): Talent {
     color: AVATAR_COLORS.includes(row.color as (typeof AVATAR_COLORS)[number])
       ? rowString(row.color)
       : "sage",
-    role: rowString(row.role),
+    role: pick("role", rowString(row.role)),
     location: rowString(row.location) || "未公开",
     direction,
-    bio: rowString(row.bio),
+    bio: pick("bio", rowString(row.bio)),
     skills,
     stars: nullableNumber(row.stars),
     contributions: nullableNumber(row.contributions),
+    score: nullableNumber(row.ghfind_score),
     source: rowString(row.source) || "人工整理",
     project: rowString(row.project),
-    projectDescription: rowString(row.project_description),
-    note: rowString(row.note),
+    projectDescription: pick("project_description", rowString(row.project_description)),
+    note: pick("note", rowString(row.note)),
     available,
     tags: [direction, ...skills, ...(available ? ["愿意交流"] : [])],
     projects: parseJson<Talent["projects"]>(row.projects_json, []),
@@ -121,16 +138,20 @@ function mapTalent(row: Record<string, unknown>): Talent {
 }
 
 /** Directory listing: published records only, editorial order. */
-export async function listPublishedTalents(): Promise<Talent[]> {
+export async function listPublishedTalents(locale?: string): Promise<Talent[]> {
   const db = database();
   await ensureSchema(db);
+  const lang = normLang(locale);
   const result = await db.execute({
-    sql: `SELECT * FROM talent_profiles
-          WHERE status = 'published'
-          ORDER BY sort_order ASC, created_at DESC`,
+    // scores.username stores the lowercased GitHub login; hidden scores stay private.
+    sql: `SELECT t.*, s.final_score AS ghfind_score
+          FROM talent_profiles t
+          LEFT JOIN scores s ON s.username = lower(t.id) AND s.hidden = 0
+          WHERE t.status = 'published'
+          ORDER BY t.sort_order ASC, t.created_at DESC`,
     args: [],
   });
-  return result.rows.map((row) => mapTalent(row as Record<string, unknown>));
+  return result.rows.map((row) => mapTalent(row as Record<string, unknown>, lang));
 }
 
 const MAX_FIELD_LENGTH = 2_000;

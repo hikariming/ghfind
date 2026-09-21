@@ -629,7 +629,7 @@ export async function recoverProjectAnalysis(input: ProjectAnalysisRecoveryInput
   const fields = ["analysisId", "requestedRef", "expectedThreadId", "expectedRunId", "requestId", "operatorRef", "action"];
   if (!input || Object.keys(input).length !== fields.length || fields.some(key => typeof input[key as keyof ProjectAnalysisRecoveryInput] !== "string" ||
     String(input[key as keyof ProjectAnalysisRecoveryInput]).length < 1 || String(input[key as keyof ProjectAnalysisRecoveryInput]).length > 160) ||
-    !/^[a-f0-9]{40}$/.test(input.requestedRef) || !["retry_interrupted", "finalize_completed"].includes(input.action)) {
+    !/^[a-f0-9]{40}$/.test(input.requestedRef) || !["retry_interrupted", "retry_interrupted_final", "finalize_completed"].includes(input.action)) {
     throw new ProjectAnalysisServiceError("analysis_recovery_refused", "An exact bounded recovery identity is required.", 400);
   }
   const run = await getProjectAnalysisRun(input.analysisId);
@@ -637,7 +637,11 @@ export async function recoverProjectAnalysis(input: ProjectAnalysisRecoveryInput
     throw new ProjectAnalysisServiceError("analysis_recovery_refused", "Recovery analysis identity differs.", 409);
   }
   const previous = await getProjectAnalysisRecovery(run.id);
-  if (previous) {
+  const finalRetry = input.action === "retry_interrupted_final";
+  const firstRetryMayAdvance = finalRetry && previous?.action === "retry_interrupted" &&
+    previous.nextIdempotencyKey === `ghfind-project-${run.id}-retry-1` && run.idempotencyKey === previous.nextIdempotencyKey &&
+    input.requestId !== previous.requestId;
+  if (previous && !firstRetryMayAdvance) {
     if (["requestId", "action", "requestedRef", "expectedThreadId", "expectedRunId"].some(key =>
       previous[key as keyof typeof previous] !== input[key as keyof ProjectAnalysisRecoveryInput]) || run.idempotencyKey !== previous.nextIdempotencyKey) {
       throw new ProjectAnalysisServiceError("analysis_recovery_conflict", "This analysis already consumed its operator recovery.", 409);
@@ -646,7 +650,10 @@ export async function recoverProjectAnalysis(input: ProjectAnalysisRecoveryInput
     if (["running", "finalizing", "completed"].includes(run.status)) return run;
     throw new ProjectAnalysisServiceError("analysis_recovery_refused", "The existing recovery attempt is terminal; another retry is prohibited.", 409);
   }
-  if (run.status !== "expired" || run.errorCode !== "analysis_timeout" ||
+  const eligibleState = finalRetry
+    ? firstRetryMayAdvance && run.status === "failed" && run.errorCode === "mosoo_run_failed"
+    : run.status === "expired" && run.errorCode === "analysis_timeout";
+  if (!eligibleState ||
     run.mosooThreadId !== input.expectedThreadId || run.mosooRunId !== input.expectedRunId ||
     run.mosooAgentId !== getMosooProjectAgentId()) {
     throw new ProjectAnalysisServiceError("analysis_recovery_refused", "Only the exact timed-out provider execution may be recovered.", 409);
@@ -663,8 +670,8 @@ export async function recoverProjectAnalysis(input: ProjectAnalysisRecoveryInput
     return completed;
   }
   if (snapshot.runStatus !== "failed" || snapshot.runError?.code !== "runtime.turn_interrupted" ||
-    run.idempotencyKey !== `ghfind-project-${run.id}`) {
-    throw new ProjectAnalysisServiceError("analysis_recovery_refused", "Only the first interrupted provider attempt permits one operator retry.", 409);
+    run.idempotencyKey !== `ghfind-project-${run.id}${finalRetry ? "-retry-1" : ""}`) {
+    throw new ProjectAnalysisServiceError("analysis_recovery_refused", "Only the pinned interrupted provider attempt permits this bounded operator retry.", 409);
   }
   const claimed = await claimProjectAnalysisRecovery(input, run.updatedAt);
   if (!claimed) throw new ProjectAnalysisServiceError("analysis_recovery_conflict", "Analysis changed or another assessment superseded it.", 409);
@@ -679,7 +686,7 @@ async function executionTimedOut(run: ProjectAnalysisRun): Promise<boolean> {
 }
 
 async function expireProjectAnalysis(run: ProjectAnalysisRun): Promise<ProjectAnalysisRun> {
-  await failProjectAnalysis(run.id, "analysis_timeout", "Project analysis exceeded the configured execution timeout.", "expired");
+  await failProjectAnalysis(run.id, "analysis_timeout", "Project analysis exceeded the configured execution timeout.", "expired", undefined, run);
   return (await getProjectAnalysisRun(run.id)) ?? run;
 }
 
@@ -699,7 +706,7 @@ export async function reconcileProjectAnalysis(
       try {
         const snapshot = await getMosooProjectAnalysisSnapshot(run.mosooThreadId);
         if (snapshot.activities.length > 0) {
-          await updateProjectAnalysisActivities(run.id, snapshot.activities);
+          await updateProjectAnalysisActivities(run.id, snapshot.activities, run);
           return (await getProjectAnalysisRun(run.id)) ?? run;
         }
       } catch {
@@ -722,7 +729,7 @@ export async function reconcileProjectAnalysis(
     }
     const code = error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable";
     const message = error instanceof Error ? error.message : "Mosoo project analysis failed.";
-    await failProjectAnalysis(run.id, code, message);
+    await failProjectAnalysis(run.id, code, message, "failed", undefined, run);
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
 
@@ -736,6 +743,7 @@ export async function reconcileProjectAnalysis(
       run.id,
       "unexpected_input_request",
       "The Cattle project Agent unexpectedly requested user input.",
+      "failed", undefined, run,
     );
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
@@ -756,12 +764,14 @@ export async function reconcileProjectAnalysis(
       `Mosoo project analysis ended with ${snapshot.runStatus}.`,
       terminalStatus,
       snapshot.activities,
+      run,
     );
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
   const phase = runningPhase(snapshot);
   await updateProjectAnalysisState({
     analysisId: run.id,
+    expectedExecution: run,
     status: "running",
     phase: phase.phase,
     progress: phase.progress,

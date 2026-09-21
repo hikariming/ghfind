@@ -6,5 +6,6 @@ export type Talent = {
   id: string; name: string; handle: string; initials: string; color: string;
   role: string; location: string; direction: string; bio: string;
   skills: string[]; stars: number | null; contributions: number | null; source: string;
+  score: number | null;
   project: string; projectDescription: string; note: string; available: boolean;
 };

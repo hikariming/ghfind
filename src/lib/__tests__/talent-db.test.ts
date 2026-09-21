@@ -42,22 +42,50 @@ const publishedRow = {
 it("lists only published talents, mapped to the directory shape", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
   client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema DDL
-  client.execute.mockResolvedValueOnce({ rows: [publishedRow, { ...publishedRow, id: "x", status: "pending" }] });
+  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema i18n ALTER
+  client.execute.mockResolvedValueOnce({ rows: [{ ...publishedRow, ghfind_score: 94.2 }, { ...publishedRow, id: "x", status: "pending" }] });
   const talents = await listPublishedTalents();
-  expect(client.execute.mock.calls[1][0].sql).toContain("status = 'published'");
+  expect(client.execute.mock.calls[2][0].sql).toContain("status = 'published'");
   expect(talents).toHaveLength(2);
   const [talent] = talents;
   expect(talent.name).toBe("梁博文 (Bowen Liang)");
   expect(talent.initials).toBe("梁博");
   expect(talent.stars).toBe(1707);
   expect(talent.contributions).toBeNull();
+  expect(talent.score).toBe(94.2);
+  expect(talents[1].score).toBeNull();
   expect(talent.tags).toEqual(["后端 / 基础设施", "Java", "Python"]);
   expect(talent.pending).toBeUndefined();
+});
+
+it("overlays English content for non-zh locales and falls back per field", async () => {
+  vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  const i18nRow = {
+    ...publishedRow,
+    content_i18n_json: JSON.stringify({
+      en: { role: "Apache Kyuubi PMC member", note: "en note", direction: "Backend / Infrastructure" },
+    }),
+  };
+  for (const [locale, expectEn] of [["en", true], ["ja", true], [undefined, false], ["zh", false]] as const) {
+    resetTalentDbForTests();
+    vi.clearAllMocks();
+    vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+    client.execute.mockResolvedValueOnce({ rows: [] });
+    client.execute.mockResolvedValueOnce({ rows: [] });
+    client.execute.mockResolvedValueOnce({ rows: [i18nRow] });
+    const [talent] = await listPublishedTalents(locale);
+    expect(talent.role).toBe(expectEn ? "Apache Kyuubi PMC member" : "Apache Kyuubi PMC 成员");
+    expect(talent.note).toBe(expectEn ? "en note" : "note");
+    // bio has no en override: falls back to the Chinese column either way.
+    expect(talent.bio).toBe("bio");
+    expect(talent.tags?.[0]).toBe(expectEn ? "Backend / Infrastructure" : "后端 / 基础设施");
+  }
 });
 
 it("stores intake submissions as pending without leaking non-public fields", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
   client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema DDL
+  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema i18n ALTER
   client.execute.mockResolvedValueOnce({ rows: [], rowsAffected: 1 });
   await createPendingTalent({
     id: "intake-1",
@@ -72,6 +100,7 @@ it("stores intake submissions as pending without leaking non-public fields", asy
     skills: ["TypeScript"],
     stars: null,
     contributions: null,
+    score: null,
     source: "人工整理",
     project: "",
     projectDescription: "",
@@ -79,7 +108,7 @@ it("stores intake submissions as pending without leaking non-public fields", asy
     available: false,
     publicFields: { email: "hello@example.com" },
   });
-  const insert = client.execute.mock.calls[1][0];
+  const insert = client.execute.mock.calls[2][0];
   expect(insert.sql).toContain("'pending'");
   expect(insert.args[1]).toBe("Alias");
   expect(JSON.stringify(insert.args)).toContain("hello@example.com");
@@ -88,6 +117,7 @@ it("stores intake submissions as pending without leaking non-public fields", asy
 
 it("rejects name-less intake submissions", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  client.execute.mockResolvedValueOnce({ rows: [] });
   client.execute.mockResolvedValueOnce({ rows: [] });
   await expect(
     createPendingTalent({ id: "x", name: "  " } as never),

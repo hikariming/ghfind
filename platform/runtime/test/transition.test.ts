@@ -105,7 +105,12 @@ test("production restart route requires exact authenticated bounded contract and
   assert.equal((await handleRequest(request("api-0/restart",input,"x"),env,dispatch)).status,401);
   assert.equal((await handleRequest(request("api-3/restart"),env,dispatch)).status,404);
   assert.equal((await handleRequest(request("api-0/restart?x=1"),env,dispatch)).status,404);
-  assert.equal((await handleRequest(request("api-0/restart"),{...env,FEED_MODE:"off"},dispatch)).status,400);
+  const stale = await handleRequest(request("api-0/restart"),{...env,FEED_MODE:"off"},dispatch);
+  assert.equal(stale.status,409);
+  assert.deepEqual(await stale.json(),{error:"transition_environment_not_ready",workerVersionId:env.WORKER_VERSION.id});
+  assert.equal(stale.headers.get("cache-control"),"no-store");
+  for(const body of [{...input,sourceSha:"b".repeat(40)},{...input,imageBuildId:"b".repeat(64)},{...input,writerEpoch:2},{...input,extra:true},null])
+    assert.equal((await handleRequest(request("api-0/restart",body),{...env,FEED_MODE:"off"},dispatch)).status,400);
   const staging={...env,FEED_ENVIRONMENT:"staging",FEED_QUEUE_NAME:"ghfind-feed-staging-jobs",FEED_DLQ_NAME:"ghfind-feed-staging-dlq"};
   assert.equal((await handleRequest(request("api-0/restart"),staging,dispatch)).status,405);
   assert.equal((await handleRequest(request("executor-0/restart"),{...env,FEED_EXECUTOR_ENABLED:"false"},dispatch)).status,503);
@@ -113,6 +118,23 @@ test("production restart route requires exact authenticated bounded contract and
   assert.equal((await handleRequest(malformed,env,dispatch)).status,400);
   assert.equal((await handleRequest(request("api-0/restart",{...input,extra:"x".repeat(1024)}),env,dispatch)).status,413);
   assert.equal(calls,1);
+});
+
+test("authenticated configuration reports exact edge identity without touching any actor",async()=>{
+  const forbidden=async()=>{assert.fail("configuration must not invoke an actor");};
+  const dispatch={fetch:forbidden,stop:forbidden,restart:forbidden,probe:forbidden,actorId:()=>{assert.fail("configuration must not resolve an actor");}};
+  const request=(path="/internal/runtime/configuration",auth=env.FEED_RUNTIME_ADMIN_SECRET,method="GET")=>
+    new Request(`https://runtime${path}`,{method,headers:{authorization:`Bearer ${auth}`}});
+  for(const mode of ["off","baseline"] as const){
+    const result=await handleRequest(request(),{...env,FEED_MODE:mode},dispatch);
+    assert.equal(result.status,200);assert.equal(result.headers.get("cache-control"),"no-store");
+    assert.deepEqual(await result.json(),{service:"feed-runtime",version:env.FEED_RELEASE_SHA,contractVersion:"1",
+      workerVersionId:env.WORKER_VERSION.id,configuredImage:env.FEED_IMAGE_REFERENCE,imageBuildId:env.FEED_IMAGE_BUILD_ID,mode,writerEpoch:1});
+  }
+  assert.equal((await handleRequest(request(undefined,"wrong"),env,dispatch)).status,401);
+  assert.equal((await handleRequest(request("/internal/runtime/configuration?x=1"),env,dispatch)).status,404);
+  assert.equal((await handleRequest(request(undefined,undefined,"POST"),env,dispatch)).status,404);
+  assert.equal((await handleRequest(request(),{...env,FEED_IMAGE_BUILD_ID:"invalid"},dispatch)).status,503);
 });
 
 test("final dependency failure or actor drift after stop cannot grant a restart receipt",async()=>{

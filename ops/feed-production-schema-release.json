@@ -32,6 +32,10 @@
     {
       "name": "0007_project_analysis_recovery.sql",
       "sha256": "641eae95ec4452ad9c974de2763c0f65e0e7210892788b60e493311a1ece01f1"
+    },
+    {
+      "name": "0009_project_analysis_final_recovery.sql",
+      "sha256": "2f545699a971dbced96edea7e59cbf3610742f71625f30a8624eab3922f6660b"
     }
   ],
   "feed": [

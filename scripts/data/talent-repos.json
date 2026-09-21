@@ -1,0 +1,11 @@
+[
+  { "repo": "langgenius/dify", "direction": "AI 应用开发" },
+  { "repo": "lobehub/lobe-chat", "direction": "AI 应用开发" },
+  { "repo": "openclaw/openclaw", "direction": "AI 应用开发" },
+  { "repo": "n8n-io/n8n", "direction": "AI 应用开发" },
+  { "repo": "ollama/ollama", "direction": "基础设施" },
+  { "repo": "langchain-ai/langchain", "direction": "AI 应用开发" },
+  { "repo": "modelcontextprotocol/servers", "direction": "AI 应用开发" },
+  { "repo": "Significant-Gravitas/AutoGPT", "direction": "AI 应用开发" },
+  { "repo": "apache/maka", "direction": "AI 应用开发" }
+]

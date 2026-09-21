@@ -1,0 +1,206 @@
+{
+  "format": "ghfind-assessment-readonly-history-v1",
+  "entries": [
+    {
+      "runId": 35520782991,
+      "attempt": 1,
+      "sourceSha": "222d99ddc149c56d1aec5f25a692fb94a1897d2f",
+      "jobId": 106104402566,
+      "artifactId": 10608660862,
+      "artifactSHA256": "80e5643bcacf07cb6f7f2dc6bfa6162f01e94e84c8ef7a9059ed01ff99ddbdff",
+      "logsSHA256": "e9ad4c597698844981a745a12805d709b949d1817a2ce10e76c8793e6ae34448",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST lacks a unique intent receipt"
+    },
+    {
+      "runId": 35228288479,
+      "attempt": 1,
+      "sourceSha": "0ae2bf99e4efb8f3d5d00a39113580d37793ca06",
+      "jobId": 105225476084,
+      "artifactId": 10500556274,
+      "artifactSHA256": "f2c401f653391d2d3ed4cc4efd9413d22def8eceb465c0bd855c1ce27c62c686",
+      "logsSHA256": "9248c29899d7ed82b7c3fa6ae0c9f2c401bd7870306e0886dd79566e21375240",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST lacks a unique intent receipt"
+    },
+    {
+      "runId": 34998131451,
+      "attempt": 1,
+      "sourceSha": "d55544f643d74bfa330a11e53711d0e7648113d6",
+      "jobId": 104479575659,
+      "artifactId": 10408319862,
+      "artifactSHA256": "0c6f3d36a4c0674630f34e764a0d70b51d9d660b79537e85c047eeaffccc642f",
+      "logsSHA256": "9d9cc909dee9a057b9dc5e0aa2f7d5a0904a16cecc42c014c3df64e8e1abb5f4",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST lacks a unique intent receipt"
+    },
+    {
+      "runId": 34972418238,
+      "attempt": 1,
+      "sourceSha": "d000876cb0328c7c72244373327e3d02bcb5149b",
+      "jobId": 104391766899,
+      "artifactId": 10398670963,
+      "artifactSHA256": "7c00ae41b3a56f863010460ca1c7838522b29ef1107c386c5eb65186971d172b",
+      "logsSHA256": "cce51798bbff1459b79b063b2fc586506563bc2fe9e4efef184d1423b1ac841a",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST lacks a unique intent receipt"
+    },
+    {
+      "runId": 34939085318,
+      "attempt": 1,
+      "sourceSha": "7521f63f34017bd8d42a287064c9dd25499bc79b",
+      "jobId": 104283439941,
+      "artifactId": 10383903780,
+      "artifactSHA256": "3e1028a9411818c9855a1283f7f7d3f121267c5b06b344e4126c5d8fd2a0f66b",
+      "logsSHA256": "35f754011c4543ebb8aac883c4941570c68d4e1a0ab00e054b36d8e1c6327267",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST lacks a unique intent receipt"
+    },
+    {
+      "runId": 34936439977,
+      "attempt": 1,
+      "sourceSha": "42ca6a9702421178f0a2f8e8472dbdc06e3ef0b5",
+      "jobId": 104275312856,
+      "artifactId": 10383592216,
+      "artifactSHA256": "67885550c4a9c66cb5c2cda227484d5b75820601fcb24a7c62788c2f8e479abf",
+      "logsSHA256": "ae34f718ebe396ed0ae98fc14c49c867f4fe1cbc6f5d9641bf32566ca2e2ad6c",
+      "workflowSHA256": "9747376c9743dde9584a82b43fc36be34ea9713d016ad237188d324cc69c06a3",
+      "failureReason": "possible previous assessment POST has missing, expired or mismatched evidence artifact"
+    }
+  ],
+  "archivedReceipts": [
+    {
+      "runId": 34806587912,
+      "attempt": 1,
+      "sourceSha": "26075672fe79750f0bebfc70754ee31aeaed8046",
+      "jobId": 103859583625,
+      "artifactId": 10332229844,
+      "artifactSHA256": "e978bbeb56d6dff3392d14c1d77cf56c18b575d7e2d4e99c8f4dae588cc22967",
+      "logsSHA256": "180a6d8fa13b57e1aed29b12bf0dbf2364115bb9136a91635e7c6e30f545e484",
+      "createdAt": "2026-09-14T04:43:26.565Z",
+      "evidenceBasis": "Explicitly reviewed preserved receipt and accepted operator result; original GitHub ZIP unavailable. Upload digest is historical log evidence only. Requires fresh D1 audit and matching live job log.",
+      "receiptSHA256": "35d688b4fad9d49062153e72c81c55d330900eec79b8cfc08d51cec8ee4ef316",
+      "operatorSHA256": "5fabfbcb9cffac62be4b56fac8b71c1b28ebf4d174511bf423c5aca8722ecbe9",
+      "receipt": {
+        "format": "ghfind-production-assessment-intent-v1",
+        "intentId": "883c683c-306d-4de4-ac02-0f0fc8708e81",
+        "sourceSha": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
+        "origin": "https://ghfind.beiming1201.workers.dev",
+        "repository": "hikariming/ghfind",
+        "phase": "waiting",
+        "postIssued": true,
+        "analysisId": "ae16bdc6-a82c-484e-a197-33291206d85f",
+        "createdAt": 1789356214448,
+        "polls": 5,
+        "projectionPolls": 0,
+        "apiReused": null,
+        "providerExecution": "not_yet_verified",
+        "web": {
+          "workerVersionId": "2f6cc41b-1553-4284-a610-761d3400b407",
+          "agentId": "01M22PWZR0A7ZYCDKWTEA0YEHQ"
+        },
+        "status": "running",
+        "idempotencyKey": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f-retry-1",
+        "currentThreadCreateAttempts": 1,
+        "providerRunRetries": 1,
+        "resume": true,
+        "waitStartedAt": 1789360927994,
+        "operatorRecovery": {
+          "requestId": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac",
+          "action": "retry_interrupted",
+          "executionDeadlineAt": 1789362727994,
+          "createdAt": 1789360927994,
+          "priorThreadId": "01M2EZ289XGFKNVH61YTXM8W5J",
+          "priorRunId": "01M2EZ28DQ0Y9BDKVMT8N9BN73",
+          "nextIdempotencyKey": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f-retry-1",
+          "priorReceiptSHA256": "65c1ee40ae93f6f1bc835b1f246d1b5b45e53a8fbd8823e460fed46c465aa2ce",
+          "previousAttempt": {
+            "format": "ghfind-production-assessment-intent-v1",
+            "intentId": "883c683c-306d-4de4-ac02-0f0fc8708e81",
+            "sourceSha": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
+            "origin": "https://ghfind.beiming1201.workers.dev",
+            "repository": "hikariming/ghfind",
+            "phase": "waiting",
+            "postIssued": true,
+            "analysisId": "ae16bdc6-a82c-484e-a197-33291206d85f",
+            "createdAt": 1789356214448,
+            "polls": 1,
+            "projectionPolls": 0,
+            "apiReused": null,
+            "providerExecution": "not_yet_verified",
+            "web": {
+              "workerVersionId": "2f6cc41b-1553-4284-a610-761d3400b407",
+              "agentId": "01M22PWZR0A7ZYCDKWTEA0YEHQ"
+            },
+            "status": "running",
+            "idempotencyKey": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f",
+            "currentThreadCreateAttempts": 1,
+            "providerRunRetries": 0,
+            "resume": true,
+            "waitStartedAt": 1789358534448
+          }
+        }
+      },
+      "operator": {
+        "format": "ghfind-production-assessment-operator-result-v1",
+        "status": "accepted",
+        "releaseSha": "26075672fe79750f0bebfc70754ee31aeaed8046",
+        "request": {
+          "action": "retry_interrupted",
+          "analysisId": "ae16bdc6-a82c-484e-a197-33291206d85f",
+          "requestedRef": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
+          "expectedThreadId": "01M2EZ289XGFKNVH61YTXM8W5J",
+          "expectedRunId": "01M2EZ28DQ0Y9BDKVMT8N9BN73",
+          "requestId": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac",
+          "operatorRef": "github-actions:34806587912:1"
+        },
+        "originalReceiptSHA256": "65c1ee40ae93f6f1bc835b1f246d1b5b45e53a8fbd8823e460fed46c465aa2ce",
+        "attempts": [
+          {
+            "attempt": 1,
+            "status": "accepted",
+            "httpStatus": 200
+          }
+        ],
+        "pausedVersion": "c7ac4dcf-11fe-48a7-a990-ee20ccd1599d",
+        "result": {
+          "analysisId": "ae16bdc6-a82c-484e-a197-33291206d85f",
+          "requestedRef": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
+          "status": "running",
+          "idempotencyKey": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f-retry-1",
+          "threadId": "01M2F3J0FSVQYK9QA95FW180A6",
+          "runId": "01M2F3J0KXAX3GTECAGFYTT5JB",
+          "startedAt": 1789356216612,
+          "createAttempts": 1,
+          "recovery": {
+            "requestId": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac",
+            "action": "retry_interrupted",
+            "executionDeadlineAt": 1789362727994,
+            "createdAt": 1789360927994,
+            "priorThreadId": "01M2EZ289XGFKNVH61YTXM8W5J",
+            "priorRunId": "01M2EZ28DQ0Y9BDKVMT8N9BN73",
+            "nextIdempotencyKey": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f-retry-1"
+          }
+        }
+      },
+      "databaseAudit": {
+        "analysis_id": "ae16bdc6-a82c-484e-a197-33291206d85f",
+        "request_id": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac",
+        "action": "retry_interrupted",
+        "requested_ref": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
+        "original_thread_id": "01M2EZ289XGFKNVH61YTXM8W5J",
+        "original_run_id": "01M2EZ28DQ0Y9BDKVMT8N9BN73",
+        "original_idempotency_key": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f",
+        "original_started_at": 1789356216612,
+        "original_create_attempts": 1,
+        "original_error_code": "analysis_timeout",
+        "original_completed_at": 1789358535974,
+        "original_updated_at": 1789358535974,
+        "operator_ref": "github-actions:34806587912:1",
+        "requested_at": 1789360927994,
+        "execution_deadline_at": 1789362727994,
+        "next_idempotency_key": "ghfind-project-ae16bdc6-a82c-484e-a197-33291206d85f-retry-1"
+      }
+    }
+  ]
+}
