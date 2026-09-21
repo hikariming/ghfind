@@ -104,3 +104,10 @@ test('paid recovery waits for native baseline and cannot bypass its journal or c
   const c = production.indexOf('      - name: Require real assessment');
   assert.throws(() => check({'deploy-cf-production.yml': production.slice(0,a) + production.slice(b,c) + production.slice(a,b) + production.slice(c)}));
 });
+
+
+test('journal preflight cannot be combined with mutation or bypass its failed restore', () => {
+  const production=originals['deploy-cf-production.yml'];
+  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('Restore the assessment journal without provider mutations','Missing restore boundary')}));
+  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('      - name: Start or resume the single real production assessment\n', '      - name: Start or resume the single real production assessment\n        if: always()\n')}));
+});

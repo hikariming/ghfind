@@ -103,6 +103,14 @@ jobs:
           node scripts/feed-platform-production.mjs validate ops/feed-production-manifest.json
           node scripts/feed-production-release.mjs prepare "$RUNNER_TEMP"
           node scripts/feed-production-release.mjs web "$RELEASE_SHA" paused
+      - name: Restore the assessment journal without provider mutations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FEED_ASSESSMENT_RECOVERY_AUDIT: ${{ runner.temp }}/feed-production-evidence/assessment-recovery-live-audit.json
+        run: |
+          set -euo pipefail
+          platform/runtime/node_modules/.bin/wrangler d1 execute ghfind --remote --config platform/runtime/wrangler.web.production.generated.json --command "SELECT analysis_id,request_id,action,requested_ref,original_thread_id,original_run_id,original_idempotency_key,original_started_at,original_create_attempts,original_error_code,original_completed_at,original_updated_at,operator_ref,requested_at,execution_deadline_at,next_idempotency_key FROM project_analysis_recoveries WHERE analysis_id='ae16bdc6-a82c-484e-a197-33291206d85f' AND request_id='4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac';" --json > "$FEED_ASSESSMENT_RECOVERY_AUDIT"
+          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Build the real Web without runtime secrets or local dotenv files
         timeout-minutes: 15
         run: node scripts/feed-production-release.mjs build
@@ -174,12 +182,6 @@ jobs:
           # The SDK does not replace envVars in an already running process.
           timeout --signal=TERM --kill-after=5s 240s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-baseline.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
-      - name: Restore the assessment journal without provider mutations
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          node scripts/feed-production-assessment-recovery.mjs "$RELEASE_SHA" "$RUNNER_TEMP/feed-production-evidence/assessment-intent.json"
       - name: Start or resume the single real production assessment
         run: |
           set -euo pipefail
