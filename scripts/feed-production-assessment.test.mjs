@@ -1505,6 +1505,7 @@ test("final operator window nests both failed attempts and never replenishes the
   assert.deepEqual(next.operatorRecovery.previousAttempt,first);
   assert.deepEqual(next.operatorRecovery.previousAttempt.operatorRecovery.previousAttempt,f.original);
   assert.equal(next.waitStartedAt,9000000);assert.equal(next.polls,0);
+  assert.equal(next.idempotencyKey,op.result.idempotencyKey);assert.equal(next.providerRunRetries,2);
   next.polls=31;await writeFile(f.h.receipt,JSON.stringify(next));
   op.originalReceiptSHA256=createHash('sha256').update(JSON.stringify(next)).digest('hex');await writeFile(f.resultPath,JSON.stringify(op));
   assert.deepEqual(await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA),next);

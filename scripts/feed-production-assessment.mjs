@@ -468,6 +468,7 @@ export async function applyOperatorWindow(path, resultPath, manifestPath, releas
     r.projectionPolls === 0 && !r.relayBootstrapStartedAt && r.createdAt <= audit.createdAt,
     "operator_window_existing_success_or_projection");
   const next = { ...r, phase: "selected", status: result.status, polls: 0,
+    idempotencyKey: result.idempotencyKey, providerRunRetries: policy.number,
     waitStartedAt: audit.createdAt,
     operatorRecovery: { ...audit, priorReceiptSHA256: operation.originalReceiptSHA256, previousAttempt: r } };
   validateReceipt(next);
