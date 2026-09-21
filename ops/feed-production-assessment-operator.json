@@ -1,9 +1,11 @@
 {
-  "format": "ghfind-production-assessment-operator-v1",
-  "requestId": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac",
+  "format": "ghfind-production-assessment-operator-v2",
+  "requestId": "282b6b92-d29d-4e45-ba20-bf5095c2b1e6",
   "analysisId": "ae16bdc6-a82c-484e-a197-33291206d85f",
   "requestedRef": "2f9e5b141599debdd216f4ed8e76e7cff49b92e6",
-  "expectedThreadId": "01M2EZ289XGFKNVH61YTXM8W5J",
-  "expectedRunId": "01M2EZ28DQ0Y9BDKVMT8N9BN73",
-  "agentId": "01M22PWZR0A7ZYCDKWTEA0YEHQ"
+  "expectedThreadId": "01M2F3J0FSVQYK9QA95FW180A6",
+  "expectedRunId": "01M2F3J0KXAX3GTECAGFYTT5JB",
+  "agentId": "01M22PWZR0A7ZYCDKWTEA0YEHQ",
+  "retryNumber": 2,
+  "predecessorRequestId": "4103ab40-ab7f-4bb7-8f53-6ecdd17ea7ac"
 }

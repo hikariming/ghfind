@@ -1486,3 +1486,28 @@ test("operator budget rejects unverified identity, changed original receipt, dea
     assert.deepEqual(await f.h.read(), f.original);
   }
 });
+test("final operator window nests both failed attempts and never replenishes the last window on replay", async t => {
+  const f=await operatorWindowFixture(t);
+  const first=await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA);
+  first.idempotencyKey=`ghfind-project-${ID}-retry-1`;first.providerRunRetries=1;first.polls=5;
+  await writeFile(f.h.receipt,JSON.stringify(first));
+  const manifest=JSON.parse(await readFile(f.manifestPath,'utf8'));
+  Object.assign(manifest,{format:'ghfind-production-assessment-operator-v2',retryNumber:2,
+    predecessorRequestId:manifest.requestId,requestId:'55555555-5555-4555-8555-555555555555',expectedThreadId:'retry1-thread',expectedRunId:'retry1-run'});
+  const op=f.result;
+  op.originalReceiptSHA256=createHash('sha256').update(JSON.stringify(first)).digest('hex');
+  Object.assign(op.request,{action:'retry_interrupted_final',requestId:manifest.requestId,expectedThreadId:manifest.expectedThreadId,expectedRunId:manifest.expectedRunId});
+  op.result.idempotencyKey=`ghfind-project-${ID}-retry-2`;
+  Object.assign(op.result.recovery,{action:'retry_interrupted_final',requestId:manifest.requestId,createdAt:9000000,executionDeadlineAt:10800000,
+    priorThreadId:manifest.expectedThreadId,priorRunId:manifest.expectedRunId,nextIdempotencyKey:op.result.idempotencyKey});
+  await writeFile(f.manifestPath,JSON.stringify(manifest));await writeFile(f.resultPath,JSON.stringify(op));
+  const next=await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA);
+  assert.deepEqual(next.operatorRecovery.previousAttempt,first);
+  assert.deepEqual(next.operatorRecovery.previousAttempt.operatorRecovery.previousAttempt,f.original);
+  assert.equal(next.waitStartedAt,9000000);assert.equal(next.polls,0);
+  next.polls=31;await writeFile(f.h.receipt,JSON.stringify(next));
+  op.originalReceiptSHA256=createHash('sha256').update(JSON.stringify(next)).digest('hex');await writeFile(f.resultPath,JSON.stringify(op));
+  assert.deepEqual(await applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA),next);
+  manifest.retryNumber=3;await writeFile(f.manifestPath,JSON.stringify(manifest));
+  await assert.rejects(applyOperatorWindow(f.h.receipt,f.resultPath,f.manifestPath,SHA));
+});

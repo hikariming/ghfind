@@ -13,19 +13,36 @@ const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4})
 const ulid = value => typeof value === 'string' && /^[0-9A-Z]{26}$/.test(value);
 const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 export const limits = Object.freeze({ requests: 2, requestMs: 15000, responseBytes: 4096 });
+export function operatorPolicy(manifest) {
+  if (manifest?.format === 'ghfind-production-assessment-operator-v1')
+    return { number: 1, action: 'retry_interrupted' };
+  requireThat(manifest?.format === 'ghfind-production-assessment-operator-v2' && manifest.retryNumber === 2 &&
+    uuid(manifest.predecessorRequestId) && manifest.predecessorRequestId !== manifest.requestId,
+    'final operator retry requires a distinct request and exact predecessor');
+  return { number: 2, action: 'retry_interrupted_final' };
+}
 export function validateOperator(manifest, carryover, receipt) {
+  const policy = operatorPolicy(manifest);
   validateCarryoverReceipt(receipt, carryover);
-  requireThat(manifest?.format === 'ghfind-production-assessment-operator-v1' && uuid(manifest.requestId) &&
+  requireThat(uuid(manifest.requestId) &&
     uuid(manifest.analysisId) && sha(manifest.requestedRef) && ulid(manifest.expectedThreadId) && ulid(manifest.expectedRunId) && ulid(manifest.agentId) &&
     manifest.analysisId === carryover.analysisId && manifest.requestedRef === carryover.sourceSha &&
     receipt.web?.agentId === manifest.agentId && typeof receipt.idempotencyKey === 'string' && receipt.idempotencyKey.length > 0,
     'operator manifest must identify the pinned paid assessment and provider');
-  const baseKey = `ghfind-project-${manifest.analysisId}`, nextKey = `${baseKey}-retry-1`;
-  requireThat(receipt.idempotencyKey === baseKey || receipt.idempotencyKey === nextKey,
+  const baseKey = `ghfind-project-${manifest.analysisId}`, nextKey = `${baseKey}-retry-${policy.number}`;
+  const priorKey = policy.number === 1 ? baseKey : `${baseKey}-retry-1`;
+  requireThat(receipt.idempotencyKey === priorKey || receipt.idempotencyKey === nextKey,
     'operator recovery must retain the original or first retry provider key');
-  if (receipt.idempotencyKey === nextKey || receipt.operatorRecovery) {
+  if (policy.number === 2 && receipt.idempotencyKey === priorKey) {
+    const prior = receipt.operatorRecovery;
+    requireThat(prior?.requestId === manifest.predecessorRequestId && prior.action === 'retry_interrupted' &&
+      prior.nextIdempotencyKey === priorKey && prior.previousAttempt?.idempotencyKey === baseKey &&
+      prior.previousAttempt.analysisId === manifest.analysisId && Number.isSafeInteger(prior.createdAt) &&
+      prior.executionDeadlineAt - prior.createdAt === 1800000, 'final retry requires the complete first recovery audit');
+  }
+  if (receipt.idempotencyKey === nextKey || (policy.number === 1 && receipt.operatorRecovery)) {
     const audit = receipt.operatorRecovery;
-    requireThat(audit?.requestId === manifest.requestId && audit.action === 'retry_interrupted' &&
+    requireThat(audit?.requestId === manifest.requestId && audit.action === policy.action &&
       audit.priorThreadId === manifest.expectedThreadId && audit.priorRunId === manifest.expectedRunId &&
       audit.nextIdempotencyKey === nextKey && Number.isSafeInteger(audit.createdAt) && audit.createdAt > 0 &&
       Number.isSafeInteger(audit.executionDeadlineAt) && audit.executionDeadlineAt - audit.createdAt === 1800000,
@@ -34,12 +51,13 @@ export function validateOperator(manifest, carryover, receipt) {
   return manifest;
 }
 function validateResult(value, manifest, receipt) {
+  const policy = operatorPolicy(manifest);
   const recovery = value?.recovery;
   requireThat(value?.analysisId === manifest.analysisId && value.requestedRef === manifest.requestedRef &&
     ['queued','creating_thread','running','finalizing','completed'].includes(value.status) &&
     typeof value.idempotencyKey === 'string' && value.idempotencyKey.length > 0 && value.idempotencyKey.length <= 200 &&
-    value.idempotencyKey === `ghfind-project-${manifest.analysisId}-retry-1` &&
-    recovery?.requestId === manifest.requestId && recovery.action === 'retry_interrupted' &&
+    value.idempotencyKey === `ghfind-project-${manifest.analysisId}-retry-${policy.number}` &&
+    recovery?.requestId === manifest.requestId && recovery.action === policy.action &&
     recovery.priorThreadId === manifest.expectedThreadId && recovery.priorRunId === manifest.expectedRunId &&
     recovery.nextIdempotencyKey === value.idempotencyKey &&
     Number.isSafeInteger(recovery.createdAt) && recovery.createdAt > 0 &&
@@ -52,7 +70,7 @@ function validateResult(value, manifest, receipt) {
   if (['running','finalizing','completed'].includes(value.status)) requireThat(ulid(value.threadId) && ulid(value.runId), 'active recovery must have actual provider identity');
   if (value.threadId !== null) requireThat(value.threadId !== manifest.expectedThreadId, 'recovery must not reuse interrupted provider thread');
   if (value.runId !== null) requireThat(value.runId !== manifest.expectedRunId, 'recovery must not reuse interrupted provider run');
-  if (receipt.operatorRecovery) {
+  if (receipt.operatorRecovery?.requestId === manifest.requestId) {
     const audit = receipt.operatorRecovery;
     requireThat(['requestId','action','createdAt','executionDeadlineAt','priorThreadId','priorRunId','nextIdempotencyKey']
       .every(key => audit[key] === recovery[key]), 'resumed recovery audit or deadline changed');
@@ -94,7 +112,7 @@ export async function recoverInterrupted(releaseSha, manifest, carryover, receip
   requireThat(env.MOSOO_PROJECT_AGENT_ID === manifest.agentId, 'operator provider must match current production configuration');
   // Hash the canonical parsed journal, not indentation/trailing newlines of its file.
   const original=JSON.stringify(receipt), receiptSHA256=createHash('sha256').update(original).digest('hex');
-  const body={action:'retry_interrupted',analysisId:manifest.analysisId,requestedRef:manifest.requestedRef,
+  const body={action:operatorPolicy(manifest).action,analysisId:manifest.analysisId,requestedRef:manifest.requestedRef,
     expectedThreadId:manifest.expectedThreadId,expectedRunId:manifest.expectedRunId,requestId:manifest.requestId,
     operatorRef:`github-actions:${context.currentRunId}:${context.currentAttempt}`};
   const evidence={format:'ghfind-production-assessment-operator-result-v1',status:'attempted_unverified',releaseSha,
