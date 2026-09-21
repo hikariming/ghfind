@@ -13,6 +13,9 @@ export const workflowPath = '.github/workflows/deploy-cf-production.yml';
 export const startStep = 'Start or resume the single real production assessment';
 export const receiptFile = 'assessment-intent.json';
 export const limits = Object.freeze({ runs: 20, attempts: 10, requests: 180, artifactBytes: 8 * 1024 * 1024, receiptBytes: 32 * 1024 });
+const historyEvidencePath = new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url);
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const canonicalHash = value => sha256(JSON.stringify(value));
 const base = `/repos/${repository}`;
 const validSha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 const id = value => /^[1-9][0-9]*$/.test(String(value)) && Number.isSafeInteger(Number(value));
@@ -102,7 +105,7 @@ export function githubReader(token, fetcher = fetch) {
     try { return JSON.parse(bytes); } catch { throw new Error('invalid GitHub recovery JSON'); }
   };
 }
-export function extractReceipt(archive) {
+export function extractReceipt(archive, { allowMissing = false } = {}) {
   requireThat(Buffer.isBuffer(archive) && archive.length > 0 && archive.length <= limits.artifactBytes, 'invalid assessment artifact bytes');
   const directory = mkdtempSync(resolve(tmpdir(), 'feed-assessment-recovery-'));
   const zip = resolve(directory, 'evidence.zip');
@@ -113,6 +116,7 @@ export function extractReceipt(archive) {
     catch { throw new Error('cannot safely list assessment evidence archive'); }
     requireThat(entries.length <= 2000 && entries.every(name => name.length > 0 && !name.startsWith('/') && !/[\\\x00-\x1f:]/.test(name) &&
       !name.split('/').includes('..') && !name.split('/').includes('.')), 'unsafe assessment artifact entry');
+    if (allowMissing && !entries.includes(receiptFile)) return null;
     requireThat(entries.filter(name => name === receiptFile).length === 1, 'possible previous assessment POST lacks a unique intent receipt');
     // Stream one exact file to memory. Never extract any archive path to disk.
     try { return execFileSync('unzip', ['-p', zip, receiptFile], { maxBuffer: limits.receiptBytes, timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] }); }
@@ -127,9 +131,77 @@ export function validateReceipt(bytes, sourceSha) {
     'historical assessment receipt source SHA or stable intent identity differs');
   return receipt;
 }
-export async function recover(sourceSha, destination, { env = process.env, request, extract = extractReceipt } = {}) {
+// These exceptions are reviewed historical evidence, not a general rule that a
+// failed step or a missing artifact means no POST. Logs remain fetched live.
+export function validateHistoryEvidence(value) {
+  const hash = text => typeof text === 'string' && /^[a-f0-9]{64}$/.test(text);
+  requireThat(value?.format === 'ghfind-assessment-readonly-history-v1' && Array.isArray(value.entries) &&
+    value.entries.length <= limits.runs && Array.isArray(value.archivedReceipts) && value.archivedReceipts.length <= 1,
+    'invalid reviewed assessment history evidence');
+  const keys = new Set();
+  for (const item of [...value.entries, ...value.archivedReceipts]) {
+    requireThat(id(item.runId) && Number.isInteger(item.attempt) && item.attempt > 0 && item.attempt <= limits.attempts &&
+      validSha(item.sourceSha) && id(item.jobId) && hash(item.logsSHA256) && id(item.artifactId) && hash(item.artifactSHA256),
+      'invalid exact historical assessment evidence identity');
+    const key = `${item.runId}:${item.attempt}`;
+    requireThat(!keys.has(key), 'duplicate reviewed assessment history identity'); keys.add(key);
+  }
+  for (const item of value.entries) requireThat(hash(item.workflowSHA256) && [
+    'possible previous assessment POST lacks a unique intent receipt',
+    'possible previous assessment POST has missing, expired or mismatched evidence artifact',
+  ].includes(item.failureReason), 'invalid reviewed readonly failure evidence');
+  return value;
+}
+async function verifyHistoricalLog(item, jobs, get, conclusion) {
+  const matching = jobs.jobs.filter(job => job.id === item.jobId && job.steps.some(step =>
+    step.name === startStep && step.status === 'completed' && step.conclusion === conclusion));
+  requireThat(matching.length === 1, 'reviewed assessment job or step outcome differs');
+  const logs = await get(`${base}/actions/jobs/${item.jobId}/logs`, true);
+  requireThat(Buffer.isBuffer(logs) && sha256(logs) === item.logsSHA256,
+    'reviewed assessment historical log digest mismatch');
+  if (item.failureReason) requireThat(logs.toString().includes(item.failureReason) &&
+    logs.toString().includes('Process completed with exit code 1.'), 'reviewed readonly failure reason differs');
+}
+export function archivedReceiptBytes(item, carryover, env) {
+  requireThat(carryover && canonicalHash(item.receipt) === item.receiptSHA256 &&
+    canonicalHash(item.operator) === item.operatorSHA256, 'reviewed archive receipt or operator digest mismatch');
+  const receipt = validateCarryoverReceipt(item.receipt, carryover), operator = item.operator;
+  const recovery = receipt.operatorRecovery, result = operator?.result;
+  requireThat(recovery && operator.format === 'ghfind-production-assessment-operator-result-v1' && operator.status === 'accepted' &&
+    operator.releaseSha === item.sourceSha && operator.request?.operatorRef === `github-actions:${item.runId}:${item.attempt}` &&
+    operator.request.analysisId === receipt.analysisId && operator.request.requestedRef === receipt.sourceSha &&
+    operator.request.requestId === recovery.requestId && operator.request.action === 'retry_interrupted' &&
+    operator.request.expectedThreadId === recovery.priorThreadId && operator.request.expectedRunId === recovery.priorRunId &&
+    recovery.action === 'retry_interrupted' && result?.analysisId === receipt.analysisId && result.requestedRef === receipt.sourceSha &&
+    result.idempotencyKey === `ghfind-project-${receipt.analysisId}-retry-1` && receipt.idempotencyKey === result.idempotencyKey &&
+    recovery.nextIdempotencyKey === result.idempotencyKey && receipt.providerRunRetries === 1 &&
+    recovery.priorReceiptSHA256 === operator.originalReceiptSHA256 &&
+    canonicalHash(recovery.previousAttempt) === recovery.priorReceiptSHA256 &&
+    Object.entries(result.recovery ?? {}).length === 7 && Object.entries(result.recovery).every(([key, value]) => recovery[key] === value),
+    'reviewed archive operator lineage differs');
+  validateCarryoverReceipt(recovery.previousAttempt, carryover);
+  requireThat(typeof env.FEED_ASSESSMENT_RECOVERY_AUDIT === 'string' && env.FEED_ASSESSMENT_RECOVERY_AUDIT.startsWith('/'),
+    'reviewed archive requires a fresh read-only D1 audit file');
+  const bytes = readFileSync(env.FEED_ASSESSMENT_RECOVERY_AUDIT);
+  requireThat(bytes.length <= limits.receiptBytes, 'recovery audit exceeds bound');
+  let rows; try { rows = JSON.parse(bytes); } catch { throw new Error('invalid recovery audit JSON'); }
+  if (Array.isArray(rows) && rows.length === 1 && rows[0]?.success === true && Array.isArray(rows[0].results)) rows = rows[0].results;
+  const expected = item.databaseAudit;
+  requireThat(Array.isArray(rows) && rows.length === 1 && expected &&
+    Object.keys(rows[0] ?? {}).length === Object.keys(expected).length &&
+    Object.entries(expected).every(([key, value]) => rows[0][key] === value) &&
+    expected.analysis_id === receipt.analysisId && expected.request_id === recovery.requestId &&
+    expected.requested_at === recovery.createdAt && expected.execution_deadline_at === recovery.executionDeadlineAt &&
+    expected.next_idempotency_key === recovery.nextIdempotencyKey && expected.operator_ref === operator.request.operatorRef &&
+    expected.original_thread_id === recovery.priorThreadId && expected.original_run_id === recovery.priorRunId,
+    'fresh D1 audit differs from reviewed archive recovery');
+  return Buffer.from(JSON.stringify(receipt));
+}
+export async function recover(sourceSha, destination, { env = process.env, request, extract = extractReceipt, historyEvidence } = {}) {
   const context = validateContext(sourceSha, env), read = request ?? githubReader(env.GH_TOKEN);
   const carryover = loadCarryover(env);
+  const evidence = validateHistoryEvidence(historyEvidence ?? JSON.parse(readFileSync(historyEvidencePath)));
+  let readonlyFailures = 0, archivedRecoveries = 0;
   if (carryover) requireThat(carryover.sourceSha !== sourceSha && carryover.runId !== context.currentRunId,
     'carryover must identify a distinct predecessor production release');
   const target = resolve(destination ?? '');
@@ -185,13 +257,33 @@ export async function recover(sourceSha, destination, { env = process.env, reque
       requireThat(Number.isInteger(artifacts?.total_count) && artifacts.total_count === artifacts.artifacts?.length && artifacts.total_count <= 100,
         'complete historical artifact inventory required');
       const matches = artifacts.artifacts.filter(artifact => artifact.name === `feed-production-${run.id}-${attempt}`);
-      requireThat(matches.length === 1 && matches[0].expired === false && id(matches[0].id) &&
-        matches[0].workflow_run?.id === run.id && matches[0].workflow_run?.head_sha === run.head_sha,
-      'possible previous assessment POST has missing, expired or mismatched evidence artifact');
-      const artifact = matches[0], archive = await get(`${base}/actions/artifacts/${artifact.id}/zip`, true);
-      requireThat(/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? '') &&
-        artifact.digest === `sha256:${createHash('sha256').update(archive).digest('hex')}`, 'historical artifact digest mismatch');
-      const bytes = extract(archive), receipt = validateReceipt(bytes, carryover?.sourceSha ?? sourceSha);
+      const reviewed = evidence.entries.find(item => item.runId === run.id && item.attempt === attempt && item.sourceSha === run.head_sha);
+      const archived = evidence.archivedReceipts.find(item => item.runId === run.id && item.attempt === attempt && item.sourceSha === run.head_sha);
+      let bytes, artifact;
+      if (matches.length === 0 && archived) {
+        // The original GitHub ZIP is unavailable. This narrowly pinned,
+        // explicitly reviewed local archive is corroborated by live job logs
+        // and a fresh D1 audit, never represented as a verified remote ZIP.
+        await verifyHistoricalLog(archived, jobs, get, 'success');
+        bytes = archivedReceiptBytes(archived, carryover, env);
+        artifact = { created_at: archived.createdAt }; archivedRecoveries++;
+      } else {
+        requireThat(matches.length === 1 && matches[0].expired === false && id(matches[0].id) &&
+          matches[0].workflow_run?.id === run.id && matches[0].workflow_run?.head_sha === run.head_sha,
+        'possible previous assessment POST has missing, expired or mismatched evidence artifact');
+        artifact = matches[0];
+        const archive = await get(`${base}/actions/artifacts/${artifact.id}/zip`, true);
+        requireThat(/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? '') &&
+          artifact.digest === `sha256:${sha256(archive)}`, 'historical artifact digest mismatch');
+        if (reviewed) {
+          requireThat(artifact.id === reviewed.artifactId && sha256(archive) === reviewed.artifactSHA256,
+            'reviewed readonly artifact identity or digest differs');
+          await verifyHistoricalLog(reviewed, jobs, get, 'failure');
+        }
+        bytes = extract(archive, { allowMissing: Boolean(reviewed) });
+        if (bytes === null && reviewed) { readonlyFailures++; continue; }
+      }
+      const receipt = validateReceipt(bytes, carryover?.sourceSha ?? sourceSha);
       if (carryover) {
         validateCarryoverReceipt(receipt, carryover);
         if (run.id === carryover.runId && attempt === carryover.attempt) predecessorReceiptObserved = true;
@@ -212,7 +304,7 @@ export async function recover(sourceSha, destination, { env = process.env, reque
     'pinned predecessor has no verified selected assessment receipt; fresh POST prohibited');
   if (restored) writeFileSync(target, restored.bytes, { mode: 0o600, flag: 'wx' });
   return { status: restored ? 'recovered' : 'no_prior_start', sourceSha, ...(carryover ? { releaseSha: sourceSha, assessmentSourceSha: carryover.sourceSha } : {}), inspectedAttempts: inspected,
-    possibleStarts, ...(restored ? { recoveredRunId: restored.runId, recoveredAttempt: restored.attempt } : {}) };
+    possibleStarts, readonlyFailures, archivedRecoveries, ...(restored ? { recoveredRunId: restored.runId, recoveredAttempt: restored.attempt } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   Promise.resolve().then(() => {
