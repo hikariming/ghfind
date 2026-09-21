@@ -1,0 +1,50 @@
+[
+  {
+    "sourceVersion": 2,
+    "eventId": "assessment.completed:23c5d10c-5d4e-44df-a511-005b1897c8ab:317efe5fb930d0b355810eb691324dadbd03c005b622b1324a1a04bb36a18bc4",
+    "sourceHash": "317efe5fb930d0b355810eb691324dadbd03c005b622b1324a1a04bb36a18bc4",
+    "analysisId": "23c5d10c-5d4e-44df-a511-005b1897c8ab",
+    "repoKey": "rhopaper/repo2gal",
+    "receiptId": "app:23c5d10c-5d4e-44df-a511-005b1897c8ab",
+    "expectedPublished": 1,
+    "expectedBlockedReason": "",
+    "expectedRiskOverrideEligible": false,
+    "expectedResolvedCommitSHA": "dd20be0e5b0cf1c8dd976b9beaacdb94de87e3b4"
+  },
+  {
+    "sourceVersion": 3,
+    "eventId": "assessment.completed:3f947e5e-0d2f-420c-840c-00feebf8f997:36b42de221414727a2a21ad32e15964da71cf47295d0ea1fdba53dd5bcb324d7",
+    "sourceHash": "36b42de221414727a2a21ad32e15964da71cf47295d0ea1fdba53dd5bcb324d7",
+    "analysisId": "3f947e5e-0d2f-420c-840c-00feebf8f997",
+    "repoKey": "hypostasis-cat/hypomux",
+    "receiptId": "app:3f947e5e-0d2f-420c-840c-00feebf8f997",
+    "expectedPublished": 1,
+    "expectedBlockedReason": "",
+    "expectedRiskOverrideEligible": false,
+    "expectedResolvedCommitSHA": "e84c88041598b29813c29160c857b9e112897115"
+  },
+  {
+    "sourceVersion": 4,
+    "eventId": "assessment.completed:d8816d01-a59e-48bd-b62c-2451f3ac3296:ae56b7ee78d6c05982a4c26890859ea1f2bd217926136892d7e44cb0ac360628",
+    "sourceHash": "ae56b7ee78d6c05982a4c26890859ea1f2bd217926136892d7e44cb0ac360628",
+    "analysisId": "d8816d01-a59e-48bd-b62c-2451f3ac3296",
+    "repoKey": "kristhl181/break-this-repo",
+    "receiptId": "app:d8816d01-a59e-48bd-b62c-2451f3ac3296",
+    "expectedPublished": 0,
+    "expectedBlockedReason": "critical_risk:maintenance,high_risk:security",
+    "expectedRiskOverrideEligible": false,
+    "expectedResolvedCommitSHA": "a1418a39beff79c3656d3dd3e84733f525f9c4bd"
+  },
+  {
+    "sourceVersion": 13,
+    "eventId": "assessment.completed:eba9c430-c8d8-4032-991f-1ddac3e2f0f1:2c68d95507ca715b32012bfc5332b4c89d54c7ed076af35610b3eb0d099f459b",
+    "sourceHash": "2c68d95507ca715b32012bfc5332b4c89d54c7ed076af35610b3eb0d099f459b",
+    "analysisId": "eba9c430-c8d8-4032-991f-1ddac3e2f0f1",
+    "repoKey": "gedoor/legado",
+    "receiptId": "app:eba9c430-c8d8-4032-991f-1ddac3e2f0f1",
+    "expectedPublished": 0,
+    "expectedBlockedReason": "critical_risk:license",
+    "expectedRiskOverrideEligible": false,
+    "expectedResolvedCommitSHA": "9bb0569269ed557753fc3866250970de6d454fcf"
+  }
+]
