@@ -785,10 +785,15 @@ export async function waitAssessment(path, output, options = {}) {
     r.projectionPolls >= LIMITS.projectionPolls ||
     (r.projectionStartedAt !== undefined &&
       now() >= r.projectionStartedAt + LIMITS.projectionWaitMs);
+  const overallWindowExhausted =
+    r.waitStartedAt !== undefined &&
+    now() >= r.waitStartedAt + LIMITS.waitMs;
   const terminalRead =
-    r.phase === "completed" || (sourceCompleted && windowExhausted);
+    r.phase === "completed" ||
+    (sourceCompleted && (windowExhausted || overallWindowExhausted));
   // The combined provider/bootstrap/projection deadline is durable across reruns.
-  // Completed results retain only their pre-existing, finite read-only recovery.
+  // A durably completed source retains only the pre-existing finite read-only
+  // recovery after either deadline; it never gains more relay/projection polls.
   if (!terminalRead && r.phase !== "skipped") {
     r.waitStartedAt ??= now();
     check(
@@ -829,13 +834,17 @@ export async function waitAssessment(path, output, options = {}) {
     }
     check(r.analysisId && id(r.analysisId), "uncertain_post_outcome_no_retry");
     // A completed source skips provider reconciliation but still gets its
-    // unused projection window. Only an exhausted window or a previously
+    // unused projection window within the combined deadline. An exhausted window or a previously
     // verified projection uses the separately bounded terminal revalidation.
-    if (terminalRead)
+    if (terminalRead) {
       check(
         (r.terminalRevalidations ?? 0) < LIMITS.terminalRevalidations,
         "terminal_revalidation_exhausted",
       );
+      r.terminalRevalidations = (r.terminalRevalidations ?? 0) + 1;
+      // Reserve before any network read; a failed Web check or crash consumes it.
+      await save(path, r);
+    }
     const terminalDeadline = c.now() + LIMITS.terminalWaitMs;
     const web = await c.web(releaseSha);
     if (r.web)
@@ -901,9 +910,6 @@ export async function waitAssessment(path, output, options = {}) {
       };
     }
     if (terminalRead) {
-      r.terminalRevalidations = (r.terminalRevalidations ?? 0) + 1;
-      // Reserve the finite read before transmission. Crash/ack loss consumes it.
-      await save(path, r);
       const { source, projection } = await observeProjection(terminalDeadline);
       check(projection, "terminal_projection_not_ready");
       return finish(source, projection);
