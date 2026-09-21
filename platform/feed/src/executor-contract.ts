@@ -52,7 +52,7 @@ const projection = z.strictObject({
   risks: z
     .array(
       z.strictObject({
-        severity: z.enum(["low", "medium", "high"]),
+        severity: z.enum(["info", "low", "medium", "high", "critical"]),
         category: id,
         summary: z.string().max(4000),
         evidence_ids: strings,
