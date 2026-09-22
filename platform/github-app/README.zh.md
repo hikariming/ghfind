@@ -12,18 +12,18 @@ ghfind Review 根据作者的公开 ghfind 评分，为**新建 issue 和 PR（�
 
 ## 把分数区间变成你的审查队列
 
-用五个 `review-level:` 标签制定团队的分层处理规则：低分段低调显示，
-高分段用亮橙、金色吸引注意。评论提供 profile URL、准确分数和区间，
+用五个 `review:` 标签制定团队的分层处理规则：低分段低调显示，
+高分段用低饱和的杏色和麦金色标出，亮色模式下不刺眼。评论提供 profile URL、准确分数和区间，
 需要进一步判断时直接点开，减少维护者重复查账号的工作。
 
 在仓库的 Issues 或 Pull requests 搜索框粘贴以下筛选条件：
 
 | 审查队列                       | GitHub 搜索条件                              |
 | ------------------------------ | -------------------------------------------- |
-| 高分段待处理 PR                | `is:open is:pr label:"review-level: high"`   |
-| 最高分段待处理 PR              | `is:open is:pr label:"review-level: xhigh"`  |
-| 需要复核来源的低分段 issue     | `is:open is:issue label:"review-level: low"` |
-| 需要人工补充背景的评分不可用项 | `is:open label:"review-level: unavailable"`  |
+| 高分段待处理 PR                | `is:open is:pr label:"review: high"`   |
+| 最高分段待处理 PR              | `is:open is:pr label:"review: top"`    |
+| 需要复核来源的低分段 issue     | `is:open is:issue label:"review: low"` |
+| 需要人工补充背景的评分不可用项 | `is:open label:"review: no-score"`     |
 
 从适合你当前精力的队列开始。低分或评分不可用时，先复核来源和提交内容；
 高分段则帮助你定位公开 profile 信号较强的作者。
@@ -47,8 +47,8 @@ App 负责打标和评论，不会自动拦截、关闭或拒绝 issue/PR。
 1. 打开安装链接，选择账号，建议选择 **Only select repositories**，仅勾选需要接入的仓库。
 2. 授权 **Issues: read and write**、**Pull requests: read and write**，以及 GitHub
    隐含要求的 **Metadata: read** 权限。个人仓库由账号 owner 安装；组织仓库可能需要组织 owner 批准。
-3. App 自动补齐五个 `review-level:` 标签。owner 自定义过的颜色或描述会保留；
-   旧版 bot 创建的统一灰色默认标签会自动升级为下表配色。
+3. App 自动补齐五个 `review:` 标签：`low`、`medium`、`high`、`top`、`no-score`。owner 自定义过的颜色或描述会保留；
+   旧版 bot 创建的统一灰色默认标签会自动升级为下表配色。已经打过 `review-level:` 的 issue 仍保留原来较长的名字。
 4. 安装后会进入状态页。可用 GitHub 登录查看有权访问的仓库及处理结果；
    **自动打标不要求登录状态页**。失败任务可由仓库管理员点击 **Retry (admin)** 重试。
 5. 新建一个 issue 或 PR，正文可以为空。任务异步处理，等待后刷新页面，
@@ -56,7 +56,7 @@ App 负责打标和评论，不会自动拦截、关闭或拒绝 issue/PR。
 6. 如果仓库已启用旧的 **PR review level** Actions workflow，请停用它，避免两套方案重复处理。
 
 安装或升级不会自动回填历史 issue/PR；当前监听 `issues.opened` 和 `pull_request.opened`。
-编辑、重新打开或同步已有 PR 不会触发新的评分任务。
+编辑、重新打开或同步已有 PR 不会触发新的评分任务。超时或云端暂时失败留下的 `review: no-score`，会在 20 分钟和 60 分钟后再取一次分；60 分钟那次是最后一次自动重试。拿到分数后会换掉标签并更新 Bot 评论。超过 60 分钟后，只有作者或仓库管理员在该 issue 或 PR 下评论 `@ghfind-review` 才会再评。GitHub 账号不存在时不会自动重试。
 
 ## 已安装用户：接受新增的 Issues 权限
 
@@ -68,16 +68,16 @@ App 负责打标和评论，不会自动拦截、关闭或拒绝 issue/PR。
 
 ## 等级、区间和颜色
 
-| 标签                        | 分数区间                   | 颜色     | 色值      |
-| --------------------------- | -------------------------- | -------- | --------- |
-| `review-level: low`         | 0 ≤ score < 40             | 低调灰白 | `#d9dee3` |
-| `review-level: medium`      | 40 ≤ score < 70            | 浅蓝     | `#b6dfff` |
-| `review-level: high`        | 70 ≤ score < 90            | 亮橙     | `#ff922b` |
-| `review-level: xhigh`       | 90 ≤ score ≤ 100           | 金色     | `#ffc400` |
-| `review-level: unavailable` | 无有效评分，不属于数值区间 | 中性灰   | `#c3c7ce` |
+| 标签               | 分数区间                   | 颜色     | 色值      |
+| ------------------ | -------------------------- | -------- | --------- |
+| `review: low`      | 0 ≤ score < 40             | 低调灰白 | `#d9dee3` |
+| `review: medium`   | 40 ≤ score < 70            | 浅蓝     | `#b6dfff` |
+| `review: high`     | 70 ≤ score < 90            | 柔和杏色 | `#e2c0a2` |
+| `review: top`      | 90 ≤ score ≤ 100           | 柔和麦金 | `#ded0a6` |
+| `review: no-score` | 无有效评分，不属于数值区间 | 中性灰   | `#c3c7ce` |
 
-分数越高，颜色越醒目。GitHub 会根据明暗主题调整标签的显示方式。
-评分缺失、超出 0–100、不是有效数值，或评分重试预算耗尽时，使用 `unavailable`，**不等于零分**。
+分数越高，颜色越暖，饱和度压低，避免 GitHub 亮色模式下晃眼。
+评分缺失、超出 0–100、不是有效数值，或评分重试预算耗尽时，使用 `no-score`，**不等于零分**。
 这些标签反映作者的公开 profile 评分，不是对 issue/PR 内容的代码审查，也不是合并建议。
 
 初始化只补齐缺失标签，或升级同时满足“旧色值 `ededed` + bot 默认描述”的标签。
@@ -89,10 +89,10 @@ App 负责打标和评论，不会自动拦截、关闭或拒绝 issue/PR。
 
 | Profile                                              | Score      | Level                | Score interval  |
 | ---------------------------------------------------- | ---------- | -------------------- | --------------- |
-| [AsperforMias](https://ghfind.com/en/u/AsperforMias) | 82.7 / 100 | `review-level: high` | 70 ≤ score < 90 |
+| [AsperforMias](https://ghfind.com/en/u/AsperforMias) | 82.7 / 100 | `review: high` | 70 ≤ score < 90 |
 
 Profile 链接打开对应作者的 ghfind 主页。评论和标签使用同一份已持久化评分；
-不可用时显示 `Unavailable`，不会编造分数或数值区间。
+没有分数时显示 `No score`，不会编造分数或数值区间，并说明作者或仓库管理员可以评论 `@ghfind-review` 重新评分。这句写在代码格式里，评论本身不会 @ 任何人。
 模板位于 [src/review.ts](./src/review.ts) 的 `scoreComment`。
 
 bot 会结合隐藏标记和自身账号身份查找已有评论，内容变化时更新自己的评论。
@@ -106,7 +106,7 @@ bot 会结合隐藏标记和自身账号身份查找已有评论，内容变化�
 | 没有标签或评论     | 确认 App 已安装到该仓库、已接受完整权限，且 issue/PR 是安装后新建的；从安装流程或安装设置进入状态页查看任务。 |
 | 标签初始化失败     | 在仓库 Labels 页面检查标签是否归档、大小写是否冲突；修正后在状态页点击 **Retry (admin)**。                    |
 | 状态页要求登录     | 登录用于验证你能查看哪些仓库，不是自动打标的前提。只有管理员可以重试失败任务。                                |
-| 得到 `unavailable` | 评分无效或暂时无法获取；不是零分。已完成任务不会自动重新评分。                                                |
+| 得到 `review: no-score` | 评分无效或暂时无法获取；不是零分。超时或云端失败会在 20 分钟和 60 分钟后再试，60 分钟是最后一次自动重试。之后只有作者或仓库管理员评论 `@ghfind-review` 才会再评。账号不存在则保持 no-score。 |
 | 重复投递没有新评论 | 正常：bot 会识别已处理事件和自己的评分评论。                                                                  |
 | 想停止使用         | 在 GitHub 安装设置移除仓库、暂停或卸载 App；已有标签和评论会保留。                                            |
 
@@ -152,7 +152,7 @@ node scripts/register.mjs https://bot.example.com /absolute/private/credentials.
 将凭据保存为 `0600` 权限文件且拒绝覆盖已有文件。回调成功后关闭注册服务，**不要提交凭据**。
 
 设置头像为 `assets/avatar.png`，webhook 为 `/webhook`，OAuth 回调为 `/callback`，
-安装状态页为 `/setup`；申请 Issues、Pull requests 读写权限，并订阅 `issues`、`pull_request`。
+安装状态页为 `/setup`；申请 Issues、Pull requests 读写权限，并订阅 `issues`、`pull_request`、`issue_comment`。`issue_comment` 用来接收作者或管理员的重评请求，不增加权限。
 安装生命周期事件由 GitHub 自动投递。安装时不必强制 OAuth，只有查看状态页才需要登录。
 
 ### 生产部署

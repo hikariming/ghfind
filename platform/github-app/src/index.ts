@@ -1,6 +1,6 @@
 import { sendAuthorEmails } from "./author-email";
 import { positive, readText, record, repositoryName } from "./github";
-import { allowed, dispatch, putJob, runJob } from "./jobs";
+import { admitMention, allowed, dispatch, putJob, runJob } from "./jobs";
 import { ui } from "./ui";
 
 export async function verifySignature(
@@ -55,6 +55,7 @@ export async function webhook(request: Request, env: Env): Promise<Response> {
       ![
         "pull_request",
         "issues",
+        "issue_comment",
         "installation",
         "installation_repositories",
       ].includes(event ?? "")
@@ -65,7 +66,9 @@ export async function webhook(request: Request, env: Env): Promise<Response> {
     if (install.app_id !== undefined && install.app_id !== Number(env.APP_ID))
       return new Response("Wrong app", { status: 403 });
     const account = record(
-      event === "pull_request" || event === "issues"
+      event === "pull_request" ||
+        event === "issues" ||
+        event === "issue_comment"
         ? record(payload.repository).owner
         : install.account,
     );
@@ -93,6 +96,8 @@ export async function webhook(request: Request, env: Env): Promise<Response> {
           event === "issues" ? record(payload.issue).number : payload.number,
         ),
       });
+    } else if (event === "issue_comment") {
+      await admitMention(env, delivery, payload);
     } else if (
       (event === "installation" &&
         ["created", "unsuspend", "new_permissions_accepted"].includes(

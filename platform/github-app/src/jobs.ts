@@ -11,6 +11,8 @@ import {
 } from "./github";
 import {
   initializeLabels,
+  labels,
+  LABELS,
   scoreToLabel,
   syncLabel,
   syncComment,
@@ -48,7 +50,7 @@ export function allowed(env: Env, fullName: string) {
 export async function putJob(
   env: Env,
   input: Pick<Job, "id" | "installation" | "kind"> &
-    Partial<Pick<Job, "repository" | "full_name" | "pr">>,
+    Partial<Pick<Job, "repository" | "full_name" | "pr" | "due">>,
 ) {
   const now = Date.now();
   await env.DB.prepare(
@@ -62,10 +64,106 @@ export async function putJob(
       input.pr ?? null,
       input.kind,
       now,
-      now,
+      input.due ?? now,
       now,
     )
     .run();
+}
+// Two automatic attempts, 20 and 60 minutes after the first transient no-score.
+// Nothing is scheduled after that; the author or an admin mentions the bot.
+const RESCORE_AFTER_MS = [20 * 60_000, 60 * 60_000];
+export function rescoreGeneration(id: string): number {
+  const match = /^rescore-([12])-/.exec(id);
+  return match ? Number(match[1]) : 0;
+}
+async function scheduleRescore(env: Env, job: Job) {
+  if (
+    rescoreGeneration(job.id) > 0 ||
+    job.repository == null ||
+    job.pr == null
+  )
+    return;
+  const now = Date.now();
+  for (let index = 0; index < RESCORE_AFTER_MS.length; index++) {
+    await putJob(env, {
+      id: `rescore-${index + 1}-${job.installation}-${job.repository}-${job.pr}`,
+      installation: job.installation,
+      kind: "label",
+      repository: job.repository,
+      full_name: job.full_name,
+      pr: job.pr,
+      due: now + RESCORE_AFTER_MS[index],
+    });
+  }
+}
+export function mentionsBot(body: string, slug: string): boolean {
+  if (!/^[A-Za-z0-9-]+$/.test(slug) || body.length > 65536) return false;
+  return new RegExp(
+    `(?:^|[^A-Za-z0-9-])@${slug}(?:\\[bot\\])?(?=$|[^A-Za-z0-9-])`,
+    "i",
+  ).test(body);
+}
+export async function admitMention(
+  env: Env,
+  delivery: string,
+  payload: Record<string, unknown>,
+) {
+  if (payload.action !== "created") return;
+  const comment = record(payload.comment);
+  const user = record(comment.user);
+  if (typeof comment.body !== "string" || typeof user.login !== "string")
+    return;
+  if (
+    user.type === "Bot" ||
+    user.login === `${env.APP_SLUG}[bot]` ||
+    !mentionsBot(comment.body, env.APP_SLUG) ||
+    !/^[A-Za-z0-9-]+$/.test(user.login)
+  )
+    return;
+  const repo = record(payload.repository);
+  const fullName = repositoryName(repo.full_name);
+  if (!allowed(env, fullName)) return;
+  const issue = record(payload.issue);
+  const author = record(issue.user);
+  const installation = positive(record(payload.installation).id);
+  const number = positive(issue.number);
+  const repository = positive(repo.id);
+  const isAuthor =
+    author.login === user.login &&
+    author.type !== "Bot" &&
+    typeof author.login === "string";
+  const api = github(await installationToken(env, installation, repository));
+  if (!isAuthor) {
+    let permission: Record<string, unknown>;
+    try {
+      permission = record(
+        await api(
+          `/repos/${fullName}/collaborators/${encodeURIComponent(user.login)}/permission`,
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 403 || error.status === 404)
+      )
+        return;
+      throw error;
+    }
+    if (permission.permission !== "admin") return;
+  }
+  const applied = await labels(
+    api,
+    `/repos/${fullName}/issues/${number}/labels`,
+  );
+  if (!applied.has(LABELS[4])) return;
+  await putJob(env, {
+    id: `mention-${delivery}`,
+    installation,
+    kind: "label",
+    repository,
+    full_name: fullName,
+    pr: number,
+  });
 }
 export async function dispatch(env: Env) {
   if (env.ENABLED !== "true") return;
@@ -173,12 +271,23 @@ async function processJob(env: Env, job: Job) {
     await finish(env, job, "cancelled", "Issue or pull request closed");
     return;
   }
+  if (rescoreGeneration(job.id) > 0) {
+    const applied = await labels(
+      api,
+      `/repos/${fullName}/issues/${positive(job.pr)}/labels`,
+    );
+    if (!applied.has(LABELS[4])) {
+      await finish(env, job, "cancelled", "No-score label no longer present");
+      return;
+    }
+  }
   const user = record(pr.user);
   if (
     typeof user.login !== "string" ||
     !/^[A-Za-z0-9-]+(?:\[bot\])?$/.test(user.login)
   )
     throw new Error("Invalid author login");
+  let transient = false;
   if (job.score === null) {
     let score: unknown = null;
     if (Date.now() < job.started + 4 * 60_000) {
@@ -194,27 +303,40 @@ async function processJob(env: Env, job: Job) {
         score = response.final_score;
         job.score_context = JSON.stringify(scoreContext(response));
       } catch (error) {
+        const retryable = error instanceof ApiError && error.retry;
         if (
-          error instanceof ApiError &&
-          error.retry &&
+          retryable &&
           job.attempts < 7 &&
           Date.now() + Math.max(5000, error.delay) < job.started + 4 * 60_000
         )
           throw error;
+        // A non-retryable response, such as a missing account, is final.
+        transient = retryable || !(error instanceof ApiError);
       }
-    }
-    // Persist before the first label write: a replay cannot oscillate on score changes.
-    job.score = JSON.stringify(
+    } else transient = true;
+    const usable =
       typeof score === "number" &&
-        Number.isFinite(score) &&
-        score >= 0 &&
-        score <= 100
-        ? score
-        : null,
-    );
+      Number.isFinite(score) &&
+      score >= 0 &&
+      score <= 100;
+    if (usable) transient = false;
+    else
+      job.score_context = JSON.stringify({
+        score: null,
+        percentile: null,
+        rescore: transient,
+      });
+    // Persist before the first label write: a replay cannot oscillate on score changes.
+    job.score = JSON.stringify(usable ? score : null);
     await env.DB.prepare("UPDATE jobs SET score=?,score_context=? WHERE id=?")
       .bind(job.score, job.score_context ?? null, job.id)
       .run();
+  } else if (job.score_context) {
+    try {
+      transient = record(JSON.parse(job.score_context)).rescore === true;
+    } catch {
+      transient = false;
+    }
   }
   const label = scoreToLabel(JSON.parse(job.score));
   await syncLabel(api, fullName, positive(job.pr), label);
@@ -245,6 +367,7 @@ async function processJob(env: Env, job: Job) {
       job.repository,
       api,
     );
+  if (label === LABELS[4] && transient) await scheduleRescore(env, job);
   await finish(env, job, "done", label);
 }
 export async function runJob(env: Env, id: string) {

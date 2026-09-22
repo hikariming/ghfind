@@ -9,7 +9,7 @@ import {
   vi,
 } from "vitest";
 import worker, { verifySignature, webhook } from "../src/index";
-import { putJob, runJob, Job, dispatch } from "../src/jobs";
+import { putJob, runJob, Job, dispatch, mentionsBot } from "../src/jobs";
 import {
   LABELS,
   scoreToLabel,
@@ -130,7 +130,9 @@ function commentWrite(score: unknown = 82.7) {
     .intercept({
       path: `/repos/${repo}/issues/1/comments`,
       method: "POST",
-      body: JSON.stringify({ body: scoreComment("AsperforMias", score) }),
+      body: JSON.stringify({
+        body: scoreComment("AsperforMias", score, "ghfind-review-test"),
+      }),
     })
     .reply(201, "{}");
 }
@@ -426,7 +428,7 @@ describe("GitHub App delivery", () => {
         body: JSON.stringify({
           name: LABELS[4],
           color: "c3c7ce",
-          description: "ghfind author score unavailable (not zero)",
+          description: "ghfind author score missing (not zero)",
         }),
       })
       .reply(201, "{}");
@@ -443,14 +445,14 @@ describe("GitHub App delivery", () => {
         color: i === 1 ? "123456" : "ededed",
         description:
           i === 4
-            ? "ghfind author score unavailable (not zero)"
+            ? "ghfind author score missing (not zero)"
             : "ghfind author score; see https://ghfind.com",
       })),
     );
     for (const [i, color] of [
       [0, "d9dee3"],
-      [2, "ff922b"],
-      [3, "ffc400"],
+      [2, "e2c0a2"],
+      [3, "ded0a6"],
       [4, "c3c7ce"],
     ] as const)
       fetchMock
@@ -617,6 +619,204 @@ describe("GitHub App delivery", () => {
     commentWrite(null);
     await runJob(testEnv, "job-1");
     expect((await job())?.result).toBe(LABELS[4]);
+    const follow = await job("rescore-1-10-100-1");
+    const last = await job("rescore-2-10-100-1");
+    expect(follow?.state).toBe("pending");
+    expect(follow?.due).toBeGreaterThan(Date.now() + 15 * 60_000);
+    expect(follow?.due).toBeLessThan(Date.now() + 25 * 60_000);
+    expect(last?.state).toBe("pending");
+    expect(last?.due).toBeGreaterThan(Date.now() + 55 * 60_000);
+    expect(last?.due).toBeLessThan(Date.now() + 65 * 60_000);
+    expect(await job("rescore-3-10-100-1")).toBeNull();
+  });
+  it("does not reschedule no-score when the account does not exist", async () => {
+    await add();
+    vi.spyOn(testEnv.SCORE, "fetch").mockResolvedValue(
+      new Response("{}", { status: 404 }),
+    );
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias" },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, []);
+    fetchMock
+      .get(api)
+      .intercept({
+        path: `/repos/${repo}/issues/1/labels`,
+        method: "POST",
+        body: JSON.stringify({ labels: [LABELS[4]] }),
+      })
+      .reply(200, "{}");
+    commentWrite(null);
+    await runJob(testEnv, "job-1");
+    expect((await job())?.result).toBe(LABELS[4]);
+    expect(await job("rescore-1-10-100-1")).toBeNull();
+  });
+  it("does not schedule another automatic rescore after 60 minutes", async () => {
+    await add("rescore-2-10-100-1");
+    await testEnv.DB.prepare("UPDATE jobs SET started=? WHERE id=?")
+      .bind(Date.now() - 250000, "rescore-2-10-100-1")
+      .run();
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias" },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    commentWrite(null);
+    await runJob(testEnv, "rescore-2-10-100-1");
+    expect((await job("rescore-2-10-100-1"))?.result).toBe(LABELS[4]);
+    expect(await job("rescore-3-10-100-1")).toBeNull();
+  });
+  it("replaces no-score when a follow-up score arrives", async () => {
+    await add("rescore-1-10-100-1");
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias", id: 5 },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    fetchMock
+      .get(api)
+      .intercept({
+        path: `/repos/${repo}/issues/1/labels`,
+        method: "POST",
+        body: JSON.stringify({ labels: [LABELS[2]] }),
+      })
+      .reply(200, "{}");
+    intercept(
+      `/repos/${repo}/issues/1/labels/${encodeURIComponent(LABELS[4])}`,
+      null,
+      204,
+      "DELETE",
+    );
+    intercept(`/repos/${repo}/issues/1/comments?per_page=100&page=1`, [
+      {
+        id: 9,
+        user: { login: "ghfind-review-test[bot]", type: "Bot" },
+        body: scoreComment("AsperforMias", null),
+      },
+    ]);
+    fetchMock
+      .get(api)
+      .intercept({
+        path: "/repos/AsperforMias/test-bot/issues/comments/9",
+        method: "PATCH",
+        body: JSON.stringify({ body: scoreComment("AsperforMias", 82.7) }),
+      })
+      .reply(200, "{}");
+    await runJob(testEnv, "rescore-1-10-100-1");
+    expect((await job("rescore-1-10-100-1"))?.result).toBe(LABELS[2]);
+  });
+  it("lets a repository admin mention the bot to rescore no-score", async () => {
+    expect(mentionsBot("@ghfind-review-test again", "ghfind-review-test")).toBe(
+      true,
+    );
+    expect(mentionsBot("not a mention", "ghfind-review-test")).toBe(false);
+    intercept(
+      "/app/installations/10/access_tokens",
+      { token: "installation-test-token" },
+      201,
+      "POST",
+    );
+    intercept(`/repos/${repo}/collaborators/AsperforMias/permission`, {
+      permission: "admin",
+    });
+    intercept(`/repos/${repo}/issues/7/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    const payload = {
+      action: "created",
+      installation: { id: 10 },
+      repository: prEvent.repository,
+      issue: { number: 7, user: { login: "other-person", type: "User" } },
+      comment: {
+        body: "Please @ghfind-review-test rescore",
+        user: { login: "AsperforMias", type: "User" },
+      },
+    };
+    expect(
+      (await webhook(await event("issue_comment", payload), testEnv)).status,
+    ).toBe(202);
+    expect((await job("mention-delivery-1"))?.pr).toBe(7);
+    expect((await job("mention-delivery-1"))?.state).toBe("pending");
+    intercept(
+      "/app/installations/10/access_tokens",
+      { token: "installation-test-token" },
+      201,
+      "POST",
+    );
+    intercept(`/repos/${repo}/issues/7/labels?per_page=100&page=1`, [
+      { name: LABELS[4] },
+    ]);
+    expect(
+      (
+        await webhook(
+          await event(
+            "issue_comment",
+            {
+              ...payload,
+              issue: { number: 7, user: { login: "AsperforMias", type: "User" } },
+            },
+            "author",
+          ),
+          testEnv,
+        )
+      ).status,
+    ).toBe(202);
+    expect((await job("mention-author"))?.pr).toBe(7);
+  });
+  it("ignores mentions from non-admins and from the bot", async () => {
+    intercept(
+      "/app/installations/10/access_tokens",
+      { token: "installation-test-token" },
+      201,
+      "POST",
+    );
+    intercept(`/repos/${repo}/collaborators/AsperforMias/permission`, {
+      permission: "write",
+    });
+    const mention = {
+      action: "created",
+      installation: { id: 10 },
+      repository: prEvent.repository,
+      issue: { number: 7, user: { login: "other-person", type: "User" } },
+      comment: {
+        body: "@ghfind-review-test",
+        user: { login: "AsperforMias", type: "User" },
+      },
+    };
+    await webhook(await event("issue_comment", mention, "writer"), testEnv);
+    await webhook(
+      await event(
+        "issue_comment",
+        {
+          ...mention,
+          comment: {
+            body: "@ghfind-review-test",
+            user: { login: "ghfind-review-test[bot]", type: "Bot" },
+          },
+        },
+        "bot",
+      ),
+      testEnv,
+    );
+    expect(await job("mention-writer")).toBeNull();
+    expect(await job("mention-bot")).toBeNull();
   });
   it("blocks callbacks without matching browser state", async () => {
     expect(
@@ -715,8 +915,12 @@ describe("Issue support and score comments", () => {
   });
   it("renders unavailable without presenting a zero score", () => {
     const body = scoreComment("AsperforMias", null);
-    expect(body).toContain("Unavailable — no score interval");
+    expect(body).toContain("No score");
+    expect(body).toContain("`@ghfind-review`");
+    expect(body).toContain("不会 @ 任何人");
     expect(body).not.toContain("0 / 100");
+    expect(body).not.toMatch(/@(?!ghfind-review\b)[A-Za-z0-9-]/);
+    expect(scoreComment("AsperforMias", 82.7)).not.toContain("重新评分");
   });
   it("recovers an ambiguous comment creation without posting a duplicate", async () => {
     const body = scoreComment("AsperforMias", 82.7);
