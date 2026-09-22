@@ -363,6 +363,6 @@ logged. Email event records are retained for 30 days.
 3. Onboard a sending subdomain, for example `wrangler email sending enable mail.example.com`,
    and verify SPF, DKIM and DMARC records. Set `EMAIL_FROM` to an address on that domain.
 4. Configure the `EMAIL` sending binding and set `EMAIL_ENABLED=true` only when the domain,
-   user authorization and a controlled-recipient E2E test have passed. Local/staging defaults to false; the hosted production App enables it after controlled-recipient validation.
+   user authorization and a controlled-recipient E2E test have passed. Local, staging, and the hosted production App keep `EMAIL_ENABLED` false until sending is explicitly turned back on.
 5. Scheduled processing drains the outbox. Monitor `author_emails.state` for `uncertain`
    results (`provider_id` records accepted sends; `error_code` contains only sanitized codes) and `email_daily_budget` for capacity. Pausing the bot also pauses email sending.
