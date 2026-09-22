@@ -51,12 +51,12 @@ App 负责打标和评论，不会自动拦截、关闭或拒绝 issue/PR。
    旧版 bot 创建的统一灰色默认标签会自动升级为下表配色。已经打过 `review-level:` 的 issue 仍保留原来较长的名字。
 4. 安装后会进入状态页。可用 GitHub 登录查看有权访问的仓库及处理结果；
    **自动打标不要求登录状态页**。失败任务可由仓库管理员点击 **Retry (admin)** 重试。
-5. 安装时会给当前所有 **Open** 的 issue 和 PR 排队打标。已关闭的不会处理。数量多时逐页排队，不会在安装请求里一次打完。
+5. 安装时只给当时 Open 的前两页 issue 和前两页 PR 排队打标（每页 100 条）。已关闭的不会处理。更早的存量不会自动回填。
 6. 新建一个 issue 或 PR，正文可以为空。任务异步处理，等待后刷新页面，
    应能看到 `ghfind-review[bot]` 添加的标签和评分评论。
 7. 如果仓库已启用旧的 **PR review level** Actions workflow，请停用它，避免两套方案重复处理。
 
-安装后会回填当时处于 Open 的 issue 和 PR。之后新建的仍由 `issues.opened` 和 `pull_request.opened` 处理。编辑、重新打开或同步已有 PR 不会再次评分。GitHub App 每小时额度用尽时，这个安装下还没打完的任务会停到额度重置，不打 `review: no-score`；重置后由每分钟的定时任务继续打真正的分数。ghfind 评分服务没有返回分数时才会打 `review: no-score`，评论会写明是评分服务失败，不是这个仓库的 App 令牌额度用尽。超时或云端暂时失败留下的 `review: no-score`，会在 20 分钟和 60 分钟后再取一次分；60 分钟那次是最后一次自动重试。拿到分数后会换掉标签并更新 Bot 评论。超过 60 分钟后，只有作者或仓库管理员在该 issue 或 PR 下评论 `@ghfind-review` 才会再评。GitHub 账号不存在时不会自动重试。
+安装后只回填当时 Open 的前两页 issue 和前两页 PR。之后新建的仍由 `issues.opened` 和 `pull_request.opened` 处理。编辑、重新打开或同步已有 PR 不会再次评分。GitHub App 每小时额度用尽时，这个安装下还没打完的任务会停到额度重置，不打 `review: no-score`；重置后由每分钟的定时任务继续打真正的分数。ghfind 评分服务没有返回分数时才会打 `review: no-score`，评论会写明是评分服务失败，不是这个仓库的 App 令牌额度用尽。超时或云端暂时失败留下的 `review: no-score`，会在 20 分钟和 60 分钟后再取一次分；60 分钟那次是最后一次自动重试。拿到分数后会换掉标签并更新 Bot 评论。超过 60 分钟后，只有作者或仓库管理员在该 issue 或 PR 下评论 `@ghfind-review` 才会再评。GitHub 账号不存在时不会自动重试。
 
 ## 已安装用户：接受新增的 Issues 权限
 
@@ -227,6 +227,6 @@ node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
    作者必须本人授权，仓库 owner 不能代其同意。
 3. 启用发信子域名，例如 `wrangler email sending enable mail.example.com`，验证 SPF、DKIM、DMARC，
    将 `EMAIL_FROM` 设为该域名的发件地址。
-4. 配置 `EMAIL` binding。本地、staging 和生产环境的 `EMAIL_ENABLED` 都保持 `false`，确认要发信后再单独打开。
+4. 配置 `EMAIL` binding，完成授权及自有收件邮箱 E2E 后再设 `EMAIL_ENABLED=true`；本地及 staging 默认关闭；官方生产 App 已在自有收件人测试后开启。
 5. 定时任务处理发件队列。通过 `author_emails.state` 检查不确定发送，`provider_id` 保存服务商接收回执，`error_code` 仅保存脱敏错误码；通过 `email_daily_budget` 检查额度。
    暂停 bot 也会暂停发信。

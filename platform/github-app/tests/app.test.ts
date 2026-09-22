@@ -241,6 +241,9 @@ describe("GitHub App delivery", () => {
       { number: 9, state: "open", pull_request: {} },
       { number: 10, state: "closed" },
     ]);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, [
+      { number: 9, state: "open" },
+    ]);
     await runJob(testEnv, "job-1");
     expect((await job())?.result).toBe("Open issues and pull requests queued");
     expect((await job("open-10-100-8"))?.kind).toBe("label");
@@ -268,9 +271,13 @@ describe("GitHub App delivery", () => {
     intercept(`/repos/${repo}/issues?state=open&per_page=100&page=2`, [
       { number: 101, state: "open" },
     ]);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, [
+      { number: 201, state: "open" },
+    ]);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
     expect((await job("open-10-100-101"))?.pr).toBe(101);
+    expect((await job("open-10-100-201"))?.pr).toBe(201);
   });
   it("starts execution budget when a queued job is claimed, not when the event arrived", async () => {
     await add("job-1", "initialize");
@@ -280,6 +287,7 @@ describe("GitHub App delivery", () => {
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
     intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -474,6 +482,7 @@ describe("GitHub App delivery", () => {
       })
       .reply(201, "{}");
     intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -506,6 +515,7 @@ describe("GitHub App delivery", () => {
         })
         .reply(200, "{}");
     intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -650,6 +660,7 @@ describe("GitHub App delivery", () => {
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
     intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
+    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
