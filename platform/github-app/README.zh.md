@@ -227,6 +227,6 @@ node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
    作者必须本人授权，仓库 owner 不能代其同意。
 3. 启用发信子域名，例如 `wrangler email sending enable mail.example.com`，验证 SPF、DKIM、DMARC，
    将 `EMAIL_FROM` 设为该域名的发件地址。
-4. 配置 `EMAIL` binding，完成授权及自有收件邮箱 E2E 后再设 `EMAIL_ENABLED=true`；本地及 staging 默认关闭；官方生产 App 已在自有收件人测试后开启。
+4. 配置 `EMAIL` binding。本地、staging 和生产环境的 `EMAIL_ENABLED` 都保持 `false`，确认要发信后再单独打开。
 5. 定时任务处理发件队列。通过 `author_emails.state` 检查不确定发送，`provider_id` 保存服务商接收回执，`error_code` 仅保存脱敏错误码；通过 `email_daily_budget` 检查额度。
    暂停 bot 也会暂停发信。
