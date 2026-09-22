@@ -1056,7 +1056,9 @@
       "sortStars": "Most project Stars",
       "sortActivity": "Most active contributors",
       "gridView": "Grid view",
-      "listView": "List view"
+      "listView": "List view",
+    "loadMore": "Load more",
+    "loading": "Loading…"
     },
     "notice": {
       "submitted": "Received your submission for {name}. Only public fields are kept, and the profile appears after review.",

@@ -1,5 +1,5 @@
 export type Talent = {
-  tags?: string[];
+  tags?: string[]; officialTags?: string[]; pinned?: boolean; cornerTag?: string;
   projects?: { name: string; url?: string; description: string; relationship: 'own' | 'pr'; contribution: string }[];
   sources?: { url?: string; title: string; publisher: string; kind: 'github' | 'article' | 'website'; description: string }[];
   publicFields?: Partial<Record<import('./intake').Field, string>>; pending?: boolean;

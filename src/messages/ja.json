@@ -1056,7 +1056,9 @@
       "sortStars": "プロジェクト Stars 優先",
       "sortActivity": "貢献アクティブ度優先",
       "gridView": "カード表示",
-      "listView": "リスト表示"
+      "listView": "リスト表示",
+    "loadMore": "さらに読み込む",
+    "loading": "読み込み中…"
     },
     "notice": {
       "submitted": "{name} さんの収録申請を受け付けました。公開項目のみ保持し、審査通過後に表示されます。",

@@ -563,7 +563,7 @@ describe("collect", () => {
             return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
           }
 
-          if (query.includes("pullRequests(first: $count, states: MERGED, after:")) {
+          if (query.includes("pullRequests(first: $count, states: MERGED, after:") && !query.includes("files(first:")) {
             boundedMergedAggregationCalls += 1;
             return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
           }

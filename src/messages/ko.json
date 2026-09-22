@@ -1056,7 +1056,9 @@
       "sortStars": "프로젝트 Stars순",
       "sortActivity": "기여 활동순",
       "gridView": "카드 보기",
-      "listView": "목록 보기"
+      "listView": "목록 보기",
+    "loadMore": "더 보기",
+    "loading": "로딩 중…"
     },
     "notice": {
       "submitted": "{name} 님의 등록 신청을 받았습니다. 공개 항목만 보관되며, 심사 통과 후 표시됩니다.",

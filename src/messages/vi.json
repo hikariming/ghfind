@@ -1056,7 +1056,9 @@
       "sortStars": "Ưu tiên Stars dự án",
       "sortActivity": "Ưu tiên đóng góp tích cực",
       "gridView": "Dạng thẻ",
-      "listView": "Dạng danh sách"
+      "listView": "Dạng danh sách",
+    "loadMore": "Tải thêm",
+    "loading": "Đang tải…"
     },
     "notice": {
       "submitted": "Đã nhận đề xuất cho {name}. Chỉ giữ các trường công khai, hiển thị sau khi duyệt.",

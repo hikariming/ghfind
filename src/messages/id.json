@@ -1056,7 +1056,9 @@
       "sortStars": "Stars proyek terbanyak",
       "sortActivity": "Kontribusi teraktif",
       "gridView": "Tampilan kartu",
-      "listView": "Tampilan daftar"
+      "listView": "Tampilan daftar",
+    "loadMore": "Muat lebih banyak",
+    "loading": "Memuat…"
     },
     "notice": {
       "submitted": "Pengajuan untuk {name} diterima. Hanya kolom publik yang disimpan dan ditampilkan setelah ditinjau.",

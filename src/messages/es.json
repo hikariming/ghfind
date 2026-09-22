@@ -1056,7 +1056,9 @@
       "sortStars": "Más Stars de proyectos",
       "sortActivity": "Mayor actividad de contribución",
       "gridView": "Vista de tarjetas",
-      "listView": "Vista de lista"
+      "listView": "Vista de lista",
+    "loadMore": "Cargar más",
+    "loading": "Cargando…"
     },
     "notice": {
       "submitted": "Recibimos tu propuesta para {name}. Solo se conservan los campos públicos y se mostrará tras la revisión.",

@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { TalentDirectory } from '@/components/talent/TalentDirectory';
-import { listPublishedTalents } from '@/lib/talent-db';
-import type { Talent } from '@/components/talent/data';
+import { listTalentsPage, listTalentFacets } from '@/lib/talent-db';
 
 export const metadata: Metadata = {
   title: '人才库 · ghfind',
@@ -15,11 +14,12 @@ export const dynamic = 'force-dynamic';
 export default async function TalentPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  let talents: Talent[] = [];
+  let list: Awaited<ReturnType<typeof listTalentsPage>> = { items: [], total: 0, page: 0, pageSize: 48, hasMore: false };
+  let facets: Awaited<ReturnType<typeof listTalentFacets>> = { directions: [], locations: [] };
   try {
-    talents = await listPublishedTalents(locale);
+    [list, facets] = await Promise.all([listTalentsPage({ locale }), listTalentFacets()]);
   } catch (error) {
     console.error('talent.load_failed', error);
   }
-  return <TalentDirectory initialTalents={talents} />;
+  return <TalentDirectory initialList={list} initialTotal={list.total} facets={facets} />;
 }

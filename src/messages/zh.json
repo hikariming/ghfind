@@ -1063,7 +1063,9 @@
       "sortStars": "项目 Stars 优先",
       "sortActivity": "贡献活跃度优先",
       "gridView": "卡片视图",
-      "listView": "列表视图"
+      "listView": "列表视图",
+    "loadMore": "加载更多",
+    "loading": "加载中…"
     },
     "notice": {
       "submitted": "已收到对 {name} 的收录提交，仅保留公开字段，审核通过后展示。",
