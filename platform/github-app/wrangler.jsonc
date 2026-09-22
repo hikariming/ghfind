@@ -71,7 +71,7 @@
     "production": {
       "name": "ghfind-bot",
       "vars": {
-        "EMAIL_ENABLED": "false",
+        "EMAIL_ENABLED": "true",
         "EMAIL_FROM": "notifications@mail.ghfind.com",
         "APP_ID": "4950248",
         "APP_SLUG": "ghfind-review",

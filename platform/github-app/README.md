@@ -54,8 +54,8 @@ repositories it may access.
 1. Follow the installation link and select repositories. Grant **Issues: read and write**, **Pull requests:
    read and write** and the implicit **Metadata: read** permission.
 2. The App automatically creates missing `review: low`, `medium`, `high`,
-   `top`, and `no-score` labels, then queues a score for every issue and pull
-   request that is already open. Owner-customized colors/descriptions are preserved;
+   `top`, and `no-score` labels, then queues the first two pages of open issues
+   and the first two pages of open pull requests (100 items per page). Owner-customized colors/descriptions are preserved;
    original bot-owned grey defaults are upgraded to the palette below.
    Archived labels and case conflicts are reported for the owner to fix.
    Issues already labeled `review-level:` keep that older, longer name.
@@ -83,7 +83,7 @@ New installations request both automatically.
 
 | Symptom                            | What to check                                                                                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No labels or comment               | Confirm the App is installed on this repository and required permissions were accepted. Open issues and pull requests are queued at install; a large backlog is labeled one page at a time. Open the installation's setup page and sign in to inspect job status. |
+| No labels or comment               | Confirm the App is installed on this repository and required permissions were accepted. The first two pages of open issues and pull requests are queued at install. Open the installation's setup page and sign in to inspect job status. |
 | Initialization fails               | Check for archived labels or conflicting capitalization; fix them in the repository's Labels page, then use **Retry (admin)** on the setup page.                                                          |
 | `review: no-score`                     | The score is missing, invalid or could not be retrieved within the retry budget. It is not zero. A missing GitHub account stays no-score. A timeout or cloud error is retried 20 and 60 minutes later; a recovered score replaces the label and updates the bot comment. After 60 minutes, only the author or a repository admin can comment `@ghfind-review` on that issue or PR to rescore it. |
 | No additional comment after replay | Expected: the App reconciles its existing comment rather than adding another.                                                                                                                             |
@@ -98,7 +98,8 @@ an inferred zero. This is an author-profile signal, not a code-quality review or
 permission to merge. Both `issues.opened` and `pull_request.opened` are processed.
 The author or a repository admin can comment `@ghfind-review` on an open
 no-score issue or PR to request one fresh score. Installing the App, or adding
-a repository, also queues every issue and pull request that is already open.
+a repository, also queues the first two pages of open issues and the first
+two pages of open pull requests.
 Closed items are left untouched. Editing or reopening an existing item does
 not score it again.
 
@@ -363,6 +364,6 @@ logged. Email event records are retained for 30 days.
 3. Onboard a sending subdomain, for example `wrangler email sending enable mail.example.com`,
    and verify SPF, DKIM and DMARC records. Set `EMAIL_FROM` to an address on that domain.
 4. Configure the `EMAIL` sending binding and set `EMAIL_ENABLED=true` only when the domain,
-   user authorization and a controlled-recipient E2E test have passed. Local, staging, and the hosted production App keep `EMAIL_ENABLED` false until sending is explicitly turned back on.
+   user authorization and a controlled-recipient E2E test have passed. Local/staging defaults to false; the hosted production App enables it after controlled-recipient validation.
 5. Scheduled processing drains the outbox. Monitor `author_emails.state` for `uncertain`
    results (`provider_id` records accepted sends; `error_code` contains only sanitized codes) and `email_daily_budget` for capacity. Pausing the bot also pauses email sending.

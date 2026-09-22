@@ -264,34 +264,42 @@ async function processJob(env: Env, job: Job) {
   if (!(job.kind === "initialize" && job.page > 1))
     await initializeLabels(api, fullName);
   if (job.kind === "initialize") {
-    if (job.page > 100) {
-      await finish(env, job, "done", "Open backfill stopped after 100 pages");
-      return;
-    }
-    const list = await api(
-      `/repos/${fullName}/issues?state=open&per_page=100&page=${job.page}`,
-    );
-    if (!Array.isArray(list)) throw new Error("Invalid issue list");
-    for (const value of list) {
-      const issue = record(value);
-      if (issue.state !== "open") continue;
-      const number = positive(issue.number);
-      await putJob(env, {
-        id: `open-${job.installation}-${job.repository}-${number}`,
-        installation: job.installation,
-        kind: "label",
-        repository: job.repository,
-        full_name: fullName,
-        pr: number,
-      });
-    }
-    if (list.length === 100) {
-      await env.DB.prepare(
-        "UPDATE jobs SET page=page+1,state='pending',lease=0,due=?,updated=? WHERE id=?",
-      )
-        .bind(Date.now(), Date.now(), job.id)
-        .run();
-      return;
+    // At most two pages of issues, then two pages of pull requests.
+    let page = job.page;
+    for (;;) {
+      const issues = page <= 2;
+      const apiPage = issues ? page : page - 2;
+      if (apiPage < 1 || apiPage > 2) break;
+      const list = await api(
+        issues
+          ? `/repos/${fullName}/issues?state=open&per_page=100&page=${apiPage}`
+          : `/repos/${fullName}/pulls?state=open&per_page=100&page=${apiPage}`,
+      );
+      if (!Array.isArray(list)) throw new Error("Invalid issue list");
+      for (const value of list) {
+        const issue = record(value);
+        if (issue.state !== "open") continue;
+        if (issues && issue.pull_request) continue;
+        const number = positive(issue.number);
+        await putJob(env, {
+          id: `open-${job.installation}-${job.repository}-${number}`,
+          installation: job.installation,
+          kind: "label",
+          repository: job.repository,
+          full_name: fullName,
+          pr: number,
+        });
+      }
+      if (list.length === 100 && apiPage < 2) {
+        await env.DB.prepare(
+          "UPDATE jobs SET page=?,state='pending',lease=0,due=?,updated=? WHERE id=?",
+        )
+          .bind(page + 1, Date.now(), Date.now(), job.id)
+          .run();
+        return;
+      }
+      if (!issues) break;
+      page = 3;
     }
     await finish(env, job, "done", "Open issues and pull requests queued");
     return;
