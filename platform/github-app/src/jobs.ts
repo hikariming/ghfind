@@ -377,15 +377,28 @@ async function processJob(env: Env, job: Job) {
     }
   }
   const label = scoreToLabel(JSON.parse(job.score));
-  await syncLabel(api, fullName, positive(job.pr), label);
+  const issueNumber = positive(job.pr);
+  await syncLabel(api, fullName, issueNumber, label);
+  const userId = Number(user.id);
+  const allowNew =
+    Number.isInteger(userId) && userId > 0
+      ? await reserveIssueComment(
+          env,
+          job.installation,
+          positive(job.repository),
+          userId,
+          label === LABELS[4],
+        )
+      : true;
   await syncComment(
     api,
     fullName,
-    positive(job.pr),
+    issueNumber,
     user.login,
     JSON.parse(job.score),
     env.APP_SLUG,
     env.EMAIL_ENABLED === "true",
+    allowNew,
   );
   if (env.EMAIL_ENABLED === "true")
     await enqueueAuthorEmail(
@@ -407,6 +420,39 @@ async function processJob(env: Env, job: Job) {
     );
   if (label === LABELS[4] && transient) await scheduleRescore(env, job);
   await finish(env, job, "done", label);
+}
+const NOSCORE_COMMENT_LIMIT = 3;
+export async function reserveIssueComment(
+  env: Env,
+  installation: number,
+  repository: number,
+  userId: number,
+  noScore: boolean,
+): Promise<boolean> {
+  if (noScore) {
+    const slot = await env.DB.prepare(
+      `INSERT INTO noscore_comment_budget(installation, repository, used) VALUES(?,?,1)
+       ON CONFLICT(installation, repository) DO UPDATE SET used=used+1 WHERE used<${NOSCORE_COMMENT_LIMIT}
+       RETURNING used`,
+    )
+      .bind(installation, repository)
+      .first();
+    if (!slot) return false;
+  }
+  const claimed = await env.DB.prepare(
+    `INSERT INTO author_comment_once(installation, repository, user_id, created)
+     VALUES(?,?,?,?) ON CONFLICT(installation, repository, user_id) DO NOTHING RETURNING user_id`,
+  )
+    .bind(installation, repository, userId, Date.now())
+    .first();
+  if (claimed) return true;
+  if (noScore)
+    await env.DB.prepare(
+      "UPDATE noscore_comment_budget SET used=used-1 WHERE installation=? AND repository=? AND used>0",
+    )
+      .bind(installation, repository)
+      .run();
+  return false;
 }
 async function deferForQuota(env: Env, job: Job, delay: number) {
   const due =

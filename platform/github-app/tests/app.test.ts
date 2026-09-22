@@ -9,7 +9,14 @@ import {
   vi,
 } from "vitest";
 import worker, { verifySignature, webhook } from "../src/index";
-import { putJob, runJob, Job, dispatch, mentionsBot } from "../src/jobs";
+import {
+  putJob,
+  runJob,
+  Job,
+  dispatch,
+  mentionsBot,
+  reserveIssueComment,
+} from "../src/jobs";
 import {
   LABELS,
   scoreToLabel,
@@ -170,7 +177,9 @@ beforeAll(async () => {
   for (const sql of TEST_SQL) await testEnv.DB.prepare(sql).run();
 });
 beforeEach(async () => {
-  await testEnv.DB.exec("DELETE FROM jobs; DELETE FROM sessions;");
+  await testEnv.DB.exec(
+    "DELETE FROM jobs; DELETE FROM sessions; DELETE FROM author_comment_once; DELETE FROM noscore_comment_budget;",
+  );
   fetchMock.activate();
   fetchMock.disableNetConnect();
 });
@@ -180,6 +189,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("comment limits", () => {
+  it("comments once per author and only three no-score comments per repository", async () => {
+    expect(await reserveIssueComment(testEnv, 10, 100, 5, false)).toBe(true);
+    expect(await reserveIssueComment(testEnv, 10, 100, 5, false)).toBe(false);
+    expect(await reserveIssueComment(testEnv, 10, 100, 6, true)).toBe(true);
+    expect(await reserveIssueComment(testEnv, 10, 100, 7, true)).toBe(true);
+    expect(await reserveIssueComment(testEnv, 10, 100, 8, true)).toBe(true);
+    expect(await reserveIssueComment(testEnv, 10, 100, 9, true)).toBe(false);
+    expect(await reserveIssueComment(testEnv, 10, 100, 9, false)).toBe(true);
+    expect(await reserveIssueComment(testEnv, 10, 200, 5, false)).toBe(true);
+  });
+});
 describe("GitHub App delivery", () => {
   it("honors rate-limit headers without waiting for a stalled error body", async () => {
     let cancelled = false;

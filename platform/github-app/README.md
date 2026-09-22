@@ -345,7 +345,7 @@ indexed by ghfind. These are **site score statistics**, not the repository's PR 
 order or a prediction of when maintainers will respond. Missing statistics are omitted.
 
 Delivery uses an independent D1 outbox, deduplicated per repository/issue number/author.
-There is at most one attempt per author per 24 hours and 100 attempts per UTC day globally.
+There is at most one attempt per author per 48 hours across repositories, and 100 attempts per UTC day globally.
 Email failures do not roll back labels or comments. Ambiguous sends are marked `uncertain`
 and are not automatically resent, avoiding duplicate mail at the cost of possible missed
 notifications. Inspect these records before any manual recovery.
