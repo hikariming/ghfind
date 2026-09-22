@@ -1,3 +1,4 @@
+import { isNewerVersion } from "./version.js";
 /**
  * ghfind CLI — a thin command-line wrapper over the {@link GhFind} SDK.
  *
@@ -408,32 +409,6 @@ function byoKeyConfigured(flags: Flags): boolean {
       (flags.byoApiKey ?? process.env.GHFIND_BYO_API_KEY) &&
       (flags.byoModel ?? process.env.GHFIND_BYO_MODEL),
   );
-}
-
-function parseVersionParts(version: string | undefined): number[] | null {
-  const normalized = String(version ?? "")
-    .trim()
-    .replace(/^ghfind\s*/i, "")
-    .replace(/^v/i, "")
-    .split(/[+-]/)[0];
-  if (!normalized || normalized === "dev") return null;
-  const parts = normalized.split(".").map((part) => Number.parseInt(part, 10));
-  if (parts.some((part) => !Number.isFinite(part))) return null;
-  return parts;
-}
-
-function isNewerVersion(latest: string | undefined, current: string): { newer: boolean; comparable: boolean } {
-  const latestParts = parseVersionParts(latest);
-  const currentParts = parseVersionParts(current);
-  if (!latestParts || !currentParts) return { newer: false, comparable: false };
-  const max = Math.max(latestParts.length, currentParts.length);
-  for (let i = 0; i < max; i++) {
-    const l = latestParts[i] ?? 0;
-    const c = currentParts[i] ?? 0;
-    if (l > c) return { newer: true, comparable: true };
-    if (l < c) return { newer: false, comparable: true };
-  }
-  return { newer: false, comparable: true };
 }
 
 async function checkUpdate(flags: Flags): Promise<Record<string, unknown>> {
