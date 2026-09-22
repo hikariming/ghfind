@@ -1,0 +1,28 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "SGLang：从技术演进到商业化之路",
+    "en": "SGLang: from technical evolution to commercialization",
+    "ja": "SGLang：技術の進化から商用化への道",
+    "ko": "SGLang: 기술 진화에서 상용화까지의 여정"
+  },
+  "intro": {
+    "zh": "从LMSYS实验室的结构化生成语言论文出发，SGLang用RadixAttention把KV缓存复用做到极致，成长为GitHub 3.63万星、支撑全球40万块GPU的生产级推理引擎；2026年创始人盛颖带队成立RadixArk，以1亿美元种子轮、4亿美元估值完成NVIDIA与AMD罕见共同投资的重磅融资。",
+    "en": "Born from an LMSYS paper on structured language model programs, SGLang pushed KV-cache reuse to the limit with RadixAttention and grew into a 36.3k-star production inference engine serving over 400,000 GPUs worldwide; in 2026 founder Ying Sheng spun it out as RadixArk, closing a $100M seed round at a $400M valuation backed by a rare joint investment from NVIDIA and AMD.",
+    "ja": "LMSYSの構造化言語モデルプログラムに関する論文から生まれたSGLangは、RadixAttentionでKVキャッシュの再利用を極め、GitHub 3.63万スター、世界中の40万台超のGPUを支える本番レベルの推論エンジンへと成長。2026年には創設者の盛穎（Ying Sheng）がRadixArkを設立し、NVIDIAとAMDという珍しい共同出資を含む1億ドルのシードラウンド（評価額4億ドル）を完了しました。",
+    "ko": "LMSYS의 구조화 언어 모델 프로그램 논문에서 출발한 SGLang은 RadixAttention으로 KV 캐시 재사용을 극대화해 GitHub 3.63만 스타, 전 세계 40만 대 이상의 GPU를 지원하는 프로덕션급 추론 엔진으로 성장했습니다. 2026년에는 창업자 성잉(盛颖, Ying Sheng)이 RadixArk를 설립해 NVIDIA와 AMD의 이례적인 공동 투자가 포함된 1억 달러 시드 라운드(기업가치 4억 달러)를 마무리했습니다."
+  },
+  "publishedAt": "2026-09-22",
+  "tags": ["project-story", "ai-infra", "llm-inference", "open-source"],
+  "subject": {
+    "kind": "repo",
+    "id": "sgl-project/sglang",
+    "nickname": "SGLang",
+    "headline": {
+      "zh": "面向大语言模型与多模态模型的高性能推理框架 · RadixAttention 提出者",
+      "en": "High-performance serving framework for LLMs and multimodal models · creators of RadixAttention",
+      "ja": "大規模言語モデルとマルチモーダルモデルのための高性能サービングフレームワーク · RadixAttentionの提唱者",
+      "ko": "대규모 언어 모델과 멀티모달 모델을 위한 고성능 서빙 프레임워크 · RadixAttention 제안 팀"
+    }
+  }
+}
