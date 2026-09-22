@@ -201,9 +201,10 @@ def assess_risk(m: Mapping[str, Any]) -> Tuple[Dict[str, Any], List[Dict[str, An
     rejected = max(0.0, _finite(m.get("maintainer_closed_unmerged_pr_count"))) if rejection_measured else 0.0
     decided = max(0.0, _finite(m.get("merged_pr_count"))) + rejected
     rejection_lower = wilson_lower(rejected, decided) if rejection_measured else 0.0
+    rejection_rate = rejected / decided if decided > 0 else 0.0
     rejection_severity = _clamp01((rejection_lower - REJECTION_WILSON_LOWER) / REJECTION_WILSON_LOWER) * _sample_factor(decided)
     rejection_raw = 4 * _clamp01((rejection_lower - REJECTION_WILSON_LOWER) / REJECTION_WILSON_LOWER) if rejection_measured and decided >= MIN_REJECTION_DECISIONS and rejection_lower >= REJECTION_WILSON_LOWER else 0.0
-    if rejection_measured and decided > 0 and rejected > 0:
+    if rejection_measured and decided > 0 and rejection_rate >= REJECTION_WILSON_LOWER:
         detail = "维护者关闭未合并的 PR 比例偏高，但样本量或 Wilson 95% 下界未达到扣分门槛，仅作风险提示。" if decided < MIN_REJECTION_DECISIONS or rejection_lower < REJECTION_WILSON_LOWER else "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。"
         _add_contribution(m, candidates, "high_pr_rejection", rejection_raw, rejection_severity, detail, {"maintainer_closed_unmerged_pr_count": rejected, "merged_pr_count": _finite(m.get("merged_pr_count")), "decided_pr_count": decided, "wilson_lower": round(rejection_lower, 4)}, decided, {"minimum_decisions": MIN_REJECTION_DECISIONS, "wilson_lower": REJECTION_WILSON_LOWER}, coverage_confidence)
 
