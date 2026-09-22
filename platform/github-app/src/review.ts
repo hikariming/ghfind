@@ -116,7 +116,7 @@ export const COMMENT_MARKER = "<!-- ghfind-review:author-score:v1 -->";
 function rescoreHint(slug: string): string {
   const name = /^[A-Za-z0-9-]+$/.test(slug) ? slug : "ghfind-review";
   // The mention is in code so posting this comment does not notify the bot or any person.
-  return `To score this again, the author or a repository admin can comment \`@${name}\` here. Automatic retries stop 60 minutes after this comment.\n要重新评分，作者或仓库管理员可在这里评论 \`@${name}\`。这条 no-score 出现 60 分钟后不再自动重试。这里不会 @ 任何人。`;
+  return `The ghfind score service did not return a score. This is not a GitHub App rate limit on the repository.\nTo score this again, the author or a repository admin can comment \`@${name}\` here. Automatic retries stop 60 minutes after this comment.\n没有拿到 ghfind 的分数。这不是这个仓库的 GitHub App 令牌额度用尽。\n要重新评分，作者或仓库管理员可在这里评论 \`@${name}\`。这条 no-score 出现 60 分钟后不再自动重试。这里不会 @ 任何人。`;
 }
 export function scoreComment(
   login: string,

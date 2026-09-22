@@ -5,6 +5,7 @@ export class ApiError extends Error {
     public status: number,
     public retry: boolean,
     public delay = 0,
+    public quota = false,
   ) {
     super(`Upstream HTTP ${status || "transport failure"}`);
   }
@@ -128,6 +129,7 @@ export async function jsonRequest(
             response.status,
             limited || [408, 500, 502, 503, 504].includes(response.status),
             delay,
+            limited && url.startsWith("https://api.github.com"),
           );
         }
         let text: string;

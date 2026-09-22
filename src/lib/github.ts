@@ -57,11 +57,11 @@ export function hasGithubToken(): boolean {
   return githubTokens().length > 0;
 }
 
-// Round-robin cursor. Under Fluid Compute the warm instance persists this across
-// requests, so load spreads across the pool without any shared store. Reserve a
-// base offset per request (not per attempt) so a single request's retries walk
-// *distinct* tokens even when concurrent requests interleave their reservations.
-let rrIndex = 0;
+// Round-robin cursor, local to this isolate. Concurrent invocations are the
+// backend workers: each one reserves its own offset, and a random start keeps
+// a fresh burst from all landing on the first token. Retries of one request
+// still walk distinct tokens.
+let rrIndex = Math.floor(Math.random() * 1_000_003);
 function nextOffset(): number {
   return rrIndex++;
 }

@@ -261,9 +261,39 @@ async function processJob(env: Env, job: Job) {
   await env.DB.prepare("UPDATE jobs SET full_name=? WHERE id=?")
     .bind(fullName, job.id)
     .run();
-  await initializeLabels(api, fullName);
+  if (!(job.kind === "initialize" && job.page > 1))
+    await initializeLabels(api, fullName);
   if (job.kind === "initialize") {
-    await finish(env, job, "done", "All five labels ready");
+    if (job.page > 100) {
+      await finish(env, job, "done", "Open backfill stopped after 100 pages");
+      return;
+    }
+    const list = await api(
+      `/repos/${fullName}/issues?state=open&per_page=100&page=${job.page}`,
+    );
+    if (!Array.isArray(list)) throw new Error("Invalid issue list");
+    for (const value of list) {
+      const issue = record(value);
+      if (issue.state !== "open") continue;
+      const number = positive(issue.number);
+      await putJob(env, {
+        id: `open-${job.installation}-${job.repository}-${number}`,
+        installation: job.installation,
+        kind: "label",
+        repository: job.repository,
+        full_name: fullName,
+        pr: number,
+      });
+    }
+    if (list.length === 100) {
+      await env.DB.prepare(
+        "UPDATE jobs SET page=page+1,state='pending',lease=0,due=?,updated=? WHERE id=?",
+      )
+        .bind(Date.now(), Date.now(), job.id)
+        .run();
+      return;
+    }
+    await finish(env, job, "done", "Open issues and pull requests queued");
     return;
   }
   const pr = record(await api(`/repos/${fullName}/issues/${job.pr}`));
@@ -370,20 +400,71 @@ async function processJob(env: Env, job: Job) {
   if (label === LABELS[4] && transient) await scheduleRescore(env, job);
   await finish(env, job, "done", label);
 }
+async function deferForQuota(env: Env, job: Job, delay: number) {
+  const due =
+    Date.now() + Math.min(Math.max(delay, 60_000), 65 * 60_000);
+  await env.DB.prepare(
+    `UPDATE jobs
+     SET state='pending', due=?, lease=0, started=0, attempts=0, result=?, updated=?
+     WHERE installation=? AND (id=? OR state='pending')`,
+  )
+    .bind(
+      due,
+      "Waiting for the GitHub App hourly quota to reset",
+      Date.now(),
+      job.installation,
+      job.id,
+    )
+    .run();
+}
 export async function runJob(env: Env, id: string) {
   if (env.ENABLED !== "true") return;
   const now = Date.now();
-  // Lease outlives the eight-minute request budget. Queue consumer concurrency=1
-  // serializes different jobs targeting the same PR as well as duplicate deliveries.
+  // Lease outlives the eight-minute budget. Queue concurrency can run many
+  // issues at once; a second job for the same issue waits instead of racing.
   const job = await env.DB.prepare(
-    "UPDATE jobs SET state='running',lease=?,updated=?,started=CASE WHEN started=0 THEN ? ELSE started END WHERE id=? AND ((state='pending' AND due<=?) OR (state='running' AND lease<?)) RETURNING *",
+    `UPDATE jobs SET state='running',lease=?,updated=?,started=CASE WHEN started=0 THEN ? ELSE started END
+     WHERE id=? AND ((state='pending' AND due<=?) OR (state='running' AND lease<?))
+       AND NOT EXISTS (
+         SELECT 1 FROM jobs AS other
+         WHERE other.id != jobs.id
+           AND other.installation = jobs.installation
+           AND other.repository = jobs.repository
+           AND other.pr = jobs.pr
+           AND other.pr IS NOT NULL
+           AND other.state = 'running'
+           AND other.lease > ?
+       )
+     RETURNING *`,
   )
-    .bind(now + 10 * 60_000, now, now, id, now, now)
+    .bind(now + 10 * 60_000, now, now, id, now, now, now)
     .first<Job>();
-  if (!job) return;
+  if (!job) {
+    await env.DB.prepare(
+      `UPDATE jobs SET due=?,updated=?
+       WHERE id=? AND state='pending'
+         AND EXISTS (
+           SELECT 1 FROM jobs AS other
+           WHERE other.id != jobs.id
+             AND other.installation = jobs.installation
+             AND other.repository = jobs.repository
+             AND other.pr = jobs.pr
+             AND other.pr IS NOT NULL
+             AND other.state = 'running'
+             AND other.lease > ?
+         )`,
+    )
+      .bind(now + 15_000, now, id, now)
+      .run();
+    return;
+  }
   try {
     await processJob(env, job);
   } catch (error) {
+    if (error instanceof ApiError && error.quota) {
+      await deferForQuota(env, job, error.delay);
+      return;
+    }
     if (
       error instanceof ApiError &&
       [401, 403, 404, 422].includes(error.status) &&
