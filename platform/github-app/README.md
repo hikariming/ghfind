@@ -13,21 +13,22 @@ can prioritize attention and investigate unfamiliar sources before a deep review
 
 ## Turn score bands into a review queue
 
-Use the five `review-level:` labels to define your team's triage policy. Lower bands
-stay visually quiet; orange and gold make higher bands easier to spot. Each bot
-comment includes the profile URL, exact score and interval, so maintainers can
-follow the evidence without repeating the same account lookup.
+Use the five `review:` labels to define your team's triage policy. Lower bands
+stay visually quiet; soft apricot and wheat mark the higher bands without a harsh
+block of color. Each bot comment includes the profile URL, exact score and
+interval, so maintainers can follow the evidence without repeating the same
+account lookup.
 
 Paste these filters into your repository's Issues or Pull requests search:
 
 | Review queue                           | GitHub search                                |
 | -------------------------------------- | -------------------------------------------- |
-| Open PRs with a high profile score     | `is:open is:pr label:"review-level: high"`   |
-| Open PRs in the highest band           | `is:open is:pr label:"review-level: xhigh"`  |
-| Low-band issues needing a source check | `is:open is:issue label:"review-level: low"` |
-| Missing scores needing manual context  | `is:open label:"review-level: unavailable"`  |
+| Open PRs with a high profile score     | `is:open is:pr label:"review: high"`   |
+| Open PRs in the highest band           | `is:open is:pr label:"review: top"`    |
+| Low-band issues needing a source check | `is:open is:issue label:"review: low"` |
+| Missing scores needing manual context  | `is:open label:"review: no-score"`     |
 
-Start with a queue that fits your available review time. Use low and unavailable
+Start with a queue that fits your available review time. Use low and no-score
 bands as a prompt to inspect the source and submission before spending more time;
 use higher bands to find authors with stronger public-profile signals. This gives
 you a practical first screening step for potentially low-quality incoming work.
@@ -52,10 +53,11 @@ repositories it may access.
 
 1. Follow the installation link and select repositories. Grant **Issues: read and write**, **Pull requests:
    read and write** and the implicit **Metadata: read** permission.
-2. The App automatically creates missing `review-level: low`, `medium`, `high`,
-   `xhigh`, and `unavailable` labels. Owner-customized colors/descriptions are preserved;
+2. The App automatically creates missing `review: low`, `medium`, `high`,
+   `top`, and `no-score` labels. Owner-customized colors/descriptions are preserved;
    original bot-owned grey defaults are upgraded to the palette below.
    Archived labels and case conflicts are reported for the owner to fix.
+   Issues already labeled `review-level:` keep that older, longer name.
 3. The installation setup page offers GitHub sign-in to view accessible
    repository jobs. Retrying a failed repository job requires repository admin
    permission. Sign-in is optional for automatic labeling.
@@ -82,7 +84,7 @@ New installations request both automatically.
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No labels or comment               | Confirm the App is installed on this repository, the object was created after installation, and required permissions were accepted. Open the installation's setup page and sign in to inspect job status. |
 | Initialization fails               | Check for archived labels or conflicting capitalization; fix them in the repository's Labels page, then use **Retry (admin)** on the setup page.                                                          |
-| `unavailable`                      | The score is missing, invalid or could not be retrieved within the retry budget. It is not zero. A completed job is not automatically rescored.                                                           |
+| `review: no-score`                     | The score is missing, invalid or could not be retrieved within the retry budget. It is not zero. A missing GitHub account stays no-score. A timeout or cloud error is retried 20 and 60 minutes later; a recovered score replaces the label and updates the bot comment. After 60 minutes, only the author or a repository admin can comment `@ghfind-review` on that issue or PR to rescore it. |
 | No additional comment after replay | Expected: the App reconciles its existing comment rather than adding another.                                                                                                                             |
 | Want to stop processing            | Remove the repository from the App installation, suspend it or uninstall it. Existing labels and comments remain.                                                                                         |
 
@@ -90,10 +92,12 @@ The setup page is reached from the App installation flow/settings; it requires G
 sign-in for status visibility. Only repository admins may retry failed jobs.
 
 The score thresholds match PR #288 at `f72a4b3`: 40, 70 and 90. A score outside
-0–100, a missing score or exhausted score retries produces `unavailable`, never
+0–100, a missing score or exhausted score retries produces `review: no-score`, never
 an inferred zero. This is an author-profile signal, not a code-quality review or
 permission to merge. Both `issues.opened` and `pull_request.opened` are processed.
-Existing issues/PRs are not retroactively processed merely by updating the App.
+The author or a repository admin can comment `@ghfind-review` on an open
+no-score issue or PR to request one fresh score. Existing issues/PRs are not retroactively processed
+merely by updating the App.
 
 ## Runtime
 
@@ -108,6 +112,9 @@ Existing issues/PRs are not retroactively processed merely by updating the App.
   reserved for GitHub operations. Each HTTP call is capped at sixty seconds,
   including streamed body reads. Seven retries maximum, using 5/10/20-second
   backoff and GitHub Retry-After/reset guidance. No webhook sleep loops.
+  A transient no-score schedules two later scores, at 20 and 60 minutes.
+  The 60-minute pass is the last automatic attempt. Each follow-up runs only
+  while that issue or PR is still open and still labeled `review: no-score`.
 - The score is persisted before the first PR label write. Replays reconcile
   current labels, add the target first, and remove only known obsolete review
   labels. Unrelated labels and owner customization remain unchanged.
@@ -167,8 +174,10 @@ until the callback succeeds; stop it afterward. Never commit the output.
 
 In App settings, upload `assets/avatar.png` (200×200, derived from the website
 icon). Confirm webhook is `/webhook`, OAuth callback `/callback`, setup `/setup`,
-Issues and Pull requests write permissions and both `issues` and `pull_request`
-event subscriptions. Existing installations must accept the added Issues
+Issues and Pull requests write permissions and the `issues`, `pull_request`
+and `issue_comment` event subscriptions. `issue_comment` is how a repository
+admin asks for a no-score rescore; adding it does not add a permission.
+Existing installations must accept the added Issues
 permission in their GitHub installation settings. GitHub
 also delivers installation lifecycle events automatically. Keep optional OAuth
 on installation disabled: it is only needed to view the setup dashboard.
@@ -261,11 +270,13 @@ After label reconciliation succeeds, the App creates or updates its own comment:
 
 | Profile                                              | Score      | Level                | Score interval  |
 | ---------------------------------------------------- | ---------- | -------------------- | --------------- |
-| [AsperforMias](https://ghfind.com/en/u/AsperforMias) | 82.7 / 100 | `review-level: high` | 70 ≤ score < 90 |
+| [AsperforMias](https://ghfind.com/en/u/AsperforMias) | 82.7 / 100 | `review: high` | 70 ≤ score < 90 |
 
 The template is `scoreComment` in `src/review.ts`. It uses the same persisted score
-as the label. Unavailable scores show “Unavailable” with no numeric interval,
-never zero. The footer explains that this is an author-profile signal.
+as the label. A missing score shows “No score” with no numeric interval, never
+zero, and tells the author or a repository admin they can comment `@ghfind-review` to score
+again. That instruction is written in code so the comment does not mention any
+person. The footer explains that this is an author-profile signal.
 
 Before posting, all comment pages are searched for the marker and this App's bot
 identity. Matching comments are updated only when the body differs; user comments
@@ -294,18 +305,20 @@ node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
 
 ## Label palette
 
-| Level       | Score interval                      | Color            | Hex       |
-| ----------- | ----------------------------------- | ---------------- | --------- |
-| low         | 0 ≤ score < 40                      | Muted light grey | `#d9dee3` |
-| medium      | 40 ≤ score < 70                     | Light blue       | `#b6dfff` |
-| high        | 70 ≤ score < 90                     | Bright orange    | `#ff922b` |
-| xhigh       | 90 ≤ score ≤ 100                    | Gold             | `#ffc400` |
-| unavailable | No valid score; no numeric interval | Neutral grey     | `#c3c7ce` |
+| Label            | Score interval                      | Color            | Hex       |
+| ---------------- | ----------------------------------- | ---------------- | --------- |
+| `review: low`      | 0 ≤ score < 40                      | Muted light grey | `#d9dee3` |
+| `review: medium`   | 40 ≤ score < 70                     | Light blue       | `#b6dfff` |
+| `review: high`     | 70 ≤ score < 90                     | Soft apricot     | `#e2c0a2` |
+| `review: top`      | 90 ≤ score ≤ 100                    | Soft wheat       | `#ded0a6` |
+| `review: no-score` | No valid score; no numeric interval | Neutral grey     | `#c3c7ce` |
 
-Higher score levels are more visually prominent. New labels use this palette.
-Existing labels with the App's original `ededed` color and exact default
-description are upgraded during initialization (also run before labeling).
-Owner-customized colors or descriptions remain unchanged.
+Higher score levels stay warmer, at a lower saturation so light-mode GitHub
+does not glare. New labels use this palette. Existing labels with the App's
+original `ededed` color and exact default description are upgraded during
+initialization (also run before labeling). Owner-customized colors or
+descriptions remain unchanged. Issues already labeled `review-level:` keep
+that older, longer name.
 
 ## Author emails
 
