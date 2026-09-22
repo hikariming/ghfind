@@ -15,7 +15,6 @@ import {
   LABELS,
   scoreToLabel,
   syncLabel,
-  syncComment,
 } from "./review";
 
 export interface Job {
@@ -124,6 +123,10 @@ export async function admitMention(
   const fullName = repositoryName(repo.full_name);
   if (!allowed(env, fullName)) return;
   const issue = record(payload.issue);
+  // Mentions on pull requests are paused with the rest of PR review. GitHub
+  // delivers them as issue_comment events with issue.pull_request set. Do not
+  // read the PR author or enqueue a rescore; that job would label and email.
+  if (issue.pull_request) return;
   const author = record(issue.user);
   const installation = positive(record(payload.installation).id);
   const number = positive(issue.number);
@@ -261,25 +264,28 @@ async function processJob(env: Env, job: Job) {
   await env.DB.prepare("UPDATE jobs SET full_name=? WHERE id=?")
     .bind(fullName, job.id)
     .run();
-  if (!(job.kind === "initialize" && job.page > 1))
-    await initializeLabels(api, fullName);
   if (job.kind === "initialize") {
-    // At most two pages of issues, then two pages of pull requests.
-    let page = job.page;
+    if (!(job.page > 1)) await initializeLabels(api, fullName);
+    // Pull-request backfill is paused. Only the first two pages of open issues
+    // are queued. Listing /pulls would enqueue jobs that label, comment, read
+    // the author, and send email. Restore the commented continuation to queue
+    // two pull-request pages again.
+    const page = job.page;
     for (;;) {
-      const issues = page <= 2;
-      const apiPage = issues ? page : page - 2;
-      if (apiPage < 1 || apiPage > 2) break;
+      if (page < 1 || page > 2) break;
       const list = await api(
-        issues
-          ? `/repos/${fullName}/issues?state=open&per_page=100&page=${apiPage}`
-          : `/repos/${fullName}/pulls?state=open&per_page=100&page=${apiPage}`,
+        `/repos/${fullName}/issues?state=open&per_page=100&page=${page}`,
       );
+      // const apiPage = page - 2;
+      // const list = await api(
+      //   `/repos/${fullName}/pulls?state=open&per_page=100&page=${apiPage}`,
+      // );
       if (!Array.isArray(list)) throw new Error("Invalid issue list");
       for (const value of list) {
         const issue = record(value);
         if (issue.state !== "open") continue;
-        if (issues && issue.pull_request) continue;
+        // The issues API mixes in pull requests. Skip them while PR review is paused.
+        if (issue.pull_request) continue;
         const number = positive(issue.number);
         await putJob(env, {
           id: `open-${job.installation}-${job.repository}-${number}`,
@@ -290,7 +296,7 @@ async function processJob(env: Env, job: Job) {
           pr: number,
         });
       }
-      if (list.length === 100 && apiPage < 2) {
+      if (list.length === 100 && page < 2) {
         await env.DB.prepare(
           "UPDATE jobs SET page=?,state='pending',lease=0,due=?,updated=? WHERE id=?",
         )
@@ -298,10 +304,13 @@ async function processJob(env: Env, job: Job) {
           .run();
         return;
       }
-      if (!issues) break;
-      page = 3;
+      // Restoring two pull-request pages needs `let page` and:
+      // if (!issues) break;
+      // page = 3;
+      break;
     }
-    await finish(env, job, "done", "Open issues and pull requests queued");
+    // await finish(env, job, "done", "Open issues and pull requests queued");
+    await finish(env, job, "done", "Open issues queued");
     return;
   }
   const pr = record(await api(`/repos/${fullName}/issues/${job.pr}`));
@@ -309,6 +318,14 @@ async function processJob(env: Env, job: Job) {
     await finish(env, job, "cancelled", "Issue or pull request closed");
     return;
   }
+  // Already-queued pull requests stop here, before the author is read.
+  // Do not score pr.user, initialize or sync a label, post a comment, or
+  // enqueue email. New pull_request.opened events no longer create these jobs.
+  if (pr.pull_request) {
+    await finish(env, job, "cancelled", "Pull request review paused");
+    return;
+  }
+  await initializeLabels(api, fullName);
   if (rescoreGeneration(job.id) > 0) {
     const applied = await labels(
       api,
@@ -379,27 +396,30 @@ async function processJob(env: Env, job: Job) {
   const label = scoreToLabel(JSON.parse(job.score));
   const issueNumber = positive(job.pr);
   await syncLabel(api, fullName, issueNumber, label);
-  const userId = Number(user.id);
-  const allowNew =
-    Number.isInteger(userId) && userId > 0
-      ? await reserveIssueComment(
-          env,
-          job.installation,
-          positive(job.repository),
-          userId,
-          label === LABELS[4],
-        )
-      : true;
-  await syncComment(
-    api,
-    fullName,
-    issueNumber,
-    user.login,
-    JSON.parse(job.score),
-    env.APP_SLUG,
-    env.EMAIL_ENABLED === "true",
-    allowNew,
-  );
+  // Issue comments are paused. Only the label is written. A bot comment makes
+  // GitHub send its own thread notification, separate from the score email.
+  // To post again, import syncComment from ./review and restore the calls below.
+  // const userId = Number(user.id);
+  // const allowNew =
+  //   Number.isInteger(userId) && userId > 0
+  //     ? await reserveIssueComment(
+  //         env,
+  //         job.installation,
+  //         positive(job.repository),
+  //         userId,
+  //         label === LABELS[4],
+  //       )
+  //     : true;
+  // await syncComment(
+  //   api,
+  //   fullName,
+  //   issueNumber,
+  //   user.login,
+  //   JSON.parse(job.score),
+  //   env.APP_SLUG,
+  //   env.EMAIL_ENABLED === "true",
+  //   allowNew,
+  // );
   if (env.EMAIL_ENABLED === "true")
     await enqueueAuthorEmail(
       env,
@@ -410,7 +430,9 @@ async function processJob(env: Env, job: Job) {
         number: positive(job.pr),
         installation: job.installation,
         repositoryId: job.repository,
-        kind: pr.pull_request ? "PR" : "issue",
+        // Pull requests return before this call, so the email is issue-only.
+        // kind: pr.pull_request ? "PR" : "issue",
+        kind: "issue",
         ...(job.score_context
           ? JSON.parse(job.score_context)
           : { score: JSON.parse(job.score), percentile: null }),
