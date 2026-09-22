@@ -154,6 +154,7 @@ export async function syncComment(
   score: unknown,
   appSlug: string,
   emailEnabled = false,
+  allowNew = true,
 ) {
   const body =
     scoreComment(login, score, appSlug) +
@@ -184,7 +185,7 @@ export async function syncComment(
       }
     }
     if (comments.length < 100) {
-      await api(path, "POST", { body });
+      if (allowNew) await api(path, "POST", { body });
       return;
     }
   }
