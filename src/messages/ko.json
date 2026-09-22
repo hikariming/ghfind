@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "플레이그라운드",
+    "content": "콘텐츠",
     "brand": "ghfind",
     "roast": "팩폭",
     "leaderboard": "랭킹",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "이름, GitHub 아이디, 기술 스택, 도시 검색…",
       "aria": "인재 검색",
-      "clear": "검색 지우기"
+      "clear": "검색 지우기",
+      "hint": "필드 검색도 지원합니다 (예: skill:Rust, location:Shanghai)"
     },
     "filters": {
       "toggle": "필터",
@@ -1057,8 +1060,13 @@
       "sortActivity": "기여 활동순",
       "gridView": "카드 보기",
       "listView": "목록 보기",
-    "loadMore": "더 보기",
-    "loading": "로딩 중…"
+      "perPageAria": "페이지당 표시 수",
+      "perPageOption": "페이지당 {count}개",
+      "pagesAria": "페이지네이션",
+      "prevPage": "이전 페이지",
+      "nextPage": "다음 페이지",
+      "pageStatus": "{page} / {pages} 페이지",
+      "loading": "로딩 중…"
     },
     "notice": {
       "submitted": "{name} 님의 등록 신청을 받았습니다. 공개 항목만 보관되며, 심사 통과 후 표시됩니다.",
@@ -1073,7 +1081,7 @@
       "score": "GHFind 점수",
       "pending": "정보 보완 예정",
       "community": "오픈소스 활동 중",
-      "yearlyContributions": "연간 기여",
+      "yearlyContributions": "기여/년",
       "viewProfile": "프로필 보기"
     },
     "empty": {

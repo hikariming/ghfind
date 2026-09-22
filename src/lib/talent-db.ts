@@ -207,11 +207,37 @@ export type TalentListResult = {
   hasMore: boolean;
 };
 
-const DEFAULT_PAGE_SIZE = 48;
+const DEFAULT_PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 96;
 
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+// Field-prefixed query tokens, e.g. `技能:Rust 地点:上海`. Chinese and English
+// prefixes both work; values are matched against the raw stored fields.
+const QUERY_FIELD_PREFIXES: Record<string, "location" | "skill" | "direction"> = {
+  "地点": "location", "位置": "location", "城市": "location",
+  loc: "location", location: "location", city: "location",
+  "技能": "skill", "技术": "skill",
+  skill: "skill", tech: "skill", stack: "skill",
+  "方向": "direction", "领域": "direction",
+  dir: "direction", direction: "direction", field: "direction",
+};
+
+function parseTalentQuery(raw: string): {
+  fields: Record<"location" | "skill" | "direction", string[]>;
+  free: string;
+} {
+  const fields = { location: [] as string[], skill: [] as string[], direction: [] as string[] };
+  const free: string[] = [];
+  for (const token of raw.split(/\s+/).filter(Boolean)) {
+    const match = token.match(/^([^\s:：]{1,16})[:：](.+)$/);
+    const field = match ? QUERY_FIELD_PREFIXES[match[1].toLowerCase()] : undefined;
+    if (match && field && match[2].trim()) fields[field].push(match[2].trim());
+    else free.push(token);
+  }
+  return { fields, free: free.join(" ") };
 }
 
 export async function listTalentsPage(params: TalentListParams = {}): Promise<TalentListResult> {
@@ -230,9 +256,24 @@ export async function listTalentsPage(params: TalentListParams = {}): Promise<Ta
   } else {
     const query = params.query?.trim();
     if (query) {
-      const like = `%${escapeLike(query)}%`;
-      where.push(`(t.name LIKE ? ESCAPE '\\' OR t.handle LIKE ? ESCAPE '\\' OR t.role LIKE ? ESCAPE '\\' OR t.bio LIKE ? ESCAPE '\\' OR t.location LIKE ? ESCAPE '\\' OR t.skills_json LIKE ? ESCAPE '\\')`);
-      args.push(like, like, like, like, like, like);
+      const { fields, free } = parseTalentQuery(query);
+      if (free) {
+        const like = `%${escapeLike(free)}%`;
+        where.push(`(t.name LIKE ? ESCAPE '\\' OR t.handle LIKE ? ESCAPE '\\' OR t.role LIKE ? ESCAPE '\\' OR t.bio LIKE ? ESCAPE '\\' OR t.location LIKE ? ESCAPE '\\' OR t.skills_json LIKE ? ESCAPE '\\')`);
+        args.push(like, like, like, like, like, like);
+      }
+      for (const value of fields.location) {
+        where.push(`t.location LIKE ? ESCAPE '\\'`);
+        args.push(`%${escapeLike(value)}%`);
+      }
+      for (const value of fields.skill) {
+        where.push(`t.skills_json LIKE ? ESCAPE '\\'`);
+        args.push(`%${escapeLike(value)}%`);
+      }
+      for (const value of fields.direction) {
+        where.push(`t.direction LIKE ? ESCAPE '\\'`);
+        args.push(`%${escapeLike(value)}%`);
+      }
     }
     if (params.direction) { where.push("t.direction = ?"); args.push(params.direction); }
     if (params.location) { where.push("t.location = ?"); args.push(params.location); }
@@ -253,6 +294,9 @@ export async function listTalentsPage(params: TalentListParams = {}): Promise<Ta
     args,
   });
   const total = Number(countResult.rows[0]?.n ?? 0);
+  // An out-of-range page (e.g. a shared ?page=9 link) falls back to the last
+  // page instead of rendering an empty grid.
+  const safePage = Math.min(page, Math.max(0, Math.ceil(total / pageSize) - 1));
   const result = await db.execute({
     // scores.username stores the lowercased GitHub login; hidden scores stay private.
     sql: `SELECT ${LIST_COLUMNS}, s.final_score AS ghfind_score
@@ -261,10 +305,10 @@ export async function listTalentsPage(params: TalentListParams = {}): Promise<Ta
           WHERE ${whereSql}
           ORDER BY ${orderSql}
           LIMIT ? OFFSET ?`,
-    args: [...args, pageSize, page * pageSize],
+    args: [...args, pageSize, safePage * pageSize],
   });
   const items = result.rows.map((row) => mapTalent(row as Record<string, unknown>, lang));
-  return { items, total, page, pageSize, hasMore: (page + 1) * pageSize < total };
+  return { items, total, page: safePage, pageSize, hasMore: (safePage + 1) * pageSize < total };
 }
 
 /** Full record for the detail modal, including the heavy JSON columns the

@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "互动",
+    "content": "内容",
     "brand": "ghfind",
     "roast": "锐评",
     "leaderboard": "榜单",
@@ -1041,7 +1043,8 @@
     "search": {
       "placeholder": "搜索姓名、GitHub 用户名、技术栈或城市…",
       "aria": "搜索人才",
-      "clear": "清空搜索"
+      "clear": "清空搜索",
+      "hint": "小技巧：支持 技能:Rust、地点:上海、方向:前端 组合查询"
     },
     "filters": {
       "toggle": "筛选",
@@ -1064,8 +1067,13 @@
       "sortActivity": "贡献活跃度优先",
       "gridView": "卡片视图",
       "listView": "列表视图",
-    "loadMore": "加载更多",
-    "loading": "加载中…"
+      "perPageAria": "每页显示条数",
+      "perPageOption": "{count} 条/页",
+      "pagesAria": "分页",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "pageStatus": "第 {page} / {pages} 页",
+      "loading": "加载中…"
     },
     "notice": {
       "submitted": "已收到对 {name} 的收录提交，仅保留公开字段，审核通过后展示。",
@@ -1080,7 +1088,7 @@
       "score": "GHFind 评分",
       "pending": "资料待补充",
       "community": "活跃于开源社区",
-      "yearlyContributions": "年贡献",
+      "yearlyContributions": "贡献/年",
       "viewProfile": "查看档案"
     },
     "empty": {

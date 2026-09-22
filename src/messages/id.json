@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "Interaksi",
+    "content": "Konten",
     "brand": "ghfind",
     "roast": "Roast",
     "leaderboard": "Peringkat",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "Cari nama, username GitHub, stack, atau kota…",
       "aria": "Cari talenta",
-      "clear": "Hapus pencarian"
+      "clear": "Hapus pencarian",
+      "hint": "Tips: filter per kolom — mis. skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Filter",
@@ -1057,8 +1060,13 @@
       "sortActivity": "Kontribusi teraktif",
       "gridView": "Tampilan kartu",
       "listView": "Tampilan daftar",
-    "loadMore": "Muat lebih banyak",
-    "loading": "Memuat…"
+      "perPageAria": "Hasil per halaman",
+      "perPageOption": "{count} / halaman",
+      "pagesAria": "Paginasi",
+      "prevPage": "Halaman sebelumnya",
+      "nextPage": "Halaman berikutnya",
+      "pageStatus": "Halaman {page} dari {pages}",
+      "loading": "Memuat…"
     },
     "notice": {
       "submitted": "Pengajuan untuk {name} diterima. Hanya kolom publik yang disimpan dan ditampilkan setelah ditinjau.",
