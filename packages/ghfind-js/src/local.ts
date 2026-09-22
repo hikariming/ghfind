@@ -24,6 +24,7 @@ import {
   GitHubDataUnavailableError,
   GitHubRateLimitError,
   collect,
+  withGithubToken,
 } from "../../../src/lib/github";
 import { score } from "../../../src/lib/score";
 import type { RawMetrics, ScanResult, Scoring } from "./types.js";
@@ -58,13 +59,15 @@ export async function collectAndScore(
   username: string,
   opts: LocalScanOptions = {},
 ): Promise<ScanResult> {
-  if (opts.token) process.env.GITHUB_TOKEN = opts.token;
-  if (!process.env.GITHUB_TOKEN) {
+  const token = opts.token ?? process.env.GITHUB_TOKEN ?? "";
+  if (!token.trim()) {
     throw new GitHubAuthRequiredError(
       "collectAndScore needs a GitHub token: pass { token } or set GITHUB_TOKEN. " +
         "Local scoring makes many authenticated GitHub API calls.",
     );
   }
-  const data = await collect(username);
-  return { ...data, scoring: score(data.metrics) } as unknown as ScanResult;
+  return withGithubToken(token, async () => {
+    const data = await collect(username);
+    return { ...data, scoring: score(data.metrics) } as unknown as ScanResult;
+  });
 }
