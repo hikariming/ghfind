@@ -82,30 +82,6 @@ CREATE TABLE profile_snapshots (
              signature_work TEXT,
              scan_version  TEXT
            );
-CREATE TABLE project_analysis_recoveries (
-  analysis_id TEXT PRIMARY KEY REFERENCES project_analysis_runs(id),
-  request_id TEXT NOT NULL UNIQUE,
-  action TEXT NOT NULL CHECK (action IN ('retry_interrupted', 'finalize_completed')),
-  requested_ref TEXT NOT NULL,
-  original_thread_id TEXT NOT NULL,
-  original_run_id TEXT NOT NULL,
-  original_idempotency_key TEXT NOT NULL,
-  original_started_at INTEGER,
-  original_create_attempts INTEGER NOT NULL,
-  original_error_code TEXT NOT NULL,
-  original_error_message TEXT,
-  original_completed_at INTEGER,
-  original_updated_at INTEGER NOT NULL,
-  operator_ref TEXT NOT NULL,
-  requested_at INTEGER NOT NULL,
-  execution_deadline_at INTEGER,
-  next_idempotency_key TEXT NOT NULL,
-  CHECK ((action = 'retry_interrupted' AND execution_deadline_at > requested_at)
-    OR (action = 'finalize_completed' AND execution_deadline_at IS NULL))
-);
-CREATE TABLE project_analysis_recovery_guards (
-            id TEXT PRIMARY KEY, valid INTEGER NOT NULL CHECK (valid = 1)
-          );
 CREATE TABLE project_analysis_runs (
              id TEXT PRIMARY KEY,
              repo_key TEXT NOT NULL,
@@ -334,32 +310,6 @@ CREATE TABLE repos (
              topics          TEXT,
              updated_at      INTEGER NOT NULL
            );
-CREATE TABLE score_release_fallbacks (
-             username           TEXT NOT NULL,
-             score_version      TEXT NOT NULL,
-             collection_version TEXT NOT NULL,
-             display_name       TEXT,
-             avatar_url         TEXT,
-             profile_url        TEXT,
-             final_score        REAL NOT NULL,
-             tier               TEXT NOT NULL,
-             tags               TEXT,
-             roast_line         TEXT,
-             roast              TEXT,
-             roast_en           TEXT,
-             roast_version      TEXT,
-             roast_en_version   TEXT,
-             bot_score          REAL,
-             sub_scores         TEXT,
-             risk_assessment    TEXT,
-             risk_notes         TEXT,
-             snapshot           TEXT,
-             snapshot_hash      TEXT,
-             source_status      TEXT NOT NULL DEFAULT '{}',
-             scanned_at         INTEGER NOT NULL,
-             captured_at        INTEGER NOT NULL,
-             PRIMARY KEY (username, score_version, collection_version)
-           );
 CREATE TABLE score_snapshots (
              id            TEXT PRIMARY KEY,
              username      TEXT NOT NULL,
@@ -389,8 +339,6 @@ CREATE TABLE scores (
              sub_scores   TEXT,
              roast        TEXT,
              roast_line   TEXT,
-             risk_assessment TEXT,
-             risk_notes   TEXT,
              score_write_token TEXT,
              score_source_collection_version TEXT,
              score_source_snapshot_hash TEXT,
@@ -413,12 +361,6 @@ CREATE TABLE treasure_entries (
              graduated_at INTEGER,
              removed_at INTEGER,
              removed_reason TEXT
-           );
-CREATE TABLE user_resume_libraries (
-             github_id  INTEGER PRIMARY KEY,
-             login      TEXT NOT NULL,
-             data       TEXT NOT NULL,
-             updated_at INTEGER NOT NULL
            );
 CREATE TABLE users (
              github_id   INTEGER PRIMARY KEY,
@@ -469,8 +411,6 @@ CREATE INDEX idx_project_analysis_runs_status_updated
              ON project_analysis_runs(status, updated_at);
 CREATE INDEX idx_project_assessments_classic
              ON project_assessments(classic_eligible, product_score DESC, confidence DESC);
-CREATE INDEX idx_project_assessments_feed_updates
-             ON project_assessments(updated_at, repo_key);
 CREATE INDEX idx_project_assessments_treasure
              ON project_assessments(treasure_eligible, product_score DESC, confidence DESC);
 CREATE INDEX idx_public_scan_commit_candidates_run_repo
@@ -506,8 +446,6 @@ CREATE INDEX idx_public_scan_runs_user_version
 CREATE INDEX idx_repo_developers_user ON repo_developers(username);
 CREATE INDEX idx_repos_owner ON repos(owner_login);
 CREATE INDEX idx_repos_stars ON repos(stars DESC);
-CREATE INDEX idx_score_release_fallbacks_username
-             ON score_release_fallbacks(username, captured_at DESC);
 CREATE INDEX idx_score_snapshots_username_generated
              ON score_snapshots(username, generated_at DESC);
 CREATE INDEX idx_scores_hidden_score
