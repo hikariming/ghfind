@@ -25,18 +25,14 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: "roast", href: "/", exact: true },
-  { key: "leaderboard", href: "/leaderboard" },
-  {
-    key: "discover",
-    children: [
-      { key: "developers", href: "/developers" },
-      { key: "projectBoards", href: "/projects" },
-      { key: "collections", href: "/collections" },
-      { key: "languages", href: "/developers#languages", exact: true },
-      { key: "organizations", href: "/developers#organizations", exact: true },
-    ],
-  },
-  { key: "versus", href: "/vs", exact: true },
-  { key: "blog", href: "/blog" },
+  { key: "interaction", icon: "folder", children: [
+    { key: "roast", href: "/", exact: true },
+    { key: "versus", href: "/vs", exact: true },
+  ] },
+  { key: "leaderboard", href: "/leaderboard", icon: "trophy" },
+  { key: "projectBoards", href: "/projects", icon: "code" },
+  { key: "content", icon: "folder", children: [
+    { key: "collections", href: "/collections" },
+    { key: "blog", href: "/blog" },
+  ] },
 ];
