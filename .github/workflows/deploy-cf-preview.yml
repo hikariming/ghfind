@@ -1,14 +1,15 @@
 name: Deploy PR preview (Cloudflare)
 
-# Builds each PR into an isolated Cloudflare Worker (ghfind-pr-<number>) on the
-# `preview` wrangler env and posts the workers.dev URL on the PR. Shares the dev
-# D1 database and dev R2 cache bucket, so previews see staging data and never
-# touch the production origin. The worker is deleted when the PR closes.
+# Builds an owner's PR into an isolated Cloudflare Worker (ghfind-pr-<number>)
+# on the `preview` wrangler env and posts the workers.dev URL on the PR. Shares
+# the dev D1 database and dev R2 cache bucket, so previews see staging data and
+# never touch the production origin. The worker is deleted when the PR closes.
 #
-# Fork PRs are skipped (secrets are unavailable there) — same constraint as the
-# Vercel preview era. The skip is a successful log line, not a pull-request
-# comment: a fork workflow token cannot comment and a failed comment step
-# emails the repository as a CI failure.
+# Only the repository code owners get a preview: hikariming, AsperforMias, and
+# KurosawaGeeker. Other contributors and fork PRs do not build or deploy.
+# pull_request_target runs this file from the default branch, so a PR cannot
+# edit the owner check and still receive a preview. The PR head is checked out
+# only after that check passes.
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
@@ -17,7 +18,7 @@ name: Deploy PR preview (Cloudflare)
 # - CF_WORKERS_SUBDOMAIN — skips the workers.dev subdomain API lookup
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
 
@@ -38,10 +39,18 @@ jobs:
     name: Build and deploy preview worker
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event.action != 'closed' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (
+        github.event.action != 'closed'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && contains(fromJSON('["AsperforMias","KurosawaGeeker","hikariming"]'), github.event.pull_request.user.login)
+      )
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -158,11 +167,3 @@ jobs:
           else
             echo "Deleted $WORKER (HTTP $CODE)"
           fi
-
-  fork-note:
-    name: Skip fork preview
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name != github.repository
-    steps:
-      - name: Record why the preview was skipped
-        run: echo "Cloudflare preview deployments are skipped for fork PRs because repository secrets are unavailable."
