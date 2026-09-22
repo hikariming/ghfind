@@ -232,6 +232,46 @@ describe("GitHub App delivery", () => {
     expect((await job("discover-1:repo:100"))?.kind).toBe("initialize");
     expect(await job("discover-1:repo:101")).toBeNull();
   });
+  it("queues only open issues and pull requests when a repository is installed", async () => {
+    await add("job-1", "initialize");
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, [
+      { number: 8, state: "open" },
+      { number: 9, state: "open", pull_request: {} },
+      { number: 10, state: "closed" },
+    ]);
+    await runJob(testEnv, "job-1");
+    expect((await job())?.result).toBe("Open issues and pull requests queued");
+    expect((await job("open-10-100-8"))?.kind).toBe("label");
+    expect((await job("open-10-100-8"))?.pr).toBe(8);
+    expect((await job("open-10-100-9"))?.pr).toBe(9);
+    expect(await job("open-10-100-10")).toBeNull();
+  });
+  it("continues an open backfill one page at a time", async () => {
+    await add("job-1", "initialize");
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(
+      `/repos/${repo}/issues?state=open&per_page=100&page=1`,
+      Array.from({ length: 100 }, (_, index) => ({
+        number: index + 1,
+        state: "open",
+      })),
+    );
+    await runJob(testEnv, "job-1");
+    expect((await job())?.state).toBe("pending");
+    expect((await job())?.page).toBe(2);
+    expect((await job("open-10-100-1"))?.pr).toBe(1);
+    expect((await job("open-10-100-100"))?.pr).toBe(100);
+    scope();
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=2`, [
+      { number: 101, state: "open" },
+    ]);
+    await runJob(testEnv, "job-1");
+    expect((await job())?.state).toBe("done");
+    expect((await job("open-10-100-101"))?.pr).toBe(101);
+  });
   it("starts execution budget when a queued job is claimed, not when the event arrived", async () => {
     await add("job-1", "initialize");
     await testEnv.DB.prepare("UPDATE jobs SET created=? WHERE id=?")
@@ -239,6 +279,7 @@ describe("GitHub App delivery", () => {
       .run();
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -432,6 +473,7 @@ describe("GitHub App delivery", () => {
         }),
       })
       .reply(201, "{}");
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -463,6 +505,7 @@ describe("GitHub App delivery", () => {
           body: JSON.stringify({ color }),
         })
         .reply(200, "{}");
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -579,6 +622,19 @@ describe("GitHub App delivery", () => {
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("failed");
   });
+  it("defers a second job for the same issue while one is running", async () => {
+    await add("job-a");
+    await add("job-b");
+    await testEnv.DB.prepare(
+      "UPDATE jobs SET state='running',lease=? WHERE id=?",
+    )
+      .bind(Date.now() + 600000, "job-a")
+      .run();
+    await runJob(testEnv, "job-b");
+    expect((await job("job-a"))?.state).toBe("running");
+    expect((await job("job-b"))?.state).toBe("pending");
+    expect((await job("job-b"))?.due).toBeGreaterThan(Date.now());
+  });
   it("recovers expired leases but does not steal active jobs", async () => {
     await add("job-1", "initialize");
     await testEnv.DB.prepare(
@@ -593,6 +649,7 @@ describe("GitHub App delivery", () => {
       .run();
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -917,6 +974,8 @@ describe("Issue support and score comments", () => {
     const body = scoreComment("AsperforMias", null);
     expect(body).toContain("No score");
     expect(body).toContain("`@ghfind-review`");
+    expect(body).toContain("ghfind score service did not return a score");
+    expect(body).toContain("不是这个仓库的 GitHub App 令牌额度用尽");
     expect(body).toContain("不会 @ 任何人");
     expect(body).not.toContain("0 / 100");
     expect(body).not.toMatch(/@(?!ghfind-review\b)[A-Za-z0-9-]/);
@@ -978,6 +1037,43 @@ describe("Issue support and score comments", () => {
       82.7,
       "ghfind-review-test",
     );
+  });
+  it("parks the installation until the GitHub App quota resets", async () => {
+    await add("job-1");
+    await add("job-2");
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias", id: 5 },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, []);
+    const reset = Math.floor(Date.now() / 1000) + 1800;
+    fetchMock
+      .get(api)
+      .intercept({
+        path: `/repos/${repo}/issues/1/labels`,
+        method: "POST",
+      })
+      .reply(403, "", {
+        headers: {
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": String(reset),
+        },
+      });
+    await runJob(testEnv, "job-1");
+    const first = await job("job-1");
+    const second = await job("job-2");
+    expect(first?.state).toBe("pending");
+    expect(first?.result).toContain("quota");
+    expect(first?.due).toBeGreaterThan(Date.now() + 20 * 60_000);
+    expect(second?.state).toBe("pending");
+    expect(second?.due).toBe(first?.due);
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.some(([url]) => String(url).includes("/comments")),
+    ).toBe(false);
   });
   it("fails before commenting when label reconciliation fails", async () => {
     await add();

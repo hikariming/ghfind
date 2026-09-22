@@ -54,7 +54,8 @@ repositories it may access.
 1. Follow the installation link and select repositories. Grant **Issues: read and write**, **Pull requests:
    read and write** and the implicit **Metadata: read** permission.
 2. The App automatically creates missing `review: low`, `medium`, `high`,
-   `top`, and `no-score` labels. Owner-customized colors/descriptions are preserved;
+   `top`, and `no-score` labels, then queues a score for every issue and pull
+   request that is already open. Owner-customized colors/descriptions are preserved;
    original bot-owned grey defaults are upgraded to the palette below.
    Archived labels and case conflicts are reported for the owner to fix.
    Issues already labeled `review-level:` keep that older, longer name.
@@ -82,7 +83,7 @@ New installations request both automatically.
 
 | Symptom                            | What to check                                                                                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No labels or comment               | Confirm the App is installed on this repository, the object was created after installation, and required permissions were accepted. Open the installation's setup page and sign in to inspect job status. |
+| No labels or comment               | Confirm the App is installed on this repository and required permissions were accepted. Open issues and pull requests are queued at install; a large backlog is labeled one page at a time. Open the installation's setup page and sign in to inspect job status. |
 | Initialization fails               | Check for archived labels or conflicting capitalization; fix them in the repository's Labels page, then use **Retry (admin)** on the setup page.                                                          |
 | `review: no-score`                     | The score is missing, invalid or could not be retrieved within the retry budget. It is not zero. A missing GitHub account stays no-score. A timeout or cloud error is retried 20 and 60 minutes later; a recovered score replaces the label and updates the bot comment. After 60 minutes, only the author or a repository admin can comment `@ghfind-review` on that issue or PR to rescore it. |
 | No additional comment after replay | Expected: the App reconciles its existing comment rather than adding another.                                                                                                                             |
@@ -96,8 +97,10 @@ The score thresholds match PR #288 at `f72a4b3`: 40, 70 and 90. A score outside
 an inferred zero. This is an author-profile signal, not a code-quality review or
 permission to merge. Both `issues.opened` and `pull_request.opened` are processed.
 The author or a repository admin can comment `@ghfind-review` on an open
-no-score issue or PR to request one fresh score. Existing issues/PRs are not retroactively processed
-merely by updating the App.
+no-score issue or PR to request one fresh score. Installing the App, or adding
+a repository, also queues every issue and pull request that is already open.
+Closed items are left untouched. Editing or reopening an existing item does
+not score it again.
 
 ## Runtime
 
@@ -105,13 +108,19 @@ merely by updating the App.
 - Webhook HMAC validates the raw body before admission. Only minimal task
   metadata is retained; PR text/code is not stored or executed.
 - D1 is the durable outbox. Queue sends are recovered by a one-minute cron.
-  Delivery IDs deduplicate redelivery. Consumer concurrency **must remain 1**
-  until repository/PR-scoped serialization is introduced.
+  Delivery IDs deduplicate redelivery. The queue runs 96 consumers, 24 for
+  each of the four GitHub tokens. That is the backend worker pool: one Worker
+  script, ninety-six invocations at once, each calling the same score API.
+  A second job for the same issue waits.
 - An atomic ten-minute lease excludes duplicate executions. Execution budget is
   eight minutes from first claim, not from webhook arrival; four minutes are
   reserved for GitHub operations. Each HTTP call is capped at sixty seconds,
   including streamed body reads. Seven retries maximum, using 5/10/20-second
   backoff and GitHub Retry-After/reset guidance. No webhook sleep loops.
+  A GitHub App hourly quota stop parks every pending job for that installation
+  until the reset time, without writing `review: no-score`. The one-minute cron
+  resumes them. A missing score from ghfind still uses `review: no-score` and
+  says the score service failed, not that the App quota was exhausted.
   A transient no-score schedules two later scores, at 20 and 60 minutes.
   The 60-minute pass is the last automatic attempt. Each follow-up runs only
   while that issue or PR is still open and still labeled `review: no-score`.
@@ -199,6 +208,11 @@ Secrets are `APP_PRIVATE_KEY`, `WEBHOOK_SECRET`, `APP_CLIENT_SECRET`, and a rand
 pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production
 pnpm exec wrangler deploy --env production --secrets-file /absolute/private/worker-secrets.json
 ```
+
+Pushing `platform/github-app` to `main` runs GitHub App checks, then CI deploys
+`ghfind-bot` with `wrangler deploy --env production`. Existing Worker secrets
+stay in place. The score service deploys with the main site workflow after CI
+succeeds.
 
 For later rotations use `wrangler secret bulk` with a private file. Never put
 secret values in command arguments, GitHub comments, screenshots or logs.
