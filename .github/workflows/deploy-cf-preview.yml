@@ -6,7 +6,9 @@ name: Deploy PR preview (Cloudflare)
 # touch the production origin. The worker is deleted when the PR closes.
 #
 # Fork PRs are skipped (secrets are unavailable there) — same constraint as the
-# Vercel preview era.
+# Vercel preview era. The skip is a successful log line, not a pull-request
+# comment: a fork workflow token cannot comment and a failed comment step
+# emails the repository as a CI failure.
 #
 # Required GitHub secrets:
 # - CF_API_TOKEN — Cloudflare API token ("Edit Cloudflare Workers" template)
@@ -158,27 +160,9 @@ jobs:
           fi
 
   fork-note:
-    name: Explain skipped fork preview
+    name: Skip fork preview
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - name: Comment on fork PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const marker = "<!-- cf-preview-deployment -->";
-            const body = `${marker}\n:information_source: Cloudflare preview deployments are skipped for fork PRs (repository secrets are unavailable). Merge to a branch in this repository to get a preview.`;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            if (!comments.some((c) => c.body?.includes(marker))) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+      - name: Record why the preview was skipped
+        run: echo "Cloudflare preview deployments are skipped for fork PRs because repository secrets are unavailable."
