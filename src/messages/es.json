@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "Patrocinar"
+    "sponsor": "Patrocinar",
+    "integrations": "Integraciones",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "Runtime en la nube para agentes de programación"
     },
     "slotOpen": "Espacio disponible"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App que etiqueta issues y PRs según la puntuación del autor",
+    "metaDescription": "Instala la GitHub App ghfind Review para añadir una etiqueta de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor.",
+    "topline": {
+      "section": "Integraciones",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Gratis",
+      "title": "Prioriza issues y PRs según quién los abre",
+      "subtitle": "ghfind Review añade una etiqueta review: de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor. Sin workflow, sin token, sin secretos que configurar.",
+      "install": "Instalar en GitHub",
+      "status": "Abrir página de estado",
+      "note": "Funciona como ghfind-review[bot]. Solo añade etiquetas: nunca comenta, cierra ni bloquea una contribución."
+    },
+    "preview": {
+      "label": "Ejemplo de lista de issues con etiquetas review",
+      "heading": "Issues",
+      "items": {
+        "top": "Fallo al analizar configuración anidada",
+        "medium": "Añadir modo oscuro a ajustes",
+        "noScore": "Errata en el README"
+      }
+    },
+    "labels": {
+      "heading": "Cinco etiquetas, un vistazo",
+      "lead": "Las etiquetas que falten se crean al instalar. Se respetan los colores o descripciones que hayas personalizado.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Poca señal pública. Verifica el origen primero."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Un perfil de contribuidor habitual."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Señales públicas sólidas."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "En lo más alto del índice ghfind."
+        },
+        "noScore": {
+          "range": "Sin puntuación",
+          "desc": "Puntuación no disponible, no es cero. Se reintenta a los 20 y 60 minutos."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cómo funciona",
+      "items": {
+        "install": {
+          "title": "Instala en los repositorios elegidos",
+          "body": "Concede lectura y escritura en Issues y Pull requests. Elige Only select repositories para empezar poco a poco; los repos de organización pueden requerir aprobación."
+        },
+        "open": {
+          "title": "Alguien abre un issue o PR",
+          "body": "El bot consulta en segundo plano la puntuación pública de ghfind del autor. Nunca lee ni evalúa el cuerpo del issue."
+        },
+        "label": {
+          "title": "Aparece una etiqueta review:",
+          "body": "Al instalar también se etiquetan las primeras páginas de issues y PRs abiertos. Editar o reabrir no vuelve a puntuar."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Convierte rangos de puntuación en colas de revisión",
+      "lead": "Pega un filtro en la búsqueda de issues de tu repositorio y empieza por la cola que encaje con tu tiempo.",
+      "items": {
+        "high": "Issues de puntuación alta",
+        "top": "Issues de puntuación máxima",
+        "low": "Issues de puntuación baja por verificar",
+        "noScore": "Sin puntuación — falta contexto"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Pedir una nueva puntuación",
+        "body": "Tras los reintentos automáticos, el autor o un administrador del repositorio puede comentar @ghfind-review en el issue para volver a puntuarlo."
+      },
+      "privacy": {
+        "heading": "Qué datos toca",
+        "body": "Ni código fuente ni cuerpos de issues. Solo guarda la instalación, el repositorio, el número de issue, la puntuación y el estado del trabajo; los trabajos terminados se borran a los 30 días. Los autores con email público pueden recibir un email de puntuación cada 72 horas como máximo, con baja en un clic.",
+        "link": "Aviso de privacidad"
+      },
+      "stop": {
+        "heading": "Detenlo cuando quieras",
+        "body": "Quita repositorios, suspende o desinstala la app desde los ajustes de GitHub. Las etiquetas existentes se mantienen."
+      }
+    },
+    "disclaimer": "La puntuación refleja el perfil público de GitHub del autor, no la calidad de esta contribución. Los nuevos contribuidores quizá solo tengan poco historial público.",
+    "source": "Código fuente y guía de autoalojamiento"
   }
 }

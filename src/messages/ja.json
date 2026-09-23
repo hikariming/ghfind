@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "スポンサー"
+    "sponsor": "スポンサー",
+    "integrations": "連携",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "コーディングエージェントのクラウドランタイム"
     },
     "slotOpen": "募集中"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — 作成者スコアで issue と PR にラベルを付ける GitHub App",
+    "metaDescription": "ghfind Review GitHub App をインストールすると、作成者の公開 ghfind スコアに基づき、新しい issue と pull request に色分けされたラベルが付きます。",
+    "topline": {
+      "section": "連携",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · 無料",
+      "title": "誰が作ったかで issue と PR を振り分ける",
+      "subtitle": "ghfind Review は作成者の公開 ghfind スコアをもとに、新しい issue と pull request に色分けされた review: ラベルを付けます。workflow もトークンも secret の設定も不要です。",
+      "install": "GitHub でインストール",
+      "status": "ステータスページを開く",
+      "note": "ghfind-review[bot] として動作します。ラベルを付けるだけで、コメント・クローズ・ブロックは一切しません。"
+    },
+    "preview": {
+      "label": "review ラベル付きの issue 一覧の例",
+      "heading": "Issues",
+      "items": {
+        "top": "ネストした設定の解析でクラッシュ",
+        "medium": "設定画面にダークモードを追加",
+        "noScore": "README の誤字"
+      }
+    },
+    "labels": {
+      "heading": "5つのラベルでひと目で分類",
+      "lead": "不足しているラベルはインストール時に作成されます。カスタマイズした色や説明はそのまま残ります。",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "公開シグナルが少なめ。まず出所を確認。"
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "一般的なコントリビューター像。"
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "公開プロフィールのシグナルが強い。"
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "ghfind インデックスの上位。"
+        },
+        "noScore": {
+          "range": "スコアなし",
+          "desc": "スコアを取得できず、0点ではありません。20分後と60分後に再試行します。"
+        }
+      }
+    },
+    "steps": {
+      "heading": "仕組み",
+      "items": {
+        "install": {
+          "title": "リポジトリを選んでインストール",
+          "body": "Issues と Pull requests の読み書きを許可します。まずは Only select repositories で小さく始めましょう。組織リポジトリはオーナーの承認が必要な場合があります。"
+        },
+        "open": {
+          "title": "誰かが issue や PR を作成",
+          "body": "bot がバックグラウンドで作成者の公開 ghfind スコアを取得します。issue 本文は読まず、評価もしません。"
+        },
+        "label": {
+          "title": "review: ラベルが付く",
+          "body": "インストール時には既存の Open な issue と PR の先頭ページにも付与されます。編集や再オープンでは再採点しません。"
+        }
+      }
+    },
+    "queues": {
+      "heading": "スコア帯をレビューキューに",
+      "lead": "フィルターをリポジトリの issue 検索に貼り付け、今の余力に合うキューから始めましょう。",
+      "items": {
+        "high": "高スコアの issue",
+        "top": "最上位スコアの issue",
+        "low": "出所を確認したい低スコアの issue",
+        "noScore": "スコアなし — 背景の確認が必要"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "再採点を依頼する",
+        "body": "自動再試行の後は、作成者またはリポジトリ管理者が issue に @ghfind-review とコメントすると再採点されます。"
+      },
+      "privacy": {
+        "heading": "扱うデータ",
+        "body": "ソースコードも issue 本文も読みません。保持するのはインストール、リポジトリ、issue 番号、スコア、ジョブ状態だけで、完了したジョブは30日後に削除されます。公開メールのある作成者には72時間に最大1通のスコアメールが届き、ワンクリックで配信停止できます。",
+        "link": "プライバシー"
+      },
+      "stop": {
+        "heading": "いつでも停止",
+        "body": "GitHub の設定からリポジトリを外す、一時停止する、またはアンインストールできます。既存のラベルは残ります。"
+      }
+    },
+    "disclaimer": "スコアは作成者の公開 GitHub プロフィールを反映したもので、今回の投稿の質を示すものではありません。新しいコントリビューターは公開記録が少ないだけかもしれません。",
+    "source": "ソースコードとセルフホストガイド"
   }
 }

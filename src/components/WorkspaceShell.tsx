@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight, BookOpen, BriefcaseBusiness, ChevronRight, Code2, FileUser, FolderOpen, HandHeart, Menu, PanelLeftClose, PanelLeftOpen, Trophy, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, ChevronRight, Code2, FileUser, FolderOpen, HandHeart, Menu, PanelLeftClose, PanelLeftOpen, Trophy, X } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
 import { BrandMark } from "./BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
@@ -73,6 +73,12 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
           <Link href="/resume" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/resume") ? "page" : undefined} aria-label={t("resume")} title={t("resume")}><FileUser size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("resume")}</span><span className="sidebar-soon sidebar-label">{t("preview")}</span></Link>
           <Link href="/talent" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/talent") ? "page" : undefined} aria-label={t("talent")} title={t("talent")}>
             <BriefcaseBusiness size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("talent")}</span><span className="sidebar-soon sidebar-label">{t("preview")}</span>
+          </Link>
+        </div>
+        <div className="sidebar-group">
+          <p className="sidebar-group-label">{t("integrations")}</p>
+          <Link href="/github-bot" prefetch={false} onClick={() => setOpen(false)} className="sidebar-link" aria-current={active("/github-bot") ? "page" : undefined} aria-label={t("githubBot")} title={t("githubBot")}>
+            <Bot size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("githubBot")}</span>{active("/github-bot") && <span className="sidebar-active-dot" aria-hidden />}
           </Link>
         </div>
       </nav>

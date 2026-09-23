@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "Sponsor"
+    "sponsor": "Sponsor",
+    "integrations": "Integrations",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "Cloud runtime for coding agents"
     },
     "slotOpen": "Your logo here"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App that labels issues and PRs by author score",
+    "metaDescription": "Install the ghfind Review GitHub App to add a colour-coded review label to every new issue and pull request, based on the author's public ghfind score.",
+    "topline": {
+      "section": "Integrations",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Free",
+      "title": "Triage issues and PRs by who opened them",
+      "subtitle": "ghfind Review adds a colour-coded review: label to every new issue and pull request, based on the author's public ghfind score. No workflow, no token, no secret to configure.",
+      "install": "Install on GitHub",
+      "status": "Open status page",
+      "note": "Runs as ghfind-review[bot]. It only adds labels — it never comments on, closes or blocks a submission."
+    },
+    "preview": {
+      "label": "Example issue list with review labels",
+      "heading": "Issues",
+      "items": {
+        "top": "Crash when parsing nested config",
+        "medium": "Add dark mode to settings",
+        "noScore": "Typo in README"
+      }
+    },
+    "labels": {
+      "heading": "Five labels, one glance",
+      "lead": "Missing labels are created on install. Colours or descriptions you have customised are kept.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Little public signal. Verify the source first."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "A typical contributor profile."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Strong public profile signals."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Top of the ghfind index."
+        },
+        "noScore": {
+          "range": "No score",
+          "desc": "Score unavailable — not zero. Retried after 20 and 60 minutes."
+        }
+      }
+    },
+    "steps": {
+      "heading": "How it works",
+      "items": {
+        "install": {
+          "title": "Install on selected repositories",
+          "body": "Grant Issues and Pull requests read & write. Choose Only select repositories to start small; org repos may need owner approval."
+        },
+        "open": {
+          "title": "Someone opens an issue or PR",
+          "body": "The bot looks up the author's public ghfind score in the background. The issue body is never read or scored."
+        },
+        "label": {
+          "title": "A review: label appears",
+          "body": "On install, the first pages of open issues and PRs are labelled too. Edits and reopens are not rescored."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Turn score ranges into review queues",
+      "lead": "Paste a filter into your repository's issue search and start with the queue that fits your time.",
+      "items": {
+        "high": "High-score issues",
+        "top": "Top-score issues",
+        "low": "Low-score issues to verify",
+        "noScore": "No score — needs context"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Asking for a rescore",
+        "body": "After the automatic retries, the author or a repository admin can comment @ghfind-review on the issue to score it again."
+      },
+      "privacy": {
+        "heading": "What it touches",
+        "body": "No source files, no issue bodies. It keeps only the installation, repository, issue number, score and job state; finished jobs are purged after 30 days. Authors with a public email may get one score email per 72 hours, with one-click unsubscribe.",
+        "link": "Privacy notice"
+      },
+      "stop": {
+        "heading": "Stop anytime",
+        "body": "Remove repositories, suspend or uninstall the app from your GitHub settings. Existing labels stay where they are."
+      }
+    },
+    "disclaimer": "The score reflects the author's public GitHub profile, not the quality of this contribution. New contributors may simply have a short public record.",
+    "source": "Source code and self-hosting guide"
   }
 }
