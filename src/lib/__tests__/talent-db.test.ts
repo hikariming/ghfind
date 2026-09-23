@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 const client = vi.hoisted(() => ({ batch: vi.fn(), execute: vi.fn(), close: vi.fn() }));
 vi.mock("@libsql/client/web", () => ({ createClient: () => client }));
 vi.mock("@/lib/d1-client", () => ({ getD1Binding: () => null }));
-import { createPendingTalent, listPublishedTalents, resetTalentDbForTests } from "../talent-db";
+import { createPendingTalent, listPublishedTalents, listTalentsPage, resetTalentDbForTests } from "../talent-db";
 
 afterEach(() => {
   resetTalentDbForTests();
@@ -122,6 +122,39 @@ it("stores intake submissions as pending without leaking non-public fields", asy
   expect(insert.args[1]).toBe("Alias");
   expect(JSON.stringify(insert.args)).toContain("hello@example.com");
   expect(JSON.stringify(insert.args)).not.toContain("projectDescription");
+});
+
+function mockSchema() {
+  for (let i = 0; i < 5; i++) client.execute.mockResolvedValueOnce({ rows: [] });
+}
+
+it("parses field-prefixed query tokens into targeted LIKE clauses", async () => {
+  vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  mockSchema();
+  client.execute.mockResolvedValueOnce({ rows: [{ n: 1 }] }); // count
+  client.execute.mockResolvedValueOnce({ rows: [{ ...publishedRow, ghfind_score: null }] });
+  await listTalentsPage({ query: "技能:Rust 地点:上海 前端" });
+  const selectCall = client.execute.mock.calls[6][0];
+  expect(selectCall.sql).toContain("t.skills_json LIKE ?");
+  expect(selectCall.sql).toContain("t.location LIKE ?");
+  expect(selectCall.sql).toContain("t.name LIKE ?");
+  expect(JSON.stringify(selectCall.args)).toContain("%Rust%");
+  expect(JSON.stringify(selectCall.args)).toContain("%上海%");
+  expect(JSON.stringify(selectCall.args)).toContain("%前端%");
+});
+
+it("clamps out-of-range pages to the last page", async () => {
+  vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  mockSchema();
+  client.execute.mockResolvedValueOnce({ rows: [{ n: 30 }] }); // 2 pages at the default size
+  client.execute.mockResolvedValueOnce({ rows: [{ ...publishedRow, ghfind_score: null }] });
+  const result = await listTalentsPage({ page: 9 });
+  expect(result.page).toBe(1);
+  expect(result.pageSize).toBe(24);
+  expect(result.hasMore).toBe(false);
+  const selectCall = client.execute.mock.calls[6][0];
+  expect(selectCall.args[selectCall.args.length - 2]).toBe(24); // LIMIT
+  expect(selectCall.args[selectCall.args.length - 1]).toBe(24); // OFFSET = safePage * pageSize
 });
 
 it("rejects name-less intake submissions", async () => {

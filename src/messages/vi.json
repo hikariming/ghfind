@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "Tương tác",
+    "content": "Nội dung",
     "brand": "ghfind",
     "roast": "Cà khịa",
     "leaderboard": "Bảng xếp hạng",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "Tìm tên, username GitHub, công nghệ hoặc thành phố…",
       "aria": "Tìm nhân tài",
-      "clear": "Xóa tìm kiếm"
+      "clear": "Xóa tìm kiếm",
+      "hint": "Mẹo: lọc theo trường — ví dụ skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Bộ lọc",
@@ -1057,8 +1060,13 @@
       "sortActivity": "Ưu tiên đóng góp tích cực",
       "gridView": "Dạng thẻ",
       "listView": "Dạng danh sách",
-    "loadMore": "Tải thêm",
-    "loading": "Đang tải…"
+      "perPageAria": "Số kết quả mỗi trang",
+      "perPageOption": "{count} / trang",
+      "pagesAria": "Phân trang",
+      "prevPage": "Trang trước",
+      "nextPage": "Trang sau",
+      "pageStatus": "Trang {page} / {pages}",
+      "loading": "Đang tải…"
     },
     "notice": {
       "submitted": "Đã nhận đề xuất cho {name}. Chỉ giữ các trường công khai, hiển thị sau khi duyệt.",

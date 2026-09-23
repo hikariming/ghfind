@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "交流",
+    "content": "コンテンツ",
     "brand": "ghfind",
     "roast": "ロースト",
     "leaderboard": "ランキング",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "名前・GitHub ID・技術スタック・都市で検索…",
       "aria": "人材を検索",
-      "clear": "検索をクリア"
+      "clear": "検索をクリア",
+      "hint": "フィールド検索も使えます（例：skill:Rust、location:Shanghai）"
     },
     "filters": {
       "toggle": "絞り込み",
@@ -1057,8 +1060,13 @@
       "sortActivity": "貢献アクティブ度優先",
       "gridView": "カード表示",
       "listView": "リスト表示",
-    "loadMore": "さらに読み込む",
-    "loading": "読み込み中…"
+      "perPageAria": "1ページの表示件数",
+      "perPageOption": "{count}件/ページ",
+      "pagesAria": "ページネーション",
+      "prevPage": "前のページ",
+      "nextPage": "次のページ",
+      "pageStatus": "{page} / {pages} ページ",
+      "loading": "読み込み中…"
     },
     "notice": {
       "submitted": "{name} さんの収録申請を受け付けました。公開項目のみ保持し、審査通過後に表示されます。",
@@ -1073,7 +1081,7 @@
       "score": "GHFind スコア",
       "pending": "情報準備中",
       "community": "オープンソースで活動中",
-      "yearlyContributions": "年間貢献",
+      "yearlyContributions": "貢献/年",
       "viewProfile": "プロフィールを見る"
     },
     "empty": {

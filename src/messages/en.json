@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "Playground",
+    "content": "Content",
     "brand": "ghfind",
     "roast": "Roast",
     "leaderboard": "Leaderboard",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "Search name, GitHub handle, stack, or city…",
       "aria": "Search talent",
-      "clear": "Clear search"
+      "clear": "Clear search",
+      "hint": "Tip: field filters work too — e.g. skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Filters",
@@ -1057,8 +1060,13 @@
       "sortActivity": "Most active contributors",
       "gridView": "Grid view",
       "listView": "List view",
-    "loadMore": "Load more",
-    "loading": "Loading…"
+      "perPageAria": "Results per page",
+      "perPageOption": "{count} / page",
+      "pagesAria": "Pagination",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "pageStatus": "Page {page} of {pages}",
+      "loading": "Loading…"
     },
     "notice": {
       "submitted": "Received your submission for {name}. Only public fields are kept, and the profile appears after review.",

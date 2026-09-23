@@ -25,9 +25,12 @@
   "observability": {
     "enabled": true
   },
+  // Top-level D1 uses remote bindings in local dev (`next dev` / `wrangler dev`)
+  // so local debugging reads the same data as the deployed dev worker; the
+  // legacy Turso fallback is gone. `remote` is dev-only and ignored on deploy.
   "d1_databases": [
-    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
-    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations", "remote": true },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed", "remote": true }
   ],
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }

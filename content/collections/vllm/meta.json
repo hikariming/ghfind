@@ -1,0 +1,28 @@
+{
+  "type": "projects",
+  "title": {
+    "zh": "vLLM：从伯克利实验室到全球AI推理基础设施的崛起之路",
+    "en": "vLLM: from a Berkeley lab to the world's AI inference infrastructure",
+    "ja": "vLLM：バークレーの研究室から世界のAI推論インフラへの台頭",
+    "ko": "vLLM: 버클리 연구실에서 글로벌 AI 추론 인프라로의 부상"
+  },
+  "intro": {
+    "zh": "从伯克利Sky Computing Lab的一个demo痛点出发，vLLM用PagedAttention把操作系统分页思想引入KV Cache管理，三年内成长为GitHub 9.24万星、2000+贡献者、被Amazon/Meta/Stripe等数千生产集群采用的推理引擎；2026年核心团队创立Inferact，以1.5亿美元种子轮创下AI Infra融资纪录。",
+    "en": "Born from a demo pain point at Berkeley's Sky Computing Lab, vLLM brought OS paging into KV-cache management with PagedAttention and grew in three years into a 92.4k-star inference engine with 2,000+ contributors, powering thousands of production clusters at Amazon, Meta, Stripe and more; in 2026 the core team founded Inferact with a record $150M seed round for AI infrastructure.",
+    "ja": "バークレーSky Computing Labでのデモの課題から生まれたvLLMは、PagedAttentionでOSのページング思想をKVキャッシュ管理に導入し、3年でGitHub 9.24万スター・2,000人以上の貢献者を持ち、Amazon、Meta、Stripeなど数千の本番クラスタに採用される推論エンジンへと成長。2026年にはコアチームがInferactを創業し、AIインフラ分野で記録的な1.5億ドルのシードラウンドを調達しました。",
+    "ko": "버클리 Sky Computing Lab의 데모 구축 과정에서 발견한 문제에서 출발한 vLLM은 PagedAttention으로 운영체제 페이징 개념을 KV 캐시 관리에 도입해 3년 만에 GitHub 9.24만 스타, 2,000명 이상의 기여자를 보유하고 Amazon, Meta, Stripe 등 수천 개 프로덕션 클러스터에서 쓰이는 추론 엔진으로 성장했습니다. 2026년 핵심 팀은 Inferact를 창업해 AI 인프라 분야 기록적인 1.5억 달러 시드 라운드를 유치했습니다."
+  },
+  "publishedAt": "2026-09-22",
+  "tags": ["project-story", "ai-infra", "llm-inference", "open-source"],
+  "subject": {
+    "kind": "repo",
+    "id": "vllm-project/vllm",
+    "nickname": "vLLM",
+    "headline": {
+      "zh": "高吞吐、内存高效的 LLM 推理与服务引擎 · PagedAttention 提出者",
+      "en": "High-throughput, memory-efficient LLM inference and serving engine · creators of PagedAttention",
+      "ja": "高スループット・メモリ効率の高いLLM推論・サービングエンジン · PagedAttentionの提唱者",
+      "ko": "고처리량·고메모리 효율 LLM 추론 및 서빙 엔진 · PagedAttention 제안 팀"
+    }
+  }
+}

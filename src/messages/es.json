@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "Interacción",
+    "content": "Contenido",
     "brand": "ghfind",
     "roast": "Roast",
     "leaderboard": "Ranking",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "Busca nombre, usuario de GitHub, stack o ciudad…",
       "aria": "Buscar talento",
-      "clear": "Limpiar búsqueda"
+      "clear": "Limpiar búsqueda",
+      "hint": "Consejo: filtros por campo — ej. skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Filtros",
@@ -1057,8 +1060,13 @@
       "sortActivity": "Mayor actividad de contribución",
       "gridView": "Vista de tarjetas",
       "listView": "Vista de lista",
-    "loadMore": "Cargar más",
-    "loading": "Cargando…"
+      "perPageAria": "Resultados por página",
+      "perPageOption": "{count} / página",
+      "pagesAria": "Paginación",
+      "prevPage": "Página anterior",
+      "nextPage": "Página siguiente",
+      "pageStatus": "Página {page} de {pages}",
+      "loading": "Cargando…"
     },
     "notice": {
       "submitted": "Recibimos tu propuesta para {name}. Solo se conservan los campos públicos y se mostrará tras la revisión.",

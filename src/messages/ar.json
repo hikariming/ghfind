@@ -8,6 +8,8 @@
     "siteName": "ghfind"
   },
   "nav": {
+    "interaction": "تفاعل",
+    "content": "المحتوى",
     "brand": "ghfind",
     "roast": "التحميص",
     "leaderboard": "لوحة الصدارة",
@@ -1034,7 +1036,8 @@
     "search": {
       "placeholder": "ابحث بالاسم أو اسم مستخدم GitHub أو التقنية أو المدينة…",
       "aria": "البحث في المواهب",
-      "clear": "مسح البحث"
+      "clear": "مسح البحث",
+      "hint": "تلميح: عوامل التصفية بالحقول تعمل أيضًا — مثل skill:Rust أو location:Shanghai"
     },
     "filters": {
       "toggle": "تصفية",
@@ -1057,8 +1060,13 @@
       "sortActivity": "الأنشط مساهمةً",
       "gridView": "عرض البطاقات",
       "listView": "عرض القائمة",
-    "loadMore": "تحميل المزيد",
-    "loading": "جارٍ التحميل…"
+      "perPageAria": "النتائج في كل صفحة",
+      "perPageOption": "{count} / صفحة",
+      "pagesAria": "ترقيم الصفحات",
+      "prevPage": "الصفحة السابقة",
+      "nextPage": "الصفحة التالية",
+      "pageStatus": "صفحة {page} من {pages}",
+      "loading": "جارٍ التحميل…"
     },
     "notice": {
       "submitted": "تم استلام طلب إضافة {name}. نحتفظ بالحقول العامة فقط ويظهر بعد المراجعة.",

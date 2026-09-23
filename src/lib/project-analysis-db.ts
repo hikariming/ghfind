@@ -324,6 +324,10 @@ function ensureSchema(db: Client): Promise<void> {
             }
           }
         }
+      }).catch((error) => {
+        // A transient upstream failure must not poison every later request.
+        schemaReady = null;
+        throw error;
       });
   }
   return schemaReady;
@@ -860,10 +864,38 @@ function treasureReason(analysis: ProjectAnalysisArtifact): string {
   return `${analysis.project.summary} 产品价值 ${analysis.scores.product_score}，${analysis.exposure.rationale}`;
 }
 
+// The local dev server talks to D1 through the remote-binding HTTP proxy,
+// where multi-MB responses can arrive truncated ("Failed to parse body as
+// JSON") or drop mid-flight ("Network connection lost"). Real Worker bindings
+// never fail this way, so only these transport-shaped errors are retried.
+function isTransientD1TransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Failed to parse body as JSON|Network connection lost|fetch failed/i.test(message);
+}
+
+async function executeReadWithRetry(db: Client, statement: { sql: string; args: InValue[] }): Promise<ResultSet> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await db.execute(statement);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientD1TransportError(error) || attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function reconcileStoredProjectEligibility(db: Client): Promise<void> {
   const [assessmentRows, removedRows] = await Promise.all([
-    db.execute({
-      sql: `${ASSESSMENT_SELECT}
+    executeReadWithRetry(db, {
+      // report_markdown is intentionally not selected: it is unused here and
+      // roughly doubles the payload, which breaks remote D1 bindings in local
+      // dev (multi-MB responses arrive truncated and fail JSON parsing).
+      sql: `SELECT pa.*, pr.analysis_json
+            FROM project_assessments AS pa
+            JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id
             ORDER BY pa.updated_at ASC`,
       args: [],
     }),
