@@ -311,8 +311,8 @@ of when maintainers will respond. Missing statistics are omitted. Pull requests 
 not send this mail.
 
 Delivery uses an independent D1 outbox. One person receives at most one score email
-every 48 hours, across repositories. Extra messages created during that quiet period
-are cancelled; they are not held until the 48 hours end. The next labeled issue can
+every 72 hours, across repositories. Extra messages created during that quiet period
+are cancelled; they are not held until the 72 hours end. The next labeled issue can
 send one more email after the quiet period. The global cap is 100 emails per UTC day.
 Email failures do not roll back labels. Ambiguous sends are marked `uncertain`
 and are not automatically resent, avoiding duplicate mail at the cost of possible missed

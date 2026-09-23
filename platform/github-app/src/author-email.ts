@@ -162,7 +162,7 @@ export function authorEmail(
           : "站内排名数据暂不可用。",
         `查看贡献背景与评分细节：${profile}`,
         "分数来自公开 GitHub 记录，不是对本次提交内容的评价。站内评分排名不是这个仓库的 PR 审查顺序，也不能预测 review 等待时间。",
-        "你在安装了 ghfind Review 的仓库提交了 issue 或 PR，因此收到本次评分通知。收件地址来自你的 GitHub 公开邮箱或你主动授权的邮箱；每 48 小时最多一封，跨仓库也只算一封。不希望继续接收，请退订。",
+        "你在安装了 ghfind Review 的仓库提交了 issue 或 PR，因此收到本次评分通知。收件地址来自你的 GitHub 公开邮箱或你主动授权的邮箱；每 72 小时最多一封，跨仓库也只算一封。不希望继续接收，请退订。",
         `退订：${unsubscribe}`,
       ]
     : [
@@ -174,7 +174,7 @@ export function authorEmail(
           : "Site ranking data is currently unavailable.",
         `Explore your contribution background and score: ${profile}`,
         "This score reflects public GitHub history, not this submission's quality. Site score rank is not the repository's PR review order and cannot predict review waiting time.",
-        "You received this score notification because you opened an issue or PR in a repository using ghfind Review. We used your public GitHub email or an address you explicitly authorized. At most one email per 48 hours across repositories; unsubscribe below to stop future notifications.",
+        "You received this score notification because you opened an issue or PR in a repository using ghfind Review. We used your public GitHub email or an address you explicitly authorized. At most one email per 72 hours across repositories; unsubscribe below to stop future notifications.",
         `Unsubscribe: ${unsubscribe}`,
       ];
   return {
@@ -211,7 +211,7 @@ export async function enqueueAuthorEmail(
     )
     .run();
 }
-const EMAIL_QUIET_MS = 48 * 60 * 60 * 1000;
+const EMAIL_QUIET_MS = 72 * 60 * 60 * 1000;
 export async function sendAuthorEmails(env: Env) {
   if (env.EMAIL_ENABLED !== "true" || env.ENABLED !== "true") return;
   await env.DB.prepare("DELETE FROM author_emails WHERE created<?")
