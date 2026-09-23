@@ -4,7 +4,10 @@ export async function register(): Promise<void> {
   // use remote mode and take seconds to connect, and the data layer's Turso
   // fallback is decommissioned — serving requests before this resolves sends
   // them to a dead database. (next.config.ts cannot await; it is require()d.)
-  if (process.env.NODE_ENV === "development" && process.env.NEXT_RUNTIME === "nodejs") {
+  // CI (including the local Feed E2E harness, which always sets CI=true) has no
+  // Cloudflare credentials and wires its own Miniflare bindings, so remote
+  // bindings would block startup until the harness deadline.
+  if (process.env.NODE_ENV === "development" && process.env.NEXT_RUNTIME === "nodejs" && !process.env.CI) {
     const { initOpenNextCloudflareForDev } = await import("@opennextjs/cloudflare");
     await initOpenNextCloudflareForDev();
   }
