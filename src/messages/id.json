@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "Sponsori"
+    "sponsor": "Sponsori",
+    "integrations": "Integrasi",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "Runtime cloud untuk coding agent"
     },
     "slotOpen": "Slot tersedia"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App yang melabeli issue dan PR berdasarkan skor penulis",
+    "metaDescription": "Pasang GitHub App ghfind Review untuk menambahkan label berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya.",
+    "topline": {
+      "section": "Integrasi",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Gratis",
+      "title": "Pilah issue dan PR berdasarkan siapa pembuatnya",
+      "subtitle": "ghfind Review menambahkan label review: berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya. Tanpa workflow, token, atau secret yang perlu diatur.",
+      "install": "Pasang di GitHub",
+      "status": "Buka halaman status",
+      "note": "Berjalan sebagai ghfind-review[bot]. Hanya menambahkan label — tidak pernah berkomentar, menutup, atau memblokir kiriman."
+    },
+    "preview": {
+      "label": "Contoh daftar issue dengan label review",
+      "heading": "Issues",
+      "items": {
+        "top": "Crash saat mengurai konfigurasi bertingkat",
+        "medium": "Tambah mode gelap di pengaturan",
+        "noScore": "Salah ketik di README"
+      }
+    },
+    "labels": {
+      "heading": "Lima label, sekali lihat",
+      "lead": "Label yang belum ada dibuat saat pemasangan. Warna atau deskripsi yang sudah Anda ubah tetap dipertahankan.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Sinyal publik minim. Periksa sumbernya dulu."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Profil kontributor pada umumnya."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Sinyal profil publik yang kuat."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Teratas di indeks ghfind."
+        },
+        "noScore": {
+          "range": "Tanpa skor",
+          "desc": "Skor tidak tersedia, bukan nol. Dicoba lagi setelah 20 dan 60 menit."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cara kerja",
+      "items": {
+        "install": {
+          "title": "Pasang di repositori pilihan",
+          "body": "Beri izin baca & tulis untuk Issues dan Pull requests. Pilih Only select repositories untuk mulai kecil; repo organisasi mungkin perlu persetujuan owner."
+        },
+        "open": {
+          "title": "Seseorang membuka issue atau PR",
+          "body": "Bot mencari skor ghfind publik penulis di latar belakang. Isi issue tidak pernah dibaca atau dinilai."
+        },
+        "label": {
+          "title": "Label review: muncul",
+          "body": "Saat dipasang, halaman awal issue dan PR yang masih terbuka juga diberi label. Edit atau buka ulang tidak dinilai ulang."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Ubah rentang skor menjadi antrean review",
+      "lead": "Tempel filter ke pencarian issue repositori Anda dan mulai dari antrean yang sesuai waktu Anda.",
+      "items": {
+        "high": "Issue skor tinggi",
+        "top": "Issue skor teratas",
+        "low": "Issue skor rendah untuk diverifikasi",
+        "noScore": "Tanpa skor — perlu konteks"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Minta penilaian ulang",
+        "body": "Setelah percobaan ulang otomatis, penulis atau admin repositori dapat berkomentar @ghfind-review di issue untuk menilai ulang."
+      },
+      "privacy": {
+        "heading": "Data yang disentuh",
+        "body": "Tidak membaca kode sumber maupun isi issue. Hanya menyimpan instalasi, repositori, nomor issue, skor, dan status job; job selesai dihapus setelah 30 hari. Penulis dengan email publik bisa menerima paling banyak satu email skor per 72 jam, dengan berhenti langganan sekali klik.",
+        "link": "Pemberitahuan privasi"
+      },
+      "stop": {
+        "heading": "Berhenti kapan saja",
+        "body": "Hapus repositori, tangguhkan, atau copot app dari pengaturan GitHub. Label yang sudah ada tetap tersimpan."
+      }
+    },
+    "disclaimer": "Skor mencerminkan profil GitHub publik penulis, bukan kualitas kontribusi ini. Kontributor baru mungkin hanya punya sedikit jejak publik.",
+    "source": "Kode sumber dan panduan self-hosting"
   }
 }

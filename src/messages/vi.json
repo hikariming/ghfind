@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "Tài trợ"
+    "sponsor": "Tài trợ",
+    "integrations": "Tích hợp",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "Runtime đám mây cho coding agent"
     },
     "slotOpen": "Còn trống"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App gắn nhãn issue và PR theo điểm của tác giả",
+    "metaDescription": "Cài GitHub App ghfind Review để gắn nhãn màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả.",
+    "topline": {
+      "section": "Tích hợp",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Miễn phí",
+      "title": "Phân loại issue và PR theo người tạo",
+      "subtitle": "ghfind Review gắn nhãn review: có màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả. Không cần workflow, token hay secret.",
+      "install": "Cài trên GitHub",
+      "status": "Mở trang trạng thái",
+      "note": "Chạy dưới tên ghfind-review[bot]. Chỉ gắn nhãn — không bình luận, đóng hay chặn bất kỳ đóng góp nào."
+    },
+    "preview": {
+      "label": "Ví dụ danh sách issue có nhãn review",
+      "heading": "Issues",
+      "items": {
+        "top": "Lỗi khi phân tích cấu hình lồng nhau",
+        "medium": "Thêm chế độ tối cho phần cài đặt",
+        "noScore": "Lỗi chính tả trong README"
+      }
+    },
+    "labels": {
+      "heading": "Năm nhãn, nhìn là biết",
+      "lead": "Nhãn còn thiếu sẽ được tạo khi cài. Màu hoặc mô tả bạn đã tùy chỉnh được giữ nguyên.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Ít tín hiệu công khai. Nên xác minh nguồn trước."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Hồ sơ người đóng góp thông thường."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Tín hiệu hồ sơ công khai mạnh."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Nhóm dẫn đầu chỉ số ghfind."
+        },
+        "noScore": {
+          "range": "Không có điểm",
+          "desc": "Chưa lấy được điểm, không phải 0 điểm. Tự thử lại sau 20 và 60 phút."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cách hoạt động",
+      "items": {
+        "install": {
+          "title": "Cài vào các repo đã chọn",
+          "body": "Cấp quyền đọc & ghi cho Issues và Pull requests. Chọn Only select repositories để thử quy mô nhỏ; repo tổ chức có thể cần owner phê duyệt."
+        },
+        "open": {
+          "title": "Có người mở issue hoặc PR",
+          "body": "Bot tra cứu điểm ghfind công khai của tác giả ở chế độ nền. Nội dung issue không bao giờ được đọc hay chấm điểm."
+        },
+        "label": {
+          "title": "Nhãn review: xuất hiện",
+          "body": "Khi cài, các trang đầu của issue và PR đang mở cũng được gắn nhãn. Sửa hoặc mở lại sẽ không chấm lại."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Biến khoảng điểm thành hàng đợi review",
+      "lead": "Dán bộ lọc vào ô tìm kiếm issue của repo và bắt đầu với hàng đợi phù hợp với thời gian của bạn.",
+      "items": {
+        "high": "Issue điểm cao",
+        "top": "Issue điểm cao nhất",
+        "low": "Issue điểm thấp cần xác minh",
+        "noScore": "Không có điểm — cần thêm bối cảnh"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Yêu cầu chấm lại",
+        "body": "Sau các lần thử lại tự động, tác giả hoặc quản trị viên repo có thể bình luận @ghfind-review trong issue để chấm lại."
+      },
+      "privacy": {
+        "heading": "Dữ liệu được dùng",
+        "body": "Không đọc mã nguồn hay nội dung issue. Chỉ lưu bản cài đặt, repo, số issue, điểm và trạng thái tác vụ; tác vụ đã xong bị xóa sau 30 ngày. Tác giả có email công khai nhận tối đa một email điểm mỗi 72 giờ, hủy đăng ký chỉ với một cú nhấp.",
+        "link": "Thông báo quyền riêng tư"
+      },
+      "stop": {
+        "heading": "Dừng bất cứ lúc nào",
+        "body": "Gỡ repo, tạm dừng hoặc gỡ cài đặt app trong phần cài đặt GitHub. Các nhãn hiện có vẫn được giữ."
+      }
+    },
+    "disclaimer": "Điểm phản ánh hồ sơ GitHub công khai của tác giả, không phải chất lượng của đóng góp này. Người mới có thể chỉ đơn giản là có ít dấu vết công khai.",
+    "source": "Mã nguồn và hướng dẫn tự triển khai"
   }
 }

@@ -1002,7 +1002,9 @@
     "docs": "Help & documentation",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "후원하기"
+    "sponsor": "후원하기",
+    "integrations": "연동",
+    "githubBot": "GitHub Bot"
   },
   "talent": {
     "topline": {
@@ -1306,5 +1308,100 @@
       "mosoo": "코딩 에이전트용 클라우드 런타임"
     },
     "slotOpen": "자리 비어 있음"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — 작성자 점수로 issue와 PR에 라벨을 붙이는 GitHub App",
+    "metaDescription": "ghfind Review GitHub App을 설치하면 작성자의 공개 ghfind 점수를 기준으로 새 issue와 pull request에 색상별 라벨이 붙습니다.",
+    "topline": {
+      "section": "연동",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · 무료",
+      "title": "누가 올렸는지로 issue와 PR을 분류하세요",
+      "subtitle": "ghfind Review는 작성자의 공개 ghfind 점수를 바탕으로 새 issue와 pull request에 색상별 review: 라벨을 붙입니다. workflow, 토큰, secret 설정이 필요 없습니다.",
+      "install": "GitHub에서 설치",
+      "status": "상태 페이지 열기",
+      "note": "ghfind-review[bot]으로 동작합니다. 라벨만 붙이며 댓글, 닫기, 차단은 하지 않습니다."
+    },
+    "preview": {
+      "label": "review 라벨이 붙은 issue 목록 예시",
+      "heading": "Issues",
+      "items": {
+        "top": "중첩 설정 파싱 시 크래시",
+        "medium": "설정 화면에 다크 모드 추가",
+        "noScore": "README 오타"
+      }
+    },
+    "labels": {
+      "heading": "다섯 개 라벨로 한눈에",
+      "lead": "없는 라벨은 설치 시 자동으로 만들어집니다. 직접 바꾼 색상이나 설명은 유지됩니다.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "공개 신호가 적음. 출처를 먼저 확인하세요."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "일반적인 기여자 프로필."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "공개 프로필 신호가 강함."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "ghfind 지표 최상위권."
+        },
+        "noScore": {
+          "range": "점수 없음",
+          "desc": "점수를 가져오지 못했을 뿐 0점이 아닙니다. 20분, 60분 후 다시 시도합니다."
+        }
+      }
+    },
+    "steps": {
+      "heading": "작동 방식",
+      "items": {
+        "install": {
+          "title": "저장소를 골라 설치",
+          "body": "Issues와 Pull requests 읽기·쓰기 권한을 허용합니다. Only select repositories로 작게 시작하세요. 조직 저장소는 소유자 승인이 필요할 수 있습니다."
+        },
+        "open": {
+          "title": "누군가 issue나 PR을 엶",
+          "body": "bot이 백그라운드에서 작성자의 공개 ghfind 점수를 조회합니다. issue 본문은 읽거나 평가하지 않습니다."
+        },
+        "label": {
+          "title": "review: 라벨이 붙음",
+          "body": "설치 시 기존 Open issue와 PR의 앞쪽 페이지에도 라벨을 붙입니다. 수정이나 다시 열기로는 재채점하지 않습니다."
+        }
+      }
+    },
+    "queues": {
+      "heading": "점수 구간을 리뷰 큐로",
+      "lead": "필터를 저장소 issue 검색창에 붙여 넣고, 지금 여유에 맞는 큐부터 시작하세요.",
+      "items": {
+        "high": "고득점 issue",
+        "top": "최상위 점수 issue",
+        "low": "출처 확인이 필요한 저득점 issue",
+        "noScore": "점수 없음 — 맥락 확인 필요"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "재채점 요청",
+        "body": "자동 재시도 이후에는 작성자나 저장소 관리자가 issue에 @ghfind-review 댓글을 달면 다시 채점합니다."
+      },
+      "privacy": {
+        "heading": "다루는 데이터",
+        "body": "소스 코드와 issue 본문은 읽지 않습니다. 설치, 저장소, issue 번호, 점수, 작업 상태만 보관하며 완료된 작업은 30일 후 삭제됩니다. 공개 이메일이 있는 작성자는 72시간에 최대 한 통의 점수 메일을 받으며 한 번에 수신 거부할 수 있습니다.",
+        "link": "개인정보 안내"
+      },
+      "stop": {
+        "heading": "언제든 중지",
+        "body": "GitHub 설정에서 저장소를 빼거나, 일시 중지하거나, 앱을 삭제하세요. 기존 라벨은 그대로 남습니다."
+      }
+    },
+    "disclaimer": "점수는 작성자의 공개 GitHub 프로필을 반영할 뿐 이번 기여의 품질을 뜻하지 않습니다. 새 기여자는 공개 기록이 적을 수 있습니다.",
+    "source": "소스 코드와 셀프 호스팅 가이드"
   }
 }
