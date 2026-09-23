@@ -88,7 +88,7 @@
     "heading": "🏆 Salón de la Fama",
     "subtitle": "El Salón de la Fama lista cuentas con score de 60+, ordenado por Tendencia por defecto.",
     "judgeCta": "← Juzgar una cuenta",
-    "footerNote": "Solo se listan cuentas de score alto construidas con datos públicos de GitHub. Para salir del ranking, <a>solicita tu eliminación aquí</a>.",
+    "footerNote": "Solo se listan cuentas de score alto construidas con datos públicos de GitHub.",
     "loadError": "No pudimos cargar el ranking ahora mismo — inténtalo más tarde.",
     "loading": "Cargando el Salón de la Fama…",
     "empty": "🧮 Haciendo cuentas — vuelve pronto…",
@@ -563,10 +563,6 @@
       {
         "q": "¿Se cuenta mi trabajo privado?",
         "a": "No. Los scores usan solo señales públicas, así que las contribuciones en organizaciones privadas son invisibles para el motor. Un miembro activo de repos privados puede quedar subvalorado. Un score bajo no es una afirmación factual sobre una persona — describe la huella pública de una cuenta."
-      },
-      {
-        "q": "¿Cómo elimino mi perfil de ghfind?",
-        "a": "Solo se indexan y listan las cuentas con score de 60+. Para salir del ranking, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y el perfil será retirado."
       }
     ]
   },
@@ -735,10 +731,10 @@
   },
   "contact": {
     "metaTitle": "Contactar a ghfind",
-    "metaDescription": "Cómo contactar al equipo de ghfind: reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI y el servidor MCP.",
+    "metaDescription": "Cómo contactar al equipo de ghfind: reportar un problema o preguntar por la API, la CLI y el servidor MCP.",
     "heading": "Contacto",
     "paragraphs": [
-      "ghfind es un proyecto open source. La forma más rápida de contactar al equipo, reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI o el servidor MCP es abrir un issue en el repositorio público de GitHub. Los issues se leen y clasifican ahí, y mantener la conversación a la vista ayuda a otros usuarios con la misma duda.",
+      "ghfind es un proyecto open source. La forma más rápida de contactar al equipo, reportar un problema o preguntar por la API, la CLI o el servidor MCP es abrir un issue en el repositorio público de GitHub. Los issues se leen y clasifican ahí, y mantener la conversación a la vista ayuda a otros usuarios con la misma duda.",
       "Para preguntas de integración, el contrato de la API legible por máquina vive en /openapi.json, el índice de documentación para agentes en /llms.txt y la guía de autenticación en /auth.md. Si necesitas un límite de tasa elevado para escaneos servidor a servidor de alto volumen, menciona tu caso de uso en un issue de GitHub."
     ],
     "issuesLabel": "Abrir un issue en GitHub",
@@ -752,7 +748,7 @@
   },
   "privacy": {
     "metaTitle": "Privacidad — ghfind",
-    "metaDescription": "Cómo maneja los datos ghfind: evalúa solo datos públicos de GitHub, no vende datos personales y respeta las solicitudes de eliminación de perfiles indexados.",
+    "metaDescription": "Cómo maneja los datos ghfind: evalúa solo datos públicos de GitHub y no vende datos personales.",
     "heading": "Privacidad",
     "sections": [
       {
@@ -766,10 +762,6 @@
       {
         "h": "Roasts con tu propia key",
         "p": "La función opcional de roast puede usar la key de tu propio proveedor de modelos. Cuando la proporcionas, se queda en tu navegador y pasa una sola vez por nuestro servidor para llamar al modelo — nunca se guarda ni se registra, y se descarta cuando la solicitud termina."
-      },
-      {
-        "h": "Eliminación y control",
-        "p": "Si quieres que tu perfil sea retirado, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y lo quitaremos del ranking y del índice. Como ghfind solo refleja datos públicos de GitHub, actualizar tu actividad de GitHub o hacerla privada también cambiará o eliminará lo que ghfind pueda ver en el siguiente escaneo."
       }
     ]
   },

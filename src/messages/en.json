@@ -88,7 +88,7 @@
     "heading": "🏆 Hall of Fame",
     "subtitle": "The Hall of Fame lists accounts scoring 60+, defaulting to Trending.",
     "judgeCta": "← Judge an account",
-    "footerNote": "Only high-scoring accounts built from public GitHub data are listed. To remove yourself from the board, <a>request removal here</a>.",
+    "footerNote": "Only high-scoring accounts built from public GitHub data are listed.",
     "loadError": "Couldn't load the board right now — try again later.",
     "loading": "Loading the Hall of Fame…",
     "empty": "🧮 Crunching the numbers — check back soon…",
@@ -563,10 +563,6 @@
       {
         "q": "Is my private work counted?",
         "a": "No. Scores use public signals only, so private-organization contributions are invisible to the engine. An active member of private repos may be underrated. A low score is not a factual claim about a person — it describes an account's public footprint."
-      },
-      {
-        "q": "How do I remove my profile from ghfind?",
-        "a": "Only accounts scoring 60+ are indexed and listed. To be removed from the board, use the removal link on the leaderboard footer or open an issue on the GitHub repository, and the profile will be delisted."
       }
     ]
   },
@@ -735,10 +731,10 @@
   },
   "contact": {
     "metaTitle": "Contact ghfind",
-    "metaDescription": "How to reach the ghfind team: report an issue, request removal from the leaderboard, or ask about the API, CLI, and MCP server.",
+    "metaDescription": "How to reach the ghfind team: report an issue, or ask about the API, CLI, and MCP server.",
     "heading": "Contact",
     "paragraphs": [
-      "ghfind is an open-source project. The fastest way to reach the team, report a problem, request removal from the leaderboard, or ask about the API, CLI, or MCP server is to open an issue on the public GitHub repository. Issues are read and triaged there, and keeping the conversation in the open helps other users who hit the same question.",
+      "ghfind is an open-source project. The fastest way to reach the team, report a problem, or ask about the API, CLI, or MCP server is to open an issue on the public GitHub repository. Issues are read and triaged there, and keeping the conversation in the open helps other users who hit the same question.",
       "For integration questions, the machine-readable API contract lives at /openapi.json, the agent-facing documentation index at /llms.txt, and the authentication walkthrough at /auth.md. If you need an elevated rate limit for high-volume server-to-server scanning, mention your use case in a GitHub issue."
     ],
     "issuesLabel": "Open an issue on GitHub",
@@ -752,7 +748,7 @@
   },
   "privacy": {
     "metaTitle": "Privacy — ghfind",
-    "metaDescription": "How ghfind handles data: it scores only public GitHub data, does not sell personal data, and honors removal requests for indexed profiles.",
+    "metaDescription": "How ghfind handles data: it scores only public GitHub data and does not sell personal data.",
     "heading": "Privacy",
     "sections": [
       {
@@ -766,10 +762,6 @@
       {
         "h": "Bring-your-own-key roasts",
         "p": "The optional roast feature can use your own model provider key. When you supply one, it stays in your browser and is relayed once through our server to call the model — it is never stored and never logged, and is discarded after the request completes."
-      },
-      {
-        "h": "Removal and control",
-        "p": "If you would like your profile delisted, use the removal link on the leaderboard footer or open an issue on the GitHub repository, and we will remove it from the board and index. Because ghfind only reflects public GitHub data, updating or making your GitHub activity private will also change or remove what ghfind can see on the next scan."
       }
     ]
   },
