@@ -1008,7 +1008,8 @@
     "navigation": "主导航",
     "docs": "帮助与文档",
     "skip": "跳到内容",
-    "edition": "开放社区"
+    "edition": "开放社区",
+    "sponsor": "赞助本站"
   },
   "talent": {
     "topline": {
@@ -1226,5 +1227,92 @@
       "confirmSubmit": "确认提交收录",
       "next": "下一步"
     }
+  },
+  "sponsor": {
+    "metaTitle": "赞助 ghfind · 赞助方案与权益",
+    "metaDescription": "赞助 ghfind：顶级赞助商、模型赞助商、头部赞助商与友情赞助商方案，按月计费。赞助不影响任何排名与打分。",
+    "topline": {
+      "section": "帮助与文档",
+      "current": "赞助本站"
+    },
+    "hero": {
+      "titleLead": "让 ghfind",
+      "titleAccent": "一直锐评下去。",
+      "subtitle": "ghfind 是一个开放的社区项目，模型调用、服务器和数据抓取都需要真金白银。你的赞助会让它保持免费、独立、持续更新。以下价格均为美元 / 月，目前限时优惠中。"
+    },
+    "perMonth": "/ 月",
+    "listPrice": "原价 {price}",
+    "off": "立省 {off}%",
+    "soldOut": "已售罄",
+    "available": "可预订",
+    "soon": "开发中",
+    "currentHolder": "当前赞助商",
+    "cta": "联系赞助",
+    "ctaSoldOut": "已售罄 · 敬请期待",
+    "tiers": {
+      "title": {
+        "name": "顶级赞助商",
+        "summary": "全站最醒目的赞助位，品牌跟随每一张分享出去的炫耀卡。",
+        "perks": [
+          {
+            "text": "全站顶部导航赞助位展示（Logo + 名称 + 标语）"
+          },
+          {
+            "text": "对外炫耀卡署名，附带顶级赞助商 Logo"
+          }
+        ]
+      },
+      "model": {
+        "name": "模型赞助商",
+        "summary": "为锐评提供模型能力，在每一次生成时被看见。",
+        "perks": [
+          {
+            "text": "锐评生成时展示模型赞助商署名"
+          },
+          {
+            "text": "首页展示赞助商信息与 Logo"
+          }
+        ]
+      },
+      "featured": {
+        "name": "头部赞助商",
+        "summary": "在首页和开发者详情页获得稳定曝光。",
+        "perks": [
+          {
+            "text": "首页赞助位展示"
+          },
+          {
+            "text": "详情页随机展示",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "友情赞助商",
+        "summary": "以朋友的身份支持 ghfind，我们会把你记在这里。",
+        "perks": [
+          {
+            "text": "在赞助页致谢并提供外链"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "友情赞助商",
+      "lead": "感谢每一位支持 ghfind 的朋友，以下链接按赞助时间排列。",
+      "empty": "虚位以待 — 成为第一位友情赞助商 →"
+    },
+    "fairness": {
+      "heading": "赞助不影响任何排名与打分",
+      "body": "所有赞助仅提供展示位与致谢，不会、也不能影响任何开发者或项目的排名、评分与锐评内容。评分完全由公开的方法与数据决定，对所有人一视同仁，以保障公平。"
+    },
+    "contactLead": "赞助合作、发票或其他问题，请联系",
+    "rowLabel": "赞助商",
+    "rowCaption": "感谢这些伙伴对 ghfind 的支持",
+    "holders": {
+      "dsh": "一次连接，随时远程使用 Harness",
+      "mosoo": "开源 Coding Agent 运行时"
+    },
+    "slotOpen": "虚位以待"
   }
 }

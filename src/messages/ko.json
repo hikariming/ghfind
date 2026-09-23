@@ -1001,7 +1001,8 @@
     "navigation": "Main navigation",
     "docs": "Help & documentation",
     "skip": "Skip to content",
-    "edition": "Public workspace"
+    "edition": "Public workspace",
+    "sponsor": "후원하기"
   },
   "talent": {
     "topline": {
@@ -1219,5 +1220,92 @@
       "confirmSubmit": "등록 확정 제출",
       "next": "다음"
     }
+  },
+  "sponsor": {
+    "metaTitle": "ghfind 후원 · 플랜과 혜택",
+    "metaDescription": "ghfind 후원: 타이틀·모델·피처드·프렌드 후원 플랜(월 단위). 후원은 어떤 순위나 점수에도 영향을 주지 않습니다.",
+    "topline": {
+      "section": "도움말 및 문서",
+      "current": "후원하기"
+    },
+    "hero": {
+      "titleLead": "ghfind 가 계속",
+      "titleAccent": "독설할 수 있도록.",
+      "subtitle": "ghfind 는 오픈 커뮤니티 프로젝트이며 모델 호출, 서버, 데이터 수집에는 실제 비용이 듭니다. 여러분의 후원으로 무료·독립·지속적인 업데이트를 유지합니다. 모든 가격은 미국 달러/월 기준이며 현재 한정 기간 할인 중입니다."
+    },
+    "perMonth": "/ 월",
+    "listPrice": "정가 {price}",
+    "off": "{off}% 할인",
+    "soldOut": "매진",
+    "available": "신청 가능",
+    "soon": "개발 중",
+    "currentHolder": "현재 후원사",
+    "cta": "후원 문의하기",
+    "ctaSoldOut": "매진 · 다음 기회를 기다려 주세요",
+    "tiers": {
+      "title": {
+        "name": "타이틀 후원사",
+        "summary": "사이트에서 가장 눈에 띄는 자리. 공유되는 모든 자랑 카드에 브랜드가 함께합니다.",
+        "perks": [
+          {
+            "text": "모든 페이지 상단 내비게이션에 후원 영역 노출(로고 + 이름 + 태그라인)"
+          },
+          {
+            "text": "공유용 자랑 카드에 로고와 함께 크레딧 표시"
+          }
+        ]
+      },
+      "model": {
+        "name": "모델 후원사",
+        "summary": "독설 평가에 모델을 제공하고 생성될 때마다 노출됩니다.",
+        "perks": [
+          {
+            "text": "평가 생성 시 모델 후원사 크레딧 표시"
+          },
+          {
+            "text": "홈페이지에 후원사 정보와 로고 노출"
+          }
+        ]
+      },
+      "featured": {
+        "name": "피처드 후원사",
+        "summary": "홈페이지와 개발자 상세 페이지에서 꾸준한 노출.",
+        "perks": [
+          {
+            "text": "홈페이지 후원 영역 노출"
+          },
+          {
+            "text": "상세 페이지 랜덤 노출",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "프렌드 후원사",
+        "summary": "친구로서 ghfind 를 응원해 주세요. 이곳에 기록해 두겠습니다.",
+        "perks": [
+          {
+            "text": "이 페이지에서 감사 인사와 외부 링크 제공"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "프렌드 후원사",
+      "lead": "ghfind 를 응원해 주시는 모든 분께 감사드립니다. 링크는 후원 순서대로 표시됩니다.",
+      "empty": "자리가 비어 있어요 — 첫 번째 프렌드 후원사가 되어 주세요 →"
+    },
+    "fairness": {
+      "heading": "후원은 순위와 점수에 영향을 주지 않습니다",
+      "body": "후원사에는 노출 영역과 감사 인사만 제공됩니다. 후원은 어떤 개발자나 프로젝트의 순위, 점수, 독설 평가에도 영향을 주지 않으며 줄 수도 없습니다. 점수는 공개된 방법론과 데이터로만 결정되며, 모두에게 같은 기준을 적용해 공정성을 지킵니다."
+    },
+    "contactLead": "후원, 인보이스 또는 기타 문의:",
+    "rowLabel": "후원사",
+    "rowCaption": "ghfind 를 후원하는 파트너",
+    "holders": {
+      "dsh": "한 번 연결로 언제든 원격 Harness",
+      "mosoo": "코딩 에이전트용 오픈소스 런타임"
+    },
+    "slotOpen": "자리 비어 있음"
   }
 }

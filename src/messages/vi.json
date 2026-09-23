@@ -1001,7 +1001,8 @@
     "navigation": "Main navigation",
     "docs": "Help & documentation",
     "skip": "Skip to content",
-    "edition": "Public workspace"
+    "edition": "Public workspace",
+    "sponsor": "Tài trợ"
   },
   "talent": {
     "topline": {
@@ -1219,5 +1220,92 @@
       "confirmSubmit": "Xác nhận gửi đăng ký",
       "next": "Tiếp theo"
     }
+  },
+  "sponsor": {
+    "metaTitle": "Tài trợ ghfind · Gói và quyền lợi",
+    "metaDescription": "Tài trợ ghfind: các gói Chính, Mô hình, Nổi bật và Bạn bè, tính theo tháng. Tài trợ không bao giờ ảnh hưởng đến xếp hạng hay điểm số.",
+    "topline": {
+      "section": "Trợ giúp & Tài liệu",
+      "current": "Tài trợ"
+    },
+    "hero": {
+      "titleLead": "Giúp ghfind",
+      "titleAccent": "tiếp tục nhận xét thẳng thắn.",
+      "subtitle": "ghfind là dự án cộng đồng mở, và việc gọi mô hình, máy chủ, thu thập dữ liệu đều tốn chi phí thật. Sự tài trợ của bạn giúp dự án luôn miễn phí, độc lập và được cập nhật. Tất cả giá tính bằng USD mỗi tháng, hiện đang giảm giá có thời hạn."
+    },
+    "perMonth": "/ tháng",
+    "listPrice": "Giá gốc {price}",
+    "off": "Tiết kiệm {off}%",
+    "soldOut": "Đã hết",
+    "available": "Còn chỗ",
+    "soon": "Đang phát triển",
+    "currentHolder": "Nhà tài trợ hiện tại",
+    "cta": "Liên hệ tài trợ",
+    "ctaSoldOut": "Đã hết · Hãy chờ đợt sau",
+    "tiers": {
+      "title": {
+        "name": "Nhà tài trợ chính",
+        "summary": "Vị trí nổi bật nhất trên trang — thương hiệu của bạn đi cùng mọi thẻ khoe được chia sẻ.",
+        "perks": [
+          {
+            "text": "Vị trí tài trợ trên thanh điều hướng đầu mọi trang (logo + tên + khẩu hiệu)"
+          },
+          {
+            "text": "Ghi danh kèm logo trên mọi thẻ khoe được chia sẻ"
+          }
+        ]
+      },
+      "model": {
+        "name": "Nhà tài trợ mô hình",
+        "summary": "Cung cấp mô hình cho các nhận xét và xuất hiện mỗi lần nhận xét được tạo.",
+        "perks": [
+          {
+            "text": "Hiển thị nhà tài trợ mô hình khi tạo nhận xét"
+          },
+          {
+            "text": "Thông tin và logo nhà tài trợ trên trang chủ"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Nhà tài trợ nổi bật",
+        "summary": "Hiển thị ổn định trên trang chủ và trang chi tiết nhà phát triển.",
+        "perks": [
+          {
+            "text": "Vị trí tài trợ trên trang chủ"
+          },
+          {
+            "text": "Hiển thị ngẫu nhiên trên trang chi tiết",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Nhà tài trợ bạn bè",
+        "summary": "Ủng hộ ghfind như một người bạn — chúng tôi sẽ ghi nhận bạn tại đây.",
+        "perks": [
+          {
+            "text": "Lời cảm ơn và liên kết ngoài trên trang này"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Nhà tài trợ bạn bè",
+      "lead": "Cảm ơn mọi người bạn đã ủng hộ ghfind. Liên kết được sắp xếp theo thứ tự tham gia.",
+      "empty": "Vị trí này đang trống — hãy là nhà tài trợ bạn bè đầu tiên →"
+    },
+    "fairness": {
+      "heading": "Tài trợ không ảnh hưởng đến xếp hạng hay điểm số",
+      "body": "Nhà tài trợ chỉ nhận vị trí hiển thị và lời cảm ơn. Tài trợ không và không thể ảnh hưởng đến xếp hạng, điểm số hay nhận xét của bất kỳ nhà phát triển hoặc dự án nào. Điểm số hoàn toàn do phương pháp đã công bố và dữ liệu quyết định, và mọi người đều được đối xử như nhau để đảm bảo công bằng."
+    },
+    "contactLead": "Về tài trợ, hóa đơn hoặc câu hỏi khác, hãy liên hệ",
+    "rowLabel": "Nhà tài trợ",
+    "rowCaption": "ghfind được hỗ trợ bởi các đối tác này",
+    "holders": {
+      "dsh": "Kết nối một lần, dùng Harness từ xa mọi lúc",
+      "mosoo": "Runtime mã nguồn mở cho coding agent"
+    },
+    "slotOpen": "Còn trống"
   }
 }

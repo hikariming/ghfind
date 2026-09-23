@@ -1001,7 +1001,8 @@
     "navigation": "Main navigation",
     "docs": "Help & documentation",
     "skip": "Skip to content",
-    "edition": "Public workspace"
+    "edition": "Public workspace",
+    "sponsor": "Sponsori"
   },
   "talent": {
     "topline": {
@@ -1219,5 +1220,92 @@
       "confirmSubmit": "Konfirmasi dan kirim",
       "next": "Lanjut"
     }
+  },
+  "sponsor": {
+    "metaTitle": "Sponsori ghfind · Paket & manfaat",
+    "metaDescription": "Sponsori ghfind: paket Utama, Model, Unggulan, dan Sahabat, ditagih bulanan. Sponsor tidak pernah memengaruhi peringkat atau skor apa pun.",
+    "topline": {
+      "section": "Bantuan & Dokumen",
+      "current": "Sponsori"
+    },
+    "hero": {
+      "titleLead": "Biarkan ghfind",
+      "titleAccent": "terus blak-blakan.",
+      "subtitle": "ghfind adalah proyek komunitas terbuka, dan pemanggilan model, server, serta pengambilan data butuh biaya nyata. Sponsor Anda menjaganya tetap gratis, independen, dan terus diperbarui. Semua harga dalam USD per bulan, saat ini sedang diskon terbatas."
+    },
+    "perMonth": "/ bulan",
+    "listPrice": "Harga normal {price}",
+    "off": "Hemat {off}%",
+    "soldOut": "Habis",
+    "available": "Tersedia",
+    "soon": "Dalam pengembangan",
+    "currentHolder": "Sponsor saat ini",
+    "cta": "Jadi sponsor",
+    "ctaSoldOut": "Habis · Nantikan",
+    "tiers": {
+      "title": {
+        "name": "Sponsor utama",
+        "summary": "Slot paling mencolok di situs — merek Anda ikut di setiap kartu pamer yang dibagikan.",
+        "perks": [
+          {
+            "text": "Slot sponsor di navigasi atas setiap halaman (logo + nama + tagline)"
+          },
+          {
+            "text": "Kredit dengan logo Anda di setiap kartu pamer yang dibagikan"
+          }
+        ]
+      },
+      "model": {
+        "name": "Sponsor model",
+        "summary": "Mendukung model untuk ulasan dan tampil setiap kali ulasan dibuat.",
+        "perks": [
+          {
+            "text": "Kredit sponsor model saat ulasan dibuat"
+          },
+          {
+            "text": "Info dan logo sponsor di beranda"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Sponsor unggulan",
+        "summary": "Eksposur stabil di beranda dan halaman detail developer.",
+        "perks": [
+          {
+            "text": "Slot sponsor di beranda"
+          },
+          {
+            "text": "Tampil acak di halaman detail",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Sponsor sahabat",
+        "summary": "Dukung ghfind sebagai sahabat — kami akan mencatat Anda di sini.",
+        "perks": [
+          {
+            "text": "Ucapan terima kasih dan tautan keluar di halaman ini"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Sponsor sahabat",
+      "lead": "Terima kasih untuk setiap sahabat yang mendukung ghfind. Tautan diurutkan berdasarkan waktu bergabung.",
+      "empty": "Slot ini masih kosong — jadilah sponsor sahabat pertama →"
+    },
+    "fairness": {
+      "heading": "Sponsor tidak memengaruhi peringkat atau skor",
+      "body": "Sponsor hanya mendapatkan penempatan dan ucapan terima kasih. Sponsor tidak dan tidak bisa memengaruhi peringkat, skor, atau ulasan developer maupun proyek mana pun. Skor sepenuhnya ditentukan oleh metodologi yang kami publikasikan dan data, dan semua orang diperlakukan sama demi keadilan."
+    },
+    "contactLead": "Untuk sponsor, faktur, atau pertanyaan lain, hubungi",
+    "rowLabel": "Sponsor",
+    "rowCaption": "ghfind didukung oleh mitra berikut",
+    "holders": {
+      "dsh": "Sekali terhubung, pakai Harness dari mana saja",
+      "mosoo": "Runtime open-source untuk coding agent"
+    },
+    "slotOpen": "Slot tersedia"
   }
 }
