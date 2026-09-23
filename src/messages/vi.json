@@ -1301,10 +1301,9 @@
     },
     "contactLead": "Về tài trợ, hóa đơn hoặc câu hỏi khác, hãy liên hệ",
     "rowLabel": "Nhà tài trợ",
-    "rowCaption": "ghfind được hỗ trợ bởi các đối tác này",
     "holders": {
       "dsh": "Kết nối một lần, dùng Harness từ xa mọi lúc",
-      "mosoo": "Runtime mã nguồn mở cho coding agent"
+      "mosoo": "Runtime đám mây cho coding agent"
     },
     "slotOpen": "Còn trống"
   }

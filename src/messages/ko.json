@@ -1301,10 +1301,9 @@
     },
     "contactLead": "후원, 인보이스 또는 기타 문의:",
     "rowLabel": "후원사",
-    "rowCaption": "ghfind 를 후원하는 파트너",
     "holders": {
       "dsh": "한 번 연결로 언제든 원격 Harness",
-      "mosoo": "코딩 에이전트용 오픈소스 런타임"
+      "mosoo": "코딩 에이전트용 클라우드 런타임"
     },
     "slotOpen": "자리 비어 있음"
   }

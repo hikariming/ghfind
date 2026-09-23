@@ -1301,10 +1301,9 @@
     },
     "contactLead": "Untuk sponsor, faktur, atau pertanyaan lain, hubungi",
     "rowLabel": "Sponsor",
-    "rowCaption": "ghfind didukung oleh mitra berikut",
     "holders": {
       "dsh": "Sekali terhubung, pakai Harness dari mana saja",
-      "mosoo": "Runtime open-source untuk coding agent"
+      "mosoo": "Runtime cloud untuk coding agent"
     },
     "slotOpen": "Slot tersedia"
   }

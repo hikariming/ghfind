@@ -18,7 +18,6 @@ export async function HomeSponsorRow() {
 
   return (
     <section className="home-sponsors" aria-label={t("rowLabel")}>
-      <p className="home-sponsors-caption">{t("rowCaption")}</p>
       <div className="home-sponsors-grid">
         {holders.map(holder => (
           <a key={holder.name} href={holder.url} target="_blank" rel="noopener noreferrer sponsored" className="home-sponsor-cell">
