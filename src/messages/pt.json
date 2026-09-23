@@ -88,7 +88,7 @@
     "heading": "🏆 Hall da Fama",
     "subtitle": "O Hall da Fama lista contas com nota 60+, mostrando por padrão as Em Alta.",
     "judgeCta": "← Julgar uma conta",
-    "footerNote": "Só entram no ranking contas com nota alta, construídas a partir de dados públicos do GitHub. Pra sair da lista, <a>peça a remoção aqui</a>.",
+    "footerNote": "Só entram no ranking contas com nota alta, construídas a partir de dados públicos do GitHub.",
     "loadError": "Não deu pra carregar o ranking agora — tente de novo mais tarde.",
     "loading": "Carregando o Hall da Fama…",
     "empty": "🧮 Fazendo as contas — volte daqui a pouco…",
@@ -563,10 +563,6 @@
       {
         "q": "Meu trabalho privado conta?",
         "a": "Não. As notas usam apenas sinais públicos, então contribuições em organizações privadas são invisíveis pro motor. Quem é ativo em repos privados pode ficar subestimado. Uma nota baixa não é uma afirmação factual sobre uma pessoa — ela descreve a pegada pública de uma conta."
-      },
-      {
-        "q": "Como removo meu perfil do ghfind?",
-        "a": "Só contas com nota 60+ são indexadas e listadas. Pra sair do ranking, use o link de remoção no rodapé do ranking ou abra uma issue no repositório do GitHub, e o perfil será removido da lista."
       }
     ]
   },
@@ -735,10 +731,10 @@
   },
   "contact": {
     "metaTitle": "Contato — ghfind",
-    "metaDescription": "Como falar com o time do ghfind: reportar um problema, pedir remoção do ranking ou perguntar sobre a API, a CLI e o servidor MCP.",
+    "metaDescription": "Como falar com o time do ghfind: reportar um problema ou perguntar sobre a API, a CLI e o servidor MCP.",
     "heading": "Contato",
     "paragraphs": [
-      "O ghfind é um projeto open source. O jeito mais rápido de falar com o time, reportar um problema, pedir remoção do ranking ou perguntar sobre a API, a CLI ou o servidor MCP é abrir uma issue no repositório público do GitHub. As issues são lidas e triadas por lá, e manter a conversa aberta ajuda outros usuários com a mesma dúvida.",
+      "O ghfind é um projeto open source. O jeito mais rápido de falar com o time, reportar um problema ou perguntar sobre a API, a CLI ou o servidor MCP é abrir uma issue no repositório público do GitHub. As issues são lidas e triadas por lá, e manter a conversa aberta ajuda outros usuários com a mesma dúvida.",
       "Para dúvidas de integração, o contrato de API legível por máquina fica em /openapi.json, o índice de documentação voltado a agentes em /llms.txt e o passo a passo de autenticação em /auth.md. Se você precisa de um limite de taxa maior para escaneamento servidor-a-servidor em alto volume, descreva seu caso de uso em uma issue no GitHub."
     ],
     "issuesLabel": "Abrir uma issue no GitHub",
@@ -752,7 +748,7 @@
   },
   "privacy": {
     "metaTitle": "Privacidade — ghfind",
-    "metaDescription": "Como o ghfind trata dados: pontua apenas dados públicos do GitHub, não vende dados pessoais e atende pedidos de remoção de perfis indexados.",
+    "metaDescription": "Como o ghfind trata dados: pontua apenas dados públicos do GitHub e não vende dados pessoais.",
     "heading": "Privacidade",
     "sections": [
       {
@@ -766,10 +762,6 @@
       {
         "h": "Zoadas com sua própria key",
         "p": "O recurso opcional de zoada pode usar a key do seu próprio provedor de modelo. Quando você fornece uma, ela fica no seu navegador e passa uma única vez pelo nosso servidor para chamar o modelo — nunca é armazenada, nunca é logada, e é descartada quando a requisição termina."
-      },
-      {
-        "h": "Remoção e controle",
-        "p": "Se você quiser tirar seu perfil da lista, use o link de remoção no rodapé do ranking ou abra uma issue no repositório do GitHub, e vamos removê-lo do ranking e do índice. Como o ghfind só reflete dados públicos do GitHub, atualizar ou tornar privada a sua atividade no GitHub também muda ou remove o que o ghfind consegue ver no próximo scan."
       }
     ]
   },

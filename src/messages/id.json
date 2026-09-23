@@ -88,7 +88,7 @@
     "heading": "🏆 Hall of Fame",
     "subtitle": "Hall of Fame memuat akun dengan skor 60+, default menampilkan Trending.",
     "judgeCta": "← Nilai sebuah akun",
-    "footerNote": "Hanya akun berskor tinggi berdasarkan data publik GitHub yang ditampilkan. Untuk menghapus dirimu dari papan, <a>ajukan penghapusan di sini</a>.",
+    "footerNote": "Hanya akun berskor tinggi berdasarkan data publik GitHub yang ditampilkan.",
     "loadError": "Papan peringkat lagi susah dimuat — coba lagi nanti.",
     "loading": "Memuat Hall of Fame…",
     "empty": "🧮 Lagi menghitung angka — cek lagi sebentar lagi…",
@@ -563,10 +563,6 @@
       {
         "q": "Apakah pekerjaan privatku dihitung?",
         "a": "Tidak. Skor hanya memakai sinyal publik, jadi kontribusi organisasi privat tak terlihat oleh mesin. Anggota aktif repo privat bisa terlihat lebih rendah dari seharusnya. Skor rendah bukan klaim faktual tentang seseorang — ia hanya menggambarkan jejak publik sebuah akun."
-      },
-      {
-        "q": "Bagaimana cara menghapus profilku dari ghfind?",
-        "a": "Hanya akun berskor 60+ yang diindeks dan ditampilkan. Untuk dihapus dari papan, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan profil akan dicabut dari daftar."
       }
     ]
   },
@@ -735,10 +731,10 @@
   },
   "contact": {
     "metaTitle": "Hubungi ghfind",
-    "metaDescription": "Cara menghubungi tim ghfind: laporkan masalah, ajukan penghapusan dari papan peringkat, atau tanyakan soal API, CLI, dan server MCP.",
+    "metaDescription": "Cara menghubungi tim ghfind: laporkan masalah, atau tanyakan soal API, CLI, dan server MCP.",
     "heading": "Kontak",
     "paragraphs": [
-      "ghfind adalah proyek open source. Cara tercepat menghubungi tim, melaporkan masalah, mengajukan penghapusan dari papan peringkat, atau bertanya soal API, CLI, atau server MCP adalah membuka issue di repositori GitHub publik. Issue dibaca dan ditriase di sana, dan menjaga percakapan tetap terbuka membantu pengguna lain yang menemui pertanyaan yang sama.",
+      "ghfind adalah proyek open source. Cara tercepat menghubungi tim, melaporkan masalah, atau bertanya soal API, CLI, atau server MCP adalah membuka issue di repositori GitHub publik. Issue dibaca dan ditriase di sana, dan menjaga percakapan tetap terbuka membantu pengguna lain yang menemui pertanyaan yang sama.",
       "Untuk pertanyaan integrasi, kontrak API yang bisa dibaca mesin ada di /openapi.json, indeks dokumentasi untuk agen di /llms.txt, dan panduan autentikasi di /auth.md. Kalau kamu butuh batas laju yang lebih tinggi untuk pemindaian server-ke-server bervolume besar, sebutkan use case-mu di sebuah issue GitHub."
     ],
     "issuesLabel": "Buka issue di GitHub",
@@ -752,7 +748,7 @@
   },
   "privacy": {
     "metaTitle": "Privasi — ghfind",
-    "metaDescription": "Cara ghfind menangani data: hanya menilai data publik GitHub, tidak menjual data pribadi, dan menghormati permintaan penghapusan profil yang terindeks.",
+    "metaDescription": "Cara ghfind menangani data: hanya menilai data publik GitHub dan tidak menjual data pribadi.",
     "heading": "Privasi",
     "sections": [
       {
@@ -766,10 +762,6 @@
       {
         "h": "Roast dengan key milik sendiri",
         "p": "Fitur roast opsional bisa memakai key penyedia modelmu sendiri. Saat kamu memberikannya, key itu tetap di browsermu dan diteruskan sekali lewat server kami untuk memanggil model — tidak pernah disimpan dan tidak pernah di-log, dan dibuang setelah permintaan selesai."
-      },
-      {
-        "h": "Penghapusan dan kendali",
-        "p": "Kalau kamu ingin profilmu dicabut dari daftar, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan kami akan menghapusnya dari papan dan indeks. Karena ghfind hanya mencerminkan data publik GitHub, mengubah atau memprivatkan aktivitas GitHub-mu juga akan mengubah atau menghapus apa yang bisa dilihat ghfind pada pemindaian berikutnya."
       }
     ]
   },

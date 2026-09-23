@@ -88,7 +88,7 @@
     "heading": "🏆 Đại sảnh Danh vọng",
     "subtitle": "Đại sảnh Danh vọng liệt kê các tài khoản đạt 60+ điểm, mặc định xếp theo Xu hướng.",
     "judgeCta": "← Phán xét một tài khoản",
-    "footerNote": "Chỉ những tài khoản điểm cao dựng từ dữ liệu GitHub công khai mới được liệt kê. Muốn rút tên khỏi bảng, <a>gửi yêu cầu gỡ tại đây</a>.",
+    "footerNote": "Chỉ những tài khoản điểm cao dựng từ dữ liệu GitHub công khai mới được liệt kê.",
     "loadError": "Không tải được bảng xếp hạng lúc này — thử lại sau nhé.",
     "loading": "Đang tải Đại sảnh Danh vọng…",
     "empty": "🧮 Đang tính toán số liệu — quay lại sau nhé…",
@@ -563,10 +563,6 @@
       {
         "q": "Công việc private của tôi có được tính không?",
         "a": "Không. Điểm số chỉ dùng tín hiệu công khai, nên đóng góp trong tổ chức private là vô hình với engine. Một thành viên tích cực của các repo private có thể bị đánh giá thấp. Điểm thấp không phải khẳng định thực tế về một con người — nó chỉ mô tả dấu chân công khai của một tài khoản."
-      },
-      {
-        "q": "Làm sao để gỡ hồ sơ của tôi khỏi ghfind?",
-        "a": "Chỉ những tài khoản đạt 60+ điểm mới được lập chỉ mục và liệt kê. Muốn rút khỏi bảng, dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, và hồ sơ sẽ được gỡ khỏi danh sách."
       }
     ]
   },
@@ -735,10 +731,10 @@
   },
   "contact": {
     "metaTitle": "Liên hệ ghfind",
-    "metaDescription": "Cách liên hệ đội ngũ ghfind: báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI và MCP server.",
+    "metaDescription": "Cách liên hệ đội ngũ ghfind: báo lỗi, hoặc hỏi về API, CLI và MCP server.",
     "heading": "Liên hệ",
     "paragraphs": [
-      "ghfind là một dự án mã nguồn mở. Cách nhanh nhất để liên hệ đội ngũ, báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI hay MCP server là mở một issue trên kho GitHub công khai. Issue được đọc và phân loại tại đó, và việc trao đổi công khai giúp cả những người dùng khác gặp cùng câu hỏi.",
+      "ghfind là một dự án mã nguồn mở. Cách nhanh nhất để liên hệ đội ngũ, báo lỗi, hoặc hỏi về API, CLI hay MCP server là mở một issue trên kho GitHub công khai. Issue được đọc và phân loại tại đó, và việc trao đổi công khai giúp cả những người dùng khác gặp cùng câu hỏi.",
       "Với các câu hỏi tích hợp, hợp đồng API máy đọc được nằm tại /openapi.json, mục lục tài liệu dành cho agent tại /llms.txt, và hướng dẫn xác thực tại /auth.md. Nếu bạn cần nâng giới hạn tốc độ cho việc quét server-to-server khối lượng lớn, hãy nêu trường hợp sử dụng trong một issue GitHub."
     ],
     "issuesLabel": "Mở issue trên GitHub",
@@ -752,7 +748,7 @@
   },
   "privacy": {
     "metaTitle": "Quyền riêng tư — ghfind",
-    "metaDescription": "Cách ghfind xử lý dữ liệu: chỉ chấm điểm dữ liệu GitHub công khai, không bán dữ liệu cá nhân, và tôn trọng yêu cầu gỡ với các hồ sơ đã lập chỉ mục.",
+    "metaDescription": "Cách ghfind xử lý dữ liệu: chỉ chấm điểm dữ liệu GitHub công khai và không bán dữ liệu cá nhân.",
     "heading": "Quyền riêng tư",
     "sections": [
       {
@@ -766,10 +762,6 @@
       {
         "h": "Cà khịa bằng key riêng",
         "p": "Tính năng cà khịa tùy chọn có thể dùng key nhà cung cấp model của riêng bạn. Khi bạn cung cấp một key, nó nằm trong trình duyệt của bạn và được chuyển tiếp một lần qua server của chúng tôi để gọi model — không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi yêu cầu hoàn tất."
-      },
-      {
-        "h": "Gỡ bỏ và kiểm soát",
-        "p": "Nếu bạn muốn gỡ hồ sơ khỏi danh sách, hãy dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, chúng tôi sẽ gỡ khỏi bảng và chỉ mục. Vì ghfind chỉ phản chiếu dữ liệu GitHub công khai, việc cập nhật hay chuyển hoạt động GitHub của bạn sang private cũng sẽ thay đổi hoặc xóa những gì ghfind thấy được ở lần quét kế tiếp."
       }
     ]
   },
