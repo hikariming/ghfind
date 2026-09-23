@@ -1001,7 +1001,8 @@
     "navigation": "Main navigation",
     "docs": "Help & documentation",
     "skip": "Skip to content",
-    "edition": "Public workspace"
+    "edition": "Public workspace",
+    "sponsor": "Patrocinar"
   },
   "talent": {
     "topline": {
@@ -1219,5 +1220,92 @@
       "confirmSubmit": "Confirmar y enviar",
       "next": "Siguiente"
     }
+  },
+  "sponsor": {
+    "metaTitle": "Patrocina ghfind · Planes y beneficios",
+    "metaDescription": "Patrocina ghfind: planes Principal, Modelo, Destacado y Amigo, con pago mensual. El patrocinio nunca afecta ningún ranking ni puntuación.",
+    "topline": {
+      "section": "Ayuda y documentación",
+      "current": "Patrocinar"
+    },
+    "hero": {
+      "titleLead": "Que ghfind",
+      "titleAccent": "siga opinando sin filtro.",
+      "subtitle": "ghfind es un proyecto comunitario abierto, y las llamadas al modelo, los servidores y la recopilación de datos cuestan dinero real. Tu patrocinio lo mantiene gratuito, independiente y actualizado. Todos los precios están en USD al mes, con descuento por tiempo limitado."
+    },
+    "perMonth": "/ mes",
+    "listPrice": "Precio normal {price}",
+    "off": "Ahorra {off}%",
+    "soldOut": "Agotado",
+    "available": "Disponible",
+    "soon": "En desarrollo",
+    "currentHolder": "Patrocinador actual",
+    "cta": "Quiero patrocinar",
+    "ctaSoldOut": "Agotado · Próximamente",
+    "tiers": {
+      "title": {
+        "name": "Patrocinador principal",
+        "summary": "El espacio más visible del sitio: tu marca viaja con cada tarjeta de presumir compartida.",
+        "perks": [
+          {
+            "text": "Espacio en la navegación superior de todas las páginas (logo + nombre + eslogan)"
+          },
+          {
+            "text": "Crédito con tu logo en cada tarjeta de presumir compartible"
+          }
+        ]
+      },
+      "model": {
+        "name": "Patrocinador del modelo",
+        "summary": "Impulsa las opiniones y aparece cada vez que se genera una.",
+        "perks": [
+          {
+            "text": "Crédito del patrocinador del modelo mientras se genera la opinión"
+          },
+          {
+            "text": "Información y logo del patrocinador en la página de inicio"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Patrocinador destacado",
+        "summary": "Exposición constante en la página de inicio y en los perfiles de desarrolladores.",
+        "perks": [
+          {
+            "text": "Espacio de patrocinio en la página de inicio"
+          },
+          {
+            "text": "Aparición aleatoria en páginas de detalle",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Patrocinador amigo",
+        "summary": "Apoya a ghfind como amigo; te recordaremos aquí.",
+        "perks": [
+          {
+            "text": "Agradecimiento y enlace externo en esta página"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Patrocinadores amigos",
+      "lead": "Gracias a cada amigo que apoya ghfind. Los enlaces aparecen en orden de llegada.",
+      "empty": "Este espacio está libre — sé el primer patrocinador amigo →"
+    },
+    "fairness": {
+      "heading": "El patrocinio nunca afecta rankings ni puntuaciones",
+      "body": "Los patrocinadores solo reciben visibilidad y agradecimiento. El patrocinio no influye ni puede influir en el ranking, la puntuación ni la opinión de ningún desarrollador o proyecto. Las puntuaciones dependen únicamente de nuestra metodología publicada y de los datos, y tratamos a todos por igual para garantizar la equidad."
+    },
+    "contactLead": "Para patrocinios, facturas u otras consultas, escribe a",
+    "rowLabel": "Patrocinadores",
+    "rowCaption": "ghfind cuenta con el apoyo de estos socios",
+    "holders": {
+      "dsh": "Conéctate una vez y usa Harness en remoto",
+      "mosoo": "Runtime de código abierto para agentes de programación"
+    },
+    "slotOpen": "Espacio disponible"
   }
 }

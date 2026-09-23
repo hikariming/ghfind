@@ -965,6 +965,29 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .home-proof { display: flex; justify-content: center; margin-top: 18px; min-height: 20px; }
 .home-proof > div { font-size: 12px; color: var(--muted-foreground); }
 .home-proof span { font-size: inherit; }
+.home-sponsors { width: 100%; margin: 28px auto 0; }
+.home-sponsors-caption { margin-bottom: 10px; text-align: center; font-size: 11px; color: var(--muted-foreground); }
+.home-sponsors-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border); }
+.home-sponsor-cell { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 68px; padding: 12px 18px; background: var(--card); color: var(--foreground); transition: background .15s; }
+.home-sponsor-cell:hover { background: var(--surface-muted); }
+.home-sponsor-logo, .home-sponsor-plus { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; object-fit: contain; }
+.home-sponsor-logo[data-plate] { background: #0e0e0e; padding: 4px; }
+.home-sponsor-logo.sponsor-lettermark { font-size: 10px; }
+.home-sponsor-plus { display: grid; place-items: center; border: 1px dashed var(--border); color: var(--muted-foreground); }
+.home-sponsor-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: start; }
+.home-sponsor-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.home-sponsor-text > span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 11px; line-height: 1.5; color: var(--muted-foreground); }
+.home-sponsor-open strong { color: var(--muted-foreground); font-weight: 500; }
+.home-sponsor-open:hover strong, .home-sponsor-open:hover .home-sponsor-plus { color: var(--foreground); }
+.sponsor-lettermark { display: inline-grid; place-items: center; background: var(--foreground); color: var(--background); font-size: 8px; font-weight: 800; letter-spacing: -.2px; line-height: 1; }
+@media (max-width: 1023px) {
+  .home-sponsors-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 639px) {
+  .home-sponsors-grid { grid-template-columns: 1fr; }
+  .home-sponsor-cell { min-height: 60px; }
+  .home-sponsor-open:not([data-first]) { display: none; }
+}
 
 /* Workspace shell: navigation is a quiet, persistent left rail. */
 .workspace-shell { --sidebar-width: 208px; min-height: 100dvh; }
@@ -1019,10 +1042,12 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .sidebar-submenu[hidden] { display: none; }
 .sidebar-submenu .sidebar-link { font-size: 11px; min-height: 32px; padding: 6px 9px; }
 .workspace-content { display: flex; flex-direction: column; min-height: 100dvh; outline: none; }
-.workspace-sponsor .sponsor-strip { border: 0; background: transparent; padding-block: 14px 0; opacity: .8; }
-.workspace-sponsor .sponsor-strip a { font-size: 10px; }
+.workspace-sponsor .sponsor-strip { border: 0; background: transparent; padding-block: 14px 0; }
+.workspace-sponsor .sponsor-strip a { gap: 8px; font-size: 12px; }
+.workspace-sponsor .sponsor-strip img { width: 20px; height: 20px; border-radius: 5px; }
+.workspace-sponsor .sponsor-strip a > span:nth-of-type(2) { font-size: 13px; }
 .workspace-content > main { width: 100%; }
-.workspace-content .home-intro { padding-top: 55px; }
+.workspace-content .home-intro { padding-top: 34px; }
 .workspace-content .home-title { font-size: clamp(28px, 3.1vw, 40px); font-weight: 550; }
 .workspace-content .home-content { margin-top: 48px; }
 .workspace-content .home-content > aside { top: 24px; }
@@ -1058,7 +1083,7 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
   .workspace-mobile-sidebar .sidebar-link { min-height: 42px; }
   .workspace-mobile-sidebar .sidebar-group + .sidebar-group { margin-top: 18px; }
   .workspace-content .home-page { padding-inline: 22px; }
-  .workspace-content .home-intro { padding-top: 38px; }
+  .workspace-content .home-intro { padding-top: 26px; }
   .workspace-content .home-content { margin-top: 34px; }
   .workspace-content { min-height: calc(100dvh - 57px); }
   .workspace-sponsor .sponsor-strip a > span:nth-last-child(2) { display: none; }

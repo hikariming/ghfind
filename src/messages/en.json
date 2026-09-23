@@ -1001,7 +1001,8 @@
     "navigation": "Main navigation",
     "docs": "Help & documentation",
     "skip": "Skip to content",
-    "edition": "Public workspace"
+    "edition": "Public workspace",
+    "sponsor": "Sponsor"
   },
   "talent": {
     "topline": {
@@ -1219,5 +1220,92 @@
       "confirmSubmit": "Confirm and submit",
       "next": "Next"
     }
+  },
+  "sponsor": {
+    "metaTitle": "Sponsor ghfind · Plans & perks",
+    "metaDescription": "Sponsor ghfind: Title, Model, Featured and Friend sponsor plans, billed monthly. Sponsorship never affects any ranking or score.",
+    "topline": {
+      "section": "Help & Docs",
+      "current": "Sponsor"
+    },
+    "hero": {
+      "titleLead": "Keep ghfind",
+      "titleAccent": "roasting.",
+      "subtitle": "ghfind is an open community project, and model calls, servers and data crawling all cost real money. Your sponsorship keeps it free, independent and updated. All prices are in USD per month, currently at a limited-time discount."
+    },
+    "perMonth": "/ month",
+    "listPrice": "Regular price {price}",
+    "off": "Save {off}%",
+    "soldOut": "Sold out",
+    "available": "Available",
+    "soon": "In development",
+    "currentHolder": "Current sponsor",
+    "cta": "Become a sponsor",
+    "ctaSoldOut": "Sold out · Stay tuned",
+    "tiers": {
+      "title": {
+        "name": "Title Sponsor",
+        "summary": "The most prominent slot on the site — your brand travels with every brag card shared.",
+        "perks": [
+          {
+            "text": "Sponsor slot in the top navigation on every page (logo + name + tagline)"
+          },
+          {
+            "text": "Credit with your logo on every shareable brag card"
+          }
+        ]
+      },
+      "model": {
+        "name": "Model Sponsor",
+        "summary": "Power the roasts and get seen every time one is generated.",
+        "perks": [
+          {
+            "text": "Model sponsor credit shown while a roast is generated"
+          },
+          {
+            "text": "Sponsor info and logo on the homepage"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Featured Sponsor",
+        "summary": "Steady exposure on the homepage and developer detail pages.",
+        "perks": [
+          {
+            "text": "Sponsor slot on the homepage"
+          },
+          {
+            "text": "Random placement on detail pages",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Friend Sponsor",
+        "summary": "Back ghfind as a friend — we'll remember you here.",
+        "perks": [
+          {
+            "text": "A thank-you and outbound link on this page"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Friend sponsors",
+      "lead": "Thank you to every friend who supports ghfind. Links are listed in the order they joined.",
+      "empty": "This spot is open — become the first friend sponsor →"
+    },
+    "fairness": {
+      "heading": "Sponsorship never affects rankings or scores",
+      "body": "Sponsors receive placement and thanks only. Sponsorship does not and cannot influence any developer's or project's ranking, score or roast. Scores are determined entirely by our published methodology and data, and everyone is treated the same, so the results stay fair."
+    },
+    "contactLead": "For sponsorship, invoices or other questions, contact",
+    "rowLabel": "Sponsors",
+    "rowCaption": "ghfind is supported by these partners",
+    "holders": {
+      "dsh": "Connect once, use your Harness remotely anytime",
+      "mosoo": "Open-source runtime for coding agents"
+    },
+    "slotOpen": "Your logo here"
   }
 }
