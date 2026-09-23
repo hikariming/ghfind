@@ -145,7 +145,7 @@ it("sends once across concurrent drains and caps an author to one per day", asyn
   ).toBe("test");
   expect(send.mock.calls[0][0].text).toContain("82.7 / 100");
 });
-it("sends one email across repositories and stays quiet for 48 hours", async () => {
+it("sends one email across repositories and stays quiet for 72 hours", async () => {
   await subscribe();
   vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
     Response.json({ token: "installation-token" }),
@@ -170,7 +170,7 @@ it("sends one email across repositories and stays quiet for 48 hours", async () 
   await e.DB.prepare(
     "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
   )
-    .bind(Date.now() - 47 * 60 * 60 * 1000)
+    .bind(Date.now() - 71 * 60 * 60 * 1000)
     .run();
   await e.DB.prepare(
     "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
@@ -182,7 +182,7 @@ it("sends one email across repositories and stays quiet for 48 hours", async () 
   await e.DB.prepare(
     "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
   )
-    .bind(Date.now() - 49 * 60 * 60 * 1000)
+    .bind(Date.now() - 73 * 60 * 60 * 1000)
     .run();
   await e.DB.prepare(
     "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
