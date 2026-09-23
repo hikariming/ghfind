@@ -49,11 +49,11 @@ export function allowed(env: Env, fullName: string) {
 export async function putJob(
   env: Env,
   input: Pick<Job, "id" | "installation" | "kind"> &
-    Partial<Pick<Job, "repository" | "full_name" | "pr" | "due">>,
+    Partial<Pick<Job, "repository" | "full_name" | "pr" | "due" | "page">>,
 ) {
   const now = Date.now();
   await env.DB.prepare(
-    "INSERT OR IGNORE INTO jobs(id,installation,repository,full_name,pr,kind,created,due,updated) VALUES(?,?,?,?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO jobs(id,installation,repository,full_name,pr,kind,created,due,page,updated) VALUES(?,?,?,?,?,?,?,?,?,?)",
   )
     .bind(
       input.id,
@@ -64,6 +64,7 @@ export async function putJob(
       input.kind,
       now,
       input.due ?? now,
+      input.page ?? 1,
       now,
     )
     .run();
@@ -83,9 +84,10 @@ async function scheduleRescore(env: Env, job: Job) {
   )
     return;
   const now = Date.now();
+  const silent = suppressesScoreEmail(job.id) ? "openpr-" : "";
   for (let index = 0; index < RESCORE_AFTER_MS.length; index++) {
     await putJob(env, {
-      id: `rescore-${index + 1}-${job.installation}-${job.repository}-${job.pr}`,
+      id: `rescore-${index + 1}-${silent}${job.installation}-${job.repository}-${job.pr}`,
       installation: job.installation,
       kind: "label",
       repository: job.repository,
@@ -168,8 +170,31 @@ export async function admitMention(
     pr: number,
   });
 }
+function suppressesScoreEmail(id: string) {
+  return id.startsWith("open-pr-") || id.includes("-openpr-");
+}
+// One page of existing open pull requests per repository. INSERT OR IGNORE
+// keeps this to a single pass. Those jobs do not send score email.
+async function ensurePullRequestBackfill(env: Env) {
+  const { results } = await env.DB.prepare(
+    `SELECT installation, repository, MAX(full_name) AS full_name
+     FROM jobs
+     WHERE repository IS NOT NULL AND full_name IS NOT NULL
+     GROUP BY installation, repository`,
+  ).all<{ installation: number; repository: number; full_name: string }>();
+  for (const row of results)
+    await putJob(env, {
+      id: `pr-backfill-${row.installation}-${row.repository}`,
+      installation: row.installation,
+      kind: "initialize",
+      repository: row.repository,
+      full_name: row.full_name,
+      page: 3,
+    });
+}
 export async function dispatch(env: Env) {
   if (env.ENABLED !== "true") return;
+  await ensurePullRequestBackfill(env);
   const now = Date.now();
   // SQL is the durable outbox: queue-send failures are recovered by cron.
   const { results } = await env.DB.prepare(
@@ -266,26 +291,37 @@ async function processJob(env: Env, job: Job) {
     .run();
   if (job.kind === "initialize") {
     if (!(job.page > 1)) await initializeLabels(api, fullName);
-    // Pull-request backfill is paused. Only the first two pages of open issues
-    // are queued. Listing /pulls would enqueue jobs that label, comment, read
-    // the author, and send email. Restore the commented continuation to queue
-    // two pull-request pages again.
+    if (job.page === 3) {
+      const list = await api(
+        `/repos/${fullName}/pulls?state=open&per_page=100&page=1`,
+      );
+      if (!Array.isArray(list)) throw new Error("Invalid pull request list");
+      for (const value of list) {
+        const issue = record(value);
+        if (issue.state !== "open") continue;
+        const number = positive(issue.number);
+        await putJob(env, {
+          id: `open-pr-${job.installation}-${job.repository}-${number}`,
+          installation: job.installation,
+          kind: "label",
+          repository: job.repository,
+          full_name: fullName,
+          pr: number,
+        });
+      }
+      await finish(env, job, "done", "Open pull requests queued");
+      return;
+    }
     const page = job.page;
     for (;;) {
       if (page < 1 || page > 2) break;
       const list = await api(
         `/repos/${fullName}/issues?state=open&per_page=100&page=${page}`,
       );
-      // const apiPage = page - 2;
-      // const list = await api(
-      //   `/repos/${fullName}/pulls?state=open&per_page=100&page=${apiPage}`,
-      // );
       if (!Array.isArray(list)) throw new Error("Invalid issue list");
       for (const value of list) {
         const issue = record(value);
-        if (issue.state !== "open") continue;
-        // The issues API mixes in pull requests. Skip them while PR review is paused.
-        if (issue.pull_request) continue;
+        if (issue.state !== "open" || issue.pull_request) continue;
         const number = positive(issue.number);
         await putJob(env, {
           id: `open-${job.installation}-${job.repository}-${number}`,
@@ -304,25 +340,18 @@ async function processJob(env: Env, job: Job) {
           .run();
         return;
       }
-      // Restoring two pull-request pages needs `let page` and:
-      // if (!issues) break;
-      // page = 3;
       break;
     }
-    // await finish(env, job, "done", "Open issues and pull requests queued");
-    await finish(env, job, "done", "Open issues queued");
+    await env.DB.prepare(
+      "UPDATE jobs SET page=3,state='pending',lease=0,due=?,updated=? WHERE id=?",
+    )
+      .bind(Date.now(), Date.now(), job.id)
+      .run();
     return;
   }
   const pr = record(await api(`/repos/${fullName}/issues/${job.pr}`));
   if (pr.state !== "open") {
     await finish(env, job, "cancelled", "Issue or pull request closed");
-    return;
-  }
-  // Already-queued pull requests stop here, before the author is read.
-  // Do not score pr.user, initialize or sync a label, post a comment, or
-  // enqueue email. New pull_request.opened events no longer create these jobs.
-  if (pr.pull_request) {
-    await finish(env, job, "cancelled", "Pull request review paused");
     return;
   }
   await initializeLabels(api, fullName);
@@ -420,7 +449,9 @@ async function processJob(env: Env, job: Job) {
   //   env.EMAIL_ENABLED === "true",
   //   allowNew,
   // );
-  if (env.EMAIL_ENABLED === "true")
+  // Existing-PR backfill uses open-pr- / rescore-*-openpr- ids and does not email.
+  // A newly opened pull request uses the same 72-hour quiet period as issues.
+  if (env.EMAIL_ENABLED === "true" && !suppressesScoreEmail(job.id))
     await enqueueAuthorEmail(
       env,
       positive(user.id),
@@ -430,9 +461,7 @@ async function processJob(env: Env, job: Job) {
         number: positive(job.pr),
         installation: job.installation,
         repositoryId: job.repository,
-        // Pull requests return before this call, so the email is issue-only.
-        // kind: pr.pull_request ? "PR" : "issue",
-        kind: "issue",
+        kind: pr.pull_request ? "PR" : "issue",
         ...(job.score_context
           ? JSON.parse(job.score_context)
           : { score: JSON.parse(job.score), percentile: null }),

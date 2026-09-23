@@ -29,7 +29,7 @@ ghfind Review 根据作者的公开 ghfind 评分，为 **issue** 添加彩色�
 
 当前阈值固定为 **40、70、90**，尚不支持按仓库自定义阈值。
 你可以通过 GitHub 标签筛选和团队流程决定各区间如何处理。
-App 给 issue 打标，不处理 pull request，也不在讨论区发评论。不会自动拦截、关闭或拒绝 issue。
+App 给 issue 和 pull request 打标，不在讨论区发评论。不会自动拦截、关闭或拒绝提交。
 评分反映作者的公开 profile，不代表这次提交的质量；新贡献者可能只是公开记录较少。
 
 缺失标签会自动初始化。操作由独立账号 **`ghfind-review[bot]`** 完成，使用 ghfind 专属头像。
@@ -49,12 +49,12 @@ App 给 issue 打标，不处理 pull request，也不在讨论区发评论。�
    旧版 bot 创建的统一灰色默认标签会自动升级为下表配色。已经打过 `review-level:` 的 issue 仍保留原来较长的名字。
 4. 安装后会进入状态页。可用 GitHub 登录查看有权访问的仓库及处理结果；
    **自动打标不要求登录状态页**。失败任务可由仓库管理员点击 **Retry (admin)** 重试。
-5. 安装时读取当时 Open 的 issue 列表前两页（每页 100 条）。这张列表会混入 pull request，那些会被跳过。已关闭的不处理。第 3 页及更早的存量不会自动回填。
-6. 新建一条 issue，正文可以为空。任务异步处理，等待后刷新页面，
+5. 安装时读取当时 Open 的 issue 列表前两页（每页 100 条），并读取 Open pull request 的第一页（100 条）。issue 列表里混入的 pull request 会跳过，避免和这一页重复。已关闭的不处理。更早的存量不会自动回填。这一页存量 pull request 只打标，不发评分邮件。
+6. 新建一条 issue 或 pull request，正文可以为空。任务异步处理，等待后刷新页面，
    应能看到 `ghfind-review[bot]` 添加的 `review:` 标签。
 7. 如果仓库已启用旧的 **PR review level** Actions workflow，请停用它，避免和本 App 重复处理。
 
-之后新建的 issue 由 `issues.opened` 打标。编辑或重新打开一条已有 issue 不会再次评分。GitHub App 每小时额度用尽时，这个安装下还没打完的任务会停到额度重置，不打 `review: no-score`；重置后由每分钟的定时任务继续打真正的分数。ghfind 评分服务没有返回可用分数时才打 `review: no-score`。超时或云端暂时失败会在 20 分钟和 60 分钟后再取一次分；60 分钟那次是最后一次自动重试，拿到分数后换掉标签。超过 60 分钟后，只有作者或仓库管理员在这条 issue 下评论 `@ghfind-review` 才会再评并更新标签。GitHub 账号不存在时不会自动重试。
+之后新建的 issue 和 pull request 分别由 `issues.opened` 和 `pull_request.opened` 打标。编辑或重新打开不会再次评分。GitHub App 每小时额度用尽时，这个安装下还没打完的任务会停到额度重置，不打 `review: no-score`；重置后由每分钟的定时任务继续打真正的分数。ghfind 评分服务没有返回可用分数时才打 `review: no-score`。超时或云端暂时失败会在 20 分钟和 60 分钟后再取一次分；60 分钟那次是最后一次自动重试，拿到分数后换掉标签。超过 60 分钟后，只有作者或仓库管理员在这条 issue 下评论 `@ghfind-review` 才会再评并更新标签。GitHub 账号不存在时不会自动重试。
 
 ## 已安装用户：接受新增的 Issues 权限
 
@@ -191,9 +191,9 @@ node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
 issue 打上标签后，作者可收到分数、区间、profile URL，以及可用时的
 “超过 ghfind 已收录评分账号的比例”和站内评分排名。
 这些是**站内评分统计**，不代表处理顺序，也不预测维护者多久回复；数据不可用时会明确说明。
-Pull request 不触发这封邮件。
+新建的 pull request 打标后也可以发这封邮件，和 issue 共用同一个人、跨仓库 72 小时的静默期。安装时补上的那一页存量 pull request 只打标，不发邮件。
 
-邮件使用独立 D1 发件队列。同一人跨仓库每 72 小时最多一封；静默期内多出来的待发信会取消，不会留到 72 小时后再发。满 72 小时后，下一条打标的 issue 可以再发一封。全局每个 UTC 日最多 100 封。
+邮件使用独立 D1 发件队列。同一人跨仓库每 72 小时最多一封；静默期内多出来的待发信会取消，不会留到 72 小时后再发。满 72 小时后，下一条打标的 issue 或 pull request 可以再发一封。全局每个 UTC 日最多 100 封。
 邮件失败不会撤回已经添加的标签。发送结果不明确时记为 `uncertain`，
 不自动重发，避免重复邮件；代价是这种故障下可能漏发，需运营者核实后处理。
 

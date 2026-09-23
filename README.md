@@ -59,8 +59,8 @@ Color-coded `review:` bands help you sort the queue without opening each profile
 - **Make stronger profile signals stand out.** Muted grey and light blue keep lower bands quiet; soft apricot and wheat mark higher bands.
 - **Screen sources before deep review.** Route low or missing scores into a manual source-check queue.
 
-The current bands are fixed at 40, 70 and 90. The App labels issues. It does not
-label pull requests, post conversation comments, or block and close submissions.
+The current bands are fixed at 40, 70 and 90. The App labels issues and pull
+requests. It does not post conversation comments, or block and close submissions.
 A profile score is a starting point for review, not proof of contribution quality.
 
 **Start with one repository. Let the next issue arrive with a score label.**

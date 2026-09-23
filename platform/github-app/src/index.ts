@@ -86,29 +86,16 @@ export async function webhook(request: Request, env: Env): Promise<Response> {
       const repo = record(payload.repository);
       const fullName = repositoryName(repo.full_name);
       if (!allowed(env, fullName)) return new Response("Outside rollout");
-      // Pull requests are paused: do not label, comment, read the author, or
-      // send email. A bot comment also makes GitHub mail the thread. Issues
-      // still enqueue a label-only job. Restore the admission below when PR
-      // review is turned back on.
-      if (event === "pull_request") {
-        // await putJob(env, {
-        //   id: delivery,
-        //   installation,
-        //   kind: "label",
-        //   repository: positive(repo.id),
-        //   full_name: fullName,
-        //   pr: positive(payload.number),
-        // });
-      } else {
-        await putJob(env, {
-          id: delivery,
-          installation,
-          kind: "label",
-          repository: positive(repo.id),
-          full_name: fullName,
-          pr: positive(record(payload.issue).number),
-        });
-      }
+      await putJob(env, {
+        id: delivery,
+        installation,
+        kind: "label",
+        repository: positive(repo.id),
+        full_name: fullName,
+        pr: positive(
+          event === "issues" ? record(payload.issue).number : payload.number,
+        ),
+      });
     } else if (event === "issue_comment") {
       await admitMention(env, delivery, payload);
     } else if (
