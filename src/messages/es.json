@@ -1301,10 +1301,9 @@
     },
     "contactLead": "Para patrocinios, facturas u otras consultas, escribe a",
     "rowLabel": "Patrocinadores",
-    "rowCaption": "ghfind cuenta con el apoyo de estos socios",
     "holders": {
       "dsh": "Conéctate una vez y usa Harness en remoto",
-      "mosoo": "Runtime de código abierto para agentes de programación"
+      "mosoo": "Runtime en la nube para agentes de programación"
     },
     "slotOpen": "Espacio disponible"
   }

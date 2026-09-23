@@ -966,7 +966,6 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .home-proof > div { font-size: 12px; color: var(--muted-foreground); }
 .home-proof span { font-size: inherit; }
 .home-sponsors { width: 100%; margin: 28px auto 0; }
-.home-sponsors-caption { margin-bottom: 10px; text-align: center; font-size: 11px; color: var(--muted-foreground); }
 .home-sponsors-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border); }
 .home-sponsor-cell { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 68px; padding: 12px 18px; background: var(--card); color: var(--foreground); transition: background .15s; }
 .home-sponsor-cell:hover { background: var(--surface-muted); }

@@ -1308,10 +1308,9 @@
     },
     "contactLead": "赞助合作、发票或其他问题，请联系",
     "rowLabel": "赞助商",
-    "rowCaption": "感谢这些伙伴对 ghfind 的支持",
     "holders": {
       "dsh": "一次连接，随时远程使用 Harness",
-      "mosoo": "开源 Coding Agent 运行时"
+      "mosoo": "Coding Agent 云上运行时"
     },
     "slotOpen": "虚位以待"
   }

@@ -1301,10 +1301,9 @@
     },
     "contactLead": "For sponsorship, invoices or other questions, contact",
     "rowLabel": "Sponsors",
-    "rowCaption": "ghfind is supported by these partners",
     "holders": {
       "dsh": "Connect once, use your Harness remotely anytime",
-      "mosoo": "Open-source runtime for coding agents"
+      "mosoo": "Cloud runtime for coding agents"
     },
     "slotOpen": "Your logo here"
   }
