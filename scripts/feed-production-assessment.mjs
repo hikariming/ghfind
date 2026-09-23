@@ -767,6 +767,49 @@ export async function waitAssessment(path, output, options = {}) {
   if (execution.carryover) validateCarryoverReceipt(r, execution.carryover);
   const releaseSha = execution.releaseSha ?? r.sourceSha;
   const now = options.now ?? Date.now;
+  // A later release must not open another projection window after the journal
+  // has already been finalized and both read-only observations are spent.
+  // Retain that result so the web cutover can proceed without a new POST.
+  if (
+    r.phase === "completed" &&
+    r.status === "completed" &&
+    (r.terminalRevalidations ?? 0) >= LIMITS.terminalRevalidations &&
+    releaseSha !== r.sourceSha
+  ) {
+    const result = {
+      format: "ghfind-production-assessment-result-v1",
+      status: "passed",
+      sourceSha: r.sourceSha,
+      releaseSha,
+      intentId: r.intentId,
+      repository: REPO,
+      origin: ORIGIN,
+      assessment: "reused_logical_assessment",
+      apiReused: r.apiReused,
+      providerExecution: "prior_finalized_journal_retained",
+      newProviderExecutionClaimed: false,
+      publicPostReserved: Boolean(r.postIssued),
+      polls: r.polls,
+      relayBootstrapPolls: r.relayBootstrapPolls ?? 0,
+      relayBootstrapStartedAt: r.relayBootstrapStartedAt ?? null,
+      relayDeliveredObservedAt: r.relayDeliveredObservedAt ?? null,
+      relayBootstrapIsNormalProjectionLatency: false,
+      managementRequests: 0,
+      projectionPolls: r.projectionPolls,
+      terminalRevalidations: r.terminalRevalidations,
+      verification: "prior_terminal_revalidation_retained",
+      observedAt: now(),
+      notProven: [
+        "real OAuth",
+        "personalized Feed journey",
+        "single provider thread when retry suffix is present",
+        "permanent client idempotency after losing intent receipt",
+        "a new projection observation on this release",
+      ],
+    };
+    await save(output, result, true);
+    return result;
+  }
   // Older journals could persist delivery before persisting the projection
   // anchor. Recover from that durable observation before selecting a window;
   // a restart must never grant another 180 seconds.

@@ -38,6 +38,7 @@ export default defineConfig({
           "0002_author_email.sql",
           "0003_email_delivery_receipt.sql",
           "0004_default_author_email.sql",
+          "0005_comment_and_email_limits.sql",
         ]
           .map((f) => readFileSync(`migrations/${f}`, "utf8"))
           .join("\n"),

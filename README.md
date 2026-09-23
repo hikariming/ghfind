@@ -50,22 +50,20 @@ The scoring core comes from the open-source Claude skill `github-account-value`.
 
 ## GitHub App: spend less time triaging, more time maintaining
 
-**Every issue and PR asks for your attention. Get the author's context before you invest it.**
+**Every issue asks for your attention. Get the author's context before you invest it.**
 
-Install **ghfind Review** to give new issues and PRs an automatic source-profile check:
-color-coded score bands help you sort your queue, while a bot comment puts the author's
-profile link, score and interval right beside the contribution. Spend less time opening
-profiles one by one, and choose which submissions need a closer look first.
+Install **ghfind Review** to label new issues with the author's public ghfind score.
+Color-coded `review:` bands help you sort the queue without opening each profile first.
 
-- **Build your review queue around score bands.** Filter by `review-level:` labels and set your team's review priorities.
-- **Make stronger profile signals stand out.** Muted grey and light blue keep lower bands quiet; bright orange and gold highlight higher bands.
-- **Screen sources before deep review.** Route low or unavailable scores into a manual source-check queue to help manage potentially low-quality incoming issues and PRs.
+- **Build your review queue around score bands.** Filter issues by `review:` labels and set your team's review priorities.
+- **Make stronger profile signals stand out.** Muted grey and light blue keep lower bands quiet; soft apricot and wheat mark higher bands.
+- **Screen sources before deep review.** Route low or missing scores into a manual source-check queue.
 
-The current bands are fixed at 40, 70 and 90. Labels support triage; the App does not
-automatically block or close submissions. A profile score is a starting point for review,
-not proof of contribution quality—new contributors deserve a fair look too.
+The current bands are fixed at 40, 70 and 90. The App labels issues. It does not
+label pull requests, post conversation comments, or block and close submissions.
+A profile score is a starting point for review, not proof of contribution quality.
 
-**Start with one repository. Let the next issue or PR arrive with context.**
+**Start with one repository. Let the next issue arrive with a score label.**
 Missing labels are created automatically; no workflow or repository secret is required.
 
 [**Install GitHub App**](https://github.com/apps/ghfind-review/installations/new) ·

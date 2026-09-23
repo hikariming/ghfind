@@ -5,37 +5,36 @@
 **Your review time is scarce. Make every first look more informed.**
 
 A busy queue should not mean opening every author's profile by hand. ghfind Review
-adds a public-profile score label and a concise profile comment to each new issue
-and PR, including drafts. You get source context where you already work, so you
-can prioritize attention and investigate unfamiliar sources before a deep review.
+adds a public-profile score label to each issue. The band is visible in the issue
+list, so you can prioritize attention before a deeper look.
 
 [**Install ghfind Review on your first repository**](https://github.com/apps/ghfind-review/installations/new)
 
 ## Turn score bands into a review queue
 
-Use the five `review-level:` labels to define your team's triage policy. Lower bands
-stay visually quiet; orange and gold make higher bands easier to spot. Each bot
-comment includes the profile URL, exact score and interval, so maintainers can
-follow the evidence without repeating the same account lookup.
+Use the five `review:` labels to define your team's triage policy. Lower bands
+stay visually quiet; soft apricot and wheat mark the higher bands without a harsh
+block of color.
 
-Paste these filters into your repository's Issues or Pull requests search:
+Paste these filters into your repository's Issues search:
 
-| Review queue                           | GitHub search                                |
-| -------------------------------------- | -------------------------------------------- |
-| Open PRs with a high profile score     | `is:open is:pr label:"review-level: high"`   |
-| Open PRs in the highest band           | `is:open is:pr label:"review-level: xhigh"`  |
-| Low-band issues needing a source check | `is:open is:issue label:"review-level: low"` |
-| Missing scores needing manual context  | `is:open label:"review-level: unavailable"`  |
+| Review queue                           | GitHub search                                      |
+| -------------------------------------- | -------------------------------------------------- |
+| High-band issues                       | `is:open is:issue label:"review: high"`            |
+| Highest-band issues                    | `is:open is:issue label:"review: top"`             |
+| Low-band issues needing a source check | `is:open is:issue label:"review: low"`             |
+| Missing scores needing manual context  | `is:open is:issue label:"review: no-score"`        |
 
-Start with a queue that fits your available review time. Use low and unavailable
+Start with a queue that fits your available review time. Use low and no-score
 bands as a prompt to inspect the source and submission before spending more time;
 use higher bands to find authors with stronger public-profile signals. This gives
 you a practical first screening step for potentially low-quality incoming work.
 
 The thresholds are currently fixed at **40, 70 and 90**; per-repository threshold
 configuration is not available. You choose how to handle each band using GitHub
-filters and your team's process. The App labels and comments; it does not block,
-close or reject issues/PRs. The score measures the author's public profile, not
+filters and your team's process. The App labels issues. It does not label pull
+requests, post conversation comments, or block and close issues. The score
+measures the author's public profile, not
 the submission's quality, and a new contributor may have a limited public record.
 
 Missing labels are initialized automatically. All actions use the independent
@@ -52,16 +51,19 @@ repositories it may access.
 
 1. Follow the installation link and select repositories. Grant **Issues: read and write**, **Pull requests:
    read and write** and the implicit **Metadata: read** permission.
-2. The App automatically creates missing `review-level: low`, `medium`, `high`,
-   `xhigh`, and `unavailable` labels. Owner-customized colors/descriptions are preserved;
+2. The App automatically creates missing `review: low`, `medium`, `high`,
+   `top`, and `no-score` labels, then reads the first two pages of the open
+   issue list (100 items per page). GitHub mixes pull requests into that list;
+   those items are skipped. Owner-customized colors and descriptions are preserved;
    original bot-owned grey defaults are upgraded to the palette below.
    Archived labels and case conflicts are reported for the owner to fix.
+   Issues already labeled `review-level:` keep that older, longer name.
 3. The installation setup page offers GitHub sign-in to view accessible
    repository jobs. Retrying a failed repository job requires repository admin
    permission. Sign-in is optional for automatic labeling.
-4. Open a new issue or PR (drafts and empty descriptions are supported). Processing
-   is asynchronous; wait for the queue, then refresh. Confirm the label and comment
-   are authored by `ghfind-review[bot]`.
+4. Open a new issue. An empty description is fine. Processing is asynchronous;
+   wait for the queue, then refresh. The `review:` label is added by
+   `ghfind-review[bot]`.
 5. If your repository already uses the old `PR review level` Actions workflow,
    disable it before switching to this App to avoid duplicate processing.
 
@@ -80,35 +82,47 @@ New installations request both automatically.
 
 | Symptom                            | What to check                                                                                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No labels or comment               | Confirm the App is installed on this repository, the object was created after installation, and required permissions were accepted. Open the installation's setup page and sign in to inspect job status. |
+| No label                       | Confirm the App is installed on this repository and required permissions were accepted. Install queues only the first two pages of the open issue list. Open the installation's setup page and sign in to inspect job status. |
 | Initialization fails               | Check for archived labels or conflicting capitalization; fix them in the repository's Labels page, then use **Retry (admin)** on the setup page.                                                          |
-| `unavailable`                      | The score is missing, invalid or could not be retrieved within the retry budget. It is not zero. A completed job is not automatically rescored.                                                           |
-| No additional comment after replay | Expected: the App reconciles its existing comment rather than adding another.                                                                                                                             |
-| Want to stop processing            | Remove the repository from the App installation, suspend it or uninstall it. Existing labels and comments remain.                                                                                         |
+| `review: no-score`                 | The score is missing, invalid, or could not be retrieved within the retry budget. It is not zero. A missing GitHub account stays no-score. A timeout or cloud error is retried 20 and 60 minutes later; a recovered score replaces the label. After 60 minutes, only the author or a repository admin can comment `@ghfind-review` on that issue to rescore it and update the label. |
+| Want to stop processing            | Remove the repository from the App installation, suspend it, or uninstall it. Existing labels remain.                                                                                         |
 
 The setup page is reached from the App installation flow/settings; it requires GitHub
 sign-in for status visibility. Only repository admins may retry failed jobs.
 
 The score thresholds match PR #288 at `f72a4b3`: 40, 70 and 90. A score outside
-0–100, a missing score or exhausted score retries produces `unavailable`, never
+0–100, a missing score or exhausted score retries produces `review: no-score`, never
 an inferred zero. This is an author-profile signal, not a code-quality review or
-permission to merge. Both `issues.opened` and `pull_request.opened` are processed.
-Existing issues/PRs are not retroactively processed merely by updating the App.
+permission to merge. New issues are labeled from `issues.opened`.
+The author or a repository admin can comment `@ghfind-review` on an open
+no-score issue to request one fresh score; the label is updated.
+Installing the App, or adding a repository, reads the first two pages of the
+open issue list and skips pull requests in that list.
+Closed items are left untouched. Editing or reopening an existing issue does
+not score it again.
 
 ## Runtime
 
 - Separate Worker, Queues and D1; no writes to scoring/Feed databases.
 - Webhook HMAC validates the raw body before admission. Only minimal task
-  metadata is retained; PR text/code is not stored or executed.
+  metadata is retained; issue text is not stored or executed.
 - D1 is the durable outbox. Queue sends are recovered by a one-minute cron.
-  Delivery IDs deduplicate redelivery. Consumer concurrency **must remain 1**
-  until repository/PR-scoped serialization is introduced.
+  Delivery IDs deduplicate redelivery. The queue runs 96 consumers, 24 for
+  each of the four GitHub tokens. That is the backend worker pool: one Worker
+  script, ninety-six invocations at once, each calling the same score API.
+  A second job for the same issue waits.
 - An atomic ten-minute lease excludes duplicate executions. Execution budget is
   eight minutes from first claim, not from webhook arrival; four minutes are
   reserved for GitHub operations. Each HTTP call is capped at sixty seconds,
   including streamed body reads. Seven retries maximum, using 5/10/20-second
   backoff and GitHub Retry-After/reset guidance. No webhook sleep loops.
-- The score is persisted before the first PR label write. Replays reconcile
+  A GitHub App hourly quota stop parks every pending job for that installation
+  until the reset time, without writing `review: no-score`. The one-minute cron
+  resumes them. A missing score from ghfind still uses `review: no-score`.
+  A transient no-score schedules two later scores, at 20 and 60 minutes.
+  The 60-minute pass is the last automatic attempt. Each follow-up runs only
+  while that issue is still open and still labeled `review: no-score`.
+- The score is persisted before the label write. Replays reconcile
   current labels, add the target first, and remove only known obsolete review
   labels. Unrelated labels and owner customization remain unchanged.
 - Installation-scoped discovery paginates repositories. Repository tasks mint a
@@ -167,8 +181,11 @@ until the callback succeeds; stop it afterward. Never commit the output.
 
 In App settings, upload `assets/avatar.png` (200×200, derived from the website
 icon). Confirm webhook is `/webhook`, OAuth callback `/callback`, setup `/setup`,
-Issues and Pull requests write permissions and both `issues` and `pull_request`
-event subscriptions. Existing installations must accept the added Issues
+Issues and Pull requests write permissions and the `issues` and `issue_comment`
+event subscriptions. `issue_comment` lets the issue author
+or a repository admin ask for a fresh score on an open `review: no-score` issue.
+Adding it does not add a permission.
+Existing installations must accept the added Issues
 permission in their GitHub installation settings. GitHub
 also delivers installation lifecycle events automatically. Keep optional OAuth
 on installation disabled: it is only needed to view the setup dashboard.
@@ -190,6 +207,11 @@ Secrets are `APP_PRIVATE_KEY`, `WEBHOOK_SECRET`, `APP_CLIENT_SECRET`, and a rand
 pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production
 pnpm exec wrangler deploy --env production --secrets-file /absolute/private/worker-secrets.json
 ```
+
+Pushing `platform/github-app` to `main` runs GitHub App checks, then CI deploys
+`ghfind-bot` with `wrangler deploy --env production`. Existing Worker secrets
+stay in place. The score service deploys with the main site workflow after CI
+succeeds.
 
 For later rotations use `wrangler secret bulk` with a private file. Never put
 secret values in command arguments, GitHub comments, screenshots or logs.
@@ -231,7 +253,7 @@ by cron; expired dashboard sessions are purged at the same time.
 ## Real E2E acceptance
 
 Use an empty, disposable repository in the maintainer account. Install only on
-that repository; verify five labels exist before opening a draft PR. Check the
+that repository; verify five labels exist before opening an issue. Check the
 GitHub timeline's actor login/type/avatar, the applied level against the live
 score, and the setup status. Redeliver the same event and ensure there is no new
 label transition. Remove repository access/uninstall and confirm no further
@@ -240,7 +262,7 @@ writes. Unit tests and a deployed health page alone do not establish bot identit
 Validated against the live service on 2026-09-15:
 
 - A new private test repository received all five labels automatically on install.
-- A draft PR by `AsperforMias` received `review-level: high` for a live score of
+- An issue opened by `AsperforMias` received a high-band label for a live score of
   **82.7**. The GitHub timeline recorded `ghfind-review[bot]` (type `Bot`) with
   the custom avatar, not the maintainer or GitHub Actions identity.
 - GitHub redelivered the same opened event successfully (HTTP 202); the timeline
@@ -255,70 +277,44 @@ The production App is available for installation; `hikariming/ghfind` still need
 its personal account owner's installation. This package does not install the App
 in that repository or replace its workflows merely by being merged.
 
-## Author-score comment
-
-After label reconciliation succeeds, the App creates or updates its own comment:
-
-| Profile                                              | Score      | Level                | Score interval  |
-| ---------------------------------------------------- | ---------- | -------------------- | --------------- |
-| [AsperforMias](https://ghfind.com/en/u/AsperforMias) | 82.7 / 100 | `review-level: high` | 70 ≤ score < 90 |
-
-The template is `scoreComment` in `src/review.ts`. It uses the same persisted score
-as the label. Unavailable scores show “Unavailable” with no numeric interval,
-never zero. The footer explains that this is an author-profile signal.
-
-Before posting, all comment pages are searched for the marker and this App's bot
-identity. Matching comments are updated only when the body differs; user comments
-with a copied marker are not modified. A failed label write cannot post a success
-comment. Comment failures retain the durable job for retry, which reconciles the
-label and checks existing comments before creating another. GitHub does not expose
-an idempotency key for comment creation, so reconciliation handles ambiguous
-responses rather than blindly reposting.
-
-The existing `jobs.pr` column stores either the issue or PR number: GitHub shares
-that number namespace and exposes both through the Issues API. No schema migration
-is needed for this extension.
-
-Issue/comment extension verified on the live service on 2026-09-15 in
-`AsperforMias/ghfind-bot-demo-20260915`: empty-body issue #3 and draft PR #4 each
-received one high label and one comment from `ghfind-review[bot]`, with the live
-score 82.7, a working profile URL and interval `70 ≤ score < 90`. Both real GitHub
-opened deliveries were redelivered (HTTP 202); each still had one label event and
-one score comment. Test installation 161860552 accepted Issues write permission.
-
-Repeat verification using:
+Repeat a label check with:
 
 ```sh
-node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
+node scripts/e2e.mjs verify owner/test-repository app-slug issue-number
 ```
 
 ## Label palette
 
-| Level       | Score interval                      | Color            | Hex       |
-| ----------- | ----------------------------------- | ---------------- | --------- |
-| low         | 0 ≤ score < 40                      | Muted light grey | `#d9dee3` |
-| medium      | 40 ≤ score < 70                     | Light blue       | `#b6dfff` |
-| high        | 70 ≤ score < 90                     | Bright orange    | `#ff922b` |
-| xhigh       | 90 ≤ score ≤ 100                    | Gold             | `#ffc400` |
-| unavailable | No valid score; no numeric interval | Neutral grey     | `#c3c7ce` |
+| Label            | Score interval                      | Color            | Hex       |
+| ---------------- | ----------------------------------- | ---------------- | --------- |
+| `review: low`      | 0 ≤ score < 40                      | Muted light grey | `#d9dee3` |
+| `review: medium`   | 40 ≤ score < 70                     | Light blue       | `#b6dfff` |
+| `review: high`     | 70 ≤ score < 90                     | Soft apricot     | `#e2c0a2` |
+| `review: top`      | 90 ≤ score ≤ 100                    | Soft wheat       | `#ded0a6` |
+| `review: no-score` | No valid score; no numeric interval | Neutral grey     | `#c3c7ce` |
 
-Higher score levels are more visually prominent. New labels use this palette.
-Existing labels with the App's original `ededed` color and exact default
-description are upgraded during initialization (also run before labeling).
-Owner-customized colors or descriptions remain unchanged.
+Higher score levels stay warmer, at a lower saturation so light-mode GitHub
+does not glare. New labels use this palette. Existing labels with the App's
+original `ededed` color and exact default description are upgraded during
+initialization (also run before labeling). Owner-customized colors or
+descriptions remain unchanged. Issues already labeled `review-level:` keep
+that older, longer name.
 
 ## Author emails
 
 Authors with a current public GitHub profile email receive score emails by default, without signing in or subscribing first. Missing, invalid, bot and GitHub noreply addresses are skipped. Commit emails are not used because commit metadata does not prove mailbox ownership. The public email is rechecked before delivery. [Email preferences](https://bot.ghfind.com/notifications) also lets authors explicitly authorize a verified primary email, choose English/Chinese, or resume after opting out. Private email access still requires the author's GitHub user authorization.
 
-After a new issue/PR is labeled and commented, the author can receive their score,
-interval, profile URL, and—when available—their percentile and score rank among accounts
-indexed by ghfind. These are **site score statistics**, not the repository's PR review
-order or a prediction of when maintainers will respond. Missing statistics are omitted.
+After an issue is labeled, the author can receive their score, interval, profile
+URL, and—when available—their percentile and score rank among accounts indexed by
+ghfind. These are **site score statistics**, not a processing order or a prediction
+of when maintainers will respond. Missing statistics are omitted. Pull requests do
+not send this mail.
 
-Delivery uses an independent D1 outbox, deduplicated per repository/issue number/author.
-There is at most one attempt per author per 24 hours and 100 attempts per UTC day globally.
-Email failures do not roll back labels or comments. Ambiguous sends are marked `uncertain`
+Delivery uses an independent D1 outbox. One person receives at most one score email
+every 48 hours, across repositories. Extra messages created during that quiet period
+are cancelled; they are not held until the 48 hours end. The next labeled issue can
+send one more email after the quiet period. The global cap is 100 emails per UTC day.
+Email failures do not roll back labels. Ambiguous sends are marked `uncertain`
 and are not automatically resent, avoiding duplicate mail at the cost of possible missed
 notifications. Inspect these records before any manual recovery.
 

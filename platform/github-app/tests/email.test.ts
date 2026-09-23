@@ -33,6 +33,8 @@ beforeEach(async () => {
       "author_emails",
       "author_subscriptions",
       "email_daily_budget",
+      "author_comment_once",
+      "noscore_comment_budget",
       "sessions",
     ].map((t) => e.DB.prepare(`DELETE FROM ${t}`)),
   );
@@ -142,6 +144,53 @@ it("sends once across concurrent drains and caps an author to one per day", asyn
     ).first("provider_id"),
   ).toBe("test");
   expect(send.mock.calls[0][0].text).toContain("82.7 / 100");
+});
+it("sends one email across repositories and stays quiet for 48 hours", async () => {
+  await subscribe();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    Response.json({ token: "installation-token" }),
+  );
+  const send = vi.fn().mockResolvedValue({ messageId: "test" });
+  const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+  await enqueueAuthorEmail(enabled, 1, payload, 2);
+  await sendAuthorEmails(enabled);
+  await enqueueAuthorEmail(
+    enabled,
+    1,
+    { ...payload, number: 9, repository: "other/repo", repositoryId: 9 },
+    9,
+  );
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(
+    await e.DB.prepare("SELECT state FROM author_emails WHERE id='9:9:1'").first(
+      "state",
+    ),
+  ).toBe("cancelled");
+  await e.DB.prepare(
+    "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
+  )
+    .bind(Date.now() - 47 * 60 * 60 * 1000)
+    .run();
+  await e.DB.prepare(
+    "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
+  )
+    .bind(Date.now())
+    .run();
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(1);
+  await e.DB.prepare(
+    "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
+  )
+    .bind(Date.now() - 49 * 60 * 60 * 1000)
+    .run();
+  await e.DB.prepare(
+    "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
+  )
+    .bind(Date.now())
+    .run();
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(2);
 });
 it("does not resend after an ambiguous provider failure", async () => {
   await subscribe();
