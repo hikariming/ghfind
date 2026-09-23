@@ -32,8 +32,8 @@ you a practical first screening step for potentially low-quality incoming work.
 
 The thresholds are currently fixed at **40, 70 and 90**; per-repository threshold
 configuration is not available. You choose how to handle each band using GitHub
-filters and your team's process. The App labels issues. It does not label pull
-requests, post conversation comments, or block and close issues. The score
+filters and your team's process. The App labels issues and pull requests. It
+does not post conversation comments, or block and close submissions. The score
 measures the author's public profile, not
 the submission's quality, and a new contributor may have a limited public record.
 
@@ -53,15 +53,17 @@ repositories it may access.
    read and write** and the implicit **Metadata: read** permission.
 2. The App automatically creates missing `review: low`, `medium`, `high`,
    `top`, and `no-score` labels, then reads the first two pages of the open
-   issue list (100 items per page). GitHub mixes pull requests into that list;
-   those items are skipped. Owner-customized colors and descriptions are preserved;
+   issue list (100 items per page) and the first page of open pull requests
+   (100 items). Pull requests mixed into the issue list are skipped so they are
+   not queued twice. That existing-PR page is labeled without sending score email.
+   Owner-customized colors and descriptions are preserved;
    original bot-owned grey defaults are upgraded to the palette below.
    Archived labels and case conflicts are reported for the owner to fix.
    Issues already labeled `review-level:` keep that older, longer name.
 3. The installation setup page offers GitHub sign-in to view accessible
    repository jobs. Retrying a failed repository job requires repository admin
    permission. Sign-in is optional for automatic labeling.
-4. Open a new issue. An empty description is fine. Processing is asynchronous;
+4. Open a new issue or pull request. An empty description is fine. Processing is asynchronous;
    wait for the queue, then refresh. The `review:` label is added by
    `ghfind-review[bot]`.
 5. If your repository already uses the old `PR review level` Actions workflow,
@@ -93,11 +95,13 @@ sign-in for status visibility. Only repository admins may retry failed jobs.
 The score thresholds match PR #288 at `f72a4b3`: 40, 70 and 90. A score outside
 0–100, a missing score or exhausted score retries produces `review: no-score`, never
 an inferred zero. This is an author-profile signal, not a code-quality review or
-permission to merge. New issues are labeled from `issues.opened`.
+permission to merge. New issues and pull requests are labeled from
+`issues.opened` and `pull_request.opened`.
 The author or a repository admin can comment `@ghfind-review` on an open
 no-score issue to request one fresh score; the label is updated.
 Installing the App, or adding a repository, reads the first two pages of the
-open issue list and skips pull requests in that list.
+open issue list and the first page of open pull requests. The existing-PR page
+does not send email. A later new pull request can.
 Closed items are left untouched. Editing or reopening an existing issue does
 not score it again.
 
@@ -307,13 +311,15 @@ Authors with a current public GitHub profile email receive score emails by defau
 After an issue is labeled, the author can receive their score, interval, profile
 URL, and—when available—their percentile and score rank among accounts indexed by
 ghfind. These are **site score statistics**, not a processing order or a prediction
-of when maintainers will respond. Missing statistics are omitted. Pull requests do
-not send this mail.
+of when maintainers will respond. Missing statistics are omitted. A newly opened
+pull request uses the same per-person, cross-repository 72-hour quiet period.
+The one-time page of existing pull requests is labeled without sending mail.
 
 Delivery uses an independent D1 outbox. One person receives at most one score email
 every 72 hours, across repositories. Extra messages created during that quiet period
-are cancelled; they are not held until the 72 hours end. The next labeled issue can
-send one more email after the quiet period. The global cap is 100 emails per UTC day.
+are cancelled; they are not held until the 72 hours end. The next labeled issue or
+pull request can send one more email after the quiet period. The global cap is 100
+emails per UTC day.
 Email failures do not roll back labels. Ambiguous sends are marked `uncertain`
 and are not automatically resent, avoiding duplicate mail at the cost of possible missed
 notifications. Inspect these records before any manual recovery.
