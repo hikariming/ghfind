@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFacetRank, getScoreBrief } from "@/lib/db";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/redis";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET(
   }
 
   const { username } = await params;
-  const decoded = decodeURIComponent(username);
+  const decoded = decodeRouteParam(username);
   const brief = await getScoreBrief(decoded);
   if (!brief) {
     return NextResponse.json({ facetRank: null }, { headers: { "Cache-Control": CACHE_CONTROL } });
