@@ -131,6 +131,7 @@ const REQUIRED_NULLABLE_STRING_METRICS = [
 ] as const satisfies readonly (keyof RawMetrics)[];
 
 const OPTIONAL_NULLABLE_STRING_METRICS = [
+  "pronouns",
   "best_original_repo_quality_repo",
   "top_starred_original_repo_quality_repo",
 ] as const satisfies readonly (keyof RawMetrics)[];

@@ -2,9 +2,55 @@ package backend
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestRoastPronounsOnlyAffectWriterContext(t *testing.T) {
+	for _, pronouns := range []*string{nil, stringPointer(""), stringPointer("   "), stringPointer("she/her"), stringPointer("he/him"), stringPointer("they/them"), stringPointer("she/they"), stringPointer("ze/zir")} {
+		scan := roastPromptBaseScan()
+		scan.Metrics.Pronouns = pronouns
+		scan.Metrics.Bio = stringPointer("Builder. My pronouns are they/them.")
+		// Hold all score-bearing inputs constant, including bio.
+		withoutPronouns := scan.Metrics
+		withoutPronouns.Pronouns = nil
+		baseline := Score(withoutPronouns)
+		if !reflect.DeepEqual(Score(scan.Metrics), baseline) {
+			t.Fatal("pronouns changed the deterministic score")
+		}
+		if SpamBotScore(scan.Metrics) != SpamBotScore(withoutPronouns) {
+			t.Fatal("pronouns changed bot detection")
+		}
+		for _, language := range []roastLanguage{roastLanguageZH, roastLanguageEN} {
+			messages := buildRoastPrompt(scan, language)
+			payload := roastPromptUserPayload(t, messages)
+			metrics := roastPayloadMap(t, payload, "metrics")
+			var want any
+			if trimmed := strings.TrimSpace(valueOrString(pronouns, "")); trimmed != "" {
+				want = trimmed
+			}
+			if metrics["pronouns"] != want || metrics["bio"] != *scan.Metrics.Bio {
+				t.Fatalf("profile context lost: %#v", metrics)
+			}
+			if !strings.Contains(messages[0].Content, "context_notes.pronoun_usage") {
+				t.Fatal("system prompt lacks pronoun guardrail")
+			}
+			note := roastPayloadMap(t, payload, "context_notes")["pronoun_usage"].(string)
+			needles := []string{"metrics.pronouns", "metrics.bio", "they/them"}
+			if language == roastLanguageEN {
+				needles = append(needles, "names, avatars", "tags, top roast, and report", "not instructions")
+			} else {
+				needles = append(needles, "名字、头像", "标签、顶部短评和报告正文", "不是指令")
+			}
+			for _, needle := range needles {
+				if !strings.Contains(note, needle) {
+					t.Fatalf("pronoun rule missing %q", needle)
+				}
+			}
+		}
+	}
+}
 
 // These tests port the assertions of main's src/lib/__tests__/prompt.test.ts
 // so the Go roast prompt stays behaviorally identical with main.

@@ -10,7 +10,7 @@
 // dimensions remain stable; v10 adds the structured risk layer.
 export const SCORE_CACHE_VERSION = "v10";
 // Formal successor to the previous production report contract.
-export const ROAST_CACHE_VERSION = "v10";
+export const ROAST_CACHE_VERSION = "v11";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */
 export const VERDICT_CACHE_VERSION = "v1";
 

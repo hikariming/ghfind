@@ -105,6 +105,18 @@ function input(
 }
 
 describe("materializeCanonicalScore", () => {
+  it.each(["she/her", "they/them", null, undefined])("preserves optional pronouns (%s) without changing the published score", (pronouns) => {
+    const result = materializeCanonicalScore(input(scan({ pronouns })));
+    expect(result).not.toBeNull();
+    expect(result?.scan.metrics.pronouns).toBe(pronouns);
+    expect(result?.scoreEntry).toEqual(materializeCanonicalScore(input(scan()))?.scoreEntry);
+  });
+
+  it("rejects malformed pronoun metadata before constructing writer context", () => {
+    const malformed = scan({ pronouns: 42 as unknown as string });
+    expect(materializeCanonicalScore(input(malformed))).toBeNull();
+  });
+
   it("reruns the deterministic scorer and returns a DB-compatible empty-report entry", () => {
     const original = scan();
     const expected = score(original.metrics);

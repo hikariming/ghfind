@@ -32,6 +32,15 @@ func TestRoastStoreUsesCanonicalSnapshotIdentityAndCASPersistence(t *testing.T) 
 	if err != nil || archived == nil || archived.Report != "## Alice\nreport" || archived.RoastLine.ZH != "有料" {
 		t.Fatalf("archived=%#v err=%v", archived, err)
 	}
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = 'v10' WHERE username = 'alice'`); err != nil {
+		t.Fatal(err)
+	}
+	if previous, err := store.GetArchivedRoast(context.Background(), "alice", roastLanguageZH); err != nil || previous != nil {
+		t.Fatalf("previous wording was replayed as current: %#v err=%v", previous, err)
+	}
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = ? WHERE username = 'alice'`, roastArtifactVersion); err != nil {
+		t.Fatal(err)
+	}
 	if changed, err := store.db.Exec(`UPDATE scores SET score_write_token = 'newer' WHERE username = 'alice'`); err != nil {
 		t.Fatal(err)
 	} else if rows, _ := changed.RowsAffected(); rows != 1 {

@@ -152,6 +152,8 @@ export interface RawMetrics {
   avatar_url: string | null;
   name: string | null;
   bio: string | null;
+  /** Explicit GitHub profile pronouns; writer context only, never a scoring signal. */
+  pronouns?: string | null;
   company: string | null;
   account_age_years: number;
   created_at: string | null;

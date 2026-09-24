@@ -16,6 +16,8 @@ import (
 // Do not change this formula without changing src/lib/score.ts and its shared
 // regression fixtures in the same review.
 type RawMetrics struct {
+	// Explicit profile pronouns are writer context only; Score never uses them.
+	Pronouns                                  *string  `json:"pronouns,omitempty"`
 	Username                                  string   `json:"username"`
 	ProfileURL                                *string  `json:"profile_url"`
 	AvatarURL                                 *string  `json:"avatar_url"`
