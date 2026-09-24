@@ -77,6 +77,22 @@ function RailBoard({
   );
 }
 
+function RailHeading() {
+  const t = useTranslations("home");
+  return (
+    <div className="flex items-center justify-between gap-3 px-2">
+      <h2 className="text-sm font-black tracking-wide text-zinc-100">{t("boardHeading")}</h2>
+      <Link
+        href="/leaderboard"
+        prefetch={false}
+        className="shrink-0 text-xs text-zinc-400 underline-offset-4 transition-colors hover:text-zinc-200 hover:underline"
+      >
+        {t("viewAll")} →
+      </Link>
+    </div>
+  );
+}
+
 function RailSkeleton() {
   return (
     <ol className="mt-3 flex flex-col gap-1" aria-hidden>
@@ -143,9 +159,7 @@ export function LeaderboardRail() {
   if (rowsByView === null) {
     return (
       <section className="home-rail">
-        <h2 className="px-2 text-sm font-black tracking-wide text-zinc-100">
-          {t("boardHeading")}
-        </h2>
+        <RailHeading />
         <div className="mt-3">
           <LeaderboardRailTabs
             tabs={RAIL_VIEWS.map(({ view, labelKey }) => ({
@@ -168,9 +182,7 @@ export function LeaderboardRail() {
 
   return (
     <section className="home-rail">
-      <h2 className="px-2 text-sm font-black tracking-wide text-zinc-100">
-        {t("boardHeading")}
-      </h2>
+      <RailHeading />
       {/* key remounts the tab switcher once real rows arrive, so the active
           tab resets to the first board that actually has data. */}
       <div className="mt-3">

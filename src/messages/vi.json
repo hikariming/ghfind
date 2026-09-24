@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "Tương tác",
-    "content": "Nội dung",
     "brand": "ghfind",
-    "roast": "Cà khịa",
-    "leaderboard": "Bảng xếp hạng",
+    "roast": "Cà khịa GitHub",
+    "leaderboard": "BXH lập trình viên",
     "discover": "Khám phá",
     "developers": "Lập trình viên",
     "projectBoards": "Bảng dự án",
     "projects": "Dự án",
-    "collections": "Đề xuất",
+    "collections": "Biên tập chọn",
     "languages": "Ngôn ngữ",
     "organizations": "Tổ chức",
-    "versus": "Solo",
+    "versus": "Solo lập trình viên",
     "blog": "Nghiên cứu",
     "openMenu": "Mở menu",
-    "closeMenu": "Đóng menu"
+    "closeMenu": "Đóng menu",
+    "resume": "CV của tôi",
+    "talent": "Kho nhân tài",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Khám phá",
+    "groupCareer": "Sự nghiệp",
+    "groupTools": "Công cụ",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Chấm điểm tài khoản GitHub trong 30 giây, kèm một câu cà khịa",
+      "versus": "Cho hai lập trình viên đối đầu",
+      "leaderboard": "Xem lập trình viên nổi bật theo điểm",
+      "projectBoards": "Khám phá dự án mã nguồn mở nổi bật theo lĩnh vực",
+      "collections": "Dự án và lập trình viên do biên tập viên chọn",
+      "blog": "Dữ liệu và phân tích về hệ sinh thái lập trình viên",
+      "resume": "Tạo CV lập trình viên từ dữ liệu GitHub",
+      "talent": "Tìm lập trình viên đáng để làm quen",
+      "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả"
+    }
   },
   "globalSearch": {
     "open": "Mở tìm kiếm toàn trang",
@@ -82,7 +98,8 @@
     "boardHeading": "🏆 Những dev xịn nhất",
     "openBoard": "Mở bảng xếp hạng đầy đủ →",
     "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
-    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn."
+    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
+    "viewAll": "Xem tất cả"
   },
   "leaderboard": {
     "heading": "🏆 Đại sảnh Danh vọng",
@@ -988,23 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "CV của tôi",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "Mở rộng thanh bên",
+    "collapse": "Thu gọn thanh bên",
+    "navigation": "Điều hướng chính",
+    "docs": "Trợ giúp & tài liệu",
+    "skip": "Chuyển đến nội dung",
     "edition": "Public workspace",
-    "sponsor": "Tài trợ",
-    "integrations": "Tích hợp",
-    "githubBot": "GitHub Bot"
+    "sponsor": "Tài trợ"
   },
   "talent": {
     "topline": {

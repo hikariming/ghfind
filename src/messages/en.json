@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "Playground",
-    "content": "Content",
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Leaderboard",
+    "roast": "GitHub Roast",
+    "leaderboard": "Developer Board",
     "discover": "Discover",
     "developers": "Developers",
     "projectBoards": "Project Boards",
     "projects": "Projects",
-    "collections": "Picks",
+    "collections": "Editor's Picks",
     "languages": "Languages",
     "organizations": "Organizations",
-    "versus": "Versus",
+    "versus": "Dev Versus",
     "blog": "Research",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "resume": "My résumé",
+    "talent": "Talent pool",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Discover",
+    "groupCareer": "Career",
+    "groupTools": "Tools",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Score any GitHub account in 30 seconds, with a savage one-liner",
+      "versus": "Put two developers head to head",
+      "leaderboard": "Browse top developers by score",
+      "projectBoards": "Find notable open-source projects by field",
+      "collections": "Projects and developers hand-picked by the editor",
+      "blog": "Data and insights on the developer ecosystem",
+      "resume": "Build a developer résumé from your GitHub data",
+      "talent": "Find developers worth knowing",
+      "githubBot": "Auto-label issues and PRs by author score"
+    }
   },
   "globalSearch": {
     "open": "Open global search",
@@ -82,7 +98,8 @@
     "boardHeading": "🏆 Best developers",
     "openBoard": "Open full leaderboard →",
     "disclaimer1": "Scores and roasts are generated automatically from <b>public GitHub data</b> only. We roast an account's public behavior and stats, not the person. Results are not factual claims about anyone — please don't use them to harass.",
-    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only."
+    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only.",
+    "viewAll": "View all"
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",
@@ -988,23 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
     "resume": "My résumé",
-    "talent": "Talent pool",
     "soon": "Soon",
     "tagline": "Developer workspace",
     "expand": "Expand sidebar",
     "collapse": "Collapse sidebar",
     "navigation": "Main navigation",
-    "docs": "Help & documentation",
+    "docs": "Help & docs",
     "skip": "Skip to content",
     "edition": "Public workspace",
-    "sponsor": "Sponsor",
-    "integrations": "Integrations",
-    "githubBot": "GitHub Bot"
+    "sponsor": "Sponsor"
   },
   "talent": {
     "topline": {

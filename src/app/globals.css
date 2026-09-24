@@ -1001,12 +1001,16 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .sidebar-search { position: relative; margin-bottom: 21px; }
 .sidebar-search > button { height: 37px; border: 1px solid var(--border); background: var(--background); color: var(--muted-foreground); border-radius: 7px; font-size: 12px; padding-inline: 12px; }
 .workspace-navigation { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
-.sidebar-group + .sidebar-group { margin-top: 18px; }
-.sidebar-group-label { font-size: 10px; font-weight: 500; color: var(--muted-foreground); margin: 0 12px 8px; letter-spacing: .05em; }
-.sidebar-link { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 38px; padding: 8px 12px; margin-block: 3px; border-radius: 7px; font-size: 12px; font-weight: 450; color: var(--muted-foreground); text-align: start; transition: color 120ms, background 120ms; }
+.sidebar-group + .sidebar-group { margin-top: 14px; }
+.sidebar-group-label { font-size: 10px; font-weight: 500; color: var(--muted-foreground); margin: 0 12px 4px; letter-spacing: .05em; display: flex; align-items: center; gap: 6px; }
+.sidebar-group-label .sidebar-soon { margin-inline-start: 0; letter-spacing: 0; }
+.sidebar-link { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 38px; padding: 8px 12px; margin-block: 2px; border-radius: 7px; font-size: 12px; font-weight: 450; color: var(--muted-foreground); text-align: start; transition: color 120ms, background 120ms; }
 .sidebar-link > svg { flex-shrink: 0; }
+.sidebar-link > span.sidebar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-link:hover { color: var(--foreground); background: color-mix(in srgb, var(--foreground) 4%, transparent); }
 .sidebar-link[aria-current="page"] { background: color-mix(in srgb, var(--foreground) 7%, transparent); color: var(--foreground); font-weight: 550; }
+.sidebar-link[data-featured] { color: var(--foreground); font-weight: 550; }
+.sidebar-link[data-featured] > svg { color: #ea6a1f; }
 .sidebar-active-dot { width: 4px; height: 4px; margin-inline-start: auto; border-radius: 50%; background: var(--foreground); }
 .sidebar-upcoming { cursor: default; opacity: .57; }
 .sidebar-upcoming:hover { background: transparent; color: var(--muted-foreground); }

@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "플레이그라운드",
-    "content": "콘텐츠",
     "brand": "ghfind",
-    "roast": "팩폭",
-    "leaderboard": "랭킹",
+    "roast": "GitHub 팩폭",
+    "leaderboard": "개발자 랭킹",
     "discover": "발견",
     "developers": "개발자",
     "projectBoards": "프로젝트 보드",
     "projects": "프로젝트",
-    "collections": "추천",
+    "collections": "에디터 추천",
     "languages": "언어",
     "organizations": "조직",
-    "versus": "대결",
+    "versus": "개발자 대결",
     "blog": "리서치",
     "openMenu": "메뉴 열기",
-    "closeMenu": "메뉴 닫기"
+    "closeMenu": "메뉴 닫기",
+    "resume": "내 이력서",
+    "talent": "인재풀",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "발견",
+    "groupCareer": "커리어",
+    "groupTools": "도구",
+    "beta": "Beta",
+    "hint": {
+      "roast": "30초 만에 GitHub 계정 점수와 한 줄 팩폭",
+      "versus": "두 개발자를 정면으로 비교",
+      "leaderboard": "점수순으로 우수 개발자 보기",
+      "projectBoards": "분야별 주목할 오픈소스 찾기",
+      "collections": "에디터가 직접 고른 프로젝트와 개발자",
+      "blog": "개발자 생태계 데이터와 인사이트",
+      "resume": "GitHub 데이터로 개발자 이력서 만들기",
+      "talent": "알아 둘 만한 개발자 찾기",
+      "githubBot": "작성자 점수로 issue와 PR에 자동 라벨"
+    }
   },
   "globalSearch": {
     "open": "전체 검색 열기",
@@ -82,7 +98,8 @@
     "boardHeading": "🏆 최고의 개발자들",
     "openBoard": "전체 랭킹 열기 →",
     "disclaimer1": "점수와 독설은 GitHub <b>공개 데이터</b>만으로 자동 생성됩니다. 계정의 공개 활동과 수치를 까는 것이지 사람을 공격하는 게 아니에요. 결과는 누군가에 대한 사실 판단이 아니니 괴롭힘에 쓰지 마세요.",
-    "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다."
+    "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다.",
+    "viewAll": "전체 보기"
   },
   "leaderboard": {
     "heading": "🏆 명예의 전당",
@@ -988,23 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "내 이력서",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "사이드바 펼치기",
+    "collapse": "사이드바 접기",
+    "navigation": "주요 탐색",
+    "docs": "도움말 및 문서",
+    "skip": "본문으로 건너뛰기",
     "edition": "Public workspace",
-    "sponsor": "후원하기",
-    "integrations": "연동",
-    "githubBot": "GitHub Bot"
+    "sponsor": "후원하기"
   },
   "talent": {
     "topline": {
