@@ -1317,7 +1317,8 @@
     "rowLabel": "Nhà tài trợ",
     "holders": {
       "dsh": "Kết nối một lần, dùng Harness từ xa mọi lúc",
-      "mosoo": "Runtime đám mây cho coding agent"
+      "mosoo": "Runtime đám mây cho coding agent",
+      "phi": "Trình duyệt AI mã nguồn mở thật sự hiểu bạn"
     },
     "slotOpen": "Còn trống"
   },

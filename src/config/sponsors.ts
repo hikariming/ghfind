@@ -55,6 +55,7 @@ export const SPONSOR_TIERS: SponsorTier[] = [
     holders: [
       { id: "dsh", name: "ds-harness-remote", url: "https://github.com/liguobao/ds-harness-remote", mark: "DSH" },
       { id: "mosoo", name: "mosoo", url: "https://mosoo.ai", logo: "/mosoo.svg" },
+      { id: "phi", name: "Phi Browser", url: "https://phibrowser.com/", logo: "/phibrowser.png" },
     ],
   },
   { id: "friend", listPrice: 30, price: 25, soldOut: false, holders: [] },
