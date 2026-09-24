@@ -98,7 +98,8 @@
     "boardHeading": "🏆 Những dev xịn nhất",
     "openBoard": "Mở bảng xếp hạng đầy đủ →",
     "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
-    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn."
+    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
+    "viewAll": "Xem tất cả"
   },
   "leaderboard": {
     "heading": "🏆 Đại sảnh Danh vọng",

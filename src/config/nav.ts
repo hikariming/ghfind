@@ -19,6 +19,8 @@ export type NavItem = {
   exact?: boolean;
   /** Visually emphasise the entry as the primary call to action. */
   featured?: boolean;
+  /** Show a Beta badge on this item (for a preview feature outside a Beta group). */
+  beta?: boolean;
   /** Small label badge, e.g. "beta" (legacy `NavLinks` only). */
   badge?: string;
   /** Legacy dropdown children (still understood by `NavLinks`). */
@@ -39,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "versus", href: "/vs", exact: true, icon: "swords" },
   ] },
   { label: "groupDiscover", items: [
+    { key: "talent", href: "/talent", icon: "briefcase", beta: true },
     { key: "leaderboard", href: "/leaderboard", icon: "trophy" },
     { key: "projectBoards", href: "/projects", icon: "code" },
     { key: "collections", href: "/collections", icon: "star" },
@@ -46,7 +49,6 @@ export const NAV_GROUPS: NavGroup[] = [
   ] },
   { label: "groupCareer", beta: true, items: [
     { key: "resume", href: "/resume", icon: "resume" },
-    { key: "talent", href: "/talent", icon: "briefcase" },
   ] },
   { label: "groupTools", items: [
     { key: "githubBot", href: "/github-bot", icon: "bot" },

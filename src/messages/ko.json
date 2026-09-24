@@ -98,7 +98,8 @@
     "boardHeading": "🏆 최고의 개발자들",
     "openBoard": "전체 랭킹 열기 →",
     "disclaimer1": "점수와 독설은 GitHub <b>공개 데이터</b>만으로 자동 생성됩니다. 계정의 공개 활동과 수치를 까는 것이지 사람을 공격하는 게 아니에요. 결과는 누군가에 대한 사실 판단이 아니니 괴롭힘에 쓰지 마세요.",
-    "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다."
+    "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다.",
+    "viewAll": "전체 보기"
   },
   "leaderboard": {
     "heading": "🏆 명예의 전당",

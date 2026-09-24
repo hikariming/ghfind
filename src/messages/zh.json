@@ -98,7 +98,8 @@
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
-    "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。"
+    "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。",
+    "viewAll": "查看全部"
   },
   "leaderboard": {
     "heading": "🏆 名人堂",

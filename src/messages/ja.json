@@ -98,7 +98,8 @@
     "boardHeading": "🏆 最強の開発者たち",
     "openBoard": "ランキングを全部見る →",
     "disclaimer1": "スコアとローストは <b>GitHubの公開データ</b> のみから自動生成しています。刺しているのはアカウントの公開挙動と数字であって、人格ではありません。結果は誰かに関する事実認定ではないので、ハラスメントに使わないでください。",
-    "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。"
+    "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。",
+    "viewAll": "すべて見る"
   },
   "leaderboard": {
     "heading": "🏆 殿堂",

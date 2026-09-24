@@ -98,7 +98,8 @@
     "boardHeading": "🏆 Los mejores developers",
     "openBoard": "Abrir el ranking completo →",
     "disclaimer1": "Los scores y roasts se generan automáticamente solo a partir de <b>datos públicos de GitHub</b>. Roasteamos el comportamiento y las estadísticas públicas de una cuenta, no a la persona. Los resultados no son afirmaciones factuales sobre nadie — por favor no los uses para acosar.",
-    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador."
+    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador.",
+    "viewAll": "Ver todo"
   },
   "leaderboard": {
     "heading": "🏆 Salón de la Fama",
