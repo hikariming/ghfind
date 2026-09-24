@@ -2763,6 +2763,7 @@ interface ContribStatTotals {
 }
 
 interface ContribOverview {
+  pronouns?: string | null;
   pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
   mergedPRs: { totalCount: number };
   allPRs: { totalCount: number };
@@ -2787,7 +2788,8 @@ const CLOSED_PR_OVERVIEW_FIELDS = `closedPRs: pullRequests(states: CLOSED, first
           }
         }`;
 
-const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
+const CONTRIB_OVERVIEW_FIELDS = `pronouns
+        pinnedItems(first: 6, types: REPOSITORY) {
           nodes { ... on Repository { nameWithOwner } }
         }
         mergedPRs: pullRequests(states: MERGED) { totalCount }
@@ -3282,6 +3284,7 @@ export async function collect(username: string): Promise<{
     avatar_url: user.avatar_url,
     name: user.name,
     bio: user.bio,
+    pronouns: overview.pronouns?.trim() || null,
     company: user.company,
     account_age_years: accountAgeYears,
     created_at: user.created_at,

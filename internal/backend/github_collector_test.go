@@ -65,7 +65,10 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 		case strings.Contains(body.Query, "pullRequests(first: $count, orderBy"):
 			data = `{"user":{"pullRequests":{"nodes":[{"title":"fix worker","repository":{"nameWithOwner":"upstream/framework"}}]}}}`
 		case strings.Contains(body.Query, "totalCommitContributions"):
-			data = `{"user":{"pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":480},"allPRs":{"totalCount":480},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
+			if !strings.Contains(body.Query, "pronouns") {
+				t.Error("overview query omits pronouns")
+			}
+			data = `{"user":{"pronouns":"she/her","pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":480},"allPRs":{"totalCount":480},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
 		default:
 			t.Errorf("unhandled GraphQL query: %s", body.Query)
 			data = `{}`
@@ -84,6 +87,13 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 	}
 	if !scan.Metrics.MergedPRContributionAggregationIncomplete || scan.Metrics.ImpactPRCount != 1 {
 		t.Fatalf("bounded merged-PR evidence was not preserved: %#v", scan.Metrics)
+	}
+	if valueOrString(scan.Metrics.Pronouns, "") != "she/her" {
+		t.Fatal("collector dropped profile pronouns")
+	}
+	payload := roastPromptUserPayload(t, buildRoastPrompt(scan, roastLanguageEN))
+	if roastPayloadMap(t, payload, "metrics")["pronouns"] != "she/her" {
+		t.Fatal("collected pronouns did not reach the writer")
 	}
 	if len(scan.TopRepos) != 1 || scan.TopRepos[0].Readme == nil || scan.Scoring.FinalScore <= 0 || scan.Scoring.FinalScore != Score(scan.Metrics).FinalScore {
 		t.Fatalf("scan is not a Go-native deterministic result: %#v", scan)
