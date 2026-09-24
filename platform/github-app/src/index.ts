@@ -151,7 +151,8 @@ export default {
           service: "ghfind-github-app",
           enabled: env.ENABLED === "true",
         });
-      if (path === "/avatar.png") return env.ASSETS.fetch(request);
+      if (path === "/avatar.png" || path === "/fonts/dm-sans-variable.ttf")
+        return env.ASSETS.fetch(request);
       return await ui(request, env);
     } catch {
       return new Response("Temporarily unavailable", {

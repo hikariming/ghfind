@@ -79,7 +79,7 @@ export default async function GithubBotPage({
             <a className={styles.cta} href={INSTALL_URL} target="_blank" rel="noopener noreferrer">
               {t("hero.install")} <ArrowUpRight size={14} aria-hidden />
             </a>
-            <a className={styles.secondary} href={STATUS_URL} target="_blank" rel="noopener noreferrer">
+            <a className={styles.secondary} href={`${STATUS_URL}/?lang=${locale}`} target="_blank" rel="noopener noreferrer">
               {t("hero.status")}
             </a>
           </div>
@@ -160,7 +160,7 @@ export default async function GithubBotPage({
             <h3>{t(`notes.${id}.heading`)}</h3>
             <p>{t(`notes.${id}.body`)}</p>
             {id === "privacy" && (
-              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">
+              <a href={`${PRIVACY_URL}?lang=${locale}`} target="_blank" rel="noopener noreferrer">
                 {t("notes.privacy.link")} <ArrowUpRight size={12} aria-hidden />
               </a>
             )}
