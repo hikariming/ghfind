@@ -19,6 +19,8 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -59,12 +61,29 @@ class GitHubDataUnavailableError(Exception):
     pass
 
 
+_token_context: ContextVar[Optional[str]] = ContextVar("github_token", default=None)
+
+
+def _github_token() -> Optional[str]:
+    token = _token_context.get()
+    return token if token is not None else os.environ.get("GITHUB_TOKEN")
+
+
+@contextmanager
+def _with_github_token(token: str):
+    reset_token = _token_context.set(token)
+    try:
+        yield
+    finally:
+        _token_context.reset(reset_token)
+
+
 def _math_round(x: float) -> int:
     return math.floor(x + 0.5)
 
 
 def _auth_headers() -> Dict[str, str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -115,7 +134,7 @@ def _rest_get_opt(path: str) -> Any:
 
 
 def _graphql(query: str, variables: Dict[str, Any]) -> Any:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required.")
     headers = {**_auth_headers(), "Content-Type": "application/json"}
@@ -1010,7 +1029,7 @@ def prestige_work_multiplier(commits: int, prs: int) -> float:
 # --- async-equivalent fetchers ---------------------------------------------
 
 def _fetch_organizations(username: str) -> List[str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         return []
     query = ("query($login: String!) { user(login: $login) { "
@@ -1229,7 +1248,7 @@ _CONTRIB_QUERY = """query($login: String!) {
 
 
 def collect(username: str) -> Dict[str, Any]:
-    if not os.environ.get("GITHUB_TOKEN"):
+    if not _github_token():
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.")
 
     now = datetime.now(timezone.utc)

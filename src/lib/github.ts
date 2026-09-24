@@ -7,6 +7,7 @@
  * `recent_prs` shape exactly so the scoring port consumes it unchanged.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { logRatio } from "./score";
 import type {
   EstimatedContributionLanguages,
@@ -40,12 +41,19 @@ export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 /** An oversized query can hit GitHub's gateway timeout before returning JSON. */
 export class GitHubQueryTimeoutError extends GitHubDataUnavailableError {}
 
+// SDK overrides belong to one async collection, never to the process environment.
+const githubTokenContext = new AsyncLocalStorage<string>();
+
+export function withGithubToken<T>(token: string, run: () => T): T {
+  return githubTokenContext.run(token, run);
+}
+
 /** The GitHub PAT pool. `GITHUB_TOKEN` may hold a single token or a
  *  comma-separated list (`ghp_a,ghp_b,ghp_c`); each token multiplies the
  *  5000-point/hr GraphQL ceiling. Read at call time (not module load) so scripts
  *  populating env via `_env.mjs` and tests mutating `process.env` still work. */
 export function githubTokens(): string[] {
-  return (process.env.GITHUB_TOKEN ?? "")
+  return (githubTokenContext.getStore() ?? process.env.GITHUB_TOKEN ?? "")
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
