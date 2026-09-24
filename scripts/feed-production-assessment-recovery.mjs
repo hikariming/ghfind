@@ -12,9 +12,12 @@ export const repository = 'hikariming/ghfind';
 export const workflowPath = '.github/workflows/deploy-cf-production.yml';
 export const startStep = 'Start or resume the single real production assessment';
 export const receiptFile = 'assessment-intent.json';
-// The pinned carryover window contained 22 production workflow_run events on
-// 2026-09-22. Twenty rejected that complete one-page history before any deploy.
-export const limits = Object.freeze({ runs: 40, attempts: 10, requests: 180, artifactBytes: 8 * 1024 * 1024, receiptBytes: 32 * 1024 });
+// The pinned carryover window grows with every main release: 22 runs on
+// 2026-09-22, 44 on 2026-09-24 (which the old bound of 40 rejected). `runs`
+// is the one-page ceiling (per_page=100); unpaginated history stays complete.
+// Each run costs about two attempt/job reads plus artifact, ZIP and log reads,
+// so the request budget scales with it. Re-anchor the carryover before 100.
+export const limits = Object.freeze({ runs: 100, attempts: 10, requests: 600, artifactBytes: 8 * 1024 * 1024, receiptBytes: 32 * 1024 });
 const historyEvidencePath = new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const canonicalHash = value => sha256(JSON.stringify(value));
