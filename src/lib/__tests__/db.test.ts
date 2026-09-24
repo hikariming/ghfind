@@ -418,6 +418,29 @@ describe("getArchivedRoast", () => {
       roast: null,
       roast_en: null,
     });
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const fallback = await client.execute({
+      sql: "SELECT roast_version FROM score_release_fallbacks WHERE username = ?",
+      args: [username],
+    });
+    expect(fallback.rows).toHaveLength(0);
+  });
+
+  it("labels an immutable previous-roast fallback as historical when the score version is unchanged", async () => {
+    const username = "pronoun-rollout-fallback";
+    await writeLegacyReadFallback(username);
+    await writeScore({ ...entry, username, final_score: 88.4, scanned_at: entry.scanned_at + 10 });
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: "UPDATE scores SET score_source_snapshot_hash = NULL WHERE username = ?",
+      args: [username],
+    });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      final_score: entry.final_score,
+      legacy_read_fallback: true,
+      roast: "## 旧版中文点评\n只读回放。",
+    });
+    await expect(db.getArchivedRoast(username, "zh")).resolves.toBeNull();
   });
 
   it("rejects a late roast when the persisted score is not canonical", async () => {

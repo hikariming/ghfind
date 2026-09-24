@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildRoastMessages } from "../prompt";
+import { score } from "../score";
 import {
   boundedContributionYearsActive,
   collect,
@@ -342,7 +344,8 @@ describe("collect", () => {
     await expect(collect("alice")).rejects.toBeInstanceOf(GitHubDataUnavailableError);
   });
 
-  it("uses public events for activity recency when owned repo pushes are stale", async () => {
+  it.each(["she/her", null])("collects profile pronouns (%s) alongside public activity", async (pronouns) => {
+    let overviewQuery = "";
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-18T12:00:00Z"));
 
@@ -433,9 +436,11 @@ describe("collect", () => {
             query.includes("mergedPRs: pullRequests") &&
             query.includes("pinnedItems(first: 6, types: REPOSITORY)")
           ) {
+            overviewQuery = query;
             return jsonResponse({
               data: {
                 user: {
+                  pronouns,
                   pinnedItems: { nodes: [] },
                   mergedPRs: { totalCount: 0 },
                   allPRs: { totalCount: 0 },
@@ -465,9 +470,16 @@ describe("collect", () => {
     const result = await collect("active");
 
     expect(result.metrics.days_since_last_activity).toBe(0);
+    expect(overviewQuery).toMatch(/\bpronouns\b/);
+    expect(result.metrics.pronouns).toBe(pronouns);
+    const [, writerInput] = buildRoastMessages({ ...result, scoring: score(result.metrics) }, "en");
+    const writerPayload = JSON.parse(writerInput.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(writerPayload.metrics.pronouns).toBe(pronouns);
+    expect(writerPayload.context_notes.pronoun_usage).toContain("they/them");
   });
 
   it("splits the contribution query when GitHub reports RESOURCE_LIMITS_EXCEEDED", async () => {
+    let overviewQuery = "";
     let combinedAttempts = 0;
     let boundedMergedAggregationCalls = 0;
     vi.stubGlobal(
@@ -521,9 +533,11 @@ describe("collect", () => {
 
           // Degraded overview refetch (no stat fields).
           if (query.includes("contributionYears")) {
+            overviewQuery = query;
             return jsonResponse({
               data: {
                 user: {
+                  pronouns: "they/them",
                   pinnedItems: { nodes: [] },
                   mergedPRs: { totalCount: 480 },
                   allPRs: { totalCount: 520 },
@@ -582,6 +596,8 @@ describe("collect", () => {
     const result = await collect("hyper");
 
     expect(combinedAttempts).toBe(1);
+    expect(overviewQuery).toMatch(/\bpronouns\b/);
+    expect(result.metrics.pronouns).toBe("they/them");
     expect(result.metrics.last_year_contributions).toBe(7810);
     expect(result.metrics.merged_pr_count).toBe(480);
     expect(result.metrics.issues_created).toBe(220);

@@ -66,8 +66,8 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 		 roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at, hidden)
 		VALUES (?, ?, ?, ?, ?, '顶级', '{"zh":["工程"],"en":["engineering"]}', '{"zh":"一句","en":"line"}',
 		'{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":13}',
-		'中文报告', 'English report', 'v10', 'v4', ?, 'v10', 'v10', 1000, 70, 100, 0)`,
-		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, strings.Repeat("a", 64))
+		'中文报告', 'English report', 'v10', 'v4', ?, ?, ?, 1000, 70, 100, 0)`,
+		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, strings.Repeat("a", 64), roastArtifactVersion, roastArtifactVersion)
 	if err != nil {
 		t.Fatalf("insert score %s: %v", username, err)
 	}

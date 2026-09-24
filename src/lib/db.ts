@@ -1186,6 +1186,12 @@ function isCanonicalSnapshotHash(value: unknown): value is string {
  * `getLegacyReadFallbackScan` will refuse to claim a complete scan.
  */
 async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Promise<void> {
+  // A wording-only release shares its score/collection tuple with its predecessor.
+  // Only an actual previous-version report identifies a historical artifact;
+  // otherwise a newly generated report could be captured as its own fallback.
+  const roastOnlyRelease =
+    LEGACY_READ_FALLBACK.score === SCORE_CACHE_VERSION &&
+    LEGACY_READ_FALLBACK.collection === PUBLIC_SCAN_COLLECTION_VERSION;
   await db.execute({
     sql: `INSERT OR IGNORE INTO score_release_fallbacks
             (username, score_version, collection_version, display_name, avatar_url,
@@ -1217,7 +1223,8 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
           WHERE s.username = ?
             AND s.hidden = 0
             AND s.score_version = ?
-            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)`,
+            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)
+            ${roastOnlyRelease ? "AND (s.roast_version = ? OR s.roast_en_version = ?)" : ""}`,
     args: [
       LEGACY_READ_FALLBACK.collection,
       Date.now(),
@@ -1226,6 +1233,7 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
       username,
       LEGACY_READ_FALLBACK.score,
       LEGACY_READ_FALLBACK.collection,
+      ...(roastOnlyRelease ? [LEGACY_READ_FALLBACK.roast, LEGACY_READ_FALLBACK.roast] : []),
     ],
   });
 }
@@ -6176,7 +6184,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : await getLegacyReadFallbackRow(db, username);
     const r = fallbackRow ?? currentRow;
     if (!r) return null;
-    const resolvedCurrentScore = isTargetReleaseScoreRow(r);
+    const resolvedCurrentScore = !fallbackRow && isTargetReleaseScoreRow(r);
     const legacyReadFallback =
       !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
     const readableArtifacts = resolvedCurrentScore || legacyReadFallback;

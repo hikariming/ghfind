@@ -97,6 +97,16 @@ const NEUTRAL: RawMetrics = {
 
 const hasFlag = (m: RawMetrics, name: string) =>
   score(m).red_flags.some((f) => f.flag === name);
+
+describe("profile pronouns", () => {
+  it.each(["she/her", "he/him", "they/them", "she/they", "ze/zir", "", null, undefined])(
+    "does not change scoring or bot detection (%s)",
+    (pronouns) => {
+      expect(score({ ...NEUTRAL, pronouns })).toEqual(score(NEUTRAL));
+      expect(spamBotScore({ ...NEUTRAL, pronouns })).toEqual(spamBotScore(NEUTRAL));
+    },
+  );
+});
 const hasNote = (m: RawMetrics, name: string) =>
   score(m).risk_notes?.some((f) => f.flag === name) ?? false;
 
