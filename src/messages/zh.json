@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "互动",
-    "content": "内容",
     "brand": "ghfind",
-    "roast": "锐评",
-    "leaderboard": "榜单",
+    "roast": "GitHub 锐评",
+    "leaderboard": "开发者榜",
     "discover": "发现",
     "developers": "开发者",
     "projectBoards": "项目榜",
     "projects": "项目",
-    "collections": "站长推荐",
+    "collections": "站长精选",
     "languages": "语言",
     "organizations": "组织",
-    "versus": "对战",
-    "blog": "研究",
+    "versus": "开发者 PK",
+    "blog": "研究报告",
     "openMenu": "打开菜单",
-    "closeMenu": "关闭菜单"
+    "closeMenu": "关闭菜单",
+    "resume": "我的简历",
+    "talent": "人才库",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "发现",
+    "groupCareer": "职业",
+    "groupTools": "工具",
+    "beta": "Beta",
+    "hint": {
+      "roast": "30 秒给 GitHub 账号打分，附一句毒舌点评",
+      "versus": "两位开发者正面 PK，看谁更强",
+      "leaderboard": "按评分浏览优质开发者",
+      "projectBoards": "按领域发现值得关注的开源项目",
+      "collections": "站长亲自挑选的项目与开发者",
+      "blog": "开发者生态的数据与洞察",
+      "resume": "用 GitHub 数据生成开发者简历",
+      "talent": "发现值得认识的开发者",
+      "githubBot": "按作者评分给 issue 和 PR 自动打标签"
+    }
   },
   "globalSearch": {
     "open": "打开全局搜索",
@@ -995,12 +1011,9 @@
     }
   },
   "sidebar": {
-    "preview": "预览版",
     "workspace": "工作台",
     "discover": "发现",
-    "career": "职业",
     "resume": "我的简历",
-    "talent": "人才库",
     "soon": "筹备中",
     "tagline": "开发者工作台",
     "expand": "展开侧边栏",
@@ -1009,9 +1022,7 @@
     "docs": "帮助与文档",
     "skip": "跳到内容",
     "edition": "开放社区",
-    "sponsor": "赞助本站",
-    "integrations": "集成",
-    "githubBot": "GitHub Bot"
+    "sponsor": "赞助本站"
   },
   "talent": {
     "topline": {

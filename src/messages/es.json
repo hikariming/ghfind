@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "Interacción",
-    "content": "Contenido",
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Ranking",
+    "roast": "Roast de GitHub",
+    "leaderboard": "Ranking de devs",
     "discover": "Descubrir",
     "developers": "Developers",
     "projectBoards": "Tableros de proyectos",
     "projects": "Proyectos",
-    "collections": "Selecciones",
+    "collections": "Selección del editor",
     "languages": "Lenguajes",
     "organizations": "Organizaciones",
-    "versus": "Versus",
-    "blog": "Research",
+    "versus": "Duelo de devs",
+    "blog": "Investigación",
     "openMenu": "Abrir menú",
-    "closeMenu": "Cerrar menú"
+    "closeMenu": "Cerrar menú",
+    "resume": "Mi currículum",
+    "talent": "Bolsa de talento",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Descubrir",
+    "groupCareer": "Carrera",
+    "groupTools": "Herramientas",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Puntúa una cuenta de GitHub en 30 segundos, con una frase sin piedad",
+      "versus": "Enfrenta a dos desarrolladores",
+      "leaderboard": "Explora los mejores desarrolladores por puntuación",
+      "projectBoards": "Descubre proyectos open source destacados por área",
+      "collections": "Proyectos y desarrolladores elegidos por el editor",
+      "blog": "Datos y análisis del ecosistema de desarrolladores",
+      "resume": "Crea un currículum de desarrollador con tus datos de GitHub",
+      "talent": "Encuentra desarrolladores que vale la pena conocer",
+      "githubBot": "Etiqueta issues y PR según la puntuación del autor"
+    }
   },
   "globalSearch": {
     "open": "Abrir búsqueda global",
@@ -988,23 +1004,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "Mi currículum",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "Expandir barra lateral",
+    "collapse": "Contraer barra lateral",
+    "navigation": "Navegación principal",
+    "docs": "Ayuda y docs",
+    "skip": "Saltar al contenido",
     "edition": "Public workspace",
-    "sponsor": "Patrocinar",
-    "integrations": "Integraciones",
-    "githubBot": "GitHub Bot"
+    "sponsor": "Patrocinar"
   },
   "talent": {
     "topline": {

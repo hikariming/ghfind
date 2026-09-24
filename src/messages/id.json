@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "Interaksi",
-    "content": "Konten",
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Peringkat",
+    "roast": "Roast GitHub",
+    "leaderboard": "Peringkat developer",
     "discover": "Jelajahi",
     "developers": "Developer",
     "projectBoards": "Papan proyek",
     "projects": "Proyek",
-    "collections": "Pilihan",
+    "collections": "Pilihan editor",
     "languages": "Bahasa",
     "organizations": "Organisasi",
-    "versus": "Duel",
+    "versus": "Duel developer",
     "blog": "Riset",
     "openMenu": "Buka menu",
-    "closeMenu": "Tutup menu"
+    "closeMenu": "Tutup menu",
+    "resume": "CV saya",
+    "talent": "Kumpulan talenta",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Jelajahi",
+    "groupCareer": "Karier",
+    "groupTools": "Alat",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Nilai akun GitHub dalam 30 detik, plus satu komentar pedas",
+      "versus": "Adu dua developer secara langsung",
+      "leaderboard": "Jelajahi developer terbaik berdasarkan skor",
+      "projectBoards": "Temukan proyek open source menonjol per bidang",
+      "collections": "Proyek dan developer pilihan editor",
+      "blog": "Data dan wawasan ekosistem developer",
+      "resume": "Buat CV developer dari data GitHub",
+      "talent": "Temukan developer yang layak dikenal",
+      "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis"
+    }
   },
   "globalSearch": {
     "open": "Buka pencarian global",
@@ -988,23 +1004,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "CV saya",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "Bentangkan sidebar",
+    "collapse": "Ciutkan sidebar",
+    "navigation": "Navigasi utama",
+    "docs": "Bantuan & dokumentasi",
+    "skip": "Lewati ke konten",
     "edition": "Public workspace",
-    "sponsor": "Sponsori",
-    "integrations": "Integrasi",
-    "githubBot": "GitHub Bot"
+    "sponsor": "Sponsori"
   },
   "talent": {
     "topline": {

@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "Interação",
-    "content": "Conteúdo",
     "brand": "ghfind",
-    "roast": "Zoar",
-    "leaderboard": "Ranking",
+    "roast": "Zoar no GitHub",
+    "leaderboard": "Ranking de devs",
     "discover": "Descobrir",
     "developers": "Desenvolvedores",
     "projectBoards": "Quadros de projetos",
     "projects": "Projetos",
-    "collections": "Seleções",
+    "collections": "Escolhas do editor",
     "languages": "Linguagens",
     "organizations": "Organizações",
-    "versus": "Versus",
+    "versus": "Duelo de devs",
     "blog": "Pesquisa",
     "openMenu": "Abrir menu",
-    "closeMenu": "Fechar menu"
+    "closeMenu": "Fechar menu",
+    "resume": "Meu currículo",
+    "talent": "Banco de talentos",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Descobrir",
+    "groupCareer": "Carreira",
+    "groupTools": "Ferramentas",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Nota para qualquer conta do GitHub em 30 segundos, com uma zoeira certeira",
+      "versus": "Coloque dois desenvolvedores frente a frente",
+      "leaderboard": "Veja os melhores desenvolvedores por nota",
+      "projectBoards": "Descubra projetos open source em destaque por área",
+      "collections": "Projetos e desenvolvedores escolhidos pelo editor",
+      "blog": "Dados e análises do ecossistema de desenvolvedores",
+      "resume": "Monte um currículo de desenvolvedor com seus dados do GitHub",
+      "talent": "Encontre desenvolvedores que valem a pena conhecer",
+      "githubBot": "Rotula issues e PRs pela nota do autor"
+    }
   },
   "globalSearch": {
     "open": "Abrir busca global",
@@ -988,23 +1004,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "Meu currículo",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "Expandir barra lateral",
+    "collapse": "Recolher barra lateral",
+    "navigation": "Navegação principal",
+    "docs": "Ajuda e docs",
+    "skip": "Pular para o conteúdo",
     "edition": "Public workspace",
-    "sponsor": "Patrocinar",
-    "integrations": "Integrações",
-    "githubBot": "GitHub Bot"
+    "sponsor": "Patrocinar"
   },
   "talent": {
     "topline": {

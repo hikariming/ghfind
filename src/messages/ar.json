@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "تفاعل",
-    "content": "المحتوى",
     "brand": "ghfind",
-    "roast": "التحميص",
-    "leaderboard": "لوحة الصدارة",
+    "roast": "تحميص GitHub",
+    "leaderboard": "ترتيب المطورين",
     "discover": "اكتشف",
     "developers": "المطورون",
     "projectBoards": "لوحات المشاريع",
     "projects": "المشاريع",
-    "collections": "مختارات",
+    "collections": "اختيارات المحرر",
     "languages": "اللغات",
     "organizations": "المنظمات",
-    "versus": "المواجهات",
+    "versus": "مواجهة المطورين",
     "blog": "الأبحاث",
     "openMenu": "افتح القائمة",
-    "closeMenu": "أغلق القائمة"
+    "closeMenu": "أغلق القائمة",
+    "resume": "سيرتي الذاتية",
+    "talent": "مجمع المواهب",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "اكتشف",
+    "groupCareer": "المسار المهني",
+    "groupTools": "الأدوات",
+    "beta": "Beta",
+    "hint": {
+      "roast": "قيّم أي حساب GitHub في 30 ثانية مع تعليق لاذع",
+      "versus": "واجه بين مطوّرَين وجهًا لوجه",
+      "leaderboard": "تصفّح أفضل المطورين حسب التقييم",
+      "projectBoards": "اكتشف مشاريع مفتوحة المصدر بارزة حسب المجال",
+      "collections": "مشاريع ومطورون اختارهم المحرر",
+      "blog": "بيانات ورؤى حول منظومة المطورين",
+      "resume": "أنشئ سيرة ذاتية للمطور من بيانات GitHub",
+      "talent": "اعثر على مطورين يستحقون التعرف عليهم",
+      "githubBot": "وسم تلقائي للـ issues والـ PRs حسب تقييم الكاتب"
+    }
   },
   "globalSearch": {
     "open": "افتح البحث الشامل",
@@ -988,23 +1004,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "سيرتي الذاتية",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "توسيع الشريط الجانبي",
+    "collapse": "طي الشريط الجانبي",
+    "navigation": "التنقل الرئيسي",
+    "docs": "المساعدة والوثائق",
+    "skip": "انتقل إلى المحتوى",
     "edition": "Public workspace",
-    "sponsor": "ادعمنا",
-    "integrations": "التكاملات",
-    "githubBot": "GitHub Bot"
+    "sponsor": "ادعمنا"
   },
   "talent": {
     "topline": {

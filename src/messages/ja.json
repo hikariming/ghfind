@@ -8,22 +8,38 @@
     "siteName": "ghfind"
   },
   "nav": {
-    "interaction": "交流",
-    "content": "コンテンツ",
     "brand": "ghfind",
-    "roast": "ロースト",
-    "leaderboard": "ランキング",
+    "roast": "GitHub ロースト",
+    "leaderboard": "開発者ランキング",
     "discover": "発見",
     "developers": "開発者",
     "projectBoards": "プロジェクトボード",
     "projects": "プロジェクト",
-    "collections": "おすすめ",
+    "collections": "編集部おすすめ",
     "languages": "言語",
     "organizations": "組織",
-    "versus": "対戦",
+    "versus": "開発者対戦",
     "blog": "リサーチ",
     "openMenu": "メニューを開く",
-    "closeMenu": "メニューを閉じる"
+    "closeMenu": "メニューを閉じる",
+    "resume": "マイ履歴書",
+    "talent": "人材プール",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "発見",
+    "groupCareer": "キャリア",
+    "groupTools": "ツール",
+    "beta": "Beta",
+    "hint": {
+      "roast": "30 秒で GitHub アカウントを採点、辛口コメント付き",
+      "versus": "2 人の開発者を真っ向勝負で比較",
+      "leaderboard": "スコア順に優れた開発者を見る",
+      "projectBoards": "分野別に注目のオープンソースを探す",
+      "collections": "編集部が選んだプロジェクトと開発者",
+      "blog": "開発者エコシステムのデータと洞察",
+      "resume": "GitHub データから開発者履歴書を作成",
+      "talent": "知り合う価値のある開発者を探す",
+      "githubBot": "作成者のスコアで issue と PR に自動ラベル付け"
+    }
   },
   "globalSearch": {
     "open": "グローバル検索を開く",
@@ -988,23 +1004,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "マイ履歴書",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
+    "expand": "サイドバーを開く",
+    "collapse": "サイドバーを閉じる",
+    "navigation": "メインナビゲーション",
+    "docs": "ヘルプとドキュメント",
+    "skip": "コンテンツへスキップ",
     "edition": "Public workspace",
-    "sponsor": "スポンサー",
-    "integrations": "連携",
-    "githubBot": "GitHub Bot"
+    "sponsor": "スポンサー"
   },
   "talent": {
     "topline": {
