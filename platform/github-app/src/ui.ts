@@ -2,6 +2,16 @@ import { seal, unseal } from "./secrets";
 import { verifiedEmail } from "./author-email";
 import { github, jsonRequest, record, positive } from "./github";
 import { dispatch, Job, putJob } from "./jobs";
+import {
+  format,
+  LOCALE_COOKIE,
+  LOCALE_NAMES,
+  LOCALES,
+  Locale,
+  Messages,
+  MESSAGES,
+  pickLocale,
+} from "./i18n";
 
 const escape = (text: unknown) =>
   String(text).replace(
@@ -11,24 +21,211 @@ const escape = (text: unknown) =>
         x
       ]!,
   );
-function html(content: string) {
+
+// Same colour tokens and typeface as ghfind.com, so the bot reads as part of the site.
+const STYLE = `
+@font-face{font-family:"DM Sans";font-style:normal;font-weight:100 1000;font-display:swap;src:url("/fonts/dm-sans-variable.ttf") format("truetype")}
+:root{--bg:#fff;--fg:#242423;--surface:#fafaf9;--muted-bg:#f3f3f1;--card:#fff;--border:#e7e7e4;--muted:#757571;--primary:#252524;--primary-fg:#fff;--link:#4167a7;--accent:#48745a;--accent-bg:#edf4ee;--shadow:0 8px 32px #2525240d;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141414;--fg:#eeeeec;--surface:#1b1b1b;--muted-bg:#262626;--card:#191919;--border:#333332;--muted:#a3a3a0;--primary:#ededeb;--primary-fg:#202020;--link:#a9c4f8;--accent:#89b69a;--accent-bg:#202e25;--shadow:0 12px 40px #0003;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#141414;--fg:#eeeeec;--surface:#1b1b1b;--muted-bg:#262626;--card:#191919;--border:#333332;--muted:#a3a3a0;--primary:#ededeb;--primary-fg:#202020;--link:#a9c4f8;--accent:#89b69a;--accent-bg:#202e25;--shadow:0 12px 40px #0003;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;display:flex;flex-direction:column;min-height:100vh;background:var(--bg);color:var(--fg);font:14px/1.65 "DM Sans",system-ui,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+p{margin:0}
+h1,h2,h3{margin:0;font-weight:600}
+.wrap{width:100%;max-width:1080px;margin:0 auto;padding:0 32px}
+.top{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:60px}
+.brand{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;font-weight:650;font-size:15px;letter-spacing:-.2px}
+.brand img{border-radius:8px}
+.tools{display:flex;align-items:center;gap:8px}
+.navlink{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:8px;font-size:12px;color:var(--muted)}
+.navlink:hover{color:var(--fg);background:var(--muted-bg)}
+select{font:inherit;font-size:12px;color:var(--fg);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 28px 6px 10px;cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 10px) 52%;background-size:4px 4px;background-repeat:no-repeat}
+[dir=rtl] select{padding:6px 10px 6px 28px;background-position:14px 52%,10px 52%}
+.theme{display:inline-flex;padding:2px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+.theme button{display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:999px;background:none;color:var(--muted);cursor:pointer}
+.theme button[aria-pressed=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px #0000001f}
+main.wrap{flex:1;padding-top:48px;padding-bottom:64px}
+.eyebrow{display:inline-block;margin-bottom:16px;padding:3px 8px;border-radius:5px;background:var(--accent-bg);color:var(--accent);font-size:10px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:48px;align-items:center;padding:24px 0 16px}
+.hero h1{font-size:clamp(30px,4vw,44px);line-height:1.25;letter-spacing:-1.4px;font-weight:650}
+.lead{margin-top:18px;max-width:560px;color:var(--muted);font-size:14px;line-height:1.85}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,opacity .15s,transform .15s}
+.btn:hover{background:var(--muted-bg)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+.btn.primary:hover{opacity:.86;transform:translateY(-1px)}
+.note{margin-top:14px;font-size:12px;color:var(--muted)}
+.card{border:1px solid var(--border);border-radius:15px;background:var(--card)}
+.legend{overflow:hidden;box-shadow:var(--shadow)}
+.legend h2{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--muted)}
+.legend li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 20px}
+.legend li+li{border-top:1px solid var(--border)}
+.legend strong{font-size:14px;font-variant-numeric:tabular-nums}
+.legend ul{margin:0;padding:0;list-style:none}
+.label{display:inline-flex;align-items:center;border-radius:999px;padding:1px 10px;color:#1f2328;font-size:12px;font-weight:600;line-height:20px;white-space:nowrap}
+.fine{margin-top:12px;font-size:12px;line-height:1.75;color:var(--muted)}
+section{margin-top:52px}
+section>h2{font-size:19px;letter-spacing:-.3px}
+section>.sub{margin-top:6px;font-size:13px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
+.step{padding:22px 20px}
+.step span{font-size:10px;letter-spacing:1.6px;color:var(--accent);font-weight:600}
+.step h3,.info h3{margin:12px 0 6px;font-size:15px}
+.step p,.info p{font-size:13px;line-height:1.8;color:var(--muted)}
+.info{padding:22px;border-inline-start:3px solid var(--accent);border-radius:12px;background:var(--surface)}
+.info h3{margin-top:0}
+.info a{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--link)}
+.page{max-width:720px}
+.page h1{font-size:clamp(26px,3.4vw,34px);line-height:1.3;letter-spacing:-.8px;font-weight:650}
+.page .card{margin-top:24px;padding:24px 26px}
+.page .card>*+*{margin-top:14px}
+.page .card p{line-height:1.85}
+.muted{color:var(--muted)}
+.prose p+p{margin-top:16px}
+.prose p{color:var(--muted);line-height:1.9}
+.status{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:var(--muted-bg);font-size:12px;font-weight:500}
+.status[data-on]{background:var(--accent-bg);color:var(--accent)}
+.field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.field select{width:fit-content}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.7}
+.check input{margin-top:5px;accent-color:var(--accent)}
+.textlink{color:var(--link);font-weight:500}
+.table{margin-top:20px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:12px 16px;text-align:start;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td a{color:var(--link)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;background:var(--muted-bg);font-size:11px;font-weight:600}
+.pill[data-state=done]{background:var(--accent-bg);color:var(--accent)}
+.pill[data-state=failed]{background:#fbeaea;color:#a33a3a}
+:root[data-theme=dark] .pill[data-state=failed]{background:#3a2020;color:#f0a4a4}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .pill[data-state=failed]{background:#3a2020;color:#f0a4a4}}
+.result{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+.table .btn{padding:6px 12px;font-size:12px}
+.empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}
+footer{border-top:1px solid var(--border);background:var(--surface)}
+footer .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:22px;padding-bottom:22px;font-size:12px;color:var(--muted)}
+footer nav{display:flex;flex-wrap:wrap;gap:18px}
+footer a:hover{color:var(--fg)}
+:focus-visible{outline:2px solid var(--link);outline-offset:3px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:860px){.hero{grid-template-columns:1fr;gap:32px}.grid{grid-template-columns:1fr}}
+@media(max-width:640px){.wrap{padding:0 16px}main.wrap{padding-top:28px}.navlink{display:none}.tools select{max-width:104px}.top .wrap{gap:10px}.hero h1{font-size:30px;letter-spacing:-1px}.page .card{padding:20px}th,td{padding:10px 12px}}
+@media(prefers-reduced-motion:reduce){.btn{transition:none}.btn.primary:hover{transform:none}}
+`;
+
+const ICONS = {
+  light:
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  dark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/></svg>',
+  auto: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
+  external:
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>',
+};
+
+/** Mirrors the label colours in review.ts; GitHub renders them as-is in both themes. */
+const LEGEND = [
+  ["top", "review: top", "#ded0a6"],
+  ["high", "review: high", "#e2c0a2"],
+  ["medium", "review: medium", "#b6dfff"],
+  ["low", "review: low", "#d9dee3"],
+  ["noScore", "review: no-score", "#c3c7ce"],
+] as const;
+
+/** ghfind.com serves Chinese at the root and every other locale under its prefix. */
+const siteUrl = (locale: Locale, path: string) =>
+  `https://ghfind.com${locale === "zh" ? "" : `/${locale}`}${path}`;
+
+type View = { locale: Locale; t: Messages; setLocale: boolean };
+
+function html(view: View, title: string, content: string) {
+  const { locale, t } = view;
+  const theme = (["light", "dark", "auto"] as const)
+    .map(
+      (mode) =>
+        `<button type="button" data-theme-choice="${mode}" aria-pressed="false" aria-label="${escape(t.nav[mode])}" title="${escape(t.nav[mode])}">${ICONS[mode]}</button>`,
+    )
+    .join("");
+  const languages = LOCALES.map(
+    (code) =>
+      `<option value="${code}"${code === locale ? " selected" : ""}>${LOCALE_NAMES[code]}</option>`,
+  ).join("");
+  const headers: Record<string, string> = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Content-Language": locale,
+    Vary: "Accept-Language, Cookie",
+    "X-Content-Type-Options": "nosniff",
+    // Preserve Origin on native same-origin form POSTs; suppress cross-site referrers.
+    "Referrer-Policy": "same-origin",
+    "Content-Security-Policy":
+      "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  };
+  if (view.setLocale)
+    headers["Set-Cookie"] =
+      `${LOCALE_COOKIE}=${locale}; Path=/; Secure; SameSite=Lax; Max-Age=31536000`;
   return new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ghfind Review Bot</title><style>
-  :root{color-scheme:light dark;--bg:#f7f4ed;--fg:#171717;--card:#fff;--border:#c9c5bd;--link:#934000}html[data-theme=light]{color-scheme:light}html[data-theme=dark]{color-scheme:dark;--bg:#171717;--fg:#eee;--card:#242424;--border:#626262;--link:#ffac6b}@media(prefers-color-scheme:dark){html:not([data-theme=light]){--bg:#171717;--fg:#eee;--card:#242424;--border:#626262;--link:#ffac6b}}body{background:var(--bg);color:var(--fg);font:16px/1.6 system-ui;margin:auto;max-width:900px;padding:24px}nav{display:flex;justify-content:space-between;align-items:center;gap:16px}a{color:var(--link)}button,select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer}button:hover,a:hover{opacity:.8}section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin:20px 0;overflow-wrap:anywhere}img{vertical-align:middle;margin-right:10px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid var(--border)}.table{overflow:auto}:focus-visible{outline:3px solid var(--link);outline-offset:3px}footer{margin-top:32px}
-  </style><nav><a href="/"><img src="/avatar.png" width="40" height="40" alt="ghfind">ghfind Review</a><label>Theme <select id="theme" aria-label="Theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label></nav>${content}<footer><a href="https://github.com/hikariming/ghfind">Source & support</a> · <a href="/privacy">Privacy</a></footer><script src="/theme.js"></script></html>`,
-    {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-        // Preserve Origin on native same-origin form POSTs; suppress cross-site referrers.
-        "Referrer-Policy": "same-origin",
-        "Content-Security-Policy":
-          "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
-      },
-    },
+    `<!doctype html><html lang="${locale}" dir="${locale === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} · ghfind Review</title><link rel="icon" href="/avatar.png"><style>${STYLE}</style><script src="/theme.js"></script></head><body>
+<header class="top"><div class="wrap"><a class="brand" href="/"><img src="/avatar.png" width="28" height="28" alt="">ghfind Review</a><div class="tools"><a class="navlink" href="${siteUrl(locale, "/github-bot")}">${escape(t.nav.site)}${ICONS.external}</a><label><span class="sr">${escape(t.nav.language)}</span><select id="lang">${languages}</select></label><div class="theme" role="group" aria-label="${escape(t.nav.theme)}">${theme}</div></div></div></header>
+<main class="wrap">${content}</main>
+<footer><div class="wrap"><span>© ghfind</span><nav><a href="${siteUrl(locale, "/")}">ghfind.com</a><a href="/notifications">${escape(t.footer.emails)}</a><a href="/privacy">${escape(t.footer.privacy)}</a><a href="https://github.com/hikariming/ghfind">${escape(t.footer.source)}</a></nav></div></footer>
+</body></html>`,
+    { headers },
   );
 }
+
+/** A narrow single-column page: heading plus one card. */
+const simple = (view: View, title: string, body: string, extra = "") =>
+  html(
+    view,
+    title,
+    `<div class="page"><h1>${escape(title)}</h1><div class="card">${body}</div>${extra}</div>`,
+  );
+
+// Runs in <head>: apply the saved theme before first paint, then wire the controls.
+const CLIENT_SCRIPT = `(()=>{const d=document.documentElement,K='ghfind-bot-theme';let v='auto';try{v=localStorage.getItem(K)||v}catch{}
+const apply=m=>{if(m==='light'||m==='dark')d.dataset.theme=m;else delete d.dataset.theme;document.querySelectorAll('[data-theme-choice]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.themeChoice===m)))};
+apply(v);addEventListener('DOMContentLoaded',()=>{apply(v);document.querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>{v=b.dataset.themeChoice;try{localStorage.setItem(K,v)}catch{}apply(v)});
+const l=document.getElementById('lang');if(l)l.onchange=()=>{const u=new URL(location.href);u.searchParams.set('lang',l.value);location.href=u.toString()}})})()`;
+
+function home(view: View, env: Env) {
+  const { t, locale } = view;
+  const h = t.home;
+  const install =
+    env.APP_SLUG && env.ENABLED === "true"
+      ? `<a class="btn primary" href="https://github.com/apps/${encodeURIComponent(env.APP_SLUG)}/installations/new">${escape(h.install)}${ICONS.external}</a>`
+      : `<span class="btn" aria-disabled="true">${escape(h.notOpen)}</span>`;
+  const rollout =
+    env.ALLOWED_ACCOUNTS && env.ALLOWED_ACCOUNTS !== "*"
+      ? `<p class="note">${escape(format(h.rollout, { accounts: env.ALLOWED_ACCOUNTS }))}</p>`
+      : "";
+  const legend = LEGEND.map(
+    ([id, name, color]) =>
+      `<li><span class="label" style="background:${color}">${name}</span><strong dir="${id === "noScore" ? "auto" : "ltr"}">${escape(h.ranges[id])}</strong></li>`,
+  ).join("");
+  const steps = (["install", "open", "label"] as const)
+    .map(
+      (id, index) =>
+        `<div class="card step"><span>${String(index + 1).padStart(2, "0")}</span><h3>${escape(h.steps[id].title)}</h3><p>${escape(h.steps[id].body)}</p></div>`,
+    )
+    .join("");
+  return html(
+    view,
+    h.title,
+    `<div class="hero"><div><span class="eyebrow">${escape(h.eyebrow)}</span><h1>${escape(h.title)}</h1><p class="lead">${escape(h.subtitle)}</p><div class="actions">${install}<a class="btn" href="${siteUrl(locale, "/github-bot")}">${escape(h.learnMore)}</a></div>${rollout}</div>
+<div><div class="card legend"><h2>${escape(h.labelsHeading)}</h2><ul>${legend}</ul></div><p class="fine">${escape(h.labelsLead)} ${escape(h.labelsNote)}</p></div></div>
+<section><h2>${escape(h.stepsHeading)}</h2><div class="grid">${steps}</div></section>
+<section class="grid">
+<div class="info"><h3>${escape(h.permissions.title)}</h3><p>${escape(h.permissions.body)}</p><a href="/privacy">${escape(t.footer.privacy)}</a></div>
+<div class="info"><h3>${escape(h.emails.title)}</h3><p>${escape(h.emails.body)}</p><a href="/notifications">${escape(h.emails.link)}</a></div>
+<div class="info"><h3>${escape(h.migrate.title)}</h3><p>${escape(h.migrate.body)}</p></div>
+</section>`,
+  );
+}
+
 const cookie = (request: Request, name: string) =>
   request.headers
     .get("cookie")
@@ -67,22 +264,25 @@ export async function ui(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url),
     path = url.pathname;
   if (path === "/theme.js")
-    return new Response(
-      "const t=document.getElementById('theme');let v='auto';try{v=localStorage.getItem('ghfind-bot-theme')||v}catch{};t.value=v;document.documentElement.dataset.theme=v;t.onchange=()=>{document.documentElement.dataset.theme=t.value;try{localStorage.setItem('ghfind-bot-theme',t.value)}catch{}}",
-      {
-        headers: {
-          "Content-Type": "text/javascript",
-          "Cache-Control": "public,max-age=3600",
-        },
+    return new Response(CLIENT_SCRIPT, {
+      headers: {
+        "Content-Type": "text/javascript",
+        "Cache-Control": "public,max-age=3600",
       },
-    );
-  if (path === "/" && request.method === "GET")
-    return html(
-      `<h1>Review labels and profiles for issues and PRs.</h1><section><p>Install ghfind Review and choose repositories. We create five review-level labels, preserve your existing label settings, and label new issues and pull requests using the author's ghfind score, and post a comment with their profile, score and score interval.</p><p>${env.APP_SLUG && env.ENABLED === "true" ? `<a href="https://github.com/apps/${encodeURIComponent(env.APP_SLUG)}/installations/new">Install GitHub App</a>` : "Installation is not open yet."}</p><p>Issues and pull requests write permissions are requested. We do not read source files or run pull request code. Disable the old PR review level workflow when switching to this App.</p><p><a href="/notifications">Author email notifications / 作者邮件通知</a></p><p>Current rollout: ${escape(env.ALLOWED_ACCOUNTS === "*" ? "All accounts" : env.ALLOWED_ACCOUNTS)}.</p></section><section><h2>Labels</h2><p>review: low 0–39.99 · medium 40–69.99 · high 70–89.99 · top 90–100 · no-score when the score could not be obtained.</p><p>The score describes an author's public GitHub profile; it is not a code review or a merge decision.</p></section>`,
-    );
+    });
+  const locale = pickLocale(request, url);
+  const view: View = {
+    locale,
+    t: MESSAGES[locale],
+    setLocale: url.searchParams.get("lang") === locale,
+  };
+  const t = view.t;
+  if (path === "/" && request.method === "GET") return home(view, env);
   if (path === "/privacy")
     return html(
-      "<h1>Privacy</h1><section><p>GitHub sends installation, issue, pull request and issue comment events. Comment text is checked only for an admin mention of this App and is not stored. We verify events and retain only installation/repository IDs, repository names, issue/PR numbers and task status. Author login is sent to ghfind to retrieve a public-profile score. Issue/PR text and code are not stored or sent for scoring. The author profile link and score are posted as a comment after labeling.</p><p>Completed task records expire after 30 days. Failed task records remain until an operator resolves them. Dashboard sessions expire after one hour; GitHub user tokens are encrypted at rest. Uninstalling the App stops repository access and leaves existing labels in place.</p><p>Author score emails are enabled by default when a current public GitHub profile email is available. We do not use commit emails. Users may alternatively authorize their verified primary email. Addresses are encrypted at rest. Email records retain author and submission metadata for 30 days. Unsubscribe removes the stored email, cancels pending mail, and retains the GitHub user ID as a persistent opt-out so new submissions cannot resubscribe the author; a send already in progress may complete. Delivery-uncertain messages are not automatically resent.</p><p>For deletion requests, contact the maintainers through the source repository.</p></section>",
+      view,
+      t.privacy.title,
+      `<div class="page"><h1>${escape(t.privacy.title)}</h1><div class="card prose">${t.privacy.paragraphs.map((p) => `<p>${escape(p)}</p>`).join("")}</div></div>`,
     );
   if (path === "/notifications/unsubscribe") {
     const token = url.searchParams.get("token") ?? "";
@@ -100,25 +300,30 @@ export async function ui(request: Request, env: Env): Promise<Response> {
           "DELETE FROM author_subscriptions WHERE unsubscribe=?",
         ).bind(token),
       ]);
-      return html(
-        "<h1>Unsubscribed / 已退订</h1><p>Your email subscription has been removed. / 已删除邮箱订阅。</p>",
+      return simple(
+        view,
+        t.unsubscribe.doneTitle,
+        `<p>${escape(t.unsubscribe.doneBody)}</p>`,
       );
     }
     if (request.method !== "GET")
       return new Response("Method not allowed", { status: 405 });
-    return html(
-      `<h1>Unsubscribe / 退订</h1><form method="post"><button>Stop author emails / 停止作者邮件</button></form>`,
+    return simple(
+      view,
+      t.unsubscribe.title,
+      `<form method="post"><button class="btn primary">${escape(t.unsubscribe.button)}</button></form>`,
     );
   }
   if (path === "/notifications") {
+    const n = t.notifications;
     if (env.EMAIL_ENABLED !== "true")
-      return html(
-        "<h1>Author emails / 作者邮件</h1><p>Email notifications are not enabled yet. / 邮件通知暂未开放。</p>",
-      );
+      return simple(view, n.disabledTitle, `<p>${escape(n.disabledBody)}</p>`);
     const current = await session(request, env);
     if (!current)
-      return html(
-        '<h1>Your ghfind score, in your inbox / 邮箱里的 ghfind 评分</h1><section><p>Authors with a public GitHub profile email receive score notifications by default, until they unsubscribe. At most one per 72 hours across repositories. Sign in to use your verified email or manage preferences. / 有 GitHub 公开邮箱的作者默认收到评分通知，退订后停止，跨仓库每 72 小时最多一封。登录可改用已验证邮箱或管理偏好。</p><p>GitHub authorization reads your verified primary email. Signing in alone does not subscribe you. / GitHub 授权用于读取已验证主邮箱，仅登录不会订阅。</p><a href="/login?return_to=notifications">Sign in with GitHub / 使用 GitHub 登录</a></section>',
+      return simple(
+        view,
+        n.title,
+        `<p>${escape(n.body)}</p><p class="muted">${escape(n.authNote)}</p><a class="btn primary" href="/login?return_to=notifications">${escape(n.signIn)}</a>`,
       );
     const api = github(current.token);
     const user = record(await api("/user"));
@@ -135,14 +340,14 @@ export async function ui(request: Request, env: Env): Promise<Response> {
       try {
         email = verifiedEmail(await api("/user/emails"));
       } catch {
-        return html(
-          '<h1>Email authorization needed / 需要邮箱授权</h1><p>Authorize Email addresses: read for ghfind Review, then sign in again. / 请为 ghfind Review 授权读取邮箱，然后重新登录。</p><a href="/login?return_to=notifications">Sign in again / 重新登录</a>',
+        return simple(
+          view,
+          n.needAuthTitle,
+          `<p>${escape(n.needAuthBody)}</p><a class="btn primary" href="/login?return_to=notifications">${escape(n.signInAgain)}</a>`,
         );
       }
       if (!email)
-        return html(
-          "<h1>No verified primary email / 无已验证主邮箱</h1><p>Verify your primary email in GitHub settings and try again. / 请在 GitHub 设置中验证主邮箱后重试。</p>",
-        );
+        return simple(view, n.noEmailTitle, `<p>${escape(n.noEmailBody)}</p>`);
       await env.DB.batch([
         env.DB.prepare("DELETE FROM author_email_optouts WHERE user_id=?").bind(
           userId,
@@ -168,8 +373,12 @@ export async function ui(request: Request, env: Env): Promise<Response> {
     )
       .bind(userId)
       .first<{ locale: string; unsubscribe: string }>();
-    return html(
-      `<h1>Author email preferences / 作者邮件设置</h1><section><p>${escape(user.login)} · ${sub ? "Subscribed / 已订阅" : "Not subscribed / 未订阅"}</p><p>Receive your public-profile score and ghfind ranking for new issues/PRs. This is not a review-time estimate. / 接收新 issue 或 PR 的公开评分及站内排名，不代表审查等待时间。</p><form method="post"><input type="hidden" name="csrf" value="${current.id}"><p><label>Language / 语言 <select name="locale"><option value="en">English</option><option value="zh" ${sub?.locale === "zh" ? "selected" : ""}>中文</option></select></label></p><p><label><input type="checkbox" name="consent" value="yes" required> I agree to receive author notifications at my GitHub verified primary email, at most once per 72 hours across repositories. / 我同意通过 GitHub 已验证主邮箱接收作者通知，跨仓库每 72 小时最多一封。</label></p><button>Save subscription / 保存订阅</button></form>${sub ? `<p><a href="/notifications/unsubscribe?token=${sub.unsubscribe}">Unsubscribe / 退订</a></p>` : ""}</section>`,
+    // Score emails exist in English and Chinese only; default to the reader's UI language.
+    const emailLocale = sub?.locale ?? (locale === "zh" ? "zh" : "en");
+    return simple(
+      view,
+      n.prefsTitle,
+      `<p><strong>${escape(user.login)}</strong> <span class="status"${sub ? " data-on" : ""}>${escape(sub ? n.subscribed : n.notSubscribed)}</span></p><p class="muted">${escape(n.prefsBody)}</p><form method="post"><input type="hidden" name="csrf" value="${current.id}"><p><label class="field">${escape(n.emailLanguage)}<select name="locale"><option value="en">English</option><option value="zh"${emailLocale === "zh" ? " selected" : ""}>中文</option></select></label></p><p style="margin-top:14px"><label class="check"><input type="checkbox" name="consent" value="yes" required><span>${escape(n.consent)}</span></label></p><p style="margin-top:18px"><button class="btn primary">${escape(n.save)}</button></p></form>${sub ? `<p><a class="textlink" href="/notifications/unsubscribe?token=${sub.unsubscribe}">${escape(n.unsubscribe)}</a></p>` : ""}`,
     );
   }
   if (path === "/login" && request.method === "GET") {
@@ -241,15 +450,16 @@ export async function ui(request: Request, env: Env): Promise<Response> {
     );
   }
   if (path === "/setup" || path === "/retry") {
+    const s = t.setup;
     const installation = url.searchParams.get("installation_id");
     if (!installation || !/^\d{1,16}$/.test(installation))
-      return html(
-        "<h1>Installation status</h1><p>Open this page from your GitHub App installation settings.</p>",
-      );
+      return simple(view, s.title, `<p>${escape(s.openFromGitHub)}</p>`);
     const current = await session(request, env);
     if (!current)
-      return html(
-        `<h1>Installation received</h1><section><p>Label initialization runs automatically in the background. Sign in to see repositories and task status.</p><a href="/login?installation_id=${installation}">Sign in with GitHub</a></section>`,
+      return simple(
+        view,
+        s.receivedTitle,
+        `<p>${escape(s.receivedBody)}</p><a class="btn primary" href="/login?installation_id=${installation}">${escape(s.signIn)}</a>`,
       );
     const api = github(current.token);
     // The user-token endpoint intersects App installation scope with the user's
@@ -300,8 +510,20 @@ export async function ui(request: Request, env: Env): Promise<Response> {
     const visible = results.filter(
       (x) => x.repository && repos.has(x.repository),
     );
+    const kind = (value: string) =>
+      escape(s.kinds[value as keyof typeof s.kinds] ?? value);
+    const state = (value: string) =>
+      escape(s.states[value as keyof typeof s.states] ?? value);
+    const rows = visible
+      .map(
+        (job) =>
+          `<tr><td><a href="https://github.com/${escape(repos.get(job.repository!))}/labels">${escape(repos.get(job.repository!))}</a></td><td>${kind(job.kind)}${job.pr ? ` #${job.pr}` : ""}</td><td><span class="pill" data-state="${escape(job.state)}">${state(job.state)}</span>${job.result ? `<span class="result">${escape(job.result)}</span>` : ""}</td><td>${job.state === "failed" ? `<form method="post" action="/retry?installation_id=${installation}"><input type="hidden" name="csrf" value="${current.id}"><input type="hidden" name="id" value="${escape(job.id)}"><button class="btn">${escape(s.retry)}</button></form>` : ""}</td></tr>`,
+      )
+      .join("");
     return html(
-      `<h1>Installation status</h1><p>Refresh to see progress. Only repositories you can access are shown.</p><section class="table"><table><thead><tr><th>Repository</th><th>Task</th><th>Status</th><th>Action</th></tr></thead><tbody>${visible.map((job) => `<tr><td><a href="https://github.com/${escape(repos.get(job.repository!))}/labels">${escape(repos.get(job.repository!))}</a></td><td>${escape(job.kind)}${job.pr ? ` #${job.pr}` : ""}</td><td>${escape(job.state)}${job.result ? `: ${escape(job.result)}` : ""}</td><td>${job.state === "failed" ? `<form method="post" action="/retry?installation_id=${installation}"><input type="hidden" name="csrf" value="${current.id}"><input type="hidden" name="id" value="${escape(job.id)}"><button>Retry (admin)</button></form>` : ""}</td></tr>`).join("")}</tbody></table>${!visible.length ? "<p>Initialization is being discovered, or there are no tasks for your accessible repositories yet.</p>" : ""}</section>`,
+      view,
+      s.title,
+      `<h1 style="font-size:clamp(26px,3.4vw,34px);letter-spacing:-.8px;font-weight:650">${escape(s.title)}</h1><p class="lead" style="margin-top:8px">${escape(s.refresh)}</p><div class="card table">${visible.length ? `<table><thead><tr><th>${escape(s.repository)}</th><th>${escape(s.task)}</th><th>${escape(s.status)}</th><th>${escape(s.action)}</th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="empty">${escape(s.empty)}</p>`}</div>`,
     );
   }
   return new Response("Not found", { status: 404 });
