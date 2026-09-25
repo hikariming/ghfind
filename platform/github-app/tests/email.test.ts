@@ -127,6 +127,68 @@ it("queues only subscribers and deduplicates replayed subjects", async () => {
     await e.DB.prepare("SELECT count(*) n FROM author_emails").first("n"),
   ).toBe(1);
 });
+for (const kind of ["issue", "PR"] as const) {
+  it.each([0, 20, 39.99])(
+    `suppresses ${kind} email below 40 before recipient discovery`,
+    async (score) => {
+      const enabled = { ...e, EMAIL_ENABLED: "true" };
+      const api = vi.fn();
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2, api);
+      expect(api).not.toHaveBeenCalled();
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM author_subscriptions").first("n"),
+      ).toBe(0);
+      await subscribe();
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2, api);
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM author_emails").first("n"),
+      ).toBe(0);
+    },
+  );
+  it.each([40, 40.01, 100, null])(
+    `preserves ${kind} email delivery for score %s`,
+    async (score) => {
+      await subscribe();
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        Response.json({ token: "installation-token" }),
+      );
+      const send = vi.fn().mockResolvedValue({ messageId: "test" });
+      const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2);
+      await sendAuthorEmails(enabled);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(
+        await e.DB.prepare("SELECT state FROM author_emails").first("state"),
+      ).toBe("sent");
+    },
+  );
+  it.each([0, 39.99])(
+    `cancels pre-existing low-score ${kind} mail without consuming delivery limits`,
+    async (score) => {
+      await subscribe();
+      const send = vi.fn();
+      const fetch = vi.spyOn(globalThis, "fetch");
+      const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+      await e.DB.prepare(
+        "INSERT INTO author_emails(id,user_id,payload,created,updated) VALUES('legacy',1,?,?,?)",
+      )
+        .bind(JSON.stringify({ ...payload, kind, score }), Date.now(), Date.now())
+        .run();
+      await sendAuthorEmails(enabled);
+      expect(send).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+      expect(
+        await e.DB.prepare("SELECT state FROM author_emails").first("state"),
+      ).toBe("cancelled");
+      expect(
+        await e.DB.prepare("SELECT last_sent FROM author_subscriptions").first("last_sent"),
+      ).toBe(0);
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM email_daily_budget").first("n"),
+      ).toBe(0);
+    },
+  );
+}
 it("sends once across concurrent drains and caps an author to one per day", async () => {
   await subscribe();
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
