@@ -84,7 +84,7 @@ export default async function GithubBotPage({
               {t("hero.status")}
             </a>
           </div>
-          {heroNote && <p className={styles.heroNote}>{heroNote}</p>}
+          {locale !== "zh" && heroNote && <p className={styles.heroNote}>{heroNote}</p>}
         </div>
 
         <figure className={styles.preview} aria-label={t("preview.label")}>

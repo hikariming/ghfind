@@ -1403,7 +1403,7 @@
       "subtitle": "根据 Issue 和 PR 提出者的 ghfind 评分，为其添加 review 建议标签。",
       "install": "在 GitHub 安装",
       "status": "打开状态页",
-      "note": ""
+      "note": "以 ghfind-review[bot] 身份运行。只打标签，不评论、不关闭、不拦截任何提交。"
     },
     "preview": {
       "label": "带 review 标签的 issue 列表示例",
