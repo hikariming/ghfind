@@ -17,11 +17,16 @@ skill_dir="${HOME}/.agents/skills/ghfind-cli"
 mkdir -p "$skill_dir"
 skill_tmp="$(mktemp "${skill_dir}/SKILL.md.XXXXXX")"
 trap 'rm -f "$skill_tmp"' EXIT
+install_host="${GHFIND_INSTALL_HOST:-https://ghfind.com}"
+if [[ ! "$install_host" =~ ^https://[^/]+$ ]]; then
+  printf '%s\n' 'GHFIND_INSTALL_HOST must be an HTTPS origin without a path.' >&2
+  exit 1
+fi
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
-  https://ghfind.com/skill.md --output "$skill_tmp"
+  "${install_host}/skill.md" --output "$skill_tmp"
 test -s "$skill_tmp"
 mv "$skill_tmp" "${skill_dir}/SKILL.md"
 trap - EXIT
 
 printf '\n%s\n' 'ghfind CLI and Skill installed.' 'Run `ghfind --help` to get started.'
-printf '%s\n' 'Create an API token at https://ghfind.com/integrations to enable scan and roast.'
+printf 'Create an API token at %s/integrations to enable scan and roast.\n' "$install_host"
