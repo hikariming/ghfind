@@ -1,10 +1,13 @@
 """Offline tests for GitHub contribution classification."""
 
+from datetime import datetime, timezone
+
 from ghfind._github import (
     compute_impact_from_contrib_map,
     compute_org_repo_attribution,
     first_commit_history_after,
     is_doc_like_impact_pr,
+    original_repo_quality_score,
     parse_github_noreply_login,
     resolve_first_commit_github_login,
 )
@@ -158,3 +161,23 @@ def test_sustained_registry_maintenance_still_counts():
 
     assert impact["impact_repo_count"] == 1
     assert impact["impact_repos"][0]["repo"] == "is-a-dev/register"
+
+
+def test_notes_discount_softens_with_organic_traction():
+    now = datetime(2026, 8, 1, tzinfo=timezone.utc)
+
+    def notes(stars, forks):
+        return {
+            "name": "project",
+            "stars": stars,
+            "forks": forks,
+            "size": 1800,
+            "language": "Go",
+            "description": "My learning notes for ML systems",
+            "readme_excerpt": "Install usage examples architecture test. " * 20,
+            "pushed_at": "2026-07-01T00:00:00Z",
+        }
+
+    assert original_repo_quality_score(notes(40, 5), "alice", now) == 0.55
+    assert original_repo_quality_score(notes(7000, 50), "alice", now) == 0.55
+    assert original_repo_quality_score(notes(7000, 500), "alice", now) == 0.75

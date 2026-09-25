@@ -237,6 +237,20 @@ def _is_likely_placeholder_project(repo: Dict[str, Any], login_lower: str) -> bo
     )
 
 
+# A "notes"/"learning" keyword is weak evidence once a substantive repo has real
+# organic traction (many stars backed by a healthy fork share); mirrors
+# hasOrganicProjectTraction in src/lib/github.ts.
+PLACEHOLDER_TRACTION_MIN_STARS = 500
+PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03
+PLACEHOLDER_TRACTION_MULTIPLIER = 0.75
+
+
+def _has_organic_project_traction(repo: Dict[str, Any]) -> bool:
+    stars = repo.get("stars") or 0
+    forks = repo.get("forks") or 0
+    return stars >= PLACEHOLDER_TRACTION_MIN_STARS and forks >= stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+
+
 def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: datetime) -> float:
     if repo["size"] <= 0:
         return 0
@@ -293,7 +307,10 @@ def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: dat
             s += 0.04
 
     if _is_likely_placeholder_project(repo, login_lower):
-        s *= 0.55 if (readme_len >= 600 and repo["size"] >= 200) else 0.25
+        if readme_len >= 600 and repo["size"] >= 200:
+            s *= PLACEHOLDER_TRACTION_MULTIPLIER if _has_organic_project_traction(repo) else 0.55
+        else:
+            s *= 0.25
 
     return _math_round(max(0.0, min(s, 1)) * 100) / 100
 
