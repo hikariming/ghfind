@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "自分のモデルを使う",
-    "compatNote": "OpenAI互換APIならどれでも動きます（OpenAI / OpenRouter / Groq / DeepSeek / ローカル）。キーはあなたのブラウザ内に留まります。モデル呼び出しのため当社サーバーを一度だけ経由しますが、<b>保存もログもせず、使用後は即破棄します</b>。",
+    "compatNote": "OpenAI互換APIならどれでも動きます（OpenAI / OpenRouter / Requesty / Groq / DeepSeek / ローカル）。キーはあなたのブラウザ内に留まります。モデル呼び出しのため当社サーバーを一度だけ経由しますが、<b>保存もログもせず、使用後は即破棄します</b>。",
     "tempKeyNote": "🔒 気になる場合は<b>一時的 / 利用上限付き</b>のキーを使い、終わったら失効させてください。",
     "baseUrl": "Base URL",
     "apiKey": "API Key",

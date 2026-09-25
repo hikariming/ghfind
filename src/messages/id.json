@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "Pakai model sendiri",
-    "compatNote": "Kompatibel dengan API apa pun bergaya OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / lokal). Key-mu tetap di browsermu sendiri. Key diteruskan sekali lewat server kami untuk memanggil model, <b>tapi tidak pernah disimpan, tidak pernah di-log, dan dibuang setelah dipakai</b>.",
+    "compatNote": "Kompatibel dengan API apa pun bergaya OpenAI (OpenAI / OpenRouter / Requesty / Groq / DeepSeek / lokal). Key-mu tetap di browsermu sendiri. Key diteruskan sekali lewat server kami untuk memanggil model, <b>tapi tidak pernah disimpan, tidak pernah di-log, dan dibuang setelah dipakai</b>.",
     "tempKeyNote": "🔒 Kalau khawatir, pakai key <b>sementara / berlimit pengeluaran</b> dan cabut setelah selesai.",
     "baseUrl": "Base URL",
     "apiKey": "API Key",

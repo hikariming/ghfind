@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "내 모델 사용하기",
-    "compatNote": "OpenAI 호환 API라면 뭐든 됩니다 (OpenAI / OpenRouter / Groq / DeepSeek / 로컬). 키는 당신의 브라우저에만 저장됩니다. 모델 호출을 위해 우리 서버를 한 번 거치지만, <b>절대 저장하지 않고, 로그도 남기지 않으며, 사용 후 즉시 폐기합니다</b>.",
+    "compatNote": "OpenAI 호환 API라면 뭐든 됩니다 (OpenAI / OpenRouter / Requesty / Groq / DeepSeek / 로컬). 키는 당신의 브라우저에만 저장됩니다. 모델 호출을 위해 우리 서버를 한 번 거치지만, <b>절대 저장하지 않고, 로그도 남기지 않으며, 사용 후 즉시 폐기합니다</b>.",
     "tempKeyNote": "🔒 걱정된다면 <b>임시 / 한도 제한</b> 키를 쓰고, 다 쓰면 폐기하세요.",
     "baseUrl": "Base URL",
     "apiKey": "API Key",
