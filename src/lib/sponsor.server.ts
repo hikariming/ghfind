@@ -1,23 +1,54 @@
-/**
- * The sponsor logo as a data URL, for the server-rendered cards.
- *
- * Every card is generated on the server and then travels alone: an SVG inside an
- * `<img>` may not fetch anything, and a Satori PNG is rasterized before it
- * leaves. So the logo bytes have to be inlined rather than linked.
- *
- * The bytes ship base64-embedded in the bundle (scripts/gen-embedded-assets.mts)
- * — no runtime filesystem on Workers. A missing sponsor asset resolves to null
- * rather than failing: a credit line without its logo, never a broken card.
- *
- * Pick `small` for the SVG cards (inlined into every response, drawn ~13px) and
- * `full` for the PNG/print surfaces, where the bytes are rasterized away or the
- * card is an export asset.
- */
+/** Current title sponsor identity and its embedded logo for generated cards. */
 
 import assets from "@/generated/embedded-assets.json";
-import { SPONSOR } from "./sponsor";
+import { getD1Binding } from "@/lib/d1-client";
 
-export function sponsorLogoDataUrl(size: "small" | "full" = "full"): Promise<string | null> {
-  const file = size === "small" ? SPONSOR.logoSmall : SPONSOR.logo;
-  return Promise.resolve((assets.sponsor as Record<string, string>)[file] ?? null);
+export interface CurrentTitleSponsor {
+  name: string;
+  url: string | null;
+  description: string | null;
+  logo: string | null;
+}
+
+export async function getCurrentTitleSponsor(
+  size: "small" | "full" = "full",
+): Promise<CurrentTitleSponsor | null> {
+  const db = getD1Binding();
+  if (!db) return null;
+
+  const now = Date.now();
+  const { results } = await db
+    .prepare(
+      `SELECT sponsor_name, sponsor_url, icon_url, description, is_anonymous
+       FROM sponsorships
+       WHERE tier = '夯'
+         AND (started_at IS NULL OR started_at <= ?)
+         AND (expires_at IS NULL OR expires_at > ?)
+       ORDER BY COALESCE(started_at, 0), created_at, id
+       LIMIT 1`,
+    )
+    .bind(now, now)
+    .all();
+
+  const row = results[0];
+  if (!row) return null;
+
+  const isAnonymous = row.is_anonymous === 1;
+  const iconUrl = typeof row.icon_url === "string" ? row.icon_url : null;
+  const embedded = (assets.sponsor as Record<string, string>)[iconUrl ?? ""];
+  const smallPath = iconUrl?.replace(/(\.[^./]+)$/, "-32$1");
+  const logo = size === "small" && smallPath
+    ? (assets.sponsor as Record<string, string>)[smallPath] ?? embedded ?? null
+    : embedded ?? null;
+
+  return {
+    name: isAnonymous
+      ? "Anonymous sponsor"
+      : typeof row.sponsor_name === "string"
+        ? row.sponsor_name
+        : "Sponsor",
+    url: !isAnonymous && typeof row.sponsor_url === "string" ? row.sponsor_url : null,
+    description: !isAnonymous && typeof row.description === "string" ? row.description : null,
+    logo,
+  };
 }

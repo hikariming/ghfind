@@ -2,7 +2,7 @@ import { BADGE_COLOR } from "@/lib/badge";
 import { getGoProfilePresentation } from "@/lib/go-profile.server";
 import { renderMaterialCardSvg } from "@/lib/material-card";
 import { tierFor } from "@/lib/score-presentation";
-import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
+import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
@@ -31,11 +31,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const tags = detail.tags.zh;
   const scores = detail.sub_scores;
   const color = BADGE_COLOR[tier];
-  const [avatar, qr, tierIcon, sponsorLogo] = await Promise.all([
+  const [avatar, qr, tierIcon, titleSponsor] = await Promise.all([
     avatarDataUrl(detail.avatar_url),
     qrDataUrl(`/u/${detail.username}?ref=material`, qrModuleColor(color, theme)),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
-    sponsorLogoDataUrl(),
+    getCurrentTitleSponsor(),
   ]);
   const svg = renderMaterialCardSvg({
     username: detail.username,
@@ -50,7 +50,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     theme,
     qr,
     tierIcon,
-    sponsorLogo,
+    sponsorLogo: titleSponsor?.logo ?? null,
+    sponsorName: titleSponsor?.name ?? null,
   });
 
   return new Response(svg, {

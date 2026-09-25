@@ -1295,7 +1295,7 @@
   },
   "sponsor": {
     "metaTitle": "Sponsori ghfind · Paket & manfaat",
-    "metaDescription": "Sponsori ghfind: paket Utama, Model, Unggulan, dan Sahabat, ditagih bulanan. Sponsor tidak pernah memengaruhi peringkat atau skor apa pun.",
+    "metaDescription": "Dukung ghfind dengan empat tingkat sponsor bulanan: 夯, 顶级, 人上人, dan 友情. Sponsor tidak memengaruhi peringkat atau skor.",
     "topline": {
       "section": "Bantuan & Dokumen",
       "current": "Sponsori"
@@ -1312,11 +1312,14 @@
     "available": "Tersedia",
     "soon": "Dalam pengembangan",
     "currentHolder": "Sponsor saat ini",
+    "anonymous": "Sponsor anonim",
+    "emailTemplateSubject": "Pertanyaan sponsor ghfind · {tier}",
+    "emailTemplateBody": "Halo, saya ingin bertanya tentang sponsor tingkat {tier} untuk ghfind.\n\nTanggal mulai sponsor:\nDurasi sponsor: 1 bulan\n\nTampilkan secara anonim (ya/tidak):\nProduk atau proyek yang ingin ditampilkan (kosongkan jika anonim):\nTautan proyek (opsional):\nIkon atau logo (opsional; lampirkan file atau berikan tautan):\nDeskripsi singkat produk atau proyek (opsional):",
     "cta": "Jadi sponsor",
     "ctaSoldOut": "Habis · Nantikan",
     "tiers": {
       "title": {
-        "name": "Sponsor utama",
+        "name": "夯",
         "summary": "Slot paling mencolok di situs — merek Anda ikut di setiap kartu pamer yang dibagikan.",
         "perks": [
           {
@@ -1328,7 +1331,7 @@
         ]
       },
       "model": {
-        "name": "Sponsor model",
+        "name": "顶级",
         "summary": "Mendukung model untuk ulasan dan tampil setiap kali ulasan dibuat.",
         "perks": [
           {
@@ -1340,7 +1343,7 @@
         ]
       },
       "featured": {
-        "name": "Sponsor unggulan",
+        "name": "人上人",
         "summary": "Eksposur stabil di beranda dan halaman detail developer.",
         "perks": [
           {
@@ -1353,7 +1356,7 @@
         ]
       },
       "friend": {
-        "name": "Sponsor sahabat",
+        "name": "友情",
         "summary": "Dukung ghfind sebagai sahabat — kami akan mencatat Anda di sini.",
         "perks": [
           {

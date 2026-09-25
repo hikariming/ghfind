@@ -8,7 +8,6 @@
 import type { ProfileSnapshotView } from "@/lib/profile-presentation";
 import { TIER_EN } from "@/lib/badge";
 import { rankProfileWorks } from "@/lib/profile-work";
-import { SPONSOR } from "@/lib/sponsor";
 import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "@/lib/tier";
 import type { TierAvatarFramePlacement } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
@@ -208,14 +207,15 @@ export function Shell({
   );
 }
 
-/** `sponsorLogo` is a data URL (`sponsorLogoDataUrl()`); without it the credit
- *  still renders as text, so a missing asset never costs the card its footer. */
+/** Sponsor details come from the current title-tier D1 record. */
 export function Brand({
   palette,
   sponsorLogo,
+  sponsorName,
 }: {
   palette: CardPalette;
   sponsorLogo?: string | null;
+  sponsorName?: string | null;
 }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
@@ -223,19 +223,15 @@ export function Brand({
         GitHub Roast ·{" "}
         <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>ghfind.com</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", color: palette.subtle }}>
-        {sponsorLogo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={sponsorLogo}
-            width={26}
-            height={26}
-            alt=""
-            style={{ borderRadius: 6, marginRight: 9 }}
-          />
-        ) : null}
-        Powered by {SPONSOR.name}
-      </div>
+      {sponsorName ? (
+        <div style={{ display: "flex", alignItems: "center", color: palette.subtle }}>
+          {sponsorLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={sponsorLogo} width={26} height={26} alt="" style={{ borderRadius: 6, marginRight: 9 }} />
+          ) : null}
+          Powered by {sponsorName}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -353,6 +349,7 @@ export interface Identity {
   qr: string | null;
   /** Data-URL sponsor logo for the footer credit. */
   sponsorLogo: string | null;
+  sponsorName: string | null;
 }
 
 function glowFor(id: Identity): string {
@@ -543,7 +540,7 @@ function ContribCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) 
           ))}
         </div>
       </div>
-      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} sponsorName={id.sponsorName} />
     </Shell>
   );
 }
@@ -610,7 +607,7 @@ function PrCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           </div>
         )}
       </div>
-      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} sponsorName={id.sponsorName} />
     </Shell>
   );
 }
@@ -686,7 +683,7 @@ function PathCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           ))}
         </div>
       </div>
-      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} sponsorName={id.sponsorName} />
     </Shell>
   );
 }
@@ -722,7 +719,7 @@ function WorkCard({ id, snap }: { id: Identity; snap: ProfileSnapshotView }) {
           ))}
         </div>
       </div>
-      <Brand palette={palette} sponsorLogo={id.sponsorLogo} />
+      <Brand palette={palette} sponsorLogo={id.sponsorLogo} sponsorName={id.sponsorName} />
     </Shell>
   );
 }

@@ -34,7 +34,6 @@ import { DIMENSIONS } from "./dimensions";
 import { brandMarkSvg, gradeForDimension } from "./material-card";
 import { MINI_CARD_SIZES, type MiniCardVariant } from "./mini-card-sizes";
 import { SUBSCORE_MAX } from "./score";
-import { SPONSOR } from "./sponsor";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
 export { MINI_CARD_SIZES, type MiniCardVariant };
@@ -61,10 +60,11 @@ export interface MiniCardOptions {
   /** Week-over-week score change. Only positive values render. */
   delta: number | null;
   /**
-   * Sponsor logo as a data URL (`sponsorLogoDataUrl("small")`). Null renders the
-   * credit as text alone. `strip` ignores it — see `renderStrip`.
+   * Sponsor logo as a data URL. The credit is omitted when the database has no
+   * current title-tier sponsor. `strip` ignores it — see `renderStrip`.
    */
   sponsorLogo: string | null;
+  sponsorName?: string | null;
   variant: MiniCardVariant;
   theme: MiniCardTheme;
   lang: MiniCardLang;
@@ -311,6 +311,7 @@ function sponsorGroup(
   x: number,
   y: number,
   logo: string | null,
+  name: string,
   size: number,
   fontSize: number,
   p: Palette,
@@ -325,7 +326,7 @@ function sponsorGroup(
   const svg = [
     mark,
     t(textX, y, label.trimEnd(), { size: fontSize, fill: p.muted }),
-    t(textX + labelWidth, y, escapeXml(SPONSOR.name), {
+    t(textX + labelWidth, y, escapeXml(name), {
       size: fontSize,
       fill: p.fg,
       weight: 600,
@@ -333,7 +334,7 @@ function sponsorGroup(
   ].join("");
   return {
     svg,
-    width: markWidth + labelWidth + estimateTextWidth(SPONSOR.name, fontSize),
+    width: markWidth + labelWidth + estimateTextWidth(name, fontSize),
   };
 }
 
@@ -356,13 +357,13 @@ function footer(
   right: string,
   p: Palette,
   c: Copy,
-  sponsorCredit: { logo: string | null } | null,
+  sponsorCredit: { logo: string | null; name: string } | null,
 ): string {
   const markY = y - Math.round(markSize * 0.78);
   const wordX = leftX + markSize + 3;
   const brandWidth = estimateTextWidth(c.brand, fontSize);
   const sponsor = sponsorCredit
-    ? sponsorGroup(wordX + brandWidth + 12, y, sponsorCredit.logo, markSize, fontSize, p)
+    ? sponsorGroup(wordX + brandWidth + 12, y, sponsorCredit.logo, sponsorCredit.name, markSize, fontSize, p)
     : null;
   const leftEnd = wordX + brandWidth + (sponsor ? 12 + sponsor.width : 0);
   const rightMax = rightX - leftEnd - 12;
@@ -475,7 +476,7 @@ function renderBars(o: MiniCardOptions, p: Palette, c: Copy): string {
       barGroup(BAR_COLUMN_X[i % 2], BAR_ROW_Y[Math.floor(i / 2)], key, o, p),
     ).join(""),
     `<line x1="18" y1="180" x2="422" y2="180" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
+    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c, o.sponsorName ? { logo: o.sponsorLogo, name: o.sponsorName } : null),
   ].join("");
 }
 
@@ -582,7 +583,7 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
       .join(""),
     grades,
     `<line x1="18" y1="164" x2="422" y2="164" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
+    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c, o.sponsorName ? { logo: o.sponsorLogo, name: o.sponsorName } : null),
   ].join("");
 }
 

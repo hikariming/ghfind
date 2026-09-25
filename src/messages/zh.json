@@ -1302,7 +1302,7 @@
   },
   "sponsor": {
     "metaTitle": "赞助 ghfind · 赞助方案与权益",
-    "metaDescription": "赞助 ghfind：顶级赞助商、模型赞助商、头部赞助商与友情赞助商方案，按月计费。赞助不影响任何排名与打分。",
+    "metaDescription": "赞助 ghfind：夯、顶级、人上人、友情四档方案，按月计费。赞助不影响任何排名与打分。",
     "topline": {
       "section": "帮助与文档",
       "current": "赞助本站"
@@ -1319,11 +1319,14 @@
     "available": "可预订",
     "soon": "开发中",
     "currentHolder": "当前赞助商",
+    "anonymous": "匿名赞助商",
+    "emailTemplateSubject": "ghfind 赞助咨询 · *{tier}",
+    "emailTemplateBody": "你好，我想咨询 ghfind【{tier}】赞助。\n\n赞助开始时间：\n赞助时长：1个月\n\n是否匿名展示（是/否）：\n想曝光哪个产品/项目（匿名时可留空）：\n项目链接（可选）：\n图标或 Logo（可附文件或提供链接）：\n产品/项目简介（可选）：",
     "cta": "联系赞助",
     "ctaSoldOut": "已售罄 · 敬请期待",
     "tiers": {
       "title": {
-        "name": "顶级赞助商",
+        "name": "夯",
         "summary": "全站最醒目的赞助位，品牌跟随每一张分享出去的炫耀卡。",
         "perks": [
           {
@@ -1335,7 +1338,7 @@
         ]
       },
       "model": {
-        "name": "模型赞助商",
+        "name": "顶级",
         "summary": "为锐评提供模型能力，在每一次生成时被看见。",
         "perks": [
           {
@@ -1347,7 +1350,7 @@
         ]
       },
       "featured": {
-        "name": "头部赞助商",
+        "name": "人上人",
         "summary": "在首页和开发者详情页获得稳定曝光。",
         "perks": [
           {
@@ -1360,7 +1363,7 @@
         ]
       },
       "friend": {
-        "name": "友情赞助商",
+        "name": "友情",
         "summary": "以朋友的身份支持 ghfind，我们会把你记在这里。",
         "perks": [
           {
