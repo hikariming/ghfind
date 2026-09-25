@@ -168,3 +168,30 @@ it("rejects name-less intake submissions", async () => {
     createPendingTalent({ id: "x", name: "  " } as never),
   ).rejects.toThrow("name");
 });
+
+it("expands categories to direction sets and matches official tags", async () => {
+  vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  mockSchema();
+  client.execute.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+  client.execute.mockResolvedValueOnce({ rows: [] });
+  await listTalentsPage({ category: "infra", tag: "dsh内测用户" });
+  const selectCall = client.execute.mock.calls[6][0];
+  expect(selectCall.sql).toContain("t.direction IN (?, ?, ?)");
+  expect(selectCall.args).toContain("后端与基础设施");
+  expect(selectCall.sql).toContain("t.official_tags_json LIKE ?");
+  expect(selectCall.args).toContain('%"dsh内测用户"%');
+
+  mockSchema();
+  client.execute.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+  client.execute.mockResolvedValueOnce({ rows: [] });
+  await listTalentsPage({ category: "other" });
+  expect(client.execute.mock.calls.at(-1)?.[0].sql).toContain("t.direction NOT IN (");
+
+  mockSchema();
+  client.execute.mockResolvedValueOnce({ rows: [{ n: 0 }] });
+  client.execute.mockResolvedValueOnce({ rows: [] });
+  await listTalentsPage({ project: "vllm-project" });
+  const projectCall = client.execute.mock.calls.at(-1)?.[0];
+  expect(projectCall.sql).toContain("t.project LIKE ?");
+  expect(projectCall.args).toContain("vllm-project/%");
+});

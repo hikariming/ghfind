@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "Descubrir talento",
-      "all": "Descubrir",
+      "all": "Todos",
       "saved": "Guardados",
-      "sessionHint": "Los guardados solo se conservan en esta sesión"
+      "sessionHint": "Los guardados solo se conservan en esta sesión",
+      "discover": "Destacados"
     },
     "search": {
       "placeholder": "Busca nombre, usuario de GitHub, stack o ciudad…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Curación manual",
       "onlyAvailable": "Solo personas abiertas a conversar",
-      "reset": "Restablecer filtros"
+      "reset": "Restablecer filtros",
+      "subDirections": "Enfoque",
+      "officialTags": "Etiquetas oficiales",
+      "tagAria": "Filtrar por etiqueta oficial \"{tag}\"",
+      "collection": "Colección",
+      "clearCollection": "Quitar filtro de colección"
     },
     "results": {
       "count": "<strong>{count}</strong> desarrolladores encontrados",
@@ -1233,6 +1239,58 @@
       "submitting": "Enviando…",
       "confirmSubmit": "Confirmar y enviar",
       "next": "Siguiente"
+    },
+    "categories": {
+      "aria": "Explorar por categoría",
+      "all": "Todos",
+      "agent": "Agentes y flujos",
+      "ai": "Apps de IA y modelos",
+      "infra": "Backend e infraestructura",
+      "frontend": "Frontend y full-stack",
+      "tools": "Herramientas y datos",
+      "other": "Otros"
+    },
+    "overview": {
+      "collectionsTitle": "Colecciones destacadas",
+      "collectionsSubtitle": "Agrupadas por ecosistema open source y etiquetas oficiales",
+      "sectionsTitle": "Explorar por área",
+      "sectionsSubtitle": "Desarrolladores destacados por área — «Ver todos» abre la lista completa",
+      "people": "{count} personas",
+      "viewAll": "Ver los {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Beta de DSH",
+        "desc": "Primeros usuarios y co-creadores de la beta de DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Contribuidores clave del motor de inferencia LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Ecosistema de la plataforma Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Comunidad LobeChat / LobeHub y multiagente"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Contribuidores de ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Contribuidores del framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Contribuidores de la especificación y SDK de MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Ecosistema LangChain / LangGraph"
+      }
     }
   },
   "sponsor": {

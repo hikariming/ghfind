@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "人材発見",
-      "all": "人材を探す",
+      "all": "すべて",
       "saved": "保存済み",
-      "sessionHint": "保存はこのセッション内のみ有効です"
+      "sessionHint": "保存はこのセッション内のみ有効です",
+      "discover": "おすすめ"
     },
     "search": {
       "placeholder": "名前・GitHub ID・技術スタック・都市で検索…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "人力キュレーション",
       "onlyAvailable": "交流歓迎の人材のみ表示",
-      "reset": "絞り込みをリセット"
+      "reset": "絞り込みをリセット",
+      "subDirections": "詳細分野",
+      "officialTags": "公式タグ",
+      "tagAria": "公式タグ「{tag}」で絞り込む",
+      "collection": "コレクション",
+      "clearCollection": "コレクションの絞り込みを解除"
     },
     "results": {
       "count": "<strong>{count}</strong> 人の開発者が見つかりました",
@@ -1233,6 +1239,58 @@
       "submitting": "送信中…",
       "confirmSubmit": "収録を確定して送信",
       "next": "次へ"
+    },
+    "categories": {
+      "aria": "カテゴリで探す",
+      "all": "すべて",
+      "agent": "エージェントとワークフロー",
+      "ai": "AI アプリとモデル",
+      "infra": "バックエンドとインフラ",
+      "frontend": "フロントエンドとフルスタック",
+      "tools": "ツールとデータ",
+      "other": "その他"
+    },
+    "overview": {
+      "collectionsTitle": "注目のコレクション",
+      "collectionsSubtitle": "オープンソースのエコシステムと公式タグでまとめています",
+      "sectionsTitle": "分野から探す",
+      "sectionsSubtitle": "分野ごとの注目開発者。「すべて見る」で一覧へ",
+      "people": "{count} 人",
+      "viewAll": "{count} 人をすべて見る"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH ベータユーザー",
+        "desc": "DSH ベータの初期ユーザーと共同開発者"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "高速 LLM 推論エンジンの主要コントリビューター"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "LLM アプリ基盤 Dify のエコシステム"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub コミュニティとマルチエージェント"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp オンデバイス推論の貢献者"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "SGLang サービングフレームワークの貢献者"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol 仕様と SDK の貢献者"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph エコシステムの貢献者"
+      }
     }
   },
   "sponsor": {
