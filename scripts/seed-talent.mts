@@ -11,6 +11,7 @@ type EditorialTalent = {
   project_description: string; note: string; available: number; color: string;
   projects: NonNullable<Talent["projects"]>; sources: NonNullable<Talent["sources"]>;
   collection_slug: string; status: "published"; sort_order: number;
+  avatar_url?: string | null;
 };
 const rows: EditorialTalent[] = JSON.parse(readFileSync(
   new URL("./data/talent-editorial.json", import.meta.url), "utf8",
@@ -21,6 +22,7 @@ for (const row of rows) {
   if (ids.has(id)) throw new Error(`Duplicate developer: ${row.id}`);
   ids.add(id);
   if (!row.name || !row.bio || !row.sources.length) throw new Error(`Incomplete profile: ${row.id}`);
+  if (row.avatar_url && new URL(row.avatar_url).protocol !== "https:") throw new Error(`Unsafe avatar URL: ${row.id}`);
   for (const entry of [...row.sources, ...row.projects]) {
     if (!entry.url) throw new Error(`Missing evidence URL: ${row.id}`);
     if (entry.url.startsWith("/collections/")) {

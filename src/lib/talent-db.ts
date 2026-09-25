@@ -69,17 +69,21 @@ const PIN_STATEMENT = `ALTER TABLE talent_profiles ADD COLUMN pinned INTEGER NOT
 
 const CORNER_TAG_STATEMENT = `ALTER TABLE talent_profiles ADD COLUMN corner_tag TEXT`;
 
+const AVATAR_URL_STATEMENT = `ALTER TABLE talent_profiles ADD COLUMN avatar_url TEXT`;
+
 function ensureSchema(db: Client): Promise<void> {
   if (!schemaReady) {
     schemaReady = db.execute(SCHEMA_STATEMENT)
       // Best-effort twins of migrations/0009_talent_i18n.sql,
       // migrations/0010_talent_official_tags.sql and
-      // migrations/0011_talent_pin_corner.sql for Turso/local;
+      // migrations/0011_talent_pin_corner.sql and
+      // migrations/0013_talent_avatar_url.sql for Turso/local;
       // a duplicate-column error just means the column already exists.
       .then(() => db.execute(I18N_STATEMENT).catch(() => undefined))
       .then(() => db.execute(OFFICIAL_TAGS_STATEMENT).catch(() => undefined))
       .then(() => db.execute(PIN_STATEMENT).catch(() => undefined))
       .then(() => db.execute(CORNER_TAG_STATEMENT).catch(() => undefined))
+      .then(() => db.execute(AVATAR_URL_STATEMENT).catch(() => undefined))
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null;
@@ -106,6 +110,17 @@ function parseJson<T>(raw: unknown, fallback: T): T {
   }
 }
 
+/** Only absolute https URLs are rendered as avatars; anything else is ignored. */
+function httpsUrl(raw: unknown): string | undefined {
+  const value = rowString(raw).trim();
+  if (!value) return undefined;
+  try {
+    return new URL(value).protocol === "https:" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const AVATAR_COLORS = ["sage", "lavender", "peach", "blue", "rose", "sand"] as const;
 
 type TalentI18nField = "role" | "direction" | "bio" | "note" | "project_description";
@@ -126,6 +141,7 @@ function mapTalent(row: Record<string, unknown>, lang: "zh" | "en" = "zh"): Tale
     name,
     handle: rowString(row.handle),
     initials: name.replace(/[（(].*$/, "").trim().slice(0, 2).toUpperCase(),
+    avatarUrl: httpsUrl(row.avatar_url),
     color: AVATAR_COLORS.includes(row.color as (typeof AVATAR_COLORS)[number])
       ? rowString(row.color)
       : "sage",
