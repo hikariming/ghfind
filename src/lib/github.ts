@@ -41,6 +41,12 @@ export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 /** An oversized query can hit GitHub's gateway timeout before returning JSON. */
 export class GitHubQueryTimeoutError extends GitHubDataUnavailableError {}
 
+/** GitHub failed the whole response with `errors[].type = INTERNAL` while
+ *  resolving one node (observed on `["user","closedPRs","nodes",N]`). The
+ *  offending node is data-dependent and fails deterministically for that
+ *  account, so callers must degrade the offending field rather than retry. */
+export class GitHubInternalQueryError extends GitHubDataUnavailableError {}
+
 // SDK overrides belong to one async collection, never to the process environment.
 const githubTokenContext = new AsyncLocalStorage<string>();
 
@@ -493,6 +499,9 @@ async function graphql<T>(
     const message = first?.message ?? "GitHub GraphQL error.";
     if (first?.type === "RESOURCE_LIMITS_EXCEEDED") {
       throw new GitHubResourceLimitError(message);
+    }
+    if (first?.type === "INTERNAL") {
+      throw new GitHubInternalQueryError(message);
     }
     throw /rate.?limit/i.test(message)
       ? new GitHubRateLimitError(message)
@@ -2778,29 +2787,7 @@ async function fetchSplitContribOverview(username: string): Promise<{
       } } }`,
       { login: username },
     ),
-    (async () => {
-      const nodes: ClosedPrNode[] = [];
-      let after: string | null = null;
-      let totalCount = 0;
-      while (nodes.length < 100) {
-        const fields = CLOSED_PR_OVERVIEW_FIELDS.replace("first: 100,", "first: 25, after: $after,")
-          .replace("totalCount", "totalCount pageInfo { hasNextPage endCursor }");
-        const data: { user: { closedPRs: { totalCount: number; nodes: ClosedPrNode[]; pageInfo: MergedPrPageInfo } } | null } = await graphql(
-          `query($login: String!, $after: String) { user(login: $login) { ${fields} } }`,
-          { login: username, after },
-        );
-        if (!data.user) throw new GitHubDataUnavailableError("GitHub returned no closed PR data.");
-        const page = data.user.closedPRs;
-        totalCount = page.totalCount;
-        nodes.push(...page.nodes);
-        if (!page.pageInfo.hasNextPage) break;
-        if (!page.nodes.length || !page.pageInfo.endCursor || page.pageInfo.endCursor === after) {
-          throw new GitHubDataUnavailableError("GitHub closed PR pagination made no progress.");
-        }
-        after = page.pageInfo.endCursor;
-      }
-      return { totalCount, nodes };
-    })(),
+    fetchClosedPrOverview(username),
   ]);
   if (!basic.user || !stats.user?.contributionsCollection) {
     throw new GitHubDataUnavailableError("GitHub returned no split contribution data.");
@@ -2808,6 +2795,65 @@ async function fetchSplitContribOverview(username: string): Promise<{
   const cc = stats.user.contributionsCollection;
   return { overview: { ...basic.user, closedPRs }, statTotals: cc,
     lastYearContributions: cc.contributionCalendar.totalContributions };
+}
+
+/**
+ * Paginated closed-PR overview (counts + who closed each one), degrading to a
+ * count-only result.
+ *
+ * The node list is not always resolvable: GitHub can fail the entire response
+ * with `errors[].type = INTERNAL` while resolving one node in the connection
+ * (observed on `["user","closedPRs","nodes",2]`), and it fails the same way on
+ * every retry because the offending node is data-dependent. `totalCount` alone
+ * resolves fine. A failed node list is therefore worth only the "who closed it"
+ * breakdown — the score itself must not go missing, so fall back to the count.
+ * An empty node list is the same signal `collect()` already handles when the
+ * connection is unavailable: the breakdown degrades to `unknown_closed`, never
+ * to a fabricated maintainer rejection.
+ */
+async function fetchClosedPrOverview(
+  username: string,
+): Promise<{ totalCount: number; nodes: ClosedPrNode[] }> {
+  try {
+    const nodes: ClosedPrNode[] = [];
+    let after: string | null = null;
+    let totalCount = 0;
+    while (nodes.length < 100) {
+      const fields = CLOSED_PR_OVERVIEW_FIELDS.replace("first: 100,", "first: 25, after: $after,")
+        .replace("totalCount", "totalCount pageInfo { hasNextPage endCursor }");
+      const data: { user: { closedPRs: { totalCount: number; nodes: ClosedPrNode[]; pageInfo: MergedPrPageInfo } } | null } = await graphql(
+        `query($login: String!, $after: String) { user(login: $login) { ${fields} } }`,
+        { login: username, after },
+      );
+      if (!data.user) throw new GitHubDataUnavailableError("GitHub returned no closed PR data.");
+      const page = data.user.closedPRs;
+      totalCount = page.totalCount;
+      nodes.push(...page.nodes);
+      if (!page.pageInfo.hasNextPage) break;
+      if (!page.nodes.length || !page.pageInfo.endCursor || page.pageInfo.endCursor === after) {
+        throw new GitHubDataUnavailableError("GitHub closed PR pagination made no progress.");
+      }
+      after = page.pageInfo.endCursor;
+    }
+    return { totalCount, nodes };
+  } catch (error) {
+    if (
+      !(error instanceof GitHubInternalQueryError) &&
+      !(error instanceof GitHubResourceLimitError)
+    ) {
+      throw error;
+    }
+    const countOnly = await graphql<{ user: { closedPRs: { totalCount: number } } | null }>(
+      `query($login: String!) {
+        user(login: $login) { closedPRs: pullRequests(states: CLOSED) { totalCount } }
+      }`,
+      { login: username },
+    );
+    if (!countOnly.user) {
+      throw new GitHubDataUnavailableError("GitHub returned no closed PR data.");
+    }
+    return { totalCount: countOnly.user.closedPRs?.totalCount ?? 0, nodes: [] };
+  }
 }
 
 /**
@@ -2824,6 +2870,10 @@ async function fetchSplitContribOverview(username: string): Promise<{
  * overview without the stats block, plus the calendar total — the one stat
  * scoring depends on — in its own call. The per-type totals stay null and
  * activity diversity is approximated by the caller.
+ *
+ * `INTERNAL` responses are handled the same way as gateway timeouts: GitHub can
+ * fail a whole response while resolving one node, so the fields are re-fetched
+ * in smaller pieces where the offending connection can degrade on its own.
  */
 export async function fetchContribOverview(username: string): Promise<{
   overview: ContribOverview;
@@ -2866,6 +2916,7 @@ export async function fetchContribOverview(username: string): Promise<{
     };
   } catch (e) {
     if (e instanceof GitHubQueryTimeoutError) return fetchSplitContribOverview(username);
+    if (e instanceof GitHubInternalQueryError) return fetchSplitContribOverview(username);
     if (!(e instanceof GitHubResourceLimitError)) throw e;
   }
 

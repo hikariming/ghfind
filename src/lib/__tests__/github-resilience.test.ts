@@ -94,3 +94,35 @@ it.each([502, 504])("splits HTTP %i overviews and retains all contribution and c
   expect(result.overview.mergedPRs.totalCount).toBe(500);
   expect(closedCursors).toEqual([null, "closed1", "closed2", "closed3"]);
 });
+
+it("degrades closedPRs to a count when GitHub fails the node list with INTERNAL", async () => {
+  process.env.GITHUB_TOKEN = "one,two,three";
+  const internal = () => new Response(JSON.stringify({
+    errors: [{ type: "INTERNAL", message: "Something went wrong", path: ["user", "closedPRs", "nodes", 2] }],
+    data: { user: null },
+  }), { headers: { "Content-Type": "application/json" } });
+  const totals = { totalCommitContributions: 20, totalPullRequestContributions: 30, totalIssueContributions: 4,
+    totalPullRequestReviewContributions: 5, contributionCalendar: { totalContributions: 59 } };
+  let nodeAttempts = 0;
+  let countOnlyAttempts = 0;
+  vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+    const { query } = JSON.parse(init.body);
+    const hasPinned = query.includes("pinnedItems");
+    const hasStats = query.includes("totalCommitContributions");
+    if (hasPinned && hasStats) return internal(); // combined doc: poisoned by the closedPRs node
+    if (hasStats) return json({ user: { contributionsCollection: totals } });
+    if (hasPinned) return json({ user: { pinnedItems: { nodes: [] }, mergedPRs: { totalCount: 40 },
+      allPRs: { totalCount: 55 }, issues: { totalCount: 4 }, contributionYears: { contributionYears: [2026] } } });
+    if (query.includes("first: 25")) { nodeAttempts++; return internal(); } // node list fails the same way
+    countOnlyAttempts++;
+    return json({ user: { closedPRs: { totalCount: 3 } } });
+  }));
+  const result = await fetchContribOverview("poisoned");
+  expect(result.overview.closedPRs.totalCount).toBe(3);
+  expect(result.overview.closedPRs.nodes).toEqual([]);
+  expect(result.overview.mergedPRs.totalCount).toBe(40);
+  expect(result.statTotals).toEqual(totals);
+  expect(result.lastYearContributions).toBe(59);
+  expect(nodeAttempts).toBe(1);
+  expect(countOnlyAttempts).toBe(1);
+});
