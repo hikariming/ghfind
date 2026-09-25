@@ -417,29 +417,6 @@ html[data-theme="light"] [data-scrollbar="code"]::-webkit-scrollbar-thumb:hover 
   background: rgba(51, 65, 85, 0.82);
 }
 
-html[data-theme="light"] [data-force-dark] {
-  background-color: #0a0a0b;
-  color: #ffffff;
-}
-
-html[data-theme="light"] [data-force-dark] .bg-black\/35 {
-  background-color: rgba(0, 0, 0, 0.35);
-}
-
-html[data-theme="light"] [data-force-dark] .text-zinc-400 {
-  color: #a1a1aa;
-}
-
-html[data-theme="light"] [data-force-dark] .text-zinc-500,
-html[data-theme="light"] [data-force-dark] .text-zinc-600 {
-  color: #71717a;
-}
-
-html[data-theme="light"] [data-force-dark] .text-orange-200,
-html[data-theme="light"] [data-force-dark] .text-orange-400 {
-  color: #fb923c;
-}
-
 /* Markdown report styling (react-markdown output) */
 .report :where(h1, h2, h3) {
   font-weight: 700;
@@ -951,6 +928,23 @@ html .omnibox-field { background: var(--input); }
 }
 html[data-theme="light"] .text-zinc-400 { color: #6f6f6b; }
 html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
+
+/* Exported cards keep their fixed dark palette in every page theme. Revert the
+   unlayered theme mappings to the original Tailwind utilities, including tier
+   colors, translucent panels, borders and avatar rings. Keep this after both
+   the light and dark utility compatibility maps. Inline artwork still wins. */
+html[data-theme] [data-force-dark] {
+  color-scheme: dark;
+}
+
+html[data-theme] [data-force-dark],
+html[data-theme] [data-force-dark] * {
+  color: revert-layer;
+  background-color: revert-layer;
+  border-color: revert-layer;
+  --tw-ring-color: revert-layer;
+}
+
 .report :where(h1,h2,h3), .post :where(h2,h3) { font-weight: 500; }
 .report th, .post th { font-weight: 500; }
 
