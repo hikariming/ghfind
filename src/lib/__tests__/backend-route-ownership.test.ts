@@ -42,6 +42,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/score/[username]/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
+  // Public read-only sponsor listing backed by D1.
+  "src/app/api/sponsors/route.ts",
   // Talent directory pagination: public read-only list/detail, D1-backed.
   "src/app/api/talent/route.ts",
   "src/app/api/talent/[id]/route.ts",
