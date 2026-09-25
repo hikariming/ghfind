@@ -1,0 +1,66 @@
+{
+  "page": "http://localhost:3100/en/blog/how-we-score-github-accounts",
+  "viewport": { "width": 375, "height": 812, "deviceScaleFactor": 2 },
+  "captured_at": "2026-09-16",
+  "method": "Playwright; the comments endpoint is stubbed so the danmaku strip renders without a database. gapPx is the danmaku container's top edge minus the bottom edge of .site-navbar, so a negative value means the strip is drawn underneath the header.",
+  "before": [
+    {
+      "mode": "light",
+      "screenshot": "before-light-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 64,
+      "gapPx": -43.33,
+      "clear": false
+    },
+    {
+      "mode": "dark",
+      "screenshot": "before-dark-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 64,
+      "gapPx": -43.33,
+      "clear": false
+    },
+    {
+      "mode": "auto",
+      "screenshot": "before-dark-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 64,
+      "gapPx": -43.33,
+      "clear": false
+    }
+  ],
+  "after": [
+    {
+      "mode": "light",
+      "screenshot": "after-light-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 108,
+      "gapPx": 0.67,
+      "clear": true
+    },
+    {
+      "mode": "dark",
+      "screenshot": "after-dark-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 108,
+      "gapPx": 0.67,
+      "clear": true
+    },
+    {
+      "mode": "auto",
+      "screenshot": "after-auto-mobile.png",
+      "headerBottom": 107.33,
+      "stripTop": 108,
+      "gapPx": 0.67,
+      "clear": true
+    }
+  ],
+  "checks": [
+    "Header measures 107.33px at 375px wide: a 44.33px sponsor strip that wraps to two lines, plus the 62px nav row",
+    "Danmaku strip previously started at a hard-coded 64px, overlapping the header by 43.33px",
+    "Strip now starts below the header in light, dark and auto",
+    "Offset uses Math.ceil so a fractional header height cannot leave a sub-pixel sliver behind the header",
+    "Falls back to the previous 64px when .site-navbar is absent, and on first render, so SSR and hydration agree",
+    "pnpm typecheck and pnpm lint pass"
+  ]
+}

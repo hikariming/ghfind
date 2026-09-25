@@ -25,6 +25,43 @@ interface FloatingCommentBubble {
   duration: string;
 }
 
+/**
+ * Height of the sticky site header, in pixels.
+ *
+ * Measured rather than a constant: `.site-navbar` includes the sponsor strip,
+ * which wraps at narrow widths, so the height moves with locale and viewport.
+ * Starts at the fallback so server and first client render agree.
+ */
+const FALLBACK_HEADER_OFFSET = 64;
+
+function useSiteHeaderOffset(): number {
+  const [offset, setOffset] = useState(FALLBACK_HEADER_OFFSET);
+
+  useEffect(() => {
+    const header = document.querySelector(".site-navbar");
+    if (!header) return;
+
+    const measure = () => {
+      const { height } = header.getBoundingClientRect();
+      // Ceil: a fractional header height would leave a sub-pixel sliver.
+      if (height > 0) setOffset(Math.ceil(height));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  return offset;
+}
+
 type CommentBubbleLang = "zh" | "en";
 
 interface CommentBubbleLabels {
@@ -228,6 +265,7 @@ export function CommentBubbles({
   const [comments, setComments] = useState<CommentBubbleItem[]>(initialComments);
   const [sending, setSending] = useState(false);
   const [showMobileDanmaku, setShowMobileDanmaku] = useState(true);
+  const headerOffset = useSiteHeaderOffset();
   const [submitError, setSubmitError] = useState<"auth" | "send" | null>(null);
 
   useEffect(() => {
@@ -305,7 +343,10 @@ export function CommentBubbles({
       </div>
 
       {showMobileDanmaku && (
-        <div className="pointer-events-none fixed inset-x-0 top-16 z-20 h-72 overflow-hidden xl:hidden">
+        <div
+          className="pointer-events-none fixed inset-x-0 z-20 h-72 overflow-hidden xl:hidden"
+          style={{ top: headerOffset }}
+        >
           {bubbles.map((bubble, index) => (
             <div
               key={`mobile-${bubble.side}-${index}-${bubble.text}`}
