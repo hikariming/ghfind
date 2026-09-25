@@ -26,7 +26,7 @@ import { beatPercent } from "@/lib/percentile";
 import { aggregateLanguages } from "@/lib/profile-insights";
 import { getGoProfilePresentation } from "@/lib/go-profile.server";
 import { tierFor } from "@/lib/score-presentation";
-import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
+import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
 import { avatarDataUrl, CDN_CACHE } from "../../shared";
 import { decodeRouteParam } from "@/lib/route-params";
@@ -77,10 +77,10 @@ export async function GET(
   // Rank and percentile both come off getRankCached so the two halves of the
   // meta line ("Top 0.8% · #128 / 21,384") share one denominator. getRank /
   // getPercentile in db.ts aggregate the whole table — never call those here.
-  const [avatar, sponsorLogo] = await Promise.all([
+  const [avatar, titleSponsor] = await Promise.all([
     avatarDataUrl(detail.avatar_url, AVATAR_PX),
     // `small`: this is the other half of the payload budget the avatar spends.
-    sponsorLogoDataUrl("small"),
+    getCurrentTitleSponsor("small"),
   ]);
   const rank = presentation?.rank ?? null;
   const delta = presentation?.delta ?? null;
@@ -107,7 +107,8 @@ export async function GET(
       total: rank?.total ?? null,
       beat: rank ? beatPercent(rank.below, rank.total) : null,
       delta,
-      sponsorLogo,
+      sponsorLogo: titleSponsor?.logo ?? null,
+      sponsorName: titleSponsor?.name ?? null,
       variant,
       theme,
       lang,

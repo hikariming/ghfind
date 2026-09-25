@@ -48,9 +48,9 @@ function toResultSet(raw: {
 }
 
 /**
- * The GHFIND_D1 binding when running on Cloudflare, else null (local dev,
- * tests and scripts fall back to the Turso client). Schema on D1 is owned by
- * wrangler migrations — callers must skip runtime DDL for this client.
+ * The GHFIND_D1 binding when running on Cloudflare or the local OpenNext
+ * emulator, else null (isolated tests and scripts may fall back to libSQL).
+ * Schema on D1 is owned by Wrangler migrations — callers must skip runtime DDL.
  */
 export function getD1Binding(): D1DatabaseLike | null {
   try {

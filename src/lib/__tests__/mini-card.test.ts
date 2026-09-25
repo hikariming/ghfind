@@ -36,6 +36,7 @@ const base: MiniCardOptions = {
   beat: 99.2,
   delta: 2.3,
   sponsorLogo: "data:image/png;base64,sponsor",
+  sponsorName: "LobeHub",
   variant: "bars",
   theme: "dark",
   lang: "en",

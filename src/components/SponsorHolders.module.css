@@ -1,0 +1,51 @@
+.sponsorList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.label::after {
+  content: "：";
+}
+
+.viewport {
+  width: 100%;
+  overflow: hidden;
+}
+
+.track,
+.group {
+  display: flex;
+  width: max-content;
+  align-items: center;
+}
+
+.track {
+  gap: 0;
+}
+
+.group {
+  flex: none;
+  gap: 8px;
+  padding-inline-end: 8px;
+}
+
+.animated {
+  animation: sponsor-marquee 21.33s linear infinite;
+}
+
+.viewport:hover .animated,
+.viewport:focus-within .animated {
+  animation-play-state: paused;
+}
+
+@keyframes sponsor-marquee {
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated { animation: none; }
+}

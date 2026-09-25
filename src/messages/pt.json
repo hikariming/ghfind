@@ -1295,7 +1295,7 @@
   },
   "sponsor": {
     "metaTitle": "Patrocine o ghfind · Planos e benefícios",
-    "metaDescription": "Patrocine o ghfind: planos Principal, Modelo, Destaque e Amigo, cobrados mensalmente. O patrocínio nunca afeta rankings ou notas.",
+    "metaDescription": "Patrocine o ghfind com quatro níveis mensais: 夯, 顶级, 人上人 e 友情. O patrocínio nunca afeta rankings ou notas.",
     "topline": {
       "section": "Ajuda e documentação",
       "current": "Patrocinar"
@@ -1312,11 +1312,14 @@
     "available": "Disponível",
     "soon": "Em desenvolvimento",
     "currentHolder": "Patrocinador atual",
+    "anonymous": "Patrocinador anônimo",
+    "emailTemplateSubject": "Consulta de patrocínio do ghfind · {tier}",
+    "emailTemplateBody": "Olá, gostaria de consultar sobre o patrocínio do nível {tier} do ghfind.\n\nData de início do patrocínio:\nDuração do patrocínio: 1 mês\n\nExibir anonimamente (sim/não):\nProduto ou projeto que deseja divulgar (pode deixar em branco se for anônimo):\nLink do projeto (opcional):\nÍcone ou logotipo (opcional; anexe o arquivo ou informe um link):\nBreve descrição do produto ou projeto (opcional):",
     "cta": "Quero patrocinar",
     "ctaSoldOut": "Esgotado · Em breve",
     "tiers": {
       "title": {
-        "name": "Patrocinador principal",
+        "name": "夯",
         "summary": "O espaço mais visível do site — sua marca viaja com cada cartão de exibição compartilhado.",
         "perks": [
           {
@@ -1328,7 +1331,7 @@
         ]
       },
       "model": {
-        "name": "Patrocinador do modelo",
+        "name": "顶级",
         "summary": "Alimente as avaliações e apareça sempre que uma for gerada.",
         "perks": [
           {
@@ -1340,7 +1343,7 @@
         ]
       },
       "featured": {
-        "name": "Patrocinador destaque",
+        "name": "人上人",
         "summary": "Exposição constante na página inicial e nas páginas de desenvolvedores.",
         "perks": [
           {
@@ -1353,7 +1356,7 @@
         ]
       },
       "friend": {
-        "name": "Patrocinador amigo",
+        "name": "友情",
         "summary": "Apoie o ghfind como amigo — vamos lembrar de você aqui.",
         "perks": [
           {

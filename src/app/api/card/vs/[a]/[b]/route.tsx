@@ -3,7 +3,7 @@ import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
 import { normalizeUsername } from "@/lib/username";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
-import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
+import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { verdict } from "@/lib/verdict";
 import type { AccountDetail } from "@/lib/profile-presentation";
 import { getGoVsPresentation } from "@/lib/go-profile.server";
@@ -116,12 +116,12 @@ export async function GET(
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
 
-  const [avA, avB, tierIconA, tierIconB, sponsorLogo] = await Promise.all([
+  const [avA, avB, tierIconA, tierIconB, titleSponsor] = await Promise.all([
     avatarDataUrl(da?.avatar_url ?? null),
     avatarDataUrl(db?.avatar_url ?? null),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(da?.tier ?? "NPC").icon),
     tierAvatarFrameIconDataUrl(tierAvatarFrame(db?.tier ?? "NPC").icon),
-    sponsorLogoDataUrl(),
+    getCurrentTitleSponsor(),
   ]);
 
   const vsColor = BUCKET_COLOR[v.bucket] ?? "#f97316";
@@ -193,7 +193,7 @@ export async function GET(
         {line}
       </div>
 
-      <Brand palette={palette} sponsorLogo={sponsorLogo} />
+      <Brand palette={palette} sponsorLogo={titleSponsor?.logo} sponsorName={titleSponsor?.name} />
     </Shell>,
     fontList,
   );

@@ -34,6 +34,7 @@ describe("material card", () => {
       qr: "data:image/png;base64,qr",
       tierIcon: "data:image/svg+xml;base64,crown",
       sponsorLogo: "data:image/png;base64,sponsor",
+      sponsorName: "LobeHub",
     });
 
     expect(svg).toContain('width="1824" height="1200"');

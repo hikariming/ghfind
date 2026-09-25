@@ -1,5 +1,5 @@
-.page { --sp-green: #89b69a; --sp-tint: #202e25; --sp-gold: #e3c15f; --sp-gold-tint: rgba(227,193,95,.1); --sp-gold-border: rgba(227,193,95,.38); width: 100%; max-width: 1180px; margin: auto; padding: 27px 44px 64px; }
-:global(html[data-theme='light']) .page { --sp-green: #48745a; --sp-tint: #edf4ee; --sp-gold: #8a6d1a; --sp-gold-tint: rgba(160,124,26,.08); --sp-gold-border: rgba(160,124,26,.42); }
+.page { --sp-green: #89b69a; --sp-tint: #202e25; --tier-gold: #e3c15f; --tier-purple: #b49bff; --tier-green: #75c99a; --tier-sky: #68b8ee; width: 100%; max-width: 1180px; margin: auto; padding: 27px 44px 64px; }
+:global(html[data-theme='light']) .page { --sp-green: #48745a; --sp-tint: #edf4ee; --tier-gold: #8a6d1a; --tier-purple: #7355b5; --tier-green: #357c50; --tier-sky: #1975a8; }
 
 .topline { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted-foreground); }
 .topline strong { color: var(--foreground); font-weight: 500; }
@@ -12,34 +12,36 @@
 .hero > p { max-width: 640px; color: var(--muted-foreground); font-size: 13px; line-height: 1.9; }
 
 .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.card { display: flex; flex-direction: column; border: 1px solid var(--border); background: var(--card); border-radius: 15px; padding: 22px 20px 20px; min-width: 0; transition: border-color .2s, box-shadow .2s, transform .2s; }
-.card:hover { border-color: var(--sp-green); box-shadow: var(--shadow-float); transform: translateY(-2px); }
-.card[data-tier='title'] { border-color: var(--sp-gold-border); background: linear-gradient(180deg, var(--sp-gold-tint), transparent 55%), var(--card); }
-.card[data-tier='title']:hover { border-color: var(--sp-gold); }
+.card { --tier-accent: var(--sp-green); --tier-tint: var(--sp-tint); --tier-border: var(--border); display: flex; flex-direction: column; border: 1px solid var(--tier-border); background: linear-gradient(180deg, color-mix(in srgb, var(--tier-accent) 7%, transparent), transparent 55%), var(--card); border-radius: 15px; padding: 22px 20px 20px; min-width: 0; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.card[data-tier='夯'] { --tier-accent: var(--tier-gold); --tier-tint: color-mix(in srgb, var(--tier-gold) 10%, transparent); --tier-border: color-mix(in srgb, var(--tier-gold) 38%, var(--border)); }
+.card[data-tier='顶级'] { --tier-accent: var(--tier-purple); --tier-tint: color-mix(in srgb, var(--tier-purple) 10%, transparent); --tier-border: color-mix(in srgb, var(--tier-purple) 32%, var(--border)); }
+.card[data-tier='人上人'] { --tier-accent: var(--tier-green); --tier-tint: color-mix(in srgb, var(--tier-green) 9%, transparent); --tier-border: color-mix(in srgb, var(--tier-green) 30%, var(--border)); }
+.card[data-tier='友情'] { --tier-accent: var(--tier-sky); --tier-tint: color-mix(in srgb, var(--tier-sky) 9%, transparent); --tier-border: color-mix(in srgb, var(--tier-sky) 30%, var(--border)); }
+.card:hover { border-color: var(--tier-accent); box-shadow: var(--shadow-float); transform: translateY(-2px); }
 .cardTop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .eyebrow { font-size: 10px; letter-spacing: 1.6px; color: var(--muted-foreground); text-transform: uppercase; }
-.card[data-tier='title'] .eyebrow { color: var(--sp-gold); font-weight: 600; }
+.card .eyebrow { color: var(--tier-accent); font-weight: 600; }
 .soldOut, .available { flex-shrink: 0; font-size: 10px; font-weight: 600; border-radius: 5px; padding: 2px 7px; }
 .soldOut { background: var(--surface-muted); color: var(--muted-foreground); }
 .available { background: var(--sp-tint); color: var(--sp-green); }
-.card h2 { margin: 16px 0 6px; font-size: 19px; font-weight: 600; letter-spacing: -.3px; }
+.card h2 { margin: 16px 0 6px; color: var(--tier-accent); font-size: 19px; font-weight: 600; letter-spacing: -.3px; }
 .summary { min-height: 3.6em; font-size: 12px; line-height: 1.8; color: var(--muted-foreground); }
 
 .price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; margin: 18px 0 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .price strong { font-size: 30px; font-weight: 650; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
 .price > span { font-size: 12px; color: var(--muted-foreground); }
 .price s { margin-inline-start: 4px; font-size: 13px; color: var(--muted-foreground); opacity: .7; }
-.price em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--sp-green); background: var(--sp-tint); border-radius: 5px; padding: 2px 6px; }
+.price em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--tier-accent); background: var(--tier-tint); border-radius: 5px; padding: 2px 6px; }
 .card[data-sold-out] .price strong { color: var(--muted-foreground); }
 
 .perks { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; flex: 1; }
 .perks li { display: flex; gap: 8px; font-size: 12px; line-height: 1.7; }
-.perks svg { flex-shrink: 0; margin-top: 4px; color: var(--sp-green); }
-.card[data-tier='title'] .perks svg { color: var(--sp-gold); }
+.perks svg { flex-shrink: 0; margin-top: 4px; color: var(--tier-accent); }
 .soon { display: inline-block; margin-inline-start: 6px; font-size: 9px; letter-spacing: .5px; border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; color: var(--muted-foreground); vertical-align: 1px; }
 
 .cardFooter { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
 .holders { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px; color: var(--muted-foreground); }
+.slotOpen { display: flex; align-items: center; justify-content: center; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted-foreground); font-size: 11px; }
 .holder { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 6px; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); font-size: 12px; font-weight: 500; transition: background .15s; }
 .holder:hover { background: var(--surface-muted); }
 .holderLogo { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
