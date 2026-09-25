@@ -35,11 +35,11 @@ export default async function VsIndexPage({
   return (
     <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
       <div className="flex w-full max-w-3xl flex-col">
-        <h1 className="text-center text-2xl font-black text-zinc-100">{t("trendingHeading")}</h1>
-        <p className="mt-2 text-center text-sm text-zinc-400">{t("trendingSub")}</p>
+        <VsBattleBox />
 
         <div className="mt-8">
-          <VsBattleBox />
+          <h2 className="text-center text-2xl font-black text-zinc-100">{t("trendingHeading")}</h2>
+          <p className="mt-2 text-center text-sm text-zinc-400">{t("trendingSub")}</p>
         </div>
 
         {matchups.length === 0 ? (

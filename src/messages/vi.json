@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "Đăng nhập",
+    "title": "Đăng nhập ghfind",
+    "description": "Lưu danh sách theo dõi và hồ sơ để tiếp tục trên thiết bị khác.",
+    "close": "Đóng",
+    "google": "Tiếp tục với Google",
+    "github": "Tiếp tục với GitHub",
+    "emailDivider": "Hoặc dùng email",
+    "emailLabel": "Địa chỉ email",
+    "emailPlaceholder": "Nhập email",
+    "sendCode": "Gửi mã xác minh",
+    "githubUnavailable": "Đăng nhập GitHub hiện không khả dụng ở đây.",
+    "comingSoon": "Đăng nhập bằng Google và email sẽ sớm ra mắt."
+  },
   "meta": {
     "title": "ghfind | Chấm điểm GitHub cực gắt, tự soi bản thân & khám phá dev xịn",
     "description": "ghfind: điểm giá trị & độ tin cậy GitHub 0-100 kèm màn cà khịa cực gắt trong 30 giây. Thấy rõ lỗ hổng của mình, tự kiểm tra để tiến bộ, rồi khám phá các dev hàng đầu và được người khác tìm thấy.",

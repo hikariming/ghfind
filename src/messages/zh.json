@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "登录",
+    "title": "登录 ghfind",
+    "description": "保存你的关注与简历，换设备继续使用。",
+    "close": "关闭",
+    "google": "使用 Google 登录",
+    "github": "使用 GitHub 登录",
+    "emailDivider": "或使用邮箱",
+    "emailLabel": "邮箱地址",
+    "emailPlaceholder": "输入邮箱地址",
+    "sendCode": "发送验证码",
+    "githubUnavailable": "此环境暂未开启 GitHub 登录。",
+    "comingSoon": "Google 和邮箱登录即将开放。"
+  },
   "meta": {
     "title": "ghfind | 毒舌 GitHub 评分 · 开发者自测成长 · 发现最佳开发者",
     "description": "ghfind（毒舌 GitHub 评分）：输入 GitHub 账号，30 秒得到 0-100 分价值与信任评分和一句扎心毒舌点评，看清差距、知道往哪努力，自测并持续成长；再逛发现榜找到值得关注的优质开发者，也让世界发现你。专治刷量号、AI 机器人、收藏夹开发者。",

@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "로그인",
+    "title": "ghfind 로그인",
+    "description": "팔로우와 이력서를 저장하고 다른 기기에서도 이어서 사용하세요.",
+    "close": "닫기",
+    "google": "Google로 로그인",
+    "github": "GitHub로 로그인",
+    "emailDivider": "또는 이메일 사용",
+    "emailLabel": "이메일 주소",
+    "emailPlaceholder": "이메일 주소 입력",
+    "sendCode": "인증 코드 보내기",
+    "githubUnavailable": "이 환경에서는 GitHub 로그인을 사용할 수 없습니다.",
+    "comingSoon": "Google 및 이메일 로그인은 곧 제공됩니다."
+  },
   "meta": {
     "title": "ghfind | 독설 GitHub 평가 · 셀프 테스트 & 최고의 개발자 발견",
     "description": "ghfind: GitHub 계정을 입력하면 30초 만에 0-100점 가치·신뢰 점수와 뼈 때리는 독설 한 줄이 나옵니다. 부족한 점을 확인하고 성장 방향을 잡은 뒤, 팔로우할 만한 최고의 개발자를 발견하고 세상에 나를 알리세요.",

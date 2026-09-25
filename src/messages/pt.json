@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "Entrar",
+    "title": "Entrar no ghfind",
+    "description": "Guarde seus perfis seguidos e currículos para continuar em outros dispositivos.",
+    "close": "Fechar",
+    "google": "Continuar com Google",
+    "github": "Continuar com GitHub",
+    "emailDivider": "Ou usar e-mail",
+    "emailLabel": "Endereço de e-mail",
+    "emailPlaceholder": "Digite seu e-mail",
+    "sendCode": "Enviar código de verificação",
+    "githubUnavailable": "O login com GitHub não está disponível aqui.",
+    "comingSoon": "O login com Google e e-mail estará disponível em breve."
+  },
   "meta": {
     "title": "ghfind | Nota brutal do seu GitHub, autoavaliação e descoberta de devs top",
     "description": "ghfind: uma nota de valor e confiança de 0 a 100 pro seu GitHub + uma zoada sem dó em 30s. Veja seus pontos fracos, evolua e descubra os melhores devs.",

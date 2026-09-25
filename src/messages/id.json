@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "Masuk",
+    "title": "Masuk ke ghfind",
+    "description": "Simpan akun yang diikuti dan resume untuk melanjutkan di perangkat lain.",
+    "close": "Tutup",
+    "google": "Lanjutkan dengan Google",
+    "github": "Lanjutkan dengan GitHub",
+    "emailDivider": "Atau gunakan email",
+    "emailLabel": "Alamat email",
+    "emailPlaceholder": "Masukkan email",
+    "sendCode": "Kirim kode verifikasi",
+    "githubUnavailable": "Login GitHub tidak tersedia di sini.",
+    "comingSoon": "Login Google dan email akan segera hadir."
+  },
   "meta": {
     "title": "ghfind | Skor GitHub Pedas, Uji Diri & Temukan Dev Terbaik",
     "description": "ghfind: skor nilai & kepercayaan GitHub 0-100 plus roast pedas dalam 30 detik. Lihat kekuranganmu, uji diri dan berkembang, lalu temukan developer terbaik dan biarkan dunia menemukanmu.",

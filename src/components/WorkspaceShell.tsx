@@ -58,8 +58,8 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
       <div className="sidebar-bottom">
         <Link className="sidebar-link" href="/docs" prefetch={false} onClick={() => setOpen(false)} title={t("docs")} aria-label={t("docs")}><BookOpen size={18} strokeWidth={1.7} /><span className="sidebar-label">{t("docs")}</span><ArrowUpRight size={14} className="sidebar-label ms-auto" /></Link>
         <Link className="sidebar-link" href="/sponsor" prefetch={false} onClick={() => setOpen(false)} aria-current={active("/sponsor") ? "page" : undefined} title={t("sponsor")} aria-label={t("sponsor")}><HandHeart size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{t("sponsor")}</span>{active("/sponsor") && <span className="sidebar-active-dot" aria-hidden />}</Link>
-        <div className="sidebar-preferences"><LanguageSwitcher /><ThemeToggle /></div>
         <div className="sidebar-account">{account}</div>
+        <div className="sidebar-preferences"><LanguageSwitcher /><ThemeToggle /></div>
       </div>
     </>
   );

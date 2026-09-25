@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "Sign in",
+    "title": "Sign in to ghfind",
+    "description": "Keep your follows and résumés across devices.",
+    "close": "Close",
+    "google": "Continue with Google",
+    "github": "Continue with GitHub",
+    "emailDivider": "Or use email",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "Enter your email",
+    "sendCode": "Send verification code",
+    "githubUnavailable": "GitHub sign-in is unavailable here.",
+    "comingSoon": "Google and email sign-in are coming soon."
+  },
   "meta": {
     "title": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
     "description": "ghfind: a 0-100 GitHub value & trust score plus a savage roast in 30s. See your gaps, self-test and grow, then discover top developers and get found.",

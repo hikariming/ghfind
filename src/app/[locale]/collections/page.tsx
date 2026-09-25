@@ -68,13 +68,18 @@ export default async function CollectionsIndexPage({
                 className="collection-index-entry group block"
               >
                 <div className="flex items-start gap-4">
-                  {avatarOwner && (
+                  {avatarOwner ? (
                     // eslint-disable-next-line @next/next/no-img-element -- GitHub avatar; the image optimizer would just add Vercel cost
                     <img
                       src={`https://github.com/${avatarOwner}.png?size=112`}
                       alt=""
                       loading="lazy"
                       className="mt-1 h-12 w-12 shrink-0 rounded-xl"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="mt-1 h-12 w-12 shrink-0"
                     />
                   )}
                   <div className="min-w-0 flex-1">

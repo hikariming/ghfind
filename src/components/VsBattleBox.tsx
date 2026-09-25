@@ -64,7 +64,7 @@ export function VsBattleBox() {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="text-center">
-        <h2 className="text-lg font-black text-zinc-100">{t("pkHeading")}</h2>
+        <h1 className="text-lg font-black text-zinc-100">{t("pkHeading")}</h1>
         <p className="mt-1 text-xs text-zinc-400">{t("pkSub")}</p>
       </div>
 

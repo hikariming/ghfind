@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "ログイン",
+    "title": "ghfind にログイン",
+    "description": "フォローと履歴書を保存し、別の端末でも続けられます。",
+    "close": "閉じる",
+    "google": "Google でログイン",
+    "github": "GitHub でログイン",
+    "emailDivider": "またはメールを使用",
+    "emailLabel": "メールアドレス",
+    "emailPlaceholder": "メールアドレスを入力",
+    "sendCode": "認証コードを送信",
+    "githubUnavailable": "この環境では GitHub ログインを利用できません。",
+    "comingSoon": "Google とメールでのログインは近日公開予定です。"
+  },
   "meta": {
     "title": "ghfind | 毒舌GitHub採点・自己診断で成長・トップ開発者を発見",
     "description": "ghfind（毒舌GitHub採点）：GitHubアカウントを入力すると、30秒で0-100点の価値・信頼スコアと辛口ローストが出ます。自分の弱点を直視して成長の方向を掴み、発見ボードで注目すべき優良開発者を見つけ、自分も見つけてもらう。水増しアカウント・AI botの検出にも対応。",

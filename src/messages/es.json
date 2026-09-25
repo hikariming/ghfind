@@ -1,4 +1,18 @@
 {
+  "loginDialog": {
+    "entry": "Iniciar sesión",
+    "title": "Inicia sesión en ghfind",
+    "description": "Guarda tus cuentas seguidas y currículums para seguir en otros dispositivos.",
+    "close": "Cerrar",
+    "google": "Continuar con Google",
+    "github": "Continuar con GitHub",
+    "emailDivider": "O usar correo",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "Introduce tu correo",
+    "sendCode": "Enviar código de verificación",
+    "githubUnavailable": "El inicio de sesión con GitHub no está disponible aquí.",
+    "comingSoon": "El inicio de sesión con Google y correo estará disponible pronto."
+  },
   "meta": {
     "title": "ghfind | Score brutal de GitHub, autoevalúate y descubre a los mejores devs",
     "description": "ghfind: un score de valor y confianza de GitHub de 0 a 100, más un roast sin piedad en 30s. Ve tus puntos débiles, ponte a prueba y crece; luego descubre a los mejores developers y deja que te encuentren.",
