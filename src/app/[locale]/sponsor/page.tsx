@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Check, HandHeart, Heart, Mail, ShieldCheck } from "lucide-react";
-import { FRIEND_SPONSORS, SPONSOR_CONTACT_EMAIL, SPONSOR_TIERS, type SponsorHolder } from "@/config/sponsors";
-import { SponsorMark } from "@/components/SponsorMark";
+import { SPONSOR_CONTACT_EMAIL, SPONSOR_TIERS } from "@/config/sponsors";
+import { SponsorHolders } from "@/components/SponsorHolders";
 import { localeAlternates } from "@/lib/site";
 import styles from "./sponsor.module.css";
 
@@ -27,15 +27,6 @@ export async function generateMetadata({
   };
 }
 
-function HolderLink({ holder }: { holder: SponsorHolder }) {
-  return (
-    <a href={holder.url} target="_blank" rel="noopener noreferrer sponsored" className={styles.holder}>
-      <SponsorMark holder={holder} className={styles.holderLogo} />
-      <span>{holder.name}</span>
-    </a>
-  );
-}
-
 export default async function SponsorPage({
   params,
 }: {
@@ -44,8 +35,11 @@ export default async function SponsorPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("sponsor");
-  const mailto = (tier: string) =>
-    `mailto:${SPONSOR_CONTACT_EMAIL}?subject=${encodeURIComponent(`ghfind sponsor · ${tier}`)}`;
+  const mailto = (tier: string) => {
+    const subject = t("emailTemplateSubject", { tier });
+    const body = t("emailTemplateBody", { tier }).replace(/\r?\n/g, "\r\n");
+    return `mailto:${SPONSOR_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
 
   return (
     <main className={styles.page}>
@@ -70,7 +64,7 @@ export default async function SponsorPage({
           const perks = t.raw(`tiers.${tier.id}.perks`) as Perk[];
           const off = Math.round((1 - tier.price / tier.listPrice) * 100);
           return (
-            <article key={tier.id} className={styles.card} data-tier={tier.id} data-sold-out={tier.soldOut || undefined}>
+            <article key={tier.id} className={styles.card} data-tier={tier.displayTier} data-sold-out={tier.soldOut || undefined}>
               <div className={styles.cardTop}>
                 <span className={styles.eyebrow}>{String(index + 1).padStart(2, "0")}</span>
                 {tier.soldOut
@@ -97,12 +91,20 @@ export default async function SponsorPage({
               </ul>
 
               <div className={styles.cardFooter}>
-                {tier.holders.length > 0 && (
-                  <div className={styles.holders}>
-                    <span>{t("currentHolder")}</span>
-                    {tier.holders.map(holder => <HolderLink key={holder.name} holder={holder} />)}
-                  </div>
-                )}
+                <SponsorHolders
+                  tier={tier.displayTier}
+                  wrapperClassName={styles.holders}
+                  className={styles.holder}
+                  logoClassName={styles.holderLogo}
+                  anonymousLabel={t("anonymous")}
+                  label={t("currentHolder")}
+                  empty={{
+                    className: styles.slotOpen,
+                    text: t("slotOpen"),
+                    href: tier.soldOut ? undefined : mailto(t(`tiers.${tier.id}.name`)),
+                  }}
+                  scroll
+                />
                 {tier.soldOut
                   ? <span className={styles.ctaDisabled} aria-disabled="true">{t("ctaSoldOut")}</span>
                   : <a className={styles.cta} href={mailto(t(`tiers.${tier.id}.name`))}><Mail size={14} aria-hidden /> {t("cta")}</a>}
@@ -118,13 +120,18 @@ export default async function SponsorPage({
           <h2>{t("friends.heading")}</h2>
         </div>
         <p>{t("friends.lead")}</p>
-        {FRIEND_SPONSORS.length > 0 ? (
-          <div className={styles.friendWall}>
-            {FRIEND_SPONSORS.map(holder => <HolderLink key={holder.name} holder={holder} />)}
-          </div>
-        ) : (
-          <a className={styles.friendEmpty} href={mailto(t("tiers.friend.name"))}>{t("friends.empty")}</a>
-        )}
+        <SponsorHolders
+          tier="友情"
+          wrapperClassName={styles.friendWall}
+          className={styles.holder}
+          logoClassName={styles.holderLogo}
+          anonymousLabel={t("anonymous")}
+          empty={{
+            className: styles.friendEmpty,
+            text: t("friends.empty"),
+            href: mailto(t("tiers.friend.name")),
+          }}
+        />
       </section>
 
       <section className={styles.fairness}>

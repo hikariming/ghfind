@@ -44,7 +44,7 @@ const assets = {
       .map((f) => [f.slice(0, -4), `data:image/svg+xml;base64,${b64(path.join(tierEmojiDir, f))}`]),
   ),
   sponsor: Object.fromEntries(
-    ["/lobehub.png", "/lobehub-32.png"]
+    ["/lobehub.png", "/lobehub-32.png", "/stepfun.svg", "/mosoo.svg", "/phibrowser.png"]
       .filter((f) => statSync(path.join(root, "public", f), { throwIfNoEntry: false }))
       .map((f) => [f, `data:image/png;base64,${b64(path.join(root, "public", f))}`]),
   ),

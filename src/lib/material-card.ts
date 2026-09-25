@@ -2,7 +2,6 @@ import { BRAND_MARK_PATHS } from "@/components/BrandMark";
 import { estimateTextWidth } from "./badge";
 import { DIMENSIONS } from "./dimensions";
 import { SUBSCORE_MAX } from "./score";
-import { SPONSOR } from "./sponsor";
 import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "./tier";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
@@ -31,11 +30,10 @@ export interface MaterialCardSvgOptions {
   qr: string | null;
   tierIcon: string;
   /**
-   * Sponsor logo as a data URL (`sponsorLogoDataUrl()`). Null renders the credit
-   * as text alone — this card is a print/export asset, so it takes the full-size
-   * mark rather than the 32px one the SVG embeds use.
+   * Sponsor logo as a data URL. The full-size mark is used for print/export.
    */
   sponsorLogo: string | null;
+  sponsorName?: string | null;
 }
 
 interface Point {
@@ -245,8 +243,8 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   // Sponsor credit, right-anchored in the footer: the text hangs off x=864 and
   // the logo is laid back from its measured width, so a renamed sponsor stays
   // aligned without touching the geometry.
-  const sponsorText = `Powered by ${SPONSOR.name}`;
-  const sponsorLogo = options.sponsorLogo
+  const sponsorText = options.sponsorName ? `Powered by ${options.sponsorName}` : "";
+  const sponsorLogo = options.sponsorName && options.sponsorLogo
     ? `<image href="${options.sponsorLogo}" x="${
         FOOTER_RIGHT_X - estimateTextWidth(sponsorText, MATERIAL_TEXT_SIZE.footer) - SPONSOR_LOGO_SIZE - 10
       }" y="${FOOTER_BASELINE_Y - 20}" width="${SPONSOR_LOGO_SIZE}" height="${SPONSOR_LOGO_SIZE}"/>`
@@ -270,6 +268,6 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   ${tags.join("")}
   ${radarGrid}${radarAxes}<polygon points="${pointList(radarPoints)}" fill="url(#radar-fill)" stroke="${options.color}" stroke-width="4" stroke-linejoin="round"/>${radarDots}${radarLabels}${qr}
   <line x1="48" y1="505" x2="864" y2="505" stroke="${palette.grid}" stroke-opacity="0.62"/>${brandMarkSvg(48, 530, 28, palette.fg)}
-  <text x="87" y="553" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.brand}" font-weight="800">ghfind.com</text><text x="240" y="553" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">GitHub 开发者实力认证</text>${sponsorLogo}<text x="${FOOTER_RIGHT_X}" y="${FOOTER_BASELINE_Y}" text-anchor="end" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">${escapeXml(sponsorText)}</text>
+  <text x="87" y="553" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.brand}" font-weight="800">ghfind.com</text><text x="240" y="553" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">GitHub 开发者实力认证</text>${sponsorLogo}${sponsorText ? `<text x="${FOOTER_RIGHT_X}" y="${FOOTER_BASELINE_Y}" text-anchor="end" fill="${palette.subtle}" font-size="${MATERIAL_TEXT_SIZE.footer}">${escapeXml(sponsorText)}</text>` : ""}
 </svg>`;
 }

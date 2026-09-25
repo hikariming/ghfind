@@ -1295,7 +1295,7 @@
   },
   "sponsor": {
     "metaTitle": "Tài trợ ghfind · Gói và quyền lợi",
-    "metaDescription": "Tài trợ ghfind: các gói Chính, Mô hình, Nổi bật và Bạn bè, tính theo tháng. Tài trợ không bao giờ ảnh hưởng đến xếp hạng hay điểm số.",
+    "metaDescription": "Bốn cấp tài trợ hàng tháng cho ghfind: 夯, 顶级, 人上人 và 友情. Tài trợ không ảnh hưởng đến xếp hạng hay điểm số.",
     "topline": {
       "section": "Trợ giúp & Tài liệu",
       "current": "Tài trợ"
@@ -1312,11 +1312,14 @@
     "available": "Còn chỗ",
     "soon": "Đang phát triển",
     "currentHolder": "Nhà tài trợ hiện tại",
+    "anonymous": "Nhà tài trợ ẩn danh",
+    "emailTemplateSubject": "Hỏi về tài trợ ghfind · {tier}",
+    "emailTemplateBody": "Xin chào, tôi muốn hỏi về gói tài trợ {tier} của ghfind.\n\nNgày bắt đầu tài trợ:\nThời hạn tài trợ: 1 tháng\n\nHiển thị ẩn danh (có/không):\nSản phẩm/dự án muốn quảng bá (có thể để trống nếu chọn ẩn danh):\nLiên kết dự án (không bắt buộc):\nBiểu tượng hoặc logo (không bắt buộc; đính kèm tệp hoặc cung cấp liên kết):\nGiới thiệu ngắn về sản phẩm/dự án (không bắt buộc):",
     "cta": "Liên hệ tài trợ",
     "ctaSoldOut": "Đã hết · Hãy chờ đợt sau",
     "tiers": {
       "title": {
-        "name": "Nhà tài trợ chính",
+        "name": "夯",
         "summary": "Vị trí nổi bật nhất trên trang — thương hiệu của bạn đi cùng mọi thẻ khoe được chia sẻ.",
         "perks": [
           {
@@ -1328,7 +1331,7 @@
         ]
       },
       "model": {
-        "name": "Nhà tài trợ mô hình",
+        "name": "顶级",
         "summary": "Cung cấp mô hình cho các nhận xét và xuất hiện mỗi lần nhận xét được tạo.",
         "perks": [
           {
@@ -1340,7 +1343,7 @@
         ]
       },
       "featured": {
-        "name": "Nhà tài trợ nổi bật",
+        "name": "人上人",
         "summary": "Hiển thị ổn định trên trang chủ và trang chi tiết nhà phát triển.",
         "perks": [
           {
@@ -1353,7 +1356,7 @@
         ]
       },
       "friend": {
-        "name": "Nhà tài trợ bạn bè",
+        "name": "友情",
         "summary": "Ủng hộ ghfind như một người bạn — chúng tôi sẽ ghi nhận bạn tại đây.",
         "perks": [
           {

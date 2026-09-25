@@ -21,6 +21,8 @@ export type NavItem = {
   featured?: boolean;
   /** Show a Beta badge on this item (for a preview feature outside a Beta group). */
   beta?: boolean;
+  /** Show a small "new!" callout on this item. */
+  new?: boolean;
   /** Small label badge, e.g. "beta" (legacy `NavLinks` only). */
   badge?: string;
   /** Legacy dropdown children (still understood by `NavLinks`). */
@@ -51,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "resume", href: "/resume", icon: "resume" },
   ] },
   { label: "groupTools", items: [
-    { key: "githubBot", href: "/github-bot", icon: "bot" },
+    { key: "githubBot", href: "/github-bot", icon: "bot", new: true },
   ] },
 ];
 

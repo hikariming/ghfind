@@ -1295,7 +1295,7 @@
   },
   "sponsor": {
     "metaTitle": "Sponsor ghfind · Plans & perks",
-    "metaDescription": "Sponsor ghfind: Title, Model, Featured and Friend sponsor plans, billed monthly. Sponsorship never affects any ranking or score.",
+    "metaDescription": "Sponsor ghfind with four monthly tiers: 夯, 顶级, 人上人 and 友情. Sponsorship never affects rankings or scores.",
     "topline": {
       "section": "Help & Docs",
       "current": "Sponsor"
@@ -1312,11 +1312,14 @@
     "available": "Available",
     "soon": "In development",
     "currentHolder": "Current sponsor",
+    "anonymous": "Anonymous sponsor",
+    "emailTemplateSubject": "ghfind sponsorship inquiry · {tier}",
+    "emailTemplateBody": "Hello, I'd like to ask about sponsoring ghfind's {tier} tier.\n\nSponsorship start date:\nSponsorship term: 1 month\n\nShow anonymously (yes/no):\nProduct or project to feature (leave blank if anonymous):\nProject link (optional):\nIcon or logo (optional; attach a file or provide a link):\nShort project description (optional):",
     "cta": "Become a sponsor",
     "ctaSoldOut": "Sold out · Stay tuned",
     "tiers": {
       "title": {
-        "name": "Title Sponsor",
+        "name": "夯",
         "summary": "The most prominent slot on the site — your brand travels with every brag card shared.",
         "perks": [
           {
@@ -1328,7 +1331,7 @@
         ]
       },
       "model": {
-        "name": "Model Sponsor",
+        "name": "顶级",
         "summary": "Power the roasts and get seen every time one is generated.",
         "perks": [
           {
@@ -1340,7 +1343,7 @@
         ]
       },
       "featured": {
-        "name": "Featured Sponsor",
+        "name": "人上人",
         "summary": "Steady exposure on the homepage and developer detail pages.",
         "perks": [
           {
@@ -1353,7 +1356,7 @@
         ]
       },
       "friend": {
-        "name": "Friend Sponsor",
+        "name": "友情",
         "summary": "Back ghfind as a friend — we'll remember you here.",
         "perks": [
           {

@@ -102,29 +102,16 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Start a local HTTP libSQL server with Docker (or use a hosted Turso database):
+`pnpm dev` uses Wrangler's local D1 emulator and never connects to Cloudflare or
+requires `wrangler login`. Local D1 state persists under `.wrangler/state/v3`.
+Apply the schema locally once before using database-backed features:
 
 ```bash
-docker run -d --name ghfind-libsql -p 127.0.0.1:8080:8080 \
-  -v ghfind-libsql-data:/var/lib/sqld \
-  ghcr.io/tursodatabase/libsql-server:latest
+pnpm exec wrangler d1 migrations apply ghfind --local
+pnpm exec wrangler d1 migrations apply ghfind-feed-dev --local
 ```
 
-On Apple Silicon, use the `latest-arm` image tag; see the
-[libSQL Docker guide](https://github.com/tursodatabase/libsql/blob/main/docs/DOCKER.md).
-The named volume keeps database files outside the checkout. To restart an existing
-container, use `docker start ghfind-libsql`.
-
-Set these values in `.env.local` before starting the app:
-
-```dotenv
-GITHUB_TOKEN=<your GitHub PAT>
-TURSO_DATABASE_URL=http://127.0.0.1:8080
-TURSO_AUTH_TOKEN=
-```
-
-For hosted Turso, use its database URL and auth token instead. The app creates the
-local libSQL schema on first database use. Its web client cannot open `file:` URLs.
+Set `GITHUB_TOKEN` in `.env.local` to enable higher GitHub API rate limits.
 `LLM_API_KEY` is additionally needed for operator-funded roast text, not for
 deterministic scanning and scoring.
 
