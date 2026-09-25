@@ -52,6 +52,7 @@ import {
   resolveProfileArtifactState,
   shouldStartProfileRoast,
 } from "./ProfileArtifactStatus";
+import { decodeRouteParam } from "@/lib/route-params";
 
 /** True when a Referer header points at github.com (or a subdomain). GitHub sends
  *  `strict-origin-when-cross-origin`, so we only ever see the bare origin — enough
@@ -115,7 +116,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, username } = await params;
   const t = await getTranslations({ locale, namespace: "detailMeta" });
-  const decoded = decodeURIComponent(username);
+  const decoded = decodeRouteParam(username);
   const d = (await getProfile(decoded))?.detail ?? null;
   if (!d) {
     // No persisted row yet. A cached scan or the `?roasting=1` handoff marker
@@ -186,7 +187,7 @@ export default async function AccountPage({
   setRequestLocale(locale);
   const query = await searchParams;
   const isAdvxCampaign = query.campaign === "advx";
-  const decoded = decodeURIComponent(username);
+  const decoded = decodeRouteParam(username);
   const presentation = await getProfile(decoded);
   const d = presentation?.detail ?? null;
   if (!d) {

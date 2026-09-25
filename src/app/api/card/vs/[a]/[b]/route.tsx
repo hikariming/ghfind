@@ -10,6 +10,7 @@ import { getGoVsPresentation } from "@/lib/go-profile.server";
 import { Brand, OgAvatarFrame, PALETTES, Shell, parseQr, parseTheme } from "../../../[username]/cards";
 import type { CardPalette } from "../../../[username]/cards";
 import { avatarDataUrl, fonts, png, qrDataUrl, qrModuleColor } from "../../../shared";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,10 +104,10 @@ export async function GET(
   const url = new URL(req.url);
   const locale = url.searchParams.get("lang") === "zh" ? "zh" : "en";
 
-  const na = normalizeUsername(decodeURIComponent(rawA ?? ""));
-  const nb = normalizeUsername(decodeURIComponent(rawB ?? ""));
-  const a = (na ?? decodeURIComponent(rawA ?? "")).toLowerCase();
-  const b = (nb ?? decodeURIComponent(rawB ?? "")).toLowerCase();
+  const na = normalizeUsername(decodeRouteParam(rawA ?? ""));
+  const nb = normalizeUsername(decodeRouteParam(rawB ?? ""));
+  const a = (na ?? decodeRouteParam(rawA ?? "")).toLowerCase();
+  const b = (nb ?? decodeRouteParam(rawB ?? "")).toLowerCase();
 
   const presentation = na && nb ? await getGoVsPresentation(a, b) : null;
   const da = presentation?.a ?? null;

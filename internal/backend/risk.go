@@ -230,15 +230,19 @@ func AssessRisk(m RawMetrics) (RiskAssessment, []RiskSignal, []RedFlag, float64)
 	}
 	decided := max(0, m.MergedPRCount) + rejected
 	rejectionLower := 0.0
+	rejectionRate := 0.0
 	if rejectionMeasured {
 		rejectionLower = WilsonLower(rejected, decided, riskWilsonZ)
+		if decided > 0 {
+			rejectionRate = rejected / decided
+		}
 	}
 	rejectionSeverity := riskClamp01((rejectionLower-riskRejectionWilsonLower)/riskRejectionWilsonLower) * riskSampleFactor(decided)
 	rejectionRaw := 0.0
 	if rejectionMeasured && decided >= riskMinimumRejection && rejectionLower >= riskRejectionWilsonLower {
 		rejectionRaw = 4 * riskClamp01((rejectionLower-riskRejectionWilsonLower)/riskRejectionWilsonLower)
 	}
-	if rejectionMeasured && decided > 0 && rejected > 0 {
+	if rejectionMeasured && decided > 0 && rejectionRate >= riskRejectionWilsonLower {
 		detail := "维护者关闭未合并的 PR 比例偏高，但样本量或 Wilson 95% 下界未达到扣分门槛，仅作风险提示。"
 		if decided >= riskMinimumRejection && rejectionLower >= riskRejectionWilsonLower {
 			detail = "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。"

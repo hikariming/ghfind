@@ -445,7 +445,7 @@ function getClient(): Client | null {
   if (!url) return null;
   client = createClient({
     url,
-    authToken: process.env.TURSO_AUTH_TOKEN, // omit for local file: URLs
+    authToken: process.env.TURSO_AUTH_TOKEN, // omit for local HTTP servers without auth
   });
   return client;
 }

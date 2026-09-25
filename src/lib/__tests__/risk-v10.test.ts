@@ -129,6 +129,20 @@ describe("v10 risk rules", () => {
   });
 
   it("uses Wilson rejection evidence and leaves optional metrics unpenalized when absent", () => {
+    const lowRate = result({
+      merged_pr_count: 193,
+      maintainer_closed_unmerged_pr_count: 5,
+    });
+    expect(hasSignal(lowRate, "high_pr_rejection", "notes")).toBe(false);
+    expect(lowRate.red_flags.some((flag) => flag.flag === "high_pr_rejection")).toBe(false);
+
+    const highRateSmallSample = result({
+      merged_pr_count: 3,
+      maintainer_closed_unmerged_pr_count: 2,
+    });
+    expect(hasSignal(highRateSmallSample, "high_pr_rejection", "notes")).toBe(true);
+    expect(highRateSmallSample.red_flags.some((flag) => flag.flag === "high_pr_rejection")).toBe(false);
+
     const rejected = result({
       merged_pr_count: 5,
       maintainer_closed_unmerged_pr_count: 20,

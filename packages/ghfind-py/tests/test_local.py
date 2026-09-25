@@ -93,3 +93,65 @@ def test_collect_and_score_live():
         "account_maturity", "original_project_quality", "contribution_quality",
         "ecosystem_impact", "community_influence", "activity_authenticity",
     }
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_token_override_preserves_environment(monkeypatch, fail):
+    import ghfind.local as local
+    from ghfind._github import _auth_headers
+    monkeypatch.setenv("GITHUB_TOKEN", "default-token")
+
+    def collect_override(username):
+        assert _auth_headers()["Authorization"] == "Bearer override-token"
+        if fail:
+            raise RuntimeError("fixture failure")
+        return {"metrics": _empty_metrics()}
+
+    monkeypatch.setattr(local, "collect", collect_override)
+    if fail:
+        with pytest.raises(RuntimeError, match="fixture failure"):
+            collect_and_score("fixture", token="override-token")
+    else:
+        collect_and_score("fixture", token="override-token")
+    assert os.environ["GITHUB_TOKEN"] == "default-token"
+    assert _auth_headers()["Authorization"] == "Bearer default-token"
+
+    def collect_default(username):
+        assert _auth_headers()["Authorization"] == "Bearer default-token"
+        return {"metrics": _empty_metrics()}
+
+    monkeypatch.setattr(local, "collect", collect_default)
+    collect_and_score("fixture")
+
+
+def test_token_override_does_not_create_environment(monkeypatch):
+    import ghfind.local as local
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(local, "collect", lambda _: {"metrics": _empty_metrics()})
+    collect_and_score("fixture", token="override-token")
+    assert "GITHUB_TOKEN" not in os.environ
+    with pytest.raises(GitHubAuthRequiredError):
+        collect_and_score("fixture")
+
+
+def test_concurrent_token_overrides(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    import ghfind.local as local
+    from ghfind._github import _auth_headers
+    monkeypatch.setenv("GITHUB_TOKEN", "default-token")
+    barrier = Barrier(2, timeout=5)
+
+    def collect_fixture(username):
+        assert _auth_headers()["Authorization"] == f"Bearer {username}-token"
+        barrier.wait()
+        assert _auth_headers()["Authorization"] == f"Bearer {username}-token"
+        return {"metrics": _empty_metrics()}
+
+    monkeypatch.setattr(local, "collect", collect_fixture)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(collect_and_score, "first", token="first-token")
+        second = pool.submit(collect_and_score, "second", token="second-token")
+        first.result(timeout=10)
+        second.result(timeout=10)
+    assert _auth_headers()["Authorization"] == "Bearer default-token"

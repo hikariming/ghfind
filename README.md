@@ -99,7 +99,36 @@ Everything on the site is available programmatically — full reference at **[gh
 
 ```bash
 pnpm install
-cp .env.example .env.local   # set GITHUB_TOKEN and LLM_API_KEY (defaults to StepFun)
+cp .env.example .env.local
+```
+
+Start a local HTTP libSQL server with Docker (or use a hosted Turso database):
+
+```bash
+docker run -d --name ghfind-libsql -p 127.0.0.1:8080:8080 \
+  -v ghfind-libsql-data:/var/lib/sqld \
+  ghcr.io/tursodatabase/libsql-server:latest
+```
+
+On Apple Silicon, use the `latest-arm` image tag; see the
+[libSQL Docker guide](https://github.com/tursodatabase/libsql/blob/main/docs/DOCKER.md).
+The named volume keeps database files outside the checkout. To restart an existing
+container, use `docker start ghfind-libsql`.
+
+Set these values in `.env.local` before starting the app:
+
+```dotenv
+GITHUB_TOKEN=<your GitHub PAT>
+TURSO_DATABASE_URL=http://127.0.0.1:8080
+TURSO_AUTH_TOKEN=
+```
+
+For hosted Turso, use its database URL and auth token instead. The app creates the
+local libSQL schema on first database use. Its web client cannot open `file:` URLs.
+`LLM_API_KEY` is additionally needed for operator-funded roast text, not for
+deterministic scanning and scoring.
+
+```bash
 pnpm dev
 ```
 
@@ -112,7 +141,7 @@ pnpm dev
 | `pnpm dev` | Local development |
 | `pnpm start` or `pnpm build/start` | One-command production build + run |
 | `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
-| `pnpm ghfind` | Agent-friendly `ghfind` CLI wrapper around the website scoring and discovery APIs |
+| `pnpm cli:build` | Build the standalone `./bin/ghfind` CLI (requires Go 1.23+) |
 | `pnpm test` | Vitest test suite (scoring, prompts, DB, UI helpers, reactions, etc.) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
@@ -122,31 +151,25 @@ pnpm dev
 The CLI is a thin remote wrapper around the public website APIs. It does **not**
 run GitHub scanning, scoring, or LLM logic locally.
 
-```bash
-pnpm ghfind commands --json
-pnpm ghfind update check -o json
-pnpm ghfind score hikariming -o json
-pnpm ghfind roast hikariming --lang en -o markdown
-```
-
-For a standalone binary:
+Build the standalone binary with Go 1.23+ installed:
 
 ```bash
 pnpm cli:build
 ./bin/ghfind commands --json
 ./bin/ghfind update check -o json
+./bin/ghfind score hikariming -o json
 ./bin/ghfind roast hikariming --lang en -o markdown
 ./bin/ghfind leaderboard --view trending --window all -o json
 ./bin/ghfind developers --type language -o json
 ```
 
-The CLI name is `ghfind`. The standalone binary is built as `./bin/ghfind`,
-and package/bin metadata also exposes `ghfind`.
+The standalone CLI is built as `./bin/ghfind`. The separately published npm SDK
+also provides a `ghfind` executable; it is not installed by the root workspace.
 
 The default service host is `https://ghfind.com`. Override it for local dev:
 
 ```bash
-GHFIND_HOST=http://localhost:3000 pnpm ghfind roast hikariming --lang en
+GHFIND_HOST=http://localhost:3000 ./bin/ghfind roast hikariming --lang en
 ```
 
 `GITHUB_ROAST_HOST` is still accepted as a backward-compatible alias.
@@ -205,7 +228,7 @@ facts.
 
 ## Environment variables
 
-See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, and the leaderboard **degrade silently** when unconfigured in local development. Production requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`: when the limiter is unavailable, only protected uncached cost-bearing routes return `503` with `Retry-After`; edge-cached responses and ordinary browsing continue. `RATE_LIMIT_FAIL_OPEN=1` is an emergency operator override and should not be set during normal operation.
+See [`.env.example`](./.env.example). Local scanning requires `GITHUB_TOKEN` and a reachable database (`TURSO_DATABASE_URL`, plus `TURSO_AUTH_TOKEN` when the server requires authentication). A fresh scan must persist its result before it can succeed. Add `LLM_API_KEY` for operator-funded roast text (defaults to StepFun; OpenAI-compatible providers are supported). Redis caching/rate limiting, Turnstile, and GitHub OAuth are optional for local scanning; their configuration enables the corresponding features. A rendered homepage alone does not prove that scanning works. Production requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`: when the limiter is unavailable, only protected uncached cost-bearing routes return `503` with `Retry-After`; edge-cached responses and ordinary browsing continue. `RATE_LIMIT_FAIL_OPEN=1` is an emergency operator override and should not be set during normal operation.
 
 ## Leaderboard + percentile (Cloudflare D1)
 
@@ -214,11 +237,11 @@ Production stores scores in the Cloudflare D1 `GHFIND_D1` binding configured in
 to verify the target account and database before deploying. `TURSO_*` remains a
 local/maintenance fallback and is not the production database.
 Each scan upserts the account's latest score into the DB (one row per account); percentile = the share of stored scores strictly below yours.
-**The public board only lists accounts scoring ≥60**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The whole feature degrades silently when unconfigured.
+**The public board only lists accounts scoring ≥60**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The leaderboard display can degrade without a database, but fresh scans require working persistence.
 
 ```bash
 # local development only
-TURSO_DATABASE_URL=file:./local.db
+TURSO_DATABASE_URL=http://127.0.0.1:8080
 ```
 
 ## Deploy to Cloudflare Workers

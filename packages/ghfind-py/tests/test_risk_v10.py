@@ -89,6 +89,24 @@ def test_missing_optional_metrics_never_penalize():
     assert _flags(scoring)["possible_star_inflation"]["disposition"] == "note"
 
 
+def test_rejection_note_requires_an_unusually_high_observed_rate():
+    low_rate = score(_base(
+        merged_pr_count=193, maintainer_closed_unmerged_pr_count=5,
+    ))
+    assert "high_pr_rejection" not in _flags(low_rate)
+
+    small_high_rate = score(_base(
+        merged_pr_count=3, maintainer_closed_unmerged_pr_count=2,
+    ))
+    assert _flags(small_high_rate)["high_pr_rejection"]["disposition"] == "note"
+    assert small_high_rate["red_flags"] == []
+
+    corroborated = score(_base(
+        merged_pr_count=5, maintainer_closed_unmerged_pr_count=20,
+    ))
+    assert _flags(corroborated)["high_pr_rejection"]["penalty"] > 0
+
+
 def test_all_families_remain_capped():
     scoring = score(_base(
         merged_pr_count=40, maintainer_closed_unmerged_pr_count=40,
