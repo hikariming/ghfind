@@ -61,6 +61,7 @@ export default async function GithubBotPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("githubBot");
+  const heroNote = t("hero.note");
 
   return (
     <main className={styles.page}>
@@ -83,7 +84,7 @@ export default async function GithubBotPage({
               {t("hero.status")}
             </a>
           </div>
-          <p className={styles.heroNote}>{t("hero.note")}</p>
+          {heroNote && <p className={styles.heroNote}>{heroNote}</p>}
         </div>
 
         <figure className={styles.preview} aria-label={t("preview.label")}>

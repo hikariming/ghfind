@@ -27,7 +27,7 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "发现",
     "groupCareer": "职业",
-    "groupTools": "工具",
+    "groupTools": "集成",
     "beta": "Beta",
     "hint": {
       "roast": "30 秒给 GitHub 账号打分，附一句毒舌点评",
@@ -93,8 +93,8 @@
   },
   "home": {
     "brand": "毒舌",
-    "headline": "发现开发者，也发现你。",
-    "subtitle": "输入 GitHub 账号，看看代码背后的实力。",
+    "headline": "在 AI 时代，发现「人」的价值。",
+    "subtitle": "输入 GitHub 账号，发现每一次 PR 背后的含金量。",
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
@@ -124,7 +124,7 @@
     "heatTitle": "被成功查询的次数",
     "vsButton": "和 TA 对线",
     "viewDetail": "查看 @{username} 的评分详情",
-    "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间；热度会先归一化，避免刷量压过高质量账号。",
+    "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间。",
     "scoreSubtitle": "按 0-100 分价值与信任评分排序。",
     "heatSubtitle": "按被成功查询审判的累计次数排序。",
     "windowAria": "时间范围",
@@ -200,11 +200,11 @@
     }
   },
   "collections": {
-    "metaTitle": "站长推荐：优质项目与开发者 · ghfind",
-    "metaDescription": "人工精选的 GitHub 优质项目与开发者合集，每个推荐都附带 ghfind 引擎的贡献者质量数据。",
+    "metaTitle": "开源项目与开发者故事 · ghfind",
+    "metaDescription": "围绕开源项目发展历程与开发者实践经历的专题内容。",
     "eyebrow": "站长推荐",
-    "heading": "优质项目与开发者精选",
-    "subtitle": "不是又一个 star 榜——每个推荐都附带引擎数据：是谁在做、成色如何。",
+    "heading": "开源项目与开发者故事",
+    "subtitle": "聚焦项目发展历程与开发者的实践经历。",
     "empty": "还没有合集，敬请期待。",
     "itemCount": "{count} 个推荐",
     "publishedOn": "发布于 {date}",
@@ -516,7 +516,7 @@
     "placeholder1": "输 a vs b，拉人对线",
     "placeholder2": "搜 rust，看看谁最卷",
     "placeholder3": "搜 字节跳动，围观大厂含金量",
-    "ctaJudge": "审判",
+    "ctaJudge": "发现",
     "ctaPk": "开战",
     "ctaDiscover": "看榜单",
     "ctaBusy": "评分中…",
@@ -817,7 +817,7 @@
     "back": "← 返回名人堂",
     "heading": "开发者对决",
     "pkHeading": "⚔️ 发起对战",
-    "pkSub": "输入两个 GitHub 用户名,看看谁更硬核",
+    "pkSub": "输入两个 GitHub 用户名，比比谁才是更硬核的开发者！",
     "pkPlaceholderA": "如 torvalds",
     "pkPlaceholderB": "如 gaearon",
     "pkButton": "🔥 开打!",
@@ -846,7 +846,7 @@
     "embedCopied": "✅ 已复制,去贴到 README",
     "shareText": "{a} vs {b} —— 谁更硬核？来 ghfind.com 围观这场 GitHub 对决 ⚔️",
     "trendingHeading": "🔥 热门对战",
-    "trendingSub": "被围观最多的 GitHub 开发者 PK,点进去看毒舌裁决",
+    "trendingSub": "最受关注的开发者 PK 组合。",
     "trendingEmpty": "还没有对战上榜。去首页输入「a vs b」,打响第一枪。",
     "notRated": "未审判",
     "verdictMissing": "让子弹先飞一会儿 —— 召唤 TA 上场再下结论。",
@@ -953,7 +953,7 @@
     "metaDescription": "发现真正解决问题、值得更多关注的开源项目。",
     "eyebrow": "开源项目评估",
     "heading": "发现值得被看到的项目",
-    "subtitle": "不只看 Star、公司背景或代码量，而是从实际需求、解决效果、上手体验和价值密度评估公开 GitHub 项目。",
+    "subtitle": "从真实需求与实际效果出发，评估 GitHub 项目价值。",
     "boardLabel": "项目榜单",
     "boards": {
       "treasure": "宝藏项目",
@@ -1036,7 +1036,7 @@
       "titleVerb": "发现",
       "titleAccent": "值得认识的人。",
       "subtitleLead": "不止是一份简历。透过开源项目、技术实践与真实作品，",
-      "subtitleTail": "认识开发者，也找到下一位同行者。",
+      "subtitleTail": "认识开发者，也找到潜在的合作者。",
       "people": "以 GitHub 为起点，连接更多可能",
       "add": "收录人才",
       "code": "built by humans."
@@ -1399,15 +1399,15 @@
     },
     "hero": {
       "eyebrow": "GitHub App · 免费",
-      "title": "先看是谁提的，再决定先处理哪条",
-      "subtitle": "ghfind Review 根据作者的公开 ghfind 评分，为每条新 issue 和 pull request 添加彩色 review: 标签。不用加 workflow，不用配置令牌或 secret。",
+      "title": "按作者评分为新 Issue 和 PR 自动添加标签",
+      "subtitle": "根据 Issue 和 PR 提出者的 ghfind 评分，为其添加 review 建议标签。",
       "install": "在 GitHub 安装",
       "status": "打开状态页",
-      "note": "以 ghfind-review[bot] 身份运行。只打标签，不评论、不关闭、不拦截任何提交。"
+      "note": ""
     },
     "preview": {
       "label": "带 review 标签的 issue 列表示例",
-      "heading": "Issues",
+      "heading": "Issue 上的效果示例",
       "items": {
         "top": "解析嵌套配置时崩溃",
         "medium": "设置页支持深色模式",
@@ -1416,7 +1416,7 @@
     },
     "labels": {
       "heading": "五个标签，一眼分层",
-      "lead": "安装时自动补齐缺失标签，你自定义过的颜色或描述会保留。",
+      "lead": "自动补齐缺失标签，颜色和描述可自定义。",
       "items": {
         "low": {
           "range": "0 – 39",
@@ -1432,7 +1432,7 @@
         },
         "top": {
           "range": "90 – 100",
-          "desc": "位于 ghfind 评分前列。"
+          "desc": "高价值开发者。"
         },
         "noScore": {
           "range": "无评分",
@@ -1458,8 +1458,8 @@
       }
     },
     "queues": {
-      "heading": "把分数区间变成审查队列",
-      "lead": "把筛选条件粘贴到仓库的 Issues 搜索框，从适合当前精力的队列开始。",
+      "heading": "按照 review 标签筛选",
+      "lead": "把筛选条件粘贴到仓库的 Issues 搜索框。",
       "items": {
         "high": "高分段 issue",
         "top": "最高分段 issue",
