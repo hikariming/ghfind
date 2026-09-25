@@ -5,7 +5,7 @@ import { ArrowDownToLine, ArrowUpRight, BookOpen, Braces, KeyRound, Terminal } f
 import { ApiTokenManager } from "@/components/integrations/ApiTokenManager";
 import { InstallCommand } from "@/components/integrations/InstallCommand";
 import { auth } from "@/lib/auth";
-import { localeAlternates } from "@/lib/site";
+import { localeAlternates, SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,9 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
   const { locale } = await params;
   setRequestLocale(locale);
   const [t, session] = await Promise.all([getTranslations("integrations"), auth()]);
-  const command = "curl -fsSL https://ghfind.com/install.sh | bash";
+  const command = SITE_URL === "https://ghfind.com"
+    ? "curl -fsSL https://ghfind.com/install.sh | bash"
+    : `curl -fsSL ${SITE_URL}/install.sh | GHFIND_INSTALL_HOST=${SITE_URL} bash`;
 
   return <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-10 sm:px-8 sm:py-14">
     <header className="max-w-3xl">
