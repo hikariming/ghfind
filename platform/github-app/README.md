@@ -306,6 +306,8 @@ that older, longer name.
 
 ## Author emails
 
+Scores below 40 suppress author emails for both issues and pull requests, including mail already pending when the rule is deployed. The check runs before public email discovery and before delivery limits are consumed. A score of exactly 40 remains eligible; unavailable scores retain their existing notification behavior.
+
 Authors with a current public GitHub profile email receive score emails by default, without signing in or subscribing first. Missing, invalid, bot and GitHub noreply addresses are skipped. Commit emails are not used because commit metadata does not prove mailbox ownership. The public email is rechecked before delivery. [Email preferences](https://bot.ghfind.com/notifications) also lets authors explicitly authorize a verified primary email, choose English/Chinese, or resume after opting out. Private email access still requires the author's GitHub user authorization.
 
 After an issue is labeled, the author can receive their score, interval, profile

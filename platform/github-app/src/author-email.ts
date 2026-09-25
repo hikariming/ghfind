@@ -185,6 +185,10 @@ export function authorEmail(
     html: `<html lang="${zh ? "zh" : "en"}"><body>${lines.map((line) => `<p>${escape(line)}</p>`).join("")}<p><a href="${escape(profile)}">${zh ? "查看我的 ghfind profile" : "View my ghfind profile"}</a> · <a href="${escape(unsubscribe)}">${zh ? "退订" : "Unsubscribe"}</a></p></body></html>`,
   };
 }
+function suppressAuthorEmail(score: number | null): boolean {
+  // An unavailable score is not zero; preserve its existing notification behavior.
+  return score !== null && score < 40;
+}
 export async function enqueueAuthorEmail(
   env: Env,
   userId: number,
@@ -192,7 +196,7 @@ export async function enqueueAuthorEmail(
   repositoryId: number,
   api?: ReturnType<typeof github>,
 ) {
-  if (env.EMAIL_ENABLED !== "true") return;
+  if (env.EMAIL_ENABLED !== "true" || suppressAuthorEmail(payload.score)) return;
   if (api) await discoverPublicRecipient(env, userId, payload.login, api);
   // The logical subject is stable across webhook redeliveries and retries.
   await env.DB.prepare(
@@ -233,6 +237,26 @@ export async function sendAuthorEmails(env: Env) {
       .bind(Date.now(), row.id)
       .first();
     if (!claimed) continue;
+    let payload: Payload;
+    try {
+      payload = JSON.parse(row.payload) as Payload;
+    } catch {
+      await env.DB.prepare(
+        "UPDATE author_emails SET state='uncertain',error_code='SEND_RESULT_UNKNOWN',updated=? WHERE id=?",
+      )
+        .bind(Date.now(), row.id)
+        .run();
+      continue;
+    }
+    // Apply the rule to mail queued before deployment, without consuming limits.
+    if (suppressAuthorEmail(payload.score)) {
+      await env.DB.prepare(
+        "UPDATE author_emails SET state='cancelled',updated=? WHERE id=?",
+      )
+        .bind(Date.now(), row.id)
+        .run();
+      continue;
+    }
     const eligible = await env.DB.prepare(
       "SELECT 1 FROM author_subscriptions WHERE user_id=? AND last_sent<? AND NOT EXISTS(SELECT 1 FROM author_email_optouts o WHERE o.user_id=author_subscriptions.user_id)",
     )
@@ -280,7 +304,6 @@ export async function sendAuthorEmails(env: Env) {
       continue;
     }
     try {
-      const payload = JSON.parse(row.payload) as Payload;
       // Revalidate installation access before disclosing repository context.
       const token = await installationToken(
         env,

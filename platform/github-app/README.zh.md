@@ -186,6 +186,8 @@ node scripts/e2e.mjs verify owner/test-repository app-slug issue-or-pr-number
 
 ## 作者评分邮件
 
+issue 和 pull request 作者评分低于 40 分时不发送评分邮件，规则上线前已排队的待发邮件也会取消。检查发生在公开邮箱查找和发送额度扣减之前。恰好 40 分仍可发送；评分不可用时保留原有通知行为。
+
 作者当前 GitHub 主页有公开邮箱时，默认发送评分邮件，无需先登录或订阅。缺少邮箱、无效地址、bot 和 GitHub noreply 地址会跳过。不会从 commit 中提取邮箱，因为提交元数据不能证明邮箱归属。发信前再次核对公开邮箱。作者可通过[邮件设置](https://bot.ghfind.com/notifications)主动授权已验证主邮箱、选择中英文或在退订后重新开启；私有邮箱仍需作者本人授权。
 
 issue 打上标签后，作者可收到分数、区间、profile URL，以及可用时的
