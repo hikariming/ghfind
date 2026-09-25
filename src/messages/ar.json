@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "اكتشاف المواهب",
-      "all": "اكتشاف المواهب",
+      "all": "الكل",
       "saved": "محفوظاتي",
-      "sessionHint": "تبقى المحفوظات خلال هذه الجلسة فقط"
+      "sessionHint": "تبقى المحفوظات خلال هذه الجلسة فقط",
+      "discover": "مختارات"
     },
     "search": {
       "placeholder": "ابحث بالاسم أو اسم مستخدم GitHub أو التقنية أو المدينة…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "انتقاء يدوي",
       "onlyAvailable": "عرض المنفتحين على التواصل فقط",
-      "reset": "إعادة تعيين التصفية"
+      "reset": "إعادة تعيين التصفية",
+      "subDirections": "التخصص",
+      "officialTags": "الوسوم الرسمية",
+      "tagAria": "تصفية حسب الوسم الرسمي \"{tag}\"",
+      "collection": "مجموعة",
+      "clearCollection": "إزالة تصفية المجموعة"
     },
     "results": {
       "count": "تم العثور على <strong>{count}</strong> مطورًا",
@@ -1233,6 +1239,58 @@
       "submitting": "جارٍ الإرسال…",
       "confirmSubmit": "تأكيد وإرسال التسجيل",
       "next": "التالي"
+    },
+    "categories": {
+      "aria": "تصفح حسب الفئة",
+      "all": "الكل",
+      "agent": "الوكلاء وسير العمل",
+      "ai": "تطبيقات الذكاء الاصطناعي والنماذج",
+      "infra": "الخلفية والبنية التحتية",
+      "frontend": "الواجهة الأمامية والتطوير الشامل",
+      "tools": "الأدوات والبيانات",
+      "other": "أخرى"
+    },
+    "overview": {
+      "collectionsTitle": "مجموعات مميزة",
+      "collectionsSubtitle": "مجمّعة حسب منظومات المصدر المفتوح والوسوم الرسمية",
+      "sectionsTitle": "تصفح حسب المجال",
+      "sectionsSubtitle": "مطورون مختارون في كل مجال — «عرض الكل» للقائمة الكاملة",
+      "people": "{count} شخص",
+      "viewAll": "عرض الكل ({count})"
+    },
+    "collections": {
+      "dsh": {
+        "title": "مستخدمو نسخة DSH التجريبية",
+        "desc": "المستخدمون الأوائل والمساهمون في نسخة DSH التجريبية"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "المساهمون الأساسيون في محرك استدلال LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "منظومة منصة Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "مجتمع LobeChat / LobeHub والوكلاء المتعددين"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "مساهمو ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "مساهمو إطار SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "مساهمو مواصفات وحزم MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "منظومة LangChain / LangGraph"
+      }
     }
   },
   "sponsor": {

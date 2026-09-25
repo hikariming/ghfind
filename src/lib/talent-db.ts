@@ -2,6 +2,8 @@ import { createClient, type Client } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import { normLang } from "@/lib/lang";
 import type { Talent } from "@/components/talent/data";
+import { MAPPED_DIRECTIONS, TALENT_CATEGORIES, type TalentCategoryId } from "@/components/talent/categories";
+import { TALENT_COLLECTIONS } from "@/components/talent/collections";
 
 export class TalentDatabaseError extends Error {
   constructor(message: string) {
@@ -188,6 +190,12 @@ export type TalentListParams = {
   locale?: string;
   query?: string;
   direction?: string;
+  /** Browse category; expands to a set of stored directions. */
+  category?: TalentCategoryId;
+  /** Official (operator-assigned) tag, exact match. */
+  tag?: string;
+  /** GitHub owner of the representative project, e.g. `vllm-project`. */
+  project?: string;
   location?: string;
   source?: "github" | "manual";
   available?: boolean;
@@ -275,6 +283,23 @@ export async function listTalentsPage(params: TalentListParams = {}): Promise<Ta
         args.push(`%${escapeLike(value)}%`);
       }
     }
+    if (params.category) {
+      const category = TALENT_CATEGORIES.find((c) => c.id === params.category);
+      const directions: readonly string[] = category?.id === "other" ? MAPPED_DIRECTIONS : category?.directions ?? [];
+      if (directions.length) {
+        where.push(`t.direction ${category?.id === "other" ? "NOT IN" : "IN"} (${directions.map(() => "?").join(", ")})`);
+        args.push(...directions);
+      }
+    }
+    if (params.tag) {
+      // official_tags_json is a JSON string array; match the quoted element.
+      where.push(`t.official_tags_json LIKE ? ESCAPE '\\'`);
+      args.push(`%${escapeLike(JSON.stringify(params.tag))}%`);
+    }
+    if (params.project) {
+      where.push(`t.project LIKE ? ESCAPE '\\'`);
+      args.push(`${escapeLike(params.project)}/%`);
+    }
     if (params.direction) { where.push("t.direction = ?"); args.push(params.direction); }
     if (params.location) { where.push("t.location = ?"); args.push(params.location); }
     if (params.source === "github") where.push("t.source LIKE '%GitHub%'");
@@ -329,10 +354,11 @@ export async function getTalentById(id: string, locale?: string): Promise<Talent
   return row ? mapTalent(row, lang) : null;
 }
 
-export type TalentFacets = { directions: string[]; locations: string[] };
+export type TalentFacetCount = { value: string; count: number };
+export type TalentFacets = { directions: TalentFacetCount[]; locations: string[]; tags: TalentFacetCount[] };
 
-// Facets require a distinct scan of the published set; cache briefly per
-// isolate so a directory visit pays it at most once per TTL.
+// Facets require a scan of the published set; cache briefly per isolate so a
+// directory visit pays it at most once per TTL.
 let facetsCache: { at: number; value: TalentFacets } | null = null;
 const FACETS_TTL_MS = 5 * 60 * 1000;
 
@@ -340,15 +366,57 @@ export async function listTalentFacets(): Promise<TalentFacets> {
   if (facetsCache && Date.now() - facetsCache.at < FACETS_TTL_MS) return facetsCache.value;
   const db = database();
   await ensureSchema(db);
-  const [directions, locations] = await Promise.all([
-    db.execute("SELECT DISTINCT direction FROM talent_profiles WHERE status = 'published' ORDER BY direction"),
+  const [directions, locations, tagRows] = await Promise.all([
+    db.execute("SELECT direction, COUNT(*) AS n FROM talent_profiles WHERE status = 'published' GROUP BY direction ORDER BY n DESC"),
     db.execute("SELECT DISTINCT location FROM talent_profiles WHERE status = 'published' ORDER BY location"),
+    db.execute("SELECT official_tags_json FROM talent_profiles WHERE status = 'published' AND official_tags_json IS NOT NULL AND official_tags_json != '[]'"),
   ]);
+  const tagCounts = new Map<string, number>();
+  for (const row of tagRows.rows) {
+    for (const tag of new Set(parseJson<unknown[]>(row.official_tags_json, []))) {
+      if (typeof tag !== "string" || !tag.trim()) continue;
+      tagCounts.set(tag.trim(), (tagCounts.get(tag.trim()) ?? 0) + 1);
+    }
+  }
   const value: TalentFacets = {
-    directions: directions.rows.map((r) => String(r.direction ?? "")).filter(Boolean),
+    directions: directions.rows
+      .map((r) => ({ value: String(r.direction ?? ""), count: Number(r.n ?? 0) }))
+      .filter((d) => d.value),
     locations: locations.rows.map((r) => String(r.location ?? "")).filter(Boolean),
+    tags: [...tagCounts].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
   };
   facetsCache = { at: Date.now(), value };
+  return value;
+}
+
+export type TalentOverviewGroup = { id: string; total: number; items: Talent[] };
+export type TalentOverview = { collections: TalentOverviewGroup[]; sections: TalentOverviewGroup[] };
+
+// The discover tab previews every collection and category; that is one small
+// page query per group, so cache per isolate and language like the facets.
+const overviewCache = new Map<string, { at: number; value: TalentOverview }>();
+const COLLECTION_PREVIEW = 5;
+const SECTION_PREVIEW = 6;
+
+export async function getTalentOverview(locale?: string): Promise<TalentOverview> {
+  const lang = normLang(locale);
+  const cached = overviewCache.get(lang);
+  if (cached && Date.now() - cached.at < FACETS_TTL_MS) return cached.value;
+  const [collections, sections] = await Promise.all([
+    Promise.all(TALENT_COLLECTIONS.map(async ({ id, filter }) => {
+      const page = await listTalentsPage({ locale, ...filter, pageSize: COLLECTION_PREVIEW });
+      return { id, total: page.total, items: page.items };
+    })),
+    Promise.all(TALENT_CATEGORIES.map(async ({ id }) => {
+      const page = await listTalentsPage({ locale, category: id, pageSize: SECTION_PREVIEW });
+      return { id, total: page.total, items: page.items };
+    })),
+  ]);
+  const value: TalentOverview = {
+    collections: collections.filter((c) => c.total > 0),
+    sections: sections.filter((c) => c.total > 0),
+  };
+  overviewCache.set(lang, { at: Date.now(), value });
   return value;
 }
 

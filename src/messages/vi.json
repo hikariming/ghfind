@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "Khám phá nhân tài",
-      "all": "Khám phá",
+      "all": "Tất cả",
       "saved": "Đã lưu",
-      "sessionHint": "Mục đã lưu chỉ giữ trong phiên này"
+      "sessionHint": "Mục đã lưu chỉ giữ trong phiên này",
+      "discover": "Nổi bật"
     },
     "search": {
       "placeholder": "Tìm tên, username GitHub, công nghệ hoặc thành phố…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Tuyển chọn thủ công",
       "onlyAvailable": "Chỉ xem người sẵn sàng trao đổi",
-      "reset": "Đặt lại bộ lọc"
+      "reset": "Đặt lại bộ lọc",
+      "subDirections": "Chuyên sâu",
+      "officialTags": "Thẻ chính thức",
+      "tagAria": "Lọc theo thẻ chính thức \"{tag}\"",
+      "collection": "Bộ sưu tập",
+      "clearCollection": "Bỏ lọc bộ sưu tập"
     },
     "results": {
       "count": "Tìm thấy <strong>{count}</strong> developer",
@@ -1233,6 +1239,58 @@
       "submitting": "Đang gửi…",
       "confirmSubmit": "Xác nhận gửi đăng ký",
       "next": "Tiếp theo"
+    },
+    "categories": {
+      "aria": "Duyệt theo danh mục",
+      "all": "Tất cả",
+      "agent": "Agent & quy trình",
+      "ai": "Ứng dụng AI & mô hình",
+      "infra": "Backend & hạ tầng",
+      "frontend": "Frontend & full-stack",
+      "tools": "Công cụ & dữ liệu",
+      "other": "Khác"
+    },
+    "overview": {
+      "collectionsTitle": "Bộ sưu tập nổi bật",
+      "collectionsSubtitle": "Nhóm theo hệ sinh thái mã nguồn mở và thẻ chính thức",
+      "sectionsTitle": "Duyệt theo lĩnh vực",
+      "sectionsSubtitle": "Nhà phát triển nổi bật theo lĩnh vực — \"Xem tất cả\" để mở danh sách đầy đủ",
+      "people": "{count} người",
+      "viewAll": "Xem tất cả {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Người dùng beta DSH",
+        "desc": "Người dùng sớm và đồng xây dựng bản beta DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Người đóng góp chính cho engine suy luận LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Hệ sinh thái nền tảng Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Cộng đồng LobeChat / LobeHub và đa agent"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Người đóng góp ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Người đóng góp framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Người đóng góp đặc tả và SDK MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Hệ sinh thái LangChain / LangGraph"
+      }
     }
   },
   "sponsor": {

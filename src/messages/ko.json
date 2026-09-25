@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "인재 발견",
-      "all": "인재 발견",
+      "all": "전체",
       "saved": "내 저장",
-      "sessionHint": "저장은 이번 세션에서만 유지됩니다"
+      "sessionHint": "저장은 이번 세션에서만 유지됩니다",
+      "discover": "추천"
     },
     "search": {
       "placeholder": "이름, GitHub 아이디, 기술 스택, 도시 검색…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "수동 큐레이션",
       "onlyAvailable": "교류 가능한 인재만 보기",
-      "reset": "필터 초기화"
+      "reset": "필터 초기화",
+      "subDirections": "세부 분야",
+      "officialTags": "공식 태그",
+      "tagAria": "공식 태그 \"{tag}\"로 필터",
+      "collection": "컬렉션",
+      "clearCollection": "컬렉션 필터 해제"
     },
     "results": {
       "count": "개발자 <strong>{count}</strong>명 발견",
@@ -1233,6 +1239,58 @@
       "submitting": "제출 중…",
       "confirmSubmit": "등록 확정 제출",
       "next": "다음"
+    },
+    "categories": {
+      "aria": "카테고리별 탐색",
+      "all": "전체",
+      "agent": "에이전트 & 워크플로",
+      "ai": "AI 앱 & 모델",
+      "infra": "백엔드 & 인프라",
+      "frontend": "프론트엔드 & 풀스택",
+      "tools": "도구 & 데이터",
+      "other": "기타"
+    },
+    "overview": {
+      "collectionsTitle": "추천 컬렉션",
+      "collectionsSubtitle": "오픈소스 생태계와 공식 태그로 묶었습니다",
+      "sectionsTitle": "분야별 탐색",
+      "sectionsSubtitle": "분야별 추천 개발자 — \"전체 보기\"로 전체 목록 이동",
+      "people": "{count}명",
+      "viewAll": "{count}명 전체 보기"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH 베타 사용자",
+        "desc": "DSH 베타의 초기 사용자와 공동 빌더"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "고성능 LLM 추론 엔진 핵심 기여자"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "LLM 앱 플랫폼 Dify 생태계"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub 커뮤니티와 멀티 에이전트"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp 온디바이스 추론 기여자"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "SGLang 서빙 프레임워크 기여자"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol 스펙 및 SDK 기여자"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph 생태계 기여자"
+      }
     }
   },
   "sponsor": {

@@ -1043,9 +1043,10 @@
     },
     "tabs": {
       "aria": "人才发现",
-      "all": "发现人才",
+      "all": "全部人才",
       "saved": "我的收藏",
-      "sessionHint": "收藏仅在本次浏览中保留"
+      "sessionHint": "收藏仅在本次浏览中保留",
+      "discover": "精选发现"
     },
     "search": {
       "placeholder": "搜索姓名、GitHub 用户名、技术栈或城市…",
@@ -1063,7 +1064,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "人工整理",
       "onlyAvailable": "仅看愿意交流的人才",
-      "reset": "重置筛选"
+      "reset": "重置筛选",
+      "subDirections": "细分方向",
+      "officialTags": "官方标签",
+      "tagAria": "按官方标签「{tag}」筛选",
+      "collection": "合集",
+      "clearCollection": "清除合集筛选"
     },
     "results": {
       "count": "发现 <strong>{count}</strong> 位开发者",
@@ -1240,6 +1246,58 @@
       "submitting": "提交中…",
       "confirmSubmit": "确认提交收录",
       "next": "下一步"
+    },
+    "categories": {
+      "aria": "按分类浏览",
+      "all": "全部",
+      "agent": "Agent 与工作流",
+      "ai": "AI 应用与模型",
+      "infra": "后端与基础设施",
+      "frontend": "前端与全栈",
+      "tools": "工具与数据",
+      "other": "其他"
+    },
+    "overview": {
+      "collectionsTitle": "精选合集",
+      "collectionsSubtitle": "按开源项目生态和官方标签聚合，从一群人开始认识",
+      "sectionsTitle": "按方向浏览",
+      "sectionsSubtitle": "每个方向的精选开发者，点「查看全部」进入完整列表",
+      "people": "{count} 人",
+      "viewAll": "查看全部 {count} 人"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH 内测用户",
+        "desc": "参与 DSH 内测的早期用户与共建者"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "高性能 LLM 推理引擎的核心贡献者"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "LLM 应用开发平台 Dify 生态"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub 社区与多 Agent 协作"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp 端侧推理贡献者"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "SGLang 推理与服务框架贡献者"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol 协议与 SDK 贡献者"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph 生态贡献者"
+      }
     }
   },
   "sponsor": {

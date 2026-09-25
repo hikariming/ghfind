@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "Talent discovery",
-      "all": "Discover",
+      "all": "All developers",
       "saved": "Saved",
-      "sessionHint": "Saved items only persist for this session"
+      "sessionHint": "Saved items only persist for this session",
+      "discover": "Featured"
     },
     "search": {
       "placeholder": "Search name, GitHub handle, stack, or city…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Manual curation",
       "onlyAvailable": "Only show people open to chatting",
-      "reset": "Reset filters"
+      "reset": "Reset filters",
+      "subDirections": "Focus",
+      "officialTags": "Official tags",
+      "tagAria": "Filter by official tag \"{tag}\"",
+      "collection": "Collection",
+      "clearCollection": "Clear collection filter"
     },
     "results": {
       "count": "Found <strong>{count}</strong> developers",
@@ -1233,6 +1239,58 @@
       "submitting": "Submitting…",
       "confirmSubmit": "Confirm and submit",
       "next": "Next"
+    },
+    "categories": {
+      "aria": "Browse by category",
+      "all": "All",
+      "agent": "Agents & workflows",
+      "ai": "AI apps & models",
+      "infra": "Backend & infra",
+      "frontend": "Frontend & full-stack",
+      "tools": "Tools & data",
+      "other": "Other"
+    },
+    "overview": {
+      "collectionsTitle": "Featured collections",
+      "collectionsSubtitle": "Grouped by open-source ecosystem and official tags",
+      "sectionsTitle": "Browse by focus",
+      "sectionsSubtitle": "Handpicked developers in each area — open \"View all\" for the full list",
+      "people": "{count} people",
+      "viewAll": "View all {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH beta users",
+        "desc": "Early users and co-builders of the DSH beta"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Core contributors to the high-throughput LLM inference engine"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "The Dify LLM app platform ecosystem"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub community and multi-agent work"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp on-device inference contributors"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Contributors to the SGLang serving framework"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol spec and SDK contributors"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph ecosystem contributors"
+      }
     }
   },
   "sponsor": {

@@ -1036,9 +1036,10 @@
     },
     "tabs": {
       "aria": "Temukan talenta",
-      "all": "Temukan",
+      "all": "Semua",
       "saved": "Tersimpan",
-      "sessionHint": "Simpanan hanya bertahan di sesi ini"
+      "sessionHint": "Simpanan hanya bertahan di sesi ini",
+      "discover": "Jelajahi"
     },
     "search": {
       "placeholder": "Cari nama, username GitHub, stack, atau kota…",
@@ -1056,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Kurasi manual",
       "onlyAvailable": "Hanya yang terbuka untuk ngobrol",
-      "reset": "Reset filter"
+      "reset": "Reset filter",
+      "subDirections": "Fokus",
+      "officialTags": "Tag resmi",
+      "tagAria": "Saring berdasarkan tag resmi \"{tag}\"",
+      "collection": "Koleksi",
+      "clearCollection": "Hapus filter koleksi"
     },
     "results": {
       "count": "Ditemukan <strong>{count}</strong> developer",
@@ -1233,6 +1239,58 @@
       "submitting": "Mengirim…",
       "confirmSubmit": "Konfirmasi dan kirim",
       "next": "Lanjut"
+    },
+    "categories": {
+      "aria": "Jelajahi per kategori",
+      "all": "Semua",
+      "agent": "Agen & alur kerja",
+      "ai": "Aplikasi AI & model",
+      "infra": "Backend & infrastruktur",
+      "frontend": "Frontend & full-stack",
+      "tools": "Alat & data",
+      "other": "Lainnya"
+    },
+    "overview": {
+      "collectionsTitle": "Koleksi pilihan",
+      "collectionsSubtitle": "Dikelompokkan menurut ekosistem open source dan tag resmi",
+      "sectionsTitle": "Jelajahi per bidang",
+      "sectionsSubtitle": "Developer pilihan per bidang — \"Lihat semua\" untuk daftar lengkap",
+      "people": "{count} orang",
+      "viewAll": "Lihat semua {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Pengguna beta DSH",
+        "desc": "Pengguna awal dan co-builder beta DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Kontributor inti mesin inferensi LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Ekosistem platform Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Komunitas LobeChat / LobeHub dan multi-agen"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Kontributor ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Kontributor framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Kontributor spesifikasi dan SDK MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Ekosistem LangChain / LangGraph"
+      }
     }
   },
   "sponsor": {
