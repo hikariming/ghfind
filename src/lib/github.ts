@@ -630,6 +630,21 @@ function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean 
   );
 }
 
+// A "notes"/"learning" keyword is weak evidence once a substantive repo has
+// real organic traction (many stars backed by a healthy fork share). Such repos
+// (e.g. widely-used tutorials) keep a lighter discount instead of the 0.55
+// placeholder penalty; bought stars rarely come with proportional forks.
+export const PLACEHOLDER_TRACTION_MIN_STARS = 500;
+export const PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03;
+export const PLACEHOLDER_TRACTION_MULTIPLIER = 0.75;
+
+function hasOrganicProjectTraction(repo: TopRepo): boolean {
+  return (
+    repo.stars >= PLACEHOLDER_TRACTION_MIN_STARS &&
+    repo.forks >= repo.stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+  );
+}
+
 /**
  * 0..1 project substance signal for original repos. Stars are scored separately;
  * this captures whether at least one original repo looks usable and maintained.
@@ -687,7 +702,12 @@ export function originalRepoQualityScore(
   }
 
   if (isLikelyPlaceholderProject(repo, loginLower)) {
-    s *= readmeLen >= 600 && repo.size >= 200 ? 0.55 : 0.25;
+    const substantive = readmeLen >= 600 && repo.size >= 200;
+    s *= substantive
+      ? hasOrganicProjectTraction(repo)
+        ? PLACEHOLDER_TRACTION_MULTIPLIER
+        : 0.55
+      : 0.25;
   }
 
   return Math.round(Math.max(0, Math.min(s, 1)) * 100) / 100;

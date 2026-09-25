@@ -2,6 +2,7 @@ package backend
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -49,5 +50,20 @@ func TestOriginalRepoQualityUsesProjectSignalsNotStars(t *testing.T) {
 	quality := OriginalRepoQualityScore(repo, "alice", time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC))
 	if quality != 0.7 {
 		t.Fatalf("quality = %v, want 0.7", quality)
+	}
+}
+
+func TestOriginalRepoQualitySoftensNotesDiscountWithOrganicTraction(t *testing.T) {
+	readme := strings.Repeat("Install usage examples architecture test. ", 20)
+	now := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	notes := func(stars, forks float64) TopRepo {
+		return TopRepo{Name: "project", Stars: stars, Forks: forks, Size: 1800, Language: stringPointer("Go"), Description: stringPointer("My learning notes for ML systems"), ReadmeExcerpt: &readme, PushedAt: stringPointer("2026-07-01T00:00:00Z")}
+	}
+	for _, tc := range []struct {
+		stars, forks, want float64
+	}{{40, 5, 0.55}, {7000, 50, 0.55}, {7000, 500, 0.75}} {
+		if got := OriginalRepoQualityScore(notes(tc.stars, tc.forks), "alice", now); got != tc.want {
+			t.Fatalf("stars=%v forks=%v quality = %v, want %v", tc.stars, tc.forks, got, tc.want)
+		}
 	}
 }
