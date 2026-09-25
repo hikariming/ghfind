@@ -43,6 +43,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/facet-rank/[username]/route.ts",
   "src/app/api/leaderboard/route.ts",
   "src/app/api/score/[username]/route.ts",
+  // Public sponsor listing: D1-backed, anonymous-safe fields only.
+  "src/app/api/sponsors/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
   // Public read-only sponsor listing backed by D1.
