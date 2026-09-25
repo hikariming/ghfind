@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Code2, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Cable, Code2, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
 import { BrandMark } from "./BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "./ui/
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
-  resume: FileUser, briefcase: BriefcaseBusiness, bot: Bot,
+  resume: FileUser, briefcase: BriefcaseBusiness, bot: Bot, cable: Cable,
 };
 
 function GitHubMark() {

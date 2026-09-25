@@ -54,6 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
   ] },
   { label: "groupTools", items: [
     { key: "githubBot", href: "/github-bot", icon: "bot", new: true },
+    { key: "cliApi", href: "/integrations", icon: "cable" },
   ] },
 ];
 
