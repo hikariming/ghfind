@@ -20,6 +20,7 @@
  * `recordProfileSnapshot` and the one-off repo-graph backfill. The DB layer turns
  * the returned nodes/links into `repos` + `repo_developers` rows.
  */
+import { rankImpactReposByContribution } from "./facets";
 import type { ImpactRepo, TopRepo } from "./types";
 
 /** A repository as a first-class entity. `repo_key` is the lowercased
@@ -117,9 +118,9 @@ function contributorGraph(impactRepos: ImpactRepo[]): { nodes: RepoNode[]; links
   const nodes: RepoNode[] = [];
   const links: RepoLink[] = [];
   const seen = new Set<string>();
-  const ranked = [...impactRepos]
-    .filter((r) => typeof r?.repo === "string" && (r.stars ?? 0) >= CONTRIB_MIN_STARS)
-    .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0));
+  const ranked = rankImpactReposByContribution(
+    impactRepos.filter((r) => typeof r?.repo === "string" && (r.stars ?? 0) >= CONTRIB_MIN_STARS),
+  );
 
   for (const r of ranked) {
     const key = repoKeyOf(r.repo);
