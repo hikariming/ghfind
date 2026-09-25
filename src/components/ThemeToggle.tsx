@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
-import { Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useMountEffect } from "@/lib/use-mount-effect";
 
 type ThemeMode = "light" | "dark" | "auto";
 type ResolvedTheme = "light" | "dark";
@@ -74,51 +75,28 @@ function setMode(mode: ThemeMode) {
 export function ThemeToggle() {
   const t = useTranslations("themeSwitch");
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [mode] = snapshot.split(":") as [ThemeMode, ResolvedTheme];
+  const [mode, resolved] = snapshot.split(":") as [ThemeMode, ResolvedTheme];
 
   // Locale transitions can replace <html> attrs; keep the persisted theme applied.
-  useEffect(() => {
+  useMountEffect(() => {
     applyMode(mode);
-  }, [mode]);
+  });
+
+  const nextMode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  const icon = mode === "auto" ? <Monitor className="h-4 w-4" /> : resolved === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />;
 
   return (
-    <div
-      className="theme-toggle inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 p-0.5 text-xs"
-      role="group"
-      aria-label={t("label")}
+    <Button
+      type="button"
+      aria-label={`${t("label")}: ${t(mode)}`}
+      aria-description={`${t("label")}: ${t(nextMode)}`}
+      title={`${t("label")}: ${t(mode)}`}
+      onClick={() => setMode(nextMode)}
+      variant="ghost"
+      size="icon"
+      className="theme-toggle h-8 w-8 text-zinc-500 hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
     >
-      {MODES.map((m) => {
-        const active = mode === m;
-        const icon =
-          m === "light" ? (
-            <Sun className="h-3.5 w-3.5" />
-          ) : m === "dark" ? (
-            <Moon className="h-3.5 w-3.5" />
-          ) : (
-            <span aria-hidden="true" className="text-[11px] font-black leading-none">
-              A
-            </span>
-          );
-        return (
-          <Button
-            key={m}
-            type="button"
-            aria-pressed={active}
-            aria-label={t(m)}
-            title={t(m)}
-            onClick={() => setMode(m)}
-            variant={active ? "default" : "ghost"}
-            size="icon"
-            className={`h-7 w-7 rounded-full ${
-              active
-                ? "bg-orange-600 text-white hover:bg-orange-500"
-                : "text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-            }`}
-          >
-            {icon}
-          </Button>
-        );
-      })}
-    </div>
+      {icon}
+    </Button>
   );
 }

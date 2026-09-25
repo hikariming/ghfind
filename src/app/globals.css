@@ -1020,8 +1020,8 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .sidebar-bottom { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; }
 .sidebar-preferences { display: flex; align-items: center; justify-content: space-between; gap: 3px; padding: 9px 3px; }
 .sidebar-preferences .navbar-action { height: 32px; font-size: 11px; padding-inline: 8px; }
-.sidebar-preferences .theme-toggle { height: 28px; }
-.sidebar-preferences .theme-toggle button { width: 24px; height: 24px; }
+.sidebar-preferences .sidebar-repository-link { width: 32px; justify-content: center; padding-inline: 0; }
+.sidebar-preferences .theme-toggle { width: 32px; height: 32px; border-radius: 999px; }
 .sidebar-account { display: flex; align-items: center; gap: 6px; padding: 8px 2px 0; }
 .sidebar-account .navbar-action { height: 34px; font-size: 12px; }
 .sidebar-login { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: center; gap: 9px; min-height: 38px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); font-size: 12px; font-weight: 550; white-space: nowrap; cursor: pointer; transition: background 120ms, border-color 120ms; }
