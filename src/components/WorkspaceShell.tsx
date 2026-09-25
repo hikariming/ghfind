@@ -48,6 +48,7 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
               className="sidebar-link" data-featured={item.featured || undefined} aria-current={current ? "page" : undefined}
               title={nav(`hint.${item.key}`)} aria-label={nav(item.key)}>
               <Icon size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{nav(item.key)}</span>
+              {item.new && <span className="sidebar-new-badge">new!</span>}
               {item.beta && <span className="sidebar-soon sidebar-label">{nav("beta")}</span>}
               {current && <span className="sidebar-active-dot" aria-hidden />}
             </Link>;
