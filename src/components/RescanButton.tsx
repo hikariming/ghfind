@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { readScanResponse } from "@/lib/scan-job-client";
+import { consumeRoastStream } from "@/lib/roast-stream";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
@@ -81,12 +82,11 @@ export function RescanButton({
         setStatus("error");
         return;
       }
-      // Drain the stream so the roast fully completes and the score is persisted.
-      const reader = roastRes.body.getReader();
-      while (true) {
-        const { done } = await reader.read();
-        if (done) break;
-      }
+      // Decode the stream so in-band failures are not mistaken for a completed roast.
+      const { errored } = await consumeRoastStream(roastRes, {
+        onError: () => setStatus("error"),
+      });
+      if (errored) return;
       router.refresh();
       setStatus("idle");
     } catch {
