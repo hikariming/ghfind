@@ -38,8 +38,10 @@
       "blog": "开发者生态的数据与洞察",
       "resume": "用 GitHub 数据生成开发者简历",
       "talent": "发现值得认识的开发者",
-      "githubBot": "按作者评分给 issue 和 PR 自动打标签"
-    }
+      "githubBot": "按作者评分给 issue 和 PR 自动打标签",
+      "cliApi": "安装 ghfind CLI、配置 Agent Skill 并管理 API Token"
+    },
+    "cliApi": "CLI & API"
   },
   "globalSearch": {
     "open": "打开全局搜索",
@@ -1481,5 +1483,50 @@
     },
     "disclaimer": "评分反映的是作者的公开 GitHub profile，不代表这次提交的质量。新贡献者可能只是公开记录较少。",
     "source": "源代码与自部署指南"
+  },
+  "integrations": {
+    "eyebrow": "面向开发者与 Agent",
+    "title": "CLI & API",
+    "subtitle": "把 ghfind 接入终端、脚本和 Agent。安装 CLI 与 Skill，创建个人 API Token，并查看接口文档。",
+    "install.heading": "一条命令，安装 CLI 和 Skill",
+    "install.description": "复制给终端或 coding agent。需要 Node.js 18 或更高版本；安装过程不需要 sudo。",
+    "install.copy": "复制安装命令",
+    "install.copied": "已复制",
+    "install.requirement": "脚本会安装官方 npm CLI，并将 ghfind-cli Skill 写入 ~/.agents/skills/ghfind-cli。",
+    "install.cliDocs": "CLI 文档",
+    "install.skill": "查看 Skill",
+    "how.heading": "接入步骤",
+    "how.install": "运行安装命令，安装 ghfind CLI。",
+    "how.skill": "安装脚本同时配置 ghfind-cli Skill，Agent 可读取命令和使用说明。",
+    "how.auth": "需要完整扫描或 roast 时，在下方创建 API Token，并设置 GHFIND_API_KEY。",
+    "tokens.heading": "API Token",
+    "tokens.signedOut": "使用 GitHub 登录后，可为 CLI 或自动化流程创建独立 Token。Token 只在创建时显示一次。",
+    "tokens.signIn": "通过 GitHub 登录",
+    "tokens.description": "每个 Token 可单独撤销。页面不会再次显示完整 Token。",
+    "tokens.limit": "{count}/10 个有效 Token",
+    "tokens.namePlaceholder": "名称，例如：本地 CLI",
+    "tokens.defaultName": "CLI / Agent",
+    "tokens.create": "创建 Token",
+    "tokens.working": "处理中…",
+    "tokens.copyOnce": "请现在复制并保存。离开此页后无法再次查看完整 Token。",
+    "tokens.copy": "复制 Token",
+    "tokens.copied": "已复制",
+    "tokens.loading": "正在读取 Token…",
+    "tokens.empty": "还没有 API Token。",
+    "tokens.created": "创建于 {date}",
+    "tokens.revoke": "撤销 {name}",
+    "tokens.revokeShort": "撤销",
+    "tokens.loadError": "无法读取 Token，请刷新后重试。",
+    "tokens.createError": "创建失败，请稍后重试。",
+    "tokens.limitError": "有效 Token 已达上限，请先撤销不再使用的 Token。",
+    "tokens.revokeError": "撤销失败，请稍后重试。",
+    "auth.heading": "鉴权方式",
+    "auth.description": "网站账号使用 GitHub OAuth 登录。CLI 和 API 请求使用从账户页面创建的个人 Bearer Token，两种凭证各自独立。",
+    "auth.publicTitle": "公开接口",
+    "auth.public": "评分、对比、搜索、排行榜和开发者目录可直接使用，无需 Token。",
+    "auth.protectedTitle": "需要 Token",
+    "auth.protected": "完整扫描及依赖扫描能力的 roast 请求需要 GHFIND_API_KEY。",
+    "auth.credentialNote": "将 Token 保存在环境变量或密钥管理器中。不要把它提交到代码仓库或交给不可信的 Agent。",
+    "auth.apiDocs": "API 文档"
   }
 }

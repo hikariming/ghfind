@@ -27,7 +27,7 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "اكتشف",
     "groupCareer": "المسار المهني",
-    "groupTools": "الأدوات",
+    "groupTools": "Integrations",
     "beta": "Beta",
     "hint": {
       "roast": "قيّم أي حساب GitHub في 30 ثانية مع تعليق لاذع",
@@ -38,8 +38,10 @@
       "blog": "بيانات ورؤى حول منظومة المطورين",
       "resume": "أنشئ سيرة ذاتية للمطور من بيانات GitHub",
       "talent": "اعثر على مطورين يستحقون التعرف عليهم",
-      "githubBot": "وسم تلقائي للـ issues والـ PRs حسب تقييم الكاتب"
-    }
+      "githubBot": "وسم تلقائي للـ issues والـ PRs حسب تقييم الكاتب",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+    },
+    "cliApi": "CLI & API"
   },
   "globalSearch": {
     "open": "افتح البحث الشامل",
@@ -1474,5 +1476,50 @@
     },
     "disclaimer": "تعكس الدرجة ملف الكاتب العام على GitHub، لا جودة هذه المساهمة. قد يكون لدى المساهمين الجدد سجل عام قصير فحسب.",
     "source": "الشيفرة المصدرية ودليل الاستضافة الذاتية"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install.heading": "Install the CLI and Skill with one command",
+    "install.description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+    "install.copy": "Copy install command",
+    "install.copied": "Copied",
+    "install.requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+    "install.cliDocs": "CLI docs",
+    "install.skill": "View Skill",
+    "how.heading": "Get connected",
+    "how.install": "Run the command to install the ghfind CLI.",
+    "how.skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+    "how.auth": "For full scans or roasts, create an API token below and set GHFIND_API_KEY.",
+    "tokens.heading": "API tokens",
+    "tokens.signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+    "tokens.signIn": "Sign in with GitHub",
+    "tokens.description": "Revoke tokens individually. The full token is never shown again.",
+    "tokens.limit": "{count}/10 active tokens",
+    "tokens.namePlaceholder": "Name, e.g. Local CLI",
+    "tokens.defaultName": "CLI / Agent",
+    "tokens.create": "Create token",
+    "tokens.working": "Working…",
+    "tokens.copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+    "tokens.copy": "Copy token",
+    "tokens.copied": "Copied",
+    "tokens.loading": "Loading tokens…",
+    "tokens.empty": "No API tokens yet.",
+    "tokens.created": "Created {date}",
+    "tokens.revoke": "Revoke {name}",
+    "tokens.revokeShort": "Revoke",
+    "tokens.loadError": "Could not load tokens. Refresh and try again.",
+    "tokens.createError": "Could not create the token. Try again.",
+    "tokens.limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+    "tokens.revokeError": "Could not revoke the token. Try again.",
+    "auth.heading": "Authentication",
+    "auth.description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+    "auth.publicTitle": "Public endpoints",
+    "auth.public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+    "auth.protectedTitle": "Token required",
+    "auth.protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+    "auth.credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+    "auth.apiDocs": "API docs"
   }
 }
