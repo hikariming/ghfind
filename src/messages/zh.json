@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "用你自己的模型",
-    "compatNote": "兼容任意 OpenAI 接口（OpenAI / OpenRouter / Groq / DeepSeek / 本地）。Key 保存在你自己的浏览器里。调用时会经过我们的服务器中转一次去请求模型，<b>但绝不落库、不写日志、用完即弃</b>。",
+    "compatNote": "兼容任意 OpenAI 接口（OpenAI / OpenRouter / Requesty / Groq / DeepSeek / 本地）。Key 保存在你自己的浏览器里。调用时会经过我们的服务器中转一次去请求模型，<b>但绝不落库、不写日志、用完即弃</b>。",
     "tempKeyNote": "🔒 介意的话，建议用一把<b>临时 / 额度受限</b>的 Key，用完即可吊销。",
     "baseUrl": "Base URL",
     "apiKey": "API Key",

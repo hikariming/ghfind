@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "Dùng model của riêng bạn",
-    "compatNote": "Hoạt động với mọi API tương thích OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / local). Key của bạn nằm trong trình duyệt của chính bạn. Nó được chuyển tiếp một lần qua server của chúng tôi để gọi model, <b>nhưng không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi dùng</b>.",
+    "compatNote": "Hoạt động với mọi API tương thích OpenAI (OpenAI / OpenRouter / Requesty / Groq / DeepSeek / local). Key của bạn nằm trong trình duyệt của chính bạn. Nó được chuyển tiếp một lần qua server của chúng tôi để gọi model, <b>nhưng không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi dùng</b>.",
     "tempKeyNote": "🔒 Nếu bạn lo lắng, hãy dùng key <b>tạm thời / có giới hạn chi tiêu</b> và thu hồi khi xong việc.",
     "baseUrl": "Base URL",
     "apiKey": "API Key",

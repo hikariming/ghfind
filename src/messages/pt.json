@@ -467,7 +467,7 @@
   },
   "byok": {
     "title": "Use seu próprio modelo",
-    "compatNote": "Funciona com qualquer API compatível com OpenAI (OpenAI / OpenRouter / Groq / DeepSeek / local). Sua key fica no seu próprio navegador. Ela passa uma vez pelo nosso servidor pra chamar o modelo, <b>mas nunca é armazenada, nunca é logada e é descartada após o uso</b>.",
+    "compatNote": "Funciona com qualquer API compatível com OpenAI (OpenAI / OpenRouter / Requesty / Groq / DeepSeek / local). Sua key fica no seu próprio navegador. Ela passa uma vez pelo nosso servidor pra chamar o modelo, <b>mas nunca é armazenada, nunca é logada e é descartada após o uso</b>.",
     "tempKeyNote": "🔒 Se estiver preocupado, use uma key <b>temporária / com limite de gasto</b> e revogue quando terminar.",
     "baseUrl": "Base URL",
     "apiKey": "API Key",
