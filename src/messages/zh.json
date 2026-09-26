@@ -645,7 +645,7 @@
     "heading": "ghfind API 文档",
     "lead": "ghfind 用确定性的开源引擎为任意 GitHub 账号打出 0–100 的真实贡献含金量与可信度评分。站点的全部能力都可以编程调用：公开 REST API、面向 AI Agent 的 MCP 服务器，以及官方 SDK。本页是它们的完整文档。",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL：https://ghfind.com。评分读取接口无需认证。错误为结构化 JSON（{error, message, hint}），响应携带 RateLimit-* 头，列表接口支持 limit/offset 分页。",
+    "restIntro": "Base URL：https://ghfind.com。评分读取接口无需认证。错误为结构化 JSON（error / message / hint），响应携带 RateLimit-* 头，列表接口支持 limit/offset 分页。",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",

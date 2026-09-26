@@ -638,7 +638,7 @@
     "heading": "ghfind APIドキュメント",
     "lead": "ghfind は決定論的なオープンソースエンジンで、任意のGitHubアカウントの実コントリビューション価値と信頼度を0-100点で採点します。サイト上のすべての機能はプログラムからも利用可能：公開REST API、AIエージェント向けMCPサーバー、公式SDK。このページはその完全なドキュメントです。",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL: https://ghfind.com。スコアの読み取りに認証は不要。エラーは構造化JSON（{error, message, hint}）、レスポンスには RateLimit-* ヘッダーが付き、一覧系エンドポイントは limit/offset ページネーションに対応します。",
+    "restIntro": "Base URL: https://ghfind.com。スコアの読み取りに認証は不要。エラーは構造化JSON（error / message / hint）、レスポンスには RateLimit-* ヘッダーが付き、一覧系エンドポイントは limit/offset ページネーションに対応します。",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",

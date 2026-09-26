@@ -638,7 +638,7 @@
     "heading": "Documentação da API do ghfind",
     "lead": "O ghfind pontua qualquer conta do GitHub de 0 a 100 quanto ao valor real de contribuição e à confiabilidade com um motor determinístico e open source. Tudo o que existe no site também está disponível programaticamente: uma API REST pública, um servidor MCP para agentes de IA e SDKs oficiais. Esta página documenta tudo isso.",
     "restHeading": "API REST do ghfind",
-    "restIntro": "Base URL: https://ghfind.com. Leituras de pontuação não exigem autenticação. Erros são JSON estruturado ({error, message, hint}), as respostas trazem headers RateLimit-* e os endpoints de listagem suportam paginação via limit/offset.",
+    "restIntro": "Base URL: https://ghfind.com. Leituras de pontuação não exigem autenticação. Erros são JSON estruturado (error / message / hint), as respostas trazem headers RateLimit-* e os endpoints de listagem suportam paginação via limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",

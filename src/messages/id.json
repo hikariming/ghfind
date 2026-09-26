@@ -638,7 +638,7 @@
     "heading": "Dokumentasi API ghfind",
     "lead": "ghfind menilai akun GitHub mana pun 0-100 untuk nilai kontribusi nyata dan kepercayaan dengan mesin open source yang deterministik. Semua yang ada di situs juga tersedia secara programatik: REST API publik, server MCP untuk agen AI, dan SDK resmi. Halaman ini mendokumentasikan semuanya.",
     "restHeading": "REST API ghfind",
-    "restIntro": "Base URL: https://ghfind.com. Pembacaan skor tidak butuh autentikasi. Error berupa JSON terstruktur ({error, message, hint}), respons membawa header RateLimit-*, dan endpoint daftar mendukung paginasi limit/offset.",
+    "restIntro": "Base URL: https://ghfind.com. Pembacaan skor tidak butuh autentikasi. Error berupa JSON terstruktur (error / message / hint), respons membawa header RateLimit-*, dan endpoint daftar mendukung paginasi limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",

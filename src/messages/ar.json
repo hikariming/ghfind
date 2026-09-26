@@ -638,7 +638,7 @@
     "heading": "وثائق ghfind API",
     "lead": "يقيّم ghfind أي حساب GitHub من 0 إلى 100 من حيث قيمة المساهمة الحقيقية والموثوقية بمحرك حتمي مفتوح المصدر. كل ما على الموقع متاح أيضًا برمجيًا: REST API عامة، وخادم MCP لوكلاء الذكاء الاصطناعي، وحزم SDK رسمية. هذه الصفحة توثّقها جميعًا.",
     "restHeading": "ghfind REST API",
-    "restIntro": "الرابط الأساسي: https://ghfind.com. قراءات التقييم لا تتطلب مصادقة. الأخطاء JSON منظّم ({error, message, hint})، والاستجابات تحمل ترويسات RateLimit-*، ونقاط القوائم تدعم ترقيم الصفحات عبر limit/offset.",
+    "restIntro": "الرابط الأساسي: https://ghfind.com. قراءات التقييم لا تتطلب مصادقة. الأخطاء JSON منظّم (error / message / hint)، والاستجابات تحمل ترويسات RateLimit-*، ونقاط القوائم تدعم ترقيم الصفحات عبر limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",

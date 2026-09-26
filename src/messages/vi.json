@@ -638,7 +638,7 @@
     "heading": "Tài liệu API ghfind",
     "lead": "ghfind chấm bất kỳ tài khoản GitHub nào từ 0-100 về giá trị đóng góp thực và độ tin cậy bằng một engine tất định, mã nguồn mở. Mọi thứ trên trang web cũng có thể truy cập theo cách lập trình: REST API công khai, MCP server cho AI agent, và các SDK chính thức. Trang này ghi lại tất cả.",
     "restHeading": "REST API của ghfind",
-    "restIntro": "Base URL: https://ghfind.com. Các thao tác đọc điểm không cần xác thực. Lỗi trả về JSON có cấu trúc ({error, message, hint}), phản hồi mang header RateLimit-*, và các endpoint danh sách hỗ trợ phân trang limit/offset.",
+    "restIntro": "Base URL: https://ghfind.com. Các thao tác đọc điểm không cần xác thực. Lỗi trả về JSON có cấu trúc (error / message / hint), phản hồi mang header RateLimit-*, và các endpoint danh sách hỗ trợ phân trang limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
