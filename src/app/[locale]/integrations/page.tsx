@@ -37,13 +37,12 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
       <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm"><a className="inline-flex items-center gap-1.5 underline decoration-border underline-offset-4 hover:text-foreground" href="/cli"><BookOpen size={15} />{t("install.cliDocs")}<ArrowUpRight size={13} /></a><a className="inline-flex items-center gap-1.5 underline decoration-border underline-offset-4 hover:text-foreground" href="/skill"><Braces size={15} />{t("install.skill")}<ArrowUpRight size={13} /></a></div>
     </section>
 
-    <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex items-center gap-2"><ArrowDownToLine size={18} className="text-emerald-700 dark:text-emerald-400" /><h2 className="text-lg font-semibold">{t("how.heading")}</h2></div>
-        <ol className="mt-5 space-y-5">{(["install", "skill", "auth"] as const).map((key, index) => <li key={key} className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">{index + 1}</span><p className="text-sm leading-6 text-muted-foreground">{t(`how.${key}`)}</p></li>)}</ol>
-      </section>
-      <ApiTokenManager signedIn={Boolean(session)} locale={locale} />
-    </div>
+    <ApiTokenManager signedIn={Boolean(session)} locale={locale} />
+
+    <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <div className="flex items-center gap-2"><ArrowDownToLine size={18} className="text-emerald-700 dark:text-emerald-400" /><h2 className="text-lg font-semibold">{t("how.heading")}</h2></div>
+      <ol className="mt-5 grid gap-5 sm:grid-cols-3">{(["install", "skill", "auth"] as const).map((key, index) => <li key={key} className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">{index + 1}</span><p className="text-sm leading-6 text-muted-foreground">{t(`how.${key}`)}</p></li>)}</ol>
+    </section>
 
     <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="flex items-center gap-2"><KeyRound size={18} className="text-emerald-700 dark:text-emerald-400" /><h2 className="text-lg font-semibold">{t("auth.heading")}</h2></div>
