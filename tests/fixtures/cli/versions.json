@@ -1,0 +1,272 @@
+[
+  {
+    "latest": "1.0.0-alpha.1",
+    "current": "1.0.0-alpha",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-alpha",
+    "current": "1.0.0-alpha.1",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-alpha.beta",
+    "current": "1.0.0-alpha.1",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-alpha.1",
+    "current": "1.0.0-alpha.beta",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta",
+    "current": "1.0.0-alpha.beta",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-alpha.beta",
+    "current": "1.0.0-beta",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta.2",
+    "current": "1.0.0-beta",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta",
+    "current": "1.0.0-beta.2",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta.11",
+    "current": "1.0.0-beta.2",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta.2",
+    "current": "1.0.0-beta.11",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-rc.1",
+    "current": "1.0.0-beta.11",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta.11",
+    "current": "1.0.0-rc.1",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.0.0-rc.1",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-rc.1",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "v1.0.0",
+    "current": "v1.0.0-rc.1",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0+new",
+    "current": "1.0.0+old",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-rc.1+new",
+    "current": "1.0.0-rc.1+old",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "2.0.0-alpha",
+    "current": "1.9.9",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-beta.10",
+    "current": "1.0.0-beta.2",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-2",
+    "current": "1.0.0-alpha",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": " ghfind v1.2 ",
+    "current": "1.2.0",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.2.1",
+    "current": "1.2",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "1",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": true
+  },
+  {
+    "latest": "1.0.0-rc.9007199254740993",
+    "current": "1.0.0-rc.9007199254740992",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "9007199254740993.0.0",
+    "current": "9007199254740992.0.0",
+    "newer": true,
+    "comparable": true
+  },
+  {
+    "latest": "",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "dev",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "dev",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "abc123",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "abc123",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.2foo",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.2foo",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.2.3.4",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.2.3.4",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "01.2.3",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "01.2.3",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0-01",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.0.0-01",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0-",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.0.0-",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0+",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.0.0+",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0-a..b",
+    "current": "1.0.0",
+    "newer": false,
+    "comparable": false
+  },
+  {
+    "latest": "1.0.0",
+    "current": "1.0.0-a..b",
+    "newer": false,
+    "comparable": false
+  }
+]
