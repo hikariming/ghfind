@@ -27,7 +27,7 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "発見",
     "groupCareer": "キャリア",
-    "groupTools": "ツール",
+    "groupTools": "Integrations",
     "beta": "Beta",
     "hint": {
       "roast": "30 秒で GitHub アカウントを採点、辛口コメント付き",
@@ -38,8 +38,10 @@
       "blog": "開発者エコシステムのデータと洞察",
       "resume": "GitHub データから開発者履歴書を作成",
       "talent": "知り合う価値のある開発者を探す",
-      "githubBot": "作成者のスコアで issue と PR に自動ラベル付け"
-    }
+      "githubBot": "作成者のスコアで issue と PR に自動ラベル付け",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+    },
+    "cliApi": "CLI & API"
   },
   "globalSearch": {
     "open": "グローバル検索を開く",
@@ -636,7 +638,7 @@
     "heading": "ghfind APIドキュメント",
     "lead": "ghfind は決定論的なオープンソースエンジンで、任意のGitHubアカウントの実コントリビューション価値と信頼度を0-100点で採点します。サイト上のすべての機能はプログラムからも利用可能：公開REST API、AIエージェント向けMCPサーバー、公式SDK。このページはその完全なドキュメントです。",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL: https://ghfind.com。スコアの読み取りに認証は不要。エラーは構造化JSON（{error, message, hint}）、レスポンスには RateLimit-* ヘッダーが付き、一覧系エンドポイントは limit/offset ページネーションに対応します。",
+    "restIntro": "Base URL: https://ghfind.com。スコアの読み取りに認証は不要。エラーは構造化JSON（error / message / hint）、レスポンスには RateLimit-* ヘッダーが付き、一覧系エンドポイントは limit/offset ページネーションに対応します。",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -1474,5 +1476,58 @@
     },
     "disclaimer": "スコアは作成者の公開 GitHub プロフィールを反映したもので、今回の投稿の質を示すものではありません。新しいコントリビューターは公開記録が少ないだけかもしれません。",
     "source": "ソースコードとセルフホストガイド"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
   }
 }

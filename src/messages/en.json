@@ -27,7 +27,7 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "Discover",
     "groupCareer": "Career",
-    "groupTools": "Tools",
+    "groupTools": "Integrations",
     "beta": "Beta",
     "hint": {
       "roast": "Score any GitHub account in 30 seconds, with a savage one-liner",
@@ -38,8 +38,10 @@
       "blog": "Data and insights on the developer ecosystem",
       "resume": "Build a developer résumé from your GitHub data",
       "talent": "Find developers worth knowing",
-      "githubBot": "Auto-label issues and PRs by author score"
-    }
+      "githubBot": "Auto-label issues and PRs by author score",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+    },
+    "cliApi": "CLI & API"
   },
   "globalSearch": {
     "open": "Open global search",
@@ -57,7 +59,7 @@
     }
   },
   "header": {
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in to create token",
     "signOut": "Sign out",
     "myProfile": "My profile",
     "judgeSelf": "Judge myself"
@@ -65,7 +67,7 @@
   "loginNudge": {
     "title": "🔥 Sign in to unlock more",
     "body": "Sign in with GitHub to keep your votes and reactions — and get a smoother experience.",
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in to create token",
     "dismiss": "Maybe later",
     "close": "Close"
   },
@@ -267,7 +269,7 @@
     "pageSubtitle": "score moves this week",
     "signInTitle": "Sign in to see who you follow",
     "signInBody": "Sign in with GitHub, follow developers, then come back here to watch their scores move.",
-    "signIn": "Sign in with GitHub"
+    "signIn": "Sign in to create token"
   },
   "detail": {
     "back": "← Back to Hall of Fame",
@@ -636,7 +638,7 @@
     "heading": "ghfind API documentation",
     "lead": "ghfind scores any GitHub account 0-100 for real contribution value and trustworthiness with a deterministic, open-source engine. Everything on the site is also available programmatically: a public REST API, an MCP server for AI agents, and official SDKs. This page documents all of them.",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL: https://ghfind.com. Scoring reads need no authentication. Errors are structured JSON ({error, message, hint}), responses carry RateLimit-* headers, and list endpoints support limit/offset pagination.",
+    "restIntro": "Base URL: https://ghfind.com. Scoring reads need no authentication. Errors are structured JSON (error / message / hint), responses carry RateLimit-* headers, and list endpoints support limit/offset pagination.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -1474,5 +1476,58 @@
     },
     "disclaimer": "The score reflects the author's public GitHub profile, not the quality of this contribution. New contributors may simply have a short public record.",
     "source": "Source code and self-hosting guide"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
   }
 }
