@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
   checkRateLimit: vi.fn(),
   checkScanNetworkRateLimit: vi.fn(),
+  clearCachedScan: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
+  clearCachedScan: mocks.clearCachedScan,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
@@ -64,6 +66,7 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.clearCachedScan.mockResolvedValue(undefined);
     mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
     mocks.buildScanResult.mockResolvedValue(quickScan);
     mocks.publishCompleteQuickScan.mockResolvedValue(true);
@@ -94,6 +97,25 @@ describe("POST /api/scan immediate quick contract", () => {
     });
     expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
+  });
+
+  it("force=1 clears the scan cache and re-crawls instead of serving the stale snapshot", async () => {
+    // A still-valid cache entry exists; a forced rescan must not replay it, or
+    // `coalesceScan` → `protectedScan` would return it before `collect()` runs
+    // and the response would be `cached: false` while carrying pre-rescan data.
+    mocks.getCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(new NextRequest("https://example.test/api/scan?force=1", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+      body: JSON.stringify({ username: "DemoDev" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ cached: false, coverage: "quick" });
+    expect(mocks.clearCachedScan).toHaveBeenCalledWith("DemoDev");
+    expect(mocks.buildScanResult).toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
   });
 
   it("serves a cached quick scan without republishing it as newly scanned", async () => {
