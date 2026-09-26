@@ -1,7 +1,23 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("hosted CLI and Agent Skill assets", () => {
+  it("resolves integration copy from nested message keys in every locale", () => {
+    for (const file of readdirSync("src/messages").filter(name => name.endsWith(".json"))) {
+      const messages = JSON.parse(readFileSync(`src/messages/${file}`, "utf8")) as {
+        integrations: { install: { heading: string }; tokens: { heading: string; signIn: string } };
+      };
+      expect(messages.integrations.install.heading, file).toBeTruthy();
+      expect(messages.integrations.tokens.heading, file).toBeTruthy();
+      expect(messages.integrations.tokens.signIn, file).toBeTruthy();
+    }
+    const zh = JSON.parse(readFileSync("src/messages/zh.json", "utf8")) as {
+      integrations: { install: { heading: string }; tokens: { heading: string } };
+    };
+    expect(zh.integrations.install.heading).toBe("一条命令，安装 CLI 和 Skill");
+    expect(zh.integrations.tokens.heading).toBe("创建 API Token");
+  });
+
   it("keeps the public Skill aligned with the maintained source", () => {
     expect(readFileSync("public/skill.md", "utf8")).toBe(readFileSync("skills/ghfind-cli/SKILL.md", "utf8"));
   });

@@ -82,13 +82,16 @@ export function ApiTokenManager({ signedIn, locale }: { signedIn: boolean; local
     void fetchTokens();
   });
 
-  if (!signedIn) return <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+  if (!signedIn) return <section id="api-tokens" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
     <h2 className="text-lg font-semibold">{t("heading")}</h2>
     <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("signedOut")}</p>
-    <a className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={`/api/auth/github?callbackUrl=${encodeURIComponent(locale === "zh" ? "/integrations" : `/${locale}/integrations`)}`}>{t("signIn")}</a>
-  </div>;
+    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+      <Input disabled placeholder={t("namePlaceholder")} aria-label={t("namePlaceholder")} />
+      <a className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={`/api/auth/github?callbackUrl=${encodeURIComponent(locale === "zh" ? "/integrations" : `/${locale}/integrations`)}`}><Plus size={16} />{t("signIn")}</a>
+    </div>
+  </section>;
 
-  return <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+  return <section id="api-tokens" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h2 className="text-lg font-semibold">{t("heading")}</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">{t("description")}</p></div>
       <span className="text-xs text-muted-foreground">{t("limit", { count: tokens.length })}</span>
@@ -105,5 +108,5 @@ export function ApiTokenManager({ signedIn, locale }: { signedIn: boolean; local
     {loading ? <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle size={15} className="animate-spin" />{t("loading")}</p> : tokens.length === 0 ? <p className="mt-5 text-sm text-muted-foreground">{t("empty")}</p> : <ul className="mt-5 divide-y divide-border">
       {tokens.map(token => <li key={token.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"><div className="min-w-0"><p className="truncate text-sm font-medium">{token.name}</p><p className="mt-1 font-mono text-xs text-muted-foreground">{token.prefix}•••• · {t("created", { date: new Date(token.createdAt).toLocaleDateString() })}</p></div><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void revokeToken(token.id)} aria-label={t("revoke", { name: token.name })}><Trash2 size={15} />{t("revokeShort")}</Button></li>)}
     </ul>}
-  </div>;
+  </section>;
 }
