@@ -652,7 +652,7 @@
     "heading": "ghfind API 문서",
     "lead": "ghfind는 결정론적 오픈소스 엔진으로 아무 GitHub 계정이나 실제 기여 가치와 신뢰도를 0-100점으로 평가합니다. 사이트의 모든 기능은 프로그래밍 방식으로도 쓸 수 있습니다: 공개 REST API, AI 에이전트용 MCP 서버, 공식 SDK. 이 페이지가 그 전부를 문서화합니다.",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL: https://ghfind.com. 채점 읽기에는 인증이 필요 없습니다. 오류는 구조화된 JSON({error, message, hint})이고, 응답에는 RateLimit-* 헤더가 실리며, 목록 엔드포인트는 limit/offset 페이지네이션을 지원합니다.",
+    "restIntro": "Base URL: https://ghfind.com. 채점 읽기에는 인증이 필요 없습니다. 오류는 구조화된 JSON(error / message / hint)이고, 응답에는 RateLimit-* 헤더가 실리며, 목록 엔드포인트는 limit/offset 페이지네이션을 지원합니다.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
