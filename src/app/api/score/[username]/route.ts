@@ -17,7 +17,7 @@ import {
   getCachedScoreDetail,
   rateLimitHeaders,
 } from "@/lib/redis";
-import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
@@ -234,6 +234,11 @@ export async function GET(
       });
     }
   } catch (error) {
+    logFreshScanFailure(error, {
+      route: "score",
+      username: handle,
+      persistenceFailure: error instanceof ScorePersistenceError,
+    });
     if (detail?.legacy_read_fallback) {
       return persistedScoreResponse(detail, {
         source: "legacy_v5_v5_v3",

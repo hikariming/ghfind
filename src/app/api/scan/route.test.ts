@@ -4,6 +4,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
+  logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
   checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
@@ -34,7 +35,7 @@ vi.mock("@/lib/redis", () => ({
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
-vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult }));
+vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult, logFreshScanFailure: mocks.logFreshScanFailure }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/anonymous-session", () => ({
   anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
@@ -119,6 +120,11 @@ describe("POST /api/scan immediate quick contract", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
+      route: "scan", username: "DemoDev", persistenceFailure: false,
+    });
+    expect(mocks.logFreshScanFailure.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.getLegacyReadFallbackScan.mock.invocationCallOrder[0]);
     await expect(response.json()).resolves.toMatchObject({
       coverage: "legacy",
       legacy_read_fallback: true,

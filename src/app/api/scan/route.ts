@@ -21,7 +21,7 @@ import {
 } from "@/lib/anonymous-session";
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
-import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
 import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
@@ -241,6 +241,11 @@ export async function POST(req: NextRequest) {
       anonymousSession,
     );
   } catch (error) {
+    logFreshScanFailure(error, {
+      route: "scan",
+      username: username,
+      persistenceFailure: error instanceof ScorePersistenceError,
+    });
     const legacyScan = await getLegacyReadFallbackScan(username);
     if (legacyScan) {
       return attachAnonymousSession(
