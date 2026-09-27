@@ -1,0 +1,193 @@
+{
+ "login": "adv-influencer",
+ "collected_at": "2026-09-25T00:00:00Z",
+ "account_created_at": "2020-01-01T00:00:00Z",
+ "repos": [
+  {
+   "name": "adv-influencer/chatgpt-prompts",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "content",
+   "stars": 60000,
+   "forks": 8000,
+   "repo_total_commits": 900,
+   "user_commits": 400,
+   "user_merged_prs": 0,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 1,
+   "contributors_total": 300,
+   "top_contributor_commits": 400,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": null,
+   "commit_sizes": null,
+   "pr_mergers": null,
+   "mutual_mergers": null
+  },
+  {
+   "name": "adv-influencer/awesome-ai-tools",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "list",
+   "stars": 25000,
+   "forks": 3000,
+   "repo_total_commits": null,
+   "user_commits": 300,
+   "user_merged_prs": 0,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 200,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": null,
+   "commit_sizes": null,
+   "pr_mergers": null,
+   "mutual_mergers": null
+  },
+  {
+   "name": "adv-influencer/ai-guide",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "docs",
+   "stars": 9000,
+   "forks": 900,
+   "repo_total_commits": null,
+   "user_commits": 150,
+   "user_merged_prs": 0,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 20,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": null,
+   "commit_sizes": null,
+   "pr_mergers": null,
+   "mutual_mergers": null
+  },
+  {
+   "name": "adv-influencer/tiny-cli",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 4000,
+   "forks": 12,
+   "repo_total_commits": 15,
+   "user_commits": 15,
+   "user_merged_prs": 0,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 1,
+   "contributors_total": 1,
+   "top_contributor_commits": 15,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    },
+    {
+     "kind": "core",
+     "substance": 40,
+     "lines": 40
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": null,
+   "mutual_mergers": null
+  }
+ ],
+ "prs_rejected_by_maintainer": 0,
+ "prs_merged_total": 0,
+ "prs_merged_external": 0,
+ "prs_closed_unmerged_external": 0,
+ "notes": []
+}

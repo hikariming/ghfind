@@ -1,0 +1,419 @@
+{
+ "login": "knuknY",
+ "collected_at": "2026-09-25T19:32:39Z",
+ "account_created_at": "2014-07-04T15:50:22Z",
+ "repos": [
+  {
+   "name": "bytedance/deer-flow",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 82970,
+   "forks": 11485,
+   "repo_total_commits": 3546,
+   "primary_language": "Python",
+   "issues_total": 2104,
+   "prs_total": 3564,
+   "pr_batch_share": 0.0,
+   "created_at": "2025-05-07T02:50:19Z",
+   "releases_total": 2,
+   "has_ci": true,
+   "has_tests": true,
+   "review_depth": 3.75,
+   "issue_authors": 23,
+   "dependents": 0,
+   "maint_role": null,
+   "maint_months_by_year": null,
+   "maint_events_by_year": null,
+   "merged_others": 0,
+   "user_commits": 10,
+   "user_merged_prs": 10,
+   "user_additions": 3366,
+   "user_deletions": 190,
+   "pr_kinds": {
+    "core": 9,
+    "test": 0,
+    "docs": 1,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2026-03-01T00:00:00Z",
+   "last_contrib_at": "2026-04-30T23:59:59Z",
+   "active_months": 2,
+   "recent_months": 2,
+   "code_months_by_year": {
+    "2026": 2
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    545,
+    385,
+    102,
+    47,
+    28,
+    17,
+    14,
+    13,
+    6,
+    0
+   ],
+   "commit_sizes": [
+    {
+     "lines": 2155,
+     "merge": false,
+     "at": "2026-04-09T10:56:28Z"
+    },
+    {
+     "lines": 243,
+     "merge": false,
+     "at": "2026-04-09T07:00:22Z"
+    },
+    {
+     "lines": 19,
+     "merge": false,
+     "at": "2026-04-03T03:22:58Z"
+    },
+    {
+     "lines": 143,
+     "merge": false,
+     "at": "2026-04-02T07:02:09Z"
+    },
+    {
+     "lines": 28,
+     "merge": false,
+     "at": "2026-03-29T11:29:55Z"
+    },
+    {
+     "lines": 61,
+     "merge": false,
+     "at": "2026-03-29T03:24:46Z"
+    },
+    {
+     "lines": 619,
+     "merge": false,
+     "at": "2026-03-26T23:41:06Z"
+    },
+    {
+     "lines": 128,
+     "merge": false,
+     "at": "2026-03-24T14:38:01Z"
+    },
+    {
+     "lines": 51,
+     "merge": false,
+     "at": "2026-03-23T09:44:21Z"
+    },
+    {
+     "lines": 109,
+     "merge": false,
+     "at": "2026-03-20T09:03:39Z"
+    }
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 28,
+     "lines": 109,
+     "heat": 0.13282571912013535
+    },
+    {
+     "kind": "core",
+     "substance": 14,
+     "lines": 51,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 47,
+     "lines": 128,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 385,
+     "lines": 619,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 17,
+     "lines": 61,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 28,
+     "heat": null
+    },
+    {
+     "kind": "core",
+     "substance": 13,
+     "lines": 143,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 6,
+     "lines": 19,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 102,
+     "lines": 243,
+     "heat": 0.30287648054145516
+    },
+    {
+     "kind": "core",
+     "substance": 545,
+     "lines": 2155,
+     "heat": 0.0022560631697687537
+    }
+   ],
+   "user_rank": 43,
+   "contributors_total": 466,
+   "top_contributor_commits": 610,
+   "owner_is_org": true,
+   "pr_mergers": {
+    "WillemJiang": 10
+   },
+   "mutual_mergers": [],
+   "merger_standing": {
+    "WillemJiang": 0.4066
+   },
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 10,
+   "pr_kinds_sample": 10,
+   "pr_detail_sample": 10,
+   "additions_estimated": false,
+   "description": "An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.",
+   "dependent_repos": 0,
+   "last_push_at": "2026-09-27T07:18:55Z",
+   "star_history": null
+  }
+ ],
+ "prs_rejected_by_maintainer": 0,
+ "prs_merged_total": 10,
+ "prs_merged_external": 10,
+ "prs_closed_unmerged_external": 1,
+ "notes": [
+  "prs_rejected_by_maintainer = closed-unmerged PRs to repos not owned by the user whose last ClosedEvent actor is not the author (ghost/unknown actor counts as maintainer)",
+  "user_commits: max of the monthly contributionsCollection commit counts over ALL contribution years, the GraphQL default-branch history totalCount (author = user id) and REST /contributors page 1 (top 25 repos only; anonymous entries named like the login/profile name are added to the login's count); excludes commits GitHub could not link to the account",
+  "user_additions/deletions: summed from up to 60 detailed merged PRs per user, scaled to user_merged_prs when sampled (additions_estimated=true)",
+  "first/last_contrib_at are month granularity (contribution graph months, PR creation months, GraphQL history commit dates of up to 300 commits)",
+  "adoption: forks, contributors_total, issue_authors (last 50 issues) and dependents (ecosyste.ms dependent_packages_count) for the top 25 repos; package downloads, release downloads, Docker pulls and Homebrew installs are not collected",
+  "user_rank / contributors_total: REST /contributors?anon=1 page 1 (users + anonymous emails) for the top 25 repos by priority; rank = position of the first matched entry in the first 100 (null beyond), total from the Link rel=last page; null when not fetched or the endpoint fails (e.g. 403 on huge repos)",
+  "maint_*: GH Archive github_events via ClickHouse play (not GitHub quota); maintainer events = PR reviews, issue/PR review comments, others' PRs merged by the user, issues closed; role = strongest author_association (only recorded 2017-01..2025-10, NONE outside) or COLLABORATOR when the user merged others' PRs (merged_by empty after 2025-10); up to 15 verified repos added as candidates, top 10 get adoption signals",
+  "commit_sample heat: share of default-branch commits since 2023-09-26 touching the commit's busiest core area (directory truncated to 2 path components)",
+  "v12 backfill: followers/restricted_by_year/ext_prs added to older data",
+  "star_history (v15): weekly star gains from GET /repos/{r}/stargazers/history (API 2026-03-10) for 0 owned/led non-fork repos (top 10 by stars ≥ 50 plus all ≥ 1000, ≤ 25); [date of the Sunday week start, gain], zero weeks omitted; for rule F only, never scored",
+  "v15 backfill: maint_* re-derived (GH Archive 'merged' events, gap months filled from the GitHub API; existing repos only), dependents/dependent_repos (repository_url + same-owner name lookup) for the repos with adoption signals, last_push_at, star_history; ClickHouse FAILED: maint_* left unknown"
+ ],
+ "followers": 4,
+ "restricted_by_year": {
+  "2014": 0,
+  "2015": 0,
+  "2016": 0,
+  "2017": 0,
+  "2018": 0,
+  "2019": 0,
+  "2020": 0,
+  "2021": 0,
+  "2022": 0,
+  "2023": 0,
+  "2024": 0,
+  "2025": 0,
+  "2026": 0
+ },
+ "ext_prs": [
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(smoke-test): add smoke test skill",
+   "state": "MERGED",
+   "created_at": "2026-04-07T07:44:32Z",
+   "closed_at": "2026-04-09T10:56:28Z",
+   "merged_at": "2026-04-09T10:56:28Z",
+   "additions": 2155,
+   "deletions": 0,
+   "changed_files": 12,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(client): add `available_skills` parameter to DeerFlowClient",
+   "state": "MERGED",
+   "created_at": "2026-04-02T13:26:15Z",
+   "closed_at": "2026-04-03T03:22:58Z",
+   "merged_at": "2026-04-03T03:22:58Z",
+   "additions": 17,
+   "deletions": 2,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat/per agent skill filter",
+   "state": "MERGED",
+   "created_at": "2026-03-31T02:44:20Z",
+   "closed_at": "2026-04-02T07:02:09Z",
+   "merged_at": "2026-04-02T07:02:09Z",
+   "additions": 142,
+   "deletions": 1,
+   "changed_files": 7,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(client): add thread query methods `list_threads` and `get_thread`",
+   "state": "MERGED",
+   "created_at": "2026-03-30T06:53:46Z",
+   "closed_at": "2026-04-09T07:00:22Z",
+   "merged_at": "2026-04-09T07:00:22Z",
+   "additions": 243,
+   "deletions": 0,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "docs(config): add timeout and max_retries examples for model providers",
+   "state": "MERGED",
+   "created_at": "2026-03-29T09:29:57Z",
+   "closed_at": "2026-03-29T11:29:55Z",
+   "merged_at": "2026-03-29T11:29:55Z",
+   "additions": 28,
+   "deletions": 0,
+   "changed_files": 1,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(client): support custom middleware injection",
+   "state": "MERGED",
+   "created_at": "2026-03-28T15:35:04Z",
+   "closed_at": "2026-03-29T03:24:46Z",
+   "merged_at": "2026-03-29T03:24:46Z",
+   "additions": 56,
+   "deletions": 5,
+   "changed_files": 4,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "fix(sandbox): prevent URLs from being parsed as absolute paths in bash tool",
+   "state": "CLOSED",
+   "created_at": "2026-03-27T10:09:22Z",
+   "closed_at": "2026-03-27T10:11:45Z",
+   "merged_at": null,
+   "additions": 14,
+   "deletions": 1,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": null,
+   "closed_by": "knuknY",
+   "reviewers": []
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(memory): Introduce configurable memory storage abstraction",
+   "state": "MERGED",
+   "created_at": "2026-03-25T13:33:03Z",
+   "closed_at": "2026-03-26T23:41:06Z",
+   "merged_at": "2026-03-26T23:41:06Z",
+   "additions": 442,
+   "deletions": 177,
+   "changed_files": 7,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "fix(mcp): implement sync invocation wrapper for async MCP tools",
+   "state": "MERGED",
+   "created_at": "2026-03-24T09:37:02Z",
+   "closed_at": "2026-03-24T14:38:01Z",
+   "merged_at": "2026-03-24T14:38:01Z",
+   "additions": 128,
+   "deletions": 0,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "feat(client): support agent_name injection to enable isolated memory and custom prompts",
+   "state": "MERGED",
+   "created_at": "2026-03-23T06:11:12Z",
+   "closed_at": "2026-03-23T09:44:21Z",
+   "merged_at": "2026-03-23T09:44:21Z",
+   "additions": 47,
+   "deletions": 4,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "fix(feishu): support @bot message in topic groups",
+   "state": "MERGED",
+   "created_at": "2026-03-19T12:23:27Z",
+   "closed_at": "2026-03-20T09:03:39Z",
+   "merged_at": "2026-03-20T09:03:39Z",
+   "additions": 108,
+   "deletions": 1,
+   "changed_files": 2,
+   "association": "CONTRIBUTOR",
+   "merged_by": "WillemJiang",
+   "closed_by": null,
+   "reviewers": [
+    "WillemJiang"
+   ]
+  }
+ ]
+}

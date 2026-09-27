@@ -1,0 +1,384 @@
+{
+ "login": "ctl-endorsed",
+ "collected_at": "2026-09-25T00:00:00Z",
+ "account_created_at": "2020-01-01T00:00:00Z",
+ "repos": [
+  {
+   "name": "org0/proj-0",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 300,
+   "repo_total_commits": null,
+   "user_commits": 40,
+   "user_merged_prs": 40,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 2,
+   "contributors_total": 60,
+   "top_contributor_commits": 60,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "maint0": 40
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "org1/proj-1",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 300,
+   "repo_total_commits": null,
+   "user_commits": 40,
+   "user_merged_prs": 40,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 2,
+   "contributors_total": 60,
+   "top_contributor_commits": 60,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "maint1": 40
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "org2/proj-2",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 300,
+   "repo_total_commits": null,
+   "user_commits": 40,
+   "user_merged_prs": 40,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 2,
+   "contributors_total": 60,
+   "top_contributor_commits": 60,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "maint2": 40
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "org3/proj-3",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 300,
+   "repo_total_commits": null,
+   "user_commits": 40,
+   "user_merged_prs": 40,
+   "pr_kinds": null,
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": 2,
+   "contributors_total": 60,
+   "top_contributor_commits": 60,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    },
+    {
+     "kind": "core",
+     "substance": 200,
+     "lines": 200
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "maint3": 40
+   },
+   "mutual_mergers": []
+  }
+ ],
+ "prs_rejected_by_maintainer": 0,
+ "prs_merged_total": 160,
+ "prs_merged_external": 160,
+ "prs_closed_unmerged_external": 0,
+ "notes": []
+}

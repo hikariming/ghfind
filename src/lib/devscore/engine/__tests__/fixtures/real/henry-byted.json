@@ -1,0 +1,1218 @@
+{
+ "login": "henry-byted",
+ "collected_at": "2026-09-25T16:17:14Z",
+ "account_created_at": "2025-05-01T01:09:13Z",
+ "repos": [
+  {
+   "name": "bytedance/deer-flow",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 82970,
+   "forks": 11485,
+   "repo_total_commits": 3546,
+   "primary_language": "Python",
+   "issues_total": 2104,
+   "prs_total": 3564,
+   "pr_batch_share": null,
+   "created_at": "2025-05-07T02:50:19Z",
+   "releases_total": 2,
+   "has_ci": true,
+   "has_tests": true,
+   "review_depth": 3.75,
+   "issue_authors": 23,
+   "dependents": 0,
+   "user_commits": 205,
+   "user_merged_prs": 1,
+   "user_additions": 1,
+   "user_deletions": 1,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 1,
+    "site": 0,
+    "chore": 0,
+    "merge": 0,
+    "data": 0
+   },
+   "first_contrib_at": "2025-04-01T00:00:00Z",
+   "last_contrib_at": "2026-03-31T23:59:59Z",
+   "active_months": 3,
+   "recent_months": 3,
+   "code_months_by_year": {
+    "2025": 2,
+    "2026": 1
+   },
+   "reviews_by_year": {
+    "2025": 2,
+    "2026": 1
+   },
+   "pr_substance": [
+    0
+   ],
+   "commit_sizes": [
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-05-08T04:32:44Z"
+    },
+    {
+     "lines": 13,
+     "merge": false,
+     "at": "2025-05-08T04:21:21Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-05-08T04:05:15Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-05-08T04:01:31Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-05-08T03:53:50Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-05-08T03:37:20Z"
+    },
+    {
+     "lines": 2,
+     "merge": true,
+     "at": "2025-05-08T03:21:17Z"
+    },
+    {
+     "lines": 107,
+     "merge": true,
+     "at": "2025-05-08T03:14:13Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-05-08T03:13:52Z"
+    },
+    {
+     "lines": 74,
+     "merge": false,
+     "at": "2025-05-08T02:14:33Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-08T02:05:33Z"
+    },
+    {
+     "lines": 15,
+     "merge": false,
+     "at": "2025-05-08T02:02:19Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-08T01:55:47Z"
+    },
+    {
+     "lines": 150,
+     "merge": false,
+     "at": "2025-05-08T01:53:09Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-05-08T01:36:22Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-05-08T01:03:12Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-05-08T00:59:31Z"
+    },
+    {
+     "lines": 17,
+     "merge": false,
+     "at": "2025-05-08T00:59:18Z"
+    },
+    {
+     "lines": 41,
+     "merge": false,
+     "at": "2025-05-08T00:53:47Z"
+    },
+    {
+     "lines": 272,
+     "merge": false,
+     "at": "2025-05-07T12:18:24Z"
+    },
+    {
+     "lines": 13,
+     "merge": false,
+     "at": "2025-05-07T09:29:37Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-05-07T09:23:25Z"
+    },
+    {
+     "lines": 0,
+     "merge": false,
+     "at": "2025-05-07T08:47:14Z"
+    },
+    {
+     "lines": 15,
+     "merge": false,
+     "at": "2025-05-07T08:45:57Z"
+    },
+    {
+     "lines": 23,
+     "merge": false,
+     "at": "2025-05-07T08:19:31Z"
+    },
+    {
+     "lines": 18,
+     "merge": true,
+     "at": "2025-05-07T07:24:11Z"
+    },
+    {
+     "lines": 57,
+     "merge": false,
+     "at": "2025-05-07T07:24:03Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-05-07T07:08:10Z"
+    },
+    {
+     "lines": 0,
+     "merge": false,
+     "at": "2025-05-06T09:30:05Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-06T09:28:51Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-06T09:19:58Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-05-05T02:42:20Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-02T13:31:56Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-02T13:24:12Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-02T13:23:55Z"
+    },
+    {
+     "lines": 10,
+     "merge": false,
+     "at": "2025-05-02T13:16:24Z"
+    },
+    {
+     "lines": 46,
+     "merge": false,
+     "at": "2025-05-02T13:09:31Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-05-02T13:06:56Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-02T13:06:41Z"
+    },
+    {
+     "lines": 23,
+     "merge": false,
+     "at": "2025-05-02T09:33:36Z"
+    },
+    {
+     "lines": 862,
+     "merge": false,
+     "at": "2025-05-02T09:24:41Z"
+    },
+    {
+     "lines": 30,
+     "merge": false,
+     "at": "2025-05-02T09:24:07Z"
+    },
+    {
+     "lines": 99,
+     "merge": false,
+     "at": "2025-05-02T09:23:45Z"
+    },
+    {
+     "lines": 88,
+     "merge": false,
+     "at": "2025-05-02T02:43:14Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-05-02T02:08:33Z"
+    },
+    {
+     "lines": 22,
+     "merge": true,
+     "at": "2025-05-02T02:05:47Z"
+    },
+    {
+     "lines": 630,
+     "merge": false,
+     "at": "2025-05-02T02:05:45Z"
+    },
+    {
+     "lines": 31493,
+     "merge": false,
+     "at": "2025-05-01T14:41:37Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-05-01T07:39:42Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-05-01T06:53:53Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-05-01T06:52:51Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-05-01T06:13:35Z"
+    },
+    {
+     "lines": 17,
+     "merge": false,
+     "at": "2025-05-01T06:13:27Z"
+    },
+    {
+     "lines": 30,
+     "merge": false,
+     "at": "2025-05-01T03:42:36Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-04-30T13:09:45Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-30T13:09:33Z"
+    },
+    {
+     "lines": 45,
+     "merge": false,
+     "at": "2025-04-30T13:09:14Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-30T13:08:35Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-30T11:53:33Z"
+    },
+    {
+     "lines": 127,
+     "merge": false,
+     "at": "2025-04-30T11:53:14Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-30T11:47:47Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-04-30T02:11:47Z"
+    },
+    {
+     "lines": 28,
+     "merge": false,
+     "at": "2025-04-30T02:10:45Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-30T02:04:48Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-30T01:45:37Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-30T01:42:13Z"
+    },
+    {
+     "lines": 9,
+     "merge": false,
+     "at": "2025-04-30T01:36:14Z"
+    },
+    {
+     "lines": 76,
+     "merge": false,
+     "at": "2025-04-30T01:32:12Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-04-30T01:31:57Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-29T08:03:18Z"
+    },
+    {
+     "lines": 112,
+     "merge": false,
+     "at": "2025-04-29T07:47:46Z"
+    },
+    {
+     "lines": 83,
+     "merge": false,
+     "at": "2025-04-29T07:47:39Z"
+    },
+    {
+     "lines": 33,
+     "merge": false,
+     "at": "2025-04-29T07:47:01Z"
+    },
+    {
+     "lines": 98,
+     "merge": false,
+     "at": "2025-04-29T06:45:35Z"
+    },
+    {
+     "lines": 296,
+     "merge": false,
+     "at": "2025-04-29T06:13:39Z"
+    },
+    {
+     "lines": 30,
+     "merge": true,
+     "at": "2025-04-29T06:12:43Z"
+    },
+    {
+     "lines": 152,
+     "merge": false,
+     "at": "2025-04-29T06:12:36Z"
+    },
+    {
+     "lines": 33,
+     "merge": false,
+     "at": "2025-04-29T02:45:27Z"
+    },
+    {
+     "lines": 59,
+     "merge": false,
+     "at": "2025-04-28T09:32:13Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-28T09:01:07Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-28T09:00:54Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-28T02:20:41Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-28T02:19:57Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-28T02:18:33Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-04-28T02:17:07Z"
+    },
+    {
+     "lines": 767,
+     "merge": false,
+     "at": "2025-04-28T02:07:36Z"
+    },
+    {
+     "lines": 185,
+     "merge": false,
+     "at": "2025-04-26T12:28:30Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T08:05:24Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-25T07:59:07Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T07:46:52Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-25T07:44:00Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-25T07:40:34Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-04-25T07:39:52Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-25T07:25:28Z"
+    },
+    {
+     "lines": 16,
+     "merge": false,
+     "at": "2025-04-25T07:14:04Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-04-25T06:58:26Z"
+    },
+    {
+     "lines": 370,
+     "merge": false,
+     "at": "2025-04-25T06:48:17Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-25T06:48:08Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-25T06:15:42Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-25T06:13:13Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-25T05:57:52Z"
+    },
+    {
+     "lines": 14,
+     "merge": false,
+     "at": "2025-04-25T05:44:20Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T05:36:21Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T05:22:00Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-04-25T05:20:41Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-04-25T04:02:07Z"
+    },
+    {
+     "lines": 245,
+     "merge": false,
+     "at": "2025-04-25T03:59:36Z"
+    },
+    {
+     "lines": 35,
+     "merge": false,
+     "at": "2025-04-25T02:53:46Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T02:53:27Z"
+    },
+    {
+     "lines": 726,
+     "merge": false,
+     "at": "2025-04-25T02:53:03Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-25T02:46:58Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-25T02:34:35Z"
+    },
+    {
+     "lines": 97,
+     "merge": false,
+     "at": "2025-04-25T02:34:08Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-24T14:32:22Z"
+    },
+    {
+     "lines": 96,
+     "merge": false,
+     "at": "2025-04-24T14:15:17Z"
+    },
+    {
+     "lines": 1075,
+     "merge": false,
+     "at": "2025-04-24T13:51:08Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-24T09:35:38Z"
+    },
+    {
+     "lines": 27,
+     "merge": false,
+     "at": "2025-04-24T09:27:37Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-24T09:26:16Z"
+    },
+    {
+     "lines": 30,
+     "merge": false,
+     "at": "2025-04-24T09:24:58Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-24T09:17:27Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-04-24T08:57:50Z"
+    },
+    {
+     "lines": 27,
+     "merge": false,
+     "at": "2025-04-24T08:37:35Z"
+    },
+    {
+     "lines": 7,
+     "merge": false,
+     "at": "2025-04-24T08:34:52Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-24T08:32:05Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-24T08:17:52Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-04-24T08:17:44Z"
+    },
+    {
+     "lines": 28,
+     "merge": false,
+     "at": "2025-04-24T08:15:23Z"
+    },
+    {
+     "lines": 17,
+     "merge": false,
+     "at": "2025-04-24T07:57:37Z"
+    },
+    {
+     "lines": 26,
+     "merge": false,
+     "at": "2025-04-24T07:50:50Z"
+    },
+    {
+     "lines": 63,
+     "merge": false,
+     "at": "2025-04-24T07:50:41Z"
+    },
+    {
+     "lines": 1740,
+     "merge": false,
+     "at": "2025-04-24T07:41:33Z"
+    },
+    {
+     "lines": 206,
+     "merge": false,
+     "at": "2025-04-24T07:40:49Z"
+    },
+    {
+     "lines": 228,
+     "merge": false,
+     "at": "2025-04-23T13:18:47Z"
+    },
+    {
+     "lines": 70,
+     "merge": false,
+     "at": "2025-04-23T13:18:33Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-23T13:17:16Z"
+    },
+    {
+     "lines": 204,
+     "merge": false,
+     "at": "2025-04-23T13:16:58Z"
+    },
+    {
+     "lines": 53,
+     "merge": false,
+     "at": "2025-04-23T05:48:42Z"
+    },
+    {
+     "lines": 19,
+     "merge": false,
+     "at": "2025-04-23T04:06:06Z"
+    },
+    {
+     "lines": 46,
+     "merge": false,
+     "at": "2025-04-23T01:58:30Z"
+    },
+    {
+     "lines": 22,
+     "merge": false,
+     "at": "2025-04-23T00:17:49Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-04-22T05:58:38Z"
+    },
+    {
+     "lines": 115,
+     "merge": false,
+     "at": "2025-04-22T05:53:24Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-22T05:53:14Z"
+    },
+    {
+     "lines": 591,
+     "merge": false,
+     "at": "2025-04-22T05:52:56Z"
+    },
+    {
+     "lines": 1261,
+     "merge": false,
+     "at": "2025-04-22T03:04:03Z"
+    },
+    {
+     "lines": 24,
+     "merge": false,
+     "at": "2025-04-22T03:03:53Z"
+    },
+    {
+     "lines": 39,
+     "merge": false,
+     "at": "2025-04-22T03:02:18Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-22T02:12:16Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-04-21T13:10:36Z"
+    },
+    {
+     "lines": 75,
+     "merge": false,
+     "at": "2025-04-21T13:10:08Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-21T11:55:03Z"
+    },
+    {
+     "lines": 99,
+     "merge": false,
+     "at": "2025-04-21T11:50:34Z"
+    },
+    {
+     "lines": 114,
+     "merge": false,
+     "at": "2025-04-21T06:45:52Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T14:30:00Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T14:29:47Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T14:19:44Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T14:18:08Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T14:11:54Z"
+    },
+    {
+     "lines": 9,
+     "merge": false,
+     "at": "2025-04-20T14:11:46Z"
+    },
+    {
+     "lines": 94,
+     "merge": false,
+     "at": "2025-04-20T13:56:08Z"
+    },
+    {
+     "lines": 6,
+     "merge": false,
+     "at": "2025-04-20T13:55:23Z"
+    },
+    {
+     "lines": 32,
+     "merge": false,
+     "at": "2025-04-20T13:33:03Z"
+    },
+    {
+     "lines": 87,
+     "merge": false,
+     "at": "2025-04-20T13:32:56Z"
+    },
+    {
+     "lines": 263,
+     "merge": false,
+     "at": "2025-04-20T13:07:46Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T03:48:24Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T03:23:58Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-20T03:21:17Z"
+    },
+    {
+     "lines": 1005,
+     "merge": false,
+     "at": "2025-04-20T03:18:05Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2025-04-20T00:27:40Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-19T14:34:51Z"
+    },
+    {
+     "lines": 31,
+     "merge": false,
+     "at": "2025-04-19T14:18:19Z"
+    },
+    {
+     "lines": 205,
+     "merge": false,
+     "at": "2025-04-19T14:11:57Z"
+    },
+    {
+     "lines": 20,
+     "merge": false,
+     "at": "2025-04-19T14:11:41Z"
+    },
+    {
+     "lines": 9,
+     "merge": false,
+     "at": "2025-04-19T14:04:53Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-19T14:02:14Z"
+    },
+    {
+     "lines": 18,
+     "merge": false,
+     "at": "2025-04-19T09:52:23Z"
+    },
+    {
+     "lines": 261,
+     "merge": false,
+     "at": "2025-04-19T09:37:40Z"
+    },
+    {
+     "lines": 72,
+     "merge": false,
+     "at": "2025-04-19T06:34:46Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-19T05:58:31Z"
+    },
+    {
+     "lines": 26,
+     "merge": false,
+     "at": "2025-04-19T05:13:40Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-19T04:28:08Z"
+    },
+    {
+     "lines": 27,
+     "merge": false,
+     "at": "2025-04-19T03:30:49Z"
+    },
+    {
+     "lines": 109,
+     "merge": false,
+     "at": "2025-04-19T03:03:39Z"
+    },
+    {
+     "lines": 12,
+     "merge": false,
+     "at": "2025-04-19T03:03:33Z"
+    },
+    {
+     "lines": 2026,
+     "merge": false,
+     "at": "2025-04-19T03:03:15Z"
+    },
+    {
+     "lines": 5,
+     "merge": false,
+     "at": "2025-04-19T02:50:11Z"
+    },
+    {
+     "lines": 7,
+     "merge": false,
+     "at": "2025-04-19T02:01:03Z"
+    },
+    {
+     "lines": 400,
+     "merge": false,
+     "at": "2025-04-19T01:57:02Z"
+    },
+    {
+     "lines": 51,
+     "merge": false,
+     "at": "2025-04-18T14:06:51Z"
+    },
+    {
+     "lines": 307,
+     "merge": true,
+     "at": "2025-04-18T07:35:36Z"
+    },
+    {
+     "lines": 8,
+     "merge": false,
+     "at": "2025-04-17T10:01:40Z"
+    },
+    {
+     "lines": 4,
+     "merge": false,
+     "at": "2025-04-17T10:01:31Z"
+    },
+    {
+     "lines": 16,
+     "merge": false,
+     "at": "2025-04-17T09:46:28Z"
+    },
+    {
+     "lines": 16,
+     "merge": false,
+     "at": "2025-04-17T08:57:33Z"
+    },
+    {
+     "lines": 3,
+     "merge": false,
+     "at": "2025-04-17T08:43:13Z"
+    },
+    {
+     "lines": 77,
+     "merge": false,
+     "at": "2025-04-17T08:39:27Z"
+    },
+    {
+     "lines": 48,
+     "merge": false,
+     "at": "2025-04-17T08:38:35Z"
+    },
+    {
+     "lines": 10290,
+     "merge": false,
+     "at": "2025-04-17T04:02:23Z"
+    },
+    {
+     "lines": 2,
+     "merge": false,
+     "at": "2025-04-17T00:58:52Z"
+    },
+    {
+     "lines": 21,
+     "merge": false,
+     "at": "2025-04-16T12:18:21Z"
+    },
+    {
+     "lines": 59,
+     "merge": true,
+     "at": "2025-04-16T02:57:00Z"
+    },
+    {
+     "lines": 176,
+     "merge": false,
+     "at": "2025-04-13T13:14:31Z"
+    }
+   ],
+   "commit_merge_share": 0.034482758620689655,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 176,
+     "lines": 176
+    },
+    {
+     "kind": "core",
+     "substance": 27,
+     "lines": 27
+    },
+    {
+     "kind": "core",
+     "substance": 2,
+     "lines": 2
+    },
+    {
+     "kind": "core",
+     "substance": 39,
+     "lines": 39
+    },
+    {
+     "kind": "core",
+     "substance": 26,
+     "lines": 26
+    },
+    {
+     "kind": "core",
+     "substance": 2,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 16
+    },
+    {
+     "kind": "chore",
+     "substance": 0,
+     "lines": 152
+    },
+    {
+     "kind": "core",
+     "substance": 1,
+     "lines": 1
+    },
+    {
+     "kind": "core",
+     "substance": 2,
+     "lines": 2
+    },
+    {
+     "kind": "core",
+     "substance": 13,
+     "lines": 13
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 6
+    }
+   ],
+   "user_rank": 4,
+   "contributors_total": 466,
+   "top_contributor_commits": 610,
+   "owner_is_org": true,
+   "pr_mergers": {
+    "[self]": 1
+   },
+   "mutual_mergers": null,
+   "merger_standing": null,
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 205,
+   "pr_kinds_sample": 1,
+   "pr_detail_sample": 1,
+   "additions_estimated": false,
+   "description": "An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.",
+   "merged_others": 2,
+   "maint_role": "COLLABORATOR",
+   "maint_months_by_year": {
+    "2025": 1,
+    "2026": 0
+   },
+   "maint_events_by_year": {
+    "2025": 6,
+    "2026": 1
+   },
+   "dependent_repos": 0,
+   "last_push_at": "2026-09-27T07:18:55Z",
+   "star_history": null
+  }
+ ],
+ "prs_rejected_by_maintainer": 1,
+ "prs_merged_total": 1,
+ "prs_merged_external": 1,
+ "prs_closed_unmerged_external": 1,
+ "notes": [
+  "prs_rejected_by_maintainer = closed-unmerged PRs to repos not owned by the user whose last ClosedEvent actor is not the author (ghost/unknown actor counts as maintainer)",
+  "user_commits: max of the monthly contributionsCollection commit counts over ALL contribution years, the GraphQL default-branch history totalCount (author = user id) and REST /contributors page 1 (top 25 repos only; anonymous entries named like the login/profile name are added to the login's count); excludes commits GitHub could not link to the account",
+  "user_additions/deletions: summed from up to 60 detailed merged PRs per user, scaled to user_merged_prs when sampled (additions_estimated=true)",
+  "first/last_contrib_at are month granularity (contribution graph months, PR creation months, GraphQL history commit dates of up to 300 commits)",
+  "adoption: forks, contributors_total, issue_authors (last 50 issues) and dependents (ecosyste.ms dependent_packages_count) for the top 25 repos; package downloads, release downloads, Docker pulls and Homebrew installs are not collected",
+  "user_rank / contributors_total: REST /contributors?anon=1 page 1 (users + anonymous emails) for the top 25 repos by priority; rank = position of the first matched entry in the first 100 (null beyond), total from the Link rel=last page; null when not fetched or the endpoint fails (e.g. 403 on huge repos)",
+  "v12 backfill: followers/restricted_by_year/ext_prs added to older data",
+  "v11 backfill: maintainer fields added to older data (existing repos only)",
+  "v14 backfill: data file class re-derived (commit_sample kind/substance, pr_kinds, repo kind) from the cache; 0 sampled commits and 0 repos' pr_kinds could not be re-derived and keep their v13 values",
+  "star_history (v15): weekly star gains from GET /repos/{r}/stargazers/history (API 2026-03-10) for 0 owned/led non-fork repos (top 10 by stars ≥ 50 plus all ≥ 1000, ≤ 25); [date of the Sunday week start, gain], zero weeks omitted; for rule F only, never scored",
+  "v15 backfill: maint_* re-derived (GH Archive 'merged' events, gap months filled from the GitHub API; existing repos only), dependents/dependent_repos (repository_url + same-owner name lookup) for the repos with adoption signals, last_push_at, star_history; ClickHouse FAILED: maint_* left unknown"
+ ],
+ "followers": 125,
+ "restricted_by_year": {
+  "2025": 0,
+  "2026": 0
+ },
+ "ext_prs": [
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "docs: change to `base_url`",
+   "state": "CLOSED",
+   "created_at": "2025-05-08T08:49:52Z",
+   "closed_at": "2025-05-08T12:35:48Z",
+   "merged_at": null,
+   "additions": 5,
+   "deletions": 5,
+   "changed_files": 1,
+   "association": "COLLABORATOR",
+   "merged_by": null,
+   "closed_by": "MagicCube",
+   "reviewers": []
+  },
+  {
+   "repo": "bytedance/deer-flow",
+   "title": "Update new demo video",
+   "state": "MERGED",
+   "created_at": "2025-05-08T03:21:10Z",
+   "closed_at": "2025-05-08T03:21:18Z",
+   "merged_at": "2025-05-08T03:21:18Z",
+   "additions": 1,
+   "deletions": 1,
+   "changed_files": 1,
+   "association": "COLLABORATOR",
+   "merged_by": "henry-byted",
+   "closed_by": null,
+   "reviewers": []
+  }
+ ]
+}

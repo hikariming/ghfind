@@ -1,0 +1,241 @@
+{
+ "login": "pmolinal",
+ "collected_at": "2026-09-25T16:35:30Z",
+ "account_created_at": "2012-06-05T02:05:49Z",
+ "repos": [
+  {
+   "name": "alvinunreal/oh-my-opencode-slim",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 9062,
+   "forks": 542,
+   "repo_total_commits": 2371,
+   "primary_language": "TypeScript",
+   "issues_total": 511,
+   "prs_total": 735,
+   "pr_batch_share": null,
+   "created_at": "2026-01-15T18:45:08Z",
+   "releases_total": 71,
+   "has_ci": true,
+   "has_tests": false,
+   "review_depth": 1.15,
+   "issue_authors": 37,
+   "dependents": 0,
+   "user_commits": 2,
+   "user_merged_prs": 1,
+   "user_additions": 46,
+   "user_deletions": 46,
+   "pr_kinds": {
+    "core": 1,
+    "test": 0,
+    "docs": 0,
+    "site": 0,
+    "chore": 0,
+    "merge": 0,
+    "data": 0
+   },
+   "first_contrib_at": "2026-07-01T00:00:00Z",
+   "last_contrib_at": "2026-07-31T23:59:59Z",
+   "active_months": 1,
+   "recent_months": 1,
+   "code_months_by_year": {
+    "2026": 1
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    8
+   ],
+   "commit_sizes": [
+    {
+     "lines": 14,
+     "merge": false,
+     "at": "2026-07-23T18:19:48Z"
+    },
+    {
+     "lines": 78,
+     "merge": false,
+     "at": "2026-07-23T17:00:26Z"
+    }
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 8,
+     "lines": 78
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 14
+    }
+   ],
+   "user_rank": 77,
+   "contributors_total": 132,
+   "top_contributor_commits": 1113,
+   "owner_is_org": false,
+   "pr_mergers": {
+    "mhenke": 1
+   },
+   "mutual_mergers": [],
+   "merger_standing": {
+    "mhenke": 0.3279
+   },
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 2,
+   "pr_kinds_sample": 1,
+   "pr_detail_sample": 1,
+   "additions_estimated": false,
+   "description": "Lean, fine tuned Opencode multi agent suite · Mix any models · Auto delegate tasks",
+   "merged_others": 0,
+   "maint_role": null,
+   "maint_months_by_year": null,
+   "maint_events_by_year": null,
+   "dependent_repos": 0,
+   "last_push_at": "2026-09-27T09:14:22Z",
+   "star_history": null
+  },
+  {
+   "name": "pmolinal/electron-productos-test",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 0,
+   "repo_total_commits": 2,
+   "primary_language": "HTML",
+   "issues_total": 0,
+   "prs_total": 12,
+   "pr_batch_share": null,
+   "created_at": "2020-07-30T04:21:19Z",
+   "releases_total": 0,
+   "has_ci": false,
+   "has_tests": false,
+   "review_depth": null,
+   "issue_authors": 0,
+   "dependents": null,
+   "user_commits": 2,
+   "user_merged_prs": 0,
+   "user_additions": 0,
+   "user_deletions": 0,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 0,
+    "site": 0,
+    "chore": 0,
+    "merge": 0,
+    "data": 0
+   },
+   "first_contrib_at": "2020-07-01T00:00:00Z",
+   "last_contrib_at": "2020-07-31T23:59:59Z",
+   "active_months": 1,
+   "recent_months": 0,
+   "code_months_by_year": {
+    "2020": 1
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_sizes": [
+    {
+     "lines": 995,
+     "merge": false,
+     "at": "2020-07-30T04:30:33Z"
+    },
+    {
+     "lines": 1,
+     "merge": false,
+     "at": "2020-07-30T04:29:38Z"
+    }
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 1
+    },
+    {
+     "kind": "core",
+     "substance": 111,
+     "lines": 995
+    }
+   ],
+   "user_rank": 1,
+   "contributors_total": 1,
+   "top_contributor_commits": 2,
+   "owner_is_org": false,
+   "pr_mergers": null,
+   "mutual_mergers": null,
+   "merger_standing": null,
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 2,
+   "pr_kinds_sample": 0,
+   "pr_detail_sample": 0,
+   "additions_estimated": false,
+   "description": null,
+   "merged_others": 0,
+   "maint_role": null,
+   "maint_months_by_year": null,
+   "maint_events_by_year": null,
+   "dependent_repos": null,
+   "last_push_at": "2022-11-10T18:21:39Z",
+   "star_history": null
+  }
+ ],
+ "prs_rejected_by_maintainer": 0,
+ "prs_merged_total": 1,
+ "prs_merged_external": 1,
+ "prs_closed_unmerged_external": 0,
+ "notes": [
+  "prs_rejected_by_maintainer = closed-unmerged PRs to repos not owned by the user whose last ClosedEvent actor is not the author (ghost/unknown actor counts as maintainer)",
+  "user_commits: max of the monthly contributionsCollection commit counts over ALL contribution years, the GraphQL default-branch history totalCount (author = user id) and REST /contributors page 1 (top 25 repos only; anonymous entries named like the login/profile name are added to the login's count); excludes commits GitHub could not link to the account",
+  "user_additions/deletions: summed from up to 60 detailed merged PRs per user, scaled to user_merged_prs when sampled (additions_estimated=true)",
+  "first/last_contrib_at are month granularity (contribution graph months, PR creation months, GraphQL history commit dates of up to 300 commits)",
+  "adoption: forks, contributors_total, issue_authors (last 50 issues) and dependents (ecosyste.ms dependent_packages_count) for the top 25 repos; package downloads, release downloads, Docker pulls and Homebrew installs are not collected",
+  "user_rank / contributors_total: REST /contributors?anon=1 page 1 (users + anonymous emails) for the top 25 repos by priority; rank = position of the first matched entry in the first 100 (null beyond), total from the Link rel=last page; null when not fetched or the endpoint fails (e.g. 403 on huge repos)",
+  "v12 backfill: followers/restricted_by_year/ext_prs added to older data",
+  "v11 backfill: maintainer fields added to older data (existing repos only)",
+  "v14 backfill: data file class re-derived (commit_sample kind/substance, pr_kinds, repo kind) from the cache; 0 sampled commits and 0 repos' pr_kinds could not be re-derived and keep their v13 values",
+  "star_history (v15): weekly star gains from GET /repos/{r}/stargazers/history (API 2026-03-10) for 0 owned/led non-fork repos (top 10 by stars ≥ 50 plus all ≥ 1000, ≤ 25); [date of the Sunday week start, gain], zero weeks omitted; for rule F only, never scored",
+  "v15 backfill: maint_* re-derived (GH Archive 'merged' events, gap months filled from the GitHub API; existing repos only), dependents/dependent_repos (repository_url + same-owner name lookup) for the repos with adoption signals, last_push_at, star_history; ClickHouse FAILED: maint_* left unknown"
+ ],
+ "followers": 4,
+ "restricted_by_year": {
+  "2012": 0,
+  "2013": 0,
+  "2014": 0,
+  "2015": 0,
+  "2016": 0,
+  "2017": 0,
+  "2018": 0,
+  "2019": 0,
+  "2020": 0,
+  "2021": 0,
+  "2022": 0,
+  "2023": 0,
+  "2024": 0,
+  "2025": 0,
+  "2026": 0
+ },
+ "ext_prs": [
+  {
+   "repo": "alvinunreal/oh-my-opencode-slim",
+   "title": "fix(providers): align opencode-go preset variants",
+   "state": "MERGED",
+   "created_at": "2026-07-23T17:14:51Z",
+   "closed_at": "2026-07-24T17:50:06Z",
+   "merged_at": "2026-07-24T17:50:06Z",
+   "additions": 46,
+   "deletions": 46,
+   "changed_files": 8,
+   "association": "CONTRIBUTOR",
+   "merged_by": "mhenke",
+   "closed_by": null,
+   "reviewers": []
+  }
+ ]
+}

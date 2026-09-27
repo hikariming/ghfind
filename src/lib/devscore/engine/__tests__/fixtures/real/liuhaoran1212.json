@@ -1,0 +1,218 @@
+{
+ "login": "liuhaoran1212",
+ "collected_at": "2026-09-25T16:34:33Z",
+ "account_created_at": "2020-11-30T05:33:48Z",
+ "repos": [
+  {
+   "name": "langgenius/dify",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 157201,
+   "forks": 24781,
+   "repo_total_commits": 13648,
+   "primary_language": "TypeScript",
+   "issues_total": 19149,
+   "prs_total": 18633,
+   "pr_batch_share": null,
+   "created_at": "2023-04-12T07:40:24Z",
+   "releases_total": 170,
+   "has_ci": true,
+   "has_tests": true,
+   "review_depth": 1.55,
+   "issue_authors": 23,
+   "dependents": 0,
+   "user_commits": 4,
+   "user_merged_prs": 4,
+   "user_additions": 444,
+   "user_deletions": 304,
+   "pr_kinds": {
+    "core": 4,
+    "test": 0,
+    "docs": 0,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-10-01T00:00:00Z",
+   "last_contrib_at": "2024-12-31T23:59:59Z",
+   "active_months": 3,
+   "recent_months": 3,
+   "code_months_by_year": {
+    "2024": 3
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    38,
+    35,
+    12,
+    6
+   ],
+   "commit_sizes": [
+    {
+     "lines": 84,
+     "merge": false,
+     "at": "2024-12-22T02:45:55Z"
+    },
+    {
+     "lines": 62,
+     "merge": false,
+     "at": "2024-11-20T05:44:35Z"
+    },
+    {
+     "lines": 38,
+     "merge": false,
+     "at": "2024-11-11T13:43:37Z"
+    },
+    {
+     "lines": 564,
+     "merge": false,
+     "at": "2024-11-08T09:12:09Z"
+    }
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 6,
+     "lines": 564
+    },
+    {
+     "kind": "core",
+     "substance": 38,
+     "lines": 38
+    },
+    {
+     "kind": "core",
+     "substance": 35,
+     "lines": 62
+    },
+    {
+     "kind": "core",
+     "substance": 12,
+     "lines": 84
+    }
+   ],
+   "user_rank": null,
+   "contributors_total": 1504,
+   "top_contributor_commits": 1026,
+   "owner_is_org": true,
+   "pr_mergers": {
+    "crazywoola": 2,
+    "laipz8200": 2
+   },
+   "mutual_mergers": [],
+   "merger_standing": {
+    "crazywoola": 0.3577,
+    "laipz8200": 0.7027
+   },
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 4,
+   "pr_kinds_sample": 4,
+   "pr_detail_sample": 4,
+   "additions_estimated": false,
+   "description": "Build Agentic workflows, RAG pipelines, with rich AI model and tool support on one collaborative workspace. Deploy on cloud, VPC, or self-hosted, so teams move from prototype to production without rebuilding the stack.",
+   "merged_others": 0,
+   "maint_role": null,
+   "maint_months_by_year": null,
+   "maint_events_by_year": null,
+   "dependent_repos": 8,
+   "last_push_at": "2026-09-26T18:41:17Z",
+   "star_history": null
+  },
+  {
+   "name": "liuhaoran1212/AI-for-Science",
+   "owned": true,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 0,
+   "forks": 0,
+   "repo_total_commits": 1,
+   "primary_language": "Python",
+   "issues_total": 0,
+   "prs_total": 0,
+   "pr_batch_share": null,
+   "created_at": "2025-03-13T09:10:13Z",
+   "releases_total": 0,
+   "has_ci": false,
+   "has_tests": false,
+   "review_depth": null,
+   "issue_authors": 0,
+   "dependents": null,
+   "user_commits": 2,
+   "user_merged_prs": 0,
+   "user_additions": 0,
+   "user_deletions": 0,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 0,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2025-03-01T00:00:00Z",
+   "last_contrib_at": "2025-03-31T23:59:59Z",
+   "active_months": 1,
+   "recent_months": 1,
+   "code_months_by_year": {
+    "2025": 1
+   },
+   "reviews_by_year": {},
+   "pr_substance": null,
+   "commit_sizes": [
+    {
+     "lines": 779,
+     "merge": false,
+     "at": "2025-03-13T09:17:07Z"
+    }
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "core",
+     "substance": 702,
+     "lines": 779
+    }
+   ],
+   "user_rank": 1,
+   "contributors_total": 1,
+   "top_contributor_commits": 1,
+   "owner_is_org": false,
+   "pr_mergers": null,
+   "mutual_mergers": null,
+   "merger_standing": null,
+   "user_commits_source": "contrib_graph",
+   "user_commits_contrib_graph": 2,
+   "pr_kinds_sample": 0,
+   "pr_detail_sample": 0,
+   "additions_estimated": false,
+   "description": "通过django调用大模型，流式输出到chatbot-ui进行结果展示",
+   "merged_others": 0,
+   "maint_role": null,
+   "maint_months_by_year": null,
+   "maint_events_by_year": null,
+   "dependent_repos": null,
+   "last_push_at": "2025-03-14T01:58:24Z",
+   "star_history": null
+  }
+ ],
+ "prs_rejected_by_maintainer": 1,
+ "prs_merged_total": 4,
+ "prs_merged_external": 4,
+ "prs_closed_unmerged_external": 1,
+ "notes": [
+  "prs_rejected_by_maintainer = closed-unmerged PRs to repos not owned by the user whose last ClosedEvent actor is not the author (ghost/unknown actor counts as maintainer)",
+  "user_commits: max of the monthly contributionsCollection commit counts over ALL contribution years, the GraphQL default-branch history totalCount (author = user id) and REST /contributors page 1 (top 25 repos only; anonymous entries named like the login/profile name are added to the login's count); excludes commits GitHub could not link to the account",
+  "user_additions/deletions: summed from up to 60 detailed merged PRs per user, scaled to user_merged_prs when sampled (additions_estimated=true)",
+  "first/last_contrib_at are month granularity (contribution graph months, PR creation months, GraphQL history commit dates of up to 300 commits)",
+  "adoption: forks, contributors_total, issue_authors (last 50 issues) and dependents (ecosyste.ms dependent_packages_count) for the top 25 repos; package downloads, release downloads, Docker pulls and Homebrew installs are not collected",
+  "user_rank / contributors_total: REST /contributors?anon=1 page 1 (users + anonymous emails) for the top 25 repos by priority; rank = position of the first matched entry in the first 100 (null beyond), total from the Link rel=last page; null when not fetched or the endpoint fails (e.g. 403 on huge repos)",
+  "v11 backfill: maintainer fields added to older data (existing repos only)",
+  "v15 gap fill: GH Archive gap months (daily rate < 50% of the trailing median, last 24 months): reviews 2026-05/2026-06/2026-07/2026-08, comments 2026-05/2026-06/2026-07/2026-08, merged 2025-10/2025-11/2026-05/2026-06/2026-07/2026-08, closes 2026-05/2026-06/2026-07/2026-08; 0 verified-role repos (≤ 15) checked against the GitHub API, 0 raised in months none (reviews: contributionsCollection; comments: user.issueComments, inline review comments not covered; merges of others' PRs and issue closes: search repo:R closed:<month> (≤ 100 items; larger months: + involves:<login>, a lower bound)); per family max(GH Archive, API)",
+  "star_history (v15): weekly star gains from GET /repos/{r}/stargazers/history (API 2026-03-10) for 0 owned/led non-fork repos (top 10 by stars ≥ 50 plus all ≥ 1000, ≤ 25); [date of the Sunday week start, gain], zero weeks omitted; for rule F only, never scored",
+  "v15 backfill: maint_* re-derived (GH Archive 'merged' events, gap months filled from the GitHub API; existing repos only), dependents/dependent_repos (repository_url + same-owner name lookup) for the repos with adoption signals, last_push_at, star_history"
+ ]
+}

@@ -1,0 +1,1192 @@
+{
+ "login": "adv-prspam",
+ "collected_at": "2026-09-25T00:00:00Z",
+ "account_created_at": "2020-01-01T00:00:00Z",
+ "repos": [
+  {
+   "name": "big0/famous-0",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big1/famous-1",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big2/famous-2",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big3/famous-3",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big4/famous-4",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big5/famous-5",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big6/famous-6",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big7/famous-7",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big8/famous-8",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big9/famous-9",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big10/famous-10",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big11/famous-11",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big12/famous-12",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big13/famous-13",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big14/famous-14",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big15/famous-15",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big16/famous-16",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big17/famous-17",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big18/famous-18",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  },
+  {
+   "name": "big19/famous-19",
+   "owned": false,
+   "is_fork": false,
+   "archived": false,
+   "kind": "code",
+   "stars": 50000,
+   "forks": 9000,
+   "repo_total_commits": null,
+   "user_commits": 3,
+   "user_merged_prs": 3,
+   "pr_kinds": {
+    "core": 0,
+    "test": 0,
+    "docs": 3,
+    "site": 0,
+    "chore": 0,
+    "merge": 0
+   },
+   "first_contrib_at": "2024-01-01T00:00:00Z",
+   "last_contrib_at": "2026-08-31T23:59:59Z",
+   "active_months": 12,
+   "user_rank": null,
+   "contributors_total": 800,
+   "top_contributor_commits": null,
+   "code_months_by_year": {
+    "2024": 6,
+    "2025": 6
+   },
+   "reviews_by_year": {},
+   "pr_substance": [
+    0,
+    0,
+    0
+   ],
+   "commit_merge_share": 0.0,
+   "commit_sample": [
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    },
+    {
+     "kind": "docs",
+     "substance": 0,
+     "lines": 2
+    }
+   ],
+   "commit_sizes": null,
+   "pr_mergers": {
+    "[bot]": 3
+   },
+   "mutual_mergers": []
+  }
+ ],
+ "prs_rejected_by_maintainer": 40,
+ "prs_merged_total": 60,
+ "prs_merged_external": 60,
+ "prs_closed_unmerged_external": 0,
+ "notes": []
+}

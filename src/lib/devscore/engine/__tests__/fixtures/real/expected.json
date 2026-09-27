@@ -1,0 +1,86 @@
+{
+  "pmolinal.json": {
+    "v3": {
+      "score": 13.546588418348257,
+      "tier": "lawanle",
+      "remapped": 13.546588418348257,
+      "flags": {
+        "slop": false,
+        "influencer": false,
+        "no_pr_data": false,
+        "hype": false
+      }
+    },
+    "curve": {
+      "score": 3.1556238145579396,
+      "main": 3.1556238145579396,
+      "e": 0.017192979463920594,
+      "confidence": "low",
+      "status": "inactive"
+    },
+    "engine_score": 2.184742373462015
+  },
+  "liuhaoran1212.json": {
+    "v3": {
+      "score": 29.897984888422712,
+      "tier": "lawanle",
+      "remapped": 29.897984888422712,
+      "flags": {
+        "slop": false,
+        "influencer": false,
+        "no_pr_data": true,
+        "hype": false
+      }
+    },
+    "curve": {
+      "score": 23.41757730907399,
+      "main": 23.41757730907399,
+      "e": 0.14881397691850815,
+      "confidence": "med",
+      "status": "inactive"
+    },
+    "engine_score": 18.092302191993273
+  },
+  "knuknY.json": {
+    "v3": {
+      "score": 39.701889930225036,
+      "tier": "lawanle",
+      "remapped": 39.701889930225036,
+      "flags": {
+        "slop": false,
+        "influencer": false,
+        "no_pr_data": false,
+        "hype": false
+      }
+    },
+    "curve": {
+      "score": 35.56615852568158,
+      "main": 35.56615852568158,
+      "e": 0.2524591561226427,
+      "confidence": "med",
+      "status": "active"
+    },
+    "engine_score": 26.002938884314958
+  },
+  "henry-byted.json": {
+    "v3": {
+      "score": 46.00274455513762,
+      "tier": "npc",
+      "remapped": 46.00274455513762,
+      "flags": {
+        "slop": false,
+        "influencer": false,
+        "no_pr_data": false,
+        "hype": false
+      }
+    },
+    "curve": {
+      "score": 43.37390899025727,
+      "main": 43.37390899025727,
+      "e": 0.3339613408443559,
+      "confidence": "low",
+      "status": "active"
+    },
+    "engine_score": 28.702630371926748
+  }
+}
