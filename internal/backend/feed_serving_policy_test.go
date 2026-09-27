@@ -92,7 +92,7 @@ func TestPortableServedWindowStableAfterImpressions(t *testing.T) {
 	for start := range all {
 		counts := map[string]int{}
 		explore := 0
-		for _, item := range all[start:minInt(len(all), start+20)] {
+		for _, item := range all[start:min(len(all), start+20)] {
 			counts[item.Project.OwnerLogin]++
 			if counts[item.Project.OwnerLogin] > 2 {
 				t.Fatalf("owner window%d %+v", start, counts)

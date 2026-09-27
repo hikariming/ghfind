@@ -81,7 +81,7 @@ OpenClaw 每五个头部贡献者就有一个进入全站只有二十七分之�
 
 ## 方法与局限
 
-分数来自 ghfind 的确定性规则——六个维度、只用公开 GitHub 数据、不调用模型,以 AGPL 开源。完整规则与阈值见[方法论](/methodology);每张表背后的聚合数据见 [data.json](/blog/who-builds-openclaw/data.json)。
+分数来自研究当时（2026 年 7 月）ghfind 的确定性规则——六个维度、只用公开 GitHub 数据、不调用模型,以 AGPL 开源。当前的分数由 devscore 给出：按项目含金量和作者份额给真实工作称重，star 和粉丝一律不计分，见[方法论](/methodology);每张表背后的聚合数据见 [data.json](/blog/who-builds-openclaw/data.json)。
 
 - **前 100(按 commit 数)是头部,不是整个社区。** OpenClaw 有 368 名代码贡献者,外加约 2,800 个匿名邮箱身份;刷量若存在,会集中在本研究不覆盖的长尾。
 - **原始 commit 数依赖工作流。** OpenClaw 的直接提交、agent 驱动风格,单位工作量产生的 commit 比 Dify 这类 squash-merge 项目多;集中度比例在仓库内部可比,跨仓库的 commit 总量不可比。

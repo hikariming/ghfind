@@ -2,7 +2,7 @@
 // with real scoring data — WITHOUT any LLM or roast-API calls:
 //   1. Reuses people checkpoints, then fresh prod-D1 scores+snapshots
 //      (exported by scripts/talent-enrich-dsh-export.mts), else live-scans
-//      (collect + score, deterministic, ~8s pacing, checkpointed).
+//      (display collection + devscore scan, ~8s pacing, checkpointed).
 //   2. Emits talent_profiles UPDATE SQL: role/direction/skills/stars/
 //      contributions/representative projects (with descriptions)/sources
 //      (GitHub 主页 + GHFind 评分报告 + blog)/public email/deterministic note.
@@ -20,9 +20,11 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { collect, GitHubRateLimitError } from "../src/lib/github";
-import { score, spamBotScore, tierFor } from "../src/lib/score";
-import type { RawMetrics, Scoring, Tier } from "../src/lib/types";
+import { devscoreBotScore } from "../src/lib/devscore-scoring";
+import { GitHubRateLimitError } from "../src/lib/github";
+import { tierFor } from "../src/lib/score-presentation";
+import type { DevscoreSummary, RawMetrics, Scoring, Tier } from "../src/lib/types";
+import { devscoreScan } from "./devscore-scan.mts";
 
 const args = new Set(process.argv.slice(2));
 const argValue = (name: string): string | undefined =>
@@ -66,12 +68,16 @@ interface PersonCheckpoint {
   profile: ProfileInfo;
   metrics: RawMetrics;
   scoring: Scoring;
+  /** devscore summary of a live scan; talent-backfill-scores.mts needs it to publish. */
+  devscore?: DevscoreSummary;
+  /** Stored hidden bot score (0..10); absent on older checkpoints. */
+  bot_score?: number;
   top_repo_languages?: string[];
   top_projects?: TopProject[];
 }
 interface DbScoreRow {
   username: string; final_score: number; tier: string;
-  sub_scores: string | null; scanned_at: number;
+  sub_scores: string | null; bot_score?: number | null; scanned_at: number;
 }
 
 const logins = [...new Set(
@@ -115,10 +121,10 @@ const isTransientScanError = (e: unknown): boolean =>
   e instanceof GitHubRateLimitError ||
   TRANSIENT.test(e instanceof Error ? e.message : String(e));
 
-async function collectWithRetry(login: string) {
+async function scanWithRetry(login: string) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await collect(login);
+      return await devscoreScan(login);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (attempt < BACKOFFS.length && isTransientScanError(e)) {
@@ -197,17 +203,18 @@ for (const login of logins) {
   }
   const dbRow = dbScores.get(key);
   const metrics = dbMetrics.get(key);
-  if (dbRow && metrics) {
+  let subScores: Scoring["sub_scores"] | null = null;
+  try {
+    if (dbRow?.sub_scores) subScores = JSON.parse(dbRow.sub_scores) as Scoring["sub_scores"];
+  } catch {}
+  if (dbRow && metrics && subScores) {
     const { tier, tier_label } = tierFor(Number(dbRow.final_score));
-    let subScores = score(metrics).sub_scores;
-    try {
-      if (dbRow.sub_scores) subScores = JSON.parse(dbRow.sub_scores) as Scoring["sub_scores"];
-    } catch {}
     const ckpt: PersonCheckpoint = {
       login,
       fetched_at: Number(dbRow.scanned_at),
       profile: { name: null, bio: null, location: null, blog: null, twitter: null, email: null },
       metrics,
+      bot_score: dbRow.bot_score ?? undefined,
       scoring: {
         sub_scores: subScores, base_score: Number(dbRow.final_score), red_flags: [],
         total_penalty: 0, final_score: Number(dbRow.final_score),
@@ -229,8 +236,8 @@ for (let i = 0; i < needScan.length; i++) {
   if (i > 0) await sleep(8000);
   console.log(`[scan ${i + 1}/${needScan.length}] ${login}`);
   try {
-    const collected = await collectWithRetry(login);
-    const scoring = score(collected.metrics);
+    const collected = await scanWithRetry(login);
+    const { scoring } = collected;
     const profile = await fetchProfile(login);
     const topProjects: TopProject[] = (collected.top_repos ?? [])
       .filter((r) => (r.owner_login ?? "").toLowerCase() === key || r.attributed_original)
@@ -246,6 +253,8 @@ for (let i = 0; i < needScan.length; i++) {
       profile,
       metrics: collected.metrics,
       scoring,
+      devscore: collected.devscore,
+      bot_score: devscoreBotScore(collected.devscore!),
       top_repo_languages: (collected.top_repos ?? []).map((r) => r.language).filter((l): l is string => !!l),
       top_projects: topProjects,
     };
@@ -331,7 +340,7 @@ for (const login of logins) {
   if (!person) { skipped.push(login); continue; }
   const m = person.metrics;
   const scoring = person.scoring;
-  const bot = spamBotScore(m);
+  const bot = person.bot_score ?? 0;
   const projects = person.top_projects ?? [];
   const skills = [...new Set([
     ...(person.top_repo_languages ?? []),
@@ -350,7 +359,7 @@ for (const login of logins) {
     `原创项目 ${m.nonempty_original_repo_count ?? m.original_repo_count} 个，累计 stars ${m.total_stars}，` +
     `merged PR ${m.merged_pr_count} 个，近一年贡献 ${m.last_year_contributions} 次，followers ${m.followers}。` +
     `优势维度：${topDims.join("、")}。` +
-    (bot >= 3 ? `（spamBotScore=${bot}，待人工复核）` : "");
+    (bot >= 3 ? `（bot_score=${bot}，待人工复核）` : "");
   const role = `${skills[0] ?? "开源"} 开发者`;
   const sources: Record<string, unknown>[] = [
     { title: "GitHub 主页", publisher: "GitHub", kind: "github", url: `https://github.com/${person.login}`, description: "" },

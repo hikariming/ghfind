@@ -79,7 +79,7 @@ Nhắc đặc biệt tới [bowenliang123](/u/bowenliang123) (94,0, #8 theo comm
 
 ## Phương pháp và hạn chế
 
-Điểm số đến từ bộ tiêu chí tất định của ghfind — sáu chiều đo trên dữ liệu GitHub công khai, không gọi model, mã nguồn mở dưới AGPL. Bộ tiêu chí và các ngưỡng đầy đủ: [methodology](/methodology). Dữ liệu tổng hợp đứng sau mọi bảng: [data.json](/blog/who-builds-dify/data.json).
+Điểm số đến từ bộ tiêu chí tất định của ghfind tại thời điểm nghiên cứu (tháng 7/2026) — sáu chiều đo trên dữ liệu GitHub công khai, không gọi model, mã nguồn mở dưới AGPL. Điểm số hiện tại là devscore, engine cân đo công việc thật theo giá trị dự án và tỷ lệ tác giả, và không bao giờ tính star hay follower: [methodology](/methodology). Dữ liệu tổng hợp đứng sau mọi bảng: [data.json](/blog/who-builds-dify/data.json).
 
 - **Top-100 theo commit không phải toàn bộ cộng đồng.** Dify có 458 người đóng góp code; chúng tôi chấm phần tích cực nhất. Cái đuôi dài gồm những người đóng góp thi thoảng nhiều khả năng đạt điểm thấp hơn.
 - **Đây là một snapshot.** Dữ liệu thu thập 2026-07-11. Star và commit thay đổi hàng ngày; dữ liệu người đóng góp trực tiếp nằm trên [trang dự án Dify](/developers/repo/langgenius/dify).

@@ -46,7 +46,7 @@ Every assessment can generate a live badge and light/dark developer card for you
 
 </div>
 
-The scoring core comes from the open-source Claude skill `github-account-value`. This site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
+The score comes from **devscore**, an open-source engine that weighs what a developer actually built: code in each repository, weighted by the project's worth and the developer's share of authorship. Stars and followers never count. The engine is a TypeScript port of devscore (Zig), checked against it field by field.
 
 ## GitHub App: spend less time triaging, more time maintaining
 
@@ -73,17 +73,20 @@ Missing labels are created automatically; no workflow or repository secret is re
 ## How it works
 
 ```
-browser ─▶ /api/scan ─▶ [Redis cache?] ─▶ lib/github.ts  (GitHub REST + GraphQL, operator PAT)
-                                     └─▶ lib/score.ts   (deterministic scoring, parity with the Python skill)
-                                     └─▶ write cache 24h
+browser ─▶ /api/scan ─▶ [published score?] ─▶ 200 with the canonical scan
+                                         └─▶ 202 + background devscore job (lib/devscore-jobs.ts):
+                                               lib/github.ts      (display + roast evidence)
+                                               lib/devscore/collect (devscore collector: GitHub, ecosyste.ms, GH Archive)
+                                               lib/devscore/engine  (deterministic score) ─▶ lib/devscore-scoring.ts ─▶ D1
          ─▶ /api/roast (streaming) ─▶ LLM judge pass (bounded score calibration)
                                       └─▶ LLM writer pass (roast/report text only)
                                       └─▶ lib/llm.ts (OpenAI-compatible; defaults to StepFun; bring-your-own key)
 ```
 
-- **The base score is deterministic** — computed server-side by `lib/score.ts`.
+- **The score is deterministic** — devscore's score, computed server-side by `lib/devscore/engine` in a background job; the page shows "calculating" until it is published.
 - The LLM runs in two separated passes: a factual judge may apply a bounded **±10** calibration, then a writer turns the fixed result into tags, the top roast line, and the report. The writer cannot change the score.
-- 6 dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) + 10 farming red flags. Weights lean toward **hard-to-fake** signals (PRs merged into real repos, sustained activity) and discount **buyable** ones (stars, followers).
+- Real work is weighted by **project worth** (other contributors, dependents, outside issue authors — never stars) and **authorship**; external work counts only as far as an **independent maintainer accepted it**; verified maintainer work and **sustained coding years** count too. Stars and followers never count. Two anti-gaming caps (bulk low-quality external PRs, the influencer pattern) squeeze a score into 20–35.
+- The 6 profile dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) are display values derived from devscore's factors (`lib/devscore-scoring.ts`); the total is not their sum.
 - The site also includes share cards, README badges, profile comments, and GitHub-authenticated profile reactions.
 
 ## ghfind API, MCP server & SDKs
@@ -257,9 +260,9 @@ post-deploy smoke fails. Configure secrets with `wrangler secret put --env
 
 Click "Use your own model" on the page and enter Base URL + API Key + Model. Compatible with any OpenAI-style API (OpenAI / OpenRouter / Groq / DeepSeek / local). **The key lives only in your own browser's localStorage, is passed directly on call, and is never uploaded to the server or persisted.**
 
-## Regenerating the scoring-parity test baseline
+## Checking engine parity with devscore
 
-`src/lib/__tests__/score-fixtures.json` is the ground truth produced by the Python skill's `score()`. After the skill formula changes, re-run `score()` from `github-account-value/scripts/fetch_github_profile.py` on the same inputs, overwrite that file, then `pnpm test` to verify the port didn't drift.
+`src/lib/devscore/engine` is a TypeScript port of devscore. With a devscore checkout built (`zig build`), `pnpm tsx scripts/devscore-parity.mts <devscore dir>` compares every data file's result field by field and exits 1 on any mismatch.
 
 ## Disclaimer
 
@@ -269,7 +272,7 @@ This site generates scores and commentary automatically from **public GitHub dat
 
 Sponsorship is welcome to cover running costs (GitHub API, LLM, hosting). Note that:
 
-- **Sponsorship does not affect any score or ranking.** Scores are computed deterministically by `src/lib/score.ts`; sponsors cannot buy a higher score, a better rank, or "whitewashing". Sponsor placements and leaderboard data are physically separated in the product.
+- **Sponsorship does not affect any score or ranking.** Scores are computed deterministically by the devscore engine (`src/lib/devscore`); sponsors cannot buy a higher score, a better rank, or "whitewashing". Sponsor placements and leaderboard data are physically separated in the product.
 - Sponsor perks are attribution/placement only and never touch the scoring logic.
 
 ## License
@@ -278,6 +281,6 @@ Licensed under **[GNU AGPL-3.0](./LICENSE)**.
 
 - You may freely use, modify, and self-host this project.
 - **If you modify it and offer it as a network service** (SaaS / hosted), AGPL requires you to **release your modifications under AGPL as well** (users interacting over the network are entitled to the source).
-- The scoring core is ported from the open-source Claude skill `github-account-value`, kept as the single source of truth.
+- The scoring engine is a port of devscore; `scripts/devscore-parity.mts` keeps the two in parity.
 
 > **Trademark:** the "ghfind / 毒舌 GitHub 评分" name, logo, and domain are **not covered** by the open-source license; all rights reserved. You may self-host from this code, but please do not use the project's name/brand to impersonate the official site or cause confusion.

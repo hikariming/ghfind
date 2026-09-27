@@ -79,7 +79,7 @@ Sebutan khusus untuk [bowenliang123](/u/bowenliang123) (94,0, #8 berdasarkan com
 
 ## Metode dan keterbatasan
 
-Skor berasal dari rubrik deterministik ghfind — enam dimensi atas data GitHub publik, tanpa panggilan model, open source di bawah AGPL. Rubrik dan ambang lengkap: [metodologi](/methodology). Agregat di balik setiap tabel: [data.json](/blog/who-builds-dify/data.json).
+Skor berasal dari rubrik deterministik ghfind pada saat studi ini (Juli 2026) — enam dimensi atas data GitHub publik, tanpa panggilan model, open source di bawah AGPL. Skor saat ini adalah devscore, yang menimbang kerja nyata menurut nilai proyek dan kepengarangan serta tidak pernah menghitung star atau follower: [metodologi](/methodology). Agregat di balik setiap tabel: [data.json](/blog/who-builds-dify/data.json).
 
 - **Top-100 berdasarkan commit bukan keseluruhan komunitas.** Dify punya 458 kontributor kode; kami menilai ujung yang paling aktif. Ekor panjang kontributor sesekali kemungkinan mendapat skor lebih rendah.
 - **Ini sebuah snapshot.** Data dikumpulkan 2026-07-11. Star dan commit bergerak setiap hari; data kontributor langsung ada di [halaman proyek Dify](/developers/repo/langgenius/dify).

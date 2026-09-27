@@ -25,6 +25,8 @@ In summary, fabrication is substantially rarer in this sample than public discou
 
 ## 2. Data and Methodology
 
+> **Note (September 2026):** this study used ghfind's previous scoring rubric, described in this section. The current score comes from devscore, which weighs real work by project worth and authorship and never counts stars or followers — see [methodology](/methodology). The findings below are unchanged.
+
 ### 2.1 Scoring rubric
 
 The engine implements a deterministic rubric over six dimensions summing to 100 points, with additive penalties for red-flag signals. It performs no model calls; scores are fully reproducible from public GitHub data. The same code paths produce the scores used by the ghfind website, the npm/PyPI SDKs, and this analysis.

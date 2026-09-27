@@ -40,7 +40,7 @@ import {
   setCachedRoast,
   waitForCachedRoast,
 } from "@/lib/redis";
-import { tierFor } from "@/lib/score";
+import { tierFor } from "@/lib/score-presentation";
 import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 import { USERNAME_RE } from "@/lib/username";
 

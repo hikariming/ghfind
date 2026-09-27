@@ -46,7 +46,7 @@ ghfind 不只负责打分，更是一台开发者发现引擎。你可以通过�
 
 </div>
 
-评分核心来自开源 Claude 技能 `github-account-value`。网站把它的 Python 打分逻辑 **逐行移植成 TypeScript**，并用单元测试锁定二者输出一致。
+分数来自开源评分引擎 **devscore**：它称量一个开发者真正做出来的东西——逐个仓库看写下的代码，按项目含金量和本人的作者份额加权，star 和粉丝一律不计分。引擎是 devscore（Zig）的 TypeScript 移植版，逐字段与原版核对一致。
 
 ## GitHub App：少一点排查来源，多一点时间维护项目
 
@@ -73,17 +73,20 @@ App 自动补齐标签，无需在仓库添加 workflow 或 secret。
 ## 工作原理
 
 ```
-浏览器 ─▶ /api/scan ─▶ [Redis 缓存?] ─▶ lib/github.ts  (GitHub REST + GraphQL, 运营方 PAT)
-                                   └─▶ lib/score.ts   (确定性打分, 与 Python 技能一致)
-                                   └─▶ 写入缓存 24h
+浏览器 ─▶ /api/scan ─▶ [已发布分数?] ─▶ 200 返回规范扫描结果
+                                    └─▶ 202 + 后台 devscore 任务 (lib/devscore-jobs.ts):
+                                          lib/github.ts        (展示与吐槽用的证据)
+                                          lib/devscore/collect (devscore 采集器: GitHub、ecosyste.ms、GH Archive)
+                                          lib/devscore/engine  (确定性打分) ─▶ lib/devscore-scoring.ts ─▶ D1
         ─▶ /api/roast (流式) ─▶ LLM judge pass (受限评分校准)
                                   └─▶ LLM writer pass (只写毒舌与报告)
                                   └─▶ lib/llm.ts (OpenAI 兼容; 默认 StepFun 阶跃; 可自带 Key)
 ```
 
-- **基础分是确定性的**,由 `lib/score.ts` 在服务端算出。
+- **分数是确定性的**,即 devscore 的分数,由 `lib/devscore/engine` 在后台任务中算出;发布之前页面显示「计算中」。
 - 大模型分两层:务实 judge 只做事实复核和**至多 ±10** 的受限校准;writer 只根据固定结果写标签、顶部毒舌和完整报告,不能改分。
-- 6 个维度(账号成熟度 / 原创项目质量 / 贡献质量 / 外部生态贡献 / 社区影响力 / 活跃真实性)+ 10 条刷量 red flag,权重向**难以造假**的信号(合并进真实仓库的 PR、持续活跃)倾斜,对**可购买**的信号(star、粉丝)压低权重。
+- 真实工作按**项目含金量**(其他贡献者、下游依赖、外部 issue 作者——从不看 star)和**作者份额**加权;外部贡献只算**被独立维护者接受**的部分;经验证的维护工作和**持续编码的年数**同样计入。star 和粉丝一律不计分。两条防刷封顶(批量低质外部 PR、网红模式)会把分数压到 20–35。
+- 主页上的 6 个维度(账号成熟度 / 原创项目质量 / 贡献质量 / 外部生态贡献 / 社区影响力 / 活跃真实性)是由 devscore 因子换算的展示值(`lib/devscore-scoring.ts`),总分不是它们之和。
 - 站点还包含分享卡片、README 小徽章、个人页评论、GitHub 登录后的个人页反应。
 
 ## ghfind API、MCP 服务器与 SDK
@@ -260,9 +263,9 @@ D1/R2 绑定统一维护在 [`wrangler.jsonc`](./wrangler.jsonc)。
 
 点页面上的「用自己的模型」,填 Base URL + API Key + Model。兼容任意 OpenAI 接口(OpenAI / OpenRouter / Groq / DeepSeek / 本地)。**Key 只存在你自己的浏览器 localStorage,调用时直传,绝不上传到服务器、绝不落库。**
 
-## 重新生成打分一致性测试的基准
+## 核对引擎与 devscore 一致
 
-`src/lib/__tests__/score-fixtures.json` 是用 Python 技能的 `score()` 跑出来的 ground truth。技能公式更新后,用 `github-account-value/scripts/fetch_github_profile.py` 的 `score()` 对相同输入重跑并覆盖该文件,再 `pnpm test` 验证移植未走样。
+`src/lib/devscore/engine` 是 devscore 的 TypeScript 移植版。在构建好的 devscore 仓库(`zig build`)上运行 `pnpm tsx scripts/devscore-parity.mts <devscore 目录>`,会逐个数据文件逐字段比对结果,任何不一致都以退出码 1 结束。
 
 ## 免责声明
 
@@ -272,7 +275,7 @@ D1/R2 绑定统一维护在 [`wrangler.jsonc`](./wrangler.jsonc)。
 
 本项目欢迎赞助以覆盖运营成本(GitHub API、大模型、托管)。但请注意:
 
-- **赞助不影响任何评分与排名。** 分数由 `src/lib/score.ts` 确定性算出,赞助方无法购买更高的分数、排名或「洗白」。赞助位与榜单数据在产品中物理隔离。
+- **赞助不影响任何评分与排名。** 分数由 devscore 引擎(`src/lib/devscore`)确定性算出,赞助方无法购买更高的分数、排名或「洗白」。赞助位与榜单数据在产品中物理隔离。
 - 赞助方权益仅为署名/展示位,不涉及评分逻辑。
 
 ## 开源协议
@@ -281,6 +284,6 @@ D1/R2 绑定统一维护在 [`wrangler.jsonc`](./wrangler.jsonc)。
 
 - 你可以自由使用、修改、自部署本项目。
 - **若你修改本项目并以网络服务形式对外提供**(SaaS / 在线服务),AGPL 要求你**同样以 AGPL 开源你的修改版**(包括通过网络交互的用户也有权获取源码)。
-- 评分核心移植自开源 Claude 技能 `github-account-value`,保持单一事实来源。
+- 评分引擎移植自 devscore,由 `scripts/devscore-parity.mts` 保证二者一致。
 
 > **商标声明:** 「ghfind / 毒舌 GitHub 评分」名称、Logo 及域名**不在本开源协议授权范围内**,版权保留。你可以基于本代码自部署,但请勿使用本项目的名称/品牌冒充官方或制造混淆。

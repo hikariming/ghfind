@@ -9,7 +9,7 @@ LDFLAGS := -X 'github.com/hikariming/ghfind/internal/agentcli.Version=$(VERSION)
 	-X 'github.com/hikariming/ghfind/internal/agentcli.Commit=$(COMMIT)' \
 	-X 'github.com/hikariming/ghfind/internal/agentcli.Date=$(BUILD_DATE)'
 
-.PHONY: cli-build cli-build-all cli-test cli-clean backend-build backend-test
+.PHONY: cli-build cli-build-all cli-test cli-clean feed-build feed-test
 
 cli-build:
 	mkdir -p "$(BINDIR)"
@@ -29,8 +29,8 @@ cli-test:
 cli-clean:
 	rm -rf "$(BINDIR)" "$(DISTDIR)"
 
-backend-build:
-	$(GO) build ./cmd/ghfind-api ./cmd/ghfind-worker
+feed-build:
+	$(GO) build ./cmd/feed-api ./cmd/feed-worker ./cmd/feed-capacity ./cmd/ghfind-feed-backup ./cmd/ghfind-feed-bootstrap ./cmd/ghfind-feed-migrate
 
-backend-test:
-	$(GO) test ./internal/backend
+feed-test:
+	$(GO) test ./internal/backend ./internal/feed/... ./internal/feedbackup ./internal/feedmigration ./internal/feedtransfer ./cmd/feed-capacity

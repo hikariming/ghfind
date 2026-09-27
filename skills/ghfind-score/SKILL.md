@@ -7,16 +7,18 @@ license: AGPL-3.0-or-later
 # ghfind — GitHub developer value & trust scoring
 
 ghfind rates any GitHub account from 0 to 100 for real contribution value and
-trustworthiness using a fully deterministic, open-source engine (no LLM in the
-scoring core — the same inputs always produce the same score). It also detects
+trustworthiness using devscore, a fully deterministic, open-source engine (no
+LLM in the scoring core — the same public data always produces the same score).
+It weighs real work by project worth and authorship; stars and followers never
+count. It also detects
 AI/bot/farmed contribution, compares developers head-to-head, and ranks
 developers by language, organization, and project.
 
 ## When to use this skill
 
 - Vet a GitHub account before hiring, sponsoring, or merging a PR.
-- Decide whether an account's activity is genuine or farmed (template-PR spam,
-  star inflation, contributions to repos it doesn't own).
+- Decide whether an account's activity is genuine or farmed (bulk low-quality
+  PR farming, self-merged PRs, followers far out of proportion to real work).
 - Get a reproducible, auditable score instead of eyeballing stars/followers.
 - Compare two developers, or discover top developers in an ecosystem.
 

@@ -25,6 +25,8 @@ Ringkasnya, pemalsuan jauh lebih jarang dalam sampel ini daripada yang disiratka
 
 ## 2. Data dan Metodologi
 
+> **Catatan (September 2026):** studi ini memakai rubrik penilaian ghfind sebelumnya, yang dijelaskan di bagian ini. Skor saat ini berasal dari devscore, yang menimbang kerja nyata menurut nilai proyek dan kepengarangan serta tidak pernah menghitung star atau follower — lihat [metodologi](/methodology). Temuan di bawah ini tidak berubah.
+
 ### 2.1 Rubrik penilaian
 
 Mesin ini mengimplementasikan rubrik deterministik atas enam dimensi yang berjumlah 100 poin, dengan penalti aditif untuk sinyal bendera merah. Ia tidak melakukan panggilan model; skor sepenuhnya dapat direproduksi dari data GitHub publik. Jalur kode yang sama menghasilkan skor yang digunakan situs ghfind, SDK npm/PyPI, dan analisis ini.

@@ -79,7 +79,7 @@ tags: ["data", "github", "open-source", "research"]
 
 ## 방법론과 한계
 
-점수는 ghfind의 결정론적 루브릭에서 나와요 — 공개 GitHub 데이터에 대한 여섯 가지 차원, 모델 호출 없음, AGPL 오픈소스예요. 전체 루브릭과 임계값은 [방법론](/methodology)에, 모든 표 뒤의 집계 데이터는 [data.json](/blog/who-builds-dify/data.json)에 있어요.
+점수는 연구 당시(2026년 7월) ghfind의 결정론적 루브릭에서 나와요 — 공개 GitHub 데이터에 대한 여섯 가지 차원, 모델 호출 없음, AGPL 오픈소스예요. 현재 점수는 devscore로, 실제 작업을 프로젝트 가치와 작성 비중으로 가중하고 star나 팔로워는 절대 세지 않아요: [방법론](/methodology). 모든 표 뒤의 집계 데이터는 [data.json](/blog/who-builds-dify/data.json)에 있어요.
 
 - **커밋 기준 상위 100이 커뮤니티 전체는 아니에요.** Dify에는 458명의 코드 컨트리뷰터가 있고, 우리는 가장 활발한 쪽 끝을 채점했어요. 가끔 기여하는 롱테일은 점수가 더 낮을 가능성이 커요.
 - **이건 스냅샷이에요.** 데이터는 2026-07-11에 수집했어요. 스타와 커밋은 매일 움직이고, 실시간 컨트리뷰터 데이터는 [Dify 프로젝트 페이지](/developers/repo/langgenius/dify)에 있어요.

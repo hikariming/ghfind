@@ -81,7 +81,7 @@ Sebutan khusus untuk [joshavant](/u/joshavant): #7 berdasarkan commit (558), sko
 
 ## Metode dan keterbatasan
 
-Skor berasal dari rubrik deterministik ghfind — enam dimensi atas data GitHub publik, tanpa panggilan model, open source di bawah AGPL. Rubrik dan ambang lengkap: [metodologi](/methodology). Agregat di balik setiap tabel: [data.json](/blog/who-builds-openclaw/data.json).
+Skor berasal dari rubrik deterministik ghfind pada saat studi ini (Juli 2026) — enam dimensi atas data GitHub publik, tanpa panggilan model, open source di bawah AGPL. Skor saat ini adalah devscore, yang menimbang kerja nyata menurut nilai proyek dan kepengarangan serta tidak pernah menghitung star atau follower: [metodologi](/methodology). Agregat di balik setiap tabel: [data.json](/blog/who-builds-openclaw/data.json).
 
 - **Top-100 berdasarkan commit adalah kepala proyek, bukan keseluruhan komunitas.** OpenClaw mencatat 368 kontributor kode plus ~2.800 identitas email anonim; jika aktivitas palsu ada, ia akan berada di ekor itu, yang tidak kami nilai.
 - **Jumlah commit mentah bergantung pada alur kerja.** Gaya OpenClaw yang digerakkan agent dan commit-langsung menghasilkan jauh lebih banyak commit untuk jumlah kerja yang sama dibanding proyek squash-and-merge seperti Dify. Persentase di dalam satu repositori bermakna; membandingkan total commit mentah antar-repositori tidak.

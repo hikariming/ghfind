@@ -115,12 +115,6 @@ jobs:
       - name: Self-test deployment smoke
         run: pnpm smoke:deployment:selftest
 
-      - name: Self-test backend async smoke
-        run: pnpm smoke:backend:async:selftest
-
-      - name: Self-test backend resilience smoke
-        run: pnpm smoke:backend:resilience:selftest
-
       - name: Production build
         run: pnpm build
 

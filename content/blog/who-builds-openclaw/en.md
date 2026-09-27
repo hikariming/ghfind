@@ -81,7 +81,7 @@ Special mention to [joshavant](/u/joshavant): #7 by commits (558), score 95.7, 1
 
 ## Method and limitations
 
-Scores come from ghfind's deterministic rubric — six dimensions over public GitHub data, no model calls, open source under AGPL. Full rubric and thresholds: [methodology](/methodology). Aggregates behind every table: [data.json](/blog/who-builds-openclaw/data.json).
+Scores come from ghfind's deterministic rubric at the time of the study (July 2026) — six dimensions over public GitHub data, no model calls, open source under AGPL. The current score is devscore, which weighs real work by project worth and authorship and never counts stars or followers: [methodology](/methodology). Aggregates behind every table: [data.json](/blog/who-builds-openclaw/data.json).
 
 - **Top-100 by commits is the head, not the community.** OpenClaw counts 368 code contributors plus ~2,800 anonymous email identities; farming, if any, would concentrate in that tail, which this study does not cover.
 - **Raw commit counts are workflow-dependent.** OpenClaw's direct-commit, agent-driven style produces more commits per unit of work than squash-merge projects like Dify; concentration ratios are comparable within a repo, cross-repo commit totals are not.

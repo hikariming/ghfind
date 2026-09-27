@@ -79,7 +79,7 @@ Menção especial a [bowenliang123](/u/bowenliang123) (94,0, nº 8 em commits) e
 
 ## Método e limitações
 
-As pontuações vêm da rubrica determinística do ghfind — seis dimensões sobre dados públicos do GitHub, sem chamadas a modelos, open source sob AGPL. Rubrica completa e limiares: [metodologia](/methodology). Os agregados por trás de cada tabela: [data.json](/blog/who-builds-dify/data.json).
+As pontuações vêm da rubrica determinística do ghfind vigente na época do estudo (julho de 2026) — seis dimensões sobre dados públicos do GitHub, sem chamadas a modelos, open source sob AGPL. A pontuação atual é o devscore, que pesa o trabalho real pelo valor do projeto e pela autoria e nunca conta stars nem seguidores: [metodologia](/methodology). Os agregados por trás de cada tabela: [data.json](/blog/who-builds-dify/data.json).
 
 - **Top-100 por commits não é a comunidade inteira.** O Dify tem 458 contribuidores de código; pontuamos a ponta mais ativa. A cauda longa de contribuidores ocasionais provavelmente pontua menos.
 - **Isto é um snapshot.** Dados coletados em 2026-07-11. Stars e commits mudam diariamente; dados ao vivo dos contribuidores estão na [página do projeto Dify](/developers/repo/langgenius/dify).

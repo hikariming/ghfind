@@ -1,73 +1,133 @@
 /**
- * `ghfind/local` — LOCAL deterministic scoring (Node-only).
+ * `ghfind/local` — LOCAL devscore scoring (Node ≥ 22: the collector uses `Promise.withResolvers`).
  *
- * This entry point bundles the *actual* open-source scoring core from the ghfind
- * website (`src/lib/score.ts` + `src/lib/github.ts`) — not a copy — so results are
- * byte-for-byte identical to the site and can never drift. With your own GitHub
- * token you can score any account entirely on your own machine and quota, WITHOUT
- * calling the ghfind server at all. No LLM is involved.
+ * Bundles the website's own devscore collector and engine (`src/lib/devscore`)
+ * plus its v11 mapping to ghfind's `Scoring` (`src/lib/devscore-scoring.ts`), so
+ * the score is computed exactly as the site computes it, on your machine, with
+ * your GitHub token, without calling the ghfind server. No LLM is involved.
  *
- * Import it only when you want local scoring — the main `ghfind` entry stays a
- * tiny dependency-free remote client and does NOT pull this core in.
+ * devscore collects across GitHub (GraphQL + REST), ecosyste.ms and ClickHouse's
+ * public GH Archive: minutes and thousands of GitHub calls for a large account.
+ * Collected at a different moment than the site's snapshot, the numbers can
+ * drift slightly from ghfind.com as the underlying data changes.
  *
- *   import { collectAndScore } from "ghfind/local";
- *   const scan = await collectAndScore("torvalds", { token: process.env.GITHUB_TOKEN });
- *   console.log(scan.scoring.final_score, scan.scoring.red_flags);
+ *   import { collectAndScore } from "@hikariming/ghfind/local";
+ *   const r = await collectAndScore("torvalds", { token: process.env.GITHUB_TOKEN });
+ *   console.log(r.scoring.final_score, r.devscore.v3.tier);
  *
- * No token? Use the remote client instead: `new GhFind().getScore(username)` —
- * the ghfind server does the crawl + deterministic scoring for you.
+ * Import it only when you want local scoring — the main entry stays a tiny
+ * dependency-free remote client and never pulls this in.
  */
 
 import {
-  AccountNotFoundError,
-  GitHubAuthRequiredError,
-  GitHubDataUnavailableError,
-  GitHubRateLimitError,
-  collect,
-  withGithubToken,
-} from "../../../src/lib/github";
-import { score } from "../../../src/lib/score";
-import type { RawMetrics, ScanResult, Scoring } from "./types.js";
+  startCollect,
+  stepCollect,
+  type CollectPhase,
+  type CollectStore,
+} from "../../../src/lib/devscore/collect";
+import { rateDeveloper } from "../../../src/lib/devscore/engine";
+import { parseDeveloper } from "../../../src/lib/devscore/model";
+import { devscoreSummary, scoringFromDevscore } from "../../../src/lib/devscore-scoring";
+import { GhFindError } from "./client.js";
+import type { DevscoreSummary, Scoring } from "./types.js";
 
-export {
-  AccountNotFoundError,
-  GitHubAuthRequiredError,
-  GitHubDataUnavailableError,
-  GitHubRateLimitError,
-};
+/** Work budget of one collector step: a GitHub rate limit that resets later pauses the run. */
+const STEP_MS = 30_000;
 
-/** Run the pure deterministic scorer over metrics you already have. No I/O. */
-export function scoreMetrics(metrics: RawMetrics): Scoring {
-  return score(metrics as never) as unknown as Scoring;
+export interface LocalScore {
+  /** Canonical GitHub login. */
+  username: string;
+  /** The devscore result behind `scoring` (v3 score/tier/flags, curve and engine factors). */
+  devscore: DevscoreSummary;
+  /** ghfind v11 scoring: `final_score` is the devscore v3 score; six display sub-scores. */
+  scoring: Scoring;
+}
+
+export interface LocalProgress {
+  /** Collector phase about to run ("user", "contribs", …, "assemble"). */
+  phase: CollectPhase;
+  /** Share of phases done, 0..1. */
+  progress: number;
+  /** Set while every token is rate-limited: epoch ms the run resumes at. */
+  waitUntil: number | null;
 }
 
 export interface LocalScanOptions {
-  /** GitHub token used for the crawl. Falls back to `process.env.GITHUB_TOKEN`.
-   * Local scoring makes many authenticated GitHub API calls, so a token is
-   * required (an unauthenticated crawl would hit GitHub's 60/h limit instantly). */
+  /** GitHub token(s) for the crawl; a comma-separated pool rotates. Falls back to
+   * `process.env.GITHUB_TOKEN`. Required: the collector makes many authenticated calls. */
   token?: string;
+  /** Called before each collector step. */
+  onProgress?: (p: LocalProgress) => void;
+  /** Collector diagnostics (HTTP retries, rate limits, phase timings). */
+  log?: (msg: string) => void;
+  /** Custom fetch (tests / proxies). Defaults to the global `fetch`. */
+  fetch?: typeof fetch;
+}
+
+/** Rate a devscore contract-v15 developer JSON (e.g. from the devscore collector). Pure; no I/O. */
+export function scoreDeveloper(developer: unknown): LocalScore {
+  const dev = parseDeveloper(developer);
+  const summary = devscoreSummary(dev, rateDeveloper(dev));
+  return { username: dev.login, devscore: summary, scoring: scoringFromDevscore(summary) };
+}
+
+/** A process-local store: HTTP answers and phase outputs of this run. */
+function memoryStore(): CollectStore {
+  const entries = new Map<string, string>();
+  return {
+    async get<T>(key: string): Promise<T | null> {
+      const raw = entries.get(key);
+      return raw === undefined ? null : (JSON.parse(raw) as T);
+    },
+    async put(key: string, value: unknown): Promise<void> {
+      entries.set(key, JSON.stringify(value));
+    },
+  };
 }
 
 /**
- * Crawl GitHub and compute the full deterministic scan + score locally.
- *
- * Identical output shape to `POST /api/scan` / the remote client's `scan()`, but
- * runs entirely on your machine and your GitHub token. Throws the GitHub error
- * classes re-exported above (`AccountNotFoundError` for a nonexistent login, etc.).
+ * Collect the account with the devscore collector and score it locally.
+ * Throws {@link GhFindError} with code `github_token_required` without a token
+ * and `account_not_found` for a nonexistent login.
  */
-export async function collectAndScore(
-  username: string,
-  opts: LocalScanOptions = {},
-): Promise<ScanResult> {
-  const token = opts.token ?? process.env.GITHUB_TOKEN ?? "";
-  if (!token.trim()) {
-    throw new GitHubAuthRequiredError(
+export async function collectAndScore(username: string, opts: LocalScanOptions = {}): Promise<LocalScore> {
+  const tokens = (opts.token ?? process.env.GITHUB_TOKEN ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    throw new GhFindError(
       "collectAndScore needs a GitHub token: pass { token } or set GITHUB_TOKEN. " +
-        "Local scoring makes many authenticated GitHub API calls.",
+        "devscore makes many authenticated GitHub API calls.",
+      { code: "github_token_required" },
     );
   }
-  return withGithubToken(token, async () => {
-    const data = await collect(username);
-    return { ...data, scoring: score(data.metrics) } as unknown as ScanResult;
-  });
+  const fetchImpl = opts.fetch ?? globalThis.fetch;
+  const env = {
+    fetch: ((input, init) => fetchImpl(input, init)) as typeof fetch,
+    githubTokens: tokens,
+    store: memoryStore(),
+    now: Date.now,
+    log: opts.log,
+  };
+  let state = startCollect(username);
+  for (;;) {
+    opts.onProgress?.({ phase: state.phase, progress: state.progress, waitUntil: state.waitUntil });
+    if (state.waitUntil !== null && state.waitUntil > Date.now()) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, state.waitUntil - Date.now());
+      await promise;
+    }
+    let step;
+    try {
+      step = await stepCollect(state, env, Date.now() + STEP_MS);
+    } catch (error) {
+      if (error instanceof Error && /^user .+ not found$/i.test(error.message)) {
+        throw new GhFindError(`GitHub user "${username}" does not exist`, { status: 404, code: "account_not_found" });
+      }
+      throw error;
+    }
+    if (step.done) return scoreDeveloper(step.developer);
+    state = step.state;
+  }
 }

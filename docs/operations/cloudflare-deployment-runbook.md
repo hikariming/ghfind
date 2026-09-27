@@ -255,9 +255,8 @@ For the rate-limit incident, add a manual browser check after the read-only smok
 4. If behavior is unclear, inspect the Worker with `pnpm exec wrangler tail ghfind`
    or the Workers Logs dashboard; never log request bodies, API keys, or cookies.
 
-The `smoke:backend:*` scripts and the old Railway/Vercel resilience evidence are
-historical tests for the retired split backend topology. They are not the current
-production release gate.
+The `smoke:backend:*` scripts and the Railway/Vercel resilience evidence for the
+retired split backend were removed with the Go API/worker.
 
 ## Automated rollback
 

@@ -79,7 +79,7 @@ tags: ["data", "github", "open-source", "research"]
 
 ## 方法与局限
 
-分数来自 ghfind 的确定性规则——六个维度、只用公开 GitHub 数据、不调用模型,以 AGPL 开源。完整规则与阈值见[方法论](/methodology);每张表背后的聚合数据见 [data.json](/blog/who-builds-dify/data.json)。
+分数来自研究当时（2026 年 7 月）ghfind 的确定性规则——六个维度、只用公开 GitHub 数据、不调用模型,以 AGPL 开源。当前的分数由 devscore 给出：按项目含金量和作者份额给真实工作称重，star 和粉丝一律不计分，见[方法论](/methodology);每张表背后的聚合数据见 [data.json](/blog/who-builds-dify/data.json)。
 
 - **前 100(按 commit 数)不等于整个社区。** Dify 有 458 名代码贡献者,我们评的是分布的头部,长尾大概率更薄。
 - **时点数据。** 采集于 2026-07-11。star 和 commit 每天都在变,实时贡献者数据见 [Dify 项目页](/developers/repo/langgenius/dify)。

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ghfind"
-version = "0.1.0"
+version = "0.2.0"
 description = "Official SDK for ghfind.com — score any GitHub account 0-100 for value & trustworthiness (deterministic, no LLM), plus roasts, battles, leaderboards, and developer discovery."
 readme = "README.md"
 requires-python = ">=3.8"

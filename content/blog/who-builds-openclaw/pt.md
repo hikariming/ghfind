@@ -81,7 +81,7 @@ Menção especial a [joshavant](/u/joshavant): nº 7 em commits (558), pontuaç�
 
 ## Método e limitações
 
-As pontuações vêm da rubrica determinística do ghfind — seis dimensões sobre dados públicos do GitHub, sem chamadas a modelos, open source sob AGPL. Rubrica completa e limiares: [metodologia](/methodology). Os agregados por trás de cada tabela: [data.json](/blog/who-builds-openclaw/data.json).
+As pontuações vêm da rubrica determinística do ghfind vigente na época do estudo (julho de 2026) — seis dimensões sobre dados públicos do GitHub, sem chamadas a modelos, open source sob AGPL. A pontuação atual é o devscore, que pesa o trabalho real pelo valor do projeto e pela autoria e nunca conta stars nem seguidores: [metodologia](/methodology). Os agregados por trás de cada tabela: [data.json](/blog/who-builds-openclaw/data.json).
 
 - **Top-100 por commits é a cabeça do projeto, não a comunidade inteira.** O OpenClaw conta 368 contribuidores de código mais ~2.800 identidades de email anônimas; se atividade falsificada existe, ela estaria nessa cauda, que não pontuamos.
 - **Contagens brutas de commits dependem do fluxo de trabalho.** O estilo do OpenClaw, dirigido por agentes e com commits diretos, produz muito mais commits para a mesma quantidade de trabalho do que um projeto de squash-and-merge como o Dify. Percentuais dentro de um mesmo repositório são significativos; comparar totais brutos de commits entre repositórios, não.

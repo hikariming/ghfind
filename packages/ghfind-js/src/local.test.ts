@@ -1,76 +1,41 @@
-import { describe, it, expect } from "vitest";
-import { scoreMetrics, collectAndScore, GitHubAuthRequiredError } from "./local.js";
-import type { RawMetrics } from "./types.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { GhFindError } from "./client.js";
+import { collectAndScore, scoreDeveloper } from "./local.js";
 
-/** A complete, all-neutral RawMetrics (valid input to the pure scorer). */
-function emptyMetrics(over: Partial<RawMetrics> = {}): RawMetrics {
-  return {
-    username: "test",
-    profile_url: null,
-    avatar_url: null,
-    name: null,
-    bio: null,
-    company: null,
-    account_age_years: 0,
-    created_at: null,
-    followers: 0,
-    following: 0,
-    public_repos: 0,
-    fetched_repo_count: 0,
-    original_repo_count: 0,
-    nonempty_original_repo_count: 0,
-    fork_repo_count: 0,
-    empty_original_repo_count: 0,
-    total_stars: 0,
-    max_stars: 0,
-    merged_pr_count: 0,
-    total_pr_count: 0,
-    issues_created: 0,
-    last_year_contributions: 0,
-    activity_type_count: 0,
-    contribution_years_active: 0,
-    days_since_last_activity: null,
-    recent_merged_pr_sample: 0,
-    recent_trivial_pr_count: 0,
-    external_trivial_pr_count: 0,
-    max_impact_repo_stars: 0,
-    impact_pr_count: 0,
-    impact_depth_raw: 0,
-    star_inflation_suspect: false,
-    closed_unmerged_pr_count: 0,
-    pr_rejection_rate: 0,
-    recent_pr_sample: 0,
-    top_repo_pr_target: null,
-    top_repo_pr_share: 0,
-    templated_pr_ratio: 0,
-    pr_flood_suspect: false,
-    ...over,
-  };
-}
+const real = join(import.meta.dirname, "../../../src/lib/devscore/engine/__tests__/fixtures/real");
 
 describe("ghfind/local", () => {
-  it("scoreMetrics runs the real deterministic core and returns a full Scoring", () => {
-    const s = scoreMetrics(emptyMetrics());
-    expect(s).toHaveProperty("final_score");
-    expect(s).toHaveProperty("tier");
-    expect(s).toHaveProperty("sub_scores");
-    expect(Object.keys(s.sub_scores)).toContain("contribution_quality");
-    expect(s.final_score).toBeGreaterThanOrEqual(0);
-    expect(s.final_score).toBeLessThanOrEqual(100);
+  it("scores a devscore v15 developer exactly like the devscore engine", () => {
+    const expected = JSON.parse(readFileSync(join(real, "expected.json"), "utf8"))["knuknY.json"];
+    const r = scoreDeveloper(JSON.parse(readFileSync(join(real, "knuknY.json"), "utf8")));
+    expect(r.devscore.v3.tier).toBe(expected.v3.tier);
+    expect(Math.abs(r.devscore.v3.score - expected.v3.score)).toBeLessThanOrEqual(1e-9);
+    // The published v11 final score is the v3 score truncated to two decimals.
+    expect(r.scoring.final_score).toBe(Math.floor(expected.v3.score * 100) / 100);
+    expect(r.scoring.risk_assessment?.version).toBe("v11");
   });
 
-  it("scoreMetrics is deterministic (same input → same score)", () => {
-    const m = emptyMetrics({ followers: 500, total_stars: 3000, merged_pr_count: 40 });
-    expect(scoreMetrics(m).final_score).toBe(scoreMetrics(m).final_score);
-  });
-
-  it("collectAndScore requires a token", async () => {
+  it("requires a GitHub token", async () => {
     const prev = process.env.GITHUB_TOKEN;
     delete process.env.GITHUB_TOKEN;
     try {
-      await expect(collectAndScore("torvalds")).rejects.toBeInstanceOf(GitHubAuthRequiredError);
+      await expect(collectAndScore("torvalds")).rejects.toMatchObject({ code: "github_token_required" });
     } finally {
       if (prev !== undefined) process.env.GITHUB_TOKEN = prev;
     }
+  });
+
+  it("collects with the given token and maps a missing login to account_not_found", async () => {
+    const auth: (string | null)[] = [];
+    const fetch = (async (_url: string, init?: RequestInit) => {
+      auth.push(new Headers(init?.headers).get("authorization"));
+      return new Response(JSON.stringify({ data: { user: null } }), { status: 200 });
+    }) as typeof globalThis.fetch;
+    const error = await collectAndScore("ghost", { token: "tok-a", fetch }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GhFindError);
+    expect(error).toMatchObject({ status: 404, code: "account_not_found" });
+    expect(auth).toEqual(["Bearer tok-a"]);
   });
 });

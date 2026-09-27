@@ -2,7 +2,7 @@
  * Shared dimension ordering + bar coloring for the score breakdown, used by the
  * profile page and the /vs comparison page so both render the six sub-scores
  * identically. Labels come from the `dimensions` i18n namespace (keyed by the
- * SubScoreKey); the max per dimension is `SUBSCORE_MAX` in `score.ts`.
+ * SubScoreKey); the max per dimension is `SUBSCORE_MAX` in `score-presentation.ts`.
  */
 import type { SubScoreKey } from "./types";
 

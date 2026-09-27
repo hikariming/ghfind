@@ -5,15 +5,17 @@ score any GitHub account **0–100** for value and trustworthiness, with roasts,
 head-to-head battles, leaderboards, and developer discovery.
 
 - **Deterministic scoring, no LLM.** `score`, `scan`, `getScore`, and the battle
-  winner are pure computation over GitHub data.
+  winner are pure computation over GitHub data: the score is devscore's v3 score
+  (score v11).
 - **Bring your own model.** The only LLM parts are the *roast prose* and *battle
   commentary*. `roast(..., { byoKey })` runs the LLM through your own
   OpenAI-compatible provider — or just take the structured `scan()` output and
   feed your own model.
-- **Score anywhere.** No token → the ghfind server crawls + scores for you. Have a
-  token → `ghfind/local` runs the *same* open-source engine entirely on your
-  machine (see below). Same numbers either way.
-- **Zero runtime dependencies.** Uses the global `fetch` (Node 18+, browsers, edge).
+- **Score anywhere.** No token → the ghfind server scores for you (a never-scored
+  account is computed in a background job; the SDK waits for it). Have a token →
+  `ghfind/local` runs the site's own devscore collector + engine on your machine
+  (see below).
+- **Zero runtime dependencies.** Uses the global `fetch` (Node 22+, browsers, edge).
 
 ```bash
 npm install @hikariming/ghfind      # library
@@ -37,8 +39,10 @@ ghfind update check                 # check whether the local CLI is stale
 ```
 
 `score` hits the public **`GET /api/score`** endpoint: no auth, edge-cached and
-rate-limited on the server, and it scores never-seen accounts live (still
-deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
+rate-limited on the server. Already-scored accounts answer immediately; an account
+ghfind has never scored is queued for background devscore scoring (minutes for large
+accounts) and the CLI waits for it, up to `--wait <seconds>` (default 900). It's the
+cheapest path for you *and* for ghfind.
 
 | Command | What it does | Endpoint | LLM? |
 | --- | --- | --- | --- |
@@ -62,19 +66,29 @@ deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
 --byo-model` (or `GHFIND_BYO_*` env vars) to run `roast` through your own model
 instead of ghfind's.
 
-### Score locally, offline, on your own token
+### Pending scores
 
-`--local` runs the crawl **and** scoring on your machine with your `GITHUB_TOKEN`
-— the ghfind server is never called, so it scales infinitely and never adds load:
+A never-scored account answers `202 Accepted` with a status `Location`
+(`/api/scan/status/{user}`); every poll of that Location advances the job. The CLI
+polls it with backoff (2 s growing to 15 s) and prints the phase to stderr. If the
+score is still being computed when `--wait` runs out, `score`/`scan` exit with code
+**3** and print the status URL — run the same command again later.
+
+### Score locally on your own token
+
+`score --local` runs the site's devscore collector and engine on your machine with
+your `GITHUB_TOKEN` (a comma-separated pool rotates) — the ghfind server is never
+called:
 
 ```bash
 export GITHUB_TOKEN=ghp_xxx
-ghfind score torvalds --local     # crawl + score entirely on your machine
-ghfind scan torvalds  --local
+ghfind score torvalds --local          # minutes and thousands of GitHub calls for big accounts
+ghfind score torvalds --local --json   # includes the devscore factors
 ```
 
-Rule of thumb: **have a token → `--local`** (offline, unlimited); **no token →
-plain `score`** (ghfind scores it for you). Output is identical.
+devscore collects from GitHub (GraphQL + REST), ecosyste.ms and ClickHouse's public
+GH Archive. Collected at a different moment than the site's snapshot, the score can
+differ slightly from ghfind.com as the underlying data changes.
 
 ### Options & environment
 
@@ -82,7 +96,8 @@ plain `score`** (ghfind scores it for you). Output is identical.
 --host <url>          default https://ghfind.com (or GHFIND_HOST)
 --api-key <key>       Authorization: Bearer — bypasses Turnstile on POST /api/scan
                       (or GHFIND_API_KEY)
---github-token <t>    for --local and exists (or GITHUB_TOKEN)
+--github-token <t>    for score --local and exists (or GITHUB_TOKEN)
+--wait <seconds>      score/scan: max wait for a first-time score (default 900)
 --byo-base-url/-api-key/-model   your OpenAI-compatible provider for roast
 --json | -o json|pretty|markdown
 --lang zh|en
@@ -113,7 +128,8 @@ import { GhFind } from "@hikariming/ghfind";
 
 const gh = new GhFind(); // defaults to https://ghfind.com
 
-// Cheapest: deterministic score (no LLM), works for ANY account.
+// Cheapest: deterministic score (no LLM), works for ANY account. A never-scored
+// account is computed by a background job first (polled up to `waitMs`).
 const s = await gh.getScore("torvalds");
 console.log(s.final_score, s.tier, s.percentile, s.source); // "indexed" | "quick" | "legacy_v5_v5_v3"
 
@@ -134,18 +150,38 @@ const roast = await gh.roast({
 Every method is one atomic capability; introspect them at runtime via
 `import { catalog } from "@hikariming/ghfind"`.
 
+### Pending scores
+
+`getScore`, `scan` and `score` follow a `202` job's status Location with backoff for
+up to `waitMs` (default `DEFAULT_WAIT_MS` = 15 min; `0` does not poll) and throw
+`GhFindPending` (a `GhFindError` with status 202) if the score is still being computed:
+
+```ts
+import { GhFindPending } from "@hikariming/ghfind";
+try {
+  const s = await gh.getScore("someone-new", { waitMs: 30_000, onStatus: (st) => console.error(st.phase) });
+} catch (e) {
+  if (e instanceof GhFindPending) console.log("still computing:", e.job, "poll", e.statusUrl);
+  else throw e;
+}
+```
+
 ### Local scoring (`ghfind/local`)
 
 ```ts
-import { collectAndScore } from "@hikariming/ghfind/local";
-const scan = await collectAndScore("torvalds", { token: process.env.GITHUB_TOKEN });
-console.log(scan.scoring.final_score);
+import { collectAndScore, scoreDeveloper } from "@hikariming/ghfind/local";
+const r = await collectAndScore("torvalds", { token: process.env.GITHUB_TOKEN });
+console.log(r.scoring.final_score, r.devscore.v3.tier);
+
+// Already have devscore contract-v15 JSON? Rate it purely (no I/O):
+const rated = scoreDeveloper(developerJson);
 ```
 
-`ghfind/local` bundles the *actual* open-source scoring core from the website —
-not a copy — so results are byte-for-byte identical and can never drift. Import it
-only when you want local scoring; the main `@hikariming/ghfind` entry stays a tiny
-dependency-free remote client and never pulls it in.
+`ghfind/local` bundles the website's own devscore collector and engine
+(`src/lib/devscore`) and its v11 mapping to ghfind's `Scoring` — not a copy — so the
+computation is the site's. Only the data can differ (it is collected now, on your
+token). Import it only when you want local scoring; the main `@hikariming/ghfind`
+entry stays a tiny dependency-free remote client and never pulls it in.
 
 ---
 

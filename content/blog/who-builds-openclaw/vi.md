@@ -81,7 +81,7 @@ Nhắc đặc biệt tới [joshavant](/u/joshavant): #7 theo commit (558), đi�
 
 ## Phương pháp và hạn chế
 
-Điểm số đến từ bộ tiêu chí tất định của ghfind — sáu chiều đo trên dữ liệu GitHub công khai, không gọi model, mã nguồn mở dưới AGPL. Bộ tiêu chí và các ngưỡng đầy đủ: [methodology](/methodology). Dữ liệu tổng hợp đứng sau mọi bảng: [data.json](/blog/who-builds-openclaw/data.json).
+Điểm số đến từ bộ tiêu chí tất định của ghfind tại thời điểm nghiên cứu (tháng 7/2026) — sáu chiều đo trên dữ liệu GitHub công khai, không gọi model, mã nguồn mở dưới AGPL. Điểm số hiện tại là devscore, engine cân đo công việc thật theo giá trị dự án và tỷ lệ tác giả, và không bao giờ tính star hay follower: [methodology](/methodology). Dữ liệu tổng hợp đứng sau mọi bảng: [data.json](/blog/who-builds-openclaw/data.json).
 
 - **Top-100 theo commit là phần đầu của dự án, không phải toàn bộ cộng đồng.** OpenClaw đếm được 368 người đóng góp code cộng khoảng 2.800 danh tính email ẩn danh; nếu hoạt động giả tồn tại, nó sẽ nằm ở cái đuôi đó, phần chúng tôi không chấm.
 - **Số commit thô phụ thuộc vào quy trình làm việc.** Phong cách agent-điều-khiển, commit-thẳng của OpenClaw tạo ra nhiều commit hơn hẳn cho cùng một lượng công việc so với một dự án squash-and-merge như Dify. Phần trăm trong nội bộ một repository là có ý nghĩa; so sánh tổng commit thô giữa các repository thì không.

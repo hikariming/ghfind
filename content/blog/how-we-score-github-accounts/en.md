@@ -1,102 +1,109 @@
 ---
 title: "How We Score a GitHub Account, in Plain English"
-description: "A no-jargon walkthrough of the open-source engine behind ghfind: the six things it measures, why merged PRs count far more than stars, the bot patterns it penalizes, and how to run the whole scorer yourself."
+description: "A no-jargon walkthrough of devscore, the open-source engine behind ghfind: why it weighs real work instead of stars and followers, how it decides what a project is worth and how much of it is yours, the farming patterns it caps, and what the six dimensions on a profile mean."
 date: "2026-07-13"
+updated: "2026-09-28"
 tags: ["scoring", "github", "open-source", "trust", "explainer"]
 ---
 
-**In one sentence:** the score answers a single practical question — *is this GitHub account a real, valuable developer, or something inflated to look like one?* — and it answers it the same way every time, using only public data, with all the rules published in the open. This post explains, without the jargon, exactly how the number is built.
+**In one sentence:** the score answers a single practical question — *how much real, valuable work has this developer done in public?* — and it answers it the same way every time, using only public data, with every rule published in the open. This post explains, without the jargon, how the number is built.
 
 ## Why a score at all
 
-More and more decisions lean on a glance at someone's GitHub. A recruiter skims a profile before a call. A maintainer decides whether a stranger's pull request is worth reviewing. A directory ranks accounts by how impressive they look. Every one of those uses creates a reason to *fake* the signals — and faking is easy for the cheap ones. Stars can be bought. Followers can be traded. You can open a hundred one-line pull requests in an afternoon and call yourself an "open-source contributor."
+More and more decisions lean on a glance at someone's GitHub. A recruiter skims a profile before a call. A maintainer decides whether a stranger's pull request is worth reviewing. A directory ranks accounts by how impressive they look. Every one of those uses creates a reason to *fake* the signals — and the popular signals are the easiest to fake. Stars can be bought. Followers can be traded. You can open a hundred one-line pull requests in an afternoon and call yourself an "open-source contributor."
 
-So a useful score can't just add up the big, shiny numbers. It has to lean on the things that are genuinely hard to fake, and shrug off the things that aren't. That single idea drives every design choice below.
+So a useful score can't add up the big, shiny numbers. It has to measure the work itself, and ignore the numbers that can be bought. That single idea drives every design choice below.
 
-## The one principle: weight what's hard to fake
+## The one principle: weigh the work, not the applause
 
-Split every GitHub signal into two buckets.
+The engine behind the score is called **devscore**. Its rule is short: *score what a developer actually built, weighted by how much it matters and how much of it is theirs.*
 
-- **Cheap to fake:** stars, followers. A few dollars or a follow-for-follow ring produces them.
-- **Expensive to fake:** merged pull requests into real projects that someone *else* maintains, years of steady activity, code that a busy maintainer actually accepted.
+- **Stars and followers never count.** Not a little, not capped — zero. They measure attention, and attention is cheap to buy.
+- **Pull-request counts don't count either.** The engine measures the commits you wrote and what they changed, so a hundred one-line PRs are still a hundred one-line changes.
+- **What counts is code that landed in projects people use.** Your own projects count when other people use them; your work in other people's projects counts when an independent maintainer accepted it.
 
-The engine weights the second bucket heavily and the first bucket lightly. Stars and followers still count — a genuinely popular project *should* help you — but they're capped low enough that buying them barely moves the needle. Meanwhile, getting real code merged into a well-known repo, which requires convincing a human who has no reason to help you, is worth the most points on the board.
+## What a project is worth
 
-That's the whole philosophy. The rest is just how it's spread across six categories.
+For each repository, devscore first asks how much the project matters. It never looks at stars. It looks at signals that are hard to fake because they require other people to *do* something:
 
-## The six things it measures
+- **other contributors** who wrote code in it,
+- **downstream dependents** — packages that depend on it,
+- **outside issue authors** — people who use it enough to report problems,
+- **forks**, discounted because they are the cheapest of these to farm.
 
-The score runs from 0 to 100, divided across six dimensions. Here's each one in plain terms, with its maximum points.
+Each tenfold step of adoption adds the same amount, so a kernel with thousands of contributors stands well above a library with twenty, while a project used only by its author and a few friends stays near the floor. A project nobody else uses keeps only a small part of the work done in it — building something for yourself is fine, but it isn't yet something others depend on.
 
-| Dimension | Max | What it's really asking |
+Projects that are all stars and no users get special treatment. A **hype project** — many stars, but almost no contributors, issue authors or dependents, or a sudden promotional spike followed by silence — earns no project credit at all.
+
+## How much of it is yours
+
+Next, devscore asks how much of that project's work is yours. It combines your share of the commits with your standing next to the lead author, so a co-lead of a big project counts as an author even at a modest share, while a distant contributor behind a dominant lead does not. Thousands of your own commits count as authorship whatever the project's size.
+
+Then it measures the work itself: how many commits you landed, what they changed (core code counts more than docs or chores; a large change a maintainer accepted counts more than a tiny one), and how many months the work lasted. Commit histories that look machine-generated — every commit at the same hour, every change the same shape — are discounted.
+
+## Other people's projects: only accepted work counts
+
+Work in someone else's repository is the closest thing GitHub has to a peer review — but only if someone independent actually reviewed it. So devscore counts external work **only as far as an independent maintainer accepted it**:
+
+- a PR merged by the project's lead author counts in full;
+- one waved through by someone who wrote none of the code counts half;
+- a PR you merged yourself, or one merged by a trading partner who merges yours in return, counts nothing;
+- dozens of large standalone PRs merged in a batch during a reward campaign are discounted.
+
+Reviewing and merging other people's code is real work too. A **maintainer** — verified by GitHub's own record of your role in that repository, never self-declared — gets credit for that work, and code reviews you give in other people's projects count as well.
+
+## Time: sustained years, not bursts
+
+Finally, devscore rewards doing this for years. It counts **sustained coding years**: each calendar year counts once, capped at twelve months of coding, so spreading one year across sixty small repositories is still one year. Older work fades with a three-year half-life (down to a floor, so a long career is never erased).
+
+All of this is combined into one smooth curve from 0 to 100, with room at the top so the very best separate instead of tying at 100. The strongest role wins: someone is judged both as a developer and as a maintainer, and the better of the two counts.
+
+## Catching the fakes
+
+Most farming never needs a penalty, because the signals it produces — stars, followers, PR counts, self-merges — already score nothing. Two patterns get an explicit **cap**, applied last:
+
+- **Bulk low-quality PRs.** In the worst twelve months, many PRs to other people's projects were rejected or withdrawn — at least as many as were independently merged — together with at least two of: templated titles, duplicate submissions, one-week sprees across many repositories, or giant PRs of thousands of lines.
+- **The influencer pattern.** Hundreds of followers, far out of proportion to the engineering other people accepted, with no maintained project and no substantial project of their own.
+
+A capped score is squeezed into the 20–35 range, still ordered by the underlying work. Crucially, both caps fire on a *pattern* across a history — a single rejected PR, or a popular account that also ships real code, is completely normal.
+
+## The six numbers on a profile
+
+The total is devscore's score. To make it readable, each profile also shows six **display dimensions** derived from devscore's factors. They explain the score; they are not added up to make it.
+
+| Dimension | Max | What it shows |
 |---|---|---|
-| **Contribution quality** | 27 | Do you get real pull requests merged into real projects, and do maintainers accept them? |
-| **Ecosystem impact** | 20 | Has your code landed in genuinely popular repositories — ones you don't own? |
-| **Original project quality** | 18 | Have you built something people actually use (measured by stars, but capped)? |
-| **Activity authenticity** | 17 | Are you steadily active over time, in varied ways — or was it one burst and then silence? |
-| **Account maturity** | 10 | How long has this account existed and stayed active? |
-| **Community influence** | 8 | Do you have a real following, with a healthy ratio? |
-
-![Where the 100 points go, by dimension](/blog/how-we-score-github-accounts/weight-breakdown.svg "The six dimensions and their maximum points. Orange = hard-to-fake signals; gray = buyable ones.")
-
-Notice the two biggest slices — contribution quality (27) and ecosystem impact (20) — are exactly the hard-to-fake ones. Stars (18) and followers (8), the buyable ones, together are worth less than merged pull requests alone. That ordering is the point.
-
-### The signal that matters most: whose code, in whose repo
-
-The single most important number is **ecosystem impact** (20 points), and it's worth explaining why, because it's the cleverest part.
-
-It counts substantial pull requests — more than five lines, not typo fixes — that got merged into **popular repositories you do not own**. Think of a developer whose real work lives inside a famous project's codebase rather than in their own starred repos. You cannot fake this. Merging a real change into a 50,000-star project means a maintainer with no incentive to help you looked at your code and said yes. That's the closest thing GitHub has to a peer-reviewed credential.
-
-There's one deliberate exception. If the popular repo is your *own* — but genuinely popular, at 1,000 stars or more — that still counts, because it captures the creator who spends their time building their own famous project rather than contributing to others'. What does **not** count is pull requests into your own tiny repos. Opening PRs against a project you made yesterday that nobody stars is the classic way to inflate a contribution count, so those are excluded here (and penalized elsewhere).
-
-## Why big numbers don't run away with it
-
-A naive score would let one viral repo, or one account with 100,000 followers, dominate everything. This one doesn't, and the reason is a single design choice: every "how much" number is put through a **diminishing-returns curve** before it becomes points.
-
-![Diminishing-returns curve: points earned vs. stars](/blog/how-we-score-github-accounts/diminishing-returns.svg "Points climb fast up to a few thousand stars, then flatten — so a mega-repo or bought stars can't dominate.")
-
-In plain terms: going from 0 to 1,000 stars earns you a lot of points. Going from 50,000 to 51,000 earns you almost nothing — you were already near the top. The curve rewards clearing a meaningful bar without letting a handful of mega-numbers crowd out everything else. A solid developer with a few thousand stars and a steady history isn't buried under one person's single viral repository. It also means star-buying has sharply diminishing value: the first bought stars do little, and buying your way up the curve gets expensive fast for almost no return.
-
-## The red flags: catching the fakes
-
-On top of the six positive dimensions, the engine subtracts points for specific, well-known cheating and low-effort patterns. These are the signatures of bots, spam, and farmed accounts. A few of the main ones, in plain language:
-
-- **Templated PR flooding** — dozens of near-identical, auto-generated pull requests, usually aimed at the same repo. This is the strongest tell of a farmed contribution history.
-- **Trivial PR farming** — a pile of one-line "fix typo" pull requests padding out a contribution count with no real work.
-- **Self-PR farming** — opening and merging your own pull requests into your own no-star repos to inflate the numbers. Merging your own code proves nothing.
-- **Follow farming** — following thousands of accounts to bait follow-backs, leaving a lopsided follower/following ratio.
-- **Mass repos on a brand-new account** — an account created last month with fifty repositories is almost never a real developer.
-- **Ghost profile** — no bio, almost no followers, no stars, barely any merged work. Not malicious, just empty.
-- **Possible star inflation** — a repo with lots of stars but almost no forks or issues, which is what bought stars look like.
-
-The penalties stack, up to a limit, so an account that trips several of these lands near the bottom no matter how good its raw numbers look. Crucially, these patterns live at the level of an account's *history*, not any single action — a lone one-line PR is completely normal; a hundred of them aimed at one repo is not.
+| **Contribution quality** | 27 | Independently accepted work in other people's projects, plus code reviews you give there |
+| **Ecosystem impact** | 20 | The weight of your work across repositories, or a verified maintainer role — whichever is higher |
+| **Original project quality** | 18 | Your flagship: the strongest engineering project you own or lead |
+| **Activity authenticity** | 17 | How much of your work is recent; cut sharply when a farming cap applies |
+| **Account maturity** | 10 | Sustained years of coding |
+| **Community influence** | 8 | How often maintainers merge rather than reject your PRs, plus reviews given — never followers |
 
 ## What the final number means
 
-Add up the six dimensions, subtract the red flags, and you land in one of four tiers:
-
 | Score | Tier | Meaning |
 |---|---|---|
-| 90–100 | **夯 (Solid)** | Top-tier developer — high value, high trust. |
-| 70–89 | **人上人 (Standout)** | Quality contributor — worth trusting. |
+| 90–100 | **夯 (God)** | Legendary — hall-of-fame work. |
+| 80–89 | **顶级 (Elite)** | Top-tier developer. |
+| 70–79 | **人上人 (Solid)** | Quality contributor — worth trusting. |
 | 40–69 | **NPC** | Ordinary account — unremarkable or unclear signals. |
-| 0–39 | **拉完了 (Cooked)** | Low value — likely inactive, empty, or farmed. |
+| 0–39 | **拉完了 (Trash)** | Little public work — or a capped farming pattern. |
 
-The tier names are deliberately a bit playful — this started as a roast tool — but the bands behind them are the same deterministic math for everyone.
+The tier names are deliberately a bit playful — this started as a roast tool — but the math behind them is the same for everyone.
 
 ## An honest note on what the score is *not*
 
-- **It only sees public activity.** Someone who does excellent work in a private company repo can look thin here. A low score is a statement about the *public* footprint, not a verdict on the person.
+- **It only sees public activity.** Someone who does excellent work in private company repositories can look thin here. A low score is a statement about the *public* footprint, not a verdict on the person. Each score carries a confidence level that says how much public evidence it rests on.
 - **It's a starting point, not a judge.** The number is meant to help a human prioritize — which stranger's PR to look at first, which profile deserves a closer read — not to auto-reject anyone. The evidence behind the score matters more than the score.
-- **Recent behavior counts more than ancient history.** The ecosystem-impact signal looks at recent pull requests, so someone whose big contributions were all years ago will score lower than their résumé suggests. That's intentional: it measures what you're doing *now*.
+- **Old work fades, slowly.** Recent years count more than ancient history, but a long track record is never wiped out.
 
 ## It's open source — run it yourself
 
-None of this is a black box, and that's the point. There is no model in the loop, no hidden weighting, no "trust us." The same input always produces the same score, and every rule described above — every weight, every threshold, every red-flag trigger — is published under the AGPL license.
+None of this is a black box. There is no model in the loop and no hidden weighting: the same public data always produces the same score, and every rule described above — every weight, every threshold, every cap — is published under the AGPL license.
 
-- **Read the code:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind)
-- **Install the engine:** `npm install ghfind` or `pip install ghfind`
-- **Run it locally** with your own GitHub token — nothing leaves your machine — or call the public API ([OpenAPI spec](https://ghfind.com/openapi.json)).
+- **Read the code:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind) (the engine lives in `src/lib/devscore`)
+- **Run it locally** with `npx @hikariming/ghfind score <user> --local` and your own GitHub token — nothing leaves your machine — or call the public API ([OpenAPI spec](https://ghfind.com/openapi.json)).
 - **Score a single account** in your browser at [ghfind.com](https://ghfind.com).
 
 If you disagree with a weight or a threshold, you can read exactly what it is, change it, and see the effect. A trust score people can't inspect isn't worth much — so we made this one you can.

@@ -1028,7 +1028,7 @@ export function GET() {
         },
         ScanResult: {
           type: "object",
-          description: "Full scan payload — identical shape to the open-source github-account-value skill output.",
+          description: "Full scan payload: display metrics, repo/PR evidence, the devscore summary and the v11 scoring derived from it.",
           properties: {
             metrics: { type: "object", description: "Raw GitHub-derived metrics (snake_case)" },
             top_repos: { type: "array", items: { type: "object" } },

@@ -25,6 +25,8 @@ En resumen, la fabricación es considerablemente más rara en esta muestra de lo
 
 ## 2. Datos y metodología
 
+> **Nota (septiembre de 2026):** este estudio usó la rúbrica de puntuación anterior de ghfind, descrita en esta sección. El puntaje actual proviene de devscore, que pondera el trabajo real por el valor del proyecto y la autoría y nunca cuenta estrellas ni seguidores — ver [metodología](/methodology). Los hallazgos de abajo no cambian.
+
 ### 2.1 Rúbrica de puntuación
 
 El motor implementa una rúbrica determinista sobre seis dimensiones que suman 100 puntos, con penalizaciones aditivas por señales de alerta. No realiza llamadas a modelos; los puntajes son totalmente reproducibles a partir de datos públicos de GitHub. Las mismas rutas de código producen los puntajes usados por el sitio web de ghfind, los SDKs de npm/PyPI y este análisis.

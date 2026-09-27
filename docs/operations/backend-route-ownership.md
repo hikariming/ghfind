@@ -9,6 +9,9 @@
 > Feed specifically, use the
 > [Cloudflare-native Feed runbook](./project-feed-backend-runbook.md), not the
 > historical PostgreSQL/RabbitMQ/Gorse notes below.
+>
+> The Go API and worker named below (`cmd/ghfind-api`, `cmd/ghfind-worker`) were
+> deleted in the score v11 cutover; only the Feed Go code remains.
 
 This matrix is the cutover checklist for issue #170. A route is only marked
 **Go-owned** after its Next handler contains no direct data/business dependency,

@@ -1,8 +1,7 @@
 import "./_env.mjs";
 import { readFileSync, appendFileSync } from "node:fs";
 import { createClient } from "@libsql/client";
-import { collect } from "../src/lib/github";
-import { score, tierFor } from "../src/lib/score";
+import { devscoreScan } from "./devscore-scan.mts";
 import { publishCompleteQuickScan, updateRoast } from "../src/lib/db";
 import type { ScanResult } from "../src/lib/types";
 import { buildCtx, buildTags, buildRoastLine, buildRoastReport } from "./roast-gen.mts";
@@ -69,10 +68,9 @@ for (let i = 0; i < finalUsernames.length; i++) {
   if (await alreadyDone(u)) { skipped++; console.log(`SKIP ${u} (already has roast)`); continue; }
   if (i > 0) await sleep(1200);
   try {
-    const collected = await collect(u);
-    const scoring = score(collected.metrics);
-    const scan: ScanResult = { ...collected, scoring };
-    const { tier } = tierFor(scoring.final_score);
+    const scan: ScanResult = await devscoreScan(u);
+    const { scoring, ...collected } = scan;
+    const { tier } = scoring;
 
     const realOrgs = collected.organizations ?? [];
     const matchedOrgLogin = realOrgs.find((o) => TARGET_ORG_LOGINS.has(o.toLowerCase()));

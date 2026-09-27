@@ -129,37 +129,6 @@ func escapePrometheusLabel(value string) string {
 	return strings.ReplaceAll(value, `"`, `\"`)
 }
 
-func (m *BackendMetrics) recordAPIJobAdmission(kind, result string) {
-	m.IncCounter("ghfind_api_job_admissions_total", map[string]string{"kind": kind, "result": result})
-}
-
-func (m *BackendMetrics) recordAPIScanWait(result string) {
-	m.IncCounter("ghfind_api_scan_waits_total", map[string]string{"result": result})
-}
-
-func (m *BackendMetrics) recordWorkerJobStarted(kind string) {
-	m.IncCounter("ghfind_worker_jobs_started_total", map[string]string{"kind": kind})
-}
-
-func (m *BackendMetrics) recordWorkerJobCompleted(kind, result string, duration time.Duration) {
-	m.IncCounter("ghfind_worker_jobs_completed_total", map[string]string{"kind": kind, "result": result})
-	m.ObserveDuration("ghfind_worker_job_duration", map[string]string{"kind": kind}, duration)
-}
-
-func (m *BackendMetrics) recordWorkerJobRetry(kind string, duration time.Duration) {
-	m.IncCounter("ghfind_worker_jobs_retried_total", map[string]string{"kind": kind})
-	m.ObserveDuration("ghfind_worker_job_duration", map[string]string{"kind": kind}, duration)
-}
-
-func (m *BackendMetrics) recordWorkerJobFailed(kind, result string, duration time.Duration) {
-	m.IncCounter("ghfind_worker_jobs_failed_total", map[string]string{"kind": kind, "result": result})
-	m.ObserveDuration("ghfind_worker_job_duration", map[string]string{"kind": kind}, duration)
-}
-
-func (m *BackendMetrics) recordWorkerJobDeadLettered(kind string) {
-	m.IncCounter("ghfind_worker_jobs_dead_lettered_total", map[string]string{"kind": kind})
-}
-
 func (m *BackendMetrics) recordFeedRequest(result string, duration time.Duration) {
 	m.IncCounter("ghfind_feed_requests_total", map[string]string{"algorithm": FeedAlgorithmVersion, "result": result})
 	m.ObserveDuration("ghfind_feed_request_duration", map[string]string{"algorithm": FeedAlgorithmVersion}, duration)

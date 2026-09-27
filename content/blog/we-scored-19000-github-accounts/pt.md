@@ -25,6 +25,8 @@ Em resumo, a fabricação é substancialmente mais rara nesta amostra do que o d
 
 ## 2. Dados e metodologia
 
+> **Nota (setembro de 2026):** este estudo usou a rubrica de pontuação anterior do ghfind, descrita nesta seção. A pontuação atual vem do devscore, que pesa o trabalho real pelo valor do projeto e pela autoria e nunca conta stars nem seguidores — veja a [metodologia](/methodology). Os achados abaixo não mudam.
+
 ### 2.1 Rubrica de pontuação
 
 O motor implementa uma rubrica determinística sobre seis dimensões que somam 100 pontos, com penalidades aditivas para sinais de alerta. Ele não faz chamadas a modelos; as pontuações são totalmente reproduzíveis a partir de dados públicos do GitHub. Os mesmos caminhos de código produzem as pontuações usadas pelo site do ghfind, pelos SDKs de npm/PyPI e por esta análise.

@@ -1,102 +1,109 @@
 ---
 title: "Bagaimana Kami Menilai Akun GitHub, dalam Bahasa yang Sederhana"
-description: "Penjelasan tanpa jargon tentang mesin open-source di balik ghfind: enam hal yang diukurnya, mengapa PR yang di-merge jauh lebih berharga daripada star, pola bot yang dikenai penalti, dan cara menjalankan seluruh penilai ini sendiri."
+description: "Penjelasan tanpa jargon tentang devscore, mesin open-source di balik ghfind: mengapa ia menimbang kerja nyata alih-alih star dan follower, bagaimana ia menentukan nilai sebuah proyek dan seberapa besar bagian Anda di dalamnya, pola ternak yang dibatasinya, dan arti enam dimensi di sebuah profil."
 date: "2026-07-13"
+updated: "2026-09-28"
 tags: ["scoring", "github", "open-source", "trust", "explainer"]
 ---
 
-**Dalam satu kalimat:** skor ini menjawab satu pertanyaan praktis — *apakah akun GitHub ini developer sungguhan yang bernilai, atau sesuatu yang digelembungkan agar terlihat seperti itu?* — dan menjawabnya dengan cara yang sama setiap saat, hanya menggunakan data publik, dengan semua aturannya dipublikasikan secara terbuka. Tulisan ini menjelaskan, tanpa jargon, persis bagaimana angka itu dibangun.
+**Dalam satu kalimat:** skor ini menjawab satu pertanyaan praktis — *seberapa banyak kerja nyata dan bernilai yang telah dilakukan developer ini secara publik?* — dan menjawabnya dengan cara yang sama setiap saat, hanya menggunakan data publik, dengan semua aturannya dipublikasikan secara terbuka. Tulisan ini menjelaskan, tanpa jargon, bagaimana angka itu dibangun.
 
 ## Mengapa perlu skor sama sekali
 
-Semakin banyak keputusan yang bergantung pada sekilas pandang ke GitHub seseorang. Rekruter membaca cepat sebuah profil sebelum panggilan telepon. Maintainer memutuskan apakah pull request dari orang asing layak di-review. Sebuah direktori memeringkat akun berdasarkan seberapa mengesankan tampilannya. Setiap penggunaan itu menciptakan alasan untuk *memalsukan* sinyalnya — dan memalsukan itu mudah untuk sinyal yang murah. Star bisa dibeli. Follower bisa dipertukarkan. Anda bisa membuka seratus pull request satu-baris dalam satu sore dan menyebut diri Anda "kontributor open-source".
+Semakin banyak keputusan yang bergantung pada sekilas pandang ke GitHub seseorang. Rekruter membaca cepat sebuah profil sebelum panggilan telepon. Maintainer memutuskan apakah pull request dari orang asing layak di-review. Sebuah direktori memeringkat akun berdasarkan seberapa mengesankan tampilannya. Setiap penggunaan itu menciptakan alasan untuk *memalsukan* sinyalnya — dan sinyal yang populer justru paling mudah dipalsukan. Star bisa dibeli. Follower bisa dipertukarkan. Anda bisa membuka seratus pull request satu-baris dalam satu sore dan menyebut diri Anda "kontributor open-source".
 
-Jadi skor yang berguna tidak bisa sekadar menjumlahkan angka-angka besar yang berkilau. Ia harus bersandar pada hal-hal yang benar-benar sulit dipalsukan, dan mengabaikan hal-hal yang tidak. Satu gagasan itulah yang mendorong setiap pilihan desain di bawah ini.
+Jadi skor yang berguna tidak bisa sekadar menjumlahkan angka-angka besar yang berkilau. Ia harus mengukur kerja itu sendiri, dan mengabaikan angka-angka yang bisa dibeli. Satu gagasan itulah yang mendorong setiap pilihan desain di bawah ini.
 
-## Satu prinsip utama: beri bobot pada yang sulit dipalsukan
+## Satu prinsip utama: timbang kerjanya, bukan tepuk tangannya
 
-Bagi setiap sinyal GitHub ke dalam dua kelompok.
+Mesin di balik skor ini bernama **devscore**. Aturannya singkat: *nilai apa yang benar-benar dibangun seorang developer, dibobot menurut seberapa penting hal itu dan seberapa besar bagiannya yang merupakan karyanya.*
 
-- **Murah untuk dipalsukan:** star, follower. Beberapa dolar atau lingkaran follow-balas-follow sudah cukup untuk menghasilkannya.
-- **Mahal untuk dipalsukan:** pull request yang di-merge ke proyek nyata yang dikelola *orang lain*, aktivitas stabil selama bertahun-tahun, kode yang benar-benar diterima oleh maintainer yang sibuk.
+- **Star dan follower tidak pernah dihitung.** Bukan sedikit, bukan dibatasi — nol. Keduanya mengukur perhatian, dan perhatian murah untuk dibeli.
+- **Jumlah pull request juga tidak dihitung.** Mesin mengukur commit yang Anda tulis dan apa yang diubahnya, sehingga seratus PR satu-baris tetaplah seratus perubahan satu-baris.
+- **Yang dihitung adalah kode yang mendarat di proyek yang dipakai orang.** Proyek milik Anda dihitung ketika orang lain memakainya; kerja Anda di proyek orang lain dihitung ketika maintainer independen menerimanya.
 
-Mesin ini memberi bobot besar pada kelompok kedua dan bobot ringan pada kelompok pertama. Star dan follower tetap dihitung — proyek yang benar-benar populer *memang seharusnya* membantu Anda — tetapi dibatasi cukup rendah sehingga membelinya nyaris tidak menggerakkan jarum. Sementara itu, berhasil me-merge kode nyata ke repo terkenal, yang mengharuskan Anda meyakinkan seorang manusia yang tidak punya alasan untuk membantu Anda, bernilai poin paling besar di papan.
+## Berapa nilai sebuah proyek
 
-Itulah keseluruhan filosofinya. Sisanya hanyalah cara filosofi itu disebar ke enam kategori.
+Untuk setiap repositori, devscore pertama-tama bertanya seberapa penting proyek itu. Ia tidak pernah melihat star. Ia melihat sinyal yang sulit dipalsukan karena mengharuskan orang lain *melakukan* sesuatu:
 
-## Enam hal yang diukur
+- **kontributor lain** yang menulis kode di dalamnya,
+- **dependen hilir** — paket yang bergantung padanya,
+- **penulis issue dari luar** — orang yang cukup sering memakainya sampai melaporkan masalah,
+- **fork**, yang didiskon karena paling murah untuk diternak di antara semuanya.
 
-Skor berjalan dari 0 sampai 100, terbagi ke enam dimensi. Berikut masing-masing dalam bahasa sederhana, beserta poin maksimumnya.
+Setiap kenaikan adopsi sepuluh kali lipat menambahkan jumlah yang sama, sehingga sebuah kernel dengan ribuan kontributor berdiri jauh di atas library dengan dua puluh kontributor, sementara proyek yang hanya dipakai penulisnya dan beberapa teman tetap berada di dekat dasar. Proyek yang tidak dipakai orang lain hanya mempertahankan sebagian kecil kerja yang dilakukan di dalamnya — membangun sesuatu untuk diri sendiri itu wajar, tetapi itu belum menjadi sesuatu yang diandalkan orang lain.
 
-| Dimensi | Maks | Apa yang sebenarnya ditanyakan |
+Proyek yang isinya hanya star tanpa pengguna mendapat perlakuan khusus. Sebuah **proyek hype** — banyak star, tetapi hampir tanpa kontributor, penulis issue, atau dependen, atau lonjakan promosi mendadak yang diikuti kesunyian — tidak mendapat kredit proyek sama sekali.
+
+## Seberapa besar bagian Anda
+
+Selanjutnya, devscore bertanya seberapa besar kerja di proyek itu yang merupakan milik Anda. Ia menggabungkan porsi commit Anda dengan kedudukan Anda dibandingkan penulis utama, sehingga co-lead sebuah proyek besar tetap dihitung sebagai penulis meski porsinya sedang, sementara kontributor yang jauh tertinggal di belakang penulis utama yang dominan tidak. Ribuan commit milik Anda sendiri dihitung sebagai kepengarangan berapa pun ukuran proyeknya.
+
+Lalu ia mengukur kerja itu sendiri: berapa banyak commit yang Anda daratkan, apa yang diubahnya (kode inti dihitung lebih besar daripada dokumentasi atau pekerjaan rutin; perubahan besar yang diterima maintainer dihitung lebih besar daripada yang kecil), dan berapa bulan kerja itu berlangsung. Riwayat commit yang terlihat dihasilkan mesin — setiap commit di jam yang sama, setiap perubahan berbentuk sama — didiskon.
+
+## Proyek orang lain: hanya kerja yang diterima yang dihitung
+
+Kerja di repositori orang lain adalah hal terdekat dengan peer review yang dimiliki GitHub — tetapi hanya jika seseorang yang independen benar-benar me-review-nya. Karena itu devscore menghitung kerja eksternal **hanya sejauh diterima oleh maintainer independen**:
+
+- PR yang di-merge oleh penulis utama proyek dihitung penuh;
+- PR yang diloloskan oleh seseorang yang tidak menulis kode apa pun di proyek itu dihitung setengah;
+- PR yang Anda merge sendiri, atau yang di-merge oleh rekan barter yang PR-nya Anda merge sebagai balasan, tidak dihitung sama sekali;
+- puluhan PR besar yang berdiri sendiri dan di-merge sekaligus selama kampanye berhadiah didiskon.
+
+Me-review dan me-merge kode orang lain juga merupakan kerja nyata. Seorang **maintainer** — diverifikasi lewat catatan GitHub sendiri tentang peran Anda di repositori itu, bukan klaim sendiri — mendapat kredit atas kerja itu, dan code review yang Anda berikan di proyek orang lain juga dihitung.
+
+## Waktu: tahun-tahun yang berkelanjutan, bukan ledakan sesaat
+
+Terakhir, devscore menghargai melakukan semua ini selama bertahun-tahun. Ia menghitung **tahun coding yang berkelanjutan**: setiap tahun kalender dihitung sekali, dibatasi dua belas bulan coding, sehingga menyebar satu tahun ke enam puluh repositori kecil tetaplah satu tahun. Kerja lama memudar dengan waktu paruh tiga tahun (sampai batas bawah tertentu, sehingga karier panjang tidak pernah terhapus).
+
+Semua ini digabungkan menjadi satu kurva mulus dari 0 sampai 100, dengan ruang di puncak agar yang terbaik tetap terpisah alih-alih sama-sama di angka 100. Peran terkuat yang menang: seseorang dinilai sebagai developer sekaligus sebagai maintainer, dan yang lebih baik dari keduanya yang dihitung.
+
+## Menangkap yang palsu
+
+Sebagian besar ternak tidak pernah memerlukan penalti, karena sinyal yang dihasilkannya — star, follower, jumlah PR, merge sendiri — memang sudah bernilai nol. Dua pola mendapat **batas** eksplisit, yang diterapkan paling akhir:
+
+- **PR berkualitas rendah secara massal.** Dalam dua belas bulan terburuk, banyak PR ke proyek orang lain ditolak atau ditarik — setidaknya sebanyak yang di-merge secara independen — disertai setidaknya dua dari: judul bertemplat, pengiriman duplikat, ledakan seminggu di banyak repositori, atau PR raksasa berisi ribuan baris.
+- **Pola influencer.** Ratusan follower, jauh tidak sebanding dengan kerja engineering yang diterima orang lain, tanpa proyek yang dipelihara dan tanpa proyek substansial milik sendiri.
+
+Skor yang dibatasi ditekan ke rentang 20–35, tetap diurutkan menurut kerja yang mendasarinya. Yang krusial, kedua batas ini terpicu oleh *pola* di sepanjang riwayat — satu PR yang ditolak, atau akun populer yang juga merilis kode nyata, sepenuhnya normal.
+
+## Enam angka di sebuah profil
+
+Totalnya adalah skor devscore. Agar mudah dibaca, setiap profil juga menampilkan enam **dimensi tampilan** yang diturunkan dari faktor-faktor devscore. Dimensi-dimensi ini menjelaskan skor; mereka tidak dijumlahkan untuk membentuknya.
+
+| Dimensi | Maks | Apa yang ditunjukkan |
 |---|---|---|
-| **Kualitas kontribusi** | 27 | Apakah pull request Anda yang nyata di-merge ke proyek nyata, dan apakah maintainer menerimanya? |
-| **Dampak ekosistem** | 20 | Apakah kode Anda pernah mendarat di repositori yang benar-benar populer — yang bukan milik Anda? |
-| **Kualitas proyek orisinal** | 18 | Apakah Anda pernah membangun sesuatu yang benar-benar dipakai orang (diukur dengan star, tapi dibatasi)? |
-| **Keaslian aktivitas** | 17 | Apakah Anda aktif secara stabil dari waktu ke waktu, dengan cara yang beragam — atau hanya satu ledakan lalu sunyi? |
-| **Kematangan akun** | 10 | Sudah berapa lama akun ini ada dan tetap aktif? |
-| **Pengaruh komunitas** | 8 | Apakah Anda punya pengikut yang nyata, dengan rasio yang sehat? |
-
-![Ke mana 100 poin itu pergi, per dimensi](/blog/how-we-score-github-accounts/weight-breakdown.svg "Enam dimensi dan poin maksimumnya. Oranye = sinyal yang sulit dipalsukan; abu-abu = yang bisa dibeli.")
-
-Perhatikan bahwa dua irisan terbesar — kualitas kontribusi (27) dan dampak ekosistem (20) — persis merupakan sinyal yang sulit dipalsukan. Star (18) dan follower (8), yang bisa dibeli, jika digabungkan pun nilainya masih kurang dari pull request yang di-merge saja. Urutan itulah intinya.
-
-### Sinyal yang paling penting: kode siapa, di repo siapa
-
-Angka tunggal yang paling penting adalah **dampak ekosistem** (20 poin), dan layak dijelaskan alasannya, karena inilah bagian paling cerdiknya.
-
-Ia menghitung pull request yang substansial — lebih dari lima baris, bukan perbaikan typo — yang berhasil di-merge ke **repositori populer yang bukan milik Anda**. Bayangkan seorang developer yang karya nyatanya hidup di dalam codebase proyek terkenal, bukan di repo ber-star miliknya sendiri. Ini tidak bisa dipalsukan. Me-merge perubahan nyata ke proyek dengan 50.000 star berarti seorang maintainer yang tidak punya insentif untuk membantu Anda telah melihat kode Anda dan berkata ya. Itulah hal terdekat dengan kredensial peer-review yang dimiliki GitHub.
-
-Ada satu pengecualian yang disengaja. Jika repo populer itu milik Anda *sendiri* — tetapi benar-benar populer, dengan 1.000 star atau lebih — itu tetap dihitung, karena menangkap sosok kreator yang menghabiskan waktunya membangun proyek terkenalnya sendiri alih-alih berkontribusi ke proyek orang lain. Yang **tidak** dihitung adalah pull request ke repo kecil milik Anda sendiri. Membuka PR ke proyek yang Anda buat kemarin dan tidak di-star siapa pun adalah cara klasik untuk menggelembungkan jumlah kontribusi, jadi itu dikecualikan di sini (dan dikenai penalti di tempat lain).
-
-## Mengapa angka besar tidak bisa lari sendirian
-
-Skor yang naif akan membiarkan satu repo viral, atau satu akun dengan 100.000 follower, mendominasi segalanya. Skor ini tidak, dan alasannya adalah satu pilihan desain: setiap angka "berapa banyak" dilewatkan melalui **kurva hasil yang semakin menurun** (diminishing returns) sebelum menjadi poin.
-
-![Kurva diminishing returns: poin yang diperoleh vs. star](/blog/how-we-score-github-accounts/diminishing-returns.svg "Poin naik cepat sampai beberapa ribu star, lalu mendatar — sehingga mega-repo atau star yang dibeli tidak bisa mendominasi.")
-
-Dalam bahasa sederhana: naik dari 0 ke 1.000 star memberi Anda banyak poin. Naik dari 50.000 ke 51.000 hampir tidak memberi apa-apa — Anda sudah berada dekat puncak. Kurva ini menghargai pencapaian ambang yang bermakna tanpa membiarkan segelintir mega-angka menenggelamkan yang lain. Developer solid dengan beberapa ribu star dan riwayat yang stabil tidak terkubur di bawah satu repositori viral milik satu orang. Ini juga berarti membeli star punya nilai yang menurun tajam: star pertama yang dibeli tidak berbuah banyak, dan membeli jalan Anda menaiki kurva menjadi mahal dengan cepat untuk imbal hasil yang nyaris nol.
-
-## Bendera merah: menangkap yang palsu
-
-Di atas enam dimensi positif itu, mesin ini mengurangi poin untuk pola-pola kecurangan dan usaha-rendah yang spesifik dan sudah dikenal luas. Ini adalah tanda tangan bot, spam, dan akun ternak (farmed). Beberapa yang utama, dalam bahasa sederhana:
-
-- **Banjir PR bertemplat** — puluhan pull request hasil generate otomatis yang nyaris identik, biasanya diarahkan ke repo yang sama. Ini pertanda terkuat dari riwayat kontribusi yang diternakkan.
-- **Ternak PR trivial** — setumpuk pull request satu-baris "fix typo" yang menggemukkan jumlah kontribusi tanpa pekerjaan nyata.
-- **Ternak PR ke diri sendiri** — membuka dan me-merge pull request Anda sendiri ke repo tanpa-star milik sendiri demi menggelembungkan angka. Me-merge kode sendiri tidak membuktikan apa-apa.
-- **Ternak follow** — mem-follow ribuan akun untuk memancing follow-balik, meninggalkan rasio follower/following yang timpang.
-- **Repo massal di akun yang baru lahir** — akun yang dibuat bulan lalu dengan lima puluh repositori hampir tidak pernah merupakan developer sungguhan.
-- **Profil hantu** — tanpa bio, nyaris tanpa follower, tanpa star, hampir tanpa hasil kerja yang di-merge. Bukan jahat, hanya kosong.
-- **Kemungkinan inflasi star** — repo dengan banyak star tetapi hampir tanpa fork atau issue, yang persis seperti penampilan star yang dibeli.
-
-Penalti-penalti ini menumpuk, sampai batas tertentu, sehingga akun yang tersandung beberapa di antaranya akan mendarat di dekat dasar tak peduli sebagus apa angka mentahnya. Yang krusial, pola-pola ini hidup di tingkat *riwayat* sebuah akun, bukan pada satu aksi tunggal — satu PR satu-baris itu sepenuhnya normal; seratus PR seperti itu yang diarahkan ke satu repo tidak.
+| **Kualitas kontribusi** | 27 | Kerja yang diterima secara independen di proyek orang lain, ditambah code review yang Anda berikan di sana |
+| **Dampak ekosistem** | 20 | Bobot kerja Anda di seluruh repositori, atau peran maintainer yang terverifikasi — mana pun yang lebih tinggi |
+| **Kualitas proyek orisinal** | 18 | Proyek andalan Anda: proyek engineering terkuat yang Anda miliki atau pimpin |
+| **Keaslian aktivitas** | 17 | Seberapa banyak kerja Anda yang baru; dipangkas tajam saat batas ternak diterapkan |
+| **Kematangan akun** | 10 | Tahun-tahun coding yang berkelanjutan |
+| **Pengaruh komunitas** | 8 | Seberapa sering maintainer me-merge alih-alih menolak PR Anda, ditambah review yang diberikan — tidak pernah follower |
 
 ## Apa arti angka akhirnya
 
-Jumlahkan enam dimensi, kurangi bendera merah, dan Anda mendarat di salah satu dari empat tingkatan:
-
 | Skor | Tingkatan | Arti |
 |---|---|---|
-| 90–100 | **夯 (Solid)** | Developer kelas atas — nilai tinggi, kepercayaan tinggi. |
-| 70–89 | **人上人 (Standout)** | Kontributor berkualitas — layak dipercaya. |
+| 90–100 | **夯 (God)** | Legendaris — karya kelas hall of fame. |
+| 80–89 | **顶级 (Elite)** | Developer kelas atas. |
+| 70–79 | **人上人 (Solid)** | Kontributor berkualitas — layak dipercaya. |
 | 40–69 | **NPC** | Akun biasa — sinyalnya biasa-biasa saja atau tidak jelas. |
-| 0–39 | **拉完了 (Cooked)** | Nilai rendah — kemungkinan tidak aktif, kosong, atau hasil ternak. |
+| 0–39 | **拉完了 (Trash)** | Sedikit kerja publik — atau pola ternak yang dibatasi. |
 
-Nama tingkatannya sengaja dibuat agak jenaka — semua ini bermula sebagai alat roast — tetapi rentang di baliknya adalah matematika deterministik yang sama untuk semua orang.
+Nama tingkatannya sengaja dibuat agak jenaka — semua ini bermula sebagai alat roast — tetapi matematika di baliknya sama untuk semua orang.
 
 ## Catatan jujur tentang apa yang *bukan* skor ini
 
-- **Ia hanya melihat aktivitas publik.** Seseorang yang bekerja sangat baik di repo privat perusahaan bisa terlihat tipis di sini. Skor rendah adalah pernyataan tentang jejak *publik*, bukan vonis atas orangnya.
+- **Ia hanya melihat aktivitas publik.** Seseorang yang bekerja sangat baik di repo privat perusahaan bisa terlihat tipis di sini. Skor rendah adalah pernyataan tentang jejak *publik*, bukan vonis atas orangnya. Setiap skor membawa tingkat keyakinan yang menyatakan seberapa banyak bukti publik yang menjadi dasarnya.
 - **Ia titik awal, bukan hakim.** Angka ini dimaksudkan untuk membantu manusia memprioritaskan — PR orang asing mana yang dilihat dulu, profil mana yang layak dibaca lebih dekat — bukan untuk menolak siapa pun secara otomatis. Bukti di balik skor lebih penting daripada skornya.
-- **Perilaku terkini dihitung lebih besar daripada sejarah lampau.** Sinyal dampak-ekosistem melihat pull request terkini, sehingga seseorang yang kontribusi besarnya semuanya bertahun-tahun lalu akan mendapat skor lebih rendah daripada yang disiratkan résumé-nya. Itu disengaja: ia mengukur apa yang Anda lakukan *sekarang*.
+- **Kerja lama memudar, perlahan.** Tahun-tahun terakhir dihitung lebih besar daripada sejarah lampau, tetapi rekam jejak yang panjang tidak pernah terhapus.
 
 ## Ini open source — jalankan sendiri
 
-Tidak ada satu pun dari ini yang merupakan kotak hitam, dan itulah intinya. Tidak ada model dalam prosesnya, tidak ada pembobotan tersembunyi, tidak ada "percayalah pada kami". Input yang sama selalu menghasilkan skor yang sama, dan setiap aturan yang dijelaskan di atas — setiap bobot, setiap ambang, setiap pemicu bendera merah — dipublikasikan di bawah lisensi AGPL.
+Tidak ada satu pun dari ini yang merupakan kotak hitam. Tidak ada model dalam prosesnya dan tidak ada pembobotan tersembunyi: data publik yang sama selalu menghasilkan skor yang sama, dan setiap aturan yang dijelaskan di atas — setiap bobot, setiap ambang, setiap batas — dipublikasikan di bawah lisensi AGPL.
 
-- **Baca kodenya:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind)
-- **Pasang mesinnya:** `npm install ghfind` atau `pip install ghfind`
-- **Jalankan secara lokal** dengan token GitHub Anda sendiri — tidak ada yang keluar dari mesin Anda — atau panggil API publiknya ([spesifikasi OpenAPI](https://ghfind.com/openapi.json)).
+- **Baca kodenya:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind) (mesinnya ada di `src/lib/devscore`)
+- **Jalankan secara lokal** dengan `npx @hikariming/ghfind score <user> --local` dan token GitHub Anda sendiri — tidak ada yang keluar dari mesin Anda — atau panggil API publiknya ([spesifikasi OpenAPI](https://ghfind.com/openapi.json)).
 - **Nilai satu akun** di browser Anda di [ghfind.com](https://ghfind.com).
 
 Jika Anda tidak setuju dengan sebuah bobot atau ambang, Anda bisa membaca persis apa nilainya, mengubahnya, dan melihat efeknya. Skor kepercayaan yang tidak bisa diperiksa orang tidak banyak nilainya — maka kami membuat yang satu ini bisa Anda periksa.

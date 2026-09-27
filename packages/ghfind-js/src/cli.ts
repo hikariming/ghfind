@@ -4,8 +4,8 @@
  * Design goals (in priority order):
  *  1. Useful with zero setup: `score` hits the public GET /api/score endpoint,
  *     which needs no auth and is cached + rate-limited on the server.
- *  2. Kind to the ghfind server: `--local` moves the heavy GitHub crawl onto the
- *     caller's own token/machine (see `ghfind/local`); nothing touches ghfind.
+ *  2. Kind to the ghfind server: `--local` runs the devscore collector + engine
+ *     on the caller's own token/machine (see `ghfind/local`); nothing touches ghfind.
  *  3. Drives traffic back: human-facing output ends with a profile link, and
  *     `badge --markdown` prints a README-ready snippet that links to ghfind.com.
  *
@@ -16,11 +16,11 @@ import { chmodSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { arch, platform } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { GhFind, GhFindError } from "./client.js";
-import type { ByoKey, ScanResult } from "./types.js";
+import { GhFind, GhFindError, GhFindPending } from "./client.js";
+import type { ByoKey } from "./types.js";
 import { catalog, DEFAULT_HOST } from "./catalog.js";
 
-const VERSION: string = "0.1.1";
+const VERSION: string = "0.2.0";
 const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const SUB_SCORE_ORDER = [
@@ -44,11 +44,11 @@ export interface Flags {
   value?: string;
   local?: boolean;
   githubToken?: string;
+  wait?: string;
   byoBaseUrl?: string;
   byoApiKey?: string;
   byoModel?: string;
   markdown?: boolean;
-  includeScan?: boolean;
   verifyExists?: boolean;
   releaseUrl?: string;
   method?: string;
@@ -91,13 +91,13 @@ export function parseArgs(argv: string[]): { positional: string[]; flags: Flags 
     "--method": "method",
     "--target": "target",
     "--asset-url": "assetUrl",
+    "--wait": "wait",
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--json") flags.json = true;
     else if (arg === "--local") flags.local = true;
     else if (arg === "--markdown" || arg === "--md") flags.markdown = true;
-    else if (arg === "--include-scan") flags.includeScan = true;
     else if (arg === "--verify-exists") flags.verifyExists = true;
     else if (arg === "--dry-run") flags.dryRun = true;
     else if (arg === "-h" || arg === "--help") flags.help = true;
@@ -181,17 +181,50 @@ function printRisk(s: { risk_assessment?: { level: string; confidence: number; a
   for (const note of s.risk_notes ?? []) out(`risk_note: ${note.flag} ${note.detail}`);
 }
 
-async function localScan(flags: Flags, username: string): Promise<ScanResult> {
+/** `--wait <seconds>` as ms; undefined keeps the client default. */
+function waitMs(flags: Flags): number | undefined {
+  if (flags.wait === undefined) return undefined;
+  const seconds = Number(flags.wait);
+  if (!Number.isFinite(seconds) || seconds < 0) fail(`Invalid --wait: ${flags.wait}`);
+  return seconds * 1000;
+}
+
+async function cmdLocalScore(flags: Flags, username: string, mode: string, host: string): Promise<void> {
   const token = githubToken(flags);
   if (!token) {
     fail(
       "--local needs a GitHub token: pass --github-token or set GITHUB_TOKEN.\n" +
-        "Local scoring crawls GitHub on your own machine and quota (ghfind is never called).",
+        "Local scoring runs the devscore collector on your own machine and quota (ghfind is never called).",
     );
   }
-  // Loaded lazily so the common remote path never pulls in the heavy engine.
+  // Loaded lazily so the common remote path never pulls in the collector + engine.
   const { collectAndScore } = await import("./local.js");
-  return collectAndScore(username, { token });
+  let lastPhase = "";
+  const r = await collectAndScore(username, {
+    token,
+    onProgress: ({ phase, progress, waitUntil }) => {
+      if (waitUntil !== null) {
+        process.stderr.write(`… rate-limited; resuming at ${new Date(waitUntil).toISOString()}\n`);
+      } else if (phase !== lastPhase) {
+        process.stderr.write(`… ${phase} (${Math.round(progress * 100)}%)\n`);
+      }
+      lastPhase = phase;
+    },
+  });
+  const s = r.scoring;
+  if (mode === "json") {
+    outJson({ source: "local", username: r.username, ...s, devscore: r.devscore });
+    return;
+  }
+  out(`${r.username}: ${s.final_score}/100 ${s.tier} (${s.tier_label})`);
+  out(`devscore v3: ${r.devscore.v3.score.toFixed(2)} ${r.devscore.v3.tier}, confidence ${r.devscore.curve.confidence}`);
+  printSubScores(s.sub_scores);
+  printRisk(s);
+  if (s.red_flags?.length) {
+    out("red_flags:");
+    for (const f of s.red_flags) out(`- ${f.flag}: -${f.penalty} ${f.detail}`);
+  }
+  out(profileLink(host, r.username));
 }
 
 // ---- commands --------------------------------------------------------------
@@ -201,25 +234,13 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
   const host = resolveHost(flags);
   const mode = outputMode(flags);
 
-  if (flags.local) {
-    const scan = await localScan(flags, username);
-    const s = scan.scoring;
-    if (mode === "json") {
-      outJson({ source: "local", username: scan.metrics.username, ...s });
-      return;
-    }
-    out(`${scan.metrics.username}: ${s.final_score}/100 ${s.tier} (${s.tier_label})`);
-    printSubScores(s.sub_scores);
-    printRisk(s);
-    if (s.red_flags?.length) {
-      out("red_flags:");
-      for (const f of s.red_flags) out(`- ${f.flag}: -${f.penalty} ${f.detail}`);
-    }
-    out(profileLink(host, scan.metrics.username));
-    return;
-  }
+  if (flags.local) return cmdLocalScore(flags, username, mode, host);
 
-  const payload = await client(flags).getScore(username, { verifyExists: flags.verifyExists });
+  const payload = await client(flags).getScore(username, {
+    verifyExists: flags.verifyExists,
+    waitMs: waitMs(flags),
+    onStatus: (s) => process.stderr.write(`… scoring ${username}: ${s.phase ?? s.state}${s.progress !== undefined ? ` (${Math.round(s.progress * 100)}%)` : ""}\n`),
+  });
   if (mode === "json") {
     outJson(payload);
     return;
@@ -239,10 +260,7 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
 
 async function cmdScan(positional: string[], flags: Flags): Promise<void> {
   const username = usernameArg(positional);
-  const scan = flags.local
-    ? await localScan(flags, username)
-    : await client(flags).scan(username, { verifyExists: flags.verifyExists });
-  outJson(scan);
+  outJson(await client(flags).scan(username, { verifyExists: flags.verifyExists, waitMs: waitMs(flags) }));
 }
 
 async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
@@ -251,10 +269,7 @@ async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
   const lang = langMode(flags);
   const mode = outputMode(flags, "markdown");
   const gh = client(flags);
-  // --local crawls + scores on the caller's machine, then sends only the scan to
-  // the server for the prose (which still needs a model — the server's or BYO).
-  const scan = flags.local ? await localScan(flags, username) : undefined;
-  const roast = await gh.roast({ username: scan ? undefined : username, scan, lang, byoKey: byoKey(flags) });
+  const roast = await gh.roast({ username, lang, byoKey: byoKey(flags) });
 
   if (mode === "json") {
     const body: Record<string, unknown> = {
@@ -263,7 +278,6 @@ async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
       meta: roast.meta,
       report: roast.report,
     };
-    if (flags.includeScan && scan) body.scan = scan;
     outJson(body);
     return;
   }
@@ -398,7 +412,7 @@ function cmdAuthStatus(flags: Flags): void {
   }
   out(`host: ${body.host}`);
   out(`api key: ${body.has_api_key ? "configured" : "missing"}`);
-  out(`github token (for --local / exists): ${body.has_github_token ? "configured" : "missing"}`);
+  out(`github token (for score --local / exists): ${body.has_github_token ? "configured" : "missing"}`);
   out(`byo llm key (for roast): ${body.has_byo_key ? "configured" : "missing"}`);
 }
 
@@ -635,8 +649,10 @@ function printHelp(): void {
   out("Usage: ghfind <command> [options]");
   out("");
   out("Commands:");
-  out("  score <user>          Deterministic score via GET /api/score (no auth, cached). --local to score offline.");
-  out("  scan <user>           Full evidence payload via POST /api/scan (heavy; needs --api-key in prod). --local supported.");
+  out("  score <user>          Deterministic devscore score via GET /api/score (no auth, cached).");
+  out("                        First-time accounts are computed in the background; --wait <s> bounds the wait.");
+  out("                        --local runs the devscore collector + engine on your GITHUB_TOKEN instead.");
+  out("  scan <user>           Full evidence payload via POST /api/scan (heavy; needs --api-key in prod). --wait <s>.");
   out("  roast <user>          Human-facing roast report (LLM). --byo-* to use your own model.");
   out("  vs <a> <b>            Head-to-head verdict (winner deterministic).");
   out("  exists <user>         Check a GitHub login exists (client-side; never touches ghfind).");
@@ -653,7 +669,7 @@ function printHelp(): void {
   out("  auth status           Show host + which credentials are configured.");
   out("");
   out("Common options: --host, --api-key, --json, -o/--output, --lang zh|en");
-  out("Local scoring:  --local (score/scan/roast) uses your GITHUB_TOKEN, entirely on your machine.");
+  out("Local scoring:  score --local runs devscore on your GITHUB_TOKEN, entirely on your machine (minutes).");
   out("Bring your own model: --byo-base-url --byo-api-key --byo-model (roast only).");
 }
 
@@ -712,6 +728,10 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         return fail(`Unknown command: ${command}. Run 'ghfind --help'.`);
     }
   } catch (e) {
+    if (e instanceof GhFindPending) {
+      const where = e.job?.phase ? ` (phase ${e.job.phase})` : "";
+      fail(`${e.message}${where}. Try again later; status: ${e.statusUrl}`, 3);
+    }
     if (e instanceof GhFindError) {
       const suffix = e.code ? ` (${e.code})` : "";
       fail(`${e.message}${suffix}`, e.status === 429 ? 2 : 1);

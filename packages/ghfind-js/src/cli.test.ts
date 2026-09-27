@@ -42,6 +42,7 @@ describe("parseArgs", () => {
     expect(flags.lang).toBe("en");
     expect(flags.output).toBe("markdown");
     expect(flags.byoModel).toBe("gpt-4o");
+    expect(parseArgs(["score", "x", "--wait", "30"]).flags.wait).toBe("30");
   });
 
   it("treats --md as an alias for --markdown", () => {
@@ -77,11 +78,6 @@ describe("byoKey", () => {
 });
 
 describe("offline commands", () => {
-  it("prints the version", async () => {
-    const out = await captureStdout(() => run(["version"]));
-    expect(out.trim()).toBe("ghfind 0.1.1");
-  });
-
   it("badge --markdown emits a README-ready snippet linking to the profile", async () => {
     const out = await captureStdout(() =>
       run(["badge", "torvalds", "--markdown", "--host", "https://ghfind.com"]),
@@ -101,9 +97,10 @@ describe("offline commands", () => {
     expect(out.split("\n")[0]).toContain("getScore");
   });
 
-  it("help mentions --local and byo", async () => {
+  it("help mentions --local, --wait and byo", async () => {
     const out = await captureStdout(() => run(["--help"]));
     expect(out).toContain("--local");
+    expect(out).toContain("--wait");
     expect(out).toContain("--byo-base-url");
   });
 
@@ -113,7 +110,7 @@ describe("offline commands", () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ tag_name: "v0.2.0", html_url: "https://example.test/v0.2.0" }),
+        json: async () => ({ tag_name: "v9.0.0", html_url: "https://example.test/v9.0.0" }),
       })),
     );
 
@@ -122,7 +119,7 @@ describe("offline commands", () => {
 
     expect(payload.name).toBe("ghfind");
     expect(payload.update_available).toBe(true);
-    expect(payload.latest_version).toBe("v0.2.0");
+    expect(payload.latest_version).toBe("v9.0.0");
   });
 
   it("update npm dry-run reports scoped package command", async () => {

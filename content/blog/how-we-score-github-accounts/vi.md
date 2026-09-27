@@ -1,102 +1,109 @@
 ---
 title: "Chúng tôi chấm điểm một tài khoản GitHub như thế nào, nói bằng ngôn ngữ thường"
-description: "Một bài giải thích không thuật ngữ về engine mã nguồn mở đứng sau ghfind: sáu thứ nó đo lường, vì sao pull request được merge đáng giá hơn star rất nhiều, các mẫu hành vi bot bị trừ điểm, và cách bạn tự chạy toàn bộ bộ chấm điểm."
+description: "Một bài giải thích không thuật ngữ về devscore, engine mã nguồn mở đứng sau ghfind: vì sao nó cân đo công việc thật thay vì star và follower, cách nó xác định một dự án đáng giá bao nhiêu và bao nhiêu phần trong đó là của bạn, các mẫu cày ảo bị áp trần, và ý nghĩa của sáu chiều trên một profile."
 date: "2026-07-13"
+updated: "2026-09-28"
 tags: ["scoring", "github", "open-source", "trust", "explainer"]
 ---
 
-**Tóm gọn trong một câu:** điểm số trả lời đúng một câu hỏi thực tế — *tài khoản GitHub này là một lập trình viên thật, có giá trị, hay là thứ được thổi phồng để trông giống như vậy?* — và nó trả lời theo cùng một cách mọi lúc, chỉ dùng dữ liệu công khai, với toàn bộ quy tắc được công bố công khai. Bài viết này giải thích, không dùng thuật ngữ, chính xác con số đó được xây dựng ra sao.
+**Tóm gọn trong một câu:** điểm số trả lời đúng một câu hỏi thực tế — *lập trình viên này đã làm được bao nhiêu công việc thật, có giá trị, ở nơi công khai?* — và nó trả lời theo cùng một cách mọi lúc, chỉ dùng dữ liệu công khai, với toàn bộ quy tắc được công bố công khai. Bài viết này giải thích, không dùng thuật ngữ, con số đó được xây dựng ra sao.
 
 ## Vì sao lại cần một điểm số
 
-Ngày càng nhiều quyết định dựa vào một cái liếc nhìn GitHub của ai đó. Một nhà tuyển dụng lướt qua profile trước cuộc gọi. Một maintainer quyết định xem pull request của một người lạ có đáng review không. Một trang danh bạ xếp hạng tài khoản theo độ "hoành tráng" bề ngoài. Mỗi cách dùng đó đều tạo ra lý do để *làm giả* các tín hiệu — và làm giả những tín hiệu rẻ tiền thì rất dễ. Star có thể mua. Follower có thể trao đổi. Bạn có thể mở một trăm pull request một dòng trong một buổi chiều và tự xưng là "người đóng góp mã nguồn mở."
+Ngày càng nhiều quyết định dựa vào một cái liếc nhìn GitHub của ai đó. Một nhà tuyển dụng lướt qua profile trước cuộc gọi. Một maintainer quyết định xem pull request của một người lạ có đáng review không. Một trang danh bạ xếp hạng tài khoản theo độ "hoành tráng" bề ngoài. Mỗi cách dùng đó đều tạo ra lý do để *làm giả* các tín hiệu — và những tín hiệu phổ biến lại dễ làm giả nhất. Star có thể mua. Follower có thể trao đổi. Bạn có thể mở một trăm pull request một dòng trong một buổi chiều và tự xưng là "người đóng góp mã nguồn mở."
 
-Vì vậy một điểm số hữu ích không thể chỉ cộng dồn những con số to đẹp. Nó phải dựa vào những thứ thật sự khó làm giả, và phớt lờ những thứ không khó. Chính ý tưởng duy nhất đó dẫn dắt mọi lựa chọn thiết kế bên dưới.
+Vì vậy một điểm số hữu ích không thể cộng dồn những con số to đẹp. Nó phải đo chính công việc, và phớt lờ những con số có thể mua được. Chính ý tưởng duy nhất đó dẫn dắt mọi lựa chọn thiết kế bên dưới.
 
-## Nguyên tắc duy nhất: đặt trọng số vào thứ khó làm giả
+## Nguyên tắc duy nhất: cân đo công việc, không phải tiếng vỗ tay
 
-Chia mọi tín hiệu GitHub thành hai nhóm.
+Engine đứng sau điểm số có tên là **devscore**. Quy tắc của nó rất ngắn: *chấm những gì một lập trình viên thực sự xây dựng, có trọng số theo mức độ quan trọng của nó và bao nhiêu phần trong đó là của họ.*
 
-- **Rẻ để làm giả:** star, follower. Vài đô la hoặc một vòng follow-đổi-follow là có ngay.
-- **Đắt để làm giả:** pull request được merge vào các dự án thật do người *khác* maintain, nhiều năm hoạt động đều đặn, code mà một maintainer bận rộn thật sự đã chấp nhận.
+- **Star và follower không bao giờ được tính.** Không phải tính một chút, không phải có trần — mà là bằng không. Chúng đo sự chú ý, và sự chú ý thì mua rẻ.
+- **Số lượng pull request cũng không được tính.** Engine đo các commit bạn viết và những gì chúng thay đổi, nên một trăm PR một dòng vẫn chỉ là một trăm thay đổi một dòng.
+- **Thứ được tính là code đã vào được những dự án người ta thật sự dùng.** Dự án của chính bạn được tính khi người khác dùng chúng; công việc của bạn trong dự án của người khác được tính khi một maintainer độc lập đã chấp nhận nó.
 
-Engine đặt trọng số nặng cho nhóm thứ hai và nhẹ cho nhóm thứ nhất. Star và follower vẫn được tính — một dự án thật sự được ưa chuộng *nên* giúp ích cho bạn — nhưng chúng bị giới hạn trần đủ thấp để việc mua chúng gần như không nhích được kim. Trong khi đó, đưa được code thật vào một repo nổi tiếng — việc đòi hỏi thuyết phục một con người chẳng có lý do gì để giúp bạn — đáng giá nhiều điểm nhất trên bảng.
+## Một dự án đáng giá bao nhiêu
 
-Toàn bộ triết lý là vậy. Phần còn lại chỉ là cách nó được phân bổ qua sáu hạng mục.
+Với mỗi repository, trước tiên devscore hỏi dự án đó quan trọng đến mức nào. Nó không bao giờ nhìn vào star. Nó nhìn vào những tín hiệu khó làm giả vì chúng đòi hỏi người khác phải *làm* điều gì đó:
 
-## Sáu thứ nó đo lường
+- **những người đóng góp khác** đã viết code trong đó,
+- **các dự án phụ thuộc ở hạ nguồn** — những package phụ thuộc vào nó,
+- **người mở issue bên ngoài** — những người dùng nó đủ nhiều để báo lỗi,
+- **fork**, bị giảm trọng số vì đây là tín hiệu rẻ nhất để cày trong số này.
 
-Điểm số chạy từ 0 đến 100, chia cho sáu chiều đo. Đây là từng chiều nói bằng ngôn ngữ thường, kèm số điểm tối đa.
+Mỗi bước tăng gấp mười lần về mức độ được sử dụng cộng thêm một lượng như nhau, nên một kernel với hàng nghìn người đóng góp đứng cao hơn hẳn một thư viện có hai mươi người, trong khi một dự án chỉ được tác giả và vài người bạn dùng thì nằm sát đáy. Một dự án không ai khác dùng chỉ giữ lại một phần nhỏ công việc làm trong đó — tự xây thứ gì đó cho mình thì hoàn toàn ổn, nhưng nó chưa phải là thứ người khác phụ thuộc vào.
 
-| Chiều đo | Tối đa | Câu hỏi thật sự nó đặt ra |
+Những dự án toàn star mà không có người dùng được đối xử đặc biệt. Một **dự án thổi phồng** — nhiều star nhưng gần như không có người đóng góp, người mở issue hay dự án phụ thuộc, hoặc một đợt tăng vọt nhờ quảng bá rồi im bặt — không nhận được chút điểm dự án nào.
+
+## Bao nhiêu phần trong đó là của bạn
+
+Tiếp theo, devscore hỏi bao nhiêu phần công việc của dự án đó là của bạn. Nó kết hợp tỷ lệ commit của bạn với vị thế của bạn so với tác giả chính, nên một đồng dẫn dắt của một dự án lớn được tính là tác giả dù tỷ lệ khiêm tốn, còn một người đóng góp xa phía sau một tác giả chính áp đảo thì không. Hàng nghìn commit của chính bạn được tính là quyền tác giả bất kể dự án lớn nhỏ thế nào.
+
+Sau đó nó đo chính công việc: bạn đã đưa vào bao nhiêu commit, chúng thay đổi những gì (code lõi được tính nhiều hơn tài liệu hay việc vặt; một thay đổi lớn được maintainer chấp nhận được tính nhiều hơn một thay đổi nhỏ xíu), và công việc kéo dài bao nhiêu tháng. Những lịch sử commit trông như do máy sinh ra — mọi commit cùng một giờ, mọi thay đổi cùng một hình dạng — bị giảm trọng số.
+
+## Dự án của người khác: chỉ công việc được chấp nhận mới được tính
+
+Công việc trong repository của người khác là thứ gần nhất với bình duyệt mà GitHub có — nhưng chỉ khi có ai đó độc lập thật sự review nó. Vì vậy devscore tính công việc bên ngoài **chỉ trong phạm vi một maintainer độc lập đã chấp nhận nó**:
+
+- một PR được tác giả chính của dự án merge được tính đầy đủ;
+- một PR được cho qua bởi người không hề viết dòng code nào trong dự án được tính một nửa;
+- một PR bạn tự merge, hoặc được merge bởi một đối tác trao đổi — người mà bạn cũng merge PR cho họ — không được tính gì;
+- hàng chục PR độc lập cỡ lớn được merge theo lô trong một chiến dịch thưởng bị giảm trọng số.
+
+Review và merge code của người khác cũng là công việc thật. Một **maintainer** — được xác minh bằng chính hồ sơ của GitHub về vai trò của bạn trong repository đó, không bao giờ tự khai — được ghi nhận cho công việc đó, và các code review bạn thực hiện trong dự án của người khác cũng được tính.
+
+## Thời gian: nhiều năm bền bỉ, không phải những đợt bùng nổ
+
+Cuối cùng, devscore thưởng cho việc làm điều này trong nhiều năm. Nó đếm **số năm viết code bền bỉ**: mỗi năm dương lịch được tính một lần, tối đa mười hai tháng viết code, nên rải một năm ra sáu mươi repository nhỏ thì vẫn chỉ là một năm. Công việc cũ phai dần với chu kỳ bán rã ba năm (xuống đến một mức sàn, nên một sự nghiệp dài không bao giờ bị xóa sạch).
+
+Tất cả những thứ này được kết hợp thành một đường cong mượt từ 0 đến 100, có chừa khoảng trống ở đỉnh để những người giỏi nhất tách ra thay vì cùng hòa ở 100. Vai trò mạnh nhất sẽ thắng: một người được đánh giá cả với tư cách lập trình viên lẫn maintainer, và cái nào tốt hơn sẽ được tính.
+
+## Bắt đồ giả
+
+Hầu hết hoạt động cày ảo chẳng cần đến điểm phạt, vì những tín hiệu nó tạo ra — star, follower, số lượng PR, tự merge — vốn đã không được điểm nào. Hai mẫu hành vi bị áp **trần** rõ ràng, áp dụng sau cùng:
+
+- **PR chất lượng thấp hàng loạt.** Trong mười hai tháng tệ nhất, nhiều PR vào dự án của người khác bị từ chối hoặc rút lại — ít nhất bằng số PR được merge độc lập — đi kèm ít nhất hai trong số: tiêu đề theo template, bản gửi trùng lặp, những đợt dồn dập trong một tuần trên nhiều repository, hoặc PR khổng lồ hàng nghìn dòng.
+- **Mẫu hành vi influencer.** Hàng trăm follower, vượt xa công việc kỹ thuật mà người khác đã chấp nhận, không có dự án nào đang bảo trì và không có dự án đáng kể nào của riêng mình.
+
+Một điểm số bị áp trần sẽ bị ép vào khoảng 20–35, vẫn được sắp xếp theo công việc thực chất bên dưới. Điều then chốt: cả hai mức trần đều kích hoạt trên một *mẫu hành vi* xuyên suốt lịch sử — một PR bị từ chối đơn lẻ, hay một tài khoản nổi tiếng mà cũng làm ra code thật, là hoàn toàn bình thường.
+
+## Sáu con số trên một profile
+
+Tổng điểm là điểm của devscore. Để dễ đọc, mỗi profile còn hiển thị sáu **chiều hiển thị** được suy ra từ các hệ số của devscore. Chúng giải thích điểm số; chúng không được cộng lại để tạo ra điểm số.
+
+| Chiều đo | Tối đa | Nó cho thấy gì |
 |---|---|---|
-| **Chất lượng đóng góp** | 27 | Bạn có pull request thật được merge vào dự án thật không, và maintainer có chấp nhận chúng không? |
-| **Tác động lên hệ sinh thái** | 20 | Code của bạn đã vào được những repository thật sự nổi tiếng — mà bạn không sở hữu — chưa? |
-| **Chất lượng dự án gốc** | 18 | Bạn đã xây được thứ gì đó người ta thật sự dùng chưa (đo bằng star, nhưng có trần)? |
-| **Tính xác thực của hoạt động** | 17 | Bạn hoạt động đều đặn theo thời gian, với nhiều dạng khác nhau — hay chỉ bùng lên một đợt rồi im lặng? |
-| **Độ trưởng thành của tài khoản** | 10 | Tài khoản này đã tồn tại và duy trì hoạt động bao lâu? |
-| **Ảnh hưởng cộng đồng** | 8 | Bạn có lượng người theo dõi thật, với tỷ lệ lành mạnh không? |
-
-![100 điểm được phân bổ thế nào, theo chiều đo](/blog/how-we-score-github-accounts/weight-breakdown.svg "Sáu chiều đo và số điểm tối đa của chúng. Cam = tín hiệu khó làm giả; xám = tín hiệu mua được.")
-
-Để ý hai phần lớn nhất — chất lượng đóng góp (27) và tác động hệ sinh thái (20) — chính xác là những phần khó làm giả. Star (18) và follower (8), những thứ mua được, cộng lại còn ít giá trị hơn riêng pull request được merge. Thứ tự đó chính là điểm mấu chốt.
-
-### Tín hiệu quan trọng nhất: code của ai, trong repo của ai
-
-Con số quan trọng nhất là **tác động hệ sinh thái** (20 điểm), và đáng để giải thích vì sao, bởi đây là phần khéo léo nhất.
-
-Nó đếm các pull request thực chất — nhiều hơn năm dòng, không phải sửa lỗi chính tả — được merge vào **các repository nổi tiếng mà bạn không sở hữu**. Hãy hình dung một lập trình viên mà công việc thật của họ nằm bên trong codebase của một dự án nổi tiếng thay vì trong các repo nhiều star của chính họ. Bạn không thể làm giả điều này. Merge được một thay đổi thật vào một dự án 50.000 star nghĩa là một maintainer chẳng có động cơ gì giúp bạn đã nhìn vào code của bạn và nói đồng ý. Đó là thứ gần nhất với một chứng chỉ được bình duyệt mà GitHub có.
-
-Có một ngoại lệ có chủ đích. Nếu repo nổi tiếng đó là của *chính bạn* — nhưng thật sự nổi tiếng, từ 1.000 star trở lên — thì vẫn được tính, vì nó ghi nhận kiểu người sáng tạo dành thời gian xây dự án nổi tiếng của riêng mình thay vì đóng góp cho dự án của người khác. Thứ **không** được tính là pull request vào các repo tí hon của chính bạn. Mở PR vào một dự án bạn tạo hôm qua mà chẳng ai star là chiêu kinh điển để thổi phồng số lượng đóng góp, nên chúng bị loại ở đây (và bị phạt ở chỗ khác).
-
-## Vì sao những con số khổng lồ không chiếm hết
-
-Một điểm số ngây thơ sẽ để một repo viral, hoặc một tài khoản có 100.000 follower, thống trị tất cả. Điểm số này thì không, và lý do là một lựa chọn thiết kế duy nhất: mọi con số dạng "bao nhiêu" đều được đưa qua một **đường cong lợi ích giảm dần** trước khi trở thành điểm.
-
-![Đường cong lợi ích giảm dần: điểm nhận được so với số star](/blog/how-we-score-github-accounts/diminishing-returns.svg "Điểm tăng nhanh đến vài nghìn star, rồi phẳng dần — nên một mega-repo hay star mua không thể thống trị.")
-
-Nói đơn giản: đi từ 0 lên 1.000 star mang về cho bạn rất nhiều điểm. Đi từ 50.000 lên 51.000 gần như chẳng thêm gì — bạn đã ở gần đỉnh rồi. Đường cong thưởng cho việc vượt qua một ngưỡng có ý nghĩa mà không để một nhúm con số khổng lồ lấn át mọi thứ khác. Một lập trình viên vững vàng với vài nghìn star và lịch sử đều đặn không bị chôn vùi dưới một repository viral duy nhất của ai đó. Nó cũng có nghĩa là mua star có giá trị giảm rất nhanh: những star mua đầu tiên chẳng giúp mấy, và mua để leo lên đường cong nhanh chóng trở nên đắt đỏ mà gần như chẳng thu về gì.
-
-## Cờ đỏ: bắt đồ giả
-
-Bên trên sáu chiều đo tích cực, engine trừ điểm cho các mẫu gian lận và lười biếng cụ thể, đã được biết rõ. Đây là dấu vân tay của bot, spam, và tài khoản nuôi. Vài mẫu chính, nói bằng ngôn ngữ thường:
-
-- **Lũ lụt PR theo khuôn mẫu** — hàng chục pull request gần như y hệt nhau, tự động sinh ra, thường nhắm vào cùng một repo. Đây là dấu hiệu mạnh nhất của một lịch sử đóng góp được nuôi.
-- **Cày PR vụn vặt** — một đống pull request một dòng kiểu "fix typo" độn số lượng đóng góp mà chẳng có việc thật nào.
-- **Cày PR tự thân** — mở và merge pull request của chính mình vào các repo không star của chính mình để thổi phồng con số. Merge code của chính mình chẳng chứng minh điều gì.
-- **Cày follow** — follow hàng nghìn tài khoản để câu follow lại, để lại tỷ lệ follower/following lệch hẳn.
-- **Repo hàng loạt trên tài khoản mới tinh** — một tài khoản tạo tháng trước với năm mươi repository gần như chắc chắn không phải lập trình viên thật.
-- **Profile ma** — không bio, gần như không follower, không star, gần như không có việc gì được merge. Không xấu xa, chỉ là trống rỗng.
-- **Nghi ngờ thổi star** — một repo có nhiều star nhưng gần như không có fork hay issue, đó chính là hình dạng của star mua.
-
-Các mức phạt cộng dồn, đến một giới hạn, nên một tài khoản dính vài mẫu trong số này sẽ rơi xuống gần đáy bất kể các con số thô của nó trông đẹp thế nào. Điều then chốt: các mẫu này tồn tại ở cấp độ *lịch sử* của tài khoản, không phải ở một hành động đơn lẻ nào — một PR một dòng đơn độc là hoàn toàn bình thường; một trăm cái nhắm vào một repo thì không.
+| **Chất lượng đóng góp** | 27 | Công việc được chấp nhận độc lập trong dự án của người khác, cộng với các code review bạn thực hiện ở đó |
+| **Tác động lên hệ sinh thái** | 20 | Trọng lượng công việc của bạn trên các repository, hoặc vai trò maintainer được xác minh — tùy cái nào cao hơn |
+| **Chất lượng dự án gốc** | 18 | Dự án chủ lực của bạn: dự án kỹ thuật mạnh nhất mà bạn sở hữu hoặc dẫn dắt |
+| **Tính xác thực của hoạt động** | 17 | Bao nhiêu phần công việc của bạn là gần đây; bị cắt mạnh khi một mức trần cày ảo được áp dụng |
+| **Độ trưởng thành của tài khoản** | 10 | Số năm viết code bền bỉ |
+| **Ảnh hưởng cộng đồng** | 8 | Các maintainer merge thay vì từ chối PR của bạn thường xuyên đến đâu, cộng với các review bạn thực hiện — không bao giờ là follower |
 
 ## Con số cuối cùng nghĩa là gì
 
-Cộng sáu chiều đo, trừ đi các cờ đỏ, và bạn rơi vào một trong bốn hạng:
-
 | Điểm | Hạng | Ý nghĩa |
 |---|---|---|
-| 90–100 | **夯 (Cứng cựa)** | Lập trình viên hàng đầu — giá trị cao, độ tin cậy cao. |
-| 70–89 | **人上人 (Nổi bật)** | Người đóng góp chất lượng — đáng tin cậy. |
+| 90–100 | **夯 (Cứng cựa)** | Huyền thoại — công việc đáng vào đại sảnh danh vọng. |
+| 80–89 | **顶级 (Tinh hoa)** | Lập trình viên hàng đầu. |
+| 70–79 | **人上人 (Nổi bật)** | Người đóng góp chất lượng — đáng tin cậy. |
 | 40–69 | **NPC** | Tài khoản bình thường — không có gì nổi bật hoặc tín hiệu không rõ ràng. |
-| 0–39 | **拉完了 (Hết cứu)** | Giá trị thấp — nhiều khả năng không hoạt động, trống rỗng, hoặc được nuôi. |
+| 0–39 | **拉完了 (Hết cứu)** | Ít công việc công khai — hoặc một mẫu cày ảo bị áp trần. |
 
-Tên các hạng cố ý hơi đùa cợt — thứ này khởi đầu là một công cụ "roast" — nhưng các khoảng điểm đứng sau chúng là cùng một phép toán tất định cho tất cả mọi người.
+Tên các hạng cố ý hơi đùa cợt — thứ này khởi đầu là một công cụ "roast" — nhưng phép toán đứng sau chúng là như nhau với tất cả mọi người.
 
 ## Một ghi chú thẳng thắn về những gì điểm số *không* phải
 
-- **Nó chỉ thấy hoạt động công khai.** Ai đó làm việc xuất sắc trong repo riêng của công ty có thể trông mỏng ở đây. Điểm thấp là một nhận định về dấu chân *công khai*, không phải phán quyết về con người.
+- **Nó chỉ thấy hoạt động công khai.** Ai đó làm việc xuất sắc trong repo riêng của công ty có thể trông mỏng ở đây. Điểm thấp là một nhận định về dấu chân *công khai*, không phải phán quyết về con người. Mỗi điểm số đi kèm một mức độ tin cậy cho biết nó dựa trên bao nhiêu bằng chứng công khai.
 - **Nó là điểm khởi đầu, không phải quan tòa.** Con số này nhằm giúp một con người sắp xếp ưu tiên — PR của người lạ nào nên xem trước, profile nào đáng đọc kỹ hơn — chứ không phải để tự động từ chối ai. Bằng chứng đứng sau điểm số quan trọng hơn điểm số.
-- **Hành vi gần đây được tính nhiều hơn lịch sử xa xưa.** Tín hiệu tác động hệ sinh thái nhìn vào các pull request gần đây, nên ai đó có các đóng góp lớn đều từ nhiều năm trước sẽ đạt điểm thấp hơn những gì résumé của họ gợi ý. Đó là cố ý: nó đo những gì bạn đang làm *bây giờ*.
+- **Công việc cũ phai dần, một cách chậm rãi.** Những năm gần đây được tính nhiều hơn lịch sử xa xưa, nhưng một thành tích dài hơi không bao giờ bị xóa sạch.
 
 ## Nó là mã nguồn mở — bạn tự chạy được
 
-Không có gì ở đây là hộp đen, và đó chính là điểm mấu chốt. Không có model nào trong vòng lặp, không có trọng số ẩn, không có kiểu "cứ tin chúng tôi." Cùng một đầu vào luôn cho ra cùng một điểm, và mọi quy tắc được mô tả ở trên — mọi trọng số, mọi ngưỡng, mọi điều kiện kích hoạt cờ đỏ — đều được công bố dưới giấy phép AGPL.
+Không có gì ở đây là hộp đen. Không có model nào trong vòng lặp và không có trọng số ẩn: cùng dữ liệu công khai luôn cho ra cùng một điểm, và mọi quy tắc được mô tả ở trên — mọi trọng số, mọi ngưỡng, mọi mức trần — đều được công bố dưới giấy phép AGPL.
 
-- **Đọc code:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind)
-- **Cài engine:** `npm install ghfind` hoặc `pip install ghfind`
-- **Chạy cục bộ** với GitHub token của riêng bạn — không gì rời khỏi máy bạn — hoặc gọi API công khai ([OpenAPI spec](https://ghfind.com/openapi.json)).
+- **Đọc code:** [github.com/hikariming/ghfind](https://github.com/hikariming/ghfind) (engine nằm trong `src/lib/devscore`)
+- **Chạy cục bộ** với `npx @hikariming/ghfind score <user> --local` và GitHub token của riêng bạn — không gì rời khỏi máy bạn — hoặc gọi API công khai ([OpenAPI spec](https://ghfind.com/openapi.json)).
 - **Chấm điểm một tài khoản** ngay trong trình duyệt tại [ghfind.com](https://ghfind.com).
 
 Nếu bạn không đồng ý với một trọng số hay một ngưỡng nào đó, bạn có thể đọc chính xác nó là gì, thay đổi nó, và xem hiệu ứng. Một điểm tin cậy mà người ta không thể soi vào thì chẳng đáng giá bao nhiêu — nên chúng tôi làm ra một điểm số mà bạn soi được.

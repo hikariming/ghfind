@@ -3,8 +3,8 @@
  * "We scored N GitHub accounts…". SELECTs only — never writes.
  *
  * Pass 1: full `scores` sweep (score/tier/bot_score histograms).
- * Pass 2: latest `profile_snapshots.metrics` per user → re-run the current
- *         scorer offline for red-flag prevalence + raw-metric distributions.
+ * Pass 2: latest `profile_snapshots.metrics` per user → raw-metric distributions;
+ *         red-flag prevalence comes from each user's stored risk assessment.
  * Pass 3: language facet distribution (GROUP BY, high-score segment).
  *
  * Usage: npx tsx scripts/blog-aggregates.mts
@@ -13,8 +13,7 @@
 import "/Users/rqq/github-roast/scripts/_env.mjs";
 import fs from "node:fs";
 import { createClient } from "@libsql/client";
-import { score, spamBotScore } from "/Users/rqq/github-roast/src/lib/score.ts";
-import type { RawMetrics } from "/Users/rqq/github-roast/src/lib/types.ts";
+import type { RawMetrics, RiskAssessment } from "/Users/rqq/github-roast/src/lib/types.ts";
 
 const OUT = "/Users/rqq/github-roast/content/blog/we-scored-19000-github-accounts/data.json";
 const PAGE = 5000;
@@ -44,14 +43,25 @@ const dist = (arr: number[]) => {
 
 // ---------- pass 1: scores table ----------
 console.error("pass 1: scores…");
-type ScoreRow = { final_score: number; tier: string; bot_score: number | null };
+/** `red_flags`: penalty-disposition signals of the stored risk assessment (null: none stored). */
+type ScoreRow = { final_score: number; tier: string; bot_score: number | null; red_flags: string[] | null };
+
+function storedRedFlags(raw: unknown): string[] | null {
+  if (typeof raw !== "string") return null;
+  try {
+    const risk = JSON.parse(raw) as RiskAssessment | null;
+    return risk ? risk.signals.filter((s) => s.disposition === "penalty").map((s) => s.flag) : null;
+  } catch {
+    return null;
+  }
+}
 const scoreByUser = new Map<string, ScoreRow>();
 let hiddenCount = 0;
 {
   let last = "";
   for (;;) {
     const r = await db.execute({
-      sql: `SELECT username, final_score, tier, bot_score, hidden FROM scores
+      sql: `SELECT username, final_score, tier, bot_score, risk_assessment, hidden FROM scores
             WHERE username > ? ORDER BY username LIMIT ${PAGE}`,
       args: [last],
     });
@@ -63,6 +73,7 @@ let hiddenCount = 0;
         final_score: Number(row.final_score),
         tier: String(row.tier),
         bot_score: row.bot_score === null ? null : Number(row.bot_score),
+        red_flags: storedRedFlags(row.risk_assessment),
       });
     }
     process.stderr.write(`  scores loaded: ${scoreByUser.size + hiddenCount}\r`);
@@ -111,12 +122,11 @@ const latestAt = new Map<string, number>();
 }
 console.error(`\n  distinct snapshot users: ${latestAt.size}`);
 
-console.error("pass 2b: metrics sweep + offline rescore…");
+console.error("pass 2b: metrics sweep…");
 const flagCounts: Record<string, number> = {};
-let flaggedUsers = 0, sweptUsers = 0;
+let flaggedUsers = 0, flagsOf = 0, sweptUsers = 0;
 let floodSuspect = 0, starInflation = 0, followFarm = 0;
 let extTrivialAny = 0, extTrivialSampled = 0, trivialFarmers = 0;
-let recomputedBotGte3 = 0, recomputedBotGte5 = 0;
 const arrays = {
   followers: [] as number[], total_stars: [] as number[], max_stars: [] as number[],
   merged_pr_count: [] as number[], account_age_years: [] as number[],
@@ -176,18 +186,15 @@ const templatedRatios: number[] = []; // only where recent_pr_sample >= 10
         rejectionRates.push(m.pr_rejection_rate);
       }
 
-      // offline rescore with the current engine → red flags + spam score
-      try {
-        const scoring = score(m);
-        if (scoring.red_flags.length) flaggedUsers++;
-        for (const f of scoring.red_flags) flagCounts[f.flag] = (flagCounts[f.flag] ?? 0) + 1;
-        const bot = spamBotScore(m);
-        if (bot >= 3) recomputedBotGte3++;
-        if (bot >= 5) recomputedBotGte5++;
-      } catch { /* metrics shape from an old scan_version the scorer can't take */ }
+      // red flags as published with the stored score
+      const live = scoreByUser.get(u)!;
+      if (live.red_flags) {
+        flagsOf++;
+        if (live.red_flags.length) flaggedUsers++;
+        for (const f of live.red_flags) flagCounts[f] = (flagCounts[f] ?? 0) + 1;
+      }
 
       // age × current score
-      const live = scoreByUser.get(u)!;
       const ageBucket = Math.min(10, Math.floor(m.account_age_years ?? 0));
       const b = ageScoreBuckets.get(ageBucket) ?? { sum: 0, n: 0, scores: [] };
       b.sum += live.final_score; b.n++; b.scores.push(live.final_score);
@@ -224,7 +231,7 @@ const ageScore = [...ageScoreBuckets.entries()]
 const out = {
   generated_at: new Date().toISOString(),
   method_notes:
-    "Visible (non-hidden) accounts only. Red flags & recomputed spam scores use the current engine over each user's latest raw-metrics snapshot. Stored bot_score reflects the engine version at scan time.",
+    "Visible (non-hidden) accounts only. Red flags are the penalty signals of each user's stored risk assessment; stored bot_score and red flags reflect the engine version at scan time.",
   totals: {
     scored_accounts_visible: scoreByUser.size,
     hidden_accounts: hiddenCount,
@@ -238,8 +245,7 @@ const out = {
     histogram_bucket1: botHist,
     gte3: botGte3, gte5: botGte5, gte7: botGte7,
   },
-  recomputed_spam: { gte3: recomputedBotGte3, gte5: recomputedBotGte5, of: sweptUsers },
-  red_flags: { users_with_any: flaggedUsers, of: sweptUsers, by_flag: flagCounts },
+  red_flags: { users_with_any: flaggedUsers, of: flagsOf, by_flag: flagCounts },
   farming_signals: {
     of: sweptUsers,
     pr_flood_suspect: floodSuspect,

@@ -25,6 +25,8 @@ Tóm lại, giả tạo trong mẫu này hiếm hơn đáng kể so với nhữn
 
 ## 2. Dữ liệu và phương pháp
 
+> **Lưu ý (tháng 9/2026):** nghiên cứu này dùng bộ tiêu chí chấm điểm trước đây của ghfind, được mô tả trong mục này. Điểm số hiện tại đến từ devscore, engine cân đo công việc thật theo giá trị dự án và tỷ lệ tác giả, và không bao giờ tính star hay follower — xem [methodology](/methodology). Các phát hiện bên dưới không thay đổi.
+
 ### 2.1 Bộ tiêu chí chấm điểm
 
 Engine hiện thực một bộ tiêu chí tất định trên sáu chiều đo với tổng 100 điểm, cùng các mức phạt cộng dồn cho các tín hiệu cờ đỏ. Nó không gọi model nào; điểm số hoàn toàn tái lập được từ dữ liệu GitHub công khai. Cùng các đường code đó tạo ra điểm dùng cho website ghfind, các SDK trên npm/PyPI, và phân tích này.

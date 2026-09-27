@@ -79,7 +79,7 @@ Special mention to [bowenliang123](/u/bowenliang123) (94.0, #8 by commits) and [
 
 ## Method and limitations
 
-Scores come from ghfind's deterministic rubric — six dimensions over public GitHub data, no model calls, open source under AGPL. Full rubric and thresholds: [methodology](/methodology). Aggregates behind every table: [data.json](/blog/who-builds-dify/data.json).
+Scores come from ghfind's deterministic rubric at the time of the study (July 2026) — six dimensions over public GitHub data, no model calls, open source under AGPL. The current score is devscore, which weighs real work by project worth and authorship and never counts stars or followers: [methodology](/methodology). Aggregates behind every table: [data.json](/blog/who-builds-dify/data.json).
 
 - **Top-100 by commits is not the whole community.** Dify has 458 code contributors; we scored the head of the distribution. The tail is likely thinner.
 - **Point-in-time.** Data collected 2026-07-11. Star and commit counts move daily; live contributor data lives on the [Dify project page](/developers/repo/langgenius/dify).

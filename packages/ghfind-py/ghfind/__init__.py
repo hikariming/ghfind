@@ -8,16 +8,18 @@ LLM), plus roasts, battles, leaderboards, and developer discovery.
     print(gh.get_score("torvalds"))
 """
 
-from .client import DEFAULT_HOST, GhFind, GhFindError
+from .client import DEFAULT_HOST, DEFAULT_WAIT_SECONDS, GhFind, GhFindError, GhFindPending
 from .catalog import CATALOG, find_capability
 from .types import TIER_KEY
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "GhFind",
     "GhFindError",
+    "GhFindPending",
     "DEFAULT_HOST",
+    "DEFAULT_WAIT_SECONDS",
     "CATALOG",
     "find_capability",
     "TIER_KEY",

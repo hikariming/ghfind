@@ -77,7 +77,7 @@ class RiskCoverage(TypedDict):
 
 
 class RiskAssessment(TypedDict):
-    version: Literal["v10"]
+    version: Literal["v10", "v11"]  # v11: devscore v3 flags; v10 only on legacy scores
     risk_score: float
     level: RiskLevel
     confidence: float
@@ -104,7 +104,20 @@ class ScanResult(TypedDict, total=False):
     recent_prs: List[dict]
     flood_pr_titles: List[str]
     impact_repos: List[dict]
+    devscore: dict  # the devscore v3/curve/engine factors behind ``scoring`` (v11)
     scoring: Scoring
+
+
+ScanJobState = Literal["queued", "running", "done", "failed"]
+
+
+class ScanJobStatus(TypedDict, total=False):
+    """Background scoring job status (``202`` bodies and the status Location)."""
+
+    state: ScanJobState
+    phase: str  # collector phase ("queued", "user", "contribs", …, "publish")
+    progress: float  # 0..1
+    error: str  # failed jobs only, e.g. "account_not_found"
 
 
 class Percentile(TypedDict):
@@ -125,7 +138,7 @@ class RoastLine(TypedDict):
 
 class ScorePayload(TypedDict, total=False):
     source: str  # "indexed", "quick", or "legacy_v5_v5_v3"
-    coverage: str  # "quick" for current Go collection, "legacy" for fallback
+    coverage: str  # "quick" for a cached published scan, "legacy" for fallback
     stale: bool  # true only for compatible legacy fallback scores
     cached: bool  # quick path only
     username: str

@@ -33,7 +33,7 @@ import {
 import { DIMENSIONS } from "./dimensions";
 import { brandMarkSvg, gradeForDimension } from "./material-card";
 import { MINI_CARD_SIZES, type MiniCardVariant } from "./mini-card-sizes";
-import { SUBSCORE_MAX } from "./score";
+import { SUBSCORE_MAX } from "./score-presentation";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
 export { MINI_CARD_SIZES, type MiniCardVariant };
