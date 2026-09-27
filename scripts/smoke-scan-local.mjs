@@ -5,11 +5,11 @@
  */
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { createWriteStream, existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createClient } from "@libsql/client/web";
 
 const root = resolve(import.meta.dirname, "..");
@@ -20,6 +20,10 @@ assert(process.env.SQLD_BIN, "Set SQLD_BIN to the local sqld executable");
 const token = process.env.GITHUB_TOKEN || execFileSync("gh", ["auth", "token"], { encoding: "utf8" }).trim();
 assert(token, "GitHub token required");
 const out = mkdtempSync(join(tmpdir(), "ghfind-scan-local-"));
+const sourcePaths = ["src/lib/github.ts", "src/lib/scan-core.ts", "src/app/api/scan/route.ts", "src/app/api/score/[username]/route.ts", "src/app/api/roast/route.ts", "src/lib/db.ts"];
+const fingerprints = () => Object.fromEntries(sourcePaths.map((path) => [path, createHash("sha256").update(readFileSync(join(root, path))).digest("hex")]));
+const source = { head: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), startedAt: new Date().toISOString(), fingerprints: fingerprints() };
+writeFileSync(join(out, "source.json"), JSON.stringify(source, null, 2), { mode: 0o600 });
 const tracePath = join(out, "trace.cjs");
 writeFileSync(tracePath, `
 const original = globalThis.fetch;
@@ -113,6 +117,7 @@ try {
     // server before any next case so pending work cannot overlap another scan.
     if (!row.passed) break;
   }
+  assert.deepEqual(fingerprints(), source.fingerprints, "Runtime source changed during E2E; rerun against stable source");
 } finally {
   for (const child of children.reverse()) child.kill("SIGTERM");
   console.log(`Local artifacts: ${out}`);
