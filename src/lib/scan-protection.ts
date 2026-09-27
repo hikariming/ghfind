@@ -4,8 +4,10 @@ export class ScanBusyError extends Error {
   }
 }
 
-// Atomic admission: one producer per handle and at most eight cold crawls across
-// all handles/instances. Leases also recover capacity after a worker is killed.
+// One in-flight crawl per username, and at most this many cold crawls across
+// every isolate. Ninety-six is 24 in-flight scans for each of the four tokens.
+// Leases recover capacity after an invocation is killed.
+export const SCAN_COLD_CONCURRENCY = 96;
 export const ADMIT_SCAN = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
 if redis.call('EXISTS', KEYS[3]) == 1 then return -1 end
@@ -61,7 +63,7 @@ export async function protectedScan<T>(options: {
         owner,
         Date.now(),
         300_000,
-        8,
+        SCAN_COLD_CONCURRENCY,
       ]);
     } catch {
       throw new ScanBusyError();

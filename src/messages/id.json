@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Peringkat",
+    "roast": "Roast GitHub",
+    "leaderboard": "Peringkat developer",
     "discover": "Jelajahi",
     "developers": "Developer",
     "projectBoards": "Papan proyek",
     "projects": "Proyek",
-    "collections": "Pilihan",
+    "collections": "Pilihan editor",
     "languages": "Bahasa",
     "organizations": "Organisasi",
-    "versus": "Duel",
+    "versus": "Duel developer",
     "blog": "Riset",
     "openMenu": "Buka menu",
-    "closeMenu": "Tutup menu"
+    "closeMenu": "Tutup menu",
+    "resume": "CV saya",
+    "talent": "Kumpulan talenta",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Jelajahi",
+    "groupCareer": "Karier",
+    "groupTools": "Alat",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Nilai akun GitHub dalam 30 detik, plus satu komentar pedas",
+      "versus": "Adu dua developer secara langsung",
+      "leaderboard": "Jelajahi developer terbaik berdasarkan skor",
+      "projectBoards": "Temukan proyek open source menonjol per bidang",
+      "collections": "Proyek dan developer pilihan editor",
+      "blog": "Data dan wawasan ekosistem developer",
+      "resume": "Buat CV developer dari data GitHub",
+      "talent": "Temukan developer yang layak dikenal",
+      "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis"
+    }
   },
   "globalSearch": {
     "open": "Buka pencarian global",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 Developer terbaik",
     "openBoard": "Buka peringkat lengkap →",
     "disclaimer1": "Skor dan roast dibuat otomatis hanya dari <b>data publik GitHub</b>. Yang kami roast adalah perilaku dan statistik publik sebuah akun, bukan orangnya. Hasilnya bukan klaim faktual tentang siapa pun — jangan dipakai untuk merundung.",
-    "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu."
+    "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu.",
+    "viewAll": "Lihat semua"
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",
     "subtitle": "Hall of Fame memuat akun dengan skor 60+, default menampilkan Trending.",
     "judgeCta": "← Nilai sebuah akun",
-    "footerNote": "Hanya akun berskor tinggi berdasarkan data publik GitHub yang ditampilkan. Untuk menghapus dirimu dari papan, <a>ajukan penghapusan di sini</a>.",
+    "footerNote": "Hanya akun berskor tinggi berdasarkan data publik GitHub yang ditampilkan.",
     "loadError": "Papan peringkat lagi susah dimuat — coba lagi nanti.",
     "loading": "Memuat Hall of Fame…",
     "empty": "🧮 Lagi menghitung angka — cek lagi sebentar lagi…",
@@ -561,10 +580,6 @@
       {
         "q": "Apakah pekerjaan privatku dihitung?",
         "a": "Tidak. Skor hanya memakai sinyal publik, jadi kontribusi organisasi privat tak terlihat oleh mesin. Anggota aktif repo privat bisa terlihat lebih rendah dari seharusnya. Skor rendah bukan klaim faktual tentang seseorang — ia hanya menggambarkan jejak publik sebuah akun."
-      },
-      {
-        "q": "Bagaimana cara menghapus profilku dari ghfind?",
-        "a": "Hanya akun berskor 60+ yang diindeks dan ditampilkan. Untuk dihapus dari papan, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan profil akan dicabut dari daftar."
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "Hubungi ghfind",
-    "metaDescription": "Cara menghubungi tim ghfind: laporkan masalah, ajukan penghapusan dari papan peringkat, atau tanyakan soal API, CLI, dan server MCP.",
+    "metaDescription": "Cara menghubungi tim ghfind: laporkan masalah, atau tanyakan soal API, CLI, dan server MCP.",
     "heading": "Kontak",
     "paragraphs": [
-      "ghfind adalah proyek open source. Cara tercepat menghubungi tim, melaporkan masalah, mengajukan penghapusan dari papan peringkat, atau bertanya soal API, CLI, atau server MCP adalah membuka issue di repositori GitHub publik. Issue dibaca dan ditriase di sana, dan menjaga percakapan tetap terbuka membantu pengguna lain yang menemui pertanyaan yang sama.",
+      "ghfind adalah proyek open source. Cara tercepat menghubungi tim, melaporkan masalah, atau bertanya soal API, CLI, atau server MCP adalah membuka issue di repositori GitHub publik. Issue dibaca dan ditriase di sana, dan menjaga percakapan tetap terbuka membantu pengguna lain yang menemui pertanyaan yang sama.",
       "Untuk pertanyaan integrasi, kontrak API yang bisa dibaca mesin ada di /openapi.json, indeks dokumentasi untuk agen di /llms.txt, dan panduan autentikasi di /auth.md. Kalau kamu butuh batas laju yang lebih tinggi untuk pemindaian server-ke-server bervolume besar, sebutkan use case-mu di sebuah issue GitHub."
     ],
     "issuesLabel": "Buka issue di GitHub",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "Privasi — ghfind",
-    "metaDescription": "Cara ghfind menangani data: hanya menilai data publik GitHub, tidak menjual data pribadi, dan menghormati permintaan penghapusan profil yang terindeks.",
+    "metaDescription": "Cara ghfind menangani data: hanya menilai data publik GitHub dan tidak menjual data pribadi.",
     "heading": "Privasi",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "Roast dengan key milik sendiri",
         "p": "Fitur roast opsional bisa memakai key penyedia modelmu sendiri. Saat kamu memberikannya, key itu tetap di browsermu dan diteruskan sekali lewat server kami untuk memanggil model — tidak pernah disimpan dan tidak pernah di-log, dan dibuang setelah permintaan selesai."
-      },
-      {
-        "h": "Penghapusan dan kendali",
-        "p": "Kalau kamu ingin profilmu dicabut dari daftar, pakai tautan penghapusan di footer papan peringkat atau buka issue di repositori GitHub, dan kami akan menghapusnya dari papan dan indeks. Karena ghfind hanya mencerminkan data publik GitHub, mengubah atau memprivatkan aktivitas GitHub-mu juga akan mengubah atau menghapus apa yang bisa dilihat ghfind pada pemindaian berikutnya."
       }
     ]
   },
@@ -994,20 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "CV saya",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
-    "edition": "Public workspace"
+    "expand": "Bentangkan sidebar",
+    "collapse": "Ciutkan sidebar",
+    "navigation": "Navigasi utama",
+    "docs": "Bantuan & dokumentasi",
+    "skip": "Lewati ke konten",
+    "edition": "Public workspace",
+    "sponsor": "Sponsori"
   },
   "talent": {
     "topline": {
@@ -1027,14 +1036,16 @@
     },
     "tabs": {
       "aria": "Temukan talenta",
-      "all": "Temukan",
+      "all": "Semua",
       "saved": "Tersimpan",
-      "sessionHint": "Simpanan hanya bertahan di sesi ini"
+      "sessionHint": "Simpanan hanya bertahan di sesi ini",
+      "discover": "Jelajahi"
     },
     "search": {
       "placeholder": "Cari nama, username GitHub, stack, atau kota…",
       "aria": "Cari talenta",
-      "clear": "Hapus pencarian"
+      "clear": "Hapus pencarian",
+      "hint": "Tips: filter per kolom — mis. skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Filter",
@@ -1046,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Kurasi manual",
       "onlyAvailable": "Hanya yang terbuka untuk ngobrol",
-      "reset": "Reset filter"
+      "reset": "Reset filter",
+      "subDirections": "Fokus",
+      "officialTags": "Tag resmi",
+      "tagAria": "Saring berdasarkan tag resmi \"{tag}\"",
+      "collection": "Koleksi",
+      "clearCollection": "Hapus filter koleksi"
     },
     "results": {
       "count": "Ditemukan <strong>{count}</strong> developer",
@@ -1057,8 +1073,13 @@
       "sortActivity": "Kontribusi teraktif",
       "gridView": "Tampilan kartu",
       "listView": "Tampilan daftar",
-    "loadMore": "Muat lebih banyak",
-    "loading": "Memuat…"
+      "perPageAria": "Hasil per halaman",
+      "perPageOption": "{count} / halaman",
+      "pagesAria": "Paginasi",
+      "prevPage": "Halaman sebelumnya",
+      "nextPage": "Halaman berikutnya",
+      "pageStatus": "Halaman {page} dari {pages}",
+      "loading": "Memuat…"
     },
     "notice": {
       "submitted": "Pengajuan untuk {name} diterima. Hanya kolom publik yang disimpan dan ditampilkan setelah ditinjau.",
@@ -1218,6 +1239,240 @@
       "submitting": "Mengirim…",
       "confirmSubmit": "Konfirmasi dan kirim",
       "next": "Lanjut"
+    },
+    "categories": {
+      "aria": "Jelajahi per kategori",
+      "all": "Semua",
+      "agent": "Agen & alur kerja",
+      "ai": "Aplikasi AI & model",
+      "infra": "Backend & infrastruktur",
+      "frontend": "Frontend & full-stack",
+      "tools": "Alat & data",
+      "other": "Lainnya"
+    },
+    "overview": {
+      "collectionsTitle": "Koleksi pilihan",
+      "collectionsSubtitle": "Dikelompokkan menurut ekosistem open source dan tag resmi",
+      "sectionsTitle": "Jelajahi per bidang",
+      "sectionsSubtitle": "Developer pilihan per bidang — \"Lihat semua\" untuk daftar lengkap",
+      "people": "{count} orang",
+      "viewAll": "Lihat semua {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Pengguna beta DSH",
+        "desc": "Pengguna awal dan co-builder beta DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Kontributor inti mesin inferensi LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Ekosistem platform Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Komunitas LobeChat / LobeHub dan multi-agen"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Kontributor ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Kontributor framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Kontributor spesifikasi dan SDK MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Ekosistem LangChain / LangGraph"
+      }
     }
+  },
+  "sponsor": {
+    "metaTitle": "Sponsori ghfind · Paket & manfaat",
+    "metaDescription": "Sponsori ghfind: paket Utama, Model, Unggulan, dan Sahabat, ditagih bulanan. Sponsor tidak pernah memengaruhi peringkat atau skor apa pun.",
+    "topline": {
+      "section": "Bantuan & Dokumen",
+      "current": "Sponsori"
+    },
+    "hero": {
+      "titleLead": "Biarkan ghfind",
+      "titleAccent": "terus blak-blakan.",
+      "subtitle": "ghfind adalah proyek komunitas terbuka, dan pemanggilan model, server, serta pengambilan data butuh biaya nyata. Sponsor Anda menjaganya tetap gratis, independen, dan terus diperbarui. Semua harga dalam USD per bulan, saat ini sedang diskon terbatas."
+    },
+    "perMonth": "/ bulan",
+    "listPrice": "Harga normal {price}",
+    "off": "Hemat {off}%",
+    "soldOut": "Habis",
+    "available": "Tersedia",
+    "soon": "Dalam pengembangan",
+    "currentHolder": "Sponsor saat ini",
+    "cta": "Jadi sponsor",
+    "ctaSoldOut": "Habis · Nantikan",
+    "tiers": {
+      "title": {
+        "name": "Sponsor utama",
+        "summary": "Slot paling mencolok di situs — merek Anda ikut di setiap kartu pamer yang dibagikan.",
+        "perks": [
+          {
+            "text": "Slot sponsor di navigasi atas setiap halaman (logo + nama + tagline)"
+          },
+          {
+            "text": "Kredit dengan logo Anda di setiap kartu pamer yang dibagikan"
+          }
+        ]
+      },
+      "model": {
+        "name": "Sponsor model",
+        "summary": "Mendukung model untuk ulasan dan tampil setiap kali ulasan dibuat.",
+        "perks": [
+          {
+            "text": "Kredit sponsor model saat ulasan dibuat"
+          },
+          {
+            "text": "Info dan logo sponsor di beranda"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Sponsor unggulan",
+        "summary": "Eksposur stabil di beranda dan halaman detail developer.",
+        "perks": [
+          {
+            "text": "Slot sponsor di beranda"
+          },
+          {
+            "text": "Tampil acak di halaman detail",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Sponsor sahabat",
+        "summary": "Dukung ghfind sebagai sahabat — kami akan mencatat Anda di sini.",
+        "perks": [
+          {
+            "text": "Ucapan terima kasih dan tautan keluar di halaman ini"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Sponsor sahabat",
+      "lead": "Terima kasih untuk setiap sahabat yang mendukung ghfind. Tautan diurutkan berdasarkan waktu bergabung.",
+      "empty": "Slot ini masih kosong — jadilah sponsor sahabat pertama →"
+    },
+    "fairness": {
+      "heading": "Sponsor tidak memengaruhi peringkat atau skor",
+      "body": "Sponsor hanya mendapatkan penempatan dan ucapan terima kasih. Sponsor tidak dan tidak bisa memengaruhi peringkat, skor, atau ulasan developer maupun proyek mana pun. Skor sepenuhnya ditentukan oleh metodologi yang kami publikasikan dan data, dan semua orang diperlakukan sama demi keadilan."
+    },
+    "contactLead": "Untuk sponsor, faktur, atau pertanyaan lain, hubungi",
+    "rowLabel": "Sponsor",
+    "holders": {
+      "dsh": "Sekali terhubung, pakai Harness dari mana saja",
+      "mosoo": "Runtime cloud untuk coding agent",
+      "phi": "Browser AI open source yang benar-benar mengenalmu"
+    },
+    "slotOpen": "Slot tersedia"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App yang melabeli issue dan PR berdasarkan skor penulis",
+    "metaDescription": "Pasang GitHub App ghfind Review untuk menambahkan label berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya.",
+    "topline": {
+      "section": "Integrasi",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Gratis",
+      "title": "Pilah issue dan PR berdasarkan siapa pembuatnya",
+      "subtitle": "ghfind Review menambahkan label review: berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya. Tanpa workflow, token, atau secret yang perlu diatur.",
+      "install": "Pasang di GitHub",
+      "status": "Buka halaman status",
+      "note": "Berjalan sebagai ghfind-review[bot]. Hanya menambahkan label — tidak pernah berkomentar, menutup, atau memblokir kiriman."
+    },
+    "preview": {
+      "label": "Contoh daftar issue dengan label review",
+      "heading": "Issues",
+      "items": {
+        "top": "Crash saat mengurai konfigurasi bertingkat",
+        "medium": "Tambah mode gelap di pengaturan",
+        "noScore": "Salah ketik di README"
+      }
+    },
+    "labels": {
+      "heading": "Lima label, sekali lihat",
+      "lead": "Label yang belum ada dibuat saat pemasangan. Warna atau deskripsi yang sudah Anda ubah tetap dipertahankan.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Sinyal publik minim. Periksa sumbernya dulu."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Profil kontributor pada umumnya."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Sinyal profil publik yang kuat."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Teratas di indeks ghfind."
+        },
+        "noScore": {
+          "range": "Tanpa skor",
+          "desc": "Skor tidak tersedia, bukan nol. Dicoba lagi setelah 20 dan 60 menit."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cara kerja",
+      "items": {
+        "install": {
+          "title": "Pasang di repositori pilihan",
+          "body": "Beri izin baca & tulis untuk Issues dan Pull requests. Pilih Only select repositories untuk mulai kecil; repo organisasi mungkin perlu persetujuan owner."
+        },
+        "open": {
+          "title": "Seseorang membuka issue atau PR",
+          "body": "Bot mencari skor ghfind publik penulis di latar belakang. Isi issue tidak pernah dibaca atau dinilai."
+        },
+        "label": {
+          "title": "Label review: muncul",
+          "body": "Saat dipasang, halaman awal issue dan PR yang masih terbuka juga diberi label. Edit atau buka ulang tidak dinilai ulang."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Ubah rentang skor menjadi antrean review",
+      "lead": "Tempel filter ke pencarian issue repositori Anda dan mulai dari antrean yang sesuai waktu Anda.",
+      "items": {
+        "high": "Issue skor tinggi",
+        "top": "Issue skor teratas",
+        "low": "Issue skor rendah untuk diverifikasi",
+        "noScore": "Tanpa skor — perlu konteks"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Minta penilaian ulang",
+        "body": "Setelah percobaan ulang otomatis, penulis atau admin repositori dapat berkomentar @ghfind-review di issue untuk menilai ulang."
+      },
+      "privacy": {
+        "heading": "Data yang disentuh",
+        "body": "Tidak membaca kode sumber maupun isi issue. Hanya menyimpan instalasi, repositori, nomor issue, skor, dan status job; job selesai dihapus setelah 30 hari. Penulis dengan email publik bisa menerima paling banyak satu email skor per 72 jam, dengan berhenti langganan sekali klik.",
+        "link": "Pemberitahuan privasi"
+      },
+      "stop": {
+        "heading": "Berhenti kapan saja",
+        "body": "Hapus repositori, tangguhkan, atau copot app dari pengaturan GitHub. Label yang sudah ada tetap tersimpan."
+      }
+    },
+    "disclaimer": "Skor mencerminkan profil GitHub publik penulis, bukan kualitas kontribusi ini. Kontributor baru mungkin hanya punya sedikit jejak publik.",
+    "source": "Kode sumber dan panduan self-hosting"
   }
 }

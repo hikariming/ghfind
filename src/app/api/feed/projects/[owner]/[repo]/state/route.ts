@@ -1,6 +1,7 @@
 import { forwardFeedRequest } from "@/lib/feed-gateway";
 import { feedErrorResponse, feedJson, feedJsonBody, isFeedResponse, requireFeedViewer } from "@/lib/feed-api";
 import { FeedError, updateFeedProjectState } from "@/lib/feed";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function PUT(
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new FeedError("invalid_state_patch", 400, "Expected a project state object.");
     }
-    return feedJson(await updateFeedProjectState(viewer, `${decodeURIComponent(owner)}/${decodeURIComponent(repo)}`, body as Record<string, unknown>));
+    return feedJson(await updateFeedProjectState(viewer, `${decodeRouteParam(owner)}/${decodeRouteParam(repo)}`, body as Record<string, unknown>));
   } catch (error) {
     return feedErrorResponse(error);
   }

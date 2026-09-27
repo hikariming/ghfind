@@ -1,24 +1,24 @@
 import { ApiError, github, record, positive } from "./github";
 
-// Same contract as PR #288 (f72a4b3); no CLI/Node entry point in the Worker.
+// Thresholds match PR #288 (f72a4b3). `review:` is the priority; the band is the level.
 export const LABELS = [
-  "review-level: low",
-  "review-level: medium",
-  "review-level: high",
-  "review-level: xhigh",
-  "review-level: unavailable",
+  "review: low",
+  "review: medium",
+  "review: high",
+  "review: top",
+  "review: no-score",
 ] as const;
 export type Label = (typeof LABELS)[number];
 export const LABEL_COLORS: Record<Label, string> = {
-  "review-level: low": "d9dee3",
-  "review-level: medium": "b6dfff",
-  "review-level: high": "ff922b",
-  "review-level: xhigh": "ffc400",
-  "review-level: unavailable": "c3c7ce",
+  "review: low": "d9dee3",
+  "review: medium": "b6dfff",
+  "review: high": "e2c0a2",
+  "review: top": "ded0a6",
+  "review: no-score": "c3c7ce",
 };
 const labelDescription = (name: Label) =>
   name === LABELS[4]
-    ? "ghfind author score unavailable (not zero)"
+    ? "ghfind author score missing (not zero)"
     : "ghfind author score; see https://ghfind.com";
 export function scoreToLabel(score: unknown): Label {
   if (
@@ -113,16 +113,25 @@ export async function syncLabel(
 }
 
 export const COMMENT_MARKER = "<!-- ghfind-review:author-score:v1 -->";
-export function scoreComment(login: string, score: unknown): string {
+function rescoreHint(slug: string): string {
+  const name = /^[A-Za-z0-9-]+$/.test(slug) ? slug : "ghfind-review";
+  // The mention is in code so posting this comment does not notify the bot or any person.
+  return `The ghfind score service did not return a score. This is not a GitHub App rate limit on the repository.\nTo score this again, the author or a repository admin can comment \`@${name}\` here. Automatic retries stop 60 minutes after this comment.\n没有拿到 ghfind 的分数。这不是这个仓库的 GitHub App 令牌额度用尽。\n要重新评分，作者或仓库管理员可在这里评论 \`@${name}\`。这条 no-score 出现 60 分钟后不再自动重试。这里不会 @ 任何人。`;
+}
+export function scoreComment(
+  login: string,
+  score: unknown,
+  appSlug = "ghfind-review",
+): string {
   if (!/^[A-Za-z0-9-]+(?:\[bot\])?$/.test(login))
     throw new Error("Invalid author login");
   const label = scoreToLabel(score);
   const ranges: Record<Label, string> = {
-    "review-level: low": "0 ≤ score < 40",
-    "review-level: medium": "40 ≤ score < 70",
-    "review-level: high": "70 ≤ score < 90",
-    "review-level: xhigh": "90 ≤ score ≤ 100",
-    "review-level: unavailable": "Unavailable — no score interval",
+    "review: low": "0 ≤ score < 40",
+    "review: medium": "40 ≤ score < 70",
+    "review: high": "70 ≤ score < 90",
+    "review: top": "90 ≤ score ≤ 100",
+    "review: no-score": "No score",
   };
   const available = label !== LABELS[4];
   const author = login.replaceAll("[", "\\[").replaceAll("]", "\\]");
@@ -131,9 +140,9 @@ export function scoreComment(login: string, score: unknown): string {
 
 | Profile | Score | Level | Score interval |
 | --- | --- | --- | --- |
-| [${author}](https://ghfind.com/en/u/${encodeURIComponent(login)}) | ${available ? `${score} / 100` : "Unavailable"} | \`${label}\` | ${ranges[label]} |
+| [${author}](https://ghfind.com/en/u/${encodeURIComponent(login)}) | ${available ? `${score} / 100` : "No score"} | \`${label}\` | ${ranges[label]} |
 
-${available ? "The label reflects the author's public GitHub profile at processing time." : "The score could not be obtained. Unavailable does not mean zero."}
+${available ? "The label reflects the author's public GitHub profile at processing time." : `The score could not be obtained. No score does not mean zero.\n${rescoreHint(appSlug)}`}
 This profile score is not a review of the issue or PR content, or a merge recommendation.`;
 }
 
@@ -145,9 +154,10 @@ export async function syncComment(
   score: unknown,
   appSlug: string,
   emailEnabled = false,
+  allowNew = true,
 ) {
   const body =
-    scoreComment(login, score) +
+    scoreComment(login, score, appSlug) +
     (emailEnabled
       ? "\n\n[Email preferences / 邮件设置](https://bot.ghfind.com/notifications): score emails go to available public GitHub addresses by default; unsubscribe in the email. / 有公开邮箱时默认发送评分邮件，可在邮件中退订。"
       : "");
@@ -175,7 +185,7 @@ export async function syncComment(
       }
     }
     if (comments.length < 100) {
-      await api(path, "POST", { body });
+      if (allowNew) await api(path, "POST", { body });
       return;
     }
   }

@@ -9,7 +9,6 @@ import {
 } from "@/components/ProjectAssessmentCard";
 import {
   listProjectBoard,
-  ProjectAnalysisDatabaseError,
   countProjectBoard,
   type ProjectBoard,
 } from "@/lib/project-analysis-db";
@@ -58,7 +57,7 @@ export default async function ProjectsPage({
   const t = await getTranslations("projectBoards");
   const board = parseBoard(query.board);
   const page = parsePage(query.page);
-  let databaseError: string | null = null;
+  let databaseError = false;
   let entries = [] as Awaited<ReturnType<typeof listProjectBoard>>;
   let total = 0;
   try {
@@ -68,11 +67,11 @@ export default async function ProjectsPage({
     });
     total = await countProjectBoard(board);
   } catch (error) {
-    if (!(error instanceof ProjectAnalysisDatabaseError)) throw error;
-    databaseError = error.message;
+    console.error("projectBoards.load_failed", error);
+    databaseError = true;
   }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  if (page > totalPages) {
+  if (!databaseError && page > totalPages) {
     redirect(`/projects?board=${board}&page=${totalPages}`);
   }
   const currentPage = page;
@@ -157,7 +156,7 @@ export default async function ProjectsPage({
         </section>
       )}
 
-      {(currentPage > 1 || hasNext) && (
+      {!databaseError && (currentPage > 1 || hasNext) && (
         <nav className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
           <Link
             href={`/projects?board=${board}&page=${Math.max(1, currentPage - 1)}`}

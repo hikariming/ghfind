@@ -131,6 +131,19 @@ func likelyPlaceholderProject(repo TopRepo, loginLower string) bool {
 	return (repo.Readme != nil && repo.Readme.Features.PlaceholderScore >= 0.6) || placeholderReadmeRE.MatchString(readme)
 }
 
+// A "notes"/"learning" keyword is weak evidence once a substantive repo has
+// real organic traction (many stars backed by a healthy fork share); mirrors
+// hasOrganicProjectTraction in src/lib/github.ts.
+const (
+	placeholderTractionMinStars     = 500
+	placeholderTractionMinForkRatio = 0.03
+	placeholderTractionMultiplier   = 0.75
+)
+
+func hasOrganicProjectTraction(repo TopRepo) bool {
+	return repo.Stars >= placeholderTractionMinStars && repo.Forks >= repo.Stars*placeholderTractionMinForkRatio
+}
+
 // OriginalRepoQualityScore is the existing 0..1 project-substance signal.
 // Stars are intentionally not included; Score() applies them separately.
 func OriginalRepoQualityScore(repo TopRepo, loginLower string, now time.Time) float64 {
@@ -191,7 +204,11 @@ func OriginalRepoQualityScore(repo TopRepo, loginLower string, now time.Time) fl
 	}
 	if likelyPlaceholderProject(repo, loginLower) {
 		if readmeLength >= 600 && repo.Size >= 200 {
-			score *= 0.55
+			if hasOrganicProjectTraction(repo) {
+				score *= placeholderTractionMultiplier
+			} else {
+				score *= 0.55
+			}
 		} else {
 			score *= 0.25
 		}

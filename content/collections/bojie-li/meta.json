@@ -1,0 +1,28 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "李博杰：从华为天才少年到开源AI布道者",
+    "en": "Bojie Li: from Huawei \"Genius Youth\" to open-source AI evangelist",
+    "ja": "李博杰：ファーウェイ「天才少年」からオープンソースAI伝道師へ",
+    "ko": "리보제(李博杰): 화웨이 '천재 소년'에서 오픈소스 AI 전도사로"
+  },
+  "intro": {
+    "zh": "中科大少年班出身、微软亚洲研究院联合培养博士，华为首批\"天才少年\"之一、灵衢UB核心软件架构师；离开华为后创立Logenic AI、出任Pine AI首席科学家，又以《深入理解AI Agent》（约5万星）与《深入理解AI Infra》两部开源著作，成为中文社区最有影响力的AI知识布道者之一。",
+    "en": "A USTC gifted-class alumnus and joint PhD with Microsoft Research Asia, one of Huawei's first eight \"Genius Youth\" hires and the core software architect of the Lingqu UB interconnect; after leaving Huawei he founded Logenic AI and served as chief scientist at Pine AI — and with two open-source books, AI Agents in Depth (~50k stars) and AI Infra in Depth, he has become one of the most influential AI knowledge evangelists in the Chinese-speaking community.",
+    "ja": "中国科学技術大学少年班出身、マイクロソフトリサーチアジアとの共同培养博士課程を経て、ファーウェイ初の「天才少年」8人の一人として灵衢UBのコアソフトウェアアーキテクトを務めた人物。ファーウェイ退職後はLogenic AIを創業し、Pine AIのチーフサイエンティストに就任。オープンソース著作『深入理解AI Agent』（約5万スター）と『深入理解AI Infra』で、中国語圏を代表するAI知識の伝道師となりました。",
+    "ko": "중국과학기술대학 소년반 출신, 마이크로소프트 리서치 아시아 공동 박사 과정을 거쳐 화웨이 1기 '천재 소년' 8인 중 한 명으로 링취(灵衢) UB 핵심 소프트웨어 아키텍트를 지낸 인물. 화웨이 퇴사 후 Logenic AI를 창업하고 Pine AI 최고과학책임자를 역임했으며, 오픈소스 저작 『AI Agent 심층 이해』(약 5만 스타)와 『AI Infra 심층 이해』로 중국어권에서 가장 영향력 있는 AI 지식 전도사 중 한 명이 되었습니다."
+  },
+  "publishedAt": "2026-09-22",
+  "tags": ["developer-story", "ai-agent", "ai-infra", "open-source"],
+  "subject": {
+    "kind": "developer",
+    "id": "bojieli",
+    "nickname": "李博杰 (Bojie Li)",
+    "headline": {
+      "zh": "前华为2012实验室灵衢UB核心软件架构师 · 《深入理解AI Agent》《深入理解AI Infra》作者",
+      "en": "Former Huawei 2012 Lab core software architect of the Lingqu UB interconnect · author of AI Agents in Depth and AI Infra in Depth",
+      "ja": "元ファーウェイ2012実験室 灵衢UBコアソフトウェアアーキテクト · 『深入理解AI Agent』『深入理解AI Infra』著者",
+      "ko": "전 화웨이 2012 랩 링취 UB 핵심 소프트웨어 아키텍트 · 『AI Agent 심층 이해』『AI Infra 심층 이해』 저자"
+    }
+  }
+}

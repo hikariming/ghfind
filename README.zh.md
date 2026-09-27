@@ -50,20 +50,20 @@ ghfind 不只负责打分，更是一台开发者发现引擎。你可以通过�
 
 ## GitHub App：少一点排查来源，多一点时间维护项目
 
-**每一条 issue 和 PR 都在争取你的注意力。投入审查前，先看清作者的公开贡献背景。**
+**每一条 issue 都在争取你的注意力。投入处理前，先看清作者的公开贡献背景。**
 
-安装 **ghfind Review**，为新建 issue 和 PR 加一道自动来源筛查：
-彩色评分标签帮你整理待办队列，bot 评论直接提供作者的 profile 链接、分数和区间。
-不用逐个打开账号查背景，把有限的维护时间留给更需要你深入审查的贡献。
+安装 **ghfind Review**，为新建 issue 打上作者的公开 ghfind 评分标签。
+彩色 `review:` 区间帮你整理待办，不必先逐个打开账号。
 
-- **按区间安排审查优先级。** 用 `review-level:` 标签筛选 issue 和 PR，为团队制定分层处理规则。
-- **让更强的 profile 信号更醒目。** 低分段用灰白、浅蓝弱化显示，高分段用亮橙、金色突出，扫一眼就能定位。
-- **在深入审查前先筛查来源。** 将低分或评分不可用的提交纳入人工来源复核队列，辅助应对潜在低质量来源的 issue 和 PR，减少反复排查的负担。
+- **按区间安排处理优先级。** 用 `review:` 标签筛选 issue，为团队制定分层规则。
+- **让更强的 profile 信号更醒目。** 低分段用灰白、浅蓝弱化显示，高分段用低饱和的杏色和麦金色标出，亮色模式下不刺眼。
+- **在深入处理前先筛查来源。** 将低分或没有评分的 issue 纳入人工来源复核。
 
-当前分档阈值固定为 40、70、90。标签用于筛选，App 不会自动拦截或关闭提交。
-账号评分是审查线索，不能直接证明贡献质量；新贡献者同样值得认真对待。
+当前分档阈值固定为 40、70、90。App 给 issue 和 pull request 打标，
+不在讨论区发评论，不会自动拦截或关闭提交。
+账号评分是处理线索，不能直接证明贡献质量；新贡献者同样值得认真对待。
 
-**从一个仓库开始，让下一条 issue 或 PR 自带来源背景。**
+**从一个仓库开始，让下一条 issue 自带评分标签。**
 App 自动补齐标签，无需在仓库添加 workflow 或 secret。
 
 [**安装 GitHub App**](https://github.com/apps/ghfind-review/installations/new) ·
@@ -99,7 +99,34 @@ App 自动补齐标签，无需在仓库添加 workflow 或 secret。
 
 ```bash
 pnpm install
-cp .env.example .env.local   # 填入 GITHUB_TOKEN 和 LLM_API_KEY(默认 StepFun 阶跃)
+cp .env.example .env.local
+```
+
+使用 Docker 启动本地 HTTP libSQL 服务（也可以使用托管的 Turso 数据库）：
+
+```bash
+docker run -d --name ghfind-libsql -p 127.0.0.1:8080:8080 \
+  -v ghfind-libsql-data:/var/lib/sqld \
+  ghcr.io/tursodatabase/libsql-server:latest
+```
+
+Apple Silicon 请使用 `latest-arm` 镜像标签，详见
+[libSQL Docker 指南](https://github.com/tursodatabase/libsql/blob/main/docs/DOCKER.md)。
+命名卷将数据库文件保存在仓库之外。已有容器可用 `docker start ghfind-libsql` 重新启动。
+
+启动应用前，在 `.env.local` 中设置：
+
+```dotenv
+GITHUB_TOKEN=<你的 GitHub PAT>
+TURSO_DATABASE_URL=http://127.0.0.1:8080
+TURSO_AUTH_TOKEN=
+```
+
+使用托管 Turso 时，改为对应的数据库 URL 和认证 token。应用首次访问本地 libSQL
+数据库时会自动建表。当前使用的 web 客户端不支持 `file:` URL。
+使用服务端付费模型生成锐评文字还需配置 `LLM_API_KEY`；确定性扫描和评分不需要它。
+
+```bash
 pnpm dev
 ```
 
@@ -112,7 +139,7 @@ pnpm dev
 | `pnpm dev` | 本地开发 |
 | `pnpm start` 或 `pnpm build/start` | 一键生产构建并运行 |
 | `pnpm build` / `pnpm start:prod` | 仅构建 / 运行已有生产构建 |
-| `pnpm ghfind` | 面向 agent 的 `ghfind` CLI,封装网站评分和发现类 API |
+| `pnpm cli:build` | 构建独立的 `./bin/ghfind` CLI（需要 Go 1.23+） |
 | `pnpm test` | Vitest 测试套件(打分、prompt、DB、UI helper、reaction 等) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
@@ -122,31 +149,25 @@ pnpm dev
 CLI 是网站 API 的远程调用封装,不会在本地运行 GitHub 扫描、评分或 LLM
 逻辑。
 
-```bash
-pnpm ghfind commands --json
-pnpm ghfind update check -o json
-pnpm ghfind score hikariming -o json
-pnpm ghfind roast hikariming --lang zh -o markdown
-```
-
-构建独立二进制:
+安装 Go 1.23+ 后构建独立二进制：
 
 ```bash
 pnpm cli:build
 ./bin/ghfind commands --json
 ./bin/ghfind update check -o json
+./bin/ghfind score hikariming -o json
 ./bin/ghfind roast hikariming --lang zh -o markdown
 ./bin/ghfind leaderboard --view trending --window all -o json
 ./bin/ghfind developers --type language -o json
 ```
 
-CLI 名称就是 `ghfind`。独立二进制构建为 `./bin/ghfind`, package/bin 元数据也暴露
-`ghfind`。
+独立 CLI 构建为 `./bin/ghfind`。单独发布的 npm SDK 也提供 `ghfind` 可执行命令，
+但根工作区不会安装该 SDK。
 
 默认服务端域名是 `https://ghfind.com`。本地联调可以覆盖:
 
 ```bash
-GHFIND_HOST=http://localhost:3000 pnpm ghfind roast hikariming --lang zh
+GHFIND_HOST=http://localhost:3000 ./bin/ghfind roast hikariming --lang zh
 ```
 
 `GITHUB_ROAST_HOST` 仍作为旧版本兼容别名保留。
@@ -202,7 +223,7 @@ agent 要判断单个账号时应使用 `scan` 或 `score`;排行榜和开发者
 
 ## 环境变量
 
-见 [`.env.example`](./.env.example)。GitHub 评分流程最小可跑只需 `GITHUB_TOKEN` + `LLM_API_KEY`(默认 StepFun 阶跃,OpenAI 兼容;可换任意 OpenAI 兼容服务);缓存、限流、人机校验、GitHub 登录、个人页评论/反应、排行榜在未配置时会**静默降级**(适合本地)。生产强烈建议全配齐。
+见 [`.env.example`](./.env.example)。本地扫描需要 `GITHUB_TOKEN` 和可连接的数据库（`TURSO_DATABASE_URL`，以及数据库要求认证时的 `TURSO_AUTH_TOKEN`）。新扫描必须成功保存结果才能返回成功。使用服务端付费模型生成锐评文字时再配置 `LLM_API_KEY`（默认 StepFun 阶跃，也支持其他 OpenAI 兼容服务）。Redis 缓存/限流、Turnstile 和 GitHub OAuth 对本地扫描是可选项，配置后启用对应功能。首页能打开不代表扫描已经可用。生产环境需要 `UPSTASH_REDIS_REST_URL` 和 `UPSTASH_REDIS_REST_TOKEN`：限流服务不可用时，受保护且未命中缓存的计费路由返回带 `Retry-After` 的 `503`，边缘缓存响应和普通浏览仍可用。`RATE_LIMIT_FAIL_OPEN=1` 仅供运维应急使用，正常运行时不要设置。
 
 ## 排行榜 + 百分位(Cloudflare D1)
 
@@ -210,11 +231,11 @@ agent 要判断单个账号时应使用 `scan` 或 `score`;排行榜和开发者
 [Cloudflare 部署手册](./docs/operations/cloudflare-deployment-runbook.md)核对目标账号和数据库；`TURSO_*`
 只保留给本地开发/维护脚本，不是生产数据库。
 每次扫描把账号的最新分数 upsert 进库(一账号一行);百分位 = 库里分数严格低于你的占比。
-**公开榜只收录 ≥60 分的账号**,低分号仍参与百分位统计但不被公开点名(防骚扰)。未配置时整套功能静默降级。
+**公开榜只收录 ≥60 分的账号**,低分号仍参与百分位统计但不被公开点名(防骚扰)。数据库未配置时排行榜展示可以降级，但新扫描需要可用的持久化存储。
 
 ```bash
 # 仅本地开发
-TURSO_DATABASE_URL=file:./local.db
+TURSO_DATABASE_URL=http://127.0.0.1:8080
 ```
 
 ## 部署到 Cloudflare Workers

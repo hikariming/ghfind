@@ -37,8 +37,8 @@ if (mode === "prepare") {
   const labels = api(`repos/${repository}/labels?per_page=100`).map(
     (x) => x.name,
   );
-  const expected = ["low", "medium", "high", "xhigh", "unavailable"].map(
-    (x) => `review-level: ${x}`,
+  const expected = ["low", "medium", "high", "top", "no-score"].map(
+    (x) => `review: ${x}`,
   );
   if (!expected.every((x) => labels.includes(x)))
     throw new Error("Installation has not initialized all five labels");
@@ -90,7 +90,8 @@ if (mode === "prepare") {
     `repos/${repository}/issues/${numberInput}/events?per_page=100`,
   );
   const labeled = events.filter(
-    (x) => x.event === "labeled" && x.label?.name?.startsWith("review-level: "),
+    (x) =>
+      x.event === "labeled" && x.label?.name?.startsWith("review: "),
   );
   if (labeled.length !== 1)
     throw new Error(
@@ -108,15 +109,15 @@ if (mode === "prepare") {
     !Number.isFinite(score) ||
     score < 0 ||
     score > 100
-      ? "unavailable"
+      ? "no-score"
       : score < 40
         ? "low"
         : score < 70
           ? "medium"
           : score < 90
             ? "high"
-            : "xhigh";
-  if (event.label.name !== `review-level: ${level}`)
+            : "top";
+  if (event.label.name !== `review: ${level}`)
     throw new Error(
       "Label does not match current live score; inspect score at processing time",
     );
@@ -137,15 +138,15 @@ if (mode === "prepare") {
     low: "0 ≤ score < 40",
     medium: "40 ≤ score < 70",
     high: "70 ≤ score < 90",
-    xhigh: "90 ≤ score ≤ 100",
-    unavailable: "Unavailable — no score interval",
+    top: "90 ≤ score ≤ 100",
+    "no-score": "No score",
   };
   if (
     !body.includes(
       `https://ghfind.com/en/u/${encodeURIComponent(pr.user.login)}`,
     ) ||
     !body.includes(ranges[level]) ||
-    !body.includes(level === "unavailable" ? "Unavailable" : `${score} / 100`)
+    !body.includes(level === "no-score" ? "No score" : `${score} / 100`)
   )
     throw new Error("Comment profile, score or interval does not match");
   console.log(

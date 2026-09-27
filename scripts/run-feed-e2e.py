@@ -19,7 +19,7 @@ import urllib.request
 import uuid
 
 PG_IMAGE = 'pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf'
-MINIO_IMAGE = 'quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e'
+MINIO_IMAGE = 'docker.io/pgsty/minio@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372'
 FORMAT = 'ghfind-complete-local-e2e-v1'
 MILESTONES = ['oauthCallback', 'assessmentOperatorRecovery', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']
 OWNER_LABEL = 'io.ghfind.fixture.owner'

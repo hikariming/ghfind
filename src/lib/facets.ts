@@ -36,10 +36,12 @@ export interface Facet {
 
 /** Cap on how many of each facet type one developer contributes. Languages are
  *  narrow (a dev "is" 1–3 languages); orgs are higher-signal so we keep more;
- *  repos are capped so one prolific contributor can't flood the facet table. */
+ *  repos are capped so one prolific contributor can't flood the facet table.
+ *  The repo cap matches the repo graph's contributor cap (lib/repo-graph.ts) so a
+ *  project page's contributor summary and its developer list count the same people. */
 const MAX_LANGUAGES_PER_DEV = 3;
 const MAX_ORGS_PER_DEV = 5;
-const MAX_REPOS_PER_DEV = 6;
+const MAX_REPOS_PER_DEV = 20;
 /** A contributed-to project must clear this star floor to become a `repo` facet.
  *  Keeps the project directory to *notable* OSS (nobody discovers developers by
  *  an obscure 3-star repo) and bounds the facet table — the one knob for project
@@ -124,19 +126,32 @@ function orgFacets(organizations: string[]): Facet[] {
 }
 
 /**
+ * Orders contributed-to repos by the developer's own work in them (commits +
+ * PRs), then by stars. Ranking by stars alone let a one-commit drive-by into a
+ * famous repo evict the project someone actually maintains once the per-dev cap
+ * is hit. Shared with lib/repo-graph.ts so both caps keep the same repos.
+ */
+export function rankImpactReposByContribution(impactRepos: ImpactRepo[]): ImpactRepo[] {
+  const work = (r: ImpactRepo) => (r.commits ?? 0) + (r.prs ?? 0);
+  return [...impactRepos].sort((a, b) => work(b) - work(a) || (b.stars ?? 0) - (a.stars ?? 0));
+}
+
+/**
  * Project facets: notable OSS the dev has *contributed to* (from `impact_repos`,
  * i.e. the contribution graph — not repos they own). Filtered to projects that
- * clear {@link REPO_MIN_STARS}, deduped by full name, ranked by stars, and capped
- * at {@link MAX_REPOS_PER_DEV}. The value is the canonical "owner/name" (kept
+ * clear {@link REPO_MIN_STARS}, deduped by full name, ranked by the dev's own
+ * contribution volume, and capped at {@link MAX_REPOS_PER_DEV}. The value is the canonical "owner/name" (kept
  * verbatim for display and links). This is what lets many developers converge on
  * one bucket (e.g. everyone who touched langgenius/dify).
  */
 function repoFacets(impactRepos: ImpactRepo[]): Facet[] {
   const seen = new Set<string>();
   const out: Facet[] = [];
-  const ranked = [...impactRepos]
-    .filter((r) => typeof r?.repo === "string" && r.repo.includes("/") && (r.stars ?? 0) >= REPO_MIN_STARS)
-    .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0));
+  const ranked = rankImpactReposByContribution(
+    impactRepos.filter(
+      (r) => typeof r?.repo === "string" && r.repo.includes("/") && (r.stars ?? 0) >= REPO_MIN_STARS,
+    ),
+  );
   for (const r of ranked) {
     const value = r.repo.trim();
     const key = value.toLowerCase();

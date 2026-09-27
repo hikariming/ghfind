@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "ロースト",
-    "leaderboard": "ランキング",
+    "roast": "GitHub ロースト",
+    "leaderboard": "開発者ランキング",
     "discover": "発見",
     "developers": "開発者",
     "projectBoards": "プロジェクトボード",
     "projects": "プロジェクト",
-    "collections": "おすすめ",
+    "collections": "編集部おすすめ",
     "languages": "言語",
     "organizations": "組織",
-    "versus": "対戦",
+    "versus": "開発者対戦",
     "blog": "リサーチ",
     "openMenu": "メニューを開く",
-    "closeMenu": "メニューを閉じる"
+    "closeMenu": "メニューを閉じる",
+    "resume": "マイ履歴書",
+    "talent": "人材プール",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "発見",
+    "groupCareer": "キャリア",
+    "groupTools": "ツール",
+    "beta": "Beta",
+    "hint": {
+      "roast": "30 秒で GitHub アカウントを採点、辛口コメント付き",
+      "versus": "2 人の開発者を真っ向勝負で比較",
+      "leaderboard": "スコア順に優れた開発者を見る",
+      "projectBoards": "分野別に注目のオープンソースを探す",
+      "collections": "編集部が選んだプロジェクトと開発者",
+      "blog": "開発者エコシステムのデータと洞察",
+      "resume": "GitHub データから開発者履歴書を作成",
+      "talent": "知り合う価値のある開発者を探す",
+      "githubBot": "作成者のスコアで issue と PR に自動ラベル付け"
+    }
   },
   "globalSearch": {
     "open": "グローバル検索を開く",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 最強の開発者たち",
     "openBoard": "ランキングを全部見る →",
     "disclaimer1": "スコアとローストは <b>GitHubの公開データ</b> のみから自動生成しています。刺しているのはアカウントの公開挙動と数字であって、人格ではありません。結果は誰かに関する事実認定ではないので、ハラスメントに使わないでください。",
-    "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。"
+    "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。",
+    "viewAll": "すべて見る"
   },
   "leaderboard": {
     "heading": "🏆 殿堂",
     "subtitle": "殿堂には60点以上のアカウントを収録。デフォルトはトレンド順です。",
     "judgeCta": "← アカウントを審判しに行く",
-    "footerNote": "GitHubの公開データに基づく高スコアのアカウントのみ掲載しています。掲載を取り下げたい場合は<a>こちらから削除申請</a>を。",
+    "footerNote": "GitHubの公開データに基づく高スコアのアカウントのみ掲載しています。",
     "loadError": "ランキングを読み込めませんでした。しばらくしてからもう一度どうぞ。",
     "loading": "殿堂を読み込み中…",
     "empty": "🧮 集計中です。また後で見に来てください…",
@@ -561,10 +580,6 @@
       {
         "q": "プライベートの活動はカウントされますか？",
         "a": "されません。スコアは公開シグナルのみを使うため、非公開組織でのコントリビューションはエンジンから見えません。プライベートリポジトリで活躍している人は過小評価される可能性があります。低スコアは人物に関する事実認定ではなく、アカウントの公開上の足跡を表すものです。"
-      },
-      {
-        "q": "自分のプロフィールを ghfind から削除するには？",
-        "a": "インデックスされ掲載されるのは60点以上のアカウントのみです。ボードからの削除を希望する場合は、ランキング下部の削除リンクを使うか、GitHubリポジトリでissueを立ててください。プロフィールは掲載解除されます。"
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "ghfind へのお問い合わせ",
-    "metaDescription": "ghfind チームへの連絡方法：問題の報告、ランキングからの削除申請、API・CLI・MCPサーバーに関する質問。",
+    "metaDescription": "ghfind チームへの連絡方法：問題の報告、または API・CLI・MCPサーバーに関する質問。",
     "heading": "お問い合わせ",
     "paragraphs": [
-      "ghfind はオープンソースプロジェクトです。チームへの連絡、問題の報告、ランキングからの削除申請、API・CLI・MCPサーバーに関する質問は、公開GitHubリポジトリでissueを立てるのが最速です。issueはそこで読まれトリアージされますし、公開の場で会話しておくと同じ疑問を持つ他のユーザーの助けにもなります。",
+      "ghfind はオープンソースプロジェクトです。チームへの連絡、問題の報告、API・CLI・MCPサーバーに関する質問は、公開GitHubリポジトリでissueを立てるのが最速です。issueはそこで読まれトリアージされますし、公開の場で会話しておくと同じ疑問を持つ他のユーザーの助けにもなります。",
       "インテグレーションについて：機械可読なAPI契約は /openapi.json、エージェント向けドキュメントの索引は /llms.txt、認証の解説は /auth.md にあります。サーバー間の大量スキャンでレート制限の引き上げが必要な場合は、GitHub issueで用途を添えて申請してください。"
     ],
     "issuesLabel": "GitHubでissueを立てる",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "プライバシー — ghfind",
-    "metaDescription": "ghfind のデータの扱い：GitHubの公開データのみを採点し、個人データを販売せず、掲載済みプロフィールの削除リクエストに応じます。",
+    "metaDescription": "ghfind のデータの扱い：GitHubの公開データのみを採点し、個人データを販売しません。",
     "heading": "プライバシー",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "自前キーによるロースト",
         "p": "オプションのロースト機能では、あなた自身のモデルプロバイダーのキーを使えます。提供されたキーはあなたのブラウザ内に留まり、モデル呼び出しのために当社サーバーを一度だけ経由します——保存もログも一切せず、リクエスト完了後に破棄されます。"
-      },
-      {
-        "h": "削除とコントロール",
-        "p": "プロフィールの掲載解除を希望する場合は、ランキング下部の削除リンクを使うか、GitHubリポジトリでissueを立ててください。ボードとインデックスから削除します。ghfind はGitHubの公開データを映すだけなので、GitHub上のアクティビティを更新したり非公開にしたりすれば、次回のスキャンで ghfind に見える内容も変わるか消えます。"
       }
     ]
   },
@@ -994,20 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "マイ履歴書",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
-    "edition": "Public workspace"
+    "expand": "サイドバーを開く",
+    "collapse": "サイドバーを閉じる",
+    "navigation": "メインナビゲーション",
+    "docs": "ヘルプとドキュメント",
+    "skip": "コンテンツへスキップ",
+    "edition": "Public workspace",
+    "sponsor": "スポンサー"
   },
   "talent": {
     "topline": {
@@ -1027,14 +1036,16 @@
     },
     "tabs": {
       "aria": "人材発見",
-      "all": "人材を探す",
+      "all": "すべて",
       "saved": "保存済み",
-      "sessionHint": "保存はこのセッション内のみ有効です"
+      "sessionHint": "保存はこのセッション内のみ有効です",
+      "discover": "おすすめ"
     },
     "search": {
       "placeholder": "名前・GitHub ID・技術スタック・都市で検索…",
       "aria": "人材を検索",
-      "clear": "検索をクリア"
+      "clear": "検索をクリア",
+      "hint": "フィールド検索も使えます（例：skill:Rust、location:Shanghai）"
     },
     "filters": {
       "toggle": "絞り込み",
@@ -1046,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "人力キュレーション",
       "onlyAvailable": "交流歓迎の人材のみ表示",
-      "reset": "絞り込みをリセット"
+      "reset": "絞り込みをリセット",
+      "subDirections": "詳細分野",
+      "officialTags": "公式タグ",
+      "tagAria": "公式タグ「{tag}」で絞り込む",
+      "collection": "コレクション",
+      "clearCollection": "コレクションの絞り込みを解除"
     },
     "results": {
       "count": "<strong>{count}</strong> 人の開発者が見つかりました",
@@ -1057,8 +1073,13 @@
       "sortActivity": "貢献アクティブ度優先",
       "gridView": "カード表示",
       "listView": "リスト表示",
-    "loadMore": "さらに読み込む",
-    "loading": "読み込み中…"
+      "perPageAria": "1ページの表示件数",
+      "perPageOption": "{count}件/ページ",
+      "pagesAria": "ページネーション",
+      "prevPage": "前のページ",
+      "nextPage": "次のページ",
+      "pageStatus": "{page} / {pages} ページ",
+      "loading": "読み込み中…"
     },
     "notice": {
       "submitted": "{name} さんの収録申請を受け付けました。公開項目のみ保持し、審査通過後に表示されます。",
@@ -1073,7 +1094,7 @@
       "score": "GHFind スコア",
       "pending": "情報準備中",
       "community": "オープンソースで活動中",
-      "yearlyContributions": "年間貢献",
+      "yearlyContributions": "貢献/年",
       "viewProfile": "プロフィールを見る"
     },
     "empty": {
@@ -1218,6 +1239,240 @@
       "submitting": "送信中…",
       "confirmSubmit": "収録を確定して送信",
       "next": "次へ"
+    },
+    "categories": {
+      "aria": "カテゴリで探す",
+      "all": "すべて",
+      "agent": "エージェントとワークフロー",
+      "ai": "AI アプリとモデル",
+      "infra": "バックエンドとインフラ",
+      "frontend": "フロントエンドとフルスタック",
+      "tools": "ツールとデータ",
+      "other": "その他"
+    },
+    "overview": {
+      "collectionsTitle": "注目のコレクション",
+      "collectionsSubtitle": "オープンソースのエコシステムと公式タグでまとめています",
+      "sectionsTitle": "分野から探す",
+      "sectionsSubtitle": "分野ごとの注目開発者。「すべて見る」で一覧へ",
+      "people": "{count} 人",
+      "viewAll": "{count} 人をすべて見る"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH ベータユーザー",
+        "desc": "DSH ベータの初期ユーザーと共同開発者"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "高速 LLM 推論エンジンの主要コントリビューター"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "LLM アプリ基盤 Dify のエコシステム"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub コミュニティとマルチエージェント"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp オンデバイス推論の貢献者"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "SGLang サービングフレームワークの貢献者"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol 仕様と SDK の貢献者"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph エコシステムの貢献者"
+      }
     }
+  },
+  "sponsor": {
+    "metaTitle": "ghfind のスポンサー · プランと特典",
+    "metaDescription": "ghfind のスポンサー：タイトル・モデル・フィーチャード・フレンドの各プラン（月額）。スポンサーはランキングやスコアに一切影響しません。",
+    "topline": {
+      "section": "ヘルプとドキュメント",
+      "current": "スポンサー"
+    },
+    "hero": {
+      "titleLead": "ghfind の辛口評価を",
+      "titleAccent": "これからも。",
+      "subtitle": "ghfind はオープンなコミュニティプロジェクトです。モデル呼び出し、サーバー、データ収集には実費がかかります。スポンサーのおかげで、無料・独立・継続的な更新を保てます。価格はすべて米ドル／月で、現在期間限定の割引中です。"
+    },
+    "perMonth": "/ 月",
+    "listPrice": "通常価格 {price}",
+    "off": "{off}% オフ",
+    "soldOut": "完売",
+    "available": "受付中",
+    "soon": "開発中",
+    "currentHolder": "現在のスポンサー",
+    "cta": "スポンサーについて問い合わせる",
+    "ctaSoldOut": "完売 · 次回をお待ちください",
+    "tiers": {
+      "title": {
+        "name": "タイトルスポンサー",
+        "summary": "サイトで最も目立つ枠。共有される自慢カードにブランドが載ります。",
+        "perks": [
+          {
+            "text": "全ページのトップナビにスポンサー枠を表示（ロゴ・名称・タグライン）"
+          },
+          {
+            "text": "共有用の自慢カードにロゴ付きでクレジット表示"
+          }
+        ]
+      },
+      "model": {
+        "name": "モデルスポンサー",
+        "summary": "辛口評価を支えるモデルを提供し、生成のたびに表示されます。",
+        "perks": [
+          {
+            "text": "評価の生成中にモデルスポンサーを表示"
+          },
+          {
+            "text": "トップページにスポンサー情報とロゴを掲載"
+          }
+        ]
+      },
+      "featured": {
+        "name": "フィーチャードスポンサー",
+        "summary": "トップページと開発者詳細ページで安定した露出。",
+        "perks": [
+          {
+            "text": "トップページのスポンサー枠に掲載"
+          },
+          {
+            "text": "詳細ページでランダム表示",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "フレンドスポンサー",
+        "summary": "友人として ghfind を応援。ここにお名前を残します。",
+        "perks": [
+          {
+            "text": "このページで感謝とリンクを掲載"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "フレンドスポンサー",
+      "lead": "ghfind を支えてくださるすべての方に感謝します。リンクは参加順に並んでいます。",
+      "empty": "募集中 — 最初のフレンドスポンサーになる →"
+    },
+    "fairness": {
+      "heading": "スポンサーはランキングやスコアに影響しません",
+      "body": "スポンサーに提供するのは掲載枠と謝辞のみです。開発者やプロジェクトのランキング、スコア、辛口評価に影響することはなく、影響させることもできません。スコアは公開された手法とデータのみで決まり、すべての人を同じ基準で扱うことで公平性を保ちます。"
+    },
+    "contactLead": "スポンサー、請求書、その他のお問い合わせ：",
+    "rowLabel": "スポンサー",
+    "holders": {
+      "dsh": "一度つなげば、いつでもリモートで Harness",
+      "mosoo": "コーディングエージェントのクラウドランタイム",
+      "phi": "あなたを本当に理解するオープンソース AI ブラウザ"
+    },
+    "slotOpen": "募集中"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — 作成者スコアで issue と PR にラベルを付ける GitHub App",
+    "metaDescription": "ghfind Review GitHub App をインストールすると、作成者の公開 ghfind スコアに基づき、新しい issue と pull request に色分けされたラベルが付きます。",
+    "topline": {
+      "section": "連携",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · 無料",
+      "title": "誰が作ったかで issue と PR を振り分ける",
+      "subtitle": "ghfind Review は作成者の公開 ghfind スコアをもとに、新しい issue と pull request に色分けされた review: ラベルを付けます。workflow もトークンも secret の設定も不要です。",
+      "install": "GitHub でインストール",
+      "status": "ステータスページを開く",
+      "note": "ghfind-review[bot] として動作します。ラベルを付けるだけで、コメント・クローズ・ブロックは一切しません。"
+    },
+    "preview": {
+      "label": "review ラベル付きの issue 一覧の例",
+      "heading": "Issues",
+      "items": {
+        "top": "ネストした設定の解析でクラッシュ",
+        "medium": "設定画面にダークモードを追加",
+        "noScore": "README の誤字"
+      }
+    },
+    "labels": {
+      "heading": "5つのラベルでひと目で分類",
+      "lead": "不足しているラベルはインストール時に作成されます。カスタマイズした色や説明はそのまま残ります。",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "公開シグナルが少なめ。まず出所を確認。"
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "一般的なコントリビューター像。"
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "公開プロフィールのシグナルが強い。"
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "ghfind インデックスの上位。"
+        },
+        "noScore": {
+          "range": "スコアなし",
+          "desc": "スコアを取得できず、0点ではありません。20分後と60分後に再試行します。"
+        }
+      }
+    },
+    "steps": {
+      "heading": "仕組み",
+      "items": {
+        "install": {
+          "title": "リポジトリを選んでインストール",
+          "body": "Issues と Pull requests の読み書きを許可します。まずは Only select repositories で小さく始めましょう。組織リポジトリはオーナーの承認が必要な場合があります。"
+        },
+        "open": {
+          "title": "誰かが issue や PR を作成",
+          "body": "bot がバックグラウンドで作成者の公開 ghfind スコアを取得します。issue 本文は読まず、評価もしません。"
+        },
+        "label": {
+          "title": "review: ラベルが付く",
+          "body": "インストール時には既存の Open な issue と PR の先頭ページにも付与されます。編集や再オープンでは再採点しません。"
+        }
+      }
+    },
+    "queues": {
+      "heading": "スコア帯をレビューキューに",
+      "lead": "フィルターをリポジトリの issue 検索に貼り付け、今の余力に合うキューから始めましょう。",
+      "items": {
+        "high": "高スコアの issue",
+        "top": "最上位スコアの issue",
+        "low": "出所を確認したい低スコアの issue",
+        "noScore": "スコアなし — 背景の確認が必要"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "再採点を依頼する",
+        "body": "自動再試行の後は、作成者またはリポジトリ管理者が issue に @ghfind-review とコメントすると再採点されます。"
+      },
+      "privacy": {
+        "heading": "扱うデータ",
+        "body": "ソースコードも issue 本文も読みません。保持するのはインストール、リポジトリ、issue 番号、スコア、ジョブ状態だけで、完了したジョブは30日後に削除されます。公開メールのある作成者には72時間に最大1通のスコアメールが届き、ワンクリックで配信停止できます。",
+        "link": "プライバシー"
+      },
+      "stop": {
+        "heading": "いつでも停止",
+        "body": "GitHub の設定からリポジトリを外す、一時停止する、またはアンインストールできます。既存のラベルは残ります。"
+      }
+    },
+    "disclaimer": "スコアは作成者の公開 GitHub プロフィールを反映したもので、今回の投稿の質を示すものではありません。新しいコントリビューターは公開記録が少ないだけかもしれません。",
+    "source": "ソースコードとセルフホストガイド"
   }
 }

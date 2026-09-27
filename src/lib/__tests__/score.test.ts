@@ -547,6 +547,20 @@ describe("original project quality", () => {
     expect(s.sub_scores.original_project_quality).toBeGreaterThanOrEqual(4.8);
   });
 
+  it("softens the notes-keyword discount for repos with organic star and fork traction", () => {
+    const notes = (over: Partial<TopRepo>) =>
+      repo({
+        size: 1800,
+        description: "My learning notes for ML systems",
+        readme_excerpt: "Install usage examples architecture test. ".repeat(20),
+        ...over,
+      });
+
+    expect(originalRepoQualityScore(notes({ stars: 40, forks: 5 }), "alice", now)).toBe(0.55);
+    expect(originalRepoQualityScore(notes({ stars: 7000, forks: 50 }), "alice", now)).toBe(0.55);
+    expect(originalRepoQualityScore(notes({ stars: 7000, forks: 500 }), "alice", now)).toBe(0.75);
+  });
+
   it("scores structured README features instead of the prompt summary length", () => {
     const features = parseReadmeFeatures(`
 # Project

@@ -162,7 +162,7 @@ export function authorEmail(
           : "站内排名数据暂不可用。",
         `查看贡献背景与评分细节：${profile}`,
         "分数来自公开 GitHub 记录，不是对本次提交内容的评价。站内评分排名不是这个仓库的 PR 审查顺序，也不能预测 review 等待时间。",
-        "你在安装了 ghfind Review 的仓库提交了 issue 或 PR，因此收到本次评分通知。收件地址来自你的 GitHub 公开邮箱或你主动授权的邮箱；每 24 小时最多一封。不希望继续接收，请退订。",
+        "你在安装了 ghfind Review 的仓库提交了 issue 或 PR，因此收到本次评分通知。收件地址来自你的 GitHub 公开邮箱或你主动授权的邮箱；每 72 小时最多一封，跨仓库也只算一封。不希望继续接收，请退订。",
         `退订：${unsubscribe}`,
       ]
     : [
@@ -174,7 +174,7 @@ export function authorEmail(
           : "Site ranking data is currently unavailable.",
         `Explore your contribution background and score: ${profile}`,
         "This score reflects public GitHub history, not this submission's quality. Site score rank is not the repository's PR review order and cannot predict review waiting time.",
-        "You received this score notification because you opened an issue or PR in a repository using ghfind Review. We used your public GitHub email or an address you explicitly authorized. At most one email per 24 hours; unsubscribe below to stop future notifications.",
+        "You received this score notification because you opened an issue or PR in a repository using ghfind Review. We used your public GitHub email or an address you explicitly authorized. At most one email per 72 hours across repositories; unsubscribe below to stop future notifications.",
         `Unsubscribe: ${unsubscribe}`,
       ];
   return {
@@ -185,6 +185,10 @@ export function authorEmail(
     html: `<html lang="${zh ? "zh" : "en"}"><body>${lines.map((line) => `<p>${escape(line)}</p>`).join("")}<p><a href="${escape(profile)}">${zh ? "查看我的 ghfind profile" : "View my ghfind profile"}</a> · <a href="${escape(unsubscribe)}">${zh ? "退订" : "Unsubscribe"}</a></p></body></html>`,
   };
 }
+function suppressAuthorEmail(score: number | null): boolean {
+  // An unavailable score is not zero; preserve its existing notification behavior.
+  return score !== null && score < 40;
+}
 export async function enqueueAuthorEmail(
   env: Env,
   userId: number,
@@ -192,7 +196,7 @@ export async function enqueueAuthorEmail(
   repositoryId: number,
   api?: ReturnType<typeof github>,
 ) {
-  if (env.EMAIL_ENABLED !== "true") return;
+  if (env.EMAIL_ENABLED !== "true" || suppressAuthorEmail(payload.score)) return;
   if (api) await discoverPublicRecipient(env, userId, payload.login, api);
   // The logical subject is stable across webhook redeliveries and retries.
   await env.DB.prepare(
@@ -211,6 +215,7 @@ export async function enqueueAuthorEmail(
     )
     .run();
 }
+const EMAIL_QUIET_MS = 72 * 60 * 60 * 1000;
 export async function sendAuthorEmails(env: Env) {
   if (env.EMAIL_ENABLED !== "true" || env.ENABLED !== "true") return;
   await env.DB.prepare("DELETE FROM author_emails WHERE created<?")
@@ -232,10 +237,30 @@ export async function sendAuthorEmails(env: Env) {
       .bind(Date.now(), row.id)
       .first();
     if (!claimed) continue;
+    let payload: Payload;
+    try {
+      payload = JSON.parse(row.payload) as Payload;
+    } catch {
+      await env.DB.prepare(
+        "UPDATE author_emails SET state='uncertain',error_code='SEND_RESULT_UNKNOWN',updated=? WHERE id=?",
+      )
+        .bind(Date.now(), row.id)
+        .run();
+      continue;
+    }
+    // Apply the rule to mail queued before deployment, without consuming limits.
+    if (suppressAuthorEmail(payload.score)) {
+      await env.DB.prepare(
+        "UPDATE author_emails SET state='cancelled',updated=? WHERE id=?",
+      )
+        .bind(Date.now(), row.id)
+        .run();
+      continue;
+    }
     const eligible = await env.DB.prepare(
       "SELECT 1 FROM author_subscriptions WHERE user_id=? AND last_sent<? AND NOT EXISTS(SELECT 1 FROM author_email_optouts o WHERE o.user_id=author_subscriptions.user_id)",
     )
-      .bind(row.user_id, Date.now() - 86400_000)
+      .bind(row.user_id, Date.now() - EMAIL_QUIET_MS)
       .first();
     if (!eligible) {
       await env.DB.prepare(
@@ -259,11 +284,11 @@ export async function sendAuthorEmails(env: Env) {
         .run();
       break;
     }
-    // Atomic daily author cap, shared across cron invocations and repositories.
+    // One email per author across repositories until the 48-hour quiet period ends.
     const sub = await env.DB.prepare(
       `UPDATE author_subscriptions SET last_sent=? WHERE user_id=? AND last_sent<? RETURNING email,locale,unsubscribe,source`,
     )
-      .bind(Date.now(), row.user_id, Date.now() - 86400_000)
+      .bind(Date.now(), row.user_id, Date.now() - EMAIL_QUIET_MS)
       .first<{
         email: string;
         locale: string;
@@ -279,7 +304,6 @@ export async function sendAuthorEmails(env: Env) {
       continue;
     }
     try {
-      const payload = JSON.parse(row.payload) as Payload;
       // Revalidate installation access before disclosing repository context.
       const token = await installationToken(
         env,

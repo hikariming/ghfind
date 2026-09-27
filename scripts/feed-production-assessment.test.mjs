@@ -1422,6 +1422,28 @@ test("cross-release wait requires current Actions release context and matching n
     assert.equal(h.polls, 0);
   }
 });
+test("a later release retains a finalized journal without another observation or POST", async (t) => {
+  const h = await harness(t, { rows: [run({ status: "completed" })], releaseSha: NEXT_RELEASE });
+  await startAssessment(SHA, h.receipt, h.options);
+  const options = await carryoverOptions(h, {
+    phase: "completed", status: "completed", polls: LIMITS.publicPolls,
+    waitStartedAt: 1000, completionObservedAt: 1000,
+    projectionStartedAt: 1000, projectionPolls: LIMITS.projectionPolls,
+    terminalRevalidations: LIMITS.terminalRevalidations,
+  });
+  await startAssessment(NEXT_RELEASE, h.receipt, options);
+  const before = h.calls.length;
+  const result = await waitAssessment(h.receipt, h.result, options);
+  assert.equal(result.verification, "prior_terminal_revalidation_retained");
+  assert.equal(result.releaseSha, NEXT_RELEASE);
+  assert.equal(result.sourceSha, SHA);
+  assert.equal(result.terminalRevalidations, LIMITS.terminalRevalidations);
+  assert.equal(h.calls.length, before);
+  assert.equal((await h.read()).phase, "completed");
+  assert.equal((await h.read()).terminalRevalidations, LIMITS.terminalRevalidations);
+  assert.equal((await h.read()).projectionPolls, LIMITS.projectionPolls);
+  assert.equal(h.posts, 0);
+});
 test("cross-release continuation retains exhausted quotas rather than opening a new projection window", async (t) => {
   const h = await harness(t, { rows: [run({ status: "completed" })], releaseSha: NEXT_RELEASE });
   await startAssessment(SHA, h.receipt, h.options);

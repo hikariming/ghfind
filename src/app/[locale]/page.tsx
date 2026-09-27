@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeCollections } from "@/components/HomeCollections";
 import { HomeProjectBoards } from "@/components/HomeProjectBoards";
+import { HomeSponsorRow } from "@/components/HomeSponsorRow";
 import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
 import { HomeFaq, getFaqItems } from "@/components/HomeFaq";
@@ -42,6 +43,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
         <div className="home-proof">
           <DeveloperCount />
         </div>
+        <HomeSponsorRow />
       </section>
 
       {/* Content zone: directory-style two-column layout on desktop — main

@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Ranking",
+    "roast": "Roast de GitHub",
+    "leaderboard": "Ranking de devs",
     "discover": "Descubrir",
     "developers": "Developers",
     "projectBoards": "Tableros de proyectos",
     "projects": "Proyectos",
-    "collections": "Selecciones",
+    "collections": "Selección del editor",
     "languages": "Lenguajes",
     "organizations": "Organizaciones",
-    "versus": "Versus",
-    "blog": "Research",
+    "versus": "Duelo de devs",
+    "blog": "Investigación",
     "openMenu": "Abrir menú",
-    "closeMenu": "Cerrar menú"
+    "closeMenu": "Cerrar menú",
+    "resume": "Mi currículum",
+    "talent": "Bolsa de talento",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Descubrir",
+    "groupCareer": "Carrera",
+    "groupTools": "Herramientas",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Puntúa una cuenta de GitHub en 30 segundos, con una frase sin piedad",
+      "versus": "Enfrenta a dos desarrolladores",
+      "leaderboard": "Explora los mejores desarrolladores por puntuación",
+      "projectBoards": "Descubre proyectos open source destacados por área",
+      "collections": "Proyectos y desarrolladores elegidos por el editor",
+      "blog": "Datos y análisis del ecosistema de desarrolladores",
+      "resume": "Crea un currículum de desarrollador con tus datos de GitHub",
+      "talent": "Encuentra desarrolladores que vale la pena conocer",
+      "githubBot": "Etiqueta issues y PR según la puntuación del autor"
+    }
   },
   "globalSearch": {
     "open": "Abrir búsqueda global",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 Los mejores developers",
     "openBoard": "Abrir el ranking completo →",
     "disclaimer1": "Los scores y roasts se generan automáticamente solo a partir de <b>datos públicos de GitHub</b>. Roasteamos el comportamiento y las estadísticas públicas de una cuenta, no a la persona. Los resultados no son afirmaciones factuales sobre nadie — por favor no los uses para acosar.",
-    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador."
+    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador.",
+    "viewAll": "Ver todo"
   },
   "leaderboard": {
     "heading": "🏆 Salón de la Fama",
     "subtitle": "El Salón de la Fama lista cuentas con score de 60+, ordenado por Tendencia por defecto.",
     "judgeCta": "← Juzgar una cuenta",
-    "footerNote": "Solo se listan cuentas de score alto construidas con datos públicos de GitHub. Para salir del ranking, <a>solicita tu eliminación aquí</a>.",
+    "footerNote": "Solo se listan cuentas de score alto construidas con datos públicos de GitHub.",
     "loadError": "No pudimos cargar el ranking ahora mismo — inténtalo más tarde.",
     "loading": "Cargando el Salón de la Fama…",
     "empty": "🧮 Haciendo cuentas — vuelve pronto…",
@@ -561,10 +580,6 @@
       {
         "q": "¿Se cuenta mi trabajo privado?",
         "a": "No. Los scores usan solo señales públicas, así que las contribuciones en organizaciones privadas son invisibles para el motor. Un miembro activo de repos privados puede quedar subvalorado. Un score bajo no es una afirmación factual sobre una persona — describe la huella pública de una cuenta."
-      },
-      {
-        "q": "¿Cómo elimino mi perfil de ghfind?",
-        "a": "Solo se indexan y listan las cuentas con score de 60+. Para salir del ranking, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y el perfil será retirado."
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "Contactar a ghfind",
-    "metaDescription": "Cómo contactar al equipo de ghfind: reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI y el servidor MCP.",
+    "metaDescription": "Cómo contactar al equipo de ghfind: reportar un problema o preguntar por la API, la CLI y el servidor MCP.",
     "heading": "Contacto",
     "paragraphs": [
-      "ghfind es un proyecto open source. La forma más rápida de contactar al equipo, reportar un problema, solicitar la eliminación del ranking o preguntar por la API, la CLI o el servidor MCP es abrir un issue en el repositorio público de GitHub. Los issues se leen y clasifican ahí, y mantener la conversación a la vista ayuda a otros usuarios con la misma duda.",
+      "ghfind es un proyecto open source. La forma más rápida de contactar al equipo, reportar un problema o preguntar por la API, la CLI o el servidor MCP es abrir un issue en el repositorio público de GitHub. Los issues se leen y clasifican ahí, y mantener la conversación a la vista ayuda a otros usuarios con la misma duda.",
       "Para preguntas de integración, el contrato de la API legible por máquina vive en /openapi.json, el índice de documentación para agentes en /llms.txt y la guía de autenticación en /auth.md. Si necesitas un límite de tasa elevado para escaneos servidor a servidor de alto volumen, menciona tu caso de uso en un issue de GitHub."
     ],
     "issuesLabel": "Abrir un issue en GitHub",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "Privacidad — ghfind",
-    "metaDescription": "Cómo maneja los datos ghfind: evalúa solo datos públicos de GitHub, no vende datos personales y respeta las solicitudes de eliminación de perfiles indexados.",
+    "metaDescription": "Cómo maneja los datos ghfind: evalúa solo datos públicos de GitHub y no vende datos personales.",
     "heading": "Privacidad",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "Roasts con tu propia key",
         "p": "La función opcional de roast puede usar la key de tu propio proveedor de modelos. Cuando la proporcionas, se queda en tu navegador y pasa una sola vez por nuestro servidor para llamar al modelo — nunca se guarda ni se registra, y se descarta cuando la solicitud termina."
-      },
-      {
-        "h": "Eliminación y control",
-        "p": "Si quieres que tu perfil sea retirado, usa el enlace de eliminación en el pie del ranking o abre un issue en el repositorio de GitHub, y lo quitaremos del ranking y del índice. Como ghfind solo refleja datos públicos de GitHub, actualizar tu actividad de GitHub o hacerla privada también cambiará o eliminará lo que ghfind pueda ver en el siguiente escaneo."
       }
     ]
   },
@@ -994,20 +1005,18 @@
     }
   },
   "sidebar": {
-    "preview": "Preview",
     "workspace": "Workspace",
     "discover": "Explore",
-    "career": "Career",
-    "resume": "My résumé",
-    "talent": "Talent pool",
+    "resume": "Mi currículum",
     "soon": "Soon",
     "tagline": "Developer workspace",
-    "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar",
-    "navigation": "Main navigation",
-    "docs": "Help & documentation",
-    "skip": "Skip to content",
-    "edition": "Public workspace"
+    "expand": "Expandir barra lateral",
+    "collapse": "Contraer barra lateral",
+    "navigation": "Navegación principal",
+    "docs": "Ayuda y docs",
+    "skip": "Saltar al contenido",
+    "edition": "Public workspace",
+    "sponsor": "Patrocinar"
   },
   "talent": {
     "topline": {
@@ -1027,14 +1036,16 @@
     },
     "tabs": {
       "aria": "Descubrir talento",
-      "all": "Descubrir",
+      "all": "Todos",
       "saved": "Guardados",
-      "sessionHint": "Los guardados solo se conservan en esta sesión"
+      "sessionHint": "Los guardados solo se conservan en esta sesión",
+      "discover": "Destacados"
     },
     "search": {
       "placeholder": "Busca nombre, usuario de GitHub, stack o ciudad…",
       "aria": "Buscar talento",
-      "clear": "Limpiar búsqueda"
+      "clear": "Limpiar búsqueda",
+      "hint": "Consejo: filtros por campo — ej. skill:Rust, location:Shanghai"
     },
     "filters": {
       "toggle": "Filtros",
@@ -1046,7 +1057,12 @@
       "sourceGithub": "GitHub",
       "sourceManual": "Curación manual",
       "onlyAvailable": "Solo personas abiertas a conversar",
-      "reset": "Restablecer filtros"
+      "reset": "Restablecer filtros",
+      "subDirections": "Enfoque",
+      "officialTags": "Etiquetas oficiales",
+      "tagAria": "Filtrar por etiqueta oficial \"{tag}\"",
+      "collection": "Colección",
+      "clearCollection": "Quitar filtro de colección"
     },
     "results": {
       "count": "<strong>{count}</strong> desarrolladores encontrados",
@@ -1057,8 +1073,13 @@
       "sortActivity": "Mayor actividad de contribución",
       "gridView": "Vista de tarjetas",
       "listView": "Vista de lista",
-    "loadMore": "Cargar más",
-    "loading": "Cargando…"
+      "perPageAria": "Resultados por página",
+      "perPageOption": "{count} / página",
+      "pagesAria": "Paginación",
+      "prevPage": "Página anterior",
+      "nextPage": "Página siguiente",
+      "pageStatus": "Página {page} de {pages}",
+      "loading": "Cargando…"
     },
     "notice": {
       "submitted": "Recibimos tu propuesta para {name}. Solo se conservan los campos públicos y se mostrará tras la revisión.",
@@ -1218,6 +1239,240 @@
       "submitting": "Enviando…",
       "confirmSubmit": "Confirmar y enviar",
       "next": "Siguiente"
+    },
+    "categories": {
+      "aria": "Explorar por categoría",
+      "all": "Todos",
+      "agent": "Agentes y flujos",
+      "ai": "Apps de IA y modelos",
+      "infra": "Backend e infraestructura",
+      "frontend": "Frontend y full-stack",
+      "tools": "Herramientas y datos",
+      "other": "Otros"
+    },
+    "overview": {
+      "collectionsTitle": "Colecciones destacadas",
+      "collectionsSubtitle": "Agrupadas por ecosistema open source y etiquetas oficiales",
+      "sectionsTitle": "Explorar por área",
+      "sectionsSubtitle": "Desarrolladores destacados por área — «Ver todos» abre la lista completa",
+      "people": "{count} personas",
+      "viewAll": "Ver los {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Beta de DSH",
+        "desc": "Primeros usuarios y co-creadores de la beta de DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Contribuidores clave del motor de inferencia LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Ecosistema de la plataforma Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Comunidad LobeChat / LobeHub y multiagente"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Contribuidores de ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Contribuidores del framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Contribuidores de la especificación y SDK de MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Ecosistema LangChain / LangGraph"
+      }
     }
+  },
+  "sponsor": {
+    "metaTitle": "Patrocina ghfind · Planes y beneficios",
+    "metaDescription": "Patrocina ghfind: planes Principal, Modelo, Destacado y Amigo, con pago mensual. El patrocinio nunca afecta ningún ranking ni puntuación.",
+    "topline": {
+      "section": "Ayuda y documentación",
+      "current": "Patrocinar"
+    },
+    "hero": {
+      "titleLead": "Que ghfind",
+      "titleAccent": "siga opinando sin filtro.",
+      "subtitle": "ghfind es un proyecto comunitario abierto, y las llamadas al modelo, los servidores y la recopilación de datos cuestan dinero real. Tu patrocinio lo mantiene gratuito, independiente y actualizado. Todos los precios están en USD al mes, con descuento por tiempo limitado."
+    },
+    "perMonth": "/ mes",
+    "listPrice": "Precio normal {price}",
+    "off": "Ahorra {off}%",
+    "soldOut": "Agotado",
+    "available": "Disponible",
+    "soon": "En desarrollo",
+    "currentHolder": "Patrocinador actual",
+    "cta": "Quiero patrocinar",
+    "ctaSoldOut": "Agotado · Próximamente",
+    "tiers": {
+      "title": {
+        "name": "Patrocinador principal",
+        "summary": "El espacio más visible del sitio: tu marca viaja con cada tarjeta de presumir compartida.",
+        "perks": [
+          {
+            "text": "Espacio en la navegación superior de todas las páginas (logo + nombre + eslogan)"
+          },
+          {
+            "text": "Crédito con tu logo en cada tarjeta de presumir compartible"
+          }
+        ]
+      },
+      "model": {
+        "name": "Patrocinador del modelo",
+        "summary": "Impulsa las opiniones y aparece cada vez que se genera una.",
+        "perks": [
+          {
+            "text": "Crédito del patrocinador del modelo mientras se genera la opinión"
+          },
+          {
+            "text": "Información y logo del patrocinador en la página de inicio"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Patrocinador destacado",
+        "summary": "Exposición constante en la página de inicio y en los perfiles de desarrolladores.",
+        "perks": [
+          {
+            "text": "Espacio de patrocinio en la página de inicio"
+          },
+          {
+            "text": "Aparición aleatoria en páginas de detalle",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Patrocinador amigo",
+        "summary": "Apoya a ghfind como amigo; te recordaremos aquí.",
+        "perks": [
+          {
+            "text": "Agradecimiento y enlace externo en esta página"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Patrocinadores amigos",
+      "lead": "Gracias a cada amigo que apoya ghfind. Los enlaces aparecen en orden de llegada.",
+      "empty": "Este espacio está libre — sé el primer patrocinador amigo →"
+    },
+    "fairness": {
+      "heading": "El patrocinio nunca afecta rankings ni puntuaciones",
+      "body": "Los patrocinadores solo reciben visibilidad y agradecimiento. El patrocinio no influye ni puede influir en el ranking, la puntuación ni la opinión de ningún desarrollador o proyecto. Las puntuaciones dependen únicamente de nuestra metodología publicada y de los datos, y tratamos a todos por igual para garantizar la equidad."
+    },
+    "contactLead": "Para patrocinios, facturas u otras consultas, escribe a",
+    "rowLabel": "Patrocinadores",
+    "holders": {
+      "dsh": "Conéctate una vez y usa Harness en remoto",
+      "mosoo": "Runtime en la nube para agentes de programación",
+      "phi": "Navegador IA open source que te conoce de verdad"
+    },
+    "slotOpen": "Espacio disponible"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App que etiqueta issues y PRs según la puntuación del autor",
+    "metaDescription": "Instala la GitHub App ghfind Review para añadir una etiqueta de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor.",
+    "topline": {
+      "section": "Integraciones",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Gratis",
+      "title": "Prioriza issues y PRs según quién los abre",
+      "subtitle": "ghfind Review añade una etiqueta review: de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor. Sin workflow, sin token, sin secretos que configurar.",
+      "install": "Instalar en GitHub",
+      "status": "Abrir página de estado",
+      "note": "Funciona como ghfind-review[bot]. Solo añade etiquetas: nunca comenta, cierra ni bloquea una contribución."
+    },
+    "preview": {
+      "label": "Ejemplo de lista de issues con etiquetas review",
+      "heading": "Issues",
+      "items": {
+        "top": "Fallo al analizar configuración anidada",
+        "medium": "Añadir modo oscuro a ajustes",
+        "noScore": "Errata en el README"
+      }
+    },
+    "labels": {
+      "heading": "Cinco etiquetas, un vistazo",
+      "lead": "Las etiquetas que falten se crean al instalar. Se respetan los colores o descripciones que hayas personalizado.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Poca señal pública. Verifica el origen primero."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Un perfil de contribuidor habitual."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Señales públicas sólidas."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "En lo más alto del índice ghfind."
+        },
+        "noScore": {
+          "range": "Sin puntuación",
+          "desc": "Puntuación no disponible, no es cero. Se reintenta a los 20 y 60 minutos."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cómo funciona",
+      "items": {
+        "install": {
+          "title": "Instala en los repositorios elegidos",
+          "body": "Concede lectura y escritura en Issues y Pull requests. Elige Only select repositories para empezar poco a poco; los repos de organización pueden requerir aprobación."
+        },
+        "open": {
+          "title": "Alguien abre un issue o PR",
+          "body": "El bot consulta en segundo plano la puntuación pública de ghfind del autor. Nunca lee ni evalúa el cuerpo del issue."
+        },
+        "label": {
+          "title": "Aparece una etiqueta review:",
+          "body": "Al instalar también se etiquetan las primeras páginas de issues y PRs abiertos. Editar o reabrir no vuelve a puntuar."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Convierte rangos de puntuación en colas de revisión",
+      "lead": "Pega un filtro en la búsqueda de issues de tu repositorio y empieza por la cola que encaje con tu tiempo.",
+      "items": {
+        "high": "Issues de puntuación alta",
+        "top": "Issues de puntuación máxima",
+        "low": "Issues de puntuación baja por verificar",
+        "noScore": "Sin puntuación — falta contexto"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Pedir una nueva puntuación",
+        "body": "Tras los reintentos automáticos, el autor o un administrador del repositorio puede comentar @ghfind-review en el issue para volver a puntuarlo."
+      },
+      "privacy": {
+        "heading": "Qué datos toca",
+        "body": "Ni código fuente ni cuerpos de issues. Solo guarda la instalación, el repositorio, el número de issue, la puntuación y el estado del trabajo; los trabajos terminados se borran a los 30 días. Los autores con email público pueden recibir un email de puntuación cada 72 horas como máximo, con baja en un clic.",
+        "link": "Aviso de privacidad"
+      },
+      "stop": {
+        "heading": "Detenlo cuando quieras",
+        "body": "Quita repositorios, suspende o desinstala la app desde los ajustes de GitHub. Las etiquetas existentes se mantienen."
+      }
+    },
+    "disclaimer": "La puntuación refleja el perfil público de GitHub del autor, no la calidad de esta contribución. Los nuevos contribuidores quizá solo tengan poco historial público.",
+    "source": "Código fuente y guía de autoalojamiento"
   }
 }

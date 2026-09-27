@@ -19,6 +19,8 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -59,12 +61,29 @@ class GitHubDataUnavailableError(Exception):
     pass
 
 
+_token_context: ContextVar[Optional[str]] = ContextVar("github_token", default=None)
+
+
+def _github_token() -> Optional[str]:
+    token = _token_context.get()
+    return token if token is not None else os.environ.get("GITHUB_TOKEN")
+
+
+@contextmanager
+def _with_github_token(token: str):
+    reset_token = _token_context.set(token)
+    try:
+        yield
+    finally:
+        _token_context.reset(reset_token)
+
+
 def _math_round(x: float) -> int:
     return math.floor(x + 0.5)
 
 
 def _auth_headers() -> Dict[str, str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -115,7 +134,7 @@ def _rest_get_opt(path: str) -> Any:
 
 
 def _graphql(query: str, variables: Dict[str, Any]) -> Any:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required.")
     headers = {**_auth_headers(), "Content-Type": "application/json"}
@@ -218,6 +237,20 @@ def _is_likely_placeholder_project(repo: Dict[str, Any], login_lower: str) -> bo
     )
 
 
+# A "notes"/"learning" keyword is weak evidence once a substantive repo has real
+# organic traction (many stars backed by a healthy fork share); mirrors
+# hasOrganicProjectTraction in src/lib/github.ts.
+PLACEHOLDER_TRACTION_MIN_STARS = 500
+PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03
+PLACEHOLDER_TRACTION_MULTIPLIER = 0.75
+
+
+def _has_organic_project_traction(repo: Dict[str, Any]) -> bool:
+    stars = repo.get("stars") or 0
+    forks = repo.get("forks") or 0
+    return stars >= PLACEHOLDER_TRACTION_MIN_STARS and forks >= stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+
+
 def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: datetime) -> float:
     if repo["size"] <= 0:
         return 0
@@ -274,7 +307,10 @@ def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: dat
             s += 0.04
 
     if _is_likely_placeholder_project(repo, login_lower):
-        s *= 0.55 if (readme_len >= 600 and repo["size"] >= 200) else 0.25
+        if readme_len >= 600 and repo["size"] >= 200:
+            s *= PLACEHOLDER_TRACTION_MULTIPLIER if _has_organic_project_traction(repo) else 0.55
+        else:
+            s *= 0.25
 
     return _math_round(max(0.0, min(s, 1)) * 100) / 100
 
@@ -1010,7 +1046,7 @@ def prestige_work_multiplier(commits: int, prs: int) -> float:
 # --- async-equivalent fetchers ---------------------------------------------
 
 def _fetch_organizations(username: str) -> List[str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         return []
     query = ("query($login: String!) { user(login: $login) { "
@@ -1229,7 +1265,7 @@ _CONTRIB_QUERY = """query($login: String!) {
 
 
 def collect(username: str) -> Dict[str, Any]:
-    if not os.environ.get("GITHUB_TOKEN"):
+    if not _github_token():
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.")
 
     now = datetime.now(timezone.utc)

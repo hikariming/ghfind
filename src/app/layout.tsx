@@ -27,13 +27,14 @@ try {
   document.documentElement.dir = seg === "ar" ? "rtl" : "ltr";
 
   var key = "github-roast-theme";
-  var stored = localStorage.getItem(key);
+  var stored = null;
+  try { stored = localStorage.getItem(key); } catch (_) {}
   var isAdvx =
     window.location.pathname.split("/").indexOf("advx") !== -1 ||
     new URLSearchParams(window.location.search).get("campaign") === "advx";
   if (isAdvx) {
     stored = "dark";
-    localStorage.setItem(key, stored);
+    try { localStorage.setItem(key, stored); } catch (_) {}
   }
   var mode = stored === "light" || stored === "dark" || stored === "auto"
     ? stored
@@ -60,10 +61,15 @@ export default function RootLayout({
       // so the server markup intentionally differs for saved theme and /en.
       suppressHydrationWarning
     >
+      <head>
+        {/* Execute while parsing HTML: next/script beforeInteractive waits for
+            the Next.js bootstrap and can allow the dark default to paint. */}
+        <script
+          id="theme-init"
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
         {/* Google tag (gtag.js) - loaded on every page via the root layout */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}

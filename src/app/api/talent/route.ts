@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listTalentsPage, type TalentSort } from "@/lib/talent-db";
+import { getTalentOverview, listTalentsPage, type TalentSort } from "@/lib/talent-db";
+import { isTalentCategory } from "@/components/talent/categories";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,11 +13,18 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const sort = sp.get("sort");
   const source = sp.get("source");
+  const category = sp.get("category");
   try {
+    if (sp.get("overview") === "1") {
+      return NextResponse.json(await getTalentOverview(sp.get("locale") ?? undefined), { headers: { "Cache-Control": CDN_CACHE } });
+    }
     const result = await listTalentsPage({
       locale: sp.get("locale") ?? undefined,
       query: sp.get("q") ?? undefined,
       direction: sp.get("direction") ?? undefined,
+      category: isTalentCategory(category) ? category : undefined,
+      tag: sp.get("tag")?.trim() || undefined,
+      project: sp.get("project")?.trim() || undefined,
       location: sp.get("location") ?? undefined,
       source: source === "github" || source === "manual" ? source : undefined,
       available: sp.get("available") === "1",

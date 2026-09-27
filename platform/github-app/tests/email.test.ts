@@ -33,6 +33,8 @@ beforeEach(async () => {
       "author_emails",
       "author_subscriptions",
       "email_daily_budget",
+      "author_comment_once",
+      "noscore_comment_budget",
       "sessions",
     ].map((t) => e.DB.prepare(`DELETE FROM ${t}`)),
   );
@@ -125,6 +127,68 @@ it("queues only subscribers and deduplicates replayed subjects", async () => {
     await e.DB.prepare("SELECT count(*) n FROM author_emails").first("n"),
   ).toBe(1);
 });
+for (const kind of ["issue", "PR"] as const) {
+  it.each([0, 20, 39.99])(
+    `suppresses ${kind} email below 40 before recipient discovery`,
+    async (score) => {
+      const enabled = { ...e, EMAIL_ENABLED: "true" };
+      const api = vi.fn();
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2, api);
+      expect(api).not.toHaveBeenCalled();
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM author_subscriptions").first("n"),
+      ).toBe(0);
+      await subscribe();
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2, api);
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM author_emails").first("n"),
+      ).toBe(0);
+    },
+  );
+  it.each([40, 40.01, 100, null])(
+    `preserves ${kind} email delivery for score %s`,
+    async (score) => {
+      await subscribe();
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        Response.json({ token: "installation-token" }),
+      );
+      const send = vi.fn().mockResolvedValue({ messageId: "test" });
+      const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+      await enqueueAuthorEmail(enabled, 1, { ...payload, kind, score }, 2);
+      await sendAuthorEmails(enabled);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(
+        await e.DB.prepare("SELECT state FROM author_emails").first("state"),
+      ).toBe("sent");
+    },
+  );
+  it.each([0, 39.99])(
+    `cancels pre-existing low-score ${kind} mail without consuming delivery limits`,
+    async (score) => {
+      await subscribe();
+      const send = vi.fn();
+      const fetch = vi.spyOn(globalThis, "fetch");
+      const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+      await e.DB.prepare(
+        "INSERT INTO author_emails(id,user_id,payload,created,updated) VALUES('legacy',1,?,?,?)",
+      )
+        .bind(JSON.stringify({ ...payload, kind, score }), Date.now(), Date.now())
+        .run();
+      await sendAuthorEmails(enabled);
+      expect(send).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+      expect(
+        await e.DB.prepare("SELECT state FROM author_emails").first("state"),
+      ).toBe("cancelled");
+      expect(
+        await e.DB.prepare("SELECT last_sent FROM author_subscriptions").first("last_sent"),
+      ).toBe(0);
+      expect(
+        await e.DB.prepare("SELECT count(*) n FROM email_daily_budget").first("n"),
+      ).toBe(0);
+    },
+  );
+}
 it("sends once across concurrent drains and caps an author to one per day", async () => {
   await subscribe();
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -142,6 +206,53 @@ it("sends once across concurrent drains and caps an author to one per day", asyn
     ).first("provider_id"),
   ).toBe("test");
   expect(send.mock.calls[0][0].text).toContain("82.7 / 100");
+});
+it("sends one email across repositories and stays quiet for 72 hours", async () => {
+  await subscribe();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    Response.json({ token: "installation-token" }),
+  );
+  const send = vi.fn().mockResolvedValue({ messageId: "test" });
+  const enabled = { ...e, EMAIL_ENABLED: "true", EMAIL: { send } as SendEmail };
+  await enqueueAuthorEmail(enabled, 1, payload, 2);
+  await sendAuthorEmails(enabled);
+  await enqueueAuthorEmail(
+    enabled,
+    1,
+    { ...payload, number: 9, repository: "other/repo", repositoryId: 9 },
+    9,
+  );
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(
+    await e.DB.prepare("SELECT state FROM author_emails WHERE id='9:9:1'").first(
+      "state",
+    ),
+  ).toBe("cancelled");
+  await e.DB.prepare(
+    "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
+  )
+    .bind(Date.now() - 71 * 60 * 60 * 1000)
+    .run();
+  await e.DB.prepare(
+    "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
+  )
+    .bind(Date.now())
+    .run();
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(1);
+  await e.DB.prepare(
+    "UPDATE author_subscriptions SET last_sent=? WHERE user_id=1",
+  )
+    .bind(Date.now() - 73 * 60 * 60 * 1000)
+    .run();
+  await e.DB.prepare(
+    "UPDATE author_emails SET state='pending',updated=? WHERE id='9:9:1'",
+  )
+    .bind(Date.now())
+    .run();
+  await sendAuthorEmails(enabled);
+  expect(send).toHaveBeenCalledTimes(2);
 });
 it("does not resend after an ambiguous provider failure", async () => {
   await subscribe();

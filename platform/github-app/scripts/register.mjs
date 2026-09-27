@@ -47,7 +47,7 @@ const server = createServer(async (req, res) => {
       setup_url: `${origin.origin}/setup`,
       setup_on_update: true,
       default_permissions: { pull_requests: "write", issues: "write" },
-      default_events: ["pull_request", "issues"],
+      default_events: ["pull_request", "issues", "issue_comment"],
     };
     const encoded = JSON.stringify(manifest)
       .replaceAll("&", "&amp;")

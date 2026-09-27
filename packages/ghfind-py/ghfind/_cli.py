@@ -36,6 +36,16 @@ _SUB_SCORE_ORDER = [
 ]
 
 
+def _configure_windows_stdio() -> None:
+    """Keep human-readable CLI output usable on legacy Windows code pages."""
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def _out(text: str = "") -> None:
     sys.stdout.write(f"{text}\n")
 
@@ -420,6 +430,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    _configure_windows_stdio()
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:

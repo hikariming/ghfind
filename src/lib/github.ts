@@ -7,6 +7,7 @@
  * `recent_prs` shape exactly so the scoring port consumes it unchanged.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { logRatio } from "./score";
 import type {
   EstimatedContributionLanguages,
@@ -40,12 +41,19 @@ export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 /** An oversized query can hit GitHub's gateway timeout before returning JSON. */
 export class GitHubQueryTimeoutError extends GitHubDataUnavailableError {}
 
+// SDK overrides belong to one async collection, never to the process environment.
+const githubTokenContext = new AsyncLocalStorage<string>();
+
+export function withGithubToken<T>(token: string, run: () => T): T {
+  return githubTokenContext.run(token, run);
+}
+
 /** The GitHub PAT pool. `GITHUB_TOKEN` may hold a single token or a
  *  comma-separated list (`ghp_a,ghp_b,ghp_c`); each token multiplies the
  *  5000-point/hr GraphQL ceiling. Read at call time (not module load) so scripts
  *  populating env via `_env.mjs` and tests mutating `process.env` still work. */
 export function githubTokens(): string[] {
-  return (process.env.GITHUB_TOKEN ?? "")
+  return (githubTokenContext.getStore() ?? process.env.GITHUB_TOKEN ?? "")
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
@@ -57,11 +65,11 @@ export function hasGithubToken(): boolean {
   return githubTokens().length > 0;
 }
 
-// Round-robin cursor. Under Fluid Compute the warm instance persists this across
-// requests, so load spreads across the pool without any shared store. Reserve a
-// base offset per request (not per attempt) so a single request's retries walk
-// *distinct* tokens even when concurrent requests interleave their reservations.
-let rrIndex = 0;
+// Round-robin cursor, local to this isolate. Concurrent invocations are the
+// backend workers: each one reserves its own offset, and a random start keeps
+// a fresh burst from all landing on the first token. Retries of one request
+// still walk distinct tokens.
+let rrIndex = Math.floor(Math.random() * 1_000_003);
 function nextOffset(): number {
   return rrIndex++;
 }
@@ -622,6 +630,21 @@ function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean 
   );
 }
 
+// A "notes"/"learning" keyword is weak evidence once a substantive repo has
+// real organic traction (many stars backed by a healthy fork share). Such repos
+// (e.g. widely-used tutorials) keep a lighter discount instead of the 0.55
+// placeholder penalty; bought stars rarely come with proportional forks.
+export const PLACEHOLDER_TRACTION_MIN_STARS = 500;
+export const PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03;
+export const PLACEHOLDER_TRACTION_MULTIPLIER = 0.75;
+
+function hasOrganicProjectTraction(repo: TopRepo): boolean {
+  return (
+    repo.stars >= PLACEHOLDER_TRACTION_MIN_STARS &&
+    repo.forks >= repo.stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+  );
+}
+
 /**
  * 0..1 project substance signal for original repos. Stars are scored separately;
  * this captures whether at least one original repo looks usable and maintained.
@@ -679,7 +702,12 @@ export function originalRepoQualityScore(
   }
 
   if (isLikelyPlaceholderProject(repo, loginLower)) {
-    s *= readmeLen >= 600 && repo.size >= 200 ? 0.55 : 0.25;
+    const substantive = readmeLen >= 600 && repo.size >= 200;
+    s *= substantive
+      ? hasOrganicProjectTraction(repo)
+        ? PLACEHOLDER_TRACTION_MULTIPLIER
+        : 0.55
+      : 0.25;
   }
 
   return Math.round(Math.max(0, Math.min(s, 1)) * 100) / 100;

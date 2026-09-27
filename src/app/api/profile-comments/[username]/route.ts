@@ -8,6 +8,7 @@ import {
   type ProfileCommentsResponse,
 } from "../../../../lib/comments";
 import { createProfileComment, getProfileComments } from "../../../../lib/db";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function GET(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const target = normalizeGitHubUsername(decodeURIComponent(username ?? ""));
+  const target = normalizeGitHubUsername(decodeRouteParam(username ?? ""));
   if (!target) {
     return jsonNoStore({ error: "invalid_username" }, { status: 400 });
   }
@@ -45,7 +46,7 @@ export async function POST(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const target = normalizeGitHubUsername(decodeURIComponent(username ?? ""));
+  const target = normalizeGitHubUsername(decodeRouteParam(username ?? ""));
   if (!target) {
     return jsonNoStore({ error: "invalid_username" }, { status: 400 });
   }

@@ -16,6 +16,7 @@ import { VsPlayerCard } from "@/components/VsPlayerCard";
 import { VsSummonButton } from "@/components/VsSummonButton";
 import { VsVerdictLive } from "@/components/VsVerdictLive";
 import { VsShare } from "@/components/VsShare";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,8 @@ function localeSide(line: RoastLine | null | undefined, locale: string): string 
 /** Normalize + canonicalize (lowercased, dictionary order) a /vs pair, or null
  *  if either handle is invalid. */
 function canonicalize(a: string, b: string): { a: string; b: string } | null {
-  const na = normalizeUsername(decodeURIComponent(a));
-  const nb = normalizeUsername(decodeURIComponent(b));
+  const na = normalizeUsername(decodeRouteParam(a));
+  const nb = normalizeUsername(decodeRouteParam(b));
   if (!na || !nb) return null;
   const [x, y] = [na.toLowerCase(), nb.toLowerCase()].sort();
   return { a: x, b: y };
@@ -87,7 +88,7 @@ export default async function VsPage({
 
   // Redirect any non-canonical spelling (case / order) to the canonical slug so
   // /vs/b/a and /vs/A/B consolidate to one URL (and one OG image / cache entry).
-  if (decodeURIComponent(a) !== pair.a || decodeURIComponent(b) !== pair.b) {
+  if (decodeRouteParam(a) !== pair.a || decodeRouteParam(b) !== pair.b) {
     redirect({ href: `/vs/${pair.a}/${pair.b}`, locale });
   }
 
