@@ -140,7 +140,7 @@ describe("POST /api/scan immediate quick contract", () => {
       coverage: "legacy",
       legacy_read_fallback: true,
       served_score_version: "v10",
-      served_roast_version: "v10",
+      served_roast_version: "v11",
       served_collection_version: "v5",
     });
   });

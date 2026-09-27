@@ -182,6 +182,7 @@ export async function ghFetch(
 }
 
 interface RestRepo {
+  id?: number;
   name: string;
   full_name?: string;
   private?: boolean;
@@ -1032,6 +1033,48 @@ async function fetchRepoDetails(owner: string, repo: string): Promise<RestRepo |
   return restGet<RestRepo>(`repos/${owner}/${repo}`).catch(() => null);
 }
 
+export function repositoryIdFromTransferLocation(location: string | null): number | null {
+  if (!location) return null;
+  try {
+    const parsed = new URL(location, GITHUB_API);
+    if (parsed.origin !== new URL(GITHUB_API).origin) return null;
+    const match = parsed.pathname.match(/^\/repositories\/(\d+)\/?$/);
+    if (!match) return null;
+    const id = Number(match[1]);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GitHub keeps the former owner/name REST path as a permanent redirect after a
+ * repository transfer. Match that redirect's stable numeric repository ID to
+ * the current pinned repository; a normal pin or one-off contribution cannot
+ * manufacture this ownership evidence.
+ */
+async function hasRepositoryTransferRedirect(
+  scoredLogin: string,
+  currentRepo: RestRepo,
+): Promise<boolean> {
+  if (!currentRepo.id || !currentRepo.name) return false;
+  let res: Response;
+  try {
+    res = await ghFetch(
+      `${GITHUB_API}/repos/${encodeURIComponent(scoredLogin)}/${encodeURIComponent(currentRepo.name)}`,
+      { redirect: "manual" },
+    );
+  } catch {
+    return false;
+  }
+  if (res.status === 403 || res.status === 429) {
+    if (res.headers.get("x-ratelimit-remaining") === "0") throw new GitHubRateLimitError();
+    return false;
+  }
+  if (res.status !== 301 && res.status !== 308) return false;
+  return repositoryIdFromTransferLocation(res.headers.get("location")) === currentRepo.id;
+}
+
 async function hasReleaseOrTagAuthor(owner: string, repo: string, loginLower: string): Promise<boolean> {
   const releases = await restGet<RestRelease[]>(
     `repos/${owner}/${repo}/releases?per_page=10`,
@@ -1354,11 +1397,11 @@ function isPublicOrgMember(ownerLogin: string, organizations: string[]): boolean
   return organizations.some((organization) => organization.toLowerCase() === owner);
 }
 
-function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): boolean {
+function isExternalOriginalCandidate(repo: ContribRepoAgg, loginLower: string): boolean {
   if (repo.is_private || repo.is_fork) return false;
   if (repo.owner_login.toLowerCase() === loginLower) return false;
   if (isDocLikeRepo(repo.repo)) return false;
-  return hasStrongLongTermOrgContribution(repo);
+  return true;
 }
 
 async function collectAttributedOriginalRepos(input: {
@@ -1368,17 +1411,43 @@ async function collectAttributedOriginalRepos(input: {
   loginLower: string;
   profileUrl: string | null;
 }): Promise<TopRepo[]> {
-  const structural = input.contribRepos.filter((repo) =>
-    isOrgOwnedLongTermCandidate(repo, input.loginLower),
+  const pinned = new Set(input.pinnedRepos.map((repo) => repo.toLowerCase()));
+  const contributions = new Map(
+    input.contribRepos.map((repo) => [repo.repo.toLowerCase(), repo] as const),
   );
-  if (structural.length === 0) return [];
-
-  const candidates = [...structural]
+  const structural = input.contribRepos
+    .filter(
+      (repo) =>
+        isExternalOriginalCandidate(repo, input.loginLower) &&
+        hasStrongLongTermOrgContribution(repo),
+    )
     .sort((a, b) => b.stars - a.stars || b.commits + b.prs - (a.commits + a.prs))
     .slice(0, MAX_ATTRIBUTED_ORIGINAL_REPOS);
+  const candidates = new Map(structural.map((repo) => [repo.repo.toLowerCase(), repo] as const));
+  for (const repoKey of input.pinnedRepos) {
+    const [owner, name, extra] = repoKey.split("/");
+    if (!owner || !name || extra || owner.toLowerCase() === input.loginLower) continue;
+    if (isDocLikeRepo(repoKey)) continue;
+    const key = repoKey.toLowerCase();
+    const contribution = contributions.get(key);
+    candidates.set(
+      key,
+      contribution ?? {
+        repo: repoKey,
+        stars: 0,
+        is_private: false,
+        is_fork: false,
+        owner_login: owner,
+        commits: 0,
+        prs: 0,
+        active_years: 0,
+      },
+    );
+  }
+  if (candidates.size === 0) return [];
 
   const repos = await Promise.all(
-    candidates.map(async (candidate) => {
+    [...candidates.values()].map(async (candidate) => {
       const [owner, name] = candidate.repo.split("/");
       if (!owner || !name) return null;
       const detail = await fetchRepoDetails(owner, name);
@@ -1386,6 +1455,21 @@ async function collectAttributedOriginalRepos(input: {
       if (isDocLikeRepo(candidate.repo) || hasDocLikeTopic(detail)) return null;
 
       const member = isPublicOrgMember(owner, input.organizations);
+      const isPinned = pinned.has(candidate.repo.toLowerCase());
+      const transferRedirectHit =
+        isPinned ? await hasRepositoryTransferRedirect(input.loginLower, detail) : false;
+      if (transferRedirectHit) {
+        const attribution = computeOrgRepoAttribution({
+          repo: candidate,
+          organizations: input.organizations,
+          pinnedRepos: input.pinnedRepos,
+          scoredLogin: input.loginLower,
+          transferRedirectHit: true,
+        });
+        return attribution ? repoToTopRepo(detail, owner, attribution) : null;
+      }
+      if (!hasStrongLongTermOrgContribution(candidate)) return null;
+
       let firstCommitLogin: string | null | undefined;
       if (!member) {
         const first = await fetchDefaultBranchFirstCommit(owner, name);
@@ -1413,7 +1497,10 @@ async function collectAttributedOriginalRepos(input: {
     }),
   );
 
-  return repos.filter((repo): repo is TopRepo => repo !== null);
+  return repos
+    .filter((repo): repo is TopRepo => repo !== null)
+    .sort((a, b) => b.stars - a.stars)
+    .slice(0, MAX_ATTRIBUTED_ORIGINAL_REPOS);
 }
 
 const MAX_ORGANIZATION_MAINTAINED_REPOS = 6;
@@ -2294,6 +2381,7 @@ export function computeOrgRepoAttribution(input: {
   maintainerFileHit?: boolean;
   scoredLogin?: string;
   firstCommitLogin?: string | null;
+  transferRedirectHit?: boolean;
 }): OrgRepoAttribution | null {
   const owner = input.repo.owner_login.toLowerCase();
   const organizations = new Set(input.organizations.map((o) => o.toLowerCase()));
@@ -2301,9 +2389,27 @@ export function computeOrgRepoAttribution(input: {
   const scoredLogin = input.scoredLogin?.trim().toLowerCase() ?? "";
   const firstCommitLogin = input.firstCommitLogin?.trim().toLowerCase() ?? "";
   const firstCommitMatch = scoredLogin.length > 0 && firstCommitLogin === scoredLogin;
-  if (!member && !firstCommitMatch) return null;
+  const pinned = (input.pinnedRepos ?? []).some(
+    (repo) => repo.toLowerCase() === input.repo.repo.toLowerCase(),
+  );
+  const transferredOriginal =
+    Boolean(input.transferRedirectHit) && pinned && scoredLogin.length > 0;
   if (input.repo.is_private || input.repo.is_fork) return null;
   if (isDocLikeRepo(input.repo.repo)) return null;
+  if (transferredOriginal) {
+    const name = repoName(input.repo.repo);
+    const evidence = [
+      `repository transfer redirect from ${scoredLogin}/${name}`,
+      "pinned by user",
+    ];
+    if (input.repo.commits > 0 || input.repo.prs > 0) {
+      evidence.push(
+        `${input.repo.commits} commits + ${input.repo.prs} PRs across ${input.repo.active_years} years`,
+      );
+    }
+    return { repo: input.repo.repo, evidence, score: ORG_ATTRIBUTED_MIN_SCORE + 1 };
+  }
+  if (!member && !firstCommitMatch) return null;
   if (!hasStrongLongTermOrgContribution(input.repo)) return null;
 
   const evidence = [
@@ -2314,7 +2420,7 @@ export function computeOrgRepoAttribution(input: {
   ];
   let score = 1 + 4;
 
-  if ((input.pinnedRepos ?? []).some((r) => r.toLowerCase() === input.repo.repo.toLowerCase())) {
+  if (pinned) {
     score += 1;
     evidence.push("pinned by user");
   }

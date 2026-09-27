@@ -282,7 +282,7 @@ describe("getArchivedRoast", () => {
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
   });
 
-  it("serves an exact v10/v10/v4 artifact as a stale read without changing its score", async () => {
+  it("serves an exact previous-release artifact as a stale read without changing its score", async () => {
     const username = "legacy-read-fixture";
     await writeLegacyReadFallback(username);
 
@@ -309,7 +309,7 @@ describe("getArchivedRoast", () => {
     });
   });
 
-  it("keeps a v10/v10/v4 profile readable when its old snapshot is no longer usable", async () => {
+  it("keeps a previous-release profile readable when its old snapshot is no longer usable", async () => {
     const username = "legacy-fallback-mismatch";
     await writeLegacyReadFallback(username);
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
