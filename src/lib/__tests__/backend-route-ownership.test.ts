@@ -28,6 +28,9 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/profile-reactions/[username]/route.ts",
   // Signed-in user's cloud résumé library (GET/PUT, session-gated, D1-backed).
   "src/app/api/resumes/route.ts",
+  // Per-account CLI/API token management (OAuth session + same-origin writes).
+  "src/app/api/account/tokens/route.ts",
+  "src/app/api/account/tokens/[id]/route.ts",
   "src/app/api/developers/route.ts",
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",

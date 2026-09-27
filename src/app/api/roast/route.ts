@@ -646,7 +646,7 @@ export async function POST(req: NextRequest) {
   // Invalid machine credentials still fail closed. Bearer callers are the
   // machine/API surface; interactive browsers have already passed Turnstile on
   // the scan path and must not spend the machine roast quota.
-  const auth = machineAuth(req);
+  const auth = await machineAuth(req);
   if (auth === "invalid") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

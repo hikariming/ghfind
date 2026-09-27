@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = clientIp(req);
-  const auth = machineAuth(req);
+  const auth = await machineAuth(req);
   if (auth === "invalid") return apiError("unauthorized", { status: 401, headers: idem });
   let anonymousSession: AnonymousSession | null = null;
   if (auth === "absent") {
