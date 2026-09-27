@@ -45,6 +45,7 @@ import {
 import { computeTrendingScore, rankTrending } from "./hotness";
 import { VS_MIN_SCORE } from "./site";
 import {
+  advanceScoreDetailRevision,
   bumpCampaignLeaderboardRevision,
   clearCachedReactionCounts,
   getCachedReactionCounts,
@@ -1773,6 +1774,7 @@ export async function publishCompleteQuickScan(
         scannedAt,
       ],
     });
+    await advanceScoreDetailRevision(materialized.scoreEntry.username);
     await recordProfileSnapshot(materialized.scan);
     return scoreWrite.identity;
   } catch (error) {

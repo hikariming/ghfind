@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry, ScoreWriteIdentity } from "../db";
 import { LEGACY_READ_FALLBACK } from "../release-versions";
@@ -532,6 +532,21 @@ describe("canonical score materialization", () => {
     if (!lease) throw new Error(`expected a synthetic lease for ${username}`);
     return { queued, lease };
   }
+
+  it("does not claim publication success when indexed cache revision cannot advance", async () => {
+    const redisModule = await import("../redis");
+    const advance = vi.spyOn(redisModule, "advanceScoreDetailRevision").mockRejectedValue(new Error("unavailable"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const scan = syntheticScan("quick-cache-failure-fixture");
+      await expect(db.publishCompleteQuickScan(scan, 1_910_000_000_001)).resolves.toBeNull();
+      expect(advance).toHaveBeenCalledWith("quick-cache-failure-fixture");
+      expect(log).toHaveBeenCalled();
+      expect(JSON.stringify(log.mock.calls)).not.toContain("unavailable");
+    } finally {
+      advance.mockRestore(); log.mockRestore();
+    }
+  });
 
   it("publishes a complete quick result with canonical score provenance", async () => {
     const username = "quick-materialization-fixture";

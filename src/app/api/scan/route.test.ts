@@ -97,6 +97,17 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
   });
 
+  it("passes force through to distributed coalescing", async () => {
+    const req = new NextRequest("https://example.test/api/scan?force=1", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+      body: JSON.stringify({ username: "DemoDev" }),
+    });
+    const response = await POST(req);
+    expect(response.status).toBe(200);
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { force: true });
+  });
+
   it("serves a cached quick scan without republishing it as newly scanned", async () => {
     mocks.getCachedScan.mockResolvedValue(quickScan);
 

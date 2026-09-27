@@ -134,7 +134,35 @@ export async function clearCachedScan(username: string): Promise<void> {
   await r.del(scanKey(username)).catch(() => {});
 }
 
-/** Cache-aside indexed score reads also serialize database repopulation. */
+const scoreDetailRevisionKey = (username: string) =>
+  `score-detail-revision:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+
+async function scoreDetailRevision(r: Redis, username: string): Promise<string> {
+  try {
+    const revision = await r.get<string>(scoreDetailRevisionKey(username));
+    if (revision === null) return "initial";
+    if (typeof revision !== "string" || !/^[a-zA-Z0-9-]+$/.test(revision)) throw new ScanBusyError();
+    return revision;
+  } catch {
+    throw new ScanBusyError();
+  }
+}
+
+/** Move readers to a new namespace only after canonical publication. Old
+ * in-flight readers can fill their old key, but cannot poison the new one.
+ * Keep this pointer without a TTL: expiring it could resurrect an initial key.
+ * A configured Redis failure must fail publication rather than claim freshness.
+ */
+export async function advanceScoreDetailRevision(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) {
+    if (isProductionDeployment()) throw new ScanBusyError();
+    return;
+  }
+  await r.set(scoreDetailRevisionKey(username), crypto.randomUUID());
+}
+
+/** Cache-aside indexed reads retry if publication races their database load. */
 export async function getCachedScoreDetail(
   username: string,
   load: () => Promise<AccountDetail | null>,
@@ -145,26 +173,36 @@ export async function getCachedScoreDetail(
     if (isProductionDeployment()) throw new ScanBusyError();
     return load();
   }
-  const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
-  const result = await protectedScan({
-    redis: r, key,
-    read: async () => {
-      try { return await r.get<{ detail: AccountDetail | null }>(key); }
-      catch { return null; }
-    },
-    produce: async () => ({ detail: await load() }),
-    // Brief negative caching protects missing-account database reads without
-    // hiding a newly published snapshot for a full day.
-    ttl: result => result.detail ? scanTtl() : 10,
-    capacityKey: "score-detail:active-readers:v1",
-  });
-  return result.detail;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const revision = await scoreDetailRevision(r, username);
+    const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}:generation:${revision}`;
+    const result = await protectedScan({
+      redis: r, key,
+      read: async () => {
+        try { return await r.get<{ detail: AccountDetail | null }>(key); }
+        catch { return null; }
+      },
+      produce: async () => ({ detail: await load() }),
+      ttl: result => result.detail ? scanTtl() : 10,
+      capacityKey: "score-detail:active-readers:v1",
+    });
+    if (await scoreDetailRevision(r, username) === revision) return result.detail;
+  }
+  throw new ScanBusyError();
 }
 
-/** Cache misses must obtain distributed admission before crawling GitHub. */
+// Atomically pair the payload and publication marker. A forced caller may
+// join a scan published after arrival, but never accept its warm baseline.
+export const READ_REFRESHED_SCAN = `
+local revision = redis.call('GET', KEYS[2])
+if not revision or revision == ARGV[1] then return nil end
+return redis.call('GET', KEYS[1])`;
+
+/** Cache misses and forced refreshes retain the same distributed admission. */
 export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
+  options: { force?: boolean } = {},
 ): Promise<ScanResult> {
   if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
   const r = getRedis();
@@ -172,8 +210,24 @@ export async function coalesceScan(
     if (isProductionDeployment()) throw new ScanBusyError();
     return producer();
   }
-  return protectedScan({ redis: r, key: scanKey(username),
-    read: () => getCachedScan(username), produce: producer });
+  const key = scanKey(username);
+  const revisionKey = `revision:${key}`;
+  let baseline = "";
+  if (options.force) {
+    try { baseline = (await r.get<string>(revisionKey)) ?? ""; }
+    catch { throw new ScanBusyError(); }
+  }
+  return protectedScan({ redis: r, key, revisionKey,
+    read: options.force ? async () => {
+      try {
+        const value = await r.eval(READ_REFRESHED_SCAN, [key, revisionKey], [baseline]) as ScanResult | string | null;
+        if (!value) return null;
+        const cached = typeof value === "string" ? JSON.parse(value) as ScanResult : value;
+        return { ...cached, scoring: score(cached.metrics) };
+      } catch { throw new ScanBusyError(); }
+    } : () => getCachedScan(username),
+    produce: producer,
+  });
 }
 
 /**

@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       const quickScan = await buildScanResult(username);
       if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
       return quickScan;
-    });
+    }, { force });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     return attachAnonymousSession(
       immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),

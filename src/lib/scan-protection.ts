@@ -20,6 +20,7 @@ return 1`;
 export const PUBLISH_SCAN = `
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
 redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3])
+if KEYS[3] then redis.call('SET', KEYS[3], ARGV[1], 'EX', ARGV[3]) end
 return 1`;
 export const RELEASE_SCAN = `
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -42,6 +43,7 @@ export async function protectedScan<T>(options: {
   attempts?: number;
   ttl?: (result: T) => number;
   capacityKey?: string;
+  revisionKey?: string;
 }): Promise<T> {
   const { redis, key, read, produce } = options;
   const keys = [
@@ -86,7 +88,7 @@ export async function protectedScan<T>(options: {
       // An expired owner must never overwrite a newer producer's snapshot.
       const published = await redis.eval(
         PUBLISH_SCAN,
-        [keys[0], key],
+        options.revisionKey ? [keys[0], key, options.revisionKey] : [keys[0], key],
         [owner, JSON.stringify(result), options.ttl?.(result) ?? scanTtl()],
       );
       if (published !== 1) throw new ScanBusyError();
