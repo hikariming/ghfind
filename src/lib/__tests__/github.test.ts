@@ -9,6 +9,7 @@ import {
   GitHubDataUnavailableError,
   hasGithubToken,
   parseGithubNoreplyLogin,
+  repositoryIdFromTransferLocation,
   resolveFirstCommitGithubLogin,
 } from "../github";
 
@@ -25,15 +26,21 @@ function graphqlQuery(init?: RequestInit): string {
   return (JSON.parse(String(init?.body ?? "{}")) as { query?: string }).query ?? "";
 }
 
-function firstCommitOrgCollectFetch(input: {
+function externalOriginalCollectFetch(input: {
   login: string;
   owner: string;
   name: string;
   stars: number;
   commits: number;
-  firstCommitLogin: string;
+  firstCommitLogin?: string;
+  includeContribution?: boolean;
+  pinned?: boolean;
+  transferRedirect?: boolean;
+  repoId?: number;
+  transferRepoId?: number;
 }) {
   const nameWithOwner = `${input.owner}/${input.name}`;
+  const repoId = input.repoId ?? 42;
   const repoNode = {
     nameWithOwner,
     stargazerCount: input.stars,
@@ -61,8 +68,22 @@ function firstCommitOrgCollectFetch(input: {
     }
     if (url.includes(`/users/${input.login}/repos`)) return jsonResponse([]);
     if (url.includes(`/users/${input.login}/events/public`)) return jsonResponse([]);
+    if (
+      url === `https://api.github.com/repos/${input.login}/${input.name}` &&
+      init?.redirect === "manual"
+    ) {
+      return input.transferRedirect
+        ? new Response(null, {
+            status: 301,
+            headers: {
+              Location: `https://api.github.com/repositories/${input.transferRepoId ?? repoId}`,
+            },
+          })
+        : jsonResponse({}, 404);
+    }
     if (url === `https://api.github.com/repos/${nameWithOwner}`) {
       return jsonResponse({
+        id: repoId,
         name: input.name,
         full_name: nameWithOwner,
         private: false,
@@ -106,9 +127,10 @@ function firstCommitOrgCollectFetch(input: {
           data: {
             user: {
               y0: {
-                commitContributionsByRepository: [
-                  { repository: repoNode, contributions: { totalCount: input.commits } },
-                ],
+                commitContributionsByRepository:
+                  input.includeContribution === false
+                    ? []
+                    : [{ repository: repoNode, contributions: { totalCount: input.commits } }],
               },
             },
           },
@@ -161,9 +183,9 @@ function firstCommitOrgCollectFetch(input: {
                         authoredDate: "2024-01-01T00:00:00Z",
                         messageHeadline: "init",
                         author: {
-                          name: input.firstCommitLogin,
-                          email: `1+${input.firstCommitLogin}@users.noreply.github.com`,
-                          user: { login: input.firstCommitLogin },
+                          name: input.firstCommitLogin ?? "other-dev",
+                          email: `1+${input.firstCommitLogin ?? "other-dev"}@users.noreply.github.com`,
+                          user: { login: input.firstCommitLogin ?? "other-dev" },
                         },
                         committer: {
                           name: "GitHub",
@@ -196,7 +218,7 @@ function firstCommitOrgCollectFetch(input: {
       return jsonResponse({
         data: {
           user: {
-            pinnedItems: { nodes: [] },
+            pinnedItems: { nodes: input.pinned ? [{ nameWithOwner }] : [] },
             mergedPRs: { totalCount: 0 },
             allPRs: { totalCount: 0 },
             closedPRs: { totalCount: 0, nodes: [] },
@@ -231,6 +253,16 @@ describe("first-commit identity", () => {
     );
     expect(parseGithubNoreplyLogin("samzong@users.noreply.github.com")).toBe("samzong");
     expect(parseGithubNoreplyLogin("person@example.com")).toBeNull();
+  });
+
+  it("parses only stable numeric repository transfer locations", () => {
+    expect(
+      repositoryIdFromTransferLocation("https://api.github.com/repositories/985266942"),
+    ).toBe(985266942);
+    expect(repositoryIdFromTransferLocation("/repositories/42/")).toBe(42);
+    expect(repositoryIdFromTransferLocation("https://api.github.com/repos/org/project")).toBeNull();
+    expect(repositoryIdFromTransferLocation("https://example.com/repositories/not-a-number")).toBeNull();
+    expect(repositoryIdFromTransferLocation("https://example.com/repositories/42")).toBeNull();
   });
 
   it("resolves GitHub login in author, committer, then noreply order", () => {
@@ -904,7 +936,7 @@ ${"Useful project detail. ".repeat(50)}
   it("attributes a long-term org repo when the first commit author is the scored user", async () => {
     vi.stubGlobal(
       "fetch",
-      firstCommitOrgCollectFetch({
+      externalOriginalCollectFetch({
         login: "alice",
         owner: "lab",
         name: "layerfs",
@@ -931,7 +963,7 @@ ${"Useful project detail. ".repeat(50)}
   it("does not attribute an org repo whose first commit belongs to someone else", async () => {
     vi.stubGlobal(
       "fetch",
-      firstCommitOrgCollectFetch({
+      externalOriginalCollectFetch({
         login: "alice",
         owner: "lab",
         name: "sandbox",
@@ -942,6 +974,62 @@ ${"Useful project detail. ".repeat(50)}
     );
 
     const result = await collect("alice");
+
+    expect(result.metrics.attributed_original_repo_count).toBe(0);
+    expect(result.top_repos).toHaveLength(0);
+  });
+
+  it("attributes a pinned repository whose former owner path redirects to the same repo id", async () => {
+    const fetchMock = externalOriginalCollectFetch({
+      login: "creator",
+      owner: "company",
+      name: "runtime",
+      stars: 120,
+      commits: 0,
+      includeContribution: false,
+      pinned: true,
+      transferRedirect: true,
+      repoId: 77,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await collect("creator");
+
+    expect(result.metrics.attributed_original_repo_count).toBe(1);
+    expect(result.top_repos[0]).toMatchObject({
+      name_with_owner: "company/runtime",
+      attributed_original: true,
+    });
+    expect(result.top_repos[0].attribution_evidence).toEqual(
+      expect.arrayContaining([
+        "repository transfer redirect from creator/runtime",
+        "pinned by user",
+      ]),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/creator/runtime",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("rejects a former-owner redirect that points to a different repository id", async () => {
+    vi.stubGlobal(
+      "fetch",
+      externalOriginalCollectFetch({
+        login: "creator",
+        owner: "company",
+        name: "runtime",
+        stars: 120,
+        commits: 0,
+        includeContribution: false,
+        pinned: true,
+        transferRedirect: true,
+        repoId: 42,
+        transferRepoId: 99,
+      }),
+    );
+
+    const result = await collect("creator");
 
     expect(result.metrics.attributed_original_repo_count).toBe(0);
     expect(result.top_repos).toHaveLength(0);

@@ -73,8 +73,8 @@ export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWor
   const works = new Map<string, ProfileWorkItem>();
   const pinned = new Set(
     (input.pinnedRepos ?? [])
-      .map((repo) => repo.split("/").pop()?.toLowerCase())
-      .filter((name): name is string => Boolean(name)),
+      .map(repoKey)
+      .filter((name) => Boolean(name)),
   );
 
   for (const cluster of input.signatureWork?.work_clusters ?? []) {
@@ -148,7 +148,7 @@ export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWor
 
   for (const repo of input.topRepos ?? []) {
     const fullName = topRepoFullName(input.username, repo);
-    const isPinned = pinned.has(repo.name.toLowerCase());
+    const isPinned = pinned.has(repoKey(fullName));
     mergeWork(works, {
       repo: fullName,
       name: repo.name,

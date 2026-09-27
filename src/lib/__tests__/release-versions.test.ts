@@ -12,16 +12,16 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("records the v10/v10/v4 to v10/v10/v5 collection release", () => {
+  it("records the v10/v10/v5 to v10/v10/v6 collection release", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
       score: "v10",
       roast: "v10",
-      collection: "v4",
+      collection: "v5",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
       score: "v10",
       roast: "v10",
-      collection: "v5",
+      collection: "v6",
     });
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
@@ -54,16 +54,16 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("reads v5 first and keeps v4 as the previous collection", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v5", "v4"]);
+  it("reads v6 first and keeps v5 as the previous collection", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v6", "v5"]);
   });
 
   it("includes the previous collection only after a collection-version change", () => {
     const manifest = manifestCopy();
     manifest.previousRelease = { ...manifest.targetRelease };
-    manifest.targetRelease = { ...manifest.targetRelease, collection: "v6" };
+    manifest.targetRelease = { ...manifest.targetRelease, collection: "v7" };
     manifest.legacyReadFallback = { ...manifest.previousRelease };
-    manifest.compatibility.collectionReadOrder = ["v6", "v5"];
+    manifest.compatibility.collectionReadOrder = ["v7", "v6"];
 
     expect(
       releaseVersionErrors(manifest, { ...manifest.targetRelease }),
