@@ -12,14 +12,14 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("records the v10/v11/v5 to v10/v11/v6 devscore collection release", () => {
+  it("records the v10/v11/v6 to v11/v11/v6 devscore score release", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
       score: "v10",
       roast: "v11",
-      collection: "v5",
+      collection: "v6",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
-      score: "v10",
+      score: "v11",
       roast: "v11",
       collection: "v6",
     });
@@ -31,9 +31,9 @@ describe("release version contract", () => {
       RELEASE_VERSION_MANIFEST.previousRelease,
     );
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v10", roast: "v11" },
+      { score: "v11", roast: "v11" },
     ]);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v10"]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v11"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -54,8 +54,8 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("reads v6 first and keeps v5 as the previous collection", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v6", "v5"]);
+  it("reads only v6 while the collection is unchanged", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v6"]);
   });
 
   it("includes the previous collection only after a collection-version change", () => {

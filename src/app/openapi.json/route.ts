@@ -56,7 +56,7 @@ export function GET() {
           operationId: "getScore",
           summary: "Get the deterministic score for a GitHub account",
           description:
-            "No auth, never calls an LLM. Returns the deterministic score, " +
+            "No auth, never calls an LLM. Returns the deterministic devscore score, " +
             "tier, sub-scores, and percentile. If the account is already indexed you get the stored " +
             "payload (`source: \"indexed\"`, with tags/roast_line); a recently published scan that is " +
             "still in the cache returns `source: \"quick\"`, `coverage: \"quick\"` (includes red_flags). " +
@@ -933,7 +933,7 @@ export function GET() {
         RiskAssessment: {
           type: "object",
           properties: {
-            version: { type: "string", enum: ["v10"] },
+            version: { type: "string", enum: ["v10", "v11"], description: "v11 = devscore v3 cap flags" },
             risk_score: { type: "number", minimum: 0, maximum: 100 },
             level: { type: "string", enum: ["none", "review", "high"] },
             confidence: { type: "number", minimum: 0, maximum: 100 },
@@ -1035,7 +1035,7 @@ export function GET() {
             recent_prs: { type: "array", items: { type: "object" } },
             flood_pr_titles: { type: "array", items: { type: "string" } },
             impact_repos: { type: "array", items: { type: "object" } },
-            devscore: { type: "object", description: "devscore result collected with the snapshot: v3 score/tier/flags, curve factors, engine factors per top repo" },
+            devscore: { type: "object", description: "devscore result behind the score: v3 score/tier/flags, curve factors, engine factors per top repo" },
             scoring: { $ref: "#/components/schemas/Scoring" },
           },
         },

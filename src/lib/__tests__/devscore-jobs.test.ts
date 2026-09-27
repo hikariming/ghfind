@@ -10,13 +10,12 @@ import { GET as score } from "@/app/api/score/[username]/route";
 import type { Developer } from "@/lib/devscore/model";
 import * as db from "../db";
 import * as jobs from "../devscore-jobs";
-import { score as scoreMetrics } from "../score";
 import { fixtureDeveloper, fixtureDisplayScan } from "./devscore-fixture";
 
 /**
  * Background devscore scoring end to end against a real (file) libSQL
  * database, with a fake collector: job storage invariants, the runner, and
- * POST /api/scan → 202 → status polls → published score → GET /api/score.
+ * POST /api/scan → 202 → status polls → published v11 → GET /api/score.
  */
 
 interface FakeState {
@@ -168,7 +167,7 @@ describe("devscore job storage", () => {
 });
 
 describe("advanceDevscoreJob", () => {
-  it("persists collector steps across polls, then publishes the v10 score with the devscore summary", async () => {
+  it("persists collector steps across polls, then publishes v11 with the six dimensions", async () => {
     developer("step-user");
     await db.enqueueDevscoreJob("step-user");
 
@@ -192,14 +191,12 @@ describe("advanceDevscoreJob", () => {
       sql: `SELECT score_version, score_source_collection_version, sub_scores, final_score
             FROM scores WHERE username = 'step-user'`,
     })).rows[0];
-    expect(row).toMatchObject({ score_version: "v10", score_source_collection_version: "v6" });
+    expect(row).toMatchObject({ score_version: "v11", score_source_collection_version: "v6" });
     expect(Object.keys(JSON.parse(String(row.sub_scores))).sort()).toEqual([
       "account_maturity", "activity_authenticity", "community_influence",
       "contribution_quality", "ecosystem_impact", "original_project_quality",
     ]);
     expect(Number(row.final_score)).toBe(done?.result?.scoring.final_score);
-    // Collection v6 stores the devscore summary; score v10 still rates the display metrics.
-    expect(done?.result?.scoring).toEqual(scoreMetrics(fixtureDisplayScan("step-user").metrics));
     expect((await db.getDevscoreJob("step-user"))?.state).toBe("done");
   });
 
@@ -212,7 +209,7 @@ describe("advanceDevscoreJob", () => {
 });
 
 describe("202 flow: POST /api/scan → status polls → GET /api/score", () => {
-  it("queues, advances on each poll, publishes the score and then serves it", async () => {
+  it("queues, advances on each poll, publishes v11 and then serves it", async () => {
     developer("FlowUser");
     fake.stepsToFinish = 2;
     const params = { params: Promise.resolve({ username: "FlowUser" }) };

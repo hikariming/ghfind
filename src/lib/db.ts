@@ -60,8 +60,7 @@ import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
 } from "./score-materialization";
-import { isDevscoreSummary } from "./devscore-scoring";
-import { score } from "./score";
+import { isDevscoreSummary, scoringFromDevscore } from "./devscore-scoring";
 import type {
   ImpactRepo,
   RoastLine,
@@ -2361,11 +2360,11 @@ export async function getCurrentCanonicalQuickScan(
     ) {
       return null;
     }
-    // Recompute the embedded scoring object at the read boundary so
-    // roast/profile paths always see the current v10 rules for the exact
-    // published snapshot.
-    const currentScan = scan as ScanResult;
-    return { scan: { ...currentScan, scoring: score(currentScan.metrics) }, snapshotHash };
+    // Recompute the embedded scoring object from the stored devscore summary
+    // at the read boundary, so roast/profile paths always see the current
+    // six-dimension mapping for the exact published snapshot.
+    const currentScan = scan as ScanResult & { devscore: NonNullable<ScanResult["devscore"]> };
+    return { scan: { ...currentScan, scoring: scoringFromDevscore(currentScan.devscore) }, snapshotHash };
   } catch (error) {
     console.error("getCurrentCanonicalQuickScan failed:", error);
     return null;
@@ -5967,7 +5966,7 @@ function parseRiskAssessment(raw: unknown): RiskAssessment | null {
   if (typeof raw !== "string" || !raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<RiskAssessment>;
-    return parsed && parsed.version === "v10" && Array.isArray(parsed.signals)
+    return parsed && (parsed.version === "v10" || parsed.version === "v11") && Array.isArray(parsed.signals)
       ? (parsed as RiskAssessment)
       : null;
   } catch {

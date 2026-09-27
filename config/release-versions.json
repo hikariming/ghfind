@@ -3,10 +3,10 @@
   "previousRelease": {
     "score": "v10",
     "roast": "v11",
-    "collection": "v5"
+    "collection": "v6"
   },
   "targetRelease": {
-    "score": "v10",
+    "score": "v11",
     "roast": "v11",
     "collection": "v6"
   },
@@ -16,28 +16,27 @@
   },
   "compatibility": {
     "publicScoreReadOrder": [
-      "v10"
+      "v11"
     ],
     "roastReplay": [
       {
-        "score": "v10",
+        "score": "v11",
         "roast": "v11"
       }
     ],
     "collectionReadOrder": [
-      "v6",
-      "v5"
+      "v6"
     ]
   },
   "legacyReadFallback": {
     "score": "v10",
     "roast": "v11",
-    "collection": "v5"
+    "collection": "v6"
   },
   "changeControl": {
     "maxComponentsPerPullRequest": 1,
     "approvedMultiComponentIssue": null
   },
   "aliases": [],
-  "releasePlan": "docs/releases/v10-v11-v6-devscore-collection.md"
+  "releasePlan": "docs/releases/v11-v11-v6-devscore.md"
 }

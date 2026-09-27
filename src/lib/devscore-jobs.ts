@@ -5,8 +5,7 @@
  * invocation (a status poll, the internal advance route) can continue it:
  *   display → ghfind's bounded `collect()` for display/roast evidence (never scored)
  *   collect → devscore's resumable collector (`stepCollect`) until a `Developer` exists
- *   publish → `rateDeveloper` summary stored in the snapshot; score v10 (ghfind
- *             `score()` of the display metrics) → canonical score write
+ *   publish → `rateDeveloper` → v11 `Scoring` → canonical score write
  * Large intermediate data (display scan, developer) lives in the collect store.
  */
 import {
@@ -29,11 +28,10 @@ import {
 } from "@/lib/devscore/collect";
 import { rateDeveloper } from "@/lib/devscore/engine";
 import { parseDeveloper, type Developer } from "@/lib/devscore/model";
-import { devscoreSummary } from "@/lib/devscore-scoring";
+import { devscoreSummary, scoringFromDevscore } from "@/lib/devscore-scoring";
 import { getDevscoreCollectStore } from "@/lib/devscore-store";
 import { AccountNotFoundError, GitHubAuthRequiredError, githubTokens } from "@/lib/github";
 import { setCachedScan } from "@/lib/redis";
-import { score } from "@/lib/score";
 import { buildDisplayScan, type DisplayScan } from "@/lib/scan-core";
 import type { ScanJobStatus } from "@/lib/scan-job-client";
 import type { ScanResult } from "@/lib/types";
@@ -139,14 +137,10 @@ function errorCode(error: unknown): string {
   return "scan_failed";
 }
 
-/**
- * Merge the display evidence with a rated developer into the snapshot to
- * publish. Collection v6 stores the devscore summary; the published score is
- * still v10 `score()` until the v11 score release switches to the summary.
- */
+/** Merge the display evidence with a rated developer into the snapshot to publish. */
 export function buildDevscoreScan(display: DisplayScan, developer: Developer): ScanResult {
   const summary = devscoreSummary(developer, rateDeveloper(developer));
-  return { ...display, devscore: summary, scoring: score(display.metrics) };
+  return { ...display, devscore: summary, scoring: scoringFromDevscore(summary) };
 }
 
 async function publish(

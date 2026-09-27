@@ -81,7 +81,7 @@ const handler = createMcpHandler(
       {
         title: "Score a GitHub account",
         description:
-          "Deterministic 0-100 value & trust score, tier, and six-dimension breakdown for any GitHub login. No LLM, no auth. " +
+          "Deterministic 0-100 value & trust score (devscore), tier, and six-dimension breakdown for any GitHub login. No LLM, no auth. " +
           "An account never scored before is queued for background scoring (minutes for large accounts): the result is then " +
           "{status:\"pending\", job:{state, phase, progress}, status_url, retry_after_seconds}; call again later for the score.",
         inputSchema: { username: z.string().describe("GitHub login (case-insensitive)") },
@@ -95,7 +95,7 @@ const handler = createMcpHandler(
       {
         title: "Full scan payload",
         description:
-          "Full published scan for a GitHub account: display metrics, top repos, recent PRs, red flags, sub-scores and the collected devscore factors. " +
+          "Full published scan for a GitHub account: display metrics, top repos, recent PRs, red flags, sub-scores and the devscore factors behind the score. " +
           "A first-time account returns {status:\"pending\", job, status_url, retry_after_seconds} while it is scored in the background; call again later.",
         inputSchema: { username: z.string().describe("GitHub login") },
         annotations: LIVE_READONLY,
