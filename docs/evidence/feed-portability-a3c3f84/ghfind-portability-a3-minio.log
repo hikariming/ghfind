@@ -1,0 +1,23 @@
+2026-09-08T17:27:47.636017376Z INFO: Formatting 1st pool, 1 set(s), 1 drives per set.
+2026-09-08T17:27:47.636042418Z INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.
+2026-09-08T17:27:47.649849293Z MinIO Object Storage Server
+2026-09-08T17:27:47.649863460Z Copyright: 2015-2026 MinIO, Inc.
+2026-09-08T17:27:47.649864418Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+2026-09-08T17:27:47.649865335Z Version: RELEASE.2025-09-07T16-13-09Z (go1.24.6 linux/arm64)
+2026-09-08T17:27:47.649866043Z 
+2026-09-08T17:27:47.649866710Z API: http://172.20.0.2:9000  http://127.0.0.1:9000 
+2026-09-08T17:27:47.649867418Z WebUI: http://172.20.0.2:34621 http://127.0.0.1:34621  
+2026-09-08T17:27:47.649868168Z 
+2026-09-08T17:27:47.649868751Z Docs: https://docs.min.io
+2026-09-08T17:27:49.175559044Z INFO: Exiting on signal: TERMINATED
+2026-09-08T17:27:50.503825378Z INFO: Formatting 1st pool, 1 set(s), 1 drives per set.
+2026-09-08T17:27:50.503841794Z INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.
+2026-09-08T17:27:50.591032378Z MinIO Object Storage Server
+2026-09-08T17:27:50.591068836Z Copyright: 2015-2026 MinIO, Inc.
+2026-09-08T17:27:50.591071503Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+2026-09-08T17:27:50.591073003Z Version: RELEASE.2025-09-07T16-13-09Z (go1.24.6 linux/arm64)
+2026-09-08T17:27:50.591074336Z 
+2026-09-08T17:27:50.591075669Z API: http://172.20.0.2:9000  http://127.0.0.1:9000 
+2026-09-08T17:27:50.591076919Z WebUI: http://172.20.0.2:41987 http://127.0.0.1:41987  
+2026-09-08T17:27:50.591078211Z 
+2026-09-08T17:27:50.591079378Z Docs: https://docs.min.io

@@ -1,0 +1,90 @@
+{
+  "observedAt": "2026-09-08T19:08:55.230760+00:00",
+  "scope": "read-only inspection of resource identities from two owned Docker fixture reports",
+  "attempts": [
+    {
+      "sourceSha": "565829abc21843bb20ad2a5f3b220d4124c2329f",
+      "fixtureOwner": "94531839-f78a-4a58-9707-8b63b40991d1",
+      "resources": [
+        {
+          "kind": "container",
+          "identity": "e86748f6377111c83c9927c2aaaf73488fbc403e0d5114dd12ff30aaba658260",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: No such container: e86748f6377111c83c9927c2aaaf73488fbc403e0d5114dd12ff30aaba658260\n"
+        },
+        {
+          "kind": "volume",
+          "identity": "ghfind-http-94531839-pgdata",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: get ghfind-http-94531839-pgdata: no such volume\n"
+        },
+        {
+          "kind": "network",
+          "identity": "24b32e6d4a919282d7c76cc2327f9559438ffde9ab808a3f519973187faa19e3",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: network 24b32e6d4a919282d7c76cc2327f9559438ffde9ab808a3f519973187faa19e3 not found\n"
+        },
+        {
+          "kind": "image",
+          "identity": "sha256:c094e779aba5fc71e7c4987b79ec1cba773baba01807ad29f5b8685809664ed4",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: No such image: sha256:c094e779aba5fc71e7c4987b79ec1cba773baba01807ad29f5b8685809664ed4\n"
+        }
+      ]
+    },
+    {
+      "sourceSha": "39def663ab662e66e0b3473dfc06285e761c2a26",
+      "fixtureOwner": "f44e6d82-dba2-44fd-927e-e28a65fddab5",
+      "resources": [
+        {
+          "kind": "container",
+          "identity": "0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: No such container: 0b554e380abcb57395c12e8cbc3f4964d4c7acac594ed2e5bdc601051500591a\n"
+        },
+        {
+          "kind": "container",
+          "identity": "c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: No such container: c657ff235fa1e0193e16e3f1b9f106b27c9d28c9f09550e9c1b3d084787a6365\n"
+        },
+        {
+          "kind": "volume",
+          "identity": "ghfind-http-f44e6d82-pgdata",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: get ghfind-http-f44e6d82-pgdata: no such volume\n"
+        },
+        {
+          "kind": "network",
+          "identity": "a4644ea69f7656c629d1802e9e6041b61c277c9ad23203fa24125afd1855d5e6",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: network a4644ea69f7656c629d1802e9e6041b61c277c9ad23203fa24125afd1855d5e6 not found\n"
+        },
+        {
+          "kind": "image",
+          "identity": "sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a",
+          "absent": true,
+          "exitCode": 1,
+          "stdout": "[]\n",
+          "stderr": "Error response from daemon: No such image: sha256:78d3ef65c62b5a2cc1131d0e64b0da365603d0bb39c93dd84437616528156e0a\n"
+        }
+      ]
+    }
+  ]
+}

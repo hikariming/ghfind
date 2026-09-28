@@ -54,7 +54,7 @@ var directoryLanguageExclusions = map[string]bool{
 const (
 	maxLanguagesPerDeveloper = 3
 	maxOrganizationsPerDev   = 5
-	maxFacetReposPerDev      = 6
+	maxFacetReposPerDev      = 20
 	maxOwnerGraphRepos       = 10
 	maxContribGraphRepos     = 20
 	minimumFacetRepoStars    = 500.0
@@ -167,9 +167,23 @@ func extractOrganizationFacets(organizations []string) []DeveloperFacet {
 	return facets
 }
 
-func extractRepoFacets(repos []ImpactRepo) []DeveloperFacet {
+// rankImpactReposByContribution follows src/lib/facets.ts: the developer's own
+// commits + PRs first, stars as the tie-break, so a one-commit drive-by into a
+// famous repo cannot evict the project someone actually maintains.
+func rankImpactReposByContribution(repos []ImpactRepo) []ImpactRepo {
 	ranked := append([]ImpactRepo(nil), repos...)
-	sort.SliceStable(ranked, func(left, right int) bool { return ranked[left].Stars > ranked[right].Stars })
+	sort.SliceStable(ranked, func(left, right int) bool {
+		leftWork, rightWork := ranked[left].Commits+ranked[left].PRs, ranked[right].Commits+ranked[right].PRs
+		if leftWork != rightWork {
+			return leftWork > rightWork
+		}
+		return ranked[left].Stars > ranked[right].Stars
+	})
+	return ranked
+}
+
+func extractRepoFacets(repos []ImpactRepo) []DeveloperFacet {
+	ranked := rankImpactReposByContribution(repos)
 	seen, facets := map[string]bool{}, []DeveloperFacet{}
 	for _, repo := range ranked {
 		value := strings.TrimSpace(repo.Repo)
@@ -257,8 +271,7 @@ func ownerGraph(repos []TopRepo) RepoGraph {
 }
 
 func contributorGraph(repos []ImpactRepo) RepoGraph {
-	ranked := append([]ImpactRepo(nil), repos...)
-	sort.SliceStable(ranked, func(left, right int) bool { return ranked[left].Stars > ranked[right].Stars })
+	ranked := rankImpactReposByContribution(repos)
 	seen, result := map[string]bool{}, RepoGraph{}
 	for _, repo := range ranked {
 		if repo.Stars < minimumFacetRepoStars {

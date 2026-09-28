@@ -39,7 +39,7 @@ const mapped = (proposalId: string, version = 1): GovernanceReview => ({
   canonicalTagId: "artifact:micro-tool",
   assignment: { weight: 0.4, confidence: 0.8 },
 });
-async function seed(target = db) {
+async function seed(target = db, historical = false) {
   await target.batch([
     target.prepare(
       "INSERT INTO feed_projects(repo_key,analysis_id,owner_login,name,canonical_url,summary,project_type,lifecycle,product_score,confidence,verification_level,exposure_band,analyzed_at,risks_json,published,source_hash,projected_at) VALUES('privacy-owner/repo','privacy-analysis','privacy-owner','repo','https://github.com/privacy-owner/repo','SYNTHETIC privacy fixture','micro-tool','feature-complete',80,90,'verified','low',0,'[]',1,'synthetic',0)",
@@ -49,7 +49,17 @@ async function seed(target = db) {
     ),
   ]);
   const commands = new FeedCommands(target);
-  for (const githubId of [1, 2])
+  for (const githubId of [1, 2]) {
+    if (historical) {
+      // Commit synthetic v9 facts without invoking the newer schema-12 writer.
+      await target
+        .prepare(
+          "INSERT INTO feed_users(github_id,login,avatar_url,profile_version,taxonomy_version,created_at,updated_at) VALUES(?,?,'',1,1,10,10)",
+        )
+        .bind(githubId, `synthetic-${githubId}`)
+        .run();
+      continue;
+    }
     await commands.ensure({
       writerEpoch: 1,
       expectedProfileVersion: 0,
@@ -57,6 +67,7 @@ async function seed(target = db) {
       login: `synthetic-${githubId}`,
       avatarUrl: "",
     });
+  }
   return commands;
 }
 async function remove(commands: FeedCommands, githubId = 1, version = 1) {
@@ -360,7 +371,7 @@ it("upgrades real v9 rows, cleans only a proven legacy copy and exposes unowned 
     upgradeDB,
     env.TEST_MIGRATIONS.filter((m) => m.name < "0010"),
   );
-  const commands = await seed(upgradeDB),
+  const commands = await seed(upgradeDB, true),
     proposalId = "legacy-user-proposal",
     commandId = crypto.randomUUID(),
     encoded = '["private-marker-legacy"]',
@@ -406,7 +417,33 @@ it("upgrades real v9 rows, cleans only a proven legacy copy and exposes unowned 
       )
       .bind(oldCommand),
   ]);
-  const oldDeletion = await remove(commands, 2);
+  const oldDeletion = { deletionId: `feed_delete_${await hash("2:1")}` };
+  // Committed v10 deletion fixture. Preserve the old falsely-completed cleanup
+  // checkpoint which migration 0011 must reopen. Current writer calls follow 0012.
+  await upgradeDB.batch([
+    upgradeDB.prepare(
+      "INSERT INTO feed_profile_floors(github_id,profile_floor,deleted_at) VALUES(2,1,30)",
+    ),
+    upgradeDB
+      .prepare(
+        "INSERT INTO feed_profile_deletions(id,github_id,profile_floor,status,requested_at) VALUES(?,2,1,'pending',30)",
+      )
+      .bind(oldDeletion.deletionId),
+    upgradeDB
+      .prepare(
+        "INSERT INTO feed_cleanup_jobs(deletion_id,github_id,profile_floor,requested_at,status,phase,available_at,updated_at) VALUES(?,2,1,30,'pending','primary',30,30)",
+      )
+      .bind(oldDeletion.deletionId),
+    upgradeDB
+      .prepare(
+        "INSERT INTO feed_runtime_outbox(id,topic,aggregate_key,profile_version,payload_json,status,available_at,created_at) VALUES(?,'feed.user-delete.v1','gh:2',1,?,'pending',30,30)",
+      )
+      .bind(
+        crypto.randomUUID(),
+        JSON.stringify({ deletionId: oldDeletion.deletionId, githubId: 2 }),
+      ),
+    upgradeDB.prepare("DELETE FROM feed_users WHERE github_id=2"),
+  ]);
   await upgradeDB.batch([
     upgradeDB
       .prepare(
@@ -431,6 +468,15 @@ it("upgrades real v9 rows, cleans only a proven legacy copy and exposes unowned 
       )
       .first(),
   ).toMatchObject({ min_writer_contract: 2, max_writer_contract: 2 });
+  const fenceMigration = env.TEST_MIGRATIONS.filter((m) =>
+    m.name.startsWith("0012"),
+  );
+  expect(fenceMigration).toHaveLength(1);
+  await applyD1Migrations(upgradeDB, fenceMigration);
+  await applyD1Migrations(upgradeDB, fenceMigration);
+  await upgradeDB
+    .prepare("UPDATE feed_adapter_write_fence SET enabled=1 WHERE id=1")
+    .run();
   expect(
     await commands.deletion({
       githubId: 2,

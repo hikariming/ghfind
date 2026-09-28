@@ -1,0 +1,26 @@
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:24:59.4904696Z   ref: 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:24:59.4917248Z   RELEASE_SHA: 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:25:02.0572233Z 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:25:02.0609180Z [command]/usr/bin/git checkout --progress --force 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:25:02.1954761Z HEAD is now at 45d6427 Merge pull request #254 from hikariming/codex/feed-linux-diagnosis
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:25:02.2003498Z [command]/usr/bin/git log -1 --format=%H
+Bounded synthetic query diagnosis	Run actions/checkout@v4	2026-09-08T18:25:02.2036313Z 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.3883380Z [36;1mtest "$(git rev-parse HEAD)" = "$RELEASE_SHA"[0m
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.3885008Z [36;1mgit merge-base --is-ancestor "$RELEASE_SHA" origin/main[0m
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.3887026Z [36;1mgh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \[0m
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.3889122Z [36;1m  -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \[0m
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.3891969Z [36;1m  --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'[0m
+Bounded synthetic query diagnosis	Verify exact main source and successful required CI	2026-09-08T18:25:02.9831060Z true
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.2245806Z [36;1mdocker compose -p ghfind-feed-capacity -f ops/feed-capacity-compose.yaml down -v[0m
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.3058956Z  Container ghfind-feed-capacity-postgres-1  Stopping
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.3059620Z  Container ghfind-feed-capacity-minio-1  Stopping
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.7950347Z  Container ghfind-feed-capacity-minio-1  Stopped
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.7951734Z  Container ghfind-feed-capacity-minio-1  Removing
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.7989234Z  Container ghfind-feed-capacity-minio-1  Removed
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.9696043Z  Container ghfind-feed-capacity-postgres-1  Stopped
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.9698814Z  Container ghfind-feed-capacity-postgres-1  Removing
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.9735087Z  Container ghfind-feed-capacity-postgres-1  Removed
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.9744323Z  Network ghfind-feed-capacity_default  Removing
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:54.9745355Z  Volume ghfind-feed-capacity_capacity_data  Removing
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:55.1612472Z  Volume ghfind-feed-capacity_capacity_data  Removed
+Bounded synthetic query diagnosis	Remove only this job's synthetic fixture	2026-09-08T18:27:55.2247805Z  Network ghfind-feed-capacity_default  Removed

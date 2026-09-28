@@ -1,0 +1,31 @@
+{
+  "at": "2026-09-08T18:23:06.350271+00:00",
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "-v",
+        "ghfind-query-diagnose-pg"
+      ],
+      "exitCode": 0,
+      "stdout": "ghfind-query-diagnose-pg",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "volume",
+        "rm",
+        "ghfind-query-diagnose-pg-data"
+      ],
+      "exitCode": 0,
+      "stdout": "ghfind-query-diagnose-pg-data",
+      "stderr": ""
+    }
+  ],
+  "remainingOwnedContainers": [],
+  "remainingOwnedVolumes": [],
+  "preserved": "All original reports; root shared PostgreSQL/MinIO/API containers untouched"
+}

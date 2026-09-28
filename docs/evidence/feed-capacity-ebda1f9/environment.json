@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-09-08T05:40:48.353935+00:00",
+  "businessBaseline": "ebda1f9d43c4092ec038f2513ef0be32f6d0a80f",
+  "instrumentationCommit": "f23ce0ffa1bd887f60a95c94fcae527137fe5d6a",
+  "worktreeClean": true,
+  "binarySha256": "5bc45401ca7c4e8e769377fcbe88b6caf14a7b79730424915e437c3d9279c060",
+  "goVersion": "go version go1.26.1 darwin/arm64",
+  "host": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logicalCPUs": 10,
+    "memoryBytes": 17179869184
+  },
+  "containers": [
+    {
+      "name": "ghfind-feed-capacity-postgres-1",
+      "imageRef": "pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+      "imageId": "sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+      "cpus": 2.0,
+      "memoryBytes": 2147483648,
+      "createdAt": "2026-09-08T05:39:28.0296588Z"
+    },
+    {
+      "name": "ghfind-feed-capacity-minio-1",
+      "imageRef": "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+      "imageId": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+      "cpus": 0.5,
+      "memoryBytes": 536870912,
+      "createdAt": "2026-09-08T05:39:28.026510467Z"
+    }
+  ],
+  "files": {
+    "go.mod": "7af39c65fc4f1653232d65f1f61332fce249fce0127c3b052cbc758994092ee6",
+    "go.sum": "bd01fd4f14e9e16765325787a8ac1efbab9238202cabea71880a39c00a7d281b",
+    "cmd/feed-capacity/main.go": "9a98395324c3d3c65de8b5b0eab01182ee26618ea4cccf5f7fbfda58347125f6",
+    "cmd/feed-capacity/observe.go": "0786de563459f200392ddbe16a15892392342ea73ccb21e5118aaa674263a08a",
+    "cmd/feed-capacity/seed.sql": "14ad3f1aad6573b618a6546569dc965daf114c25f1c3bf62431037a596e07678",
+    "scripts/observe-feed-capacity.py": "2f2c3bf5b92be255546f779a841f9727d0f26ac84797ad0c03477ee267fdf031",
+    "ops/feed-capacity-compose.yaml": "9640340bb3142a3d6097beeca6c931b1156e139f343fc669134d816e405007b3"
+  }
+}

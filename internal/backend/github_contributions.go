@@ -15,6 +15,7 @@ type contribStats struct {
 }
 
 type contributionOverview struct {
+	Pronouns          *string
 	PinnedRepos       []string
 	MergedPRCount     float64
 	AllPRCount        float64
@@ -24,7 +25,8 @@ type contributionOverview struct {
 	ContributionYears []int
 }
 
-const contributionOverviewFields = `pinnedItems(first: 6, types: REPOSITORY) {
+const contributionOverviewFields = `pronouns
+pinnedItems(first: 6, types: REPOSITORY) {
   nodes { ... on Repository { nameWithOwner } }
 }
 mergedPRs: pullRequests(states: MERGED) { totalCount }
@@ -59,6 +61,7 @@ type graphClosedPRNode struct {
 }
 
 type graphOverviewUser struct {
+	Pronouns    *string `json:"pronouns"`
 	PinnedItems *struct {
 		Nodes []struct {
 			NameWithOwner *string `json:"nameWithOwner"`
@@ -95,6 +98,11 @@ func mapContributionOverview(user *graphOverviewUser) contributionOverview {
 	result := contributionOverview{}
 	if user == nil {
 		return result
+	}
+	if user.Pronouns != nil {
+		if pronouns := strings.TrimSpace(*user.Pronouns); pronouns != "" {
+			result.Pronouns = &pronouns
+		}
 	}
 	if user.PinnedItems != nil {
 		for _, node := range user.PinnedItems.Nodes {

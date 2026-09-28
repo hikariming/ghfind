@@ -32,6 +32,7 @@ export async function verifyResources(manifest, { token, fetcher = fetch }) {
   const bucket = await get(`/r2/buckets/${manifest.archiveBucket}`);
   if (bucket.name !== manifest.archiveBucket)
     throw new Error("Archive bucket mismatch");
+  const queueIdentities = [];
   for (const name of [
     manifest.queue,
     manifest.deadLetterQueue,
@@ -43,8 +44,10 @@ export async function verifyResources(manifest, { token, fetcher = fetch }) {
       queues.filter((q) => q.queue_name === name).length !== 1
     )
       throw new Error(`Queue missing or ambiguous: ${name}`);
+    const queue = queues.find((q) => q.queue_name === name);
+    if (!/^[a-f0-9]{32}$/.test(queue.queue_id)) throw new Error("Invalid queue identity");
+    queueIdentities.push({ name, id: queue.queue_id });
     if (name === manifest.terminalParkingQueue) {
-      const queue = queues.find((q) => q.queue_name === name);
       if (!/^[a-f0-9]{32}$/.test(queue.queue_id))
         throw new Error("Invalid terminal parking identity");
       const details = await get(`/queues/${queue.queue_id}`);
@@ -66,6 +69,7 @@ export async function verifyResources(manifest, { token, fetcher = fetch }) {
     environment: "staging",
     terminalParkingQueue: manifest.terminalParkingQueue,
     retentionSeconds: 1209600,
+    queueIdentities,
   };
 }
 if (

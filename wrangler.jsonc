@@ -3,6 +3,8 @@
   // Top level = local `wrangler dev`. Deployments always use --env:
   //   wrangler deploy --env dev         → dev.ghfind.com
   //   wrangler deploy --env production  → ghfind.com
+  //   wrangler deploy --env preview --name ghfind-pr-<n> → per-PR preview
+  //     (GitHub Actions deploy-cf-preview.yml; no custom routes, workers.dev only)
   // Preflight the target account and verify the D1/R2 resources before deploying.
   // The legacy core D1 is shared by dev/production; Feed uses the separate,
   // dedicated D1 binding below so recommendation reads/writes cannot consume
@@ -23,9 +25,12 @@
   "observability": {
     "enabled": true
   },
+  // Top-level D1 uses remote bindings in local dev (`next dev` / `wrangler dev`)
+  // so local debugging reads the same data as the deployed dev worker; the
+  // legacy Turso fallback is gone. `remote` is dev-only and ignored on deploy.
   "d1_databases": [
-    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
-    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations", "remote": true },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed", "remote": true }
   ],
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
@@ -77,6 +82,22 @@
         // site.ts fails closed in production unless both are set and equal.
         "PUBLIC_SITE_URL": "https://ghfind.com",
         "NEXT_PUBLIC_SITE_URL": "https://ghfind.com"
+      }
+    },
+    "preview": {
+      // Per-PR workers deployed by deploy-cf-preview.yml with
+      // `--name ghfind-pr-<n>`; no name/routes here so the flag is authoritative.
+      // Shares the dev D1 database and dev R2 cache bucket; PUBLIC_SITE_URL /
+      // NEXT_PUBLIC_SITE_URL are injected per-PR at build and via `--var`.
+      "workers_dev": true,
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview"
       }
     }
   }

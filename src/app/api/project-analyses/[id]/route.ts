@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ProjectAnalysisDatabaseError } from "@/lib/project-analysis-db";
+import { getProjectAnalysisRun, ProjectAnalysisDatabaseError } from "@/lib/project-analysis-db";
+import { authorizeStagingAssessment, isFeedStaging } from "@/lib/feed-staging-access";
 import {
   getPublicProjectAnalysisView,
   ProjectAnalysisServiceError,
@@ -15,6 +16,15 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
+    if (isFeedStaging()) {
+      const identityRejection = await authorizeStagingAssessment();
+      if (identityRejection) return identityRejection;
+      const run = await getProjectAnalysisRun(id);
+      if (run) {
+        const repoRejection = await authorizeStagingAssessment(run.repoKey, run.requestedRef);
+        if (repoRejection) return repoRejection;
+      }
+    }
     const view = await getPublicProjectAnalysisView(id, true);
     return NextResponse.json(view, {
       headers: { "Cache-Control": "no-store" },

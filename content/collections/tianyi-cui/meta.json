@@ -1,0 +1,28 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "从量化交易到 AI 智能体:崔添翼与 DeepSeek Harness 的技术长征",
+    "en": "From Quant Trading to AI Agents: Tianyi Cui and the Long March of DeepSeek Harness",
+    "ja": "クオンツトレーディングから AI エージェントへ:崔添翼と DeepSeek Harness の技術長征",
+    "ko": "퀀트 트레이딩에서 AI 에이전트로: 崔添翼과 DeepSeek Harness의 기술 장정"
+  },
+  "intro": {
+    "zh": "NOI 铜牌保送浙大、六枚 ACM-ICPC 亚洲区域赛金牌、《背包问题九讲》作者;Jane Street 九年量化工程师、TSY Capital 联合创始人;2026 年 3 月加入 DeepSeek 组建 Harness 团队,8 月开源 DeepSeek Harness v0.1,数日内收获 17.6 万星——崔添翼(tianyicui)的技术长征,是算法竞赛、量化工程与 AI 智能体基础设施三条线索的交汇。",
+    "en": "Admitted to Zhejiang University with an NOI bronze medal, six ACM-ICPC Asia regional golds, and author of the classic tutorial \"Nine Lectures on the Knapsack Problem\"; nine years as a quant engineer at Jane Street and co-founder of TSY Capital; in March 2026 he joined DeepSeek to build the Harness team, open-sourcing DeepSeek Harness v0.1 in August to 176k stars within days — the journey of tianyicui sits where competitive programming, quantitative engineering, and AI-agent infrastructure meet.",
+    "ja": "NOI 銅メダルで浙江大学に推薦入学、ACM-ICPC アジア地区予選で金メダル6個、『ナップサック問題九講』の著者。Jane Street で9年間クオンツエンジニアとして腕を磨き、TSY Capital を共同創業。2026年3月に DeepSeek に加わり Harness チームを立ち上げ、8月に DeepSeek Harness v0.1 をオープンソース化して数日で17.6万スターを獲得——崔添翼(tianyicui)の技術長征は、競技プログラミング、クオンツ工学、AIエージェント基盤という三つの流れの交差点にあります。",
+    "ko": "NOI 동메달로 저장대학교에 추천 입학하고, ACM-ICPC 아시아 지역 대회 금메달 6개, 『배낭 문제 구강』의 저자. Jane Street에서 9년간 퀀트 엔지니어로 일하고 TSY Capital을 공동 창업했으며, 2026년 3월 DeepSeek에 합류해 Harness 팀을 만들고 8월에 DeepSeek Harness v0.1을 오픈소스로 공개해 며칠 만에 17.6만 스타를 받았습니다 — tianyicui의 기술 장정은 알고리즘 대회, 퀀트 엔지니어링, AI 에이전트 인프라라는 세 갈래 흐름의 교차점에 있습니다."
+  },
+  "publishedAt": "2026-09-09",
+  "tags": ["developer-story", "deepseek", "ai-agents", "open-source"],
+  "subject": {
+    "kind": "developer",
+    "id": "tianyicui",
+    "nickname": "崔添翼 (Tianyi Cui)",
+    "headline": {
+      "zh": "DeepSeek Harness 团队负责人 · Jane Street 前量化工程师 ·《背包问题九讲》作者",
+      "en": "Head of the DeepSeek Harness team · former Jane Street quant engineer · author of \"Nine Lectures on the Knapsack Problem\"",
+      "ja": "DeepSeek Harness チーム責任者 · 元 Jane Street クオンツエンジニア · 『ナップサック問題九講』著者",
+      "ko": "DeepSeek Harness 팀 리더 · 전 Jane Street 퀀트 엔지니어 · 『배낭 문제 구강』 저자"
+    }
+  }
+}

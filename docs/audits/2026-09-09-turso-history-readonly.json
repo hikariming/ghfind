@@ -1,0 +1,138 @@
+{
+  "format": "ghfind-turso-history-readonly-audit-v1",
+  "baseSha": "cc228bf2c467f45f7ac81a2bc62cb5da05460d2a",
+  "documentDate": "2026-09-09",
+  "documentTimezone": "Asia/Hong_Kong",
+  "result": "connection_configuration_located_database_read_unavailable",
+  "historicalCompletenessVerified": false,
+  "localConfiguration": {
+    "processTursoOrLibsqlNames": [],
+    "envLocalTursoOrLibsqlNames": [],
+    "envExampleTursoValuesEmpty": true,
+    "tursoCliInstalled": false,
+    "historicalLocalNotesDirectoryPresentInCheckout": false,
+    "historicalDumpScriptPresentInCheckout": false
+  },
+  "runtimeVersions": {
+    "railwayCli": "5.49.6",
+    "node": "22.17.0",
+    "libsqlClient": "0.17.4"
+  },
+  "railwayScope": {
+    "projectId": "815ec3e1-679a-41b4-a7c0-6ba65b64db8e",
+    "projectName": "ghfind-staging",
+    "environmentId": "b9d929d6-a1e4-4e74-b43f-38ed529cc6f1",
+    "environmentName": "production",
+    "services": [
+      {
+        "id": "023799da-f0bc-4d85-94c8-b6a1ef71c5f5",
+        "name": "ghfind-api",
+        "databaseUrlPresent": true,
+        "authTokenPresent": true,
+        "urlCredentialFieldsPresent": false
+      },
+      {
+        "id": "5c56db45-47ed-4a1a-af37-0225885aadf2",
+        "name": "ghfind-worker",
+        "databaseUrlPresent": true,
+        "authTokenPresent": true,
+        "urlCredentialFieldsPresent": false
+      }
+    ]
+  },
+  "endpoint": {
+    "configuredScheme": "libsql",
+    "hostnameSuffix": ".turso.io",
+    "hostnameSha256": "a9504ace85deb1155e7ad449ecaf2ff78955820248b74bfd6c250fb13d0f0ee0",
+    "sameHostnameInBothServices": true,
+    "railwayLocalLibsqlFixture": false,
+    "successfulAuthorizationEstablished": false,
+    "tokenValuesRetained": false,
+    "hostnameRetained": false
+  },
+  "readAttempts": [
+    {
+      "id": "sdk-schema-discovery",
+      "sourceService": "ghfind-api",
+      "transport": "libsql-client-web",
+      "transactionMode": "read",
+      "deadlineMs": 25000,
+      "statementCount": 3,
+      "tableAllowlist": [
+        "project_assessments",
+        "project_analysis_runs"
+      ],
+      "result": "sdk_error",
+      "errorCode": "SERVER_ERROR",
+      "resultSetsReceived": false,
+      "rowsAffected": null
+    },
+    {
+      "id": "constant-select-api",
+      "startedAt": "2026-09-08T17:23:45.003Z",
+      "sourceService": "ghfind-api",
+      "transport": "https",
+      "path": "/v2/pipeline",
+      "query": "SELECT 1 AS connection_ok",
+      "deadlineMs": 20000,
+      "httpStatus": 502,
+      "contentType": "application/json",
+      "responseBytes": 86,
+      "protocolErrorCode": null,
+      "connectionRowReceived": false,
+      "serverBodyRetained": false
+    },
+    {
+      "id": "constant-select-worker-single-retry",
+      "startedAt": "2026-09-08T17:25:03.115Z",
+      "sourceService": "ghfind-worker",
+      "transport": "https",
+      "path": "/v2/pipeline",
+      "query": "SELECT 1 AS connection_ok",
+      "deadlineMs": 20000,
+      "httpStatus": 502,
+      "contentType": "application/json",
+      "responseBytes": 86,
+      "protocolErrorCode": null,
+      "responseObjectKeys": [
+        "error"
+      ],
+      "connectionRowReceived": false,
+      "serverBodyRetained": false
+    }
+  ],
+  "excludedLocalDiagnosticArtifacts": [
+    "sdk_timeout_marker_after_already_observed_error",
+    "invalid_local_url_scheme_conversion_no_http_response"
+  ],
+  "comparison": {
+    "status": "not_executed_turso_read_unavailable",
+    "assessmentRowsRetrieved": false,
+    "businessKeysCompared": false,
+    "schemaColumnsCompared": false,
+    "sourceWatermarks": null,
+    "tursoOnlyKeyCount": null,
+    "d1OnlyKeyCount": null,
+    "differentVersionCount": null,
+    "differentContentHashCount": null,
+    "matchingContentHashCount": null,
+    "freshD1DataQueriesIssued": 0
+  },
+  "unchangedOperationalAuthority": {
+    "platform": "cloudflare-d1",
+    "databaseName": "ghfind",
+    "databaseId": "60d45096-bfe7-4de1-8b85-c1b66a466b0d",
+    "binding": "GHFIND_D1",
+    "evidence": "2026-09-08-feed-platform.md",
+    "revalidatedRemoteTopologyThisAttempt": false
+  },
+  "effects": {
+    "databaseWriteStatementsSent": 0,
+    "schemaStatementsSent": 0,
+    "servicesRestarted": false,
+    "deploymentsOrTrafficChanged": false,
+    "rawAssessmentOrUserRecordsRetrieved": false,
+    "githubSecretValuesRead": false,
+    "tursoDatabaseCredentialsCreatedOrRefreshed": false
+  }
+}

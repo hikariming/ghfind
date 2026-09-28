@@ -2,15 +2,26 @@ import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FEED_BODY_LIMIT, forwardFeedRequest, readBoundedBody, signFeedGateway } from "../feed-gateway";
 
+const platform = vi.hoisted(() => ({ env: {} as Record<string, unknown> }));
+vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext: () => ({ env: platform.env }) }));
+
 const secret = "gateway-test-only-secret-with-at-least-32-bytes";
 const viewer = { githubId: 123, login: "example", image: null };
 
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { platform.env = {}; vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 function enable() {
   vi.stubEnv("FEED_BACKEND", "go");
   vi.stubEnv("FEED_GATEWAY_SECRET", secret);
   vi.stubEnv("FEED_API_ORIGIN", "https://feed.example.test");
+}
+
+function rollout(mode = "internal", points = "0") {
+  enable();
+  vi.stubEnv("FEED_ROLLOUT_MODE", mode);
+  vi.stubEnv("FEED_ROLLOUT_GITHUB_IDS", String(viewer.githubId));
+  vi.stubEnv("FEED_ROLLOUT_SEED", "fixture-stable-seed-v1");
+  vi.stubEnv("FEED_ROLLOUT_BASIS_POINTS", points);
 }
 
 describe("Feed gateway boundary", () => {
@@ -65,6 +76,96 @@ describe("Feed gateway boundary", () => {
     });
     expect(token.split(".")[1]).toBe("jGCAotv6ohscgkhltuUn3vOUo1f1AQHLyuU1i_pmQ-I");
   });
+
+  it("uses the service binding with signed identity and no client credentials", async () => {
+    enable();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async function (this: unknown, _url: string, init?: RequestInit) {
+      expect(this).toBe(service);
+      const headers = new Headers(init?.headers);
+      expect([...headers.keys()].sort()).toEqual(["accept", "cache-control", "x-feed-gateway"]);
+      const claims = JSON.parse(Buffer.from(headers.get("x-feed-gateway")!.split(".")[0], "base64url").toString());
+      expect(claims.githubId).toBe(viewer.githubId);
+      expect(claims.target).toBe("/api/feed/projects?cursor=a%2Fb");
+      return new Response('{"projects":[]}', { headers: { "content-type": "application/json" } });
+    }) };
+    platform.env.FEED_RUNTIME = service;
+    const response = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects?cursor=a%2Fb", {
+      headers: { Cookie: "secret=1", "X-Feed-Gateway": "forged", "x-github-id": "999" },
+    }), viewer);
+    expect(response?.status).toBe(200);
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+  });
+
+  it("admits the internal OAuth viewer and returns route proof only to that account", async () => {
+    rollout();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async () => new Response('{"items":[]}', { headers: { "content-type": "application/json", "x-feed-gateway-backend": "forged-upstream", "x-feed-runtime-sha": "unverified" } })) };
+    platform.env.FEED_RUNTIME = service;
+    const response = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), viewer);
+    expect(response?.status).toBe(200);
+    expect(response?.headers.get("x-feed-gateway-backend")).toBe("go");
+    expect(response?.headers.get("x-feed-gateway-rollout")).toBe("internal");
+    expect(response?.headers.get("x-feed-runtime-sha")).toBeNull();
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+
+    rollout("all", "10000");
+    const other = await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), { ...viewer, githubId: 456 });
+    expect(other?.status).toBe(200);
+    expect(other?.headers.get("x-feed-gateway-backend")).toBeNull();
+    expect(other?.headers.get("x-feed-gateway-rollout")).toBeNull();
+  });
+
+  it.each(["internal", "paused"])("does not read a rejected user's body, trust client overrides or invoke either writer in %s mode", async mode => {
+    rollout(mode);
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const service = { fetch: vi.fn() }; platform.env.FEED_RUNTIME = service;
+    const request = new Request("https://ghfind.test/api/feed/events?backend=go&githubId=123&rollout=all", {
+      method: "POST", body: "{}", headers: { "x-github-id": "123", "x-feed-gateway": "forged", "x-feed-backend": "go", "x-feed-rollout": "all" },
+    });
+    const response = await forwardFeedRequest(request, { ...viewer, githubId: 456 });
+    expect(response?.status).toBe(503);
+    expect(response?.headers.get("cache-control")).toBe("no-store");
+    expect(request.bodyUsed).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(service.fetch).not.toHaveBeenCalled();
+  });
+
+  it("never falls back after a selected Go mutation fails", async () => {
+    rollout();
+    const external = vi.fn(); vi.stubGlobal("fetch", external);
+    const service = { fetch: vi.fn(async () => { throw new Error("connection lost after upstream commit"); }) };
+    platform.env.FEED_RUNTIME = service;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const request = new Request("https://ghfind.test/api/feed/preferences", { method: "PUT", body: "{}" });
+    expect((await forwardFeedRequest(request, viewer))?.status).toBe(503);
+    expect(request.bodyUsed).toBe(true);
+    expect(service.fetch).toHaveBeenCalledOnce();
+    expect(external).not.toHaveBeenCalled();
+  });
+
+  it("rejects a backend-only rollback while writer-v2 rollout configuration remains", async () => {
+    rollout();
+    vi.stubEnv("FEED_BACKEND", "legacy");
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const request = new Request("https://ghfind.test/api/feed/profile", { method: "DELETE" });
+    expect((await forwardFeedRequest(request, viewer))?.status).toBe(503);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each([null, {}, { fetch: "invalid" }, { fetch: async () => { throw new Error("service unavailable"); } }])(
+    "does not escape to the network when a configured service binding fails",
+    async (binding) => {
+      enable();
+      platform.env.FEED_RUNTIME = binding;
+      const external = vi.fn(); vi.stubGlobal("fetch", external);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      expect((await forwardFeedRequest(new Request("https://ghfind.test/api/feed/projects"), viewer))?.status).toBe(503);
+      expect(external).not.toHaveBeenCalled();
+    },
+  );
 
   it("bounds chunked bodies even without Content-Length", async () => {
     let cancelled = false;

@@ -28,6 +28,20 @@ export async function consumeBatch(
   // accidental config edit cannot turn one invocation into unbounded Go work.
   if (batch.messages.length > 1) throw new Error("unexpected_queue_batch");
   for (const message of batch.messages) {
+    if (env.FEED_MODE !== "baseline") {
+      // Explicitly retry in-flight deliveries after subscriptions are detached.
+      // Do not wake Go, write terminal state, inspect payloads, or acknowledge.
+      message.retry({ delaySeconds: 300 });
+      log(
+        {
+          event: "feed_queue_paused",
+          queue: batch.queue,
+          attempts: message.attempts,
+        },
+        false,
+      );
+      continue;
+    }
     try {
       const envelope = deliveryEnvelope(message.body);
       if (batch.queue === env.FEED_DLQ_NAME) {

@@ -19,7 +19,7 @@ import (
 )
 
 func deletion(ctx context.Context, db *sql.DB, store *backend.PostgresFeedStore, origin string, signer *auth.Verifier, rep *report) error {
-	rep.Deletion = map[string]any{}
+	rep.Deletion = map[string]any{"s3FailureObserved": false, "s3FailureRequests": int64(0), "cleanupAdapterReopened": false}
 	var before int64
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM feed.events WHERE github_id=$1`, highUser).Scan(&before); err != nil {
 		return err
@@ -157,17 +157,37 @@ func deletion(ctx context.Context, db *sql.DB, store *backend.PostgresFeedStore,
 	if progress, err := store.StepFeedCleanup(ctx, command); err != nil || progress.Phase != "archive" {
 		return errors.New("primary checkpoint unavailable")
 	}
-	offline, err := backend.NewFeedS3Objects(ctx, backend.FeedS3Config{Endpoint: "http://127.0.0.1:1", Region: "us-east-1", Bucket: bucket, AccessKeyID: keyID, SecretAccessKey: secret, UsePathStyle: true})
+	outage := newCapacityS3Outage(bucket, archiveKey)
+	defer outage.server.Close()
+	offline, err := backend.NewFeedS3Objects(ctx, backend.FeedS3Config{Endpoint: outage.server.URL, Region: "us-east-1", Bucket: bucket, AccessKeyID: keyID, SecretAccessKey: secret, UsePathStyle: true})
 	if err != nil {
 		return err
 	}
-	store.UseArchiveObjects(offline)
-	if _, err := store.StepFeedCleanup(ctx, command); err == nil {
-		return errors.New("object outage falsely completed")
+	if err := store.UseArchiveObjects(offline); err != nil {
+		return err
 	}
-	command.ErrorCode = "capacity_injected_s3_outage"
+	outageCtx, stopOutage := context.WithTimeout(ctx, 10*time.Second)
+	_, outageErr := store.StepFeedCleanup(outageCtx, command)
+	stopOutage()
+	if err := outage.recordFailure(rep, outageErr); err != nil {
+		return err
+	}
+	command.ErrorCode = capacityS3FailureCode
 	if err := store.FailFeedCleanup(ctx, command); err != nil {
 		return err
+	}
+	var persisted struct {
+		Status    string `json:"status"`
+		Phase     string `json:"phase"`
+		Failures  int    `json:"failures"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := db.QueryRowContext(ctx, `SELECT cleanup_status,cleanup_phase,cleanup_failures,last_error FROM feed.user_deletion_tombstones WHERE deletion_id=$1`, accepted.DeletionID).Scan(&persisted.Status, &persisted.Phase, &persisted.Failures, &persisted.ErrorCode); err != nil {
+		return err
+	}
+	rep.Deletion["cleanupPersistedFailure"] = persisted
+	if persisted.Status != "queued" || persisted.Phase != "archive" || persisted.Failures < 1 || persisted.ErrorCode != capacityS3FailureCode {
+		return errors.New("injected S3 failure was not durably queued at the archive checkpoint")
 	}
 	// Reopen the database adapter to prove recovery reads durable checkpoints.
 	resumed, err := backend.OpenPostgresFeedStore(backend.Config{FeedDatabaseURL: os.Getenv("FEED_CAPACITY_DATABASE_URL")})
@@ -178,7 +198,16 @@ func deletion(ctx context.Context, db *sql.DB, store *backend.PostgresFeedStore,
 	if err := resumed.EnablePortableRuntime(1); err != nil {
 		return err
 	}
-	resumed.UseArchiveObjects(objects)
+	if err := resumed.UseArchiveObjects(objects); err != nil {
+		return err
+	}
+	reopenCtx, stopReopen := context.WithTimeout(ctx, 5*time.Second)
+	reopenErr := resumed.Ping(reopenCtx)
+	stopReopen()
+	if reopenErr != nil {
+		return reopenErr
+	}
+	rep.Deletion["cleanupAdapterReopened"] = true
 	time.Sleep(2100 * time.Millisecond)
 	executor, err := backend.NewFeedCleanupExecutor(resumed, 1, "capacity-cleanup-test-secret-0123456789abcdef")
 	if err != nil {

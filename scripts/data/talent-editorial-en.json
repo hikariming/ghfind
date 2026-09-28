@@ -1,0 +1,121 @@
+{
+  "bowenliang123": {
+    "role": "Apache Kyuubi PMC member · Dify contributor",
+    "direction": "Backend / Infrastructure",
+    "bio": "Long-time builder of big-data platforms and AI application tooling. Contributes authentication and authorization capabilities to Apache Kyuubi, and keeps building plugins in the Dify ecosystem.",
+    "note": "From data infrastructure to AI workflows — worth knowing for his long-term collaboration in mature communities and his steady plugin work.",
+    "project_description": "DeepSeek Harness context-visualization plugin"
+  },
+  "jiangmuran": {
+    "role": "Full-stack developer · creator of vibepanel",
+    "direction": "Full-Stack Development",
+    "bio": "Builds open-source projects around AI coding agents, automation tooling, and content creation — vibepanel and ClawFounder among them. Cares about local-first design, privacy, and long-term stability.",
+    "note": "Get to know him through the engineering trade-offs in his work: session state, process management, and usability say more about how he thinks than any age label.",
+    "project_description": "A web console for heavy AI-coding-agent users"
+  },
+  "max-liu": {
+    "role": "Product growth · open-source community",
+    "direction": "Product / Growth",
+    "bio": "Profiled on this site for his growth and community work across AI products such as ListenHub and LobeHub — content distribution, user cold starts, and monetization.",
+    "note": "Open-source teams need growth and community skills as much as engineering. No personal GitHub linked; his site and the profile article are kept for further reading.",
+    "project_description": "Multi-agent collaboration platform · growth & community work"
+  },
+  "tianyicui": {
+    "role": "AI infrastructure · algorithms & engineering",
+    "direction": "AI / Machine Learning",
+    "bio": "Author of the classic tutorial \"Nine Lectures on the Knapsack Problem\". Our profile traces his path from competitive programming and quant engineering to the DeepSeek Harness team.",
+    "note": "Two threads to follow: algorithm knowledge sharing and infrastructure engineering. Verify same-name references against the original article.",
+    "project_description": "AI agent infrastructure"
+  },
+  "zRzRzRzRzRzRzR": {
+    "role": "AI algorithm engineer · open-model contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes to Zhipu's open models and agent ecosystem — LLMs, multimodal work, and engineering practice. Our profile covers his work on Open-AutoGLM, CogVideoX, and related projects.",
+    "note": "Research, open-source implementation, and knowledge sharing reinforce each other here — read the repos alongside the profile article.",
+    "project_description": "Zhipu's open-source AutoGLM project"
+  },
+  "LofiSu": {
+    "role": "Open-source contributor · frontend & AI agents",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes to Apache Fory, DeerFlow, and other open-source projects, focusing on frontend development and AI agents.",
+    "note": "A profile-style entry. Scope of responsibility follows the project record; social-media sentiment is not treated as evidence of ability.",
+    "project_description": "Multi-language serialization framework · community contributions"
+  },
+  "takatost": {
+    "role": "Dify co-founder · engineering",
+    "direction": "AI / Machine Learning",
+    "bio": "Worked on Dify's early product and engineering. Our feature traces his role in the AI application platform through the project's evolution and contribution record.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "laipz8200": {
+    "role": "Dify contributor · workflow engine",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes steadily to Dify's workflow engine — node execution, error recovery, and the reliability of AI applications in production.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "hyoban": {
+    "role": "Frontend developer · Dify contributor",
+    "direction": "Frontend Development",
+    "bio": "Builds and maintains Dify's frontend interaction layer, focusing on Next.js, React, and the day-to-day experience of AI applications.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "kurokobo": {
+    "role": "Open-source developer · Dify ecosystem contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "Part of Dify's open-source ecosystem, featured in our Dify article and the official community acknowledgements it cites. His long-term practice is visible in the public contribution record.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "junjiem": {
+    "role": "Dify plugin ecosystem developer",
+    "direction": "AI / Machine Learning",
+    "bio": "Builds tooling around MCP agents and the Dify plugin ecosystem, connecting AI workflows to outside capabilities. Our feature covers his plugin work beyond the main repo.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "fdb02983rhy": {
+    "role": "Dify open-source contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "One of the community contributors featured in our Dify article and the official acknowledgements it cites, building experience through steady code collaboration.",
+    "note": "From \"Dify.AI: the open-source evolution from chat orchestration tool to agentic workflow executor (2023–2026)\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "AI application development platform · open-source collaboration"
+  },
+  "arvinxx": {
+    "role": "LobeHub founder · product & engineering",
+    "direction": "Frontend Development",
+    "bio": "With a background in the Ant Design community, he has driven LobeHub's evolution from an open-source chat tool into a multi-agent collaboration platform, balancing product experience with engineering.",
+    "note": "From \"LobeHub: the evolution from open-source chat tool to Chief Agent Officer\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "Multi-agent collaboration platform · open-source collaboration"
+  },
+  "nekomeowww": {
+    "role": "Open-source developer · LobeHub contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes to LobeHub alongside his own open-source projects. Our feature looks at his cross-project work building open tools.",
+    "note": "From \"LobeHub: the evolution from open-source chat tool to Chief Agent Officer\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "Multi-agent collaboration platform · open-source collaboration"
+  },
+  "Innei": {
+    "role": "Indie developer · LobeHub contributor",
+    "direction": "Frontend Development",
+    "bio": "Builds personal products like mx-space and Afilmory while contributing code to LobeHub — practicing across indie products and community projects at the same time.",
+    "note": "From \"LobeHub: the evolution from open-source chat tool to Chief Agent Officer\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "Multi-agent collaboration platform · open-source collaboration"
+  },
+  "tjx666": {
+    "role": "Open-source developer · LobeHub contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes continuously to LobeHub's development and maintenance. Our feature credits him as a key day-to-day engineering collaborator.",
+    "note": "From \"LobeHub: the evolution from open-source chat tool to Chief Agent Officer\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "Multi-agent collaboration platform · open-source collaboration"
+  },
+  "MapleEve": {
+    "role": "Open-source developer · LobeHub contributor",
+    "direction": "AI / Machine Learning",
+    "bio": "Contributes to LobeHub and other open-source projects. Our feature highlights his long-term collaboration and code contributions.",
+    "note": "From \"LobeHub: the evolution from open-source chat tool to Chief Agent Officer\" (2026-08-07). Bio follows that editorial source; see the GitHub record for specifics.",
+    "project_description": "Multi-agent collaboration platform · open-source collaboration"
+  }
+}

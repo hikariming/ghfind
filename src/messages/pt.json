@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "Zoar",
-    "leaderboard": "Ranking",
+    "roast": "Zoar no GitHub",
+    "leaderboard": "Ranking de devs",
     "discover": "Descobrir",
     "developers": "Desenvolvedores",
     "projectBoards": "Quadros de projetos",
     "projects": "Projetos",
-    "collections": "Seleções",
+    "collections": "Escolhas do editor",
     "languages": "Linguagens",
     "organizations": "Organizações",
-    "versus": "Versus",
+    "versus": "Duelo de devs",
     "blog": "Pesquisa",
     "openMenu": "Abrir menu",
-    "closeMenu": "Fechar menu"
+    "closeMenu": "Fechar menu",
+    "resume": "Meu currículo",
+    "talent": "Banco de talentos",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Descobrir",
+    "groupCareer": "Carreira",
+    "groupTools": "Ferramentas",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Nota para qualquer conta do GitHub em 30 segundos, com uma zoeira certeira",
+      "versus": "Coloque dois desenvolvedores frente a frente",
+      "leaderboard": "Veja os melhores desenvolvedores por nota",
+      "projectBoards": "Descubra projetos open source em destaque por área",
+      "collections": "Projetos e desenvolvedores escolhidos pelo editor",
+      "blog": "Dados e análises do ecossistema de desenvolvedores",
+      "resume": "Monte um currículo de desenvolvedor com seus dados do GitHub",
+      "talent": "Encontre desenvolvedores que valem a pena conhecer",
+      "githubBot": "Rotula issues e PRs pela nota do autor"
+    }
   },
   "globalSearch": {
     "open": "Abrir busca global",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 Melhores desenvolvedores",
     "openBoard": "Ver ranking completo →",
     "disclaimer1": "Notas e zoadas são geradas automaticamente só a partir de <b>dados públicos do GitHub</b>. A gente zoa o comportamento público e as estatísticas da conta, não a pessoa. Os resultados não são afirmações factuais sobre ninguém — não use isso pra assediar, por favor.",
-    "disclaimer2": "O núcleo de pontuação é open source como a skill <code>github-account-value</code> · sua API key fica só no seu navegador."
+    "disclaimer2": "O núcleo de pontuação é open source como a skill <code>github-account-value</code> · sua API key fica só no seu navegador.",
+    "viewAll": "Ver tudo"
   },
   "leaderboard": {
     "heading": "🏆 Hall da Fama",
     "subtitle": "O Hall da Fama lista contas com nota 60+, mostrando por padrão as Em Alta.",
     "judgeCta": "← Julgar uma conta",
-    "footerNote": "Só entram no ranking contas com nota alta, construídas a partir de dados públicos do GitHub. Pra sair da lista, <a>peça a remoção aqui</a>.",
+    "footerNote": "Só entram no ranking contas com nota alta, construídas a partir de dados públicos do GitHub.",
     "loadError": "Não deu pra carregar o ranking agora — tente de novo mais tarde.",
     "loading": "Carregando o Hall da Fama…",
     "empty": "🧮 Fazendo as contas — volte daqui a pouco…",
@@ -561,10 +580,6 @@
       {
         "q": "Meu trabalho privado conta?",
         "a": "Não. As notas usam apenas sinais públicos, então contribuições em organizações privadas são invisíveis pro motor. Quem é ativo em repos privados pode ficar subestimado. Uma nota baixa não é uma afirmação factual sobre uma pessoa — ela descreve a pegada pública de uma conta."
-      },
-      {
-        "q": "Como removo meu perfil do ghfind?",
-        "a": "Só contas com nota 60+ são indexadas e listadas. Pra sair do ranking, use o link de remoção no rodapé do ranking ou abra uma issue no repositório do GitHub, e o perfil será removido da lista."
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "Contato — ghfind",
-    "metaDescription": "Como falar com o time do ghfind: reportar um problema, pedir remoção do ranking ou perguntar sobre a API, a CLI e o servidor MCP.",
+    "metaDescription": "Como falar com o time do ghfind: reportar um problema ou perguntar sobre a API, a CLI e o servidor MCP.",
     "heading": "Contato",
     "paragraphs": [
-      "O ghfind é um projeto open source. O jeito mais rápido de falar com o time, reportar um problema, pedir remoção do ranking ou perguntar sobre a API, a CLI ou o servidor MCP é abrir uma issue no repositório público do GitHub. As issues são lidas e triadas por lá, e manter a conversa aberta ajuda outros usuários com a mesma dúvida.",
+      "O ghfind é um projeto open source. O jeito mais rápido de falar com o time, reportar um problema ou perguntar sobre a API, a CLI ou o servidor MCP é abrir uma issue no repositório público do GitHub. As issues são lidas e triadas por lá, e manter a conversa aberta ajuda outros usuários com a mesma dúvida.",
       "Para dúvidas de integração, o contrato de API legível por máquina fica em /openapi.json, o índice de documentação voltado a agentes em /llms.txt e o passo a passo de autenticação em /auth.md. Se você precisa de um limite de taxa maior para escaneamento servidor-a-servidor em alto volume, descreva seu caso de uso em uma issue no GitHub."
     ],
     "issuesLabel": "Abrir uma issue no GitHub",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "Privacidade — ghfind",
-    "metaDescription": "Como o ghfind trata dados: pontua apenas dados públicos do GitHub, não vende dados pessoais e atende pedidos de remoção de perfis indexados.",
+    "metaDescription": "Como o ghfind trata dados: pontua apenas dados públicos do GitHub e não vende dados pessoais.",
     "heading": "Privacidade",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "Zoadas com sua própria key",
         "p": "O recurso opcional de zoada pode usar a key do seu próprio provedor de modelo. Quando você fornece uma, ela fica no seu navegador e passa uma única vez pelo nosso servidor para chamar o modelo — nunca é armazenada, nunca é logada, e é descartada quando a requisição termina."
-      },
-      {
-        "h": "Remoção e controle",
-        "p": "Se você quiser tirar seu perfil da lista, use o link de remoção no rodapé do ranking ou abra uma issue no repositório do GitHub, e vamos removê-lo do ranking e do índice. Como o ghfind só reflete dados públicos do GitHub, atualizar ou tornar privada a sua atividade no GitHub também muda ou remove o que o ghfind consegue ver no próximo scan."
       }
     ]
   },
@@ -992,5 +1003,476 @@
         "removed": "Removed"
       }
     }
+  },
+  "sidebar": {
+    "workspace": "Workspace",
+    "discover": "Explore",
+    "resume": "Meu currículo",
+    "soon": "Soon",
+    "tagline": "Developer workspace",
+    "expand": "Expandir barra lateral",
+    "collapse": "Recolher barra lateral",
+    "navigation": "Navegação principal",
+    "docs": "Ajuda e docs",
+    "skip": "Pular para o conteúdo",
+    "edition": "Public workspace",
+    "sponsor": "Patrocinar"
+  },
+  "talent": {
+    "topline": {
+      "section": "Desenvolvimento de carreira",
+      "current": "Talentos",
+      "badge": "Curado pela comunidade · Atualização contínua"
+    },
+    "hero": {
+      "titleLead": "A partir de uma linha de código,",
+      "titleVerb": "descubra ",
+      "titleAccent": "pessoas que valem a pena conhecer.",
+      "subtitleLead": "Mais do que um currículo. Por meio de projetos open source, prática técnica e trabalho real,",
+      "subtitleTail": "conheça desenvolvedores e encontre seu próximo parceiro.",
+      "people": "Começando no GitHub, conectando mais possibilidades",
+      "add": "Adicionar talento",
+      "code": "built by humans."
+    },
+    "tabs": {
+      "aria": "Descobrir talentos",
+      "all": "Todos",
+      "saved": "Salvos",
+      "sessionHint": "Itens salvos duram apenas nesta sessão",
+      "discover": "Destaques"
+    },
+    "search": {
+      "placeholder": "Busque nome, usuário do GitHub, stack ou cidade…",
+      "aria": "Buscar talentos",
+      "clear": "Limpar busca",
+      "hint": "Dica: filtros por campo — ex. skill:Rust, location:Shanghai"
+    },
+    "filters": {
+      "toggle": "Filtros",
+      "location": "Local",
+      "source": "Fonte",
+      "allDirections": "Todas as áreas",
+      "allLocations": "Todos os locais",
+      "allSources": "Todas as fontes",
+      "sourceGithub": "GitHub",
+      "sourceManual": "Curadoria manual",
+      "onlyAvailable": "Apenas pessoas abertas a conversar",
+      "reset": "Redefinir filtros",
+      "subDirections": "Foco",
+      "officialTags": "Tags oficiais",
+      "tagAria": "Filtrar pela tag oficial \"{tag}\"",
+      "collection": "Coleção",
+      "clearCollection": "Limpar filtro de coleção"
+    },
+    "results": {
+      "count": "<strong>{count}</strong> desenvolvedores encontrados",
+      "subtitle": "· Comece pelo trabalho",
+      "sortAria": "Ordenar talentos",
+      "sortRecommended": "Destaques",
+      "sortStars": "Mais Stars em projetos",
+      "sortActivity": "Maior atividade de contribuição",
+      "gridView": "Grade",
+      "listView": "Lista",
+      "perPageAria": "Resultados por página",
+      "perPageOption": "{count} / página",
+      "pagesAria": "Paginação",
+      "prevPage": "Página anterior",
+      "nextPage": "Próxima página",
+      "pageStatus": "Página {page} de {pages}",
+      "loading": "Carregando…"
+    },
+    "notice": {
+      "submitted": "Recebemos seu envio para {name}. Apenas campos públicos são mantidos e o perfil aparece após a revisão.",
+      "close": "Fechar aviso"
+    },
+    "card": {
+      "viewProfileAria": "Ver perfil de {name}",
+      "saveAria": "Salvar {name}",
+      "unsaveAria": "Remover {name} dos salvos",
+      "manual": "Adicionado manualmente",
+      "available": "Aberto a conversar",
+      "score": "Pontuação GHFind",
+      "pending": "Perfil a completar",
+      "community": "Ativo em open source",
+      "yearlyContributions": "contribuições/ano",
+      "viewProfile": "Ver perfil"
+    },
+    "empty": {
+      "savedTitle": "Guarde aqui quem você quer conhecer melhor",
+      "savedBody": "Toque no ícone de marcador em um cartão para montar sua lista.",
+      "title": "Nenhum talento correspondente ainda",
+      "body": "Tente outra stack ou amplie os filtros.",
+      "browseAll": "Ver todos os talentos"
+    },
+    "footer": {
+      "endline": "Bom talento merece ser visto",
+      "title": "Do open source, e além dele",
+      "body": "Informações públicas do GitHub × curadoria humana, para que cada talento deixe rastro.",
+      "source": "Dados de informações públicas do GitHub e coleções do site"
+    },
+    "detail": {
+      "close": "Fechar perfil",
+      "eyebrow": "DEVELOPER PROFILE",
+      "pendingBadge": "Perfil em revisão",
+      "listedBadge": "Perfil publicado",
+      "saved": "Salvo",
+      "save": "Salvar talento",
+      "tagsAria": "Tags",
+      "projectsAria": "Projetos em destaque",
+      "projectsTitle": "Projetos em destaque",
+      "projectsCount": "{count} projetos",
+      "relOwn": "Projeto próprio",
+      "relPr": "Contribuição",
+      "projectsEmpty": "Nenhum projeto em destaque ainda",
+      "projectsEmptyHint": "Depois você pode adicionar repositórios próprios ou PRs contribuídos.",
+      "sourcesAria": "Fontes",
+      "sourcesTitle": "Fontes",
+      "sourcesPending": "A completar",
+      "sourcesCount": "{count} fontes",
+      "sourcesEmptyManual": "Adicionado manualmente",
+      "sourcesEmptyHint": "Sem fontes vinculadas; adicione GitHub, site pessoal ou cobertura.",
+      "tabsAria": "Conteúdo do perfil",
+      "tabOverview": "Visão geral",
+      "tabContacts": "Contato",
+      "editorNote": "Nota do editor",
+      "publicInfo": "Informações públicas",
+      "contactTitle": "Falar com {name}",
+      "contactHint": "Só mostramos os contatos que a pessoa escolheu tornar públicos.",
+      "contactEmptyTitle": "Nenhum contato público ainda",
+      "contactEmptyBody": "A pessoa pode compartilhar WeChat, e-mail ou telefone ao se cadastrar."
+    },
+    "fields": {
+      "role": "Área",
+      "location": "Cidade",
+      "bio": "Apresentação",
+      "email": "E-mail",
+      "wechat": "WeChat",
+      "phone": "Telefone",
+      "education": "Formação",
+      "school": "Universidade",
+      "experience": "Experiência"
+    },
+    "intake": {
+      "close": "Fechar cadastro",
+      "eyebrow": "G H F I N D / TALENT",
+      "title": "Que o bom talento seja visto",
+      "description": "Comece com uma conta do GitHub e compartilhe só o que quiser.",
+      "stepsAria": "Etapas do cadastro",
+      "stepSubject": "Pessoa",
+      "stepAccount": "Conta e dados",
+      "stepPrivacy": "Visibilidade",
+      "stepConfirm": "Confirmar dados",
+      "stepPreview": "Prévia",
+      "errorGithub": "Insira um usuário do GitHub ou URL de perfil válidos.",
+      "errorName": "Insira um nome ou apelido para exibição.",
+      "whoTitle": "Quem deve ser descoberto desta vez?",
+      "whoBody": "Crie seu próprio cartão ou recomende um desenvolvedor que você admira.",
+      "selfTitle": "Me cadastrar",
+      "selfBody": "Vincule meu currículo e escolha o que tornar público",
+      "otherTitle": "Recomendar alguém",
+      "otherBody": "Recomende um desenvolvedor pela conta do GitHub",
+      "whoPrivacy": "O nome pode ser um apelido. Telefone, formação, universidade e experiência são opcionais.",
+      "identitySelf": "Sua identidade de desenvolvedor",
+      "identityOther": "Recomendar um desenvolvedor",
+      "methodGithub": "Tenho conta no GitHub",
+      "methodManual": "Sem GitHub, preencher manualmente",
+      "githubLabel": "Usuário do GitHub ou URL do perfil",
+      "githubPlaceholder": "octocat ou https://github.com/octocat",
+      "githubHintTitle": "Uma conta basta",
+      "githubHintBody": "Ao conectar, o perfil é criado a partir de projetos públicos, stacks e contribuições — sem currículo completo.",
+      "githubHintNote": "Ainda não verificamos a conta nem buscamos dados do GitHub; as informações sincronizam após a revisão.",
+      "nameLabel": "Nome / apelido exibido",
+      "requiredTag": "Obrigatório",
+      "namePlaceholder": "Pode usar apelido, não precisa do nome real",
+      "roleLabel": "Área técnica / profissional",
+      "bioLabel": "Apresentação",
+      "optionalTag": "Opcional",
+      "rolePlaceholder": "Ex.: desenvolvedor front-end",
+      "bioPlaceholder": "O que você já construiu e o que está explorando?",
+      "recommendationLabel": "Recomendação",
+      "recommendationTag": "Opcional · Exibida no perfil",
+      "recommendationPlaceholder": "Quais trabalhos ou práticas técnicas fazem você recomendar este desenvolvedor?",
+      "privacyTitle": "Seus dados: você decide quanto fica público",
+      "privacyBody": "Pode deixar só WeChat ou e-mail. Campos desmarcados não entram no perfil e seu currículo não é alterado.",
+      "resumeImportTitle": "Importar de “Meu currículo”",
+      "resumeImportBody": "Preenche apenas este rascunho — nada é publicado nem regravado no currículo.",
+      "loadLocal": "Carregar dados locais",
+      "loadCloud": "Carregar currículo da nuvem",
+      "openResume": "Abrir meu currículo ↗",
+      "loading": "Carregando…",
+      "chooseResume": "Escolher dados",
+      "chooseResumePlaceholder": "Escolha um currículo / perfil salvo",
+      "resumeLoginRequired": "Entre e salve um currículo em “Meu currículo” antes de importar aqui.",
+      "resumePickHint": "Escolha um para preencher o rascunho; todos os campos ficam ocultos por padrão.",
+      "resumeEmpty": "Você ainda não tem dados salvos; crie em “Meu currículo” ou preencha direto.",
+      "resumeLoadFailed": "Não foi possível ler seus dados; tente de novo ou continue manualmente.",
+      "resumeProfileFallback": "Meu perfil salvo",
+      "resumeImported": "“{label}” importado; escolha item a item o que tornar público.",
+      "nicknameLabel": "Apelido exibido",
+      "nicknameTag": "Opcional · Padrão: seu usuário do GitHub",
+      "nicknamePlaceholder": "Não precisa publicar seu nome real",
+      "fieldHeadingFields": "Dados opcionais",
+      "fieldHeadingPublic": "Público em Talentos",
+      "fieldPlaceholder": "Opcional",
+      "fieldPlaceholderHidden": "Opcional; deixe vazio para manter privado",
+      "publicAria": "Tornar {label} público",
+      "visibleOn": "Público",
+      "visibleOff": "Oculto",
+      "moreFields": "Adicionar mais dados",
+      "moreFieldsHint": "Apresentação, telefone, formação, universidade, experiência · Opcional",
+      "otherPrivacyTitle": "Recomende o trabalho, nunca a privacidade alheia",
+      "otherPrivacyBody": "Cadastro de {target}. Não pedimos telefone, universidade, formação ou experiência da pessoa, nem lemos seu currículo.",
+      "otherPrivacyNote": "Contatos e dados privados do currículo podem ser adicionados pela própria pessoa ao reivindicar o perfil.",
+      "previewTitle": "Este é o perfil que os outros verão",
+      "previewBody": "Somente o conteúdo abaixo entra em Talentos. Campos ocultos não são anexados.",
+      "previewGithubPending": "@{handle} · Dados do GitHub pendentes",
+      "previewManual": "Adicionado manualmente",
+      "previewOnlyGithub": "Apenas seu usuário do GitHub é exibido; nenhum outro dado pessoal é público.",
+      "previewOnlyNickname": "Apenas seu apelido é exibido; nenhum outro dado pessoal é público.",
+      "recommendationPrefix": "Recomendação: {note}",
+      "reviewNote": "O envio entra em revisão e fica privado até a aprovação; contas cadastradas pelo próprio dono exigem verificação depois.",
+      "back": "Voltar",
+      "cancel": "Cancelar",
+      "footerSubmit": "Só é enviado o que você marcou como público",
+      "footerOptional": "Tudo opcional, pode continuar",
+      "footerHidden": "Campos ocultos não são enviados",
+      "submitting": "Enviando…",
+      "confirmSubmit": "Confirmar e enviar",
+      "next": "Avançar"
+    },
+    "categories": {
+      "aria": "Navegar por categoria",
+      "all": "Todos",
+      "agent": "Agentes e fluxos",
+      "ai": "Apps de IA e modelos",
+      "infra": "Backend e infraestrutura",
+      "frontend": "Frontend e full-stack",
+      "tools": "Ferramentas e dados",
+      "other": "Outros"
+    },
+    "overview": {
+      "collectionsTitle": "Coleções em destaque",
+      "collectionsSubtitle": "Agrupadas por ecossistema open source e tags oficiais",
+      "sectionsTitle": "Explorar por área",
+      "sectionsSubtitle": "Desenvolvedores em destaque por área — «Ver todos» abre a lista completa",
+      "people": "{count} pessoas",
+      "viewAll": "Ver todos os {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Beta do DSH",
+        "desc": "Primeiros usuários e co-criadores do beta do DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Principais contribuidores do motor de inferência LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Ecossistema da plataforma Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Comunidade LobeChat / LobeHub e multiagente"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Contribuidores de ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Contribuidores do framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Contribuidores da especificação e SDK do MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Ecossistema LangChain / LangGraph"
+      }
+    }
+  },
+  "sponsor": {
+    "metaTitle": "Patrocine o ghfind · Planos e benefícios",
+    "metaDescription": "Patrocine o ghfind: planos Principal, Modelo, Destaque e Amigo, cobrados mensalmente. O patrocínio nunca afeta rankings ou notas.",
+    "topline": {
+      "section": "Ajuda e documentação",
+      "current": "Patrocinar"
+    },
+    "hero": {
+      "titleLead": "Mantenha o ghfind",
+      "titleAccent": "dando sua opinião sincera.",
+      "subtitle": "O ghfind é um projeto comunitário aberto, e chamadas de modelo, servidores e coleta de dados custam dinheiro de verdade. Seu patrocínio o mantém gratuito, independente e atualizado. Todos os preços estão em USD por mês, com desconto por tempo limitado."
+    },
+    "perMonth": "/ mês",
+    "listPrice": "Preço normal {price}",
+    "off": "Economize {off}%",
+    "soldOut": "Esgotado",
+    "available": "Disponível",
+    "soon": "Em desenvolvimento",
+    "currentHolder": "Patrocinador atual",
+    "cta": "Quero patrocinar",
+    "ctaSoldOut": "Esgotado · Em breve",
+    "tiers": {
+      "title": {
+        "name": "Patrocinador principal",
+        "summary": "O espaço mais visível do site — sua marca viaja com cada cartão de exibição compartilhado.",
+        "perks": [
+          {
+            "text": "Espaço na navegação superior de todas as páginas (logo + nome + slogan)"
+          },
+          {
+            "text": "Crédito com seu logo em todo cartão de exibição compartilhável"
+          }
+        ]
+      },
+      "model": {
+        "name": "Patrocinador do modelo",
+        "summary": "Alimente as avaliações e apareça sempre que uma for gerada.",
+        "perks": [
+          {
+            "text": "Crédito do patrocinador do modelo durante a geração da avaliação"
+          },
+          {
+            "text": "Informações e logo do patrocinador na página inicial"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Patrocinador destaque",
+        "summary": "Exposição constante na página inicial e nas páginas de desenvolvedores.",
+        "perks": [
+          {
+            "text": "Espaço de patrocínio na página inicial"
+          },
+          {
+            "text": "Exibição aleatória nas páginas de detalhes",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Patrocinador amigo",
+        "summary": "Apoie o ghfind como amigo — vamos lembrar de você aqui.",
+        "perks": [
+          {
+            "text": "Agradecimento e link externo nesta página"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Patrocinadores amigos",
+      "lead": "Obrigado a cada amigo que apoia o ghfind. Os links aparecem por ordem de entrada.",
+      "empty": "Este espaço está livre — seja o primeiro patrocinador amigo →"
+    },
+    "fairness": {
+      "heading": "O patrocínio nunca afeta rankings ou notas",
+      "body": "Patrocinadores recebem apenas visibilidade e agradecimento. O patrocínio não influencia, nem pode influenciar, o ranking, a nota ou a avaliação de qualquer desenvolvedor ou projeto. As notas dependem apenas da nossa metodologia publicada e dos dados, e todos são tratados igualmente para garantir a justiça."
+    },
+    "contactLead": "Para patrocínios, notas fiscais ou outras dúvidas, fale com",
+    "rowLabel": "Patrocinadores",
+    "holders": {
+      "dsh": "Conecte uma vez e use o Harness remotamente",
+      "mosoo": "Runtime na nuvem para agentes de programação",
+      "phi": "Navegador de IA open source que realmente te conhece"
+    },
+    "slotOpen": "Espaço disponível"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App que rotula issues e PRs pela pontuação do autor",
+    "metaDescription": "Instale a GitHub App ghfind Review para adicionar um rótulo colorido a cada novo issue e pull request, com base na pontuação pública do autor no ghfind.",
+    "topline": {
+      "section": "Integrações",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Grátis",
+      "title": "Faça a triagem de issues e PRs por quem os abriu",
+      "subtitle": "O ghfind Review adiciona um rótulo review: colorido a cada novo issue e pull request, com base na pontuação pública do autor no ghfind. Sem workflow, sem token, sem segredos para configurar.",
+      "install": "Instalar no GitHub",
+      "status": "Abrir página de status",
+      "note": "Roda como ghfind-review[bot]. Só adiciona rótulos: nunca comenta, fecha ou bloqueia uma contribuição."
+    },
+    "preview": {
+      "label": "Exemplo de lista de issues com rótulos review",
+      "heading": "Issues",
+      "items": {
+        "top": "Falha ao analisar configuração aninhada",
+        "medium": "Adicionar modo escuro às configurações",
+        "noScore": "Erro de digitação no README"
+      }
+    },
+    "labels": {
+      "heading": "Cinco rótulos, uma olhada",
+      "lead": "Rótulos ausentes são criados na instalação. Cores ou descrições personalizadas são mantidas.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Pouco sinal público. Verifique a origem primeiro."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Um perfil de contribuidor comum."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Sinais públicos fortes."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "No topo do índice ghfind."
+        },
+        "noScore": {
+          "range": "Sem pontuação",
+          "desc": "Pontuação indisponível, não é zero. Nova tentativa após 20 e 60 minutos."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Como funciona",
+      "items": {
+        "install": {
+          "title": "Instale nos repositórios escolhidos",
+          "body": "Conceda leitura e escrita em Issues e Pull requests. Escolha Only select repositories para começar pequeno; repositórios de organização podem exigir aprovação."
+        },
+        "open": {
+          "title": "Alguém abre um issue ou PR",
+          "body": "O bot consulta em segundo plano a pontuação pública do autor no ghfind. O corpo do issue nunca é lido nem avaliado."
+        },
+        "label": {
+          "title": "Aparece um rótulo review:",
+          "body": "Na instalação, as primeiras páginas de issues e PRs abertos também são rotuladas. Edições e reaberturas não são repontuadas."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Transforme faixas de pontuação em filas de revisão",
+      "lead": "Cole um filtro na busca de issues do seu repositório e comece pela fila que cabe no seu tempo.",
+      "items": {
+        "high": "Issues de pontuação alta",
+        "top": "Issues de pontuação máxima",
+        "low": "Issues de pontuação baixa para verificar",
+        "noScore": "Sem pontuação — precisa de contexto"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Pedir nova pontuação",
+        "body": "Depois das novas tentativas automáticas, o autor ou um admin do repositório pode comentar @ghfind-review no issue para pontuar de novo."
+      },
+      "privacy": {
+        "heading": "Quais dados usa",
+        "body": "Nada de código-fonte ou corpo de issues. Guarda só a instalação, o repositório, o número do issue, a pontuação e o estado do job; jobs concluídos são apagados após 30 dias. Autores com e-mail público podem receber no máximo um e-mail de pontuação a cada 72 horas, com descadastro em um clique.",
+        "link": "Aviso de privacidade"
+      },
+      "stop": {
+        "heading": "Pare quando quiser",
+        "body": "Remova repositórios, suspenda ou desinstale o app nas configurações do GitHub. Os rótulos existentes permanecem."
+      }
+    },
+    "disclaimer": "A pontuação reflete o perfil público do autor no GitHub, não a qualidade desta contribuição. Novos contribuidores podem apenas ter pouco histórico público.",
+    "source": "Código-fonte e guia de auto-hospedagem"
   }
 }

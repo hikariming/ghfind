@@ -1,0 +1,11 @@
+2026-09-08T17:26:54.984264463Z INFO: Formatting 1st pool, 1 set(s), 1 drives per set.
+2026-09-08T17:26:54.984295796Z INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.
+2026-09-08T17:26:54.991199046Z MinIO Object Storage Server
+2026-09-08T17:26:54.991222380Z Copyright: 2015-2026 MinIO, Inc.
+2026-09-08T17:26:54.991224171Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+2026-09-08T17:26:54.991225588Z Version: RELEASE.2025-09-07T16-13-09Z (go1.24.6 linux/arm64)
+2026-09-08T17:26:54.991226630Z 
+2026-09-08T17:26:54.991227588Z API: http://172.20.0.2:9000  http://127.0.0.1:9000 
+2026-09-08T17:26:54.991228588Z WebUI: http://172.20.0.2:45351 http://127.0.0.1:45351  
+2026-09-08T17:26:54.991229630Z 
+2026-09-08T17:26:54.991230546Z Docs: https://docs.min.io

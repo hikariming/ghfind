@@ -1,0 +1,27 @@
+{
+  "sourceSha": "f58d539dd40291b3d30fb3c64b64ec26c464de06",
+  "binarySha256": "f57b67963d2a6f147f0dfc24f777daf7852e03ccbeae78e968f536609d24875c",
+  "command": [
+    "/tmp/ghfind-query-diagnose",
+    "-phase",
+    "diagnose",
+    "-baseline",
+    "f58d539dd40291b3d30fb3c64b64ec26c464de06",
+    "-out",
+    "/tmp/ghfind-query-diagnosis-f58d539"
+  ],
+  "database": "127.0.0.1:55441/feed_query_diagnose_test",
+  "pgContainer": "ghfind-query-diagnose-pg",
+  "pgVolume": "ghfind-query-diagnose-pg-data",
+  "pgCPUs": 2,
+  "pgMemoryBytes": 2147483648,
+  "platform": "darwin/arm64 Go, linux/arm64 PostgreSQL via Docker",
+  "seedMetadataError": {
+    "recordedBaseline": "f58d539508b881a4697564420c88c50b0d100000",
+    "actualSourceSha": "f58d539dd40291b3d30fb3c64b64ec26c464de06",
+    "explanation": "Seed invocation mistyped the full SHA suffix. Original fixture.json is retained unchanged; the same clean-source binary is used for diagnose. This run is bounded diagnosis only, not release acceptance."
+  },
+  "startedAt": "2026-09-08T18:02:24.518528+00:00",
+  "exitCode": 1,
+  "finishedAt": "2026-09-08T18:02:37.247384+00:00"
+}

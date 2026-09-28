@@ -1,0 +1,523 @@
+{
+  "synthetic": true,
+  "manifest": {
+    "version": 1,
+    "stream": "feed_transaction_journal",
+    "migrationId": "11111111-1111-4111-8111-111111111111",
+    "journalId": "22222222-2222-4222-8222-222222222222",
+    "source": {
+      "profile": "cf_d1_r2",
+      "resourceId": "33333333-3333-4333-8333-333333333333",
+      "schema": 11,
+      "writerContract": 2,
+      "writerEpoch": 4,
+      "routeEpoch": 8
+    },
+    "target": {
+      "profile": "postgres",
+      "resourceId": "44444444-4444-4444-8444-444444444444",
+      "schema": 22,
+      "writerContract": 2,
+      "writerEpoch": 1,
+      "routeEpoch": 9
+    },
+    "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "archiveInventorySha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "archiveObjects": 0,
+    "deletionFloorsSha256": "af5844e3044d83ab3a9c23f69e033d6ea24b8b5e82828fb25e4f0f127fd269f0",
+    "deletionFloorActors": 1,
+    "fromSequence": 0,
+    "throughSequence": 1,
+    "anchorHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "coverage": [
+      {
+        "table": "feed_archive_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_archive_objects",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_behavior_signals",
+        "mode": "capture",
+        "category": "derived",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_cleanup_jobs",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_cleanup_policy",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_command_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_heads",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_terminals",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_events",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_execution_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_execution_jobs",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_governance_commands",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_governance_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_operator_actions",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_operator_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_profile_deletions",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_profile_floors",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_moderation",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_source_versions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_tags",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_projection_commands",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_projects",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_proposal_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_rate_windows",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_replay_deliveries",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_control",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_events",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_outbox",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_requests",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_served_metadata",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_sessions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_schema_compatibility",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_served_items",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_submission_provenance",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_aliases",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_definitions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_proposal_commands",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_proposals",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_taxonomy_versions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_project_states",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_proposal_authors",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_tag_preferences",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_tag_proposals",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_users",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      }
+    ]
+  },
+  "initialFloors": [
+    {
+      "githubId": 7,
+      "profileFloor": 3
+    }
+  ],
+  "seal": {
+    "version": 2,
+    "manifestHash": "f19d5e3cc3e845031427f65c42609cc9e097cfc8007f16417313ff292d5c23fc",
+    "transactionId": "22222222-2222-4222-8222-222222222222:1",
+    "sequence": 1,
+    "previousCommitHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "totalChanges": 4,
+    "contentBytes": 398,
+    "segmentCount": 3,
+    "lastSegmentHash": "ebda38cabad12dd723aa1ed140cbaee9a9e0bf497b16b9088f9823e196e9c3ec",
+    "floorRecords": 1,
+    "floorChainHash": "097ceaa6527614bc62059854044e4b5765e76e24af5069407d6fe46366b6b01e",
+    "transactionHash": "0cfcae6a15746298821e78aae257e539e3f4a7f89d20c891629522bac31a7ec1",
+    "hash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d"
+  },
+  "segments": [
+    {
+      "changes": [
+        {
+          "row": {
+            "table": "feed_profile_floors",
+            "key": "42",
+            "operation": "floor",
+            "actor": {
+              "githubId": 42,
+              "profileVersion": 5
+            },
+            "image": null
+          },
+          "beforeHash": null
+        }
+      ],
+      "version": 2,
+      "transactionId": "22222222-2222-4222-8222-222222222222:1",
+      "sequence": 1,
+      "previousCommitHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "index": 0,
+      "firstOrdinal": 0,
+      "previousSegmentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "hash": "8f2e4016a38c675acfb688b16c5dcff46768319d98af5ebb63da843dacb53d2a",
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d"
+    },
+    {
+      "changes": [
+        {
+          "row": {
+            "table": "feed_runtime_events",
+            "key": "synthetic-",
+            "operation": "delete",
+            "actor": {
+              "githubId": 42,
+              "profileVersion": 5
+            },
+            "image": null
+          },
+          "beforeHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ],
+      "version": 2,
+      "transactionId": "22222222-2222-4222-8222-222222222222:1",
+      "sequence": 1,
+      "previousCommitHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "index": 1,
+      "firstOrdinal": 1,
+      "previousSegmentHash": "8f2e4016a38c675acfb688b16c5dcff46768319d98af5ebb63da843dacb53d2a",
+      "hash": "3d1e7a57b12526cd476cd8c7736aca22dcf0f6c10b17649d083f2c2ac991d8c1",
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d"
+    },
+    {
+      "changes": [
+        {
+          "row": {
+            "table": "feed_runtime_events",
+            "key": "synthetic-𐀀",
+            "operation": "delete",
+            "actor": {
+              "githubId": 42,
+              "profileVersion": 5
+            },
+            "image": null
+          },
+          "beforeHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        {
+          "row": {
+            "table": "feed_users",
+            "key": "synthetic:42",
+            "operation": "upsert",
+            "actor": {
+              "githubId": 42,
+              "profileVersion": 6
+            },
+            "image": "eyJnaXRodWJfaWQiOjQyLCJwcm9maWxlX3ZlcnNpb24iOjYsImxvZ2luIjoi5ZCI5oiQIDw+Jlx1MjAyOFx1ZDgzZFx1ZGUwMCJ9"
+          },
+          "beforeHash": null
+        }
+      ],
+      "version": 2,
+      "transactionId": "22222222-2222-4222-8222-222222222222:1",
+      "sequence": 1,
+      "previousCommitHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "index": 2,
+      "firstOrdinal": 2,
+      "previousSegmentHash": "3d1e7a57b12526cd476cd8c7736aca22dcf0f6c10b17649d083f2c2ac991d8c1",
+      "hash": "ebda38cabad12dd723aa1ed140cbaee9a9e0bf497b16b9088f9823e196e9c3ec",
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d"
+    }
+  ],
+  "receipts": [
+    {
+      "version": 2,
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+      "segmentIndex": 0,
+      "segmentHash": "8f2e4016a38c675acfb688b16c5dcff46768319d98af5ebb63da843dacb53d2a",
+      "beforeProgressHash": "cc38e4b49d82ac15fe4acbb44250b26ab5e053386e7a840e21c31143c536ba0f",
+      "after": {
+        "nextSegment": 1,
+        "nextOrdinal": 1,
+        "contentBytes": 42,
+        "lastSegmentHash": "8f2e4016a38c675acfb688b16c5dcff46768319d98af5ebb63da843dacb53d2a",
+        "lastRow": {
+          "table": "feed_profile_floors",
+          "key": "42",
+          "operation": "floor"
+        },
+        "floorRecords": 1,
+        "floorChainHash": "097ceaa6527614bc62059854044e4b5765e76e24af5069407d6fe46366b6b01e",
+        "ready": false,
+        "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+        "hash": "ed1acd8e8330eeab45bfe57b326827be03b1f93be38c2639fb662703782226d9"
+      },
+      "hash": "4ad541d3e37c162c37cd0e1f55013a39d3e2b6bc9b678d065e824b3952aa7441"
+    },
+    {
+      "version": 2,
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+      "segmentIndex": 1,
+      "segmentHash": "3d1e7a57b12526cd476cd8c7736aca22dcf0f6c10b17649d083f2c2ac991d8c1",
+      "beforeProgressHash": "ed1acd8e8330eeab45bfe57b326827be03b1f93be38c2639fb662703782226d9",
+      "after": {
+        "nextSegment": 2,
+        "nextOrdinal": 2,
+        "contentBytes": 160,
+        "lastSegmentHash": "3d1e7a57b12526cd476cd8c7736aca22dcf0f6c10b17649d083f2c2ac991d8c1",
+        "lastRow": {
+          "table": "feed_runtime_events",
+          "key": "synthetic-",
+          "operation": "delete"
+        },
+        "floorRecords": 1,
+        "floorChainHash": "097ceaa6527614bc62059854044e4b5765e76e24af5069407d6fe46366b6b01e",
+        "ready": false,
+        "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+        "hash": "e33c17545029ca8efa4798bc54dd6c900ed4ad4437f23ca4e82be068be8dc879"
+      },
+      "hash": "57778f975b5e3da5a506cad57cda70e8c0ac980482d4b4a1e777f3274f530e9b"
+    },
+    {
+      "version": 2,
+      "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+      "segmentIndex": 2,
+      "segmentHash": "ebda38cabad12dd723aa1ed140cbaee9a9e0bf497b16b9088f9823e196e9c3ec",
+      "beforeProgressHash": "e33c17545029ca8efa4798bc54dd6c900ed4ad4437f23ca4e82be068be8dc879",
+      "after": {
+        "nextSegment": 3,
+        "nextOrdinal": 4,
+        "contentBytes": 398,
+        "lastSegmentHash": "ebda38cabad12dd723aa1ed140cbaee9a9e0bf497b16b9088f9823e196e9c3ec",
+        "lastRow": {
+          "table": "feed_users",
+          "key": "synthetic:42",
+          "operation": "upsert"
+        },
+        "floorRecords": 1,
+        "floorChainHash": "097ceaa6527614bc62059854044e4b5765e76e24af5069407d6fe46366b6b01e",
+        "ready": true,
+        "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+        "hash": "85054484d2e3d79a6106616a1904bd5309df50fe9813c84b64f260f1c7e48e24"
+      },
+      "hash": "e02013dd654042ceb1003d4267c3c9603b0e65573582c43e10a34da8062ec6ed"
+    }
+  ],
+  "syntheticAtomicReceipt": {
+    "version": 2,
+    "outcome": "applied",
+    "sealHash": "9a8dd02d5e2cb2fe1d47b3e9214fbc81a70e8f149eeb2c05c2522ae0309dfc7d",
+    "stageProgressHash": "85054484d2e3d79a6106616a1904bd5309df50fe9813c84b64f260f1c7e48e24",
+    "beforeCheckpointHash": "fdab18e48d879de68c772e0195feb26ff03b35358ba477b940a1e9bf6693e3be",
+    "transactionHash": "0cfcae6a15746298821e78aae257e539e3f4a7f89d20c891629522bac31a7ec1",
+    "floorChainHash": "097ceaa6527614bc62059854044e4b5765e76e24af5069407d6fe46366b6b01e",
+    "decisionHash": "c0a7635ff630713690a517fa874cfbc0068fb6b81df4433540d5e521e5c3baa5",
+    "mapVersion": "synthetic-map-v1",
+    "normalizedStateHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "atomicApplyId": "77777777-7777-4777-8777-777777777777",
+    "after": {
+      "manifestHash": "f19d5e3cc3e845031427f65c42609cc9e097cfc8007f16417313ff292d5c23fc",
+      "sequence": 1,
+      "commitHash": "0cfcae6a15746298821e78aae257e539e3f4a7f89d20c891629522bac31a7ec1",
+      "floors": [
+        {
+          "githubId": 7,
+          "profileFloor": 3
+        },
+        {
+          "githubId": 42,
+          "profileFloor": 5
+        }
+      ],
+      "final": true
+    },
+    "hash": "52aacd881da0e76790627ff5e538d5534c60c4c524384a625494edc20c365414"
+  }
+}

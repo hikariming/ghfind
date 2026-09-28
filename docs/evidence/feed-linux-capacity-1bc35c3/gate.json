@@ -1,0 +1,158 @@
+{
+  "cloudflareCapacityProven": false,
+  "format": "ghfind-feed-capacity-gate-v1",
+  "inputs": {
+    "delete.json": {
+      "bytes": 1928,
+      "sha256": "e1b9a02f7e42cd197aacdd28b3ddef8375490ead8f2c5d0d0cc31925c6498912"
+    },
+    "external-resources.jsonl": {
+      "bytes": 1933083,
+      "sha256": "009173cfa942fda25ae4e70cda92eb2ae435a3ac53c02abab6ee2744da925fb0"
+    },
+    "fixture.json": {
+      "bytes": 444,
+      "sha256": "b8eac8c0e362df839b287f55e96e273783a96713439781883e31bd31bee7c306"
+    },
+    "load.json": {
+      "bytes": 2003402,
+      "sha256": "71b897fbed3fd90fca9fef6bf2a4bb19284bf0a7efdca8e143f96cd138c2bea6"
+    }
+  },
+  "issues": [
+    {
+      "check": "load.failureRate",
+      "kind": "threshold",
+      "message": "Failures including admission and transport errors exceed 6 of 6000 offered requests."
+    },
+    {
+      "check": "load.admittedP95Ms",
+      "kind": "threshold",
+      "message": "Recomputed admitted HTTP p95, including transport failures, exceeds 800 ms."
+    }
+  ],
+  "limits": {
+    "admittedP95Ms": 800,
+    "intervalMs": 100,
+    "maximumFailureRate": 0.001,
+    "maximumFailures": 6,
+    "maximumSchedulingLatenessMs": 1000,
+    "minimumDurationSeconds": 600,
+    "minimumValidGoPostgresSeconds": 550,
+    "offered": 6000
+  },
+  "metrics": {
+    "deletion": {
+      "accepted202": true,
+      "adapterReopened": true,
+      "completed": true,
+      "eventsAfter": 0,
+      "eventsBefore": 250000,
+      "recreatedProfileVersion": 2,
+      "s3FailureObserved": true
+    },
+    "externalResources": {
+      "coverage": {
+        "ghfind-feed-capacity-minio-1": {
+          "distinctSeconds": 601,
+          "firstOffsetMs": 1534.697,
+          "lastOffsetMs": 601034.872,
+          "spanSeconds": 599.5001749999999,
+          "validSamples": 2400
+        },
+        "ghfind-feed-capacity-postgres-1": {
+          "distinctSeconds": 601,
+          "firstOffsetMs": 1534.648,
+          "lastOffsetMs": 601034.868,
+          "spanSeconds": 599.50022,
+          "validSamples": 2400
+        },
+        "host-vm": {
+          "distinctSeconds": 602,
+          "firstOffsetMs": 38.858999999999995,
+          "lastOffsetMs": 601261.5469999999,
+          "spanSeconds": 601.2226879999998,
+          "validSamples": 602
+        }
+      },
+      "ignoredNonSampleLines": 1258,
+      "interpretation": "Checks observation coverage only; sampled host/container metrics do not establish CPU, GC, memory, or database causality.",
+      "malformedLines": 0,
+      "observerEndedLines": 0,
+      "outOfWindowLines": 0,
+      "unavailableDockerSamples": {
+        "ghfind-feed-capacity-minio-1": {
+          "count": 0,
+          "firstAt": null,
+          "firstOffsetMs": null,
+          "lastAt": null,
+          "lastOffsetMs": null
+        },
+        "ghfind-feed-capacity-postgres-1": {
+          "count": 0,
+          "firstAt": null,
+          "firstOffsetMs": null,
+          "lastAt": null,
+          "lastOffsetMs": null
+        }
+      }
+    },
+    "load": {
+      "admissionRejected": 1635,
+      "admitted": 4365,
+      "admittedLatencySamples": 4365,
+      "admittedMaxMs": 4933.196,
+      "admittedObservedIntervalP95Ms": 4001.3739999999816,
+      "admittedP50Ms": 2613.409,
+      "admittedP95Ms": 4001.371,
+      "admittedP99Ms": 4483.06,
+      "durationSeconds": 601.391873317,
+      "failureRateOffered": 0.2725,
+      "failures": 1635,
+      "latencyMethod": "Nearest-rank durationMs for all admitted HTTP attempts, including transport errors; concurrency_limit slots excluded.",
+      "loadWindowSeconds": 601.3799083170001,
+      "maximumSchedulingLatenessMs": 9.996999999973923,
+      "offered": 6000,
+      "successful": 4365,
+      "transportErrors": 0,
+      "unexpectedSuccessfulPageSizes": 0
+    },
+    "resources": {
+      "clockComparison": {
+        "coverageClock": "monotonic offsetMs",
+        "interpretation": "Wall/monotonic clock drift is recorded without an equality threshold; its cause is unknown.",
+        "wallMinusMonotonicMsFirst": 0.0,
+        "wallMinusMonotonicMsLast": 0.0,
+        "wallMinusMonotonicMsMax": 0.0010000000474974513,
+        "wallMinusMonotonicMsMin": -0.0009999999892897904
+      },
+      "firstOffsetMs": 1000.475,
+      "gcCountFirst": 13,
+      "gcCountLast": 3553,
+      "gcPauseTotalNsFirst": 799774,
+      "gcPauseTotalNsLast": 485608115,
+      "interpretation": "Observed resource ranges are context only; no CPU, GC, or database causal attribution is established.",
+      "lastOffsetMs": 601000.527,
+      "malformedSamples": 0,
+      "maxGoroutines": 134,
+      "maxHeapBytes": 16287736,
+      "observerErrorSamples": 0,
+      "processCpuSecondsFirst": 0.229528,
+      "processCpuSecondsLast": 145.944978,
+      "totalSamples": 601,
+      "validGoPostgresSamples": 601,
+      "validGoPostgresSeconds": 601
+    },
+    "seedCounts": {
+      "events": 1000000,
+      "project_submission_evidence": 50000,
+      "projects": 50000,
+      "users": 5000
+    }
+  },
+  "monthlyAvailabilityProven": false,
+  "passed": false,
+  "releaseSha": "1bc35c368a5b73a353d3b07234be653ce7cc3ac4",
+  "scope": "Local synthetic finite-run engineering gate; not statistical proof of monthly 99.9% availability or Cloudflare capacity.",
+  "status": "failed"
+}

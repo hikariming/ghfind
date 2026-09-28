@@ -1,0 +1,30 @@
+[
+  {
+    "json": "{\"n\":\"\\ud800\"}",
+    "error": "invalid_unicode"
+  },
+  {
+    "json": "{\"\\udc00\":1}",
+    "error": "invalid_unicode"
+  },
+  {
+    "json": "{\"n\":\"\\ud800\\\\udc00\"}",
+    "error": "invalid_unicode"
+  },
+  {
+    "json": "{\"n\":\"\\ud83d\\ude00\"}",
+    "error": null
+  },
+  {
+    "json": "{\"n\":\"😀\"}",
+    "error": null
+  },
+  {
+    "json": "{\"n\":\"\\\\ud800\"}",
+    "error": null
+  },
+  {
+    "json": "{\"n\":\"\\u2028\"}",
+    "error": null
+  }
+]

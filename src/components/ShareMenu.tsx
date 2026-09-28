@@ -26,7 +26,7 @@ type Platform = { key: string; label: string; color: string; href: (u: string, t
 // Link-based platforms with web share intents. The link is the user's detail
 // page, whose OG image is the flex card — so previews show the card.
 const PLATFORMS: Platform[] = [
-  { key: "x", label: "X", color: "#fff", href: (u, t) => `https://x.com/intent/tweet?text=${t}&url=${u}` },
+  { key: "x", label: "X", color: "var(--foreground)", href: (u, t) => `https://x.com/intent/tweet?text=${t}&url=${u}` },
   { key: "fb", label: "Facebook", color: "#60a5fa", href: (u) => `https://www.facebook.com/sharer/sharer.php?u=${u}` },
   { key: "li", label: "LinkedIn", color: "#38bdf8", href: (u) => `https://www.linkedin.com/sharing/share-offsite/?url=${u}` },
   { key: "wb", label: "微博", color: "#fb7185", href: (u, t) => `https://service.weibo.com/share/share.php?url=${u}&title=${t}` },

@@ -75,8 +75,10 @@ function dispatch(overrides: Partial<Dispatch> = {}): Dispatch {
         service: target === "executor-0" ? "feed-worker" : "feed-api",
         version: env.FEED_RELEASE_SHA,
         contractVersion: "1",
+        storageWriterVersion: 2,
         storeProfile: "cf_d1_r2",
         writerEpoch: 1,
+        mode: env.FEED_MODE,
       }),
     stop: async () => {},
     ...overrides,
@@ -237,6 +239,7 @@ test("stops are staging-only and arbitrary instance identifiers cannot expand ca
         {
           ...env,
           FEED_ENVIRONMENT: "production",
+          FEED_IMAGE_BUILD_ID: "d".repeat(64),
           FEED_QUEUE_NAME: "ghfind-feed-production-jobs",
           FEED_DLQ_NAME: "ghfind-feed-production-dlq",
         },
@@ -804,4 +807,16 @@ test("container storage transports reject cross-role capabilities before binding
     assert.equal((await bridge(request("taxonomy.approve"), bindings)).status, 401);
   }
   assert.equal(calls, 11);
+});
+
+test("off mode retains a schedule but cannot touch adapter, queue or executor even with enabled roles", async () => {
+  const logs: Record<string, unknown>[] = [];
+  const forbidden = async () => { assert.fail("off cron must not perform work"); };
+  await runScheduled(
+    { ...env, FEED_ENVIRONMENT: "production", FEED_MODE: "off" },
+    { source: forbidden, send: forbidden },
+    dispatch({ fetch: forbidden, stop: forbidden, restart: forbidden, probe: forbidden }),
+    (entry, failed) => { assert.equal(failed, false); logs.push(entry); },
+  );
+  assert.deepEqual(logs, [{ event: "feed_scheduled", status: "disabled" }]);
 });

@@ -19,6 +19,8 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -59,12 +61,29 @@ class GitHubDataUnavailableError(Exception):
     pass
 
 
+_token_context: ContextVar[Optional[str]] = ContextVar("github_token", default=None)
+
+
+def _github_token() -> Optional[str]:
+    token = _token_context.get()
+    return token if token is not None else os.environ.get("GITHUB_TOKEN")
+
+
+@contextmanager
+def _with_github_token(token: str):
+    reset_token = _token_context.set(token)
+    try:
+        yield
+    finally:
+        _token_context.reset(reset_token)
+
+
 def _math_round(x: float) -> int:
     return math.floor(x + 0.5)
 
 
 def _auth_headers() -> Dict[str, str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -115,7 +134,7 @@ def _rest_get_opt(path: str) -> Any:
 
 
 def _graphql(query: str, variables: Dict[str, Any]) -> Any:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required.")
     headers = {**_auth_headers(), "Content-Type": "application/json"}
@@ -218,6 +237,20 @@ def _is_likely_placeholder_project(repo: Dict[str, Any], login_lower: str) -> bo
     )
 
 
+# A "notes"/"learning" keyword is weak evidence once a substantive repo has real
+# organic traction (many stars backed by a healthy fork share); mirrors
+# hasOrganicProjectTraction in src/lib/github.ts.
+PLACEHOLDER_TRACTION_MIN_STARS = 500
+PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03
+PLACEHOLDER_TRACTION_MULTIPLIER = 0.75
+
+
+def _has_organic_project_traction(repo: Dict[str, Any]) -> bool:
+    stars = repo.get("stars") or 0
+    forks = repo.get("forks") or 0
+    return stars >= PLACEHOLDER_TRACTION_MIN_STARS and forks >= stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+
+
 def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: datetime) -> float:
     if repo["size"] <= 0:
         return 0
@@ -274,7 +307,10 @@ def original_repo_quality_score(repo: Dict[str, Any], login_lower: str, now: dat
             s += 0.04
 
     if _is_likely_placeholder_project(repo, login_lower):
-        s *= 0.55 if (readme_len >= 600 and repo["size"] >= 200) else 0.25
+        if readme_len >= 600 and repo["size"] >= 200:
+            s *= PLACEHOLDER_TRACTION_MULTIPLIER if _has_organic_project_traction(repo) else 0.55
+        else:
+            s *= 0.25
 
     return _math_round(max(0.0, min(s, 1)) * 100) / 100
 
@@ -751,13 +787,156 @@ def _has_strong_long_term_org_contribution(repo: Dict[str, Any]) -> bool:
     return repo["commits"] >= ORG_ATTRIBUTED_COMMIT_MIN * 2
 
 
+def first_commit_history_after(tip_oid: str, total_count: int) -> Optional[str]:
+    if total_count < 2 or not tip_oid:
+        return None
+    return f"{tip_oid} {total_count - 2}"
+
+
+def parse_github_noreply_login(email: Optional[str]) -> Optional[str]:
+    if not email:
+        return None
+    plus = re.match(r"^(\d+)\+([A-Za-z0-9-]+)@users\.noreply\.github\.com$", email, re.I)
+    if plus:
+        return plus.group(2)
+    plain = re.match(r"^([A-Za-z0-9-]+)@users\.noreply\.github\.com$", email, re.I)
+    return plain.group(1) if plain else None
+
+
+def resolve_first_commit_github_login(
+    author_login: Optional[str] = None,
+    committer_login: Optional[str] = None,
+    author_email: Optional[str] = None,
+    committer_email: Optional[str] = None,
+) -> Dict[str, Optional[str]]:
+    author = (author_login or "").strip() or None
+    if author:
+        return {"login": author, "source": "author.user"}
+    committer = (committer_login or "").strip() or None
+    if committer:
+        return {"login": committer, "source": "committer.user"}
+    from_email = parse_github_noreply_login(author_email) or parse_github_noreply_login(committer_email)
+    if from_email:
+        return {"login": from_email, "source": "noreply-email"}
+    return {"login": None, "source": "none"}
+
+
+_FIRST_COMMIT_META_QUERY = """query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    isFork
+    defaultBranchRef {
+      name
+      target {
+        ... on Commit {
+          oid
+          history(first: 1) { totalCount }
+        }
+      }
+    }
+  }
+}"""
+
+_FIRST_COMMIT_HISTORY_QUERY = """query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 1, after: $after) {
+            nodes {
+              oid
+              url
+              authoredDate
+              messageHeadline
+              author { name email user { login databaseId } }
+              committer { name email user { login databaseId } }
+            }
+          }
+        }
+      }
+    }
+  }
+}"""
+
+
+def _rest_author_login_for_commit(owner: str, name: str, sha: str) -> Optional[str]:
+    commit = _rest_get_opt(f"repos/{owner}/{name}/commits/{sha}")
+    login = ((commit or {}).get("author") or {}).get("login")
+    login = (login or "").strip()
+    return login or None
+
+
+def fetch_default_branch_first_commit(owner: str, name: str) -> Dict[str, Any]:
+    empty = {"login": None, "source": "none", "isFork": False, "oid": None}
+    try:
+        meta = _graphql(_FIRST_COMMIT_META_QUERY, {"owner": owner, "name": name})
+        repository = meta.get("repository")
+        if not repository:
+            return empty
+        target = ((repository.get("defaultBranchRef") or {}).get("target")) or {}
+        total_count = ((target.get("history") or {}).get("totalCount")) or 0
+        if not target.get("oid") or total_count <= 0:
+            return {**empty, "isFork": bool(repository.get("isFork"))}
+        after = first_commit_history_after(target["oid"], total_count)
+        history = _graphql(
+            _FIRST_COMMIT_HISTORY_QUERY, {"owner": owner, "name": name, "after": after}
+        )
+        nodes = (
+            (((history.get("repository") or {}).get("defaultBranchRef") or {}).get("target") or {})
+            .get("history") or {}
+        ).get("nodes") or []
+        commit = nodes[0] if nodes else None
+        if not commit:
+            return {**empty, "isFork": bool(repository.get("isFork"))}
+        author = commit.get("author") or {}
+        committer = commit.get("committer") or {}
+        author_login = ((author.get("user") or {}).get("login"))
+        if not author_login:
+            author_login = _rest_author_login_for_commit(owner, name, commit.get("oid") or "")
+        resolved = resolve_first_commit_github_login(
+            author_login=author_login,
+            committer_login=((committer.get("user") or {}).get("login")),
+            author_email=author.get("email"),
+            committer_email=committer.get("email"),
+        )
+        return {
+            "login": resolved["login"],
+            "source": resolved["source"],
+            "isFork": bool(repository.get("isFork")),
+            "oid": commit.get("oid"),
+        }
+    except GitHubRateLimitError:
+        raise
+    except Exception:
+        return empty
+
+
+def _is_public_org_member(owner_login: str, organizations: List[str]) -> bool:
+    owner = owner_login.lower()
+    return any(organization.lower() == owner for organization in organizations)
+
+
+def _is_org_owned_long_term_candidate(repo: Dict[str, Any], login_lower: str) -> bool:
+    if repo["is_private"] or repo["is_fork"]:
+        return False
+    if repo["owner_login"].lower() == login_lower:
+        return False
+    if _is_doc_like_repo(repo["repo"]):
+        return False
+    return _has_strong_long_term_org_contribution(repo)
+
+
 def compute_org_repo_attribution(
     repo: Dict[str, Any], organizations: List[str], pinned_repos: Optional[List[str]] = None,
     release_or_tag_author_hit: bool = False, maintainer_file_hit: bool = False,
+    scored_login: Optional[str] = None, first_commit_login: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     owner = repo["owner_login"].lower()
     orgs = {o.lower() for o in organizations}
-    if owner not in orgs:
+    member = owner in orgs
+    scored = (scored_login or "").strip().lower()
+    first_login = (first_commit_login or "").strip().lower()
+    first_commit_match = len(scored) > 0 and first_login == scored
+    if not member and not first_commit_match:
         return None
     if repo["is_private"] or repo["is_fork"]:
         return None
@@ -766,7 +945,7 @@ def compute_org_repo_attribution(
     if not _has_strong_long_term_org_contribution(repo):
         return None
     evidence = [
-        f"org member of {repo['owner_login']}",
+        f"org member of {repo['owner_login']}" if member else f"first commit author is {first_commit_login}",
         f"{repo['commits']} commits + {repo['prs']} PRs across {repo['active_years']} years",
     ]
     score = 1 + 4
@@ -867,7 +1046,7 @@ def prestige_work_multiplier(commits: int, prs: int) -> float:
 # --- async-equivalent fetchers ---------------------------------------------
 
 def _fetch_organizations(username: str) -> List[str]:
-    token = os.environ.get("GITHUB_TOKEN")
+    token = _github_token()
     if not token:
         return []
     query = ("query($login: String!) { user(login: $login) { "
@@ -1012,14 +1191,16 @@ def _collect_attributed_original_repos(
     contrib_repos: List[Dict[str, Any]], organizations: List[str],
     pinned_repos: List[str], login_lower: str, profile_url: Optional[str],
 ) -> List[Dict[str, Any]]:
-    if len(organizations) == 0:
-        return []
-    candidates = [
-        r for r in contrib_repos
-        if compute_org_repo_attribution(r, organizations, pinned_repos)
+    structural = [
+        r for r in contrib_repos if _is_org_owned_long_term_candidate(r, login_lower)
     ]
-    candidates.sort(key=lambda r: (r["stars"], r["commits"] + r["prs"]), reverse=True)
-    candidates = candidates[:8]
+    if len(structural) == 0:
+        return []
+    candidates = sorted(
+        structural,
+        key=lambda r: (r["stars"], r["commits"] + r["prs"]),
+        reverse=True,
+    )[:8]
 
     out = []
     for candidate in candidates:
@@ -1032,10 +1213,19 @@ def _collect_attributed_original_repos(
             continue
         if _is_doc_like_repo(candidate["repo"]) or _has_doc_like_topic(detail):
             continue
+        member = _is_public_org_member(owner, organizations)
+        first_commit_login = None
+        if not member:
+            first = fetch_default_branch_first_commit(owner, name)
+            login = (first.get("login") or "")
+            if first.get("isFork") or not login or login.lower() != login_lower:
+                continue
+            first_commit_login = first["login"]
         release_hit = _has_release_or_tag_author(owner, name, login_lower)
         maintainer_hit = _has_maintainer_file_hit(owner, name, login_lower, profile_url)
         attribution = compute_org_repo_attribution(
-            candidate, organizations, pinned_repos, release_hit, maintainer_hit
+            candidate, organizations, pinned_repos, release_hit, maintainer_hit,
+            login_lower, first_commit_login,
         )
         if not attribution:
             continue
@@ -1075,7 +1265,7 @@ _CONTRIB_QUERY = """query($login: String!) {
 
 
 def collect(username: str) -> Dict[str, Any]:
-    if not os.environ.get("GITHUB_TOKEN"):
+    if not _github_token():
         raise GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.")
 
     now = datetime.now(timezone.utc)

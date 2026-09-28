@@ -1,0 +1,21 @@
+{
+  "format": "ghfind-staging-resource-readback-v1",
+  "accountId": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "resource": "r2_bucket",
+  "name": "ghfind-feed-staging-web-cache",
+  "created": "2026-09-09T03:49:45.259Z",
+  "location": "APAC",
+  "defaultStorageClass": "Standard",
+  "objectCount": 0,
+  "bucketSizeBytes": 0,
+  "publicR2DevEnabled": false,
+  "beforeCreate": { "code": 10006, "message": "The specified bucket does not exist." },
+  "commands": [
+    "wrangler r2 bucket info ghfind-feed-staging-web-cache --json",
+    "wrangler r2 bucket create ghfind-feed-staging-web-cache --location apac --storage-class Standard --update-config=false",
+    "wrangler r2 bucket info ghfind-feed-staging-web-cache --json",
+    "wrangler r2 bucket dev-url get ghfind-feed-staging-web-cache"
+  ],
+  "wranglerVersion": "4.118.0",
+  "scope": "Empty staging cache only; no Worker, Container, schema, consumer or traffic change. This is not a business E2E receipt."
+}

@@ -12,16 +12,16 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("records the v9/v10/v4 to v10/v10/v4 scoring release", () => {
+  it("advances only the roast version for pronoun-aware wording", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
-      score: "v9",
+      score: "v10",
       roast: "v10",
-      collection: "v4",
+      collection: "v5",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
       score: "v10",
-      roast: "v10",
-      collection: "v4",
+      roast: "v11",
+      collection: "v5",
     });
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
@@ -31,7 +31,7 @@ describe("release version contract", () => {
       RELEASE_VERSION_MANIFEST.previousRelease,
     );
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v10", roast: "v10" },
+      { score: "v10", roast: "v11" },
     ]);
     expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v10"]);
   });
@@ -54,14 +54,16 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("keeps the unchanged v4 collection in one canonical read slot", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v4"]);
+  it("keeps collection v5 unchanged for a wording-only release", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v5"]);
   });
 
   it("includes the previous collection only after a collection-version change", () => {
     const manifest = manifestCopy();
-    manifest.targetRelease.collection = "v5";
-    manifest.compatibility.collectionReadOrder = ["v5", "v4"];
+    manifest.previousRelease = { ...manifest.targetRelease };
+    manifest.targetRelease = { ...manifest.targetRelease, collection: "v6" };
+    manifest.legacyReadFallback = { ...manifest.previousRelease };
+    manifest.compatibility.collectionReadOrder = ["v6", "v5"];
 
     expect(
       releaseVersionErrors(manifest, { ...manifest.targetRelease }),

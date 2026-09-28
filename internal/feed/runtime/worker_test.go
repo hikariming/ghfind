@@ -65,6 +65,17 @@ func TestCFWorkerReadinessIncludesArchiveBinding(t *testing.T) {
 		if recorder.Header().Get("Cache-Control") != "no-store" {
 			t.Fatal("health caching must remain disabled")
 		}
+		var identity struct {
+			Version              string `json:"version"`
+			ContractVersion      string `json:"contractVersion"`
+			StorageWriterVersion int    `json:"storageWriterVersion"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &identity); err != nil {
+			t.Fatal(err)
+		}
+		if identity.Version != "readiness-contract-test" || identity.ContractVersion != "1" || identity.StorageWriterVersion != 2 {
+			t.Fatalf("missing distinct runtime/HTTP/storage writer identity on %s status %d: %+v", path, status, identity)
+		}
 	}
 	probe("/readyz", http.StatusOK)
 	archiveDown.Store(true)

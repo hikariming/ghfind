@@ -1,0 +1,18 @@
+{
+  "cleanedAt": "2026-09-08T16:47:14.589261+00:00",
+  "scope": "Only ghfind-feed-capacity compose project, loopback ports 55441/59002, exclusive capacity_data volume",
+  "containersRemoved": {
+    "ghfind-feed-capacity-postgres-1": true,
+    "ghfind-feed-capacity-minio-1": true
+  },
+  "volumeRemoved": true,
+  "networkRemoved": true,
+  "loadSha256AfterCleanup": "5980f917e6c063dc698fded9b3bd6586f058d1f3e2950569d6434a0592201227",
+  "otherContainersPreserved": [
+    "ghfind-feed-api-compatible",
+    "ghfind-feed-api-contract",
+    "ghfind-feed-crossprofile-pg",
+    "ghfind-feed-contract-minio-1",
+    "ghfind-portable-feed-pg-contract"
+  ]
+}

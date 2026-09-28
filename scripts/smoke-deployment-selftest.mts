@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -12,11 +13,35 @@ function writeText(response: http.ServerResponse, status: number, body: string, 
   response.end(body);
 }
 
-function startFixtureServer(): Promise<{ origin: string; close: () => Promise<void> }> {
+type FeedMode = "valid" | "anonymous_allowed" | "forged_allowed" | "cached_rejection" | "wrong_error" | "redirected_rejection";
+function startFixtureServer(mode: FeedMode = "valid"): Promise<{ origin: string; feedRequests: boolean[]; close: () => Promise<void> }> {
+  const feedRequests: boolean[] = [];
   const server = http.createServer((request, response) => {
     const host = request.headers.host ?? "127.0.0.1";
     const url = new URL(request.url ?? "/", `http://${host}`);
     const origin = `http://${host}`;
+    if (request.method === "GET" && url.pathname === "/api/feed/projects") {
+      assert.equal(url.search, "?limit=1");
+      assert.equal(request.headers.cookie, undefined);
+      assert.equal(request.headers.authorization, undefined);
+      const forged = request.headers["x-feed-gateway"] !== undefined;
+      feedRequests.push(forged);
+      if (forged) {
+        assert.equal(request.headers["x-feed-gateway"], "forged.invalid.signature");
+        assert.equal(request.headers["x-github-id"], "109743670");
+        assert.equal(request.headers["x-github-login"], "asperformias");
+      }
+      if (mode === "redirected_rejection") {
+        response.writeHead(302, { location: "/fixture-login" }); response.end(); return;
+      }
+      const status = (mode === "anonymous_allowed" && !forged) || (mode === "forged_allowed" && forged) ? 200 : 401;
+      writeJSON(response, status, { error: mode === "wrong_error" ? "unrelated_failure" : "authentication_required" },
+        { "cache-control": mode === "cached_rejection" ? "public, max-age=60" : "no-store" });
+      return;
+    }
+    if (url.pathname === "/fixture-login") {
+      writeJSON(response, 401, { error: "authentication_required" }, { "cache-control": "no-store" }); return;
+    }
     if (request.method === "GET" && url.pathname === "/u/octocat") {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       response.end("<html>octocat</html>");
@@ -105,6 +130,7 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
       const address = server.address() as AddressInfo;
       resolve({
         origin: `http://127.0.0.1:${address.port}`,
+        feedRequests,
         close: () =>
           new Promise<void>((closeResolve, closeReject) => {
             server.close((error) => (error ? closeReject(error) : closeResolve()));
@@ -114,15 +140,16 @@ function startFixtureServer(): Promise<{ origin: string; close: () => Promise<vo
   });
 }
 
-async function runSmoke(origin: string): Promise<void> {
+async function runSmoke(origin: string, failure?: RegExp): Promise<void> {
   const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
   const child = spawn(command, ["smoke:deployment"], {
     cwd: process.cwd(),
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       SMOKE_ALLOW_HTTP: "1",
       SMOKE_BASE_URL: origin,
+      SMOKE_EXPECTED_ORIGIN: origin,
       SMOKE_CANARY_HANDLE: "octocat",
       SMOKE_FACET_TYPE: "language",
       SMOKE_FACET_VALUE: "TypeScript",
@@ -135,21 +162,36 @@ async function runSmoke(origin: string): Promise<void> {
     },
   });
 
+  let output = "";
+  child.stdout?.on("data", chunk => { output += String(chunk); });
+  child.stderr?.on("data", chunk => { output += String(chunk); });
   await new Promise<void>((resolve, reject) => {
     child.once("error", reject);
     child.once("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`deployment smoke self-test exited with ${code ?? "unknown"}`));
+      try {
+        if (failure) { assert.notEqual(code, 0); assert.match(output, failure); }
+        else { assert.equal(code, 0, output); assert.match(output, /PASS deployment smoke/); }
+        resolve();
+      } catch (error) { reject(error); }
     });
   });
 }
 
 async function main(): Promise<void> {
-  const fixture = await startFixtureServer();
-  try {
-    await runSmoke(fixture.origin);
-  } finally {
-    await fixture.close();
+  const cases: [FeedMode, RegExp?][] = [
+    ["valid"], ["anonymous_allowed", /anonymous Feed rejection returned 200/],
+    ["forged_allowed", /forged Feed identity rejection returned 200/],
+    ["cached_rejection", /Feed authentication rejection contract differs/],
+    ["wrong_error", /Feed authentication rejection contract differs/],
+    ["redirected_rejection", /anonymous Feed rejection returned 302/],
+  ];
+  for (const [mode, failure] of cases) {
+    const fixture = await startFixtureServer(mode);
+    try {
+      await runSmoke(fixture.origin, failure);
+      assert.deepEqual(fixture.feedRequests, ["valid", "forged_allowed"].includes(mode) ? [false, true] : [false]);
+      console.log(`PASS deployment smoke self-test ${mode}`);
+    } finally { await fixture.close(); }
   }
 }
 

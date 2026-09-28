@@ -5,6 +5,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
+  logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getAccountDetail: vi.fn(),
@@ -29,11 +30,13 @@ vi.mock("@/lib/rank", () => ({
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
   coalesceScan: mocks.coalesceScan,
+  getCachedScoreDetail: (_handle: string, load: () => unknown) => load(),
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
 vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
+  logFreshScanFailure: mocks.logFreshScanFailure,
   scanErrorResponse: mocks.scanErrorResponse,
 }));
 
@@ -131,6 +134,9 @@ describe("GET /api/score immediate quick contract", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
+      route: "score", username: "fixture-user", persistenceFailure: false,
+    });
     await expect(response.json()).resolves.toMatchObject({
       source: "legacy_v5_v5_v3",
       coverage: "legacy",

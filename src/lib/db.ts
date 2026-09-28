@@ -45,6 +45,7 @@ import {
 import { computeTrendingScore, rankTrending } from "./hotness";
 import { VS_MIN_SCORE } from "./site";
 import {
+  advanceScoreDetailRevision,
   bumpCampaignLeaderboardRevision,
   clearCachedReactionCounts,
   getCachedReactionCounts,
@@ -112,6 +113,14 @@ const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
  */
 function canonicalPublicScorePredicate(alias: string): string {
   return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
+}
+
+function isTargetReleaseScoreRow(row: Record<string, unknown>): boolean {
+  return (
+    row.score_version === SCORE_CACHE_VERSION &&
+    (row.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION ||
+      row.collection_version === PUBLIC_SCAN_COLLECTION_VERSION)
+  );
 }
 
 function isLegacyReadFallbackScore(row: Record<string, unknown>): boolean {
@@ -437,7 +446,7 @@ function getClient(): Client | null {
   if (!url) return null;
   client = createClient({
     url,
-    authToken: process.env.TURSO_AUTH_TOKEN, // omit for local file: URLs
+    authToken: process.env.TURSO_AUTH_TOKEN, // omit for local HTTP servers without auth
   });
   return client;
 }
@@ -889,6 +898,18 @@ function ensureSchema(db: Client): Promise<void> {
              PRIMARY KEY (follower_github_id, target_username)
            )`,
           `CREATE INDEX IF NOT EXISTS idx_follows_target ON follows(target_username)`,
+          // Cloud copy of a signed-in user's résumé library (the localStorage
+          // payload from lib/resume.ts, validated against librarySchema before
+          // writes). Keyed by GitHub numeric id like follows so renames don't
+          // orphan data; one JSON blob per user keeps sync a simple
+          // last-write-wins replace. Payload size is capped at the API layer
+          // (photos are the only bulky field).
+          `CREATE TABLE IF NOT EXISTS user_resume_libraries (
+             github_id  INTEGER PRIMARY KEY,
+             login      TEXT NOT NULL,
+             data       TEXT NOT NULL,
+             updated_at INTEGER NOT NULL
+           )`,
           // Repositories as first-class entities — the normalized project layer
           // derived from profile_snapshots (top_repos + impact_repos) by
           // lib/repo-graph.ts. Promotes repos out of the per-scan JSON blobs so
@@ -1166,6 +1187,12 @@ function isCanonicalSnapshotHash(value: unknown): value is string {
  * `getLegacyReadFallbackScan` will refuse to claim a complete scan.
  */
 async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Promise<void> {
+  // A wording-only release shares its score/collection tuple with its predecessor.
+  // Only an actual previous-version report identifies a historical artifact;
+  // otherwise a newly generated report could be captured as its own fallback.
+  const roastOnlyRelease =
+    LEGACY_READ_FALLBACK.score === SCORE_CACHE_VERSION &&
+    LEGACY_READ_FALLBACK.collection === PUBLIC_SCAN_COLLECTION_VERSION;
   await db.execute({
     sql: `INSERT OR IGNORE INTO score_release_fallbacks
             (username, score_version, collection_version, display_name, avatar_url,
@@ -1197,7 +1224,8 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
           WHERE s.username = ?
             AND s.hidden = 0
             AND s.score_version = ?
-            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)`,
+            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)
+            ${roastOnlyRelease ? "AND (s.roast_version = ? OR s.roast_en_version = ?)" : ""}`,
     args: [
       LEGACY_READ_FALLBACK.collection,
       Date.now(),
@@ -1206,6 +1234,7 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
       username,
       LEGACY_READ_FALLBACK.score,
       LEGACY_READ_FALLBACK.collection,
+      ...(roastOnlyRelease ? [LEGACY_READ_FALLBACK.roast, LEGACY_READ_FALLBACK.roast] : []),
     ],
   });
 }
@@ -1753,6 +1782,7 @@ export async function publishCompleteQuickScan(
         scannedAt,
       ],
     });
+    await advanceScoreDetailRevision(materialized.scoreEntry.username);
     await recordProfileSnapshot(materialized.scan);
     return scoreWrite.identity;
   } catch (error) {
@@ -6143,11 +6173,10 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       args: [username.toLowerCase()],
     });
     const currentRow = (res.rows[0] as Record<string, unknown> | undefined) ?? null;
-    const currentScore = currentRow?.score_version === SCORE_CACHE_VERSION;
+    const currentScore = Boolean(currentRow && isTargetReleaseScoreRow(currentRow));
     const canonicalScore =
       currentScore &&
-      currentRow?.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
-      typeof currentRow.score_source_snapshot_hash === "string" &&
+      typeof currentRow?.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(currentRow.score_source_snapshot_hash);
     // A broken/incomplete target-version row must not hide the last verified
     // release during an incident. A canonical v10 row always wins; otherwise
@@ -6157,7 +6186,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : await getLegacyReadFallbackRow(db, username);
     const r = fallbackRow ?? currentRow;
     if (!r) return null;
-    const resolvedCurrentScore = r.score_version === SCORE_CACHE_VERSION;
+    const resolvedCurrentScore = !fallbackRow && isTargetReleaseScoreRow(r);
     const legacyReadFallback =
       !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
     const readableArtifacts = resolvedCurrentScore || legacyReadFallback;
@@ -7231,4 +7260,35 @@ export async function listFollowedAccounts(
     console.error("listFollowedAccounts failed:", e);
     return null;
   }
+}
+
+/** Null is an empty library; undefined is an unavailable database. */
+export async function getResumeLibrary(githubId: number): Promise<{ data: string; updatedAt: number } | null | undefined> {
+  const db = getClient();
+  if (!db || !validGithubId(githubId)) return undefined;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({ sql: `SELECT data, updated_at FROM user_resume_libraries WHERE github_id = ?`, args: [githubId] });
+    const row = res.rows[0];
+    return row ? { data: String(row.data), updatedAt: Number(row.updated_at) } : null;
+  } catch { return undefined; }
+}
+
+/** Atomically compare the read snapshot before writing; never erase a concurrent save. */
+export async function saveResumeLibrary(githubId: number, login: string, data: string, expectedData: string | null): Promise<"saved" | "conflict" | "unavailable"> {
+  const db = getClient();
+  if (!db || !validGithubId(githubId) || !login) return "unavailable";
+  try {
+    await ensureSchema(db);
+    const result = expectedData === null
+      ? await db.execute({
+          sql: `INSERT INTO user_resume_libraries (github_id, login, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(github_id) DO NOTHING`,
+          args: [githubId, login, data, Date.now()],
+        })
+      : await db.execute({
+          sql: `UPDATE user_resume_libraries SET login = ?, data = ?, updated_at = ? WHERE github_id = ? AND data = ?`,
+          args: [login, data, Date.now(), githubId, expectedData],
+        });
+    return result.rowsAffected === 1 ? "saved" : "conflict";
+  } catch { return "unavailable"; }
 }

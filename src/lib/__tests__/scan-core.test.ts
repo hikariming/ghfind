@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildPublicSignatureWork, buildRecentSignatureWork } from "../scan-core";
+import { describe, expect, it, vi } from "vitest";
+import { buildPublicSignatureWork, buildRecentSignatureWork, logFreshScanFailure, scanErrorResponse } from "../scan-core";
 import type { PublicScanPrFact } from "../scan-run-types";
 import type { ScanResult } from "../types";
 
@@ -149,5 +149,38 @@ describe("buildRecentSignatureWork", () => {
       "fix: citations prompt",
       "Experimental",
     ]);
+  });
+});
+
+
+describe("safe scan failure diagnostics", () => {
+  it("logs a static GitHub category without upstream messages or tokens", async () => {
+    const { GitHubInternalQueryError, GitHubResourceLimitError, GitHubQueryTimeoutError } = await import("../github");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      for (const [ErrorType, category] of [
+        [GitHubInternalQueryError, "github_internal"],
+        [GitHubResourceLimitError, "github_resource_limit"],
+        [GitHubQueryTimeoutError, "github_query_timeout"],
+      ] as const) {
+        logFreshScanFailure(new ErrorType("secret Authorization: Bearer ghp_test"), {
+          route: "scan", username: "Cyrene2008", persistenceFailure: false,
+        });
+        expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+          route: "scan", username: "Cyrene2008", category,
+        });
+      }
+      logFreshScanFailure(new Error("secret upstream body"), {
+        route: "score", username: "invalid\nsecret", persistenceFailure: true,
+      });
+      expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+        route: "score", username: "invalid", category: "score_persistence",
+      });
+      scanErrorResponse(new Error("secret upstream body"));
+      expect(JSON.stringify(log.mock.calls)).not.toContain("secret");
+      expect(JSON.stringify(log.mock.calls)).not.toContain("ghp_test");
+    } finally {
+      log.mockRestore();
+    }
   });
 });

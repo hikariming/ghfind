@@ -46,14 +46,6 @@ SMOKE_EXPECTED_ORIGIN=https://dev.ghfind.com
 
 `SMOKE_EXPECTED_ORIGIN` defaults to the `SMOKE_BASE_URL` origin when unset.
 
-If the production Vercel project has Deployment Protection, configure its
-Protection Bypass for Automation secret. The main deployment gate downloads
-the production system environment for the smoke command with `vercel env run`
-and supplies
-`VERCEL_AUTOMATION_BYPASS_SECRET` only as
-`x-vercel-protection-bypass` on requests to the Vercel origin. It is never sent
-to direct Railway API/worker origins. A missing secret fails the production
-smoke instead of treating Vercel's challenge response as an application error.
 
 Run `pnpm smoke:deployment`. The script checks the profile, deterministic score
 API, badge SVG, autocomplete, score leaderboard,

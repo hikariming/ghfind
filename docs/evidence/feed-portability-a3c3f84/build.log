@@ -1,0 +1,55 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.feed
+#1 transferring dockerfile: 1.29kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#2 DONE 1.9s
+
+#3 [build 1/8] FROM docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#3 resolve docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 460.79kB 0.0s done
+#4 DONE 0.0s
+
+#5 [build 2/8] WORKDIR /src
+#5 CACHED
+
+#6 [build 3/8] COPY go.mod go.sum ./
+#6 CACHED
+
+#7 [build 4/8] RUN go mod download
+#7 CACHED
+
+#8 [build 5/8] COPY internal ./internal
+#8 DONE 0.2s
+
+#9 [build 6/8] COPY cmd/feed-api ./cmd/feed-api
+#9 DONE 0.0s
+
+#10 [build 7/8] COPY cmd/feed-worker ./cmd/feed-worker
+#10 DONE 0.0s
+
+#11 [build 8/8] RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e" -o /out/feed-api ./cmd/feed-api &&     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e" -o /out/feed-worker ./cmd/feed-worker
+#11 DONE 41.1s
+
+#12 [runtime 1/2] COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+#12 CACHED
+
+#13 [runtime 2/2] COPY --from=build /out/feed-api /out/feed-worker /usr/local/bin/
+#13 DONE 0.1s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 0.7s done
+#14 exporting manifest sha256:954988b5cfe3f732ce90e3aa382d91c5838698bba719efd70960b49acf4bad1a done
+#14 exporting config sha256:f0a9123eb802f509f0237f3cb74289baff35d2985df584ef19151b8f576db65f 0.0s done
+#14 exporting attestation manifest sha256:84a4c259770918259f4f3bc75e5059e74e15c2196aaf41a4d4e04242656594ec done
+#14 exporting manifest list sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f done
+#14 naming to docker.io/library/ghfind-feed-portability:a3c3f84 done
+#14 DONE 0.7s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/agl9zaxqiugcfx8uo83ghdv2q

@@ -15,26 +15,23 @@ const SHOW_DELAY_MS = 4000;
 const EXIT_MS = 300;
 
 /**
- * Subtle GitHub-login nudge for signed-out visitors. Mounted from the layout
- * only when OAuth is configured and there is no session, so this component never
- * has to know about auth — it just owns the timing, the slide animation, and the
- * "don't nag me again" snooze. Sits at the top-right (just under the sticky
- * navbar) on desktop, full-width under the navbar on mobile, sliding down into
- * view. The outer card has a dedicated theme hook so its translucent panel can
- * stay dark in dark mode and become a real light surface in light mode.
- *
- * Sign-in redirects to Go's GitHub OAuth entrypoint. Visibility
- * is self-contained: `configured` gates OAuth availability, and we probe `/api/me`
- * so the nudge never shows to an already-signed-in visitor — the layout no longer
- * reads the session server-side (that would opt every page out of CDN caching).
+ * Subtle GitHub-login nudge for signed-out visitors. Visibility is decided
+ * entirely at runtime from the shared /api/me probe: `oauth === false` means
+ * this deployment can't run the flow (kill switch or missing secrets), and a
+ * session means the visitor already signed in. No server prop — a build-time
+ * answer would get baked into prerendered HTML, and local/preview builds
+ * usually lack the OAuth secrets. The component just owns the timing, the
+ * slide animation, and the "don't nag me again" snooze. Sits at the top-right
+ * on desktop, full-width on mobile, sliding down into view. The outer card has
+ * a dedicated theme hook so its translucent panel can stay dark in dark mode
+ * and become a real light surface in light mode.
  */
-export function LoginNudge({ configured }: { configured: boolean }) {
+export function LoginNudge() {
   const t = useTranslations("loginNudge");
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!configured) return;
     try {
       const raw = localStorage.getItem(DISMISS_KEY);
       if (raw) {
@@ -46,11 +43,12 @@ export function LoginNudge({ configured }: { configured: boolean }) {
     }
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // Only nudge signed-out visitors; skip the prompt once a session exists.
-    // fetchMe shares the navbar's probe (one /api/me per pageview) and resolves
-    // signed-out on failure — signed-out is the norm, so we nudge either way.
+    // Only nudge when OAuth is actually offered and no session exists.
+    // fetchMe shares the shell's probe (one /api/me per pageview) and resolves
+    // signed-out-but-configured on failure — signed-out is the norm, so we
+    // nudge either way.
     fetchMe().then((d) => {
-      if (!alive || d.user) return;
+      if (!alive || d.user || d.oauth === false) return;
       timer = setTimeout(() => {
         setMounted(true);
         // Two frames so the initial (hidden) styles paint before we flip to visible.
@@ -61,7 +59,7 @@ export function LoginNudge({ configured }: { configured: boolean }) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [configured]);
+  }, []);
 
   const dismiss = () => {
     try {

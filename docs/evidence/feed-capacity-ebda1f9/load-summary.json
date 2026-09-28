@@ -1,0 +1,402 @@
+{
+  "loadStartedAt": "2026-09-08T05:45:28.629964Z",
+  "baseline": "ebda1f9d43c4092ec038f2513ef0be32f6d0a80f",
+  "scope": "local PostgreSQL synthetic capacity; signed gateway fixture is NOT real OAuth or Cloudflare evidence",
+  "phase": "load",
+  "startedAt": "2026-09-08T05:45:28.612065Z",
+  "durationSeconds": 608.405472,
+  "Scheduled": 6000,
+  "Completed": 6000,
+  "Successful": 5912,
+  "ErrorRate": 0.014666666666666666,
+  "P50MS": 97.295,
+  "P95MS": 134.655,
+  "P99MS": 2344.481,
+  "MaxMS": 5113.205,
+  "GoVersion": "go1.26.1",
+  "CPUSeconds": 150.302444,
+  "MaxHeapBytes": 7455688,
+  "MaxRSSBytes": 47480832,
+  "pgDockerStats": [
+    {
+      "BlockIO": "28.3MB / 4.37GB",
+      "CPUPerc": "67.15%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "18.09%",
+      "MemUsage": "370.6MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "149MB / 53.7MB",
+      "PIDs": "10",
+      "sampledAt": "2026-09-08T05:46:00.591657Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.41GB",
+      "CPUPerc": "70.53%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.83%",
+      "MemUsage": "426.7MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "286MB / 103MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:46:29.975886Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.48GB",
+      "CPUPerc": "62.10%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.86%",
+      "MemUsage": "427.3MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "427MB / 154MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:47:00.150831Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.53GB",
+      "CPUPerc": "63.46%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.87%",
+      "MemUsage": "427.5MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "567MB / 205MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:47:30.256051Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.57GB",
+      "CPUPerc": "62.23%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.92%",
+      "MemUsage": "428.4MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "708MB / 256MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:48:00.377057Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.62GB",
+      "CPUPerc": "69.87%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.94%",
+      "MemUsage": "428.8MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "848MB / 306MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:48:30.512886Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.68GB",
+      "CPUPerc": "64.32%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.11%",
+      "MemUsage": "432.4MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "989MB / 357MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:49:00.624897Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.73GB",
+      "CPUPerc": "62.20%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.09%",
+      "MemUsage": "431.9MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.12GB / 406MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:49:29.724784Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.77GB",
+      "CPUPerc": "62.84%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.12%",
+      "MemUsage": "432.5MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.27GB / 457MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:49:59.864147Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.81GB",
+      "CPUPerc": "66.27%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.10%",
+      "MemUsage": "432.2MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.41GB / 508MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:50:29.99832Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.86GB",
+      "CPUPerc": "64.32%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.09%",
+      "MemUsage": "431.9MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.55GB / 559MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:51:00.139307Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.91GB",
+      "CPUPerc": "66.13%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "20.58%",
+      "MemUsage": "421.5MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.69GB / 609MB",
+      "PIDs": "14",
+      "sampledAt": "2026-09-08T05:51:30.260126Z"
+    },
+    {
+      "BlockIO": "28.3MB / 4.96GB",
+      "CPUPerc": "60.79%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "17.93%",
+      "MemUsage": "367.3MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.83GB / 660MB",
+      "PIDs": "9",
+      "sampledAt": "2026-09-08T05:52:00.407188Z"
+    },
+    {
+      "BlockIO": "28.3MB / 5.01GB",
+      "CPUPerc": "62.06%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "17.96%",
+      "MemUsage": "367.8MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "1.97GB / 711MB",
+      "PIDs": "9",
+      "sampledAt": "2026-09-08T05:52:30.521296Z"
+    },
+    {
+      "BlockIO": "28.3MB / 5.09GB",
+      "CPUPerc": "68.90%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "18.03%",
+      "MemUsage": "369.4MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "2.11GB / 762MB",
+      "PIDs": "9",
+      "sampledAt": "2026-09-08T05:53:00.67228Z"
+    },
+    {
+      "BlockIO": "28.4MB / 5.14GB",
+      "CPUPerc": "65.60%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.55%",
+      "MemUsage": "441.4MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "2.24GB / 810MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:53:29.872329Z"
+    },
+    {
+      "BlockIO": "33.9MB / 5.18GB",
+      "CPUPerc": "69.80%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.64%",
+      "MemUsage": "443.1MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "2.38GB / 861MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:54:00.015839Z"
+    },
+    {
+      "BlockIO": "34MB / 5.23GB",
+      "CPUPerc": "63.59%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.67%",
+      "MemUsage": "443.8MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "2.52GB / 911MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:54:30.137218Z"
+    },
+    {
+      "BlockIO": "34MB / 5.28GB",
+      "CPUPerc": "63.32%",
+      "Container": "ghfind-feed-capacity-postgres-1",
+      "ID": "6833f7cc99e5",
+      "MemPerc": "21.70%",
+      "MemUsage": "444.4MiB / 2GiB",
+      "Name": "ghfind-feed-capacity-postgres-1",
+      "NetIO": "2.66GB / 962MB",
+      "PIDs": "15",
+      "sampledAt": "2026-09-08T05:55:00.244103Z"
+    }
+  ],
+  "candidateCounts": [
+    {
+      "requests": 5912,
+      "candidate_counts": {
+        "tag": 80,
+        "latest": 40,
+        "quality": 20,
+        "discovery": 20
+      }
+    }
+  ],
+  "counts": {
+    "databaseBytes": 1004467891,
+    "events": 1000000,
+    "project_submission_evidence": 50000,
+    "project_tags": 100000,
+    "projects": 50000,
+    "requests": 10912,
+    "served_items": 168240,
+    "users": 5000
+  },
+  "httpLatencyMs": {
+    "p50": 97.327,
+    "p95": 129.821,
+    "p99": 2054.024,
+    "max": 4150.713
+  },
+  "admittedLatencyMs": {
+    "p50": 97.346,
+    "p95": 136.707,
+    "p99": 2344.481,
+    "max": 5113.205
+  },
+  "lastResponseAt": "2026-09-08T05:55:29.223880+00:00",
+  "lastDispatchAt": "2026-09-08T05:55:29.131258+00:00",
+  "observedLoadWindowSeconds": 600.5939159999999,
+  "loadReportSha256": "5980f917e6c063dc698fded9b3bd6586f058d1f3e2950569d6434a0592201227",
+  "latencyDefinition": "Sort actual HTTP-response durations; floor(n*p) zero-based index. Admission rejections remain errors, with no HTTP latency. admittedLatencyMs also includes transport failures. Original capitalized PxxMS fields include both zero-duration rejections and timed transport failures and are not the success-only percentile.",
+  "responseCounts": {
+    "200": 5912,
+    "0": 88
+  },
+  "errorCounts": {
+    "": 5912,
+    "concurrency_limit": 69,
+    "transport_error": 19
+  },
+  "itemCounts": {
+    "20": 5912
+  },
+  "arrivalLagMs": {
+    "p50": 0.6199999999953434,
+    "p95": 1.367000000027474,
+    "p99": 501.2530000000261,
+    "max": 587.8349999999627
+  },
+  "resourceSummary": {
+    "samples": 600,
+    "sampleDurationMs": {
+      "p50": 0.669,
+      "p95": 9.747,
+      "p99": 255.526,
+      "max": 983.206
+    },
+    "maxSampleGapMs": 1118.1460000000661,
+    "observerErrors": {
+      "": 598,
+      "postgres_observer_timeout_or_error": 2
+    },
+    "maxGoroutines": 140,
+    "maxHeapBytes": 18049104,
+    "gcCountDelta": 9535,
+    "gcPauseDeltaMs": 712.133117,
+    "maxSampledGCPauseDeltaMs": 30.063375,
+    "maxUngrantedLocks": 0
+  },
+  "flaggedObservationCounts": {
+    "httpAbove800ms": 113,
+    "nonSuccess": 88,
+    "clusters": 6
+  },
+  "dockerStreamingSummary": {
+    "ghfind-feed-capacity-minio-1": {
+      "samples": 1186,
+      "cpuUnavailableSamples": 1,
+      "cpuPercent": {
+        "p50": 0.02,
+        "p95": 0.11,
+        "p99": 2.79,
+        "max": 5.98
+      },
+      "first": {
+        "at": "2026-09-08T05:45:28.933921+00:00",
+        "BlockIO": "0B / 0B",
+        "CPUPerc": "0.01%",
+        "Container": "ghfind-feed-capacity-minio-1",
+        "ID": "820adaf2c035",
+        "MemPerc": "15.94%",
+        "MemUsage": "81.61MiB / 512MiB",
+        "Name": "ghfind-feed-capacity-minio-1",
+        "NetIO": "24.4kB / 9.68kB",
+        "PIDs": "15"
+      },
+      "last": {
+        "at": "2026-09-08T05:55:29.218867+00:00",
+        "BlockIO": "0B / 0B",
+        "CPUPerc": "0.00%",
+        "Container": "ghfind-feed-capacity-minio-1",
+        "ID": "820adaf2c035",
+        "MemPerc": "16.74%",
+        "MemUsage": "85.69MiB / 512MiB",
+        "Name": "ghfind-feed-capacity-minio-1",
+        "NetIO": "24.4kB / 9.68kB",
+        "PIDs": "15"
+      }
+    },
+    "ghfind-feed-capacity-postgres-1": {
+      "samples": 1186,
+      "cpuUnavailableSamples": 1,
+      "cpuPercent": {
+        "p50": 64.09,
+        "p95": 104.85,
+        "p99": 214.53,
+        "max": 331.66
+      },
+      "first": {
+        "at": "2026-09-08T05:45:28.933886+00:00",
+        "BlockIO": "27.9MB / 4.32GB",
+        "CPUPerc": "0.00%",
+        "Container": "ghfind-feed-capacity-postgres-1",
+        "ID": "6833f7cc99e5",
+        "MemPerc": "16.33%",
+        "MemUsage": "334.4MiB / 2GiB",
+        "Name": "ghfind-feed-capacity-postgres-1",
+        "NetIO": "67.2kB / 81.1kB",
+        "PIDs": "6"
+      },
+      "last": {
+        "at": "2026-09-08T05:55:29.218834+00:00",
+        "BlockIO": "34.1MB / 5.3GB",
+        "CPUPerc": "200.09%",
+        "Container": "ghfind-feed-capacity-postgres-1",
+        "ID": "6833f7cc99e5",
+        "MemPerc": "23.59%",
+        "MemUsage": "483.1MiB / 2GiB",
+        "Name": "ghfind-feed-capacity-postgres-1",
+        "NetIO": "2.72GB / 984MB",
+        "PIDs": "26"
+      }
+    }
+  },
+  "dockerStreamingScope": "Samples whose observer UTC receipt timestamps fall within loadStartedAt and lastResponseAt; complete stream retained separately. Docker CPU samples are raw reported values, not proof of quota utilization."
+}

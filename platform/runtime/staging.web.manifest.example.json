@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 2,
+  "environment": "staging",
+  "accountId": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "runtimeWorker": "ghfind-feed-runtime-staging",
+  "adapterWorker": "ghfind-feed-adapter-staging",
+  "coreDatabase": {
+    "name": "ghfind-feed-staging-core",
+    "id": null
+  },
+  "feedDatabase": {
+    "name": "ghfind-feed-staging-db",
+    "id": null
+  },
+  "archiveBucket": "ghfind-feed-staging-archive",
+  "queue": "ghfind-feed-staging-jobs",
+  "deadLetterQueue": "ghfind-feed-staging-dlq",
+  "terminalParkingQueue": "ghfind-feed-staging-terminal-parking",
+  "billing": {
+    "confirmed": false,
+    "evidence": null,
+    "maximumMonthlyUSD": 100,
+    "projectedMonthlyUSD": null
+  },
+  "isolation": {
+    "reviewed": false,
+    "evidence": null
+  },
+  "executorImplemented": false,
+  "web": {
+    "worker": "ghfind-feed-web-staging",
+    "cacheBucket": "ghfind-feed-staging-web-cache",
+    "origin": null,
+    "runtimeOrigin": null,
+    "oauth": {
+      "clientId": null,
+      "callbackUrl": null,
+      "dedicated": false,
+      "registrationEvidence": null,
+      "holderFirstLoginRequired": true,
+      "identities": []
+    },
+    "sourceProvider": {
+      "apiBase": null,
+      "agentId": null,
+      "dedicated": false,
+      "isolationEvidence": null,
+      "repositories": []
+    }
+  }
+}

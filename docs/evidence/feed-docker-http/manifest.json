@@ -1,0 +1,26 @@
+{
+  "format": "ghfind-docker-http-evidence-v1",
+  "attempts": [
+    {
+      "directory": "setup-failure-565829a",
+      "sourceSha": "565829abc21843bb20ad2a5f3b220d4124c2329f",
+      "status": "setup_failed"
+    },
+    {
+      "directory": "success-39def66",
+      "sourceSha": "39def663ab662e66e0b3473dfc06285e761c2a26",
+      "status": "business_http_contract_passed"
+    }
+  ],
+  "supplement": {
+    "originalPath": "/tmp/ghfind-docker-http-cleanup-readback.json",
+    "retainedPath": "cleanup-readback.json",
+    "bytes": 3570,
+    "sha256": "6be27c5af10fd66cac396a466ffdc4923006c0e55635cffd577630de6b6ac84e",
+    "observedAt": "2026-09-08T19:08:55.230760+00:00",
+    "matchedOwnedResourceIdentities": 9,
+    "allMatchedIdentitiesAbsent": true,
+    "originalRunRecordsChanged": false
+  },
+  "acceptance": "bounded local ordinary Docker API HTTP contract only; deletion remains queued; no production promotion evidence"
+}

@@ -1,5 +1,7 @@
 # v10 / v10 / v4 risk-scoring release
 
+> Superseded by [v10/v10/v5 first-commit original attribution](v10-v10-v5-rollout.md).
+
 ## Change
 
 The six positive dimensions and `base_score` are unchanged. The public risk

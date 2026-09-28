@@ -12,10 +12,6 @@ export async function handleAdminRequest(
     if (!bearerAuthorized(request, env.FEED_RUNTIME_ADMIN_SECRET))
       throw new HTTPError(401, "unauthorized");
     checkConfiguration(env);
-    // Production operations require a separately reviewed production manifest
-    // and enabling change. A URL or environment toggle cannot enroll a target.
-    if (env.FEED_ENVIRONMENT !== "staging")
-      throw new HTTPError(503, "feed_operator_target_disabled");
     const url = new URL(request.url);
     const match = /^\/internal\/runtime\/feed-admin\/v1\/(status|replay)$/.exec(
       url.pathname,
@@ -23,6 +19,12 @@ export async function handleAdminRequest(
     if (!match?.[1] || url.search) throw new HTTPError(404, "not_found");
     if (request.method !== "POST")
       throw new HTTPError(405, "method_not_allowed");
+    // Production bootstrap permits only the existing bounded read capabilities.
+    // Review/replay require the readiness-gated baseline configuration as well
+    // as both independent credentials and the exact release/epoch below.
+    if (env.FEED_ENVIRONMENT === "production" && env.FEED_MODE !== "baseline" &&
+      !/^(?:status)$/.test(match[1]!))
+      throw new HTTPError(503, "feed_operator_target_disabled");
     if (
       request.headers.get("x-feed-contract") !== "1" ||
       request.headers.get("x-feed-target") !== env.FEED_ENVIRONMENT ||

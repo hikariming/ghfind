@@ -4,6 +4,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
+  logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
   checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
@@ -34,7 +35,7 @@ vi.mock("@/lib/redis", () => ({
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
-vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult }));
+vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult, logFreshScanFailure: mocks.logFreshScanFailure }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/anonymous-session", () => ({
   anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
@@ -96,6 +97,17 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
   });
 
+  it("passes force through to distributed coalescing", async () => {
+    const req = new NextRequest("https://example.test/api/scan?force=1", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+      body: JSON.stringify({ username: "DemoDev" }),
+    });
+    const response = await POST(req);
+    expect(response.status).toBe(200);
+    expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { force: true });
+  });
+
   it("serves a cached quick scan without republishing it as newly scanned", async () => {
     mocks.getCachedScan.mockResolvedValue(quickScan);
 
@@ -112,19 +124,24 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.recordAccountLookup).toHaveBeenCalledWith("DemoDev", "0.0.0.0");
   });
 
-  it("serves v5 only after the quick collector fails", async () => {
+  it("serves the previous collection tuple after the quick collector fails", async () => {
     mocks.buildScanResult.mockRejectedValue(new Error("github unavailable"));
     mocks.getLegacyReadFallbackScan.mockResolvedValue(quickScan);
 
     const response = await POST(request());
 
     expect(response.status).toBe(200);
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
+      route: "scan", username: "DemoDev", persistenceFailure: false,
+    });
+    expect(mocks.logFreshScanFailure.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.getLegacyReadFallbackScan.mock.invocationCallOrder[0]);
     await expect(response.json()).resolves.toMatchObject({
       coverage: "legacy",
       legacy_read_fallback: true,
-      served_score_version: "v9",
+      served_score_version: "v10",
       served_roast_version: "v10",
-      served_collection_version: "v4",
+      served_collection_version: "v5",
     });
   });
 

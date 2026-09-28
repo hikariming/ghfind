@@ -537,3 +537,29 @@ it("fences a served request against projection identity after an availability re
     ).status,
   ).toBe(400);
 });
+
+// Production source versions 2/3 contained info; 4/13 contained critical.
+// Preserve structural regression cases without copying report content.
+it.each(["info", "critical"] as const)("persists %s risks with the Go publication decision intact", async (severity) => {
+  const e = event();
+  await claim(e);
+  const p = projection();
+  p.risks = [{ severity, category: "license", summary: "Contract regression", evidence_ids: ["E1"] }];
+  p.publishable = severity === "info";
+  p.blockedReason = severity === "critical" ? "critical_risk:license" : "";
+  p.riskOverrideEligible = false;
+  expect((await apply(e, p)).status).toBe(200);
+  const stored = await env.FEED_DB.prepare("SELECT p.published,v.blocked_reason,p.risks_json FROM feed_projects p JOIN feed_project_source_versions v ON v.repo_key=p.repo_key WHERE p.repo_key=?").bind(e.aggregateKey).first<{published:number;blocked_reason:string;risks_json:string}>();
+  expect(stored?.published).toBe(severity === "info" ? 1 : 0);
+  expect(stored?.blocked_reason).toBe(p.blockedReason);
+  expect(JSON.parse(stored!.risks_json)).toEqual(p.risks);
+});
+
+it("rejects unknown risk severity without partially committing a projection", async () => {
+  const e = event();
+  await claim(e);
+  const p = projection();
+  const payload = { ...p, risks: [{ severity: "fatal", category: "security", summary: "Invalid enum", evidence_ids: [] }] };
+  expect((await apply(e, payload as typeof p)).status).toBe(400);
+  expect((await env.FEED_DB.prepare("SELECT COUNT(*) AS count FROM feed_projects").first<{count:number}>())?.count).toBe(0);
+});

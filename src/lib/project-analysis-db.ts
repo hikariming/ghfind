@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createClient, type Client, type InValue } from "@libsql/client/web";
+import { createClient, type Client, type InValue, type ResultSet } from "@libsql/client/web";
 import { d1AsLibsqlClient, getD1Binding } from "@/lib/d1-client";
 import {
   projectAnalysisArtifactSchema,
@@ -11,6 +11,7 @@ import {
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
 import { syncFeedProjectProjection } from "./feed";
+import { appSubmissionReceiptStatement, assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
 
 export type ProjectBoard = "treasure" | "classic" | "all";
 export type TreasureEntryStatus = "active" | "graduated" | "removed";
@@ -31,6 +32,12 @@ export interface CreateProjectAnalysisRunInput {
   rubricVersion: string;
   agentVersion: string;
   skillVersion: string;
+}
+
+// Server-only option. It is never parsed from a client's request body or used
+// to label background/import work as an explicit submission.
+export interface ProjectAnalysisSubmissionOptions {
+  appSubmission?: true;
 }
 
 export interface ProjectAnalysisRun {
@@ -249,6 +256,52 @@ function ensureSchema(db: Client): Promise<void> {
              removed_at INTEGER,
              removed_reason TEXT
            )`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_recovery_guards (
+            id TEXT PRIMARY KEY, valid INTEGER NOT NULL CHECK (valid = 1)
+          )`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_recoveries (
+  analysis_id TEXT PRIMARY KEY REFERENCES project_analysis_runs(id),
+  request_id TEXT NOT NULL UNIQUE,
+  action TEXT NOT NULL CHECK (action IN ('retry_interrupted', 'finalize_completed')),
+  requested_ref TEXT NOT NULL,
+  original_thread_id TEXT NOT NULL,
+  original_run_id TEXT NOT NULL,
+  original_idempotency_key TEXT NOT NULL,
+  original_started_at INTEGER,
+  original_create_attempts INTEGER NOT NULL,
+  original_error_code TEXT NOT NULL,
+  original_error_message TEXT,
+  original_completed_at INTEGER,
+  original_updated_at INTEGER NOT NULL,
+  operator_ref TEXT NOT NULL,
+  requested_at INTEGER NOT NULL,
+  execution_deadline_at INTEGER,
+  next_idempotency_key TEXT NOT NULL,
+  CHECK ((action = 'retry_interrupted' AND execution_deadline_at > requested_at)
+    OR (action = 'finalize_completed' AND execution_deadline_at IS NULL))
+)`,
+          `CREATE TABLE IF NOT EXISTS project_analysis_final_recoveries (
+  analysis_id TEXT PRIMARY KEY REFERENCES project_analysis_runs(id),
+  request_id TEXT NOT NULL UNIQUE,
+  predecessor_request_id TEXT NOT NULL REFERENCES project_analysis_recoveries(request_id),
+  retry_number INTEGER NOT NULL DEFAULT 2 CHECK (retry_number = 2),
+  action TEXT NOT NULL CHECK (action = 'retry_interrupted_final'),
+  requested_ref TEXT NOT NULL,
+  original_thread_id TEXT NOT NULL,
+  original_run_id TEXT NOT NULL,
+  original_idempotency_key TEXT NOT NULL,
+  original_started_at INTEGER,
+  original_create_attempts INTEGER NOT NULL,
+  original_error_code TEXT NOT NULL,
+  original_error_message TEXT,
+  original_completed_at INTEGER,
+  original_updated_at INTEGER NOT NULL,
+  operator_ref TEXT NOT NULL,
+  requested_at INTEGER NOT NULL,
+  execution_deadline_at INTEGER,
+  next_idempotency_key TEXT NOT NULL,
+  CHECK (execution_deadline_at IS NOT NULL AND execution_deadline_at > requested_at)
+)`,
           `CREATE INDEX IF NOT EXISTS idx_treasure_entries_repo_selected
              ON treasure_entries(repo_key, selected_at DESC)`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_treasure_entries_one_active
@@ -271,6 +324,10 @@ function ensureSchema(db: Client): Promise<void> {
             }
           }
         }
+      }).catch((error) => {
+        // A transient upstream failure must not poison every later request.
+        schemaReady = null;
+        throw error;
       });
   }
   return schemaReady;
@@ -345,13 +402,14 @@ async function selectRun(db: Client, analysisId: string): Promise<ProjectAnalysi
 
 export async function createProjectAnalysisRun(
   input: CreateProjectAnalysisRunInput,
+  options: ProjectAnalysisSubmissionOptions = {},
 ): Promise<CreateProjectAnalysisRunResult> {
   const db = database();
   await ensureSchema(db);
   const now = Date.now();
   const key = activeKey(input);
   const idempotencyKey = `ghfind-project-${input.id}`;
-  const insert = await db.execute({
+  const insertStatement = {
     sql: `INSERT OR IGNORE INTO project_analysis_runs (
             id, repo_key, canonical_url, requested_ref, active_key,
             idempotency_key, status, phase, progress,
@@ -372,12 +430,27 @@ export async function createProjectAnalysisRun(
       now,
       now,
     ],
-  });
-  const created = insert.rowsAffected === 1;
-  const result = await db.execute({
+  };
+  const selectStatement = {
     sql: `SELECT * FROM project_analysis_runs WHERE active_key = ? LIMIT 1`,
     args: [key],
-  });
+  };
+  let insert: ResultSet, result: ResultSet;
+  if (options.appSubmission && feedSourceOutboxEnabled()) {
+    // The successful run insert (or active-run reuse) and its provenance are
+    // inseparable. No external thread can start if this receipt write fails.
+    const results = await db.batch([
+      insertStatement,
+      appSubmissionReceiptStatement({ activeKey: key }, now),
+      selectStatement,
+    ], "write");
+    insert = results[0];
+    result = results[2];
+  } else {
+    insert = await db.execute(insertStatement);
+    result = await db.execute(selectStatement);
+  }
+  const created = insert.rowsAffected === 1;
   const row = result.rows[0];
   if (!row) throw new ProjectAnalysisDatabaseError("Failed to create or find analysis run.");
   return { run: mapRun(row as Record<string, unknown>), created };
@@ -389,6 +462,13 @@ export async function getProjectAnalysisRun(
   const db = database();
   await ensureSchema(db);
   return selectRun(db, analysisId);
+}
+
+export async function recordProjectAnalysisSubmission(analysisId: string): Promise<void> {
+  if (!feedSourceOutboxEnabled()) return;
+  const db = database();
+  await ensureSchema(db);
+  await recordAppSubmission(db, analysisId);
 }
 
 export async function findReusableCompletedProjectAnalysisRun(
@@ -454,7 +534,7 @@ export async function reserveProjectAnalysisExecutionSlot(
     sql: `UPDATE project_analysis_runs
           SET status = 'creating_thread', phase = 'creating_thread', progress = 5,
               create_attempts = create_attempts + 1, create_retry_at = ?,
-              started_at = COALESCE(started_at, ?), updated_at = ?
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
           WHERE id = ? AND status = 'queued'
             AND (create_retry_at IS NULL OR create_retry_at <= ?)
             AND (
@@ -506,7 +586,7 @@ export async function attachMosooThread(input: AttachMosooThreadInput): Promise<
           SET status = 'running', phase = 'classifying', progress = 10,
               mosoo_agent_id = ?, mosoo_thread_id = ?, mosoo_run_id = ?,
               create_retry_at = NULL,
-              started_at = COALESCE(started_at, ?), updated_at = ?
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
           WHERE id = ? AND status IN ('queued', 'creating_thread', 'running')`,
     args: [input.agentId, input.threadId, input.runId, now, now, input.analysisId],
   });
@@ -547,7 +627,157 @@ export async function prepareProjectAnalysisRetry(
   return result.rowsAffected === 1 ? selectRun(db, analysisId) : null;
 }
 
+export interface ProjectAnalysisRecoveryInput {
+  analysisId: string;
+  requestedRef: string;
+  expectedThreadId: string;
+  expectedRunId: string;
+  requestId: string;
+  operatorRef: string;
+  action: "retry_interrupted" | "retry_interrupted_final" | "finalize_completed";
+}
+
+export interface ProjectAnalysisRecovery extends ProjectAnalysisRecoveryInput {
+  createdAt: number;
+  originalIdempotencyKey: string;
+  originalStartedAt: number | null;
+  originalCreateAttempts: number;
+  executionDeadlineAt: number | null;
+  nextIdempotencyKey: string;
+}
+
+export async function getProjectAnalysisRecovery(analysisId: string): Promise<ProjectAnalysisRecovery | null> {
+  const db = database();
+  await ensureSchema(db);
+  const latest = await db.execute({ sql: "SELECT * FROM project_analysis_final_recoveries WHERE analysis_id = ?", args: [analysisId] });
+  const result = latest.rows.length ? latest : await db.execute({ sql: "SELECT * FROM project_analysis_recoveries WHERE analysis_id = ?", args: [analysisId] });
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    analysisId: rowString(row.analysis_id), requestedRef: rowString(row.requested_ref),
+    expectedThreadId: rowString(row.original_thread_id), expectedRunId: rowString(row.original_run_id),
+    requestId: rowString(row.request_id), operatorRef: rowString(row.operator_ref),
+    action: rowString(row.action) as ProjectAnalysisRecoveryInput["action"],
+    createdAt: Number(row.requested_at),
+    originalIdempotencyKey: rowString(row.original_idempotency_key),
+    originalStartedAt: nullableNumber(row.original_started_at),
+    originalCreateAttempts: Number(row.original_create_attempts),
+    executionDeadlineAt: nullableNumber(row.execution_deadline_at),
+    nextIdempotencyKey: rowString(row.next_idempotency_key),
+  };
+}
+
+// The original recovery is preserved. The explicit final action can append
+// one last attempt; a restarted caller cannot renew either durable deadline.
+export async function claimProjectAnalysisRecovery(
+  input: ProjectAnalysisRecoveryInput,
+  expectedUpdatedAt: number,
+): Promise<ProjectAnalysisRun | null> {
+  if (input.action === "retry_interrupted_final") return claimFinalProjectAnalysisRecovery(input, expectedUpdatedAt);
+  const db = database();
+  await ensureSchema(db);
+  const current = await selectRun(db, input.analysisId);
+  if (!current) return null;
+  const retry = input.action === "retry_interrupted";
+  const nextKey = retry ? `ghfind-project-${input.analysisId}-retry-1` : current.idempotencyKey;
+  const now = Date.now();
+  const executionDeadlineAt = retry ? now + 30 * 60_000 : null;
+  const results = await db.batch([
+    {
+      sql: `INSERT INTO project_analysis_recoveries (
+        analysis_id, request_id, action, requested_ref, original_thread_id, original_run_id,
+        original_idempotency_key, original_started_at, original_create_attempts,
+        original_error_code, original_error_message, original_completed_at, original_updated_at,
+        operator_ref, requested_at, execution_deadline_at, next_idempotency_key
+      ) SELECT id, ?, ?, requested_ref, mosoo_thread_id, mosoo_run_id, idempotency_key,
+        started_at, create_attempts, error_code, error_message, completed_at, updated_at, ?, ?, ?, ?
+        FROM project_analysis_runs p WHERE id = ? AND requested_ref = ?
+        AND status = 'expired' AND error_code = 'analysis_timeout'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND (? = 0 OR idempotency_key = ?)
+        AND NOT EXISTS (SELECT 1 FROM project_analysis_runs newer
+          WHERE newer.repo_key = p.repo_key AND newer.id <> p.id AND newer.created_at >= p.created_at)
+        ON CONFLICT(analysis_id) DO NOTHING`,
+      args: [input.requestId, input.action, input.operatorRef, now, executionDeadlineAt, nextKey,
+        input.analysisId, input.requestedRef, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt,
+        retry ? 1 : 0, `ghfind-project-${input.analysisId}`],
+    },
+    {
+      sql: `UPDATE project_analysis_runs SET status = ?, phase = ?, progress = ?,
+        active_key = ?, idempotency_key = ?, create_attempts = ?, create_retry_at = NULL,
+        mosoo_thread_id = ?, mosoo_run_id = ?, error_code = NULL, error_message = NULL,
+        completed_at = NULL, updated_at = ?
+        WHERE id = ? AND status = 'expired' AND error_code = 'analysis_timeout'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id
+          AND a.request_id = ? AND a.original_updated_at = project_analysis_runs.updated_at)`,
+      args: [retry ? "queued" : "finalizing", retry ? "queued" : "persisting", retry ? 0 : 90,
+        retry ? activeKey(current) : null, nextKey, retry ? 0 : current.createAttempts,
+        retry ? null : current.mosooThreadId, retry ? null : current.mosooRunId, now,
+        input.analysisId, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt, input.requestId],
+    },
+  ], "write");
+  return results[1]?.rowsAffected === 1 ? selectRun(db, input.analysisId) : null;
+}
+
+// The second audit is append-only: the original recovery remains unchanged.
+async function claimFinalProjectAnalysisRecovery(
+  input: ProjectAnalysisRecoveryInput,
+  expectedUpdatedAt: number,
+): Promise<ProjectAnalysisRun | null> {
+  const db = database();
+  await ensureSchema(db);
+  const current = await selectRun(db, input.analysisId);
+  if (!current) return null;
+  const nextKey = `ghfind-project-${input.analysisId}-retry-2`;
+  const now = Date.now();
+  const executionDeadlineAt = now + 30 * 60_000;
+  const results = await db.batch([
+    {
+      sql: `INSERT INTO project_analysis_final_recoveries (
+        analysis_id, request_id, action, requested_ref, original_thread_id, original_run_id,
+        original_idempotency_key, original_started_at, original_create_attempts,
+        original_error_code, original_error_message, original_completed_at, original_updated_at,
+        operator_ref, requested_at, execution_deadline_at, next_idempotency_key, predecessor_request_id
+      ) SELECT id, ?, ?, requested_ref, mosoo_thread_id, mosoo_run_id, idempotency_key,
+        started_at, create_attempts, error_code, error_message, completed_at, updated_at, ?, ?, ?, ?,
+        (SELECT request_id FROM project_analysis_recoveries a WHERE a.analysis_id = p.id AND a.action = 'retry_interrupted' AND a.next_idempotency_key = p.idempotency_key)
+        FROM project_analysis_runs p WHERE id = ? AND requested_ref = ?
+        AND status = 'failed' AND error_code = 'mosoo_run_failed'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND idempotency_key = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = p.id
+          AND a.action = 'retry_interrupted' AND a.next_idempotency_key = p.idempotency_key AND a.request_id <> ?)
+        AND NOT EXISTS (SELECT 1 FROM project_analysis_runs newer
+          WHERE newer.repo_key = p.repo_key AND newer.id <> p.id AND newer.created_at >= p.created_at)
+        ON CONFLICT(analysis_id) DO NOTHING`,
+      args: [input.requestId, input.action, input.operatorRef, now, executionDeadlineAt, nextKey,
+        input.analysisId, input.requestedRef, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt,
+        `ghfind-project-${input.analysisId}-retry-1`, input.requestId],
+    },
+    {
+      sql: `UPDATE project_analysis_runs SET status = ?, phase = ?, progress = ?,
+        active_key = ?, idempotency_key = ?, create_attempts = ?, create_retry_at = NULL,
+        mosoo_thread_id = ?, mosoo_run_id = ?, error_code = NULL, error_message = NULL,
+        completed_at = NULL, updated_at = ?
+        WHERE id = ? AND status = 'failed' AND error_code = 'mosoo_run_failed'
+        AND mosoo_thread_id = ? AND mosoo_run_id = ? AND updated_at = ?
+        AND EXISTS (SELECT 1 FROM project_analysis_final_recoveries a WHERE a.analysis_id = project_analysis_runs.id
+          AND a.request_id = ? AND a.original_updated_at = project_analysis_runs.updated_at
+          AND a.original_idempotency_key = project_analysis_runs.idempotency_key
+          AND a.original_thread_id = project_analysis_runs.mosoo_thread_id AND a.original_run_id = project_analysis_runs.mosoo_run_id
+          AND a.requested_ref = project_analysis_runs.requested_ref)`,
+      args: ["queued", "queued", 0, activeKey(current), nextKey, 0, null, null, now,
+        input.analysisId, input.expectedThreadId, input.expectedRunId, expectedUpdatedAt, input.requestId],
+    },
+  ], "write");
+  return results[1]?.rowsAffected === 1 ? selectRun(db, input.analysisId) : null;
+}
+
+export type ProjectAnalysisExecutionIdentity = Pick<ProjectAnalysisRun, "idempotencyKey" | "mosooThreadId" | "mosooRunId">;
+
 export interface UpdateProjectAnalysisStateInput {
+  expectedExecution?: ProjectAnalysisExecutionIdentity;
   analysisId: string;
   status: ProjectAnalysisStatus;
   phase: ProjectAnalysisPhase;
@@ -566,7 +796,8 @@ export async function updateProjectAnalysisState(
           SET status = ?, phase = ?, progress = ?,
               mosoo_run_id = COALESCE(?, mosoo_run_id),
               activities_json = COALESCE(?, activities_json), updated_at = ?
-          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
+          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+          AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
     args: [
       input.status,
       input.phase,
@@ -575,6 +806,8 @@ export async function updateProjectAnalysisState(
       input.activities ? JSON.stringify(input.activities) : null,
       Date.now(),
       input.analysisId,
+      input.expectedExecution?.idempotencyKey ?? null, input.expectedExecution?.idempotencyKey ?? null,
+      input.expectedExecution?.mosooThreadId ?? null, input.expectedExecution?.mosooRunId ?? null,
     ],
   });
 }
@@ -582,14 +815,16 @@ export async function updateProjectAnalysisState(
 export async function updateProjectAnalysisActivities(
   analysisId: string,
   activities: ProjectAnalysisActivity[],
+  expectedExecution?: ProjectAnalysisExecutionIdentity,
 ): Promise<void> {
   const db = database();
   await ensureSchema(db);
   await db.execute({
     sql: `UPDATE project_analysis_runs
           SET activities_json = ?, updated_at = ?
-          WHERE id = ?`,
-    args: [JSON.stringify(activities), Date.now(), analysisId],
+          WHERE id = ? AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
+    args: [JSON.stringify(activities), Date.now(), analysisId, expectedExecution?.idempotencyKey ?? null,
+      expectedExecution?.idempotencyKey ?? null, expectedExecution?.mosooThreadId ?? null, expectedExecution?.mosooRunId ?? null],
   });
 }
 
@@ -599,6 +834,7 @@ export async function failProjectAnalysis(
   errorMessage: string,
   status: "failed" | "cancelled" | "expired" = "failed",
   activities?: ProjectAnalysisActivity[],
+  expectedExecution?: ProjectAnalysisExecutionIdentity,
 ): Promise<void> {
   const db = database();
   await ensureSchema(db);
@@ -608,7 +844,8 @@ export async function failProjectAnalysis(
           SET status = ?, active_key = NULL, error_code = ?, error_message = ?,
               activities_json = COALESCE(?, activities_json),
               create_retry_at = NULL, completed_at = ?, updated_at = ?
-          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')`,
+          WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+          AND (? IS NULL OR (idempotency_key = ? AND mosoo_thread_id IS ? AND mosoo_run_id IS ?))`,
     args: [
       status,
       errorCode,
@@ -617,6 +854,8 @@ export async function failProjectAnalysis(
       now,
       now,
       analysisId,
+      expectedExecution?.idempotencyKey ?? null, expectedExecution?.idempotencyKey ?? null,
+      expectedExecution?.mosooThreadId ?? null, expectedExecution?.mosooRunId ?? null,
     ],
   });
 }
@@ -625,10 +864,38 @@ function treasureReason(analysis: ProjectAnalysisArtifact): string {
   return `${analysis.project.summary} 产品价值 ${analysis.scores.product_score}，${analysis.exposure.rationale}`;
 }
 
+// The local dev server talks to D1 through the remote-binding HTTP proxy,
+// where multi-MB responses can arrive truncated ("Failed to parse body as
+// JSON") or drop mid-flight ("Network connection lost"). Real Worker bindings
+// never fail this way, so only these transport-shaped errors are retried.
+function isTransientD1TransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Failed to parse body as JSON|Network connection lost|fetch failed/i.test(message);
+}
+
+async function executeReadWithRetry(db: Client, statement: { sql: string; args: InValue[] }): Promise<ResultSet> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await db.execute(statement);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientD1TransportError(error) || attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function reconcileStoredProjectEligibility(db: Client): Promise<void> {
   const [assessmentRows, removedRows] = await Promise.all([
-    db.execute({
-      sql: `${ASSESSMENT_SELECT}
+    executeReadWithRetry(db, {
+      // report_markdown is intentionally not selected: it is unused here and
+      // roughly doubles the payload, which breaks remote D1 bindings in local
+      // dev (multi-MB responses arrive truncated and fail JSON parsing).
+      sql: `SELECT pa.*, pr.analysis_json
+            FROM project_assessments AS pa
+            JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id
             ORDER BY pa.updated_at ASC`,
       args: [],
     }),
@@ -847,24 +1114,48 @@ export async function finalizeProjectAnalysis(
     ],
   });
 
+  let updateResultIndex = statements.length - 1;
+  if (await getProjectAnalysisRecovery(input.analysisId)) {
+    const recoveryGuard = randomUUID();
+    statements.unshift({
+      sql: `INSERT INTO project_analysis_recovery_guards (id, valid) VALUES (?, CASE WHEN NOT EXISTS (
+        SELECT 1 FROM project_analysis_runs newer JOIN project_analysis_runs recovered ON recovered.id = ?
+        WHERE newer.repo_key = recovered.repo_key AND newer.id <> recovered.id AND newer.created_at >= recovered.created_at
+      ) THEN 1 ELSE 0 END)`,
+      args: [recoveryGuard, input.analysisId],
+    });
+    updateResultIndex += 1;
+    statements.push({ sql: "DELETE FROM project_analysis_recovery_guards WHERE id = ?", args: [recoveryGuard] });
+  }
+  if (feedSourceOutboxEnabled()) {
+    const guardId = randomUUID();
+    statements.unshift({
+      sql: `INSERT INTO feed_source_assertions (id, valid) VALUES (?, CASE WHEN EXISTS (
+        SELECT 1 FROM project_analysis_runs WHERE id = ?
+        AND status NOT IN ('completed', 'failed', 'cancelled', 'expired')
+      ) THEN 1 ELSE 0 END)`,
+      args: [guardId, input.analysisId],
+    });
+    updateResultIndex += 1;
+    statements.push(assessmentOutboxStatement(input.analysisId, now), {
+      sql: "DELETE FROM feed_source_assertions WHERE id = ?", args: [guardId],
+    });
+  }
   const results = await db.batch(statements, "write");
-  const updateResult = results.at(-1);
+  const updateResult = results[updateResultIndex];
   if (!updateResult || updateResult.rowsAffected !== 1) {
     throw new ProjectAnalysisDatabaseError("Analysis finalization lost its state race.");
   }
   const completed = await selectRun(db, input.analysisId);
   if (!completed) throw new ProjectAnalysisDatabaseError("Completed analysis run disappeared.");
-  // Feed is a rebuildable Cloudflare D1 projection. Its availability must never
-  // turn a completed Mosoo assessment into a failed one; migration 0004 and
-  // the protected reconcile endpoint repair a delayed projection.
-  try {
-    await syncFeedProjectProjection(analysis, input.analysisId);
-  } catch (error) {
-    console.error("feed.project_projection_failed", {
-      analysisId: input.analysisId,
-      repoKey: analysis.repository.repo_key.toLowerCase(),
-      error: error instanceof Error ? error.message : "unknown",
-    });
+  // Outbox mode has one projection writer: the discrete Feed executor. Never
+  // wait for or invoke the old unfenced Feed writer after this core commit.
+  if (!feedSourceOutboxEnabled()) {
+    try {
+      await syncFeedProjectProjection(analysis, input.analysisId);
+    } catch {
+      console.error("feed.project_projection_failed", { analysisId: input.analysisId });
+    }
   }
   return completed;
 }

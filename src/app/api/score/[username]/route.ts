@@ -14,13 +14,15 @@ import {
   checkRateLimit,
   coalesceScan,
   getCachedScan,
+  getCachedScoreDetail,
   rateLimitHeaders,
 } from "@/lib/redis";
-import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,7 +174,7 @@ export async function GET(
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const handle = normalizeUsername(decodeURIComponent(username ?? ""));
+  const handle = normalizeUsername(decodeRouteParam(username ?? ""));
   if (!handle) {
     return json(
       {
@@ -185,7 +187,12 @@ export async function GET(
     );
   }
 
-  const detail = await getAccountDetail(handle);
+  let detail: AccountDetail | null;
+  try { detail = await getCachedScoreDetail(handle, () => getAccountDetail(handle)); }
+  catch (error) {
+    const { error: code, status, retry_after } = scanErrorResponse(error);
+    return json({ error: code }, status, "no-store", { "Retry-After": String(retry_after ?? 15) });
+  }
   if (detail && isCanonicalDetail(detail)) {
     return persistedScoreResponse(detail, { source: "indexed", current: true });
   }
@@ -227,6 +234,11 @@ export async function GET(
       });
     }
   } catch (error) {
+    logFreshScanFailure(error, {
+      route: "score",
+      username: handle,
+      persistenceFailure: error instanceof ScorePersistenceError,
+    });
     if (detail?.legacy_read_fallback) {
       return persistedScoreResponse(detail, {
         source: "legacy_v5_v5_v3",
@@ -239,7 +251,7 @@ export async function GET(
     return json(
       { error: code, message: code.replace(/_/g, " "), ...(retry_after ? { retry_after } : {}) },
       status,
-      MISS_CACHE,
+      status >= 500 ? "no-store" : MISS_CACHE,
       { ...headers, ...(retry_after ? { "Retry-After": String(retry_after) } : {}) },
     );
   }

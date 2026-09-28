@@ -1,0 +1,23 @@
+{
+  "container": "/ghfind-query-diagnose-pg",
+  "containerId": "b9c3eb22b91a52a2dbb0f51287404eb2f1555524e8d52b1cca3b7341c4a4da49",
+  "imageId": "sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf",
+  "nanoCpus": 2000000000,
+  "memoryBytes": 2147483648,
+  "ports": {
+    "5432/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "55441"
+      }
+    ]
+  },
+  "volumes": [
+    {
+      "type": "volume",
+      "name": "ghfind-query-diagnose-pg-data",
+      "destination": "/var/lib/postgresql/data"
+    }
+  ],
+  "goVersion": "go version go1.26.1 darwin/arm64"
+}

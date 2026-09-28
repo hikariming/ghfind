@@ -97,6 +97,16 @@ const NEUTRAL: RawMetrics = {
 
 const hasFlag = (m: RawMetrics, name: string) =>
   score(m).red_flags.some((f) => f.flag === name);
+
+describe("profile pronouns", () => {
+  it.each(["she/her", "he/him", "they/them", "she/they", "ze/zir", "", null, undefined])(
+    "does not change scoring or bot detection (%s)",
+    (pronouns) => {
+      expect(score({ ...NEUTRAL, pronouns })).toEqual(score(NEUTRAL));
+      expect(spamBotScore({ ...NEUTRAL, pronouns })).toEqual(spamBotScore(NEUTRAL));
+    },
+  );
+});
 const hasNote = (m: RawMetrics, name: string) =>
   score(m).risk_notes?.some((f) => f.flag === name) ?? false;
 
@@ -547,6 +557,20 @@ describe("original project quality", () => {
     expect(s.sub_scores.original_project_quality).toBeGreaterThanOrEqual(4.8);
   });
 
+  it("softens the notes-keyword discount for repos with organic star and fork traction", () => {
+    const notes = (over: Partial<TopRepo>) =>
+      repo({
+        size: 1800,
+        description: "My learning notes for ML systems",
+        readme_excerpt: "Install usage examples architecture test. ".repeat(20),
+        ...over,
+      });
+
+    expect(originalRepoQualityScore(notes({ stars: 40, forks: 5 }), "alice", now)).toBe(0.55);
+    expect(originalRepoQualityScore(notes({ stars: 7000, forks: 50 }), "alice", now)).toBe(0.55);
+    expect(originalRepoQualityScore(notes({ stars: 7000, forks: 500 }), "alice", now)).toBe(0.75);
+  });
+
   it("scores structured README features instead of the prompt summary length", () => {
     const features = parseReadmeFeatures(`
 # Project
@@ -777,6 +801,71 @@ Run the CLI with the default config.
         maintainerFileHit: true,
       }),
     ).toBeNull();
+  });
+
+  it("attributes a long-term org repo when the first commit author is the scored user", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({
+        repo: "lab/layerfs",
+        owner_login: "lab",
+        commits: 200,
+        prs: 20,
+        active_years: 1,
+      }),
+      organizations: [],
+      scoredLogin: "alice",
+      firstCommitLogin: "alice",
+    });
+
+    expect(attribution?.repo).toBe("lab/layerfs");
+    expect(attribution?.score).toBeGreaterThanOrEqual(5);
+    expect(attribution?.evidence.join(" ")).toContain("first commit author is alice");
+  });
+
+  it("does not let a first-commit match skip the long-term maintenance gate", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({
+          repo: "lab/plugins",
+          owner_login: "lab",
+          commits: 54,
+          prs: 12,
+          active_years: 1,
+        }),
+        organizations: [],
+        scoredLogin: "alice",
+        firstCommitLogin: "alice",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not attribute when the first commit belongs to someone else", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({
+          repo: "lab/sandbox",
+          owner_login: "lab",
+          commits: 2000,
+          prs: 40,
+          active_years: 1,
+        }),
+        organizations: [],
+        scoredLogin: "alice",
+        firstCommitLogin: "other-dev",
+      }),
+    ).toBeNull();
+  });
+
+  it("prefers public membership evidence when both gates match", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({ commits: 90, prs: 8, active_years: 4 }),
+      organizations: ["org"],
+      scoredLogin: "alice",
+      firstCommitLogin: "alice",
+    });
+
+    expect(attribution?.evidence.join(" ")).toContain("org member of org");
+    expect(attribution?.evidence.join(" ")).not.toContain("first commit author");
   });
 });
 

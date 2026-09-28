@@ -1,0 +1,80 @@
+{
+  "result": "passed_bounded_local_checks",
+  "checks": {
+    "ghfind-portability-a3-api-initial-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-worker-initial-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-api-sigterm": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-08T17:27:48.29975246Z",
+      "FinishedAt": "2026-09-08T17:27:50.816418711Z"
+    },
+    "ghfind-portability-a3-api-after-restart-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-worker-sigterm": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-08T17:27:48.430180668Z",
+      "FinishedAt": "2026-09-08T17:27:51.652254461Z"
+    },
+    "ghfind-portability-a3-worker-after-restart-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    }
+  },
+  "cleanup": {
+    "at": "2026-09-08T17:27:53.985103+00:00",
+    "containersRemoved": true,
+    "volumeRemoved": true,
+    "networkRemoved": true,
+    "otherGhfindContainers": [
+      "ghfind-feed-api-compatible",
+      "ghfind-feed-api-contract",
+      "ghfind-feed-crossprofile-pg",
+      "ghfind-feed-contract-minio-1",
+      "ghfind-portable-feed-pg-contract"
+    ]
+  }
+}

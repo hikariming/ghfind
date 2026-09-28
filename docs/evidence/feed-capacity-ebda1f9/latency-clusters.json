@@ -1,0 +1,4076 @@
+[
+  {
+    "startOffsetMs": 47200.328,
+    "endOffsetMs": 49037.273,
+    "observations": [
+      {
+        "index": 471,
+        "scheduledOffsetMs": 47200,
+        "startedOffsetMs": 47200.328,
+        "finishedOffsetMs": 48446.772,
+        "inflight": 4,
+        "status": 200,
+        "durationMs": 1246.441,
+        "items": 20
+      },
+      {
+        "index": 472,
+        "scheduledOffsetMs": 47300,
+        "startedOffsetMs": 47300.485,
+        "finishedOffsetMs": 48339.48,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 1038.991,
+        "items": 20
+      },
+      {
+        "index": 473,
+        "scheduledOffsetMs": 47400,
+        "startedOffsetMs": 47400.774,
+        "finishedOffsetMs": 48346.903,
+        "inflight": 4,
+        "status": 200,
+        "durationMs": 946.125,
+        "items": 20
+      },
+      {
+        "index": 474,
+        "scheduledOffsetMs": 47500,
+        "startedOffsetMs": 47505.914,
+        "finishedOffsetMs": 48523.547,
+        "inflight": 5,
+        "status": 200,
+        "durationMs": 1017.629,
+        "items": 20
+      },
+      {
+        "index": 475,
+        "scheduledOffsetMs": 47600,
+        "startedOffsetMs": 47601.302,
+        "finishedOffsetMs": 48452.162,
+        "inflight": 6,
+        "status": 200,
+        "durationMs": 850.857,
+        "items": 20
+      },
+      {
+        "index": 476,
+        "scheduledOffsetMs": 47700,
+        "startedOffsetMs": 47701.362,
+        "finishedOffsetMs": 48623.752,
+        "inflight": 7,
+        "status": 200,
+        "durationMs": 922.387,
+        "items": 20
+      },
+      {
+        "index": 478,
+        "scheduledOffsetMs": 47900,
+        "startedOffsetMs": 47900.923,
+        "finishedOffsetMs": 48725.796,
+        "inflight": 8,
+        "status": 200,
+        "durationMs": 824.871,
+        "items": 20
+      },
+      {
+        "index": 479,
+        "scheduledOffsetMs": 48000,
+        "startedOffsetMs": 48001.223,
+        "finishedOffsetMs": 48843.811,
+        "inflight": 9,
+        "status": 200,
+        "durationMs": 842.585,
+        "items": 20
+      },
+      {
+        "index": 481,
+        "scheduledOffsetMs": 48200,
+        "startedOffsetMs": 48201.314,
+        "finishedOffsetMs": 49037.273,
+        "inflight": 11,
+        "status": 200,
+        "durationMs": 835.954,
+        "items": 20
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:46:14.630315Z",
+        "offsetMs": 46000.062,
+        "sampleDurationMs": 0.368,
+        "processCpuSeconds": 12.150851,
+        "heapBytes": 3374944,
+        "goroutines": 17,
+        "gcCount": 947,
+        "gcPauseTotalNs": 66188605,
+        "lastGcUnixNs": 1788846374625355000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6254,
+            "blocksHit": 44342684,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 77958,
+            "blockReadMs": 978.991,
+            "blockWriteMs": 3516.727
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:15.645253Z",
+        "offsetMs": 47014.994,
+        "sampleDurationMs": 10.524,
+        "processCpuSeconds": 12.379166,
+        "heapBytes": 3965424,
+        "goroutines": 17,
+        "gcCount": 964,
+        "gcPauseTotalNs": 67370317,
+        "lastGcUnixNs": 1788846375515246000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6389,
+            "blocksHit": 44545368,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 77968,
+            "blockReadMs": 979.193,
+            "blockWriteMs": 3517.038
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:16.631352Z",
+        "offsetMs": 48001.088,
+        "sampleDurationMs": 22.94,
+        "processCpuSeconds": 12.483297,
+        "heapBytes": 3802544,
+        "goroutines": 55,
+        "gcCount": 970,
+        "gcPauseTotalNs": 68595941,
+        "lastGcUnixNs": 1788846376281341000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 5,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6521,
+            "blocksHit": 44754506,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 77977,
+            "blockReadMs": 979.409,
+            "blockWriteMs": 3517.472
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:17.630352Z",
+        "offsetMs": 49000.082,
+        "sampleDurationMs": 21.259,
+        "processCpuSeconds": 12.745135,
+        "heapBytes": 9165736,
+        "goroutines": 60,
+        "gcCount": 986,
+        "gcPauseTotalNs": 69862481,
+        "lastGcUnixNs": 1788846377482473000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 5,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6642,
+            "blocksHit": 44893366,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 77984,
+            "blockReadMs": 981.543,
+            "blockWriteMs": 3519.996
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:18.630957Z",
+        "offsetMs": 50000.68,
+        "sampleDurationMs": 0.923,
+        "processCpuSeconds": 12.991831,
+        "heapBytes": 3775544,
+        "goroutines": 15,
+        "gcCount": 1008,
+        "gcPauseTotalNs": 71057148,
+        "lastGcUnixNs": 1788846378555614000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6818,
+            "blocksHit": 45106060,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 77993,
+            "blockReadMs": 981.808,
+            "blockWriteMs": 3521.63
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:19.630336Z",
+        "offsetMs": 51000.053,
+        "sampleDurationMs": 0.458,
+        "processCpuSeconds": 13.251632,
+        "heapBytes": 4649864,
+        "goroutines": 17,
+        "gcCount": 1027,
+        "gcPauseTotalNs": 72146234,
+        "lastGcUnixNs": 1788846379617816000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 6961,
+            "blocksHit": 45324376,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78005,
+            "blockReadMs": 982.128,
+            "blockWriteMs": 3522.332
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  },
+  {
+    "startOffsetMs": 54901.309,
+    "endOffsetMs": 55827.673,
+    "observations": [
+      {
+        "index": 548,
+        "scheduledOffsetMs": 54900,
+        "startedOffsetMs": 54901.309,
+        "finishedOffsetMs": 55732.862,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 831.55,
+        "items": 20
+      },
+      {
+        "index": 549,
+        "scheduledOffsetMs": 55000,
+        "startedOffsetMs": 55000.334,
+        "finishedOffsetMs": 55827.673,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 827.337,
+        "items": 20
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:46:21.630366Z",
+        "offsetMs": 53000.07,
+        "sampleDurationMs": 0.744,
+        "processCpuSeconds": 13.623302,
+        "heapBytes": 4834592,
+        "goroutines": 17,
+        "gcCount": 1064,
+        "gcPauseTotalNs": 73890607,
+        "lastGcUnixNs": 1788846381613124000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 7230,
+            "blocksHit": 45737067,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78026,
+            "blockReadMs": 982.567,
+            "blockWriteMs": 3523.393
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:22.630612Z",
+        "offsetMs": 54000.31,
+        "sampleDurationMs": 0.721,
+        "processCpuSeconds": 13.803078,
+        "heapBytes": 4182288,
+        "goroutines": 14,
+        "gcCount": 1084,
+        "gcPauseTotalNs": 74813728,
+        "lastGcUnixNs": 1788846382615432000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 7316,
+            "blocksHit": 45871728,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78032,
+            "blockReadMs": 982.711,
+            "blockWriteMs": 3523.694
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:23.630472Z",
+        "offsetMs": 55000.164,
+        "sampleDurationMs": 270.151,
+        "processCpuSeconds": 13.934476,
+        "heapBytes": 3186344,
+        "goroutines": 19,
+        "gcCount": 1099,
+        "gcPauseTotalNs": 75515730,
+        "lastGcUnixNs": 1788846383446722000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 7481,
+            "blocksHit": 46121968,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78045,
+            "blockReadMs": 983.144,
+            "blockWriteMs": 3524.365
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:24.631392Z",
+        "offsetMs": 56001.077,
+        "sampleDurationMs": 1.234,
+        "processCpuSeconds": 14.096657,
+        "heapBytes": 5316216,
+        "goroutines": 43,
+        "gcCount": 1112,
+        "gcPauseTotalNs": 76682479,
+        "lastGcUnixNs": 1788846384605519000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 4,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 7663,
+            "blocksHit": 46362982,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78056,
+            "blockReadMs": 983.637,
+            "blockWriteMs": 3525.757
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:46:25.630384Z",
+        "offsetMs": 57000.063,
+        "sampleDurationMs": 0.439,
+        "processCpuSeconds": 14.322882,
+        "heapBytes": 4001616,
+        "goroutines": 17,
+        "gcCount": 1135,
+        "gcPauseTotalNs": 77803477,
+        "lastGcUnixNs": 1788846385619513000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 7765,
+            "blocksHit": 46517041,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 78065,
+            "blockReadMs": 983.98,
+            "blockWriteMs": 3526.957
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  },
+  {
+    "startOffsetMs": 462702.214,
+    "endOffsetMs": 466926.14,
+    "observations": [
+      {
+        "index": 4626,
+        "scheduledOffsetMs": 462700,
+        "startedOffsetMs": 462702.214,
+        "finishedOffsetMs": 464820.083,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 2117.867,
+        "items": 20
+      },
+      {
+        "index": 4627,
+        "scheduledOffsetMs": 462800,
+        "startedOffsetMs": 462800.485,
+        "finishedOffsetMs": 464743.652,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 1943.165,
+        "items": 20
+      },
+      {
+        "index": 4628,
+        "scheduledOffsetMs": 462900,
+        "startedOffsetMs": 462900.559,
+        "finishedOffsetMs": 465135.857,
+        "inflight": 4,
+        "status": 200,
+        "durationMs": 2235.294,
+        "items": 20
+      },
+      {
+        "index": 4629,
+        "scheduledOffsetMs": 463000,
+        "startedOffsetMs": 463002.311,
+        "finishedOffsetMs": 465320.691,
+        "inflight": 5,
+        "status": 200,
+        "durationMs": 2318.375,
+        "items": 20
+      },
+      {
+        "index": 4630,
+        "scheduledOffsetMs": 463100,
+        "startedOffsetMs": 463101.346,
+        "finishedOffsetMs": 465233.515,
+        "inflight": 6,
+        "status": 200,
+        "durationMs": 2132.165,
+        "items": 20
+      },
+      {
+        "index": 4631,
+        "scheduledOffsetMs": 463200,
+        "startedOffsetMs": 463200.62,
+        "finishedOffsetMs": 465624.689,
+        "inflight": 7,
+        "status": 200,
+        "durationMs": 2424.065,
+        "items": 20
+      },
+      {
+        "index": 4632,
+        "scheduledOffsetMs": 463300,
+        "startedOffsetMs": 463301.138,
+        "finishedOffsetMs": 464840.097,
+        "inflight": 7,
+        "status": 200,
+        "durationMs": 1538.956,
+        "items": 20
+      },
+      {
+        "index": 4633,
+        "scheduledOffsetMs": 463400,
+        "startedOffsetMs": 463401.011,
+        "finishedOffsetMs": 465736.491,
+        "inflight": 8,
+        "status": 200,
+        "durationMs": 2335.477,
+        "items": 20
+      },
+      {
+        "index": 4634,
+        "scheduledOffsetMs": 463500,
+        "startedOffsetMs": 463501.161,
+        "finishedOffsetMs": 466035.348,
+        "inflight": 9,
+        "status": 200,
+        "durationMs": 2534.182,
+        "items": 20
+      },
+      {
+        "index": 4635,
+        "scheduledOffsetMs": 463600,
+        "startedOffsetMs": 463600.619,
+        "finishedOffsetMs": 466324.648,
+        "inflight": 10,
+        "status": 200,
+        "durationMs": 2724.024,
+        "items": 20
+      },
+      {
+        "index": 4636,
+        "scheduledOffsetMs": 463700,
+        "startedOffsetMs": 463700.322,
+        "finishedOffsetMs": 466329.901,
+        "inflight": 11,
+        "status": 200,
+        "durationMs": 2629.575,
+        "items": 20
+      },
+      {
+        "index": 4637,
+        "scheduledOffsetMs": 463800,
+        "startedOffsetMs": 463801.301,
+        "finishedOffsetMs": 466421.85,
+        "inflight": 12,
+        "status": 200,
+        "durationMs": 2620.544,
+        "items": 20
+      },
+      {
+        "index": 4638,
+        "scheduledOffsetMs": 463900,
+        "startedOffsetMs": 463901.102,
+        "finishedOffsetMs": 466427.206,
+        "inflight": 13,
+        "status": 200,
+        "durationMs": 2526.102,
+        "items": 20
+      },
+      {
+        "index": 4639,
+        "scheduledOffsetMs": 464000,
+        "startedOffsetMs": 464001.076,
+        "finishedOffsetMs": 466444.135,
+        "inflight": 14,
+        "status": 200,
+        "durationMs": 2443.056,
+        "items": 20
+      },
+      {
+        "index": 4640,
+        "scheduledOffsetMs": 464100,
+        "startedOffsetMs": 464101.3,
+        "finishedOffsetMs": 466445.786,
+        "inflight": 15,
+        "status": 200,
+        "durationMs": 2344.481,
+        "items": 20
+      },
+      {
+        "index": 4641,
+        "scheduledOffsetMs": 464200,
+        "startedOffsetMs": 464201.339,
+        "finishedOffsetMs": 466544.72,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 2343.378,
+        "items": 20
+      },
+      {
+        "index": 4642,
+        "scheduledOffsetMs": 464300,
+        "startedOffsetMs": 464301.333,
+        "finishedOffsetMs": 466626.663,
+        "inflight": 17,
+        "status": 200,
+        "durationMs": 2325.328,
+        "items": 20
+      },
+      {
+        "index": 4643,
+        "scheduledOffsetMs": 464400,
+        "startedOffsetMs": 464401.318,
+        "finishedOffsetMs": 466722.592,
+        "inflight": 18,
+        "status": 200,
+        "durationMs": 2321.27,
+        "items": 20
+      },
+      {
+        "index": 4644,
+        "scheduledOffsetMs": 464500,
+        "startedOffsetMs": 464501.332,
+        "finishedOffsetMs": 466626.173,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2124.839,
+        "items": 20
+      },
+      {
+        "index": 4645,
+        "scheduledOffsetMs": 464600,
+        "startedOffsetMs": 464601.325,
+        "finishedOffsetMs": 466736.24,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 2134.913,
+        "items": 20
+      },
+      {
+        "index": 4646,
+        "scheduledOffsetMs": 464700,
+        "startedOffsetMs": 464701.314,
+        "finishedOffsetMs": 464701.314,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4647,
+        "scheduledOffsetMs": 464800,
+        "startedOffsetMs": 464801.308,
+        "finishedOffsetMs": 466539.398,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1738.087,
+        "items": 20
+      },
+      {
+        "index": 4648,
+        "scheduledOffsetMs": 464900,
+        "startedOffsetMs": 464901.072,
+        "finishedOffsetMs": 466540.991,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 1639.912,
+        "items": 20
+      },
+      {
+        "index": 4649,
+        "scheduledOffsetMs": 465000,
+        "startedOffsetMs": 465000.517,
+        "finishedOffsetMs": 466628.806,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1628.287,
+        "items": 20
+      },
+      {
+        "index": 4650,
+        "scheduledOffsetMs": 465100,
+        "startedOffsetMs": 465101.333,
+        "finishedOffsetMs": 465101.333,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4651,
+        "scheduledOffsetMs": 465200,
+        "startedOffsetMs": 465201.32,
+        "finishedOffsetMs": 466638.826,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1437.503,
+        "items": 20
+      },
+      {
+        "index": 4652,
+        "scheduledOffsetMs": 465300,
+        "startedOffsetMs": 465301.334,
+        "finishedOffsetMs": 466726.128,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1424.792,
+        "items": 20
+      },
+      {
+        "index": 4653,
+        "scheduledOffsetMs": 465400,
+        "startedOffsetMs": 465401.334,
+        "finishedOffsetMs": 466753.038,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1351.702,
+        "items": 20
+      },
+      {
+        "index": 4654,
+        "scheduledOffsetMs": 465500,
+        "startedOffsetMs": 465501.324,
+        "finishedOffsetMs": 465501.324,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4655,
+        "scheduledOffsetMs": 465600,
+        "startedOffsetMs": 465601.314,
+        "finishedOffsetMs": 465601.314,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4656,
+        "scheduledOffsetMs": 465700,
+        "startedOffsetMs": 465701.359,
+        "finishedOffsetMs": 466844.576,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1143.213,
+        "items": 20
+      },
+      {
+        "index": 4657,
+        "scheduledOffsetMs": 465800,
+        "startedOffsetMs": 465801.422,
+        "finishedOffsetMs": 466848.794,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1047.356,
+        "items": 20
+      },
+      {
+        "index": 4658,
+        "scheduledOffsetMs": 465900,
+        "startedOffsetMs": 465901.342,
+        "finishedOffsetMs": 465901.342,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4659,
+        "scheduledOffsetMs": 466000,
+        "startedOffsetMs": 466001.077,
+        "finishedOffsetMs": 466001.077,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4660,
+        "scheduledOffsetMs": 466100,
+        "startedOffsetMs": 466101.394,
+        "finishedOffsetMs": 466926.14,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 824.696,
+        "items": 20
+      },
+      {
+        "index": 4661,
+        "scheduledOffsetMs": 466200,
+        "startedOffsetMs": 466200.502,
+        "finishedOffsetMs": 466200.502,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 4662,
+        "scheduledOffsetMs": 466300,
+        "startedOffsetMs": 466301.323,
+        "finishedOffsetMs": 466301.323,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:53:09.632983Z",
+        "offsetMs": 461000.103,
+        "sampleDurationMs": 1.436,
+        "processCpuSeconds": 120.045133,
+        "heapBytes": 2783520,
+        "goroutines": 17,
+        "gcCount": 7571,
+        "gcPauseTotalNs": 568654327,
+        "lastGcUnixNs": 1788846789629661000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 61220,
+            "blocksHit": 128585170,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83152,
+            "blockReadMs": 1101.179,
+            "blockWriteMs": 3802.819
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:10.633956Z",
+        "offsetMs": 462001.071,
+        "sampleDurationMs": 0.801,
+        "processCpuSeconds": 120.283847,
+        "heapBytes": 3488776,
+        "goroutines": 13,
+        "gcCount": 7590,
+        "gcPauseTotalNs": 569728666,
+        "lastGcUnixNs": 1788846790614315000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 61355,
+            "blocksHit": 128788558,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83161,
+            "blockReadMs": 1101.439,
+            "blockWriteMs": 3803.364
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:11.635428Z",
+        "offsetMs": 463002.536,
+        "sampleDurationMs": 51.959,
+        "processCpuSeconds": 120.439141,
+        "heapBytes": 5362448,
+        "goroutines": 32,
+        "gcCount": 7601,
+        "gcPauseTotalNs": 570441166,
+        "lastGcUnixNs": 1788846791254387000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 2,
+              "wait_event_type": null
+            }
+          ],
+          "database": {
+            "commits": 61503,
+            "blocksHit": 129024883,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83172,
+            "blockReadMs": 1101.756,
+            "blockWriteMs": 3803.867
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:12.633799Z",
+        "offsetMs": 464000.901,
+        "sampleDurationMs": 22.426,
+        "processCpuSeconds": 120.49849,
+        "heapBytes": 4564200,
+        "goroutines": 88,
+        "gcCount": 7604,
+        "gcPauseTotalNs": 570710666,
+        "lastGcUnixNs": 1788846791806443000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 5,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 5,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 61553,
+            "blocksHit": 129090685,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83300,
+            "blockReadMs": 1103.776,
+            "blockWriteMs": 3804.506
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:13.633434Z",
+        "offsetMs": 465000.529,
+        "sampleDurationMs": 30.678,
+        "processCpuSeconds": 120.682919,
+        "heapBytes": 9953456,
+        "goroutines": 132,
+        "gcCount": 7613,
+        "gcPauseTotalNs": 571355210,
+        "lastGcUnixNs": 1788846793534565000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 12,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 8,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 61709,
+            "blocksHit": 129247989,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83608,
+            "blockReadMs": 1110.537,
+            "blockWriteMs": 3804.881
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:14.633991Z",
+        "offsetMs": 466001.08,
+        "sampleDurationMs": 29.738,
+        "processCpuSeconds": 120.831404,
+        "heapBytes": 9390280,
+        "goroutines": 133,
+        "gcCount": 7618,
+        "gcPauseTotalNs": 571829251,
+        "lastGcUnixNs": 1788846794580602000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": "WalSync",
+              "connections": 1,
+              "wait_event_type": "IO"
+            },
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 10,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 4,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 5,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 61826,
+            "blocksHit": 129395600,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83612,
+            "blockReadMs": 1111.073,
+            "blockWriteMs": 3805.746
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:15.633476Z",
+        "offsetMs": 467000.559,
+        "sampleDurationMs": 0.858,
+        "processCpuSeconds": 121.109149,
+        "heapBytes": 6333848,
+        "goroutines": 52,
+        "gcCount": 7627,
+        "gcPauseTotalNs": 572638376,
+        "lastGcUnixNs": 1788846795586364000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 6,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 62070,
+            "blocksHit": 129644417,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83638,
+            "blockReadMs": 1117.078,
+            "blockWriteMs": 3816.953
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:16.63338Z",
+        "offsetMs": 468000.457,
+        "sampleDurationMs": 0.595,
+        "processCpuSeconds": 121.365606,
+        "heapBytes": 5418560,
+        "goroutines": 14,
+        "gcCount": 7651,
+        "gcPauseTotalNs": 574175501,
+        "lastGcUnixNs": 1788846796608706000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 62201,
+            "blocksHit": 129812242,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83649,
+            "blockReadMs": 1117.489,
+            "blockWriteMs": 3818.642
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  },
+  {
+    "startOffsetMs": 478300.869,
+    "endOffsetMs": 479376.496,
+    "observations": [
+      {
+        "index": 4782,
+        "scheduledOffsetMs": 478300,
+        "startedOffsetMs": 478300.869,
+        "finishedOffsetMs": 479149.509,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 848.636,
+        "items": 20
+      },
+      {
+        "index": 4783,
+        "scheduledOffsetMs": 478400,
+        "startedOffsetMs": 478400.448,
+        "finishedOffsetMs": 479330.716,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 930.264,
+        "items": 20
+      },
+      {
+        "index": 4784,
+        "scheduledOffsetMs": 478500,
+        "startedOffsetMs": 478501.487,
+        "finishedOffsetMs": 479376.496,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 875.006,
+        "items": 20
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:53:25.633049Z",
+        "offsetMs": 477000.069,
+        "sampleDurationMs": 0.379,
+        "processCpuSeconds": 123.276868,
+        "heapBytes": 5066688,
+        "goroutines": 17,
+        "gcCount": 7797,
+        "gcPauseTotalNs": 583607920,
+        "lastGcUnixNs": 1788846805617586000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 63403,
+            "blocksHit": 131655727,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83768,
+            "blockReadMs": 1122.14,
+            "blockWriteMs": 3825.202
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:26.633063Z",
+        "offsetMs": 478000.077,
+        "sampleDurationMs": 1.291,
+        "processCpuSeconds": 123.528861,
+        "heapBytes": 5019424,
+        "goroutines": 17,
+        "gcCount": 7813,
+        "gcPauseTotalNs": 584745876,
+        "lastGcUnixNs": 1788846806621914000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 63534,
+            "blocksHit": 131858274,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83780,
+            "blockReadMs": 1122.366,
+            "blockWriteMs": 3825.81
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:27.634085Z",
+        "offsetMs": 479001.093,
+        "sampleDurationMs": 25.774,
+        "processCpuSeconds": 123.638411,
+        "heapBytes": 5129456,
+        "goroutines": 51,
+        "gcCount": 7820,
+        "gcPauseTotalNs": 585563419,
+        "lastGcUnixNs": 1788846807569396000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 6,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 63645,
+            "blocksHit": 132011691,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83788,
+            "blockReadMs": 1122.716,
+            "blockWriteMs": 3827.243
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:28.633083Z",
+        "offsetMs": 480000.085,
+        "sampleDurationMs": 0.818,
+        "processCpuSeconds": 123.910019,
+        "heapBytes": 4919616,
+        "goroutines": 17,
+        "gcCount": 7842,
+        "gcPauseTotalNs": 586797752,
+        "lastGcUnixNs": 1788846808619302000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 63790,
+            "blocksHit": 132229352,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83801,
+            "blockReadMs": 1123.651,
+            "blockWriteMs": 3828.255
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:53:29.633317Z",
+        "offsetMs": 481000.312,
+        "sampleDurationMs": 0.927,
+        "processCpuSeconds": 124.153379,
+        "heapBytes": 4464584,
+        "goroutines": 16,
+        "gcCount": 7859,
+        "gcPauseTotalNs": 588113839,
+        "lastGcUnixNs": 1788846809615346000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 63941,
+            "blocksHit": 132436009,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 83811,
+            "blockReadMs": 1123.832,
+            "blockWriteMs": 3828.883
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  },
+  {
+    "startOffsetMs": 574300.756,
+    "endOffsetMs": 577795.149,
+    "observations": [
+      {
+        "index": 5742,
+        "scheduledOffsetMs": 574300,
+        "startedOffsetMs": 574300.756,
+        "finishedOffsetMs": 575442.773,
+        "inflight": 1,
+        "status": 200,
+        "durationMs": 1142.015,
+        "items": 20
+      },
+      {
+        "index": 5743,
+        "scheduledOffsetMs": 574400,
+        "startedOffsetMs": 574401.568,
+        "finishedOffsetMs": 576331.902,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 1930.331,
+        "items": 20
+      },
+      {
+        "index": 5744,
+        "scheduledOffsetMs": 574500,
+        "startedOffsetMs": 574500.824,
+        "finishedOffsetMs": 576225.654,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 1724.827,
+        "items": 20
+      },
+      {
+        "index": 5745,
+        "scheduledOffsetMs": 574600,
+        "startedOffsetMs": 574605.158,
+        "finishedOffsetMs": 576127.815,
+        "inflight": 4,
+        "status": 200,
+        "durationMs": 1522.654,
+        "items": 20
+      },
+      {
+        "index": 5746,
+        "scheduledOffsetMs": 574700,
+        "startedOffsetMs": 574725.763,
+        "finishedOffsetMs": 576127.724,
+        "inflight": 5,
+        "status": 200,
+        "durationMs": 1401.958,
+        "items": 20
+      },
+      {
+        "index": 5747,
+        "scheduledOffsetMs": 574800,
+        "startedOffsetMs": 574800.38,
+        "finishedOffsetMs": 576134.355,
+        "inflight": 6,
+        "status": 200,
+        "durationMs": 1333.971,
+        "items": 20
+      },
+      {
+        "index": 5748,
+        "scheduledOffsetMs": 574900,
+        "startedOffsetMs": 574900.643,
+        "finishedOffsetMs": 576332.591,
+        "inflight": 7,
+        "status": 200,
+        "durationMs": 1431.944,
+        "items": 20
+      },
+      {
+        "index": 5749,
+        "scheduledOffsetMs": 575000,
+        "startedOffsetMs": 575001.765,
+        "finishedOffsetMs": 576448.374,
+        "inflight": 8,
+        "status": 200,
+        "durationMs": 1446.605,
+        "items": 20
+      },
+      {
+        "index": 5750,
+        "scheduledOffsetMs": 575100,
+        "startedOffsetMs": 575101.648,
+        "finishedOffsetMs": 577450.468,
+        "inflight": 9,
+        "status": 200,
+        "durationMs": 2348.816,
+        "items": 20
+      },
+      {
+        "index": 5751,
+        "scheduledOffsetMs": 575200,
+        "startedOffsetMs": 575202.333,
+        "finishedOffsetMs": 577450.569,
+        "inflight": 10,
+        "status": 200,
+        "durationMs": 2248.234,
+        "items": 20
+      },
+      {
+        "index": 5752,
+        "scheduledOffsetMs": 575300,
+        "startedOffsetMs": 575302.325,
+        "finishedOffsetMs": 577528.953,
+        "inflight": 11,
+        "status": 200,
+        "durationMs": 2226.626,
+        "items": 20
+      },
+      {
+        "index": 5753,
+        "scheduledOffsetMs": 575400,
+        "startedOffsetMs": 575401.504,
+        "finishedOffsetMs": 577450.726,
+        "inflight": 12,
+        "status": 200,
+        "durationMs": 2049.219,
+        "items": 20
+      },
+      {
+        "index": 5754,
+        "scheduledOffsetMs": 575500,
+        "startedOffsetMs": 575502.377,
+        "finishedOffsetMs": 577047.808,
+        "inflight": 12,
+        "status": 200,
+        "durationMs": 1545.428,
+        "items": 20
+      },
+      {
+        "index": 5755,
+        "scheduledOffsetMs": 575600,
+        "startedOffsetMs": 575602.315,
+        "finishedOffsetMs": 577540.432,
+        "inflight": 13,
+        "status": 200,
+        "durationMs": 1938.113,
+        "items": 20
+      },
+      {
+        "index": 5756,
+        "scheduledOffsetMs": 575700,
+        "startedOffsetMs": 575702.333,
+        "finishedOffsetMs": 577525.869,
+        "inflight": 14,
+        "status": 200,
+        "durationMs": 1823.533,
+        "items": 20
+      },
+      {
+        "index": 5757,
+        "scheduledOffsetMs": 575800,
+        "startedOffsetMs": 575802.324,
+        "finishedOffsetMs": 577529.136,
+        "inflight": 15,
+        "status": 200,
+        "durationMs": 1726.81,
+        "items": 20
+      },
+      {
+        "index": 5758,
+        "scheduledOffsetMs": 575900,
+        "startedOffsetMs": 575902.315,
+        "finishedOffsetMs": 577524.638,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 1622.322,
+        "items": 20
+      },
+      {
+        "index": 5759,
+        "scheduledOffsetMs": 576000,
+        "startedOffsetMs": 576002.07,
+        "finishedOffsetMs": 577522.74,
+        "inflight": 17,
+        "status": 200,
+        "durationMs": 1520.667,
+        "items": 20
+      },
+      {
+        "index": 5760,
+        "scheduledOffsetMs": 576100,
+        "startedOffsetMs": 576102.396,
+        "finishedOffsetMs": 577532.864,
+        "inflight": 18,
+        "status": 200,
+        "durationMs": 1430.466,
+        "items": 20
+      },
+      {
+        "index": 5761,
+        "scheduledOffsetMs": 576200,
+        "startedOffsetMs": 576202.334,
+        "finishedOffsetMs": 577534.473,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 1332.136,
+        "items": 20
+      },
+      {
+        "index": 5762,
+        "scheduledOffsetMs": 576300,
+        "startedOffsetMs": 576301.076,
+        "finishedOffsetMs": 577525.427,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 1224.349,
+        "items": 20
+      },
+      {
+        "index": 5763,
+        "scheduledOffsetMs": 576400,
+        "startedOffsetMs": 576400.739,
+        "finishedOffsetMs": 577521.574,
+        "inflight": 15,
+        "status": 200,
+        "durationMs": 1120.833,
+        "items": 20
+      },
+      {
+        "index": 5764,
+        "scheduledOffsetMs": 576500,
+        "startedOffsetMs": 576502.354,
+        "finishedOffsetMs": 577534.967,
+        "inflight": 15,
+        "status": 200,
+        "durationMs": 1032.61,
+        "items": 20
+      },
+      {
+        "index": 5765,
+        "scheduledOffsetMs": 576600,
+        "startedOffsetMs": 576602.37,
+        "finishedOffsetMs": 577527.931,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 925.558,
+        "items": 20
+      },
+      {
+        "index": 5766,
+        "scheduledOffsetMs": 576700,
+        "startedOffsetMs": 576700.761,
+        "finishedOffsetMs": 577534.938,
+        "inflight": 17,
+        "status": 200,
+        "durationMs": 834.175,
+        "items": 20
+      },
+      {
+        "index": 5768,
+        "scheduledOffsetMs": 576900,
+        "startedOffsetMs": 576902.37,
+        "finishedOffsetMs": 577795.149,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 892.777,
+        "items": 20
+      },
+      {
+        "index": 5771,
+        "scheduledOffsetMs": 577200,
+        "startedOffsetMs": 577202.366,
+        "finishedOffsetMs": 577202.366,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5772,
+        "scheduledOffsetMs": 577300,
+        "startedOffsetMs": 577302.377,
+        "finishedOffsetMs": 577302.377,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5773,
+        "scheduledOffsetMs": 577400,
+        "startedOffsetMs": 577402.353,
+        "finishedOffsetMs": 577402.353,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:55:01.649424Z",
+        "offsetMs": 573000.047,
+        "sampleDurationMs": 0.461,
+        "processCpuSeconds": 146.450585,
+        "heapBytes": 5018032,
+        "goroutines": 17,
+        "gcCount": 9346,
+        "gcPauseTotalNs": 685349405,
+        "lastGcUnixNs": 1788846901629719000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76146,
+            "blocksHit": 151177878,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87111,
+            "blockReadMs": 1173.298,
+            "blockWriteMs": 3873.223
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:02.650369Z",
+        "offsetMs": 574000.92,
+        "sampleDurationMs": 0.945,
+        "processCpuSeconds": 146.670106,
+        "heapBytes": 4481784,
+        "goroutines": 14,
+        "gcCount": 9363,
+        "gcPauseTotalNs": 686412902,
+        "lastGcUnixNs": 1788846902631317000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76179,
+            "blocksHit": 151231459,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87113,
+            "blockReadMs": 1173.344,
+            "blockWriteMs": 3873.302
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:03.651178Z",
+        "offsetMs": 575001.659,
+        "sampleDurationMs": 61.905,
+        "processCpuSeconds": 146.765722,
+        "heapBytes": 5224592,
+        "goroutines": 50,
+        "gcCount": 9369,
+        "gcPauseTotalNs": 687004194,
+        "lastGcUnixNs": 1788846903508213000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 6,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76386,
+            "blocksHit": 151535706,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87130,
+            "blockReadMs": 1173.765,
+            "blockWriteMs": 3873.922
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:04.651669Z",
+        "offsetMs": 576002.085,
+        "sampleDurationMs": 27.562,
+        "processCpuSeconds": 146.895075,
+        "heapBytes": 8214688,
+        "goroutines": 112,
+        "gcCount": 9376,
+        "gcPauseTotalNs": 687593945,
+        "lastGcUnixNs": 1788846904585096000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 8,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            }
+          ],
+          "database": {
+            "commits": 76460,
+            "blocksHit": 151633755,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87136,
+            "blockReadMs": 1174.058,
+            "blockWriteMs": 3874.669
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:05.650743Z",
+        "offsetMs": 577002.076,
+        "sampleDurationMs": 29.252,
+        "processCpuSeconds": 147.041879,
+        "heapBytes": 7824024,
+        "goroutines": 127,
+        "gcCount": 9382,
+        "gcPauseTotalNs": 687984404,
+        "lastGcUnixNs": 1788846905596162000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 11,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76652,
+            "blocksHit": 151890651,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87143,
+            "blockReadMs": 1174.522,
+            "blockWriteMs": 3875.581
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:06.649251Z",
+        "offsetMs": 578001.48,
+        "sampleDurationMs": 0.629,
+        "processCpuSeconds": 147.411527,
+        "heapBytes": 7300216,
+        "goroutines": 13,
+        "gcCount": 9394,
+        "gcPauseTotalNs": 688930531,
+        "lastGcUnixNs": 1788846906617816000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 8,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76908,
+            "blocksHit": 152209646,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87165,
+            "blockReadMs": 1175.287,
+            "blockWriteMs": 3877.064
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:07.649021Z",
+        "offsetMs": 579002.089,
+        "sampleDurationMs": 1.373,
+        "processCpuSeconds": 147.615565,
+        "heapBytes": 5351560,
+        "goroutines": 13,
+        "gcCount": 9406,
+        "gcPauseTotalNs": 689628825,
+        "lastGcUnixNs": 1788846907623589000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 76934,
+            "blocksHit": 152250514,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87167,
+            "blockReadMs": 1175.343,
+            "blockWriteMs": 3877.188
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  },
+  {
+    "startOffsetMs": 581100.31,
+    "endOffsetMs": 594271.89,
+    "observations": [
+      {
+        "index": 5810,
+        "scheduledOffsetMs": 581100,
+        "startedOffsetMs": 581100.31,
+        "finishedOffsetMs": 584542.114,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 3441.801,
+        "items": 20
+      },
+      {
+        "index": 5811,
+        "scheduledOffsetMs": 581200,
+        "startedOffsetMs": 581240.695,
+        "finishedOffsetMs": 584630.592,
+        "inflight": 2,
+        "status": 200,
+        "durationMs": 3389.893,
+        "items": 20
+      },
+      {
+        "index": 5812,
+        "scheduledOffsetMs": 581300,
+        "startedOffsetMs": 581302.535,
+        "finishedOffsetMs": 584751.392,
+        "inflight": 3,
+        "status": 200,
+        "durationMs": 3448.852,
+        "items": 20
+      },
+      {
+        "index": 5813,
+        "scheduledOffsetMs": 581400,
+        "startedOffsetMs": 581400.828,
+        "finishedOffsetMs": 584941.325,
+        "inflight": 4,
+        "status": 200,
+        "durationMs": 3540.494,
+        "items": 20
+      },
+      {
+        "index": 5814,
+        "scheduledOffsetMs": 581500,
+        "startedOffsetMs": 581501.422,
+        "finishedOffsetMs": 584936.971,
+        "inflight": 5,
+        "status": 200,
+        "durationMs": 3435.546,
+        "items": 20
+      },
+      {
+        "index": 5815,
+        "scheduledOffsetMs": 581600,
+        "startedOffsetMs": 581601.38,
+        "finishedOffsetMs": 584826.358,
+        "inflight": 6,
+        "status": 200,
+        "durationMs": 3224.975,
+        "items": 20
+      },
+      {
+        "index": 5816,
+        "scheduledOffsetMs": 581700,
+        "startedOffsetMs": 581700.98,
+        "finishedOffsetMs": 584850.926,
+        "inflight": 7,
+        "status": 200,
+        "durationMs": 3149.943,
+        "items": 20
+      },
+      {
+        "index": 5817,
+        "scheduledOffsetMs": 581800,
+        "startedOffsetMs": 581807.958,
+        "finishedOffsetMs": 585030.404,
+        "inflight": 8,
+        "status": 200,
+        "durationMs": 3222.443,
+        "items": 20
+      },
+      {
+        "index": 5818,
+        "scheduledOffsetMs": 581900,
+        "startedOffsetMs": 581928.052,
+        "finishedOffsetMs": 585243.259,
+        "inflight": 9,
+        "status": 200,
+        "durationMs": 3315.204,
+        "items": 20
+      },
+      {
+        "index": 5819,
+        "scheduledOffsetMs": 582000,
+        "startedOffsetMs": 582020.162,
+        "finishedOffsetMs": 585120.375,
+        "inflight": 10,
+        "status": 200,
+        "durationMs": 3100.21,
+        "items": 20
+      },
+      {
+        "index": 5820,
+        "scheduledOffsetMs": 582100,
+        "startedOffsetMs": 582365.062,
+        "finishedOffsetMs": 585126.872,
+        "inflight": 11,
+        "status": 200,
+        "durationMs": 2761.807,
+        "items": 20
+      },
+      {
+        "index": 5821,
+        "scheduledOffsetMs": 582200,
+        "startedOffsetMs": 582403.484,
+        "finishedOffsetMs": 585151.957,
+        "inflight": 12,
+        "status": 200,
+        "durationMs": 2748.47,
+        "items": 20
+      },
+      {
+        "index": 5822,
+        "scheduledOffsetMs": 582300,
+        "startedOffsetMs": 582500.714,
+        "finishedOffsetMs": 585150.698,
+        "inflight": 13,
+        "status": 200,
+        "durationMs": 2649.98,
+        "items": 20
+      },
+      {
+        "index": 5823,
+        "scheduledOffsetMs": 582400,
+        "startedOffsetMs": 582600.406,
+        "finishedOffsetMs": 585050.493,
+        "inflight": 14,
+        "status": 200,
+        "durationMs": 2450.084,
+        "items": 20
+      },
+      {
+        "index": 5824,
+        "scheduledOffsetMs": 582500,
+        "startedOffsetMs": 582701.391,
+        "finishedOffsetMs": 585246.422,
+        "inflight": 15,
+        "status": 200,
+        "durationMs": 2545.029,
+        "items": 20
+      },
+      {
+        "index": 5825,
+        "scheduledOffsetMs": 582600,
+        "startedOffsetMs": 582800.588,
+        "finishedOffsetMs": 585034.815,
+        "inflight": 16,
+        "status": 200,
+        "durationMs": 2234.225,
+        "items": 20
+      },
+      {
+        "index": 5826,
+        "scheduledOffsetMs": 582700,
+        "startedOffsetMs": 582901.388,
+        "finishedOffsetMs": 585154.761,
+        "inflight": 17,
+        "status": 200,
+        "durationMs": 2253.37,
+        "items": 20
+      },
+      {
+        "index": 5827,
+        "scheduledOffsetMs": 582800,
+        "startedOffsetMs": 583001.966,
+        "finishedOffsetMs": 585384.476,
+        "inflight": 18,
+        "status": 200,
+        "durationMs": 2382.506,
+        "items": 20
+      },
+      {
+        "index": 5828,
+        "scheduledOffsetMs": 582900,
+        "startedOffsetMs": 583101.209,
+        "finishedOffsetMs": 585155.235,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2054.024,
+        "items": 20
+      },
+      {
+        "index": 5829,
+        "scheduledOffsetMs": 583000,
+        "startedOffsetMs": 583201.593,
+        "finishedOffsetMs": 585153.91,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1952.314,
+        "items": 20
+      },
+      {
+        "index": 5830,
+        "scheduledOffsetMs": 583100,
+        "startedOffsetMs": 583301.295,
+        "finishedOffsetMs": 583301.295,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5831,
+        "scheduledOffsetMs": 583200,
+        "startedOffsetMs": 583401.289,
+        "finishedOffsetMs": 583401.289,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5832,
+        "scheduledOffsetMs": 583300,
+        "startedOffsetMs": 583501.327,
+        "finishedOffsetMs": 583501.327,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5833,
+        "scheduledOffsetMs": 583400,
+        "startedOffsetMs": 583601.302,
+        "finishedOffsetMs": 583601.302,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5834,
+        "scheduledOffsetMs": 583500,
+        "startedOffsetMs": 583701.454,
+        "finishedOffsetMs": 583701.454,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5835,
+        "scheduledOffsetMs": 583600,
+        "startedOffsetMs": 583801.009,
+        "finishedOffsetMs": 583801.009,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5836,
+        "scheduledOffsetMs": 583700,
+        "startedOffsetMs": 583901.363,
+        "finishedOffsetMs": 583901.363,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5837,
+        "scheduledOffsetMs": 583800,
+        "startedOffsetMs": 584001.138,
+        "finishedOffsetMs": 584001.138,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5838,
+        "scheduledOffsetMs": 583900,
+        "startedOffsetMs": 584101.322,
+        "finishedOffsetMs": 584101.322,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5839,
+        "scheduledOffsetMs": 584000,
+        "startedOffsetMs": 584201.381,
+        "finishedOffsetMs": 584201.381,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5840,
+        "scheduledOffsetMs": 584100,
+        "startedOffsetMs": 584301.333,
+        "finishedOffsetMs": 584301.333,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5841,
+        "scheduledOffsetMs": 584200,
+        "startedOffsetMs": 584401.01,
+        "finishedOffsetMs": 584401.01,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5842,
+        "scheduledOffsetMs": 584300,
+        "startedOffsetMs": 584500.791,
+        "finishedOffsetMs": 584500.791,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5843,
+        "scheduledOffsetMs": 584400,
+        "startedOffsetMs": 584601.007,
+        "finishedOffsetMs": 585443.638,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 842.629,
+        "items": 20
+      },
+      {
+        "index": 5849,
+        "scheduledOffsetMs": 585000,
+        "startedOffsetMs": 585201.357,
+        "finishedOffsetMs": 589352.073,
+        "inflight": 10,
+        "status": 200,
+        "durationMs": 4150.713,
+        "items": 20
+      },
+      {
+        "index": 5850,
+        "scheduledOffsetMs": 585100,
+        "startedOffsetMs": 585305.899,
+        "finishedOffsetMs": 590315.488,
+        "inflight": 9,
+        "status": 0,
+        "durationMs": 5009.588,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5851,
+        "scheduledOffsetMs": 585200,
+        "startedOffsetMs": 585400.627,
+        "finishedOffsetMs": 590513.832,
+        "inflight": 8,
+        "status": 0,
+        "durationMs": 5113.205,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5852,
+        "scheduledOffsetMs": 585300,
+        "startedOffsetMs": 585501.08,
+        "finishedOffsetMs": 590513.826,
+        "inflight": 6,
+        "status": 0,
+        "durationMs": 5012.745,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5853,
+        "scheduledOffsetMs": 585400,
+        "startedOffsetMs": 585600.95,
+        "finishedOffsetMs": 590601.072,
+        "inflight": 5,
+        "status": 0,
+        "durationMs": 5000.121,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5854,
+        "scheduledOffsetMs": 585500,
+        "startedOffsetMs": 585701.336,
+        "finishedOffsetMs": 590704.373,
+        "inflight": 6,
+        "status": 0,
+        "durationMs": 5003.036,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5855,
+        "scheduledOffsetMs": 585600,
+        "startedOffsetMs": 585800.746,
+        "finishedOffsetMs": 590800.851,
+        "inflight": 7,
+        "status": 0,
+        "durationMs": 5000.104,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5856,
+        "scheduledOffsetMs": 585700,
+        "startedOffsetMs": 585900.61,
+        "finishedOffsetMs": 590901.284,
+        "inflight": 8,
+        "status": 0,
+        "durationMs": 5000.673,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5857,
+        "scheduledOffsetMs": 585800,
+        "startedOffsetMs": 586000.476,
+        "finishedOffsetMs": 591062.858,
+        "inflight": 9,
+        "status": 0,
+        "durationMs": 5062.381,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5858,
+        "scheduledOffsetMs": 585900,
+        "startedOffsetMs": 586100.637,
+        "finishedOffsetMs": 591101.41,
+        "inflight": 10,
+        "status": 0,
+        "durationMs": 5000.772,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5859,
+        "scheduledOffsetMs": 586000,
+        "startedOffsetMs": 586202.06,
+        "finishedOffsetMs": 591208.033,
+        "inflight": 11,
+        "status": 0,
+        "durationMs": 5005.972,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5860,
+        "scheduledOffsetMs": 586100,
+        "startedOffsetMs": 586301.316,
+        "finishedOffsetMs": 591301.543,
+        "inflight": 12,
+        "status": 0,
+        "durationMs": 5000.227,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5861,
+        "scheduledOffsetMs": 586200,
+        "startedOffsetMs": 586402.69,
+        "finishedOffsetMs": 591403.232,
+        "inflight": 13,
+        "status": 0,
+        "durationMs": 5000.541,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5862,
+        "scheduledOffsetMs": 586300,
+        "startedOffsetMs": 586501.424,
+        "finishedOffsetMs": 591501.566,
+        "inflight": 14,
+        "status": 0,
+        "durationMs": 5000.141,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5863,
+        "scheduledOffsetMs": 586400,
+        "startedOffsetMs": 586608.18,
+        "finishedOffsetMs": 591609.217,
+        "inflight": 15,
+        "status": 0,
+        "durationMs": 5001.037,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5864,
+        "scheduledOffsetMs": 586500,
+        "startedOffsetMs": 586701.377,
+        "finishedOffsetMs": 591701.485,
+        "inflight": 16,
+        "status": 0,
+        "durationMs": 5000.107,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5865,
+        "scheduledOffsetMs": 586600,
+        "startedOffsetMs": 586826.387,
+        "finishedOffsetMs": 591827.575,
+        "inflight": 17,
+        "status": 0,
+        "durationMs": 5001.187,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5866,
+        "scheduledOffsetMs": 586700,
+        "startedOffsetMs": 586907.429,
+        "finishedOffsetMs": 591907.762,
+        "inflight": 18,
+        "status": 0,
+        "durationMs": 5000.333,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5867,
+        "scheduledOffsetMs": 586800,
+        "startedOffsetMs": 587007.843,
+        "finishedOffsetMs": 592008.836,
+        "inflight": 19,
+        "status": 0,
+        "durationMs": 5000.992,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5868,
+        "scheduledOffsetMs": 586900,
+        "startedOffsetMs": 587101.165,
+        "finishedOffsetMs": 592102.51,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 5001.345,
+        "items": 0,
+        "error": "transport_error"
+      },
+      {
+        "index": 5869,
+        "scheduledOffsetMs": 587000,
+        "startedOffsetMs": 587200.746,
+        "finishedOffsetMs": 587200.746,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5870,
+        "scheduledOffsetMs": 587100,
+        "startedOffsetMs": 587300.981,
+        "finishedOffsetMs": 587300.981,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5871,
+        "scheduledOffsetMs": 587200,
+        "startedOffsetMs": 587417.802,
+        "finishedOffsetMs": 587417.802,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5872,
+        "scheduledOffsetMs": 587300,
+        "startedOffsetMs": 587725.415,
+        "finishedOffsetMs": 587725.415,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5873,
+        "scheduledOffsetMs": 587400,
+        "startedOffsetMs": 587914.452,
+        "finishedOffsetMs": 587914.452,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5874,
+        "scheduledOffsetMs": 587500,
+        "startedOffsetMs": 588045.33,
+        "finishedOffsetMs": 588045.33,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5875,
+        "scheduledOffsetMs": 587600,
+        "startedOffsetMs": 588108.457,
+        "finishedOffsetMs": 588108.457,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5876,
+        "scheduledOffsetMs": 587700,
+        "startedOffsetMs": 588201.92,
+        "finishedOffsetMs": 588201.92,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5877,
+        "scheduledOffsetMs": 587800,
+        "startedOffsetMs": 588300.743,
+        "finishedOffsetMs": 588300.743,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5878,
+        "scheduledOffsetMs": 587900,
+        "startedOffsetMs": 588401.643,
+        "finishedOffsetMs": 588401.643,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5879,
+        "scheduledOffsetMs": 588000,
+        "startedOffsetMs": 588501.904,
+        "finishedOffsetMs": 588501.904,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5880,
+        "scheduledOffsetMs": 588100,
+        "startedOffsetMs": 588612.304,
+        "finishedOffsetMs": 588612.304,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5881,
+        "scheduledOffsetMs": 588200,
+        "startedOffsetMs": 588706.345,
+        "finishedOffsetMs": 588706.345,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5882,
+        "scheduledOffsetMs": 588300,
+        "startedOffsetMs": 588805.729,
+        "finishedOffsetMs": 588805.729,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5883,
+        "scheduledOffsetMs": 588400,
+        "startedOffsetMs": 588907.798,
+        "finishedOffsetMs": 588907.798,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5884,
+        "scheduledOffsetMs": 588500,
+        "startedOffsetMs": 589005.534,
+        "finishedOffsetMs": 589005.534,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5885,
+        "scheduledOffsetMs": 588600,
+        "startedOffsetMs": 589101.991,
+        "finishedOffsetMs": 589101.991,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5886,
+        "scheduledOffsetMs": 588700,
+        "startedOffsetMs": 589201.727,
+        "finishedOffsetMs": 589201.727,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5887,
+        "scheduledOffsetMs": 588800,
+        "startedOffsetMs": 589301.378,
+        "finishedOffsetMs": 589301.378,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5888,
+        "scheduledOffsetMs": 588900,
+        "startedOffsetMs": 589409.896,
+        "finishedOffsetMs": 593243.812,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 3833.914,
+        "items": 20
+      },
+      {
+        "index": 5889,
+        "scheduledOffsetMs": 589000,
+        "startedOffsetMs": 589500.995,
+        "finishedOffsetMs": 589500.995,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5890,
+        "scheduledOffsetMs": 589100,
+        "startedOffsetMs": 589602.999,
+        "finishedOffsetMs": 589602.999,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5891,
+        "scheduledOffsetMs": 589200,
+        "startedOffsetMs": 589704.421,
+        "finishedOffsetMs": 589704.421,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5892,
+        "scheduledOffsetMs": 589300,
+        "startedOffsetMs": 589835.357,
+        "finishedOffsetMs": 589835.357,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5893,
+        "scheduledOffsetMs": 589400,
+        "startedOffsetMs": 589905.36,
+        "finishedOffsetMs": 589905.36,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5894,
+        "scheduledOffsetMs": 589500,
+        "startedOffsetMs": 590068.098,
+        "finishedOffsetMs": 590068.098,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5895,
+        "scheduledOffsetMs": 589600,
+        "startedOffsetMs": 590187.835,
+        "finishedOffsetMs": 590187.835,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5896,
+        "scheduledOffsetMs": 589700,
+        "startedOffsetMs": 590211.046,
+        "finishedOffsetMs": 590211.046,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5897,
+        "scheduledOffsetMs": 589800,
+        "startedOffsetMs": 590315.5,
+        "finishedOffsetMs": 593024.676,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 2709.173,
+        "items": 20
+      },
+      {
+        "index": 5898,
+        "scheduledOffsetMs": 589900,
+        "startedOffsetMs": 590460.607,
+        "finishedOffsetMs": 590460.607,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5899,
+        "scheduledOffsetMs": 590000,
+        "startedOffsetMs": 590505.207,
+        "finishedOffsetMs": 590505.207,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5900,
+        "scheduledOffsetMs": 590100,
+        "startedOffsetMs": 590600.651,
+        "finishedOffsetMs": 594159.437,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3558.781,
+        "items": 20
+      },
+      {
+        "index": 5901,
+        "scheduledOffsetMs": 590200,
+        "startedOffsetMs": 590701.17,
+        "finishedOffsetMs": 594146.031,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3444.857,
+        "items": 20
+      },
+      {
+        "index": 5902,
+        "scheduledOffsetMs": 590300,
+        "startedOffsetMs": 590800.38,
+        "finishedOffsetMs": 594151.859,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3351.477,
+        "items": 20
+      },
+      {
+        "index": 5903,
+        "scheduledOffsetMs": 590400,
+        "startedOffsetMs": 590901.298,
+        "finishedOffsetMs": 594229.209,
+        "inflight": 18,
+        "status": 200,
+        "durationMs": 3327.908,
+        "items": 20
+      },
+      {
+        "index": 5904,
+        "scheduledOffsetMs": 590500,
+        "startedOffsetMs": 591001.093,
+        "finishedOffsetMs": 594231.625,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3230.531,
+        "items": 20
+      },
+      {
+        "index": 5905,
+        "scheduledOffsetMs": 590600,
+        "startedOffsetMs": 591101.383,
+        "finishedOffsetMs": 594235.373,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3133.985,
+        "items": 20
+      },
+      {
+        "index": 5906,
+        "scheduledOffsetMs": 590700,
+        "startedOffsetMs": 591200.922,
+        "finishedOffsetMs": 594230.428,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 3029.502,
+        "items": 20
+      },
+      {
+        "index": 5907,
+        "scheduledOffsetMs": 590800,
+        "startedOffsetMs": 591301.504,
+        "finishedOffsetMs": 594164.776,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2863.27,
+        "items": 20
+      },
+      {
+        "index": 5908,
+        "scheduledOffsetMs": 590900,
+        "startedOffsetMs": 591401.437,
+        "finishedOffsetMs": 594119.092,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2717.653,
+        "items": 20
+      },
+      {
+        "index": 5909,
+        "scheduledOffsetMs": 591000,
+        "startedOffsetMs": 591501.326,
+        "finishedOffsetMs": 594262.925,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2761.598,
+        "items": 20
+      },
+      {
+        "index": 5910,
+        "scheduledOffsetMs": 591100,
+        "startedOffsetMs": 591600.675,
+        "finishedOffsetMs": 594255.02,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2654.343,
+        "items": 20
+      },
+      {
+        "index": 5911,
+        "scheduledOffsetMs": 591200,
+        "startedOffsetMs": 591701.321,
+        "finishedOffsetMs": 594254.245,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2552.923,
+        "items": 20
+      },
+      {
+        "index": 5912,
+        "scheduledOffsetMs": 591300,
+        "startedOffsetMs": 591801.343,
+        "finishedOffsetMs": 594226.073,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2424.728,
+        "items": 20
+      },
+      {
+        "index": 5913,
+        "scheduledOffsetMs": 591400,
+        "startedOffsetMs": 591901.328,
+        "finishedOffsetMs": 594234.901,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2333.571,
+        "items": 20
+      },
+      {
+        "index": 5914,
+        "scheduledOffsetMs": 591500,
+        "startedOffsetMs": 592001.265,
+        "finishedOffsetMs": 594252.47,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2251.203,
+        "items": 20
+      },
+      {
+        "index": 5915,
+        "scheduledOffsetMs": 591600,
+        "startedOffsetMs": 592100.674,
+        "finishedOffsetMs": 594234.623,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2133.948,
+        "items": 20
+      },
+      {
+        "index": 5916,
+        "scheduledOffsetMs": 591700,
+        "startedOffsetMs": 592200.414,
+        "finishedOffsetMs": 594259.004,
+        "inflight": 19,
+        "status": 200,
+        "durationMs": 2058.589,
+        "items": 20
+      },
+      {
+        "index": 5917,
+        "scheduledOffsetMs": 591800,
+        "startedOffsetMs": 592300.317,
+        "finishedOffsetMs": 594271.229,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1970.91,
+        "items": 20
+      },
+      {
+        "index": 5918,
+        "scheduledOffsetMs": 591900,
+        "startedOffsetMs": 592404.157,
+        "finishedOffsetMs": 592404.157,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5919,
+        "scheduledOffsetMs": 592000,
+        "startedOffsetMs": 592501.312,
+        "finishedOffsetMs": 592501.312,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5920,
+        "scheduledOffsetMs": 592100,
+        "startedOffsetMs": 592601.296,
+        "finishedOffsetMs": 592601.296,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5921,
+        "scheduledOffsetMs": 592200,
+        "startedOffsetMs": 592701.305,
+        "finishedOffsetMs": 592701.305,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5922,
+        "scheduledOffsetMs": 592300,
+        "startedOffsetMs": 592801.253,
+        "finishedOffsetMs": 592801.253,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5923,
+        "scheduledOffsetMs": 592400,
+        "startedOffsetMs": 592901.291,
+        "finishedOffsetMs": 592901.291,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5924,
+        "scheduledOffsetMs": 592500,
+        "startedOffsetMs": 593001.237,
+        "finishedOffsetMs": 593001.237,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5925,
+        "scheduledOffsetMs": 592600,
+        "startedOffsetMs": 593101.037,
+        "finishedOffsetMs": 594263.967,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 1162.928,
+        "items": 20
+      },
+      {
+        "index": 5926,
+        "scheduledOffsetMs": 592700,
+        "startedOffsetMs": 593201.328,
+        "finishedOffsetMs": 593201.328,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5927,
+        "scheduledOffsetMs": 592800,
+        "startedOffsetMs": 593301.305,
+        "finishedOffsetMs": 594271.89,
+        "inflight": 20,
+        "status": 200,
+        "durationMs": 970.584,
+        "items": 20
+      },
+      {
+        "index": 5928,
+        "scheduledOffsetMs": 592900,
+        "startedOffsetMs": 593400.735,
+        "finishedOffsetMs": 593400.735,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5929,
+        "scheduledOffsetMs": 593000,
+        "startedOffsetMs": 593501.336,
+        "finishedOffsetMs": 593501.336,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5930,
+        "scheduledOffsetMs": 593100,
+        "startedOffsetMs": 593601.315,
+        "finishedOffsetMs": 593601.315,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5931,
+        "scheduledOffsetMs": 593200,
+        "startedOffsetMs": 593701.347,
+        "finishedOffsetMs": 593701.347,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5932,
+        "scheduledOffsetMs": 593300,
+        "startedOffsetMs": 593801.312,
+        "finishedOffsetMs": 593801.312,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5933,
+        "scheduledOffsetMs": 593400,
+        "startedOffsetMs": 593900.398,
+        "finishedOffsetMs": 593900.398,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5934,
+        "scheduledOffsetMs": 593500,
+        "startedOffsetMs": 594000.892,
+        "finishedOffsetMs": 594000.892,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      },
+      {
+        "index": 5935,
+        "scheduledOffsetMs": 593600,
+        "startedOffsetMs": 594101.371,
+        "finishedOffsetMs": 594101.371,
+        "inflight": 20,
+        "status": 0,
+        "durationMs": 0,
+        "items": 0,
+        "error": "concurrency_limit"
+      }
+    ],
+    "resourceSamples": [
+      {
+        "at": "2026-09-08T05:55:08.646223Z",
+        "offsetMs": 580000.076,
+        "sampleDurationMs": 0.453,
+        "processCpuSeconds": 147.835049,
+        "heapBytes": 7007104,
+        "goroutines": 17,
+        "gcCount": 9418,
+        "gcPauseTotalNs": 690507825,
+        "lastGcUnixNs": 1788846908615236000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77095,
+            "blocksHit": 152488144,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87182,
+            "blockReadMs": 1175.753,
+            "blockWriteMs": 3877.795
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:09.647087Z",
+        "offsetMs": 581001.678,
+        "sampleDurationMs": 0.729,
+        "processCpuSeconds": 148.101721,
+        "heapBytes": 6047584,
+        "goroutines": 14,
+        "gcCount": 9431,
+        "gcPauseTotalNs": 691404034,
+        "lastGcUnixNs": 1788846909622331000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77167,
+            "blocksHit": 152602474,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87187,
+            "blockReadMs": 1175.899,
+            "blockWriteMs": 3878.16
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:18.540338Z",
+        "offsetMs": 582119.824,
+        "sampleDurationMs": 603.311,
+        "processCpuSeconds": 148.144103,
+        "heapBytes": 4117400,
+        "goroutines": 63,
+        "gcCount": 9433,
+        "gcPauseTotalNs": 691522910,
+        "lastGcUnixNs": 1788846909746604000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 4,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 4,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77416,
+            "blocksHit": 152933350,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87206,
+            "blockReadMs": 1176.379,
+            "blockWriteMs": 3879.557
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:19.421345Z",
+        "offsetMs": 583001.4,
+        "sampleDurationMs": 34.305,
+        "processCpuSeconds": 148.169678,
+        "heapBytes": 4938448,
+        "goroutines": 117,
+        "gcCount": 9433,
+        "gcPauseTotalNs": 691522910,
+        "lastGcUnixNs": 1788846909746604000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 10,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 5,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            }
+          ],
+          "database": {
+            "commits": 77432,
+            "blocksHit": 152946799,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87206,
+            "blockReadMs": 1176.379,
+            "blockWriteMs": 3882.584
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:20.420313Z",
+        "offsetMs": 584000.973,
+        "sampleDurationMs": 23.094,
+        "processCpuSeconds": 148.258579,
+        "heapBytes": 7952360,
+        "goroutines": 130,
+        "gcCount": 9437,
+        "gcPauseTotalNs": 691978870,
+        "lastGcUnixNs": 1788846920356069000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 16,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77469,
+            "blocksHit": 153027253,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87206,
+            "blockReadMs": 1176.379,
+            "blockWriteMs": 3882.78
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:21.419902Z",
+        "offsetMs": 585001.13,
+        "sampleDurationMs": 23.66,
+        "processCpuSeconds": 148.544152,
+        "heapBytes": 12130208,
+        "goroutines": 126,
+        "gcCount": 9445,
+        "gcPauseTotalNs": 692612703,
+        "lastGcUnixNs": 1788846921364923000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": "WalSync",
+              "connections": 1,
+              "wait_event_type": "IO"
+            },
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 7,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 9,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77637,
+            "blocksHit": 153244589,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87215,
+            "blockReadMs": 1176.898,
+            "blockWriteMs": 3886.88
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:22.418587Z",
+        "offsetMs": 586000.347,
+        "sampleDurationMs": 38.175,
+        "processCpuSeconds": 148.721091,
+        "heapBytes": 5075744,
+        "goroutines": 55,
+        "gcCount": 9452,
+        "gcPauseTotalNs": 693363286,
+        "lastGcUnixNs": 1788846922350685000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 6,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 4,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77874,
+            "blocksHit": 153470396,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87232,
+            "blockReadMs": 1177.368,
+            "blockWriteMs": 3889.94
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:23.422729Z",
+        "offsetMs": 587004.989,
+        "sampleDurationMs": 983.206,
+        "processCpuSeconds": 148.741651,
+        "heapBytes": 4611152,
+        "goroutines": 119,
+        "gcCount": 9453,
+        "gcPauseTotalNs": 693697245,
+        "lastGcUnixNs": 1788846923327403000,
+        "error": "postgres_observer_timeout_or_error"
+      },
+      {
+        "at": "2026-09-08T05:55:24.448449Z",
+        "offsetMs": 588031.188,
+        "sampleDurationMs": 715.887,
+        "processCpuSeconds": 148.746516,
+        "heapBytes": 5654880,
+        "goroutines": 133,
+        "gcCount": 9453,
+        "gcPauseTotalNs": 693697245,
+        "lastGcUnixNs": 1788846923327403000,
+        "error": "postgres_observer_timeout_or_error"
+      },
+      {
+        "at": "2026-09-08T05:55:25.422564Z",
+        "offsetMs": 589005.729,
+        "sampleDurationMs": 255.526,
+        "processCpuSeconds": 148.776126,
+        "heapBytes": 6595824,
+        "goroutines": 130,
+        "gcCount": 9454,
+        "gcPauseTotalNs": 694825079,
+        "lastGcUnixNs": 1788846925018182000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 4,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 5,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 11,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 77986,
+            "blocksHit": 153602927,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87240,
+            "blockReadMs": 1177.899,
+            "blockWriteMs": 3890.703
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:26.511602Z",
+        "offsetMs": 590095.241,
+        "sampleDurationMs": 534.631,
+        "processCpuSeconds": 148.837917,
+        "heapBytes": 9181456,
+        "goroutines": 140,
+        "gcCount": 9456,
+        "gcPauseTotalNs": 696359954,
+        "lastGcUnixNs": 1788846925797453000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "active",
+              "wait_event": "WalSync",
+              "connections": 1,
+              "wait_event_type": "IO"
+            },
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 7,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 4,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 5,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78032,
+            "blocksHit": 153625507,
+            "deadlocks": 0,
+            "rollbacks": 0,
+            "tempBytes": 19885135,
+            "blocksRead": 87263,
+            "blockReadMs": 1182.084,
+            "blockWriteMs": 3964.502
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:27.42317Z",
+        "offsetMs": 591007.182,
+        "sampleDurationMs": 57.094,
+        "processCpuSeconds": 148.884267,
+        "heapBytes": 8942792,
+        "goroutines": 122,
+        "gcCount": 9457,
+        "gcPauseTotalNs": 708244204,
+        "lastGcUnixNs": 1788846926978880000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 8,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 6,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78089,
+            "blocksHit": 153684739,
+            "deadlocks": 0,
+            "rollbacks": 5,
+            "tempBytes": 19885135,
+            "blocksRead": 87268,
+            "blockReadMs": 1182.9,
+            "blockWriteMs": 3964.903
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:28.416677Z",
+        "offsetMs": 592001.072,
+        "sampleDurationMs": 24.865,
+        "processCpuSeconds": 148.920929,
+        "heapBytes": 10459472,
+        "goroutines": 118,
+        "gcCount": 9457,
+        "gcPauseTotalNs": 708244204,
+        "lastGcUnixNs": 1788846926978880000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 8,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 3,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78161,
+            "blocksHit": 153775950,
+            "deadlocks": 0,
+            "rollbacks": 13,
+            "tempBytes": 19885135,
+            "blocksRead": 87269,
+            "blockReadMs": 1182.945,
+            "blockWriteMs": 3964.903
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:29.416356Z",
+        "offsetMs": 593001.111,
+        "sampleDurationMs": 41.648,
+        "processCpuSeconds": 148.981885,
+        "heapBytes": 6344736,
+        "goroutines": 128,
+        "gcCount": 9459,
+        "gcPauseTotalNs": 708439121,
+        "lastGcUnixNs": 1788846928948843000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 15,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 4,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78241,
+            "blocksHit": 153875891,
+            "deadlocks": 0,
+            "rollbacks": 13,
+            "tempBytes": 19885135,
+            "blocksRead": 87270,
+            "blockReadMs": 1183.009,
+            "blockWriteMs": 3965.081
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:30.41573Z",
+        "offsetMs": 594000.823,
+        "sampleDurationMs": 18.097,
+        "processCpuSeconds": 149.196414,
+        "heapBytes": 18049104,
+        "goroutines": 138,
+        "gcCount": 9466,
+        "gcPauseTotalNs": 708911871,
+        "lastGcUnixNs": 1788846930350240000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "active",
+              "wait_event": null,
+              "connections": 8,
+              "wait_event_type": null
+            },
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 2,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 9,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": null,
+              "connections": 1,
+              "wait_event_type": null
+            }
+          ],
+          "database": {
+            "commits": 78400,
+            "blocksHit": 154077879,
+            "deadlocks": 0,
+            "rollbacks": 13,
+            "tempBytes": 19885135,
+            "blocksRead": 87274,
+            "blockReadMs": 1184.428,
+            "blockWriteMs": 3965.416
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:31.414641Z",
+        "offsetMs": 595000.05,
+        "sampleDurationMs": 0.554,
+        "processCpuSeconds": 149.450382,
+        "heapBytes": 5273184,
+        "goroutines": 17,
+        "gcCount": 9480,
+        "gcPauseTotalNs": 709737411,
+        "lastGcUnixNs": 1788846931397099000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78639,
+            "blocksHit": 154250999,
+            "deadlocks": 0,
+            "rollbacks": 13,
+            "tempBytes": 19885135,
+            "blocksRead": 87295,
+            "blockReadMs": 1187.182,
+            "blockWriteMs": 3971.885
+          },
+          "ungrantedLocks": 0
+        }
+      },
+      {
+        "at": "2026-09-08T05:55:32.414858Z",
+        "offsetMs": 596000.564,
+        "sampleDurationMs": 1.545,
+        "processCpuSeconds": 149.626194,
+        "heapBytes": 5194472,
+        "goroutines": 14,
+        "gcCount": 9496,
+        "gcPauseTotalNs": 710461663,
+        "lastGcUnixNs": 1788846932393351000,
+        "postgresql": {
+          "activity": [
+            {
+              "state": "idle",
+              "wait_event": "ClientRead",
+              "connections": 7,
+              "wait_event_type": "Client"
+            },
+            {
+              "state": "idle in transaction",
+              "wait_event": "ClientRead",
+              "connections": 1,
+              "wait_event_type": "Client"
+            }
+          ],
+          "database": {
+            "commits": 78777,
+            "blocksHit": 154456591,
+            "deadlocks": 0,
+            "rollbacks": 13,
+            "tempBytes": 19885135,
+            "blocksRead": 87306,
+            "blockReadMs": 1187.436,
+            "blockWriteMs": 3972.454
+          },
+          "ungrantedLocks": 0
+        }
+      }
+    ]
+  }
+]

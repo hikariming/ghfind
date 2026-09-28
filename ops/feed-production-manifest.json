@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "environment": "production",
+  "accountId": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "runtimeWorker": "ghfind-feed-runtime-production",
+  "adapterWorker": "ghfind-feed-adapter-production",
+  "runtimeOrigin": "https://ghfind-feed-runtime-production.beiming1201.workers.dev",
+  "coreDatabase": {
+    "name": "ghfind",
+    "id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d"
+  },
+  "feedDatabase": {
+    "name": "ghfind-feed",
+    "id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf"
+  },
+  "archiveBucket": "ghfind-feed-production-archive",
+  "queue": "ghfind-feed-production-jobs",
+  "deadLetterQueue": "ghfind-feed-production-dlq",
+  "terminalParkingQueue": "ghfind-feed-production-terminal-parking",
+  "writerEpoch": 1,
+  "billing": {
+    "confirmed": true,
+    "evidence": "https://dash.cloudflare.com/8f19bebe359e4ec1a24c68c5f49c1584/workers/containers",
+    "maximumMonthlyUSD": 100,
+    "projectedMonthlyUSD": 79.69848
+  }
+}

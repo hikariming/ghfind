@@ -8,8 +8,13 @@ test locally while account administrators complete their respective items.
 
 ## Repository administrator: required checks and environments
 
-The audited user has `WRITE` permission, not demonstrated administration access.
-Do not use the reported ruleset bypass ability to avoid a PR or required review.
+The audited user has `WRITE` permission, not demonstrated settings administration
+access. The project owner subsequently explicitly authorized merge bypass for
+this implementation. It has succeeded on reviewed PRs after their complete CI
+passed; record the PR head, actual CI checkout and merge SHA for each use. This
+authorization does not waive validation or authorize changing protection rules.
+Environment management still returns 403/404 with the available session. Do not
+infer environment or ruleset administration from a successful merge bypass.
 
 1. Open repository **Settings → Rules → Rulesets → Protect main**
    (`18206694`). Keep the current PR/review, deletion and force-push rules.
@@ -114,6 +119,11 @@ On isolated staging, measure the same Go image used by ordinary Docker:
 
 - Real `/healthz` and dependency-aware `/readyz`, build digest and contract/schema
   identity; no successful readiness merely because the process started.
+  Go responses distinguish HTTP `contractVersion:"1"` from the compiled numeric
+  `storageWriterVersion:2`, including when readiness fails. The storage writer
+  field describes the binary's protocol, not an inferred live schema version.
+  Container lifecycle probes require both fields on each API/executor response;
+  missing or mismatched writer identity fails the probe.
 - Cold start, concurrent requests, instance restart, temporary-disk loss and
   graceful shutdown; persistent task completion must survive each case.
 - Normal p95 ≤800 ms, cold p95 ≤5 s; 10 RPS for at least ten minutes after the

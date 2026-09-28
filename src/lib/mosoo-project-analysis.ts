@@ -43,8 +43,10 @@ const threadResponseSchema = z.object({
     agent_id: z.string().min(1),
     kind: z.enum(["pet", "cattle"]),
     status: z.enum(["IDLE", "RUNNING", "RESCHEDULING", "TERMINATED"]),
-    client_external_ref: z.string().nullable(),
-  }),
+    userId: z.string().min(1).max(255).optional(),
+    // Older persisted Threads used this field; current responses omit it.
+    client_external_ref: z.string().nullable().optional(),
+  }).refine((thread) => thread.userId !== undefined || thread.client_external_ref !== undefined),
   run: runSchema.nullable(),
 });
 
@@ -103,11 +105,14 @@ export interface MosooProjectAnalysisConfig {
   apiBase: string;
   apiToken: string;
   agentId: string;
+  userId: string;
   requestTimeoutMs: number;
 }
 
 export interface MosooThreadSnapshot {
   threadId: string;
+  agentId: string;
+  completedAt: string | null;
   runId: string;
   runStatus: MosooRunStatus;
   kind: "pet" | "cattle";
@@ -182,10 +187,21 @@ function projectAgentConfig(): MosooProjectAnalysisConfig {
     );
   }
   const rawTimeout = Number(process.env.MOSOO_PROJECT_REQUEST_TIMEOUT_MS);
+  // Match the existing Go client. This is a trusted integration identity, not
+  // a client-supplied GitHub identity or an analysis correlation ID.
+  const userId = process.env.MOSOO_PROJECT_USER_ID?.trim() || "ghfind";
+  if (userId.length > 255) {
+    throw new MosooProjectAnalysisError(
+      "mosoo_not_ready",
+      "MOSOO_PROJECT_USER_ID must be at most 255 characters.",
+      503,
+    );
+  }
   return {
     apiBase: (process.env.MOSOO_API_BASE || DEFAULT_API_BASE).replace(/\/$/, ""),
     apiToken,
     agentId,
+    userId,
     requestTimeoutMs:
       Number.isFinite(rawTimeout) && rawTimeout >= 1_000
         ? Math.floor(rawTimeout)
@@ -305,7 +321,7 @@ export async function createMosooProjectAnalysisThread(
       "Idempotency-Key": run.idempotencyKey,
     },
     body: JSON.stringify({
-      client_external_ref: run.id,
+      userId: config.userId,
       input: {
         type: "user.message",
         content: [{ type: "text", text: buildProjectAnalysisPrompt(run, executionMode) }],
@@ -329,6 +345,8 @@ export async function createMosooProjectAnalysisThread(
   }
   return {
     threadId: parsed.data.thread.id,
+    agentId: parsed.data.thread.agent_id,
+    completedAt: parsed.data.run.completedAt,
     runId: parsed.data.run.id,
     runStatus: parsed.data.run.status,
     kind: parsed.data.thread.kind,
@@ -357,6 +375,8 @@ export async function getMosooProjectAnalysisSnapshot(
   }
   return {
     threadId: thread.data.thread.id,
+    agentId: thread.data.thread.agent_id,
+    completedAt: thread.data.run.completedAt,
     runId: thread.data.run.id,
     runStatus: thread.data.run.status,
     kind: thread.data.thread.kind,

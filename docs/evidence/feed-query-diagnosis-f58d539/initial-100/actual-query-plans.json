@@ -1,0 +1,30 @@
+{
+  "unobserved": [
+    "candidates.discovery/0",
+    "candidates.discovery/1",
+    "candidates.hydrate/0",
+    "candidates.hydrate/1",
+    "candidates.latest/0",
+    "candidates.latest/1",
+    "candidates.quality/0",
+    "candidates.quality/1",
+    "candidates.tag/0",
+    "candidates.tag/1",
+    "candidates.tags/0",
+    "candidates.tags/1",
+    "snapshot.available/0",
+    "snapshot.available/1",
+    "snapshot.eligible/0",
+    "snapshot.eligible/1"
+  ],
+  "baseline": "f58d539dd40291b3d30fb3c64b64ec26c464de06",
+  "startedAt": "2026-09-08T18:02:36.501698Z",
+  "durationSeconds": 0.000016792,
+  "status": "incomplete",
+  "attempted": 0,
+  "completed": 0,
+  "cancelled": 0,
+  "notAttempted": 0,
+  "plans": [],
+  "outcomes": {}
+}

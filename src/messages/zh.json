@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "锐评",
-    "leaderboard": "榜单",
+    "roast": "GitHub 锐评",
+    "leaderboard": "开发者榜",
     "discover": "发现",
     "developers": "开发者",
     "projectBoards": "项目榜",
     "projects": "项目",
-    "collections": "站长推荐",
+    "collections": "站长精选",
     "languages": "语言",
     "organizations": "组织",
-    "versus": "对战",
-    "blog": "研究",
+    "versus": "开发者 PK",
+    "blog": "研究报告",
     "openMenu": "打开菜单",
-    "closeMenu": "关闭菜单"
+    "closeMenu": "关闭菜单",
+    "resume": "我的简历",
+    "talent": "人才库",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "发现",
+    "groupCareer": "职业",
+    "groupTools": "工具",
+    "beta": "Beta",
+    "hint": {
+      "roast": "30 秒给 GitHub 账号打分，附一句毒舌点评",
+      "versus": "两位开发者正面 PK，看谁更强",
+      "leaderboard": "按评分浏览优质开发者",
+      "projectBoards": "按领域发现值得关注的开源项目",
+      "collections": "站长亲自挑选的项目与开发者",
+      "blog": "开发者生态的数据与洞察",
+      "resume": "用 GitHub 数据生成开发者简历",
+      "talent": "发现值得认识的开发者",
+      "githubBot": "按作者评分给 issue 和 PR 自动打标签"
+    }
   },
   "globalSearch": {
     "open": "打开全局搜索",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
-    "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。"
+    "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。",
+    "viewAll": "查看全部"
   },
   "leaderboard": {
     "heading": "🏆 名人堂",
     "subtitle": "名人堂收录评分 60 分以上的账号，默认展示趋势榜。",
     "judgeCta": "← 去审判一个账号",
-    "footerNote": "仅收录基于 GitHub 公开数据的高分账号。如需将自己从榜单移除，<a>点此申请下榜</a>。",
+    "footerNote": "仅收录基于 GitHub 公开数据的高分账号。",
     "loadError": "榜单暂时加载不出来，稍后再试。",
     "loading": "加载名人堂…",
     "empty": "🧮 正在计算中，稍后再来看看…",
@@ -568,16 +587,12 @@
       {
         "q": "我的私有工作会被计入吗？",
         "a": "不会。评分只用公开信号，私有组织内的贡献对引擎不可见，因此活跃于私有仓库的成员可能被低估。低分不是对某个人的事实判断——它描述的是一个账号的公开足迹。"
-      },
-      {
-        "q": "如何把我的主页从 ghfind 移除？",
-        "a": "只有 60 分及以上的账号才会被索引和收录。若想从榜单移除，可使用排行榜底部的移除链接，或在 GitHub 仓库提 issue，主页即会被下架。"
       }
     ]
   },
   "homeIntro": {
     "whatHeading": "ghfind 是什么？",
-        "whatBody": "ghfind 提供毒舌 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。",
+    "whatBody": "ghfind 提供毒舌 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。",
     "howHeading": "ghfind 如何工作",
     "steps": [
       {
@@ -740,10 +755,10 @@
   },
   "contact": {
     "metaTitle": "联系 ghfind",
-    "metaDescription": "如何联系 ghfind 团队：报告问题、申请从排行榜移除，或咨询 API、CLI 与 MCP 服务器。",
+    "metaDescription": "如何联系 ghfind 团队：报告问题，或咨询 API、CLI 与 MCP 服务器。",
     "heading": "联系",
     "paragraphs": [
-      "ghfind 是一个开源项目。联系团队、报告问题、申请从排行榜移除，或咨询 API、CLI、MCP 服务器，最快的方式是在公开的 GitHub 仓库提 issue。所有 issue 都会在那里被阅读和处理，公开讨论也能帮到遇到同样问题的其他用户。",
+      "ghfind 是一个开源项目。联系团队、报告问题，或咨询 API、CLI、MCP 服务器，最快的方式是在公开的 GitHub 仓库提 issue。所有 issue 都会在那里被阅读和处理，公开讨论也能帮到遇到同样问题的其他用户。",
       "关于集成：机器可读的 API 契约在 /openapi.json，面向 agent 的文档索引在 /llms.txt，鉴权说明在 /auth.md。如果你需要为高并发的服务端批量评分提升限流额度，请在 GitHub issue 中说明用途。"
     ],
     "issuesLabel": "在 GitHub 上提 issue",
@@ -757,7 +772,7 @@
   },
   "privacy": {
     "metaTitle": "隐私 — ghfind",
-    "metaDescription": "ghfind 如何处理数据：只对公开 GitHub 数据评分，不出售个人数据，并支持对已收录主页的移除请求。",
+    "metaDescription": "ghfind 如何处理数据：只对公开 GitHub 数据评分，不出售个人数据。",
     "heading": "隐私",
     "sections": [
       {
@@ -771,10 +786,6 @@
       {
         "h": "自带 Key 的吐槽",
         "p": "可选的吐槽功能可以使用你自己的模型服务商 Key。当你提供时，它只留在你的浏览器中，并仅经我们的服务器中转一次以调用模型——绝不存储、绝不记录，请求完成后即丢弃。"
-      },
-      {
-        "h": "移除与控制",
-        "p": "如果你希望下架自己的主页，可使用排行榜底部的移除链接，或在 GitHub 仓库提 issue，我们会将其从榜单和索引中移除。由于 ghfind 只反映公开的 GitHub 数据，更新或将你的 GitHub 活动设为私有，也会在下一次扫描时改变或移除 ghfind 能看到的内容。"
       }
     ]
   },
@@ -999,5 +1010,476 @@
         "removed": "已移除"
       }
     }
+  },
+  "sidebar": {
+    "workspace": "工作台",
+    "discover": "发现",
+    "resume": "我的简历",
+    "soon": "筹备中",
+    "tagline": "开发者工作台",
+    "expand": "展开侧边栏",
+    "collapse": "收起侧边栏",
+    "navigation": "主导航",
+    "docs": "帮助与文档",
+    "skip": "跳到内容",
+    "edition": "开放社区",
+    "sponsor": "赞助本站"
+  },
+  "talent": {
+    "topline": {
+      "section": "职业发展",
+      "current": "人才库",
+      "badge": "社区收录 · 持续更新"
+    },
+    "hero": {
+      "titleLead": "从一行代码，",
+      "titleVerb": "发现",
+      "titleAccent": "值得认识的人。",
+      "subtitleLead": "不止是一份简历。透过开源项目、技术实践与真实作品，",
+      "subtitleTail": "认识开发者，也找到下一位同行者。",
+      "people": "以 GitHub 为起点，连接更多可能",
+      "add": "收录人才",
+      "code": "built by humans."
+    },
+    "tabs": {
+      "aria": "人才发现",
+      "all": "全部人才",
+      "saved": "我的收藏",
+      "sessionHint": "收藏仅在本次浏览中保留",
+      "discover": "精选发现"
+    },
+    "search": {
+      "placeholder": "搜索姓名、GitHub 用户名、技术栈或城市…",
+      "aria": "搜索人才",
+      "clear": "清空搜索",
+      "hint": "小技巧：支持 技能:Rust、地点:上海、方向:前端 组合查询"
+    },
+    "filters": {
+      "toggle": "筛选",
+      "location": "所在地点",
+      "source": "数据来源",
+      "allDirections": "全部方向",
+      "allLocations": "全部地点",
+      "allSources": "全部来源",
+      "sourceGithub": "GitHub",
+      "sourceManual": "人工整理",
+      "onlyAvailable": "仅看愿意交流的人才",
+      "reset": "重置筛选",
+      "subDirections": "细分方向",
+      "officialTags": "官方标签",
+      "tagAria": "按官方标签「{tag}」筛选",
+      "collection": "合集",
+      "clearCollection": "清除合集筛选"
+    },
+    "results": {
+      "count": "发现 <strong>{count}</strong> 位开发者",
+      "subtitle": "· 从作品开始了解",
+      "sortAria": "人才排序",
+      "sortRecommended": "精选排序",
+      "sortStars": "项目 Stars 优先",
+      "sortActivity": "贡献活跃度优先",
+      "gridView": "卡片视图",
+      "listView": "列表视图",
+      "perPageAria": "每页显示条数",
+      "perPageOption": "{count} 条/页",
+      "pagesAria": "分页",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "pageStatus": "第 {page} / {pages} 页",
+      "loading": "加载中…"
+    },
+    "notice": {
+      "submitted": "已收到对 {name} 的收录提交，仅保留公开字段，审核通过后展示。",
+      "close": "关闭提示"
+    },
+    "card": {
+      "viewProfileAria": "查看{name}档案",
+      "saveAria": "收藏{name}",
+      "unsaveAria": "取消收藏{name}",
+      "manual": "手动收录",
+      "available": "愿意交流",
+      "score": "GHFind 评分",
+      "pending": "资料待补充",
+      "community": "活跃于开源社区",
+      "yearlyContributions": "贡献/年",
+      "viewProfile": "查看档案"
+    },
+    "empty": {
+      "savedTitle": "把想进一步了解的人，留在这里",
+      "savedBody": "点击人才卡片右上角的收藏图标，建立你的候选清单。",
+      "title": "暂时没有匹配的人才",
+      "body": "试试其他技术栈，或放宽筛选条件。",
+      "browseAll": "浏览全部人才"
+    },
+    "footer": {
+      "endline": "好的人才，值得被看见",
+      "title": "源于开源，不止于开源",
+      "body": "GitHub 公开信息 × 人工精选补充，让每一份才华都有迹可循。",
+      "source": "数据来源于 GitHub 公开信息与站内合集"
+    },
+    "detail": {
+      "close": "关闭档案",
+      "eyebrow": "DEVELOPER PROFILE",
+      "pendingBadge": "待审核档案",
+      "listedBadge": "收录档案",
+      "saved": "已收藏",
+      "save": "收藏人才",
+      "tagsAria": "人才标签",
+      "projectsAria": "代表项目",
+      "projectsTitle": "代表项目",
+      "projectsCount": "{count} 个项目",
+      "relOwn": "自有项目",
+      "relPr": "参与贡献",
+      "projectsEmpty": "暂未关联代表项目",
+      "projectsEmptyHint": "后续可添加自有仓库或参与贡献的 PR。",
+      "sourcesAria": "信息来源",
+      "sourcesTitle": "信息来源",
+      "sourcesPending": "待补充",
+      "sourcesCount": "{count} 个来源",
+      "sourcesEmptyManual": "人工收录",
+      "sourcesEmptyHint": "尚未关联来源，可补充 GitHub、个人网站或相关报道。",
+      "tabsAria": "档案内容",
+      "tabOverview": "人才概览",
+      "tabContacts": "联系方式",
+      "editorNote": "收录者手记",
+      "publicInfo": "公开资料",
+      "contactTitle": "与 {name} 取得联系",
+      "contactHint": "仅展示本人选择公开的联系方式。",
+      "contactEmptyTitle": "暂未公开联系方式",
+      "contactEmptyBody": "本人可在收录自己的流程中，选择公开微信、邮箱或电话。"
+    },
+    "fields": {
+      "role": "职业方向",
+      "location": "所在城市",
+      "bio": "个人介绍",
+      "email": "邮箱",
+      "wechat": "微信",
+      "phone": "电话",
+      "education": "学历 / 专业",
+      "school": "学校",
+      "experience": "工作经历"
+    },
+    "intake": {
+      "close": "关闭收录",
+      "eyebrow": "G H F I N D / TALENT",
+      "title": "让好的人才，被看见",
+      "description": "从一个 GitHub 账号开始，只展示你愿意分享的信息。",
+      "stepsAria": "收录步骤",
+      "stepSubject": "收录对象",
+      "stepAccount": "账号与资料",
+      "stepPrivacy": "公开设置",
+      "stepConfirm": "确认资料",
+      "stepPreview": "预览完成",
+      "errorGithub": "请输入有效的 GitHub 用户名或个人主页链接。",
+      "errorName": "请填写用于展示的姓名或昵称。",
+      "whoTitle": "这次，想让谁被发现？",
+      "whoBody": "为自己建立一张名片，或推荐一位你欣赏的开发者。",
+      "selfTitle": "收录我自己",
+      "selfBody": "关联我的简历，自由选择公开内容",
+      "otherTitle": "推荐其他人",
+      "otherBody": "用 GitHub 账号推荐一位开发者",
+      "whoPrivacy": "姓名可用昵称。电话、学历、学校、工作经历均非必填。",
+      "identitySelf": "你的开发者身份",
+      "identityOther": "推荐一位开发者",
+      "methodGithub": "有 GitHub 账号",
+      "methodManual": "没有 GitHub，手动填写",
+      "githubLabel": "GitHub 用户名或主页链接",
+      "githubPlaceholder": "octocat 或 https://github.com/octocat",
+      "githubHintTitle": "一个账号就够了",
+      "githubHintBody": "接入后从公开项目、技术栈和贡献记录建立档案，无需填写完整简历。",
+      "githubHintNote": "暂不校验账号存在性、不抓取 GitHub 数据，资料将在审核接入后同步。",
+      "nameLabel": "展示姓名 / 昵称",
+      "requiredTag": "必填",
+      "namePlaceholder": "可以使用昵称，不需要真实姓名",
+      "roleLabel": "技术 / 职业方向",
+      "bioLabel": "个人介绍",
+      "optionalTag": "选填",
+      "rolePlaceholder": "例如：前端开发者",
+      "bioPlaceholder": "做过什么，正在探索什么？",
+      "recommendationLabel": "推荐语",
+      "recommendationTag": "选填 · 将展示在档案中",
+      "recommendationPlaceholder": "哪些作品或技术实践让你想推荐这位开发者？",
+      "privacyTitle": "你的资料，由你决定公开多少",
+      "privacyBody": "可以只留微信或邮箱。取消勾选的字段不会加入人才档案，简历原件不受影响。",
+      "resumeImportTitle": "从「我的简历」带入",
+      "resumeImportBody": "仅填入当前草稿，不自动公开，不回写简历。",
+      "loadLocal": "读取本地资料",
+      "loadCloud": "读取云端简历",
+      "openResume": "打开我的简历 ↗",
+      "loading": "正在读取…",
+      "chooseResume": "选择资料",
+      "chooseResumePlaceholder": "选择一份简历 / 已存资料",
+      "resumeLoginRequired": "请先在「我的简历」登录并保存简历，再回来带入。",
+      "resumePickHint": "选择一份资料带入草稿，所有字段默认隐藏。",
+      "resumeEmpty": "还没有已保存的资料，可以先去「我的简历」创建，也可以直接填写。",
+      "resumeLoadFailed": "暂时无法读取资料，可重试或继续手动填写。",
+      "resumeProfileFallback": "我的已存资料",
+      "resumeImported": "已带入「{label}」，请逐项选择公开内容。",
+      "nicknameLabel": "展示昵称",
+      "nicknameTag": "选填，默认使用 GitHub 用户名",
+      "nicknamePlaceholder": "不用公开真实姓名",
+      "fieldHeadingFields": "选填资料",
+      "fieldHeadingPublic": "在人才库公开",
+      "fieldPlaceholder": "选填",
+      "fieldPlaceholderHidden": "选填，不公开可留空",
+      "publicAria": "公开{label}",
+      "visibleOn": "公开",
+      "visibleOff": "隐藏",
+      "moreFields": "补充更多资料",
+      "moreFieldsHint": "职业介绍、电话、学历、学校、工作经历 · 选填",
+      "otherPrivacyTitle": "只推荐作品，不代替他人公开隐私",
+      "otherPrivacyBody": "本次收录 {target}。不要求对方的电话、学校、学历或工作经历，也不会读取你的简历。",
+      "otherPrivacyNote": "联系方式及私人简历资料，后续由本人认领档案后自行补充。",
+      "previewTitle": "这就是别人能看到的档案",
+      "previewBody": "只有下方内容会带入人才库。隐藏字段不会附加到档案数据中。",
+      "previewGithubPending": "@{handle} · GitHub 资料待接入",
+      "previewManual": "手动收录",
+      "previewOnlyGithub": "仅展示 GitHub 用户名，未公开其他个人资料。",
+      "previewOnlyNickname": "仅展示昵称，未公开其他个人资料。",
+      "recommendationPrefix": "推荐语：{note}",
+      "reviewNote": "提交后进入审核，通过前不会公开展示；收录自己的账号后续需要本人验证。",
+      "back": "上一步",
+      "cancel": "取消",
+      "footerSubmit": "仅提交你勾选公开的内容",
+      "footerOptional": "全部选填，可直接继续",
+      "footerHidden": "隐藏字段不会提交",
+      "submitting": "提交中…",
+      "confirmSubmit": "确认提交收录",
+      "next": "下一步"
+    },
+    "categories": {
+      "aria": "按分类浏览",
+      "all": "全部",
+      "agent": "Agent 与工作流",
+      "ai": "AI 应用与模型",
+      "infra": "后端与基础设施",
+      "frontend": "前端与全栈",
+      "tools": "工具与数据",
+      "other": "其他"
+    },
+    "overview": {
+      "collectionsTitle": "精选合集",
+      "collectionsSubtitle": "按开源项目生态和官方标签聚合，从一群人开始认识",
+      "sectionsTitle": "按方向浏览",
+      "sectionsSubtitle": "每个方向的精选开发者，点「查看全部」进入完整列表",
+      "people": "{count} 人",
+      "viewAll": "查看全部 {count} 人"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH 内测用户",
+        "desc": "参与 DSH 内测的早期用户与共建者"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "高性能 LLM 推理引擎的核心贡献者"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "LLM 应用开发平台 Dify 生态"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub 社区与多 Agent 协作"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp 端侧推理贡献者"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "SGLang 推理与服务框架贡献者"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol 协议与 SDK 贡献者"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph 生态贡献者"
+      }
+    }
+  },
+  "sponsor": {
+    "metaTitle": "赞助 ghfind · 赞助方案与权益",
+    "metaDescription": "赞助 ghfind：顶级赞助商、模型赞助商、头部赞助商与友情赞助商方案，按月计费。赞助不影响任何排名与打分。",
+    "topline": {
+      "section": "帮助与文档",
+      "current": "赞助本站"
+    },
+    "hero": {
+      "titleLead": "让 ghfind",
+      "titleAccent": "一直锐评下去。",
+      "subtitle": "ghfind 是一个开放的社区项目，模型调用、服务器和数据抓取都需要真金白银。你的赞助会让它保持免费、独立、持续更新。以下价格均为美元 / 月，目前限时优惠中。"
+    },
+    "perMonth": "/ 月",
+    "listPrice": "原价 {price}",
+    "off": "立省 {off}%",
+    "soldOut": "已售罄",
+    "available": "可预订",
+    "soon": "开发中",
+    "currentHolder": "当前赞助商",
+    "cta": "联系赞助",
+    "ctaSoldOut": "已售罄 · 敬请期待",
+    "tiers": {
+      "title": {
+        "name": "顶级赞助商",
+        "summary": "全站最醒目的赞助位，品牌跟随每一张分享出去的炫耀卡。",
+        "perks": [
+          {
+            "text": "全站顶部导航赞助位展示（Logo + 名称 + 标语）"
+          },
+          {
+            "text": "对外炫耀卡署名，附带顶级赞助商 Logo"
+          }
+        ]
+      },
+      "model": {
+        "name": "模型赞助商",
+        "summary": "为锐评提供模型能力，在每一次生成时被看见。",
+        "perks": [
+          {
+            "text": "锐评生成时展示模型赞助商署名"
+          },
+          {
+            "text": "首页展示赞助商信息与 Logo"
+          }
+        ]
+      },
+      "featured": {
+        "name": "头部赞助商",
+        "summary": "在首页和开发者详情页获得稳定曝光。",
+        "perks": [
+          {
+            "text": "首页赞助位展示"
+          },
+          {
+            "text": "详情页随机展示",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "友情赞助商",
+        "summary": "以朋友的身份支持 ghfind，我们会把你记在这里。",
+        "perks": [
+          {
+            "text": "在赞助页致谢并提供外链"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "友情赞助商",
+      "lead": "感谢每一位支持 ghfind 的朋友，以下链接按赞助时间排列。",
+      "empty": "虚位以待 — 成为第一位友情赞助商 →"
+    },
+    "fairness": {
+      "heading": "赞助不影响任何排名与打分",
+      "body": "所有赞助仅提供展示位与致谢，不会、也不能影响任何开发者或项目的排名、评分与锐评内容。评分完全由公开的方法与数据决定，对所有人一视同仁，以保障公平。"
+    },
+    "contactLead": "赞助合作、发票或其他问题，请联系",
+    "rowLabel": "赞助商",
+    "holders": {
+      "dsh": "一次连接，随时远程使用 Harness",
+      "mosoo": "Coding Agent 云上运行时",
+      "phi": "真正懂你的开源 AI 浏览器"
+    },
+    "slotOpen": "虚位以待"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — 按作者评分给 issue 和 PR 打标签的 GitHub App",
+    "metaDescription": "安装 ghfind Review GitHub App，按作者的公开 ghfind 评分，为每条新 issue 和 pull request 自动添加彩色等级标签。",
+    "topline": {
+      "section": "集成",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · 免费",
+      "title": "先看是谁提的，再决定先处理哪条",
+      "subtitle": "ghfind Review 根据作者的公开 ghfind 评分，为每条新 issue 和 pull request 添加彩色 review: 标签。不用加 workflow，不用配置令牌或 secret。",
+      "install": "在 GitHub 安装",
+      "status": "打开状态页",
+      "note": "以 ghfind-review[bot] 身份运行。只打标签，不评论、不关闭、不拦截任何提交。"
+    },
+    "preview": {
+      "label": "带 review 标签的 issue 列表示例",
+      "heading": "Issues",
+      "items": {
+        "top": "解析嵌套配置时崩溃",
+        "medium": "设置页支持深色模式",
+        "noScore": "README 有错别字"
+      }
+    },
+    "labels": {
+      "heading": "五个标签，一眼分层",
+      "lead": "安装时自动补齐缺失标签，你自定义过的颜色或描述会保留。",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "公开信号较少，建议先核实来源。"
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "常见的贡献者画像。"
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "公开 profile 信号较强。"
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "位于 ghfind 评分前列。"
+        },
+        "noScore": {
+          "range": "无评分",
+          "desc": "暂时拿不到分数，不等于零分。20 分钟和 60 分钟后会自动重试。"
+        }
+      }
+    },
+    "steps": {
+      "heading": "工作方式",
+      "items": {
+        "install": {
+          "title": "选择仓库安装",
+          "body": "授权 Issues 和 Pull requests 读写权限。建议选 Only select repositories 先小范围试用；组织仓库可能需要 owner 批准。"
+        },
+        "open": {
+          "title": "有人新建 issue 或 PR",
+          "body": "bot 在后台查询作者的公开 ghfind 评分，不读取也不评估 issue 正文。"
+        },
+        "label": {
+          "title": "出现 review: 标签",
+          "body": "安装时也会给现有 Open issue 和 PR 的前几页打标。编辑或重新打开不会重新评分。"
+        }
+      }
+    },
+    "queues": {
+      "heading": "把分数区间变成审查队列",
+      "lead": "把筛选条件粘贴到仓库的 Issues 搜索框，从适合当前精力的队列开始。",
+      "items": {
+        "high": "高分段 issue",
+        "top": "最高分段 issue",
+        "low": "需要核实来源的低分段 issue",
+        "noScore": "无评分，需要补充背景"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "请求重新评分",
+        "body": "自动重试结束后，作者或仓库管理员可以在该 issue 下评论 @ghfind-review 重新评分。"
+      },
+      "privacy": {
+        "heading": "会接触哪些数据",
+        "body": "不读源码，不读 issue 正文。只保留安装、仓库、issue 编号、评分和任务状态；已完成任务 30 天后清理。有公开邮箱的作者每 72 小时最多收到一封评分邮件，可一键退订。",
+        "link": "隐私说明"
+      },
+      "stop": {
+        "heading": "随时停用",
+        "body": "在 GitHub 设置中移除仓库、暂停或卸载 App 即可。已有标签会保留。"
+      }
+    },
+    "disclaimer": "评分反映的是作者的公开 GitHub profile，不代表这次提交的质量。新贡献者可能只是公开记录较少。",
+    "source": "源代码与自部署指南"
   }
 }

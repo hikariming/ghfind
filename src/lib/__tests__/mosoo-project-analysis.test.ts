@@ -48,7 +48,7 @@ function threadResponse(
       agent_id: "agent-1",
       kind,
       status: "RUNNING",
-      client_external_ref: "analysis-1",
+      userId: "ghfind",
     },
     run: {
       id: "run-1",
@@ -67,6 +67,7 @@ beforeEach(() => {
   process.env.MOSOO_API_BASE = "https://mosoo.test/api/v1";
   process.env.MOSOO_API_TOKEN = "test-token";
   process.env.MOSOO_PROJECT_AGENT_ID = "agent-1";
+  delete process.env.MOSOO_PROJECT_USER_ID;
 });
 
 afterEach(() => {
@@ -74,6 +75,7 @@ afterEach(() => {
   delete process.env.MOSOO_API_BASE;
   delete process.env.MOSOO_API_TOKEN;
   delete process.env.MOSOO_PROJECT_AGENT_ID;
+  delete process.env.MOSOO_PROJECT_USER_ID;
 });
 
 describe("Mosoo project analysis client", () => {
@@ -129,7 +131,9 @@ describe("Mosoo project analysis client", () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("Idempotency-Key")).toBe(run.idempotencyKey);
       const body = JSON.parse(String(init?.body));
-      expect(body.client_external_ref).toBe(run.id);
+      expect(Object.keys(body).sort()).toEqual(["input", "userId"]);
+      expect(body.userId).toBe("ghfind");
+      expect(body.input.content[0].text).toContain(`analysis_id: ${run.id}`);
       expect(body.input.content[0].text).toContain("[GHFIND_PROJECT_ANALYSIS_V3]");
       expect(body.input.content[0].text).toContain("schema_version: ghfind.project-analysis.v3");
       expect(body.input.content[0].text).toContain("execution_mode: source_only");
@@ -143,6 +147,51 @@ describe("Mosoo project analysis client", () => {
       runStatus: "running",
       kind: "cattle",
     });
+  });
+
+  it("uses the trusted configured integration identity and preserves an explicit API base", async () => {
+    process.env.MOSOO_PROJECT_USER_ID = "  ghfind-feed-staging  ";
+    process.env.MOSOO_API_BASE = "https://dedicated.mosoo.test/api/v1/";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://dedicated.mosoo.test/api/v1/agents/agent-1/threads");
+      expect(JSON.parse(String(init?.body)).userId).toBe("ghfind-feed-staging");
+      return Response.json({ ...threadResponse(), thread: { ...threadResponse().thread, userId: "ghfind-feed-staging" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await createMosooProjectAnalysisThread(run, "source_only");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an oversized integration identity before making a provider request", async () => {
+    process.env.MOSOO_PROJECT_USER_ID = "x".repeat(256);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(createMosooProjectAnalysisThread(run, "source_only")).rejects.toMatchObject({ code: "mosoo_not_ready" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["analysis-1", null])("reads historical responses with client_external_ref=%s", async (reference) => {
+    const response = threadResponse();
+    const { userId: _userId, ...thread } = response.thread;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).includes("/events")
+      ? Response.json({ events: [], truncated: false })
+      : Response.json({ ...response, thread: { ...thread, client_external_ref: reference } })));
+    await expect(createMosooProjectAnalysisThread(run, "source_only")).resolves.toMatchObject({ threadId: "thread-1" });
+    await expect(getMosooProjectAnalysisSnapshot("thread-1")).resolves.toMatchObject({ threadId: "thread-1" });
+  });
+
+  it.each([{}, { userId: "" }, { userId: 42 }])("rejects malformed response identity metadata %j", async (identity) => {
+    const response = threadResponse();
+    const { userId: _userId, ...thread } = response.thread;
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ...response, thread: { ...thread, ...identity } })));
+    await expect(createMosooProjectAnalysisThread(run, "source_only")).rejects.toMatchObject({ code: "mosoo_invalid_response" });
+  });
+
+  it("does not fall back to an obsolete request shape after a current API rejection", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ error: { code: "invalid_request" } }, { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(createMosooProjectAnalysisThread(run, "source_only")).rejects.toBeInstanceOf(MosooProjectAnalysisError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a pet Agent response", async () => {

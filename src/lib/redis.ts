@@ -8,6 +8,7 @@
  * and a cache hit avoids both GitHub API calls and an LLM call.
  */
 
+import { protectedScan, ScanBusyError, scanTtl } from "./scan-protection";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { deployEnv } from "@/lib/deploy-env";
@@ -20,6 +21,7 @@ import {
 import { score } from "./score";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
 import type {
+  AccountDetail,
   FacetCategory,
   LeaderboardEntry,
   LeaderboardWindow,
@@ -94,21 +96,12 @@ function getRedis(): Redis | null {
   // Upstash REST calls are POSTs, which Next's data cache never caches anyway,
   // so "default" changes nothing about freshness — it only stops Redis reads
   // from poisoning static rendering (the /developers facet boards).
-  redis = new Redis({ url, token, cache: "default" });
+  redis = new Redis({ url, token, cache: "default", signal: () => AbortSignal.timeout(3000), retry: false });
   return redis;
 }
 
-const SCAN_TTL_SECONDS = 60 * 60 * 24; // 24h
-// A full scan can cross 30s for prolific accounts, especially when GitHub
-// forces contribution-graph fallbacks. Keep the distributed lock longer than
-// the public route budget so a cold-account burst remains one GitHub crawl.
-const SCAN_SINGLE_FLIGHT_LOCK_SECONDS = 75;
-const SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS = 120; // 60s at 500ms per poll
 export const scanKey = (username: string) =>
   `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
-const lockKey = (username: string) =>
-  `lock:scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
@@ -128,7 +121,7 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
   const r = getRedis();
   if (!r) return;
   try {
-    await r.set(scanKey(username), scan, { ex: SCAN_TTL_SECONDS });
+    await r.set(scanKey(username), scan, { ex: scanTtl() });
   } catch {
     // best-effort cache; ignore failures
   }
@@ -141,54 +134,100 @@ export async function clearCachedScan(username: string): Promise<void> {
   await r.del(scanKey(username)).catch(() => {});
 }
 
-/**
- * Single-flight a cold scan: when many requests hit the same username at once
- * (cache cold), only the first one calls GitHub; the rest wait for its result
- * via the cache. Prevents a thundering herd from burning the rate limit on
- * identical work. Falls back to producing directly when Redis is unconfigured
- * or the waiter times out.
+const scoreDetailRevisionKey = (username: string) =>
+  `score-detail-revision:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+
+async function scoreDetailRevision(r: Redis, username: string): Promise<string> {
+  try {
+    const revision = await r.get<string>(scoreDetailRevisionKey(username));
+    if (revision === null) return "initial";
+    if (typeof revision !== "string" || !/^[a-zA-Z0-9-]+$/.test(revision)) throw new ScanBusyError();
+    return revision;
+  } catch {
+    throw new ScanBusyError();
+  }
+}
+
+/** Move readers to a new namespace only after canonical publication. Old
+ * in-flight readers can fill their old key, but cannot poison the new one.
+ * Keep this pointer without a TTL: expiring it could resurrect an initial key.
+ * A configured Redis failure must fail publication rather than claim freshness.
  */
+export async function advanceScoreDetailRevision(username: string): Promise<void> {
+  const r = getRedis();
+  if (!r) {
+    if (isProductionDeployment()) throw new ScanBusyError();
+    return;
+  }
+  await r.set(scoreDetailRevisionKey(username), crypto.randomUUID());
+}
+
+/** Cache-aside indexed reads retry if publication races their database load. */
+export async function getCachedScoreDetail(
+  username: string,
+  load: () => Promise<AccountDetail | null>,
+): Promise<AccountDetail | null> {
+  const r = getRedis();
+  if (bypassGeneratedCaches() && !isProductionDeployment()) return load();
+  if (!r) {
+    if (isProductionDeployment()) throw new ScanBusyError();
+    return load();
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const revision = await scoreDetailRevision(r, username);
+    const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}:generation:${revision}`;
+    const result = await protectedScan({
+      redis: r, key,
+      read: async () => {
+        try { return await r.get<{ detail: AccountDetail | null }>(key); }
+        catch { return null; }
+      },
+      produce: async () => ({ detail: await load() }),
+      ttl: result => result.detail ? scanTtl() : 10,
+      capacityKey: "score-detail:active-readers:v1",
+    });
+    if (await scoreDetailRevision(r, username) === revision) return result.detail;
+  }
+  throw new ScanBusyError();
+}
+
+// Atomically pair the payload and publication marker. A forced caller may
+// join a scan published after arrival, but never accept its warm baseline.
+export const READ_REFRESHED_SCAN = `
+local revision = redis.call('GET', KEYS[2])
+if not revision or revision == ARGV[1] then return nil end
+return redis.call('GET', KEYS[1])`;
+
+/** Cache misses and forced refreshes retain the same distributed admission. */
 export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
+  options: { force?: boolean } = {},
 ): Promise<ScanResult> {
-  if (bypassGeneratedCaches()) return producer();
+  if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
   const r = getRedis();
-  if (!r) return producer();
-
-  // Re-check cache (a producer may have just finished).
-  const cached = await getCachedScan(username);
-  if (cached) return cached;
-
-  const key = lockKey(username);
-  let acquired = false;
-  try {
-    acquired =
-      (await r.set(key, "1", { nx: true, ex: SCAN_SINGLE_FLIGHT_LOCK_SECONDS })) === "OK";
-  } catch {
-    return producer(); // Redis hiccup — don't block the scan.
+  if (!r) {
+    if (isProductionDeployment()) throw new ScanBusyError();
+    return producer();
   }
-
-  if (acquired) {
-    try {
-      const result = await producer();
-      await setCachedScan(username, result);
-      return result;
-    } finally {
-      await r.del(key).catch(() => {});
-    }
+  const key = scanKey(username);
+  const revisionKey = `revision:${key}`;
+  let baseline = "";
+  if (options.force) {
+    try { baseline = (await r.get<string>(revisionKey)) ?? ""; }
+    catch { throw new ScanBusyError(); }
   }
-
-  // Another request is producing — wait for the bounded scan route rather than
-  // starting a duplicate expensive crawl after the old ~10s window.
-  for (let i = 0; i < SCAN_SINGLE_FLIGHT_WAIT_ATTEMPTS; i++) {
-    await sleep(500);
-    const c = await getCachedScan(username);
-    if (c) return c;
-    const stillLocked = await r.get(key).catch(() => null);
-    if (!stillLocked) break; // producer finished (possibly errored) — stop waiting
-  }
-  return producer(); // fallback: produce ourselves rather than starve.
+  return protectedScan({ redis: r, key, revisionKey,
+    read: options.force ? async () => {
+      try {
+        const value = await r.eval(READ_REFRESHED_SCAN, [key, revisionKey], [baseline]) as ScanResult | string | null;
+        if (!value) return null;
+        const cached = typeof value === "string" ? JSON.parse(value) as ScanResult : value;
+        return { ...cached, scoring: score(cached.metrics) };
+      } catch { throw new ScanBusyError(); }
+    } : () => getCachedScan(username),
+    produce: producer,
+  });
 }
 
 /**

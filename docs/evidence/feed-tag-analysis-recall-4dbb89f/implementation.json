@@ -1,0 +1,10 @@
+{
+  "sourceSha": "ae06fc243329c7fd82634da44094b52dbacb95e5",
+  "changedRuntimeOperation": "current-analysis existence predicate inside tag fanout only",
+  "largeFixture": "same original synthetic 50k/5k/1m; unchanged by the comparison",
+  "smallBoundaryFixture": "separate feed_tag_recall_test database, 180 new synthetic projects, no shared DB reset",
+  "validation": [
+    "go test ./...",
+    "real PostgreSQL required: TestPostgresTagRecallCurrentAnalysisBeforeFanout, TestPostgresGovernanceInvalidatesTaxonomyLazily, TestPostgresGovernanceTagCapacityAndCurrentAnalysis"
+  ]
+}

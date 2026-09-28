@@ -1,0 +1,80 @@
+.page { --gb-accent: #89b69a; --gb-tint: #202e25; width: 100%; max-width: 1180px; margin: auto; padding: 27px 44px 64px; }
+:global(html[data-theme='light']) .page { --gb-accent: #48745a; --gb-tint: #edf4ee; }
+
+.topline { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted-foreground); }
+.topline strong { color: var(--foreground); font-weight: 500; }
+.slash { margin: 0 12px; opacity: .4; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 48px; align-items: center; padding: 55px 0 48px; }
+.eyebrow { display: inline-block; margin-bottom: 16px; font-size: 10px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--gb-accent); background: var(--gb-tint); border-radius: 5px; padding: 3px 8px; }
+.heroText h1 { margin: 0 0 18px; font-size: clamp(30px, 3.2vw, 44px); line-height: 1.3; letter-spacing: -1.5px; font-weight: 650; }
+.heroText > p { max-width: 560px; color: var(--muted-foreground); font-size: 13px; line-height: 1.9; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.cta, .secondary { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 500; transition: opacity .15s, transform .15s, background .15s; }
+.cta { background: var(--primary); color: var(--primary-foreground); border: 1px solid var(--primary); }
+.cta:hover { opacity: .85; transform: translateY(-1px); }
+.secondary { border: 1px solid var(--border); color: var(--foreground); }
+.secondary:hover { background: var(--surface-muted); }
+.heroText > .heroNote { margin-top: 14px; font-size: 11px; line-height: 1.7; }
+
+.preview { margin: 0; border: 1px solid var(--border); border-radius: 15px; background: var(--card); overflow: hidden; box-shadow: var(--shadow-float); }
+.previewHead { padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 11px; font-weight: 600; color: var(--muted-foreground); }
+.previewRow { display: flex; gap: 12px; padding: 14px 18px; }
+.previewRow + .previewRow { border-top: 1px solid var(--border); }
+.previewDot { flex-shrink: 0; width: 10px; height: 10px; margin-top: 5px; border: 2px solid var(--gb-accent); border-radius: 50%; }
+.previewTitle { display: block; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.previewMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: var(--muted-foreground); }
+.previewMeta img { border-radius: 50%; }
+
+/* GitHub label pill: fixed light hexes with dark text, identical to how GitHub draws them. */
+.label { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 600; line-height: 18px; color: #1f2328; white-space: nowrap; }
+
+.section { margin-top: 44px; }
+.section h2 { font-size: 19px; font-weight: 600; letter-spacing: -.3px; }
+.lead { margin-top: 6px; font-size: 12px; line-height: 1.8; color: var(--muted-foreground); }
+
+.labelGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.labelCard { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 18px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.labelCard strong { font-size: 18px; font-weight: 650; letter-spacing: -.4px; font-variant-numeric: tabular-nums; }
+.labelCard p { font-size: 12px; line-height: 1.7; color: var(--muted-foreground); }
+
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0 0; padding: 0; list-style: none; }
+.steps li { padding: 22px 20px; border: 1px solid var(--border); border-radius: 15px; background: var(--card); }
+.stepHead { display: flex; justify-content: space-between; align-items: center; color: var(--gb-accent); }
+.stepIndex { font-size: 10px; letter-spacing: 1.6px; color: var(--muted-foreground); }
+.steps h3 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; }
+.steps p { font-size: 12px; line-height: 1.8; color: var(--muted-foreground); }
+
+.queues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 18px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border); }
+.queue { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px 18px; background: var(--card); }
+.queue > span { font-size: 12px; font-weight: 600; }
+.queue code { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-x: auto; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font-size: 11px; color: var(--muted-foreground); white-space: nowrap; user-select: all; }
+.queue code svg { flex-shrink: 0; }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 44px; }
+.note { display: flex; flex-direction: column; gap: 8px; padding: 22px 22px; border: 1px solid var(--border); border-inline-start: 3px solid var(--gb-accent); border-radius: 12px; background: var(--surface); }
+.note > svg { color: var(--gb-accent); }
+.note h3 { font-size: 14px; font-weight: 600; }
+.note p { font-size: 12px; line-height: 1.85; color: var(--muted-foreground); }
+.note a { display: inline-flex; align-items: center; gap: 4px; width: fit-content; font-size: 12px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.disclaimer { max-width: 720px; margin: 36px auto 0; font-size: 11px; line-height: 1.8; color: var(--muted-foreground); text-align: center; }
+.source { margin-top: 12px; text-align: center; font-size: 12px; }
+.source a { color: var(--foreground); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 1150px) {
+  .page { padding-inline: 28px; }
+  .labelGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 32px; }
+  .steps, .notes { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .page { padding: 22px 16px 35px; }
+  .hero { padding: 37px 0 32px; }
+  .heroText h1 { font-size: 30px; letter-spacing: -1px; }
+  .heroText > p { font-size: 12px; }
+  .labelGrid, .queues { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .cta { transition: none; } .cta:hover { transform: none; } }

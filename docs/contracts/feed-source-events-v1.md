@@ -62,3 +62,20 @@ local workerd/D1 tests additionally cover source capabilities, raw-hash rejectio
 supersession, and atomic run/receipt statement rollback. Neither suite is remote
 Cloudflare staging, real Mosoo completion, Queue delivery or production recovery
 evidence; those remain separate release gates.
+
+In outbox mode the core finalizer never invokes the legacy Feed projection,
+including a best-effort invocation after commit. Legacy projection,
+reconciliation and tag-review writes reject before touching storage when the
+source outbox or Go backend is enabled. Only the versioned executor/operator
+writes that catalog. This process-level guard is not the database writer fencing
+required for a later fact-source migration.
+
+Artifact validation errors remain terminal. A failure to persist already valid
+artifacts is different: the existing run remains `finalizing`, returns retryable
+`analysis_persistence_unavailable` (503), and the existing reconciler retries that
+same run and external thread. Finalizing runs are not expired by the earlier
+evaluation execution deadline. Cache refresh failure cannot mark committed
+results invalid. Service-level regression tests inject a real core outbox abort,
+then recover the same artifacts exactly once; a failing or permanently stalled
+legacy Feed function is never called in this mode. These tests use synthetic
+external artifacts and are not evidence of a real paid evaluation.

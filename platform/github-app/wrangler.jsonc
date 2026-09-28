@@ -1,0 +1,147 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ghfind-bot-staging",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "limits": {
+    "cpu_ms": 30000,
+  },
+  "assets": {
+    "directory": "assets",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
+  "vars": {
+    "EMAIL_ENABLED": "false",
+    "EMAIL_FROM": "notifications@mail.ghfind.com",
+    "APP_ID": "",
+    "APP_SLUG": "",
+    "APP_CLIENT_ID": "",
+    "ENABLED": "false",
+    "ALLOWED_ACCOUNTS": "AsperforMias",
+  },
+  "send_email": [{ "name": "EMAIL" }],
+  "services": [
+    {
+      "binding": "SCORE",
+      "service": "ghfind",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ghfind-bot-staging",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "ghfind-bot-staging",
+      },
+      {
+        "binding": "DEAD",
+        "queue": "ghfind-bot-staging-dead",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "ghfind-bot-staging",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_concurrency": 96,
+        "max_retries": 10,
+        "dead_letter_queue": "ghfind-bot-staging-dead",
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["* * * * *"],
+  },
+  "env": {
+    "production": {
+      "name": "ghfind-bot",
+      "vars": {
+        "EMAIL_ENABLED": "true",
+        "EMAIL_FROM": "notifications@mail.ghfind.com",
+        "APP_ID": "4950248",
+        "APP_SLUG": "ghfind-review",
+        "APP_CLIENT_ID": "Iv23liwemvbc0Ld4xctK",
+        "ENABLED": "true",
+        "ALLOWED_ACCOUNTS": "*",
+      },
+      "send_email": [{ "name": "EMAIL" }],
+      "services": [
+        {
+          "binding": "SCORE",
+          "service": "ghfind",
+        },
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ghfind-bot",
+          "database_id": "54bdbf43-0db1-4e3b-b552-f28ecb645022",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOBS",
+            "queue": "ghfind-bot",
+          },
+          {
+            "binding": "DEAD",
+            "queue": "ghfind-bot-dead",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "ghfind-bot",
+            "max_batch_size": 1,
+            "max_batch_timeout": 1,
+            "max_concurrency": 96,
+            "max_retries": 10,
+            "dead_letter_queue": "ghfind-bot-dead",
+          },
+        ],
+      },
+      "triggers": {
+        "crons": ["* * * * *"],
+      },
+      "secrets": {
+        "required": [
+          "APP_PRIVATE_KEY",
+          "WEBHOOK_SECRET",
+          "APP_CLIENT_SECRET",
+          "SESSION_SECRET",
+        ],
+      },
+      "routes": [
+        {
+          "pattern": "bot.ghfind.com",
+          "custom_domain": true,
+        },
+      ],
+    },
+  },
+  "secrets": {
+    "required": [
+      "APP_PRIVATE_KEY",
+      "WEBHOOK_SECRET",
+      "APP_CLIENT_SECRET",
+      "SESSION_SECRET",
+    ],
+  },
+  "preview_urls": false,
+}

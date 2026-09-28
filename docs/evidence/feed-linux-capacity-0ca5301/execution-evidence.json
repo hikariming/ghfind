@@ -1,0 +1,298 @@
+{
+  "format": "ghfind-feed-linux-capacity-execution-v1",
+  "retrievedAt": "2026-09-08T18:54:32.465718+00:00",
+  "metadataSource": "Read-only GitHub Actions REST run/job/artifact endpoints; selected fields only",
+  "run": {
+    "id": 34264216366,
+    "name": "Feed isolated Linux capacity",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "head_branch": "main",
+    "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+    "path": ".github/workflows/feed-capacity.yml",
+    "run_number": 2,
+    "run_attempt": 1,
+    "created_at": "2026-09-08T18:38:15Z",
+    "updated_at": "2026-09-08T18:50:10Z",
+    "run_started_at": "2026-09-08T18:38:15Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34264216366"
+  },
+  "job": {
+    "id": 102189413636,
+    "name": "Synthetic 10 RPS and deletion recovery",
+    "status": "completed",
+    "conclusion": "success",
+    "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+    "started_at": "2026-09-08T18:38:18Z",
+    "completed_at": "2026-09-08T18:50:10Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34264216366/job/102189413636",
+    "labels": [
+      "ubuntu-24.04"
+    ],
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-09-08T18:38:19Z",
+        "completed_at": "2026-09-08T18:38:20Z"
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-09-08T18:38:20Z",
+        "completed_at": "2026-09-08T18:38:22Z"
+      },
+      {
+        "name": "Verify exact main source and successful required CI",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-09-08T18:38:22Z",
+        "completed_at": "2026-09-08T18:38:22Z"
+      },
+      {
+        "name": "Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-09-08T18:38:22Z",
+        "completed_at": "2026-09-08T18:38:33Z"
+      },
+      {
+        "name": "Check the capacity evidence gate and build the exact harness",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-09-08T18:38:33Z",
+        "completed_at": "2026-09-08T18:38:41Z"
+      },
+      {
+        "name": "Start only the isolated pinned fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-09-08T18:38:41Z",
+        "completed_at": "2026-09-08T18:38:49Z"
+      },
+      {
+        "name": "Seed 50000 projects, 5000 users and 1000000 events",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-09-08T18:38:49Z",
+        "completed_at": "2026-09-08T18:39:56Z"
+      },
+      {
+        "name": "Offer exactly 6000 requests over at least 600 seconds",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-09-08T18:39:56Z",
+        "completed_at": "2026-09-08T18:49:59Z"
+      },
+      {
+        "name": "Verify bounded cancellation, deletion and archive outage recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-09-08T18:49:59Z",
+        "completed_at": "2026-09-08T18:50:04Z"
+      },
+      {
+        "name": "Enforce complete evidence, latency and offered-request error gates",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10,
+        "started_at": "2026-09-08T18:50:04Z",
+        "completed_at": "2026-09-08T18:50:05Z"
+      },
+      {
+        "name": "Preserve bounded synthetic evidence including failed runs",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-09-08T18:50:05Z",
+        "completed_at": "2026-09-08T18:50:05Z"
+      },
+      {
+        "name": "Remove only this job's synthetic fixture",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 12,
+        "started_at": "2026-09-08T18:50:05Z",
+        "completed_at": "2026-09-08T18:50:06Z"
+      },
+      {
+        "name": "Post Run actions/setup-go@v5",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 23,
+        "started_at": "2026-09-08T18:50:06Z",
+        "completed_at": "2026-09-08T18:50:08Z"
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 24,
+        "started_at": "2026-09-08T18:50:08Z",
+        "completed_at": "2026-09-08T18:50:09Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 25,
+        "started_at": "2026-09-08T18:50:09Z",
+        "completed_at": "2026-09-08T18:50:09Z"
+      }
+    ]
+  },
+  "sourceCIPrecedingCapacity": {
+    "id": 34263794374,
+    "name": "CI",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "head_branch": "main",
+    "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+    "path": ".github/workflows/ci.yml",
+    "run_number": 269,
+    "run_attempt": 1,
+    "created_at": "2026-09-08T18:34:00Z",
+    "updated_at": "2026-09-08T18:37:34Z",
+    "run_started_at": "2026-09-08T18:34:00Z",
+    "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263794374"
+  },
+  "sourceCIJobs": [
+    {
+      "id": 102187995023,
+      "name": "Application checks",
+      "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-09-08T18:34:03Z",
+      "completed_at": "2026-09-08T18:37:29Z",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263794374/job/102187995023"
+    },
+    {
+      "id": 102187995167,
+      "name": "Feed storage contracts",
+      "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-09-08T18:34:04Z",
+      "completed_at": "2026-09-08T18:36:25Z",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263794374/job/102187995167"
+    },
+    {
+      "id": 102187995423,
+      "name": "Feed runtime builds",
+      "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-09-08T18:34:02Z",
+      "completed_at": "2026-09-08T18:35:05Z",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263794374/job/102187995423"
+    },
+    {
+      "id": 102189155179,
+      "name": "Verify release",
+      "head_sha": "0ca53012559a512d61a55a5eca373dca2f8f139c",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-09-08T18:37:31Z",
+      "completed_at": "2026-09-08T18:37:33Z",
+      "html_url": "https://github.com/hikariming/ghfind/actions/runs/34263794374/job/102189155179"
+    }
+  ],
+  "artifact": {
+    "id": 10071579469,
+    "name": "feed-linux-capacity-0ca53012559a512d61a55a5eca373dca2f8f139c-1",
+    "size_in_bytes": 243526,
+    "digest": "sha256:d2115cd2b5636ffcba10b63f891f0a192de41621796032ef257356c14e9dfe5c",
+    "expired": false,
+    "created_at": "2026-09-08T18:50:05Z",
+    "expires_at": "2026-10-08T18:50:05Z"
+  },
+  "logExcerpts": [
+    {
+      "sourceReadCommand": "gh run view 34264216366 --repo hikariming/ghfind --log",
+      "sourceLogSha256": "740edda56c2140fd4c0ea4f4bac649b29d256cb6a99f11d9715aad35f68628c0",
+      "sourceLogBytes": 127191,
+      "sourceLineNumbers": [
+        37,
+        151,
+        152,
+        177,
+        180,
+        193,
+        194,
+        195,
+        196,
+        197,
+        198,
+        208,
+        321,
+        323,
+        635,
+        636,
+        637,
+        638,
+        639,
+        648,
+        649,
+        650,
+        651,
+        652,
+        653,
+        654,
+        655,
+        656,
+        657,
+        658,
+        659,
+        660,
+        661,
+        662,
+        663,
+        664,
+        665,
+        666,
+        667,
+        668,
+        670,
+        679,
+        690,
+        717,
+        719,
+        720,
+        724,
+        734,
+        735,
+        736,
+        737,
+        738,
+        739,
+        740,
+        741,
+        742,
+        743,
+        744
+      ],
+      "excerptPath": "actions-source-cleanup.log",
+      "excerptSha256": "0c80df4d6979450f7ddc94b40a94655d2574897fd6ea32d2fb5ea51df0857f0f",
+      "method": "Selected complete original byte lines in original order; no text/escape/line-ending rewriting. Omitted lines are not in this excerpt."
+    }
+  ],
+  "cleanup": {
+    "stepNumber": 12,
+    "conclusion": "success",
+    "evidence": "Actions step status and actual Removed output for both containers, capacity_data volume and default network; no subsequent independent runner readback."
+  }
+}

@@ -1,0 +1,478 @@
+{
+  "sourceSha": "a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e",
+  "imageId": "sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f",
+  "startedAt": "2026-09-08T17:27:45.582240+00:00",
+  "requests": [
+    {
+      "label": "minio-live",
+      "at": "2026-09-08T17:27:47.710872+00:00",
+      "origin": "http://127.0.0.1:59005",
+      "path": "/minio/health/live",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Content-Length": "0",
+        "Server": "MinIO",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Vary": "Origin",
+        "X-Amz-Id-2": "dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8",
+        "X-Amz-Request-Id": "18D368955C91EB14",
+        "X-Content-Type-Options": "nosniff",
+        "X-Xss-Protection": "1; mode=block",
+        "Date": "Tue, 08 Sep 2026 17:27:47 GMT"
+      },
+      "body": "",
+      "seconds": 0.010398083000000113
+    },
+    {
+      "label": "initial-ready-ghfind-portability-a3-api",
+      "at": "2026-09-08T17:27:48.534558+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "153"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.032157375000000155
+    },
+    {
+      "label": "health-ghfind-portability-a3-api",
+      "at": "2026-09-08T17:27:48.541560+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/healthz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "113"
+      },
+      "body": "{\"contractVersion\":\"1\",\"healthy\":true,\"service\":\"feed-api\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\"}\n",
+      "seconds": 0.005985166000000319
+    },
+    {
+      "label": "initial-ready-ghfind-portability-a3-worker",
+      "at": "2026-09-08T17:27:48.800975+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "156"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.15534766700000002
+    },
+    {
+      "label": "health-ghfind-portability-a3-worker",
+      "at": "2026-09-08T17:27:48.808704+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/healthz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "116"
+      },
+      "body": "{\"contractVersion\":\"1\",\"healthy\":true,\"service\":\"feed-worker\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\"}\n",
+      "seconds": 0.006032958000000033
+    },
+    {
+      "label": "anonymous",
+      "at": "2026-09-08T17:27:48.931759+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/api/feed/projects?limit=20",
+      "method": "GET",
+      "status": 401,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "36"
+      },
+      "body": "{\"error\":\"authentication_required\"}\n",
+      "seconds": 0.008308708000000387
+    },
+    {
+      "label": "cleanup-no-auth",
+      "at": "2026-09-08T17:27:48.939851+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/internal/feed/jobs/cleanup",
+      "method": "POST",
+      "status": 401,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "36"
+      },
+      "body": "{\"error\":\"authentication_required\"}\n",
+      "seconds": 0.0068626670000000445
+    },
+    {
+      "label": "cleanup-idle",
+      "at": "2026-09-08T17:27:48.951144+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/internal/feed/jobs/cleanup",
+      "method": "POST",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:48 GMT",
+        "Content-Length": "42"
+      },
+      "body": "{\"status\":\"idle\",\"steps\":0,\"processed\":0}\n",
+      "seconds": 0.009330208000000173
+    },
+    {
+      "label": "writer1-incompatible",
+      "at": "2026-09-08T17:27:49.041095+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 503,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "154"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":false,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.005986792000000296
+    },
+    {
+      "label": "writer1-incompatible",
+      "at": "2026-09-08T17:27:49.049524+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 503,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "157"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":false,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.00780645900000021
+    },
+    {
+      "label": "writer2-restored",
+      "at": "2026-09-08T17:27:49.134811+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "153"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.006784166000000091
+    },
+    {
+      "label": "writer2-restored",
+      "at": "2026-09-08T17:27:49.154749+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "156"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.018735874999999957
+    },
+    {
+      "label": "minio-down-worker",
+      "at": "2026-09-08T17:27:49.969460+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 503,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "157"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":false,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.7691375409999996
+    },
+    {
+      "label": "minio-down-api",
+      "at": "2026-09-08T17:27:49.983454+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:49 GMT",
+        "Content-Length": "153"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.012666457999999992
+    },
+    {
+      "label": "minio-restored",
+      "at": "2026-09-08T17:27:50.618619+00:00",
+      "origin": "http://127.0.0.1:59005",
+      "path": "/minio/health/live",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Content-Length": "0",
+        "Server": "MinIO",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Vary": "Origin",
+        "X-Amz-Id-2": "dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8",
+        "X-Amz-Request-Id": "18D3689609E559AC",
+        "X-Content-Type-Options": "nosniff",
+        "X-Xss-Protection": "1; mode=block",
+        "Date": "Tue, 08 Sep 2026 17:27:50 GMT"
+      },
+      "body": "",
+      "seconds": 0.006146916999999696
+    },
+    {
+      "label": "worker-after-bucket-recreate",
+      "at": "2026-09-08T17:27:50.788086+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:50 GMT",
+        "Content-Length": "156"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.013648708999999926
+    },
+    {
+      "label": "after-restart-ghfind-portability-a3-api",
+      "at": "2026-09-08T17:27:51.517957+00:00",
+      "origin": "http://127.0.0.1:58085",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:51 GMT",
+        "Content-Length": "153"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-api\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.08685575000000068
+    },
+    {
+      "label": "after-restart-ghfind-portability-a3-worker",
+      "at": "2026-09-08T17:27:52.365576+00:00",
+      "origin": "http://127.0.0.1:58086",
+      "path": "/readyz",
+      "method": "GET",
+      "status": 200,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Tue, 08 Sep 2026 17:27:52 GMT",
+        "Content-Length": "156"
+      },
+      "body": "{\"contractVersion\":\"1\",\"ready\":true,\"service\":\"feed-worker\",\"storeProfile\":\"postgres\",\"version\":\"a3c3f841c15a247d5a2b187aa0f6ac5fa5e1616e\",\"writerEpoch\":1}\n",
+      "seconds": 0.10086983300000085
+    }
+  ],
+  "checks": {
+    "ghfind-portability-a3-api-initial-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-worker-initial-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-api-sigterm": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-08T17:27:48.29975246Z",
+      "FinishedAt": "2026-09-08T17:27:50.816418711Z"
+    },
+    "ghfind-portability-a3-api-after-restart-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    },
+    "ghfind-portability-a3-worker-sigterm": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-08T17:27:48.430180668Z",
+      "FinishedAt": "2026-09-08T17:27:51.652254461Z"
+    },
+    "ghfind-portability-a3-worker-after-restart-probe": {
+      "gid": 65532,
+      "goarch": "amd64",
+      "goos": "linux",
+      "markerExistedBefore": false,
+      "rootWriteReadOnly": true,
+      "tmpWriteRead": true,
+      "uid": 65532
+    }
+  },
+  "scope": "ordinary Docker synthetic fixture; source is health-only; no OAuth, assessment, queue, Cloudflare, capacity or production evidence",
+  "schema": {
+    "database": "feed_portability_test",
+    "compatibility": {
+      "singleton": true,
+      "min_reader_contract": 1,
+      "max_reader_contract": 1,
+      "min_writer_contract": 2,
+      "max_writer_contract": 2
+    },
+    "migrationCount": 22,
+    "projects": 0,
+    "users": 0,
+    "jobs": 0
+  },
+  "binaries": {
+    "feed-api": {
+      "sha256": "e3d401b8e2f703774cacef1dc17612fbda8180e1c1f07099698cafcfa2724a20",
+      "buildInfo": "/tmp/ghfind-feed-portability-a3c3f84/feed-api.elf: go1.23.12\n\tpath\tgithub.com/hikariming/ghfind/cmd/feed-api\n\tmod\tgithub.com/hikariming/ghfind\t(devel)\t\n\tdep\tgithub.com/antlr4-go/antlr/v4\tv4.13.0\th1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2\tv1.39.2\th1:EJLg8IdbzgeD7xgvZ+I8M1e0fL0ptn/M47lianzth0I=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/aws/protocol/eventstream\tv1.7.1\th1:i8p8P4diljCr60PpJp6qZXNlgX4m2yQFpYk+9ZT+J4E=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/config\tv1.31.12\th1:pYM1Qgy0dKZLHX2cXslNacbcEFMkDMl+Bcj5ROuS6p8=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/credentials\tv1.18.16\th1:4JHirI4zp958zC026Sm+V4pSDwW4pwLefKrc0bF2lwI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/feature/ec2/imds\tv1.18.9\th1:Mv4Bc0mWmv6oDuSWTKnk+wgeqPL5DRFu5bQL9BGPQ8Y=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/configsources\tv1.4.9\th1:se2vOWGD3dWQUtfn4wEjRQJb1HK1XsNIt825gskZ970=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/endpoints/v2\tv2.7.9\th1:6RBnKZLkJM4hQ+kN6E7yWFveOTg8NLPHAkqrs4ZPlTU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/ini\tv1.8.3\th1:bIqFDwgGXXN1Kpp99pDOdKMTTb5d2KyU5X/BZxjOkRo=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/v4a\tv1.4.9\th1:w9LnHqTq8MEdlnyhV4Bwfizd65lfNCNgdlNC6mM5paE=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/accept-encoding\tv1.13.1\th1:oegbebPEMA/1Jny7kvwejowCaHz1FWZAQ94WXFNCyTM=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/checksum\tv1.9.0\th1:X0FveUndcZ3lKbSpIC6rMYGRiQTcUVRNH6X4yYtIrlU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/presigned-url\tv1.13.9\th1:5r34CgVOD4WZudeEKZ9/iKpiT6cM1JyEROpXjOcdWv8=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/s3shared\tv1.19.9\th1:wuZ5uW2uhJR63zwNlqWH2W4aL4ZjeJP3o92/W+odDY4=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/s3\tv1.88.4\th1:mUI3b885qJgfqKDUSj6RgbRqLdX0wGmg8ruM03zNfQA=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sso\tv1.29.6\th1:A1oRkiSQOWstGh61y4Wc/yQ04sqrQZr1Si/oAXj20/s=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/ssooidc\tv1.35.1\th1:5fm5RTONng73/QA73LhCNR7UT9RpFH3hR6HWL6bIgVY=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sts\tv1.38.6\th1:p3jIvqYwUZgu/XYeI48bJxOhvm47hZb5HUQ0tn6Q9kA=\n\tdep\tgithub.com/aws/smithy-go\tv1.23.0\th1:8n6I3gXzWJB2DxBDnfxgBaSX6oe0d/t10qGz7OKqMCE=\n\tdep\tgithub.com/coder/websocket\tv1.8.12\th1:5bUXkEPPIbewrnkU8LTCLVaxi4N4J8ahufH2vlo4NAo=\n\tdep\tgithub.com/jackc/pgpassfile\tv1.0.0\th1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=\n\tdep\tgithub.com/jackc/pgservicefile\tv0.0.0-20240606120523-5a60cdf6a761\th1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=\n\tdep\tgithub.com/jackc/pgx/v5\tv5.7.6\th1:rWQc5FwZSPX58r1OQmkuaNicxdmExaEz5A2DO2hUuTk=\n\tdep\tgithub.com/jackc/puddle/v2\tv2.2.2\th1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=\n\tdep\tgithub.com/rabbitmq/amqp091-go\tv1.13.0\th1:L8NA1WtF76C6KA3LAoufjfLgbist/If1UQYcsOjtxXA=\n\tdep\tgithub.com/tursodatabase/libsql-client-go\tv0.0.0-20260528064733-9d5d30a29a60\th1:TfQEwhr0Q9t+Bgs0TNk2eHZ9EGD107Mimic0kcoGS1M=\n\tdep\tgolang.org/x/crypto\tv0.37.0\th1:kJNSjF/Xp7kU0iB2Z+9viTPMW4EqqsrywMXLJOOsXSE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20240325151524-a685a6edb6d8\th1:aAcj0Da7eBAtrTp03QXWvm88pSyOt+UgdZw2BFZ+lEw=\n\tdep\tgolang.org/x/sync\tv0.13.0\th1:AauUjRAJ9OSnvULf/ARrrVywoJDy0YS2AwQ98I37610=\n\tdep\tgolang.org/x/text\tv0.24.0\th1:dd5Bzh4yt5KYA8f9CJHCP4FB4D51c2c6JvN37xJJkJ0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+    },
+    "feed-worker": {
+      "sha256": "78b8ba9f23b396526597c99b0879e5c743a0321167edf36c307cf8ddfc53f37d",
+      "buildInfo": "/tmp/ghfind-feed-portability-a3c3f84/feed-worker.elf: go1.23.12\n\tpath\tgithub.com/hikariming/ghfind/cmd/feed-worker\n\tmod\tgithub.com/hikariming/ghfind\t(devel)\t\n\tdep\tgithub.com/antlr4-go/antlr/v4\tv4.13.0\th1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2\tv1.39.2\th1:EJLg8IdbzgeD7xgvZ+I8M1e0fL0ptn/M47lianzth0I=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/aws/protocol/eventstream\tv1.7.1\th1:i8p8P4diljCr60PpJp6qZXNlgX4m2yQFpYk+9ZT+J4E=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/config\tv1.31.12\th1:pYM1Qgy0dKZLHX2cXslNacbcEFMkDMl+Bcj5ROuS6p8=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/credentials\tv1.18.16\th1:4JHirI4zp958zC026Sm+V4pSDwW4pwLefKrc0bF2lwI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/feature/ec2/imds\tv1.18.9\th1:Mv4Bc0mWmv6oDuSWTKnk+wgeqPL5DRFu5bQL9BGPQ8Y=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/configsources\tv1.4.9\th1:se2vOWGD3dWQUtfn4wEjRQJb1HK1XsNIt825gskZ970=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/endpoints/v2\tv2.7.9\th1:6RBnKZLkJM4hQ+kN6E7yWFveOTg8NLPHAkqrs4ZPlTU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/ini\tv1.8.3\th1:bIqFDwgGXXN1Kpp99pDOdKMTTb5d2KyU5X/BZxjOkRo=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/v4a\tv1.4.9\th1:w9LnHqTq8MEdlnyhV4Bwfizd65lfNCNgdlNC6mM5paE=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/accept-encoding\tv1.13.1\th1:oegbebPEMA/1Jny7kvwejowCaHz1FWZAQ94WXFNCyTM=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/checksum\tv1.9.0\th1:X0FveUndcZ3lKbSpIC6rMYGRiQTcUVRNH6X4yYtIrlU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/presigned-url\tv1.13.9\th1:5r34CgVOD4WZudeEKZ9/iKpiT6cM1JyEROpXjOcdWv8=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/s3shared\tv1.19.9\th1:wuZ5uW2uhJR63zwNlqWH2W4aL4ZjeJP3o92/W+odDY4=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/s3\tv1.88.4\th1:mUI3b885qJgfqKDUSj6RgbRqLdX0wGmg8ruM03zNfQA=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sso\tv1.29.6\th1:A1oRkiSQOWstGh61y4Wc/yQ04sqrQZr1Si/oAXj20/s=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/ssooidc\tv1.35.1\th1:5fm5RTONng73/QA73LhCNR7UT9RpFH3hR6HWL6bIgVY=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sts\tv1.38.6\th1:p3jIvqYwUZgu/XYeI48bJxOhvm47hZb5HUQ0tn6Q9kA=\n\tdep\tgithub.com/aws/smithy-go\tv1.23.0\th1:8n6I3gXzWJB2DxBDnfxgBaSX6oe0d/t10qGz7OKqMCE=\n\tdep\tgithub.com/coder/websocket\tv1.8.12\th1:5bUXkEPPIbewrnkU8LTCLVaxi4N4J8ahufH2vlo4NAo=\n\tdep\tgithub.com/jackc/pgpassfile\tv1.0.0\th1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=\n\tdep\tgithub.com/jackc/pgservicefile\tv0.0.0-20240606120523-5a60cdf6a761\th1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=\n\tdep\tgithub.com/jackc/pgx/v5\tv5.7.6\th1:rWQc5FwZSPX58r1OQmkuaNicxdmExaEz5A2DO2hUuTk=\n\tdep\tgithub.com/jackc/puddle/v2\tv2.2.2\th1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=\n\tdep\tgithub.com/rabbitmq/amqp091-go\tv1.13.0\th1:L8NA1WtF76C6KA3LAoufjfLgbist/If1UQYcsOjtxXA=\n\tdep\tgithub.com/tursodatabase/libsql-client-go\tv0.0.0-20260528064733-9d5d30a29a60\th1:TfQEwhr0Q9t+Bgs0TNk2eHZ9EGD107Mimic0kcoGS1M=\n\tdep\tgolang.org/x/crypto\tv0.37.0\th1:kJNSjF/Xp7kU0iB2Z+9viTPMW4EqqsrywMXLJOOsXSE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20240325151524-a685a6edb6d8\th1:aAcj0Da7eBAtrTp03QXWvm88pSyOt+UgdZw2BFZ+lEw=\n\tdep\tgolang.org/x/sync\tv0.13.0\th1:AauUjRAJ9OSnvULf/ARrrVywoJDy0YS2AwQ98I37610=\n\tdep\tgolang.org/x/text\tv0.24.0\th1:dd5Bzh4yt5KYA8f9CJHCP4FB4D51c2c6JvN37xJJkJ0=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+    }
+  },
+  "runtimeContainers": [
+    {
+      "name": "ghfind-portability-a3-api",
+      "id": "456603aaae0fb3e64e38554c7e4368766776992c4e1c56dcc1570d141faea4ed",
+      "image": "sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f",
+      "path": "/usr/local/bin/feed-api",
+      "user": "65532:65532",
+      "readOnly": true,
+      "tmpfs": {
+        "/tmp": "rw,nosuid,nodev,noexec,size=16m,mode=1777"
+      },
+      "memoryBytes": 268435456,
+      "nanoCPUs": 500000000,
+      "capDrop": [
+        "ALL"
+      ],
+      "securityOpt": [
+        "no-new-privileges"
+      ],
+      "pidsLimit": 64
+    },
+    {
+      "name": "ghfind-portability-a3-worker",
+      "id": "aaad76cf8bd4db396040290222b98d13ae21c02255cd46b3bb57fd0604712dea",
+      "image": "sha256:8a16df3fa40d303f6c07de0d2f2fd25efaa9c3c1c3e4ec62ed68078e2c55411f",
+      "path": "/usr/local/bin/feed-worker",
+      "user": "65532:65532",
+      "readOnly": true,
+      "tmpfs": {
+        "/tmp": "rw,nosuid,nodev,noexec,size=16m,mode=1777"
+      },
+      "memoryBytes": 268435456,
+      "nanoCPUs": 500000000,
+      "capDrop": [
+        "ALL"
+      ],
+      "securityOpt": [
+        "no-new-privileges"
+      ],
+      "pidsLimit": 64
+    }
+  ],
+  "finalFacts": {
+    "projects": 0,
+    "users": 0,
+    "jobs": 0,
+    "deletions": 0,
+    "writerContract": 2
+  },
+  "result": "passed_bounded_local_checks",
+  "cleanup": {
+    "at": "2026-09-08T17:27:53.985103+00:00",
+    "containersRemoved": true,
+    "volumeRemoved": true,
+    "networkRemoved": true,
+    "otherGhfindContainers": [
+      "ghfind-feed-api-compatible",
+      "ghfind-feed-api-contract",
+      "ghfind-feed-crossprofile-pg",
+      "ghfind-feed-contract-minio-1",
+      "ghfind-portable-feed-pg-contract"
+    ]
+  },
+  "finishedAt": "2026-09-08T17:27:53.985128+00:00",
+  "commandCount": 55,
+  "originalRunSha256": "7e7e1d7047b6c35afdb901508a152f5c9a683847a862796e48567423b12de230"
+}

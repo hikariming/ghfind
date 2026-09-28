@@ -13,6 +13,28 @@ from ghfind import _cli
 from ghfind.client import GhFind
 
 
+class _ReconfigurableStream:
+    def __init__(self):
+        self.calls = []
+
+    def reconfigure(self, **kwargs):
+        self.calls.append(kwargs)
+
+
+def test_windows_stdio_is_reconfigured_for_unicode(monkeypatch):
+    stdout = _ReconfigurableStream()
+    stderr = _ReconfigurableStream()
+    monkeypatch.setattr(_cli.sys, "platform", "win32")
+    monkeypatch.setattr(_cli.sys, "stdout", stdout)
+    monkeypatch.setattr(_cli.sys, "stderr", stderr)
+
+    _cli._configure_windows_stdio()
+
+    expected = [{"encoding": "utf-8", "errors": "replace"}]
+    assert stdout.calls == expected
+    assert stderr.calls == expected
+
+
 def test_version(capsys):
     with pytest.raises(SystemExit) as e:
         _cli.main(["--version"])

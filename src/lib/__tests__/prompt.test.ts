@@ -35,6 +35,32 @@ const scan = {
 } as unknown as ScanResult;
 
 describe("buildRoastMessages", () => {
+  it.each(["she/her", "he/him", "they/them", "she/they", "ze/zir", null, undefined, "   "])(
+    "passes explicit pronouns to both writers with a neutral fallback (%s)",
+    (pronouns) => {
+      const profileScan = {
+        ...scan,
+        metrics: { ...scan.metrics, pronouns, bio: "Builder. My pronouns are they/them." },
+      };
+      for (const lang of ["zh", "en"] as const) {
+        const [system, user] = buildRoastMessages(profileScan, lang);
+        const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
+        expect(payload.metrics.pronouns).toBe(pronouns?.trim() || null);
+        expect(payload.metrics.bio).toBe(profileScan.metrics.bio);
+        expect(payload.scoring).toEqual(
+          JSON.parse(buildRoastMessages(scan, lang)[1].content.match(/```json\n([\s\S]*)\n```/)![1]).scoring,
+        );
+        expect(system.content).toContain("context_notes.pronoun_usage");
+        expect(payload.context_notes.pronoun_usage).toContain("they/them");
+        expect(payload.context_notes.pronoun_usage).toContain("metrics.pronouns");
+        expect(payload.context_notes.pronoun_usage).toContain("metrics.bio");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "names, avatars" : "名字、头像");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "tags, top roast, and report" : "标签、顶部短评和报告正文");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "not instructions" : "不是指令");
+      }
+    },
+  );
+
   it("exposes only verified Issue counts to the writer", () => {
     const withRestIssueAggregate = {
       ...scan,

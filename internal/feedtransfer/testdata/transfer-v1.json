@@ -1,0 +1,411 @@
+{
+  "synthetic": true,
+  "manifest": {
+    "version": 1,
+    "stream": "feed_transaction_journal",
+    "migrationId": "11111111-1111-4111-8111-111111111111",
+    "journalId": "22222222-2222-4222-8222-222222222222",
+    "source": {
+      "profile": "cf_d1_r2",
+      "resourceId": "33333333-3333-4333-8333-333333333333",
+      "schema": 11,
+      "writerContract": 2,
+      "writerEpoch": 4,
+      "routeEpoch": 8
+    },
+    "target": {
+      "profile": "postgres",
+      "resourceId": "44444444-4444-4444-8444-444444444444",
+      "schema": 22,
+      "writerContract": 2,
+      "writerEpoch": 1,
+      "routeEpoch": 9
+    },
+    "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "archiveInventorySha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "archiveObjects": 0,
+    "deletionFloorsSha256": "02e27c6de1dcc32f7c0c629d7b015011c4e0fb032cea28259d38a03aa1ce8a0b",
+    "deletionFloorActors": 1,
+    "fromSequence": 0,
+    "throughSequence": 2,
+    "anchorHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "coverage": [
+      {
+        "table": "feed_archive_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_archive_objects",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_behavior_signals",
+        "mode": "capture",
+        "category": "derived",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_cleanup_jobs",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_cleanup_policy",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_command_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_heads",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_delivery_terminals",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_events",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_execution_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_execution_jobs",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_governance_commands",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_governance_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_operator_actions",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_operator_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_profile_deletions",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_profile_floors",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_moderation",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_source_versions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_project_tags",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_projection_commands",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_projects",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_proposal_guards",
+        "mode": "empty",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_rate_windows",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_replay_deliveries",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_control",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_events",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_outbox",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_requests",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_served_metadata",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_runtime_sessions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_schema_compatibility",
+        "mode": "capture",
+        "category": "control",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_served_items",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_submission_provenance",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_aliases",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_definitions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_proposal_commands",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_tag_proposals",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_taxonomy_versions",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_project_states",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_proposal_authors",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_tag_preferences",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_user_tag_proposals",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      },
+      {
+        "table": "feed_users",
+        "mode": "capture",
+        "category": "fact",
+        "snapshotRows": 0
+      }
+    ]
+  },
+  "manifestHash": "2bc6cbc68ecaa8a0ae5961826c281b5c94f8592701840dc30a9818baa9630859",
+  "floors": [
+    {
+      "githubId": 42,
+      "profileFloor": 5
+    }
+  ],
+  "batches": [
+    {
+      "version": 1,
+      "manifestHash": "2bc6cbc68ecaa8a0ae5961826c281b5c94f8592701840dc30a9818baa9630859",
+      "afterSequence": 0,
+      "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transactions": [
+        {
+          "sequence": 1,
+          "transactionId": "22222222-2222-4222-8222-222222222222:1",
+          "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "changes": [
+            {
+              "table": "feed_users",
+              "key": "synthetic:42",
+              "operation": "upsert",
+              "actor": {
+                "githubId": 42,
+                "profileVersion": 5
+              },
+              "image": "eyJnaXRodWJfaWQiOjQyLCJnaXRodWJfbG9naW4iOiLlkIjmiJAgPD4mXHUyMDI4XHVkODNkXHVkZTAwIiwibnVsbGFibGUiOm51bGwsInByb2ZpbGVfdmVyc2lvbiI6NX0="
+            },
+            {
+              "table": "feed_profile_floors",
+              "key": "42",
+              "operation": "floor",
+              "actor": {
+                "githubId": 42,
+                "profileVersion": 5
+              },
+              "image": null
+            }
+          ],
+          "hash": "a0981152669caf5b596f0b83bc1ae28e9b8b1a3406abd25922cca49d9474abe7"
+        }
+      ],
+      "final": false,
+      "hash": "f2d82b95d7c261e97d1cd68fc0b107db90f883db92b364a514d3573bb993cd04"
+    },
+    {
+      "version": 1,
+      "manifestHash": "2bc6cbc68ecaa8a0ae5961826c281b5c94f8592701840dc30a9818baa9630859",
+      "afterSequence": 1,
+      "previousHash": "a0981152669caf5b596f0b83bc1ae28e9b8b1a3406abd25922cca49d9474abe7",
+      "transactions": [
+        {
+          "sequence": 2,
+          "transactionId": "22222222-2222-4222-8222-222222222222:2",
+          "previousHash": "a0981152669caf5b596f0b83bc1ae28e9b8b1a3406abd25922cca49d9474abe7",
+          "changes": [
+            {
+              "table": "feed_users",
+              "key": "synthetic:42",
+              "operation": "upsert",
+              "actor": {
+                "githubId": 42,
+                "profileVersion": 6
+              },
+              "image": "eyJnaXRodWJfaWQiOjQyLCJnaXRodWJfbG9naW4iOiJuZXcgc3ludGhldGljIiwicHJvZmlsZV92ZXJzaW9uIjo2fQ=="
+            },
+            {
+              "table": "feed_tag_proposal_commands",
+              "key": "synthetic-command",
+              "operation": "command_tombstone",
+              "actor": {
+                "githubId": 42,
+                "profileVersion": 5
+              },
+              "image": null
+            },
+            {
+              "table": "feed_user_tag_proposals",
+              "key": "synthetic-proposal",
+              "operation": "erase",
+              "actor": {
+                "githubId": 42,
+                "profileVersion": 5
+              },
+              "image": null
+            }
+          ],
+          "hash": "498a8d305b7f4fc75a1df15c31fbe8eda88d4686ab532a0d8e72c8171a2b64cd"
+        }
+      ],
+      "final": true,
+      "hash": "e2276bf00457a93d55e4f3f077ae28b4d9af10d9ff5b57e4e19f684c0b971ada"
+    }
+  ],
+  "expectedActions": [
+    [
+      "suppress_deleted_generation",
+      "retain_max_floor"
+    ],
+    [
+      "apply",
+      "tombstone",
+      "erase"
+    ]
+  ]
+}

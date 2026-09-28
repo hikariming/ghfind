@@ -105,6 +105,25 @@ func TestV10RiskRules(t *testing.T) {
 		}
 	})
 
+	t.Run("rejection note requires an unusually high observed rate", func(t *testing.T) {
+		m := neutralRiskMetrics()
+		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 193, riskTestFloat(5)
+		if _, ok := riskFlags(Score(m))["high_pr_rejection"]; ok {
+			t.Fatal("low rejection rate produced a high-rejection signal")
+		}
+
+		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 3, riskTestFloat(2)
+		smallHighRate := Score(m)
+		if signal := riskFlags(smallHighRate)["high_pr_rejection"]; signal.Disposition != "note" || len(smallHighRate.RedFlags) != 0 {
+			t.Fatalf("small high-rate sample=%#v", smallHighRate)
+		}
+
+		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 5, riskTestFloat(20)
+		if signal := riskFlags(Score(m))["high_pr_rejection"]; signal.Penalty <= 0 {
+			t.Fatalf("corroborated rejection signal=%#v", signal)
+		}
+	})
+
 	t.Run("all families remain capped", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 40, riskTestFloat(40)

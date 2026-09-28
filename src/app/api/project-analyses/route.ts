@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ProjectAnalysisDatabaseError } from "@/lib/project-analysis-db";
+import { ProjectAnalysisDatabaseError, recordProjectAnalysisSubmission } from "@/lib/project-analysis-db";
 import {
   createProjectAnalysis,
   getReusableProjectAnalysis,
@@ -7,6 +7,7 @@ import {
   ProjectAnalysisServiceError,
 } from "@/lib/project-analysis-service";
 import { MosooProjectAnalysisError } from "@/lib/mosoo-project-analysis";
+import { authorizeStagingAssessment } from "@/lib/feed-staging-access";
 import {
   checkProjectAnalysisRateLimit,
   rateLimitHeaders,
@@ -80,8 +81,11 @@ export async function POST(req: NextRequest) {
       repositoryUrl: body.repositoryUrl,
       requestedRef: body.ref as string | null | undefined,
     };
+    const stagingRejection = await authorizeStagingAssessment(input.repositoryUrl, input.requestedRef);
+    if (stagingRejection) return stagingRejection;
     const reusable = await getReusableProjectAnalysis(input);
     if (reusable) {
+      await recordProjectAnalysisSubmission(reusable.id);
       const location = `/api/project-analyses/${reusable.id}`;
       return NextResponse.json(
         {
@@ -114,7 +118,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const run = await createProjectAnalysis(input);
+    const run = await createProjectAnalysis(input, { appSubmission: true });
     const location = `/api/project-analyses/${run.id}`;
     return NextResponse.json(
       {

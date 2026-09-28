@@ -1,8 +1,12 @@
+import { ScanBusyError } from "./scan-protection";
 import {
   AccountNotFoundError,
   GitHubAuthRequiredError,
   GitHubDataUnavailableError,
   GitHubRateLimitError,
+  GitHubInternalQueryError,
+  GitHubResourceLimitError,
+  GitHubQueryTimeoutError,
   computeImpactFromContribMap,
   computeImpactQualitySignals,
   bestOriginalRepoQuality,
@@ -297,6 +301,9 @@ export function scanErrorResponse(e: unknown): {
   status: number;
   retry_after?: number;
 } {
+  if (e instanceof ScanBusyError) {
+    return { error: "scan_busy", status: 503, retry_after: 15 };
+  }
   if (e instanceof GitHubAuthRequiredError) {
     return { error: "github_token_required", status: 500 };
   }
@@ -309,6 +316,32 @@ export function scanErrorResponse(e: unknown): {
   if (e instanceof GitHubDataUnavailableError) {
     return { error: "github_unavailable", status: 503, retry_after: 60 };
   }
-  console.error("scan failed:", e);
+  console.error("scan failed", { category: "unexpected" });
   return { error: "scan_failed", status: 500 };
+}
+
+/** Log before legacy fallback can turn a failed fresh scan into HTTP 200.
+ * Only allowlisted categories and a normalized public login leave this boundary;
+ * never serialize the error, request headers, or upstream response text.
+ */
+export function logFreshScanFailure(error: unknown, context: {
+  route: "scan" | "score";
+  username: string;
+  persistenceFailure: boolean;
+}): void {
+  const category = context.persistenceFailure ? "score_persistence"
+    : error instanceof GitHubInternalQueryError ? "github_internal"
+    : error instanceof GitHubResourceLimitError ? "github_resource_limit"
+    : error instanceof GitHubQueryTimeoutError ? "github_query_timeout"
+    : error instanceof GitHubRateLimitError ? "github_rate_limited"
+    : error instanceof GitHubAuthRequiredError ? "github_token_required"
+    : error instanceof AccountNotFoundError ? "account_not_found"
+    : error instanceof GitHubDataUnavailableError ? "github_unavailable"
+    : error instanceof ScanBusyError ? "scan_busy"
+    : "unexpected";
+  console.error("fresh_scan_failed", {
+    route: context.route,
+    username: /^[a-z0-9-]{1,39}$/i.test(context.username) ? context.username : "invalid",
+    category,
+  });
 }

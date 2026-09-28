@@ -23,6 +23,7 @@ from ._github import (
     GitHubDataUnavailableError,
     GitHubRateLimitError,
     collect,
+    _with_github_token,
 )
 from ._score import score
 
@@ -50,12 +51,12 @@ def collect_and_score(username: str, *, token: Optional[str] = None) -> Dict[str
     authenticated GitHub API calls), and ``AccountNotFoundError`` for a login that
     does not exist.
     """
-    if token:
-        os.environ["GITHUB_TOKEN"] = token
-    if not os.environ.get("GITHUB_TOKEN"):
+    resolved_token = token if token is not None else os.environ.get("GITHUB_TOKEN", "")
+    if not resolved_token.strip():
         raise GitHubAuthRequiredError(
             "collect_and_score needs a GitHub token: pass token=... or set GITHUB_TOKEN. "
             "Local scoring makes many authenticated GitHub API calls."
         )
-    data = collect(username)
-    return {**data, "scoring": score(data["metrics"])}
+    with _with_github_token(resolved_token):
+        data = collect(username)
+        return {**data, "scoring": score(data["metrics"])}

@@ -125,14 +125,14 @@ describe("extractFacets — orgs", () => {
 });
 
 describe("extractFacets — repos (projects)", () => {
-  it("maps contributed-to projects to repo facets, ranked by stars", () => {
+  it("maps contributed-to projects to repo facets, ranked by stars when work ties", () => {
     const facets = extractFacets({
       impact_repos: [
         impact({ repo: "langgenius/dify", stars: 60000 }),
         impact({ repo: "rust-lang/rust", stars: 90000 }),
       ],
     });
-    // Sorted by stars desc — the busier project first.
+    // Equal contribution volume — the busier project first.
     expect(repos(facets)).toEqual(["rust-lang/rust", "langgenius/dify"]);
     expect(facets.find((f) => f.value === "rust-lang/rust")?.weight).toBe(90000);
   });
@@ -164,13 +164,36 @@ describe("extractFacets — repos (projects)", () => {
     expect(repos(facets)).toEqual(["vercel/next.js"]);
   });
 
-  it("caps at six projects per developer", () => {
+  it("ranks by the developer's own contribution before stars", () => {
     const facets = extractFacets({
-      impact_repos: Array.from({ length: 9 }, (_, i) =>
+      impact_repos: [
+        impact({ repo: "famous/drive-by", stars: 90000, commits: 1, prs: 1 }),
+        impact({ repo: "org/maintained", stars: 1200, commits: 387, prs: 89 }),
+      ],
+    });
+    expect(repos(facets)).toEqual(["org/maintained", "famous/drive-by"]);
+    expect(facets.find((f) => f.value === "org/maintained")?.weight).toBe(1200);
+  });
+
+  it("keeps a heavily-contributed project even when many famous repos compete", () => {
+    const facets = extractFacets({
+      impact_repos: [
+        ...Array.from({ length: 25 }, (_, i) =>
+          impact({ repo: `famous/r${i}`, stars: 50000 + i, commits: 2 }),
+        ),
+        impact({ repo: "org/maintained", stars: 1200, commits: 387, prs: 89 }),
+      ],
+    });
+    expect(repos(facets)).toContain("org/maintained");
+  });
+
+  it("caps at twenty projects per developer", () => {
+    const facets = extractFacets({
+      impact_repos: Array.from({ length: 25 }, (_, i) =>
         impact({ repo: `o/r${i}`, stars: 1000 + i }),
       ),
     });
-    expect(repos(facets)).toHaveLength(6);
+    expect(repos(facets)).toHaveLength(20);
   });
 });
 

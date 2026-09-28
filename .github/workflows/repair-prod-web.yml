@@ -1,0 +1,108 @@
+name: Repair production web (manual)
+
+# Manual escape hatch for the case where deploy-cf-production.yml aborts after
+# installing the paused web anchor but before its final populateCache step:
+# SSG pages (dynamicParams = false) then 404 until a full deploy succeeds.
+# This workflow redeploys the Web worker in the SAME paused rollout mode (no
+# feed machinery, no gateway cutover, no D1 migrations) and populates the R2
+# incremental cache. It shares the production deploy concurrency group so it
+# can never run concurrently with the real release pipeline.
+# It also runs automatically whenever the real pipeline fails on main: every
+# failed release redeploys the paused anchor (new build) without populating
+# the cache, re-breaking SSG pages, so the repair must follow each failure.
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy production (Cloudflare)"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cf-production-main
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Deploy paused web and populate incremental cache
+    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure') }}
+    environment: Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      WRANGLER_SEND_METRICS: "false"
+      NEXT_TELEMETRY_DISABLED: "1"
+      RELEASE_SHA: ${{ github.sha }}
+      EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
+      CLOUDFLARE_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      FEED_GATEWAY_SECRET: ${{ secrets.FEED_GATEWAY_SECRET }}
+      FEED_SIGNING_SECRET: ${{ secrets.FEED_SIGNING_SECRET }}
+      FEED_BRIDGE_SECRET: ${{ secrets.FEED_BRIDGE_SECRET }}
+      FEED_RUNTIME_ADMIN_SECRET: ${{ secrets.FEED_RUNTIME_ADMIN_SECRET }}
+      FEED_EXECUTOR_SECRET: ${{ secrets.FEED_EXECUTOR_SECRET }}
+      FEED_DELIVERY_SECRET: ${{ secrets.FEED_DELIVERY_SECRET }}
+      FEED_SOURCE_SECRET: ${{ secrets.FEED_SOURCE_SECRET }}
+      FEED_OPERATOR_SECRET: ${{ secrets.FEED_OPERATOR_SECRET }}
+      MOSOO_API_TOKEN: ${{ secrets.MOSOO_API_TOKEN }}
+      PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}
+      MOSOO_API_BASE: ${{ vars.MOSOO_API_BASE }}
+      MOSOO_PROJECT_AGENT_ID: ${{ vars.MOSOO_PROJECT_AGENT_ID }}
+      MOSOO_PROJECT_USER_ID: ${{ vars.MOSOO_PROJECT_USER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          npm ci --prefix platform/runtime
+
+      - name: Validate manifest and render paused web config
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/feed-production-evidence"
+          node scripts/feed-platform-production.mjs validate ops/feed-production-manifest.json
+          node scripts/feed-production-release.mjs prepare "$RUNNER_TEMP"
+          node scripts/feed-production-release.mjs web "$RELEASE_SHA" paused
+
+      - name: Build the real Web without runtime secrets or local dotenv files
+        timeout-minutes: 15
+        run: node scripts/feed-production-release.mjs build
+
+      - name: Deploy web in the unchanged paused rollout mode
+        run: |
+          set -euo pipefail
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "manual web+cache repair: paused web redeploy, no feed cutover"
+          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json"
+
+      - name: Populate the R2 incremental cache
+        run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
+
+      - name: Smoke collection pages over the WAF-free workers.dev entrance
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            ok=1
+            for path in /collections /collections/max-liu /collections/deepseek-harness-apache-maka /collections/jiang-muran; do
+              code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://ghfind.beiming1201.workers.dev$path")"
+              echo "$path -> $code"
+              [ "$code" = "200" ] || ok=0
+            done
+            [ "$ok" = "1" ] && exit 0
+            [ "$attempt" -lt 3 ] && sleep 10
+          done
+          exit 1

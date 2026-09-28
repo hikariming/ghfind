@@ -11,9 +11,19 @@
 export type Me = {
   user: { login: string; image: string | null } | null;
   scored: boolean;
+  /**
+   * Runtime answer to "can this deployment offer GitHub login?", decided by the
+   * Worker that actually holds the OAuth secrets. Optional because prerendered
+   * pages must not bake a build-time answer: absent means "unknown", and callers
+   * treat unknown as configured (the pre-flag behavior).
+   */
+  oauth?: boolean;
 };
 
-const SIGNED_OUT: Me = { user: null, scored: false };
+// Network-failure fallback assumes OAuth works, matching the era when login-UI
+// visibility was a build-time prop: better a sign-in button that errors than
+// hiding login from everyone on a transient blip.
+const SIGNED_OUT: Me = { user: null, scored: false, oauth: true };
 
 let inflight: Promise<Me> | null = null;
 

@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "Roast",
-    "leaderboard": "Leaderboard",
+    "roast": "GitHub Roast",
+    "leaderboard": "Developer Board",
     "discover": "Discover",
     "developers": "Developers",
     "projectBoards": "Project Boards",
     "projects": "Projects",
-    "collections": "Picks",
+    "collections": "Editor's Picks",
     "languages": "Languages",
     "organizations": "Organizations",
-    "versus": "Versus",
+    "versus": "Dev Versus",
     "blog": "Research",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "resume": "My résumé",
+    "talent": "Talent pool",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Discover",
+    "groupCareer": "Career",
+    "groupTools": "Tools",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Score any GitHub account in 30 seconds, with a savage one-liner",
+      "versus": "Put two developers head to head",
+      "leaderboard": "Browse top developers by score",
+      "projectBoards": "Find notable open-source projects by field",
+      "collections": "Projects and developers hand-picked by the editor",
+      "blog": "Data and insights on the developer ecosystem",
+      "resume": "Build a developer résumé from your GitHub data",
+      "talent": "Find developers worth knowing",
+      "githubBot": "Auto-label issues and PRs by author score"
+    }
   },
   "globalSearch": {
     "open": "Open global search",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 Best developers",
     "openBoard": "Open full leaderboard →",
     "disclaimer1": "Scores and roasts are generated automatically from <b>public GitHub data</b> only. We roast an account's public behavior and stats, not the person. Results are not factual claims about anyone — please don't use them to harass.",
-    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only."
+    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only.",
+    "viewAll": "View all"
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",
     "subtitle": "The Hall of Fame lists accounts scoring 60+, defaulting to Trending.",
     "judgeCta": "← Judge an account",
-    "footerNote": "Only high-scoring accounts built from public GitHub data are listed. To remove yourself from the board, <a>request removal here</a>.",
+    "footerNote": "Only high-scoring accounts built from public GitHub data are listed.",
     "loadError": "Couldn't load the board right now — try again later.",
     "loading": "Loading the Hall of Fame…",
     "empty": "🧮 Crunching the numbers — check back soon…",
@@ -561,10 +580,6 @@
       {
         "q": "Is my private work counted?",
         "a": "No. Scores use public signals only, so private-organization contributions are invisible to the engine. An active member of private repos may be underrated. A low score is not a factual claim about a person — it describes an account's public footprint."
-      },
-      {
-        "q": "How do I remove my profile from ghfind?",
-        "a": "Only accounts scoring 60+ are indexed and listed. To be removed from the board, use the removal link on the leaderboard footer or open an issue on the GitHub repository, and the profile will be delisted."
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "Contact ghfind",
-    "metaDescription": "How to reach the ghfind team: report an issue, request removal from the leaderboard, or ask about the API, CLI, and MCP server.",
+    "metaDescription": "How to reach the ghfind team: report an issue, or ask about the API, CLI, and MCP server.",
     "heading": "Contact",
     "paragraphs": [
-      "ghfind is an open-source project. The fastest way to reach the team, report a problem, request removal from the leaderboard, or ask about the API, CLI, or MCP server is to open an issue on the public GitHub repository. Issues are read and triaged there, and keeping the conversation in the open helps other users who hit the same question.",
+      "ghfind is an open-source project. The fastest way to reach the team, report a problem, or ask about the API, CLI, or MCP server is to open an issue on the public GitHub repository. Issues are read and triaged there, and keeping the conversation in the open helps other users who hit the same question.",
       "For integration questions, the machine-readable API contract lives at /openapi.json, the agent-facing documentation index at /llms.txt, and the authentication walkthrough at /auth.md. If you need an elevated rate limit for high-volume server-to-server scanning, mention your use case in a GitHub issue."
     ],
     "issuesLabel": "Open an issue on GitHub",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "Privacy — ghfind",
-    "metaDescription": "How ghfind handles data: it scores only public GitHub data, does not sell personal data, and honors removal requests for indexed profiles.",
+    "metaDescription": "How ghfind handles data: it scores only public GitHub data and does not sell personal data.",
     "heading": "Privacy",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "Bring-your-own-key roasts",
         "p": "The optional roast feature can use your own model provider key. When you supply one, it stays in your browser and is relayed once through our server to call the model — it is never stored and never logged, and is discarded after the request completes."
-      },
-      {
-        "h": "Removal and control",
-        "p": "If you would like your profile delisted, use the removal link on the leaderboard footer or open an issue on the GitHub repository, and we will remove it from the board and index. Because ghfind only reflects public GitHub data, updating or making your GitHub activity private will also change or remove what ghfind can see on the next scan."
       }
     ]
   },
@@ -992,5 +1003,476 @@
         "removed": "Removed"
       }
     }
+  },
+  "sidebar": {
+    "workspace": "Workspace",
+    "discover": "Explore",
+    "resume": "My résumé",
+    "soon": "Soon",
+    "tagline": "Developer workspace",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "navigation": "Main navigation",
+    "docs": "Help & docs",
+    "skip": "Skip to content",
+    "edition": "Public workspace",
+    "sponsor": "Sponsor"
+  },
+  "talent": {
+    "topline": {
+      "section": "Career growth",
+      "current": "Talent pool",
+      "badge": "Community-curated · Continuously updated"
+    },
+    "hero": {
+      "titleLead": "From a single line of code,",
+      "titleVerb": "discover ",
+      "titleAccent": "people worth knowing.",
+      "subtitleLead": "More than a résumé. Through open-source projects, technical practice, and real work,",
+      "subtitleTail": "get to know developers — and find your next collaborator.",
+      "people": "Starting from GitHub, connecting more possibilities",
+      "add": "Add talent",
+      "code": "built by humans."
+    },
+    "tabs": {
+      "aria": "Talent discovery",
+      "all": "All developers",
+      "saved": "Saved",
+      "sessionHint": "Saved items only persist for this session",
+      "discover": "Featured"
+    },
+    "search": {
+      "placeholder": "Search name, GitHub handle, stack, or city…",
+      "aria": "Search talent",
+      "clear": "Clear search",
+      "hint": "Tip: field filters work too — e.g. skill:Rust, location:Shanghai"
+    },
+    "filters": {
+      "toggle": "Filters",
+      "location": "Location",
+      "source": "Source",
+      "allDirections": "All directions",
+      "allLocations": "All locations",
+      "allSources": "All sources",
+      "sourceGithub": "GitHub",
+      "sourceManual": "Manual curation",
+      "onlyAvailable": "Only show people open to chatting",
+      "reset": "Reset filters",
+      "subDirections": "Focus",
+      "officialTags": "Official tags",
+      "tagAria": "Filter by official tag \"{tag}\"",
+      "collection": "Collection",
+      "clearCollection": "Clear collection filter"
+    },
+    "results": {
+      "count": "Found <strong>{count}</strong> developers",
+      "subtitle": "· Start with their work",
+      "sortAria": "Sort talent",
+      "sortRecommended": "Featured",
+      "sortStars": "Most project Stars",
+      "sortActivity": "Most active contributors",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "perPageAria": "Results per page",
+      "perPageOption": "{count} / page",
+      "pagesAria": "Pagination",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "pageStatus": "Page {page} of {pages}",
+      "loading": "Loading…"
+    },
+    "notice": {
+      "submitted": "Received your submission for {name}. Only public fields are kept, and the profile appears after review.",
+      "close": "Dismiss notice"
+    },
+    "card": {
+      "viewProfileAria": "View {name}'s profile",
+      "saveAria": "Save {name}",
+      "unsaveAria": "Unsave {name}",
+      "manual": "Manually added",
+      "available": "Open to chat",
+      "score": "GHFind score",
+      "pending": "Profile pending",
+      "community": "Active in open source",
+      "yearlyContributions": "contributions/yr",
+      "viewProfile": "View profile"
+    },
+    "empty": {
+      "savedTitle": "Keep the people you want to learn more about here",
+      "savedBody": "Click the bookmark icon on a card to build your shortlist.",
+      "title": "No matching talent yet",
+      "body": "Try another stack or loosen the filters.",
+      "browseAll": "Browse all talent"
+    },
+    "footer": {
+      "endline": "Great talent deserves to be seen",
+      "title": "Rooted in open source, beyond open source",
+      "body": "Public GitHub info × human curation, so every talent leaves a trace.",
+      "source": "Data from public GitHub info and on-site collections"
+    },
+    "detail": {
+      "close": "Close profile",
+      "eyebrow": "DEVELOPER PROFILE",
+      "pendingBadge": "Pending review",
+      "listedBadge": "Listed profile",
+      "saved": "Saved",
+      "save": "Save",
+      "tagsAria": "Talent tags",
+      "projectsAria": "Featured projects",
+      "projectsTitle": "Featured projects",
+      "projectsCount": "{count} projects",
+      "relOwn": "Owner",
+      "relPr": "Contributor",
+      "projectsEmpty": "No featured projects yet",
+      "projectsEmptyHint": "Add your own repos or contributed PRs later.",
+      "sourcesAria": "Sources",
+      "sourcesTitle": "Sources",
+      "sourcesPending": "Pending",
+      "sourcesCount": "{count} sources",
+      "sourcesEmptyManual": "Manually added",
+      "sourcesEmptyHint": "No sources linked yet — add GitHub, a personal site, or coverage.",
+      "tabsAria": "Profile content",
+      "tabOverview": "Overview",
+      "tabContacts": "Contact",
+      "editorNote": "Editor's note",
+      "publicInfo": "Public info",
+      "contactTitle": "Get in touch with {name}",
+      "contactHint": "Only contact details the person chose to make public are shown.",
+      "contactEmptyTitle": "No public contact info yet",
+      "contactEmptyBody": "They can share WeChat, email, or phone when they add themselves."
+    },
+    "fields": {
+      "role": "Focus",
+      "location": "City",
+      "bio": "Bio",
+      "email": "Email",
+      "wechat": "WeChat",
+      "phone": "Phone",
+      "education": "Education",
+      "school": "School",
+      "experience": "Work experience"
+    },
+    "intake": {
+      "close": "Close intake",
+      "eyebrow": "G H F I N D / TALENT",
+      "title": "Let great talent be seen",
+      "description": "Start with a GitHub account and only share what you want.",
+      "stepsAria": "Intake steps",
+      "stepSubject": "Who",
+      "stepAccount": "Account & info",
+      "stepPrivacy": "Visibility",
+      "stepConfirm": "Confirm info",
+      "stepPreview": "Preview",
+      "errorGithub": "Enter a valid GitHub username or profile URL.",
+      "errorName": "Enter a display name or nickname.",
+      "whoTitle": "Who should be discovered this time?",
+      "whoBody": "Create a card for yourself, or recommend a developer you admire.",
+      "selfTitle": "Add myself",
+      "selfBody": "Link my résumé and choose what to make public",
+      "otherTitle": "Recommend someone",
+      "otherBody": "Recommend a developer via their GitHub account",
+      "whoPrivacy": "A nickname works for the name. Phone, education, school, and work history are all optional.",
+      "identitySelf": "Your developer identity",
+      "identityOther": "Recommend a developer",
+      "methodGithub": "I have a GitHub account",
+      "methodManual": "No GitHub — fill in manually",
+      "githubLabel": "GitHub username or profile URL",
+      "githubPlaceholder": "octocat or https://github.com/octocat",
+      "githubHintTitle": "One account is enough",
+      "githubHintBody": "Once connected, the profile is built from public projects, stacks, and contribution history — no full résumé needed.",
+      "githubHintNote": "We don't verify the account or fetch GitHub data yet; info syncs after review connects it.",
+      "nameLabel": "Display name / nickname",
+      "requiredTag": "Required",
+      "namePlaceholder": "A nickname is fine — no real name needed",
+      "roleLabel": "Tech / career focus",
+      "bioLabel": "Bio",
+      "optionalTag": "Optional",
+      "rolePlaceholder": "e.g. Frontend developer",
+      "bioPlaceholder": "What have you built, and what are you exploring?",
+      "recommendationLabel": "Recommendation",
+      "recommendationTag": "Optional · Shown on the profile",
+      "recommendationPlaceholder": "What work or technical practice makes you recommend this developer?",
+      "privacyTitle": "Your info — you decide how much is public",
+      "privacyBody": "You can share just WeChat or email. Unchecked fields never join the profile, and your résumé stays untouched.",
+      "resumeImportTitle": "Import from “My résumé”",
+      "resumeImportBody": "Fills this draft only — nothing is auto-published or written back.",
+      "loadLocal": "Load local data",
+      "loadCloud": "Load cloud résumé",
+      "openResume": "Open my résumé ↗",
+      "loading": "Loading…",
+      "chooseResume": "Choose data",
+      "chooseResumePlaceholder": "Choose a résumé / saved profile",
+      "resumeLoginRequired": "Sign in and save a résumé in “My résumé” first, then come back to import.",
+      "resumePickHint": "Pick one to fill the draft — every field stays hidden by default.",
+      "resumeEmpty": "No saved data yet — create one in “My résumé”, or just fill in the form.",
+      "resumeLoadFailed": "Couldn't read your data right now — retry or continue manually.",
+      "resumeProfileFallback": "My saved profile",
+      "resumeImported": "Imported “{label}” — choose what to make public, item by item.",
+      "nicknameLabel": "Display nickname",
+      "nicknameTag": "Optional · Defaults to your GitHub username",
+      "nicknamePlaceholder": "No real name required",
+      "fieldHeadingFields": "Optional info",
+      "fieldHeadingPublic": "Public in the talent pool",
+      "fieldPlaceholder": "Optional",
+      "fieldPlaceholderHidden": "Optional — leave empty to keep private",
+      "publicAria": "Make {label} public",
+      "visibleOn": "Public",
+      "visibleOff": "Hidden",
+      "moreFields": "Add more info",
+      "moreFieldsHint": "Bio, phone, education, school, work history · Optional",
+      "otherPrivacyTitle": "Recommend work, never someone else's privacy",
+      "otherPrivacyBody": "Adding {target}. We don't ask for their phone, school, education, or work history, and we never read your résumé.",
+      "otherPrivacyNote": "Contact details and private résumé data can be added by the person once they claim the profile.",
+      "previewTitle": "This is the profile others will see",
+      "previewBody": "Only the content below goes into the talent pool. Hidden fields are never attached.",
+      "previewGithubPending": "@{handle} · GitHub data pending",
+      "previewManual": "Manually added",
+      "previewOnlyGithub": "Only your GitHub username is shown — no other personal info is public.",
+      "previewOnlyNickname": "Only your nickname is shown — no other personal info is public.",
+      "recommendationPrefix": "Recommendation: {note}",
+      "reviewNote": "Submissions enter review and stay private until approved; accounts added by their owner need verification later.",
+      "back": "Back",
+      "cancel": "Cancel",
+      "footerSubmit": "Only what you marked public is submitted",
+      "footerOptional": "Everything is optional — continue anytime",
+      "footerHidden": "Hidden fields are never submitted",
+      "submitting": "Submitting…",
+      "confirmSubmit": "Confirm and submit",
+      "next": "Next"
+    },
+    "categories": {
+      "aria": "Browse by category",
+      "all": "All",
+      "agent": "Agents & workflows",
+      "ai": "AI apps & models",
+      "infra": "Backend & infra",
+      "frontend": "Frontend & full-stack",
+      "tools": "Tools & data",
+      "other": "Other"
+    },
+    "overview": {
+      "collectionsTitle": "Featured collections",
+      "collectionsSubtitle": "Grouped by open-source ecosystem and official tags",
+      "sectionsTitle": "Browse by focus",
+      "sectionsSubtitle": "Handpicked developers in each area — open \"View all\" for the full list",
+      "people": "{count} people",
+      "viewAll": "View all {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "DSH beta users",
+        "desc": "Early users and co-builders of the DSH beta"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Core contributors to the high-throughput LLM inference engine"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "The Dify LLM app platform ecosystem"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "LobeChat / LobeHub community and multi-agent work"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "ggml / llama.cpp on-device inference contributors"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Contributors to the SGLang serving framework"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Model Context Protocol spec and SDK contributors"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "LangChain / LangGraph ecosystem contributors"
+      }
+    }
+  },
+  "sponsor": {
+    "metaTitle": "Sponsor ghfind · Plans & perks",
+    "metaDescription": "Sponsor ghfind: Title, Model, Featured and Friend sponsor plans, billed monthly. Sponsorship never affects any ranking or score.",
+    "topline": {
+      "section": "Help & Docs",
+      "current": "Sponsor"
+    },
+    "hero": {
+      "titleLead": "Keep ghfind",
+      "titleAccent": "roasting.",
+      "subtitle": "ghfind is an open community project, and model calls, servers and data crawling all cost real money. Your sponsorship keeps it free, independent and updated. All prices are in USD per month, currently at a limited-time discount."
+    },
+    "perMonth": "/ month",
+    "listPrice": "Regular price {price}",
+    "off": "Save {off}%",
+    "soldOut": "Sold out",
+    "available": "Available",
+    "soon": "In development",
+    "currentHolder": "Current sponsor",
+    "cta": "Become a sponsor",
+    "ctaSoldOut": "Sold out · Stay tuned",
+    "tiers": {
+      "title": {
+        "name": "Title Sponsor",
+        "summary": "The most prominent slot on the site — your brand travels with every brag card shared.",
+        "perks": [
+          {
+            "text": "Sponsor slot in the top navigation on every page (logo + name + tagline)"
+          },
+          {
+            "text": "Credit with your logo on every shareable brag card"
+          }
+        ]
+      },
+      "model": {
+        "name": "Model Sponsor",
+        "summary": "Power the roasts and get seen every time one is generated.",
+        "perks": [
+          {
+            "text": "Model sponsor credit shown while a roast is generated"
+          },
+          {
+            "text": "Sponsor info and logo on the homepage"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Featured Sponsor",
+        "summary": "Steady exposure on the homepage and developer detail pages.",
+        "perks": [
+          {
+            "text": "Sponsor slot on the homepage"
+          },
+          {
+            "text": "Random placement on detail pages",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Friend Sponsor",
+        "summary": "Back ghfind as a friend — we'll remember you here.",
+        "perks": [
+          {
+            "text": "A thank-you and outbound link on this page"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Friend sponsors",
+      "lead": "Thank you to every friend who supports ghfind. Links are listed in the order they joined.",
+      "empty": "This spot is open — become the first friend sponsor →"
+    },
+    "fairness": {
+      "heading": "Sponsorship never affects rankings or scores",
+      "body": "Sponsors receive placement and thanks only. Sponsorship does not and cannot influence any developer's or project's ranking, score or roast. Scores are determined entirely by our published methodology and data, and everyone is treated the same, so the results stay fair."
+    },
+    "contactLead": "For sponsorship, invoices or other questions, contact",
+    "rowLabel": "Sponsors",
+    "holders": {
+      "dsh": "Connect once, use your Harness remotely anytime",
+      "mosoo": "Cloud runtime for coding agents",
+      "phi": "Open-source AI browser that truly knows you"
+    },
+    "slotOpen": "Your logo here"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App that labels issues and PRs by author score",
+    "metaDescription": "Install the ghfind Review GitHub App to add a colour-coded review label to every new issue and pull request, based on the author's public ghfind score.",
+    "topline": {
+      "section": "Integrations",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Free",
+      "title": "Triage issues and PRs by who opened them",
+      "subtitle": "ghfind Review adds a colour-coded review: label to every new issue and pull request, based on the author's public ghfind score. No workflow, no token, no secret to configure.",
+      "install": "Install on GitHub",
+      "status": "Open status page",
+      "note": "Runs as ghfind-review[bot]. It only adds labels — it never comments on, closes or blocks a submission."
+    },
+    "preview": {
+      "label": "Example issue list with review labels",
+      "heading": "Issues",
+      "items": {
+        "top": "Crash when parsing nested config",
+        "medium": "Add dark mode to settings",
+        "noScore": "Typo in README"
+      }
+    },
+    "labels": {
+      "heading": "Five labels, one glance",
+      "lead": "Missing labels are created on install. Colours or descriptions you have customised are kept.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Little public signal. Verify the source first."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "A typical contributor profile."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Strong public profile signals."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Top of the ghfind index."
+        },
+        "noScore": {
+          "range": "No score",
+          "desc": "Score unavailable — not zero. Retried after 20 and 60 minutes."
+        }
+      }
+    },
+    "steps": {
+      "heading": "How it works",
+      "items": {
+        "install": {
+          "title": "Install on selected repositories",
+          "body": "Grant Issues and Pull requests read & write. Choose Only select repositories to start small; org repos may need owner approval."
+        },
+        "open": {
+          "title": "Someone opens an issue or PR",
+          "body": "The bot looks up the author's public ghfind score in the background. The issue body is never read or scored."
+        },
+        "label": {
+          "title": "A review: label appears",
+          "body": "On install, the first pages of open issues and PRs are labelled too. Edits and reopens are not rescored."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Turn score ranges into review queues",
+      "lead": "Paste a filter into your repository's issue search and start with the queue that fits your time.",
+      "items": {
+        "high": "High-score issues",
+        "top": "Top-score issues",
+        "low": "Low-score issues to verify",
+        "noScore": "No score — needs context"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Asking for a rescore",
+        "body": "After the automatic retries, the author or a repository admin can comment @ghfind-review on the issue to score it again."
+      },
+      "privacy": {
+        "heading": "What it touches",
+        "body": "No source files, no issue bodies. It keeps only the installation, repository, issue number, score and job state; finished jobs are purged after 30 days. Authors with a public email may get one score email per 72 hours, with one-click unsubscribe.",
+        "link": "Privacy notice"
+      },
+      "stop": {
+        "heading": "Stop anytime",
+        "body": "Remove repositories, suspend or uninstall the app from your GitHub settings. Existing labels stay where they are."
+      }
+    },
+    "disclaimer": "The score reflects the author's public GitHub profile, not the quality of this contribution. New contributors may simply have a short public record.",
+    "source": "Source code and self-hosting guide"
   }
 }

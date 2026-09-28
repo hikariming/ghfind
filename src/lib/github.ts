@@ -7,6 +7,7 @@
  * `recent_prs` shape exactly so the scoring port consumes it unchanged.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { logRatio } from "./score";
 import type {
   EstimatedContributionLanguages,
@@ -37,12 +38,28 @@ export class GitHubDataUnavailableError extends Error {}
  * degrade the query rather than retry it. */
 export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 
+/** An oversized query can hit GitHub's gateway timeout before returning JSON. */
+export class GitHubQueryTimeoutError extends GitHubDataUnavailableError {}
+
+/** GitHub failed the whole response with `errors[].type = INTERNAL` while
+ *  resolving one node (observed on `["user","closedPRs","nodes",N]`). The
+ *  offending node is data-dependent and fails deterministically for that
+ *  account, so callers must degrade the offending field rather than retry. */
+export class GitHubInternalQueryError extends GitHubDataUnavailableError {}
+
+// SDK overrides belong to one async collection, never to the process environment.
+const githubTokenContext = new AsyncLocalStorage<string>();
+
+export function withGithubToken<T>(token: string, run: () => T): T {
+  return githubTokenContext.run(token, run);
+}
+
 /** The GitHub PAT pool. `GITHUB_TOKEN` may hold a single token or a
  *  comma-separated list (`ghp_a,ghp_b,ghp_c`); each token multiplies the
  *  5000-point/hr GraphQL ceiling. Read at call time (not module load) so scripts
  *  populating env via `_env.mjs` and tests mutating `process.env` still work. */
 export function githubTokens(): string[] {
-  return (process.env.GITHUB_TOKEN ?? "")
+  return (githubTokenContext.getStore() ?? process.env.GITHUB_TOKEN ?? "")
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
@@ -54,11 +71,11 @@ export function hasGithubToken(): boolean {
   return githubTokens().length > 0;
 }
 
-// Round-robin cursor. Under Fluid Compute the warm instance persists this across
-// requests, so load spreads across the pool without any shared store. Reserve a
-// base offset per request (not per attempt) so a single request's retries walk
-// *distinct* tokens even when concurrent requests interleave their reservations.
-let rrIndex = 0;
+// Round-robin cursor, local to this isolate. Concurrent invocations are the
+// backend workers: each one reserves its own offset, and a random start keeps
+// a fresh burst from all landing on the first token. Retries of one request
+// still walk distinct tokens.
+let rrIndex = Math.floor(Math.random() * 1_000_003);
 function nextOffset(): number {
   return rrIndex++;
 }
@@ -109,7 +126,11 @@ async function sleep(ms: number): Promise<void> {
  *  response (rate-limit / transient 5xx) fails over to the next token with
  *  backoff. Callers interpret the *final* Response exactly as before, so the
  *  same errors surface — but only once the whole pool is genuinely exhausted. */
-export async function ghFetch(url: string, init: RequestInit = {}): Promise<Response> {
+export async function ghFetch(
+  url: string,
+  init: RequestInit = {},
+  options: { splitOnTimeout?: boolean } = {},
+): Promise<Response> {
   const tokens = githubTokens();
   // Single-token deploys still get one retry (helps transient 502s); multi-token
   // pools rotate through every token, capped so a full outage can't spin.
@@ -127,6 +148,11 @@ export async function ghFetch(url: string, init: RequestInit = {}): Promise<Resp
         ...init,
         headers: { ...authHeaders(token), ...(init.headers ?? {}) },
         cache: "no-store",
+        // Next deduplicates GETs by teeing their bodies even with no-store.
+        // Cancelling our branch then waits forever for its retained twin.
+        // An explicit signal opts this independently managed request out of
+        // deduplication, so failed bodies can be fully released before retry.
+        signal: init.signal ?? new AbortController().signal,
       });
     } catch (e) {
       lastErr = e;
@@ -136,6 +162,10 @@ export async function ghFetch(url: string, init: RequestInit = {}): Promise<Resp
       }
       throw e;
     }
+    // Failed responses are never consumed by callers. Release their connection
+    // before retrying: Workers only allow a small number of in-flight bodies.
+    if (!res.ok) await res.body?.cancel().catch(() => undefined);
+    if (options.splitOnTimeout && (res.status === 502 || res.status === 504)) return res;
     if (retryable(res) && i < attempts - 1) {
       const retryAfter = Number(res.headers.get("retry-after"));
       const wait =
@@ -441,6 +471,7 @@ export async function listPublicDefaultBranchCommits(input: {
 async function graphql<T>(
   query: string,
   variables: Record<string, unknown>,
+  options: { splitOnTimeout?: boolean } = {},
 ): Promise<T> {
   if (!hasGithubToken()) throw new GitHubAuthRequiredError("GITHUB_TOKEN is required.");
   let res: Response;
@@ -449,7 +480,7 @@ async function graphql<T>(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
-    });
+    }, options);
   } catch {
     throw new GitHubDataUnavailableError("GitHub GraphQL request failed.");
   }
@@ -457,6 +488,9 @@ async function graphql<T>(
     throw new GitHubRateLimitError();
   }
   if (!res.ok) {
+    if (res.status === 502 || res.status === 504) {
+      throw new GitHubQueryTimeoutError(`GitHub GraphQL HTTP ${res.status}.`);
+    }
     throw new GitHubDataUnavailableError(`GitHub GraphQL HTTP ${res.status}.`);
   }
   let json: { data?: T; errors?: { message?: string; type?: string }[] };
@@ -470,6 +504,9 @@ async function graphql<T>(
     const message = first?.message ?? "GitHub GraphQL error.";
     if (first?.type === "RESOURCE_LIMITS_EXCEEDED") {
       throw new GitHubResourceLimitError(message);
+    }
+    if (first?.type === "INTERNAL") {
+      throw new GitHubInternalQueryError(message);
     }
     throw /rate.?limit/i.test(message)
       ? new GitHubRateLimitError(message)
@@ -607,6 +644,21 @@ function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean 
   );
 }
 
+// A "notes"/"learning" keyword is weak evidence once a substantive repo has
+// real organic traction (many stars backed by a healthy fork share). Such repos
+// (e.g. widely-used tutorials) keep a lighter discount instead of the 0.55
+// placeholder penalty; bought stars rarely come with proportional forks.
+export const PLACEHOLDER_TRACTION_MIN_STARS = 500;
+export const PLACEHOLDER_TRACTION_MIN_FORK_RATIO = 0.03;
+export const PLACEHOLDER_TRACTION_MULTIPLIER = 0.75;
+
+function hasOrganicProjectTraction(repo: TopRepo): boolean {
+  return (
+    repo.stars >= PLACEHOLDER_TRACTION_MIN_STARS &&
+    repo.forks >= repo.stars * PLACEHOLDER_TRACTION_MIN_FORK_RATIO
+  );
+}
+
 /**
  * 0..1 project substance signal for original repos. Stars are scored separately;
  * this captures whether at least one original repo looks usable and maintained.
@@ -664,7 +716,12 @@ export function originalRepoQualityScore(
   }
 
   if (isLikelyPlaceholderProject(repo, loginLower)) {
-    s *= readmeLen >= 600 && repo.size >= 200 ? 0.55 : 0.25;
+    const substantive = readmeLen >= 600 && repo.size >= 200;
+    s *= substantive
+      ? hasOrganicProjectTraction(repo)
+        ? PLACEHOLDER_TRACTION_MULTIPLIER
+        : 0.55
+      : 0.25;
   }
 
   return Math.round(Math.max(0, Math.min(s, 1)) * 100) / 100;
@@ -862,11 +919,16 @@ async function readTextWithLimit(
     res = await fetch(url, {
       headers: { "User-Agent": "github-roast", Range: `bytes=0-${limit - 1}` },
       cache: "no-store",
+      // The bounded reader cancels truncated bodies; avoid Next's retained tee.
+      signal: new AbortController().signal,
     });
   } catch {
     return null;
   }
-  if (!res.ok) return null;
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
+  }
   const reader = res.body?.getReader();
   if (!reader) return null;
   const chunks: Uint8Array[] = [];
@@ -887,6 +949,7 @@ async function readTextWithLimit(
     if (total >= limit) truncated = true;
     if (truncated) await reader.cancel().catch(() => undefined);
   } catch {
+    await reader.cancel().catch(() => undefined);
     return null;
   }
   return {
@@ -1119,6 +1182,185 @@ function hasDocLikeTopic(repo: RestRepo): boolean {
   );
 }
 
+const MAX_ATTRIBUTED_ORIGINAL_REPOS = 8;
+
+const FIRST_COMMIT_META_QUERY = `query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    isFork
+    defaultBranchRef {
+      name
+      target {
+        ... on Commit {
+          oid
+          history(first: 1) { totalCount }
+        }
+      }
+    }
+  }
+}`;
+
+const FIRST_COMMIT_HISTORY_QUERY = `query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 1, after: $after) {
+            nodes {
+              oid
+              url
+              authoredDate
+              messageHeadline
+              author { name email user { login databaseId } }
+              committer { name email user { login databaseId } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+type FirstCommitAccountSource =
+  | "author.user"
+  | "committer.user"
+  | "noreply-email"
+  | "none";
+
+interface FirstCommitGithubAccount {
+  login: string | null;
+  source: FirstCommitAccountSource;
+  isFork: boolean;
+  oid: string | null;
+}
+
+interface FirstCommitActor {
+  name?: string | null;
+  email?: string | null;
+  user?: { login?: string | null } | null;
+}
+
+interface FirstCommitNode {
+  oid: string;
+  url: string;
+  authoredDate: string;
+  messageHeadline: string;
+  author: FirstCommitActor | null;
+  committer: FirstCommitActor | null;
+}
+
+export function firstCommitHistoryAfter(tipOid: string, totalCount: number): string | null {
+  if (totalCount < 2 || !tipOid) return null;
+  return `${tipOid} ${totalCount - 2}`;
+}
+
+export function parseGithubNoreplyLogin(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const plus = email.match(/^(\d+)\+([A-Za-z0-9-]+)@users\.noreply\.github\.com$/i);
+  if (plus) return plus[2];
+  const plain = email.match(/^([A-Za-z0-9-]+)@users\.noreply\.github\.com$/i);
+  return plain?.[1] ?? null;
+}
+
+export function resolveFirstCommitGithubLogin(input: {
+  authorLogin?: string | null;
+  committerLogin?: string | null;
+  authorEmail?: string | null;
+  committerEmail?: string | null;
+}): { login: string | null; source: FirstCommitAccountSource } {
+  const authorLogin = input.authorLogin?.trim() || null;
+  if (authorLogin) return { login: authorLogin, source: "author.user" };
+  const committerLogin = input.committerLogin?.trim() || null;
+  if (committerLogin) return { login: committerLogin, source: "committer.user" };
+  const fromEmail =
+    parseGithubNoreplyLogin(input.authorEmail) ?? parseGithubNoreplyLogin(input.committerEmail);
+  if (fromEmail) return { login: fromEmail, source: "noreply-email" };
+  return { login: null, source: "none" };
+}
+
+async function restAuthorLoginForCommit(
+  owner: string,
+  name: string,
+  sha: string,
+): Promise<string | null> {
+  const commit = await restGet<RestCommit>(`repos/${owner}/${name}/commits/${sha}`).catch(
+    () => null,
+  );
+  return commit?.author?.login?.trim() || null;
+}
+
+async function fetchDefaultBranchFirstCommit(
+  owner: string,
+  name: string,
+): Promise<FirstCommitGithubAccount> {
+  const empty: FirstCommitGithubAccount = {
+    login: null,
+    source: "none",
+    isFork: false,
+    oid: null,
+  };
+  try {
+    const meta = await graphql<{
+      repository: {
+        isFork: boolean;
+        defaultBranchRef: {
+          name: string;
+          target: { oid: string; history: { totalCount: number } } | null;
+        } | null;
+      } | null;
+    }>(FIRST_COMMIT_META_QUERY, { owner, name });
+    const repository = meta.repository;
+    if (!repository) return empty;
+    const target = repository.defaultBranchRef?.target;
+    const totalCount = target?.history.totalCount ?? 0;
+    if (!target || totalCount <= 0) {
+      return { ...empty, isFork: repository.isFork };
+    }
+
+    const after = firstCommitHistoryAfter(target.oid, totalCount);
+    const history = await graphql<{
+      repository: {
+        defaultBranchRef: { target: { history: { nodes: FirstCommitNode[] } } | null } | null;
+      } | null;
+    }>(FIRST_COMMIT_HISTORY_QUERY, { owner, name, after });
+    const commit = history.repository?.defaultBranchRef?.target?.history.nodes[0];
+    if (!commit) {
+      return { ...empty, isFork: repository.isFork };
+    }
+
+    let authorLogin = commit.author?.user?.login ?? null;
+    if (!authorLogin) {
+      authorLogin = await restAuthorLoginForCommit(owner, name, commit.oid);
+    }
+    const resolved = resolveFirstCommitGithubLogin({
+      authorLogin,
+      committerLogin: commit.committer?.user?.login ?? null,
+      authorEmail: commit.author?.email ?? null,
+      committerEmail: commit.committer?.email ?? null,
+    });
+    return {
+      login: resolved.login,
+      source: resolved.source,
+      isFork: repository.isFork,
+      oid: commit.oid,
+    };
+  } catch (error) {
+    if (error instanceof GitHubRateLimitError) throw error;
+    return empty;
+  }
+}
+
+function isPublicOrgMember(ownerLogin: string, organizations: string[]): boolean {
+  const owner = ownerLogin.toLowerCase();
+  return organizations.some((organization) => organization.toLowerCase() === owner);
+}
+
+function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): boolean {
+  if (repo.is_private || repo.is_fork) return false;
+  if (repo.owner_login.toLowerCase() === loginLower) return false;
+  if (isDocLikeRepo(repo.repo)) return false;
+  return hasStrongLongTermOrgContribution(repo);
+}
+
 async function collectAttributedOriginalRepos(input: {
   contribRepos: ContribRepoAgg[];
   organizations: string[];
@@ -1126,18 +1368,14 @@ async function collectAttributedOriginalRepos(input: {
   loginLower: string;
   profileUrl: string | null;
 }): Promise<TopRepo[]> {
-  if (input.organizations.length === 0) return [];
+  const structural = input.contribRepos.filter((repo) =>
+    isOrgOwnedLongTermCandidate(repo, input.loginLower),
+  );
+  if (structural.length === 0) return [];
 
-  const candidates = input.contribRepos
-    .filter((repo) =>
-      computeOrgRepoAttribution({
-        repo,
-        organizations: input.organizations,
-        pinnedRepos: input.pinnedRepos,
-      }),
-    )
+  const candidates = [...structural]
     .sort((a, b) => b.stars - a.stars || b.commits + b.prs - (a.commits + a.prs))
-    .slice(0, 8);
+    .slice(0, MAX_ATTRIBUTED_ORIGINAL_REPOS);
 
   const repos = await Promise.all(
     candidates.map(async (candidate) => {
@@ -1146,6 +1384,16 @@ async function collectAttributedOriginalRepos(input: {
       const detail = await fetchRepoDetails(owner, name);
       if (!detail || detail.private || detail.fork) return null;
       if (isDocLikeRepo(candidate.repo) || hasDocLikeTopic(detail)) return null;
+
+      const member = isPublicOrgMember(owner, input.organizations);
+      let firstCommitLogin: string | null | undefined;
+      if (!member) {
+        const first = await fetchDefaultBranchFirstCommit(owner, name);
+        if (first.isFork || !first.login || first.login.toLowerCase() !== input.loginLower) {
+          return null;
+        }
+        firstCommitLogin = first.login;
+      }
 
       const [releaseOrTagAuthorHit, maintainerFileHit] = await Promise.all([
         hasReleaseOrTagAuthor(owner, name, input.loginLower),
@@ -1157,6 +1405,8 @@ async function collectAttributedOriginalRepos(input: {
         pinnedRepos: input.pinnedRepos,
         releaseOrTagAuthorHit,
         maintainerFileHit,
+        scoredLogin: input.loginLower,
+        firstCommitLogin,
       });
       if (!attribution) return null;
       return repoToTopRepo(detail, owner, attribution);
@@ -1415,26 +1665,35 @@ export async function fetchDurablePullRequestPage(input: {
   };
 }
 
-async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]> {
-  const data = await graphql<{
-    user: { pullRequests: { nodes: PrNode[] } } | null;
-  }>(
-    `query($login: String!, $count: Int!) {
-      user(login: $login) {
-        pullRequests(first: $count, states: MERGED,
-                     orderBy: {field: CREATED_AT, direction: DESC}) {
-          nodes {
-            title additions deletions changedFiles
-            repository { nameWithOwner stargazerCount isPrivate }
-            files(first: 50) { nodes { path } }
+export async function fetchRecentPrs(username: string, count = 50): Promise<RecentPr[]> {
+  const nodes: PrNode[] = [];
+  let after: string | null = null;
+  while (nodes.length < count) {
+    const data: { user: { pullRequests: { nodes: PrNode[]; pageInfo: MergedPrPageInfo } } | null } = await graphql(
+      `query($login: String!, $count: Int!, $after: String) {
+        user(login: $login) {
+          pullRequests(first: $count, states: MERGED, after: $after,
+                       orderBy: {field: CREATED_AT, direction: DESC}) {
+            nodes {
+              title additions deletions changedFiles
+              repository { nameWithOwner stargazerCount isPrivate }
+              files(first: 50) { nodes { path } }
+            }
+            pageInfo { hasNextPage endCursor }
           }
         }
-      }
-  }`,
-    { login: username, count },
-  );
-  if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no PR data.");
-  const nodes = data.user.pullRequests?.nodes ?? [];
+      }`,
+      { login: username, count: Math.min(25, count - nodes.length), after },
+    );
+    if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no PR data.");
+    const page = data.user.pullRequests;
+    nodes.push(...(page.nodes ?? []));
+    if (!page.pageInfo?.hasNextPage) break;
+    if (!page.nodes?.length || !page.pageInfo.endCursor || page.pageInfo.endCursor === after) {
+      throw new GitHubDataUnavailableError("GitHub PR pagination made no progress.");
+    }
+    after = page.pageInfo.endCursor;
+  }
   return nodes.map((n): RecentPr => {
     const repo = n.repository;
     const churn = (n.additions ?? 0) + (n.deletions ?? 0);
@@ -2033,16 +2292,24 @@ export function computeOrgRepoAttribution(input: {
   pinnedRepos?: string[];
   releaseOrTagAuthorHit?: boolean;
   maintainerFileHit?: boolean;
+  scoredLogin?: string;
+  firstCommitLogin?: string | null;
 }): OrgRepoAttribution | null {
   const owner = input.repo.owner_login.toLowerCase();
   const organizations = new Set(input.organizations.map((o) => o.toLowerCase()));
-  if (!organizations.has(owner)) return null;
+  const member = organizations.has(owner);
+  const scoredLogin = input.scoredLogin?.trim().toLowerCase() ?? "";
+  const firstCommitLogin = input.firstCommitLogin?.trim().toLowerCase() ?? "";
+  const firstCommitMatch = scoredLogin.length > 0 && firstCommitLogin === scoredLogin;
+  if (!member && !firstCommitMatch) return null;
   if (input.repo.is_private || input.repo.is_fork) return null;
   if (isDocLikeRepo(input.repo.repo)) return null;
   if (!hasStrongLongTermOrgContribution(input.repo)) return null;
 
   const evidence = [
-    `org member of ${input.repo.owner_login}`,
+    member
+      ? `org member of ${input.repo.owner_login}`
+      : `first commit author is ${input.firstCommitLogin}`,
     `${input.repo.commits} commits + ${input.repo.prs} PRs across ${input.repo.active_years} years`,
   ];
   let score = 1 + 4;
@@ -2237,6 +2504,7 @@ async function fetchYearContribsBatch(
   const data = await graphql<{ user: Record<string, YearContribs> | null }>(
     query,
     variables,
+    { splitOnTimeout: true },
   );
   if (!data.user) throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
   const user = data.user;
@@ -2252,9 +2520,12 @@ async function fetchYearContribsBatch(
  * batched query (same failure mode as {@link fetchContribOverview}); the
  * fallback re-runs one year per query and skips any single year that is still
  * unqueryable, so one pathological year degrades impact data instead of
- * failing the whole scan.
+ * failing the whole scan. Gateway timeouts and INTERNAL errors also split the
+ * batch: retrying the same oversized query can hit the same resource ceiling.
+ * A timeout or INTERNAL error on a single year still fails the scan rather than
+ * publishing an incomplete contribution total as a successful fresh result.
  */
-async function fetchCommitContribReposByYear(
+export async function fetchCommitContribReposByYear(
   username: string,
   years: number[],
 ): Promise<ContribRepoAgg[] | null> {
@@ -2265,7 +2536,7 @@ async function fetchCommitContribReposByYear(
   try {
     perYear = await fetchYearContribsBatch(username, capped);
   } catch (e) {
-    if (!(e instanceof GitHubResourceLimitError) || capped.length <= 1) throw e;
+    if (!canSplitContribQuery(e) || capped.length <= 1) throw e;
     perYear = await Promise.all(
       capped.map(async (year) => {
         try {
@@ -2492,6 +2763,7 @@ interface ContribStatTotals {
 }
 
 interface ContribOverview {
+  pronouns?: string | null;
   pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
   mergedPRs: { totalCount: number };
   allPRs: { totalCount: number };
@@ -2500,12 +2772,7 @@ interface ContribOverview {
   contributionYears: { contributionYears: number[] };
 }
 
-const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
-          nodes { ... on Repository { nameWithOwner } }
-        }
-        mergedPRs: pullRequests(states: MERGED) { totalCount }
-        allPRs: pullRequests { totalCount }
-        closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+const CLOSED_PR_OVERVIEW_FIELDS = `closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
           totalCount
           nodes {
             id
@@ -2519,9 +2786,138 @@ const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
               }
             }
           }
+        }`;
+
+const CONTRIB_OVERVIEW_FIELDS = `pronouns
+        pinnedItems(first: 6, types: REPOSITORY) {
+          nodes { ... on Repository { nameWithOwner } }
         }
+        mergedPRs: pullRequests(states: MERGED) { totalCount }
+        allPRs: pullRequests { totalCount }
+        ${CLOSED_PR_OVERVIEW_FIELDS}
         issues { totalCount }
         contributionYears: contributionsCollection { contributionYears }`;
+
+function canSplitContribQuery(error: unknown): boolean {
+  return error instanceof GitHubInternalQueryError ||
+    error instanceof GitHubResourceLimitError || error instanceof GitHubQueryTimeoutError;
+}
+
+async function fetchContribStats(username: string): Promise<{
+  statTotals: ContribStatTotals | null;
+  lastYearContributions: number;
+}> {
+  try {
+    const data = await graphql<{ user: { contributionsCollection: ContribStatTotals & {
+      contributionCalendar: { totalContributions: number };
+    } } | null }>(
+      `query($login: String!) { user(login: $login) { contributionsCollection {
+        totalCommitContributions totalPullRequestContributions
+        totalIssueContributions totalPullRequestReviewContributions
+        contributionCalendar { totalContributions }
+      } } }`, { login: username }, { splitOnTimeout: true },
+    );
+    if (!data.user?.contributionsCollection) {
+      throw new GitHubDataUnavailableError("GitHub returned no contribution stats.");
+    }
+    const cc = data.user.contributionsCollection;
+    return { statTotals: cc, lastYearContributions: cc.contributionCalendar.totalContributions };
+  } catch (error) {
+    if (!canSplitContribQuery(error)) throw error;
+  }
+  const data = await graphql<{ user: { contributionsCollection: {
+    contributionCalendar: { totalContributions: number };
+  } } | null }>(
+    `query($login: String!) { user(login: $login) {
+      contributionsCollection { contributionCalendar { totalContributions } }
+    } }`, { login: username }, { splitOnTimeout: true },
+  );
+  const total = data.user?.contributionsCollection?.contributionCalendar?.totalContributions;
+  if (typeof total !== "number") throw new GitHubDataUnavailableError("GitHub returned no contribution calendar.");
+  return { statTotals: null, lastYearContributions: total };
+}
+
+/** Isolate costly stats and closed-PR nodes so their fallbacks compose. */
+async function fetchSplitContribOverview(username: string): Promise<{
+  overview: ContribOverview;
+  statTotals: ContribStatTotals | null;
+  lastYearContributions: number;
+}> {
+  const basicFields = CONTRIB_OVERVIEW_FIELDS.replace(CLOSED_PR_OVERVIEW_FIELDS, "");
+  const [basic, stats, closedPRs] = await Promise.all([
+    graphql<{ user: ContribOverview | null }>(
+      `query($login: String!) { user(login: $login) { ${basicFields} } }`,
+      { login: username },
+    ),
+    fetchContribStats(username),
+    fetchClosedPrOverview(username),
+  ]);
+  if (!basic.user) {
+    throw new GitHubDataUnavailableError("GitHub returned no split contribution data.");
+  }
+  return { overview: { ...basic.user, closedPRs }, ...stats };
+}
+
+/**
+ * Paginated closed-PR overview (counts + who closed each one), degrading to a
+ * count-only result.
+ *
+ * The node list is not always resolvable: GitHub can fail the entire response
+ * with `errors[].type = INTERNAL` while resolving one node in the connection
+ * (observed on `["user","closedPRs","nodes",2]`), and it fails the same way on
+ * every retry because the offending node is data-dependent. `totalCount` alone
+ * resolves fine. A failed node list is therefore worth only the "who closed it"
+ * breakdown — the score itself must not go missing, so fall back to the count.
+ * An empty node list is the same signal `collect()` already handles when the
+ * connection is unavailable: the breakdown degrades to `unknown_closed`, never
+ * to a fabricated maintainer rejection.
+ */
+async function fetchClosedPrOverview(
+  username: string,
+): Promise<{ totalCount: number; nodes: ClosedPrNode[] }> {
+  try {
+    const nodes: ClosedPrNode[] = [];
+    let after: string | null = null;
+    let totalCount = 0;
+    for (let pageNumber = 0; pageNumber < 4 && nodes.length < 100; pageNumber++) {
+      const fields = CLOSED_PR_OVERVIEW_FIELDS.replace("first: 100,", "first: 25, after: $after,")
+        .replace("totalCount", "totalCount pageInfo { hasNextPage endCursor }");
+      const data: { user: { closedPRs: { totalCount: number; nodes: ClosedPrNode[]; pageInfo: MergedPrPageInfo } } | null } = await graphql(
+        `query($login: String!, $after: String) { user(login: $login) { ${fields} } }`,
+        { login: username, after },
+        { splitOnTimeout: true },
+      );
+      if (!data.user) throw new GitHubDataUnavailableError("GitHub returned no closed PR data.");
+      const page = data.user.closedPRs;
+      totalCount = page.totalCount;
+      nodes.push(...page.nodes);
+      if (!page.pageInfo.hasNextPage) break;
+      if (!page.nodes.length || !page.pageInfo.endCursor || page.pageInfo.endCursor === after) {
+        throw new GitHubDataUnavailableError("GitHub closed PR pagination made no progress.");
+      }
+      after = page.pageInfo.endCursor;
+    }
+    return { totalCount, nodes };
+  } catch (error) {
+    if (
+      !(error instanceof GitHubInternalQueryError) &&
+      !(error instanceof GitHubResourceLimitError) &&
+      !(error instanceof GitHubQueryTimeoutError)
+    ) {
+      throw error;
+    }
+    const countOnly = await graphql<{ user: { closedPRs: { totalCount: number } } | null }>(
+      `query($login: String!) {
+        user(login: $login) { closedPRs: pullRequests(states: CLOSED) { totalCount } }
+      }`,
+      { login: username },
+    );
+    if (typeof countOnly.user?.closedPRs?.totalCount !== "number") {
+      throw new GitHubDataUnavailableError("GitHub returned no closed PR data.");
+    }
+    return { totalCount: countOnly.user.closedPRs.totalCount, nodes: [] };
+  }
+}
 
 /**
  * PR / issue counts + contribution signals, normally in a single GraphQL call.
@@ -2537,8 +2933,12 @@ const CONTRIB_OVERVIEW_FIELDS = `pinnedItems(first: 6, types: REPOSITORY) {
  * overview without the stats block, plus the calendar total — the one stat
  * scoring depends on — in its own call. The per-type totals stay null and
  * activity diversity is approximated by the caller.
+ *
+ * `INTERNAL` responses are handled the same way as gateway timeouts: GitHub can
+ * fail a whole response while resolving one node, so the fields are re-fetched
+ * in smaller pieces where the offending connection can degrade on its own.
  */
-async function fetchContribOverview(username: string): Promise<{
+export async function fetchContribOverview(username: string): Promise<{
   overview: ContribOverview;
   statTotals: ContribStatTotals | null;
   lastYearContributions: number;
@@ -2566,6 +2966,7 @@ async function fetchContribOverview(username: string): Promise<{
       }
     }`,
       { login: username },
+      { splitOnTimeout: true },
     );
     if (!data.user) {
       throw new GitHubDataUnavailableError("GitHub GraphQL returned no contribution data.");
@@ -2577,6 +2978,8 @@ async function fetchContribOverview(username: string): Promise<{
       lastYearContributions: cc?.contributionCalendar?.totalContributions ?? 0,
     };
   } catch (e) {
+    if (e instanceof GitHubQueryTimeoutError) return fetchSplitContribOverview(username);
+    if (e instanceof GitHubInternalQueryError) return fetchSplitContribOverview(username);
     if (!(e instanceof GitHubResourceLimitError)) throw e;
   }
 
@@ -2588,7 +2991,20 @@ async function fetchContribOverview(username: string): Promise<{
       }
     }`,
       { login: username },
-    ),
+      { splitOnTimeout: true },
+    ).catch(async (error) => {
+      if (!canSplitContribQuery(error)) throw error;
+      const [basic, closedPRs] = await Promise.all([
+        graphql<{ user: ContribOverview | null }>(
+          `query($login: String!) { user(login: $login) {
+            ${CONTRIB_OVERVIEW_FIELDS.replace(CLOSED_PR_OVERVIEW_FIELDS, "")}
+          } }`, { login: username }, { splitOnTimeout: true },
+        ),
+        fetchClosedPrOverview(username),
+      ]);
+      if (!basic.user) throw new GitHubDataUnavailableError("GitHub returned no contribution data.");
+      return { user: { ...basic.user, closedPRs } };
+    }),
     graphql<{
       user: {
         contributionsCollection: { contributionCalendar: { totalContributions: number } } | null;
@@ -2662,22 +3078,17 @@ export async function collect(username: string): Promise<{
     .filter((s): s is string => typeof s === "string");
   const closedPrNodes = overview.closedPRs?.nodes ?? [];
   const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
-  // The quick collector intentionally caps merged-PR aggregation at 300.
-  // For larger histories, publish neither a partial impact aggregate nor a
-  // score: the durable paginator owns the complete result.
   let mergedPrContribRepos: ContribRepoAgg[] = [];
   let mergedPrContributionAggregationIncomplete = mergedPrCount > 300;
   const [commitContribRepos, workflowLandedPrs] = await Promise.all([
     fetchCommitContribReposByYear(login, contributionYears),
     fetchWorkflowLandedPrs(login, overview.closedPRs?.totalCount ?? 0),
   ]);
-  if (!mergedPrContributionAggregationIncomplete) {
-    try {
-      mergedPrContribRepos = await fetchMergedPrContribRepos(login);
-    } catch (error) {
-      if (!(error instanceof GitHubResourceLimitError)) throw error;
-      mergedPrContributionAggregationIncomplete = true;
-    }
+  try {
+    mergedPrContribRepos = await fetchMergedPrContribRepos(login);
+  } catch (error) {
+    if (!(error instanceof GitHubResourceLimitError)) throw error;
+    mergedPrContributionAggregationIncomplete = true;
   }
   const commitContributionAggregationUnavailable =
     contributionYears.length > 0 && commitContribRepos === null;
@@ -2873,6 +3284,7 @@ export async function collect(username: string): Promise<{
     avatar_url: user.avatar_url,
     name: user.name,
     bio: user.bio,
+    pronouns: overview.pronouns?.trim() || null,
     company: user.company,
     account_age_years: accountAgeYears,
     created_at: user.created_at,

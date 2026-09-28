@@ -265,12 +265,13 @@ export function assessRisk(m: RawMetrics): {
   const decided = Math.max(0, finite(m.merged_pr_count)) + rejected;
   const rejectionMeasured = m.maintainer_closed_unmerged_pr_count !== undefined;
   const rejectionLower = rejectionMeasured ? wilsonLower(rejected, decided) : 0;
+  const rejectionRate = decided > 0 ? rejected / decided : 0;
   const rejectionSeverity = clamp01((rejectionLower - rules.thresholds.rejection_wilson_lower) / rules.thresholds.rejection_wilson_lower) * sampleFactor(decided);
   const rejectionRaw = rejectionMeasured && decided >= rules.sampling.minimum_rejection_decisions && rejectionLower >= rules.thresholds.rejection_wilson_lower
     ? 4 * clamp01((rejectionLower - rules.thresholds.rejection_wilson_lower) / rules.thresholds.rejection_wilson_lower)
     : 0;
   let rejection: Candidate | undefined;
-  if (rejectionMeasured && decided > 0 && rejected > 0) {
+  if (rejectionMeasured && decided > 0 && rejectionRate >= rules.thresholds.rejection_wilson_lower) {
     rejection = candidate(m, "high_pr_rejection", "contribution", rejectionRaw, rejectionSeverity, coverageConfidence * Math.max(sampleFactor(decided), 0.25),
       decided < rules.sampling.minimum_rejection_decisions || rejectionLower < rules.thresholds.rejection_wilson_lower
         ? "维护者关闭未合并的 PR 比例偏高，但样本量或 Wilson 95% 下界未达到扣分门槛，仅作风险提示。"

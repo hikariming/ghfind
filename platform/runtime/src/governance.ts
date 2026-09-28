@@ -15,8 +15,6 @@ export async function handleGovernanceRequest(
     if (!bearerAuthorized(request, env.FEED_RUNTIME_ADMIN_SECRET))
       throw new HTTPError(401, "unauthorized");
     checkConfiguration(env);
-    if (env.FEED_ENVIRONMENT !== "staging")
-      throw new HTTPError(503, "feed_operator_target_disabled");
     const url = new URL(request.url);
     const match =
       /^\/internal\/runtime\/feed-governance\/v1\/(proposal|command|review|deprecate)$/.exec(
@@ -25,6 +23,12 @@ export async function handleGovernanceRequest(
     if (!match || url.search) throw new HTTPError(404, "not_found");
     if (request.method !== "POST")
       throw new HTTPError(405, "method_not_allowed");
+    // Production bootstrap permits only the existing bounded read capabilities.
+    // Review/replay require the readiness-gated baseline configuration as well
+    // as both independent credentials and the exact release/epoch below.
+    if (env.FEED_ENVIRONMENT === "production" && env.FEED_MODE !== "baseline" &&
+      !/^(?:proposal|command)$/.test(match[1]!))
+      throw new HTTPError(503, "feed_operator_target_disabled");
     if (
       request.headers.get("x-feed-contract") !== "1" ||
       request.headers.get("x-feed-target") !== env.FEED_ENVIRONMENT ||

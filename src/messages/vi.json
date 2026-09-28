@@ -9,19 +9,37 @@
   },
   "nav": {
     "brand": "ghfind",
-    "roast": "Cà khịa",
-    "leaderboard": "Bảng xếp hạng",
+    "roast": "Cà khịa GitHub",
+    "leaderboard": "BXH lập trình viên",
     "discover": "Khám phá",
     "developers": "Lập trình viên",
     "projectBoards": "Bảng dự án",
     "projects": "Dự án",
-    "collections": "Đề xuất",
+    "collections": "Biên tập chọn",
     "languages": "Ngôn ngữ",
     "organizations": "Tổ chức",
-    "versus": "Solo",
+    "versus": "Solo lập trình viên",
     "blog": "Nghiên cứu",
     "openMenu": "Mở menu",
-    "closeMenu": "Đóng menu"
+    "closeMenu": "Đóng menu",
+    "resume": "CV của tôi",
+    "talent": "Kho nhân tài",
+    "githubBot": "GitHub Bot",
+    "groupDiscover": "Khám phá",
+    "groupCareer": "Sự nghiệp",
+    "groupTools": "Công cụ",
+    "beta": "Beta",
+    "hint": {
+      "roast": "Chấm điểm tài khoản GitHub trong 30 giây, kèm một câu cà khịa",
+      "versus": "Cho hai lập trình viên đối đầu",
+      "leaderboard": "Xem lập trình viên nổi bật theo điểm",
+      "projectBoards": "Khám phá dự án mã nguồn mở nổi bật theo lĩnh vực",
+      "collections": "Dự án và lập trình viên do biên tập viên chọn",
+      "blog": "Dữ liệu và phân tích về hệ sinh thái lập trình viên",
+      "resume": "Tạo CV lập trình viên từ dữ liệu GitHub",
+      "talent": "Tìm lập trình viên đáng để làm quen",
+      "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả"
+    }
   },
   "globalSearch": {
     "open": "Mở tìm kiếm toàn trang",
@@ -80,13 +98,14 @@
     "boardHeading": "🏆 Những dev xịn nhất",
     "openBoard": "Mở bảng xếp hạng đầy đủ →",
     "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
-    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn."
+    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
+    "viewAll": "Xem tất cả"
   },
   "leaderboard": {
     "heading": "🏆 Đại sảnh Danh vọng",
     "subtitle": "Đại sảnh Danh vọng liệt kê các tài khoản đạt 60+ điểm, mặc định xếp theo Xu hướng.",
     "judgeCta": "← Phán xét một tài khoản",
-    "footerNote": "Chỉ những tài khoản điểm cao dựng từ dữ liệu GitHub công khai mới được liệt kê. Muốn rút tên khỏi bảng, <a>gửi yêu cầu gỡ tại đây</a>.",
+    "footerNote": "Chỉ những tài khoản điểm cao dựng từ dữ liệu GitHub công khai mới được liệt kê.",
     "loadError": "Không tải được bảng xếp hạng lúc này — thử lại sau nhé.",
     "loading": "Đang tải Đại sảnh Danh vọng…",
     "empty": "🧮 Đang tính toán số liệu — quay lại sau nhé…",
@@ -561,10 +580,6 @@
       {
         "q": "Công việc private của tôi có được tính không?",
         "a": "Không. Điểm số chỉ dùng tín hiệu công khai, nên đóng góp trong tổ chức private là vô hình với engine. Một thành viên tích cực của các repo private có thể bị đánh giá thấp. Điểm thấp không phải khẳng định thực tế về một con người — nó chỉ mô tả dấu chân công khai của một tài khoản."
-      },
-      {
-        "q": "Làm sao để gỡ hồ sơ của tôi khỏi ghfind?",
-        "a": "Chỉ những tài khoản đạt 60+ điểm mới được lập chỉ mục và liệt kê. Muốn rút khỏi bảng, dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, và hồ sơ sẽ được gỡ khỏi danh sách."
       }
     ]
   },
@@ -733,10 +748,10 @@
   },
   "contact": {
     "metaTitle": "Liên hệ ghfind",
-    "metaDescription": "Cách liên hệ đội ngũ ghfind: báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI và MCP server.",
+    "metaDescription": "Cách liên hệ đội ngũ ghfind: báo lỗi, hoặc hỏi về API, CLI và MCP server.",
     "heading": "Liên hệ",
     "paragraphs": [
-      "ghfind là một dự án mã nguồn mở. Cách nhanh nhất để liên hệ đội ngũ, báo lỗi, yêu cầu gỡ khỏi bảng xếp hạng, hoặc hỏi về API, CLI hay MCP server là mở một issue trên kho GitHub công khai. Issue được đọc và phân loại tại đó, và việc trao đổi công khai giúp cả những người dùng khác gặp cùng câu hỏi.",
+      "ghfind là một dự án mã nguồn mở. Cách nhanh nhất để liên hệ đội ngũ, báo lỗi, hoặc hỏi về API, CLI hay MCP server là mở một issue trên kho GitHub công khai. Issue được đọc và phân loại tại đó, và việc trao đổi công khai giúp cả những người dùng khác gặp cùng câu hỏi.",
       "Với các câu hỏi tích hợp, hợp đồng API máy đọc được nằm tại /openapi.json, mục lục tài liệu dành cho agent tại /llms.txt, và hướng dẫn xác thực tại /auth.md. Nếu bạn cần nâng giới hạn tốc độ cho việc quét server-to-server khối lượng lớn, hãy nêu trường hợp sử dụng trong một issue GitHub."
     ],
     "issuesLabel": "Mở issue trên GitHub",
@@ -750,7 +765,7 @@
   },
   "privacy": {
     "metaTitle": "Quyền riêng tư — ghfind",
-    "metaDescription": "Cách ghfind xử lý dữ liệu: chỉ chấm điểm dữ liệu GitHub công khai, không bán dữ liệu cá nhân, và tôn trọng yêu cầu gỡ với các hồ sơ đã lập chỉ mục.",
+    "metaDescription": "Cách ghfind xử lý dữ liệu: chỉ chấm điểm dữ liệu GitHub công khai và không bán dữ liệu cá nhân.",
     "heading": "Quyền riêng tư",
     "sections": [
       {
@@ -764,10 +779,6 @@
       {
         "h": "Cà khịa bằng key riêng",
         "p": "Tính năng cà khịa tùy chọn có thể dùng key nhà cung cấp model của riêng bạn. Khi bạn cung cấp một key, nó nằm trong trình duyệt của bạn và được chuyển tiếp một lần qua server của chúng tôi để gọi model — không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi yêu cầu hoàn tất."
-      },
-      {
-        "h": "Gỡ bỏ và kiểm soát",
-        "p": "Nếu bạn muốn gỡ hồ sơ khỏi danh sách, hãy dùng liên kết yêu cầu gỡ ở chân trang bảng xếp hạng hoặc mở một issue trên kho GitHub, chúng tôi sẽ gỡ khỏi bảng và chỉ mục. Vì ghfind chỉ phản chiếu dữ liệu GitHub công khai, việc cập nhật hay chuyển hoạt động GitHub của bạn sang private cũng sẽ thay đổi hoặc xóa những gì ghfind thấy được ở lần quét kế tiếp."
       }
     ]
   },
@@ -992,5 +1003,476 @@
         "removed": "Removed"
       }
     }
+  },
+  "sidebar": {
+    "workspace": "Workspace",
+    "discover": "Explore",
+    "resume": "CV của tôi",
+    "soon": "Soon",
+    "tagline": "Developer workspace",
+    "expand": "Mở rộng thanh bên",
+    "collapse": "Thu gọn thanh bên",
+    "navigation": "Điều hướng chính",
+    "docs": "Trợ giúp & tài liệu",
+    "skip": "Chuyển đến nội dung",
+    "edition": "Public workspace",
+    "sponsor": "Tài trợ"
+  },
+  "talent": {
+    "topline": {
+      "section": "Phát triển sự nghiệp",
+      "current": "Kho nhân tài",
+      "badge": "Cộng đồng tuyển chọn · Cập nhật liên tục"
+    },
+    "hero": {
+      "titleLead": "Từ một dòng code,",
+      "titleVerb": "khám phá ",
+      "titleAccent": "những người đáng để biết đến.",
+      "subtitleLead": "Không chỉ là một bản CV. Qua dự án mã nguồn mở, thực hành kỹ thuật và sản phẩm thật,",
+      "subtitleTail": "làm quen với developer và tìm người đồng hành tiếp theo.",
+      "people": "Bắt đầu từ GitHub, kết nối thêm khả năng",
+      "add": "Thêm nhân tài",
+      "code": "built by humans."
+    },
+    "tabs": {
+      "aria": "Khám phá nhân tài",
+      "all": "Tất cả",
+      "saved": "Đã lưu",
+      "sessionHint": "Mục đã lưu chỉ giữ trong phiên này",
+      "discover": "Nổi bật"
+    },
+    "search": {
+      "placeholder": "Tìm tên, username GitHub, công nghệ hoặc thành phố…",
+      "aria": "Tìm nhân tài",
+      "clear": "Xóa tìm kiếm",
+      "hint": "Mẹo: lọc theo trường — ví dụ skill:Rust, location:Shanghai"
+    },
+    "filters": {
+      "toggle": "Bộ lọc",
+      "location": "Địa điểm",
+      "source": "Nguồn",
+      "allDirections": "Mọi lĩnh vực",
+      "allLocations": "Mọi địa điểm",
+      "allSources": "Mọi nguồn",
+      "sourceGithub": "GitHub",
+      "sourceManual": "Tuyển chọn thủ công",
+      "onlyAvailable": "Chỉ xem người sẵn sàng trao đổi",
+      "reset": "Đặt lại bộ lọc",
+      "subDirections": "Chuyên sâu",
+      "officialTags": "Thẻ chính thức",
+      "tagAria": "Lọc theo thẻ chính thức \"{tag}\"",
+      "collection": "Bộ sưu tập",
+      "clearCollection": "Bỏ lọc bộ sưu tập"
+    },
+    "results": {
+      "count": "Tìm thấy <strong>{count}</strong> developer",
+      "subtitle": "· Bắt đầu từ sản phẩm",
+      "sortAria": "Sắp xếp nhân tài",
+      "sortRecommended": "Đề xuất",
+      "sortStars": "Ưu tiên Stars dự án",
+      "sortActivity": "Ưu tiên đóng góp tích cực",
+      "gridView": "Dạng thẻ",
+      "listView": "Dạng danh sách",
+      "perPageAria": "Số kết quả mỗi trang",
+      "perPageOption": "{count} / trang",
+      "pagesAria": "Phân trang",
+      "prevPage": "Trang trước",
+      "nextPage": "Trang sau",
+      "pageStatus": "Trang {page} / {pages}",
+      "loading": "Đang tải…"
+    },
+    "notice": {
+      "submitted": "Đã nhận đề xuất cho {name}. Chỉ giữ các trường công khai, hiển thị sau khi duyệt.",
+      "close": "Đóng thông báo"
+    },
+    "card": {
+      "viewProfileAria": "Xem hồ sơ {name}",
+      "saveAria": "Lưu {name}",
+      "unsaveAria": "Bỏ lưu {name}",
+      "manual": "Thêm thủ công",
+      "available": "Sẵn sàng trao đổi",
+      "score": "Điểm GHFind",
+      "pending": "Hồ sơ đang bổ sung",
+      "community": "Tích cực trong mã nguồn mở",
+      "yearlyContributions": "đóng góp/năm",
+      "viewProfile": "Xem hồ sơ"
+    },
+    "empty": {
+      "savedTitle": "Giữ lại những người bạn muốn tìm hiểu thêm",
+      "savedBody": "Nhấn biểu tượng bookmark trên thẻ để tạo danh sách ứng viên.",
+      "title": "Chưa có nhân tài phù hợp",
+      "body": "Thử công nghệ khác hoặc nới lỏng bộ lọc.",
+      "browseAll": "Xem tất cả nhân tài"
+    },
+    "footer": {
+      "endline": "Nhân tài giỏi xứng đáng được nhìn thấy",
+      "title": "Bắt nguồn từ mã nguồn mở, vượt xa mã nguồn mở",
+      "body": "Thông tin công khai GitHub × tuyển chọn thủ công, để mỗi tài năng đều có dấu vết.",
+      "source": "Dữ liệu từ thông tin công khai GitHub và bộ sưu tập trên trang"
+    },
+    "detail": {
+      "close": "Đóng hồ sơ",
+      "eyebrow": "DEVELOPER PROFILE",
+      "pendingBadge": "Hồ sơ chờ duyệt",
+      "listedBadge": "Hồ sơ đã đăng",
+      "saved": "Đã lưu",
+      "save": "Lưu nhân tài",
+      "tagsAria": "Thẻ nhân tài",
+      "projectsAria": "Dự án tiêu biểu",
+      "projectsTitle": "Dự án tiêu biểu",
+      "projectsCount": "{count} dự án",
+      "relOwn": "Dự án của mình",
+      "relPr": "Tham gia đóng góp",
+      "projectsEmpty": "Chưa liên kết dự án tiêu biểu",
+      "projectsEmptyHint": "Sau này có thể thêm repo của mình hoặc PR đã đóng góp.",
+      "sourcesAria": "Nguồn thông tin",
+      "sourcesTitle": "Nguồn thông tin",
+      "sourcesPending": "Đang bổ sung",
+      "sourcesCount": "{count} nguồn",
+      "sourcesEmptyManual": "Thêm thủ công",
+      "sourcesEmptyHint": "Chưa liên kết nguồn; có thể bổ sung GitHub, trang cá nhân hoặc bài viết liên quan.",
+      "tabsAria": "Nội dung hồ sơ",
+      "tabOverview": "Tổng quan",
+      "tabContacts": "Liên hệ",
+      "editorNote": "Ghi chú của người tuyển chọn",
+      "publicInfo": "Thông tin công khai",
+      "contactTitle": "Liên hệ với {name}",
+      "contactHint": "Chỉ hiển thị liên hệ mà người đó chọn công khai.",
+      "contactEmptyTitle": "Chưa công khai liên hệ",
+      "contactEmptyBody": "Người đó có thể chia sẻ WeChat, email hoặc điện thoại khi tự đăng ký."
+    },
+    "fields": {
+      "role": "Lĩnh vực",
+      "location": "Thành phố",
+      "bio": "Giới thiệu",
+      "email": "Email",
+      "wechat": "WeChat",
+      "phone": "Điện thoại",
+      "education": "Học vấn",
+      "school": "Trường",
+      "experience": "Kinh nghiệm làm việc"
+    },
+    "intake": {
+      "close": "Đóng đăng ký",
+      "eyebrow": "G H F I N D / TALENT",
+      "title": "Để nhân tài giỏi được nhìn thấy",
+      "description": "Bắt đầu từ tài khoản GitHub, chỉ chia sẻ thông tin bạn muốn.",
+      "stepsAria": "Các bước đăng ký",
+      "stepSubject": "Đối tượng",
+      "stepAccount": "Tài khoản & thông tin",
+      "stepPrivacy": "Cài đặt công khai",
+      "stepConfirm": "Xác nhận thông tin",
+      "stepPreview": "Xem trước",
+      "errorGithub": "Nhập username GitHub hoặc liên kết hồ sơ hợp lệ.",
+      "errorName": "Nhập tên hoặc biệt danh để hiển thị.",
+      "whoTitle": "Lần này, bạn muốn ai được khám phá?",
+      "whoBody": "Tạo danh thiếp cho chính mình, hoặc đề xuất một developer bạn ngưỡng mộ.",
+      "selfTitle": "Đăng ký chính tôi",
+      "selfBody": "Liên kết CV của tôi, tự chọn nội dung công khai",
+      "otherTitle": "Đề xuất người khác",
+      "otherBody": "Đề xuất developer qua tài khoản GitHub",
+      "whoPrivacy": "Tên có thể dùng biệt danh. Điện thoại, học vấn, trường, kinh nghiệm đều không bắt buộc.",
+      "identitySelf": "Danh tính developer của bạn",
+      "identityOther": "Đề xuất một developer",
+      "methodGithub": "Có tài khoản GitHub",
+      "methodManual": "Không có GitHub, nhập thủ công",
+      "githubLabel": "Username GitHub hoặc liên kết hồ sơ",
+      "githubPlaceholder": "octocat hoặc https://github.com/octocat",
+      "githubHintTitle": "Một tài khoản là đủ",
+      "githubHintBody": "Sau khi kết nối, hồ sơ được tạo từ dự án công khai, công nghệ và lịch sử đóng góp — không cần CV đầy đủ.",
+      "githubHintNote": "Hiện chưa xác minh tài khoản hay lấy dữ liệu GitHub; thông tin sẽ đồng bộ sau khi duyệt và kết nối.",
+      "nameLabel": "Tên hiển thị / biệt danh",
+      "requiredTag": "Bắt buộc",
+      "namePlaceholder": "Có thể dùng biệt danh, không cần tên thật",
+      "roleLabel": "Lĩnh vực kỹ thuật / nghề nghiệp",
+      "bioLabel": "Giới thiệu bản thân",
+      "optionalTag": "Tùy chọn",
+      "rolePlaceholder": "Ví dụ: developer frontend",
+      "bioPlaceholder": "Bạn đã làm gì và đang khám phá điều gì?",
+      "recommendationLabel": "Lời đề xuất",
+      "recommendationTag": "Tùy chọn · Hiển thị trong hồ sơ",
+      "recommendationPlaceholder": "Sản phẩm hay thực hành kỹ thuật nào khiến bạn đề xuất developer này?",
+      "privacyTitle": "Thông tin của bạn, bạn quyết định công khai bao nhiêu",
+      "privacyBody": "Chỉ để lại WeChat hoặc email cũng được. Trường không chọn sẽ không vào hồ sơ và CV gốc không bị ảnh hưởng.",
+      "resumeImportTitle": "Nhập từ “CV của tôi”",
+      "resumeImportBody": "Chỉ điền vào bản nháp hiện tại — không tự động công khai, không ghi ngược vào CV.",
+      "loadLocal": "Đọc dữ liệu cục bộ",
+      "loadCloud": "Đọc CV trên đám mây",
+      "openResume": "Mở CV của tôi ↗",
+      "loading": "Đang đọc…",
+      "chooseResume": "Chọn dữ liệu",
+      "chooseResumePlaceholder": "Chọn CV / thông tin đã lưu",
+      "resumeLoginRequired": "Hãy đăng nhập và lưu CV trong “CV của tôi” trước, rồi quay lại nhập.",
+      "resumePickHint": "Chọn một bản để điền vào nháp; mọi trường mặc định ẩn.",
+      "resumeEmpty": "Chưa có dữ liệu đã lưu; tạo trong “CV của tôi” hoặc điền trực tiếp.",
+      "resumeLoadFailed": "Không đọc được dữ liệu; thử lại hoặc tiếp tục nhập thủ công.",
+      "resumeProfileFallback": "Thông tin đã lưu của tôi",
+      "resumeImported": "Đã nhập “{label}”; hãy chọn từng mục để công khai.",
+      "nicknameLabel": "Biệt danh hiển thị",
+      "nicknameTag": "Tùy chọn · Mặc định dùng username GitHub",
+      "nicknamePlaceholder": "Không cần công khai tên thật",
+      "fieldHeadingFields": "Thông tin tùy chọn",
+      "fieldHeadingPublic": "Công khai trong kho nhân tài",
+      "fieldPlaceholder": "Tùy chọn",
+      "fieldPlaceholderHidden": "Tùy chọn; để trống nếu không công khai",
+      "publicAria": "Công khai {label}",
+      "visibleOn": "Công khai",
+      "visibleOff": "Ẩn",
+      "moreFields": "Bổ sung thêm thông tin",
+      "moreFieldsHint": "Giới thiệu, điện thoại, học vấn, trường, kinh nghiệm · Tùy chọn",
+      "otherPrivacyTitle": "Chỉ đề xuất sản phẩm, không thay người khác công khai riêng tư",
+      "otherPrivacyBody": "Đăng ký {target}. Không yêu cầu điện thoại, trường, học vấn hay kinh nghiệm của họ, và không đọc CV của bạn.",
+      "otherPrivacyNote": "Liên hệ và dữ liệu CV riêng tư do chính người đó bổ sung sau khi nhận hồ sơ.",
+      "previewTitle": "Đây là hồ sơ người khác sẽ thấy",
+      "previewBody": "Chỉ nội dung bên dưới được đưa vào kho nhân tài. Trường ẩn không được đính kèm.",
+      "previewGithubPending": "@{handle} · Dữ liệu GitHub chờ kết nối",
+      "previewManual": "Thêm thủ công",
+      "previewOnlyGithub": "Chỉ hiển thị username GitHub, không công khai thông tin cá nhân khác.",
+      "previewOnlyNickname": "Chỉ hiển thị biệt danh, không công khai thông tin cá nhân khác.",
+      "recommendationPrefix": "Lời đề xuất: {note}",
+      "reviewNote": "Sau khi gửi sẽ vào duyệt, chưa công khai trước khi được duyệt; tài khoản tự đăng ký cần xác minh danh tính sau.",
+      "back": "Quay lại",
+      "cancel": "Hủy",
+      "footerSubmit": "Chỉ gửi nội dung bạn đánh dấu công khai",
+      "footerOptional": "Tất cả tùy chọn, có thể tiếp tục ngay",
+      "footerHidden": "Trường ẩn sẽ không được gửi",
+      "submitting": "Đang gửi…",
+      "confirmSubmit": "Xác nhận gửi đăng ký",
+      "next": "Tiếp theo"
+    },
+    "categories": {
+      "aria": "Duyệt theo danh mục",
+      "all": "Tất cả",
+      "agent": "Agent & quy trình",
+      "ai": "Ứng dụng AI & mô hình",
+      "infra": "Backend & hạ tầng",
+      "frontend": "Frontend & full-stack",
+      "tools": "Công cụ & dữ liệu",
+      "other": "Khác"
+    },
+    "overview": {
+      "collectionsTitle": "Bộ sưu tập nổi bật",
+      "collectionsSubtitle": "Nhóm theo hệ sinh thái mã nguồn mở và thẻ chính thức",
+      "sectionsTitle": "Duyệt theo lĩnh vực",
+      "sectionsSubtitle": "Nhà phát triển nổi bật theo lĩnh vực — \"Xem tất cả\" để mở danh sách đầy đủ",
+      "people": "{count} người",
+      "viewAll": "Xem tất cả {count}"
+    },
+    "collections": {
+      "dsh": {
+        "title": "Người dùng beta DSH",
+        "desc": "Người dùng sớm và đồng xây dựng bản beta DSH"
+      },
+      "vllm": {
+        "title": "vLLM",
+        "desc": "Người đóng góp chính cho engine suy luận LLM"
+      },
+      "dify": {
+        "title": "Dify",
+        "desc": "Hệ sinh thái nền tảng Dify"
+      },
+      "lobehub": {
+        "title": "LobeHub",
+        "desc": "Cộng đồng LobeChat / LobeHub và đa agent"
+      },
+      "llamacpp": {
+        "title": "llama.cpp",
+        "desc": "Người đóng góp ggml / llama.cpp"
+      },
+      "sglang": {
+        "title": "SGLang",
+        "desc": "Người đóng góp framework SGLang"
+      },
+      "mcp": {
+        "title": "MCP",
+        "desc": "Người đóng góp đặc tả và SDK MCP"
+      },
+      "langchain": {
+        "title": "LangChain",
+        "desc": "Hệ sinh thái LangChain / LangGraph"
+      }
+    }
+  },
+  "sponsor": {
+    "metaTitle": "Tài trợ ghfind · Gói và quyền lợi",
+    "metaDescription": "Tài trợ ghfind: các gói Chính, Mô hình, Nổi bật và Bạn bè, tính theo tháng. Tài trợ không bao giờ ảnh hưởng đến xếp hạng hay điểm số.",
+    "topline": {
+      "section": "Trợ giúp & Tài liệu",
+      "current": "Tài trợ"
+    },
+    "hero": {
+      "titleLead": "Giúp ghfind",
+      "titleAccent": "tiếp tục nhận xét thẳng thắn.",
+      "subtitle": "ghfind là dự án cộng đồng mở, và việc gọi mô hình, máy chủ, thu thập dữ liệu đều tốn chi phí thật. Sự tài trợ của bạn giúp dự án luôn miễn phí, độc lập và được cập nhật. Tất cả giá tính bằng USD mỗi tháng, hiện đang giảm giá có thời hạn."
+    },
+    "perMonth": "/ tháng",
+    "listPrice": "Giá gốc {price}",
+    "off": "Tiết kiệm {off}%",
+    "soldOut": "Đã hết",
+    "available": "Còn chỗ",
+    "soon": "Đang phát triển",
+    "currentHolder": "Nhà tài trợ hiện tại",
+    "cta": "Liên hệ tài trợ",
+    "ctaSoldOut": "Đã hết · Hãy chờ đợt sau",
+    "tiers": {
+      "title": {
+        "name": "Nhà tài trợ chính",
+        "summary": "Vị trí nổi bật nhất trên trang — thương hiệu của bạn đi cùng mọi thẻ khoe được chia sẻ.",
+        "perks": [
+          {
+            "text": "Vị trí tài trợ trên thanh điều hướng đầu mọi trang (logo + tên + khẩu hiệu)"
+          },
+          {
+            "text": "Ghi danh kèm logo trên mọi thẻ khoe được chia sẻ"
+          }
+        ]
+      },
+      "model": {
+        "name": "Nhà tài trợ mô hình",
+        "summary": "Cung cấp mô hình cho các nhận xét và xuất hiện mỗi lần nhận xét được tạo.",
+        "perks": [
+          {
+            "text": "Hiển thị nhà tài trợ mô hình khi tạo nhận xét"
+          },
+          {
+            "text": "Thông tin và logo nhà tài trợ trên trang chủ"
+          }
+        ]
+      },
+      "featured": {
+        "name": "Nhà tài trợ nổi bật",
+        "summary": "Hiển thị ổn định trên trang chủ và trang chi tiết nhà phát triển.",
+        "perks": [
+          {
+            "text": "Vị trí tài trợ trên trang chủ"
+          },
+          {
+            "text": "Hiển thị ngẫu nhiên trên trang chi tiết",
+            "soon": true
+          }
+        ]
+      },
+      "friend": {
+        "name": "Nhà tài trợ bạn bè",
+        "summary": "Ủng hộ ghfind như một người bạn — chúng tôi sẽ ghi nhận bạn tại đây.",
+        "perks": [
+          {
+            "text": "Lời cảm ơn và liên kết ngoài trên trang này"
+          }
+        ]
+      }
+    },
+    "friends": {
+      "heading": "Nhà tài trợ bạn bè",
+      "lead": "Cảm ơn mọi người bạn đã ủng hộ ghfind. Liên kết được sắp xếp theo thứ tự tham gia.",
+      "empty": "Vị trí này đang trống — hãy là nhà tài trợ bạn bè đầu tiên →"
+    },
+    "fairness": {
+      "heading": "Tài trợ không ảnh hưởng đến xếp hạng hay điểm số",
+      "body": "Nhà tài trợ chỉ nhận vị trí hiển thị và lời cảm ơn. Tài trợ không và không thể ảnh hưởng đến xếp hạng, điểm số hay nhận xét của bất kỳ nhà phát triển hoặc dự án nào. Điểm số hoàn toàn do phương pháp đã công bố và dữ liệu quyết định, và mọi người đều được đối xử như nhau để đảm bảo công bằng."
+    },
+    "contactLead": "Về tài trợ, hóa đơn hoặc câu hỏi khác, hãy liên hệ",
+    "rowLabel": "Nhà tài trợ",
+    "holders": {
+      "dsh": "Kết nối một lần, dùng Harness từ xa mọi lúc",
+      "mosoo": "Runtime đám mây cho coding agent",
+      "phi": "Trình duyệt AI mã nguồn mở thật sự hiểu bạn"
+    },
+    "slotOpen": "Còn trống"
+  },
+  "githubBot": {
+    "metaTitle": "ghfind Review — GitHub App gắn nhãn issue và PR theo điểm của tác giả",
+    "metaDescription": "Cài GitHub App ghfind Review để gắn nhãn màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả.",
+    "topline": {
+      "section": "Tích hợp",
+      "current": "GitHub Bot"
+    },
+    "hero": {
+      "eyebrow": "GitHub App · Miễn phí",
+      "title": "Phân loại issue và PR theo người tạo",
+      "subtitle": "ghfind Review gắn nhãn review: có màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả. Không cần workflow, token hay secret.",
+      "install": "Cài trên GitHub",
+      "status": "Mở trang trạng thái",
+      "note": "Chạy dưới tên ghfind-review[bot]. Chỉ gắn nhãn — không bình luận, đóng hay chặn bất kỳ đóng góp nào."
+    },
+    "preview": {
+      "label": "Ví dụ danh sách issue có nhãn review",
+      "heading": "Issues",
+      "items": {
+        "top": "Lỗi khi phân tích cấu hình lồng nhau",
+        "medium": "Thêm chế độ tối cho phần cài đặt",
+        "noScore": "Lỗi chính tả trong README"
+      }
+    },
+    "labels": {
+      "heading": "Năm nhãn, nhìn là biết",
+      "lead": "Nhãn còn thiếu sẽ được tạo khi cài. Màu hoặc mô tả bạn đã tùy chỉnh được giữ nguyên.",
+      "items": {
+        "low": {
+          "range": "0 – 39",
+          "desc": "Ít tín hiệu công khai. Nên xác minh nguồn trước."
+        },
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Hồ sơ người đóng góp thông thường."
+        },
+        "high": {
+          "range": "70 – 89",
+          "desc": "Tín hiệu hồ sơ công khai mạnh."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Nhóm dẫn đầu chỉ số ghfind."
+        },
+        "noScore": {
+          "range": "Không có điểm",
+          "desc": "Chưa lấy được điểm, không phải 0 điểm. Tự thử lại sau 20 và 60 phút."
+        }
+      }
+    },
+    "steps": {
+      "heading": "Cách hoạt động",
+      "items": {
+        "install": {
+          "title": "Cài vào các repo đã chọn",
+          "body": "Cấp quyền đọc & ghi cho Issues và Pull requests. Chọn Only select repositories để thử quy mô nhỏ; repo tổ chức có thể cần owner phê duyệt."
+        },
+        "open": {
+          "title": "Có người mở issue hoặc PR",
+          "body": "Bot tra cứu điểm ghfind công khai của tác giả ở chế độ nền. Nội dung issue không bao giờ được đọc hay chấm điểm."
+        },
+        "label": {
+          "title": "Nhãn review: xuất hiện",
+          "body": "Khi cài, các trang đầu của issue và PR đang mở cũng được gắn nhãn. Sửa hoặc mở lại sẽ không chấm lại."
+        }
+      }
+    },
+    "queues": {
+      "heading": "Biến khoảng điểm thành hàng đợi review",
+      "lead": "Dán bộ lọc vào ô tìm kiếm issue của repo và bắt đầu với hàng đợi phù hợp với thời gian của bạn.",
+      "items": {
+        "high": "Issue điểm cao",
+        "top": "Issue điểm cao nhất",
+        "low": "Issue điểm thấp cần xác minh",
+        "noScore": "Không có điểm — cần thêm bối cảnh"
+      }
+    },
+    "notes": {
+      "rescore": {
+        "heading": "Yêu cầu chấm lại",
+        "body": "Sau các lần thử lại tự động, tác giả hoặc quản trị viên repo có thể bình luận @ghfind-review trong issue để chấm lại."
+      },
+      "privacy": {
+        "heading": "Dữ liệu được dùng",
+        "body": "Không đọc mã nguồn hay nội dung issue. Chỉ lưu bản cài đặt, repo, số issue, điểm và trạng thái tác vụ; tác vụ đã xong bị xóa sau 30 ngày. Tác giả có email công khai nhận tối đa một email điểm mỗi 72 giờ, hủy đăng ký chỉ với một cú nhấp.",
+        "link": "Thông báo quyền riêng tư"
+      },
+      "stop": {
+        "heading": "Dừng bất cứ lúc nào",
+        "body": "Gỡ repo, tạm dừng hoặc gỡ cài đặt app trong phần cài đặt GitHub. Các nhãn hiện có vẫn được giữ."
+      }
+    },
+    "disclaimer": "Điểm phản ánh hồ sơ GitHub công khai của tác giả, không phải chất lượng của đóng góp này. Người mới có thể chỉ đơn giản là có ít dấu vết công khai.",
+    "source": "Mã nguồn và hướng dẫn tự triển khai"
   }
 }

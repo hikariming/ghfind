@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/tmp/ghfind-feed-portability-a3c3f84/run.py", line 65, in <module>
+    run(['go','run','./cmd/ghfind-feed-migrate'],env=env,timeout=120)
+  File "/tmp/ghfind-feed-portability-a3c3f84/run.py", line 18, in run
+    if required and p.returncode:raise RuntimeError('command failed: '+str(args))
+RuntimeError: command failed: ['go', 'run', './cmd/ghfind-feed-migrate']

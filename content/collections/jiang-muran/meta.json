@@ -1,0 +1,43 @@
+{
+  "type": "developers",
+  "title": {
+    "zh": "姜睦然：14岁少年开发者的12个开源项目——从vibepanel到ClawFounder的构建之路",
+    "en": "Jiang Muran: 12 open-source projects from a 14-year-old developer — building from vibepanel to ClawFounder",
+    "ja": "姜睦然（Jiang Muran）：14歳の開発者が生んだ12のオープンソースプロジェクト——vibepanelからClawFounderまでの構築の軌跡",
+    "ko": "姜睦然(Jiang Muran): 14세 개발자의 12개 오픈소스 프로젝트 — vibepanel에서 ClawFounder까지의 빌딩 여정"
+  },
+  "intro": {
+    "zh": "五年级拿下世界机器人大赛C++全国一等奖，六年级越级挑战CSP-S提高组，14岁的北京中学初二学生姜睦然已经独立开发并开源了12个项目：面向重度AI编码代理用户的Web控制台vibepanel、一句话启动的AI创业流水线ClawFounder、小红书AI笔记诊断系统NoteRx、网页版Minecraft「WebMC」、便携AI开发环境Claude in Box……本地优先、隐私优先、稳定优先，是贯穿这些项目的共同哲学。他说：\"不用等长大再开始做东西。\"",
+    "en": "A national C++ first prize in fifth grade, a jump into the CSP-S senior division in sixth — and by 14, this second-year student at Beijing Academy has shipped 12 open-source projects on his own: vibepanel, a web console for heavy coding-agent users; ClawFounder, a one-prompt AI startup pipeline; NoteRx, an AI note-diagnosis system for Xiaohongshu creators; WebMC, a clean-room Minecraft in the browser; Claude in Box, a portable AI dev environment… Local-first, privacy-first, stability-first: the shared philosophy across all of them. His line: \"You don't have to wait until you grow up to start building.\"",
+    "ja": "小学5年で世界ロボットコンテストC++部門の全国一等賞、6年でCSP-S上級部門に越級挑戦——14歳の北京中学2年生・姜睦然は、すでに12のオープンソースプロジェクトを独力で開発しています。AIコーディングエージェントのヘビーユーザー向けWebコンソールvibepanel、一言で起動するAI起業パイプラインClawFounder、小紅書向けAIノート診断システムNoteRx、ブラウザで動くMinecraft「WebMC」、ポータブルAI開発環境Claude in Box……。ローカルファースト、プライバシーファースト、安定性ファースト——これら全てを貫く哲学です。彼の言葉——「大人になるまで待たなくていい。ものづくりは今始められる」。",
+    "ko": "초등 5학년에 세계 로봇 대회 C++ 전국 1등상, 6학년에 CSP-S 상급부 월반 도전 — 14세 베이징중학 2학년생 姜睦然은 이미 12개의 오픈소스 프로젝트를 독자적으로 개발했습니다. AI 코딩 에이전트 헤비 유저를 위한 웹 콘솔 vibepanel, 한 문장으로 시작하는 AI 창업 파이프라인 ClawFounder, 샤오훙수 AI 노트 진단 시스템 NoteRx, 브라우저에서 돌아가는 Minecraft 'WebMC', 휴대 가능한 AI 개발 환경 Claude in Box… 로컬 우선, 프라이버시 우선, 안정성 우선 — 이 모든 프로젝트를 관통하는 철학입니다. 그의 말 — \"뭔가를 만들기 위해 어른이 될 때까지 기다릴 필요는 없다.\""
+  },
+  "publishedAt": "2026-09-15",
+  "tags": ["developer-story", "open-source", "ai-education"],
+  "subject": {
+    "kind": "developer",
+    "id": "jiangmuran",
+    "name": "姜睦然 (Jiang Muran)",
+    "headline": {
+      "zh": "14岁全栈开发者，vibepanel、ClawFounder等12个开源项目作者",
+      "en": "14-year-old full-stack developer, author of 12 open-source projects including vibepanel and ClawFounder"
+    }
+  },
+  "items": [
+    {
+      "kind": "repo",
+      "id": "jiangmuran/vibepanel",
+      "blurb": {
+        "zh": "他的代表作：面向重度AI编码代理用户的Web控制台。tmux保持进程存活，浏览器负责组织、命名、状态与排序——\"页面是视图，不是状态\"的设计哲学，出自一位14岁开发者之手。",
+        "en": "His flagship project: a web console for running many parallel coding-agent sessions. tmux keeps the processes alive; the browser owns organisation, naming, state and ordering — the \"page is a view, not the state\" philosophy, from a 14-year-old developer.",
+        "ja": "彼の代表作：AIコーディングエージェントを多用するユーザー向けのWebコンソール。tmuxがプロセスを維持し、ブラウザが整理・命名・状態・順序付けを担う——「ページはビューであり、状態ではない」という設計哲学は、14歳の開発者によるものです。",
+        "ko": "그의 대표작: AI 코딩 에이전트를 많이 쓰는 사용자를 위한 웹 콘솔. tmux가 프로세스를 살리고, 브라우저가 정리·이름 지정·상태·정렬을 담당합니다 — \"페이지는 뷰이지 상태가 아니다\"라는 설계 철학은 14세 개발자의 것입니다."
+      },
+      "stats": {
+        "stars": 20,
+        "language": "Go",
+        "description": "A web console for running many parallel coding-agent sessions. tmux keeps the processes alive; the browser owns organisation, naming, state and ordering."
+      }
+    }
+  ]
+}

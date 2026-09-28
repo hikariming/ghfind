@@ -1,0 +1,13 @@
+Feed storage contracts	Run actions/checkout@v4	2026-09-08T18:27:11.7610606Z HEAD is now at 28a7294 Merge 75a031849cedeae9a67170077ada7692487a7cf9 into 45d6427a22943d23ce3acb413cff20dd9f4ef61b
+Feed storage contracts	Run actions/checkout@v4	2026-09-08T18:27:11.7667012Z [command]/usr/bin/git log -1 --format=%H
+Feed storage contracts	Run actions/checkout@v4	2026-09-08T18:27:11.7695524Z 28a729464c49d977f6f89bc7b220c1a07038a971
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	﻿2026-09-08T18:27:31.3186513Z ##[group]Run go test -count=1 -v ./internal/backend
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:31.3225764Z   FEED_REQUIRE_POSTGRES_TESTS: 1
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:38.1711800Z === RUN   TestPostgresGovernanceInvalidatesTaxonomyLazily
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:38.4026476Z --- PASS: TestPostgresGovernanceInvalidatesTaxonomyLazily (0.23s)
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:38.4036409Z === RUN   TestPostgresGovernanceTagCapacityAndCurrentAnalysis
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:38.6318693Z --- PASS: TestPostgresGovernanceTagCapacityAndCurrentAnalysis (0.23s)
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:50.0933341Z === RUN   TestPostgresTagRecallCurrentAnalysisBeforeFanout
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:51.0205749Z --- PASS: TestPostgresTagRecallCurrentAnalysisBeforeFanout (0.93s)
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:56.7832092Z PASS
+Feed storage contracts	PostgreSQL and pgvector contracts including migration replay	2026-09-08T18:27:56.7834181Z ok  	github.com/hikariming/ghfind/internal/backend	20.834s
