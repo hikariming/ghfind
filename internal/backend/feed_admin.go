@@ -2,11 +2,13 @@ package backend
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -420,6 +422,38 @@ func (s *PostgresFeedStore) ReviewFeedTagProposal(ctx context.Context, input Fee
 		return FeedTagReviewResult{}, err
 	}
 	return FeedTagReviewResult{ProposalID: input.ProposalID, Status: resolvedStatus, CanonicalTagID: canonicalID, TaxonomyVersion: newVersion}, nil
+}
+
+var reconcileBearerPattern = regexp.MustCompile(`(?i)^Bearer\s+(.+)$`)
+
+// reconcileAuthorized accepts the reconcile/cron secret as a bearer token or an
+// x-reconcile-secret header; an unconfigured endpoint stays closed.
+func (s *APIServer) reconcileAuthorized(request *http.Request) bool {
+	expected := []string{}
+	if s.config.ProjectAnalysisReconcileSecret != "" {
+		expected = append(expected, s.config.ProjectAnalysisReconcileSecret)
+	}
+	if s.config.CronSecret != "" {
+		expected = append(expected, s.config.CronSecret)
+	}
+	if len(expected) == 0 {
+		return false
+	}
+	presented := []string{}
+	if match := reconcileBearerPattern.FindStringSubmatch(request.Header.Get("Authorization")); len(match) == 2 {
+		presented = append(presented, match[1])
+	}
+	if value := request.Header.Get("x-reconcile-secret"); value != "" {
+		presented = append(presented, value)
+	}
+	for _, candidate := range presented {
+		for _, secret := range expected {
+			if len(candidate) == len(secret) && subtle.ConstantTimeCompare([]byte(candidate), []byte(secret)) == 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *APIServer) reconcileFeedProjects(w http.ResponseWriter, request *http.Request) {
