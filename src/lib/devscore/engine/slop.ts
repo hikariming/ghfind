@@ -253,3 +253,13 @@ export function detect(d: Developer, p: Params = defaultParams): boolean | null 
   ];
   return rejected && others.filter(Boolean).length >= p.others;
 }
+
+/**
+ * Whether `closed_by` can change `detect`: only signal 1 (rejections) reads it,
+ * and a window's rejections never exceed the CLOSED PRs, so with fewer than
+ * rej_min CLOSED PRs the verdict is false whatever `closed_by` says. The
+ * collector fetches closers only when this holds (null elsewhere).
+ */
+export function slopNeedsClosers(prs: readonly Pick<ExtPr, "state">[], p: Params = defaultParams): boolean {
+  return prs.filter((x) => x.state === "CLOSED").length >= p.rej_min;
+}
