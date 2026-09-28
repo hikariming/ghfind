@@ -6,8 +6,6 @@ import {
   hasProfileSnapshot,
   recordProfileSnapshot,
 } from "@/lib/db";
-import { score } from "@/lib/score";
-import type { ScanResult } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,9 +72,7 @@ export async function POST(req: NextRequest) {
     }
     if (i > 0 && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
     try {
-      const collected = await collect(username);
-      const scan: ScanResult = { ...collected, scoring: score(collected.metrics) };
-      await recordProfileSnapshot(scan);
+      await recordProfileSnapshot(await collect(username));
       written++;
     } catch (e) {
       failed++;

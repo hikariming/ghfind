@@ -75,11 +75,11 @@ export function PendingProfile({
     setResolved(true);
   }, [username, scan]);
 
-  // No scan yet but a score job is running: poll `/api/scan/status/<login>` —
-  // each poll also advances the job server-side. When the result lands, the
-  // server now has a persisted row, so a refresh swaps this shell for the full
-  // profile.
-  const waitsOnJob = !scan && resolved && jobStatus != null;
+  // No scan yet but a score job is running (or the homepage handoff promises one
+  // is coming): poll `/api/scan/status/<login>` — each poll also advances the
+  // job server-side. When the result lands, the server now has a persisted row,
+  // so a refresh swaps this shell for the full profile.
+  const waitsOnJob = !scan && resolved && (jobStatus != null || fromHome);
   useEffect(() => {
     if (!waitsOnJob) return;
     const controller = new AbortController();
@@ -105,10 +105,11 @@ export function PendingProfile({
         </main>
       );
     }
-    // A devscore job is in flight: show the computing shell — identity header
-    // without an avatar yet, live phase/progress — until the poll finishes and
-    // the refresh renders the real profile.
-    if (jobStatus) {
+    // A devscore job is in flight (or the homepage handoff says one is coming):
+    // show the computing shell — identity header without an avatar yet, live
+    // phase/progress — until the poll finishes and the refresh renders the real
+    // profile.
+    if (jobStatus || fromHome) {
       return (
         <main className="flex w-full flex-1 items-center justify-center px-5 py-20">
           <div className="flex w-full max-w-lg flex-col items-center gap-5">

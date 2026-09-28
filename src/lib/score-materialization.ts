@@ -402,8 +402,8 @@ function hasValidScanResult(value: unknown): value is ScanResult {
 }
 
 /**
- * Validate one immutable scan snapshot and derive its current deterministic score.
- * No caller-provided score, report, tag, or roast text is retained.
+ * Validate one immutable scan snapshot and derive its current deterministic
+ * score. No caller-provided score, report, tag, or roast text is retained.
  */
 export function materializeCanonicalScore(
   input: CanonicalScoreMaterializationInput,
