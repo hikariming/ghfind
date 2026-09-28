@@ -1,7 +1,9 @@
+import { rateDeveloper } from "@/lib/devscore/engine";
 import { synthetic } from "@/lib/devscore/engine/__tests__/helpers";
 import type { Developer } from "@/lib/devscore/model";
+import { devscoreSummary } from "@/lib/devscore-scoring";
 import type { DisplayScan } from "@/lib/scan-core";
-import type { RawMetrics } from "@/lib/types";
+import type { DevscoreSummary, RawMetrics } from "@/lib/types";
 
 /** The shared synthetic developers (see engine/__tests__/helpers.ts). */
 export type SyntheticName = keyof typeof synthetic;
@@ -9,6 +11,12 @@ export type SyntheticName = keyof typeof synthetic;
 /** A synthetic v15 developer with a reviewed PR history, labelled as `login`. */
 export function fixtureDeveloper(login: string, name: SyntheticName = "contributor"): Developer {
   return synthetic[name](login);
+}
+
+/** The devscore summary a published snapshot carries for `fixtureDeveloper`. */
+export function fixtureDevscore(login: string, name?: SyntheticName): DevscoreSummary {
+  const dev = fixtureDeveloper(login, name);
+  return devscoreSummary(dev, rateDeveloper(dev));
 }
 
 function displayMetrics(username: string): RawMetrics {

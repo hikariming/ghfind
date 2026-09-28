@@ -53,7 +53,7 @@ export const USE_CASES = [
 ];
 
 export const WHEN_TO_USE = [
-  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts are queued for background devscore scoring (minutes for large accounts): the call returns 202 with a status URL to poll, and the persisted v10 result once ready.`,
+  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts are queued for background devscore scoring (minutes for large accounts): the call returns 202 with a status URL to poll, and the persisted v11 result once ready.`,
   `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the bounded evidence payload: raw metrics, top repos, recent PRs, red flags, and sub-scores. It is admitted to a durable worker queue and usually returns the persisted result inline; if it returns 202, follow the Location status URL until result is present.`,
   `Use POST ${SITE_URL}/api/roast (or the CLI) only when you want the human-facing prose roast — this is the one LLM path and it can spend model credit.`,
   `Use POST ${SITE_URL}/api/project-analyses to reuse a matching persisted repository evaluation or start one with a dedicated Mosoo Cattle Agent; poll the returned statusUrl when it is still running.`,
@@ -80,8 +80,8 @@ export function apiSummaryMd(): string {
 
 Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · API catalog: [${SITE_URL}/.well-known/api-catalog](${SITE_URL}/.well-known/api-catalog) · Auth: [${SITE_URL}/auth.md](${SITE_URL}/auth.md)
 
-- \`GET ${SITE_URL}/api/score/{username}\` — deterministic v10 score, no auth, no LLM; an unseen account is queued for background scoring and returns \`202\` with a \`Location\` (\`/api/scan/status/{username}\`) to poll; call again once the job finishes.
-- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — deterministic scan payload (display metrics + repo/PR signals + devscore factors) and the persisted v10 score. A published scan returns \`200\`; a first-time account returns \`202\` plus a \`Location\` you poll (each poll advances the background job, minutes for large accounts) until \`result\` is present.
+- \`GET ${SITE_URL}/api/score/{username}\` — deterministic devscore (v11) score, no auth, no LLM; an unseen account is queued for background scoring and returns \`202\` with a \`Location\` (\`/api/scan/status/{username}\`) to poll; call again once the job finishes.
+- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — deterministic scan payload (display metrics + repo/PR signals + devscore factors) and the persisted v11 score. A published scan returns \`200\`; a first-time account returns \`202\` plus a \`Location\` you poll (each poll advances the background job, minutes for large accounts) until \`result\` is present.
 - \`POST ${SITE_URL}/api/roast\` — LLM roast report (streaming); pass \`byoKey\` for your own model. The default path uses the exact persisted quick snapshot and does not wait for historical collection.
 - \`POST ${SITE_URL}/api/project-analyses\` { "repositoryUrl": "https://github.com/owner/repo" } — reuse a matching persisted product-value evaluation or start one; poll the returned \`statusUrl\` when it is still running.
 - \`POST ${SITE_URL}/api/vs-verdict\` { "a": "...", "b": "..." } — head-to-head verdict.

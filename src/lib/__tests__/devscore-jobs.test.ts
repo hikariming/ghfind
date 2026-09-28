@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/scan/route";
@@ -12,8 +13,8 @@ import * as db from "../db";
 import { SCORE_CACHE_VERSION } from "../cache-version";
 import * as jobs from "../devscore-jobs";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "../scan-run-types";
-import { score as scoreMetrics } from "../score";
-import { fixtureDeveloper, fixtureDisplayScan } from "./devscore-fixture";
+import { scoringFromDevscore } from "../devscore-scoring";
+import { fixtureDeveloper, fixtureDevscore, fixtureDisplayScan } from "./devscore-fixture";
 
 /**
  * Background devscore scoring end to end against a real (file) libSQL
@@ -206,7 +207,7 @@ describe("devscore backfill", () => {
 });
 
 describe("advanceDevscoreJob", () => {
-  it("persists collector steps across polls, then publishes the score with the devscore summary", async () => {
+  it("persists collector steps across polls, then publishes the devscore score with the six dimensions", async () => {
     developer("step-user");
     await db.enqueueDevscoreJob("step-user");
 
@@ -239,8 +240,6 @@ describe("advanceDevscoreJob", () => {
       "contribution_quality", "ecosystem_impact", "original_project_quality",
     ]);
     expect(Number(row.final_score)).toBe(done?.result?.scoring.final_score);
-    // The snapshot stores the devscore summary; the score still rates the display metrics.
-    expect(done?.result?.scoring).toEqual(scoreMetrics(fixtureDisplayScan("step-user").metrics));
     expect((await db.getDevscoreJob("step-user"))?.state).toBe("done");
   });
 
@@ -249,6 +248,75 @@ describe("advanceDevscoreJob", () => {
     fake.failWith = new Error("user ghost-user not found");
     const result = await jobs.advanceDevscoreJob("ghost-user", Date.now() + 5_000);
     expect(result?.status).toEqual({ state: "failed", error: "account_not_found" });
+  });
+});
+
+describe("stored snapshot without a devscore summary (versions unchanged)", () => {
+  /** A canonical row + complete run written before snapshots carried the summary. */
+  async function seedSnapshotWithoutSummary(username: string, finalScore: number) {
+    const scan = {
+      ...fixtureDisplayScan(username),
+      scoring: scoringFromDevscore(fixtureDevscore(username, "control")),
+    };
+    const snapshot = JSON.stringify(scan);
+    const hash = createHash("sha256").update(snapshot).digest("hex");
+    const client = raw();
+    await client.execute({
+      sql: `INSERT INTO scores
+              (username, final_score, tier, sub_scores, score_version,
+               score_source_collection_version, score_source_snapshot_hash, score_write_token, scanned_at)
+            VALUES (?, ?, 'NPC', ?, ?, ?, ?, 'old-token', 1000)`,
+      args: [
+        username.toLowerCase(), finalScore, JSON.stringify(scan.scoring.sub_scores),
+        SCORE_CACHE_VERSION, PUBLIC_SCAN_COLLECTION_VERSION, hash,
+      ],
+    });
+    await client.execute({
+      sql: `INSERT INTO public_scan_runs
+              (id, username, score_version, collection_version, state, coverage, source_status,
+               quick_scan, snapshot, snapshot_hash, started_at, completed_at, updated_at)
+            VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', '{}', ?, ?, ?, 1000, 1000, 1000)`,
+      args: [`run-${username}`, username.toLowerCase(), SCORE_CACHE_VERSION, PUBLIC_SCAN_COLLECTION_VERSION, snapshot, snapshot, hash],
+    });
+    return hash;
+  }
+
+  it("is not scored from its metrics: a scan request queues a job, the stored row is served until re-collected", async () => {
+    const username = "old-snapshot-user";
+    const oldHash = await seedSnapshotWithoutSummary(username, 55.5);
+    const params = { params: Promise.resolve({ username }) };
+
+    // Without a summary the snapshot cannot back a devscore score.
+    expect(await db.getCurrentCanonicalQuickScan(username)).toBeNull();
+
+    // The score route keeps answering from the stored row and queues nothing.
+    const stored = await score(new NextRequest(`https://example.test/api/score/${username}`), params);
+    expect(stored.status).toBe(200);
+    await expect(stored.json()).resolves.toMatchObject({ source: "indexed", final_score: 55.5 });
+    expect(await db.getDevscoreJob(username)).toBeNull();
+
+    // A scan request treats it like a first lookup: 202 and a queued job.
+    const queued = await POST(new NextRequest("https://example.test/api/scan", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+      body: JSON.stringify({ username }),
+    }));
+    expect(queued.status).toBe(202);
+    expect((await db.getDevscoreJob(username))?.state).toBe("queued");
+
+    // The job re-collects and replaces the row with a summary-backed score.
+    developer(username);
+    fake.stepsToFinish = 1;
+    const done = await jobs.advanceDevscoreJob(username, Date.now() + 5_000);
+    expect(done?.status.state).toBe("done");
+    const current = await db.getCurrentCanonicalQuickScan(username);
+    expect(current?.snapshotHash).not.toBe(oldHash);
+    expect(current?.scan.devscore?.version).toBe("v11");
+    const republished = await score(new NextRequest(`https://example.test/api/score/${username}`), params);
+    await expect(republished.json()).resolves.toMatchObject({
+      source: "indexed",
+      final_score: current?.scan.scoring.final_score,
+    });
   });
 });
 

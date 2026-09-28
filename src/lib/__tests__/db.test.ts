@@ -8,7 +8,8 @@ import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry, ScoreWriteIdentity } from "../db";
 import { LEGACY_READ_FALLBACK } from "../release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
-import { score } from "../score";
+import { scoringFromDevscore } from "../devscore-scoring";
+import { fixtureDevscore } from "./devscore-fixture";
 import type { RawMetrics, ScanResult } from "../types";
 
 let db: typeof import("../db");
@@ -96,6 +97,7 @@ function syntheticScan(
   metricOverrides: Partial<RawMetrics> = {},
 ): ScanResult {
   const metrics = syntheticMetrics(username, metricOverrides);
+  const devscore = fixtureDevscore(username);
   return {
     metrics,
     top_repos: [],
@@ -105,7 +107,8 @@ function syntheticScan(
     verified_impact_prs: [],
     pinned_repos: [],
     organizations: [],
-    scoring: score(metrics),
+    devscore,
+    scoring: scoringFromDevscore(devscore),
   };
 }
 
@@ -583,7 +586,7 @@ describe("canonical score materialization", () => {
     });
     await expect(readScoreRow(username)).resolves.toMatchObject({
       username,
-      final_score: score(scan.metrics).final_score,
+      final_score: scoringFromDevscore(scan.devscore!).final_score,
       score_version: SCORE_CACHE_VERSION,
       score_source_collection_version: PUBLIC_SCAN_COLLECTION_VERSION,
       score_source_snapshot_hash: snapshotHash,
@@ -610,7 +613,7 @@ describe("canonical score materialization", () => {
     await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
   });
 
-  it("recomputes v10 scoring when a promoted snapshot embeds legacy scoring", async () => {
+  it("recomputes scoring from the devscore summary when a snapshot embeds stale scoring", async () => {
     const username = "promoted-v9-snapshot-fixture";
     const scan = syntheticScan(username);
     scan.scoring = {
@@ -625,7 +628,7 @@ describe("canonical score materialization", () => {
 
     await expect(db.publishCompleteQuickScan(scan, 1_910_000_006_000)).resolves.toBeTruthy();
     const current = await db.getCurrentCanonicalQuickScan(username);
-    expect(current?.scan.scoring).toEqual(score(scan.metrics));
+    expect(current?.scan.scoring).toEqual(scoringFromDevscore(scan.devscore!));
     expect(current?.scan.scoring.final_score).not.toBe(0);
   });
 

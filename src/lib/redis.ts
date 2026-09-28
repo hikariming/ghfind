@@ -18,7 +18,7 @@ import {
   SCORE_CACHE_VERSION,
   VERDICT_CACHE_VERSION,
 } from "./cache-version";
-import { score } from "./score";
+import { isDevscoreSummary, scoringFromDevscore } from "./devscore-scoring";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
 import type {
   AccountDetail,
@@ -104,14 +104,16 @@ export const scanKey = (username: string) =>
   `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** A published scan; its scoring is recomputed with the current rules. */
+/** A published devscore scan; its scoring is recomputed from the embedded devscore summary. */
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
   if (bypassGeneratedCaches()) return null;
   const r = getRedis();
   if (!r) return null;
   try {
     const cached = (await r.get<ScanResult>(scanKey(username))) ?? null;
-    return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+    return cached && isDevscoreSummary(cached.devscore)
+      ? { ...cached, scoring: scoringFromDevscore(cached.devscore) }
+      : null;
   } catch {
     return null;
   }

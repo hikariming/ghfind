@@ -285,7 +285,8 @@ export interface RiskCoverage {
 }
 
 export interface RiskAssessment {
-  version: "v10";
+  /** v10: the retired RawMetrics risk layer; v11: devscore v3 flags. */
+  version: "v10" | "v11";
   risk_score: number;
   level: RiskLevel;
   confidence: number;
@@ -327,9 +328,9 @@ export interface DevscoreRepoFactors {
 }
 
 /**
- * The devscore (`rateDeveloper`) result stored inside every snapshot the
- * background job publishes, so profile pages can explain it. Snapshots
- * published before the job existed do not carry it.
+ * The devscore (`rateDeveloper`) result a v11 score was derived from. Stored
+ * inside the published snapshot; the six ghfind dimensions and the final
+ * score are recomputed from it at every read boundary.
  */
 export interface DevscoreSummary {
   version: "v11";
@@ -397,7 +398,7 @@ export interface ScanResult {
   /** Organizations the user belongs to (e.g. huggingface, pytorch) — high-signal
    * for circle/affiliation. Optional for back-compat. */
   organizations?: string[];
-  /** devscore result collected with the snapshot (background-job snapshots). */
+  /** devscore result behind `scoring` (v11+ snapshots). */
   devscore?: DevscoreSummary;
   scoring: Scoring;
 }

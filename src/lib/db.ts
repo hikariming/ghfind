@@ -60,7 +60,7 @@ import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
 } from "./score-materialization";
-import { score } from "./score";
+import { isDevscoreSummary, scoringFromDevscore } from "./devscore-scoring";
 import type {
   ImpactRepo,
   RoastLine,
@@ -2355,15 +2355,16 @@ export async function getCurrentCanonicalQuickScan(
     if (
       typeof scan.metrics?.username !== "string" ||
       scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
-      !scan.scoring
+      !scan.scoring ||
+      !isDevscoreSummary(scan.devscore)
     ) {
       return null;
     }
-    // Recompute the embedded scoring object at the read boundary so
-    // roast/profile paths always see the current v10 rules for the exact
-    // published snapshot.
-    const currentScan = scan as ScanResult;
-    return { scan: { ...currentScan, scoring: score(currentScan.metrics) }, snapshotHash };
+    // Recompute the embedded scoring object from the stored devscore summary
+    // at the read boundary, so roast/profile paths always see the current
+    // six-dimension mapping for the exact published snapshot.
+    const currentScan = scan as ScanResult & { devscore: NonNullable<ScanResult["devscore"]> };
+    return { scan: { ...currentScan, scoring: scoringFromDevscore(currentScan.devscore) }, snapshotHash };
   } catch (error) {
     console.error("getCurrentCanonicalQuickScan failed:", error);
     return null;
@@ -5965,7 +5966,7 @@ function parseRiskAssessment(raw: unknown): RiskAssessment | null {
   if (typeof raw !== "string" || !raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<RiskAssessment>;
-    return parsed && parsed.version === "v10" && Array.isArray(parsed.signals)
+    return parsed && (parsed.version === "v10" || parsed.version === "v11") && Array.isArray(parsed.signals)
       ? (parsed as RiskAssessment)
       : null;
   } catch {
@@ -7572,11 +7573,11 @@ export async function listReadyDevscoreJobs(limit: number, now: number): Promise
 
 /**
  * Backfill: enqueue up to `limit` scored accounts that have no devscore job
- * yet, highest score first, then most recently looked up. Every snapshot the
- * job publishes carries the devscore summary, and a job row is created for
- * each one, so "no job" is exactly "stored snapshot without a summary" and
- * needs no version comparison. The number of active jobs never exceeds
- * `activeCap`. Returns how many were enqueued.
+ * yet, highest score first, then most recently looked up. Publishing a
+ * snapshot with its devscore summary always goes through a job, so an account
+ * without a job still holds a snapshot that predates the summary; no version
+ * comparison is involved. The number of active jobs never exceeds `activeCap`.
+ * Returns how many were enqueued.
  */
 export async function enqueueDevscoreBackfill(input: {
   limit: number;
