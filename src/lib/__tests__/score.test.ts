@@ -114,13 +114,15 @@ const closedPr = ({
   actor,
   author = "alice",
   owner = "someone",
+  repo,
 }: {
   actor?: string | null;
   author?: string;
   owner?: string;
+  repo?: string;
 }) => ({
   author: { login: author },
-  repository: { owner: { login: owner } },
+  repository: { nameWithOwner: repo ?? `${owner}/project`, owner: { login: owner } },
   timelineItems: {
     nodes: actor === undefined ? [] : [{ actor: actor ? { login: actor } : null }],
   },
@@ -402,6 +404,7 @@ describe("computeClosedPrBreakdown", () => {
       maintainer_closed_unmerged_pr_count: 1,
       self_closed_external_pr_count: 1,
       self_closed_own_repo_pr_count: 1,
+      default_branch_landed_pr_count: 0,
       unknown_closed_unmerged_pr_count: 3,
     });
   });
@@ -421,6 +424,28 @@ describe("computeClosedPrBreakdown", () => {
       maintainer_closed_unmerged_pr_count: 1,
       self_closed_external_pr_count: 0,
       self_closed_own_repo_pr_count: 0,
+      default_branch_landed_pr_count: 0,
+      unknown_closed_unmerged_pr_count: 0,
+    });
+  });
+
+  it("counts a maintainer-closed PR as landed when the user has default-branch commits in that repo", () => {
+    const b = computeClosedPrBreakdown(
+      [
+        closedPr({ actor: "maintainer", owner: "nousresearch", repo: "NousResearch/hermes-agent" }),
+        closedPr({ actor: "maintainer", owner: "someone", repo: "someone/rejected" }),
+      ],
+      2,
+      "alice",
+      new Set(),
+      new Set(["nousresearch/hermes-agent"]),
+    );
+    expect(b).toEqual({
+      closed_unmerged_pr_count: 1,
+      maintainer_closed_unmerged_pr_count: 1,
+      self_closed_external_pr_count: 0,
+      self_closed_own_repo_pr_count: 0,
+      default_branch_landed_pr_count: 1,
       unknown_closed_unmerged_pr_count: 0,
     });
   });
