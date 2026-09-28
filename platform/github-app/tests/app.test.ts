@@ -771,6 +771,33 @@ describe("GitHub App delivery", () => {
     expect((await job())?.result).toBe(LABELS[4]);
     expect(await job("rescore-1-10-100-1")).toBeNull();
   });
+  it("reschedules no-score while ghfind is still computing a first-time score (202)", async () => {
+    await add();
+    vi.spyOn(testEnv.SCORE, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ status: { state: "running", phase: "histories", progress: 0.4 } }), {
+        status: 202,
+        headers: { Location: "/api/scan/status/AsperforMias" },
+      }),
+    );
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias" },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, []);
+    fetchMock
+      .get(api)
+      .intercept({
+        path: `/repos/${repo}/issues/1/labels`,
+        method: "POST",
+        body: JSON.stringify({ labels: [LABELS[4]] }),
+      })
+      .reply(200, "{}");
+    await runJob(testEnv, "job-1");
+    expect((await job())?.result).toBe(LABELS[4]);
+    expect((await job("rescore-1-10-100-1"))?.state).toBe("pending");
+  });
   it("does not schedule another automatic rescore after 60 minutes", async () => {
     await add("rescore-2-10-100-1");
     await testEnv.DB.prepare("UPDATE jobs SET started=? WHERE id=?")

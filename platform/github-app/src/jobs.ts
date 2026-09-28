@@ -385,6 +385,9 @@ async function processJob(env: Env, job: Job) {
           ),
         );
         score = response.final_score;
+        // ghfind answers 202 with a pending status while a first-time score is computed
+        // (minutes): no score yet, so the job relabels on the scheduled rescores.
+        if (score === undefined && response.status && typeof response.status === "object") transient = true;
         job.score_context = JSON.stringify(scoreContext(response));
       } catch (error) {
         const retryable = error instanceof ApiError && error.retry;
