@@ -428,6 +428,35 @@
     "github_unavailable": "Los datos de GitHub no están disponibles por ahora — inténtalo más tarde.",
     "scan_failed": "El escaneo se estrelló — inténtalo más tarde."
   },
+  "scoreJob": {
+    "computing": "Calculando",
+    "computingHint": "La primera puntuación tarda unos minutos: estamos recopilando datos públicos de contribución. Deja la página abierta y aparecerá sola.",
+    "progress": "{percent} completado",
+    "failed": "Falló el cálculo de la puntuación — inténtalo más tarde.",
+    "timeout": "Sigue calculándose — vuelve más tarde.",
+    "phase": {
+      "queued": "En cola",
+      "running": "Calculando",
+      "user": "Perfil",
+      "contribs": "Contribuciones",
+      "maintainer": "Datos de mantenedor",
+      "gap_fill": "Completando historial",
+      "merged_prs": "PRs fusionados",
+      "repo_meta": "Datos de repos",
+      "pr_samples": "Muestras de PR",
+      "pr_details": "Detalles de PR",
+      "mutual_mergers": "Enlaces de merge",
+      "histories": "Historial de commits",
+      "signals": "Señales",
+      "per_repo": "Análisis por repo",
+      "owner_types": "Tipos de dueño",
+      "star_history": "Historial de estrellas",
+      "rejected": "PRs rechazados",
+      "ext_prs": "PRs externos",
+      "assemble": "Resumiendo",
+      "publish": "Publicando nota"
+    }
+  },
   "share": {
     "open": "🔗 Compartir",
     "heading": "Compartir en",

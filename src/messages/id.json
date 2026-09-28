@@ -428,6 +428,35 @@
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
   },
+  "scoreJob": {
+    "computing": "Menghitung",
+    "computingHint": "Skor pertama butuh beberapa menit: kami sedang mengumpulkan data kontribusi publik. Biarkan halaman ini terbuka dan skor akan muncul otomatis.",
+    "progress": "{percent} selesai",
+    "failed": "Perhitungan skor gagal — coba lagi nanti.",
+    "timeout": "Masih menghitung — coba cek lagi nanti.",
+    "phase": {
+      "queued": "Antre",
+      "running": "Menghitung",
+      "user": "Profil",
+      "contribs": "Kontribusi",
+      "maintainer": "Data maintainer",
+      "gap_fill": "Melengkapi riwayat",
+      "merged_prs": "PR digabung",
+      "repo_meta": "Metadata repo",
+      "pr_samples": "Sampel PR",
+      "pr_details": "Detail PR",
+      "mutual_mergers": "Relasi merge",
+      "histories": "Riwayat commit",
+      "signals": "Sinyal",
+      "per_repo": "Analisis per repo",
+      "owner_types": "Jenis pemilik",
+      "star_history": "Riwayat star",
+      "rejected": "PR ditolak",
+      "ext_prs": "PR eksternal",
+      "assemble": "Merangkum",
+      "publish": "Menerbitkan skor"
+    }
+  },
   "share": {
     "open": "🔗 Bagikan",
     "heading": "Bagikan ke",
