@@ -22,13 +22,13 @@ export const DEFAULT_HOST = "https://ghfind.com";
 export const catalog: Capability[] = [
   {
     method: "getScore",
-    api: ["GET /api/score/{username}"],
-    summary: "Fetch the deterministic score for any GitHub account.",
+    api: ["GET /api/score/{username}", "GET /api/scan/status/{username}"],
+    summary: "Fetch the deterministic devscore score for any GitHub account.",
     llm: false,
     response_semantics:
-      "Factual score payload: final_score, tier, six-dimension sub_scores, and v10 risk_assessment/risk_notes. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); unseen accounts are admitted to the Go quick-scan worker path (source: quick, coverage: quick). Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
+      "Factual score payload: final_score (devscore v3 score), tier, six-dimension display sub_scores, and v11 risk_assessment/risk_notes. Never calls an LLM. Indexed accounts return stored data (source: indexed, with tags/roast_line); a recently published scan returns source: quick (includes red_flags). A never-scored account is queued for background devscore scoring (202 + status Location, minutes for large accounts): the client polls with backoff up to waitMs and throws GhFindPending if still computing. Compatible old stored scores may return source: legacy_v5_v5_v3 with stale: true. 404 only if the GitHub login does not exist.",
     agent_guidance:
-      "Preferred first call: cheapest, cacheable way to get a score — works even for accounts never seen before. Use scan() only when you also need the full metrics/repo/PR payload.",
+      "Preferred first call: cheapest, cacheable way to get a score — works even for accounts never seen before (first-time scores can take minutes; on GhFindPending retry later). Use scan() only when you also need the full metrics/repo/PR payload.",
   },
   {
     method: "getGitHubUser / userExists",
@@ -42,11 +42,11 @@ export const catalog: Capability[] = [
   },
   {
     method: "scan",
-    api: ["POST /api/scan"],
-    summary: "Crawl GitHub and compute the full deterministic scan + score.",
+    api: ["POST /api/scan", "GET /api/scan/status/{username}"],
+    summary: "Full deterministic scan + devscore score (background job for first-time accounts).",
     llm: false,
     response_semantics:
-      "Authoritative factual payload: metrics, repo/PR signals, deterministic sub_scores, v10 red_flags/risk_assessment/risk_notes, and final_score. No writer-layer roast copy.",
+      "Authoritative factual payload: metrics, repo/PR signals, the devscore factors behind the score, deterministic sub_scores, v11 red_flags/risk_assessment/risk_notes, and final_score. No writer-layer roast copy.",
     agent_guidance:
       "Use when you need full evidence or want to run your own analysis. Treat as the source of truth for scoring facts.",
   },
@@ -55,7 +55,7 @@ export const catalog: Capability[] = [
     api: ["POST /api/scan"],
     summary: "Compact scoring block derived from scan().",
     llm: false,
-      response_semantics: "Just the `scoring` object (numeric score, tier, six sub_scores, v10 risk_assessment, risk_notes, and actual red_flags).",
+    response_semantics: "Just the `scoring` object (numeric score, tier, six sub_scores, v11 risk_assessment, risk_notes, and actual red_flags).",
     agent_guidance: "Use when you only need the numbers and don't want the full scan payload.",
   },
   {

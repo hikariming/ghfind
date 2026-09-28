@@ -1,5 +1,5 @@
 /**
- * devscore → ghfind `Scoring` (score v11). The public score is devscore's v3
+ * devscore → ghfind `Scoring`. The public score is devscore's v3
  * score; the six ghfind dimensions are display values derived from devscore's
  * intermediate factors (see .slim/deepwork/devscore-migration.md "六维映射")
  * and never feed the final score:

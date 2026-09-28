@@ -403,7 +403,7 @@ function hasValidScanResult(value: unknown): value is ScanResult {
 
 /**
  * Validate one immutable scan snapshot and derive its current score from the
- * embedded devscore summary (score v11). The display metrics never feed the
+ * embedded devscore summary. The display metrics never feed the
  * score; a snapshot without a devscore summary fails closed. No caller-provided
  * score, report, tag, or roast text is retained.
  */

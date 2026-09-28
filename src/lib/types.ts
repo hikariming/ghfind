@@ -328,7 +328,7 @@ export interface DevscoreRepoFactors {
 }
 
 /**
- * The devscore (`rateDeveloper`) result a v11 score was derived from. Stored
+ * The devscore (`rateDeveloper`) result the score was derived from. Stored
  * inside the published snapshot; the six ghfind dimensions and the final
  * score are recomputed from it at every read boundary.
  */

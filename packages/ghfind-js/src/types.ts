@@ -167,7 +167,8 @@ export interface RiskCoverage {
 }
 
 export interface RiskAssessment {
-  version: "v10";
+  /** v11: devscore v3 flags; v10 only on legacy stored scores. */
+  version: "v10" | "v11";
   risk_score: number;
   level: RiskLevel;
   confidence: number;
@@ -202,6 +203,66 @@ export interface Scoring {
   tier_label: string;
 }
 
+/** One top repository's devscore engine factors (explains the score). */
+export interface DevscoreRepoFactors {
+  name: string;
+  owned: boolean;
+  kind: string | null;
+  importance: number | null;
+  share: number | null;
+  authorship: number | null;
+  volume: number | null;
+  nature: number | null;
+  durability: number | null;
+  work: number | null;
+  endorsement: number | null;
+  contrib: number;
+  hype: boolean;
+}
+
+/** The devscore result the score is derived from (`final_score` = `v3.score`). */
+export interface DevscoreSummary {
+  version: "v11";
+  collected_at: string | null;
+  v3: {
+    score: number;
+    tier: "lawanle" | "npc" | "renshangren" | "dingji" | "hang";
+    remapped: number;
+    flags: { slop: boolean; influencer: boolean; no_pr_data: boolean; hype: boolean };
+  };
+  curve: {
+    score: number;
+    main: number;
+    content_bonus: number;
+    confidence: "high" | "med" | "low";
+    e: number;
+    e_dev: number;
+    e_maint: number;
+    maint_flagship: number;
+    maint_sustained: number;
+    status: "active" | "maintaining" | "inactive";
+    flagship: number;
+    sustained: number;
+    recent_share: number | null;
+  };
+  engine: {
+    score: number;
+    impact_score: number;
+    breadth: number;
+    breadth_score: number;
+    longevity_years: number | null;
+    longevity_score: number | null;
+    collab_score: number | null;
+    contrib: number;
+    contrib_score: number;
+    /** Best repos by engine work (excluded repos omitted), at most 10. */
+    top_repos: DevscoreRepoFactors[];
+  };
+  /** PR reviews given over all collected years. */
+  reviews: number;
+  followers: number | null;
+}
+
 /** Full scan payload returned by POST /api/scan. */
 export interface ScanResult {
   metrics: RawMetrics;
@@ -212,7 +273,22 @@ export interface ScanResult {
   verified_impact_prs?: RecentPr[];
   pinned_repos?: string[];
   organizations?: string[];
+  /** devscore result behind `scoring` (v11 snapshots). */
+  devscore?: DevscoreSummary;
   scoring: Scoring;
+}
+
+export type ScanJobState = "queued" | "running" | "done" | "failed";
+
+/** Background scoring job status: `202` bodies and `GET /api/scan/status/{username}`. */
+export interface ScanJobStatus {
+  state: ScanJobState;
+  /** Collector phase ("queued", "user", "contribs", …, "publish"). */
+  phase?: string;
+  /** 0..1 */
+  progress?: number;
+  /** Failed jobs only, e.g. "account_not_found". */
+  error?: string;
 }
 
 export interface Tags {
@@ -247,10 +323,10 @@ export interface RoastMeta {
 
 /** Response shape of GET /api/score/{username}. */
 export interface ScorePayload {
-  /** `indexed` = current stored score; `quick` = worker-backed deterministic
-   * quick scan; `legacy_v5_v5_v3` = compatible stale fallback. */
+  /** `indexed` = current stored score; `quick` = a recently published scan
+   * served from the cache; `legacy_v5_v5_v3` = compatible stale fallback. */
   source: ScoreSource;
-  /** `quick` for current Go collection; `legacy` for accepted old stored scores. */
+  /** `quick` for a cached published scan; `legacy` for accepted old stored scores. */
   coverage?: ScoreCoverage;
   /** True only for compatible legacy fallback scores. */
   stale?: boolean;
