@@ -48,14 +48,14 @@ func TestFeedConfigurationIsOptionalAndFailClosedWhenEnabled(t *testing.T) {
 }
 
 func TestFeedShadowOutcomeWindowIsShortAndBounded(t *testing.T) {
-	if got := boundedDurationValue("1h", defaultFeedShadowOutcomeWindow, minFeedShadowOutcomeWindow, maxFeedShadowOutcomeWindow); got != time.Hour {
+	if got := NewFeedMaintenanceWorker(nil, nil).UseShadowOutcomeWindow(time.Hour).outcomeWindow; got != time.Hour {
 		t.Fatalf("accelerated window=%s", got)
 	}
-	if got := boundedDurationValue("30m", defaultFeedShadowOutcomeWindow, minFeedShadowOutcomeWindow, maxFeedShadowOutcomeWindow); got != defaultFeedShadowOutcomeWindow {
+	if got := NewFeedMaintenanceWorker(nil, nil).UseShadowOutcomeWindow(30 * time.Minute).outcomeWindow; got != defaultFeedShadowOutcomeWindow {
 		t.Fatalf("too-short window should use safe default, got=%s", got)
 	}
-	if got := boundedDurationValue("720h", defaultFeedShadowOutcomeWindow, minFeedShadowOutcomeWindow, maxFeedShadowOutcomeWindow); got != maxFeedShadowOutcomeWindow {
-		t.Fatalf("long window should cap at seven days, got=%s", got)
+	if got := NewFeedMaintenanceWorker(nil, nil).UseShadowOutcomeWindow(720 * time.Hour).outcomeWindow; got != defaultFeedShadowOutcomeWindow {
+		t.Fatalf("too-long window should use safe default, got=%s", got)
 	}
 }
 

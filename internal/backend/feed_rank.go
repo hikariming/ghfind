@@ -66,7 +66,7 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 		options.ExplorationPageSize = 20
 	}
 	if options.OwnerCap < 1 {
-		options.OwnerCap = maxInt(2, int(math.Ceil(float64(options.Limit)/10)))
+		options.OwnerCap = max(2, int(math.Ceil(float64(options.Limit)/10)))
 	}
 
 	unique := map[string]scoredFeedCandidate{}
@@ -118,12 +118,12 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 
 	digest := sha256.Sum256([]byte(options.Seed))
 	rng := mathrand.New(mathrand.NewSource(int64(binary.BigEndian.Uint64(digest[:8])))) //nolint:gosec
-	result := make([]FeedRankedItem, 0, minInt(options.Limit, len(remaining)))
+	result := make([]FeedRankedItem, 0, min(options.Limit, len(remaining)))
 	explorationCount := 0
 	for len(remaining) > 0 && len(result) < options.Limit {
 		if options.ExplorationWindowSize > 0 {
 			explorationCount = 0
-			for _, prior := range result[maxInt(0, len(result)-options.ExplorationWindowSize+1):] {
+			for _, prior := range result[max(0, len(result)-options.ExplorationWindowSize+1):] {
 				if prior.Exploration {
 					explorationCount++
 				}
@@ -135,7 +135,7 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 		for index := range remaining {
 			owner := strings.ToLower(remaining[index].candidate.Project.OwnerLogin)
 			ownerCount := 0
-			windowStart := maxInt(0, len(result)-19)
+			windowStart := max(0, len(result)-19)
 			for _, served := range result[windowStart:] {
 				if strings.EqualFold(served.Project.OwnerLogin, owner) {
 					ownerCount++
@@ -156,7 +156,7 @@ func RankFeedCandidates(candidates []FeedCandidate, options FeedRankOptions) []F
 			}
 			return remaining[available[i].index].candidate.Project.RepoKey < remaining[available[j].index].candidate.Project.RepoKey
 		})
-		poolSize := minInt(50, len(available))
+		poolSize := min(50, len(available))
 		probabilities := softmaxMMR(available[:poolSize])
 		chosenPool := 0
 		exploration := false
@@ -323,7 +323,7 @@ func sampleProbability(value float64, probabilities []float64) int {
 			return index
 		}
 	}
-	return maxInt(0, len(probabilities)-1)
+	return max(0, len(probabilities)-1)
 }
 
 func feedReasonCodes(candidate FeedCandidate, features FeedFeatureSnapshot, exploration bool) []string {
