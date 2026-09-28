@@ -9,6 +9,7 @@ import {
   type PublicScanSourceStatus,
 } from "../scan-run-types";
 import { score, spamBotScore } from "../score";
+import { fixtureDevscore } from "./devscore-fixture";
 import type { RawMetrics, ScanResult } from "../types";
 
 const SCANNED_AT = 1_800_000_000_000;
@@ -66,6 +67,8 @@ function metrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   };
 }
 
+const devscore = fixtureDevscore("synthetic-user");
+
 function scan(metricOverrides: Partial<RawMetrics> = {}): ScanResult {
   const rawMetrics = metrics(metricOverrides);
   const embedded = score(rawMetrics);
@@ -78,6 +81,7 @@ function scan(metricOverrides: Partial<RawMetrics> = {}): ScanResult {
     verified_impact_prs: [],
     pinned_repos: [],
     organizations: [],
+    devscore,
     scoring: {
       ...embedded,
       final_score: 99,
@@ -151,6 +155,11 @@ describe("materializeCanonicalScore", () => {
     });
     expect(first?.scoreEntry.final_score).not.toBe(original.scoring.final_score);
     expect(first?.scan.scoring.sub_scores.account_maturity).not.toBe(99);
+  });
+
+  it("fails closed for a collection-v6 snapshot without its devscore summary", () => {
+    const { devscore: _omitted, ...legacy } = scan();
+    expect(materializeCanonicalScore(input(legacy as ScanResult))).toBeNull();
   });
 
   it("matches usernames after canonical normalization", () => {

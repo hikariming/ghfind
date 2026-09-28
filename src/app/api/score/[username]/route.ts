@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import {
   getAccountDetail,
-  publishCompleteQuickScan,
   recordAccountLookup,
   type AccountDetail,
 } from "@/lib/db";
+import { requestDevscoreJob } from "@/lib/devscore-jobs";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -12,12 +12,12 @@ import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
 import {
   checkRateLimit,
-  coalesceScan,
   getCachedScan,
   getCachedScoreDetail,
   rateLimitHeaders,
 } from "@/lib/redis";
-import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
+import { logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
+import { scanStatusUrl } from "@/lib/scan-job-client";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
@@ -53,7 +53,7 @@ function scorePersistenceUnavailable(headers: Record<string, string>): Response 
     {
       error: "scan_failed",
       message: "score persistence is temporarily unavailable",
-      hint: "Retry later; no incomplete score was published.",
+      hint: "Retry later; no score job could be recorded.",
     },
     503,
     "no-store",
@@ -69,17 +69,6 @@ function persistedRiskFlags(detail: AccountDetail) {
   return (detail.risk_assessment?.signals ?? [])
     .filter((signal) => signal.penalty > 0)
     .map(({ flag, penalty, detail: explanation }) => ({ flag, penalty, detail: explanation }));
-}
-
-class ScorePersistenceError extends Error {}
-
-async function persistQuickScan(scan: ScanResult, scannedAt: number): Promise<boolean> {
-  try {
-    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
-  } catch {
-    console.error("publishCompleteQuickScan failed");
-    return false;
-  }
 }
 
 async function percentileFor(finalScore: number) {
@@ -168,7 +157,10 @@ async function persistedScoreResponse(
   );
 }
 
-/** Public deterministic score: bounded quick collection only, never queue work. */
+/**
+ * Public score: the canonical v11 row, a published scan from the cache, or —
+ * on a miss — a background devscore job (202 + Location to its status).
+ */
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ username: string }> },
@@ -220,25 +212,20 @@ export async function GET(
   }
 
   const cached = await getCachedScan(handle);
-  let result: ScanResult;
+  if (cached) return liveScoreResponse(cached, true, headers);
+
+  let status;
+  let jobError: unknown = null;
   try {
-    if (cached) {
-      if (!(await persistQuickScan(cached, Date.now()))) throw new ScorePersistenceError();
-      result = cached;
-    } else {
-      result = await coalesceScan(handle, async () => {
-      const scannedAt = Date.now();
-      const quickScan = await buildScanResult(handle);
-      if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
-      return quickScan;
-      });
-    }
+    status = await requestDevscoreJob(handle);
   } catch (error) {
-    logFreshScanFailure(error, {
-      route: "score",
-      username: handle,
-      persistenceFailure: error instanceof ScorePersistenceError,
-    });
+    jobError = error;
+    status = null;
+  }
+  if (!status) {
+    // No job could be recorded: log through the allowlisted boundary before
+    // any legacy fallback can answer 200.
+    logFreshScanFailure(jobError, { route: "score", username: handle, persistenceFailure: true });
     if (detail?.legacy_read_fallback) {
       return persistedScoreResponse(detail, {
         source: "legacy_v5_v5_v3",
@@ -246,16 +233,26 @@ export async function GET(
         headers,
       });
     }
-    if (error instanceof ScorePersistenceError) return scorePersistenceUnavailable(headers);
-    const { error: code, status, retry_after } = scanErrorResponse(error);
+    return scorePersistenceUnavailable(headers);
+  }
+  if (status.state === "failed") {
+    // The job gave up (e.g. unknown account); a new request after the
+    // cooldown re-enqueues it.
+    const code = status.error ?? "scan_failed";
+    const httpStatus = code === "account_not_found" ? 404 : 503;
     return json(
-      { error: code, message: code.replace(/_/g, " "), ...(retry_after ? { retry_after } : {}) },
-      status,
-      status >= 500 ? "no-store" : MISS_CACHE,
-      { ...headers, ...(retry_after ? { "Retry-After": String(retry_after) } : {}) },
+      { error: code, message: code.replace(/_/g, " "), status },
+      httpStatus,
+      httpStatus >= 500 ? "no-store" : MISS_CACHE,
+      { ...headers, ...(httpStatus >= 500 ? { "Retry-After": "600" } : {}) },
     );
   }
-
-  if (!cached) await recordAccountLookup(result.metrics.username, clientIp(req));
-  return liveScoreResponse(result, Boolean(cached), headers);
+  await recordAccountLookup(handle, clientIp(req));
+  const location = scanStatusUrl(handle);
+  return json(
+    { username: handle, status, status_url: location },
+    202,
+    "no-store",
+    { ...headers, Location: location, "Retry-After": "2" },
+  );
 }

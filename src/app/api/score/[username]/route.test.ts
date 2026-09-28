@@ -4,23 +4,20 @@ import type { AccountDetail } from "@/lib/db";
 import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
-  buildScanResult: vi.fn(),
   logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
-  coalesceScan: vi.fn(),
   getAccountDetail: vi.fn(),
   getCachedScan: vi.fn(),
   getPercentileCached: vi.fn(),
   getRankCached: vi.fn(),
-  publishCompleteQuickScan: vi.fn(),
   rateLimitHeaders: vi.fn(),
   recordAccountLookup: vi.fn(),
+  requestDevscoreJob: vi.fn(),
   scanErrorResponse: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   getAccountDetail: mocks.getAccountDetail,
-  publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
 }));
 vi.mock("@/lib/rank", () => ({
@@ -29,16 +26,15 @@ vi.mock("@/lib/rank", () => ({
 }));
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
-  coalesceScan: mocks.coalesceScan,
   getCachedScoreDetail: (_handle: string, load: () => unknown) => load(),
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
 vi.mock("@/lib/scan-core", () => ({
-  buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
   scanErrorResponse: mocks.scanErrorResponse,
 }));
+vi.mock("@/lib/devscore-jobs", () => ({ requestDevscoreJob: mocks.requestDevscoreJob }));
 
 import { GET } from "./route";
 
@@ -83,59 +79,65 @@ const obsoleteV8Detail = {
   legacy_read_fallback: false,
 };
 
-describe("GET /api/score immediate quick contract", () => {
+describe("GET /api/score background devscore contract", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mocks.getAccountDetail.mockResolvedValue(null);
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
-    mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
-    mocks.buildScanResult.mockResolvedValue(quickScan);
-    mocks.publishCompleteQuickScan.mockResolvedValue(true);
+    mocks.requestDevscoreJob.mockResolvedValue({ state: "running", phase: "contribs", progress: 0.2 });
     mocks.recordAccountLookup.mockResolvedValue(undefined);
     mocks.getPercentileCached.mockResolvedValue(null);
     mocks.getRankCached.mockResolvedValue(null);
     mocks.scanErrorResponse.mockReturnValue({ error: "scan_failed", status: 500 });
   });
 
-  it("materializes a cold account instead of returning 202", async () => {
-    const response = await GET(new NextRequest("https://example.test/api/score/DemoDev"), {
-      params: Promise.resolve({ username: "DemoDev" }),
+  function get(username: string) {
+    return GET(new NextRequest(`https://example.test/api/score/${username}`), {
+      params: Promise.resolve({ username }),
     });
+  }
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ source: "quick", coverage: "quick", final_score: 71 });
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
-  });
+  it("queues a cold account and answers 202 with the pending status", async () => {
+    const response = await get("DemoDev");
 
-  it("refreshes a v5 fallback with quick scan before serving it", async () => {
-    mocks.getAccountDetail.mockResolvedValue(legacyFallback);
-
-    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
-      params: Promise.resolve({ username: "fixture-user" }),
-    });
-
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(response.headers.get("location")).toBe("/api/scan/status/DemoDev");
+    expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toMatchObject({
-      source: "quick",
-      coverage: "quick",
-      final_score: 71,
+      status: { state: "running", phase: "contribs", progress: 0.2 },
     });
-    expect(mocks.buildScanResult).toHaveBeenCalledWith("fixture-user");
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
   });
 
-  it("serves the verified v5 fallback only after quick scan fails", async () => {
-    mocks.getAccountDetail.mockResolvedValue(legacyFallback);
-    mocks.buildScanResult.mockRejectedValue(new Error("upstream unavailable"));
+  it("serves a published scan from the cache without queueing", async () => {
+    mocks.getCachedScan.mockResolvedValue(quickScan);
 
-    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
-      params: Promise.resolve({ username: "fixture-user" }),
-    });
+    const response = await get("DemoDev");
 
     expect(response.status).toBe(200);
-    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
-      route: "score", username: "fixture-user", persistenceFailure: false,
+    await expect(response.json()).resolves.toMatchObject({ source: "quick", final_score: 71 });
+    expect(mocks.requestDevscoreJob).not.toHaveBeenCalled();
+  });
+
+  it("queues a v10 fallback account instead of serving the stale score", async () => {
+    mocks.getAccountDetail.mockResolvedValue(legacyFallback);
+
+    const response = await get("fixture-user");
+
+    expect(response.status).toBe(202);
+    expect(mocks.requestDevscoreJob).toHaveBeenCalledWith("fixture-user");
+  });
+
+  it("serves the verified fallback only when no job can be recorded", async () => {
+    mocks.getAccountDetail.mockResolvedValue(legacyFallback);
+    mocks.requestDevscoreJob.mockResolvedValue(null);
+
+    const response = await get("fixture-user");
+
+    expect(response.status).toBe(200);
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(null, {
+      route: "score", username: "fixture-user", persistenceFailure: true,
     });
     await expect(response.json()).resolves.toMatchObject({
       source: "legacy_v5_v5_v3",
@@ -145,15 +147,21 @@ describe("GET /api/score immediate quick contract", () => {
     });
   });
 
-  it("never replays a v8 detail when quick scan fails", async () => {
+  it("never replays an obsolete v8 detail", async () => {
     mocks.getAccountDetail.mockResolvedValue(obsoleteV8Detail);
-    mocks.buildScanResult.mockRejectedValue(new Error("upstream unavailable"));
+    mocks.requestDevscoreJob.mockResolvedValue(null);
 
-    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
-      params: Promise.resolve({ username: "fixture-user" }),
-    });
+    const response = await get("fixture-user");
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toMatchObject({ error: "scan_failed" });
+    expect(response.status).toBe(503);
+  });
+
+  it("maps a failed job for a missing account to 404", async () => {
+    mocks.requestDevscoreJob.mockResolvedValue({ state: "failed", error: "account_not_found" });
+
+    const response = await get("ghost-user");
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: "account_not_found" });
   });
 });

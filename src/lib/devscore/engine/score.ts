@@ -8,7 +8,7 @@
  * component that cannot be computed drops out of the final weighted mean,
  * whose weights renormalize over the remaining components.
  */
-import { fractionalYear, type Commit, type CommitSize, type Developer, type Repo, type StarWeek } from "../model";
+import { fractionalYear, type Commit, type CommitSize, type Developer, type ExtPr, type Repo, type StarWeek } from "../model";
 import { eqlIgnoreCase, parseUint } from "./ascii";
 
 /** All tunable constants (devscore docs/tuning.md records their history). */
@@ -401,6 +401,44 @@ export function starSpikeShare(hist: StarWeek[] | null, weeks: number): number |
   return best / total;
 }
 
+/** isHype's verdict inputs once every gate up to F1 has passed; null when one fails (never hype). */
+interface HypeGates {
+  /** content/docs/site repos need F4. */
+  content: boolean;
+  f3: boolean;
+  /** F4 without the spike: ≤ hype_spike_max_months active and idle ≥ hype_idle_days (idle known). */
+  quiet: boolean;
+}
+
+/** The repo fields rule F's gates read (everything but `star_history`). */
+export type HypeRepo = Pick<
+  Repo,
+  "owned" | "kind" | "stars" | "contributors_total" | "issue_authors" | "dependents" | "last_push_at" | "last_contrib_at" | "active_months" | "repo_total_commits" | "user_commits"
+>;
+
+/** Owned or led, judged kind, ≥ hype_min_stars, no veto, F1; then F3 and F4's short-life/idle part. */
+function hypeGates(r: HypeRepo, now: number | null, p: Params): HypeGates | null {
+  if (!r.owned && !leads(r, p)) return null;
+  const k = r.kind ?? "code";
+  if (k === "profile" || k === "list" || k === "config") return null;
+  const stars = r.stars;
+  if (stars === null || stars < p.hype_min_stars) return null;
+  const others = Math.max(0, (r.contributors_total ?? 1) - 1);
+  const ia = r.issue_authors ?? 0;
+  const dep = r.dependents ?? 0;
+  const idle = daysSince(r.last_push_at ?? r.last_contrib_at, now);
+  const veto =
+    (ia >= p.hype_veto_issue_authors || others >= p.hype_veto_contributors || dep >= 1) &&
+    (idle !== null ? idle <= p.hype_veto_active_days : true);
+  if (veto) return null;
+  const f1 = stars >= p.hype_star_ratio * Math.max(1, others + ia + dep);
+  if (!f1) return null;
+  // unknown issue authors are not "no use": F3 needs the count
+  const f3 = r.issue_authors !== null && dep < 1 && others <= p.hype_max_downstream && ia <= p.hype_max_downstream;
+  const quiet = (r.active_months ?? 0) <= p.hype_spike_max_months && (idle !== null ? idle >= p.hype_idle_days : false);
+  return { content: k === "content" || k === "docs" || k === "site", f3, quiet };
+}
+
 /**
  * Rule F (rubric v3 F): a promotion-driven project whose attention far exceeds
  * its use. Owned or led, not a profile/list/config repo, ≥ hype_min_stars stars;
@@ -411,28 +449,23 @@ export function starSpikeShare(hist: StarWeek[] | null, weeks: number): number |
  * hype = ¬veto ∧ F1 ∧ (F3 ∨ F4); content/docs/site repos need F4.
  */
 export function isHype(r: Repo, now: number | null, p: Params): boolean {
-  if (!r.owned && !leads(r, p)) return false;
-  const k = r.kind ?? "code";
-  if (k === "profile" || k === "list" || k === "config") return false;
-  const stars = r.stars;
-  if (stars === null || stars < p.hype_min_stars) return false;
-  const others = Math.max(0, (r.contributors_total ?? 1) - 1);
-  const ia = r.issue_authors ?? 0;
-  const dep = r.dependents ?? 0;
-  const idle = daysSince(r.last_push_at ?? r.last_contrib_at, now);
-  const veto =
-    (ia >= p.hype_veto_issue_authors || others >= p.hype_veto_contributors || dep >= 1) &&
-    (idle !== null ? idle <= p.hype_veto_active_days : true);
-  if (veto) return false;
-  const f1 = stars >= p.hype_star_ratio * Math.max(1, others + ia + dep);
-  if (!f1) return false;
-  // unknown issue authors are not "no use": F3 needs the count
-  const f3 = r.issue_authors !== null && dep < 1 && others <= p.hype_max_downstream && ia <= p.hype_max_downstream;
+  const g = hypeGates(r, now, p);
+  if (g === null) return false;
   const sh = starSpikeShare(r.star_history, p.hype_spike_weeks);
   const spike = sh !== null ? sh >= p.hype_spike_share : false;
-  const f4 = spike && (r.active_months ?? 0) <= p.hype_spike_max_months && (idle !== null ? idle >= p.hype_idle_days : false);
-  const content = k === "content" || k === "docs" || k === "site";
-  return content ? f4 : f3 || f4;
+  const f4 = spike && g.quiet;
+  return g.content ? f4 : g.f3 || f4;
+}
+
+/**
+ * Whether `star_history` can change `isHype(r, now, p)`: only F4's spike reads
+ * it, and F4 decides only when the gates up to F1 pass, F3 does not already
+ * settle a non-content repo, and the short-life/idle part of F4 holds. The
+ * collector fetches star histories only for these repos (null elsewhere).
+ */
+export function hypeNeedsStarHistory(r: HypeRepo, now: number | null, p: Params = defaultParams): boolean {
+  const g = hypeGates(r, now, p);
+  return g !== null && (g.content || !g.f3) && g.quiet;
 }
 
 /** Project age in years at collection time (≥ 0); null when unknown. */
@@ -478,7 +511,7 @@ export function unusedByOthers(r: Repo, p: Params): boolean {
 }
 
 /** The user wrote at least `quality_led_share` of a repo's commits. */
-export function leads(r: Repo, p: Params): boolean {
+export function leads(r: Pick<Repo, "repo_total_commits" | "user_commits">, p: Params): boolean {
   const total = r.repo_total_commits;
   if (total === null || !(total > 0)) return false;
   return (r.user_commits ?? 0) / total >= p.quality_led_share;
@@ -1068,6 +1101,21 @@ export function unreviewedSelfDriven(d: Developer, repo: string, p: Params): boo
   return merged >= p.unrev_min_prs && unreviewed >= p.unrev_share * merged;
 }
 
+/**
+ * Whether H1 can apply to `r` whatever the reviewers are: a non-owned repo
+ * with < unrev_adopted outside contributors and ≥ unrev_min_prs MERGED PRs of
+ * `prs` in it (`unreviewedSelfDriven`'s repo match). Reviewers of other PRs
+ * never change the score, so the collector fetches them only for these repos.
+ */
+export function unreviewedCandidate(
+  r: Pick<Repo, "name" | "owned" | "contributors_total">,
+  prs: readonly Pick<ExtPr, "state" | "repo">[] | null,
+  p: Params = defaultParams,
+): boolean {
+  if (r.owned || prs === null || Math.max(0, (r.contributors_total ?? 0) - 1) >= p.unrev_adopted) return false;
+  return prs.filter((x) => x.state === "MERGED" && eqlIgnoreCase(x.repo, r.name)).length >= p.unrev_min_prs;
+}
+
 export function scoreDeveloper(d: Developer, p: Params = defaultParams): DevScore {
   const scores: RepoScore[] = [];
   let contrib = 0;
@@ -1077,7 +1125,7 @@ export function scoreDeveloper(d: Developer, p: Params = defaultParams): DevScor
   const now = d.collected_at !== null ? fractionalYear(d.collected_at) : null;
   for (const r of d.repos) {
     let repo = r;
-    if (!r.owned && Math.max(0, (r.contributors_total ?? 0) - 1) < p.unrev_adopted && unreviewedSelfDriven(d, r.name, p)) {
+    if (unreviewedCandidate(r, d.ext_prs, p) && unreviewedSelfDriven(d, r.name, p)) {
       // self-merges no longer count as org-endorsed staff work, nor its size for this user
       repo = { ...r, owner_is_org: false, contributors_total: 1, forks: 0, issue_authors: 0, dependents: 0 };
     }

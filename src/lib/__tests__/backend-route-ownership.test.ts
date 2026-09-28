@@ -18,6 +18,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/me/route.ts",
   "src/app/api/roast/route.ts",
   "src/app/api/scan/route.ts",
+  // Background devscore job status: each poll advances the job one step.
+  "src/app/api/scan/status/[username]/route.ts",
   "src/app/api/blog-comments/[slug]/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/events/route.ts",
@@ -58,6 +60,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/internal/project-analyses/reconcile/route.ts",
   "src/app/api/internal/feed/reconcile/route.ts",
   "src/app/api/internal/feed/tags/review/route.ts",
+  // CRON_SECRET recovery/backfill driver for background devscore jobs.
+  "src/app/api/internal/devscore/advance/route.ts",
   "src/app/api/material-card/[username]/route.tsx",
   "src/app/api/og/blog/[slug]/route.tsx",
   "src/app/api/og/home/route.tsx",

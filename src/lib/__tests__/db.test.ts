@@ -9,6 +9,7 @@ import type { ScoreEntry, ScoreWriteIdentity } from "../db";
 import { LEGACY_READ_FALLBACK } from "../release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
 import { score } from "../score";
+import { fixtureDevscore } from "./devscore-fixture";
 import type { RawMetrics, ScanResult } from "../types";
 
 let db: typeof import("../db");
@@ -96,6 +97,7 @@ function syntheticScan(
   metricOverrides: Partial<RawMetrics> = {},
 ): ScanResult {
   const metrics = syntheticMetrics(username, metricOverrides);
+  const devscore = fixtureDevscore(username);
   return {
     metrics,
     top_repos: [],
@@ -105,6 +107,7 @@ function syntheticScan(
     verified_impact_prs: [],
     pinned_repos: [],
     organizations: [],
+    devscore,
     scoring: score(metrics),
   };
 }
@@ -413,7 +416,7 @@ describe("getArchivedRoast", () => {
       final_score: 92,
       scanned_at: entry.scanned_at + 1,
     });
-    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+    await expect(readScoreRow(username)).resolves.toMatchObject({
       final_score: 92,
       roast: null,
       roast_en: null,
@@ -610,7 +613,7 @@ describe("canonical score materialization", () => {
     await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
   });
 
-  it("recomputes v10 scoring when a promoted snapshot embeds legacy scoring", async () => {
+  it("recomputes v10 scoring when a snapshot embeds stale scoring", async () => {
     const username = "promoted-v9-snapshot-fixture";
     const scan = syntheticScan(username);
     scan.scoring = {
@@ -2117,13 +2120,13 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("reads only v10 profile snapshots and ignores legacy snapshots", async () => {
+  it("reads only current-score-version profile snapshots and ignores legacy snapshots", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     const username = "profile-version-fixture";
     const rows = [
       ["profile-v8", username, 300, JSON.stringify({ followers: 8 }), "v8"],
       ["profile-local", username, 400, JSON.stringify({ followers: 99 }), "local-fixture"],
-      ["profile-v10", username, 200, JSON.stringify({ followers: 9 }), "v10"],
+      ["profile-current", username, 200, JSON.stringify({ followers: 9 }), SCORE_CACHE_VERSION],
     ];
     for (const row of rows) {
       await client.execute({
@@ -2139,7 +2142,7 @@ describe("profile snapshots", () => {
     });
     await client.execute({
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
-      args: ["profile-v10"],
+      args: ["profile-current"],
     });
     await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 

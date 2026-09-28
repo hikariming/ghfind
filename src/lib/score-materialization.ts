@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { SCORE_CACHE_VERSION } from "./cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "./scan-run-types";
+import { isDevscoreSummary } from "./devscore-scoring";
 import { score, spamBotScore } from "./score";
 import type {
   ImpactRepo,
@@ -402,8 +403,10 @@ function hasValidScanResult(value: unknown): value is ScanResult {
 }
 
 /**
- * Validate one immutable scan snapshot and derive its current deterministic score.
- * No caller-provided score, report, tag, or roast text is retained.
+ * Validate one immutable collection-v6 scan snapshot (it must carry the
+ * devscore summary written by the background job) and derive its current
+ * deterministic v10 score from the snapshot metrics. No caller-provided score,
+ * report, tag, or roast text is retained.
  */
 export function materializeCanonicalScore(
   input: CanonicalScoreMaterializationInput,
@@ -429,7 +432,7 @@ export function materializeCanonicalScore(
   } catch {
     return null;
   }
-  if (!hasValidScanResult(parsed)) return null;
+  if (!hasValidScanResult(parsed) || !isDevscoreSummary(parsed.devscore)) return null;
 
   const requestedUsername = normalizeUsername(input.username)?.toLowerCase();
   const snapshotUsername = normalizeUsername(parsed.metrics.username)?.toLowerCase();

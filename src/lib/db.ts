@@ -60,6 +60,7 @@ import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
 } from "./score-materialization";
+import { isDevscoreSummary } from "./devscore-scoring";
 import { score } from "./score";
 import type {
   ImpactRepo,
@@ -948,6 +949,32 @@ function ensureSchema(db: Client): Promise<void> {
              PRIMARY KEY (repo_key, username, relation)
            )`,
           `CREATE INDEX IF NOT EXISTS idx_repo_developers_user ON repo_developers(username)`,
+          // Background devscore scoring (migrations/0016_devscore_jobs.sql
+          // owns the D1 copy of these two tables).
+          `CREATE TABLE IF NOT EXISTS devscore_jobs (
+             username           TEXT NOT NULL,
+             collection_version TEXT NOT NULL,
+             run_id             TEXT NOT NULL,
+             state              TEXT NOT NULL CHECK(state IN ('queued', 'running', 'done', 'failed')),
+             phase              TEXT NOT NULL DEFAULT 'queued',
+             progress           REAL NOT NULL DEFAULT 0,
+             collect_state      TEXT,
+             attempts           INTEGER NOT NULL DEFAULT 0,
+             next_run_at        INTEGER NOT NULL,
+             lease_token        TEXT,
+             lease_expires_at   INTEGER,
+             started_at         INTEGER NOT NULL,
+             updated_at         INTEGER NOT NULL,
+             last_error         TEXT,
+             PRIMARY KEY (username, collection_version)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_devscore_jobs_ready
+             ON devscore_jobs(state, next_run_at)`,
+          `CREATE TABLE IF NOT EXISTS devscore_cache (
+             key        TEXT PRIMARY KEY,
+             value      TEXT NOT NULL,
+             expires_at INTEGER
+           )`,
         ],
         "write",
       );
@@ -1270,7 +1297,7 @@ async function ensureAccountStats(
  * own WHERE clause, so an interleaved writer makes the statement affect zero
  * rows instead of clobbering newer data; the one racy branch (concurrent
  * first insert) retries once against the fresh row. Same-user scans are
- * additionally single-flighted upstream via coalesceScan.
+ * additionally single-flighted upstream by the devscore job lease.
  */
 async function upsertCanonicalScoreGuarded(
   db: SqlExecutor,
@@ -1599,7 +1626,9 @@ export async function recordScore(entry: ScoreEntry): Promise<ScoreWriteIdentity
  * Fire-and-forget: any failure is logged and swallowed so it never blocks the
  * scoring/roast flow (mirrors {@link recordScore} / {@link updateRoast}).
  */
-export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
+export async function recordProfileSnapshot(
+  scan: Omit<ScanResult, "scoring" | "devscore">,
+): Promise<void> {
   const db = getClient();
   if (!db) return;
   try {
@@ -2327,14 +2356,14 @@ export async function getCurrentCanonicalQuickScan(
     if (
       typeof scan.metrics?.username !== "string" ||
       scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
-      !scan.scoring
+      !scan.scoring ||
+      !isDevscoreSummary(scan.devscore)
     ) {
       return null;
     }
-    // A v9 snapshot can be promoted to a v10 canonical score during the
-    // bounded backfill without rewriting its immutable bytes/hash. Recompute
-    // the embedded scoring object at the read boundary so roast/profile paths
-    // never consume the legacy embedded rules after that promotion.
+    // Recompute the embedded scoring object at the read boundary so
+    // roast/profile paths always see the current v10 rules for the exact
+    // published snapshot.
     const currentScan = scan as ScanResult;
     return { scan: { ...currentScan, scoring: score(currentScan.metrics) }, snapshotHash };
   } catch (error) {
@@ -7291,4 +7320,341 @@ export async function saveResumeLibrary(githubId: number, login: string, data: s
         });
     return result.rowsAffected === 1 ? "saved" : "conflict";
   } catch { return "unavailable"; }
+}
+
+// ---------------------------------------------------------------------------
+// Background devscore scoring jobs (score v11 / collection v6).
+//
+// One row per (username, collection_version): enqueueing an active job is a
+// no-op, enqueueing a finished/failed one resets the same row. Every state
+// change is a single guarded statement (D1 has no interactive transactions):
+// claims take a lease only when none is held or the old one expired, and all
+// writes of a leased run are conditioned on its lease token, so a stale runner
+// can never overwrite a newer claim.
+// ---------------------------------------------------------------------------
+
+export type DevscoreJobState = "queued" | "running" | "done" | "failed";
+
+export interface DevscoreJob {
+  username: string;
+  collectionVersion: string;
+  runId: string;
+  state: DevscoreJobState;
+  phase: string;
+  progress: number;
+  /** Opaque runner checkpoint (small JSON); bulk data lives in the collect store. */
+  collectState: string | null;
+  attempts: number;
+  nextRunAt: number;
+  leaseToken: string | null;
+  leaseExpiresAt: number | null;
+  startedAt: number;
+  updatedAt: number;
+  lastError: string | null;
+}
+
+function mapDevscoreJob(row: Record<string, unknown>): DevscoreJob {
+  return {
+    username: String(row.username),
+    collectionVersion: String(row.collection_version),
+    runId: String(row.run_id),
+    state: String(row.state) as DevscoreJobState,
+    phase: String(row.phase ?? "queued"),
+    progress: Number(row.progress ?? 0),
+    collectState: typeof row.collect_state === "string" ? row.collect_state : null,
+    attempts: Number(row.attempts ?? 0),
+    nextRunAt: Number(row.next_run_at),
+    leaseToken: typeof row.lease_token === "string" ? row.lease_token : null,
+    leaseExpiresAt: row.lease_expires_at == null ? null : Number(row.lease_expires_at),
+    startedAt: Number(row.started_at),
+    updatedAt: Number(row.updated_at),
+    lastError: typeof row.last_error === "string" ? row.last_error : null,
+  };
+}
+
+/** A `failed` job may be re-enqueued by a new request only after this cooldown. */
+export const DEVSCORE_FAILED_RETRY_COOLDOWN_MS = 10 * 60_000;
+
+export async function getDevscoreJob(username: string): Promise<DevscoreJob | null> {
+  const db = getClient();
+  if (!db) return null;
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT * FROM devscore_jobs WHERE username = ? AND collection_version = ? LIMIT 1`,
+    args: [username.toLowerCase(), PUBLIC_SCAN_COLLECTION_VERSION],
+  });
+  const row = result.rows[0] as Record<string, unknown> | undefined;
+  return row ? mapDevscoreJob(row) : null;
+}
+
+/**
+ * Idempotently ensure one job for `username`. An active (queued/running) job
+ * is always returned unchanged. A `done` job is reset with `resetDone` (the
+ * caller established that no current score exists, or asked to rescan). A
+ * `failed` job is reset with `resetFailed`, or by any request once its
+ * cooldown elapsed. Returns null when the database is unavailable.
+ */
+export async function enqueueDevscoreJob(
+  username: string,
+  options: { resetDone?: boolean; resetFailed?: boolean; now?: number } = {},
+): Promise<DevscoreJob | null> {
+  const db = getClient();
+  if (!db) return null;
+  const now = options.now ?? Date.now();
+  const key = username.toLowerCase();
+  await ensureSchema(db);
+  await db.execute({
+    sql: `INSERT INTO devscore_jobs
+            (username, collection_version, run_id, state, phase, progress, collect_state,
+             attempts, next_run_at, lease_token, lease_expires_at, started_at, updated_at, last_error)
+          VALUES (?, ?, ?, 'queued', 'queued', 0, NULL, 0, ?, NULL, NULL, ?, ?, NULL)
+          ON CONFLICT(username, collection_version) DO UPDATE SET
+            run_id = excluded.run_id, state = 'queued', phase = 'queued', progress = 0,
+            collect_state = NULL, attempts = 0, next_run_at = excluded.next_run_at,
+            lease_token = NULL, lease_expires_at = NULL, started_at = excluded.started_at,
+            updated_at = excluded.updated_at, last_error = NULL
+          WHERE (devscore_jobs.state = 'done' AND ? = 1)
+             OR (devscore_jobs.state = 'failed' AND (? = 1 OR devscore_jobs.updated_at <= ?))`,
+    args: [
+      key,
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      randomUUID(),
+      now,
+      now,
+      now,
+      options.resetDone ? 1 : 0,
+      options.resetFailed ? 1 : 0,
+      now - DEVSCORE_FAILED_RETRY_COOLDOWN_MS,
+    ],
+  });
+  return getDevscoreJob(key);
+}
+
+/**
+ * Take the lease on one ready job: queued/running, due, and not leased (or its
+ * lease expired — an abandoned runner). Returns null when another runner holds
+ * it, it is backing off, finished, or absent.
+ */
+export async function claimDevscoreJob(
+  username: string,
+  input: { now: number; leaseMs: number },
+): Promise<DevscoreJob | null> {
+  const db = getClient();
+  if (!db) return null;
+  await ensureSchema(db);
+  const token = randomUUID();
+  const result = await db.execute({
+    sql: `UPDATE devscore_jobs
+          SET state = 'running', lease_token = ?, lease_expires_at = ?, updated_at = ?
+          WHERE username = ? AND collection_version = ?
+            AND state IN ('queued', 'running')
+            AND next_run_at <= ?
+            AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
+          RETURNING *`,
+    args: [
+      token,
+      input.now + input.leaseMs,
+      input.now,
+      username.toLowerCase(),
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      input.now,
+      input.now,
+    ],
+  });
+  const row = result.rows[0] as Record<string, unknown> | undefined;
+  return row && row.lease_token === token ? mapDevscoreJob(row) : null;
+}
+
+/**
+ * Persist a leased run's checkpoint. `release` drops the lease so the next
+ * poll can continue at once; otherwise the lease is kept (mid-run
+ * checkpoint). Returns false when the lease was lost.
+ */
+export async function saveDevscoreJobProgress(
+  job: Pick<DevscoreJob, "username" | "leaseToken">,
+  input: {
+    collectState: string;
+    phase: string;
+    progress: number;
+    nextRunAt: number;
+    now: number;
+    release: boolean;
+  },
+): Promise<boolean> {
+  const db = getClient();
+  if (!db || !job.leaseToken) return false;
+  const result = await db.execute({
+    sql: `UPDATE devscore_jobs
+          SET collect_state = ?, phase = ?, progress = ?, next_run_at = ?, updated_at = ?,
+              lease_token = CASE WHEN ? = 1 THEN NULL ELSE lease_token END,
+              lease_expires_at = CASE WHEN ? = 1 THEN NULL ELSE lease_expires_at END
+          WHERE username = ? AND collection_version = ? AND lease_token = ?`,
+    args: [
+      input.collectState,
+      input.phase,
+      input.progress,
+      input.nextRunAt,
+      input.now,
+      input.release ? 1 : 0,
+      input.release ? 1 : 0,
+      job.username.toLowerCase(),
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      job.leaseToken,
+    ],
+  });
+  return Number(result.rowsAffected ?? 0) === 1;
+}
+
+/** Mark a leased run done (score published). */
+export async function completeDevscoreJob(
+  job: Pick<DevscoreJob, "username" | "leaseToken">,
+  now: number,
+): Promise<boolean> {
+  const db = getClient();
+  if (!db || !job.leaseToken) return false;
+  const result = await db.execute({
+    sql: `UPDATE devscore_jobs
+          SET state = 'done', phase = 'done', progress = 1, collect_state = NULL,
+              lease_token = NULL, lease_expires_at = NULL, updated_at = ?, last_error = NULL
+          WHERE username = ? AND collection_version = ? AND lease_token = ?`,
+    args: [now, job.username.toLowerCase(), PUBLIC_SCAN_COLLECTION_VERSION, job.leaseToken],
+  });
+  return Number(result.rowsAffected ?? 0) === 1;
+}
+
+/**
+ * Record one failed attempt of a leased run: back off until `retryAt`, or give
+ * up (`failed`) when `terminal` or the attempt budget is spent. The checkpoint
+ * is kept so a retry resumes where the run stopped.
+ */
+export async function failDevscoreJobAttempt(
+  job: Pick<DevscoreJob, "username" | "leaseToken">,
+  input: { error: string; now: number; retryAt: number; maxAttempts: number; terminal: boolean },
+): Promise<DevscoreJob | null> {
+  const db = getClient();
+  if (!db || !job.leaseToken) return null;
+  const result = await db.execute({
+    sql: `UPDATE devscore_jobs
+          SET attempts = attempts + 1,
+              state = CASE WHEN ? = 1 OR attempts + 1 >= ? THEN 'failed' ELSE 'queued' END,
+              next_run_at = ?, last_error = ?, updated_at = ?,
+              lease_token = NULL, lease_expires_at = NULL
+          WHERE username = ? AND collection_version = ? AND lease_token = ?
+          RETURNING *`,
+    args: [
+      input.terminal ? 1 : 0,
+      input.maxAttempts,
+      input.retryAt,
+      input.error.slice(0, 500),
+      input.now,
+      job.username.toLowerCase(),
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      job.leaseToken,
+    ],
+  });
+  const row = result.rows[0] as Record<string, unknown> | undefined;
+  return row ? mapDevscoreJob(row) : null;
+}
+
+/** Usernames of due, unleased (or lease-expired) active jobs, oldest first. */
+export async function listReadyDevscoreJobs(limit: number, now: number): Promise<string[]> {
+  const db = getClient();
+  if (!db) return [];
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT username FROM devscore_jobs
+          WHERE collection_version = ? AND state IN ('queued', 'running') AND next_run_at <= ?
+            AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
+          ORDER BY next_run_at ASC, updated_at ASC
+          LIMIT ?`,
+    args: [PUBLIC_SCAN_COLLECTION_VERSION, now, now, Math.max(0, Math.floor(limit))],
+  });
+  return result.rows.map((row) => String((row as Record<string, unknown>).username));
+}
+
+/**
+ * Backfill: enqueue up to `limit` accounts whose visible score is still the
+ * previous release (the legacy read-fallback tuple) and that have no devscore
+ * job yet, highest previous score first, then most recently looked up. The
+ * number of active jobs never exceeds `activeCap`. Returns how many were
+ * enqueued.
+ */
+export async function enqueueDevscoreBackfill(input: {
+  limit: number;
+  activeCap: number;
+  now: number;
+}): Promise<{ enqueued: number; active: number }> {
+  const db = getClient();
+  if (!db) return { enqueued: 0, active: 0 };
+  await ensureSchema(db);
+  const activeRows = await db.execute({
+    sql: `SELECT COUNT(*) AS n FROM devscore_jobs
+          WHERE collection_version = ? AND state IN ('queued', 'running')`,
+    args: [PUBLIC_SCAN_COLLECTION_VERSION],
+  });
+  const active = Number((activeRows.rows[0] as Record<string, unknown> | undefined)?.n ?? 0);
+  const slots = Math.min(Math.max(0, Math.floor(input.limit)), Math.max(0, input.activeCap - active));
+  if (slots === 0) return { enqueued: 0, active };
+  const result = await db.execute({
+    sql: `INSERT OR IGNORE INTO devscore_jobs
+            (username, collection_version, run_id, state, phase, progress, collect_state,
+             attempts, next_run_at, lease_token, lease_expires_at, started_at, updated_at, last_error)
+          SELECT s.username, ?, lower(hex(randomblob(16))), 'queued', 'queued', 0, NULL,
+                 0, ?, NULL, NULL, ?, ?, NULL
+          FROM scores s
+          LEFT JOIN account_stats a ON a.username = s.username
+          WHERE s.hidden = 0
+            AND s.score_version = ?
+            AND s.score_source_collection_version = ?
+            AND NOT EXISTS (
+              SELECT 1 FROM devscore_jobs j
+              WHERE j.username = s.username AND j.collection_version = ?
+            )
+          ORDER BY s.final_score DESC, COALESCE(a.last_lookup_at, 0) DESC
+          LIMIT ?`,
+    args: [
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      input.now,
+      input.now,
+      input.now,
+      LEGACY_READ_FALLBACK.score,
+      LEGACY_READ_FALLBACK.collection,
+      PUBLIC_SCAN_COLLECTION_VERSION,
+      slots,
+    ],
+  });
+  const enqueued = Number(result.rowsAffected ?? 0);
+  return { enqueued, active: active + enqueued };
+}
+
+/**
+ * Durable fallback for the devscore collect store when the DEVSCORE_CACHE R2
+ * binding is absent (local Turso development). `undefined` = no database.
+ */
+export async function readDevscoreCache(key: string, now: number): Promise<string | null | undefined> {
+  const db = getClient();
+  if (!db) return undefined;
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT value FROM devscore_cache WHERE key = ? AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`,
+    args: [key, now],
+  });
+  const row = result.rows[0] as Record<string, unknown> | undefined;
+  return typeof row?.value === "string" ? row.value : null;
+}
+
+export async function writeDevscoreCache(
+  key: string,
+  value: string,
+  expiresAt: number | null,
+): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  await ensureSchema(db);
+  await db.execute({
+    sql: `INSERT INTO devscore_cache (key, value, expires_at) VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`,
+    args: [key, value, expiresAt],
+  });
+  return true;
 }

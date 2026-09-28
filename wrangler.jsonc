@@ -31,8 +31,14 @@
     { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" },
     { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
   ],
+  // DEVSCORE_CACHE holds the background devscore collector's run data and HTTP
+  // cache (JSON blobs, expiry in customMetadata). Create each bucket once:
+  //   wrangler r2 bucket create ghfind-devscore-cache-dev   (top level, dev, preview)
+  //   wrangler r2 bucket create ghfind-devscore-cache       (production)
+  // and add a lifecycle rule deleting objects after 30 days.
   "r2_buckets": [
-    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" },
+    { "binding": "DEVSCORE_CACHE", "bucket_name": "ghfind-devscore-cache-dev" }
   ],
   "vars": {
     "GHFIND_DEPLOY_ENV": "development"
@@ -51,7 +57,8 @@
         { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "migrations-feed" }
       ],
       "r2_buckets": [
-        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" },
+        { "binding": "DEVSCORE_CACHE", "bucket_name": "ghfind-devscore-cache-dev" }
       ],
       "vars": {
         "GHFIND_DEPLOY_ENV": "preview",
@@ -74,7 +81,8 @@
         { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed", "database_id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf", "migrations_dir": "migrations-feed" }
       ],
       "r2_buckets": [
-        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" },
+        { "binding": "DEVSCORE_CACHE", "bucket_name": "ghfind-devscore-cache" }
       ],
       "vars": {
         "GHFIND_DEPLOY_ENV": "production",
@@ -92,8 +100,10 @@
       "d1_databases": [
         { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "migrations" }
       ],
+      // Shares the dev devscore cache: preview jobs use the shared dev D1 too.
       "r2_buckets": [
-        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" },
+        { "binding": "DEVSCORE_CACHE", "bucket_name": "ghfind-devscore-cache-dev" }
       ],
       "vars": {
         "GHFIND_DEPLOY_ENV": "preview"
