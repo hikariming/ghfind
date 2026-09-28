@@ -37,7 +37,7 @@ import type {
   VsPresentation,
 } from "@/lib/profile-presentation";
 import type { RiskAssessment, RiskSignal, ScanResult, SubScoreKey, SubScores } from "@/lib/types";
-import { roundHalfEven } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
 
 const SIMILAR_LIMIT = 6;
 const COMMON_PROJECT_CANDIDATES = 3;

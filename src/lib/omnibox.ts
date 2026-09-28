@@ -1,7 +1,7 @@
 /**
  * Omnibox intent parser — a pure, dependency-light rule engine that turns raw
  * homepage input into a routed intent. Mirrors the side-effect-free style of
- * `facets.ts` / `score.ts` so it's trivially unit-tested and shared between the
+ * `facets.ts` / `similarity.ts` so it's trivially unit-tested and shared between the
  * homepage input and (via `omniboxRoute`) the router.
  *
  * Priority (first match wins), from the design doc:

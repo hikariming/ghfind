@@ -27,9 +27,11 @@ export function buildLlmsTxt(): string {
 
 ## What is ghfind
 
-ghfind rates any GitHub account 0-100 across ${NAMED_STATS.dimensions} weighted dimensions with a fully
-deterministic engine (no LLM in the scoring core; the same inputs always produce
-the same score). In a public dataset of ${NAMED_STATS.accountsScored} scored accounts, faked or farmed
+ghfind rates any GitHub account 0-100 by the real work behind it — weighted by
+project worth and authorship, stars and followers never count — with devscore, a
+fully deterministic engine (no LLM in the scoring core; the same public data
+always produces the same score), and breaks every score into
+${NAMED_STATS.dimensions} display dimensions. In a public dataset of ${NAMED_STATS.accountsScored} scored accounts, faked or farmed
 contribution was ${NAMED_STATS.flaggedShare} of accounts — rare, but extreme when present.
 
 ## Use cases
@@ -71,7 +73,7 @@ ${toolingMd()}
 
 - Usernames are GitHub logins (case-insensitive).
 - Scores below 60 are reachable and shareable but not indexed.
-- The deterministic scoring engine is open-sourced as the github-account-value skill.
+- The deterministic scoring engine (devscore) is open source in the ghfind repository.
 `;
 }
 

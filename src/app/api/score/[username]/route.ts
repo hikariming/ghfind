@@ -20,7 +20,7 @@ import { logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
 import { scanStatusUrl } from "@/lib/scan-job-client";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
-import { roundHalfEven } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
 import type { ScanResult, Tier } from "@/lib/types";
 import { decodeRouteParam } from "@/lib/route-params";
 

@@ -63,11 +63,10 @@ it.each([502, 504])("splits HTTP %i overviews and retains all contribution and c
   process.env.GITHUB_TOKEN = "one,two,three,four";
   let combinedCalls = 0;
   const closedCursors: unknown[] = [];
-  const totals = { totalCommitContributions: 20, totalPullRequestContributions: 30, totalIssueContributions: 4,
-    totalPullRequestReviewContributions: 5, contributionCalendar: { totalContributions: 59 } };
+  const totals = { contributionCalendar: { totalContributions: 59 } };
   vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
     const { query, variables } = JSON.parse(init.body);
-    if (query.includes("pinnedItems") && query.includes("totalCommitContributions")) {
+    if (query.includes("pinnedItems") && query.includes("contributionCalendar")) {
       combinedCalls++;
       return new Response("gateway timeout", { status });
     }
@@ -76,7 +75,7 @@ it.each([502, 504])("splits HTTP %i overviews and retains all contribution and c
       return json({ user: { pinnedItems: { nodes: [] }, mergedPRs: { totalCount: 500 }, allPRs: { totalCount: 700 },
         issues: { totalCount: 4 }, contributionYears: { contributionYears: [2026, 2025] } } });
     }
-    if (query.includes("totalCommitContributions")) return json({ user: { contributionsCollection: totals } });
+    if (query.includes("contributionCalendar")) return json({ user: { contributionsCollection: totals } });
     expect(query).toContain("first: 25, after: $after");
     closedCursors.push(variables.after);
     return json({ user: { closedPRs: { totalCount: 200,
@@ -87,7 +86,6 @@ it.each([502, 504])("splits HTTP %i overviews and retains all contribution and c
   }));
   const result = await fetchContribOverview("active");
   expect(combinedCalls).toBe(1);
-  expect(result.statTotals).toEqual(totals);
   expect(result.lastYearContributions).toBe(59);
   expect(result.overview.closedPRs.totalCount).toBe(200);
   expect(result.overview.closedPRs.nodes).toHaveLength(100);
@@ -101,16 +99,15 @@ it("degrades closedPRs to a count when GitHub fails the node list with INTERNAL"
     errors: [{ type: "INTERNAL", message: "Something went wrong", path: ["user", "closedPRs", "nodes", 2] }],
     data: { user: null },
   }), { headers: { "Content-Type": "application/json" } });
-  const totals = { totalCommitContributions: 20, totalPullRequestContributions: 30, totalIssueContributions: 4,
-    totalPullRequestReviewContributions: 5, contributionCalendar: { totalContributions: 59 } };
+  const totals = { contributionCalendar: { totalContributions: 59 } };
   let nodeAttempts = 0;
   let countOnlyAttempts = 0;
   vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
     const { query } = JSON.parse(init.body);
     const hasPinned = query.includes("pinnedItems");
-    const hasStats = query.includes("totalCommitContributions");
-    if (hasPinned && hasStats) return internal(); // combined doc: poisoned by the closedPRs node
-    if (hasStats) return json({ user: { contributionsCollection: totals } });
+    const hasCalendar = query.includes("contributionCalendar");
+    if (hasPinned && hasCalendar) return internal(); // combined doc: poisoned by the closedPRs node
+    if (hasCalendar) return json({ user: { contributionsCollection: totals } });
     if (hasPinned) return json({ user: { pinnedItems: { nodes: [] }, mergedPRs: { totalCount: 40 },
       allPRs: { totalCount: 55 }, issues: { totalCount: 4 }, contributionYears: { contributionYears: [2026] } } });
     if (query.includes("first: 25")) { nodeAttempts++; return internal(); } // node list fails the same way
@@ -121,17 +118,16 @@ it("degrades closedPRs to a count when GitHub fails the node list with INTERNAL"
   expect(result.overview.closedPRs.totalCount).toBe(3);
   expect(result.overview.closedPRs.nodes).toEqual([]);
   expect(result.overview.mergedPRs.totalCount).toBe(40);
-  expect(result.statTotals).toEqual(totals);
   expect(result.lastYearContributions).toBe(59);
   expect(nodeAttempts).toBe(1);
   expect(countOnlyAttempts).toBe(1);
 });
 
 it.each([
-  ["INTERNAL", "RESOURCE_LIMITS_EXCEEDED", 504],
-  ["RESOURCE_LIMITS_EXCEEDED", "INTERNAL", "INTERNAL"],
-  [504, "RESOURCE_LIMITS_EXCEEDED", "RESOURCE_LIMITS_EXCEEDED"],
-])("composes overview %s, stats %s and closed nodes %s fallbacks", async (combined, stats, closed) => {
+  ["INTERNAL", 504, 5],
+  [504, "INTERNAL", 5],
+  ["RESOURCE_LIMITS_EXCEEDED", "RESOURCE_LIMITS_EXCEEDED", 6],
+])("composes overview %s and closed nodes %s fallbacks", async (combined, closed, expectedCalls) => {
   process.env.GITHUB_TOKEN = "one,two,three";
   const fail = (error: string | number) => typeof error === "number"
     ? new Response("gateway timeout", { status: error })
@@ -140,8 +136,7 @@ it.each([
   vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
     const { query } = JSON.parse(init.body);
     calls.push(query);
-    if (query.includes("pinnedItems") && query.includes("totalCommitContributions")) return fail(combined);
-    if (query.includes("totalCommitContributions")) return fail(stats);
+    if (query.includes("pinnedItems") && query.includes("contributionCalendar")) return fail(combined);
     if (query.includes("pinnedItems") && query.includes("closedPRs")) return fail("INTERNAL");
     if (query.includes("pinnedItems")) return json({ user: { pinnedItems: { nodes: [] },
       mergedPRs: { totalCount: 40 }, allPRs: { totalCount: 55 }, issues: { totalCount: 4 },
@@ -153,12 +148,11 @@ it.each([
     return json({ user: { closedPRs: { totalCount: 3 } } });
   }));
   const result = await fetchContribOverview("poisoned");
-  expect(result.statTotals).toBeNull();
   expect(result.lastYearContributions).toBe(12345);
   expect(result.overview.closedPRs).toEqual({ totalCount: 3, nodes: [] });
   expect(computeClosedPrBreakdown(result.overview.closedPRs.nodes, 3, "poisoned"))
     .toMatchObject({ unknown_closed_unmerged_pr_count: 3, maintainer_closed_unmerged_pr_count: 0 });
-  expect(calls).toHaveLength(6);
+  expect(calls).toHaveLength(expectedCalls);
 });
 
 it.each(["missing", "rate-limit"])("does not turn %s closed counts into a zero score", async mode => {
@@ -169,7 +163,7 @@ it.each(["missing", "rate-limit"])("does not turn %s closed counts into a zero s
       return new Response(JSON.stringify({ errors: [{ type: "INTERNAL", message: "query failed" }] }));
     }
     if (query.includes("pinnedItems")) return json({ user: {} });
-    if (query.includes("totalCommitContributions")) return json({ user: { contributionsCollection: {
+    if (query.includes("contributionCalendar")) return json({ user: { contributionsCollection: {
       contributionCalendar: { totalContributions: 10 },
     } } });
     return mode === "missing" ? json({ user: {} }) : new Response("rate limit", { status: 429 });
@@ -182,11 +176,11 @@ it("bounds the closed-PR fallback even when GitHub returns short pages", async (
   let pages = 0;
   vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
     const { query } = JSON.parse(init.body);
-    if (query.includes("pinnedItems") && query.includes("totalCommitContributions")) {
+    if (query.includes("pinnedItems") && query.includes("contributionCalendar")) {
       return new Response("gateway timeout", { status: 504 });
     }
     if (query.includes("pinnedItems")) return json({ user: {} });
-    if (query.includes("totalCommitContributions")) return json({ user: { contributionsCollection: {
+    if (query.includes("contributionCalendar")) return json({ user: { contributionsCollection: {
       contributionCalendar: { totalContributions: 10 },
     } } });
     pages++;

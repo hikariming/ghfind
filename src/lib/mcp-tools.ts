@@ -13,7 +13,7 @@ import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { roundHalfEven } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export type ToolError = { error: string; message: string };

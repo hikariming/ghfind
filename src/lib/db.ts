@@ -6,7 +6,7 @@
  * row per synchronously scanned account plus append-only score snapshots for
  * long-term progress. Historical queue records are retained for data safety but
  * are not part of the runtime request path.
- * The score itself is still computed deterministically by `lib/score.ts`; this
+ * The score itself is computed deterministically by devscore (`lib/devscore-scoring.ts`); this
  * layer only persists the result for cross-account ranking.
  */
 

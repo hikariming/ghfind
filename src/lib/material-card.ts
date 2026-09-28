@@ -1,7 +1,7 @@
 import { BRAND_MARK_PATHS } from "@/components/BrandMark";
 import { estimateTextWidth } from "./badge";
 import { DIMENSIONS } from "./dimensions";
-import { SUBSCORE_MAX } from "./score";
+import { SUBSCORE_MAX } from "./score-presentation";
 import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "./tier";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 

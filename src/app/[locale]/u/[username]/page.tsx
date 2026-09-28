@@ -24,7 +24,7 @@ import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
 import { nextTier, tierFor } from "@/lib/score-presentation";
-import { roundHalfEven } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";

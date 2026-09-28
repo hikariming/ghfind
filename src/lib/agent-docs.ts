@@ -30,7 +30,7 @@ export const PRODUCT_ONELINER =
 
 /** A tight definitional paragraph (the passage LLMs lift into "what is X" answers). */
 export const PRODUCT_DESCRIPTION =
-  "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language/org/project leaderboards, and README score badges.";
+  "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 by the real work behind it — weighted by each project's worth and the developer's share of authorship, counting work in other people's projects only as far as independent maintainers accepted it, and never counting stars or followers — using devscore, a fully deterministic open-source engine (AGPL). The same public data always produces the same score; no LLM touches the number. Each score is broken down into six display dimensions (account maturity, original project quality, contribution quality, ecosystem impact, community influence, activity authenticity). On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language/org/project leaderboards, and README score badges.";
 
 /**
  * Named statistics from the public research dataset. Specific numbers are what
@@ -45,7 +45,7 @@ export const NAMED_STATS = {
 
 export const USE_CASES = [
   "Vet a GitHub account before hiring, sponsoring, or merging: get a reproducible 0-100 trust score instead of eyeballing stars and follower counts.",
-  "Detect AI/bot/farmed contribution: the engine flags PR-farming, star inflation, and template-spam patterns that look plausible per-event but not in aggregate.",
+  "Detect AI/bot/farmed contribution: stars, followers and self-merged PRs earn nothing, and bulk low-quality PR farming and influencer patterns are capped — patterns that look plausible per-event but not in aggregate.",
   "Self-assess and improve: see your six-dimension breakdown and the specific gaps holding your score down.",
   "Compare two developers head-to-head with a deterministic winner and gap bucket.",
   "Discover top developers by programming language, organization, or contributed project.",

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRoastMessages } from "../prompt";
-import { score } from "../score";
+import { scoringFromDevscore } from "../devscore-scoring";
+import { fixtureDevscore } from "./devscore-fixture";
 import {
   boundedContributionYearsActive,
   collect,
@@ -472,7 +473,7 @@ describe("collect", () => {
     expect(result.metrics.days_since_last_activity).toBe(0);
     expect(overviewQuery).toMatch(/\bpronouns\b/);
     expect(result.metrics.pronouns).toBe(pronouns);
-    const [, writerInput] = buildRoastMessages({ ...result, scoring: score(result.metrics) }, "en");
+    const [, writerInput] = buildRoastMessages({ ...result, scoring: scoringFromDevscore(fixtureDevscore("active")) }, "en");
     const writerPayload = JSON.parse(writerInput.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(writerPayload.metrics.pronouns).toBe(pronouns);
     expect(writerPayload.context_notes.pronoun_usage).toContain("they/them");
@@ -516,9 +517,9 @@ describe("collect", () => {
           const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
           const query = body.query ?? "";
 
-          // Combined overview+stats query: the account is too active for
+          // Combined overview+calendar query: the account is too active for
           // GitHub's per-query resource budget.
-          if (query.includes("totalCommitContributions")) {
+          if (query.includes("pinnedItems") && query.includes("contributionCalendar")) {
             combinedAttempts += 1;
             return jsonResponse({
               data: { user: null },
@@ -603,8 +604,6 @@ describe("collect", () => {
     expect(result.metrics.issues_created).toBe(220);
     expect(result.metrics.merged_pr_contribution_aggregation_incomplete).toBe(true);
     expect(boundedMergedAggregationCalls).toBe(1);
-    // Approximated diversity: contributions + PRs + issues (reviews unknowable).
-    expect(result.metrics.activity_type_count).toBe(3);
   });
 
   it("keeps the newest 300 merged PRs as an impact lower bound when history is larger", async () => {
@@ -854,21 +853,6 @@ ${"Useful project detail. ".repeat(50)}
           return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
         }
 
-        if (query.includes("repository(owner:")) {
-          return jsonResponse({
-            data: {
-              repository: {
-                stargazerCount: 12345,
-                hasIssuesEnabled: true,
-                isMirror: false,
-                watchers: { totalCount: 300 },
-                issues: { totalCount: 800 },
-                pullRequests: { totalCount: 400 },
-              },
-            },
-          });
-        }
-
         return jsonResponse({
           data: {
             user: {
@@ -901,8 +885,6 @@ ${"Useful project detail. ".repeat(50)}
     expect(result.metrics.attributed_original_repo_count).toBe(1);
     expect(result.metrics.nonempty_original_repo_count).toBe(1);
     expect(result.metrics.total_stars).toBe(12345);
-    // Engagement of the top-starred repo: (300 + 800 + 400) / 12345
-    expect(result.metrics.top_repo_engagement_ratio).toBeCloseTo(0.1215, 3);
     expect(result.top_repos[0]).toMatchObject({
       name: "core",
       owner_login: "acme",

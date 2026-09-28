@@ -114,7 +114,7 @@
     "boardHeading": "🏆 Những dev xịn nhất",
     "openBoard": "Mở bảng xếp hạng đầy đủ →",
     "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
-    "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
+    "disclaimer2": "Engine chấm điểm devscore là mã nguồn mở trong repository <code>ghfind</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
     "viewAll": "Xem tất cả"
   },
   "leaderboard": {
@@ -305,18 +305,18 @@
     "modalPkCta": "Kéo ai đó vào so kè",
     "modalFacetRankCta": "Xem tôi xếp hạng mấy trên {facet}",
     "dimensionsHeading": "Phân tích điểm số",
-    "scoreBase": "Điểm gốc sáu chiều",
-    "scoreAdjustment": "Điều chỉnh rủi ro",
+    "scoreBase": "Tổng sáu chiều",
+    "scoreAdjustment": "Chênh lệch so với tổng điểm",
     "scoreInferredAdjustment": "Chênh lệch chưa được giải thích",
     "scoreFinal": "Điểm cuối",
     "scoreBreakdownHeading": "Cấu thành điểm",
-    "scoreBreakdownNote": "Các quy tắc rủi ro được áp dụng riêng sau khi cộng sáu điểm thành phần.",
+    "scoreBreakdownNote": "Tổng điểm là điểm của devscore; sáu chiều là các giá trị hiển thị suy ra từ các hệ số của nó, nên bản thân chênh lệch giữa chúng không phải là điểm phạt. Nó chỉ phản ánh rủi ro khi một mức trần chống gian lận được áp dụng, như liệt kê bên dưới.",
     "scoreRiskHeading": "Giải thích rủi ro · {count} mục",
     "scoreRiskUnavailable": "Điểm lịch sử này không lưu lý do điều chỉnh cụ thể. Hãy quét lại để xem nguyên nhân.",
     "scoreAdjustmentLimited": "Tổng khấu trừ theo quy tắc là {total}; giới hạn hoặc mức điểm sàn khiến điều chỉnh thực tế là {applied}.",
     "scoreRiskMore": "Xem thêm {count} mục",
     "scoreRiskStatus": "Mức rủi ro",
-    "scoreRiskFootprintNote": "Dấu vết công khai hạn chế chỉ nghĩa là dữ liệu hạn chế, không phải gian lận; chỉ nhiều tín hiệu thao túng có độ tin cậy cao mới bị trừ điểm.",
+    "scoreRiskFootprintNote": "Dấu vết công khai hạn chế chỉ nghĩa là bằng chứng hạn chế, không phải gian lận; chỉ trần PR chất lượng thấp hàng loạt và trần influencer mới làm giảm điểm.",
     "scoreRiskNoPenalty": "Các tín hiệu này chỉ mang tính tham khảo và không ảnh hưởng đến điểm cuối.",
     "scoreRiskNotes": "Xem {count} tín hiệu không bị trừ điểm",
     "scoreRiskScore": "Điểm rủi ro",
@@ -608,11 +608,11 @@
       },
       {
         "q": "Điểm số được tính thế nào?",
-        "a": "Engine chấm sáu chiều có trọng số, cộng lại thành 100 — độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động — rồi trừ điểm phạt cho các dấu hiệu đáng ngờ như cày PR hay bơm star. Nó chỉ chạy trên dữ liệu GitHub công khai."
+        "a": "Điểm số đến từ devscore, một engine chấm điểm mã nguồn mở. Với mỗi repository, nó đo phần code bạn thực sự viết, có trọng số theo giá trị của dự án (các tín hiệu sử dụng thật như những người đóng góp khác, các dự án phụ thuộc ở hạ nguồn và người mở issue bên ngoài) và theo tỷ lệ tác giả của bạn; star và follower không bao giờ được tính. Công việc trong dự án của người khác chỉ được tính trong phạm vi một maintainer độc lập đã chấp nhận nó, công việc bảo trì review-và-merge cũng được tính, và việc viết code bền bỉ được cộng dồn theo năm dương lịch. Hai mẫu hành vi bị áp trần: PR ngoài chất lượng thấp hàng loạt, và lượng follower vượt xa công việc được chấp nhận. Nó chỉ chạy trên dữ liệu GitHub công khai."
       },
       {
         "q": "Điểm số có tất định và tái lập được không?",
-        "a": "Có. Không LLM nào chạm vào con số: cùng đầu vào luôn ra cùng điểm số. Lõi chấm điểm được mã nguồn mở dưới dạng skill github-account-value (AGPL), nên ai cũng có thể tái lập hoặc kiểm chứng kết quả. Chỉ có phần văn bản cà khịa tùy chọn là do LLM viết."
+        "a": "Có. Không LLM nào chạm vào con số: cùng dữ liệu công khai luôn ra cùng điểm số. Engine devscore là mã nguồn mở (AGPL) trong repository ghfind, nên ai cũng có thể tái lập hoặc kiểm chứng kết quả. Chỉ có phần văn bản cà khịa tùy chọn là do LLM viết."
       },
       {
         "q": "Tôi có thể dùng ghfind qua API, CLI hay MCP không?",
@@ -620,7 +620,7 @@
       },
       {
         "q": "ghfind có phát hiện bot và tài khoản cày bằng AI không?",
-        "a": "Nó đánh dấu những mẫu hành vi phân biệt hoạt động cày ảo với công việc chân chính — tiêu đề PR theo template gần như giống hệt nhau, đóng góp dồn vào những repo không thuộc sở hữu của tài khoản, và bơm star hay follower đáng ngờ. Trong bộ dữ liệu 18.947 tài khoản đã chấm, chưa tới 1% dính các cờ đỏ nặng nhất — hiếm, nhưng khi xuất hiện thì cực đoan."
+        "a": "Có — nó đánh giá mẫu hành vi, không phải sự kiện đơn lẻ. Nhiều PR bị từ chối vào dự án của người khác trong vòng một năm, đi kèm tiêu đề theo template, bản trùng lặp, những đợt dồn dập trong một tuần trên nhiều repo hoặc PR khổng lồ, sẽ khiến điểm bị áp trần; lượng follower vượt xa công việc kỹ thuật được chấp nhận độc lập cũng vậy. PR tự merge và những nhóm nhỏ merge PR cho nhau không được tính là được chấp nhận, lịch sử commit giống bot bị giảm trọng số, và các dự án thổi phồng có star nhưng không có người dùng thật không nhận được điểm dự án. Trong bộ dữ liệu 18.947 tài khoản được chấm theo bộ tiêu chí trước đây, chưa tới 1% dính các tín hiệu cày ảo mạnh nhất — hiếm, nhưng khi xuất hiện thì cực đoan."
       },
       {
         "q": "Công việc private của tôi có được tính không?",
@@ -630,16 +630,16 @@
   },
   "homeIntro": {
     "whatHeading": "ghfind là gì?",
-    "whatBody": "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 theo sáu chiều có trọng số — độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động — bằng một engine hoàn toàn tất định (skill mã nguồn mở github-account-value, giấy phép AGPL). Cùng đầu vào luôn ra cùng điểm số; không LLM nào chạm vào con số. Trên nền điểm số đó, nó thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ và tổ chức, cùng huy hiệu điểm cho README.",
+    "whatBody": "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 theo công việc thật đứng sau tài khoản đó — có trọng số theo giá trị của từng dự án và phần trong đó thực sự là của lập trình viên, chỉ tính công việc trong dự án của người khác trong phạm vi các maintainer độc lập đã chấp nhận, và không bao giờ tính star hay follower — bằng devscore, một engine mã nguồn mở hoàn toàn tất định (AGPL). Cùng dữ liệu công khai luôn ra cùng điểm số; không LLM nào chạm vào con số. Mỗi điểm số được phân tách thành sáu chiều hiển thị. Trên nền điểm số đó, nó thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ và tổ chức, cùng huy hiệu điểm cho README.",
     "howHeading": "ghfind hoạt động thế nào",
     "steps": [
       {
         "title": "1. Quét dấu chân công khai",
-        "body": "Nhập bất kỳ username GitHub nào. Engine thu thập dữ liệu công khai của tài khoản — repository, pull request, issue, star, follower — và dựng một ảnh chụp bằng chứng. Không cần đăng nhập, không cần cấp quyền."
+        "body": "Nhập bất kỳ username GitHub nào. Ở chế độ nền, engine thu thập dữ liệu công khai của tài khoản — repository, commit, pull request và ai đã merge chúng, code review — và dựng một ảnh chụp bằng chứng. Lần chấm đầu tiên cho một tài khoản lớn mất vài phút. Không cần đăng nhập, không cần cấp quyền."
       },
       {
-        "title": "2. Chấm sáu chiều tất định",
-        "body": "Ảnh chụp được chấm theo độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động, kèm điểm phạt cho cày PR, bơm star và spam theo template."
+        "title": "2. Cân đo công việc thật",
+        "body": "Công việc trong mỗi repository được đặt trọng số theo giá trị của dự án và tỷ lệ tác giả của bạn, công việc bên ngoài chỉ được tính trong phạm vi các maintainer độc lập đã chấp nhận, và việc bảo trì cùng nhiều năm viết code bền bỉ cũng được tính. Star và follower không bao giờ được tính; PR chất lượng thấp hàng loạt và mẫu hành vi influencer bị áp trần."
       },
       {
         "title": "3. Nhận điểm, hạng và màn cà khịa",
@@ -650,7 +650,7 @@
     "numbers": {
       "accounts": "{count} tài khoản GitHub đã được chấm trong bộ dữ liệu nghiên cứu công khai",
       "snapshots": "{count} ảnh chụp bằng chứng đầy đủ đã thu thập và phân tích",
-      "dimensions": "{count} chiều có trọng số đứng sau mỗi điểm số",
+      "dimensions": "{count} chiều trong mỗi bảng phân tách điểm số",
       "flagged": "{share} tài khoản đã chấm bị gắn cờ hoạt động không trung thực"
     },
     "tableCaption": "Điểm ghfind vs tín hiệu GitHub thô",
@@ -670,8 +670,8 @@
       },
       {
         "signal": "Điểm ghfind",
-        "measures": "Giá trị đóng góp thực và độ tin cậy qua sáu chiều có trọng số",
-        "gameable": "Khó — mẫu hành vi không trung thực bị phát hiện và trừ điểm"
+        "measures": "Công việc thật, có trọng số theo giá trị dự án và tỷ lệ tác giả; star và follower không bao giờ được tính",
+        "gameable": "Khó — chỉ công việc được maintainer độc lập chấp nhận mới được tính, còn cày PR và mẫu hành vi influencer bị áp trần"
       }
     ]
   },
@@ -787,8 +787,8 @@
     "heading": "Giới thiệu ghfind",
     "paragraphs": [
       "ghfind là công cụ chấm điểm và khám phá lập trình viên cho GitHub. Nó chấm bất kỳ tài khoản nào từ 0 đến 100 về giá trị đóng góp thực và độ tin cậy, bằng một engine hoàn toàn tất định chỉ chạy trên dữ liệu GitHub công khai. Cùng đầu vào luôn ra cùng điểm số — không mô hình ngôn ngữ lớn nào tham gia vào con số — nên kết quả tái lập và kiểm chứng được thay vì mù mờ.",
-      "Điểm số được dựng từ sáu chiều có trọng số cộng lại thành 100: độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động. Trên nền lõi dữ kiện đó, ghfind thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ lập trình, tổ chức và dự án, cùng huy hiệu điểm README bạn có thể nhúng vào hồ sơ của mình.",
-      "Engine chấm điểm là mã nguồn mở theo giấy phép AGPL dưới dạng skill github-account-value, và cùng một dòng code vận hành trang web, các gói npm và PyPI chính thức, công cụ dòng lệnh và server Model Context Protocol. ghfind tồn tại để làm cho đóng góp GitHub trở nên dễ đọc: thưởng cho công sức mã nguồn mở chân chính, làm nổi bật các dev đáng theo dõi, và khiến hoạt động cày ảo hay giả tạo dễ bị lộ bằng cách nhìn vào mẫu hành vi thay vì con số thô."
+      "Điểm số đo công việc thật: mỗi repository được đặt trọng số theo giá trị của dự án và tỷ lệ tác giả của lập trình viên, công việc trong dự án của người khác chỉ được tính trong phạm vi các maintainer độc lập đã chấp nhận, việc bảo trì và nhiều năm viết code bền bỉ cũng được tính, còn star và follower không bao giờ được tính. Mỗi điểm số cũng được phân tách thành sáu chiều hiển thị: độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động. Trên nền lõi dữ kiện đó, ghfind thêm màn cà khịa do AI viết (tùy chọn), các trận đấu dev-vs-dev, bảng xếp hạng theo ngôn ngữ lập trình, tổ chức và dự án, cùng huy hiệu điểm README bạn có thể nhúng vào hồ sơ của mình.",
+      "Engine chấm điểm devscore là mã nguồn mở theo giấy phép AGPL trong repository ghfind, và cùng một mã engine vận hành trang web, API, server Model Context Protocol và gói npm chính thức. ghfind tồn tại để làm cho đóng góp GitHub trở nên dễ đọc: thưởng cho công sức mã nguồn mở chân chính, làm nổi bật các dev đáng theo dõi, và khiến hoạt động cày ảo hay giả tạo dễ bị lộ bằng cách nhìn vào mẫu hành vi thay vì con số thô."
     ]
   },
   "contact": {
@@ -829,25 +829,25 @@
   },
   "methodology": {
     "metaTitle": "Phương pháp — ghfind chấm điểm tài khoản GitHub thế nào",
-    "metaDescription": "Cách engine tất định của ghfind chấm tài khoản GitHub theo sáu chiều có trọng số, áp dụng điểm phạt cờ đỏ, và luôn tái lập được hoàn toàn mà không cần LLM.",
+    "metaDescription": "Cách ghfind chấm tài khoản GitHub bằng devscore, một engine mã nguồn mở: công việc thật có trọng số theo giá trị dự án và tỷ lệ tác giả, star và follower không bao giờ được tính, các mẫu cày ảo bị áp trần, tái lập được hoàn toàn mà không cần LLM.",
     "heading": "ghfind chấm điểm tài khoản GitHub thế nào",
-    "lead": "Điểm của ghfind được tạo ra bởi một bộ tiêu chí tất định, không phải một model. Engine đọc dữ liệu GitHub công khai, chấm sáu chiều cộng lại thành 100, trừ điểm phạt cho các cờ đỏ, và trả về cùng một con số mỗi lần với cùng đầu vào. Phần lõi là mã nguồn mở theo giấy phép AGPL, nên bất kỳ kết quả nào cũng có thể được tái lập và kiểm chứng.",
-    "dimensionsHeading": "Sáu chiều đánh giá",
-    "dimensionsIntro": "Mỗi chiều đóng góp vào điểm cơ sở 100. Kết hợp lại, chúng thưởng cho công việc mã nguồn mở bền bỉ, nguyên bản, được sử dụng rộng rãi thay vì các con số hoạt động thô.",
+    "lead": "Điểm của ghfind đến từ devscore, một engine chấm điểm mã nguồn mở, không phải một model. Nó đo những gì một lập trình viên thực sự xây dựng: phần code bạn viết trong mỗi repository, có trọng số theo giá trị của dự án và tỷ lệ tác giả của bạn. Công việc trong dự án của người khác chỉ được tính trong phạm vi một maintainer độc lập đã chấp nhận nó, và việc bảo trì cùng nhiều năm viết code bền bỉ cũng được tính. Star và follower không bao giờ được tính. Cùng dữ liệu công khai luôn trả về cùng một con số, và phần lõi là mã nguồn mở theo giấy phép AGPL, nên bất kỳ kết quả nào cũng có thể được tái lập và kiểm chứng.",
+    "dimensionsHeading": "Sáu chiều hiển thị",
+    "dimensionsIntro": "Tổng điểm là điểm của devscore, không phải tổng của các chiều. Sáu chiều là các giá trị hiển thị được suy ra từ các hệ số trung gian của devscore, với mức tối đa cộng lại thành 100. Chúng cho thấy điểm số đến từ đâu và điều gì kìm nó lại, đồng thời vận hành các trận đấu và gợi ý dev tương tự.",
     "dimensionDetails": {
-      "account_maturity": "Tài khoản đã ổn định và nhất quán theo thời gian ra sao — tuổi đời, hoạt động bền bỉ, và một đường cong uy tín chống lại việc bơm thổi qua đêm.",
-      "original_project_quality": "Chất lượng và mức đón nhận của những repository mà tài khoản thực sự sở hữu và tự viết, không tính fork hay dự án vặt vãnh.",
-      "contribution_quality": "Chất lượng thực chất của đóng góp cho các dự án khác — những pull request được merge, có ý nghĩa, đối lập với spam theo template.",
-      "ecosystem_impact": "Công việc của tài khoản được phụ thuộc và bảo trì đến mức nào trong hệ sinh thái rộng hơn.",
-      "community_influence": "Tầm với và vị thế thật trong cộng đồng, được chuẩn hóa để số follower hay star thô không thể lấn át.",
-      "activity_authenticity": "Mẫu hoạt động trông tự nhiên hay được dàn dựng — chiều đánh giá tách công việc chân chính khỏi cày ảo."
+      "account_maturity": "Số năm viết code bền bỉ: mỗi năm dương lịch được tính một lần, tối đa 12 tháng viết code, và các năm cũ phai dần với chu kỳ bán rã ba năm. Rải một năm ra sáu mươi repository nhỏ không biến thành sáu mươi năm.",
+      "original_project_quality": "Sức mạnh dự án chủ lực: những repository mạnh nhất mà bạn sở hữu hoặc dẫn dắt, xét theo giá trị dự án, tỷ lệ tác giả, khối lượng công việc và thời gian kéo dài. Chỉ dự án kỹ thuật mới được tính là dự án chủ lực — tài liệu, website và danh sách thì không — và một repository của riêng bạn mà không ai khác dùng chỉ giữ lại một phần nhỏ công việc của nó.",
+      "contribution_quality": "Công việc bên ngoài được chấp nhận độc lập: code bạn đưa được vào dự án của người khác, xét theo giá trị dự án và thực chất của thay đổi, chỉ được tính trong phạm vi một maintainer độc lập đã chấp nhận. Tự merge và các nhóm merge chéo cho nhau không được tính gì. Code review bạn thực hiện trong dự án của người khác cũng được tính.",
+      "ecosystem_impact": "Tác động lên hệ sinh thái: công việc trong các repository của bạn được cộng từ mạnh nhất đến yếu nhất (repository tốt nhất được tính đầy đủ, phần đuôi dài phai nhanh), hoặc vai trò maintainer được GitHub xác minh — review và merge PR của người khác — tùy cái nào cao hơn.",
+      "community_influence": "Hồ sơ cộng tác: các maintainer merge thay vì từ chối PR bên ngoài của bạn thường xuyên đến đâu (cận dưới Wilson, chỉ sau ít nhất mười quyết định), cộng với các code review bạn thực hiện. Số follower không nằm trong đó.",
+      "activity_authenticity": "Độ gần đây và độ thật: tỷ lệ công việc của bạn thuộc về những năm gần đây và trạng thái hiện tại của bạn (đang hoạt động hay đang bảo trì). Nó giảm mạnh khi trần PR chất lượng thấp hàng loạt hoặc trần influencer được áp dụng."
     },
-    "penaltiesHeading": "Điểm phạt cờ đỏ",
-    "penaltiesBody": "Trên nền sáu chiều đó, engine trừ điểm phạt cho các mẫu hành vi bơm thổi hồ sơ mà không có giá trị thực: tiêu đề pull request theo template gần như giống hệt nhau, đóng góp dồn vào những repository không thuộc sở hữu của tài khoản, và bơm star hay follower. Từng sự kiện riêng lẻ có thể trông hợp lý; điểm phạt kích hoạt trên mẫu hành vi, và đó chính là điều khiến hoạt động cày ảo tách bạch được khỏi công việc chân chính.",
+    "penaltiesHeading": "Trần chống gian lận",
+    "penaltiesBody": "Thay vì trừ điểm từng mục, devscore ngay từ đầu không cho các tín hiệu có thể cày được bất kỳ trọng số nào: star và follower không bao giờ được tính; PR tự merge và các nhóm nhỏ merge công việc cho nhau không được tính là được chấp nhận; các dự án thổi phồng có star nhưng không có người dùng thật không nhận được điểm dự án; lịch sử commit giống bot bị giảm trọng số. Trên hết, hai mức trần được áp dụng sau cùng. Nhiều PR bị từ chối vào dự án của người khác trong vòng một năm, đi kèm tiêu đề theo template, bản trùng lặp, những đợt dồn dập trong một tuần trên nhiều repository hoặc PR khổng lồ, sẽ ép điểm vào khoảng 20–35; lượng follower vượt xa công việc kỹ thuật được chấp nhận độc lập (mẫu hành vi influencer) cũng bị áp trần theo cùng cách. Từng sự kiện riêng lẻ có thể trông hợp lý; các quy tắc kích hoạt trên mẫu hành vi.",
     "determinismHeading": "Tính tất định và khả năng tái lập",
-    "determinismBody": "Không mô hình ngôn ngữ lớn nào chạm vào điểm số. Lõi chấm điểm là skill mã nguồn mở github-account-value (AGPL), và cùng một dòng code vận hành trang web, các gói npm và PyPI, CLI và MCP server. Với cùng đầu vào công khai, điểm số giống hệt nhau trên tất cả, vì thế nó có thể được tái lập độc lập. Phần văn bản cà khịa tùy chọn là thứ duy nhất do LLM viết và không bao giờ thay đổi con số.",
+    "determinismBody": "Không mô hình ngôn ngữ lớn nào chạm vào điểm số. Engine devscore là mã nguồn mở (AGPL) trong repository ghfind, và trang web, API, MCP server cùng chế độ cục bộ của gói npm đều chạy cùng một mã engine. Với cùng dữ liệu công khai, điểm số giống hệt nhau trên tất cả, vì thế nó có thể được tái lập độc lập (một lần thu thập cục bộ mới có thể thấy dữ liệu công khai đã thay đổi kể từ đó). Phần văn bản cà khịa tùy chọn là thứ duy nhất do LLM viết và không bao giờ thay đổi con số.",
     "dataHeading": "Ở quy mô lớn",
-    "dataBody": "Áp dụng lên bộ dữ liệu công khai gồm 18.947 tài khoản đã chấm — 3.444 trong số đó có ảnh chụp số liệu thô đầy đủ — thì đóng góp giả hay cày ảo hóa ra hiếm hơn dư luận vẫn đồn (dưới 1% tài khoản dính các cờ đỏ nặng nhất) nhưng khi xuất hiện thì cực đoan hơn nhiều. Phân tích đầy đủ nằm trong mục nghiên cứu."
+    "dataBody": "Áp dụng lên bộ dữ liệu công khai gồm 18.947 tài khoản đã chấm — 3.444 trong số đó có ảnh chụp số liệu thô đầy đủ, được chấm theo bộ tiêu chí trước đây — thì đóng góp giả hay cày ảo hóa ra hiếm hơn dư luận vẫn đồn (dưới 1% tài khoản dính các cờ đỏ nặng nhất) nhưng khi xuất hiện thì cực đoan hơn nhiều. Phân tích đầy đủ nằm trong mục nghiên cứu."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · Ai thắng? | ghfind",

@@ -1,9 +1,9 @@
 /**
  * Shared types for the GitHub value/trust scorer.
  *
- * Keys are intentionally snake_case to mirror the canonical Python skill output
- * (`github-account-value/scripts/fetch_github_profile.py`), so the JSON contract
- * is identical between the website and the open-source Claude skill.
+ * Keys are snake_case: they are the public JSON contract of the scan/score API.
+ * `RawMetrics` is display and roast evidence only; the score comes from the
+ * devscore summary (`DevscoreSummary`).
  */
 
 export interface ReadmeFeatures {
@@ -167,15 +167,9 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
-  /** (watchers + issues ever + PRs ever) / stars for the top-starred original
-   * repo. Only measured at ≥500★; undefined = not measured or fetch failed
-   * (scored as "no penalty"). Viral-but-hollow repos run <1%, genuinely used
-   * projects ≥5%. */
-  top_repo_engagement_ratio?: number;
   attributed_original_repo_count?: number;
   attributed_original_repo_stars?: number;
   attributed_original_repos?: string[];
-  best_original_repo_quality_score?: number;
   best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_score?: number;
   top_starred_original_repo_quality_repo?: string | null;
@@ -186,27 +180,19 @@ export interface RawMetrics {
   total_pr_count: number;
   issues_created: number;
   last_year_contributions: number;
-  activity_type_count: number;
   contribution_years_active: number;
   days_since_last_activity: number | null;
   recent_merged_pr_sample: number;
   recent_trivial_pr_count: number;
-  recent_doc_like_pr_count?: number;
   recent_doc_like_pr_ratio?: number;
   recent_external_pr_sample?: number;
-  recent_external_doc_like_pr_count?: number;
   recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
-  /** 0..1 prestige signal after weighting the biggest contributed repos by
-   * landed work volume. Optional so older cached snapshots fall back to
-   * max_impact_repo_stars. */
-  impact_prestige_score?: number;
   impact_pr_count: number;
   /** Subset of impact PRs credited through a repository workflow rather than
    * GitHub's native merged state. */
   workflow_landed_impact_pr_count?: number;
-  impact_depth_raw: number;
   impact_quality_cap?: number;
   verified_impact_pr_count?: number;
   core_impact_pr_count?: number;

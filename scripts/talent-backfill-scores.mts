@@ -28,9 +28,9 @@
  *
  * Every value is derived by running the real materializeCanonicalScore from
  * src/lib/score-materialization on a reconstructed ScanResult, so the stored
- * score is exactly what the current scorer produces from the checkpoint
- * metrics. Users whose checkpoint fails that canonical validation are skipped
- * and reported.
+ * score is exactly what the current scorer produces from the checkpoint's
+ * devscore summary. Users whose checkpoint fails that canonical validation
+ * (including checkpoints without a devscore summary) are skipped and reported.
  */
 import "./_env.mjs";
 import { createHash, randomUUID } from "node:crypto";
@@ -43,7 +43,7 @@ import {
   PUBLIC_SCAN_REQUIRED_SOURCES,
   type PublicScanSourceStatus,
 } from "../src/lib/scan-run-types";
-import type { RawMetrics, ScanResult, Scoring } from "../src/lib/types";
+import type { DevscoreSummary, RawMetrics, ScanResult, Scoring } from "../src/lib/types";
 import { buildCtx, buildRoastLine, buildRoastReport, buildTags } from "./roast-gen.mts";
 
 const PEOPLE_DIR = new URL("./talent-import/out/people/", import.meta.url);
@@ -63,6 +63,7 @@ interface Checkpoint {
   fetched_at: number;
   metrics: RawMetrics;
   scoring: Scoring;
+  devscore?: DevscoreSummary;
 }
 
 const q = (value: unknown): string => {
@@ -90,8 +91,8 @@ function buildStatements(cp: Checkpoint): string[] {
   // Rebuild the ScanResult the quick collector would have produced. The
   // checkpoints predate persistence of top_repos / recent_prs / flood_pr_titles
   // / impact_repos / verified_impact_prs / pinned_repos / organizations, so
-  // those arrays are empty. scoring is recomputed by the current scorer — the
-  // same replacement materializeCanonicalScore performs — so the stored
+  // those arrays are empty. scoring is recomputed from the devscore summary —
+  // the same replacement materializeCanonicalScore performs — so the stored
   // snapshot, its hash, and the scores row are mutually consistent.
   const scan: ScanResult = {
     metrics,
@@ -102,6 +103,7 @@ function buildStatements(cp: Checkpoint): string[] {
     verified_impact_prs: [],
     pinned_repos: [],
     organizations: [],
+    devscore: cp.devscore,
     scoring: cp.scoring,
   };
   const snapshot = JSON.stringify(scan);
@@ -119,7 +121,7 @@ function buildStatements(cp: Checkpoint): string[] {
   if (!materialized) {
     throw new Error("checkpoint failed canonical scan validation (materializeCanonicalScore returned null)");
   }
-  // scan carries the recomputed v10 scoring; re-serialize so the stored
+  // scan carries the recomputed v11 scoring; re-serialize so the stored
   // snapshot matches the materialized score bit-for-bit.
   const canonicalScan = materialized.scan;
   const canonicalSnapshot = JSON.stringify(canonicalScan);

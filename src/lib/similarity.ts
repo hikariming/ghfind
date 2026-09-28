@@ -7,7 +7,7 @@
  * Euclidean distance: smaller = more alike.
  */
 
-import { SUBSCORE_MAX } from "./score";
+import { SUBSCORE_MAX } from "./score-presentation";
 import type { SubScoreKey, SubScores } from "./types";
 
 const KEYS = Object.keys(SUBSCORE_MAX) as SubScoreKey[];

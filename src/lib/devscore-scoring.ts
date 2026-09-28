@@ -18,7 +18,8 @@
 import type { Developer } from "@/lib/devscore/model";
 import type { Rated } from "@/lib/devscore/engine";
 import { sat } from "@/lib/devscore/engine/score";
-import { SUBSCORE_MAX, roundHalfEven, tierFor } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
+import { SUBSCORE_MAX, tierFor } from "@/lib/score-presentation";
 import type {
   DevscoreRepoFactors,
   DevscoreSummary,

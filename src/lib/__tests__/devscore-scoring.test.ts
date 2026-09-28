@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tierOf } from "@/lib/devscore/engine";
 import { devscoreSubScores, scoringFromDevscore } from "../devscore-scoring";
-import { SUBSCORE_MAX } from "../score";
+import { SUBSCORE_MAX } from "../score-presentation";
 import { TIER_KEY } from "../tier";
 import type { DevscoreSummary } from "../types";
 import { fixtureDevscore, type SyntheticName } from "./devscore-fixture";

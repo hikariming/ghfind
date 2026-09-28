@@ -114,7 +114,7 @@
     "boardHeading": "🏆 Los mejores developers",
     "openBoard": "Abrir el ranking completo →",
     "disclaimer1": "Los scores y roasts se generan automáticamente solo a partir de <b>datos públicos de GitHub</b>. Roasteamos el comportamiento y las estadísticas públicas de una cuenta, no a la persona. Los resultados no son afirmaciones factuales sobre nadie — por favor no los uses para acosar.",
-    "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador.",
+    "disclaimer2": "El motor de scoring devscore es open source en el repositorio <code>ghfind</code> · tu propia API key nunca sale de tu navegador.",
     "viewAll": "Ver todo"
   },
   "leaderboard": {
@@ -305,18 +305,18 @@
     "modalPkCta": "Trae a alguien para comparar",
     "modalFacetRankCta": "Ver mi posición en {facet}",
     "dimensionsHeading": "Desglose del score",
-    "scoreBase": "Base de seis dimensiones",
-    "scoreAdjustment": "Ajuste de riesgo",
+    "scoreBase": "Total de seis dimensiones",
+    "scoreAdjustment": "Diferencia con el total",
     "scoreInferredAdjustment": "Diferencia no explicada",
     "scoreFinal": "Puntuación final",
     "scoreBreakdownHeading": "Composición de la puntuación",
-    "scoreBreakdownNote": "Las reglas de riesgo se aplican por separado después de sumar las seis dimensiones.",
+    "scoreBreakdownNote": "El total es el score de devscore; las seis dimensiones son valores de visualización derivados de sus factores, así que la diferencia entre ambos no es una penalización por sí misma. Solo refleja riesgo cuando se aplicó un tope antimanipulación, como se indica abajo.",
     "scoreRiskHeading": "Explicación del riesgo · {count}",
     "scoreRiskUnavailable": "Esta puntuación histórica no conservó los motivos específicos del ajuste. Vuelve a analizar para verlos.",
     "scoreAdjustmentLimited": "Las reglas de riesgo sumaron {total}; el límite o el mínimo de puntuación redujo el ajuste real a {applied}.",
     "scoreRiskMore": "Mostrar {count} más",
     "scoreRiskStatus": "Nivel de riesgo",
-    "scoreRiskFootprintNote": "Una huella pública limitada significa datos limitados, no fraude; solo varias señales de manipulación de alta confianza restan puntos.",
+    "scoreRiskFootprintNote": "Una huella pública limitada significa evidencia limitada, no fraude; solo los topes por PRs masivos de baja calidad y por patrón de influencer bajan el score.",
     "scoreRiskNoPenalty": "Estas señales son solo informativas y no afectaron a la puntuación final.",
     "scoreRiskNotes": "Mostrar {count} señales que no restaron puntos",
     "scoreRiskScore": "Puntuación de riesgo",
@@ -608,11 +608,11 @@
       },
       {
         "q": "¿Cómo se calcula el score?",
-        "a": "El motor evalúa seis dimensiones ponderadas que suman 100 — madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad — y resta penalizaciones por señales de alerta como el farmeo de PRs o la inflación de stars. Corre únicamente sobre datos públicos de GitHub."
+        "a": "Los scores los produce devscore, un motor de scoring open source. En cada repositorio mide el código que realmente escribiste, ponderado por el valor del proyecto (señales de uso real como otros contribuidores, dependientes downstream y autores externos de issues) y por tu participación en la autoría; las stars y los seguidores nunca cuentan. El trabajo en proyectos ajenos cuenta solo en la medida en que un maintainer independiente lo aceptó, el mantenimiento de revisar y mergear también cuenta, y la programación sostenida suma por año calendario. Dos patrones tienen tope: PRs externos masivos de baja calidad y seguidores muy desproporcionados respecto al trabajo aceptado. Corre únicamente sobre datos públicos de GitHub."
       },
       {
         "q": "¿El score es determinista y reproducible?",
-        "a": "Sí. Ningún LLM toca el número: los mismos datos de entrada siempre producen el mismo score. El núcleo de scoring es open source como la skill github-account-value (AGPL), así que cualquiera puede reproducir o auditar un resultado. Solo el texto opcional del roast lo escribe un LLM."
+        "a": "Sí. Ningún LLM toca el número: los mismos datos públicos siempre producen el mismo score. El motor devscore es open source (AGPL) en el repositorio de ghfind, así que cualquiera puede reproducir o auditar un resultado. Solo el texto opcional del roast lo escribe un LLM."
       },
       {
         "q": "¿Puedo usar ghfind vía API, CLI o MCP?",
@@ -620,7 +620,7 @@
       },
       {
         "q": "¿ghfind detecta bots y cuentas farmeadas por IA?",
-        "a": "Marca los patrones que separan la actividad farmeada del trabajo honesto — títulos de PR casi idénticos hechos con plantilla, contribuciones concentradas en repos que la cuenta no posee e inflación sospechosa de stars o seguidores. En un dataset de 18,947 cuentas evaluadas, menos del 1% activó las señales de alerta más fuertes — raras, pero extremas cuando aparecen."
+        "a": "Sí — juzga patrones, no eventos aislados. Muchos PRs rechazados en proyectos ajenos dentro de un año, junto con títulos hechos con plantilla, duplicados, rachas de una semana en muchos repos o PRs gigantes, ponen tope al score; lo mismo ocurre con seguidores muy desproporcionados respecto a la ingeniería aceptada de forma independiente. Los PRs auto-mergeados y los círculos pequeños que se mergean los PRs entre sí no cuentan como aceptados, los historiales de commits con aspecto de bot se descuentan y los proyectos de hype con stars pero sin usuarios reales no reciben crédito de proyecto. En un dataset de 18,947 cuentas evaluadas con la rúbrica anterior, menos del 1% activó las señales de farmeo más fuertes — raras, pero extremas cuando aparecen."
       },
       {
         "q": "¿Se cuenta mi trabajo privado?",
@@ -630,16 +630,16 @@
   },
   "homeIntro": {
     "whatHeading": "¿Qué es ghfind?",
-    "whatBody": "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 en seis dimensiones ponderadas — madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad — usando un motor totalmente determinista (la skill open source github-account-value, AGPL). Los mismos datos de entrada siempre producen el mismo score; ningún LLM toca el número. Encima del score suma un roast opcional escrito por IA, batallas dev contra dev, rankings por lenguaje y organización, y badges de score para el README.",
+    "whatBody": "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 según el trabajo real detrás de ella — ponderado por cuánto vale cada proyecto y cuánto de él es obra propia del developer, contando el trabajo en proyectos ajenos solo en la medida en que maintainers independientes lo aceptaron y sin contar nunca stars ni seguidores — usando devscore, un motor open source totalmente determinista (AGPL). Los mismos datos públicos siempre producen el mismo score; ningún LLM toca el número. Cada score se desglosa en seis dimensiones de visualización. Encima del score suma un roast opcional escrito por IA, batallas dev contra dev, rankings por lenguaje y organización, y badges de score para el README.",
     "howHeading": "Cómo funciona ghfind",
     "steps": [
       {
         "title": "1. Escanea la huella pública",
-        "body": "Escribe cualquier usuario de GitHub. El motor rastrea los datos públicos de la cuenta — repositorios, pull requests, issues, stars, seguidores — y construye una instantánea de evidencia. No requiere login ni permisos."
+        "body": "Escribe cualquier usuario de GitHub. En segundo plano, el motor recopila los datos públicos de la cuenta — repositorios, commits, pull requests y quién los mergeó, code reviews — y construye una instantánea de evidencia. El primer score de una cuenta grande tarda unos minutos. No requiere login ni permisos."
       },
       {
-        "title": "2. Evalúa seis dimensiones deterministas",
-        "body": "La instantánea se evalúa en madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad, con penalizaciones por farmeo de PRs, inflación de stars y patrones de spam con plantillas."
+        "title": "2. Pondera el trabajo real",
+        "body": "El trabajo en cada repositorio se pondera por el valor del proyecto y tu participación en la autoría, el trabajo externo cuenta solo en la medida en que maintainers independientes lo aceptaron, y el mantenimiento y los años sostenidos de programación también cuentan. Las stars y los seguidores nunca cuentan; los PRs masivos de baja calidad y los patrones de influencer tienen tope."
       },
       {
         "title": "3. Recibe score, nivel y roast",
@@ -650,7 +650,7 @@
     "numbers": {
       "accounts": "{count} cuentas de GitHub evaluadas en el dataset público de investigación",
       "snapshots": "{count} instantáneas de evidencia completas recopiladas y analizadas",
-      "dimensions": "{count} dimensiones ponderadas detrás de cada score",
+      "dimensions": "{count} dimensiones en cada desglose de score",
       "flagged": "{share} de las cuentas evaluadas marcadas por actividad no auténtica"
     },
     "tableCaption": "Score de ghfind vs señales crudas de GitHub",
@@ -670,8 +670,8 @@
       },
       {
         "signal": "Score de ghfind",
-        "measures": "Valor real de contribución y confianza en seis dimensiones ponderadas",
-        "gameable": "Difícil — los patrones no auténticos se detectan y penalizan"
+        "measures": "Trabajo real, ponderado por valor del proyecto y autoría; las stars y los seguidores nunca cuentan",
+        "gameable": "Difícil — solo cuenta el trabajo aceptado por maintainers independientes, y el farmeo de PRs y los patrones de influencer tienen tope"
       }
     ]
   },
@@ -787,8 +787,8 @@
     "heading": "Acerca de ghfind",
     "paragraphs": [
       "ghfind es una herramienta de scoring y descubrimiento de developers para GitHub. Califica cualquier cuenta de 0 a 100 en valor real de contribución y confiabilidad, usando un motor totalmente determinista que corre únicamente sobre datos públicos de GitHub. Los mismos datos de entrada siempre producen el mismo score — ningún modelo de lenguaje interviene en el número — así que los resultados son reproducibles y auditables, no opacos.",
-      "El score se construye con seis dimensiones ponderadas que suman 100: madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad. Sobre ese núcleo factual, ghfind agrega un roast opcional escrito por IA, batallas developer contra developer, rankings por lenguaje de programación, organización y proyecto, y badges de score para incrustar en tu propio README de perfil.",
-      "El motor de scoring es open source bajo la licencia AGPL como la skill github-account-value, y las mismas rutas de código impulsan el sitio web, los paquetes oficiales de npm y PyPI, la herramienta de línea de comandos y el servidor de Model Context Protocol. ghfind existe para hacer legible la contribución en GitHub: premiar el trabajo open source genuino, destacar developers que vale la pena seguir y hacer que la actividad farmeada o falsificada sea fácil de detectar mirando patrones en lugar de conteos crudos."
+      "El score mide trabajo real: cada repositorio se pondera por el valor del proyecto y la participación del developer en la autoría, el trabajo en proyectos ajenos cuenta solo en la medida en que maintainers independientes lo aceptaron, el mantenimiento y los años sostenidos de programación también cuentan, y las stars y los seguidores nunca cuentan. Cada score también se desglosa en seis dimensiones de visualización: madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad. Sobre ese núcleo factual, ghfind agrega un roast opcional escrito por IA, batallas developer contra developer, rankings por lenguaje de programación, organización y proyecto, y badges de score para incrustar en tu propio perfil.",
+      "El motor de scoring devscore es open source bajo la licencia AGPL en el repositorio de ghfind, y el mismo código del motor impulsa el sitio web, la API, el servidor de Model Context Protocol y el paquete oficial de npm. ghfind existe para hacer legible la contribución en GitHub: premiar el trabajo open source genuino, destacar developers que vale la pena seguir y hacer que la actividad farmeada o falsificada sea fácil de detectar mirando patrones en lugar de conteos crudos."
     ]
   },
   "contact": {
@@ -829,25 +829,25 @@
   },
   "methodology": {
     "metaTitle": "Metodología — cómo ghfind evalúa cuentas de GitHub",
-    "metaDescription": "Cómo el motor determinista de ghfind evalúa cuentas de GitHub en seis dimensiones ponderadas, aplica penalizaciones por señales de alerta y se mantiene totalmente reproducible sin ningún LLM.",
+    "metaDescription": "Cómo ghfind evalúa cuentas de GitHub con devscore, un motor open source: trabajo real ponderado por valor del proyecto y autoría, stars y seguidores que nunca cuentan, topes a los patrones de farmeo y reproducibilidad total sin ningún LLM.",
     "heading": "Cómo ghfind evalúa cuentas de GitHub",
-    "lead": "El score de ghfind lo produce una rúbrica determinista, no un modelo. El motor lee datos públicos de GitHub, evalúa seis dimensiones que suman 100, resta penalizaciones por señales de alerta y devuelve el mismo número cada vez para los mismos datos de entrada. El núcleo es open source bajo la licencia AGPL, así que cualquier resultado puede reproducirse y auditarse.",
-    "dimensionsHeading": "Las seis dimensiones",
-    "dimensionsIntro": "Cada dimensión aporta al score base de 100 puntos. Juntas premian el trabajo open source sostenido, original y ampliamente usado por encima de los conteos crudos de actividad.",
+    "lead": "El score de ghfind lo produce devscore, un motor de scoring open source, no un modelo. Mide lo que un developer realmente construyó: el código que escribiste en cada repositorio, ponderado por el valor del proyecto y tu participación en la autoría. El trabajo en proyectos ajenos cuenta solo en la medida en que un maintainer independiente lo aceptó, y el mantenimiento y los años sostenidos de programación también cuentan. Las stars y los seguidores nunca cuentan. Los mismos datos públicos devuelven el mismo número cada vez, y el núcleo es open source bajo la licencia AGPL, así que cualquier resultado puede reproducirse y auditarse.",
+    "dimensionsHeading": "Las seis dimensiones de visualización",
+    "dimensionsIntro": "El total es el score de devscore, no la suma de las dimensiones. Las seis dimensiones son valores de visualización derivados de los factores intermedios de devscore, con máximos que suman 100. Muestran de dónde viene un score y qué lo frena, y alimentan las batallas y las sugerencias de developers similares.",
     "dimensionDetails": {
-      "account_maturity": "Qué tan establecida y consistente es la cuenta a lo largo del tiempo — antigüedad, actividad sostenida y una curva de credibilidad que resiste la inflación de la noche a la mañana.",
-      "original_project_quality": "La calidad y recepción de los repositorios que la cuenta realmente posee y escribió, no forks ni proyectos triviales.",
-      "contribution_quality": "La sustancia de las contribuciones a otros proyectos — pull requests significativos y mergeados versus spam con plantillas.",
-      "ecosystem_impact": "Cuánto se depende del trabajo de la cuenta y cuánto se mantiene en el ecosistema más amplio.",
-      "community_influence": "Alcance y reputación genuinos en la comunidad, normalizados para que los conteos crudos de seguidores o stars no puedan dominar.",
-      "activity_authenticity": "Si los patrones de actividad se ven orgánicos o fabricados — la dimensión que separa el trabajo honesto del farmeo."
+      "account_maturity": "Años sostenidos de programación: cada año calendario cuenta una vez, con un tope de 12 meses de programación, y los años más antiguos se desvanecen con una vida media de tres años. Repartir un año entre sesenta repositorios pequeños no da sesenta años.",
+      "original_project_quality": "Fuerza de los proyectos insignia: tus repositorios propios o liderados más fuertes, según el valor del proyecto, la participación en la autoría, el volumen de trabajo y cuánto tiempo duró. Solo la ingeniería cuenta como proyecto insignia — la documentación, los sitios y las listas no — y un repositorio propio que nadie más usa conserva solo una pequeña parte de su trabajo.",
+      "contribution_quality": "Trabajo externo aceptado de forma independiente: el código que lograste integrar en proyectos ajenos, según el valor del proyecto y la sustancia del cambio, contado solo en la medida en que un maintainer independiente lo aceptó. Los auto-merges y los círculos de merges mutuos no cuentan nada. Las code reviews que haces en proyectos ajenos también cuentan.",
+      "ecosystem_impact": "Impacto en el ecosistema: el trabajo de tus repositorios sumado del más fuerte al más débil (el mejor repositorio cuenta completo, la cola larga se desvanece rápido), o un rol de maintainer verificado por GitHub — revisar y mergear PRs de otras personas — lo que sea mayor.",
+      "community_influence": "Historial de colaboración: con qué frecuencia los maintainers mergean en lugar de rechazar tus PRs externos (límite inferior de Wilson, solo después de al menos diez decisiones), más las code reviews que haces. El número de seguidores no forma parte de esto.",
+      "activity_authenticity": "Recencia y autenticidad: la proporción de tu trabajo de los años recientes y tu estado actual (activo o en mantenimiento). Cae bruscamente cuando se aplica un tope por PRs masivos de baja calidad o por patrón de influencer."
     },
-    "penaltiesHeading": "Penalizaciones por señales de alerta",
-    "penaltiesBody": "Sobre las seis dimensiones, el motor resta penalizaciones por patrones que inflan un perfil sin valor real: títulos de pull request casi idénticos hechos con plantilla, contribuciones concentradas en repositorios que la cuenta no posee e inflación de stars o seguidores. Cada evento individual puede parecer plausible; las penalizaciones se disparan con el patrón, que es lo que hace que la actividad farmeada sea separable del trabajo honesto.",
+    "penaltiesHeading": "Topes antimanipulación",
+    "penaltiesBody": "En lugar de restar puntos ítem por ítem, devscore directamente no da peso a las señales farmeables: las stars y los seguidores nunca cuentan; los PRs auto-mergeados y los círculos pequeños que se mergean el trabajo entre sí no cuentan como aceptados; los proyectos de hype con stars pero sin usuarios reales no reciben crédito de proyecto; los historiales de commits con aspecto de bot se descuentan. Además, al final se aplican dos topes. Muchos PRs rechazados en proyectos ajenos dentro de un año, junto con títulos hechos con plantilla, duplicados, rachas de una semana en muchos repositorios o PRs gigantes, comprimen el score en el rango 20–35; los seguidores muy desproporcionados respecto a la ingeniería aceptada de forma independiente (el patrón de influencer) tienen el mismo tope. Cada evento individual puede parecer plausible; las reglas se disparan con el patrón.",
     "determinismHeading": "Determinismo y reproducibilidad",
-    "determinismBody": "Ningún modelo de lenguaje toca el score. El núcleo de scoring es la skill open source github-account-value (AGPL), y las mismas rutas de código impulsan el sitio web, los paquetes de npm y PyPI, la CLI y el servidor MCP. Con los mismos datos públicos de entrada, el score es idéntico en todos ellos, y por eso puede reproducirse de forma independiente. El texto opcional del roast es la única parte escrita por un LLM y nunca cambia el número.",
+    "determinismBody": "Ningún modelo de lenguaje toca el score. El motor devscore es open source (AGPL) en el repositorio de ghfind, y el sitio web, la API, el servidor MCP y el modo local del paquete de npm ejecutan el mismo código del motor. Con los mismos datos públicos, el score es idéntico en todos ellos, y por eso puede reproducirse de forma independiente (una recopilación local nueva puede ver datos públicos que cambiaron desde entonces). El texto opcional del roast es la única parte escrita por un LLM y nunca cambia el número.",
     "dataHeading": "A escala",
-    "dataBody": "Aplicado a un dataset público de 18,947 cuentas evaluadas — 3,444 con instantáneas completas de métricas crudas — la contribución falsificada o farmeada resultó ser más rara de lo que sugiere el discurso (menos del 1% de las cuentas activó las señales de alerta más fuertes) pero mucho más extrema cuando apareció. El análisis completo está en la sección de research."
+    "dataBody": "Aplicado a un dataset público de 18,947 cuentas evaluadas — 3,444 con instantáneas completas de métricas crudas, evaluadas con la rúbrica anterior — la contribución falsificada o farmeada resultó ser más rara de lo que sugiere el discurso (menos del 1% de las cuentas activó las señales de alerta más fuertes) pero mucho más extrema cuando apareció. El análisis completo está en la sección de research."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · ¿Quién gana? | ghfind",

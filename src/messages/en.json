@@ -114,7 +114,7 @@
     "boardHeading": "🏆 Best developers",
     "openBoard": "Open full leaderboard →",
     "disclaimer1": "Scores and roasts are generated automatically from <b>public GitHub data</b> only. We roast an account's public behavior and stats, not the person. Results are not factual claims about anyone — please don't use them to harass.",
-    "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only.",
+    "disclaimer2": "The devscore scoring engine is open source in the <code>ghfind</code> repository · your own API key stays in your browser only.",
     "viewAll": "View all"
   },
   "leaderboard": {
@@ -305,18 +305,18 @@
     "modalPkCta": "Pull someone in to compare",
     "modalFacetRankCta": "See where I rank on {facet}",
     "dimensionsHeading": "Score breakdown",
-    "scoreBase": "Six-dimension base",
-    "scoreAdjustment": "Risk adjustment",
+    "scoreBase": "Six-dimension total",
+    "scoreAdjustment": "Difference from total",
     "scoreInferredAdjustment": "Unexplained difference",
     "scoreFinal": "Final score",
     "scoreBreakdownHeading": "Score composition",
-    "scoreBreakdownNote": "Risk rules are applied separately after the six dimension scores are added.",
+    "scoreBreakdownNote": "The total is devscore's score; the six dimensions are display values derived from its factors, so the difference between them is not a penalty by itself. It reflects risk only when an anti-gaming cap applied, as listed below.",
     "scoreRiskHeading": "Risk review · {count} items",
     "scoreRiskUnavailable": "This historical score did not preserve the specific adjustment details. Rescan to see the triggered reasons.",
     "scoreAdjustmentLimited": "Risk rules totaled {total}; caps or the score floor limited the actual adjustment to {applied}.",
     "scoreRiskMore": "Show {count} more",
     "scoreRiskStatus": "Risk level",
-    "scoreRiskFootprintNote": "A limited public footprint means limited data, not cheating; only multiple high-confidence manipulation signals reduce the score.",
+    "scoreRiskFootprintNote": "A limited public footprint means limited evidence, not cheating; only the bulk low-quality PR and influencer caps lower the score.",
     "scoreRiskNoPenalty": "These signals are for context only and did not affect the final score.",
     "scoreRiskNotes": "Show {count} signals that did not affect the score",
     "scoreRiskScore": "Risk score",
@@ -608,11 +608,11 @@
       },
       {
         "q": "How is the score calculated?",
-        "a": "The engine scores six weighted dimensions that sum to 100 — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — and subtracts penalties for red flags such as PR farming or star inflation. It runs only on public GitHub data."
+        "a": "Scores come from devscore, an open-source scoring engine. For each repository it measures the code you actually wrote, weighted by the project's worth (real-use signals such as other contributors, downstream dependents and outside issue authors) and by your share of authorship; stars and followers never count. Work in other people's projects counts only as far as an independent maintainer accepted it, review-and-merge maintenance counts too, and sustained coding adds up by calendar year. Two patterns are capped: bulk low-quality external PRs, and followers far out of proportion to accepted work. It runs only on public GitHub data."
       },
       {
         "q": "Is the score deterministic and reproducible?",
-        "a": "Yes. No LLM touches the number: the same inputs always produce the same score. The scoring core is open-sourced as the github-account-value skill (AGPL), so anyone can reproduce or audit a result. Only the optional roast text is LLM-written."
+        "a": "Yes. No LLM touches the number: the same public data always produces the same score. The devscore engine is open source (AGPL) in the ghfind repository, so anyone can reproduce or audit a result. Only the optional roast text is LLM-written."
       },
       {
         "q": "Can I use ghfind via API, CLI, or MCP?",
@@ -620,7 +620,7 @@
       },
       {
         "q": "Does ghfind detect bots and AI-farmed accounts?",
-        "a": "It flags the patterns that separate farmed activity from honest work — near-identical template PR titles, contributions concentrated on repos the account doesn't own, and suspicious star or follower inflation. In a dataset of 18,947 scored accounts, fewer than 1% tripped the strongest red flags — rare, but extreme when present."
+        "a": "Yes — it judges patterns, not single events. Many rejected PRs to other people's projects within a year, together with templated titles, duplicates, one-week sprees across many repos or giant PRs, cap the score; so do followers far out of proportion to independently accepted engineering. Self-merged PRs and small circles merging each other's PRs don't count as accepted, bot-like commit histories are discounted, and hype projects with stars but no real users earn no project credit. In a dataset of 18,947 accounts scored under the previous rubric, fewer than 1% tripped the strongest farming signals — rare, but extreme when present."
       },
       {
         "q": "Is my private work counted?",
@@ -630,16 +630,16 @@
   },
   "homeIntro": {
     "whatHeading": "What is ghfind?",
-    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
+    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 by the real work behind it — weighted by how much each project is worth and how much of it is the developer's own, counting work in other people's projects only as far as independent maintainers accepted it, and never counting stars or followers — using devscore, a fully deterministic open-source engine (AGPL). The same public data always produces the same score; no LLM touches the number. Every score is broken down into six display dimensions. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
     "howHeading": "How ghfind works",
     "steps": [
       {
         "title": "1. Scan the public footprint",
-        "body": "Enter any GitHub username. The engine crawls the account's public data — repositories, pull requests, issues, stars, followers — and builds an evidence snapshot. No login and no permissions are required."
+        "body": "Enter any GitHub username. In the background the engine collects the account's public data — repositories, commits, pull requests and who merged them, code reviews — and builds an evidence snapshot. A large account's first score takes a few minutes. No login and no permissions are required."
       },
       {
-        "title": "2. Score six deterministic dimensions",
-        "body": "The snapshot is scored across account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
+        "title": "2. Weigh the real work",
+        "body": "Work in each repository is weighted by the project's worth and your share of authorship, external work counts only as far as independent maintainers accepted it, and maintenance and sustained years of coding count too. Stars and followers never count; bulk low-quality PRs and influencer patterns are capped."
       },
       {
         "title": "3. Get a score, tier, and roast",
@@ -650,7 +650,7 @@
     "numbers": {
       "accounts": "{count} GitHub accounts scored in the public research dataset",
       "snapshots": "{count} full evidence snapshots collected and analyzed",
-      "dimensions": "{count} weighted dimensions behind every score",
+      "dimensions": "{count} dimensions in every score breakdown",
       "flagged": "{share} of scored accounts flagged for inauthentic activity"
     },
     "tableCaption": "ghfind score vs raw GitHub signals",
@@ -670,8 +670,8 @@
       },
       {
         "signal": "ghfind score",
-        "measures": "Real contribution value and trust across six weighted dimensions",
-        "gameable": "Hard — inauthentic patterns are detected and penalized"
+        "measures": "Real work, weighted by project worth and authorship; stars and followers never count",
+        "gameable": "Hard — only work accepted by independent maintainers counts, and PR farming and influencer patterns are capped"
       }
     ]
   },
@@ -787,8 +787,8 @@
     "heading": "About ghfind",
     "paragraphs": [
       "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 for real contribution value and trustworthiness, using a fully deterministic engine that runs only on public GitHub data. The same inputs always produce the same score — no large language model is involved in the number itself — so results are reproducible and auditable rather than opaque.",
-      "The score is built from six weighted dimensions that sum to 100: account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
-      "The scoring engine is open source under the AGPL license as the github-account-value skill, and the same code paths power the website, the official npm and PyPI packages, the command-line tool, and the Model Context Protocol server. ghfind exists to make GitHub contribution legible: to reward genuine open-source work, surface developers worth following, and make farmed or faked activity easy to spot by looking at patterns instead of raw counts."
+      "The score measures real work: each repository is weighted by the project's worth and the developer's share of authorship, work in other people's projects counts only as far as independent maintainers accepted it, maintenance and sustained years of coding count too, and stars and followers never count. Every score is also broken down into six display dimensions: account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
+      "The devscore scoring engine is open source under the AGPL license in the ghfind repository, and the same engine code powers the website, the API, the Model Context Protocol server, and the official npm package. ghfind exists to make GitHub contribution legible: to reward genuine open-source work, surface developers worth following, and make farmed or faked activity easy to spot by looking at patterns instead of raw counts."
     ]
   },
   "contact": {
@@ -829,25 +829,25 @@
   },
   "methodology": {
     "metaTitle": "Methodology — how ghfind scores GitHub accounts",
-    "metaDescription": "How ghfind's deterministic engine scores GitHub accounts across six weighted dimensions, applies red-flag penalties, and stays fully reproducible without any LLM.",
+    "metaDescription": "How ghfind scores GitHub accounts with devscore, an open-source engine: real work weighted by project worth and authorship, stars and followers never count, farming patterns capped, fully reproducible without any LLM.",
     "heading": "How ghfind scores GitHub accounts",
-    "lead": "ghfind's score is produced by a deterministic rubric, not a model. The engine reads public GitHub data, scores six dimensions that sum to 100, subtracts penalties for red flags, and returns the same number every time for the same inputs. The core is open source under the AGPL license, so any result can be reproduced and audited.",
-    "dimensionsHeading": "The six dimensions",
-    "dimensionsIntro": "Each dimension contributes to the 100-point base score. Together they reward sustained, original, widely-used open-source work over raw activity counts.",
+    "lead": "ghfind's score comes from devscore, an open-source scoring engine, not a model. It measures what a developer actually built: the code you wrote in each repository, weighted by the project's worth and your share of authorship. Work in other people's projects counts only as far as an independent maintainer accepted it, and maintenance and sustained years of coding count too. Stars and followers never count. The same public data returns the same number every time, and the core is open source under the AGPL license, so any result can be reproduced and audited.",
+    "dimensionsHeading": "The six display dimensions",
+    "dimensionsIntro": "The total is devscore's score, not the sum of the dimensions. The six dimensions are display values derived from devscore's intermediate factors, with maxima that add up to 100. They show where a score comes from and what holds it down, and power battles and similar-developer suggestions.",
     "dimensionDetails": {
-      "account_maturity": "How established and consistent the account is over time — age, sustained activity, and a credibility curve that resists overnight inflation.",
-      "original_project_quality": "The quality and reception of repositories the account actually owns and authored, not forks or trivial projects.",
-      "contribution_quality": "The substance of contributions to other projects — merged, meaningful pull requests versus template spam.",
-      "ecosystem_impact": "How much the account's work is depended on and maintained across the wider ecosystem.",
-      "community_influence": "Genuine reach and standing in the community, normalized so raw follower or star counts cannot dominate.",
-      "activity_authenticity": "Whether activity patterns look organic or engineered — the dimension that separates honest work from farming."
+      "account_maturity": "Sustained years of coding: each calendar year counts once, capped at 12 coding months, and older years fade with a three-year half-life. Spreading one year over sixty small repositories does not make sixty years.",
+      "original_project_quality": "Flagship strength: your strongest owned or led repositories, by project worth, authorship share, volume of work and how long it lasted. Only engineering counts as a flagship — docs, sites and lists do not — and an own repository nobody else uses keeps only a small part of its work.",
+      "contribution_quality": "Independently accepted external work: code you landed in other people's projects, by project worth and substance of the change, counted only as far as an independent maintainer accepted it. Self-merges and mutual merging circles count nothing. Code reviews you give in other people's projects count too.",
+      "ecosystem_impact": "Impact on the ecosystem: your repositories' work summed from strongest to weakest (the best repository counts in full, the long tail fades fast), or a GitHub-verified maintainer role — reviewing and merging other people's PRs — whichever is higher.",
+      "community_influence": "Collaboration record: how often maintainers merge rather than reject your external PRs (Wilson lower bound, only after at least ten decisions), plus the code reviews you give. Follower counts are not part of it.",
+      "activity_authenticity": "Recency and authenticity: the share of your work from recent years and your current status (active or maintaining). It drops sharply when a bulk low-quality PR or influencer cap applies."
     },
-    "penaltiesHeading": "Red-flag penalties",
-    "penaltiesBody": "On top of the six dimensions, the engine subtracts penalties for patterns that inflate a profile without real value: near-identical template pull-request titles, contributions concentrated on repositories the account does not own, and star or follower inflation. Every individual event can look plausible; the penalties fire on the pattern, which is what makes farmed activity separable from honest work.",
+    "penaltiesHeading": "Anti-gaming caps",
+    "penaltiesBody": "Instead of subtracting points item by item, devscore gives farmable signals no weight in the first place: stars and followers never count; self-merged PRs and small circles merging each other's work don't count as accepted; hype projects with stars but no real users earn no project credit; bot-like commit histories are discounted. On top of that, two caps apply last. Many rejected PRs to other people's projects within a year, together with templated titles, duplicates, one-week sprees across many repositories or giant PRs, squeeze the score into 20–35; followers far out of proportion to independently accepted engineering (the influencer pattern) are capped the same way. Every individual event can look plausible; the rules fire on the pattern.",
     "determinismHeading": "Determinism and reproducibility",
-    "determinismBody": "No large language model touches the score. The scoring core is the open-source github-account-value skill (AGPL), and the same code paths power the website, the npm and PyPI packages, the CLI, and the MCP server. Given the same public inputs, the score is identical across all of them, which is why it can be independently reproduced. The optional roast text is the only LLM-written part and never changes the number.",
+    "determinismBody": "No large language model touches the score. The devscore engine is open source (AGPL) in the ghfind repository, and the website, the API, the MCP server and the npm package's local mode all run the same engine code. Given the same public data, the score is identical across all of them, which is why it can be independently reproduced (a fresh local collection may see public data that has changed since). The optional roast text is the only LLM-written part and never changes the number.",
     "dataHeading": "At scale",
-    "dataBody": "Applied to a public dataset of 18,947 scored accounts — 3,444 with full raw-metric snapshots — faked or farmed contribution turned out to be rarer than the discourse suggests (under 1% of accounts tripped the strongest red flags) but far more extreme when it appeared. The full analysis is in the research section."
+    "dataBody": "Applied to a public dataset of 18,947 scored accounts — 3,444 with full raw-metric snapshots, scored under the previous rubric — faked or farmed contribution turned out to be rarer than the discourse suggests (under 1% of accounts tripped the strongest red flags) but far more extreme when it appeared. The full analysis is in the research section."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · Who wins? | ghfind",
