@@ -10,8 +10,24 @@ export interface CurrentTitleSponsor {
   logo: string | null;
 }
 
+/**
+ * Never throws: every card route awaits this, and a sponsor lookup failure
+ * (e.g. the `sponsorships` migration not yet applied) must drop the logo, not
+ * 500 an image embedded in someone else's README.
+ */
 export async function getCurrentTitleSponsor(
   size: "small" | "full" = "full",
+): Promise<CurrentTitleSponsor | null> {
+  try {
+    return await loadCurrentTitleSponsor(size);
+  } catch (err) {
+    console.error("getCurrentTitleSponsor failed", err);
+    return null;
+  }
+}
+
+async function loadCurrentTitleSponsor(
+  size: "small" | "full",
 ): Promise<CurrentTitleSponsor | null> {
   const db = getD1Binding();
   if (!db) return null;
