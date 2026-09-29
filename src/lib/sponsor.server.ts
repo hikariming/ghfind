@@ -1,7 +1,21 @@
-/** Current title sponsor identity and its embedded logo for generated cards. */
+/**
+ * The title sponsor credited on every server-rendered card.
+ *
+ * The title slot is a fixed, long-term placement, so it is a constant rather
+ * than a D1 lookup: a card embedded in someone's README must never depend on a
+ * database query (or a pending migration) just to draw a credit line. The
+ * sponsor page and homepage rows still read the `sponsorships` table.
+ *
+ * Every card travels alone — an SVG inside an `<img>` may not fetch anything,
+ * and a Satori PNG is rasterized before it leaves — so the logo bytes are
+ * inlined from the bundle (scripts/gen-embedded-assets.mts). A missing asset
+ * resolves to null: a credit line without its logo, never a broken card.
+ *
+ * Pick `small` for the SVG cards (inlined into every response, drawn ~13px) and
+ * `full` for the PNG/print surfaces.
+ */
 
 import assets from "@/generated/embedded-assets.json";
-import { getD1Binding } from "@/lib/d1-client";
 
 export interface CurrentTitleSponsor {
   name: string;
@@ -10,61 +24,27 @@ export interface CurrentTitleSponsor {
   logo: string | null;
 }
 
-/**
- * Never throws: every card route awaits this, and a sponsor lookup failure
- * (e.g. the `sponsorships` migration not yet applied) must drop the logo, not
- * 500 an image embedded in someone else's README.
- */
-export async function getCurrentTitleSponsor(
+const TITLE_SPONSOR = {
+  name: "LobeHub",
+  url: "https://lobehub.com",
+  description: "Your Chief Agent Operator · 你的首席 Agent 操作官",
+  logo: "/lobehub.png",
+  /** 32px re-encode of the same mark, so SVG cards don't inline the 192px original. */
+  logoSmall: "/lobehub-32.png",
+};
+
+export function getCurrentTitleSponsor(
   size: "small" | "full" = "full",
 ): Promise<CurrentTitleSponsor | null> {
-  try {
-    return await loadCurrentTitleSponsor(size);
-  } catch (err) {
-    console.error("getCurrentTitleSponsor failed", err);
-    return null;
-  }
-}
+  const embedded = assets.sponsor as Record<string, string>;
+  const logo = size === "small"
+    ? embedded[TITLE_SPONSOR.logoSmall] ?? embedded[TITLE_SPONSOR.logo] ?? null
+    : embedded[TITLE_SPONSOR.logo] ?? null;
 
-async function loadCurrentTitleSponsor(
-  size: "small" | "full",
-): Promise<CurrentTitleSponsor | null> {
-  const db = getD1Binding();
-  if (!db) return null;
-
-  const now = Date.now();
-  const { results } = await db
-    .prepare(
-      `SELECT sponsor_name, sponsor_url, icon_url, description, is_anonymous
-       FROM sponsorships
-       WHERE tier = '夯'
-         AND (started_at IS NULL OR started_at <= ?)
-         AND (expires_at IS NULL OR expires_at > ?)
-       ORDER BY COALESCE(started_at, 0), created_at, id
-       LIMIT 1`,
-    )
-    .bind(now, now)
-    .all();
-
-  const row = results[0];
-  if (!row) return null;
-
-  const isAnonymous = row.is_anonymous === 1;
-  const iconUrl = typeof row.icon_url === "string" ? row.icon_url : null;
-  const embedded = (assets.sponsor as Record<string, string>)[iconUrl ?? ""];
-  const smallPath = iconUrl?.replace(/(\.[^./]+)$/, "-32$1");
-  const logo = size === "small" && smallPath
-    ? (assets.sponsor as Record<string, string>)[smallPath] ?? embedded ?? null
-    : embedded ?? null;
-
-  return {
-    name: isAnonymous
-      ? "Anonymous sponsor"
-      : typeof row.sponsor_name === "string"
-        ? row.sponsor_name
-        : "Sponsor",
-    url: !isAnonymous && typeof row.sponsor_url === "string" ? row.sponsor_url : null,
-    description: !isAnonymous && typeof row.description === "string" ? row.description : null,
+  return Promise.resolve({
+    name: TITLE_SPONSOR.name,
+    url: TITLE_SPONSOR.url,
+    description: TITLE_SPONSOR.description,
     logo,
-  };
+  });
 }
