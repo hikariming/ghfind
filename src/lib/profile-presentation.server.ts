@@ -129,12 +129,62 @@ function isValidRiskSignal(value: unknown): value is RiskSignal {
   );
 }
 
+/**
+ * Score v11 (devscore): the final score is devscore's v3 score, the six
+ * dimensions are display values, and the adjustment is max(0, base − final)
+ * rather than a sum of capped penalties. Only the v3 cap flags carry a
+ * penalty; the rest are notes.
+ */
+function devscoreBreakdownFromScan(
+  scoring: ScanResult["scoring"],
+  finalScore: number,
+  detailSubScores: SubScores,
+): ScoreBreakdown | null {
+  const assessment = scoring.risk_assessment;
+  const riskNotes = scoring.risk_notes ?? [];
+  const subScores = scoring.sub_scores as Partial<Record<SubScoreKey, unknown>> | undefined;
+  if (
+    !assessment ||
+    !subScores ||
+    !SCORE_SUB_KEYS.every((key) => isFiniteNumber(subScores[key]) && isClose(subScores[key] as number, detailSubScores[key])) ||
+    !isFiniteNumber(scoring.base_score) ||
+    !isFiniteNumber(scoring.total_penalty) ||
+    !isFiniteNumber(scoring.final_score) ||
+    !Array.isArray(scoring.red_flags) ||
+    !scoring.red_flags.every(isValidRedFlag) ||
+    !Array.isArray(assessment.signals) ||
+    !assessment.signals.every(isValidRiskSignal) ||
+    !riskNotes.every(isValidRiskSignal) ||
+    !isClose(scoring.final_score, finalScore)
+  ) {
+    return null;
+  }
+  const base = roundHalfEven(
+    SCORE_SUB_KEYS.reduce((sum, key) => sum + (subScores[key] as number), 0),
+    1,
+  );
+  const applied = Math.max(0, roundHalfEven(base - finalScore, 2));
+  if (!isClose(base, scoring.base_score) || !isClose(applied, scoring.total_penalty)) return null;
+  return {
+    base_score: base,
+    total_penalty: applied,
+    applied_penalty: applied,
+    red_flags: scoring.red_flags,
+    risk_assessment: assessment,
+    risk_notes: riskNotes,
+    complete: true,
+  };
+}
+
 function scoreBreakdownFromScan(
   scan: ScanResult | null,
   finalScore: number,
   detailSubScores: SubScores,
 ): ScoreBreakdown | null {
   const scoring = scan?.scoring;
+  if (scoring?.risk_assessment?.version === "v11") {
+    return devscoreBreakdownFromScan(scoring, finalScore, detailSubScores);
+  }
   if (
     !scoring ||
     !isFiniteNumber(scoring.base_score) ||
