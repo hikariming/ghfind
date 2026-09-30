@@ -104,6 +104,7 @@ export const scanKey = (username: string) =>
   `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** A published scan; its scoring is recomputed with the current rules. */
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
   if (bypassGeneratedCaches()) return null;
   const r = getRedis();
@@ -189,45 +190,6 @@ export async function getCachedScoreDetail(
     if (await scoreDetailRevision(r, username) === revision) return result.detail;
   }
   throw new ScanBusyError();
-}
-
-// Atomically pair the payload and publication marker. A forced caller may
-// join a scan published after arrival, but never accept its warm baseline.
-export const READ_REFRESHED_SCAN = `
-local revision = redis.call('GET', KEYS[2])
-if not revision or revision == ARGV[1] then return nil end
-return redis.call('GET', KEYS[1])`;
-
-/** Cache misses and forced refreshes retain the same distributed admission. */
-export async function coalesceScan(
-  username: string,
-  producer: () => Promise<ScanResult>,
-  options: { force?: boolean } = {},
-): Promise<ScanResult> {
-  if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
-  const r = getRedis();
-  if (!r) {
-    if (isProductionDeployment()) throw new ScanBusyError();
-    return producer();
-  }
-  const key = scanKey(username);
-  const revisionKey = `revision:${key}`;
-  let baseline = "";
-  if (options.force) {
-    try { baseline = (await r.get<string>(revisionKey)) ?? ""; }
-    catch { throw new ScanBusyError(); }
-  }
-  return protectedScan({ redis: r, key, revisionKey,
-    read: options.force ? async () => {
-      try {
-        const value = await r.eval(READ_REFRESHED_SCAN, [key, revisionKey], [baseline]) as ScanResult | string | null;
-        if (!value) return null;
-        const cached = typeof value === "string" ? JSON.parse(value) as ScanResult : value;
-        return { ...cached, scoring: score(cached.metrics) };
-      } catch { throw new ScanBusyError(); }
-    } : () => getCachedScan(username),
-    produce: producer,
-  });
 }
 
 /**
@@ -704,8 +666,8 @@ export async function setCachedRoastJudge(
   }
 }
 
-// Single-flight for roast generation — the analogue of `coalesceScan` for the
-// (credit-spending) LLM call. When a hot account's roast cache goes cold and N
+// Single-flight for roast generation (the credit-spending LLM call).
+// When a hot account's roast cache goes cold and N
 // requests arrive at once, only the lock holder runs the LLM; the rest wait for
 // its result via the cache. Without this, a viral account re-generates N times
 // per cold window instead of once.

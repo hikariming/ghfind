@@ -11,9 +11,7 @@ import {
   GitHubRateLimitError,
   collect,
 } from "@/lib/github";
-import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
-import { score } from "@/lib/score";
-import type { ScanResult } from "@/lib/types";
+import { checkRateLimit, getCachedScan, rateLimitHeaders } from "@/lib/redis";
 import { normalizeUsername } from "@/lib/username";
 
 export const runtime = "nodejs";
@@ -32,7 +30,7 @@ function clientIp(req: NextRequest): string {
  * null, then refreshes once it's filled.
  *
  * Scoped to accounts that already have a score row (no arbitrary crawling), and
- * reuses the scan cache + single-flight + per-IP limit so the GitHub fetch runs
+ * reuses the scan cache + per-IP limit so the GitHub fetch runs
  * at most once per legacy profile.
  */
 export async function POST(req: NextRequest) {
@@ -82,11 +80,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await coalesceScan(username, async (): Promise<ScanResult> => {
-      const collected = await collect(username);
-      return { ...collected, scoring: score(collected.metrics) };
-    });
-    await recordProfileSnapshot(result);
+    // Display evidence only; the score comes from the devscore job.
+    await recordProfileSnapshot(await collect(username));
     return NextResponse.json({ filled: true, cached: false });
   } catch (e) {
     if (e instanceof GitHubAuthRequiredError) {

@@ -13,7 +13,8 @@ describe("OpenAPI backend extraction contract", () => {
     const source = spec.components.schemas.ScorePayload.properties.source;
 
     expect(score.description).toContain('source: "quick"');
-    expect(score.description).toContain("synchronous quick");
+    expect(score.description).toContain("202 Accepted");
+    expect(score.responses["202"]).toBeDefined();
     expect(score.description).not.toContain('source: "live"');
     expect(source.enum).toEqual(["indexed", "quick", "legacy_v5_v5_v3"]);
     expect(spec.components.schemas.ScorePayload.properties.coverage.enum).toEqual(["quick", "legacy"]);
@@ -22,7 +23,7 @@ describe("OpenAPI backend extraction contract", () => {
   it("keeps machine-facing prose aligned with the worker-backed score path", () => {
     const prose = [apiSummaryMd(), ...WHEN_TO_USE].join("\n");
 
-    expect(prose).toContain("durable quick-scan worker path");
+    expect(prose).toContain("background devscore scoring");
     expect(prose).not.toContain("live on demand");
   });
 

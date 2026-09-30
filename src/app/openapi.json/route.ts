@@ -56,13 +56,16 @@ export function GET() {
           operationId: "getScore",
           summary: "Get the deterministic score for a GitHub account",
           description:
-            "Read-only, no auth, cacheable, never calls an LLM. Returns the deterministic score, " +
+            "No auth, never calls an LLM. Returns the deterministic score, " +
             "tier, sub-scores, and percentile. If the account is already indexed you get the stored " +
-            "payload (`source: \"indexed\"`, with tags/roast_line). Otherwise a synchronous quick " +
-            "scan collects and persists the " +
-            "result (`source: \"quick\"`, `coverage: \"quick\"`, includes red_flags, no LLM copy). " +
-            "When only an old compatible stored score exists, the response may be `source: \"legacy_v5_v5_v3\"`, " +
-            "`coverage: \"legacy\"`, `stale: true`. The only 404 is a GitHub login that does not exist. Rate limited per IP.",
+            "payload (`source: \"indexed\"`, with tags/roast_line); a recently published scan that is " +
+            "still in the cache returns `source: \"quick\"`, `coverage: \"quick\"` (includes red_flags). " +
+            "An account never scored before is queued for background scoring (minutes for large " +
+            "accounts): `202 Accepted` with `Location: /api/scan/status/{username}` and a " +
+            "ScorePending body. Poll that Location (each poll advances the job) until it returns the " +
+            "result, then GET this endpoint again. " +
+            "When only an old compatible stored score exists and no job can be queued, the response may be `source: \"legacy_v5_v5_v3\"`, " +
+            "`coverage: \"legacy\"`, `stale: true`. 404 means the GitHub login does not exist. Rate limited per IP.",
           parameters: [
             {
               name: "username",
@@ -83,9 +86,17 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/ScorePayload" } } },
             },
             "400": { description: "Invalid username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "202": {
+              description: "First-time account: background scoring queued; poll the Location",
+              headers: {
+                Location: { description: "Status URL: /api/scan/status/{username}", schema: { type: "string" } },
+                "Retry-After": { $ref: "#/components/headers/Retry-After" },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ScorePending" } } },
+            },
             "404": { description: "GitHub account does not exist", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "429": {
-              description: "Rate limited (quick scoring path)",
+              description: "Rate limited (scoring path)",
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
@@ -97,12 +108,14 @@ export function GET() {
         post: {
           tags: ["scoring"],
           operationId: "scan",
-          summary: "Run a bounded GitHub scan and compute the deterministic score",
+          summary: "Get or start the devscore scan for a GitHub account",
           description:
-            "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
-            "final_score. Deterministic — no LLM. Scans run synchronously and return the persisted " +
-            "result inline (cached snapshots replay instantly; `?force=1` bypasses the cache for a " +
-            "rescan). In production, machine callers send " +
+            "Factual payload: display metrics, repo/PR signals, sub_scores, red_flags, the devscore " +
+            "factors behind the score, and final_score. Deterministic — no LLM. A published scan is " +
+            "returned inline (200). Otherwise the account is queued for background devscore scoring, " +
+            "which can take minutes: `202 Accepted` with `Location: /api/scan/status/{username}` and a " +
+            "ScorePending body; poll the Location (each poll advances the job) until it returns " +
+            "`{status, result}`. `?force=1` starts a fresh job (rescan). In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
           parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -131,6 +144,14 @@ export function GET() {
               },
               content: { "application/json": { schema: { $ref: "#/components/schemas/ScanResult" } } },
             },
+            "202": {
+              description: "Background scoring queued; poll the Location",
+              headers: {
+                Location: { description: "Status URL: /api/scan/status/{username}", schema: { type: "string" } },
+                "Retry-After": { $ref: "#/components/headers/Retry-After" },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ScorePending" } } },
+            },
             "400": { description: "Invalid body or username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "401": {
               description: "Invalid API key",
@@ -145,6 +166,43 @@ export function GET() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
             "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/scan/status/{username}": {
+        get: {
+          tags: ["scoring"],
+          operationId: "getScanStatus",
+          summary: "Poll (and advance) an account's background scoring job",
+          description:
+            "Each call advances the job by one bounded step (up to ~35 s), so polling drives the " +
+            "computation. `202` with `{status}` while computing; `200` with `{status, result}` once " +
+            "the score is published (`result` is the ScanResult); `200` with `status.state: \"failed\"` " +
+            "and `status.error` when the job gave up. No auth; poll every few seconds.",
+          parameters: [
+            { name: "username", in: "path", required: true, description: "GitHub login", schema: { type: "string" } },
+          ],
+          responses: {
+            "200": {
+              description: "Finished: published result, or failed status",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      status: { $ref: "#/components/schemas/ScanJobStatus" },
+                      result: { $ref: "#/components/schemas/ScanResult" },
+                    },
+                  },
+                },
+              },
+            },
+            "202": {
+              description: "Still computing",
+              content: { "application/json": { schema: { type: "object", properties: { status: { $ref: "#/components/schemas/ScanJobStatus" } } } } },
+            },
+            "400": { description: "Invalid username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "404": { description: "No scoring job for this account (POST /api/scan first)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -977,7 +1035,25 @@ export function GET() {
             recent_prs: { type: "array", items: { type: "object" } },
             flood_pr_titles: { type: "array", items: { type: "string" } },
             impact_repos: { type: "array", items: { type: "object" } },
+            devscore: { type: "object", description: "devscore result collected with the snapshot: v3 score/tier/flags, curve factors, engine factors per top repo" },
             scoring: { $ref: "#/components/schemas/Scoring" },
+          },
+        },
+        ScanJobStatus: {
+          type: "object",
+          properties: {
+            state: { type: "string", enum: ["queued", "running", "done", "failed"] },
+            phase: { type: "string", description: "Collector phase, e.g. user, contribs, merged_prs, assemble, publish" },
+            progress: { type: "number", minimum: 0, maximum: 1 },
+            error: { type: "string", description: "failed only: error code such as account_not_found" },
+          },
+        },
+        ScorePending: {
+          type: "object",
+          properties: {
+            username: { type: "string" },
+            status: { $ref: "#/components/schemas/ScanJobStatus" },
+            status_url: { type: "string", description: "Same as the Location header" },
           },
         },
       },
