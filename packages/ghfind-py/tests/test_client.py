@@ -3,7 +3,23 @@ import json
 
 import pytest
 
-from ghfind import GhFind, GhFindError
+from ghfind import GhFind, GhFindError, GhFindPending
+from ghfind import client as client_module
+
+
+@pytest.fixture(autouse=True)
+def fake_clock(monkeypatch):
+    """Poll sleeps advance a fake monotonic clock instead of blocking."""
+    now = [0.0]
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    monkeypatch.setattr(client_module.time, "sleep", sleep)
+    monkeypatch.setattr(client_module.time, "monotonic", lambda: now[0])
+    return sleeps
 
 
 def b64(s: str) -> str:
@@ -44,25 +60,81 @@ def test_scan_posts_username_and_turnstile():
     assert body == {"username": "octocat", "turnstileToken": "tok"}
 
 
-def test_scan_follows_accepted_job_location():
-    def handler(method, url, headers, body):
-        if url.endswith("/api/scan"):
-            return (202, json.dumps({"id": "job_aaaaaaaaaaaaaaaa", "state": "queued"}),
-                    {"location": "/api/scan/jobs/job_aaaaaaaaaaaaaaaa"})
-        return (200, json.dumps({
-            "status": {"state": "completed"},
-            "result": {"metrics": {"username": "octocat"}, "scoring": {"final_score": 42}},
-        }), {})
+PENDING = (202, json.dumps({"username": "octocat", "status": {"state": "queued", "phase": "queued"},
+                            "status_url": "/api/scan/status/octocat"}),
+           {"location": "/api/scan/status/octocat", "retry-after": "2"})
+RUNNING = (202, json.dumps({"status": {"state": "running", "phase": "contribs", "progress": 0.1}}), {})
+SCAN = {"metrics": {"username": "octocat"}, "scoring": {"final_score": 42}}
+DONE = (200, json.dumps({"status": {"state": "done", "phase": "publish", "progress": 1}, "result": SCAN}), {})
+
+
+def test_scan_polls_the_status_location_with_backoff(fake_clock):
+    polls = iter([RUNNING, RUNNING, RUNNING, DONE])
+    rec = Recorder(lambda method, url, *a: PENDING if url.endswith("/api/scan") else next(polls))
+    gh = GhFind("https://ghfind.com", transport=rec)
+
+    assert gh.scan("octocat") == SCAN
+    assert [c["url"] for c in rec.calls] == ["https://ghfind.com/api/scan"] + [
+        "https://ghfind.com/api/scan/status/octocat"] * 4
+    assert fake_clock == [2.0, 3.0, 4.5, 6.75]
+
+
+def test_get_score_waits_for_the_job_then_reads_the_published_score():
+    first = [PENDING]
+    score = {"source": "indexed", "username": "octocat", "final_score": 42}
+
+    def handler(method, url, *a):
+        if url.endswith("/api/score/octocat"):
+            return first.pop() if first else (200, json.dumps(score), {})
+        return DONE
 
     rec = Recorder(handler)
-    gh = GhFind("https://ghfind.com", transport=rec)
-    result = gh.scan("octocat")
+    assert GhFind("https://ghfind.com", transport=rec).get_score("octocat") == score
+    assert [c["url"].rsplit("/api/", 1)[1] for c in rec.calls] == [
+        "score/octocat", "scan/status/octocat", "score/octocat"]
 
-    assert result["scoring"]["final_score"] == 42
-    assert [c["url"] for c in rec.calls] == [
-        "https://ghfind.com/api/scan",
-        "https://ghfind.com/api/scan/jobs/job_aaaaaaaaaaaaaaaa",
-    ]
+
+def test_pending_raised_when_the_wait_expires(fake_clock):
+    rec = Recorder(lambda method, url, *a: PENDING if "/api/score/" in url else RUNNING)
+    with pytest.raises(GhFindPending) as exc:
+        GhFind("https://ghfind.com", transport=rec).get_score("octocat", wait=10)
+    assert exc.value.status == 202 and exc.value.code == "scan_pending"
+    assert exc.value.status_url == "https://ghfind.com/api/scan/status/octocat"
+    assert exc.value.job == {"state": "running", "phase": "contribs", "progress": 0.1}
+    assert sum(fake_clock) == 10
+
+
+def test_wait_zero_returns_pending_without_polling():
+    rec = Recorder(lambda *a: PENDING)
+    with pytest.raises(GhFindPending) as exc:
+        GhFind("https://ghfind.com", transport=rec).scan("octocat", wait=0)
+    assert len(rec.calls) == 1
+    assert exc.value.job == {"state": "queued", "phase": "queued"}
+
+
+def test_failed_job_raises_its_error_code():
+    failed = (200, json.dumps({"status": {"state": "failed", "error": "account_not_found"}}), {})
+    rec = Recorder(lambda method, url, *a: PENDING if url.endswith("/api/scan") else failed)
+    with pytest.raises(GhFindError) as exc:
+        GhFind("https://ghfind.com", transport=rec).scan("octocat")
+    assert not isinstance(exc.value, GhFindPending)
+    assert exc.value.code == "account_not_found"
+
+
+def test_transient_poll_error_keeps_polling_a_running_job():
+    busy = (503, json.dumps({"error": "github_unavailable", "status": {"state": "running"}}),
+            {"retry-after": "15"})
+    polls = iter([busy, DONE])
+    rec = Recorder(lambda method, url, *a: PENDING if url.endswith("/api/scan") else next(polls))
+    assert GhFind("https://ghfind.com", transport=rec).scan("octocat") == SCAN
+
+
+def test_missing_job_poll_raises():
+    gone = (404, json.dumps({"error": "not_found", "status": {"state": "failed", "error": "scan_job_not_found"}}), {})
+    rec = Recorder(lambda method, url, *a: PENDING if url.endswith("/api/scan") else gone)
+    with pytest.raises(GhFindError) as exc:
+        GhFind("https://ghfind.com", transport=rec).scan("octocat")
+    assert exc.value.code == "scan_job_not_found"
 
 
 def test_score_returns_scoring_block():

@@ -5,6 +5,12 @@ Every method is an atomic capability backed by one public endpoint. Scoring
 calls an LLM. Only ``roast``/``vs`` *prose* uses an LLM, and ``roast`` accepts a
 bring-your-own key so you can run it through your own model.
 
+Scores are devscore scores. An account ghfind has never scored is
+computed by a background job that can take minutes: ``POST /api/scan`` and
+``GET /api/score/{username}`` then answer ``202`` with a status ``Location``.
+The client polls that Location with backoff for up to ``wait`` seconds and
+raises :class:`GhFindPending` if the score is still being computed.
+
 Zero runtime dependencies (standard-library ``urllib``). A ``transport`` callable
 can be injected for testing or non-standard runtimes.
 """
@@ -20,14 +26,17 @@ import urllib.parse
 import urllib.request
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from .types import ByoKey, RoastResult, ScanResult, ScorePayload, Scoring
+from .types import ByoKey, RoastResult, ScanJobStatus, ScanResult, ScorePayload, Scoring
 
 DEFAULT_HOST = "https://ghfind.com"
 _GITHUB_API = "https://api.github.com"
 _ROAST_META_HEADER = "x-roast-meta"
 _FRAME = "\x1f"
-_SCAN_JOB_TIMEOUT_SECONDS = 75.0
-_SCAN_JOB_POLL_SECONDS = 1.0
+#: Default seconds to wait for a first-time score (the site waits up to 15 min).
+DEFAULT_WAIT_SECONDS = 900.0
+_POLL_FIRST_SECONDS = 2.0
+_POLL_MAX_SECONDS = 15.0
+_POLL_GROWTH = 1.5
 
 # transport(method, url, headers, body) -> (status, text, response_headers)
 Transport = Callable[[str, str, Dict[str, str], Optional[bytes]], Tuple[int, str, Dict[str, str]]]
@@ -42,6 +51,22 @@ class GhFindError(Exception):
         self.status = status
         self.code = code
         self.body = body
+
+
+class GhFindPending(GhFindError):
+    """The score is still being computed by a background job.
+
+    Raised when a ``202`` job does not finish within ``wait`` seconds. Call the
+    same method again later (or poll ``status_url``); every poll advances the job.
+    ``job`` is the last reported status (``state``, ``phase``, ``progress``).
+    """
+
+    def __init__(self, username: str, status_url: str, job: Optional[ScanJobStatus]) -> None:
+        super().__init__(f'Score for "{username}" is still being computed',
+                         status=202, code="scan_pending", body=job)
+        self.username = username
+        self.status_url = status_url
+        self.job = job
 
 
 def _urllib_transport(method: str, url: str, headers: Dict[str, str],
@@ -123,25 +148,59 @@ class GhFind:
     def _absolute_url(self, location: str) -> str:
         return urllib.parse.urljoin(self.host + "/", location)
 
-    def _poll_scan_job(self, location: str) -> ScanResult:
-        deadline = time.monotonic() + _SCAN_JOB_TIMEOUT_SECONDS
-        last: object = None
+    @staticmethod
+    def _parse(text: str) -> object:
+        try:
+            return json.loads(text) if text else None
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _job_status(payload: object) -> Optional[ScanJobStatus]:
+        job = payload.get("status") if isinstance(payload, dict) else None
+        return job if isinstance(job, dict) and isinstance(job.get("state"), str) else None  # type: ignore[return-value]
+
+    def _wait_for_job(self, username: str, text: str, headers: Dict[str, str],
+                      wait: Optional[float]) -> ScanResult:
+        """Follow a ``202`` job's status Location until it publishes a result.
+
+        Polls with backoff (2 s growing to 15 s, never earlier than a
+        ``Retry-After``) for up to ``wait`` seconds, then raises
+        :class:`GhFindPending`. A failed job raises :class:`GhFindError` with the
+        job's error code (e.g. ``account_not_found``).
+        """
+        initial = self._parse(text)
+        location = headers.get("location") or (
+            initial.get("status_url") if isinstance(initial, dict) else None)
+        if not location:
+            raise GhFindError("Scoring job accepted without a status Location",
+                              status=202, code="scan_status_missing", body=initial)
+        url = self._absolute_url(location)
+        job = self._job_status(initial)
+        budget = DEFAULT_WAIT_SECONDS if wait is None else max(0.0, wait)
+        deadline = time.monotonic() + budget
+        delay = _POLL_FIRST_SECONDS
+        retry_after = headers.get("retry-after")
         while True:
-            status, text, _ = self._transport("GET", self._absolute_url(location), {}, None)
-            if not 200 <= status < 300:
-                self._raise(status, text)
-            payload = json.loads(text) if text else {}
-            last = payload
-            if isinstance(payload, dict) and payload.get("result"):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise GhFindPending(username, url, job)
+            pause = max(delay, float(retry_after) if retry_after and retry_after.isdigit() else 0.0)
+            time.sleep(min(pause, remaining))
+            delay = min(_POLL_MAX_SECONDS, delay * _POLL_GROWTH)
+            status, body, poll_headers = self._transport("GET", url, {}, None)
+            retry_after = poll_headers.get("retry-after")
+            payload = self._parse(body)
+            polled = self._job_status(payload)
+            if 200 <= status < 300 and isinstance(payload, dict) and payload.get("result"):
                 return payload["result"]  # type: ignore[return-value]
-            job = payload.get("status") if isinstance(payload, dict) else None
-            if isinstance(job, dict) and job.get("state") == "failed":
-                raise GhFindError("Scan job failed", status=status,
-                                  code=job.get("error") or "scan_failed", body=payload)
-            if time.monotonic() >= deadline:
-                raise GhFindError("Scan job timed out", status=202,
-                                  code="scan_timeout", body=last)
-            time.sleep(_SCAN_JOB_POLL_SECONDS)
+            if polled and polled.get("state") == "failed":
+                code = polled.get("error") or "scan_failed"
+                raise GhFindError(f"Scoring job failed: {code}", status=status, code=code, body=payload)
+            # A poll can hit a transient upstream limit (503/429) while the job keeps running.
+            if not 200 <= status < 300 and not (polled and polled.get("state") == "running"):
+                self._raise(status, body)
+            job = polled or job
 
     # ---- GitHub existence check (client-side; does NOT touch ghfind) ----------
 
@@ -183,12 +242,16 @@ class GhFind:
     # ---- Scoring (deterministic, no LLM) -------------------------------------
 
     def scan(self, username: str, *, verify_exists: bool = False,
-             github_token: Optional[str] = None) -> ScanResult:
-        """Crawl GitHub and compute the full deterministic scan + score.
+             github_token: Optional[str] = None, wait: Optional[float] = None) -> ScanResult:
+        """The full deterministic scan + devscore score (``POST /api/scan``).
 
-        Pass ``verify_exists=True`` to confirm the account is real via the
-        client-side GitHub check first, so a typo/nonexistent handle fails fast
-        without hitting ghfind at all.
+        A published scan comes back inline. A first-time account is scored by a
+        background job (``202`` + status Location): the client polls it with
+        backoff for up to ``wait`` seconds (default :data:`DEFAULT_WAIT_SECONDS`;
+        ``0`` = don't wait) and raises :class:`GhFindPending` if it is still
+        computing. Pass ``verify_exists=True`` to confirm the account is real via
+        the client-side GitHub check first, so a typo fails fast without hitting
+        ghfind at all.
         """
         if verify_exists:
             self._ensure_exists(username, github_token)
@@ -199,37 +262,49 @@ class GhFind:
         if not 200 <= status < 300:
             self._raise(status, text)
         if status == 202:
-            location = headers.get("location") or headers.get("Location")
-            if not location:
-                raise GhFindError("Scan job accepted without a status Location",
-                                  status=202, code="scan_status_missing")
-            return self._poll_scan_job(location)
+            return self._wait_for_job(username, text, headers, wait)
         return json.loads(text)  # type: ignore[return-value]
 
     def score(self, username: str, *, verify_exists: bool = False,
-              github_token: Optional[str] = None) -> Scoring:
-        """Just the ``scoring`` block of a fresh scan."""
+              github_token: Optional[str] = None, wait: Optional[float] = None) -> Scoring:
+        """Just the ``scoring`` block of :meth:`scan` (same ``wait`` semantics)."""
         return self.scan(username, verify_exists=verify_exists,
-                         github_token=github_token)["scoring"]  # type: ignore[index]
+                         github_token=github_token, wait=wait)["scoring"]  # type: ignore[index]
 
     def get_score(self, username: str, *, verify_exists: bool = False,
-                  github_token: Optional[str] = None) -> ScorePayload:
-        """Deterministic score via ``GET /api/score/{username}`` (no LLM).
+                  github_token: Optional[str] = None, wait: Optional[float] = None) -> ScorePayload:
+        """Deterministic devscore score via ``GET /api/score/{username}`` (no LLM).
 
         Indexed accounts return the stored payload (``source == "indexed"``, with
-        tags/roast_line); unseen accounts are admitted to the Go quick-scan
-        worker path (``source == "quick"``, includes red_flags). A compatible old
-        stored score may return ``source == "legacy_v5_v5_v3"`` with
-        ``stale == True``. Raises ``GhFindError`` with status 404 only when the
-        GitHub login does not exist. Cheapest way to get a score.
+        tags/roast_line); a recently published scan still in the cache returns
+        ``source == "quick"`` (includes red_flags). An account never scored before
+        is queued for background scoring (``202`` + status Location, minutes for
+        large accounts): the client polls it with backoff for up to ``wait``
+        seconds, then fetches the published score, or raises
+        :class:`GhFindPending`. A compatible old stored score may return
+        ``source == "legacy_v5_v5_v3"`` with ``stale == True``. Raises
+        ``GhFindError`` with status 404 when the GitHub login does not exist.
 
         Pass ``verify_exists=True`` to confirm the account is real (client-side
-        GitHub check) before calling ghfind — avoids triggering a live
-        worker work for a handle that doesn't exist.
+        GitHub check) before calling ghfind — avoids queueing a scoring job for a
+        handle that doesn't exist.
         """
         if verify_exists:
             self._ensure_exists(username, github_token)
-        return self._get_json(f"/api/score/{urllib.parse.quote(username)}")  # type: ignore[return-value]
+        url = f"{self.host}/api/score/{urllib.parse.quote(username)}"
+        status, text, headers = self._transport("GET", url, {}, None)
+        if not 200 <= status < 300:
+            self._raise(status, text)
+        if status == 202:
+            self._wait_for_job(username, text, headers, wait)
+            # Published: the score endpoint now serves the stored payload.
+            status, text, headers = self._transport("GET", url, {}, None)
+            if not 200 <= status < 300:
+                self._raise(status, text)
+            if status == 202:
+                raise GhFindPending(username, self._absolute_url(headers.get("location") or ""),
+                                    self._job_status(self._parse(text)))
+        return json.loads(text)  # type: ignore[return-value]
 
     # ---- Roast (LLM; bring-your-own key supported) ---------------------------
 

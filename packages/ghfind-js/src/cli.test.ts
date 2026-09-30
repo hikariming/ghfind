@@ -42,6 +42,7 @@ describe("parseArgs", () => {
     expect(flags.lang).toBe("en");
     expect(flags.output).toBe("markdown");
     expect(flags.byoModel).toBe("gpt-4o");
+    expect(parseArgs(["score", "x", "--wait", "30"]).flags.wait).toBe("30");
   });
 
   it("treats --md as an alias for --markdown", () => {
@@ -101,9 +102,10 @@ describe("offline commands", () => {
     expect(out.split("\n")[0]).toContain("getScore");
   });
 
-  it("help mentions --local and byo", async () => {
+  it("help mentions --local, --wait and byo", async () => {
     const out = await captureStdout(() => run(["--help"]));
     expect(out).toContain("--local");
+    expect(out).toContain("--wait");
     expect(out).toContain("--byo-base-url");
   });
 

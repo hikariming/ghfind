@@ -3,14 +3,14 @@ import { notifyCampaignCardGenerated } from "@/lib/campaign-notify";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
   hasLegacyReadFallbackProfile,
+  getCurrentCanonicalQuickScan,
   getLegacyReadFallbackScan,
-  publishCompleteQuickScan,
   recordAccountLookup,
   recordCampaignParticipant,
 } from "@/lib/db";
+import { requestDevscoreJob } from "@/lib/devscore-jobs";
 import {
   checkRateLimit,
-  coalesceScan,
   getCachedScan,
   rateLimitHeaders,
 } from "@/lib/redis";
@@ -21,7 +21,8 @@ import {
 } from "@/lib/anonymous-session";
 import { apiError } from "@/lib/api-error";
 import { machineAuth } from "@/lib/machine-auth";
-import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
+import { logFreshScanFailure } from "@/lib/scan-core";
+import { scanStatusUrl, type ScanJobStatus } from "@/lib/scan-job-client";
 import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
@@ -48,7 +49,7 @@ function scorePersistenceUnavailable(headers: Record<string, string>) {
   return apiError("scan_failed", {
     status: 503,
     message: "score persistence is temporarily unavailable",
-    hint: "Retry later; no incomplete score was published.",
+    hint: "Retry later; no score job could be recorded.",
     headers: {
       ...headers,
       "Cache-Control": "no-store",
@@ -57,18 +58,24 @@ function scorePersistenceUnavailable(headers: Record<string, string>) {
   });
 }
 
-class ScorePersistenceError extends Error {}
-
-async function persistQuickScan(
-  scan: import("@/lib/types").ScanResult,
-  scannedAt: number,
-): Promise<boolean> {
-  try {
-    return Boolean(await publishCompleteQuickScan(scan, scannedAt));
-  } catch {
-    console.error("publishCompleteQuickScan failed");
-    return false;
-  }
+/**
+ * First-time lookups are scored by a background devscore job: 202 with the
+ * status Location. Polling that Location advances the job and returns the
+ * published ScanResult once the score exists.
+ */
+function pendingResponse(input: {
+  username: string;
+  status: ScanJobStatus;
+  headers: Record<string, string>;
+}) {
+  const location = scanStatusUrl(input.username);
+  return NextResponse.json(
+    { username: input.username, status: input.status, status_url: location },
+    {
+      status: 202,
+      headers: { ...input.headers, Location: location, "Cache-Control": "no-store", "Retry-After": "2" },
+    },
+  );
 }
 
 async function recordSuccessfulLookup(
@@ -88,8 +95,8 @@ async function recordSuccessfulLookup(
 }
 
 /**
- * A verified previous-release profile is only an emergency read fallback. Successful
- * current quick scans always win and immediately refresh the v10 profile.
+ * A verified previous-release profile is only an emergency read fallback, served
+ * when a new score job cannot be admitted. A published current score always wins.
  */
 async function legacyReadFallbackResponse(input: {
   scan: import("@/lib/types").ScanResult;
@@ -144,8 +151,6 @@ function immediateResponse(input: {
     {
       ...input.scan,
       cached: input.cached,
-      // The bounded collector is the product contract. It never waits for a
-      // second full-history pass before scoring or roasting the account.
       coverage: "quick",
     },
     { headers: input.headers },
@@ -213,14 +218,15 @@ export async function POST(req: NextRequest) {
       headers: { ...idem, ...rlHeaders, "Cache-Control": "no-store" },
     });
   }
-  // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
-  // fresh snapshot immediately; admission/rate limits above still apply.
+  // `?force=1` (RescanButton) skips the published score and starts a fresh
+  // devscore job; admission/rate limits above still apply.
   const force = req.nextUrl.searchParams.get("force") === "1";
-  const cached = force ? null : await getCachedScan(username);
+  const cached = force
+    ? null
+    : (await getCachedScan(username)) ?? (await getCurrentCanonicalQuickScan(username))?.scan ?? null;
   if (cached) {
-    // The cached snapshot was persisted by its producing quick scan. Replaying
-    // it must remain read-only: publishing it again with Date.now() would make
-    // an old score look freshly scanned and reset the UI's rescan cooldown.
+    // A published snapshot replays read-only: republishing it with Date.now()
+    // would make an old score look freshly scanned and reset the rescan cooldown.
     await recordSuccessfulLookup(cached.metrics.username, ip, campaign);
     return attachAnonymousSession(
       immediateResponse({ scan: cached, cached: true, headers: { ...idem, ...rlHeaders } }),
@@ -228,24 +234,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let status: ScanJobStatus | null;
+  let jobError: unknown = null;
   try {
-    const result = await coalesceScan(username, async () => {
-      const scannedAt = Date.now();
-      const quickScan = await buildScanResult(username);
-      if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
-      return quickScan;
-    }, { force });
-    await recordSuccessfulLookup(result.metrics.username, ip, campaign);
-    return attachAnonymousSession(
-      immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),
-      anonymousSession,
-    );
+    status = await requestDevscoreJob(username, { rescan: force });
   } catch (error) {
-    logFreshScanFailure(error, {
-      route: "scan",
-      username: username,
-      persistenceFailure: error instanceof ScorePersistenceError,
-    });
+    jobError = error;
+    status = null;
+  }
+  if (!status) {
+    // No job could be recorded: log through the allowlisted boundary before
+    // any legacy fallback can answer 200.
+    logFreshScanFailure(jobError, { route: "scan", username: username, persistenceFailure: true });
     const legacyScan = await getLegacyReadFallbackScan(username);
     if (legacyScan) {
       return attachAnonymousSession(
@@ -259,17 +259,11 @@ export async function POST(req: NextRequest) {
         anonymousSession,
       );
     }
-    if (error instanceof ScorePersistenceError) {
-      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
-    }
-    const { error: code, status, retry_after } = scanErrorResponse(error);
-    return apiError(code as Parameters<typeof apiError>[0], {
-      status,
-      headers: {
-        ...idem,
-        ...rlHeaders,
-        ...(retry_after ? { "Retry-After": String(retry_after) } : {}),
-      },
-    });
+    return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
   }
+  await recordSuccessfulLookup(username, ip, campaign);
+  return attachAnonymousSession(
+    pendingResponse({ username, status, headers: { ...idem, ...rlHeaders } }),
+    anonymousSession,
+  );
 }

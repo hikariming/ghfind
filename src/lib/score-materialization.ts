@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { SCORE_CACHE_VERSION } from "./cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "./scan-run-types";
-import { score, spamBotScore } from "./score";
+import { devscoreBotScore, isDevscoreSummary, scoringFromDevscore } from "./devscore-scoring";
 import type {
   ImpactRepo,
   RawMetrics,
@@ -353,9 +353,9 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
   ];
   const tiers = ["夯", "顶级", "人上人", "NPC", "拉完了"];
   const hasLegacyRiskShape = value.risk_assessment === undefined && value.risk_notes === undefined;
-  const hasV10RiskShape =
+  const hasStructuredRiskShape =
     isRecord(value.risk_assessment) &&
-    value.risk_assessment.version === "v10" &&
+    (value.risk_assessment.version === "v10" || value.risk_assessment.version === "v11") &&
     isFiniteNumber(value.risk_assessment.risk_score) &&
     ["none", "review", "high"].includes(String(value.risk_assessment.level)) &&
     isFiniteNumber(value.risk_assessment.confidence) &&
@@ -381,7 +381,7 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
     typeof value.tier === "string" &&
     tiers.includes(value.tier) &&
     typeof value.tier_label === "string" &&
-    (hasLegacyRiskShape || hasV10RiskShape)
+    (hasLegacyRiskShape || hasStructuredRiskShape)
   );
 }
 
@@ -402,8 +402,10 @@ function hasValidScanResult(value: unknown): value is ScanResult {
 }
 
 /**
- * Validate one immutable scan snapshot and derive its current deterministic score.
- * No caller-provided score, report, tag, or roast text is retained.
+ * Validate one immutable scan snapshot and derive its current score from the
+ * embedded devscore summary. The display metrics never feed the
+ * score; a snapshot without a devscore summary fails closed. No caller-provided
+ * score, report, tag, or roast text is retained.
  */
 export function materializeCanonicalScore(
   input: CanonicalScoreMaterializationInput,
@@ -429,12 +431,12 @@ export function materializeCanonicalScore(
   } catch {
     return null;
   }
-  if (!hasValidScanResult(parsed)) return null;
+  if (!hasValidScanResult(parsed) || !isDevscoreSummary(parsed.devscore)) return null;
 
   const requestedUsername = normalizeUsername(input.username)?.toLowerCase();
   const snapshotUsername = normalizeUsername(parsed.metrics.username)?.toLowerCase();
   if (!requestedUsername || requestedUsername !== snapshotUsername) return null;
-  const scoring = score(parsed.metrics);
+  const scoring = scoringFromDevscore(parsed.devscore);
   const scan: ScanResult = { ...parsed, scoring };
   return {
     scoreEntry: {
@@ -446,7 +448,7 @@ export function materializeCanonicalScore(
       tier: scoring.tier,
       tags: { zh: [], en: [] },
       roast_line: { zh: "", en: "" },
-      bot_score: spamBotScore(parsed.metrics),
+      bot_score: devscoreBotScore(parsed.devscore),
       sub_scores: scoring.sub_scores,
       risk_assessment: scoring.risk_assessment,
       risk_notes: scoring.risk_notes,

@@ -7,6 +7,7 @@ import type {
   LeaderboardWindow,
   RoastMeta,
   RoastResult,
+  ScanJobStatus,
   ScanResult,
   ScorePayload,
   SearchUsersResponse,
@@ -17,8 +18,22 @@ const ROAST_META_HEADER = "x-roast-meta";
 const FRAME = "\x1f";
 const DEFAULT_HOST = "https://ghfind.com";
 const GITHUB_API = "https://api.github.com";
-const SCAN_JOB_TIMEOUT_MS = 75_000;
-const SCAN_JOB_POLL_MS = 1_000;
+/** Default wait for a first-time score (the site waits up to 15 min). */
+export const DEFAULT_WAIT_MS = 15 * 60_000;
+const POLL_FIRST_MS = 2_000;
+const POLL_MAX_MS = 15_000;
+const POLL_GROWTH = 1.5;
+
+/** Options of the scoring calls that may hit a first-time (background) score. */
+export interface ScoreCallOptions {
+  /** Confirm the login exists via GitHub first (client-side). */
+  verifyExists?: boolean;
+  githubToken?: string;
+  /** Max ms to poll a first-time score's background job (default {@link DEFAULT_WAIT_MS}; 0 = don't poll). */
+  waitMs?: number;
+  /** Called with every pending job status (the initial 202 and each poll). */
+  onStatus?: (status: ScanJobStatus) => void;
+}
 
 export type FetchLike = (
   input: string,
@@ -70,6 +85,24 @@ export class GhFindError extends Error {
   }
 }
 
+/**
+ * The score is still being computed by a background job: a `202` job did not
+ * finish within `waitMs`. Call again later (or poll `statusUrl`; every poll
+ * advances the job). `job` is the last reported status.
+ */
+export class GhFindPending extends GhFindError {
+  readonly username: string;
+  readonly statusUrl: string;
+  readonly job: ScanJobStatus | null;
+  constructor(username: string, statusUrl: string, job: ScanJobStatus | null) {
+    super(`Score for "${username}" is still being computed`, { status: 202, code: "scan_pending", body: job });
+    this.name = "GhFindPending";
+    this.username = username;
+    this.statusUrl = statusUrl;
+    this.job = job;
+  }
+}
+
 function decodeMeta(value: string | null): RoastMeta | null {
   if (!value) return null;
   try {
@@ -86,7 +119,23 @@ function decodeMeta(value: string | null): RoastMeta | null {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
+}
+
+/** Parsed JSON, or null for an empty or non-JSON body. */
+function parseJson(text: string): unknown {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function jobStatus(payload: unknown): ScanJobStatus | null {
+  const status = (payload as { status?: unknown } | null)?.status as Partial<ScanJobStatus> | undefined;
+  return status && typeof status.state === "string" ? (status as ScanJobStatus) : null;
 }
 
 /**
@@ -133,12 +182,7 @@ export class GhFind {
     text(): Promise<string>;
   }): Promise<never> {
     const text = await response.text().catch(() => "");
-    let parsed: unknown = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      /* keep raw text for diagnostics */
-    }
+    const parsed = parseJson(text);
     const code =
       parsed && typeof parsed === "object" && "error" in parsed
         ? ((parsed as { error?: string }).error ?? null)
@@ -169,33 +213,57 @@ export class GhFind {
     return new URL(pathOrURL, `${this.host}/`).toString();
   }
 
-  private async pollScanJob(location: string): Promise<ScanResult> {
-    const deadline = Date.now() + SCAN_JOB_TIMEOUT_MS;
-    let last: { status?: { state?: string; error?: string }; result?: ScanResult } | null = null;
+  /**
+   * Follow a `202` job's status Location until it publishes a result. Polls with
+   * backoff (2 s growing to 15 s, never before a `Retry-After`) for up to
+   * `waitMs`, then throws {@link GhFindPending}. A failed job throws
+   * {@link GhFindError} with the job's error code (e.g. `account_not_found`).
+   */
+  private async waitForJob(
+    username: string,
+    res: { text(): Promise<string>; headers: { get(name: string): string | null } },
+    opts: ScoreCallOptions,
+  ): Promise<ScanResult> {
+    const initial = parseJson(await res.text().catch(() => ""));
+    const location =
+      res.headers.get("location") ?? (initial as { status_url?: string } | null)?.status_url ?? null;
+    if (!location) {
+      throw new GhFindError("Scoring job accepted without a status Location", {
+        status: 202,
+        code: "scan_status_missing",
+        body: initial,
+      });
+    }
+    const url = this.absoluteURL(location);
+    let job = jobStatus(initial);
+    if (job) opts.onStatus?.(job);
+    const deadline = Date.now() + Math.max(0, opts.waitMs ?? DEFAULT_WAIT_MS);
+    let delay = POLL_FIRST_MS;
+    let retryAfter = res.headers.get("retry-after");
     for (;;) {
-      const res = await this.fetchImpl(this.absoluteURL(location), { method: "GET" });
-      if (!res.ok) await this.readError(res);
-      const payload = (await res.json()) as {
-        status?: { state?: string; error?: string };
-        result?: ScanResult;
-      };
-      last = payload;
-      if (payload.result) return payload.result;
-      if (payload.status?.state === "failed") {
-        throw new GhFindError("Scan job failed", {
-          status: res.status,
-          code: payload.status.error || "scan_failed",
-          body: payload,
-        });
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new GhFindPending(username, url, job);
+      const hinted = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : 0;
+      await sleep(Math.min(Math.max(delay, hinted), remaining));
+      delay = Math.min(POLL_MAX_MS, delay * POLL_GROWTH);
+      const poll = await this.fetchImpl(url, { method: "GET" });
+      retryAfter = poll.headers.get("retry-after");
+      const text = await poll.text().catch(() => "");
+      const payload = parseJson(text) as { result?: ScanResult } | null;
+      const polled = jobStatus(payload);
+      if (poll.ok && payload?.result) return payload.result;
+      if (polled?.state === "failed") {
+        const code = polled.error || "scan_failed";
+        throw new GhFindError(`Scoring job failed: ${code}`, { status: poll.status, code, body: payload });
       }
-      if (Date.now() >= deadline) {
-        throw new GhFindError("Scan job timed out", {
-          status: 202,
-          code: "scan_timeout",
-          body: last,
-        });
+      // A poll can hit a transient upstream limit (503/429) while the job keeps running.
+      if (!poll.ok && polled?.state !== "running") {
+        await this.readError({ status: poll.status, text: async () => text });
       }
-      await sleep(SCAN_JOB_POLL_MS);
+      if (polled) {
+        job = polled;
+        opts.onStatus?.(polled);
+      }
     }
   }
 
@@ -252,15 +320,15 @@ export class GhFind {
 
   // ---- Scoring (deterministic, no LLM) ---------------------------------------
 
-  /** Full deterministic scan + score. Crawls GitHub server-side.
+  /** Full deterministic scan + devscore score (`POST /api/scan`).
    *
-   * Pass `{ verifyExists: true }` to first confirm the account is real via the
-   * client-side GitHub check (above), so a typo/nonexistent handle fails fast
-   * without hitting ghfind at all. */
-  async scan(
-    username: string,
-    opts: { verifyExists?: boolean; githubToken?: string } = {},
-  ): Promise<ScanResult> {
+   * A published scan comes back inline. A first-time account is scored by a
+   * background job (`202` + status Location, minutes for large accounts): the
+   * client polls it with backoff for up to `waitMs` and throws
+   * {@link GhFindPending} if it is still computing. Pass `{ verifyExists: true }`
+   * to first confirm the account is real via the client-side GitHub check, so a
+   * typo fails fast without hitting ghfind at all. */
+  async scan(username: string, opts: ScoreCallOptions = {}): Promise<ScanResult> {
     if (opts.verifyExists) await this.ensureExists(username, opts.githubToken);
     const res = await this.fetchImpl(`${this.host}/api/scan`, {
       method: "POST",
@@ -271,46 +339,46 @@ export class GhFind {
       }),
     });
     if (!res.ok) await this.readError(res);
-    if (res.status === 202) {
-      const location = res.headers.get("location");
-      if (!location) {
-        throw new GhFindError("Scan job accepted without a status Location", {
-          status: 202,
-          code: "scan_status_missing",
-        });
-      }
-      return this.pollScanJob(location);
-    }
+    if (res.status === 202) return this.waitForJob(username, res, opts);
     return (await res.json()) as ScanResult;
   }
 
-  /** Just the `scoring` block of a fresh scan (numeric score, tier, sub-scores,
-   * red flags). Convenience over {@link scan}. */
-  async score(
-    username: string,
-    opts: { verifyExists?: boolean; githubToken?: string } = {},
-  ): Promise<ScanResult["scoring"]> {
+  /** Just the `scoring` block of {@link scan} (numeric score, tier, sub-scores,
+   * red flags); same first-time wait semantics. */
+  async score(username: string, opts: ScoreCallOptions = {}): Promise<ScanResult["scoring"]> {
     const result = await this.scan(username, opts);
     return result.scoring;
   }
 
-  /** Deterministic score via GET /api/score/{username}. No auth, cacheable, never
-   * calls an LLM. Indexed accounts return the stored payload (with tags/roast_line);
-   * unseen accounts are admitted to the Go quick-scan worker path (`source: "quick"`,
-   * includes red_flags, no LLM copy). A compatible old stored score may return
+  /** Deterministic devscore score via GET /api/score/{username}. No auth,
+   * cacheable, never calls an LLM. Indexed accounts return the stored payload
+   * (with tags/roast_line); a recently published scan still in the cache returns
+   * `source: "quick"` (includes red_flags). An account never scored before is
+   * queued for background scoring (`202` + status Location): the client polls it
+   * with backoff for up to `waitMs`, then reads the published score, or throws
+   * {@link GhFindPending}. A compatible old stored score may return
    * `source: "legacy_v5_v5_v3"` with `stale: true`. Throws {@link GhFindError}
-   * with status 404 only when the GitHub login does not exist. The cheapest way
-   * to get a score.
+   * with status 404 when the GitHub login does not exist.
    *
    * Pass `{ verifyExists: true }` to confirm the account is real (client-side
-   * GitHub check) before calling ghfind — avoids admitting worker work for a
+   * GitHub check) before calling ghfind — avoids queueing a scoring job for a
    * handle that doesn't exist. */
-  async getScore(
-    username: string,
-    opts: { verifyExists?: boolean; githubToken?: string } = {},
-  ): Promise<ScorePayload> {
+  async getScore(username: string, opts: ScoreCallOptions = {}): Promise<ScorePayload> {
     if (opts.verifyExists) await this.ensureExists(username, opts.githubToken);
-    return this.getJson<ScorePayload>(`/api/score/${encodeURIComponent(username)}`);
+    const url = `${this.host}/api/score/${encodeURIComponent(username)}`;
+    let res = await this.fetchImpl(url, { method: "GET" });
+    if (!res.ok) await this.readError(res);
+    if (res.status === 202) {
+      await this.waitForJob(username, res, opts);
+      // Published: the score endpoint now serves the stored payload.
+      res = await this.fetchImpl(url, { method: "GET" });
+      if (!res.ok) await this.readError(res);
+      if (res.status === 202) {
+        const pending = parseJson(await res.text().catch(() => ""));
+        throw new GhFindPending(username, this.absoluteURL(res.headers.get("location") ?? url), jobStatus(pending));
+      }
+    }
+    return (await res.json()) as ScorePayload;
   }
 
   // ---- Roast (LLM; bring-your-own key supported) -----------------------------

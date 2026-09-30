@@ -1,7 +1,27 @@
-import { describe, it, expect } from "vitest";
-import { GhFind, GhFindError } from "./client.js";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { GhFind, GhFindError, GhFindPending } from "./client.js";
 import type { FetchLike } from "./client.js";
 import type { ScorePayload } from "./types.js";
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+/** Resolve `promise` while advancing fake timers (poll backoff sleeps). */
+async function settle<T>(promise: Promise<T>): Promise<T> {
+  const outcome = promise.then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error }),
+  );
+  await vi.runAllTimersAsync();
+  const r = (await outcome) as { value?: T; error?: unknown };
+  if ("error" in r) throw r.error;
+  return r.value as T;
+}
 
 function base64(s: string): string {
   return Buffer.from(s, "utf8").toString("base64");
@@ -91,31 +111,89 @@ describe("GhFind", () => {
     expect(calls[0].init?.method).toBe("POST");
   });
 
-  it("scan follows a 202 public job Location", async () => {
-    const { fetch, calls } = fakeFetch((url) => {
-      if (url.endsWith("/api/scan")) {
-        return {
-          status: 202,
-          json: { id: "job_aaaaaaaaaaaaaaaa", state: "queued" },
-          headers: { location: "/api/scan/jobs/job_aaaaaaaaaaaaaaaa" },
-        };
-      }
-      return {
-        json: {
-          status: { state: "completed" },
-          result: { metrics: { username: "octocat" }, scoring: { final_score: 42 } },
-        },
-      };
-    });
+  const pending = {
+    status: 202,
+    json: { username: "octocat", status: { state: "queued", phase: "queued" }, status_url: "/api/scan/status/octocat" },
+    headers: { location: "/api/scan/status/octocat", "retry-after": "2" },
+  };
+  const running = { status: 202, json: { status: { state: "running", phase: "contribs", progress: 0.1 } } };
+  const scanResult = { metrics: { username: "octocat" }, scoring: { final_score: 42 } };
+  const done = { json: { status: { state: "done", phase: "publish", progress: 1 }, result: scanResult } };
+
+  it("scan polls a 202 status Location with backoff until the result", async () => {
+    const polls = [running, running, done];
+    const sleeps: number[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, ms: number) => {
+      sleeps.push(ms);
+      return realSetTimeout(fn, ms);
+    }) as typeof setTimeout);
+    const { fetch, calls } = fakeFetch((url) => (url.endsWith("/api/scan") ? pending : polls.shift()!));
+    const statuses: string[] = [];
     const gh = new GhFind({ host: "https://ghfind.com", fetch });
 
-    const result = await gh.scan("octocat");
+    const result = await settle(gh.scan("octocat", { onStatus: (s) => statuses.push(s.phase ?? s.state) }));
 
-    expect(result.scoring.final_score).toBe(42);
+    expect(result).toEqual(scanResult);
     expect(calls.map((c) => c.url)).toEqual([
       "https://ghfind.com/api/scan",
-      "https://ghfind.com/api/scan/jobs/job_aaaaaaaaaaaaaaaa",
+      ...Array(3).fill("https://ghfind.com/api/scan/status/octocat"),
     ]);
+    expect(sleeps).toEqual([2000, 3000, 4500]);
+    expect(statuses).toEqual(["queued", "contribs", "contribs"]);
+  });
+
+  it("getScore waits for a first-time job, then reads the published score", async () => {
+    let first = true;
+    const score = { source: "indexed", username: "octocat", final_score: 42 };
+    const { fetch, calls } = fakeFetch((url) => {
+      if (!url.endsWith("/api/score/octocat")) return done;
+      if (first) {
+        first = false;
+        return pending;
+      }
+      return { json: score };
+    });
+    const r = await settle(new GhFind({ host: "https://ghfind.com", fetch }).getScore("octocat"));
+    expect(r).toEqual(score);
+    expect(calls.map((c) => c.url.split("/api/")[1])).toEqual(["score/octocat", "scan/status/octocat", "score/octocat"]);
+  });
+
+  it("throws GhFindPending with the last status when the wait expires", async () => {
+    const { fetch } = fakeFetch((url) => (url.includes("/api/score/") ? pending : running));
+    const error = await settle(
+      new GhFind({ host: "https://ghfind.com", fetch }).getScore("octocat", { waitMs: 10_000 }),
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GhFindPending);
+    expect(error).toMatchObject({
+      status: 202,
+      code: "scan_pending",
+      statusUrl: "https://ghfind.com/api/scan/status/octocat",
+      job: { state: "running", phase: "contribs", progress: 0.1 },
+    });
+  });
+
+  it("waitMs 0 reports pending without polling", async () => {
+    const { fetch, calls } = fakeFetch(() => pending);
+    const error = await new GhFind({ fetch }).scan("octocat", { waitMs: 0 }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GhFindPending);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("a failed job throws its error code, not pending", async () => {
+    const failed = { json: { status: { state: "failed", error: "account_not_found" } } };
+    const { fetch } = fakeFetch((url) => (url.endsWith("/api/scan") ? pending : failed));
+    const error = await settle(new GhFind({ fetch }).scan("octocat")).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GhFindError);
+    expect(error).not.toBeInstanceOf(GhFindPending);
+    expect(error).toMatchObject({ code: "account_not_found" });
+  });
+
+  it("keeps polling a running job through a transient poll error", async () => {
+    const busy = { ok: false, status: 503, json: { error: "github_unavailable", status: { state: "running" } } };
+    const polls = [busy, done];
+    const { fetch } = fakeFetch((url) => (url.endsWith("/api/scan") ? pending : polls.shift()!));
+    expect(await settle(new GhFind({ fetch }).scan("octocat"))).toEqual(scanResult);
   });
 
   it("score returns only the scoring block", async () => {

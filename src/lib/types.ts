@@ -285,7 +285,8 @@ export interface RiskCoverage {
 }
 
 export interface RiskAssessment {
-  version: "v10";
+  /** v10: the retired RawMetrics risk layer; v11: devscore v3 flags. */
+  version: "v10" | "v11";
   risk_score: number;
   level: RiskLevel;
   confidence: number;
@@ -307,6 +308,70 @@ export interface Scoring {
   final_score: number;
   tier: Tier;
   tier_label: string;
+}
+
+/** One top repository's devscore engine factors (explains the score). */
+export interface DevscoreRepoFactors {
+  name: string;
+  owned: boolean;
+  kind: string | null;
+  importance: number | null;
+  share: number | null;
+  authorship: number | null;
+  volume: number | null;
+  nature: number | null;
+  durability: number | null;
+  work: number | null;
+  endorsement: number | null;
+  contrib: number;
+  hype: boolean;
+}
+
+/**
+ * The devscore (`rateDeveloper`) result the score was derived from. Stored
+ * inside the published snapshot; the six ghfind dimensions and the final
+ * score are recomputed from it at every read boundary.
+ */
+export interface DevscoreSummary {
+  version: "v11";
+  collected_at: string | null;
+  v3: {
+    score: number;
+    tier: "lawanle" | "npc" | "renshangren" | "dingji" | "hang";
+    remapped: number;
+    flags: { slop: boolean; influencer: boolean; no_pr_data: boolean; hype: boolean };
+  };
+  curve: {
+    score: number;
+    main: number;
+    content_bonus: number;
+    confidence: "high" | "med" | "low";
+    e: number;
+    e_dev: number;
+    e_maint: number;
+    maint_flagship: number;
+    maint_sustained: number;
+    status: "active" | "maintaining" | "inactive";
+    flagship: number;
+    sustained: number;
+    recent_share: number | null;
+  };
+  engine: {
+    score: number;
+    impact_score: number;
+    breadth: number;
+    breadth_score: number;
+    longevity_years: number | null;
+    longevity_score: number | null;
+    collab_score: number | null;
+    contrib: number;
+    contrib_score: number;
+    /** Best repos by engine work (excluded repos omitted), at most 10. */
+    top_repos: DevscoreRepoFactors[];
+  };
+  /** PR reviews given over all collected years (review stewardship). */
+  reviews: number;
+  followers: number | null;
 }
 
 /** Full scan payload — same shape the Python script prints. */
@@ -333,6 +398,8 @@ export interface ScanResult {
   /** Organizations the user belongs to (e.g. huggingface, pytorch) — high-signal
    * for circle/affiliation. Optional for back-compat. */
   organizations?: string[];
+  /** devscore result behind `scoring` (v11+ snapshots). */
+  devscore?: DevscoreSummary;
   scoring: Scoring;
 }
 

@@ -3,15 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
-  buildScanResult: vi.fn(),
   logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
   checkScanNetworkRateLimit: vi.fn(),
-  coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  getCurrentCanonicalQuickScan: vi.fn(),
+  requestDevscoreJob: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
   hasLegacyReadFallbackProfile: vi.fn(),
-  publishCompleteQuickScan: vi.fn(),
   rateLimitHeaders: vi.fn(),
   recordAccountLookup: vi.fn(),
   recordCampaignParticipant: vi.fn(),
@@ -22,20 +21,20 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  getCurrentCanonicalQuickScan: mocks.getCurrentCanonicalQuickScan,
   getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
   hasLegacyReadFallbackProfile: mocks.hasLegacyReadFallbackProfile,
-  publishCompleteQuickScan: mocks.publishCompleteQuickScan,
   recordAccountLookup: mocks.recordAccountLookup,
   recordCampaignParticipant: mocks.recordCampaignParticipant,
 }));
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
-  coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
-vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult, logFreshScanFailure: mocks.logFreshScanFailure }));
+vi.mock("@/lib/scan-core", () => ({ logFreshScanFailure: mocks.logFreshScanFailure }));
+vi.mock("@/lib/devscore-jobs", () => ({ requestDevscoreJob: mocks.requestDevscoreJob }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/anonymous-session", () => ({
   anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
@@ -58,16 +57,15 @@ function request() {
   });
 }
 
-describe("POST /api/scan immediate quick contract", () => {
+describe("POST /api/scan background devscore contract", () => {
   beforeEach(() => {
     process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
-    mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
-    mocks.buildScanResult.mockResolvedValue(quickScan);
-    mocks.publishCompleteQuickScan.mockResolvedValue(true);
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
+    mocks.requestDevscoreJob.mockResolvedValue({ state: "queued", phase: "queued", progress: 0 });
     mocks.recordAccountLookup.mockResolvedValue(undefined);
     mocks.recordCampaignParticipant.mockResolvedValue(undefined);
     mocks.getLegacyReadFallbackScan.mockResolvedValue(null);
@@ -83,32 +81,17 @@ describe("POST /api/scan immediate quick contract", () => {
     vi.clearAllMocks();
   });
 
-  it("persists and returns the current v10 quick result without a queue response", async () => {
+  it("queues a first-time account and answers 202 with the status Location", async () => {
     const response = await POST(request());
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      cached: false,
-      coverage: "quick",
-      metrics: { username: "DemoDev" },
-      scoring: { final_score: 71 },
-    });
-    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
+    expect(response.status).toBe(202);
+    expect(response.headers.get("location")).toBe("/api/scan/status/DemoDev");
+    await expect(response.json()).resolves.toMatchObject({ status: { state: "queued" } });
+    expect(mocks.requestDevscoreJob).toHaveBeenCalledWith("DemoDev", { rescan: false });
     expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
   });
 
-  it("passes force through to distributed coalescing", async () => {
-    const req = new NextRequest("https://example.test/api/scan?force=1", {
-      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer test-key" },
-      body: JSON.stringify({ username: "DemoDev" }),
-    });
-    const response = await POST(req);
-    expect(response.status).toBe(200);
-    expect(mocks.getCachedScan).not.toHaveBeenCalled();
-    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { force: true });
-  });
-
-  it("serves a cached quick scan without republishing it as newly scanned", async () => {
+  it("serves a published score inline without queueing or republishing", async () => {
     mocks.getCachedScan.mockResolvedValue(quickScan);
 
     const response = await POST(request());
@@ -119,20 +102,32 @@ describe("POST /api/scan immediate quick contract", () => {
       coverage: "quick",
       metrics: { username: "DemoDev" },
     });
-    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
-    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.requestDevscoreJob).not.toHaveBeenCalled();
     expect(mocks.recordAccountLookup).toHaveBeenCalledWith("DemoDev", "0.0.0.0");
   });
 
-  it("serves the previous collection tuple after the quick collector fails", async () => {
-    mocks.buildScanResult.mockRejectedValue(new Error("github unavailable"));
+  it("force=1 skips the published score and restarts the job", async () => {
+    mocks.getCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(new NextRequest("https://example.test/api/scan?force=1", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer test-key" },
+      body: JSON.stringify({ username: "DemoDev" }),
+    }));
+
+    expect(response.status).toBe(202);
+    expect(mocks.requestDevscoreJob).toHaveBeenCalledWith("DemoDev", { rescan: true });
+  });
+
+  it("serves the previous release tuple when no job can be recorded", async () => {
+    mocks.requestDevscoreJob.mockResolvedValue(null);
     mocks.getLegacyReadFallbackScan.mockResolvedValue(quickScan);
 
     const response = await POST(request());
 
     expect(response.status).toBe(200);
-    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
-      route: "scan", username: "DemoDev", persistenceFailure: false,
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(null, {
+      route: "scan", username: "DemoDev", persistenceFailure: true,
     });
     expect(mocks.logFreshScanFailure.mock.invocationCallOrder[0])
       .toBeLessThan(mocks.getLegacyReadFallbackScan.mock.invocationCallOrder[0]);
@@ -145,6 +140,15 @@ describe("POST /api/scan immediate quick contract", () => {
     });
   });
 
+  it("answers 503 when neither a job nor a fallback is available", async () => {
+    mocks.requestDevscoreJob.mockResolvedValue(null);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("5");
+  });
+
   it("keeps a Turnstile-issued browser outside the machine rate limit", async () => {
     delete process.env.GITHUB_ROAST_CLI_API_KEY;
     mocks.establishAnonymousSession.mockReturnValue({ id: "session-fixture", issued: true });
@@ -155,7 +159,7 @@ describe("POST /api/scan immediate quick contract", () => {
       body: JSON.stringify({ username: "DemoDev", turnstileToken: "token" }),
     }));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(mocks.checkRateLimit).not.toHaveBeenCalled();
     expect(mocks.checkScanNetworkRateLimit).not.toHaveBeenCalled();
     expect(mocks.attachAnonymousSession).toHaveBeenCalledWith(
