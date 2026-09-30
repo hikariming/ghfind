@@ -53,6 +53,7 @@ import {
   shouldStartProfileRoast,
 } from "./ProfileArtifactStatus";
 import { decodeRouteParam } from "@/lib/route-params";
+import { getDevscoreJobStatus } from "@/lib/devscore-jobs";
 
 /** True when a Referer header points at github.com (or a subdomain). GitHub sends
  *  `strict-origin-when-cross-origin`, so we only ever see the bare origin — enough
@@ -106,6 +107,7 @@ export const dynamic = "force-dynamic";
 // Dedupe Go presentation reads between metadata and the page render.
 const getProfile = cache((username: string) => getGoProfilePresentation(username));
 const getLiveScan = cache((username: string) => getGoLiveProfileScan(username));
+const getJobStatus = cache((username: string) => getDevscoreJobStatus(username));
 
 export async function generateMetadata({
   params,
@@ -123,8 +125,9 @@ export async function generateMetadata({
     // means we render the live-roast pending shell rather than 404 — give it a
     // title and keep it out of search (it's transient).
     const scan = await getLiveScan(decoded);
+    const jobStatus = await getJobStatus(decoded);
     const roasting = (await searchParams)?.roasting === "1";
-    if (scan || roasting) {
+    if (scan || roasting || jobStatus) {
       return {
         title: t("pendingTitle", { username: scan?.metrics.username ?? decoded }),
         robots: { index: false, follow: true },
@@ -197,12 +200,14 @@ export default async function AccountPage({
     // stashed in sessionStorage). LiveRoast refreshes into the full profile on
     // completion. Otherwise it's a genuine unknown handle → 404.
     const scan = await getLiveScan(decoded);
+    const jobStatus = await getJobStatus(decoded);
     const roasting = query.roasting === "1";
-    if (!scan && !roasting) notFound();
+    if (!scan && !roasting && !jobStatus) notFound();
     return (
       <PendingProfile
         username={decoded}
         initialScan={scan ?? null}
+        initialJobStatus={jobStatus}
         fromHome={roasting}
         advx={isAdvxCampaign}
       />

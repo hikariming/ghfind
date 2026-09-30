@@ -428,6 +428,35 @@
     "github_unavailable": "Os dados do GitHub estão temporariamente indisponíveis — tente mais tarde.",
     "scan_failed": "O scan quebrou — tente de novo mais tarde."
   },
+  "scoreJob": {
+    "computing": "Calculando",
+    "computingHint": "A primeira pontuação leva alguns minutos: estamos coletando dados públicos de contribuição. Deixe a página aberta e ela aparece sozinha.",
+    "progress": "{percent} concluído",
+    "failed": "O cálculo da nota falhou — tente de novo mais tarde.",
+    "timeout": "Ainda calculando — volte mais tarde.",
+    "phase": {
+      "queued": "Na fila",
+      "running": "Calculando",
+      "user": "Perfil",
+      "contribs": "Contribuições",
+      "maintainer": "Dados de mantenedor",
+      "gap_fill": "Completando histórico",
+      "merged_prs": "PRs mergeados",
+      "repo_meta": "Metadados de repos",
+      "pr_samples": "Amostras de PR",
+      "pr_details": "Detalhes de PR",
+      "mutual_mergers": "Vínculos de merge",
+      "histories": "Histórico de commits",
+      "signals": "Sinais",
+      "per_repo": "Análise por repo",
+      "owner_types": "Tipos de dono",
+      "star_history": "Histórico de stars",
+      "rejected": "PRs rejeitados",
+      "ext_prs": "PRs externos",
+      "assemble": "Consolidando",
+      "publish": "Publicando nota"
+    }
+  },
   "share": {
     "open": "🔗 Compartilhar",
     "heading": "Compartilhar em",
