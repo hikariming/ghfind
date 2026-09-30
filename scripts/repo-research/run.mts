@@ -15,10 +15,9 @@ import "../_env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@libsql/client";
-import { collect } from "../../src/lib/github";
-import { score, tierFor } from "../../src/lib/score";
+import { devscoreScan } from "../devscore-scan.mts";
 import { publishCompleteQuickScan } from "../../src/lib/db";
-import type { RawMetrics, ScanResult } from "../../src/lib/types";
+import type { RawMetrics, RiskAssessment, ScanResult } from "../../src/lib/types";
 
 const repoArg = process.argv[2];
 if (!repoArg?.includes("/")) {
@@ -113,15 +112,14 @@ if (!NO_INGEST && toScan.length) {
     let line = "";
     for (let attempt = 0; ; attempt++) {
       try {
-        const collected = await collect(u);
-        const scoring = score(collected.metrics);
-        const scan: ScanResult = { ...collected, scoring };
-        const { tier } = tierFor(scoring.final_score);
+        const scan: ScanResult = await devscoreScan(u);
+        const { scoring } = scan;
+        const { tier } = scoring;
         const scoreWrite = await publishCompleteQuickScan(scan);
         if (!scoreWrite) {
           throw new Error("scan requires durable collection or storage is unavailable");
         }
-        line = `OK  ${collected.metrics.username.padEnd(20)} score=${String(scoring.final_score).padStart(5)} ${tier}`;
+        line = `OK  ${scan.metrics.username.padEnd(20)} score=${String(scoring.final_score).padStart(5)} ${tier}`;
         break;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -144,12 +142,14 @@ console.log("[aggregate] sweeping scores + latest snapshots…");
 type Row = {
   login: string; contributions: number; final_score: number | null; tier: string | null;
   bot_score: number | null; scanned_at: number | null; m: RawMetrics | null;
+  /** Penalty signals of the stored risk assessment (null: none stored). */
+  red_flags: string[] | null;
 };
 const rows: Row[] = [];
 for (const c of humans) {
   const u = c.login.toLowerCase();
   const s = await db.execute({
-    sql: `SELECT final_score, tier, bot_score, scanned_at FROM scores WHERE username = ?`,
+    sql: `SELECT final_score, tier, bot_score, scanned_at, risk_assessment FROM scores WHERE username = ?`,
     args: [u],
   });
   const snap = await db.execute({
@@ -161,6 +161,13 @@ for (const c of humans) {
     try { m = JSON.parse(String(snap.rows[0].metrics)) as RawMetrics; } catch {}
   }
   const sr = s.rows[0];
+  let redFlags: string[] | null = null;
+  if (typeof sr?.risk_assessment === "string") {
+    try {
+      const risk = JSON.parse(sr.risk_assessment) as RiskAssessment | null;
+      if (risk) redFlags = risk.signals.filter((x) => x.disposition === "penalty").map((x) => x.flag);
+    } catch {}
+  }
   rows.push({
     login: c.login, contributions: c.contributions,
     final_score: sr ? Number(sr.final_score) : null,
@@ -168,6 +175,7 @@ for (const c of humans) {
     bot_score: sr && sr.bot_score !== null ? Number(sr.bot_score) : null,
     scanned_at: sr ? Number(sr.scanned_at) : null,
     m,
+    red_flags: redFlags,
   });
 }
 
@@ -192,17 +200,12 @@ for (const r of scored) tierHist[r.tier!] = (tierHist[r.tier!] ?? 0) + 1;
 
 const withMetrics = scored.filter((r) => r.m && typeof r.m.followers === "number");
 const flagCounts: Record<string, number> = {};
-let flaggedUsers = 0;
-let recomputedBotGte3 = 0, recomputedBotGte5 = 0;
-for (const r of withMetrics) {
-  try {
-    const sc = score(r.m!);
-    if (sc.red_flags.length) flaggedUsers++;
-    for (const f of sc.red_flags) flagCounts[f.flag] = (flagCounts[f.flag] ?? 0) + 1;
-    const bot = spamBotScore(r.m!);
-    if (bot >= 3) recomputedBotGte3++;
-    if (bot >= 5) recomputedBotGte5++;
-  } catch {}
+let flaggedUsers = 0, flagsOf = 0;
+for (const r of scored) {
+  if (!r.red_flags) continue;
+  flagsOf++;
+  if (r.red_flags.length) flaggedUsers++;
+  for (const f of r.red_flags) flagCounts[f] = (flagCounts[f] ?? 0) + 1;
 }
 
 // bus factor from the contributors API commit counts (top-100 sample)
@@ -275,11 +278,9 @@ const out = {
   },
   spam: {
     stored_bot_gte3: scored.filter((r) => (r.bot_score ?? 0) >= 3).length,
-    recomputed_gte3: recomputedBotGte3,
-    recomputed_gte5: recomputedBotGte5,
-    of: withMetrics.length,
+    of: scored.length,
   },
-  red_flags: { users_with_any: flaggedUsers, of: withMetrics.length, by_flag: flagCounts },
+  red_flags: { users_with_any: flaggedUsers, of: flagsOf, by_flag: flagCounts },
   raw_metrics: {
     followers: dist(withMetrics.map((r) => r.m!.followers ?? 0)),
     account_age_years: dist(withMetrics.map((r) => r.m!.account_age_years ?? 0)),

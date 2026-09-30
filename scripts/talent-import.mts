@@ -11,10 +11,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
-import { collect, GitHubRateLimitError } from "../src/lib/github";
-import { score, spamBotScore, tierFor } from "../src/lib/score";
+import { devscoreBotScore } from "../src/lib/devscore-scoring";
+import { GitHubRateLimitError } from "../src/lib/github";
+import { tierFor } from "../src/lib/score-presentation";
 import { publishCompleteQuickScan, updateRoast } from "../src/lib/db";
-import type { RawMetrics, ScanResult, Scoring, SubScoreKey, Tier } from "../src/lib/types";
+import type { DevscoreSummary, RawMetrics, ScanResult, Scoring, SubScoreKey, Tier } from "../src/lib/types";
+import { devscoreScan } from "./devscore-scan.mts";
 import { buildCtx, buildRoastLine, buildRoastReport, buildTags } from "./roast-gen.mts";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +120,10 @@ interface PersonCheckpoint {
   profile: ProfileInfo;
   metrics: RawMetrics;
   scoring: Scoring;
+  /** devscore summary of a live scan; talent-backfill-scores.mts needs it to publish. */
+  devscore?: DevscoreSummary;
+  /** Stored hidden bot score (0..10); absent on older checkpoints. */
+  bot_score?: number;
   /** Languages of the person's top repos, captured at scan time. */
   top_repo_languages?: string[];
 }
@@ -193,6 +199,7 @@ interface DbScoreRow {
   final_score: number;
   tier: string;
   sub_scores: string | null;
+  bot_score: number | null;
   scanned_at: number;
 }
 async function loadFreshDbScores(logins: string[]): Promise<Map<string, DbScoreRow>> {
@@ -201,7 +208,7 @@ async function loadFreshDbScores(logins: string[]): Promise<Map<string, DbScoreR
   const staleAfter = Date.now() - STALE_DAYS * 86400_000;
   const placeholders = logins.map(() => "?").join(", ");
   const r = await db.execute({
-    sql: `SELECT username, final_score, tier, sub_scores, scanned_at FROM scores WHERE username IN (${placeholders})`,
+    sql: `SELECT username, final_score, tier, sub_scores, bot_score, scanned_at FROM scores WHERE username IN (${placeholders})`,
     args: logins.map((l) => l.toLowerCase()),
   });
   for (const row of r.rows as unknown as DbScoreRow[]) {
@@ -233,10 +240,10 @@ const BACKOFFS = [15_000, 40_000, 90_000];
 const isTransientScanError = (e: unknown): boolean =>
   e instanceof GitHubRateLimitError ||
   TRANSIENT.test(e instanceof Error ? e.message : String(e));
-async function collectWithRetry(login: string) {
+async function scanWithRetry(login: string) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await collect(login);
+      return await devscoreScan(login);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (attempt < BACKOFFS.length && isTransientScanError(e)) {
@@ -249,10 +256,10 @@ async function collectWithRetry(login: string) {
   }
 }
 
-async function publishScan(login: string, collected: Awaited<ReturnType<typeof collect>>, scoring: Scoring) {
+async function publishScan(login: string, scan: ScanResult) {
   if (!db || NO_PUBLISH_SCAN) return;
+  const { scoring, ...collected } = scan;
   try {
-    const scan: ScanResult = { ...collected, scoring };
     const scoreWrite = await publishCompleteQuickScan(scan);
     if (!scoreWrite) {
       console.log(`[scan] ${login}: publishCompleteQuickScan returned null, skipping roast`);
@@ -393,14 +400,14 @@ async function main() {
       continue;
     }
     if (freshDb.has(key)) {
-      const metrics = await loadSnapshotMetrics(key);
-      if (metrics) {
-        const row = freshDb.get(key)!;
+      const row = freshDb.get(key)!;
+      let subScores: Scoring["sub_scores"] | null = null;
+      try {
+        if (row.sub_scores) subScores = JSON.parse(row.sub_scores) as Scoring["sub_scores"];
+      } catch {}
+      const metrics = subScores ? await loadSnapshotMetrics(key) : null;
+      if (metrics && subScores) {
         const { tier, tier_label } = tierFor(Number(row.final_score));
-        let subScores = score(metrics).sub_scores;
-        try {
-          if (row.sub_scores) subScores = JSON.parse(row.sub_scores) as Scoring["sub_scores"];
-        } catch {}
         plans.set(key, {
           kind: "db",
           ckpt: {
@@ -408,6 +415,7 @@ async function main() {
             fetched_at: Number(row.scanned_at),
             profile: { name: null, bio: null, location: null, blog: null, twitter: null, email: null },
             metrics,
+            bot_score: row.bot_score ?? undefined,
             scoring: {
               sub_scores: subScores,
               base_score: Number(row.final_score),
@@ -421,7 +429,7 @@ async function main() {
         });
         continue;
       }
-      // Fresh DB row but no snapshot metrics — must rescan.
+      // Fresh DB row but no snapshot metrics or stored dimensions — must rescan.
       freshDb.delete(key);
     }
     plans.set(key, { kind: "scan" });
@@ -453,17 +461,18 @@ async function main() {
     if (scanIdx > 1) await sleep(8000);
     console.log(`[scan ${scanIdx}/${scanTotal}] ${login}`);
     try {
-      const collected = await collectWithRetry(login);
-      const scoring = score(collected.metrics);
-      await publishScan(login, collected, scoring);
+      const scan = await scanWithRetry(login);
+      await publishScan(login, scan);
       const profile = await fetchProfile(login);
       const ckpt: PersonCheckpoint = {
         login,
         fetched_at: Date.now(),
         profile,
-        metrics: collected.metrics,
-        scoring,
-        top_repo_languages: (collected.top_repos ?? [])
+        metrics: scan.metrics,
+        scoring: scan.scoring,
+        devscore: scan.devscore,
+        bot_score: devscoreBotScore(scan.devscore!),
+        top_repo_languages: (scan.top_repos ?? [])
           .map((r) => r.language)
           .filter((l): l is string => !!l),
       };
@@ -506,9 +515,9 @@ async function main() {
       droppedByLogin.set(key, `final_score ${scoring.final_score} < ${MIN_SCORE}`);
       continue;
     }
-    const bot = spamBotScore(person.metrics);
+    const bot = person.bot_score ?? 0;
     if (bot >= 3) {
-      droppedByLogin.set(key, `spamBotScore ${bot} >= 3`);
+      droppedByLogin.set(key, `bot_score ${bot} >= 3`);
       continue;
     }
 

@@ -1,8 +1,7 @@
 """CLI tests — offline command output + a fake-transport network command.
 
 Network commands are exercised through GhFind's injectable ``transport`` so no
-real HTTP happens. The bit-exact scoring math is covered elsewhere
-(test_score_parity.py); here we cover the CLI's argument wiring and formatting.
+real HTTP happens; here we cover the CLI's argument wiring and formatting.
 """
 
 import json
@@ -114,6 +113,18 @@ def test_api_error_exit_code(capsys, monkeypatch):
     monkeypatch.setattr(_cli, "_client", lambda args: GhFind(host="https://ghfind.com", transport=transport))
     assert _cli.main(["score", "nope"]) == 1
     assert "account_not_found" in capsys.readouterr().err
+
+
+def test_pending_score_exit_code(capsys, monkeypatch):
+    def transport(method, url, hdrs, body):
+        return (202, json.dumps({"username": "new", "status": {"state": "running", "phase": "contribs"}}),
+                {"location": "/api/scan/status/new"})
+
+    monkeypatch.setattr(_cli, "_client", lambda args: GhFind(host="https://ghfind.com", transport=transport))
+    assert _cli.main(["score", "new", "--wait", "0"]) == 3
+    err = capsys.readouterr().err
+    assert "still being computed (phase contribs)" in err
+    assert "https://ghfind.com/api/scan/status/new" in err
 
 
 def test_incomplete_byo_key_fails(capsys, monkeypatch):

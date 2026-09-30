@@ -57,6 +57,12 @@ func (s *PostgresFeedStore) ReadFeedOperationalSnapshot(ctx context.Context, now
 	return snapshot, nil
 }
 
+const (
+	defaultFeedShadowOutcomeWindow = 24 * time.Hour
+	minFeedShadowOutcomeWindow     = time.Hour
+	maxFeedShadowOutcomeWindow     = 7 * 24 * time.Hour
+)
+
 // EvaluateGorseShadowOutcomes closes a configured outcome window before
 // computing Recall@50. A short window is appropriate for early, session-level
 // product feedback; recording the exact window keeps later comparisons honest.
@@ -123,7 +129,7 @@ func (s *PostgresFeedStore) EvaluateGorseShadowOutcomes(ctx context.Context, now
 		var recall any
 		if len(positives) > 0 {
 			matched := 0
-			for _, id := range item.itemIDs[:minInt(50, len(item.itemIDs))] {
+			for _, id := range item.itemIDs[:min(50, len(item.itemIDs))] {
 				if positives[id] {
 					matched++
 				}

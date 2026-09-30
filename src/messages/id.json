@@ -114,7 +114,7 @@
     "boardHeading": "🏆 Developer terbaik",
     "openBoard": "Buka peringkat lengkap →",
     "disclaimer1": "Skor dan roast dibuat otomatis hanya dari <b>data publik GitHub</b>. Yang kami roast adalah perilaku dan statistik publik sebuah akun, bukan orangnya. Hasilnya bukan klaim faktual tentang siapa pun — jangan dipakai untuk merundung.",
-    "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu.",
+    "disclaimer2": "Mesin skor devscore open source di repositori <code>ghfind</code> · API key milikmu hanya tersimpan di browsermu.",
     "viewAll": "Lihat semua"
   },
   "leaderboard": {
@@ -305,18 +305,18 @@
     "modalPkCta": "Tarik seseorang untuk dibandingkan",
     "modalFacetRankCta": "Lihat peringkatku di {facet}",
     "dimensionsHeading": "Rincian skor",
-    "scoreBase": "Nilai dasar enam dimensi",
-    "scoreAdjustment": "Penyesuaian risiko",
+    "scoreBase": "Total enam dimensi",
+    "scoreAdjustment": "Selisih dari total",
     "scoreInferredAdjustment": "Selisih yang tidak terjelaskan",
     "scoreFinal": "Nilai akhir",
     "scoreBreakdownHeading": "Komposisi nilai",
-    "scoreBreakdownNote": "Aturan risiko diterapkan secara terpisah setelah enam nilai dimensi dijumlahkan.",
+    "scoreBreakdownNote": "Totalnya adalah skor devscore; enam dimensi adalah nilai tampilan yang diturunkan dari faktor-faktornya, jadi selisih di antara keduanya bukan penalti dengan sendirinya. Selisih itu mencerminkan risiko hanya jika batas anti-manipulasi diterapkan, seperti tercantum di bawah.",
     "scoreRiskHeading": "Penjelasan risiko · {count} item",
     "scoreRiskUnavailable": "Nilai historis ini tidak menyimpan alasan penyesuaian secara rinci. Pindai ulang untuk melihat pemicunya.",
     "scoreAdjustmentLimited": "Total aturan risiko {total}; batas atau nilai minimum membatasi penyesuaian aktual menjadi {applied}.",
     "scoreRiskMore": "Tampilkan {count} lainnya",
     "scoreRiskStatus": "Tingkat risiko",
-    "scoreRiskFootprintNote": "Jejak publik yang terbatas berarti data terbatas, bukan kecurangan; hanya beberapa sinyal manipulasi berkeyakinan tinggi yang mengurangi skor.",
+    "scoreRiskFootprintNote": "Jejak publik yang terbatas berarti bukti terbatas, bukan kecurangan; hanya batas PR berkualitas rendah massal dan batas influencer yang menurunkan skor.",
     "scoreRiskNoPenalty": "Sinyal ini hanya sebagai konteks dan tidak memengaruhi skor akhir.",
     "scoreRiskNotes": "Tampilkan {count} sinyal yang tidak mengurangi skor",
     "scoreRiskScore": "Skor risiko",
@@ -427,6 +427,35 @@
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
+  },
+  "scoreJob": {
+    "computing": "Menghitung",
+    "computingHint": "Skor pertama butuh beberapa menit: kami sedang mengumpulkan data kontribusi publik. Biarkan halaman ini terbuka dan skor akan muncul otomatis.",
+    "progress": "{percent} selesai",
+    "failed": "Perhitungan skor gagal — coba lagi nanti.",
+    "timeout": "Masih menghitung — coba cek lagi nanti.",
+    "phase": {
+      "queued": "Antre",
+      "running": "Menghitung",
+      "user": "Profil",
+      "contribs": "Kontribusi",
+      "maintainer": "Data maintainer",
+      "gap_fill": "Melengkapi riwayat",
+      "merged_prs": "PR digabung",
+      "repo_meta": "Metadata repo",
+      "pr_samples": "Sampel PR",
+      "pr_details": "Detail PR",
+      "mutual_mergers": "Relasi merge",
+      "histories": "Riwayat commit",
+      "signals": "Sinyal",
+      "per_repo": "Analisis per repo",
+      "owner_types": "Jenis pemilik",
+      "star_history": "Riwayat star",
+      "rejected": "PR ditolak",
+      "ext_prs": "PR eksternal",
+      "assemble": "Merangkum",
+      "publish": "Menerbitkan skor"
+    }
   },
   "share": {
     "open": "🔗 Bagikan",
@@ -579,11 +608,11 @@
       },
       {
         "q": "Bagaimana skornya dihitung?",
-        "a": "Mesin menilai enam dimensi berbobot yang totalnya 100 — kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas — lalu mengurangi penalti untuk tanda bahaya seperti PR farming atau penggelembungan star. Mesin hanya berjalan di atas data publik GitHub."
+        "a": "Skor berasal dari devscore, mesin penilai open source. Untuk setiap repositori, ia mengukur kode yang benar-benar kamu tulis, dibobot menurut nilai proyek (sinyal pemakaian nyata seperti kontributor lain, dependen hilir, dan penulis issue dari luar) dan menurut porsi kepengarangan milikmu; star dan follower tidak pernah dihitung. Kerja di proyek orang lain hanya dihitung sejauh diterima oleh maintainer independen, kerja pemeliharaan berupa review dan merge juga dihitung, dan coding yang berkelanjutan terakumulasi per tahun kalender. Dua pola dibatasi: PR eksternal berkualitas rendah secara massal, dan follower yang jauh tidak sebanding dengan kerja yang diterima. Mesin hanya berjalan di atas data publik GitHub."
       },
       {
         "q": "Apakah skornya deterministik dan bisa direproduksi?",
-        "a": "Ya. Tidak ada LLM yang menyentuh angkanya: input yang sama selalu menghasilkan skor yang sama. Inti mesin skor di-open-source sebagai skill github-account-value (AGPL), sehingga siapa pun bisa mereproduksi atau mengaudit hasilnya. Hanya teks roast opsional yang ditulis LLM."
+        "a": "Ya. Tidak ada LLM yang menyentuh angkanya: data publik yang sama selalu menghasilkan skor yang sama. Mesin devscore open source (AGPL) di repositori ghfind, sehingga siapa pun bisa mereproduksi atau mengaudit hasilnya. Hanya teks roast opsional yang ditulis LLM."
       },
       {
         "q": "Bisakah ghfind dipakai lewat API, CLI, atau MCP?",
@@ -591,7 +620,7 @@
       },
       {
         "q": "Apakah ghfind mendeteksi bot dan akun ternakan AI?",
-        "a": "Ia menandai pola yang memisahkan aktivitas ternakan dari kerja jujur — judul PR templat yang nyaris identik, kontribusi yang menumpuk di repo yang bukan milik akun itu, dan penggelembungan star atau follower yang mencurigakan. Dalam dataset 18.947 akun yang dinilai, kurang dari 1% memicu tanda bahaya terkuat — jarang, tapi ekstrem saat muncul."
+        "a": "Ya — ia menilai pola, bukan kejadian tunggal. Banyak PR yang ditolak ke proyek orang lain dalam setahun, disertai judul bertemplat, duplikat, ledakan seminggu di banyak repo, atau PR raksasa, akan membatasi skor; begitu pula follower yang jauh tidak sebanding dengan kerja engineering yang diterima secara independen. PR yang di-merge sendiri dan lingkaran kecil yang saling me-merge PR tidak dihitung sebagai diterima, riwayat commit yang mirip bot didiskon, dan proyek hype yang punya star tapi tanpa pengguna nyata tidak mendapat kredit proyek. Dalam dataset 18.947 akun yang dinilai dengan rubrik sebelumnya, kurang dari 1% memicu sinyal ternak terkuat — jarang, tapi ekstrem saat muncul."
       },
       {
         "q": "Apakah pekerjaan privatku dihitung?",
@@ -601,16 +630,16 @@
   },
   "homeIntro": {
     "whatHeading": "Apa itu ghfind?",
-    "whatBody": "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 lewat enam dimensi berbobot — kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas — memakai mesin yang sepenuhnya deterministik (skill open source github-account-value, AGPL). Input yang sama selalu menghasilkan skor yang sama; tidak ada LLM yang menyentuh angkanya. Di atas skor itu, ada roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa dan organisasi, serta badge skor untuk README.",
+    "whatBody": "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 berdasarkan kerja nyata di baliknya — dibobot menurut seberapa bernilai setiap proyek dan seberapa besar porsinya yang merupakan karya developer itu sendiri, menghitung kerja di proyek orang lain hanya sejauh diterima maintainer independen, dan tidak pernah menghitung star atau follower — memakai devscore, mesin open source (AGPL) yang sepenuhnya deterministik. Data publik yang sama selalu menghasilkan skor yang sama; tidak ada LLM yang menyentuh angkanya. Setiap skor diurai menjadi enam dimensi tampilan. Di atas skor itu, ghfind menambahkan roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa dan organisasi, serta badge skor untuk README.",
     "howHeading": "Cara kerja ghfind",
     "steps": [
       {
         "title": "1. Pindai jejak publik",
-        "body": "Masukkan username GitHub mana pun. Mesin merayapi data publik akun itu — repositori, pull request, issue, star, follower — dan membangun sebuah potret bukti. Tanpa login, tanpa izin apa pun."
+        "body": "Masukkan username GitHub mana pun. Di latar belakang, mesin mengumpulkan data publik akun itu — repositori, commit, pull request beserta siapa yang me-merge-nya, code review — dan membangun sebuah potret bukti. Skor pertama untuk akun besar butuh beberapa menit. Tanpa login, tanpa izin apa pun."
       },
       {
-        "title": "2. Nilai enam dimensi deterministik",
-        "body": "Potret itu dinilai lewat kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas, dengan penalti untuk PR farming, penggelembungan star, dan pola spam templat."
+        "title": "2. Timbang kerja nyata",
+        "body": "Kerja di setiap repositori dibobot menurut nilai proyek dan porsi kepengarangan milikmu, kerja eksternal hanya dihitung sejauh diterima maintainer independen, dan pemeliharaan serta tahun-tahun coding yang berkelanjutan juga dihitung. Star dan follower tidak pernah dihitung; PR berkualitas rendah secara massal dan pola influencer dibatasi."
       },
       {
         "title": "3. Dapatkan skor, tier, dan roast",
@@ -621,7 +650,7 @@
     "numbers": {
       "accounts": "{count} akun GitHub telah dinilai dalam dataset riset publik",
       "snapshots": "{count} potret bukti lengkap dikumpulkan dan dianalisis",
-      "dimensions": "{count} dimensi berbobot di balik setiap skor",
+      "dimensions": "{count} dimensi di setiap rincian skor",
       "flagged": "{share} dari akun yang dinilai ditandai karena aktivitas tidak autentik"
     },
     "tableCaption": "Skor ghfind vs sinyal mentah GitHub",
@@ -641,8 +670,8 @@
       },
       {
         "signal": "Skor ghfind",
-        "measures": "Nilai kontribusi nyata dan kepercayaan lewat enam dimensi berbobot",
-        "gameable": "Susah — pola tidak autentik terdeteksi dan dikenai penalti"
+        "measures": "Kerja nyata, dibobot menurut nilai proyek dan kepengarangan; star dan follower tidak pernah dihitung",
+        "gameable": "Susah — hanya kerja yang diterima maintainer independen yang dihitung, dan pola PR farming serta influencer dibatasi"
       }
     ]
   },
@@ -758,8 +787,8 @@
     "heading": "Tentang ghfind",
     "paragraphs": [
       "ghfind adalah alat penilaian dan penemuan developer untuk GitHub. Ia menilai akun mana pun dari 0 sampai 100 untuk nilai kontribusi nyata dan tingkat kepercayaan, memakai mesin sepenuhnya deterministik yang hanya berjalan di atas data publik GitHub. Input yang sama selalu menghasilkan skor yang sama — tidak ada model bahasa besar yang terlibat dalam angkanya — sehingga hasilnya bisa direproduksi dan diaudit, bukan kotak hitam.",
-      "Skor dibangun dari enam dimensi berbobot yang totalnya 100: kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas. Di atas inti faktual itu, ghfind menambahkan roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa pemrograman, organisasi, dan proyek, serta badge skor README yang bisa kamu sematkan di profilmu sendiri.",
-      "Mesin skor bersifat open source dengan lisensi AGPL sebagai skill github-account-value, dan jalur kode yang sama menggerakkan situs web, paket resmi npm dan PyPI, alat baris perintah, dan server Model Context Protocol. ghfind ada untuk membuat kontribusi GitHub mudah dibaca: menghargai kerja open source yang tulen, memunculkan developer yang layak diikuti, dan membuat aktivitas ternakan atau palsu gampang dikenali dengan melihat pola, bukan angka mentah."
+      "Skor ini mengukur kerja nyata: setiap repositori dibobot menurut nilai proyek dan porsi kepengarangan developer, kerja di proyek orang lain hanya dihitung sejauh diterima maintainer independen, pemeliharaan dan tahun-tahun coding yang berkelanjutan juga dihitung, dan star serta follower tidak pernah dihitung. Setiap skor juga diurai menjadi enam dimensi tampilan: kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas. Di atas inti faktual itu, ghfind menambahkan roast tulisan AI (opsional), duel developer lawan developer, peringkat per bahasa pemrograman, organisasi, dan proyek, serta badge skor README yang bisa kamu pasang di profilmu sendiri.",
+      "Mesin skor devscore bersifat open source dengan lisensi AGPL di repositori ghfind, dan kode mesin yang sama menggerakkan situs web, API, server Model Context Protocol, dan paket npm resmi. ghfind ada untuk membuat kontribusi GitHub mudah dibaca: menghargai kerja open source yang tulen, memunculkan developer yang layak diikuti, dan membuat aktivitas ternakan atau palsu mudah dikenali dengan melihat pola alih-alih angka mentah."
     ]
   },
   "contact": {
@@ -800,25 +829,25 @@
   },
   "methodology": {
     "metaTitle": "Metodologi — cara ghfind menilai akun GitHub",
-    "metaDescription": "Cara mesin deterministik ghfind menilai akun GitHub lewat enam dimensi berbobot, menerapkan penalti tanda bahaya, dan tetap sepenuhnya bisa direproduksi tanpa LLM.",
+    "metaDescription": "Cara ghfind menilai akun GitHub dengan devscore, mesin open source: kerja nyata dibobot menurut nilai proyek dan kepengarangan, star dan follower tidak pernah dihitung, pola ternak dibatasi, sepenuhnya bisa direproduksi tanpa LLM.",
     "heading": "Cara ghfind menilai akun GitHub",
-    "lead": "Skor ghfind dihasilkan oleh rubrik deterministik, bukan model. Mesin membaca data publik GitHub, menilai enam dimensi yang totalnya 100, mengurangi penalti untuk tanda bahaya, dan mengembalikan angka yang sama setiap kali untuk input yang sama. Intinya open source dengan lisensi AGPL, sehingga hasil apa pun bisa direproduksi dan diaudit.",
-    "dimensionsHeading": "Enam dimensi",
-    "dimensionsIntro": "Setiap dimensi berkontribusi pada skor dasar 100 poin. Bersama-sama mereka menghargai kerja open source yang berkelanjutan, orisinal, dan banyak dipakai — bukan sekadar angka aktivitas mentah.",
+    "lead": "Skor ghfind berasal dari devscore, mesin penilai open source, bukan model. Ia mengukur apa yang benar-benar dibangun seorang developer: kode yang kamu tulis di setiap repositori, dibobot menurut nilai proyek dan porsi kepengarangan milikmu. Kerja di proyek orang lain hanya dihitung sejauh diterima maintainer independen, dan pemeliharaan serta tahun-tahun coding yang berkelanjutan juga dihitung. Star dan follower tidak pernah dihitung. Data publik yang sama menghasilkan angka yang sama setiap kali, dan intinya open source dengan lisensi AGPL, sehingga hasil apa pun bisa direproduksi dan diaudit.",
+    "dimensionsHeading": "Enam dimensi tampilan",
+    "dimensionsIntro": "Totalnya adalah skor devscore, bukan jumlah dimensi-dimensinya. Enam dimensi ini adalah nilai tampilan yang diturunkan dari faktor-faktor antara devscore, dengan nilai maksimum yang totalnya 100. Mereka menunjukkan dari mana skor berasal dan apa yang menahannya, serta menggerakkan duel dan saran developer serupa.",
     "dimensionDetails": {
-      "account_maturity": "Seberapa mapan dan konsisten akun itu dari waktu ke waktu — usia, aktivitas berkelanjutan, dan kurva kredibilitas yang tahan terhadap penggelembungan semalam jadi.",
-      "original_project_quality": "Kualitas dan sambutan atas repositori yang benar-benar dimiliki dan ditulis akun itu, bukan fork atau proyek receh.",
-      "contribution_quality": "Bobot kontribusi ke proyek lain — pull request yang di-merge dan bermakna versus spam templat.",
-      "ecosystem_impact": "Seberapa besar karya akun itu diandalkan dan dirawat di ekosistem yang lebih luas.",
-      "community_influence": "Jangkauan dan reputasi tulen di komunitas, dinormalisasi agar angka follower atau star mentah tidak bisa mendominasi.",
-      "activity_authenticity": "Apakah pola aktivitasnya terlihat organik atau direkayasa — dimensi yang memisahkan kerja jujur dari farming."
+      "account_maturity": "Tahun-tahun coding yang berkelanjutan: setiap tahun kalender dihitung sekali, dibatasi 12 bulan coding, dan tahun-tahun lama memudar dengan waktu paruh tiga tahun. Menyebar satu tahun ke enam puluh repositori kecil tidak menjadikannya enam puluh tahun.",
+      "original_project_quality": "Kekuatan proyek andalan: repositori terkuat yang kamu miliki atau pimpin, menurut nilai proyek, porsi kepengarangan, volume kerja, dan berapa lama kerja itu berlangsung. Hanya engineering yang dihitung sebagai proyek andalan — dokumentasi, situs, dan daftar tidak — dan repositori milik sendiri yang tidak dipakai orang lain hanya mempertahankan sebagian kecil kerjanya.",
+      "contribution_quality": "Kerja eksternal yang diterima secara independen: kode yang kamu daratkan di proyek orang lain, menurut nilai proyek dan bobot perubahannya, dihitung hanya sejauh diterima maintainer independen. Merge sendiri dan lingkaran saling-merge tidak dihitung sama sekali. Code review yang kamu berikan di proyek orang lain juga dihitung.",
+      "ecosystem_impact": "Dampak pada ekosistem: kerja di repositori-repositorimu dijumlahkan dari yang terkuat ke yang terlemah (repositori terbaik dihitung penuh, ekor panjangnya cepat memudar), atau peran maintainer yang diverifikasi GitHub — me-review dan me-merge PR orang lain — mana pun yang lebih tinggi.",
+      "community_influence": "Rekam jejak kolaborasi: seberapa sering maintainer me-merge alih-alih menolak PR eksternalmu (batas bawah Wilson, baru setelah setidaknya sepuluh keputusan), ditambah code review yang kamu berikan. Jumlah follower tidak termasuk di dalamnya.",
+      "activity_authenticity": "Kekinian dan keaslian: porsi kerjamu dari tahun-tahun terakhir dan status saat ini (aktif atau memelihara). Nilainya turun tajam saat batas PR berkualitas rendah massal atau batas influencer diterapkan."
     },
-    "penaltiesHeading": "Penalti tanda bahaya",
-    "penaltiesBody": "Di atas enam dimensi itu, mesin mengurangi penalti untuk pola yang menggelembungkan profil tanpa nilai nyata: judul pull request templat yang nyaris identik, kontribusi yang menumpuk di repositori yang bukan milik akun itu, dan penggelembungan star atau follower. Setiap kejadian tunggal bisa terlihat wajar; penalti menyala pada polanya, dan itulah yang membuat aktivitas ternakan bisa dipisahkan dari kerja jujur.",
+    "penaltiesHeading": "Batas anti-manipulasi",
+    "penaltiesBody": "Alih-alih mengurangi poin satu per satu, devscore sejak awal tidak memberi bobot pada sinyal yang bisa diternak: star dan follower tidak pernah dihitung; PR yang di-merge sendiri dan lingkaran kecil yang saling me-merge kerja tidak dihitung sebagai diterima; proyek hype yang punya star tapi tanpa pengguna nyata tidak mendapat kredit proyek; riwayat commit yang mirip bot didiskon. Di atas itu, dua batas diterapkan paling akhir. Banyak PR yang ditolak ke proyek orang lain dalam setahun, disertai judul bertemplat, duplikat, ledakan seminggu di banyak repositori, atau PR raksasa, menekan skor ke rentang 20–35; follower yang jauh tidak sebanding dengan kerja engineering yang diterima secara independen (pola influencer) dibatasi dengan cara yang sama. Setiap kejadian tunggal bisa terlihat wajar; aturannya terpicu oleh pola.",
     "determinismHeading": "Determinisme dan reproduksibilitas",
-    "determinismBody": "Tidak ada model bahasa besar yang menyentuh skor. Inti mesin skor adalah skill open source github-account-value (AGPL), dan jalur kode yang sama menggerakkan situs web, paket npm dan PyPI, CLI, dan server MCP. Dengan input publik yang sama, skornya identik di semuanya — itulah mengapa ia bisa direproduksi secara independen. Teks roast opsional adalah satu-satunya bagian tulisan LLM dan tidak pernah mengubah angkanya.",
+    "determinismBody": "Tidak ada model bahasa besar yang menyentuh skor. Mesin devscore open source (AGPL) di repositori ghfind, dan situs web, API, server MCP, serta mode lokal paket npm semuanya menjalankan kode mesin yang sama. Dengan data publik yang sama, skornya identik di semuanya, itulah mengapa ia bisa direproduksi secara independen (pengumpulan lokal yang baru mungkin melihat data publik yang sudah berubah sejak itu). Teks roast opsional adalah satu-satunya bagian yang ditulis LLM dan tidak pernah mengubah angkanya.",
     "dataHeading": "Dalam skala besar",
-    "dataBody": "Diterapkan pada dataset publik berisi 18.947 akun yang dinilai — 3.444 di antaranya dengan potret metrik mentah lengkap — kontribusi palsu atau hasil ternakan ternyata lebih jarang dari yang digosipkan (kurang dari 1% akun memicu tanda bahaya terkuat), tapi jauh lebih ekstrem saat muncul. Analisis lengkapnya ada di bagian riset."
+    "dataBody": "Diterapkan pada dataset publik berisi 18.947 akun yang dinilai — 3.444 di antaranya dengan potret metrik mentah lengkap, dinilai dengan rubrik sebelumnya — kontribusi palsu atau hasil ternakan ternyata lebih jarang dari yang digosipkan (kurang dari 1% akun memicu tanda bahaya terkuat), tapi jauh lebih ekstrem saat muncul. Analisis lengkapnya ada di bagian riset."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · Siapa menang? | ghfind",

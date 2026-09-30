@@ -23,18 +23,23 @@ class Capability(TypedDict):
 CATALOG: List[Capability] = [
     {
         "method": "get_score",
-        "api": ["GET /api/score/{username}"],
-        "summary": "Fetch the deterministic score for any GitHub account.",
+        "api": ["GET /api/score/{username}", "GET /api/scan/status/{username}"],
+        "summary": "Fetch the deterministic devscore score for any GitHub account.",
         "llm": False,
         "response_semantics": (
-            "Factual score payload: final_score, tier, six-dimension sub_scores, and v10 "
-            "risk_assessment/risk_notes. Never calls an "
-            "LLM. Indexed accounts return stored data (source indexed); unseen accounts are "
-            "admitted to the Go quick-scan worker path (source quick, coverage quick, includes "
-            "red_flags). Compatible old stored scores may return source legacy_v5_v5_v3 with "
-            "stale true. 404 only if the GitHub login does not exist."
+            "Factual score payload: final_score (devscore v3 score), tier, six-dimension display "
+            "sub_scores, and v11 risk_assessment/risk_notes. Never calls an LLM. Indexed accounts "
+            "return stored data (source indexed); a recently published scan returns source quick "
+            "(includes red_flags). A never-scored account is queued for background devscore "
+            "scoring (202 + status Location, minutes for large accounts): the client polls with "
+            "backoff up to `wait` seconds and raises GhFindPending if still computing. Compatible "
+            "old stored scores may return source legacy_v5_v5_v3 with stale true. 404 only if the "
+            "GitHub login does not exist."
         ),
-        "agent_guidance": "Preferred first call — works even for accounts never seen before. Use scan() when you also need full metrics.",
+        "agent_guidance": (
+            "Preferred first call — works even for accounts never seen before (first-time scores "
+            "can take minutes; on GhFindPending retry later). Use scan() when you also need full metrics."
+        ),
     },
     {
         "method": "get_github_user / user_exists",
@@ -52,10 +57,10 @@ CATALOG: List[Capability] = [
     },
     {
         "method": "scan",
-        "api": ["POST /api/scan"],
-        "summary": "Crawl GitHub and compute the full deterministic scan + score.",
+        "api": ["POST /api/scan", "GET /api/scan/status/{username}"],
+        "summary": "Full deterministic scan + devscore score (background job for first-time accounts).",
         "llm": False,
-        "response_semantics": "Authoritative factual payload: metrics, signals, sub_scores, v10 risk_assessment, risk_notes, red_flags, final_score.",
+        "response_semantics": "Authoritative factual payload: metrics, signals, the devscore factors behind the score, sub_scores, v11 risk_assessment, risk_notes, red_flags, final_score.",
         "agent_guidance": "Use for full evidence or your own analysis. Source of truth for scoring facts.",
     },
     {
@@ -63,7 +68,7 @@ CATALOG: List[Capability] = [
         "api": ["POST /api/scan"],
         "summary": "Compact scoring block derived from scan().",
         "llm": False,
-        "response_semantics": "Just the scoring object (numeric score, tier, six sub_scores, v10 risk_assessment, risk_notes, red_flags).",
+        "response_semantics": "Just the scoring object (numeric score, tier, six sub_scores, v11 risk_assessment, risk_notes, red_flags).",
         "agent_guidance": "Use when you only need the numbers.",
     },
     {

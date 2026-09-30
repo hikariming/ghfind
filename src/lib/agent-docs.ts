@@ -30,7 +30,7 @@ export const PRODUCT_ONELINER =
 
 /** A tight definitional paragraph (the passage LLMs lift into "what is X" answers). */
 export const PRODUCT_DESCRIPTION =
-  "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language/org/project leaderboards, and README score badges.";
+  "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 by the real work behind it — weighted by each project's worth and the developer's share of authorship, counting work in other people's projects only as far as independent maintainers accepted it, and never counting stars or followers — using devscore, a fully deterministic open-source engine (AGPL). The same public data always produces the same score; no LLM touches the number. Each score is broken down into six display dimensions (account maturity, original project quality, contribution quality, ecosystem impact, community influence, activity authenticity). On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language/org/project leaderboards, and README score badges.";
 
 /**
  * Named statistics from the public research dataset. Specific numbers are what
@@ -45,7 +45,7 @@ export const NAMED_STATS = {
 
 export const USE_CASES = [
   "Vet a GitHub account before hiring, sponsoring, or merging: get a reproducible 0-100 trust score instead of eyeballing stars and follower counts.",
-  "Detect AI/bot/farmed contribution: the engine flags PR-farming, star inflation, and template-spam patterns that look plausible per-event but not in aggregate.",
+  "Detect AI/bot/farmed contribution: stars, followers and self-merged PRs earn nothing, and bulk low-quality PR farming and influencer patterns are capped — patterns that look plausible per-event but not in aggregate.",
   "Self-assess and improve: see your six-dimension breakdown and the specific gaps holding your score down.",
   "Compare two developers head-to-head with a deterministic winner and gap bucket.",
   "Discover top developers by programming language, organization, or contributed project.",
@@ -53,7 +53,7 @@ export const USE_CASES = [
 ];
 
 export const WHEN_TO_USE = [
-  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts are admitted to the durable quick-scan worker path and return the persisted v10 result when ready.`,
+  `Use GET ${SITE_URL}/api/score/{username} (or the MCP tool score_user) when you need one account's factual score/tier — deterministic, no auth, no LLM. Unseen accounts are queued for background devscore scoring (minutes for large accounts): the call returns 202 with a status URL to poll, and the persisted result once ready.`,
   `Use POST ${SITE_URL}/api/scan (or scan_user) when you need the bounded evidence payload: raw metrics, top repos, recent PRs, red flags, and sub-scores. It is admitted to a durable worker queue and usually returns the persisted result inline; if it returns 202, follow the Location status URL until result is present.`,
   `Use POST ${SITE_URL}/api/roast (or the CLI) only when you want the human-facing prose roast — this is the one LLM path and it can spend model credit.`,
   `Use POST ${SITE_URL}/api/project-analyses to reuse a matching persisted repository evaluation or start one with a dedicated Mosoo Cattle Agent; poll the returned statusUrl when it is still running.`,
@@ -80,8 +80,8 @@ export function apiSummaryMd(): string {
 
 Machine-readable spec: [${SITE_URL}/openapi.json](${SITE_URL}/openapi.json) · API catalog: [${SITE_URL}/.well-known/api-catalog](${SITE_URL}/.well-known/api-catalog) · Auth: [${SITE_URL}/auth.md](${SITE_URL}/auth.md)
 
-- \`GET ${SITE_URL}/api/score/{username}\` — deterministic v10 score, no auth, no LLM; scores unseen accounts with the bounded quick collector and persists the result.
-- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — bounded deterministic scan payload (metrics + repo/PR signals + v10 risk evidence) and a persisted v10 score. It uses the durable Go worker path; most calls return \`200\` with the result, while long-running calls return \`202\` plus a \`Location\` you can poll until \`result\` is present.
+- \`GET ${SITE_URL}/api/score/{username}\` — deterministic devscore score, no auth, no LLM; an unseen account is queued for background scoring and returns \`202\` with a \`Location\` (\`/api/scan/status/{username}\`) to poll; call again once the job finishes.
+- \`POST ${SITE_URL}/api/scan\` { "username": "..." } — deterministic scan payload (display metrics + repo/PR signals + devscore factors) and the persisted score. A published scan returns \`200\`; a first-time account returns \`202\` plus a \`Location\` you poll (each poll advances the background job, minutes for large accounts) until \`result\` is present.
 - \`POST ${SITE_URL}/api/roast\` — LLM roast report (streaming); pass \`byoKey\` for your own model. The default path uses the exact persisted quick snapshot and does not wait for historical collection.
 - \`POST ${SITE_URL}/api/project-analyses\` { "repositoryUrl": "https://github.com/owner/repo" } — reuse a matching persisted product-value evaluation or start one; poll the returned \`statusUrl\` when it is still running.
 - \`POST ${SITE_URL}/api/vs-verdict\` { "a": "...", "b": "..." } — head-to-head verdict.

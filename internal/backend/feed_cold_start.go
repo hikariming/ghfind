@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+// DeveloperFacet is one weighted language or repository facet materialized in
+// Turso's developer_facets table; Feed seeds cold-start preferences from it.
+type DeveloperFacet struct {
+	Type   string
+	Value  string
+	Weight float64
+}
+
 type FeedColdStartSource interface {
 	GetFeedColdStartFacets(context.Context, string) ([]DeveloperFacet, error)
 }

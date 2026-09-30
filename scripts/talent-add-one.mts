@@ -1,5 +1,5 @@
 // Add a single GitHub user to the talent directory (operator-recommended).
-// Phase 1 (always): fetch public profile + collect + score, checkpoint to
+// Phase 1 (always): fetch public profile + devscore scan, checkpoint to
 //   scripts/talent-import/out/people/<login>.json (same format as talent-import).
 // Phase 2 (when scripts/talent-import/out/personas/<login>.json exists): emit
 //   scripts/talent-import/out/talent-add-<login>.sql with the talent_profiles
@@ -13,8 +13,9 @@ import "./_env.mjs";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { collect } from "../src/lib/github";
-import { score, spamBotScore, tierFor } from "../src/lib/score";
+import { devscoreBotScore } from "../src/lib/devscore-scoring";
+import type { DevscoreSummary } from "../src/lib/types";
+import { devscoreScan } from "./devscore-scan.mts";
 
 const login = process.argv[2];
 if (!login || !/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(login)) {
@@ -59,21 +60,22 @@ const ckptPath = join(PEOPLE_DIR, `${key}.json`);
 let ckpt: {
   login: string; fetched_at: number;
   profile: { name: string | null; bio: string | null; location: string | null; blog: string | null; twitter: string | null; email: string | null };
-  metrics: unknown; scoring: unknown; top_repo_languages: string[];
+  metrics: unknown; scoring: unknown; devscore?: DevscoreSummary; bot_score?: number; top_repo_languages: string[];
 };
 if (existsSync(ckptPath) && !REFRESH) {
   console.log(`[skip] reusing checkpoint ${ckptPath}`);
   ckpt = JSON.parse(readFileSync(ckptPath, "utf8"));
 } else {
   console.log(`[scan] collecting ${login}…`);
-  const [collected, profile] = [await collect(login), await ghProfile(login)];
-  const scoring = score(collected.metrics);
+  const [collected, profile] = [await devscoreScan(login), await ghProfile(login)];
   ckpt = {
     login: collected.metrics.username,
     fetched_at: Date.now(),
     profile,
     metrics: collected.metrics,
-    scoring,
+    scoring: collected.scoring,
+    devscore: collected.devscore,
+    bot_score: devscoreBotScore(collected.devscore!),
     top_repo_languages: (collected.top_repos ?? []).map((r) => r.language).filter((l): l is string => !!l),
   };
   writeFileSync(ckptPath, JSON.stringify(ckpt, null, 2));
@@ -86,11 +88,11 @@ const metrics = ckpt.metrics as {
   attributed_original_repos?: string[]; best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_repo?: string | null;
 };
-const { tier } = tierFor(scoring.final_score);
-const bot = spamBotScore(metrics as never);
-console.log(`[score] ${ckpt.login}: ${scoring.final_score} (${tier}), spamBotScore=${bot}, followers=${metrics.followers}, stars=${metrics.total_stars}, mergedPRs=${metrics.merged_pr_count}`);
+const { tier } = scoring;
+const bot = ckpt.bot_score ?? 0;
+console.log(`[score] ${ckpt.login}: ${scoring.final_score} (${tier}), bot_score=${bot}, followers=${metrics.followers}, stars=${metrics.total_stars}, mergedPRs=${metrics.merged_pr_count}`);
 if (scoring.final_score < 55) console.log("[score] WARNING: below the usual 55 gate — importing anyway (operator pick)");
-if (bot >= 3) console.log("[score] WARNING: spamBotScore >= 3 — review before applying SQL");
+if (bot >= 3) console.log("[score] WARNING: bot_score >= 3 — review before applying SQL");
 
 // ---------------- phase 2: SQL when persona exists ----------------
 const personaPath = join(PERSONAS_DIR, `${key}.json`);

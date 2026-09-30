@@ -1,18 +1,19 @@
 /** Shared deterministic MCP tool implementations. */
-import { getAccountDetail, publishCompleteQuickScan, searchScoredUsers } from "@/lib/db";
+import { getAccountDetail, getCurrentCanonicalQuickScan, searchScoredUsers } from "@/lib/db";
+import { requestDevscoreJob } from "@/lib/devscore-jobs";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getLeaderboardCached } from "@/lib/leaderboard";
 import type { LeaderboardCacheView } from "@/lib/redis";
 import type { LeaderboardWindow } from "@/lib/db";
-import { coalesceScan, getCachedScan } from "@/lib/redis";
-import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
+import { getCachedScan } from "@/lib/redis";
+import { scanStatusUrl } from "@/lib/scan-job-client";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY } from "@/lib/tier";
 import { SITE_URL } from "@/lib/site";
-import { roundHalfEven } from "@/lib/score";
+import { roundHalfEven } from "@/lib/math";
 import type { ScanResult, Tier } from "@/lib/types";
 
 export type ToolError = { error: string; message: string };
@@ -27,13 +28,32 @@ async function percentileFor(finalScore: number) {
     : null;
 }
 
-async function quickScan(handle: string): Promise<ScanResult> {
-  const cached = await getCachedScan(handle);
-  const scan = cached ?? await coalesceScan(handle, () => buildScanResult(handle));
-  if (!(await publishCompleteQuickScan(scan))) {
-    throw new Error("score persistence unavailable");
+/**
+ * The published devscore scan, or the pending job status for a first-time
+ * account (the job is enqueued here; scoring takes minutes for large accounts).
+ */
+async function publishedScanOrPending(
+  handle: string,
+): Promise<{ scan: ScanResult } | { pending: Record<string, unknown> } | ToolError> {
+  const scan = (await getCachedScan(handle)) ?? (await getCurrentCanonicalQuickScan(handle))?.scan;
+  if (scan) return { scan };
+  const status = await requestDevscoreJob(handle).catch(() => null);
+  if (!status) return { error: "scan_failed", message: `could not score ${handle}` };
+  if (status.state === "failed") {
+    return { error: status.error ?? "scan_failed", message: `could not score ${handle}` };
   }
-  return scan;
+  return {
+    pending: {
+      status: "pending",
+      username: handle,
+      job: status,
+      status_url: `${SITE_URL}${scanStatusUrl(handle)}`,
+      retry_after_seconds: 30,
+      note:
+        "First-time scoring runs in the background and can take several minutes for large accounts. " +
+        "Call this tool again later (or poll status_url) to get the score.",
+    },
+  };
 }
 
 function isCanonicalDetail(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>): boolean {
@@ -55,7 +75,7 @@ function persistedRiskFlags(detail: NonNullable<Awaited<ReturnType<typeof getAcc
     .map(({ flag, penalty, detail: explanation }) => ({ flag, penalty, detail: explanation }));
 }
 
-/** Deterministic score for one account, with no asynchronous collection state. */
+/** Score for one account; a first-time account returns its pending background job instead. */
 export async function scoreUser(
   rawUsername: string,
 ): Promise<Record<string, unknown> | ToolError> {
@@ -87,10 +107,11 @@ export async function scoreUser(
     };
   }
 
-  try {
-    const result = await quickScan(handle);
-    const scoring = result.scoring;
-    const metrics = result.metrics;
+  const outcome = await publishedScanOrPending(handle);
+  if ("pending" in outcome) return outcome.pending;
+  if ("scan" in outcome) {
+    const scoring = outcome.scan.scoring;
+    const metrics = outcome.scan.metrics;
     const tier = scoring.tier as Tier;
     return {
       source: "quick",
@@ -109,42 +130,38 @@ export async function scoreUser(
       percentile: await percentileFor(scoring.final_score),
       profile: `${SITE_URL}/u/${metrics.username}`,
     };
-  } catch (error) {
-    if (detail?.legacy_read_fallback) {
-      return {
-        source: "legacy_v5_v5_v3",
-        coverage: "legacy",
-        stale: true,
-        username: detail.username,
-        display_name: detail.display_name,
-        final_score: detail.final_score,
-        tier: detail.tier,
-        tier_key: TIER_KEY[detail.tier],
-        sub_scores: detail.sub_scores,
-        percentile: await percentileFor(detail.final_score),
-        scanned_at: detail.scanned_at,
-        profile: `${SITE_URL}/u/${detail.username}`,
-      };
-    }
-    const { error: code } = scanErrorResponse(error);
-    return { error: code, message: `could not score ${handle}` };
   }
+  if (detail?.legacy_read_fallback) {
+    return {
+      source: "legacy_v5_v5_v3",
+      coverage: "legacy",
+      stale: true,
+      username: detail.username,
+      display_name: detail.display_name,
+      final_score: detail.final_score,
+      tier: detail.tier,
+      tier_key: TIER_KEY[detail.tier],
+      sub_scores: detail.sub_scores,
+      percentile: await percentileFor(detail.final_score),
+      scanned_at: detail.scanned_at,
+      profile: `${SITE_URL}/u/${detail.username}`,
+    };
+  }
+  return outcome;
 }
 
-/** Full bounded quick-scan payload for one account. */
+/** Full published scan payload for one account, or its pending job status. */
 export async function scanUser(
   rawUsername: string,
-): Promise<ScanResult | ToolError> {
+): Promise<ScanResult | Record<string, unknown> | ToolError> {
   const handle = normalizeUsername(rawUsername ?? "");
   if (!handle) {
     return { error: "invalid_username", message: "username must be a valid GitHub login" };
   }
-  try {
-    return await quickScan(handle);
-  } catch (error) {
-    const { error: code } = scanErrorResponse(error);
-    return { error: code, message: `could not scan ${handle}` };
-  }
+  const outcome = await publishedScanOrPending(handle);
+  if ("scan" in outcome) return outcome.scan;
+  if ("pending" in outcome) return outcome.pending;
+  return outcome;
 }
 
 /** Head-to-head: two deterministic scores side by side (no LLM verdict). */
@@ -155,6 +172,14 @@ export async function compareUsers(
   const [a, b] = await Promise.all([scoreUser(rawA), scoreUser(rawB)]);
   if ("error" in a) return a;
   if ("error" in b) return b;
+  if (a.status === "pending" || b.status === "pending") {
+    return {
+      status: "pending",
+      a,
+      b,
+      note: "At least one account is still being scored in the background; call compare_users again later.",
+    };
+  }
   const sa = a.final_score as number;
   const sb = b.final_score as number;
   const gap = Math.abs(sa - sb);

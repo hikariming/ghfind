@@ -114,7 +114,7 @@
     "boardHeading": "🏆 Melhores desenvolvedores",
     "openBoard": "Ver ranking completo →",
     "disclaimer1": "Notas e zoadas são geradas automaticamente só a partir de <b>dados públicos do GitHub</b>. A gente zoa o comportamento público e as estatísticas da conta, não a pessoa. Os resultados não são afirmações factuais sobre ninguém — não use isso pra assediar, por favor.",
-    "disclaimer2": "O núcleo de pontuação é open source como a skill <code>github-account-value</code> · sua API key fica só no seu navegador.",
+    "disclaimer2": "O motor de pontuação devscore é open source no repositório <code>ghfind</code> · sua API key fica só no seu navegador.",
     "viewAll": "Ver tudo"
   },
   "leaderboard": {
@@ -305,18 +305,18 @@
     "modalPkCta": "Chamar alguém pra comparar",
     "modalFacetRankCta": "Ver minha posição em {facet}",
     "dimensionsHeading": "Detalhamento da nota",
-    "scoreBase": "Base das seis dimensões",
-    "scoreAdjustment": "Ajuste de risco",
+    "scoreBase": "Total das seis dimensões",
+    "scoreAdjustment": "Diferença em relação ao total",
     "scoreInferredAdjustment": "Diferença não explicada",
     "scoreFinal": "Pontuação final",
     "scoreBreakdownHeading": "Composição da pontuação",
-    "scoreBreakdownNote": "As regras de risco são aplicadas separadamente após a soma das seis dimensões.",
+    "scoreBreakdownNote": "O total é a nota do devscore; as seis dimensões são valores de exibição derivados dos fatores dele, então a diferença entre eles não é, por si só, uma penalidade. Ela só reflete risco quando um teto anti-manipulação foi aplicado, como listado abaixo.",
     "scoreRiskHeading": "Explicação do risco · {count} itens",
     "scoreRiskUnavailable": "Esta pontuação histórica não guardou os motivos específicos do ajuste. Faça uma nova análise para vê-los.",
     "scoreAdjustmentLimited": "As regras de risco somaram {total}; o limite ou o piso da pontuação reduziu o ajuste real para {applied}.",
     "scoreRiskMore": "Mostrar mais {count}",
     "scoreRiskStatus": "Nível de risco",
-    "scoreRiskFootprintNote": "Uma pegada pública limitada significa dados limitados, não fraude; apenas vários sinais de manipulação de alta confiança reduzem a pontuação.",
+    "scoreRiskFootprintNote": "Uma pegada pública limitada significa evidência limitada, não fraude; só os tetos de PRs em massa de baixa qualidade e de influencer reduzem a nota.",
     "scoreRiskNoPenalty": "Estes sinais são apenas informativos e não afetaram a pontuação final.",
     "scoreRiskNotes": "Mostrar {count} sinais que não reduziram a pontuação",
     "scoreRiskScore": "Pontuação de risco",
@@ -427,6 +427,35 @@
     "github_rate_limited": "A API do GitHub está no limite agora — espera um pouquinho.",
     "github_unavailable": "Os dados do GitHub estão temporariamente indisponíveis — tente mais tarde.",
     "scan_failed": "O scan quebrou — tente de novo mais tarde."
+  },
+  "scoreJob": {
+    "computing": "Calculando",
+    "computingHint": "A primeira pontuação leva alguns minutos: estamos coletando dados públicos de contribuição. Deixe a página aberta e ela aparece sozinha.",
+    "progress": "{percent} concluído",
+    "failed": "O cálculo da nota falhou — tente de novo mais tarde.",
+    "timeout": "Ainda calculando — volte mais tarde.",
+    "phase": {
+      "queued": "Na fila",
+      "running": "Calculando",
+      "user": "Perfil",
+      "contribs": "Contribuições",
+      "maintainer": "Dados de mantenedor",
+      "gap_fill": "Completando histórico",
+      "merged_prs": "PRs mergeados",
+      "repo_meta": "Metadados de repos",
+      "pr_samples": "Amostras de PR",
+      "pr_details": "Detalhes de PR",
+      "mutual_mergers": "Vínculos de merge",
+      "histories": "Histórico de commits",
+      "signals": "Sinais",
+      "per_repo": "Análise por repo",
+      "owner_types": "Tipos de dono",
+      "star_history": "Histórico de stars",
+      "rejected": "PRs rejeitados",
+      "ext_prs": "PRs externos",
+      "assemble": "Consolidando",
+      "publish": "Publicando nota"
+    }
   },
   "share": {
     "open": "🔗 Compartilhar",
@@ -579,11 +608,11 @@
       },
       {
         "q": "Como a nota é calculada?",
-        "a": "O motor pontua seis dimensões ponderadas que somam 100 — maturidade da conta, qualidade de projetos originais, qualidade das contribuições, impacto no ecossistema, influência na comunidade e autenticidade da atividade — e subtrai penalidades por sinais de alerta como farming de PRs ou inflação de stars. Ele roda apenas sobre dados públicos do GitHub."
+        "a": "As notas vêm do devscore, um motor de pontuação open source. Para cada repositório, ele mede o código que você realmente escreveu, ponderado pelo valor do projeto (sinais de uso real, como outros contribuidores, dependentes downstream e autores de issues de fora) e pela sua fatia de autoria; stars e seguidores nunca contam. Trabalho em projetos de outras pessoas só conta na medida em que um mantenedor independente o aceitou, a manutenção de revisar e mesclar também conta, e programar de forma sustentada soma por ano-calendário. Dois padrões têm teto: PRs externos em massa e de baixa qualidade, e seguidores muito desproporcionais ao trabalho aceito. Ele roda apenas sobre dados públicos do GitHub."
       },
       {
         "q": "A nota é determinística e reproduzível?",
-        "a": "Sim. Nenhum LLM encosta no número: as mesmas entradas sempre produzem a mesma nota. O núcleo de pontuação é open source como a skill github-account-value (AGPL), então qualquer pessoa pode reproduzir ou auditar um resultado. Só o texto opcional da zoada é escrito por LLM."
+        "a": "Sim. Nenhum LLM encosta no número: os mesmos dados públicos sempre produzem a mesma nota. O motor devscore é open source (AGPL) no repositório ghfind, então qualquer pessoa pode reproduzir ou auditar um resultado. Só o texto opcional da zoada é escrito por LLM."
       },
       {
         "q": "Posso usar o ghfind via API, CLI ou MCP?",
@@ -591,7 +620,7 @@
       },
       {
         "q": "O ghfind detecta bots e contas infladas por IA?",
-        "a": "Ele sinaliza os padrões que separam atividade fabricada de trabalho honesto — títulos de PR quase idênticos saídos de template, contribuições concentradas em repos que a conta não possui e inflação suspeita de stars ou seguidores. Em um conjunto de 18.947 contas pontuadas, menos de 1% acionou os sinais de alerta mais fortes — raro, mas extremo quando aparece."
+        "a": "Sim — ele julga padrões, não eventos isolados. Muitos PRs rejeitados em projetos de outras pessoas dentro de um ano, junto com títulos saídos de template, duplicatas, maratonas de uma semana em vários repos ou PRs gigantes, colocam um teto na nota; o mesmo vale para seguidores muito desproporcionais à engenharia aceita de forma independente. PRs auto-mesclados e pequenos círculos que mesclam os PRs uns dos outros não contam como aceitos, históricos de commits com cara de bot são descontados, e projetos de hype com stars mas sem usuários reais não ganham crédito de projeto. Em um conjunto de 18.947 contas pontuadas com a rubrica anterior, menos de 1% acionou os sinais de farming mais fortes — raro, mas extremo quando aparece."
       },
       {
         "q": "Meu trabalho privado conta?",
@@ -601,16 +630,16 @@
   },
   "homeIntro": {
     "whatHeading": "O que é o ghfind?",
-    "whatBody": "O ghfind é uma ferramenta de pontuação e descoberta de desenvolvedores do GitHub. Ele avalia qualquer conta de 0 a 100 em seis dimensões ponderadas — maturidade da conta, qualidade de projetos originais, qualidade das contribuições, impacto no ecossistema, influência na comunidade e autenticidade da atividade — usando um motor totalmente determinístico (a skill open source github-account-value, AGPL). As mesmas entradas sempre produzem a mesma nota; nenhum LLM encosta no número. Por cima da nota, ele adiciona uma zoada opcional escrita por IA, duelos entre desenvolvedores, rankings por linguagem e organização, e badges de nota pro README.",
+    "whatBody": "O ghfind é uma ferramenta de pontuação e descoberta de desenvolvedores do GitHub. Ele avalia qualquer conta de 0 a 100 pelo trabalho real por trás dela — ponderado pelo valor de cada projeto e por quanto dele é do próprio desenvolvedor, contando trabalho em projetos de outras pessoas só na medida em que mantenedores independentes o aceitaram, e nunca contando stars nem seguidores — usando o devscore, um motor open source totalmente determinístico (AGPL). Os mesmos dados públicos sempre produzem a mesma nota; nenhum LLM encosta no número. Cada nota é detalhada em seis dimensões de exibição. Por cima da nota, ele adiciona uma zoada opcional escrita por IA, duelos entre desenvolvedores, rankings por linguagem e organização, e badges de nota pro README.",
     "howHeading": "Como o ghfind funciona",
     "steps": [
       {
         "title": "1. Escanear a pegada pública",
-        "body": "Digite qualquer username do GitHub. O motor varre os dados públicos da conta — repositórios, pull requests, issues, stars, seguidores — e monta um snapshot de evidências. Não precisa de login nem de permissões."
+        "body": "Digite qualquer username do GitHub. Em segundo plano, o motor coleta os dados públicos da conta — repositórios, commits, pull requests e quem os mesclou, code reviews — e monta um snapshot de evidências. A primeira nota de uma conta grande leva alguns minutos. Não precisa de login nem de permissões."
       },
       {
-        "title": "2. Pontuar seis dimensões determinísticas",
-        "body": "O snapshot é pontuado em maturidade da conta, qualidade de projetos originais, qualidade das contribuições, impacto no ecossistema, influência na comunidade e autenticidade da atividade, com penalidades por farming de PRs, inflação de stars e padrões de spam de template."
+        "title": "2. Pesar o trabalho real",
+        "body": "O trabalho em cada repositório é ponderado pelo valor do projeto e pela sua fatia de autoria, trabalho externo só conta na medida em que mantenedores independentes o aceitaram, e manutenção e anos sustentados de programação também contam. Stars e seguidores nunca contam; PRs em massa de baixa qualidade e padrões de influencer têm teto."
       },
       {
         "title": "3. Receber nota, nível e zoada",
@@ -621,7 +650,7 @@
     "numbers": {
       "accounts": "{count} contas do GitHub pontuadas no dataset público de pesquisa",
       "snapshots": "{count} snapshots completos de evidências coletados e analisados",
-      "dimensions": "{count} dimensões ponderadas por trás de cada nota",
+      "dimensions": "{count} dimensões no detalhamento de cada nota",
       "flagged": "{share} das contas pontuadas sinalizadas por atividade inautêntica"
     },
     "tableCaption": "Nota do ghfind vs sinais brutos do GitHub",
@@ -641,8 +670,8 @@
       },
       {
         "signal": "Nota do ghfind",
-        "measures": "Valor real de contribuição e confiança em seis dimensões ponderadas",
-        "gameable": "Difícil — padrões inautênticos são detectados e penalizados"
+        "measures": "Trabalho real, ponderado pelo valor do projeto e pela autoria; stars e seguidores nunca contam",
+        "gameable": "Difícil — só conta trabalho aceito por mantenedores independentes, e farming de PRs e padrões de influencer têm teto"
       }
     ]
   },
@@ -758,8 +787,8 @@
     "heading": "Sobre o ghfind",
     "paragraphs": [
       "O ghfind é uma ferramenta de pontuação e descoberta de desenvolvedores do GitHub. Ele avalia qualquer conta de 0 a 100 quanto ao valor real de contribuição e à confiabilidade, usando um motor totalmente determinístico que roda apenas sobre dados públicos do GitHub. As mesmas entradas sempre produzem a mesma nota — nenhum modelo de linguagem participa do número em si — então os resultados são reproduzíveis e auditáveis, não opacos.",
-      "A nota é construída a partir de seis dimensões ponderadas que somam 100: maturidade da conta, qualidade de projetos originais, qualidade das contribuições, impacto no ecossistema, influência na comunidade e autenticidade da atividade. Por cima desse núcleo factual, o ghfind adiciona uma zoada opcional escrita por IA, duelos entre desenvolvedores, rankings por linguagem de programação, organização e projeto, e badges de nota pro README que você pode embutir no seu próprio perfil.",
-      "O motor de pontuação é open source sob a licença AGPL como a skill github-account-value, e os mesmos caminhos de código alimentam o site, os pacotes oficiais no npm e no PyPI, a ferramenta de linha de comando e o servidor Model Context Protocol. O ghfind existe pra tornar a contribuição no GitHub legível: recompensar trabalho open source genuíno, revelar devs que valem a pena seguir e deixar atividade fabricada ou falsificada fácil de identificar olhando padrões em vez de contagens brutas."
+      "A nota mede trabalho real: cada repositório é ponderado pelo valor do projeto e pela fatia de autoria do desenvolvedor, trabalho em projetos de outras pessoas só conta na medida em que mantenedores independentes o aceitaram, manutenção e anos sustentados de programação também contam, e stars e seguidores nunca contam. Cada nota também é detalhada em seis dimensões de exibição: maturidade da conta, qualidade de projetos originais, qualidade das contribuições, impacto no ecossistema, influência na comunidade e autenticidade da atividade. Por cima desse núcleo factual, o ghfind adiciona uma zoada opcional escrita por IA, duelos entre desenvolvedores, rankings por linguagem de programação, organização e projeto, e badges de nota pro README que você pode embutir no seu próprio perfil.",
+      "O motor de pontuação devscore é open source sob a licença AGPL no repositório ghfind, e o mesmo código do motor alimenta o site, a API, o servidor Model Context Protocol e o pacote oficial no npm. O ghfind existe pra tornar a contribuição no GitHub legível: recompensar trabalho open source genuíno, revelar devs que valem a pena seguir e deixar atividade fabricada ou falsificada fácil de identificar olhando padrões em vez de contagens brutas."
     ]
   },
   "contact": {
@@ -800,25 +829,25 @@
   },
   "methodology": {
     "metaTitle": "Metodologia — como o ghfind pontua contas do GitHub",
-    "metaDescription": "Como o motor determinístico do ghfind pontua contas do GitHub em seis dimensões ponderadas, aplica penalidades por sinais de alerta e permanece totalmente reproduzível sem nenhum LLM.",
+    "metaDescription": "Como o ghfind pontua contas do GitHub com o devscore, um motor open source: trabalho real ponderado pelo valor do projeto e pela autoria, stars e seguidores nunca contam, padrões de farming têm teto, totalmente reproduzível sem nenhum LLM.",
     "heading": "Como o ghfind pontua contas do GitHub",
-    "lead": "A nota do ghfind é produzida por uma rubrica determinística, não por um modelo. O motor lê dados públicos do GitHub, pontua seis dimensões que somam 100, subtrai penalidades por sinais de alerta e devolve o mesmo número sempre que recebe as mesmas entradas. O núcleo é open source sob a licença AGPL, então qualquer resultado pode ser reproduzido e auditado.",
-    "dimensionsHeading": "As seis dimensões",
-    "dimensionsIntro": "Cada dimensão contribui para a nota base de 100 pontos. Juntas, elas recompensam trabalho open source sustentado, original e amplamente usado em vez de contagens brutas de atividade.",
+    "lead": "A nota do ghfind vem do devscore, um motor de pontuação open source, não de um modelo. Ele mede o que um desenvolvedor realmente construiu: o código que você escreveu em cada repositório, ponderado pelo valor do projeto e pela sua fatia de autoria. Trabalho em projetos de outras pessoas só conta na medida em que um mantenedor independente o aceitou, e manutenção e anos sustentados de programação também contam. Stars e seguidores nunca contam. Os mesmos dados públicos devolvem o mesmo número sempre, e o núcleo é open source sob a licença AGPL, então qualquer resultado pode ser reproduzido e auditado.",
+    "dimensionsHeading": "As seis dimensões de exibição",
+    "dimensionsIntro": "O total é a nota do devscore, não a soma das dimensões. As seis dimensões são valores de exibição derivados dos fatores intermediários do devscore, com máximos que somam 100. Elas mostram de onde vem uma nota e o que a segura, e alimentam os duelos e as sugestões de desenvolvedores parecidos.",
     "dimensionDetails": {
-      "account_maturity": "O quanto a conta é estabelecida e consistente ao longo do tempo — idade, atividade sustentada e uma curva de credibilidade que resiste a inflação da noite pro dia.",
-      "original_project_quality": "A qualidade e a recepção dos repositórios que a conta realmente possui e criou, não forks nem projetos triviais.",
-      "contribution_quality": "A substância das contribuições a outros projetos — pull requests mesclados e significativos versus spam de template.",
-      "ecosystem_impact": "O quanto o trabalho da conta é usado como dependência e mantido no ecossistema mais amplo.",
-      "community_influence": "Alcance e reputação genuínos na comunidade, normalizados pra que contagens brutas de seguidores ou stars não dominem.",
-      "activity_authenticity": "Se os padrões de atividade parecem orgânicos ou fabricados — a dimensão que separa trabalho honesto de farming."
+      "account_maturity": "Anos sustentados de programação: cada ano-calendário conta uma vez, com teto de 12 meses de programação, e anos mais antigos vão perdendo peso com meia-vida de três anos. Espalhar um ano por sessenta repositórios pequenos não vira sessenta anos.",
+      "original_project_quality": "Força dos projetos principais: seus repositórios próprios ou liderados mais fortes, por valor do projeto, fatia de autoria, volume de trabalho e por quanto tempo ele durou. Só engenharia conta como projeto principal — docs, sites e listas não — e um repositório próprio que ninguém mais usa fica com só uma pequena parte do seu trabalho.",
+      "contribution_quality": "Trabalho externo aceito de forma independente: código que você emplacou em projetos de outras pessoas, por valor do projeto e substância da mudança, contado só na medida em que um mantenedor independente o aceitou. Auto-merges e círculos de merge mútuo não contam nada. Code reviews que você faz em projetos de outras pessoas também contam.",
+      "ecosystem_impact": "Impacto no ecossistema: o trabalho dos seus repositórios somado do mais forte pro mais fraco (o melhor repositório conta inteiro, a cauda longa perde peso rápido), ou um papel de mantenedor verificado pelo GitHub — revisar e mesclar PRs de outras pessoas —, o que for maior.",
+      "community_influence": "Histórico de colaboração: com que frequência mantenedores mesclam em vez de rejeitar seus PRs externos (limite inferior de Wilson, só depois de pelo menos dez decisões), mais os code reviews que você faz. Contagem de seguidores não entra.",
+      "activity_authenticity": "Recência e autenticidade: a fatia do seu trabalho vinda de anos recentes e seu status atual (ativo ou mantendo). Ela cai bruscamente quando se aplica um teto de PRs em massa de baixa qualidade ou de influencer."
     },
-    "penaltiesHeading": "Penalidades por sinais de alerta",
-    "penaltiesBody": "Além das seis dimensões, o motor subtrai penalidades por padrões que inflam um perfil sem valor real: títulos de pull request quase idênticos saídos de template, contribuições concentradas em repositórios que a conta não possui e inflação de stars ou seguidores. Cada evento isolado pode parecer plausível; as penalidades disparam no padrão, e é isso que torna a atividade fabricada separável do trabalho honesto.",
+    "penaltiesHeading": "Tetos anti-manipulação",
+    "penaltiesBody": "Em vez de subtrair pontos item por item, o devscore simplesmente não dá peso a sinais farmáveis: stars e seguidores nunca contam; PRs auto-mesclados e pequenos círculos que mesclam o trabalho uns dos outros não contam como aceitos; projetos de hype com stars mas sem usuários reais não ganham crédito de projeto; históricos de commits com cara de bot são descontados. Além disso, dois tetos são aplicados por último. Muitos PRs rejeitados em projetos de outras pessoas dentro de um ano, junto com títulos saídos de template, duplicatas, maratonas de uma semana em vários repositórios ou PRs gigantes, espremem a nota na faixa de 20–35; seguidores muito desproporcionais à engenharia aceita de forma independente (o padrão de influencer) recebem o mesmo teto. Cada evento isolado pode parecer plausível; as regras disparam no padrão.",
     "determinismHeading": "Determinismo e reprodutibilidade",
-    "determinismBody": "Nenhum modelo de linguagem encosta na nota. O núcleo de pontuação é a skill open source github-account-value (AGPL), e os mesmos caminhos de código alimentam o site, os pacotes do npm e do PyPI, a CLI e o servidor MCP. Dadas as mesmas entradas públicas, a nota é idêntica em todos eles — por isso ela pode ser reproduzida de forma independente. O texto opcional da zoada é a única parte escrita por LLM e nunca altera o número.",
+    "determinismBody": "Nenhum modelo de linguagem encosta na nota. O motor devscore é open source (AGPL) no repositório ghfind, e o site, a API, o servidor MCP e o modo local do pacote npm rodam todos o mesmo código do motor. Dados os mesmos dados públicos, a nota é idêntica em todos eles — por isso ela pode ser reproduzida de forma independente (uma coleta local nova pode ver dados públicos que mudaram desde então). O texto opcional da zoada é a única parte escrita por LLM e nunca altera o número.",
     "dataHeading": "Em escala",
-    "dataBody": "Aplicado a um dataset público de 18.947 contas pontuadas — 3.444 com snapshots completos de métricas brutas — o resultado é que contribuição falsificada ou fabricada é mais rara do que o discurso sugere (menos de 1% das contas acionou os sinais de alerta mais fortes), mas bem mais extrema quando aparece. A análise completa está na seção de pesquisa."
+    "dataBody": "Aplicado a um dataset público de 18.947 contas pontuadas — 3.444 com snapshots completos de métricas brutas, pontuadas com a rubrica anterior — o resultado é que contribuição falsificada ou fabricada é mais rara do que o discurso sugere (menos de 1% das contas acionou os sinais de alerta mais fortes), mas bem mais extrema quando aparece. A análise completa está na seção de pesquisa."
   },
   "vs": {
     "metaTitle": "{a} vs {b} · Quem vence? | ghfind",

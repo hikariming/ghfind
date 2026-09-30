@@ -1,9 +1,9 @@
 /**
  * Shared types for the GitHub value/trust scorer.
  *
- * Keys are intentionally snake_case to mirror the canonical Python skill output
- * (`github-account-value/scripts/fetch_github_profile.py`), so the JSON contract
- * is identical between the website and the open-source Claude skill.
+ * Keys are snake_case: they are the public JSON contract of the scan/score API.
+ * `RawMetrics` is display and roast evidence only; the score comes from the
+ * devscore summary (`DevscoreSummary`).
  */
 
 export interface ReadmeFeatures {
@@ -167,15 +167,9 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
-  /** (watchers + issues ever + PRs ever) / stars for the top-starred original
-   * repo. Only measured at ≥500★; undefined = not measured or fetch failed
-   * (scored as "no penalty"). Viral-but-hollow repos run <1%, genuinely used
-   * projects ≥5%. */
-  top_repo_engagement_ratio?: number;
   attributed_original_repo_count?: number;
   attributed_original_repo_stars?: number;
   attributed_original_repos?: string[];
-  best_original_repo_quality_score?: number;
   best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_score?: number;
   top_starred_original_repo_quality_repo?: string | null;
@@ -186,27 +180,19 @@ export interface RawMetrics {
   total_pr_count: number;
   issues_created: number;
   last_year_contributions: number;
-  activity_type_count: number;
   contribution_years_active: number;
   days_since_last_activity: number | null;
   recent_merged_pr_sample: number;
   recent_trivial_pr_count: number;
-  recent_doc_like_pr_count?: number;
   recent_doc_like_pr_ratio?: number;
   recent_external_pr_sample?: number;
-  recent_external_doc_like_pr_count?: number;
   recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
-  /** 0..1 prestige signal after weighting the biggest contributed repos by
-   * landed work volume. Optional so older cached snapshots fall back to
-   * max_impact_repo_stars. */
-  impact_prestige_score?: number;
   impact_pr_count: number;
   /** Subset of impact PRs credited through a repository workflow rather than
    * GitHub's native merged state. */
   workflow_landed_impact_pr_count?: number;
-  impact_depth_raw: number;
   impact_quality_cap?: number;
   verified_impact_pr_count?: number;
   core_impact_pr_count?: number;
@@ -285,7 +271,8 @@ export interface RiskCoverage {
 }
 
 export interface RiskAssessment {
-  version: "v10";
+  /** v10: the retired RawMetrics risk layer; v11: devscore v3 flags. */
+  version: "v10" | "v11";
   risk_score: number;
   level: RiskLevel;
   confidence: number;
@@ -307,6 +294,70 @@ export interface Scoring {
   final_score: number;
   tier: Tier;
   tier_label: string;
+}
+
+/** One top repository's devscore engine factors (explains the score). */
+export interface DevscoreRepoFactors {
+  name: string;
+  owned: boolean;
+  kind: string | null;
+  importance: number | null;
+  share: number | null;
+  authorship: number | null;
+  volume: number | null;
+  nature: number | null;
+  durability: number | null;
+  work: number | null;
+  endorsement: number | null;
+  contrib: number;
+  hype: boolean;
+}
+
+/**
+ * The devscore (`rateDeveloper`) result the score was derived from. Stored
+ * inside the published snapshot; the six ghfind dimensions and the final
+ * score are recomputed from it at every read boundary.
+ */
+export interface DevscoreSummary {
+  version: "v11";
+  collected_at: string | null;
+  v3: {
+    score: number;
+    tier: "lawanle" | "npc" | "renshangren" | "dingji" | "hang";
+    remapped: number;
+    flags: { slop: boolean; influencer: boolean; no_pr_data: boolean; hype: boolean };
+  };
+  curve: {
+    score: number;
+    main: number;
+    content_bonus: number;
+    confidence: "high" | "med" | "low";
+    e: number;
+    e_dev: number;
+    e_maint: number;
+    maint_flagship: number;
+    maint_sustained: number;
+    status: "active" | "maintaining" | "inactive";
+    flagship: number;
+    sustained: number;
+    recent_share: number | null;
+  };
+  engine: {
+    score: number;
+    impact_score: number;
+    breadth: number;
+    breadth_score: number;
+    longevity_years: number | null;
+    longevity_score: number | null;
+    collab_score: number | null;
+    contrib: number;
+    contrib_score: number;
+    /** Best repos by engine work (excluded repos omitted), at most 10. */
+    top_repos: DevscoreRepoFactors[];
+  };
+  /** PR reviews given over all collected years (review stewardship). */
+  reviews: number;
+  followers: number | null;
 }
 
 /** Full scan payload — same shape the Python script prints. */
@@ -333,6 +384,8 @@ export interface ScanResult {
   /** Organizations the user belongs to (e.g. huggingface, pytorch) — high-signal
    * for circle/affiliation. Optional for back-compat. */
   organizations?: string[];
+  /** devscore result behind `scoring` (v11+ snapshots). */
+  devscore?: DevscoreSummary;
   scoring: Scoring;
 }
 

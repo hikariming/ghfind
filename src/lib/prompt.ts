@@ -12,7 +12,7 @@ import type { Lang } from "./lang";
 import type { RoastLine, ScanResult } from "./types";
 import type { AccountDetail } from "./db";
 import type { Verdict } from "./verdict";
-import { SUBSCORE_MAX } from "./score";
+import { SUBSCORE_MAX } from "./score-presentation";
 
 function pct(value: number): number {
   return Math.round(value * 100);

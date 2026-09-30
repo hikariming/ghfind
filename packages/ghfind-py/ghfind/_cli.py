@@ -3,8 +3,8 @@
 Design goals (in priority order):
   1. Useful with zero setup: ``score`` hits the public GET /api/score endpoint,
      which needs no auth and is cached + rate-limited on the server.
-  2. Kind to the ghfind server: ``--local`` moves the heavy GitHub crawl onto the
-     caller's own token/machine (see :mod:`ghfind.local`); nothing touches ghfind.
+  2. Honest about first-time scores: an account ghfind has never scored is
+     computed by a background devscore job (minutes); ``--wait`` bounds the wait.
   3. Drives traffic back: human-facing output ends with a profile link, and
      ``badge --markdown`` prints a README-ready snippet that links to ghfind.com.
 
@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from . import __version__
 from .catalog import CATALOG, DEFAULT_HOST
-from .client import GhFind, GhFindError
+from .client import GhFind, GhFindError, GhFindPending
 
 _SUB_SCORE_ORDER = [
     "account_maturity",
@@ -137,41 +137,13 @@ def _print_risk(scoring: Dict[str, Any]) -> None:
         _out(f'{note.get("flag")}: {note.get("detail", "")}')
 
 
-def _local_scan(args: argparse.Namespace, username: str) -> Dict[str, Any]:
-    token = _github_token(args)
-    if not token:
-        _fail(
-            "--local needs a GitHub token: pass --github-token or set GITHUB_TOKEN.\n"
-            "Local scoring crawls GitHub on your own machine and quota (ghfind is never called)."
-        )
-    # Imported lazily so the common remote path never pays for the scoring engine.
-    from .local import collect_and_score
-
-    return collect_and_score(username, token=token)
-
-
 # ---- commands --------------------------------------------------------------
 
 
 def _cmd_score(args: argparse.Namespace) -> None:
     host = _resolve_host(args)
     mode = _output_mode(args)
-
-    if args.local:
-        scan = _local_scan(args, args.username)
-        s = scan["scoring"]
-        if mode == "json":
-            _out_json({"source": "local", "username": scan["metrics"]["username"], **s})
-            return
-        _out(f'{scan["metrics"]["username"]}: {s["final_score"]}/100 {s["tier"]} ({s["tier_label"]})')
-        _print_sub_scores(s.get("sub_scores"))
-        _print_risk(s)
-        for f in s.get("red_flags") or []:
-            _out(f'- {f["flag"]}: -{f["penalty"]} {f["detail"]}')
-        _out(_profile_link(host, scan["metrics"]["username"]))
-        return
-
-    payload = _client(args).get_score(args.username, verify_exists=args.verify_exists)
+    payload = _client(args).get_score(args.username, verify_exists=args.verify_exists, wait=args.wait)
     if mode == "json":
         _out_json(payload)
         return
@@ -187,11 +159,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
 
 
 def _cmd_scan(args: argparse.Namespace) -> None:
-    if args.local:
-        scan = _local_scan(args, args.username)
-    else:
-        scan = _client(args).scan(args.username, verify_exists=args.verify_exists)
-    _out_json(scan)
+    _out_json(_client(args).scan(args.username, verify_exists=args.verify_exists, wait=args.wait))
 
 
 def _cmd_roast(args: argparse.Namespace) -> None:
@@ -199,15 +167,7 @@ def _cmd_roast(args: argparse.Namespace) -> None:
     lang = args.lang
     mode = _output_mode(args, "markdown")
     gh = _client(args)
-    # --local crawls + scores on the caller's machine, then sends only the scan to
-    # the server for the prose (which still needs a model — the server's or BYO).
-    scan = _local_scan(args, args.username) if args.local else None
-    roast = gh.roast(
-        username=None if scan else args.username,
-        scan=scan,
-        lang=lang,
-        byo_key=_byo_key(args),
-    )
+    roast = gh.roast(username=args.username, lang=lang, byo_key=_byo_key(args))
     if mode == "json":
         body: Dict[str, Any] = {
             "username": args.username,
@@ -215,8 +175,6 @@ def _cmd_roast(args: argparse.Namespace) -> None:
             "meta": roast.get("meta"),
             "report": roast.get("report"),
         }
-        if args.include_scan and scan:
-            body["scan"] = scan
         _out_json(body)
         return
     meta = roast.get("meta") or {}
@@ -352,7 +310,7 @@ def _cmd_auth_status(args: argparse.Namespace) -> None:
         return
     _out(f'host: {body["host"]}')
     _out(f'api key: {"configured" if body["has_api_key"] else "missing"}')
-    _out(f'github token (for --local / exists): {"configured" if body["has_github_token"] else "missing"}')
+    _out(f'github token (for exists): {"configured" if body["has_github_token"] else "missing"}')
     _out(f'byo llm key (for roast): {"configured" if body["has_byo_key"] else "missing"}')
 
 
@@ -383,22 +341,22 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = add("score", _cmd_score, help="Deterministic score via GET /api/score (no auth, cached).")
     p.add_argument("username")
-    p.add_argument("--local", action="store_true", help="score offline with your GITHUB_TOKEN")
+    p.add_argument("--wait", type=float, metavar="SECONDS",
+                   help="max seconds to wait for a first-time score (default 900; 0 = don't wait)")
     p.add_argument("--verify-exists", action="store_true", help="confirm the login exists first")
 
     p = add("scan", _cmd_scan, help="Full evidence payload via POST /api/scan (heavy; needs --api-key in prod).")
     p.add_argument("username")
-    p.add_argument("--local", action="store_true", help="crawl + score offline with your GITHUB_TOKEN")
+    p.add_argument("--wait", type=float, metavar="SECONDS",
+                   help="max seconds to wait for a first-time score (default 900; 0 = don't wait)")
     p.add_argument("--verify-exists", action="store_true")
 
     p = add("roast", _cmd_roast, help="Human-facing roast report (LLM). --byo-* to use your own model.")
     p.add_argument("username")
     p.add_argument("--lang", choices=["zh", "en"], default="zh")
-    p.add_argument("--local", action="store_true", help="crawl the scan offline, then only send it for prose")
     p.add_argument("--byo-base-url")
     p.add_argument("--byo-api-key")
     p.add_argument("--byo-model")
-    p.add_argument("--include-scan", action="store_true", help="embed the scan in --json output")
 
     p = add("vs", _cmd_vs, help="Head-to-head verdict (winner deterministic).")
     p.add_argument("a")
@@ -446,6 +404,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     try:
         args.func(args)
+    except GhFindPending as e:
+        job = e.job or {}
+        where = f' (phase {job["phase"]})' if job.get("phase") else ""
+        sys.stderr.write(f"{e}{where}. Try again later; status: {e.status_url}\n")
+        return 3
     except GhFindError as e:
         suffix = f" ({e.code})" if e.code else ""
         sys.stderr.write(f"{e}{suffix}\n")

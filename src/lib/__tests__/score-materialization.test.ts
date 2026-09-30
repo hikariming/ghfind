@@ -8,7 +8,8 @@ import {
   PUBLIC_SCAN_COLLECTION_VERSION,
   type PublicScanSourceStatus,
 } from "../scan-run-types";
-import { score, spamBotScore } from "../score";
+import { devscoreBotScore, scoringFromDevscore } from "../devscore-scoring";
+import { fixtureDevscore } from "./devscore-fixture";
 import type { RawMetrics, ScanResult } from "../types";
 
 const SCANNED_AT = 1_800_000_000_000;
@@ -45,7 +46,6 @@ function metrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
     total_pr_count: 10,
     issues_created: 3,
     last_year_contributions: 320,
-    activity_type_count: 3,
     contribution_years_active: 3,
     days_since_last_activity: 4,
     recent_merged_pr_sample: 8,
@@ -53,7 +53,6 @@ function metrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
     external_trivial_pr_count: 0,
     max_impact_repo_stars: 1_000,
     impact_pr_count: 2,
-    impact_depth_raw: 1,
     star_inflation_suspect: false,
     closed_unmerged_pr_count: 2,
     pr_rejection_rate: 0.2,
@@ -66,9 +65,11 @@ function metrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   };
 }
 
+const devscore = fixtureDevscore("synthetic-user");
+
 function scan(metricOverrides: Partial<RawMetrics> = {}): ScanResult {
   const rawMetrics = metrics(metricOverrides);
-  const embedded = score(rawMetrics);
+  const embedded = scoringFromDevscore(devscore);
   return {
     metrics: rawMetrics,
     top_repos: [],
@@ -78,6 +79,7 @@ function scan(metricOverrides: Partial<RawMetrics> = {}): ScanResult {
     verified_impact_prs: [],
     pinned_repos: [],
     organizations: [],
+    devscore,
     scoring: {
       ...embedded,
       final_score: 99,
@@ -117,9 +119,9 @@ describe("materializeCanonicalScore", () => {
     expect(materializeCanonicalScore(input(malformed))).toBeNull();
   });
 
-  it("reruns the deterministic scorer and returns a DB-compatible empty-report entry", () => {
+  it("rescores from the embedded devscore summary and returns a DB-compatible empty-report entry", () => {
     const original = scan();
-    const expected = score(original.metrics);
+    const expected = scoringFromDevscore(devscore);
 
     const first = materializeCanonicalScore(input(original));
     const second = materializeCanonicalScore(input(original));
@@ -135,7 +137,7 @@ describe("materializeCanonicalScore", () => {
         tier: expected.tier,
         tags: { zh: [], en: [] },
         roast_line: { zh: "", en: "" },
-        bot_score: spamBotScore(original.metrics),
+        bot_score: devscoreBotScore(devscore),
         sub_scores: expected.sub_scores,
         risk_assessment: expected.risk_assessment,
         risk_notes: expected.risk_notes,
@@ -151,6 +153,18 @@ describe("materializeCanonicalScore", () => {
     });
     expect(first?.scoreEntry.final_score).not.toBe(original.scoring.final_score);
     expect(first?.scan.scoring.sub_scores.account_maturity).not.toBe(99);
+  });
+
+  it("ignores display metrics: the score depends only on the devscore summary", () => {
+    const a = materializeCanonicalScore(input(scan({ followers: 0, total_stars: 0 })));
+    const b = materializeCanonicalScore(input(scan({ followers: 90_000, total_stars: 500_000 })));
+    expect(a?.scoreEntry.final_score).toBe(b?.scoreEntry.final_score);
+    expect(a?.scoreEntry.sub_scores).toEqual(b?.scoreEntry.sub_scores);
+  });
+
+  it("fails closed for a snapshot without a devscore summary", () => {
+    const { devscore: _omitted, ...legacy } = scan();
+    expect(materializeCanonicalScore(input(legacy as ScanResult))).toBeNull();
   });
 
   it("matches usernames after canonical normalization", () => {

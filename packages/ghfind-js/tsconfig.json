@@ -3,14 +3,17 @@
     "target": "ES2021",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2021", "DOM"],
+    "lib": ["ES2024", "DOM"],
     "declaration": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node"],
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["../../src/*"]
+    }
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules", "**/*.test.ts"]

@@ -2,7 +2,7 @@
  * Deterministic, hand-authored bilingual roast generator.
  *
  * This is NOT an LLM call — every sentence pattern below is written by hand and
- * slot-filled with the account's real metrics (score.ts sub-scores, top repos,
+ * slot-filled with the account's real metrics (devscore-derived sub-scores, top repos,
  * PR counts, red flags, orgs). Used by mega-ingest.mts to evaluate large batches
  * of developers without depending on a configured LLM provider.
  *
@@ -11,7 +11,7 @@
  */
 import { aggregateLanguages } from "../src/lib/profile-insights";
 import type { ImpactRepo, RawMetrics, Scoring, SubScoreKey, TopRepo, Tags, RoastLine } from "../src/lib/types";
-import { SUBSCORE_MAX } from "../src/lib/score";
+import { SUBSCORE_MAX } from "../src/lib/score-presentation";
 
 function hashOf(s: string): number {
   let h = 0;
