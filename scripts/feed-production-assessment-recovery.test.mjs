@@ -243,6 +243,21 @@ test('an intervening unknown paid start or truncated interval fails without rese
     assert.equal(existsSync(f.destination), false);
   }
 });
+test('a same-SHA sibling created after the current run is outside the interval and is not required in it', async t => {
+  // Release 7302ded (run 36872298225): CI completion triggered a second,
+  // skipped deploy run 36s after the current one. The interval ends at the
+  // current run's creation, so that sibling can never appear in it; requiring
+  // it failed every attempt regardless of index lag.
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+  const sameSha = `/repos/${repository}/actions/workflows/deploy-cf-production.yml/runs?head_sha=${sourceSha}&per_page=100`;
+  const listing = f.responses.get(sameSha);
+  const later = { ...listing.workflow_runs.find(run => run.id === 20), id: 21, created_at: '2026-09-14T01:21:00Z', conclusion: 'skipped' };
+  f.responses.set(sameSha, { total_count: listing.total_count + 1, workflow_runs: [...listing.workflow_runs, later] });
+  const deps = withCarryover(f);
+  deps.sleep = async () => assert.fail('a complete interval must not be re-read');
+  assert.equal((await recover(sourceSha, f.destination, deps)).status, 'recovered');
+  assert.equal(f.calls.filter(call => call.path.includes('created=')).length, 1);
+});
 test('a lagging interval index is re-read but a persistently omitted current run still fails closed', async t => {
   // Run 36594682840: the search-indexed created= listing briefly omitted the
   // just-created current run that the head_sha listing already reported.

@@ -233,7 +233,12 @@ export async function recover(sourceSha, destination, { env = process.env, reque
     requireThat(Number.isFinite(beginning) && Number.isFinite(ending) && beginning <= ending,
       'bounded carryover history timestamps are missing or reversed');
     const interval = `${predecessor.created_at}..${current[0].created_at}`;
-    const expected = [...runs, predecessor];
+    // Only same-SHA runs created up to the current run can lie in the
+    // interval. A sibling created later (e.g. a second, skipped workflow_run
+    // trigger for the same CI completion) is outside it by construction and,
+    // with the serialized concurrency group, cannot have started before this
+    // run: requiring it failed every release that had one (7302ded).
+    const expected = [...runs.filter(run => Date.parse(run.created_at) <= ending), predecessor];
     let intervalRuns, divergent;
     for (let read = 1; ; read++) {
       const history = await get(`${base}/actions/workflows/deploy-cf-production.yml/runs?branch=main&event=workflow_run&created=${encodeURIComponent(interval)}&per_page=100`);
