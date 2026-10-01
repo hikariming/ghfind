@@ -18,6 +18,10 @@ export const receiptFile = 'assessment-intent.json';
 // Each run costs about two attempt/job reads plus artifact, ZIP and log reads,
 // so the request budget scales with it. Re-anchor the carryover before 100.
 export const limits = Object.freeze({ runs: 100, attempts: 10, requests: 600, artifactBytes: 8 * 1024 * 1024, receiptBytes: 32 * 1024 });
+// The `created=` interval listing is search-indexed and lags the authoritative
+// head_sha listing: on 2026-09-29 run 36594682840 was missing from it 45s after
+// creation although an identical read later included it. Re-read, never relax.
+export const intervalReads = Object.freeze({ attempts: 6, delayMs: 15000 });
 const historyEvidencePath = new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const canonicalHash = value => sha256(JSON.stringify(value));
@@ -202,7 +206,8 @@ export function archivedReceiptBytes(item, carryover, env) {
     'fresh D1 audit differs from reviewed archive recovery');
   return Buffer.from(JSON.stringify(receipt));
 }
-export async function recover(sourceSha, destination, { env = process.env, request, extract = extractReceipt, historyEvidence } = {}) {
+export async function recover(sourceSha, destination, { env = process.env, request, extract = extractReceipt, historyEvidence,
+  sleep = ms => new Promise(done => setTimeout(done, ms)) } = {}) {
   const context = validateContext(sourceSha, env), read = request ?? githubReader(env.GH_TOKEN);
   const carryover = loadCarryover(env);
   const evidence = validateHistoryEvidence(historyEvidence ?? JSON.parse(readFileSync(historyEvidencePath)));
@@ -228,19 +233,25 @@ export async function recover(sourceSha, destination, { env = process.env, reque
     requireThat(Number.isFinite(beginning) && Number.isFinite(ending) && beginning <= ending,
       'bounded carryover history timestamps are missing or reversed');
     const interval = `${predecessor.created_at}..${current[0].created_at}`;
-    const history = await get(`${base}/actions/workflows/deploy-cf-production.yml/runs?branch=main&event=workflow_run&created=${encodeURIComponent(interval)}&per_page=100`);
-    requireThat(Number.isInteger(history?.total_count) && history.total_count === history.workflow_runs?.length &&
-      history.total_count <= limits.runs, 'complete bounded carryover release history required');
-    const intervalRuns = history.workflow_runs.map(run => {
-      requireThat(validSha(run.head_sha) && Date.parse(run.created_at) >= beginning && Date.parse(run.created_at) <= ending,
-        'carryover history contains an out-of-range run');
-      return validateRun(run, run.head_sha);
-    });
-    const byId = new Map(intervalRuns.map(run => [run.id, run]));
-    requireThat(byId.size === intervalRuns.length && runs.every(run => byId.get(run.id)?.head_sha === run.head_sha &&
-      byId.get(run.id)?.run_attempt === run.run_attempt) && byId.get(predecessor.id)?.head_sha === predecessor.head_sha &&
-      byId.get(predecessor.id)?.run_attempt === predecessor.run_attempt,
-      'carryover interval omits or conflicts with current or pinned predecessor history');
+    const expected = [...runs, predecessor];
+    let intervalRuns, divergent;
+    for (let read = 1; ; read++) {
+      const history = await get(`${base}/actions/workflows/deploy-cf-production.yml/runs?branch=main&event=workflow_run&created=${encodeURIComponent(interval)}&per_page=100`);
+      requireThat(Number.isInteger(history?.total_count) && history.total_count === history.workflow_runs?.length &&
+        history.total_count <= limits.runs, 'complete bounded carryover release history required');
+      intervalRuns = history.workflow_runs.map(run => {
+        requireThat(validSha(run.head_sha) && Date.parse(run.created_at) >= beginning && Date.parse(run.created_at) <= ending,
+          'carryover history contains an out-of-range run');
+        return validateRun(run, run.head_sha);
+      });
+      const byId = new Map(intervalRuns.map(run => [run.id, run]));
+      requireThat(byId.size === intervalRuns.length, 'carryover interval omits or conflicts with current or pinned predecessor history');
+      divergent = expected.filter(run => byId.get(run.id)?.head_sha !== run.head_sha || byId.get(run.id)?.run_attempt !== run.run_attempt);
+      if (divergent.length === 0 || read >= intervalReads.attempts) break;
+      await sleep(intervalReads.delayMs);
+    }
+    requireThat(divergent.length === 0,
+      `carryover interval omits or conflicts with current or pinned predecessor history (runs ${divergent.map(run => run.id).join(', ')})`);
     // Every intervening release can have consumed durable quotas. Inspect it,
     // but only the explicitly pinned intent/analysis may ever be restored.
     runs = intervalRuns;

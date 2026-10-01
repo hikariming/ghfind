@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { extractReceipt, githubReader, mayHaveStarted, recover, repository, startStep, validateContext, workflowPath } from './feed-production-assessment-recovery.mjs';
+import { extractReceipt, githubReader, intervalReads, mayHaveStarted, recover, repository, startStep, validateContext, workflowPath } from './feed-production-assessment-recovery.mjs';
 const sourceSha = 'a'.repeat(40);
 const intentId = '11111111-1111-4111-8111-111111111111';
 const env = { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: repository, GITHUB_REF: 'refs/heads/main',
@@ -243,8 +243,33 @@ test('an intervening unknown paid start or truncated interval fails without rese
     assert.equal(existsSync(f.destination), false);
   }
 });
+test('a lagging interval index is re-read but a persistently omitted current run still fails closed', async t => {
+  // Run 36594682840: the search-indexed created= listing briefly omitted the
+  // just-created current run that the head_sha listing already reported.
+  for (const catchUpAfter of [2, Infinity]) {
+    const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+    const key = [...f.responses.keys()].find(key => key.includes('created='));
+    const complete = f.responses.get(key);
+    const lagging = complete.workflow_runs.filter(run => run.id !== 20);
+    let reads = 0;
+    const sleeps = [], deps = withCarryover(f);
+    const request = deps.request;
+    deps.request = async (path, binary) => path !== key ? request(path, binary) :
+      ++reads > catchUpAfter ? complete : { total_count: lagging.length, workflow_runs: lagging };
+    deps.sleep = async ms => { sleeps.push(ms); };
+    if (catchUpAfter === Infinity) {
+      await assert.rejects(recover(sourceSha, f.destination, deps), /omits or conflicts .*\(runs 20\)/);
+      assert.equal(reads, intervalReads.attempts);
+      assert.equal(existsSync(f.destination), false);
+    } else {
+      assert.equal((await recover(sourceSha, f.destination, deps)).status, 'recovered');
+      assert.equal(reads, catchUpAfter + 1);
+    }
+    assert.deepEqual(sleeps, Array(reads - 1).fill(intervalReads.delayMs));
+  }
+});
 
-const reviewedHistory = JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url)));
+const reviewedHistory =JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url)));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 function readonlyFixture(t, changes = {}) {
   const archive = zip({ 'read-only-evidence.json': '{}' }), logs = Buffer.from('possible previous assessment POST lacks a unique intent receipt\nProcess completed with exit code 1.');
