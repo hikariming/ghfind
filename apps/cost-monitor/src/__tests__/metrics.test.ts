@@ -1,5 +1,6 @@
 import { describe,expect,it,vi } from "vitest";
 import { billable,collect } from "../metrics";
+import {validateFrame} from "../engine";
 const now=1_800_000_000_000;
 const config={account:"account",token:"private-token"};
 function api(rows:unknown[]){return Response.json({data:{viewer:{accounts:[{rows}]}}});}
@@ -14,6 +15,19 @@ function fixture(query:string){
 }
 const mockFetch=()=>vi.fn(async(_url:unknown,init?:RequestInit)=>api(fixture(JSON.parse(String(init?.body)).query)));
 describe("aggregate collection",()=>{
+  it("aggregates repeated Worker names, preserving CPU, cost and request-normalized operation totals",async()=>{
+    const fetcher=vi.fn(async(_url:unknown,init?:RequestInit)=>{
+      const q=JSON.parse(String(init?.body)).query;
+      if(q.includes("workersInvocations"))return api([...fixture(q),{dimensions:{scriptName:"app"},sum:{requests:300,cpuTimeUs:600_000}},...Array.from({length:2},()=>({dimensions:{scriptName:"__unknown__"},sum:{requests:10,cpuTimeUs:10_000}}))]);
+      return api(fixture(q));
+    });
+    const f=await collect(config,now,fetcher as typeof fetch);expect(f.errors).toEqual([]);expect(()=>validateFrame(f)).not.toThrow();
+    expect(f.points.filter(p=>p.product==="Workers")).toHaveLength(4);
+    expect(f.points.find(p=>p.key==="Workers:app:cpu")).toMatchObject({amount:700,operations:500,efficiency:1.4});
+    expect(f.points.find(p=>p.key==="Workers:__unknown__:requests")?.amount).toBe(20);
+    expect(f.points.find(p=>p.label.includes("ListParts"))?.efficiency).toBeCloseTo(100/520);
+  });
+
   it("collects fixed batch queries and only persists SQL fingerprints",async()=>{
     const fetcher=mockFetch();const f=await collect(config,now,fetcher as typeof fetch);
     expect(fetcher).toHaveBeenCalledTimes(8);expect(f.errors).toEqual([]);expect(f.completeQueries).toBe(true);

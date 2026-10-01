@@ -61,10 +61,12 @@ export async function collect(config: CollectorConfig, now = Date.now(), fetcher
       const reads=number(r,"rowsRead"),writes=number(r,"rowsWritten"),rq=number(r,"readQueries"),wq=number(r,"writeQueries");
       return [metric("D1",r.dimensions.databaseId,"数据库读取",reads,rq,"rows",1e-9,"read",{efficiency:rq?reads/rq:0,efficiencyWarning:50_000,efficiencyCritical:200_000,minAmount:100_000}),metric("D1",r.dimensions.databaseId,"数据库写入",writes,wq,"rows",1e-6,"write",{efficiency:wq?writes/wq:0,efficiencyWarning:500,efficiencyCritical:5000,minAmount:1000})];
     })},
-    {product:"Workers",name:"Workers",selection:`workersInvocationsAdaptive(limit:${LIMIT},${filter}){dimensions{scriptName} sum{requests cpuTimeUs}}`,convert:rows=>rows.flatMap(r=>{
-      const requests=number(r,"requests"),cpu=number(r,"cpuTimeUs")/1000;
-      return [metric("Workers",r.dimensions.scriptName,"请求",requests,requests,"requests",0.3e-6,"requests",{efficiency:1}),metric("Workers",r.dimensions.scriptName,"CPU",cpu,requests,"CPU ms",0.02e-6,"cpu",{efficiency:requests?cpu/requests:0,efficiencyWarning:1000,efficiencyCritical:5000,minAmount:10_000})];
-    })},
+    {product:"Workers",name:"Workers",selection:`workersInvocationsAdaptive(limit:${LIMIT},${filter}){dimensions{scriptName} sum{requests cpuTimeUs}}`,convert:rows=>{
+      // Adaptive invocation rows can repeat a script name (including __unknown__).
+      const scripts=new Map<string,{requests:number;cpu:number}>();
+      for(const r of rows){const name=r.dimensions.scriptName,previous=scripts.get(name)??{requests:0,cpu:0};previous.requests+=number(r,"requests");previous.cpu+=number(r,"cpuTimeUs")/1000;scripts.set(name,previous);}
+      return [...scripts].flatMap(([name,{requests,cpu}])=>[metric("Workers",name,"请求",requests,requests,"requests",0.3e-6,"requests",{efficiency:1}),metric("Workers",name,"CPU",cpu,requests,"CPU ms",0.02e-6,"cpu",{efficiency:requests?cpu/requests:0,efficiencyWarning:1000,efficiencyCritical:5000,minAmount:10_000})]);
+    }},
     {product:"R2",name:"R2 operations",selection:`r2OperationsAdaptiveGroups(limit:${LIMIT},${filter}){dimensions{bucketName actionType storageClass} sum{requests responseObjectSize}}`,convert:rows=>rows.flatMap(r=>{
       const action=r.dimensions.actionType,ia=r.dimensions.storageClass==="InfrequentAccess"; const amount=number(r,"requests");
       const price=CLASS_A.has(action)?(ia?9:4.5)*1e-6:CLASS_B.has(action)?(ia?0.9:0.36)*1e-6:FREE.has(action)?0:undefined;
