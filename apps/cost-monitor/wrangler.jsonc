@@ -1,0 +1,96 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "ghfind-cost-monitor-local",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "limits": {
+    "cpu_ms": 10000
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MONITOR",
+        "class_name": "CostMonitor"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "CostMonitor"
+      ]
+    }
+  ],
+  "vars": {
+    "CF_ACCOUNT_ID": "8f19bebe359e4ec1a24c68c5f49c1584",
+    "ALERT_FROM": "alerts@mail.ghfind.com"
+  },
+  "env": {
+    "production": {
+      "name": "ghfind-cost-monitor",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "MONITOR",
+            "class_name": "CostMonitor"
+          }
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "allowed_sender_addresses": [
+            "alerts@mail.ghfind.com"
+          ]
+        }
+      ],
+      "triggers": {
+        "crons": [
+          "*/5 * * * *"
+        ]
+      },
+      "vars": {
+        "CF_ACCOUNT_ID": "8f19bebe359e4ec1a24c68c5f49c1584",
+        "ALERT_FROM": "alerts@mail.ghfind.com",
+        "HOURLY_WARNING_USD": "0.5",
+        "HOURLY_CRITICAL_USD": "2",
+        "DAILY_WARNING_USD": "10"
+      }
+    },
+    "e2e": {
+      "name": "ghfind-cost-monitor-e2e",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "MONITOR",
+            "class_name": "CostMonitor"
+          }
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "allowed_sender_addresses": [
+            "alerts@mail.ghfind.com"
+          ]
+        }
+      ],
+      "vars": {
+        "CF_ACCOUNT_ID": "8f19bebe359e4ec1a24c68c5f49c1584",
+        "ALERT_FROM": "alerts@mail.ghfind.com",
+        "E2E_ENABLED": "1"
+      }
+    }
+  },
+  "preview_urls": false
+}
