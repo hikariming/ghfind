@@ -5377,6 +5377,7 @@ async function attachTopContributors(
   const topByRepo = new Map<string, RepoOwnerRef[]>();
   if (keys.length > 0) {
     const placeholders = keys.map(() => "?").join(",");
+    // Keep filtered edges outermost; each contributor then seeks scores by username.
     const contributors = await db.execute({
       sql: `SELECT edges.repo_key, s.username, s.display_name, s.avatar_url,
                    s.final_score, s.tier
@@ -5384,7 +5385,7 @@ async function attachTopContributors(
               SELECT DISTINCT repo_key, username FROM repo_developers
               WHERE repo_key IN (${placeholders})
             ) AS edges
-            JOIN scores AS s ON s.username = edges.username
+            CROSS JOIN scores AS s ON s.username = edges.username
             WHERE s.hidden = 0
               AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?

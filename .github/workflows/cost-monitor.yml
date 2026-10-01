@@ -1,0 +1,95 @@
+name: Cloudflare cost monitor
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: cost-monitor-deploy
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_MONITOR_API_TOKEN: ${{ secrets.CF_MONITOR_API_TOKEN }}
+      MONITOR_ADMIN_TOKEN: ${{ secrets.COST_MONITOR_ADMIN_TOKEN }}
+      ALERT_RECIPIENTS: ${{ secrets.COST_MONITOR_RECIPIENTS }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Reject superseded release and incomplete private configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(gh api repos/hikariming/ghfind/git/ref/heads/main --jq .object.sha)" = "$RELEASE_SHA"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+          test -n "$CF_MONITOR_API_TOKEN"
+          test -n "$MONITOR_ADMIN_TOKEN"
+          test -n "$ALERT_RECIPIENTS"
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy independent monitor with private recipient list
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.writeFileSync(`${process.env.RUNNER_TEMP}/cost-monitor-secrets.json`,JSON.stringify({CF_MONITOR_API_TOKEN:process.env.CF_MONITOR_API_TOKEN,MONITOR_ADMIN_TOKEN:process.env.MONITOR_ADMIN_TOKEN,ALERT_RECIPIENTS:process.env.ALERT_RECIPIENTS}),{mode:0o600});
+          JS
+          pnpm --filter @ghfind/cost-monitor exec wrangler secret bulk "$RUNNER_TEMP/cost-monitor-secrets.json" --env production
+          rm "$RUNNER_TEMP/cost-monitor-secrets.json"
+          pnpm --filter @ghfind/cost-monitor exec wrangler deploy --env production --keep-vars --tag "production-$RELEASE_SHA"
+      - name: Verify deployed monitor collects live metrics
+        env:
+          COST_MONITOR_URL: ${{ vars.COST_MONITOR_URL }}
+        run: |
+          node --input-type=module <<'JS'
+          const base=process.env.COST_MONITOR_URL;
+          if(!base)throw new Error('Monitor URL not configured');
+          const response=await fetch(`${base}/run`,{method:'POST',headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(120000)});
+          const result=await response.json();
+          if(!response.ok || result.status!=='ok' || !(result.points>0))throw new Error('Live cost collection not healthy');
+          console.log('Live cost collection verified');
+          JS
+  watchdog:
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: cost-monitor-watchdog
+      cancel-in-progress: false
+    env:
+      COST_MONITOR_URL: ${{ vars.COST_MONITOR_URL }}
+      MONITOR_ADMIN_TOKEN: ${{ secrets.COST_MONITOR_ADMIN_TOKEN }}
+      CF_MONITOR_API_TOKEN: ${{ secrets.CF_MONITOR_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      ALERT_RECIPIENTS: ${{ secrets.COST_MONITOR_RECIPIENTS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check freshness and email on missing heartbeat
+        run: node scripts/cost-monitor-watchdog.mjs

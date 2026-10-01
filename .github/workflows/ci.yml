@@ -137,6 +137,11 @@ jobs:
           pnpm --filter @ghfind/router typecheck
           pnpm --filter @ghfind/api typecheck
           pnpm --filter @ghfind/api exec wrangler deploy --dry-run --env dev --outdir "$RUNNER_TEMP/ghfind-api-dist"
+          pnpm --filter @ghfind/cost-monitor typecheck
+          pnpm --filter @ghfind/cost-monitor exec wrangler types --env production --include-runtime false --check
+          pnpm --filter @ghfind/cost-monitor build
+          node --test scripts/cost-monitor-watchdog.test.mjs
+          node scripts/cost-monitor-e2e.mjs
           pnpm --filter @ghfind/coord typecheck
           pnpm --filter @ghfind/coord exec wrangler deploy --dry-run --env dev --outdir "$RUNNER_TEMP/ghfind-coord-dist"
 

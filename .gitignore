@@ -70,6 +70,6 @@ scripts/talent-import/out/
 # OpenNext / Cloudflare
 .open-next/
 .wrangler/
-.dev.vars
+.dev.vars*
 tmp/
 /platform/runtime/wrangler.web.production.generated.json

@@ -25,7 +25,7 @@ The authoritative deployment files are:
 - [`scripts/smoke-deployment.mts`](../../scripts/smoke-deployment.mts) — read-only public smoke checks.
 
 Production ownership is fixed: `ghfind` must be deployed to
-`Beiming1201@gmail.com's Account` (`8f19bebe359e4ec1a24c68c5f49c1584`). The
+the production account pinned in `wrangler.jsonc` (`8f19bebe359e4ec1a24c68c5f49c1584`). The
 repository config and production workflow pin this account. The
 `AsperforMias` account is not a production target and must not be used for
 production Workers, D1, R2, or Secrets.
