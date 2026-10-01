@@ -81,9 +81,22 @@ describe("bounded Cloudflare incident policy",()=>{
   it("bounds cardinality and rejects NaN/duplicate telemetry",()=>{
     const s=emptyState();run(s,1);const existing=s.metrics['D1:core:read'];
     for(let i=0;Object.keys(s.metrics).length<MAX_METRICS;i++)s.metrics[`D1:x:${i}`]={...existing,severity:2};
+    for(const m of Object.values(s.metrics))m.severity=2; // every slot is an open incident: nothing may be evicted
     expect(()=>run(s,2,200,{key:"D1:new:read"})).toThrow("cardinality");
     expect(()=>run(emptyState(),1,NaN)).toThrow();
     const f=frame(1);f.points.push({...f.points[0]});expect(()=>evaluate(emptyState(),f,base)).toThrow();
+  });
+  it("evicts quiet metrics when full instead of failing every collection",()=>{
+    // Production: SQL fingerprints and new Workers keep adding keys; every
+    // remembered metric also gets a synthetic "stopped" zero point, so the
+    // full state used to have no eviction candidate and each tick threw.
+    const s=emptyState();run(s,1);const existing=s.metrics['D1:core:read'];
+    for(let i=0;Object.keys(s.metrics).length<MAX_METRICS;i++)s.metrics[`D1:x:${i}`]={...existing,lastSeen:base+i};
+    expect(()=>run(s,2,200,{key:"D1:new:read"})).not.toThrow();
+    expect(s.metrics['D1:new:read']).toBeDefined();
+    expect(s.metrics['D1:x:0']).toBeUndefined(); // least recently seen goes first
+    expect(Object.keys(s.metrics).length).toBeLessThanOrEqual(MAX_METRICS);
+    expect(()=>run(s,3,200,{key:"D1:newer:read"})).not.toThrow();
   });
   it("expires metric state, pending notices and delivery receipts",()=>{
     const s=emptyState();run(s,1,380_000);ack(s,1);compact(s,base+WINDOW_MS+STATE_TTL_MS+1);

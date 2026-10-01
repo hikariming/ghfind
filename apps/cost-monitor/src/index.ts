@@ -113,7 +113,10 @@ export class CostMonitor extends DurableObject<MonitorEnv> {
         evaluate(state,frame,now,{hourlyWarning:Number(this.env.HOURLY_WARNING_USD??DEFAULT_RULES.hourlyWarning),hourlyCritical:Number(this.env.HOURLY_CRITICAL_USD??DEFAULT_RULES.hourlyCritical),dailyWarning:Number(this.env.DAILY_WARNING_USD??DEFAULT_RULES.dailyWarning)});
         this.storeFrame(frame,now);
         if(frame.errors.length)this.collectionFailure(state,now);
-      } catch {
+      } catch (error) {
+        // The reason is a fixed internal message (limits, ingestion delay, API
+        // shape), never credentials; log it so a stuck monitor is diagnosable.
+        console.error(JSON.stringify({event:"cost_monitor_collection_failed",reason:error instanceof Error?error.message.slice(0,200):"unknown"}));
         state.lastError="Collection failed, delayed or exceeded bounded telemetry limits";
         this.collectionFailure(state,now);
         frame={at:state.lastFrame,points:[],healthy:[],errors:[state.lastError]};

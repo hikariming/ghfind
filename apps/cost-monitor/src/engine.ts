@@ -93,6 +93,9 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
   const points = [...frame.points];
   const priced = frame.points.filter(p => !p.diagnostic && p.product !== "Billing");
   if (["D1", "Workers", "R2", "KV"].every(p => frame.healthy.includes(p as Product))) points.push({ key: "account:burn", product: "Monitor", resource: "account", label: "账户用量消耗速度", amount: priced.reduce((s,p) => s+p.usd,0)*12, operations: 1, unit: "USD/hour", usd: priced.reduce((s,p) => s+p.usd,0) });
+  // Keys measured in this window; the zero points added below for vanished
+  // metrics are bookkeeping and must not pin those metrics against eviction.
+  const measured = new Set(points.map(p => p.key));
   // Only a successful product collection can establish that a vanished metric is zero.
   for (const [key, previous] of Object.entries(state.metrics)) {
     const parts = key.split(":");
@@ -102,12 +105,17 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
     }
     if (previous.expiresAt <= now) delete state.metrics[key];
   }
-  for (const p of points) {
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
     let m = state.metrics[p.key];
     if (!m) {
       if (Object.keys(state.metrics).length >= MAX_METRICS) {
-        const evict = Object.entries(state.metrics).filter(([key,v])=>!v.severity && !v.notifiedSeverity && !v.bad && !points.some(p=>p.key===key)).sort((a,b)=>a[1].lastSeen-b[1].lastSeen)[0];
-        if(evict) delete state.metrics[evict[0]]; else throw new Error("Metric cardinality limit exceeded");
+        const evict = Object.entries(state.metrics).filter(([key,v])=>!v.severity && !v.notifiedSeverity && !v.bad && !measured.has(key)).sort((a,b)=>a[1].lastSeen-b[1].lastSeen)[0];
+        if(!evict) throw new Error("Metric cardinality limit exceeded");
+        delete state.metrics[evict[0]];
+        // Drop its pending zero point too, or it would be re-created below.
+        const pending = points.findIndex((q,j)=>j>i && q.key===evict[0]);
+        if (pending >= 0) points.splice(pending, 1);
       }
       m = state.metrics[p.key] = { baseline: 0, samples: 0, bad: 0, good: 0, severity: 0, notifiedSeverity: 0, lastNotified: 0, lastSeen: 0, expiresAt: now + STATE_TTL_MS, incident: 0, gauge: p.gauge, diagnostic: p.diagnostic };
     }
