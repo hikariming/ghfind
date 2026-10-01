@@ -7,6 +7,14 @@ function frame(i:number,efficiency=200,extra:Partial<Point>={}):Frame {
 function run(s:State,i:number,eff=200,extra:Partial<Point>={}){evaluate(s,frame(i,eff,extra),base+i*WINDOW_MS);}
 function ack(s:State,i:number){for(const n of [...s.outbox]){n.delivered=["one@example.org","two@example.org"];acknowledge(s,n,base+i*WINDOW_MS);}}
 describe("bounded Cloudflare incident policy",()=>{
+  it("reported daily billing describes its actual period and amount without storage/window estimates",()=>{
+    const s=emptyState();run(s,1,200,{key:"Billing:account:daily",product:"Billing",resource:"2026-01-01",label:"reported daily cost",amount:12.345,operations:1,efficiency:undefined,gauge:true,unit:"USD/day",usd:0});
+    expect(s.outbox[0].text).toContain("已上报日费用：$12.3450");
+    expect(s.outbox[0].text).toContain("对应日期：2026-01-01");
+    expect(s.outbox[0].text).toContain("每 6 小时重新对账");
+    expect(s.outbox[0].text).not.toMatch(/GB-month|本窗口按超额单价/);
+  });
+
   it("supports extensible recipient lists and empty placeholders, rejects invalid lists",()=>{
     expect(recipients('["One@example.org","","two@example.org","one@example.org"]')).toEqual(["one@example.org","two@example.org"]);
     for(const x of ['[]','[null]','["bad"]','["a@x.y\\nBcc: z@x.y"]'])expect(()=>recipients(x)).toThrow();

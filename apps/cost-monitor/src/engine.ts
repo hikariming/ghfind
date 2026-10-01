@@ -147,7 +147,7 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
     if (kind && !state.outbox.some(n => n.key === p.key)) {
       if (state.outbox.length >= 16) throw new Error("Notification outbox limit exceeded");
       state.outbox.push({ id: `${p.key}:${m.incident}:${kind}:${Math.floor(now/REMINDER_MS)}`, key: p.key, kind, severity: m.severity,
-        text: `${p.product} / ${p.resource} / ${p.label}\n指标：${p.amount.toLocaleString("en-US")} ${p.unit}；操作数：${p.operations}\n${p.efficiency === undefined ? "" : `平均每次${p.denominator ?? "操作"}：${p.efficiency.toFixed(2)} ${p.unit}\n`}健康基线：${m.baseline.toFixed(2)}；倍数：${ratio.toFixed(2)}\n窗口开始（UTC）：${new Date(frame.at).toISOString()}\n本窗口按超额单价估算消耗：$${p.usd.toFixed(4)}；未扣套餐额度，非最终账单。${p.gauge ? "存储按 GB-month 折算。" : ""}\n请检查查询计划、缓存、批处理、重试和近期部署。`,
+        text: `${p.product} / ${p.resource} / ${p.label}\n指标：${p.amount.toLocaleString("en-US")} ${p.unit}；操作数：${p.operations}\n${p.efficiency === undefined ? "" : `平均每次${p.denominator ?? "操作"}：${p.efficiency.toFixed(2)} ${p.unit}\n`}健康基线：${m.baseline.toFixed(2)}；倍数：${ratio.toFixed(2)}\n窗口开始（UTC）：${new Date(frame.at).toISOString()}\n${p.product === "Billing" ? `已上报日费用：$${p.amount.toFixed(4)}；对应日期：${p.resource}。账单可能延迟或调整，每 6 小时重新对账。` : `本窗口按超额单价估算消耗：$${p.usd.toFixed(4)}；未扣套餐额度，非最终账单。${p.gauge ? "存储按 GB-month 折算。" : ""}`}\n请检查查询计划、缓存、批处理、重试和近期部署。`,
         delivered: [], attempts: 0, expiresAt: now + STATE_TTL_MS });
     }
   }

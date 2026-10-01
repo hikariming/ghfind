@@ -21,8 +21,9 @@ suspicious data cannot train the baseline. Default spend thresholds are $0.50/ho
 warning, $2/hour critical and $10/reported day warning. All thresholds live in the
 Worker configuration/policy and should be reviewed against normal workloads.
 
-Notifications are batched per recipient, repeat every 30 minutes while abnormal,
-and recover after two valid normal windows. Failed recipients remain queued;
+Notifications are batched per recipient. Fast telemetry incidents repeat every
+30 minutes while abnormal; reported daily billing is rechecked/reminded every
+six hours. Recovery requires two valid normal observations. Failed recipients remain queued;
 successful recipients are not resent on ordinary retries. Sending is limited to
 8 attempts/hour and 120/day; pending messages remain queued on exhaustion. Native
 email acceptance is not proof of delivery. Check Email Service delivery logs;

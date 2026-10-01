@@ -66,7 +66,7 @@ export class CostMonitor extends DurableObject<MonitorEnv> {
       const pending=state.outbox.filter(n=>!n.delivered.includes(to));
       if(!pending.length)continue;
       const subject=`[ghfind${this.env.E2E_ENABLED==="1"?" E2E 演练":""}] ${pending.some(n=>n.severity>=2)?"严重 ":""}${TITLES[pending[0].kind]}（${pending.length} 项）`;
-      const text=[this.env.E2E_ENABLED==="1"?"这是告警链路演练，包含模拟异常，不代表生产数据库发生事故。":"这是自动用量监控通知。",...pending.map(n=>`${TITLES[n.kind]}\n${n.text}`),`Cloudflare 排查入口：https://dash.cloudflare.com/${this.env.CF_ACCOUNT_ID}/billing/billable-usage`,"异常持续期间每 30 分钟提醒，连续两个有效窗口正常后通知恢复。"].join("\n\n");
+      const text=[this.env.E2E_ENABLED==="1"?"这是告警链路演练，包含模拟异常，不代表生产数据库发生事故。":"这是自动用量监控通知。",...pending.map(n=>`${TITLES[n.kind]}\n${n.text}`),`Cloudflare 排查入口：https://dash.cloudflare.com/${this.env.CF_ACCOUNT_ID}/billing/billable-usage`,"实时指标异常持续期间每 30 分钟提醒；日账单每 6 小时重新对账。连续两个有效正常窗口或账单对账结果后通知恢复。"].join("\n\n");
       const hour=Math.floor(now/3600_000),day=Math.floor(now/86400_000);
       const budget=state.mailBudget;
       if(budget.hour!==hour){budget.hour=hour;budget.hourly=0;}
