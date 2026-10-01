@@ -76,3 +76,12 @@ test('preflight wall time accumulates across calls and never gains a fresh allow
  await assert.rejects(preflight(()=>{}),/exhausted/);
  assert.equal(reads,3);
 });
+
+import { rejectionCode } from './feed-production-transition.mjs';
+test('a rejected transition names only the runtime error code', async () => {
+  const reply = (body) => new Response(body, { status: 503 });
+  assert.equal(await rejectionCode(reply('{"error":"container_not_ready"}')), 'container_not_ready');
+  assert.equal(await rejectionCode(reply('{"error":"Bearer secret value"}')), 'unrecognized_error_body');
+  assert.equal(await rejectionCode(reply('<html>bad gateway</html>')), 'unreadable_error_body');
+  assert.equal(await rejectionCode(reply('x'.repeat(4096))), 'unreadable_error_body');
+});

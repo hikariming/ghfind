@@ -14,6 +14,17 @@ export function validatePreDispatchRejection(rejection, offVersion) {
     rejection.error === 'transition_environment_not_ready' && rejection.workerVersionId === offVersion,
     'unproven transition rejection');
 }
+// The runtime answers failures as {"error": "<code>"} (platform/runtime
+// HTTPError). Surface only that code so an intermittent 503 names its cause
+// (container_not_ready, transition_stop_timeout, ...) without echoing bodies.
+export async function rejectionCode(response) {
+  try {
+    const code = (await boundedJSON(response, 2048))?.error;
+    return typeof code === 'string' && /^[a-z0-9_]{1,64}$/.test(code) ? code : 'unrecognized_error_body';
+  } catch {
+    return 'unreadable_error_body';
+  }
+}
 export function edgePreflight(identity, off, { read, now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   requireThat(/^[a-f0-9-]{36}$/.test(off?.runtime?.versionId ?? '') && typeof off.image === 'string', 'off edge identity required');
   let remainingMs = 45000;
@@ -121,7 +132,7 @@ async function main() {
         validatePreDispatchRejection(rejection, off.runtime.versionId);
         return { rejectedWithoutMutation: true };
       }
-      requireThat(response.status === 200, `mode transition rejected (${response.status}; ${target})`);
+      requireThat(response.status === 200, `mode transition rejected (${response.status}; ${target}; ${await rejectionCode(response)})`);
       return boundedJSON(response, 2048);
     },
   });
