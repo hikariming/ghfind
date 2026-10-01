@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectListItem, RelatedProject } from "@/lib/db";
 import {
+  getDeveloperCommonProjects,
   getProjects,
   getRelatedProjects,
   getRepoLanguage,
@@ -8,6 +9,7 @@ import {
 import { setCachedProjectValue } from "@/lib/redis";
 import {
   createCachedLoader,
+  getDeveloperCommonProjectsCached,
   getRelatedProjectsCached,
   projectListCacheKey,
   relatedProjectsCacheKey,
@@ -117,6 +119,43 @@ describe("project discovery cache", () => {
     // The next read goes back to the database and caches the real value.
     await expect(load("flaky")).resolves.toEqual(["recovered"]);
     expect(cacheSet).toHaveBeenCalledWith("flaky", ["recovered"]);
+  });
+});
+
+describe("getDeveloperCommonProjectsCached", () => {
+  it("shares concurrent reversed-pair misses and reuses the cached result", async () => {
+    let release!: (items: ProjectListItem[]) => void;
+    vi.mocked(getDeveloperCommonProjects).mockImplementationOnce(
+      () => new Promise((resolve) => { release = resolve; }),
+    );
+    const first = getDeveloperCommonProjectsCached("Alice", "BOB", 6);
+    const second = getDeveloperCommonProjectsCached("bob", "alice", 6);
+    await vi.waitFor(() => expect(getDeveloperCommonProjects).toHaveBeenCalledOnce());
+    const projects = [item("fixture/shared")];
+    release(projects);
+    await expect(Promise.all([first, second])).resolves.toEqual([projects, projects]);
+    await expect(getDeveloperCommonProjectsCached("alice", "bob", 6)).resolves.toEqual(projects);
+    expect(getDeveloperCommonProjects).toHaveBeenCalledExactlyOnceWith("alice", "bob", 6);
+  });
+
+  it("caches successful empty results and separates different limits", async () => {
+    vi.mocked(getDeveloperCommonProjects).mockResolvedValue([]);
+    await getDeveloperCommonProjectsCached("empty-a", "empty-b", 6);
+    await getDeveloperCommonProjectsCached("empty-b", "empty-a", 6);
+    expect(getDeveloperCommonProjects).toHaveBeenCalledOnce();
+    await getDeveloperCommonProjectsCached("empty-a", "empty-b", 3);
+    expect(getDeveloperCommonProjects).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a failed read and allows the next request to recover", async () => {
+    vi.mocked(getDeveloperCommonProjects)
+      .mockRejectedValueOnce(new Error("database unavailable"))
+      .mockResolvedValueOnce([item("fixture/recovered")]);
+    await expect(getDeveloperCommonProjectsCached("retry-a", "retry-b")).resolves.toEqual([]);
+    expect(store.has("projects:common:retry-a:retry-b:6")).toBe(false);
+    await expect(getDeveloperCommonProjectsCached("retry-b", "retry-a"))
+      .resolves.toEqual([item("fixture/recovered")]);
+    expect(getDeveloperCommonProjects).toHaveBeenCalledTimes(2);
   });
 });
 

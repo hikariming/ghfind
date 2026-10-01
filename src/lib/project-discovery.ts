@@ -9,19 +9,19 @@ import {
 import type { ProjectSort } from "@/lib/projects";
 import { getCachedProjectValue, setCachedProjectValue } from "@/lib/redis";
 
-type CacheLoaderDeps<T> = {
+type CacheLoaderDeps<T, Args extends unknown[] = []> = {
   cacheGet: (key: string) => Promise<T | null>;
   cacheSet: (key: string, value: T) => Promise<void>;
-  dbLoad: (key: string) => Promise<T>;
+  dbLoad: (key: string, ...args: Args) => Promise<T>;
   /** Returned — and NOT cached — when dbLoad throws. A transient Turso/network
    * failure must degrade this one render, not blank the surface for a full
    * TTL (the homepage projects band vanished for 6h per hiccup). */
   fallback: T;
 };
 
-export function createCachedLoader<T>(deps: CacheLoaderDeps<T>) {
+export function createCachedLoader<T, Args extends unknown[] = []>(deps: CacheLoaderDeps<T, Args>) {
   const inflight = new Map<string, Promise<T>>();
-  return async (key: string): Promise<T> => {
+  return async (key: string, ...args: Args): Promise<T> => {
     try {
       const cached = await deps.cacheGet(key);
       if (cached !== null) return cached;
@@ -35,7 +35,7 @@ export function createCachedLoader<T>(deps: CacheLoaderDeps<T>) {
     const run = (async () => {
       let value: T;
       try {
-        value = await deps.dbLoad(key);
+        value = await deps.dbLoad(key, ...args);
       } catch (e) {
         console.error("project discovery dbLoad failed:", key, e);
         return deps.fallback;
@@ -141,6 +141,13 @@ export async function getRelatedProjectsCached(repoKey: string, limit = 6) {
   }
 }
 
+const commonProjectsLoader = createCachedLoader<ProjectListItem[], [string, string, number]>({
+  cacheGet: getCachedProjectValue,
+  cacheSet: setCachedProjectValue,
+  dbLoad: (_key, a, b, limit) => getDeveloperCommonProjects(a, b, limit),
+  fallback: [],
+});
+
 export async function getDeveloperCommonProjectsCached(
   usernameA: string,
   usernameB: string,
@@ -148,11 +155,5 @@ export async function getDeveloperCommonProjectsCached(
 ) {
   const [a, b] = [usernameA.toLowerCase(), usernameB.toLowerCase()].sort();
   const key = `projects:common:${a}:${b}:${limit}`;
-  const load = createCachedLoader<ProjectListItem[]>({
-    cacheGet: getCachedProjectValue,
-    cacheSet: setCachedProjectValue,
-    dbLoad: () => getDeveloperCommonProjects(a, b, limit),
-    fallback: [],
-  });
-  return load(key);
+  return commonProjectsLoader(key, a, b, limit);
 }

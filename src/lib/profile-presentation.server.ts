@@ -9,7 +9,6 @@ import "server-only";
 import {
   getAccountDetail,
   getCurrentCanonicalQuickScan,
-  getDeveloperCommonProjects,
   getFacetRank,
   getMatchup,
   getProfileSnapshot,
@@ -23,6 +22,7 @@ import {
   type ProjectListItem,
 } from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
+import { getDeveloperCommonProjectsCached } from "@/lib/project-discovery";
 import { beatPercent } from "@/lib/percentile";
 import { getCachedScan } from "@/lib/redis";
 import { normalizeUsername } from "@/lib/username";
@@ -251,7 +251,7 @@ async function buildCommonProjects(
   const result: CommonProfileProject[] = [];
   for (const candidate of candidates) {
     if (result.length >= COMMON_PROJECT_LIMIT) break;
-    const items = await getDeveloperCommonProjects(username, candidate, COMMON_PROJECT_LIMIT);
+    const items = await getDeveloperCommonProjectsCached(username, candidate, COMMON_PROJECT_LIMIT);
     const batch = items
       .map(toCommonProject)
       .toSorted(
