@@ -83,21 +83,33 @@ jobs:
         timeout-minutes: 15
         run: node scripts/feed-production-release.mjs build
 
+      # Populate BEFORE deploying, like deploy-cf-production.yml: OpenNext keys the
+      # R2 cache by build ID, so a deployed build whose entries are missing
+      # 404s every dynamicParams = false page. With deploy first, any failure
+      # after `wrangler deploy` (e.g. web-verify) skipped this step and left the
+      # new build live without its cache (2026-09-29: every blog post and
+      # collection 404'd until a full repair).
+      - name: Populate the new build's R2 incremental cache before it goes live
+        run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
+
       - name: Deploy web in the unchanged paused rollout mode
         run: |
           set -euo pipefail
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "manual web+cache repair: paused web redeploy, no feed cutover"
-          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json"
+          # The deployments API can briefly still report the previous version
+          # right after a deploy ("actual Web source tag mismatch"); retry.
+          for attempt in 1 2 3 4 5; do
+            if node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json"; then exit 0; fi
+            [ "$attempt" -lt 5 ] && sleep 10
+          done
+          exit 1
 
-      - name: Populate the R2 incremental cache
-        run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
-
-      - name: Smoke collection pages over the WAF-free workers.dev entrance
+      - name: Smoke SSG (dynamicParams = false) pages over the WAF-free workers.dev entrance
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
             ok=1
-            for path in /collections /collections/max-liu /collections/deepseek-harness-apache-maka /collections/jiang-muran; do
+            for path in /collections /collections/max-liu /collections/deepseek-harness-apache-maka /collections/jiang-muran /blog/who-builds-dify /en/blog/how-we-score-github-accounts; do
               code="$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://ghfind.beiming1201.workers.dev$path")"
               echo "$path -> $code"
               [ "$code" = "200" ] || ok=0
