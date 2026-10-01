@@ -1,0 +1,9 @@
+{
+  "name": "@ghfind/i18n",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic locale config, URL helpers, and request locale negotiation shared by the Next app, the Astro web app, and the router Worker.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

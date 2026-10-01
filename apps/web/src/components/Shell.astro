@@ -1,0 +1,137 @@
+---
+/**
+ * Server-rendered port of the Next `WorkspaceShell` (same class names, so
+ * globals.css styles it identically). Only the genuinely interactive parts are
+ * islands: search, account, language, theme, and the sponsor slots. Collapse
+ * and the mobile drawer are a few lines of vanilla script below.
+ */
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Cable, Code2, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Star, Swords, Trophy, X } from "lucide-react";
+import { localePath, type Locale } from "@ghfind/i18n";
+import { NAV_GROUPS } from "@/config/nav";
+import { BrandMark } from "@/components/BrandMark";
+import { getMessages, getTranslator, pickMessages } from "../lib/i18n";
+import { AccountIsland, LanguageIsland, LoginNudgeIsland, SearchIsland, SponsorStripIsland, ThemeIsland } from "../islands";
+import SiteFooter from "./SiteFooter.astro";
+
+interface Props {
+  locale: Locale;
+  path: string;
+}
+
+const { locale, path } = Astro.props;
+const [t, nav, tRepo, messages] = await Promise.all([
+  getTranslator(locale, "sidebar"),
+  getTranslator(locale, "nav"),
+  getTranslator(locale, "repoLink"),
+  getMessages(locale),
+]);
+
+const NAV_ICONS = {
+  flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
+  resume: FileUser, briefcase: BriefcaseBusiness, bot: Bot, cable: Cable,
+} as const;
+const iconFor = (token?: string) => NAV_ICONS[token as keyof typeof NAV_ICONS] ?? Code2;
+const href = (p: string) => localePath(locale, p);
+const active = (h: string) => h === "/" ? path === "/" : path === h || path.startsWith(`${h}/`);
+
+// Each island gets only the namespaces it (and its children) translate.
+const intl = (namespaces: string[]) => ({ locale, pathname: path, messages: pickMessages(messages, namespaces) });
+const repo = { repoHref: "https://github.com/hikariming/ghfind", repoLabel: tRepo("label"), repoTitle: tRepo("title") };
+---
+<div class="workspace-shell" data-collapsed="false" data-mobile-open="false">
+  <a href="#workspace-content" class="workspace-skip">{t("skip")}</a>
+  <div class="workspace-overlay" data-shell-close aria-hidden="true"></div>
+  <aside class="workspace-sidebar" id="workspace-sidebar" aria-label={t("navigation")}>
+    <div class="workspace-brand">
+      <a href={href("/")} aria-label="ghfind" class="workspace-brand-link">
+        <BrandMark className="size-7 shrink-0" /><span class="sidebar-label">ghfind</span>
+      </a>
+      <button type="button" class="shell-icon sidebar-close" data-shell-close aria-label={nav("closeMenu")}><X size={18} /></button>
+      <button type="button" class="shell-icon sidebar-collapse" data-shell-collapse aria-expanded="true"
+        aria-label={t("collapse")} title={t("collapse")} data-label-expand={t("expand")} data-label-collapse={t("collapse")}>
+        <PanelLeftClose size={17} data-when="expanded" /><PanelLeftOpen size={17} data-when="collapsed" style={{ display: "none" }} />
+      </button>
+    </div>
+    <div class="sidebar-search"><SearchIsland client:idle mobile intl={intl(["globalSearch"])} /></div>
+    <nav class="workspace-navigation" aria-label={t("navigation")}>
+      {NAV_GROUPS.map((group) => (
+        <div class="sidebar-group">
+          {group.label && (
+            <p class="sidebar-group-label">
+              <span>{nav(group.label)}</span>{group.beta && <span class="sidebar-soon">{nav("beta")}</span>}
+            </p>
+          )}
+          {group.items.map((item) => {
+            const Icon = iconFor(item.icon);
+            const current = active(item.href ?? "/");
+            return (
+              <a href={href(item.href ?? "/")} class="sidebar-link" data-featured={item.featured || undefined}
+                aria-current={current ? "page" : undefined} title={nav(`hint.${item.key}`)} aria-label={nav(item.key)}>
+                <Icon size={18} strokeWidth={1.7} aria-hidden="true" /><span class="sidebar-label">{nav(item.key)}</span>
+                {item.new && <span class="sidebar-new-badge">new!</span>}
+                {item.beta && <span class="sidebar-soon sidebar-label">{nav("beta")}</span>}
+                {current && <span class="sidebar-active-dot" aria-hidden="true" />}
+              </a>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="sidebar-link" href={href("/docs")} title={t("docs")} aria-label={t("docs")}><BookOpen size={18} strokeWidth={1.7} /><span class="sidebar-label">{t("docs")}</span><ArrowUpRight size={14} className="sidebar-label ms-auto" /></a>
+      <a class="sidebar-link" href={href("/sponsor")} aria-current={active("/sponsor") ? "page" : undefined} title={t("sponsor")} aria-label={t("sponsor")}><HandHeart size={18} strokeWidth={1.7} aria-hidden="true" /><span class="sidebar-label">{t("sponsor")}</span>{active("/sponsor") && <span class="sidebar-active-dot" aria-hidden="true" />}</a>
+      <div class="sidebar-account"><AccountIsland client:idle {...repo} intl={intl(["loginDialog", "header", "follow", "sidebar"])} /></div>
+      <div class="sidebar-preferences">
+        <LanguageIsland client:idle intl={intl(["langSwitch"])} />
+        <a class="navbar-action sidebar-repository-link" href={repo.repoHref} target="_blank" rel="noopener noreferrer" aria-label={repo.repoLabel} title={repo.repoTitle}>
+          <svg viewBox="0 0 16 16" aria-hidden="true" class="h-4 w-4 fill-current"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" /></svg>
+        </a>
+        <ThemeIsland client:idle intl={intl(["themeSwitch"])} />
+      </div>
+    </div>
+  </aside>
+  <div class="workspace-body">
+    <header class="workspace-mobile-bar">
+      <button type="button" class="shell-icon workspace-mobile-trigger" data-shell-open aria-controls="workspace-sidebar" aria-expanded="false" aria-label={nav("openMenu")}><Menu size={20} /></button>
+      <a href={href("/")} class="workspace-mobile-brand" aria-label="ghfind"><BrandMark className="size-5" />ghfind</a>
+    </header>
+    <div id="workspace-content" class="workspace-content" tabindex="-1">
+      <div class="workspace-sponsor"><SponsorStripIsland client:idle intl={intl(["sponsor"])} /></div>
+      <slot />
+      <SiteFooter locale={locale} intl={intl(["sponsor"])} />
+    </div>
+  </div>
+</div>
+<LoginNudgeIsland client:idle intl={intl(["loginNudge"])} />
+
+<script>
+  const shell = document.querySelector<HTMLElement>(".workspace-shell");
+  if (shell) {
+    const collapse = shell.querySelector<HTMLButtonElement>("[data-shell-collapse]");
+    collapse?.addEventListener("click", () => {
+      const collapsed = shell.dataset.collapsed !== "true";
+      shell.dataset.collapsed = String(collapsed);
+      const label = collapsed ? collapse.dataset.labelExpand! : collapse.dataset.labelCollapse!;
+      collapse.setAttribute("aria-label", label);
+      collapse.title = label;
+      collapse.setAttribute("aria-expanded", String(!collapsed));
+      collapse.querySelectorAll<SVGElement>("[data-when]").forEach((icon) => {
+        icon.style.display = (icon.dataset.when === "collapsed") === collapsed ? "" : "none";
+      });
+    });
+
+    const trigger = shell.querySelector<HTMLButtonElement>("[data-shell-open]");
+    const setOpen = (open: boolean) => {
+      shell.dataset.mobileOpen = String(open);
+      trigger?.setAttribute("aria-expanded", String(open));
+      document.body.style.overflow = open ? "hidden" : "";
+      if (open) shell.querySelector<HTMLElement>(".workspace-sidebar a")?.focus();
+      else trigger?.focus();
+    };
+    trigger?.addEventListener("click", () => setOpen(true));
+    shell.querySelectorAll("[data-shell-close]").forEach((el) => el.addEventListener("click", () => setOpen(false)));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && shell.dataset.mobileOpen === "true") setOpen(false);
+    });
+  }
+</script>

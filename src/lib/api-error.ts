@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -62,7 +61,7 @@ export function apiError(
     hint?: string;
     headers?: Record<string, string>;
   },
-): NextResponse {
+): Response {
   const body = {
     error: code,
     message: opts.message ?? code.replace(/_/g, " "),
@@ -72,5 +71,5 @@ export function apiError(
   if (opts.status === 401 && !headers["WWW-Authenticate"]) {
     headers["WWW-Authenticate"] = wwwAuthenticateHeader();
   }
-  return NextResponse.json(body, { status: opts.status, headers });
+  return Response.json(body, { status: opts.status, headers });
 }

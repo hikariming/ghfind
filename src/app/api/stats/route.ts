@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getScoreCount } from "@/lib/db";
 import { getCachedStats, setCachedStats } from "@/lib/redis";
 
@@ -13,14 +12,14 @@ const CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
 export async function GET() {
   const cached = await getCachedStats();
   if (cached !== null) {
-    return NextResponse.json(
+    return Response.json(
       { total: cached, cached: true },
       { headers: { "Cache-Control": CACHE_CONTROL } },
     );
   }
   const total = await getScoreCount();
   if (total !== null) await setCachedStats(total);
-  return NextResponse.json(
+  return Response.json(
     { total, cached: false },
     { headers: { "Cache-Control": CACHE_CONTROL } },
   );

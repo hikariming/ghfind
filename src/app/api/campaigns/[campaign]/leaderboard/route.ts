@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import { campaignSlug } from "@/lib/campaigns";
 import { getCampaignLeaderboard } from "@/lib/db";
 import { paginate, parsePagination } from "@/lib/pagination";
@@ -13,12 +12,12 @@ export const dynamic = "force-dynamic";
 
 const CACHE_CONTROL = "public, s-maxage=10, stale-while-revalidate=30";
 
-function clientIp(req: NextRequest): string {
+function clientIp(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
 }
 
 function canonicalPaginationUrl(
-  req: NextRequest,
+  req: Request,
   page: { limit: number; offset: number },
   live: boolean,
 ): URL | null {
@@ -30,27 +29,27 @@ function canonicalPaginationUrl(
   if (page.limit !== 100) url.searchParams.set("limit", String(page.limit));
   if (page.offset !== 0) url.searchParams.set("offset", String(page.offset));
   if (live) url.searchParams.set("live", "1");
-  return url.search === req.nextUrl.search ? null : url;
+  return url.search === new URL(req.url).search ? null : url;
 }
 
 export async function GET(
-  req: NextRequest,
+  req: Request,
   context: { params: Promise<{ campaign: string }> },
 ) {
   const { campaign: rawCampaign } = await context.params;
   const campaign = campaignSlug(rawCampaign);
   if (!campaign) {
-    return NextResponse.json({ error: "campaign_not_found" }, { status: 404 });
+    return Response.json({ error: "campaign_not_found" }, { status: 404 });
   }
 
-  const live = req.nextUrl.searchParams.get("live") === "1";
+  const live = new URL(req.url).searchParams.get("live") === "1";
   // The API is not used by the page renderer, but remains a public compatibility
   // surface. Keep cache-busting probes from reaching the 500-row Turso query.
   const limit = await (live
     ? checkCampaignLeaderboardReadRateLimit
     : checkRateLimit)(clientIp(req));
   if (!limit.success) {
-    return NextResponse.json(
+    return Response.json(
       { error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
       {
         status: limit.unavailable ? 503 : 429,
@@ -61,18 +60,18 @@ export async function GET(
 
   const page = parsePagination(req, { defaultLimit: 100, maxLimit: 500 });
   if (page.offset >= 500) {
-    return NextResponse.json(
+    return Response.json(
       { error: "invalid_pagination" },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
   const canonicalUrl = canonicalPaginationUrl(req, page, live);
   if (canonicalUrl) {
-    return NextResponse.redirect(canonicalUrl, 308);
+    return Response.redirect(canonicalUrl, 308);
   }
 
   const entries = await getCampaignLeaderboard(campaign, 500);
-  return NextResponse.json(
+  return Response.json(
     { ...paginate(entries, page), campaign },
     { headers: { "Cache-Control": live ? "no-store" : CACHE_CONTROL } },
   );

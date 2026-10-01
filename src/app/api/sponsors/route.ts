@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getD1Binding } from "@/lib/d1-client";
 import { SPONSOR_TIER_ORDER, type SponsorRecord, type SponsorTier } from "@/lib/sponsorships";
 
@@ -27,7 +26,7 @@ const nullableNumber = (value: unknown): number | null =>
 export async function GET() {
   const db = getD1Binding();
   if (!db) {
-    return NextResponse.json(
+    return Response.json(
       { error: "Sponsor data is unavailable in this runtime." },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
@@ -66,12 +65,12 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(
+    return Response.json(
       { sponsors, asOf },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {
-    return NextResponse.json(
+    return Response.json(
       { error: "Sponsor data could not be loaded." },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );

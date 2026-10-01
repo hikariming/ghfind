@@ -127,6 +127,19 @@ jobs:
       - name: Cloudflare Worker build
         run: pnpm cf:build
 
+      # Astro migration: the web (Astro), api (Hono) and router Workers live in
+      # apps/ and are excluded from the root typecheck; their unit tests run in
+      # `pnpm test`. The api dry-run bundles src/lib through the Worker aliases.
+      - name: Astro migration apps (check + build)
+        run: |
+          pnpm --filter @ghfind/web typecheck
+          pnpm --filter @ghfind/web build
+          pnpm --filter @ghfind/router typecheck
+          pnpm --filter @ghfind/api typecheck
+          pnpm --filter @ghfind/api exec wrangler deploy --dry-run --env dev --outdir "$RUNNER_TEMP/ghfind-api-dist"
+          pnpm --filter @ghfind/coord typecheck
+          pnpm --filter @ghfind/coord exec wrangler deploy --dry-run --env dev --outdir "$RUNNER_TEMP/ghfind-coord-dist"
+
       - name: Record actual successful verify checkout
         run: node scripts/feed-ci-evidence.mjs record-job verify "$RUNNER_TEMP/verify.json"
       - name: Preserve verify checkout receipt

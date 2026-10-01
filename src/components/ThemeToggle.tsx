@@ -78,8 +78,11 @@ export function ThemeToggle() {
   const [mode, resolved] = snapshot.split(":") as [ThemeMode, ResolvedTheme];
 
   // Locale transitions can replace <html> attrs; keep the persisted theme applied.
+  // Read storage here rather than using `mode`: on hydration the first render
+  // uses the server snapshot ("auto"), and applying that would reset a saved
+  // light/dark choice after every reload.
   useMountEffect(() => {
-    applyMode(mode);
+    applyMode(readMode());
   });
 
   const nextMode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];

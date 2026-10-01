@@ -19,6 +19,10 @@ test('paused and all configurations share only the production D1 writer and priv
   assert.equal(c.services[0].service,'ghfind-feed-runtime-production');
   assert.equal(c.d1_databases[1].database_id,'9c4ac13a-4c90-40a8-9d56-d7141f864bbf');
   assert.equal(c.preview_urls,false);
+  // Upstash replacements: production KV + ghfind-coord Durable Objects, all switched on.
+  assert.deepEqual(c.kv_namespaces,[{binding:'GHFIND_CACHE',id:'f7a7299eef224d899c21121c1979be32'}]);
+  assert.deepEqual(c.durable_objects.bindings.map(b=>[b.name,b.class_name,b.script_name]),[['RATE_LIMITER','RateLimiter','ghfind-coord'],['COORD_KV','KeyValue','ghfind-coord'],['SCAN_SLOT','ScanSlot','ghfind-coord']]);
+  assert.deepEqual([c.vars.GHFIND_CACHE_BACKEND,c.vars.GHFIND_RATELIMIT_BACKEND,c.vars.GHFIND_COORD_BACKEND],['kv','do','do']);
  }
  for(const mode of ['legacy','internal','1%'])assert.throws(()=>renderWeb(sha,mode,provider));
  assert.throws(()=>renderWeb('main','all',provider));
@@ -37,7 +41,7 @@ test('runtime credentials are distinct and never enter the Web build environment
 });
 function webFixture() {
  const c=renderWeb(sha,'all',provider);
- const bindings=[{name:c.assets.binding,type:'assets'},...c.r2_buckets.map(b=>({name:b.binding,type:'r2_bucket',bucket_name:b.bucket_name})),...Object.entries(c.vars).map(([name,text])=>({name,type:'plain_text',text})),...c.d1_databases.map(b=>({name:b.binding,type:'d1',id:b.database_id})),{name:'FEED_RUNTIME',type:'service',service:c.services[0].service},...[...c.secrets.required,'AUTH_GITHUB_ID','AUTH_GITHUB_SECRET','AUTH_SECRET'].map(name=>({name,type:'secret_text'}))];
+ const bindings=[{name:c.assets.binding,type:'assets'},...c.r2_buckets.map(b=>({name:b.binding,type:'r2_bucket',bucket_name:b.bucket_name})),...Object.entries(c.vars).map(([name,text])=>({name,type:'plain_text',text})),...c.d1_databases.map(b=>({name:b.binding,type:'d1',id:b.database_id})),...c.kv_namespaces.map(b=>({name:b.binding,type:'kv_namespace',namespace_id:b.id})),...c.durable_objects.bindings.map(b=>({name:b.name,type:'durable_object_namespace',class_name:b.class_name,script_name:b.script_name,namespace_id:'0'.repeat(32)})),{name:'FEED_RUNTIME',type:'service',service:c.services[0].service},...[...c.secrets.required,'AUTH_GITHUB_ID','AUTH_GITHUB_SECRET','AUTH_SECRET'].map(name=>({name,type:'secret_text'}))];
  const versionId='11111111-1111-4111-8111-111111111111',deploymentId='22222222-2222-4222-8222-222222222222';
  const version={id:versionId,annotations:{'workers/tag':`production-${sha}`},resources:{bindings}};
  const deployment={deployments:[{id:deploymentId,versions:[{percentage:100,version_id:versionId}]}]};
@@ -80,6 +84,14 @@ test('Web version response, source tag, binding names/types and production servi
   ]),
   f=>{f.bindings.find(b=>b.name==='MOSOO_API_TOKEN').type='plain_text';},
   f=>{f.bindings.find(b=>b.name==='FEED_SOURCE_OUTBOX_ENABLED').text='false';},
+  f=>{f.bindings.find(b=>b.name==='GHFIND_CACHE').namespace_id='d66443adfd3f4fccbab02fcb41e63284';},
+  f=>{f.version.resources.bindings=f.bindings.filter(b=>b.name!=='GHFIND_CACHE');},
+  ...['RATE_LIMITER','COORD_KV','SCAN_SLOT'].flatMap(name=>[
+    f=>{f.bindings.find(b=>b.name===name).script_name='ghfind-coord-dev';},
+    f=>{f.bindings.find(b=>b.name===name).class_name='Other';},
+    f=>{f.version.resources.bindings=f.bindings.filter(b=>b.name!==name);},
+  ]),
+  f=>{f.bindings.find(b=>b.name==='GHFIND_COORD_BACKEND').text='redis';},
  ];
  for(const change of changes){const f=webFixture();change(f);await assert.rejects(verifyWeb(sha,'all',provider,f.api));}
  const f=webFixture();f.bindings.find(b=>b.name==='FEED_RUNTIME').entrypoint='default';

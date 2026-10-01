@@ -30,6 +30,7 @@
     "cf:deploy:prod": "CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare NEXT_PUBLIC_SITE_URL=https://ghfind.com opennextjs-cloudflare build && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 wrangler deploy --env production --keep-vars --tag \"${CF_VERSION_TAG:-production-manual}\" --message \"${CF_VERSION_MESSAGE:-manual-production-deployment}\" && CLOUDFLARE_ACCOUNT_ID=8f19bebe359e4ec1a24c68c5f49c1584 opennextjs-cloudflare populateCache remote -- --env production"
   },
   "dependencies": {
+    "@ghfind/i18n": "workspace:*",
     "@libsql/client": "^0.17.4",
     "@libsql/isomorphic-fetch": "^0.3.1",
     "@libsql/isomorphic-ws": "^0.1.5",

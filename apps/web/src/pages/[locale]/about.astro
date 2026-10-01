@@ -1,0 +1,21 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getTranslator, routeLocale } from "../../lib/i18n";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+const t = await getTranslator(locale, "about");
+const paragraphs = t.raw("paragraphs") as string[];
+
+// Static content: let the edge cache it for a day, serve stale for a week.
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+---
+<Base locale={locale} path="/about" title={t("metaTitle")} description={t("metaDescription")}>
+  <main class="mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 py-14 sm:py-20">
+    <h1 class="text-3xl font-black tracking-tight text-[var(--foreground)] sm:text-5xl">{t("heading")}</h1>
+    <div class="mt-8 flex flex-col gap-5 text-base leading-relaxed text-zinc-300">
+      {paragraphs.map((p) => <p>{p}</p>)}
+    </div>
+  </main>
+</Base>

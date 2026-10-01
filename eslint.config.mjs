@@ -39,6 +39,10 @@ const eslintConfig = defineConfig([
     "platform/**/dist/**",
     "platform/**/.wrangler/**",
     "platform/**/node_modules/**",
+    // Astro migration apps: build output and generated types.
+    "apps/*/dist/**",
+    "apps/*/.astro/**",
+    "apps/*/.wrangler/**",
   ]),
 ]);
 

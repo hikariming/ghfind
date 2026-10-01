@@ -1,0 +1,72 @@
+{
+  // ghfind-coord: Durable Objects replacing Upstash Redis coordination. Bound
+  // cross-script by ghfind (Next) and ghfind-api via `script_name`, so this
+  // Worker must be deployed (per env) before any Worker that binds it.
+  "name": "ghfind-coord",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  "observability": { "enabled": true },
+  "workers_dev": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "COORD_KV", "class_name": "KeyValue" },
+      { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RateLimiter"] },
+    { "tag": "v2", "new_sqlite_classes": ["KeyValue"] },
+    { "tag": "v3", "new_sqlite_classes": ["ScanSlot", "ScanCapacity"] }
+  ],
+  // Scheduled GC of the legacy Next Worker's OpenNext R2 cache
+  // (src/next-cache-gc.ts): old build directories are never deleted by
+  // OpenNext and grew the buckets without bound. Starts as a dry run
+  // (NEXT_CACHE_GC_DRY_RUN != "0" only logs the plan).
+  "env": {
+    "dev": {
+      "name": "ghfind-coord-dev",
+      "durable_objects": {
+        "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "COORD_KV", "class_name": "KeyValue" },
+      { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+    ]
+      },
+      // dev also holds every PR preview's builds, so it churns faster.
+      "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }],
+      "triggers": { "crons": ["23 */6 * * *"] },
+      "vars": {
+        "NEXT_CACHE_GC_KEEP_NEWEST": "2",
+        "NEXT_CACHE_GC_MIN_IDLE_DAYS": "3",
+        // Enabled 2026-09-30 after a dry run (110 of 130 build dirs doomed).
+        "NEXT_CACHE_GC_DRY_RUN": "0"
+      }
+    },
+    "production": {
+      "name": "ghfind-coord",
+      "durable_objects": {
+        "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "COORD_KV", "class_name": "KeyValue" },
+      { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+    ]
+      },
+      // Keep 3 builds and a week of idleness so rollbacks keep their cache.
+      "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }],
+      "triggers": { "crons": ["41 3 * * *"] },
+      "vars": {
+        "NEXT_CACHE_GC_KEEP_NEWEST": "3",
+        "NEXT_CACHE_GC_MIN_IDLE_DAYS": "7",
+        // Enabled 2026-09-30 after a dry run on ghfind-next-cache: 106 of 129
+        // build dirs (24,269 objects) doomed, all idle > 7 days; the live
+        // build and 22 others kept.
+        "NEXT_CACHE_GC_DRY_RUN": "0"
+      }
+    }
+  }
+}

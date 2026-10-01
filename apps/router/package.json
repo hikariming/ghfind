@@ -1,0 +1,18 @@
+{
+  "name": "@ghfind/router",
+  "private": true,
+  "type": "module",
+  "description": "ghfind-router Worker: owns the hostname and forwards each path to the Astro (web) or legacy Next Worker over service bindings.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy:dev": "wrangler deploy --env dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ghfind/i18n": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@ghfind/api",
+  "private": true,
+  "type": "module",
+  "description": "ghfind-api Worker (Hono). Serves /api routes behind ghfind-router, reusing the Next app's framework-agnostic route handlers and src/lib.",
+  "scripts": {
+    "dev": "wrangler dev --port 8791 --persist-to ../../.wrangler/state --env-file ../../.env --env-file ../../.dev.vars",
+    "deploy:dev": "wrangler deploy --env dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.13.10"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.143.0"
+  }
+}

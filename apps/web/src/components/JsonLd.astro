@@ -1,0 +1,7 @@
+---
+// display_name/org buckets ARE user free-text, so escape `<`: JSON.stringify
+// alone lets a `</script>` in a profile name break out of the tag.
+const { data } = Astro.props as { data: Record<string, unknown> };
+const json = JSON.stringify(data).replace(/</g, "\\u003c");
+---
+<script type="application/ld+json" is:inline set:html={json} />

@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api-error";
 import {
   getDevelopersByFacetCached,
@@ -27,25 +26,25 @@ function parseFacetType(raw: string | null): FacetType | null {
  * Everything is served from the Redis cache-aside in lib/developers.ts, then
  * CDN-cached on top.
  */
-export async function GET(req: NextRequest) {
-  const type = parseFacetType(req.nextUrl.searchParams.get("type"));
+export async function GET(req: Request) {
+  const type = parseFacetType(new URL(req.url).searchParams.get("type"));
   if (!type) {
     return apiError("invalid_type", { status: 400 });
   }
-  const value = req.nextUrl.searchParams.get("value");
+  const value = new URL(req.url).searchParams.get("value");
 
   if (value) {
     const all = await getDevelopersByFacetCached(type, value);
     // Buckets are capped well under 500; the default keeps full-bucket payloads.
     const page = parsePagination(req, { defaultLimit: 500, maxLimit: 500 });
-    return NextResponse.json(
+    return Response.json(
       { type, value, ...paginate(all, page) },
       { headers: { "Cache-Control": CDN_CACHE } },
     );
   }
 
   const categories = await getFacetCategoriesCached(type);
-  return NextResponse.json(
+  return Response.json(
     { type, categories, total: categories.length },
     { headers: { "Cache-Control": CDN_CACHE } },
   );

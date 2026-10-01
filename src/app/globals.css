@@ -999,7 +999,8 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .shell-icon:hover { background: color-mix(in srgb, var(--foreground) 6%, transparent); color: var(--foreground); }
 .sidebar-collapse { margin-inline-start: auto; }
 .sidebar-search { position: relative; margin-bottom: 21px; }
-.sidebar-search > button { height: 37px; border: 1px solid var(--border); background: var(--background); color: var(--muted-foreground); border-radius: 7px; font-size: 12px; padding-inline: 12px; }
+/* `> astro-island >`: the Astro app hosts this button inside an island wrapper. */
+.sidebar-search > button, .sidebar-search > astro-island > button { height: 37px; border: 1px solid var(--border); background: var(--background); color: var(--muted-foreground); border-radius: 7px; font-size: 12px; padding-inline: 12px; }
 .workspace-navigation { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 .sidebar-group + .sidebar-group { margin-top: 14px; }
 .sidebar-group-label { font-size: 10px; font-weight: 500; color: var(--muted-foreground); margin: 0 12px 4px; letter-spacing: .05em; display: flex; align-items: center; gap: 6px; }
@@ -1092,8 +1093,8 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .workspace-shell[data-collapsed="true"] .workspace-sidebar .workspace-brand { flex-direction: column; gap: 13px; margin-bottom: 16px; }
 .workspace-shell[data-collapsed="true"] .workspace-sidebar .sidebar-collapse { margin-inline: auto; }
 .workspace-shell[data-collapsed="true"] .workspace-sidebar .sidebar-link { justify-content: center; padding-inline: 0; }
-.workspace-shell[data-collapsed="true"] .workspace-sidebar .sidebar-search > button { font-size: 0; padding: 0; justify-content: center; }
-.workspace-shell[data-collapsed="true"] .workspace-sidebar .sidebar-search > button > span { display: none; }
+.workspace-shell[data-collapsed="true"] .workspace-sidebar :is(.sidebar-search > button, .sidebar-search > astro-island > button) { font-size: 0; padding: 0; justify-content: center; }
+.workspace-shell[data-collapsed="true"] .workspace-sidebar :is(.sidebar-search > button, .sidebar-search > astro-island > button) > span { display: none; }
 @media (min-width: 1024px) and (max-width: 1279px) {
   .workspace-content .home-content { flex-direction: column; }
   .workspace-content .home-content > aside { position: static; width: 100%; }

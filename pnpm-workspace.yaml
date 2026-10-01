@@ -1,5 +1,10 @@
 packages:
   - "."
+  # Astro migration: shared source-only
+  # packages plus the router/web/api Workers. packages/ghfind-js and
+  # packages/ghfind-py are published SDKs with their own toolchains and stay out.
+  - "packages/i18n"
+  - "apps/*"
 
 allowBuilds:
   '@parcel/watcher': true

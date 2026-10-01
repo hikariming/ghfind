@@ -1,0 +1,39 @@
+{
+  // ghfind-web: the Astro frontend. It has no custom domain — ghfind-router
+  // owns the hostname and forwards migrated paths here over a service binding.
+  // workers.dev stays on for direct verification.
+  "name": "ghfind-web",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-08-06",
+  // nodejs_compat populates process.env from vars, which the shared src/lib
+  // modules (site.ts, deploy-env.ts) read.
+  "compatibility_flags": ["nodejs_compat"],
+  // The adapter writes the real deploy config to dist/server/wrangler.json
+  // (client assets in dist/client); wrangler follows .wrangler/deploy/config.json.
+  "assets": { "directory": "./dist/client", "binding": "ASSETS" },
+  "observability": { "enabled": true },
+  "vars": {
+    "GHFIND_DEPLOY_ENV": "development"
+  },
+  "env": {
+    "dev": {
+      "name": "ghfind-web-dev",
+      "workers_dev": true,
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview",
+        "PUBLIC_SITE_URL": "https://dev.ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://dev.ghfind.com"
+      }
+    },
+    "production": {
+      "name": "ghfind-web",
+      "workers_dev": true,
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production",
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com"
+      }
+    }
+  }
+}

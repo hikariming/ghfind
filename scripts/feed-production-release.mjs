@@ -16,6 +16,9 @@ export function authorizeMutation(env = process.env) {
   requireThat(env.GITHUB_ACTIONS === 'true' && env.GITHUB_REPOSITORY === 'hikariming/ghfind' &&
     env.GITHUB_REF === 'refs/heads/main' && /^hikariming\/ghfind\/.github\/workflows\/deploy-cf-production.yml@refs\/heads\/main$/.test(env.GITHUB_WORKFLOW_REF ?? ''), 'only the production Actions workflow on main may mutate');
 }
+const PRODUCTION_CACHE_KV = 'f7a7299eef224d899c21121c1979be32'; // ghfind-cache
+const COORDINATION_WORKER = 'ghfind-coord';
+const COORDINATION_OBJECTS = [['RATE_LIMITER', 'RateLimiter'], ['COORD_KV', 'KeyValue'], ['SCAN_SLOT', 'ScanSlot']];
 export function renderWeb(sha, mode, provider) {
   requireThat(/^[a-f0-9]{40}$/.test(sha) && ['paused', 'all'].includes(mode), 'exact source SHA and paused/all required');
   requireThat(provider.MOSOO_API_BASE === 'https://cloud.mosoo.ai/api/v1' && /^[A-Z0-9]{26}$/.test(provider.MOSOO_PROJECT_AGENT_ID ?? '') && /^[A-Za-z0-9._:-]{1,128}$/.test(provider.MOSOO_PROJECT_USER_ID ?? ''), 'explicit published Mosoo provider required');
@@ -25,6 +28,11 @@ export function renderWeb(sha, mode, provider) {
     assets: { directory: '../../.open-next/assets', binding: 'ASSETS' }, observability: { enabled: true },
     d1_databases: [['GHFIND_D1',production.coreDatabase,'../../migrations'],['GHFIND_FEED_D1',production.feedDatabase,'../../migrations-feed']].map(([binding,d,migrations_dir])=>({binding,database_name:d.name,database_id:d.id,migrations_dir})),
     r2_buckets: [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'ghfind-next-cache' }],
+    // Cloudflare-native replacements for Upstash Redis (src/lib/cache-store.ts,
+    // rate-limit-backend.ts, atomic-store.ts, scan-slots.ts); the Durable
+    // Objects live in the ghfind-coord Worker, which must be deployed first.
+    kv_namespaces: [{ binding: 'GHFIND_CACHE', id: PRODUCTION_CACHE_KV }],
+    durable_objects: { bindings: COORDINATION_OBJECTS.map(([name, class_name]) => ({ name, class_name, script_name: COORDINATION_WORKER })) },
     services: [{ binding: 'FEED_RUNTIME', service: production.runtimeWorker }],
     secrets: { required: ['FEED_GATEWAY_SECRET', 'MOSOO_API_TOKEN', 'PROJECT_ANALYSIS_RECONCILE_SECRET'] },
     vars: { GHFIND_DEPLOY_ENV: 'production', PUBLIC_SITE_URL: 'https://ghfind.com', NEXT_PUBLIC_SITE_URL: 'https://ghfind.com',
@@ -32,7 +40,8 @@ export function renderWeb(sha, mode, provider) {
       FEED_SOURCE_OUTBOX_ENABLED: 'true', FEED_ROLLOUT_MODE: mode, FEED_ROLLOUT_GITHUB_IDS: '109743670',
       FEED_ROLLOUT_SEED: 'ghfind-go-production-v1-20260909', FEED_ROLLOUT_BASIS_POINTS: mode === 'all' ? '10000' : '0',
       MOSOO_API_BASE: provider.MOSOO_API_BASE, MOSOO_PROJECT_AGENT_ID: provider.MOSOO_PROJECT_AGENT_ID, MOSOO_PROJECT_USER_ID: provider.MOSOO_PROJECT_USER_ID,
-      MOSOO_PROJECT_REQUEST_TIMEOUT_MS: '15000' },
+      MOSOO_PROJECT_REQUEST_TIMEOUT_MS: '15000',
+      GHFIND_CACHE_BACKEND: 'kv', GHFIND_RATELIMIT_BACKEND: 'do', GHFIND_COORD_BACKEND: 'do' },
   };
 }
 export function prepareSecrets(env) {
@@ -158,6 +167,17 @@ export async function verifyWeb(sha, mode, provider, api=cf) {
     const binding=byName.get(bucket.binding);
     requireThat(binding?.type==='r2_bucket' && binding.bucket_name===bucket.bucket_name,'Web cache bucket mismatch');
     verified.push({name:bucket.binding,type:'r2_bucket',bucket_name:bucket.bucket_name});
+  }
+  for(const kv of expected.kv_namespaces) {
+    const binding=byName.get(kv.binding);
+    requireThat(binding?.type==='kv_namespace' && binding.namespace_id===kv.id,'Web cache namespace mismatch');
+    verified.push({name:kv.binding,type:'kv_namespace',namespace_id:kv.id});
+  }
+  for(const object of expected.durable_objects.bindings) {
+    const binding=byName.get(object.name);
+    requireThat(binding?.type==='durable_object_namespace' && binding.class_name===object.class_name &&
+      binding.script_name===object.script_name,`Web coordination binding mismatch: ${object.name}`);
+    verified.push({name:object.name,type:'durable_object_namespace',class_name:object.class_name,script_name:object.script_name});
   }
   const assets=byName.get(expected.assets.binding);
   requireThat(assets?.type==='assets','Web assets binding mismatch');

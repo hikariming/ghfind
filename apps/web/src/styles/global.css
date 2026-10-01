@@ -1,0 +1,37 @@
+/*
+ * The Next app's globals.css is the single source of theme tokens and the
+ * light/dark mappings during the migration; Tailwind scans both trees.
+ */
+@import "../../../../src/app/globals.css";
+@source "../../../../src/components";
+@source "../";
+
+/*
+ * Mobile drawer. The Next shell renders a second sidebar inside a Radix Sheet;
+ * here the one server-rendered sidebar slides in instead, so the nav HTML and
+ * its islands exist once per page.
+ */
+.sidebar-close,
+.workspace-overlay { display: none; }
+
+@media (max-width: 899px) {
+  .workspace-shell[data-mobile-open="true"] .workspace-sidebar {
+    display: flex;
+    z-index: 50;
+    width: min(290px, 88vw);
+    padding: 24px 16px 16px;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+  .workspace-shell[data-mobile-open="true"] .workspace-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgb(0 0 0 / 0.7);
+  }
+  .workspace-shell[data-mobile-open="true"] .workspace-brand { justify-content: space-between; }
+  .workspace-shell[data-mobile-open="true"] .sidebar-link { min-height: 42px; }
+  .workspace-shell[data-mobile-open="true"] .sidebar-group + .sidebar-group { margin-top: 18px; }
+  .workspace-sidebar .sidebar-collapse { display: none; }
+  .workspace-sidebar .sidebar-close { display: inline-flex; }
+}

@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   // leaves it un-bundled — on Cloudflare Workers that external require fails
   // at runtime. Force it into the server bundle instead (its /web entry is
   // pure fetch/WebSocket, safe on every runtime we deploy to).
-  transpilePackages: ["@libsql/client"],
+  // @ghfind/i18n is a source-only workspace package (TypeScript exports).
+  transpilePackages: ["@libsql/client", "@ghfind/i18n"],
   // A stray lockfile in the home dir makes Next infer the wrong workspace root.
   // Pin it to this project.
   turbopack: {

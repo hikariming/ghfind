@@ -32,10 +32,39 @@ return 1`;
 
 export const scanTtl = () => 86400 - Math.floor(Math.random() * 7201); // 22–24h
 
+/**
+ * The atomic steps protectedScan needs from shared storage. Results keep the
+ * Lua scripts' shapes (admit: 1 admitted / 0 wait / -1 busy; publish: 1 when
+ * still the owner) so both backends go through the same checks below.
+ */
+export interface ScanCoordinator {
+  admit(owner: string, now: number, leaseMs: number, capacity: number): Promise<unknown>;
+  publish(owner: string, payload: string, ttlSeconds: number): Promise<unknown>;
+  release(owner: string, failed: boolean): Promise<unknown>;
+}
+
+/** Redis coordinator: the original Lua scripts over lock/capacity/cooldown keys. */
+function redisScanCoordinator(
+  redis: { eval: (script: string, keys: string[], args: unknown[]) => Promise<unknown> },
+  keys: string[],
+  key: string,
+  revisionKey?: string,
+): ScanCoordinator {
+  return {
+    admit: (owner, now, leaseMs, capacity) => redis.eval(ADMIT_SCAN, keys, [owner, now, leaseMs, capacity]),
+    publish: (owner, payload, ttlSeconds) =>
+      redis.eval(PUBLISH_SCAN, revisionKey ? [keys[0], key, revisionKey] : [keys[0], key], [owner, payload, ttlSeconds]),
+    release: (owner, failed) => redis.eval(RELEASE_SCAN, keys, [owner, failed ? "failed" : "ok"]),
+  };
+}
+
 export async function protectedScan<T>(options: {
-  redis: {
+  /** Redis backend (Lua scripts). Ignored when `coordinator` is given. */
+  redis?: {
     eval: (script: string, keys: string[], args: unknown[]) => Promise<unknown>;
   };
+  /** Non-Redis backend (the ScanSlot Durable Object in ghfind-coord). */
+  coordinator?: ScanCoordinator;
   key: string;
   read: () => Promise<T | null>;
   produce: () => Promise<T>;
@@ -45,12 +74,16 @@ export async function protectedScan<T>(options: {
   capacityKey?: string;
   revisionKey?: string;
 }): Promise<T> {
-  const { redis, key, read, produce } = options;
+  const { key, read, produce } = options;
   const keys = [
     `lock:${key}`,
     options.capacityKey ?? "scan:active-producers:v1",
     `cooldown:${key}`,
   ];
+  const coordinator =
+    options.coordinator ??
+    (options.redis ? redisScanCoordinator(options.redis, keys, key, options.revisionKey) : null);
+  if (!coordinator) throw new ScanBusyError();
   const owner = crypto.randomUUID();
   const wait =
     options.wait ??
@@ -61,12 +94,7 @@ export async function protectedScan<T>(options: {
     if (cached) return cached;
     let admission: unknown;
     try {
-      admission = await redis.eval(ADMIT_SCAN, keys, [
-        owner,
-        Date.now(),
-        300_000,
-        SCAN_COLD_CONCURRENCY,
-      ]);
+      admission = await coordinator.admit(owner, Date.now(), 300_000, SCAN_COLD_CONCURRENCY);
     } catch {
       throw new ScanBusyError();
     }
@@ -86,19 +114,17 @@ export async function protectedScan<T>(options: {
       }
       const result = await produce();
       // An expired owner must never overwrite a newer producer's snapshot.
-      const published = await redis.eval(
-        PUBLISH_SCAN,
-        options.revisionKey ? [keys[0], key, options.revisionKey] : [keys[0], key],
-        [owner, JSON.stringify(result), options.ttl?.(result) ?? scanTtl()],
+      const published = await coordinator.publish(
+        owner,
+        JSON.stringify(result),
+        options.ttl?.(result) ?? scanTtl(),
       );
       if (published !== 1) throw new ScanBusyError();
       failed = false;
       return result;
     } finally {
       // Failure cooldown stops waiters immediately retrying the same bad origin.
-      await redis
-        .eval(RELEASE_SCAN, keys, [owner, failed ? "failed" : "ok"])
-        .catch(() => {});
+      await coordinator.release(owner, failed).catch(() => {});
     }
   }
   // Never turn every timed-out waiter into a new producer.
