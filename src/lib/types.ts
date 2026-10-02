@@ -229,6 +229,7 @@ export interface RawMetrics {
   maintainer_closed_unmerged_pr_count?: number;
   self_closed_external_pr_count?: number;
   self_closed_own_repo_pr_count?: number;
+  default_branch_landed_pr_count?: number;
   unknown_closed_unmerged_pr_count?: number;
   pr_rejection_rate: number;
   recent_pr_sample: number;

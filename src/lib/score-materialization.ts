@@ -117,6 +117,7 @@ const OPTIONAL_NUMBER_METRICS = [
   "maintainer_closed_unmerged_pr_count",
   "self_closed_external_pr_count",
   "self_closed_own_repo_pr_count",
+  "default_branch_landed_pr_count",
   "unknown_closed_unmerged_pr_count",
 ] as const satisfies readonly (keyof RawMetrics)[];
 
