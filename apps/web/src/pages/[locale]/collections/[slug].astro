@@ -3,14 +3,14 @@ import Base from "../../../layouts/Base.astro";
 import { CollectionPage } from "../../../views";
 import { CollectionCommentsIsland } from "../../../islands/CollectionCommentsIsland";
 import { getTranslator, routeLocale } from "../../../lib/i18n";
-import { notFoundToLegacy, STATIC_PAGE_CACHE } from "../../../lib/not-found";
+import { notFound, STATIC_PAGE_CACHE } from "../../../lib/not-found";
 import { collectionAlternates, getCollection, pickText } from "@/lib/collections";
 import { localePath } from "@/lib/site";
 
 const locale = routeLocale(Astro.params.locale);
 const slug = Astro.params.slug ?? "";
 const collection = getCollection(slug);
-if (!locale || !collection) return notFoundToLegacy();
+if (!locale || !collection) return notFound();
 
 const [t, tBlog, tTiers] = await Promise.all([
   getTranslator(locale, "collections"),

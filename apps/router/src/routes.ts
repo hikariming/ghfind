@@ -1,63 +1,18 @@
-import { splitLocale } from "@ghfind/i18n";
-
 export type Target = "web" | "api" | "legacy";
 
 /**
- * Migration route table: which Worker serves each path. Anything unmatched
- * stays on the legacy Next Worker. To roll a route back, delete its rule (or
- * set ROUTER_FORCE_LEGACY to send everything to legacy).
+ * Migration route table: which Worker serves each path. Unmigrated /api
+ * routes (Feed) and Next build assets stay on the legacy Next Worker. To roll
+ * a route back, delete its rule (or set ROUTER_FORCE_LEGACY to send
+ * everything to legacy).
  */
 
 /**
- * Pages served by the Astro Worker. Rules match the locale-agnostic path
- * (`/en/about` and `/about` both match `/about`), so one rule covers all nine
- * locales.
+ * Paths only the legacy Next Worker can answer: its build output. Every other
+ * non-API path is a page (or a 404) and is served by the Astro Worker, which
+ * since P5 also renders the site's not-found page.
  */
-const WEB_PAGES: readonly string[] = [
-  "/about",
-  // P2: content pages.
-  "/blog",
-  "/collections",
-  "/contact",
-  "/privacy",
-  "/methodology",
-  "/docs",
-  "/github-bot",
-  "/sponsor",
-  // P3/P4: data and account pages. "/" is every locale's home; agent
-  // markdown negotiation there falls back to legacy (/index.md).
-  "/",
-  "/talent",
-  "/resume",
-  "/following",
-  "/integrations",
-  "/vs",
-  "/developers",
-  "/leaderboard",
-  "/advx",
-  "/projects",
-];
-
-/**
- * Dynamic pages served by the Astro Worker, matched like WEB_PAGES on the
- * locale-agnostic path. Slugs never contain a dot, so `/blog/x.md` (the
- * markdown twin) stays on legacy. Unknown slugs come back from web as a 404
- * marked for legacy fallback (src/index.ts), so the Next not-found page stays
- * the single 404 page.
- */
-const WEB_PATTERNS: readonly RegExp[] = [
-  /^\/blog\/[^/.]+$/,
-  /^\/collections\/[^/.]+$/,
-  /^\/projects\/analyses\/[^/.]+$/,
-  /^\/vs\/[^/.]+\/[^/.]+$/,
-  // Facet boards; a value ending in a dotted segment (vercel/next.js) stays on
-  // legacy, whose locale proxy skips dotted paths (unprefixed → 404 there).
-  /^\/developers\/(?:language|org|repo)\/(?:[^/]+\/)*[^/.]+$/,
-  /^\/u\/[^/.]+$/,
-];
-
-/** Build output of the Astro app (hashed JS/CSS). */
-const WEB_PREFIXES: readonly string[] = ["/_astro/"];
+const LEGACY_PREFIXES: readonly string[] = ["/_next/"];
 
 /**
  * API routes served by the Hono Worker (P1 batches 1–5). Whole-path
@@ -114,11 +69,31 @@ const API_ROUTES: readonly RegExp[] = [
   /^\/api\/internal\/project-analyses\/reconcile$/,
 ];
 
+/**
+ * Machine-readable documents and the MCP server, served by the API Worker
+ * (P5). Exact paths: the markdown twins of blog posts only exist at
+ * /blog/:slug.md and /en/blog/:slug.md (the Next app's rewrites).
+ */
+const API_DOCUMENTS: readonly RegExp[] = [
+  /^\/robots\.txt$/,
+  /^\/sitemap\.xml$/,
+  /^\/llms(?:-full)?\.txt$/,
+  /^\/llms\.md$/,
+  /^\/openapi\.json$/,
+  /^\/auth\.md$/,
+  /^\/index\.md$/,
+  /^\/mcp$/,
+  /^\/\.well-known\/(?:agent-card\.json|agent-skills\/index\.json|api-catalog|mcp\/server-card\.json|oauth-protected-resource)$/,
+  /^\/(?:en\/)?blog\/[^/]+\.md$/,
+  /^\/(?:(?:zh|en|ja|ko|es|pt|id|vi|ar)\/)?(?:cli|skill)$/,
+];
+
 export function pickTarget(pathname: string): Target {
+  if (API_DOCUMENTS.some((re) => re.test(pathname))) return "api";
   if (pathname === "/api" || pathname.startsWith("/api/")) {
     return API_ROUTES.some((re) => re.test(pathname)) ? "api" : "legacy";
   }
-  if (WEB_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return "web";
-  const { path } = splitLocale(pathname);
-  return WEB_PAGES.includes(path) || WEB_PATTERNS.some((re) => re.test(path)) ? "web" : "legacy";
+  // Pages, 404s and the files in public/ (fonts, images, install.sh, …),
+  // served by ghfind-web's asset layer.
+  return LEGACY_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ? "legacy" : "web";
 }

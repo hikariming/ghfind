@@ -1,0 +1,25 @@
+---
+/**
+ * The site's not-found page (P5: replaces the Next app's [locale]/not-found).
+ * Astro renders it for unmatched paths and for any page that returns an empty
+ * 404 (lib/not-found.ts). Same markup and metadata as Next: layout title and
+ * description, the layout's alternates, `robots: noindex`, never cached.
+ */
+import { DEFAULT_LOCALE, splitLocale } from "@ghfind/i18n";
+import Base from "../layouts/Base.astro";
+import { getTranslator } from "../lib/i18n";
+
+// zh is served unprefixed (rewritten to /zh/... by the middleware).
+const locale = splitLocale(Astro.url.pathname).locale ?? DEFAULT_LOCALE;
+const t = await getTranslator(locale, "detail");
+const home = locale === DEFAULT_LOCALE ? "/" : `/${locale}`;
+
+Astro.response.status = 404;
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/" alternates="layout" robots="noindex">
+  <main class="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-5 py-20 text-center">
+    <h1 class="text-4xl font-black">404</h1>
+    <a href={home} class="mt-6 inline-block rounded-full bg-orange-600 px-5 py-2 text-sm font-medium text-white hover:bg-orange-500">{t("selfCta")}</a>
+  </main>
+</Base>

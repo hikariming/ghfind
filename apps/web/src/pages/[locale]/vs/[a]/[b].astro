@@ -2,7 +2,7 @@
 import Base from "../../../../layouts/Base.astro";
 import { VsIsland } from "../../../../islands/VsIsland";
 import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../../lib/i18n";
-import { notFoundToLegacy } from "../../../../lib/not-found";
+import { notFound } from "../../../../lib/not-found";
 import { canonicalize, isCanonicalVsPath, vsMeta } from "@/lib/pages/vs";
 import { getGoVsPresentation } from "@/lib/go-profile.server";
 import { localePath } from "@/lib/site";
@@ -11,7 +11,7 @@ const locale = routeLocale(Astro.params.locale);
 const a = Astro.params.a ?? "";
 const b = Astro.params.b ?? "";
 const pair = locale ? canonicalize(a, b) : null;
-if (!locale || !pair) return notFoundToLegacy();
+if (!locale || !pair) return notFound();
 // Non-canonical spelling (case / order) → the canonical slug, like next-intl's
 // redirect(): 307 to the locale-prefixed path.
 if (!isCanonicalVsPath(a, b, pair)) {

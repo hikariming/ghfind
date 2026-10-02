@@ -100,5 +100,7 @@ jobs:
           check /api/badge/torvalds api
           check /en/about web
           check /en web
-          # Still served by the Next Worker (markdown twin of the homepage).
-          check /index.md legacy
+          # P5: machine-readable documents on api, public/ files and 404s on web.
+          check /index.md api
+          check /robots.txt api
+          check /favicon.ico web

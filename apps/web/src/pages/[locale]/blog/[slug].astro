@@ -3,14 +3,14 @@ import Base from "../../../layouts/Base.astro";
 import { BlogPost } from "../../../views";
 import { BlogCommentsIsland } from "../../../islands/BlogCommentsIsland";
 import { getTranslator, routeLocale } from "../../../lib/i18n";
-import { notFoundToLegacy, STATIC_PAGE_CACHE } from "../../../lib/not-found";
+import { notFound, STATIC_PAGE_CACHE } from "../../../lib/not-found";
 import { getPost, postAlternates } from "@/lib/blog";
 import { localePath } from "@/lib/site";
 
 const locale = routeLocale(Astro.params.locale);
 const slug = Astro.params.slug ?? "";
 const post = locale ? getPost(slug, locale) : null;
-if (!locale || !post) return notFoundToLegacy();
+if (!locale || !post) return notFound();
 
 const t = await getTranslator(locale, "blog");
 const path = `/blog/${slug}`;

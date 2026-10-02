@@ -7,7 +7,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 /** @param {string} p */
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
-const isDev = process.argv.includes("dev");
 
 export default defineConfig({
   // Pages SSR on the Worker and set their own Cache-Control for the edge.
@@ -21,9 +20,9 @@ export default defineConfig({
   // 404s the slash form before middleware runs).
   trailingSlash: "ignore",
   devToolbar: { enabled: false },
-  // Dev serves the Next app's public/ (fonts, icons) directly. Deployed, the
-  // router sends those paths to the legacy Worker, so the build ships none.
-  publicDir: isDev ? "../../public" : "./public",
+  // The repo's public/ (fonts, icons, install.sh, docs, images): served from
+  // this Worker's asset layer (the router sends every non-API path here).
+  publicDir: "../../public",
   vite: {
     plugins: [tailwindcss()],
     server: {

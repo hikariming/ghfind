@@ -29,7 +29,7 @@
         { "binding": "API", "service": "ghfind-api-dev" },
         { "binding": "LEGACY", "service": "ghfind-dev" }
       ],
-      "vars": { "ROUTER_FORCE_LEGACY": "0" }
+      "vars": { "ROUTER_FORCE_LEGACY": "0", "ROUTER_NOINDEX": "1" }
     },
     "production": {
       "name": "ghfind-router",

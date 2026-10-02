@@ -1298,3 +1298,29 @@ export async function clearCachedReactionCounts(target: string): Promise<void> {
     // best-effort
   }
 }
+
+// The rendered sitemap.xml (~9 MB, built from a full scan of public profiles
+// and judged matchups). Served by the API Worker; an hour matches the Next
+// app's ISR window for the same route.
+const SITEMAP_TTL_SECONDS = 3600;
+const SITEMAP_KEY = "sitemap:xml:v1";
+
+export async function getCachedSitemapXml(): Promise<string | null> {
+  const r = cacheStore();
+  if (!r) return null;
+  try {
+    return (await r.get<string>(SITEMAP_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedSitemapXml(xml: string): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  try {
+    await r.set(SITEMAP_KEY, xml, SITEMAP_TTL_SECONDS);
+  } catch {
+    // best-effort
+  }
+}

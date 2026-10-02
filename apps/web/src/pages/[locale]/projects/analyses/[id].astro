@@ -2,19 +2,19 @@
 import Base from "../../../../layouts/Base.astro";
 import { ProjectAnalysisIsland } from "../../../../islands/ProjectAnalysisIsland";
 import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../../lib/i18n";
-import { notFoundToLegacy } from "../../../../lib/not-found";
+import { notFound } from "../../../../lib/not-found";
 import { getPublicProjectAnalysisView, type PublicProjectAnalysisView } from "@/lib/project-analysis-service";
 
 const locale = routeLocale(Astro.params.locale);
 const id = Astro.params.id ?? "";
-if (!locale) return notFoundToLegacy();
+if (!locale) return notFound();
 let view: PublicProjectAnalysisView | null = null;
 try {
   view = await getPublicProjectAnalysisView(id, true);
 } catch {
   view = null;
 }
-if (!view) return notFoundToLegacy();
+if (!view) return notFound();
 const [t, messages] = await Promise.all([getTranslator(locale, "projectAnalysis"), getMessages(locale)]);
 Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
 const path = `/projects/analyses/${id}`;

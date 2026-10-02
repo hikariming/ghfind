@@ -2,7 +2,7 @@
 import Base from "../../../../layouts/Base.astro";
 import { DeveloperFacetIsland } from "../../../../islands/DeveloperFacetIsland";
 import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../../lib/i18n";
-import { notFoundToLegacy } from "../../../../lib/not-found";
+import { notFound } from "../../../../lib/not-found";
 import {
   bucketHeadingKey,
   facetEncodedPath,
@@ -17,14 +17,14 @@ const type = parseFacetType(Astro.params.type ?? "");
 // rest param would be decoded twice by facetValueFromSegments.
 const raw = Astro.url.pathname.match(/\/developers\/[^/]+\/(.+)$/)?.[1];
 const value = facetValueFromSegments(raw?.split("/"));
-if (!locale || !type || !value) return notFoundToLegacy();
+if (!locale || !type || !value) return notFound();
 const [t, tMeta, messages, data] = await Promise.all([
   getTranslator(locale, "developers"),
   getTranslator(locale, "meta"),
   getMessages(locale),
   loadDeveloperFacet(type, value),
 ]);
-if (!data) return notFoundToLegacy();
+if (!data) return notFound();
 const path = `/developers/${type}/${facetEncodedPath(value)}`;
 const heading = t(bucketHeadingKey(type), { value });
 Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");

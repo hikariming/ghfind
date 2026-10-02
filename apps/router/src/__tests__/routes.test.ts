@@ -9,13 +9,10 @@ describe("pickTarget", () => {
     expect(pickTarget("/ar/about")).toBe("web");
   });
 
-  it("serves the P2 content pages from web in every locale, markdown twins and the rest from legacy", () => {
+  it("serves the P2 content pages from web in every locale", () => {
     for (const p of ["/blog", "/en/blog", "/ja/blog/who-builds-dify", "/blog/who-builds-dify", "/collections", "/ar/collections", "/en/collections/bojie-li",
       "/contact", "/en/privacy", "/ja/methodology", "/docs", "/ko/github-bot", "/sponsor"]) {
       expect(pickTarget(p)).toBe("web");
-    }
-    for (const p of ["/blog/who-builds-dify.md", "/en/blog/x.md", "/blog/a/b", "/collections/a/b", "/blogs", "/en/collectionsx", "/docs/x", "/sponsor/x"]) {
-      expect(pickTarget(p)).toBe("legacy");
     }
   });
 
@@ -26,10 +23,25 @@ describe("pickTarget", () => {
       "/ja/developers/repo/langgenius/dify", "/developers/org/vercel", "/u/torvalds", "/en/u/gaearon"]) {
       expect(pickTarget(p)).toBe("web");
     }
-    for (const p of ["/projects/analyses", "/projects/analyses/a/b", "/talentx", "/leaderboardx",
-      "/vs/a", "/vs/a/b/c", "/developers/repo/vercel/next.js", "/developers/bogus/x", "/developers/language", "/u", "/u/a/b"]) {
-      expect(pickTarget(p)).toBe("legacy");
+  });
+
+  it("serves machine-readable documents and the MCP server from api", () => {
+    for (const p of ["/robots.txt", "/sitemap.xml", "/llms.txt", "/llms-full.txt", "/llms.md", "/openapi.json", "/auth.md", "/index.md", "/mcp",
+      "/.well-known/agent-card.json", "/.well-known/agent-skills/index.json", "/.well-known/api-catalog", "/.well-known/mcp/server-card.json",
+      "/.well-known/oauth-protected-resource", "/blog/who-builds-dify.md", "/en/blog/x.md", "/cli", "/en/cli", "/skill", "/ja/skill"]) {
+      expect(pickTarget(p)).toBe("api");
     }
+    for (const p of ["/mcp/x", "/.well-known/other", "/xx/cli", "/cli/x", "/robots.txtx"]) {
+      expect(pickTarget(p)).not.toBe("api");
+    }
+  });
+
+  it("serves public/ files from web", () => {
+    for (const p of ["/favicon.ico", "/icon.svg", "/fonts/dm-sans-variable.ttf", "/install.sh", "/cli.md", "/skill.md", "/tier-emoji/crown.svg", "/github-bot/avatar.png"]) {
+      expect(pickTarget(p)).toBe("web");
+    }
+    // A missing file gets web's 404 page.
+    expect(pickTarget("/fonts/missing.ttf")).toBe("web");
   });
 
   it("serves Astro build assets from web", () => {
@@ -40,7 +52,7 @@ describe("pickTarget", () => {
     for (const p of ["/api/leaderboard", "/api/stats", "/api/search-users", "/api/developers", "/api/talent", "/api/sponsors", "/api/facet-rank/torvalds", "/api/campaigns/advx/leaderboard"]) {
       expect(pickTarget(p)).toBe("api");
     }
-    for (const p of ["/api/talent/123/x", "/api/campaigns/advx/leaderboard/events/x", "/api/leaderboard/x", "/api/facet-rank", "/api/does-not-exist", "/en/api/stats"]) {
+    for (const p of ["/api/talent/123/x", "/api/campaigns/advx/leaderboard/events/x", "/api/leaderboard/x", "/api/facet-rank", "/api/does-not-exist"]) {
       expect(pickTarget(p)).toBe("legacy");
     }
   });
@@ -69,7 +81,7 @@ describe("pickTarget", () => {
     for (const p of ["/api", "/api/blog-comments/who-builds-dify", "/api/collection-comments/x", "/api/profile-comments/torvalds", "/api/profile-reactions/torvalds", "/api/follows", "/api/follows/torvalds", "/api/resumes", "/api/talent/123"]) {
       expect(pickTarget(p)).toBe("api");
     }
-    for (const p of ["/api/", "/en/api", "/api/blog-comments", "/api/follows/a/b", "/api/resumes/1", "/api/profile-reactions"]) {
+    for (const p of ["/api/", "/api/blog-comments", "/api/follows/a/b", "/api/resumes/1", "/api/profile-reactions"]) {
       expect(pickTarget(p)).toBe("legacy");
     }
   });
@@ -83,8 +95,15 @@ describe("pickTarget", () => {
     }
   });
 
-  it("keeps everything else on legacy", () => {
-    for (const p of ["/about/team", "/aboutx", "/api/score/x/y", "/_next/static/x.js", "/favicon.ico", "/mcp", "/index.md"]) {
+  it("serves unknown pages from web, which renders the 404 page", () => {
+    for (const p of ["/about/team", "/aboutx", "/blog/a/b", "/en/collectionsx", "/vs/a/b/c", "/developers/repo/vercel/next.js",
+      "/u/a/b", "/blog-md/x", "/ja/blog/x.md", "/does-not-exist", "/en/api", "/en/api/stats"]) {
+      expect(pickTarget(p)).toBe("web");
+    }
+  });
+
+  it("keeps Next build assets and unmigrated API routes on legacy", () => {
+    for (const p of ["/_next/static/x.js", "/_next/image", "/api/score/x/y"]) {
       expect(pickTarget(p)).toBe("legacy");
     }
   });

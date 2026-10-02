@@ -1,7 +1,14 @@
 /**
- * Unknown slug on a migrated dynamic route. The router (apps/router) sees the
- * marker and re-dispatches to the legacy Worker, which renders the Next app's
- * localized not-found page — one 404 page for both stacks until P5.
+ * Unknown slug on a dynamic route: an empty 404, which Astro replaces with
+ * src/pages/404.astro (keeping this response's status and headers).
+ */
+export function notFound(): Response {
+  return new Response(null, { status: 404 });
+}
+
+/**
+ * A request only the legacy Worker can answer. The router (apps/router) sees
+ * the marker and re-dispatches it there unchanged.
  */
 export const NOT_FOUND_FALLBACK_HEADER = "X-Ghfind-Fallback";
 

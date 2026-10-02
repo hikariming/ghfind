@@ -3,7 +3,7 @@ import Base from "../../../layouts/Base.astro";
 import { PendingProfileIsland } from "../../../islands/PendingProfileIsland";
 import { ProfileIsland } from "../../../islands/ProfileIsland";
 import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../lib/i18n";
-import { notFoundToLegacy } from "../../../lib/not-found";
+import { notFound } from "../../../lib/not-found";
 import { getAsViewer, getViewer } from "../../../lib/session";
 import { getProfileComments } from "@/lib/db";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
@@ -13,7 +13,7 @@ import { decodeRouteParam } from "@/lib/route-params";
 import { localePath } from "@/lib/site";
 
 const locale = routeLocale(Astro.params.locale);
-if (!locale) return notFoundToLegacy();
+if (!locale) return notFound();
 // Raw segment, like Next's params (Astro's is already decoded once).
 const rawUsername = Astro.url.pathname.match(/\/u\/([^/]+)$/)?.[1] ?? "";
 const decoded = decodeRouteParam(rawUsername);
@@ -33,7 +33,7 @@ Astro.response.headers.set("Cache-Control", noStore);
 // pending shell when there is a scan to show; otherwise a genuine unknown
 // handle → legacy's 404.
 const pendingScan = d ? null : await getGoLiveProfileScan(decoded);
-if (!d && !pendingScan && !fromHome) return notFoundToLegacy();
+if (!d && !pendingScan && !fromHome) return notFound();
 
 let page: Omit<Parameters<typeof ProfileIsland>[0], "intl"> | null = null;
 let meta: ReturnType<typeof profileMetadata> | null = null;

@@ -29,7 +29,7 @@ export function useParams(): Record<string, string> {
 }
 
 export function notFound(): never {
-  throw new Error("notFound() is server-only; Astro pages return notFoundToLegacy()");
+  throw new Error("notFound() is server-only; Astro pages return notFound() from lib/not-found");
 }
 
 export function redirect(): never {

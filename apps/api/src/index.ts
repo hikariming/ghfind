@@ -47,7 +47,7 @@ for (const route of API_ROUTES) {
     // read the request context.
     const req = new NextRequest(c.req.raw);
     const context = { request: c.req.raw, waitUntil: (p: Promise<unknown>) => c.executionCtx.waitUntil(p) };
-    const res = await requestContext.run(context, () => handler(req, { params: Promise.resolve(c.req.param()) }));
+    const res = await requestContext.run(context, () => handler(req, { params: Promise.resolve(route.params ? route.params(c.req.param()) : c.req.param()) }));
     // NextResponse.cookies mirrors every Set-Cookie into this internal header;
     // Next's send-response drops it on the way out, so do the same.
     if (res.headers.has("x-middleware-set-cookie")) {

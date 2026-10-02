@@ -7,6 +7,15 @@
  * 4 social (comments, reactions, follows) and resumes, 5 scoring, scans,
  * LLM roasts/verdicts, project analyses and admin/internal jobs.
  */
+import * as mcp from "./mcp";
+import * as sitemap from "./sitemap";
+import * as agentCard from "@/app/.well-known/agent-card.json/route";
+import * as agentSkills from "@/app/.well-known/agent-skills/index.json/route";
+import * as apiCatalog from "@/app/.well-known/api-catalog/route";
+import * as mcpServerCard from "@/app/.well-known/mcp/server-card.json/route";
+import * as oauthProtectedResource from "@/app/.well-known/oauth-protected-resource/route";
+import * as cliDoc from "@/app/[locale]/cli/route";
+import * as skillDoc from "@/app/[locale]/skill/route";
 import * as accountToken from "@/app/api/account/tokens/[id]/route";
 import * as accountTokens from "@/app/api/account/tokens/route";
 import * as adminBackfillFacets from "@/app/api/admin/backfill-facets/route";
@@ -51,13 +60,26 @@ import * as talentById from "@/app/api/talent/[id]/route";
 import * as talentIntake from "@/app/api/talent/intake/route";
 import * as talent from "@/app/api/talent/route";
 import * as vsVerdict from "@/app/api/vs-verdict/route";
+import * as authMd from "@/app/auth.md/route";
+import * as blogMd from "@/app/blog-md/[slug]/route";
+import * as indexMd from "@/app/index.md/route";
+import * as llmsFull from "@/app/llms-full.txt/route";
+import * as llmsMd from "@/app/llms.md/route";
+import * as llmsTxt from "@/app/llms.txt/route";
+import * as openapi from "@/app/openapi.json/route";
+import * as robots from "@/app/robots.txt/route";
 
 export interface ApiRoute {
   /** Hono path pattern. */
   path: string;
   /** The Next route module; its exported GET/POST/… become handlers. */
   module: object;
+  /** Map Hono's params to the module's (when the URL shape differs from its Next route). */
+  params?: (params: Record<string, string>) => Record<string, string>;
 }
+
+/** Locale prefixes of the Next app's `[locale]` segment (zh is unprefixed). */
+const LOCALES = "{zh|en|ja|ko|es|pt|id|vi|ar}";
 
 export const API_ROUTES: ApiRoute[] = [
   // Batch 1: read-only JSON.
@@ -112,4 +134,27 @@ export const API_ROUTES: ApiRoute[] = [
   { path: "/api/admin/backfill-repos", module: adminBackfillRepos },
   { path: "/api/admin/backfill-scores", module: adminBackfillScores },
   { path: "/api/internal/project-analyses/reconcile", module: internalProjectAnalysesReconcile },
+  // P5: machine-readable documents and the MCP server (non-/api paths).
+  { path: "/robots.txt", module: robots },
+  { path: "/sitemap.xml", module: sitemap },
+  { path: "/llms.txt", module: llmsTxt },
+  { path: "/llms-full.txt", module: llmsFull },
+  { path: "/llms.md", module: llmsMd },
+  { path: "/openapi.json", module: openapi },
+  { path: "/auth.md", module: authMd },
+  { path: "/index.md", module: indexMd },
+  // next.config rewrites /blog/:slug.md and /en/blog/:slug.md to /blog-md/:slug
+  // (the rewrite target itself isn't public: 404 like the Next app).
+  { path: "/blog/:file{[^/]+\\.md}", module: blogMd, params: ({ file }) => ({ slug: file.replace(/\.md$/, "") }) },
+  { path: "/en/blog/:file{[^/]+\\.md}", module: blogMd, params: ({ file }) => ({ slug: file.replace(/\.md$/, "") }) },
+  { path: "/.well-known/agent-card.json", module: agentCard },
+  { path: "/.well-known/agent-skills/index.json", module: agentSkills },
+  { path: "/.well-known/api-catalog", module: apiCatalog },
+  { path: "/.well-known/mcp/server-card.json", module: mcpServerCard },
+  { path: "/.well-known/oauth-protected-resource", module: oauthProtectedResource },
+  { path: "/mcp", module: mcp },
+  { path: "/cli", module: cliDoc },
+  { path: `/:locale${LOCALES}/cli`, module: cliDoc },
+  { path: "/skill", module: skillDoc },
+  { path: `/:locale${LOCALES}/skill`, module: skillDoc },
 ];
