@@ -2847,6 +2847,10 @@ describe("project discovery queries", () => {
 
     const byName = await db.searchRepos("quality", 4);
     expect(byName[0]?.name).toBe("QualityKit");
+
+    // Prefix ranges, not substrings.
+    await expect(db.searchRepos("qualitykitx", 4)).resolves.toEqual([]);
+    await expect(db.searchRepos("ualitykit", 4)).resolves.toEqual([]);
   });
 
   it("prefers shared contributors for related projects", async () => {

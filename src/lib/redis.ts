@@ -966,7 +966,9 @@ export async function setCachedScoreHistogram(rows: ScoreHistogramRow[]): Promis
 }
 
 const STATS_KEY = "stats:count";
-const STATS_TTL_SECONDS = 60;
+// The homepage counter is decorative; COUNT(*) FROM scores reads every row
+// (~42k), so refresh it every 10 minutes, not every minute.
+const STATS_TTL_SECONDS = 600;
 
 export async function getCachedStats(): Promise<number | null> {
   const r = cacheStore();
@@ -984,6 +986,32 @@ export async function setCachedStats(total: number): Promise<void> {
   if (!r) return;
   try {
     await r.set(STATS_KEY, total, STATS_TTL_SECONDS);
+  } catch {
+    // best-effort
+  }
+}
+
+// Stored project eligibility only drifts when the eligibility rules change in a
+// deploy (new analyses are finalized with current rules), so one isolate per
+// hour re-checks it instead of every cold isolate scanning every assessment.
+const PROJECT_ELIGIBILITY_KEY = "projects:eligibility-reconciled:v1";
+const PROJECT_ELIGIBILITY_TTL_SECONDS = 3600;
+
+export async function isProjectEligibilityReconciled(): Promise<boolean> {
+  const r = cacheStore();
+  if (!r) return false;
+  try {
+    return (await r.get<number>(PROJECT_ELIGIBILITY_KEY)) === 1;
+  } catch {
+    return false;
+  }
+}
+
+export async function markProjectEligibilityReconciled(): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  try {
+    await r.set(PROJECT_ELIGIBILITY_KEY, 1, PROJECT_ELIGIBILITY_TTL_SECONDS);
   } catch {
     // best-effort
   }

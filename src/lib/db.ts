@@ -933,6 +933,7 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_repos_stars ON repos(stars DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_repos_owner ON repos(owner_login)`,
+          `CREATE INDEX IF NOT EXISTS idx_repos_lower_name ON repos(lower(name))`,
           // The developer⟷repo edge. relation = 'owner' (their own/attributed
           // work) | 'contributor' (landed commits/PRs). Powers both directions:
           // a repo's contributor list (WHERE repo_key = ?) and a developer's
@@ -5629,14 +5630,21 @@ export async function searchRepos(query: string, limit = 4): Promise<RepoDetail[
   if (!db || !normalized) return [];
   try {
     await ensureSchema(db);
+    // Prefix match as two index range seeks (repo_key is stored lowercase;
+    // idx_repos_lower_name covers the name) — a `LIKE 'x%'` on lower() can't
+    // use an index and read the whole table (~35k rows) per keystroke.
     const result = await db.execute({
       sql: `SELECT repo_key, name_with_owner, owner_login, name, description,
                    stars, forks, language, topics
             FROM repos
-            WHERE lower(repo_key) LIKE ? OR lower(name) LIKE ?
+            WHERE repo_key IN (
+              SELECT repo_key FROM repos WHERE repo_key >= ?1 AND repo_key < ?2
+              UNION
+              SELECT repo_key FROM repos WHERE lower(name) >= ?1 AND lower(name) < ?2
+            )
             ORDER BY stars DESC, repo_key ASC
-            LIMIT ?`,
-      args: [`${normalized}%`, `${normalized}%`, Math.max(1, Math.min(20, limit))],
+            LIMIT ?3`,
+      args: [normalized, `${normalized}\uffff`, Math.max(1, Math.min(20, limit))],
     });
     return result.rows.map((row) => repoDetailFromRow(row as unknown as Record<string, unknown>));
   } catch (e) {

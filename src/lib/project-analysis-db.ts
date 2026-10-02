@@ -10,6 +10,7 @@ import {
   type VerificationLevel,
 } from "./project-analysis-contract";
 import { deriveProjectBoardEligibility } from "./project-ranking";
+import { isProjectEligibilityReconciled, markProjectEligibilityReconciled } from "./redis";
 import { syncFeedProjectProjection } from "./feed";
 import { appSubmissionReceiptStatement, assessmentOutboxStatement, feedSourceOutboxEnabled, recordAppSubmission } from "./feed-source-outbox";
 
@@ -975,7 +976,11 @@ async function reconcileStoredProjectEligibility(db: Client): Promise<void> {
 
 function ensureCurrentProjectEligibility(db: Client): Promise<void> {
   if (!eligibilityReady) {
-    eligibilityReady = reconcileStoredProjectEligibility(db).catch((error) => {
+    eligibilityReady = (async () => {
+      if (await isProjectEligibilityReconciled()) return;
+      await reconcileStoredProjectEligibility(db);
+      await markProjectEligibilityReconciled();
+    })().catch((error) => {
       eligibilityReady = null;
       throw error;
     });
