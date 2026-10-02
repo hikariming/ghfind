@@ -5306,13 +5306,20 @@ export async function getDevelopersByFacet(
   try {
     await ensureSchema(db);
     const capped = Math.max(1, Math.min(DEVELOPERS_PER_FACET_LIMIT, limit));
+    // Join order by bucket size. Org/repo buckets are small (≤ a few hundred
+    // members) but number in the tens of thousands, so most board views miss
+    // the cache: start from the bucket's members (CROSS JOIN pins the order in
+    // SQLite). Left to the planner it walked every public score in score order
+    // (~12k rows) to fill a 2-member board. Language buckets reach ~9k members,
+    // where walking scores in order and stopping at LIMIT is the cheaper plan.
+    const join = facetType === "language" ? "JOIN" : "CROSS JOIN";
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    stats.last_lookup_at AS last_lookup_at
             FROM developer_facets AS f
-            JOIN scores AS s ON s.username = f.username
+            ${join} scores AS s ON s.username = f.username
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE f.facet_type = ?
               AND f.facet_value = ?
