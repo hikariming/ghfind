@@ -48,8 +48,10 @@ import {
   advanceScoreDetailRevision,
   bumpCampaignLeaderboardRevision,
   clearCachedReactionCounts,
+  getCachedLanguageLadder,
   getCachedReactionCounts,
   releaseLookupGate,
+  setCachedLanguageLadder,
   setCachedReactionCounts,
   tryAcquireLookupGate,
 } from "./redis";
@@ -4806,6 +4808,82 @@ export interface FacetRank {
   ahead: { username: string; final_score: number } | null;
 }
 
+/** One language bucket's ranked members, best first (the directory board's order). */
+export interface LanguageScoreLadder {
+  usernames: string[];
+  scores: number[];
+}
+
+/**
+ * Rank/total/ahead for `score` on a ladder — the same answers as counting the
+ * bucket in SQL: rank = 1 + members strictly above (ties share), ahead = the
+ * lowest-scoring member strictly above. Null when the bucket has ≤1 ranked dev.
+ */
+export function rankOnLadder(
+  ladder: LanguageScoreLadder,
+  facetValue: string,
+  score: number,
+): FacetRank | null {
+  const total = ladder.scores.length;
+  if (total <= 1) return null;
+  // scores are descending: binary-search the count strictly above `score`.
+  let lo = 0;
+  let hi = total;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ladder.scores[mid] > score) lo = mid + 1;
+    else hi = mid;
+  }
+  const above = lo;
+  return {
+    facetType: "language",
+    facetValue,
+    rank: above + 1,
+    total,
+    ahead:
+      above > 0
+        ? { username: ladder.usernames[above - 1], final_score: ladder.scores[above - 1] }
+        : null,
+  };
+}
+
+const ladderInflight = new Map<string, Promise<LanguageScoreLadder>>();
+
+/** A language bucket's ladder, cache-aside + single-flight (one bucket read per TTL). */
+async function languageScoreLadder(db: Client, facetValue: string): Promise<LanguageScoreLadder> {
+  const cached = await getCachedLanguageLadder(facetValue);
+  if (cached) return cached;
+  const existing = ladderInflight.get(facetValue);
+  if (existing) return existing;
+  const run = (async () => {
+    const res = await db.execute({
+      sql: `SELECT s.username, s.final_score
+            FROM developer_facets AS f
+            JOIN scores AS s ON s.username = f.username
+            WHERE f.facet_type = 'language'
+              AND f.facet_value = ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
+            ORDER BY s.final_score DESC, s.username ASC`,
+      args: [facetValue, FACET_MIN_SCORE],
+    });
+    const ladder: LanguageScoreLadder = { usernames: [], scores: [] };
+    for (const row of res.rows) {
+      ladder.usernames.push(String(row.username));
+      ladder.scores.push(Number(row.final_score));
+    }
+    await setCachedLanguageLadder(facetValue, ladder);
+    return ladder;
+  })();
+  ladderInflight.set(facetValue, run);
+  try {
+    return await run;
+  } finally {
+    ladderInflight.delete(facetValue);
+  }
+}
+
 /**
  * Where `username` ranks inside their strongest language bucket on the
  * /developers directory — the "you're #12 on the Rust board, one spot behind
@@ -4815,7 +4893,8 @@ export interface FacetRank {
  * {@link getDevelopersByFacet} (hidden = 0, final_score ≥ FACET_MIN_SCORE) so the
  * rank matches the board the link lands on. Returns null when the dev has no
  * language facet, is below the directory floor, or the bucket has ≤1 ranked dev.
- * Every join is an index seek via idx_developer_facets_lookup. Best-effort like
+ * The bucket itself is read once per language per hour (the cached ladder);
+ * per profile only the indexed primary-language lookup runs. Best-effort like
  * the rest of this module.
  */
 export async function getFacetRank(
@@ -4827,8 +4906,8 @@ export async function getFacetRank(
   try {
     await ensureSchema(db);
     const uname = username.toLowerCase();
-    // The dev's primary language (the directory only ranks devs above the floor,
-    // so a below-floor dev has no meaningful position to show).
+    // The directory only ranks devs above the floor, so a below-floor dev has
+    // no meaningful position to show.
     if (score < FACET_MIN_SCORE) return null;
     const topRes = await db.execute({
       sql: `SELECT facet_value FROM developer_facets
@@ -4838,55 +4917,7 @@ export async function getFacetRank(
     });
     const facetValue = topRes.rows[0]?.facet_value;
     if (typeof facetValue !== "string" || !facetValue) return null;
-    // rank + total, and the nearest dev above, in one round trip.
-    const [rankRes, aheadRes] = await db.batch(
-      [
-        {
-          sql: `SELECT
-                  SUM(CASE WHEN s.final_score > ? THEN 1 ELSE 0 END) AS above,
-                  COUNT(*) AS total
-                FROM developer_facets AS f
-                JOIN scores AS s ON s.username = f.username
-                WHERE f.facet_type = 'language'
-                  AND f.facet_value = ?
-                  AND s.hidden = 0
-                  AND ${canonicalPublicScorePredicate("s")}
-                  AND s.final_score >= ?`,
-          args: [score, facetValue, FACET_MIN_SCORE],
-        },
-        {
-          sql: `SELECT s.username, s.final_score
-                FROM developer_facets AS f
-                JOIN scores AS s ON s.username = f.username
-                WHERE f.facet_type = 'language'
-                  AND f.facet_value = ?
-                  AND s.hidden = 0
-                  AND ${canonicalPublicScorePredicate("s")}
-                  AND s.final_score > ?
-                ORDER BY s.final_score ASC
-                LIMIT 1`,
-          args: [facetValue, score],
-        },
-      ],
-      "read",
-    );
-    const row = rankRes.rows[0];
-    if (!row) return null;
-    const total = Number(row.total);
-    if (total <= 1) return null;
-    const aheadRow = aheadRes.rows[0];
-    return {
-      facetType: "language",
-      facetValue,
-      rank: Number(row.above) + 1,
-      total,
-      ahead: aheadRow
-        ? {
-            username: String(aheadRow.username),
-            final_score: Number(aheadRow.final_score),
-          }
-        : null,
-    };
+    return rankOnLadder(await languageScoreLadder(db, facetValue), facetValue, score);
   } catch (e) {
     console.error("getFacetRank failed:", e);
     return null;
