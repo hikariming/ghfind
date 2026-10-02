@@ -1773,6 +1773,7 @@ function consumerDetachFixture({
   mutate = () => {},
   failure,
   retained = false,
+  staleReads = 0,
 } = {}) {
   const queues = [m.queue, m.deadLetterQueue].map((name, index) => ({
     name,
@@ -1795,6 +1796,7 @@ function consumerDetachFixture({
     calls,
     options: {
       env: productionActions,
+      sleep: async () => {},
       fetcher: async (url, options) => {
         const request = new URL(url);
         assert.equal(request.origin, "https://api.cloudflare.com");
@@ -1836,13 +1838,17 @@ function consumerDetachFixture({
             );
             if (failure === "delete")
               throw new Error("synthetic transport timeout");
-            if (!retained) q.consumers = [];
+            if (!retained) {
+              q.stale = staleReads;
+              q.ghost = q.consumers;
+              q.consumers = [];
+            }
             result = null;
           } else {
             assert.equal(options.method, "GET");
             assert.equal(path, `/queues/${q.id}/consumers`);
             q.reads++;
-            result = structuredClone(q.consumers);
+            result = structuredClone(q.stale-- > 0 ? q.ghost : q.consumers);
             mutate(q, result);
           }
         }
@@ -1983,8 +1989,17 @@ test("uncertain DELETE and incomplete post-readback never produce a passed recei
         assert.equal(error.receipt.deleteAttempts.length, 1);
         assert.equal(error.receipt.removed.length, 0);
       }
-      assert.ok(error.receipt.requests <= 14);
+      assert.ok(error.receipt.requests <= 18);
       return true;
     });
   }
+});
+test("a consumer list that lags the DELETE is polled until the detach is confirmed", async () => {
+  const f = consumerDetachFixture({ staleReads: 2 });
+  const r = await disableConsumers(m, f.options);
+  assert.equal(r.status, "passed");
+  assert.equal(r.consumersAbsent, true);
+  assert.equal(r.removed.length, 2);
+  // DELETE is never replayed while polling.
+  assert.equal(f.calls.filter((c) => c.method === "DELETE").length, 2);
 });

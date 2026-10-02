@@ -536,9 +536,19 @@ export function validateReadiness(data, m, sha, image, mode, versionId) {
 // Wrangler only adds/updates configured consumers. Omitting a consumer from an
 // off deployment does not detach it. Detach owned subscriptions explicitly;
 // queues, retained messages and the terminal parking queue are never deleted.
+const CONSUMER_CONFIRM_ROUNDS = 4;
+const CONSUMER_CONFIRM_DELAY_MS = 3000;
+// 2 queue lookups + 2 ownership reads + 2 identity re-reads + 2 DELETEs, plus
+// up to CONSUMER_CONFIRM_ROUNDS confirmation reads per queue.
+const CONSUMER_REQUEST_BUDGET = 8 + 2 * CONSUMER_CONFIRM_ROUNDS + 2;
+
 export async function disableConsumers(
   m,
-  { env = process.env, fetcher = fetch } = {},
+  {
+    env = process.env,
+    fetcher = fetch,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  } = {},
 ) {
   validateManifest(m);
   const { authorizeMutation } = await import("./feed-production-release.mjs");
@@ -569,7 +579,7 @@ export async function disableConsumers(
   async function api(path, method = "GET") {
     signal.throwIfAborted();
     requireThat(
-      ++receipt.requests <= 14,
+      ++receipt.requests <= CONSUMER_REQUEST_BUDGET,
       "consumer detach request budget exceeded",
     );
     const response = await fetcher(
@@ -650,12 +660,19 @@ export async function disableConsumers(
         receipt.removed.push(identity);
       }
     }
-    for (const queue of receipt.queues)
-      requireThat(
-        owned(await api(`/queues/${queue.queueId}/consumers`), queue.name)
-          .length === 0,
-        "consumer detach not confirmed",
-      );
+    // The consumer list is eventually consistent: right after a successful
+    // DELETE it can still show the consumer (release 37030357456), so poll a
+    // bounded number of times before declaring the detach unconfirmed.
+    let pending = receipt.queues;
+    for (let round = 0; round < CONSUMER_CONFIRM_ROUNDS && pending.length; round++) {
+      if (round > 0) await sleep(CONSUMER_CONFIRM_DELAY_MS);
+      const still = [];
+      for (const queue of pending)
+        if (owned(await api(`/queues/${queue.queueId}/consumers`), queue.name).length)
+          still.push(queue);
+      pending = still;
+    }
+    requireThat(pending.length === 0, "consumer detach not confirmed");
     receipt.status = "passed";
     receipt.consumersAbsent = true;
     receipt.observedAt = new Date().toISOString();
