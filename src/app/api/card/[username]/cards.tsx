@@ -161,6 +161,16 @@ export interface ShellProps {
   palette: CardPalette;
   qr?: string | null;
   qrPlacement?: QrPlacement;
+  /**
+   * Minimum gap between the stacked sections. `space-between` only distributes
+   * *positive* free space, so a tall section stack (the score card, whose tag
+   * row wraps to two lines for most accounts) silently collapses every gap to
+   * zero and the tags end up touching the footer. An explicit rowGap keeps a
+   * floor under the rhythm even when the content fills the box.
+   */
+  rowGap?: number;
+  /** Canvas inset. Defaults to the 52px the specialty cards are built around. */
+  padding?: number;
   children: React.ReactNode;
 }
 
@@ -169,6 +179,8 @@ export function Shell({
   palette,
   qr,
   qrPlacement = "top-right",
+  rowGap,
+  padding = 52,
   children,
 }: ShellProps) {
   const backgroundImage =
@@ -183,7 +195,7 @@ export function Shell({
         position: "relative",
         display: "flex",
         flexDirection: "row",
-        padding: 52,
+        padding,
         backgroundColor: palette.bg,
         backgroundImage,
         color: palette.fg,
@@ -198,6 +210,7 @@ export function Shell({
           flexGrow: 1,
           flexBasis: 0,
           minWidth: 0,
+          ...(rowGap ? { rowGap } : {}),
         }}
       >
         {children}
@@ -249,6 +262,11 @@ function avatarFrameIconPosition(
   };
 }
 
+/** The score card's avatar ring, and the image inset within it. Callers may
+ * scale the whole thing; the tier emoji badges scale with it. */
+const OG_AVATAR_SIZE = 152;
+const OG_AVATAR_INNER = 112;
+
 export function OgAvatarFrame({
   username,
   avatar,
@@ -256,6 +274,7 @@ export function OgAvatarFrame({
   tierIcon,
   color,
   palette,
+  size = OG_AVATAR_SIZE,
 }: {
   username: string;
   avatar: string | null;
@@ -263,18 +282,22 @@ export function OgAvatarFrame({
   tierIcon: string;
   color: string;
   palette: CardPalette;
+  /** Outer ring diameter. The inner avatar scales with it. */
+  size?: number;
 }) {
   const frame = tierAvatarFrame(tier);
-  const emojiBox = frame.emojiSize === "large" ? 48 : 34;
-  const emojiFont = frame.emojiSize === "large" ? 32 : 22;
+  const scale = size / OG_AVATAR_SIZE;
+  const inner = Math.round(OG_AVATAR_INNER * scale);
+  const emojiBox = Math.round((frame.emojiSize === "large" ? 48 : 34) * scale);
+  const emojiFont = Math.round((frame.emojiSize === "large" ? 32 : 22) * scale);
 
   return (
     <div
       style={{
         position: "relative",
         display: "flex",
-        width: 152,
-        height: 152,
+        width: size,
+        height: size,
         borderRadius: 9999,
         alignItems: "center",
         justifyContent: "center",
@@ -296,7 +319,7 @@ export function OgAvatarFrame({
             justifyContent: "center",
             fontSize: emojiFont,
             lineHeight: 1,
-            ...avatarFrameIconPosition(placement, 152, emojiBox),
+            ...avatarFrameIconPosition(placement, size, emojiBox),
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -307,8 +330,8 @@ export function OgAvatarFrame({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatar}
-          width={112}
-          height={112}
+          width={inner}
+          height={inner}
           style={{ borderRadius: 9999, border: `4px solid ${palette.avatarBorder}` }}
           alt=""
         />
@@ -316,15 +339,15 @@ export function OgAvatarFrame({
         <div
           style={{
             display: "flex",
-            width: 112,
-            height: 112,
+            width: inner,
+            height: inner,
             borderRadius: 9999,
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: palette.avatarBg,
             border: `4px solid ${palette.avatarBorder}`,
             color: palette.fg,
-            fontSize: 52,
+            fontSize: Math.round(52 * scale),
             fontWeight: 800,
           }}
         >
@@ -355,6 +378,38 @@ export interface Identity {
 function glowFor(id: Identity): string {
   return `${id.color}${id.palette.mode === "light" ? "30" : "55"}`;
 }
+
+  /**
+   * Vertical budget for the score card's stacked sections.
+   *
+   * `Shell` insets the canvas, and the score card is the only variant whose
+   * content can fill the whole box: its tag row wraps to two lines for most
+   * accounts, and the four sections then need more room than is available.
+   * `space-between` responds to that overflow by collapsing every gap to zero,
+   * which is what made the tags touch the `GitHub Roast` footer and spill past
+   * the padding.
+   *
+   * These sizes keep the tallest realistic case — a two-line tag row, with or
+   * without the QR panel — inside the box, so `rowGap` below stays a real
+   * minimum instead of a no-op. Verified by rendering the card through the real
+   * `ImageResponse` pipeline and measuring the gaps; see the card layout test.
+   */
+export const SCORE_CARD = {
+  padding: 48,
+  rowGap: 18,
+  handle: { fontSize: 34, padding: "7px 24px" as const, avatarMarginTop: 12 },
+  avatarSize: 124,
+  score: {
+    value: 96,
+    outOf: 34,
+    tier: 34,
+    label: 20,
+    tierMarginTop: 8,
+    labelMarginTop: 2,
+  },
+  beat: { value: 50, label: 20 },
+  tag: { fontSize: 21, padding: "4px 14px" as const, marginTop: 6, marginRight: 12 },
+} as const;
 
 /** Row background/border for list rows + stat tiles, per theme. */
 function rowSkin(palette: CardPalette) {

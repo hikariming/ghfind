@@ -9,6 +9,7 @@ import {
   Brand,
   OgAvatarFrame,
   PALETTES,
+  SCORE_CARD,
   Shell,
   parseQr,
   parseTheme,
@@ -98,7 +99,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   }
 
   return png(
-    <Shell glow={`${color}${theme === "light" ? "30" : "55"}`} palette={palette} qr={qr}>
+    <Shell
+      glow={`${color}${theme === "light" ? "30" : "55"}`}
+      palette={palette}
+      qr={qr}
+      rowGap={SCORE_CARD.rowGap}
+      padding={SCORE_CARD.padding}
+    >
       {/* Header */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div
@@ -109,9 +116,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             border: `2px solid ${color}80`,
             boxShadow: `0 0 34px -12px ${color}`,
             color,
-            fontSize: 38,
+            fontSize: SCORE_CARD.handle.fontSize,
             fontWeight: 800,
-            padding: "8px 26px",
+            padding: SCORE_CARD.handle.padding,
           }}
         >
           @{detail.username}
@@ -121,7 +128,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             {displayName}
           </div>
         )}
-        <div style={{ display: "flex", marginTop: 18 }}>
+        <div style={{ display: "flex", marginTop: SCORE_CARD.handle.avatarMarginTop }}>
           <OgAvatarFrame
             username={detail.username}
             avatar={avatar}
@@ -129,6 +136,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             tierIcon={tierIcon}
             color={color}
             palette={palette}
+            size={SCORE_CARD.avatarSize}
           />
         </div>
       </div>
@@ -137,10 +145,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 116, fontWeight: 800, color, lineHeight: 1 }}>
+            <span style={{ fontSize: SCORE_CARD.score.value, fontWeight: 800, color, lineHeight: 1 }}>
               {detail.final_score.toFixed(2)}
             </span>
-            <span style={{ fontSize: 40, color: palette.weak, marginLeft: 8, marginBottom: 10 }}>
+            <span
+              style={{
+                fontSize: SCORE_CARD.score.outOf,
+                color: palette.weak,
+                marginLeft: 8,
+                marginBottom: 10,
+              }}
+            >
               /100
             </span>
             {/* Brag surface: only upward movement is shown — a public README
@@ -164,17 +179,34 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
               </div>
             )}
           </div>
-          <div style={{ display: "flex", fontSize: 40, fontWeight: 800, color, marginTop: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: SCORE_CARD.score.tier,
+              fontWeight: 800,
+              color,
+              marginTop: SCORE_CARD.score.tierMarginTop,
+            }}
+          >
             {TIER_EN[tier]}
           </div>
-          <div style={{ display: "flex", fontSize: 22, color: palette.muted, marginTop: 2 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: SCORE_CARD.score.label,
+              color: palette.muted,
+              marginTop: SCORE_CARD.score.labelMarginTop,
+            }}
+          >
             {TIER_LABEL_EN[tier]}
           </div>
         </div>
         {beat !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 64, fontWeight: 800, color }}>{beat.toFixed(1)}%</span>
-            <span style={{ fontSize: 22, color: palette.muted }}>ahead of devs</span>
+            <span style={{ fontSize: SCORE_CARD.beat.value, fontWeight: 800, color }}>
+              {beat.toFixed(1)}%
+            </span>
+            <span style={{ fontSize: SCORE_CARD.beat.label, color: palette.muted }}>ahead of devs</span>
           </div>
         )}
       </div>
@@ -187,14 +219,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
               key={t}
               style={{
                 display: "flex",
-                marginRight: 12,
-                marginTop: 8,
-                padding: "6px 18px",
+                marginRight: SCORE_CARD.tag.marginRight,
+                marginTop: SCORE_CARD.tag.marginTop,
+                padding: SCORE_CARD.tag.padding,
                 borderRadius: 9999,
                 border: `1px solid ${palette.tagBorder}`,
                 backgroundColor: palette.tagBg,
                 color: palette.tagText,
-                fontSize: 24,
+                fontSize: SCORE_CARD.tag.fontSize,
                 fontWeight: 800,
               }}
             >
