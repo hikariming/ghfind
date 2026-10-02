@@ -940,7 +940,10 @@ export async function checkVerdictRateLimit(ip: string): Promise<RateLimitResult
 // whole-table aggregate per TTL serves every profile page, /api/score, share
 // card and MCP call, instead of an O(table) scan per request.
 const SCORE_HISTOGRAM_KEY = "score-hist:v1";
-const SCORE_HISTOGRAM_TTL_SECONDS = 300;
+// Whole-table aggregate (~59k rows_read per refresh) behind every rank and
+// percentile. The global distribution barely moves in half an hour, and each
+// refresh ran ~36×/hour across isolates at 5 minutes.
+const SCORE_HISTOGRAM_TTL_SECONDS = 1800;
 
 export async function getCachedScoreHistogram(): Promise<ScoreHistogramRow[] | null> {
   const r = cacheStore();

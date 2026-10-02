@@ -4,7 +4,7 @@
  * db.getRank / db.getPercentile aggregate the whole `scores` table per call,
  * and they sit on every profile render, /api/score hit, share card and MCP
  * call — the same "O(table) × crawler traffic" shape as the 2026-07 discovery
- * incident. Here one histogram aggregate per TTL (Redis 5 min, plus a 60s
+ * incident. Here one histogram aggregate per TTL (Redis 30 min, plus a 60s
  * in-process copy) answers every lookup from memory.
  *
  * Granularity is 0.1 score points (buckets are score × 10). Scores are
@@ -17,7 +17,7 @@
 import { getScoreHistogram, type ScoreHistogramRow } from "@/lib/db";
 import { getCachedScoreHistogram, setCachedScoreHistogram } from "@/lib/redis";
 
-/** In-process staleness bound; Redis (5 min) is the cross-instance cache. */
+/** In-process staleness bound; Redis (30 min) is the cross-instance cache. */
 const LOCAL_TTL_MS = 60_000;
 
 let local: { rows: ScoreHistogramRow[]; at: number } | null = null;
