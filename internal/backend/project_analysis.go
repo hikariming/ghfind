@@ -1,8 +1,6 @@
 package backend
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,14 +54,6 @@ const (
 	ProjectAnalysisStatusCancelled      ProjectAnalysisStatus = "cancelled"
 	ProjectAnalysisStatusExpired        ProjectAnalysisStatus = "expired"
 )
-
-// ProjectAnalysisActivity mirrors the camelCase activity schema stored in
-// project_analysis_runs.activities_json.
-type ProjectAnalysisActivity struct {
-	ID         string `json:"id"`
-	Kind       string `json:"kind"`
-	OccurredAt string `json:"occurredAt"`
-}
 
 type NormalizedGitHubRepository struct {
 	RepoKey       string
@@ -156,51 +146,6 @@ type ProjectAnalysisArtifact struct {
 	AnalyzedAt        string                    `json:"analyzed_at"`
 }
 
-type RuntimeEvidenceEntry struct {
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Summary  string `json:"summary"`
-	Outcome  string `json:"outcome"`
-	Command  string `json:"command,omitempty"`
-	Path     string `json:"path,omitempty"`
-	ExitCode *int64 `json:"exit_code,omitempty"`
-	Excerpt  string `json:"excerpt,omitempty"`
-}
-
-type RuntimeEvidenceArtifact struct {
-	SchemaVersion     string                 `json:"schema_version"`
-	AnalysisID        string                 `json:"analysis_id"`
-	RepoKey           string                 `json:"repo_key"`
-	ResolvedCommitSHA string                 `json:"resolved_commit_sha"`
-	Entries           []RuntimeEvidenceEntry `json:"entries"`
-}
-
-// ProjectAnalysisRunIdentity carries the run fields an artifact must match
-// before finalization, mirroring completeProjectAnalysisRun in the service.
-type ProjectAnalysisRunIdentity struct {
-	RubricVersion string
-	AgentVersion  string
-	SkillVersion  string
-	RequestedRef  *string
-}
-
-type ProjectAnalysisArtifactsInput struct {
-	AnalysisRaw        string
-	EvidenceRaw        string
-	ReportMarkdown     string
-	ExpectedAnalysisID string
-	ExpectedRepoKey    string
-	// ExpectedRun is optional; when set, artifact rubric/agent/skill versions
-	// and the requested ref must match the analysis run.
-	ExpectedRun *ProjectAnalysisRunIdentity
-}
-
-type ParsedProjectAnalysisArtifacts struct {
-	Analysis       *ProjectAnalysisArtifact
-	Evidence       *RuntimeEvidenceArtifact
-	ReportMarkdown string
-}
-
 var (
 	githubOwnerPattern        = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$`)
 	githubRepoPattern         = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
@@ -265,51 +210,6 @@ func NormalizeGitHubRepository(raw string) (NormalizedGitHubRepository, error) {
 		NameWithOwner: nameWithOwner,
 		CanonicalURL:  "https://github.com/" + nameWithOwner,
 	}, nil
-}
-
-// NormalizeRequestedRef mirrors normalizeRequestedRef in the service: blank
-// refs mean "default branch" (nil), everything else must be a valid Git ref.
-func NormalizeRequestedRef(value string) (*string, error) {
-	ref := strings.TrimSpace(value)
-	if ref == "" {
-		return nil, nil
-	}
-	if utf8.RuneCountInString(ref) > 200 ||
-		invalidRequestedRefChars.MatchString(ref) ||
-		strings.HasPrefix(ref, "-") ||
-		strings.Contains(ref, "..") ||
-		strings.Contains(ref, "@{") {
-		return nil, ErrInvalidRef
-	}
-	return &ref, nil
-}
-
-func joinFingerprintParts(parts ...string) string {
-	return strings.Join(parts, "\x00")
-}
-
-// ProjectAnalysisResultFingerprint mirrors projectAnalysisResultFingerprint:
-// it identifies a completed analysis reusable for an identical request.
-func ProjectAnalysisResultFingerprint(repoKey string, requestedRef *string, schemaVersion, rubricVersion, agentVersion, skillVersion string) string {
-	ref := ""
-	if requestedRef != nil {
-		ref = *requestedRef
-	}
-	sum := sha256.Sum256([]byte(joinFingerprintParts(
-		strings.ToLower(repoKey), ref, schemaVersion, rubricVersion, agentVersion, skillVersion,
-	)))
-	return hex.EncodeToString(sum[:])
-}
-
-// ProjectAnalysisActiveKey mirrors activeKey in project-analysis-db.ts: at
-// most one non-terminal run exists per repository, ref, and rubric.
-func ProjectAnalysisActiveKey(repoKey string, requestedRef *string, rubricVersion string) string {
-	ref := ""
-	if requestedRef != nil {
-		ref = *requestedRef
-	}
-	sum := sha256.Sum256([]byte(joinFingerprintParts(strings.ToLower(repoKey), ref, rubricVersion)))
-	return hex.EncodeToString(sum[:])
 }
 
 func artifactErrorf(format string, args ...any) error {
@@ -927,95 +827,6 @@ func parseProjectAnalysisArtifact(raw string) (*ProjectAnalysisArtifact, error) 
 	}, nil
 }
 
-// parseRuntimeEvidenceArtifact validates one evidence artifact exactly like
-// runtimeEvidenceArtifactSchema.
-func parseRuntimeEvidenceArtifact(raw string) (*RuntimeEvidenceArtifact, error) {
-	var artifact rawEvidenceArtifact
-	if err := json.Unmarshal([]byte(raw), &artifact); err != nil {
-		return nil, artifactErrorf("evidence artifact is not valid JSON")
-	}
-	schemaVersion, err := parseSchemaVersion(artifact.SchemaVersion)
-	if err != nil {
-		return nil, err
-	}
-	analysisID, err := requiredTrimmedString(artifact.AnalysisID, "analysis_id", 1, 100)
-	if err != nil {
-		return nil, err
-	}
-	repoKey, err := requiredTrimmedString(artifact.RepoKey, "repo_key", 3, 140)
-	if err != nil {
-		return nil, err
-	}
-	if artifact.ResolvedCommitSHA == nil ||
-		!resolvedCommitSHAPattern.MatchString(*artifact.ResolvedCommitSHA) {
-		return nil, artifactErrorf("resolved_commit_sha must be a 40-character hex SHA")
-	}
-	if artifact.Entries == nil {
-		return nil, artifactErrorf("entries is required")
-	}
-	if len(*artifact.Entries) < 1 || len(*artifact.Entries) > 500 {
-		return nil, artifactErrorf("entries must contain between 1 and 500 entries")
-	}
-	entries := make([]RuntimeEvidenceEntry, 0, len(*artifact.Entries))
-	for index := range *artifact.Entries {
-		raw := &(*artifact.Entries)[index]
-		field := fmt.Sprintf("entries[%d]", index)
-		id, err := requiredTrimmedString(raw.ID, field+".id", 1, 100)
-		if err != nil {
-			return nil, err
-		}
-		kind, err := requiredEnum(raw.Kind, field+".kind", evidenceKinds...)
-		if err != nil {
-			return nil, err
-		}
-		summary, err := requiredTrimmedString(raw.Summary, field+".summary", 1, 2_000)
-		if err != nil {
-			return nil, err
-		}
-		outcome, err := requiredEnum(raw.Outcome, field+".outcome", evidenceOutcomes...)
-		if err != nil {
-			return nil, err
-		}
-		entry := RuntimeEvidenceEntry{ID: id, Kind: kind, Summary: summary, Outcome: outcome}
-		if raw.Command != nil {
-			command, err := requiredTrimmedString(raw.Command, field+".command", 1, 2_000)
-			if err != nil {
-				return nil, err
-			}
-			entry.Command = command
-		}
-		if raw.Path != nil {
-			path, err := requiredTrimmedString(raw.Path, field+".path", 1, 1_000)
-			if err != nil {
-				return nil, err
-			}
-			entry.Path = path
-		}
-		if raw.ExitCode != nil {
-			exitCode, err := requiredArtifactInt(raw.ExitCode, field+".exit_code", math.MinInt64, math.MaxInt64)
-			if err != nil {
-				return nil, err
-			}
-			entry.ExitCode = &exitCode
-		}
-		if raw.Excerpt != nil {
-			excerpt, err := requiredTrimmedString(raw.Excerpt, field+".excerpt", 1, 4_000)
-			if err != nil {
-				return nil, err
-			}
-			entry.Excerpt = excerpt
-		}
-		entries = append(entries, entry)
-	}
-	return &RuntimeEvidenceArtifact{
-		SchemaVersion:     schemaVersion,
-		AnalysisID:        analysisID,
-		RepoKey:           repoKey,
-		ResolvedCommitSHA: *artifact.ResolvedCommitSHA,
-		Entries:           entries,
-	}, nil
-}
-
 // Internal classification slugs must never surface as public product tags.
 var internalProductTags = map[string]bool{
 	"micro-tool":         true,
@@ -1051,148 +862,6 @@ var genericProductTagLabels = map[string]bool{
 	"tool":                true,
 	"useful tool":         true,
 	"high quality":        true,
-}
-
-func assertProductTags(analysis *ProjectAnalysisArtifact) error {
-	if analysis.SchemaVersion == ProjectAnalysisSchemaVersion && len(analysis.Project.ProductTags) < 3 {
-		return artifactErrorf("Current project analysis requires at least three product tags")
-	}
-	slugs := map[string]bool{}
-	zhLabels := map[string]bool{}
-	enLabels := map[string]bool{}
-	for _, tag := range analysis.Project.ProductTags {
-		identity := tag.Namespace + ":" + tag.Slug
-		if slugs[identity] {
-			return artifactErrorf("Duplicate product tag slug: %s", identity)
-		}
-		slugs[identity] = true
-		if analysis.SchemaVersion == ProjectAnalysisSchemaVersion && !tag.NamespaceExplicit {
-			return artifactErrorf("Product tag namespace is required: %s", tag.Slug)
-		}
-		if internalProductTags[tag.Slug] {
-			return artifactErrorf("Product tag exposes an internal classification: %s", tag.Slug)
-		}
-		for _, label := range []struct {
-			value string
-			seen  map[string]bool
-		}{
-			{tag.Labels.Zh, zhLabels},
-			{tag.Labels.En, enLabels},
-		} {
-			normalized := strings.ToLower(strings.TrimSpace(label.value))
-			if label.seen[normalized] {
-				return artifactErrorf("Duplicate product tag label: %s", label.value)
-			}
-			label.seen[normalized] = true
-			if genericProductTagLabels[normalized] {
-				return artifactErrorf("Product tag is too generic: %s", label.value)
-			}
-		}
-	}
-	return nil
-}
-
-func assertEvidenceReferences(analysis *ProjectAnalysisArtifact, evidence *RuntimeEvidenceArtifact) error {
-	available := make(map[string]bool, len(evidence.Entries))
-	for _, entry := range evidence.Entries {
-		available[entry.ID] = true
-	}
-	referenced := []string{}
-	referenced = append(referenced, analysis.Scores.Pain.EvidenceIDs...)
-	referenced = append(referenced, analysis.Scores.Effectiveness.EvidenceIDs...)
-	referenced = append(referenced, analysis.Scores.Experience.EvidenceIDs...)
-	referenced = append(referenced, analysis.Scores.ValueDensity.EvidenceIDs...)
-	referenced = append(referenced, analysis.CommunityStrength.EvidenceIDs...)
-	referenced = append(referenced, analysis.Exposure.EvidenceIDs...)
-	for _, risk := range analysis.Risks {
-		referenced = append(referenced, risk.EvidenceIDs...)
-	}
-	for _, tag := range analysis.Project.ProductTags {
-		referenced = append(referenced, tag.EvidenceIDs...)
-	}
-	seen := map[string]bool{}
-	missing := []string{}
-	for _, id := range referenced {
-		if !available[id] && !seen[id] {
-			seen[id] = true
-			missing = append(missing, id)
-		}
-	}
-	if len(missing) > 0 {
-		return artifactErrorf("Missing evidence references: %s", strings.Join(missing, ", "))
-	}
-	return nil
-}
-
-// ParseProjectAnalysisArtifacts mirrors parseProjectAnalysisArtifacts: both
-// artifacts are validated, their identities are cross-checked, the product
-// score must equal the dimension sum, and every referenced evidence id must
-// exist. All failures wrap ErrArtifactInvalid.
-func ParseProjectAnalysisArtifacts(input ProjectAnalysisArtifactsInput) (*ParsedProjectAnalysisArtifacts, error) {
-	if utf8.RuneCountInString(input.AnalysisRaw) > projectAnalysisArtifactMaxLength {
-		return nil, artifactErrorf("analysis artifact is too large")
-	}
-	if utf8.RuneCountInString(input.EvidenceRaw) > projectEvidenceArtifactMaxLength {
-		return nil, artifactErrorf("evidence artifact is too large")
-	}
-	if strings.TrimSpace(input.ReportMarkdown) == "" || utf8.RuneCountInString(input.ReportMarkdown) > projectReportMaxLength {
-		return nil, artifactErrorf("report artifact is empty or too large")
-	}
-
-	analysis, err := parseProjectAnalysisArtifact(input.AnalysisRaw)
-	if err != nil {
-		return nil, err
-	}
-	evidence, err := parseRuntimeEvidenceArtifact(input.EvidenceRaw)
-	if err != nil {
-		return nil, err
-	}
-
-	expectedRepoKey := strings.ToLower(input.ExpectedRepoKey)
-	if analysis.AnalysisID != input.ExpectedAnalysisID || evidence.AnalysisID != input.ExpectedAnalysisID {
-		return nil, artifactErrorf("analysis identity mismatch")
-	}
-	if strings.ToLower(analysis.Repository.RepoKey) != expectedRepoKey ||
-		strings.ToLower(evidence.RepoKey) != expectedRepoKey {
-		return nil, artifactErrorf("repository identity mismatch")
-	}
-	if analysis.Repository.ResolvedCommitSHA != evidence.ResolvedCommitSHA {
-		return nil, artifactErrorf("resolved commit mismatch")
-	}
-	if analysis.SchemaVersion != evidence.SchemaVersion {
-		return nil, artifactErrorf("artifact schema version mismatch")
-	}
-
-	dimensionSum := analysis.Scores.Pain.Score + analysis.Scores.Effectiveness.Score +
-		analysis.Scores.Experience.Score + analysis.Scores.ValueDensity.Score
-	if dimensionSum != analysis.Scores.ProductScore {
-		return nil, artifactErrorf("Product score must equal the dimension sum")
-	}
-	if err := assertProductTags(analysis); err != nil {
-		return nil, err
-	}
-	if err := assertEvidenceReferences(analysis, evidence); err != nil {
-		return nil, err
-	}
-
-	if run := input.ExpectedRun; run != nil {
-		sameRef := (run.RequestedRef == nil) == (analysis.Repository.RequestedRef == nil)
-		if sameRef && run.RequestedRef != nil {
-			sameRef = *run.RequestedRef == *analysis.Repository.RequestedRef
-		}
-		if analysis.RubricVersion != run.RubricVersion ||
-			analysis.AgentVersion != run.AgentVersion ||
-			analysis.SkillVersion != run.SkillVersion ||
-			!sameRef {
-			return nil, artifactErrorf("Artifact version or requested ref does not match the analysis run.")
-		}
-	}
-
-	return &ParsedProjectAnalysisArtifacts{
-		Analysis:       analysis,
-		Evidence:       evidence,
-		ReportMarkdown: input.ReportMarkdown,
-	}, nil
 }
 
 type BoardBlockingReason = string

@@ -325,7 +325,7 @@ func mergeGorseFeedCandidates(baseline, gorse []FeedCandidate, now time.Time, li
 		}
 		return baseline[i].Project.RepoKey < baseline[j].Project.RepoKey
 	})
-	baselineLimit := minInt(len(baseline), limit-len(exclusive))
+	baselineLimit := min(len(baseline), limit-len(exclusive))
 	result := make([]FeedCandidate, 0, baselineLimit+len(exclusive))
 	result = append(result, baseline[:baselineLimit]...)
 	return append(result, exclusive...)

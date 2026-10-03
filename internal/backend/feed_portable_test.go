@@ -130,7 +130,7 @@ func TestPortableEventsSupportsBothLegacyShapesStrictly(t *testing.T) {
 	for _, body := range []string{`{"events":[],"unknown":true}`, `[{"id":"x","unknown":true}]`, `[] {}`, `[]` + strings.Repeat(" ", feedMaxBodyBytes)} {
 		var payload feedEventsPayload
 		if err := decodeFeedJSON(httptest.NewRequest("POST", "/", strings.NewReader(body)), &payload); err == nil {
-			t.Fatalf("invalid event shape accepted %s", body[:minInt(len(body), 50)])
+			t.Fatalf("invalid event shape accepted %s", body[:min(len(body), 50)])
 		}
 	}
 }
