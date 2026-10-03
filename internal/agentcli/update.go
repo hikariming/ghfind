@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -342,59 +341,6 @@ func packageManagerCommand(method string) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("invalid update method: %s", method)
 	}
-}
-
-func isNewerVersion(latest string, current string) (bool, bool) {
-	latestParts, okLatest := parseVersionParts(latest)
-	currentParts, okCurrent := parseVersionParts(current)
-	if !okLatest || !okCurrent {
-		return false, false
-	}
-	for i := 0; i < len(latestParts) || i < len(currentParts); i++ {
-		var l, c int
-		if i < len(latestParts) {
-			l = latestParts[i]
-		}
-		if i < len(currentParts) {
-			c = currentParts[i]
-		}
-		if l > c {
-			return true, true
-		}
-		if l < c {
-			return false, true
-		}
-	}
-	return false, true
-}
-
-func parseVersionParts(version string) ([]int, bool) {
-	version = strings.TrimSpace(version)
-	version = strings.TrimPrefix(version, "ghfind")
-	version = strings.TrimSpace(strings.TrimPrefix(version, "v"))
-	if version == "" || version == "dev" {
-		return nil, false
-	}
-	fields := strings.FieldsFunc(version, func(r rune) bool {
-		return r == '-' || r == '+'
-	})
-	if len(fields) == 0 {
-		return nil, false
-	}
-	main := fields[0]
-	segments := strings.Split(main, ".")
-	parts := make([]int, 0, len(segments))
-	for _, segment := range segments {
-		if segment == "" {
-			return nil, false
-		}
-		value, err := strconv.Atoi(segment)
-		if err != nil {
-			return nil, false
-		}
-		parts = append(parts, value)
-	}
-	return parts, true
 }
 
 func formatUpdateInfo(info UpdateInfo) string {
