@@ -939,17 +939,29 @@ export async function checkVerdictRateLimit(ip: string): Promise<RateLimitResult
 // Score histogram backing rank/percentile lookups (lib/rank.ts): one
 // whole-table aggregate per TTL serves every profile page, /api/score, share
 // card and MCP call, instead of an O(table) scan per request.
-const SCORE_HISTOGRAM_KEY = "score-hist:v1";
+const SCORE_HISTOGRAM_KEY = "score-hist:v2";
 // Whole-table aggregate (~59k rows_read per refresh) behind every rank and
-// percentile. The global distribution barely moves in half an hour, and each
-// refresh ran ~36×/hour across isolates at 5 minutes.
-const SCORE_HISTOGRAM_TTL_SECONDS = 1800;
+// percentile. Fresh for 30 min, then served stale while one isolate refreshes
+// it: with a plain TTL every isolate that read during the refresh missed at
+// once (~24 refreshes/hour at a 30 min TTL, ~36 at 5 min).
+export const SCORE_HISTOGRAM_FRESH_MS = 30 * 60_000;
+const SCORE_HISTOGRAM_TTL_SECONDS = 6 * 3600;
+const SCORE_HISTOGRAM_REFRESH_LOCK = "lock:score-hist";
+// Covers one aggregate query; a crashed refresher frees it soon after.
+const SCORE_HISTOGRAM_REFRESH_LOCK_SECONDS = 60;
 
-export async function getCachedScoreHistogram(): Promise<ScoreHistogramRow[] | null> {
+export interface CachedScoreHistogram {
+  rows: ScoreHistogramRow[];
+  /** Epoch ms the aggregate was computed. */
+  at: number;
+}
+
+export async function getCachedScoreHistogram(): Promise<CachedScoreHistogram | null> {
   const r = cacheStore();
   if (!r) return null;
   try {
-    return (await r.get<ScoreHistogramRow[]>(SCORE_HISTOGRAM_KEY)) ?? null;
+    const v = await r.get<CachedScoreHistogram>(SCORE_HISTOGRAM_KEY);
+    return v && Array.isArray(v.rows) && typeof v.at === "number" ? v : null;
   } catch {
     return null;
   }
@@ -959,9 +971,21 @@ export async function setCachedScoreHistogram(rows: ScoreHistogramRow[]): Promis
   const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(SCORE_HISTOGRAM_KEY, rows, SCORE_HISTOGRAM_TTL_SECONDS);
+    await r.set(SCORE_HISTOGRAM_KEY, { rows, at: Date.now() }, SCORE_HISTOGRAM_TTL_SECONDS);
   } catch {
     // best-effort
+  }
+}
+
+/** `true` = this caller refreshes a stale histogram; everyone else keeps
+ *  serving the stale copy. Without an atomic store everyone refreshes. */
+export async function acquireScoreHistogramRefresh(): Promise<boolean> {
+  const r = atomicStore();
+  if (!r) return true;
+  try {
+    return await r.setIfAbsent(SCORE_HISTOGRAM_REFRESH_LOCK, "1", SCORE_HISTOGRAM_REFRESH_LOCK_SECONDS);
+  } catch {
+    return true;
   }
 }
 
