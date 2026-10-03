@@ -66,9 +66,17 @@ jobs:
           node --input-type=module <<'JS'
           const base=process.env.COST_MONITOR_URL;
           if(!base)throw new Error('Monitor URL not configured');
-          const response=await fetch(`${base}/run`,{method:'POST',headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(120000)});
-          const result=await response.json();
-          if(!response.ok || result.status!=='ok' || !(result.points>0))throw new Error('Live cost collection not healthy');
+          // A fresh deploy's workers.dev route can briefly answer with an HTML
+          // error page, so retry before judging the collection unhealthy.
+          let response, result;
+          for(let attempt=1;;attempt++){
+            response=await fetch(`${base}/run`,{method:'POST',headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(120000)});
+            result=await response.json().catch(()=>null);
+            if(result || attempt===6)break;
+            console.log(`attempt ${attempt}: monitor not live yet (HTTP ${response.status})`);
+            await new Promise(r=>setTimeout(r,15000));
+          }
+          if(!response.ok || result?.status!=='ok' || !(result?.points>0))throw new Error('Live cost collection not healthy');
           console.log('Live cost collection verified');
           JS
   watchdog:
