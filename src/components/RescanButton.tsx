@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ROAST_FRESH_MS } from "@/lib/freshness";
-import { readScanResponse } from "@/lib/scan-job-client";
+import { readScanResponse, type ScanJobStatus } from "@/lib/scan-job-client";
 import { consumeRoastStream } from "@/lib/roast-stream";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+import { ScoreJobProgress } from "./ScoreJobProgress";
 
 type Status = "idle" | "scanning" | "roasting" | "error";
 
@@ -31,9 +32,13 @@ export function RescanButton({
   className?: string;
 }) {
   const t = useTranslations("rescan");
+  const tScan = useTranslations("scanErrors");
+  const tJob = useTranslations("scoreJob");
   const locale = useLocale();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
+  const [jobStatus, setJobStatus] = useState<ScanJobStatus | null>(null);
+  const [errorText, setErrorText] = useState("");
   const [token, setToken] = useState("");
   const [needVerify, setNeedVerify] = useState(false);
   // Cooldown depends on the current time, so resolve it after mount to avoid a
@@ -58,6 +63,8 @@ export function RescanButton({
       return;
     }
     setStatus("scanning");
+    setJobStatus(null);
+    setErrorText("");
     try {
       const scanRes = await fetch("/api/scan?force=1", {
         method: "POST",
@@ -68,7 +75,8 @@ export function RescanButton({
         setStatus("error");
         return;
       }
-      const scan = (await readScanResponse(scanRes)) as ScanResult;
+      const scan = (await readScanResponse(scanRes, { onStatus: setJobStatus })) as ScanResult;
+      setJobStatus(null);
       setStatus("roasting");
       const roastRes = await fetch("/api/roast", {
         method: "POST",
@@ -89,10 +97,21 @@ export function RescanButton({
       if (errored) return;
       router.refresh();
       setStatus("idle");
-    } catch {
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      setErrorText(
+        code === "scan_timeout"
+          ? tJob("timeout")
+          : typeof code === "string" && code !== "scan_aborted"
+            ? tScan.has(code)
+              ? tScan(code)
+              : tJob("failed")
+            : t("error"),
+      );
+      setJobStatus(null);
       setStatus("error");
     }
-  }, [token, username, locale, router]);
+  }, [token, username, locale, router, t, tJob, tScan]);
 
   // Once the Turnstile token arrives, resume a click that was waiting on it.
   useEffect(() => {
@@ -104,7 +123,12 @@ export function RescanButton({
 
   const label =
     status === "scanning"
-      ? t("scanning")
+      ? jobStatus
+        ? tJob("computing") +
+          (typeof jobStatus.progress === "number"
+            ? ` ${Math.round(Math.min(1, Math.max(0, jobStatus.progress)) * 100)}%`
+            : "…")
+        : t("scanning")
       : status === "roasting"
         ? t("roasting")
         : t("button");
@@ -120,8 +144,13 @@ export function RescanButton({
         {label}
       </button>
       {needVerify && !token && <Turnstile onToken={setToken} />}
+      {status === "scanning" && jobStatus && (
+        <div className="mt-1.5 text-xs text-zinc-400">
+          <ScoreJobProgress compact status={jobStatus} />
+        </div>
+      )}
       {status === "error" && (
-        <div className="mt-1.5 text-xs text-rose-300">{t("error")}</div>
+        <div className="mt-1.5 text-xs text-rose-300">{errorText || t("error")}</div>
       )}
       {now != null && onCooldown && status === "idle" && (
         <div className="mt-1.5 text-[11px] text-zinc-500">

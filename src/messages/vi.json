@@ -428,6 +428,35 @@
     "github_unavailable": "Dữ liệu GitHub tạm thời không khả dụng — thử lại sau.",
     "scan_failed": "Quét bị sập — thử lại sau nhé."
   },
+  "scoreJob": {
+    "computing": "Đang tính",
+    "computingHint": "Điểm lần đầu cần vài phút: đang thu thập dữ liệu đóng góp công khai. Giữ trang này mở là điểm sẽ tự xuất hiện.",
+    "progress": "Đã xong {percent}",
+    "failed": "Tính điểm thất bại — thử lại sau nhé.",
+    "timeout": "Vẫn đang tính — quay lại sau nhé.",
+    "phase": {
+      "queued": "Đang xếp hàng",
+      "running": "Đang tính",
+      "user": "Hồ sơ",
+      "contribs": "Đóng góp",
+      "maintainer": "Thông tin maintainer",
+      "gap_fill": "Bổ sung lịch sử",
+      "merged_prs": "PR đã merge",
+      "repo_meta": "Metadata repo",
+      "pr_samples": "Mẫu PR",
+      "pr_details": "Chi tiết PR",
+      "mutual_mergers": "Quan hệ merge",
+      "histories": "Lịch sử commit",
+      "signals": "Tín hiệu",
+      "per_repo": "Phân tích từng repo",
+      "owner_types": "Kiểu chủ sở hữu",
+      "star_history": "Lịch sử star",
+      "rejected": "PR bị từ chối",
+      "ext_prs": "PR bên ngoài",
+      "assemble": "Tổng hợp",
+      "publish": "Công bố điểm"
+    }
+  },
   "share": {
     "open": "🔗 Chia sẻ",
     "heading": "Chia sẻ tới",
