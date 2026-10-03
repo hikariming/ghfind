@@ -258,7 +258,7 @@ D1/R2 绑定统一维护在 [`wrangler.jsonc`](./wrangler.jsonc)。
 
 ## 自带模型 / API Key
 
-点页面上的「用自己的模型」,填 Base URL + API Key + Model。兼容任意 OpenAI 接口(OpenAI / OpenRouter / Groq / DeepSeek / 本地)。**Key 只存在你自己的浏览器 localStorage,调用时直传,绝不上传到服务器、绝不落库。**
+点页面上的「用自己的模型」,填 Base URL + API Key + Model。兼容任意 OpenAI 接口(OpenAI / OpenRouter / Requesty / Groq / DeepSeek / 本地)。**Key 只存在你自己的浏览器 localStorage,调用时直传,绝不上传到服务器、绝不落库。**
 
 ## 重新生成打分一致性测试的基准
 
