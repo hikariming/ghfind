@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type unavailableFeedRedis struct{ *fakeStatusStore }
+type unavailableFeedRedis struct{}
 
 func (u *unavailableFeedRedis) LimitFeed(context.Context, int64, string, time.Time) (RateLimitResult, error) {
 	return RateLimitResult{Unavailable: true}, errors.New("redis down")
@@ -172,7 +172,7 @@ func feedAPITestServer(t *testing.T) (*APIServer, *fakeFeedDataStore, *MemoryFee
 		store.candidates = append(store.candidates, feedCandidate(key, owner, float64(90-index), 90, "low", now))
 	}
 	config := Config{FeedMode: FeedModeBaseline, FeedSigningSecret: strings.Repeat("f", 32), AuthSecret: strings.Repeat("a", 32)}
-	server := NewAPIServer(config, &fakeScanStore{}, &fakeStatusStore{}, &fakePublisher{})
+	server := NewAPIServer(config, nil, nil)
 	server.clock = func() time.Time { return now }
 	sessions := NewMemoryFeedSessionStore()
 	sessions.now = server.clock
@@ -278,7 +278,7 @@ func TestFeedCursorExpiresWhenProfileVersionChanges(t *testing.T) {
 
 func TestFeedDatabaseFailureDoesNotAffectCoreReadiness(t *testing.T) {
 	config := Config{FeedMode: FeedModeBaseline, FeedSigningSecret: strings.Repeat("f", 32), AuthSecret: strings.Repeat("a", 32)}
-	server := NewAPIServer(config, &fakeScanStore{}, &fakeStatusStore{}, &fakePublisher{}, func(context.Context) error { return nil })
+	server := NewAPIServer(config, nil, nil, func(context.Context) error { return nil })
 	server.clock = func() time.Time { return time.Date(2026, 8, 13, 2, 0, 0, 0, time.UTC) }
 	if err := server.UseFeed(nil, NewMemoryFeedSessionStore()); err != nil {
 		t.Fatal(err)
@@ -335,7 +335,7 @@ func TestFeedEventsRejectsCrossUserImpressionToken(t *testing.T) {
 }
 
 func TestFeedDisabledDoesNotExposeEndpoint(t *testing.T) {
-	server := NewAPIServer(Config{}, &fakeScanStore{}, &fakeStatusStore{}, &fakePublisher{})
+	server := NewAPIServer(Config{}, nil, nil)
 	recorder := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/feed/tags", nil))
 	if recorder.Code != http.StatusNotFound {
@@ -346,9 +346,9 @@ func TestFeedDisabledDoesNotExposeEndpoint(t *testing.T) {
 func TestFeedFirstPageSurvivesUpstashFailureWithoutCursor(t *testing.T) {
 	now := time.Date(2026, 8, 13, 2, 0, 0, 0, time.UTC)
 	store := &fakeFeedDataStore{candidates: []FeedCandidate{feedCandidate("one/alpha", "one", 90, 90, "low", now)}}
-	redis := &unavailableFeedRedis{fakeStatusStore: &fakeStatusStore{}}
+	redis := &unavailableFeedRedis{}
 	config := Config{FeedMode: FeedModeBaseline, FeedSigningSecret: strings.Repeat("f", 32), AuthSecret: strings.Repeat("a", 32)}
-	server := NewAPIServer(config, &fakeScanStore{}, redis, &fakePublisher{})
+	server := NewAPIServer(config, nil, redis)
 	server.clock = func() time.Time { return now }
 	if err := server.UseFeed(store, redis); err != nil {
 		t.Fatal(err)
@@ -370,9 +370,9 @@ func TestFeedFirstPageSurvivesUpstashFailureWithoutCursor(t *testing.T) {
 func TestFeedWritesFailClosedWhenUpstashIsUnavailable(t *testing.T) {
 	now := time.Date(2026, 8, 13, 2, 0, 0, 0, time.UTC)
 	store := &fakeFeedDataStore{}
-	redis := &unavailableFeedRedis{fakeStatusStore: &fakeStatusStore{}}
+	redis := &unavailableFeedRedis{}
 	config := Config{FeedMode: FeedModeBaseline, FeedSigningSecret: strings.Repeat("f", 32), AuthSecret: strings.Repeat("a", 32)}
-	server := NewAPIServer(config, &fakeScanStore{}, redis, &fakePublisher{})
+	server := NewAPIServer(config, nil, redis)
 	server.clock = func() time.Time { return now }
 	if err := server.UseFeed(store, redis); err != nil {
 		t.Fatal(err)
@@ -392,7 +392,7 @@ func TestGorseCanaryAddsOnlyHydratedCandidatesWithoutExposingSources(t *testing.
 	}
 	config := Config{FeedMode: FeedModeGorseCanary, FeedGorseLiveBPS: 10_000,
 		FeedSigningSecret: strings.Repeat("f", 32), AuthSecret: strings.Repeat("a", 32)}
-	server := NewAPIServer(config, &fakeScanStore{}, &fakeStatusStore{}, &fakePublisher{})
+	server := NewAPIServer(config, nil, nil)
 	server.clock = func() time.Time { return now }
 	sessions := NewMemoryFeedSessionStore()
 	sessions.now = server.clock

@@ -233,7 +233,7 @@ func TestPortableRollingExplorationBudgetAndDeterministicProbability(t *testing.
 	ranked := RankFeedCandidates(candidates, FeedRankOptions{Now: now, Limit: 65, Seed: "rolling-golden", OwnerCap: 2, ExplorationRate: 1, ExplorationWindowSize: 20})
 	for i, item := range ranked {
 		explored := 0
-		for _, previous := range ranked[maxInt(0, i-19):i] {
+		for _, previous := range ranked[max(0, i-19):i] {
 			if previous.Exploration {
 				explored++
 			}
@@ -244,7 +244,7 @@ func TestPortableRollingExplorationBudgetAndDeterministicProbability(t *testing.
 			}
 		} else {
 			// Exploration uses the bounded top-50 pool, including its best candidate.
-			expected := 1 / float64(minInt(50, len(ranked)-i))
+			expected := 1 / float64(min(50, len(ranked)-i))
 			if !item.Exploration || math.Abs(item.Propensity-expected) > 1e-12 {
 				t.Fatalf("rolling mixture position%d propensity%f want%f", i, item.Propensity, expected)
 			}
