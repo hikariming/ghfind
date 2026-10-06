@@ -19,6 +19,10 @@ type CachedVerdict struct {
 	Advice  RoastLine `json:"advice"`
 	Winner  *string   `json:"winner"`
 	Bucket  string    `json:"bucket"`
+	// Scores used to generate this verdict. Zero means a legacy cache entry;
+	// callers must treat such entries as stale before returning them.
+	ScoreA float64 `json:"scoreA,omitempty"`
+	ScoreB float64 `json:"scoreB,omitempty"`
 }
 
 type VerdictCache interface {

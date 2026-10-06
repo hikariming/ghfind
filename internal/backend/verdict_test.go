@@ -141,7 +141,7 @@ func TestVerdictUsesExistingCacheAfterRecordingHumanView(t *testing.T) {
 	winner := "alice"
 	statuses := &verdictFixtureStatus{
 		limit:  VerdictRateLimitResult{Success: true},
-		cached: &CachedVerdict{Verdict: RoastLine{ZH: "缓存裁决", EN: "cached verdict"}, Advice: RoastLine{ZH: "缓存建议", EN: "cached advice"}, Winner: &winner, Bucket: "edge"},
+		cached: &CachedVerdict{Verdict: RoastLine{ZH: "缓存裁决", EN: "cached verdict"}, Advice: RoastLine{ZH: "缓存建议", EN: "cached advice"}, Winner: &winner, Bucket: "edge", ScoreA: 90, ScoreB: 80},
 	}
 	server := NewAPIServer(Config{VerdictGatewaySecret: "gateway-secret"}, store, statuses, &fakePublisher{})
 	response := httptest.NewRecorder()
@@ -150,6 +150,28 @@ func TestVerdictUsesExistingCacheAfterRecordingHumanView(t *testing.T) {
 		t.Fatalf("status=%d records=%#v bumps=%d cacheWrites=%d", response.Code, store.records, store.bumps, statuses.cacheWrites)
 	}
 	if !strings.Contains(response.Body.String(), "缓存裁决") {
+		t.Fatalf("body=%s", response.Body.String())
+	}
+}
+
+func TestVerdictRegeneratesWhenCachedScoresAreStale(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"@@VERDICT zh=新裁决|en=Fresh verdict@@\n@@ADVICE zh=新建议|en=Fresh advice@@"}}]}`))
+	}))
+	defer provider.Close()
+	store := &verdictFixtureStore{details: map[string]*StoredScoreDetail{"alice": verdictFixture("alice", 90), "bob": verdictFixture("bob", 80)}}
+	winner := "alice"
+	statuses := &verdictFixtureStatus{
+		limit:  VerdictRateLimitResult{Success: true},
+		cached: &CachedVerdict{Verdict: RoastLine{ZH: "旧裁决", EN: "stale verdict"}, Winner: &winner, Bucket: "edge", ScoreA: 89, ScoreB: 80},
+	}
+	server := NewAPIServer(Config{VerdictGatewaySecret: "gateway-secret", LLMAPIKey: "llm-key", LLMBaseURL: provider.URL, LLMModel: "fixture"}, store, statuses, &fakePublisher{})
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, signedVerdictRequest(server, `{"a":"alice","b":"bob"}`))
+	if response.Code != http.StatusOK || statuses.cacheWrites != 1 || len(store.records) != 2 {
+		t.Fatalf("status=%d cacheWrites=%d records=%#v body=%s", response.Code, statuses.cacheWrites, store.records, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "stale verdict") || !strings.Contains(response.Body.String(), "Fresh verdict") {
 		t.Fatalf("body=%s", response.Body.String())
 	}
 }

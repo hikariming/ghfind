@@ -77,10 +77,19 @@ func (s *TursoStore) RecordMatchup(ctx context.Context, matchup MatchupInput) er
       gap            = excluded.gap,
       score_a        = excluded.score_a,
       score_b        = excluded.score_b,
-      verdict        = COALESCE(excluded.verdict, vs_matchups.verdict),
-      advice         = COALESCE(excluded.advice, vs_matchups.advice),
-      verdict_source = CASE WHEN excluded.verdict IS NOT NULL
-                            THEN excluded.verdict_source ELSE vs_matchups.verdict_source END,
+			verdict        = CASE WHEN vs_matchups.score_a != excluded.score_a
+			                          OR vs_matchups.score_b != excluded.score_b
+			                    THEN NULL
+			                    ELSE COALESCE(excluded.verdict, vs_matchups.verdict) END,
+			advice         = CASE WHEN vs_matchups.score_a != excluded.score_a
+			                         OR vs_matchups.score_b != excluded.score_b
+			                   THEN NULL
+			                   ELSE COALESCE(excluded.advice, vs_matchups.advice) END,
+			verdict_source = CASE WHEN vs_matchups.score_a != excluded.score_a
+			                         OR vs_matchups.score_b != excluded.score_b
+			                    THEN NULL
+			                    WHEN excluded.verdict IS NOT NULL
+			                    THEN excluded.verdict_source ELSE vs_matchups.verdict_source END,
       updated_at     = excluded.updated_at`,
 		strings.ToLower(matchup.A), strings.ToLower(matchup.B), matchup.Winner, matchup.Bucket, matchup.Gap,
 		matchup.ScoreA, matchup.ScoreB, verdict, advice, source, now, now,
@@ -289,7 +298,8 @@ func (s *APIServer) vsVerdict(w http.ResponseWriter, request *http.Request) {
 		_ = s.matchups.BumpMatchupView(request.Context(), a, b)
 	}
 	if s.verdictCache != nil {
-		if cached, err := s.verdictCache.GetCachedVerdict(request.Context(), a, b); err == nil && cached != nil {
+		if cached, err := s.verdictCache.GetCachedVerdict(request.Context(), a, b); err == nil && cached != nil &&
+			cached.ScoreA == first.FinalScore && cached.ScoreB == second.FinalScore {
 			s.writeVerdictSuccess(w, *cached)
 			return
 		}
@@ -303,7 +313,7 @@ func (s *APIServer) vsVerdict(w http.ResponseWriter, request *http.Request) {
 	if s.verdictCache != nil {
 		leader, _ = s.verdictCache.TryAcquireVerdictLock(request.Context(), a, b)
 		if !leader {
-			if waited := s.waitForVerdict(request.Context(), a, b); waited != nil {
+			if waited := s.waitForVerdict(request.Context(), a, b, first.FinalScore, second.FinalScore); waited != nil {
 				s.writeVerdictSuccess(w, *waited)
 				return
 			}
@@ -322,7 +332,10 @@ func (s *APIServer) vsVerdict(w http.ResponseWriter, request *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"verdict": nil, "reason": "empty"}, nil)
 		return
 	}
-	value := CachedVerdict{Verdict: verdictLine, Advice: advice, Winner: winner, Bucket: decision.Bucket}
+	value := CachedVerdict{
+		Verdict: verdictLine, Advice: advice, Winner: winner, Bucket: decision.Bucket,
+		ScoreA: first.FinalScore, ScoreB: second.FinalScore,
+	}
 	if s.verdictCache != nil {
 		_ = s.verdictCache.SetCachedVerdict(request.Context(), a, b, value)
 	}
@@ -334,7 +347,7 @@ func (s *APIServer) vsVerdict(w http.ResponseWriter, request *http.Request) {
 	s.writeVerdictSuccess(w, value)
 }
 
-func (s *APIServer) waitForVerdict(ctx context.Context, a, b string) *CachedVerdict {
+func (s *APIServer) waitForVerdict(ctx context.Context, a, b string, scoreA, scoreB float64) *CachedVerdict {
 	if s.verdictCache == nil {
 		return nil
 	}
@@ -347,13 +360,17 @@ func (s *APIServer) waitForVerdict(ctx context.Context, a, b string) *CachedVerd
 			return nil
 		case <-timer.C:
 		}
-		if cached, err := s.verdictCache.GetCachedVerdict(ctx, a, b); err == nil && cached != nil {
+		if cached, err := s.verdictCache.GetCachedVerdict(ctx, a, b); err == nil && cached != nil &&
+			cached.ScoreA == scoreA && cached.ScoreB == scoreB {
 			return cached
 		}
 		locked, err := s.verdictCache.HasVerdictLock(ctx, a, b)
 		if err == nil && !locked {
 			cached, _ := s.verdictCache.GetCachedVerdict(ctx, a, b)
-			return cached
+			if cached != nil && cached.ScoreA == scoreA && cached.ScoreB == scoreB {
+				return cached
+			}
+			return nil
 		}
 	}
 	return nil

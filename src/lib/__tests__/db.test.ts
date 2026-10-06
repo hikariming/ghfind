@@ -503,6 +503,65 @@ describe("getArchivedRoast", () => {
   });
 });
 
+describe("PK matchup freshness", () => {
+  it("refreshes the displayed result and hides prose after a score changes", async () => {
+    const scannedAt = 1_900_000_000_000;
+    await writeScore({ ...entry, username: "pk-alice", final_score: 70, scanned_at: scannedAt });
+    await writeScore({ ...entry, username: "pk-bob", final_score: 60, scanned_at: scannedAt + 1 });
+    await db.recordMatchup({
+      a: "pk-alice",
+      b: "pk-bob",
+      winner: "pk-alice",
+      bucket: "edge",
+      gap: 10,
+      scoreA: 70,
+      scoreB: 60,
+      verdict: { zh: "旧点评", en: "old verdict" },
+      advice: { zh: "旧建议", en: "old advice" },
+      source: "llm",
+    });
+
+    await expect(db.getMatchup("pk-alice", "pk-bob")).resolves.toMatchObject({
+      scoreA: 70,
+      scoreB: 60,
+      verdict: { zh: "旧点评", en: "old verdict" },
+    });
+
+    await writeScore({
+      ...entry,
+      username: "pk-alice",
+      final_score: 90,
+      scanned_at: scannedAt + 2,
+    });
+
+    await expect(db.getMatchup("pk-alice", "pk-bob")).resolves.toMatchObject({
+      scoreA: 90,
+      scoreB: 60,
+      winner: "pk-alice",
+      bucket: "crush",
+      verdict: null,
+      advice: null,
+      verdictSource: null,
+    });
+
+    await db.recordMatchup({
+      a: "pk-alice",
+      b: "pk-bob",
+      winner: "pk-alice",
+      bucket: "crush",
+      gap: 30,
+      scoreA: 90,
+      scoreB: 60,
+      source: "template",
+    });
+    await expect(db.getMatchup("pk-alice", "pk-bob")).resolves.toMatchObject({
+      verdict: null,
+      advice: null,
+      verdictSource: null,
+    });
+  });
+});
+
 describe("score snapshots", () => {
   it("stores one generated-at stub when a completed roast is persisted", async () => {
     const username = "roast-snapshot";

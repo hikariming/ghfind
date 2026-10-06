@@ -11,8 +11,8 @@
 export const SCORE_CACHE_VERSION = "v10";
 // Formal successor to the previous production report contract.
 export const ROAST_CACHE_VERSION = "v11";
-/** Bump when the PK (versus) verdict prompt / output semantics change. */
-export const VERDICT_CACHE_VERSION = "v1";
+/** Bump when PK verdict prompt/output or cache identity semantics change. */
+export const VERDICT_CACHE_VERSION = "v2";
 
 export function bypassGeneratedCaches(): boolean {
   return (

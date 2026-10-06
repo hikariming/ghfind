@@ -115,13 +115,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ verdict: null, reason: "below_floor" });
   }
 
-  // Ensure a row exists (deterministic result) + count the human view. Never
-  // overwrites an existing LLM verdict (recordMatchup COALESCEs).
+  // Ensure a row exists (deterministic result) + count the human view. The
+  // upsert preserves prose for the same score snapshot and clears it when a
+  // participant's score changed.
   await recordMatchup({ ...base, source: "template" });
   await bumpMatchupView(a, b);
 
   // Cache hit → no LLM.
-  const cached = await getCachedVerdict(a, b);
+  const expectedScores = { scoreA: da.final_score, scoreB: db.final_score };
+  const cached = await getCachedVerdict(a, b, expectedScores);
   if (cached) {
     return NextResponse.json({
       verdict: cached.verdict,
@@ -139,7 +141,7 @@ export async function POST(req: NextRequest) {
   // Single-flight: only the leader spends the LLM; others wait for its result.
   const leader = await acquireVerdictLock(a, b);
   if (!leader) {
-    const waited = await waitForCachedVerdict(a, b);
+    const waited = await waitForCachedVerdict(a, b, expectedScores);
     if (waited) {
       return NextResponse.json({
         verdict: waited.verdict,
@@ -163,7 +165,14 @@ export async function POST(req: NextRequest) {
     if (!verdictLine.zh && !verdictLine.en) {
       return NextResponse.json({ verdict: null, reason: "empty" });
     }
-    const value: CachedVerdict = { verdict: verdictLine, advice, winner, bucket: v.bucket };
+    const value: CachedVerdict = {
+      verdict: verdictLine,
+      advice,
+      winner,
+      bucket: v.bucket,
+      scoreA: da.final_score,
+      scoreB: db.final_score,
+    };
     await setCachedVerdict(a, b, value);
     await recordMatchup({ ...base, verdict: verdictLine, advice, source: "llm" });
     return NextResponse.json({ verdict: verdictLine, advice, winner, bucket: v.bucket });

@@ -135,9 +135,18 @@ describe("verdicts, lookup gate and campaign revisions on Durable Objects", () =
   it("shares one verdict per canonical pair and locks it", async () => {
     useDurableObjects();
     const { setCachedVerdict, getCachedVerdict, acquireVerdictLock } = await loadRedis();
-    const verdict = { verdict: { en: "a", zh: "甲" }, advice: { en: "b", zh: "乙" }, winner: "a", bucket: "x" };
+    const verdict = {
+      verdict: { en: "a", zh: "甲" },
+      advice: { en: "b", zh: "乙" },
+      winner: "a",
+      bucket: "x",
+      scoreA: 90,
+      scoreB: 80,
+    };
     await setCachedVerdict("B", "a", verdict);
     expect(await getCachedVerdict("a", "b")).toEqual(verdict);
+    expect(await getCachedVerdict("a", "b", { scoreA: 90, scoreB: 80 })).toEqual(verdict);
+    expect(await getCachedVerdict("a", "b", { scoreA: 91, scoreB: 80 })).toBeNull();
     expect(await acquireVerdictLock("a", "b")).toBe(true);
     expect(await acquireVerdictLock("b", "a")).toBe(false);
   });

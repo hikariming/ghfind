@@ -6102,6 +6102,42 @@ function mapMatchupRow(r: Record<string, unknown>): VsMatchup {
   };
 }
 
+/**
+ * Matchup rows are historical snapshots. If either participant has a newer
+ * stored score, refresh the deterministic fields for readers immediately and
+ * hide prose generated from the old pair of scores until /api/vs-verdict has
+ * regenerated it.
+ */
+async function refreshMatchupSnapshot(matchup: VsMatchup): Promise<VsMatchup> {
+  const [left, right] = await Promise.all([
+    getScoreBrief(matchup.handleA),
+    getScoreBrief(matchup.handleB),
+  ]);
+  if (
+    !left ||
+    !right ||
+    (left.final_score === matchup.scoreA && right.final_score === matchup.scoreB)
+  ) {
+    return matchup;
+  }
+
+  const gap = Math.abs(left.final_score - right.final_score);
+  const winner =
+    gap < 0.005 ? null : left.final_score > right.final_score ? left.username : right.username;
+  const bucket = gap >= 15 ? "crush" : gap >= 4 ? "edge" : "even";
+  return {
+    ...matchup,
+    winner,
+    bucket,
+    gap,
+    scoreA: left.final_score,
+    scoreB: right.final_score,
+    verdict: null,
+    advice: null,
+    verdictSource: null,
+  };
+}
+
 export interface MatchupInput {
   /** Canonical (lowercased, dictionary-sorted) handles. */
   a: string;
@@ -6118,8 +6154,8 @@ export interface MatchupInput {
 
 /**
  * Upsert a matchup. A null verdict/advice never overwrites an existing one
- * (COALESCE), so re-recording the base result on later views can't wipe a
- * generated LLM verdict; `verdict_source` only advances when a verdict is set.
+ * while the score snapshot is unchanged; a score change clears the generated
+ * prose so it cannot be shown with a newer deterministic result.
  * `created_at` and `view_count` are preserved on conflict. Best-effort.
  */
 export async function recordMatchup(m: MatchupInput): Promise<void> {
@@ -6138,9 +6174,18 @@ export async function recordMatchup(m: MatchupInput): Promise<void> {
               gap            = excluded.gap,
               score_a        = excluded.score_a,
               score_b        = excluded.score_b,
-              verdict        = COALESCE(excluded.verdict, vs_matchups.verdict),
-              advice         = COALESCE(excluded.advice, vs_matchups.advice),
-              verdict_source = CASE WHEN excluded.verdict IS NOT NULL
+              verdict        = CASE WHEN vs_matchups.score_a != excluded.score_a
+                                          OR vs_matchups.score_b != excluded.score_b
+                                    THEN NULL
+                                    ELSE COALESCE(excluded.verdict, vs_matchups.verdict) END,
+              advice         = CASE WHEN vs_matchups.score_a != excluded.score_a
+                                         OR vs_matchups.score_b != excluded.score_b
+                                   THEN NULL
+                                   ELSE COALESCE(excluded.advice, vs_matchups.advice) END,
+              verdict_source = CASE WHEN vs_matchups.score_a != excluded.score_a
+                                         OR vs_matchups.score_b != excluded.score_b
+                                    THEN NULL
+                                    WHEN excluded.verdict IS NOT NULL
                                     THEN excluded.verdict_source ELSE vs_matchups.verdict_source END,
               updated_at     = excluded.updated_at`,
       args: [
@@ -6190,7 +6235,7 @@ export async function getMatchup(a: string, b: string): Promise<VsMatchup | null
       args: [a.toLowerCase(), b.toLowerCase()],
     });
     const r = res.rows[0];
-    return r ? mapMatchupRow(r as Record<string, unknown>) : null;
+    return r ? refreshMatchupSnapshot(mapMatchupRow(r as Record<string, unknown>)) : null;
   } catch (e) {
     console.error("getMatchup failed:", e);
     return null;
@@ -6211,7 +6256,8 @@ export async function getUserMatchups(username: string, limit = 8): Promise<VsMa
             ORDER BY updated_at DESC LIMIT ?`,
       args: [u, u, n],
     });
-    return res.rows.map((r) => mapMatchupRow(r as Record<string, unknown>));
+    const matchups = res.rows.map((r) => mapMatchupRow(r as Record<string, unknown>));
+    return Promise.all(matchups.map((matchup) => refreshMatchupSnapshot(matchup)));
   } catch (e) {
     console.error("getUserMatchups failed:", e);
     return [];
@@ -6232,7 +6278,12 @@ export async function getTrendingMatchups(limit = 40): Promise<VsMatchup[]> {
             ORDER BY view_count DESC, updated_at DESC LIMIT ?`,
       args: [VS_MIN_SCORE, VS_MIN_SCORE, n],
     });
-    return res.rows.map((r) => mapMatchupRow(r as Record<string, unknown>));
+    const matchups = await Promise.all(
+      res.rows.map((r) => refreshMatchupSnapshot(mapMatchupRow(r as Record<string, unknown>))),
+    );
+    return matchups.filter(
+      (matchup) => matchup.verdictSource === "llm" && matchup.verdict !== null,
+    );
   } catch (e) {
     console.error("getTrendingMatchups failed:", e);
     return [];

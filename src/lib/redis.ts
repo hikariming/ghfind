@@ -827,7 +827,7 @@ export async function waitForCachedRoast(
 // ---------------------------------------------------------------------------
 // PK (versus) verdict — bilingual LLM savage verdict + self-improvement advice,
 // cached per canonical matchup for ~5 days so the model is called at most once
-// per pair per window. Mirrors the roast cache/lock/limit machinery.
+// per score snapshot per window. Mirrors the roast cache/lock/limit machinery.
 // ---------------------------------------------------------------------------
 
 export interface CachedVerdict {
@@ -835,6 +835,9 @@ export interface CachedVerdict {
   advice: RoastLine;
   winner: string | null;
   bucket: string;
+  /** Scores used to generate this verdict; older entries are treated as stale. */
+  scoreA?: number;
+  scoreB?: number;
 }
 
 const VERDICT_TTL_SECONDS = 60 * 60 * 24 * 5; // ~5 days
@@ -849,12 +852,24 @@ export const verdictKey = (a: string, b: string) =>
   `verdict:${VERDICT_CACHE_VERSION}:${verdictPair(a, b)}`;
 const verdictLockKey = (a: string, b: string) => `lock:verdict:${verdictPair(a, b)}`;
 
-export async function getCachedVerdict(a: string, b: string): Promise<CachedVerdict | null> {
+export async function getCachedVerdict(
+  a: string,
+  b: string,
+  expectedScores?: { scoreA: number; scoreB: number },
+): Promise<CachedVerdict | null> {
   if (bypassGeneratedCaches()) return null;
   const r = atomicStore();
   if (!r) return null;
   try {
-    return (await r.get<CachedVerdict>(verdictKey(a, b))) ?? null;
+    const cached = (await r.get<CachedVerdict>(verdictKey(a, b))) ?? null;
+    if (
+      cached &&
+      expectedScores &&
+      (cached.scoreA !== expectedScores.scoreA || cached.scoreB !== expectedScores.scoreB)
+    ) {
+      return null;
+    }
+    return cached;
   } catch {
     return null;
   }
@@ -901,6 +916,7 @@ export async function releaseVerdictLock(a: string, b: string): Promise<void> {
 export async function waitForCachedVerdict(
   a: string,
   b: string,
+  expectedScores?: { scoreA: number; scoreB: number },
   timeoutMs = 45000,
 ): Promise<CachedVerdict | null> {
   if (bypassGeneratedCaches()) return null;
@@ -909,10 +925,10 @@ export async function waitForCachedVerdict(
   const steps = Math.max(1, Math.floor(timeoutMs / 500));
   for (let i = 0; i < steps; i++) {
     await sleep(500);
-    const cached = await getCachedVerdict(a, b);
+    const cached = await getCachedVerdict(a, b, expectedScores);
     if (cached) return cached;
     const stillLocked = await r.get(verdictLockKey(a, b)).catch(() => null);
-    if (!stillLocked) return (await getCachedVerdict(a, b)) ?? null;
+    if (!stillLocked) return (await getCachedVerdict(a, b, expectedScores)) ?? null;
   }
   return null;
 }
