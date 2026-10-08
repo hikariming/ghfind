@@ -389,21 +389,20 @@ export function Roaster({
       <div className="mt-3 flex flex-col items-center gap-3">
         {!campaign ? (
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-zinc-600">模型赞助商</span>
+            <span className="text-zinc-600">{t("modelSponsor")}</span>
             <a
-              href="https://www.stepfun.com/"
+              href="https://www.modelbest.cn/"
               target="_blank"
               rel="noopener noreferrer sponsored"
               className="inline-flex items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-200"
-              aria-label="StepFun"
+              aria-label="MiniCPM"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/stepfun.svg"
-                alt="StepFun"
-                className="h-4 w-4 rounded border border-white/10 bg-[#0e0e0e] p-[2px]"
+                src="/minicpm.png"
+                alt="MiniCPM"
+                className="model-sponsor-logo h-7 w-auto"
               />
-              <span className="font-medium">StepFun</span>
             </a>
             <span className="text-zinc-600">/</span>
             <Button

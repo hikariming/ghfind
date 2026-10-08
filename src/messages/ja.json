@@ -390,6 +390,7 @@
     "pendingTitle": "@{username} をロースト中… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "モデルスポンサー",
     "inputPlaceholder": "GitHubユーザー名かプロフィールURLを入力",
     "judge": "審判する",
     "judging": "審判中…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "スポンサー",
+    "learnMore": "詳しく見る",
     "metaTitle": "ghfind のスポンサー · プランと特典",
     "metaDescription": "夯・顶级・人上人・友情の4つの月額スポンサー枠。スポンサーはランキングやスコアに一切影響しません。",
     "topline": {

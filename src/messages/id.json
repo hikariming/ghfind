@@ -390,6 +390,7 @@
     "pendingTitle": "Me-roast @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Sponsor model",
     "inputPlaceholder": "Masukkan username atau URL profil GitHub",
     "judge": "Nilai",
     "judging": "Menilai…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Sponsor",
+    "learnMore": "Pelajari lebih lanjut",
     "metaTitle": "Sponsori ghfind · Paket & manfaat",
     "metaDescription": "Dukung ghfind dengan empat tingkat sponsor bulanan: 夯, 顶级, 人上人, dan 友情. Sponsor tidak memengaruhi peringkat atau skor.",
     "topline": {

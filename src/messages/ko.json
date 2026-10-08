@@ -390,6 +390,7 @@
     "pendingTitle": "@{username} 로스트 중… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "모델 스폰서",
     "inputPlaceholder": "GitHub 사용자명 또는 프로필 URL 입력",
     "judge": "심판 시작",
     "judging": "심판 중…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "스폰서",
+    "learnMore": "자세히 보기",
     "metaTitle": "ghfind 후원 · 플랜과 혜택",
     "metaDescription": "夯·顶级·人上人·友情 네 가지 월간 후원 등급. 후원은 어떤 순위나 점수에도 영향을 주지 않습니다.",
     "topline": {

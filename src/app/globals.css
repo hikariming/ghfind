@@ -1424,3 +1424,8 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
   .resume-print-root, .resume-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .resume-print-root .resume-paper { min-height: 296mm; box-shadow: none; }
 }
+
+/* Preserve the transparent sponsor mark and keep its wordmark legible. */
+html[data-theme="dark"] .model-sponsor-logo {
+  filter: invert(1) hue-rotate(180deg);
+}

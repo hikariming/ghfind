@@ -390,6 +390,7 @@
     "pendingTitle": "Roasting @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Model sponsor",
     "inputPlaceholder": "Enter a GitHub username or profile URL",
     "judge": "Judge",
     "judging": "Judging…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Sponsor",
+    "learnMore": "Learn more",
     "metaTitle": "Sponsor ghfind · Plans & perks",
     "metaDescription": "Sponsor ghfind with four monthly tiers: 夯, 顶级, 人上人 and 友情. Sponsorship never affects rankings or scores.",
     "topline": {
