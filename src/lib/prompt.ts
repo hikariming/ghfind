@@ -734,11 +734,79 @@ function buildPayload(scan: ScanResult, lang: Lang) {
   return payload;
 }
 
+/**
+ * Oversized-snapshot slimming. Huge accounts (100+ repos) otherwise push the
+ * user prompt past ~75k chars (~40k tokens), which is slow and expensive for
+ * negligible report-quality gain. When the compact payload exceeds
+ * PAYLOAD_CHAR_BUDGET, degrade evidence in quality-preserving order — PR file
+ * lists first (every PR keeps its title/repo/stars, which is what the roast
+ * actually cites), then the verified-impact sample down to its strongest
+ * entries, then README text outside the top-starred repos.
+ */
+const PAYLOAD_CHAR_BUDGET = 45_000;
+/** File lists survive only for PRs a report is likely to name: high-star repos,
+ *  plus the strongest few regardless of the threshold. */
+const FILES_KEEP_MIN_STARS = 1_000;
+const FILES_KEEP_TOP_N = 5;
+const VERIFIED_SAMPLE_KEEP = 8;
+const README_KEEP_TOP_N = 3;
+
+type RoastPayload = ReturnType<typeof buildPayload>;
+
+function slimPrFileLists(payload: RoastPayload): void {
+  const prs = payload.recent_prs ?? [];
+  const keep = new Set<number>();
+  prs.forEach((pr, index) => {
+    if (pr.repo_stars >= FILES_KEEP_MIN_STARS) keep.add(index);
+  });
+  prs
+    .map((pr, index) => [pr.repo_stars, index] as const)
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, FILES_KEEP_TOP_N)
+    .forEach(([, index]) => keep.add(index));
+  payload.recent_prs = prs.map((pr, index) => {
+    if (keep.has(index)) return pr;
+    const { files: _files, ...rest } = pr;
+    return rest;
+  });
+}
+
+function trimVerifiedImpactSample(payload: RoastPayload): void {
+  const sample = payload.verified_impact_prs ?? [];
+  if (sample.length <= VERIFIED_SAMPLE_KEEP) return;
+  payload.verified_impact_prs = [...sample]
+    .sort((a, b) => b.repo_stars - a.repo_stars)
+    .slice(0, VERIFIED_SAMPLE_KEEP);
+}
+
+function trimRepoReadmes(payload: RoastPayload): void {
+  const repos = payload.top_repos ?? [];
+  const keepNames = new Set(
+    [...repos]
+      .sort((a, b) => b.stars - a.stars)
+      .slice(0, README_KEEP_TOP_N)
+      .map((repo) => repo.name_with_owner),
+  );
+  payload.top_repos = repos.map((repo) =>
+    keepNames.has(repo.name_with_owner)
+      ? repo
+      : { ...repo, readme: undefined, readme_excerpt: undefined },
+  );
+}
+
+function slimPayloadToBudget(payload: RoastPayload): RoastPayload {
+  for (const slim of [slimPrFileLists, trimVerifiedImpactSample, trimRepoReadmes]) {
+    if (JSON.stringify(payload).length <= PAYLOAD_CHAR_BUDGET) return payload;
+    slim(payload);
+  }
+  return payload;
+}
+
 export function buildRoastMessages(
   scan: ScanResult,
   lang: Lang = "zh",
 ) {
-  const payload = buildPayload(scan, lang);
+  const payload = slimPayloadToBudget(buildPayload(scan, lang));
   const system = lang === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
   const preamble =
     lang === "en"
@@ -748,7 +816,7 @@ export function buildRoastMessages(
     { role: "system" as const, content: system },
     {
       role: "user" as const,
-      content: preamble + JSON.stringify(payload, null, 2) + "\n```",
+      content: preamble + JSON.stringify(payload) + "\n```",
     },
   ];
 }
