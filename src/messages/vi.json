@@ -390,6 +390,7 @@
     "pendingTitle": "Đang cà khịa @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Nhà tài trợ mô hình",
     "inputPlaceholder": "Nhập username GitHub hoặc URL hồ sơ",
     "judge": "Phán xét",
     "judging": "Đang phán xét…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Nhà tài trợ",
+    "learnMore": "Tìm hiểu thêm",
     "metaTitle": "Tài trợ ghfind · Gói và quyền lợi",
     "metaDescription": "Bốn cấp tài trợ hàng tháng cho ghfind: 夯, 顶级, 人上人 và 友情. Tài trợ không ảnh hưởng đến xếp hạng hay điểm số.",
     "topline": {

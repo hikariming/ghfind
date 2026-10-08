@@ -390,6 +390,7 @@
     "pendingTitle": "جارٍ تحميص @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "راعي النموذج",
     "inputPlaceholder": "أدخل اسم مستخدم GitHub أو رابط الملف الشخصي",
     "judge": "احكم",
     "judging": "جارٍ الحكم…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "الراعي",
+    "learnMore": "اعرف المزيد",
     "metaTitle": "رعاية ghfind · الباقات والمزايا",
     "metaDescription": "أربع باقات رعاية شهرية لـ ghfind: 夯 و顶级 و人上人 و友情. الرعاية لا تؤثر أبدًا على الترتيب أو التقييم.",
     "topline": {

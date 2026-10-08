@@ -390,6 +390,7 @@
     "pendingTitle": "Roasteando a @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Patrocinador del modelo",
     "inputPlaceholder": "Escribe un usuario de GitHub o la URL de un perfil",
     "judge": "Juzgar",
     "judging": "Juzgando…",
@@ -1310,6 +1311,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Patrocinador",
+    "learnMore": "Más información",
     "metaTitle": "Patrocina ghfind · Planes y beneficios",
     "metaDescription": "Patrocina ghfind con cuatro niveles mensuales: 夯, 顶级, 人上人 y 友情. El patrocinio nunca afecta rankings ni puntuaciones.",
     "topline": {

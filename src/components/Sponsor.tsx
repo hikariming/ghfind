@@ -36,11 +36,11 @@ export function SponsorStrip() {
 
   const contents = (
     <>
-      <span className="text-zinc-500">赞助商</span>
+      <span className="text-zinc-500">{t("stripLabel")}</span>
       <SponsorMark holder={sponsor} className="h-4 w-4 rounded" />
       <span className="font-semibold text-zinc-200">{sponsor.isAnonymous ? t("anonymous") : sponsor.name}</span>
       {sponsor.description && <span className="text-zinc-500">{sponsor.description}</span>}
-      <span className="text-blue-500">了解更多 →</span>
+      <span className="text-blue-500">{t("learnMore")} →</span>
     </>
   );
   const className = "inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200";

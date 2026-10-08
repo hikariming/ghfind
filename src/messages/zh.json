@@ -390,6 +390,7 @@
     "pendingTitle": "正在锐评 @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "模型赞助商",
     "inputPlaceholder": "输入 GitHub 用户名或主页链接",
     "judge": "开始审判",
     "judging": "审判中…",
@@ -1317,6 +1318,8 @@
     }
   },
   "sponsor": {
+    "stripLabel": "赞助商",
+    "learnMore": "了解更多",
     "metaTitle": "赞助 ghfind · 赞助方案与权益",
     "metaDescription": "赞助 ghfind：夯、顶级、人上人、友情四档方案，按月计费。赞助不影响任何排名与打分。",
     "topline": {
