@@ -2204,12 +2204,27 @@ export function computeImpactQualitySignals(
     impactPrCount - verifiedImpactPrs.length - workflowLandedImpactPrCount,
   );
 
-  const impactQualityCap = lowQualityImpactCap({
-    verifiedCount: verifiedImpactPrs.length,
-    docLikeCount,
-    coreCount,
-    impactPrCount,
-  });
+  // A recent file-level window is not a representative audit of all-time
+  // impact. Do not extrapolate one repository's documentation work (or a
+  // small/incomplete window) into a cap on unrelated repositories.
+  const repoCounts = new Map<string, number>();
+  for (const pr of verifiedImpactPrs) {
+    const repo = (pr.repo ?? "").toLowerCase();
+    repoCounts.set(repo, (repoCounts.get(repo) ?? 0) + 1);
+  }
+  const representativeSample =
+    verifiedImpactPrs.length >= 10 &&
+    repoCounts.size >= 3 &&
+    Math.max(0, ...repoCounts.values()) <= verifiedImpactPrs.length / 2 &&
+    verifiedImpactPrs.length >= impactPrCount / 2;
+  const impactQualityCap = representativeSample
+    ? lowQualityImpactCap({
+        verifiedCount: verifiedImpactPrs.length,
+        docLikeCount,
+        coreCount,
+        impactPrCount,
+      })
+    : undefined;
 
   return {
     verified_impact_pr_count: verifiedImpactPrs.length,

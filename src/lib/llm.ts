@@ -90,11 +90,12 @@ export function fallbackLlmConfig(): LlmConfig | null {
  *  so callers can treat it as a transient (retryable) failure, not a bad key. */
 export class LlmTimeoutError extends Error {}
 
-// Defaults: a slow flash model still returns its first byte well under 30s, and
-// streams tokens far faster than 30s apart. These bound a stalled/queued upstream
-// (the real prod failure mode) so the request fails fast instead of hanging the
-// whole serverless function until the platform 504s it.
-const CONNECT_TIMEOUT_MS = 30_000;
+// Defaults: provider queues on very large prompts can sit silent well past 30s
+// before the first byte (observed on oversized scan snapshots), so the connect
+// budget is generous; a genuinely stalled upstream still dies here instead of
+// hanging the whole serverless function until the platform 504s it. Streams
+// produce tokens far faster than the idle gap either way.
+const CONNECT_TIMEOUT_MS = 60_000;
 const IDLE_TIMEOUT_MS = 30_000;
 
 /** A single streamed event: the model's hidden reasoning (chain-of-thought) or

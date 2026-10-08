@@ -412,21 +412,34 @@ func lowQualityImpactCap(verified, docLike, core, impactPRCount float64) *float6
 
 func ComputeImpactQualitySignals(recentPRs []RecentPR, impactPRCount float64, loginLower string, workflowLandedImpactPRCount float64) ImpactQualitySignals {
 	verified, docLike := 0.0, 0.0
+	repoCounts := map[string]int{}
 	for _, pr := range recentPRs {
 		if IsEcosystemImpactPR(pr, loginLower) {
 			verified++
+			repoCounts[strings.ToLower(*pr.Repo)]++
 			if IsDocLikeImpactPR(pr) {
 				docLike++
 			}
 		}
 	}
 	core := verified - docLike
+	largestRepo := 0
+	for _, count := range repoCounts {
+		if count > largestRepo {
+			largestRepo = count
+		}
+	}
+	var cap *float64
+	// Only extrapolate a sufficiently broad and covered file-level sample.
+	if verified >= 10 && len(repoCounts) >= 3 && float64(largestRepo) <= verified/2 && verified >= impactPRCount/2 {
+		cap = lowQualityImpactCap(verified, docLike, core, impactPRCount)
+	}
 	return ImpactQualitySignals{
 		VerifiedImpactPRCount:   verified,
 		CoreImpactPRCount:       core,
 		DocLikeImpactPRCount:    docLike,
 		UnverifiedImpactPRCount: max(0, impactPRCount-verified-workflowLandedImpactPRCount),
-		ImpactQualityCap:        lowQualityImpactCap(verified, docLike, core, impactPRCount),
+		ImpactQualityCap:        cap,
 	}
 }
 

@@ -366,6 +366,7 @@ const SYSTEM_PROMPT_ZH = `你是「GitHub 毒舌锐评写手」。分数、档�
 - 一句话结论和顶部毒舌点评不能同义反复：顶部负责最强攻击和传播梗；正文一句话结论负责价值判断和补刀，不能比顶部更狠。
 - 对中高分用户不要自动客气：可以承认“能打”，但必须指出最明显短板，比如“个人项目没星”“外部贡献强但自家荒地”“粉丝/关注比例尴尬”“PR 关闭行为不体面”等。
 - 生态/维护影响力行必须先用 impact_summary 的长期总量：高星仓库 PR 数 + commit 数。verified_impact_prs 只能写成“可验证样本/例如/其中能看到文件的样本”，不能把样本数写成“贡献了 N 个实质 PR/commit”。如果 signature_work.org_ecosystem_repositories 非空，生态行还必须点名其中至少一个完整仓库名，说明组织内小仓库的实质工作面。
+- 文件级样本的文档/核心分类只适用于样本明确列出的仓库。不得把某个仓库的样本数归到其他高星项目（例如把 benchmark 仓库的文档 PR 归到 Dify）。覆盖有限或样本集中于单一仓库时，必须说明局限，不能推断整个生态贡献主要是文档。
 - 高星仓库 commit 数为 0 时，只能说“检测到的高星影响来自 PR”，不得推断“没有提交权限/没混上权限/不被信任”。
 
 ## NPC / 拉完了强制火力
@@ -468,6 +469,7 @@ The Markdown report after the three control lines must be written in **English o
 - Each key judgment needs at least one concrete number, repo name, or PR state. No evidence, no roast; evidence present, no mercy.
 - The TL;DR and top roast line must not repeat each other. The top roast is for the strongest shareable attack; the TL;DR is for value judgment and a follow-up jab, and must not outgun the top roast.
 - Do not automatically soften for high scores. You may say the account can ship, but still jab the most obvious weakness: starless own repos, strong external work but barren home turf, awkward follower/following ratio, or messy PR closure behavior.
+- File-level documentation/core classifications apply only to the repositories actually named in the samples. Never attribute one repository's sample counts to a different popular project. State limited coverage or concentration in one repository; do not generalize it to the whole contribution history.
 - The Ecosystem / maintenance impact row must start from impact_summary's all-time totals: popular-repo PR count plus commit count. verified_impact_prs is only a file-level sample for examples/quality review; never write the sample length as "N substantive PRs/commits" total. If signature_work.org_ecosystem_repositories is non-empty, the ecosystem row must also name at least one full repo from it and explain the smaller same-owner work surface.
 - When popular-repo commit count is 0, say only that detected popular-repo impact is PR-based; do not infer missing commit access, no permissions, lack of trust, or lack of contribution.
 
@@ -732,11 +734,79 @@ function buildPayload(scan: ScanResult, lang: Lang) {
   return payload;
 }
 
+/**
+ * Oversized-snapshot slimming. Huge accounts (100+ repos) otherwise push the
+ * user prompt past ~75k chars (~40k tokens), which is slow and expensive for
+ * negligible report-quality gain. When the compact payload exceeds
+ * PAYLOAD_CHAR_BUDGET, degrade evidence in quality-preserving order — PR file
+ * lists first (every PR keeps its title/repo/stars, which is what the roast
+ * actually cites), then the verified-impact sample down to its strongest
+ * entries, then README text outside the top-starred repos.
+ */
+const PAYLOAD_CHAR_BUDGET = 45_000;
+/** File lists survive only for PRs a report is likely to name: high-star repos,
+ *  plus the strongest few regardless of the threshold. */
+const FILES_KEEP_MIN_STARS = 1_000;
+const FILES_KEEP_TOP_N = 5;
+const VERIFIED_SAMPLE_KEEP = 8;
+const README_KEEP_TOP_N = 3;
+
+type RoastPayload = ReturnType<typeof buildPayload>;
+
+function slimPrFileLists(payload: RoastPayload): void {
+  const prs = payload.recent_prs ?? [];
+  const keep = new Set<number>();
+  prs.forEach((pr, index) => {
+    if (pr.repo_stars >= FILES_KEEP_MIN_STARS) keep.add(index);
+  });
+  prs
+    .map((pr, index) => [pr.repo_stars, index] as const)
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, FILES_KEEP_TOP_N)
+    .forEach(([, index]) => keep.add(index));
+  payload.recent_prs = prs.map((pr, index) => {
+    if (keep.has(index)) return pr;
+    const { files: _files, ...rest } = pr;
+    return rest;
+  });
+}
+
+function trimVerifiedImpactSample(payload: RoastPayload): void {
+  const sample = payload.verified_impact_prs ?? [];
+  if (sample.length <= VERIFIED_SAMPLE_KEEP) return;
+  payload.verified_impact_prs = [...sample]
+    .sort((a, b) => b.repo_stars - a.repo_stars)
+    .slice(0, VERIFIED_SAMPLE_KEEP);
+}
+
+function trimRepoReadmes(payload: RoastPayload): void {
+  const repos = payload.top_repos ?? [];
+  const keepNames = new Set(
+    [...repos]
+      .sort((a, b) => b.stars - a.stars)
+      .slice(0, README_KEEP_TOP_N)
+      .map((repo) => repo.name_with_owner),
+  );
+  payload.top_repos = repos.map((repo) =>
+    keepNames.has(repo.name_with_owner)
+      ? repo
+      : { ...repo, readme: undefined, readme_excerpt: undefined },
+  );
+}
+
+function slimPayloadToBudget(payload: RoastPayload): RoastPayload {
+  for (const slim of [slimPrFileLists, trimVerifiedImpactSample, trimRepoReadmes]) {
+    if (JSON.stringify(payload).length <= PAYLOAD_CHAR_BUDGET) return payload;
+    slim(payload);
+  }
+  return payload;
+}
+
 export function buildRoastMessages(
   scan: ScanResult,
   lang: Lang = "zh",
 ) {
-  const payload = buildPayload(scan, lang);
+  const payload = slimPayloadToBudget(buildPayload(scan, lang));
   const system = lang === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
   const preamble =
     lang === "en"
@@ -746,7 +816,7 @@ export function buildRoastMessages(
     { role: "system" as const, content: system },
     {
       role: "user" as const,
-      content: preamble + JSON.stringify(payload, null, 2) + "\n```",
+      content: preamble + JSON.stringify(payload) + "\n```",
     },
   ];
 }

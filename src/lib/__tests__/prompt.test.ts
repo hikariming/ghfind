@@ -101,8 +101,8 @@ describe("buildRoastMessages", () => {
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
     expect(user.content).toContain("sample-user");
-    expect(user.content).toContain('"tier": "GOD"');
-    expect(user.content).toContain('"tier_label": "Legendary · Hall of Fame"');
+    expect(user.content).toContain('"tier":"GOD"');
+    expect(user.content).toContain('"tier_label":"Legendary · Hall of Fame"');
     expect(user.content).not.toContain("封神");
   });
 
@@ -745,5 +745,137 @@ describe("buildRoastMessages", () => {
     expect(payload.organization_maintained_repos[0].repository.open_issues).toBeUndefined();
     expect(payload.context_notes.organization_maintained_scope).toContain("它不参与评分");
     expect(payload.context_notes.organization_maintained_scope).toContain("不证明");
+  });
+});
+
+
+describe("oversized snapshot slimming", () => {
+  const extractPayload = (userContent: string) =>
+    JSON.parse(userContent.match(/```json\n([\s\S]*)\n```/)![1]);
+
+  const makePr = (index: number, stars: number, fileCount = 0) => ({
+    title: `feat: change number ${index}`,
+    repo: `owner/repo-${index}`,
+    repo_stars: stars,
+    churn: 42,
+    changed_files: 3,
+    trivial: false,
+    ...(fileCount > 0
+      ? {
+          files: Array.from(
+            { length: fileCount },
+            (_, j) => `src/very/deeply/nested/module/path/file-number-${j}.ts`,
+          ),
+        }
+      : {}),
+  });
+
+  const makeRepo = (index: number, stars: number, summaryChars = 0) => ({
+    name: `repo-${index}`,
+    owner_login: "owner",
+    name_with_owner: `owner/repo-${index}`,
+    stars,
+    forks: 1,
+    size: 100,
+    language: "Go",
+    description: `Repo ${index} description`,
+    pushed_at: null,
+    topics: ["go"],
+    ...(summaryChars > 0
+      ? { readme: { features: { prompt_summary: "r".repeat(summaryChars) } } }
+      : {}),
+  });
+
+  it("serializes the payload compactly", () => {
+    const [, user] = buildRoastMessages(scan, "zh");
+    const captured = user.content.match(/```json\n([\s\S]*)\n```/)![1];
+    expect(captured).toBe(JSON.stringify(JSON.parse(captured)));
+  });
+
+  it("keeps small snapshots fully intact", () => {
+    const small = {
+      ...scan,
+      recent_prs: [makePr(0, 10, 3), makePr(1, 5, 2)],
+      verified_impact_prs: [makePr(2, 5000, 2)],
+      top_repos: [makeRepo(0, 100, 400)],
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(small, "zh")[1].content);
+    expect(payload.recent_prs).toHaveLength(2);
+    expect(payload.recent_prs[0].files).toHaveLength(3);
+    expect(payload.verified_impact_prs).toHaveLength(1);
+    expect(payload.top_repos[0].readme).toBeDefined();
+  });
+
+  it("drops PR file lists beyond the budget but keeps every title and the strongest samples", () => {
+    const big = {
+      ...scan,
+      recent_prs: [
+        makePr(0, 5000, 15),
+        makePr(1, 5000, 15),
+        makePr(2, 5000, 15),
+        ...Array.from({ length: 47 }, (_, i) => makePr(i + 3, 20, 15)),
+      ],
+      verified_impact_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 100 + i, 2)),
+      top_repos: [makeRepo(0, 100, 400)],
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.recent_prs).toHaveLength(50);
+    expect(payload.recent_prs.map((pr: { title: string }) => pr.title)).toContain(
+      "feat: change number 49",
+    );
+    // High-star PRs plus the strongest few keep their file lists; the rest keep
+    // title/repo/stars only. Verified sample and readmes are untouched at this rung.
+    const withFiles = payload.recent_prs.filter(
+      (pr: { files?: string[] }) => pr.files !== undefined,
+    );
+    expect(withFiles).toHaveLength(5);
+    expect(withFiles.map((pr: { repo_stars: number }) => pr.repo_stars)).toEqual([
+      5000, 5000, 5000, 20, 20,
+    ]);
+    expect(payload.verified_impact_prs).toHaveLength(10);
+    expect(payload.top_repos[0].readme).toBeDefined();
+  });
+
+  it("trims the verified-impact sample to its strongest entries before touching readmes", () => {
+    const big = {
+      ...scan,
+      recent_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 20)),
+      verified_impact_prs: Array.from({ length: 12 }, (_, i) => makePr(i, 100 * (i + 1), 45)),
+      top_repos: Array.from({ length: 10 }, (_, i) => makeRepo(i, 100 - i, 1500)),
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.verified_impact_prs).toHaveLength(8);
+    const stars = payload.verified_impact_prs.map((pr: { repo_stars: number }) => pr.repo_stars);
+    expect(stars).toEqual([...stars].sort((a, b) => b - a));
+    expect(stars[0]).toBe(1200);
+    expect(payload.top_repos.every((repo: { readme?: unknown }) => repo.readme)).toBe(true);
+  });
+
+  it("strips readmes outside the top-starred repos as the last resort", () => {
+    const big = {
+      ...scan,
+      recent_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 20)),
+      verified_impact_prs: Array.from({ length: 12 }, (_, i) => makePr(i, 100 * (i + 1), 30)),
+      top_repos: Array.from({ length: 10 }, (_, i) => makeRepo(i, 1000 - 100 * i, 4000)),
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.top_repos).toHaveLength(10);
+    const withReadme = payload.top_repos.filter(
+      (repo: { readme?: unknown }) => repo.readme !== undefined,
+    );
+    expect(withReadme.map((repo: { name_with_owner: string }) => repo.name_with_owner)).toEqual([
+      "owner/repo-0",
+      "owner/repo-1",
+      "owner/repo-2",
+    ]);
+    expect(
+      payload.top_repos.every(
+        (repo: { description?: string; topics?: string[] }) =>
+          repo.description && repo.topics?.length,
+      ),
+    ).toBe(true);
   });
 });

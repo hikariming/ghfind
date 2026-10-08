@@ -67,3 +67,34 @@ func TestOriginalRepoQualitySoftensNotesDiscountWithOrganicTraction(t *testing.T
 		}
 	}
 }
+
+func TestImpactCapRequiresRepresentativeRepositoryCoverage(t *testing.T) {
+	docs := "docs: update guide"
+	makePR := func(repo string) RecentPR {
+		return RecentPR{Title: &docs, Repo: &repo, RepoStars: 2000, Files: []string{"README.md"}}
+	}
+	single := make([]RecentPR, 11)
+	for i := range single {
+		single[i] = makePR("org/benchmark")
+	}
+	if got := ComputeImpactQualitySignals(single, 38, "alice", 0); got.ImpactQualityCap != nil || got.DocLikeImpactPRCount != 11 {
+		t.Fatalf("single-repo sample: %#v", got)
+	}
+	broad := make([]RecentPR, 12)
+	repos := []string{"org/a", "org/b", "org/c"}
+	for i := range broad {
+		broad[i] = makePR(repos[i%3])
+	}
+	if got := ComputeImpactQualitySignals(broad, 12, "alice", 0); got.ImpactQualityCap == nil || *got.ImpactQualityCap != 4 {
+		t.Fatalf("broad sample: %#v", got)
+	}
+	if got := ComputeImpactQualitySignals(broad, 100, "alice", 0); got.ImpactQualityCap != nil {
+		t.Fatalf("sparse sample: %#v", got)
+	}
+	for i := 0; i < 10; i++ {
+		broad[i] = makePR("org/a")
+	}
+	if got := ComputeImpactQualitySignals(broad, 12, "alice", 0); got.ImpactQualityCap != nil {
+		t.Fatalf("concentrated sample: %#v", got)
+	}
+}

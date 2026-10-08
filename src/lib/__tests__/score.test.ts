@@ -1185,7 +1185,7 @@ describe("impact quality caps", () => {
     ).toBe(false);
   });
 
-  it("caps ecosystem impact when graph-heavy high-star impact is not backed by core PRs", () => {
+  it("does not extrapolate a sparse file-level sample to all-time ecosystem impact", () => {
     const recentPrs = [
       pr({
         title: "fix(frontend): avoid stale chat route state",
@@ -1207,7 +1207,7 @@ describe("impact quality caps", () => {
     expect(signals.core_impact_pr_count).toBe(1);
     expect(signals.doc_like_impact_pr_count).toBe(4);
     expect(signals.unverified_impact_pr_count).toBe(18);
-    expect(signals.impact_quality_cap).toBe(4);
+    expect(signals.impact_quality_cap).toBeUndefined();
 
     const s = score({
       ...NEUTRAL,
@@ -1229,11 +1229,10 @@ describe("impact quality caps", () => {
       activity_type_count: 2,
       impact_quality_cap: signals.impact_quality_cap,
     });
-    expect(s.sub_scores.ecosystem_impact).toBe(4);
-    expect(s.final_score).toBeLessThanOrEqual(60);
+    expect(s.sub_scores.ecosystem_impact).toBeGreaterThan(4);
   });
 
-  it("caps small-sample high-star impact when docs/site/template work dominates", () => {
+  it("does not cap ecosystem impact from only five classified PRs", () => {
     const recentPrs = [
       pr({
         title: "fix(frontend): avoid stale chat route state",
@@ -1272,7 +1271,7 @@ describe("impact quality caps", () => {
     const signals = computeImpactQualitySignals(recentPrs, 5, "docsheavyuser");
     expect(signals.core_impact_pr_count).toBe(1);
     expect(signals.doc_like_impact_pr_count).toBe(4);
-    expect(signals.impact_quality_cap).toBe(4);
+    expect(signals.impact_quality_cap).toBeUndefined();
   });
 
   it("does not cap old high-star code PRs just because they are outside the recent 50", () => {
@@ -1301,6 +1300,27 @@ describe("impact quality caps", () => {
     expect(signals.doc_like_impact_pr_count).toBe(0);
     expect(signals.unverified_impact_pr_count).toBe(7);
     expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("does not let eleven PRs in one repository cap unrelated ecosystem work", () => {
+    const prs = Array.from({ length: 11 }, (_, i) => pr({
+      repo: "org/benchmark", repo_stars: 246,
+      title: i === 0 ? "fix runner" : "docs: update benchmark",
+      files: i === 0 ? ["src/runner.ts"] : ["README.md"],
+    }));
+    const signals = computeImpactQualitySignals(prs, 38, "alice");
+    expect(signals.doc_like_impact_pr_count).toBe(10);
+    expect(signals.core_impact_pr_count).toBe(1);
+    expect(signals.impact_quality_cap).toBeUndefined();
+  });
+
+  it("requires broad coverage, without one dominant repository, before applying a cap", () => {
+    const docs = (repo: string) => pr({ repo, repo_stars: 2000, title: "docs: update guide", files: ["docs/guide.md"] });
+    const broad = Array.from({ length: 12 }, (_, i) => docs(`org/project-${i % 3}`));
+    expect(computeImpactQualitySignals(broad, 12, "alice").impact_quality_cap).toBe(4);
+    expect(computeImpactQualitySignals(broad, 100, "alice").impact_quality_cap).toBeUndefined();
+    const concentrated = Array.from({ length: 12 }, (_, i) => docs(`org/project-${i < 10 ? 0 : i}`));
+    expect(computeImpactQualitySignals(concentrated, 12, "alice").impact_quality_cap).toBeUndefined();
   });
 
   it("does not treat an empty verification window as proof of low-quality impact", () => {
