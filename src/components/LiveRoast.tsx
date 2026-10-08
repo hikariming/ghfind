@@ -73,6 +73,7 @@ export function LiveRoast({
   // the in-flight generation.
   const closedRef = useRef(false);
   const doneRef = useRef(false);
+  const refreshedRef = useRef(false);
 
   const [thinking, setThinking] = useState("");
   const [report, setReport] = useState("");
@@ -96,12 +97,11 @@ export function LiveRoast({
   // still see it and pop the reveal modal again right after the user closed it.
   const refreshOnce = useCallback(() => {
     stripRoastingParam();
-    const key = `liveRoastRefreshed:${username.toLowerCase()}`;
-    if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, "1");
+    if (!refreshedRef.current) {
+      refreshedRef.current = true;
       router.refresh();
     }
-  }, [username, router]);
+  }, [router]);
 
   useEffect(() => {
     if (started.current) return; // guard against StrictMode double-invoke

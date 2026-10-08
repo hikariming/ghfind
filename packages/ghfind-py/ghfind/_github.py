@@ -732,7 +732,17 @@ def compute_impact_quality_signals(recent_prs: List[Dict[str, Any]], impact_pr_c
     doc_like_count = sum(1 for p in verified if is_doc_like_impact_pr(p))
     core_count = len(verified) - doc_like_count
     unverified = max(0, impact_pr_count - len(verified))
-    cap = _low_quality_impact_cap(len(verified), doc_like_count, core_count, impact_pr_count)
+    repo_counts: Dict[str, int] = {}
+    for pr in verified:
+        repo = pr["repo"].lower()
+        repo_counts[repo] = repo_counts.get(repo, 0) + 1
+    representative = (
+        len(verified) >= 10
+        and len(repo_counts) >= 3
+        and max(repo_counts.values(), default=0) <= len(verified) / 2
+        and len(verified) >= impact_pr_count / 2
+    )
+    cap = _low_quality_impact_cap(len(verified), doc_like_count, core_count, impact_pr_count) if representative else None
     return {
         "verified_impact_pr_count": len(verified),
         "core_impact_pr_count": core_count,
