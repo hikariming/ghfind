@@ -1,0 +1,921 @@
+{
+  "metrics": {
+    "username": "newcomer-fixture",
+    "profile_url": null,
+    "avatar_url": null,
+    "name": "Newcomer",
+    "bio": "Maintainer and contributor",
+    "company": null,
+    "account_age_years": 0.5,
+    "created_at": "2026-04-09T00:00:00Z",
+    "followers": 10,
+    "following": 5,
+    "public_repos": 10,
+    "fetched_repo_count": 10,
+    "original_repo_count": 5,
+    "nonempty_original_repo_count": 3,
+    "fork_repo_count": 3,
+    "empty_original_repo_count": 0,
+    "total_stars": 0,
+    "max_stars": 0,
+    "best_original_repo_quality_score": 0.9,
+    "top_starred_original_repo_quality_score": 0.9,
+    "merged_pr_count": 100,
+    "total_pr_count": 110,
+    "issues_created": 40,
+    "last_year_contributions": 1000,
+    "activity_type_count": 4,
+    "contribution_years_active": 1,
+    "days_since_last_activity": 10,
+    "recent_merged_pr_sample": 20,
+    "recent_trivial_pr_count": 0,
+    "external_trivial_pr_count": 0,
+    "max_impact_repo_stars": 10000,
+    "impact_pr_count": 20,
+    "impact_depth_raw": 8,
+    "verified_impact_pr_count": 10,
+    "core_impact_pr_count": 5,
+    "doc_like_impact_pr_count": 5,
+    "star_inflation_suspect": false,
+    "closed_unmerged_pr_count": 10,
+    "pr_rejection_rate": 0.09,
+    "recent_pr_sample": 30,
+    "top_repo_pr_target": "org/project",
+    "top_repo_pr_share": 0.3,
+    "templated_pr_ratio": 0.1,
+    "pr_flood_suspect": false
+  },
+  "cases": [
+    {
+      "name": "age-0",
+      "overrides": {
+        "account_age_years": 0
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 5.0,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.7,
+        "final_score": 74.7,
+        "total_penalty": 0.0,
+        "bonus": 4.0
+      }
+    },
+    {
+      "name": "age-0.08333333333333333",
+      "overrides": {
+        "account_age_years": 0.08333333333333333
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.9,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.6,
+        "final_score": 74.6,
+        "total_penalty": 0.0,
+        "bonus": 3.780864197530864
+      }
+    },
+    {
+      "name": "age-0.25",
+      "overrides": {
+        "account_age_years": 0.25
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.7,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.4,
+        "final_score": 74.4,
+        "total_penalty": 0.0,
+        "bonus": 3.3611111111111107
+      }
+    },
+    {
+      "name": "age-0.5",
+      "overrides": {
+        "account_age_years": 0.5
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.4,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.1,
+        "final_score": 74.1,
+        "total_penalty": 0.0,
+        "bonus": 2.777777777777778
+      }
+    },
+    {
+      "name": "age-1",
+      "overrides": {
+        "account_age_years": 1
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 3.9,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 73.6,
+        "final_score": 73.6,
+        "total_penalty": 0.0,
+        "bonus": 1.7777777777777781
+      }
+    },
+    {
+      "name": "age-1.5",
+      "overrides": {
+        "account_age_years": 1.5
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 3.8,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 73.5,
+        "final_score": 73.5,
+        "total_penalty": 0.0,
+        "bonus": 1.0
+      }
+    },
+    {
+      "name": "age-2",
+      "overrides": {
+        "account_age_years": 2
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 3.8,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 73.5,
+        "final_score": 73.5,
+        "total_penalty": 0.0,
+        "bonus": 0.44444444444444453
+      }
+    },
+    {
+      "name": "age-2.5",
+      "overrides": {
+        "account_age_years": 2.5
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.0,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 73.7,
+        "final_score": 73.7,
+        "total_penalty": 0.0,
+        "bonus": 0.11111111111111106
+      }
+    },
+    {
+      "name": "age-2.99",
+      "overrides": {
+        "account_age_years": 2.99
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.5,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.2,
+        "final_score": 74.2,
+        "total_penalty": 0.0,
+        "bonus": 4.444444444444354e-05
+      }
+    },
+    {
+      "name": "age-3",
+      "overrides": {
+        "account_age_years": 3
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.5,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.2,
+        "final_score": 74.2,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "age-6",
+      "overrides": {
+        "account_age_years": 6
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 8.0,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 77.7,
+        "final_score": 77.7,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "good-not-exceptional",
+      "overrides": {
+        "best_original_repo_quality_score": 0.7
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 3.0,
+          "original_project_quality": 4.2,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.5,
+        "final_score": 71.5,
+        "total_penalty": 0.0,
+        "bonus": 1.3888888888888877
+      }
+    },
+    {
+      "name": "weak-project",
+      "overrides": {
+        "best_original_repo_quality_score": 0.55
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 3.3,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 69.2,
+        "final_score": 69.2,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "weak-impact-depth",
+      "overrides": {
+        "impact_depth_raw": 4
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 12.7,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 65.8,
+        "final_score": 65.8,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "weak-contribution",
+      "overrides": {
+        "merged_pr_count": 3,
+        "total_pr_count": 10,
+        "issues_created": 0,
+        "core_impact_pr_count": 1,
+        "verified_impact_pr_count": 1
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 6.0,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 52.1,
+        "final_score": 52.1,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "weak-activity",
+      "overrides": {
+        "last_year_contributions": 0,
+        "activity_type_count": 0
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 4.5
+        },
+        "base_score": 59.5,
+        "final_score": 59.5,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "thin-verified-evidence",
+      "overrides": {
+        "verified_impact_pr_count": 1,
+        "core_impact_pr_count": 1
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 2.1,
+          "original_project_quality": 5.4,
+          "contribution_quality": 23.4,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 70.0,
+        "final_score": 70.0,
+        "total_penalty": 0.0,
+        "bonus": 0.5555555555555557
+      }
+    },
+    {
+      "name": "thin-core-evidence",
+      "overrides": {
+        "core_impact_pr_count": 1
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 2.5,
+          "original_project_quality": 5.4,
+          "contribution_quality": 23.4,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 70.4,
+        "final_score": 70.4,
+        "total_penalty": 0.0,
+        "bonus": 0.925925925925926
+      }
+    },
+    {
+      "name": "thin-pr-sample",
+      "overrides": {
+        "recent_merged_pr_sample": 5,
+        "verified_impact_pr_count": 5,
+        "core_impact_pr_count": 3
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 2.3,
+          "original_project_quality": 5.4,
+          "contribution_quality": 24.8,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.6,
+        "final_score": 71.6,
+        "total_penalty": 0.0,
+        "bonus": 0.6944444444444445
+      }
+    },
+    {
+      "name": "missing-project-evidence",
+      "omit": [
+        "best_original_repo_quality_score"
+      ],
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 0.0,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 65.9,
+        "final_score": 65.9,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "missing-verified-evidence",
+      "omit": [
+        "verified_impact_pr_count"
+      ],
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "missing-core-evidence",
+      "omit": [
+        "core_impact_pr_count"
+      ],
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 23.4,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 69.5,
+        "final_score": 69.5,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "unknown-registration-date",
+      "overrides": {
+        "created_at": null
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "malformed-registration-date",
+      "overrides": {
+        "created_at": "not-a-date"
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "impossible-registration-date",
+      "overrides": {
+        "created_at": "2026-02-30T00:00:00Z"
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "unknown-activity-date",
+      "overrides": {
+        "days_since_last_activity": null
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 11.8
+        },
+        "base_score": 66.8,
+        "final_score": 66.8,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "inactive",
+      "overrides": {
+        "days_since_last_activity": 91
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 13.8
+        },
+        "base_score": 68.8,
+        "final_score": 68.8,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "no-original-repo",
+      "overrides": {
+        "nonempty_original_repo_count": 0
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 0.0,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 65.9,
+        "final_score": 65.9,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "incomplete-pr-aggregation",
+      "overrides": {
+        "merged_pr_contribution_aggregation_incomplete": true
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "unavailable-commit-aggregation",
+      "overrides": {
+        "commit_contribution_aggregation_unavailable": true
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.4,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.1,
+        "final_score": 74.1,
+        "total_penalty": 0.0,
+        "bonus": 2.777777777777778
+      }
+    },
+    {
+      "name": "footprint-note-only",
+      "overrides": {
+        "public_repos": 50
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.4,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 74.1,
+        "final_score": 74.1,
+        "total_penalty": 0.0,
+        "bonus": 2.777777777777778
+      }
+    },
+    {
+      "name": "small-follow-imbalance-note",
+      "overrides": {
+        "followers": 0,
+        "following": 5
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.4,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 1.0,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 70.5,
+        "final_score": 70.5,
+        "total_penalty": 0.0,
+        "bonus": 2.777777777777778
+      }
+    },
+    {
+      "name": "star-suspect-note",
+      "overrides": {
+        "star_inflation_suspect": true
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "contribution-note-without-penalty",
+      "overrides": {
+        "recent_merged_pr_sample": 10,
+        "external_trivial_pr_count": 5
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "flood-note-without-penalty",
+      "overrides": {
+        "pr_flood_suspect": true,
+        "top_repo_pr_share": 0.9,
+        "templated_pr_ratio": 0.9
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 71.3,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "penalized-contribution",
+      "overrides": {
+        "external_trivial_pr_count": 18
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 71.3,
+        "final_score": 67.66,
+        "total_penalty": 3.64,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "stars-and-followers-only",
+      "overrides": {
+        "total_stars": 100000,
+        "max_stars": 100000,
+        "followers": 100000,
+        "best_original_repo_quality_score": 0.2,
+        "core_impact_pr_count": 0,
+        "verified_impact_pr_count": 0,
+        "impact_depth_raw": 0
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 12.0,
+          "contribution_quality": 23.4,
+          "ecosystem_impact": 7.2,
+          "community_influence": 8.0,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 68.5,
+        "final_score": 68.5,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "rounded-full-maturity",
+      "overrides": {
+        "account_age_years": 3,
+        "contribution_years_active": 3
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 6.5,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 18.2,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 76.2,
+        "final_score": 76.2,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "work-volume-strong",
+      "overrides": {
+        "impact_depth_raw": 2,
+        "impact_pr_count": 150,
+        "impact_commit_count": 120
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 4.4,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 10.0,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 65.9,
+        "final_score": 65.9,
+        "total_penalty": 0.0,
+        "bonus": 2.777777777777778
+      }
+    },
+    {
+      "name": "work-volume-small",
+      "overrides": {
+        "impact_depth_raw": 2,
+        "impact_pr_count": 30
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 10.0,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 63.1,
+        "final_score": 63.1,
+        "total_penalty": 0.0,
+        "bonus": 0.046116020942392054
+      }
+    },
+    {
+      "name": "work-volume-cannot-buy-stars",
+      "overrides": {
+        "impact_depth_raw": 2,
+        "impact_pr_count": 150,
+        "impact_commit_count": 120,
+        "total_stars": 100000,
+        "max_stars": 100000,
+        "best_original_repo_quality_score": 0.3,
+        "verified_impact_pr_count": 0,
+        "core_impact_pr_count": 0
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 12.6,
+          "contribution_quality": 23.4,
+          "ecosystem_impact": 10.0,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 68.5,
+        "final_score": 68.5,
+        "total_penalty": 0.0,
+        "bonus": 0.0
+      }
+    },
+    {
+      "name": "work-volume-risky-rejected",
+      "overrides": {
+        "impact_depth_raw": 2,
+        "impact_pr_count": 150,
+        "external_trivial_pr_count": 18
+      },
+      "expected": {
+        "sub_scores": {
+          "account_maturity": 1.6,
+          "original_project_quality": 5.4,
+          "contribution_quality": 25.2,
+          "ecosystem_impact": 10.0,
+          "community_influence": 4.6,
+          "activity_authenticity": 16.3
+        },
+        "base_score": 63.1,
+        "final_score": 59.46,
+        "total_penalty": 3.64,
+        "bonus": 0.0
+      }
+    }
+  ]
+}

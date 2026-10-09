@@ -229,6 +229,72 @@ function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
   );
 }
 
+/** Smoothly reward strength above 55%, reaching full credit at 85%. */
+function newcomerStrength(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const x = Math.max(0, Math.min((value - 0.55) / 0.3, 1));
+  return x * x * (3 - 2 * x);
+}
+
+function newcomerConfidence(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.min(value, 1)) : 0;
+}
+
+/**
+ * Up to four maturity points for evidence-backed, well-rounded newcomers.
+ * Same snapshot in, same bonus out: no clock, history, followers, or age-based
+ * normalization of PR volume. Core PR count is the existing non-doc-like proxy,
+ * not an audit of code quality. See docs/scoring/super-newcomer.md.
+ */
+export function superNewcomerBonus(
+  m: RawMetrics,
+  sub: SubScores,
+  risk: ReturnType<typeof assessRisk>,
+): number {
+  const age = m.account_age_years;
+  const created = m.created_at;
+  const days = m.days_since_last_activity;
+  if (
+    !Number.isFinite(age) || age < 0 || age >= 3 ||
+    !created || created.startsWith("0000") || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(created) ||
+    !Number.isFinite(m.nonempty_original_repo_count) || m.nonempty_original_repo_count <= 0 ||
+    days === null || !Number.isFinite(days) || days < 0 || days > 90 ||
+    m.merged_pr_contribution_aggregation_incomplete || m.star_inflation_suspect ||
+    !Number.isFinite(risk.total_penalty) || risk.total_penalty > 0 ||
+    risk.risk_assessment.signals.some((signal) => signal.family === "contribution")
+  ) return 0;
+
+  // Date.parse normalizes e.g. February 30; roundtrip rejects impossible dates.
+  const timestamp = Date.parse(created);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== created.slice(0, -1) + ".000Z") {
+    return 0;
+  }
+
+  // Use project substance and impact work, not star-weighted dimension totals.
+  // The weakest dimension limits credit: stars/followers cannot replace work.
+  // Ecosystem strength accepts EITHER multi-repo depth OR total landed work
+  // volume in star-qualified repos: a creator maintaining one exceptional
+  // repo is not weaker than a contributor touching many (the dimension itself
+  // credits both contributor and maintainer value). Volume only counts work
+  // that already passed the same >=200-star external / >=1000-star own gates,
+  // so it cannot be farmed in small or self-created low-star repos.
+  const impactWork = (m.impact_commit_count ?? 0) + m.impact_pr_count;
+  const ecosystemRatio = Math.max(m.impact_depth_raw / 8, logRatio(impactWork, 400));
+  const strength = Math.min(
+    newcomerStrength(m.best_original_repo_quality_score ?? 0),
+    newcomerStrength(sub.contribution_quality / SUBSCORE_MAX.contribution_quality),
+    newcomerStrength(ecosystemRatio),
+    newcomerStrength(sub.activity_authenticity / SUBSCORE_MAX.activity_authenticity),
+  );
+  const confidence = Math.min(
+    newcomerConfidence((m.verified_impact_pr_count ?? 0) / 5),
+    newcomerConfidence((m.core_impact_pr_count ?? 0) / 3),
+    newcomerConfidence(m.recent_merged_pr_sample / 20),
+  );
+  const decay = 1 - age / 3;
+  return 4 * strength * confidence * decay * decay;
+}
+
 export function score(m: RawMetrics): Scoring {
   const sub: SubScores = {
     account_maturity: 0,
@@ -352,13 +418,20 @@ export function score(m: RawMetrics): Scoring {
   const diversityPts = Math.min(m.activity_type_count, 4) * 1.125;
   sub.activity_authenticity = roundHalfEven(contribPts + recencyPts + diversityPts, 1);
 
+  const risk = assessRisk(m);
+  const penalty = risk.total_penalty;
+  const newcomerBonus = superNewcomerBonus(m, sub, risk);
+  if (newcomerBonus > 0) {
+    sub.account_maturity = roundHalfEven(
+      Math.min(SUBSCORE_MAX.account_maturity, agePts + spanPts + newcomerBonus),
+      1,
+    );
+  }
+
   const base = roundHalfEven(
     Object.values(sub).reduce((a, b) => a + b, 0),
     1,
   );
-
-  const risk = assessRisk(m);
-  const penalty = risk.total_penalty;
   // Keep two decimals (not integer) so the leaderboard can rank finely.
   const final = clampScore(roundHalfEven(base - penalty, 2));
   const { tier, tier_label: tierLabel } = tierFor(final);

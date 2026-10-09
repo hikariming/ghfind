@@ -17,6 +17,7 @@ Parity notes (why this reproduces the TS output bit-for-bit):
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
 
 from ._risk import assess_risk
@@ -221,6 +222,73 @@ def next_tier(final: float) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _newcomer_confidence(value: Any) -> float:
+    if not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    return max(0.0, min(value, 1.0))
+
+
+def _newcomer_strength(value: Any) -> float:
+    if not isinstance(value, (int, float)) or not math.isfinite(value):
+        return 0.0
+    x = _newcomer_confidence((value - 0.55) / 0.3)
+    return x * x * (3 - 2 * x)
+
+
+def _canonical_github_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 20:
+        return False
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+        return parsed.isoformat(timespec="seconds") + "Z" == value
+    except ValueError:
+        return False
+
+
+def _super_newcomer_bonus(
+    m: Mapping[str, Any], sub: Mapping[str, float], risk: Mapping[str, Any], penalty: float
+) -> float:
+    """Up to four maturity points, using the same snapshot-only rule as TS/Go.
+
+    Core PR count is a non-doc-like proxy, not an audit of code quality.
+    Missing optional evidence earns no bonus; stars/followers cannot replace it.
+    """
+    age = m.get("account_age_years")
+    days = m.get("days_since_last_activity")
+    repos = m.get("nonempty_original_repo_count")
+    if (
+        not isinstance(age, (int, float)) or not math.isfinite(age) or age < 0 or age >= 3
+        or not _canonical_github_timestamp(m.get("created_at"))
+        or not isinstance(repos, (int, float)) or not math.isfinite(repos) or repos <= 0
+        or not isinstance(days, (int, float)) or not math.isfinite(days) or days < 0 or days > 90
+        or m.get("merged_pr_contribution_aggregation_incomplete", False)
+        or m.get("star_inflation_suspect", False)
+        or not math.isfinite(penalty) or penalty > 0
+        or any(s["family"] == "contribution" for s in risk["signals"])
+    ):
+        return 0.0
+    # Ecosystem strength accepts either multi-repo depth or total landed work
+    # volume in star-qualified repos: a creator maintaining one exceptional
+    # repo is not weaker than a contributor touching many. Volume only counts
+    # work that already passed the same >=200-star external / >=1000-star own
+    # gates, so it cannot be farmed in small or self-created low-star repos.
+    impact_work = _nz(m.get("impact_commit_count"), 0) + m["impact_pr_count"]
+    ecosystem_ratio = max(m["impact_depth_raw"] / 8, log_ratio(impact_work, 400))
+    strength = min(
+        _newcomer_strength(_nz(m.get("best_original_repo_quality_score"), 0)),
+        _newcomer_strength(sub["contribution_quality"] / SUBSCORE_MAX["contribution_quality"]),
+        _newcomer_strength(ecosystem_ratio),
+        _newcomer_strength(sub["activity_authenticity"] / SUBSCORE_MAX["activity_authenticity"]),
+    )
+    confidence = min(
+        _newcomer_confidence(_nz(m.get("verified_impact_pr_count"), 0) / 5),
+        _newcomer_confidence(_nz(m.get("core_impact_pr_count"), 0) / 3),
+        _newcomer_confidence(m["recent_merged_pr_sample"] / 20),
+    )
+    decay = 1 - age / 3
+    return 4 * strength * confidence * decay * decay
+
+
 def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub: Dict[str, float] = {
         "account_maturity": 0,
@@ -324,9 +392,11 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     diversity_pts = min(m["activity_type_count"], 4) * 1.125
     sub["activity_authenticity"] = round(contrib_pts + recency_pts + diversity_pts, 1)
 
-    base = round(sum(sub.values()), 1)
-
     risk_assessment, risk_notes, flags, penalty = assess_risk(m)
+    bonus = _super_newcomer_bonus(m, sub, risk_assessment, penalty)
+    if bonus > 0:
+        sub["account_maturity"] = round(min(SUBSCORE_MAX["account_maturity"], age_pts + span_pts + bonus), 1)
+    base = round(sum(sub.values()), 1)
     final = clamp_score(round(base - penalty, 2))
     t = tier_for(final)
 
