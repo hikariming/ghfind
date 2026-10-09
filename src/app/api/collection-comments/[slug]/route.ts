@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, authConfigured } from "@/lib/auth";
 import {
+  commentClientIp,
+  commentContainsLink,
   normalizeBlogSlug,
   normalizeCommentText,
   normalizeGitHubUsername,
@@ -10,6 +12,7 @@ import {
 } from "@/lib/comments";
 import { getCollection } from "@/lib/collections";
 import { createCollectionComment, getCollectionComments } from "@/lib/db";
+import { checkCommentRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -71,6 +74,9 @@ export async function POST(
 
   const text = normalizeCommentText(body.text);
   if (!text) return jsonNoStore({ error: "empty_comment" }, { status: 400 });
+  if (commentContainsLink(text)) {
+    return jsonNoStore({ error: "links_not_allowed" }, { status: 400 });
+  }
 
   const anonymous = body.anonymous === true;
   let author: CommentAuthor;
@@ -90,6 +96,18 @@ export async function POST(
       avatarUrl: session?.user.image ?? null,
     };
     authorGithubId = session?.user.githubId;
+  }
+
+  const principal =
+    author.type === "github"
+      ? `gh:${author.username}`
+      : `ip:${commentClientIp(req.headers)}`;
+  const limit = await checkCommentRateLimit(principal);
+  if (!limit.success) {
+    return jsonNoStore(
+      { error: "rate_limited" },
+      { status: 429, headers: rateLimitHeaders(limit) },
+    );
   }
 
   const comment = await createCollectionComment({

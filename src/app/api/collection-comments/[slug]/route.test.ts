@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   createCollectionComment: vi.fn(),
   getCollectionComments: vi.fn(),
   getCollection: vi.fn(),
+  checkCommentRateLimit: vi.fn(async () => ({ success: true })),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -29,6 +30,11 @@ vi.mock("@/lib/collections", () => ({
 vi.mock("@/lib/db", () => ({
   createCollectionComment: mocks.createCollectionComment,
   getCollectionComments: mocks.getCollectionComments,
+}));
+
+vi.mock("@/lib/redis", () => ({
+  checkCommentRateLimit: mocks.checkCommentRateLimit,
+  rateLimitHeaders: vi.fn(() => ({})),
 }));
 
 import { GET, POST } from "./route";

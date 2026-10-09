@@ -43,7 +43,7 @@ export async function GET() {
          WHERE (started_at IS NULL OR started_at <= ?)
            AND (expires_at IS NULL OR expires_at > ?)
          ORDER BY CASE tier ${tierOrder} ELSE ${SPONSOR_TIER_ORDER.length} END,
-                  COALESCE(started_at, 0), created_at, id`,
+                  display_order, COALESCE(started_at, 0), created_at, id`,
       )
       .bind(asOf, asOf)
       .all();

@@ -796,6 +796,10 @@
       {
         "h": "Cà khịa bằng key riêng",
         "p": "Tính năng cà khịa tùy chọn có thể dùng key nhà cung cấp model của riêng bạn. Khi bạn cung cấp một key, nó nằm trong trình duyệt của bạn và được chuyển tiếp một lần qua server của chúng tôi để gọi model — không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi yêu cầu hoàn tất."
+      },
+      {
+        "h": "Quảng cáo và cookie",
+        "p": "Khi chúng tôi hiển thị quảng cáo, các nhà cung cấp bên thứ ba, bao gồm Google, sử dụng cookie, web beacon và các công nghệ tương tự để phân phối quảng cáo dựa trên các lượt truy cập trước đây của bạn vào trang web này hoặc các trang web khác. Việc Google sử dụng cookie quảng cáo cho phép Google và các đối tác của họ phân phối quảng cáo cho bạn dựa trên lượt truy cập của bạn vào trang web này và/hoặc các trang web khác trên Internet. Bạn có thể tắt quảng cáo được cá nhân hóa bằng cách truy cập Cài đặt quảng cáo của Google (https://adssettings.google.com). Để tắt việc một số nhà cung cấp bên thứ ba sử dụng cookie cho quảng cáo được cá nhân hóa, hãy truy cập www.aboutads.info/choices."
       }
     ]
   },

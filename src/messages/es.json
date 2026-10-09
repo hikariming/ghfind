@@ -796,6 +796,10 @@
       {
         "h": "Roasts con tu propia key",
         "p": "La función opcional de roast puede usar la key de tu propio proveedor de modelos. Cuando la proporcionas, se queda en tu navegador y pasa una sola vez por nuestro servidor para llamar al modelo — nunca se guarda ni se registra, y se descarta cuando la solicitud termina."
+      },
+      {
+        "h": "Publicidad y cookies",
+        "p": "Cuando mostramos anuncios, proveedores externos, incluido Google, utilizan cookies, balizas web y tecnologías similares para publicar anuncios basados en tus visitas anteriores a este u otros sitios. El uso de cookies publicitarias por parte de Google permite a Google y a sus socios mostrarte anuncios basados en tu visita a este sitio y/o a otros sitios de Internet. Puedes inhabilitar la publicidad personalizada en la Configuración de anuncios de Google (https://adssettings.google.com). Para inhabilitar el uso de cookies de publicidad personalizada de algunos proveedores externos, visita www.aboutads.info/choices."
       }
     ]
   },

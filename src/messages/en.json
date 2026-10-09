@@ -796,6 +796,10 @@
       {
         "h": "Bring-your-own-key roasts",
         "p": "The optional roast feature can use your own model provider key. When you supply one, it stays in your browser and is relayed once through our server to call the model — it is never stored and never logged, and is discarded after the request completes."
+      },
+      {
+        "h": "Advertising and cookies",
+        "p": "When we show ads, third-party vendors, including Google, use cookies, web beacons, and similar technologies to serve ads based on your prior visits to this site or other sites. Google's use of advertising cookies enables it and its partners to serve ads to you based on your visit to this site and/or other sites on the Internet. You can opt out of personalized advertising by visiting Google Ads Settings (https://adssettings.google.com). To opt out of some third-party vendors' uses of cookies for personalized advertising, visit www.aboutads.info/choices."
       }
     ]
   },
