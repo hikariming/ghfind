@@ -66,8 +66,8 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 		 roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at, hidden)
 		VALUES (?, ?, ?, ?, ?, '顶级', '{"zh":["工程"],"en":["engineering"]}', '{"zh":"一句","en":"line"}',
 		'{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":13}',
-		'中文报告', 'English report', 'v10', 'v4', ?, ?, ?, 1000, 70, 100, 0)`,
-		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, strings.Repeat("a", 64), roastArtifactVersion, roastArtifactVersion)
+		'中文报告', 'English report', ?, ?, ?, ?, ?, 1000, 70, 100, 0)`,
+		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, goCanonicalScoreVersion, goCanonicalCollectionVersion, strings.Repeat("a", 64), roastArtifactVersion, roastArtifactVersion)
 	if err != nil {
 		t.Fatalf("insert score %s: %v", username, err)
 	}
@@ -80,8 +80,8 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 	}
 	_, err = store.db.Exec(`INSERT INTO public_scan_runs
 		(id, username, score_version, collection_version, state, coverage, snapshot, snapshot_hash)
-		VALUES (?, ?, 'v10', 'v4', 'complete_public', 'complete_public', ?, ?)`,
-		"scan-"+username, username,
+		VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?)`,
+		"scan-"+username, username, goCanonicalScoreVersion, goCanonicalCollectionVersion,
 		fmt.Sprintf(`{"scoring":{"sub_scores":{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":%.2f},"base_score":%.2f,"red_flags":[{"flag":"mostly_forks","penalty":10,"detail":"Mostly forks"}],"total_penalty":10,"final_score":%.2f,"tier":"顶级","tier_label":"test"}}`, activity, base, score),
 		strings.Repeat("a", 64))
 	if err != nil {
@@ -103,7 +103,7 @@ func TestProfilePresentationPreservesVersionGatedPublicFields(t *testing.T) {
 		VALUES ('profile', 'octocat', 1000, '[{"name":"demo","name_with_owner":"octocat/demo","stars":9,"forks":0,"open_issues":0,"size":1,"language":"Go"}]',
 		'[{"repo":"acme/core","stars":1000,"commits":2,"prs":1}]',
 		'{"bio":"builds reliable things","followers":5,"public_repos":2,"total_stars":9}', '["octocat/demo"]', '["acme"]',
-		'{"impact_repo_representatives":[],"work_clusters":[],"source":"recent_sample"}', 'v10')`); err != nil {
+		'{"impact_repo_representatives":[],"work_clusters":[],"source":"recent_sample"}', ?)`, canonicalScoreVersion); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.db.Exec(`INSERT INTO vs_matchups

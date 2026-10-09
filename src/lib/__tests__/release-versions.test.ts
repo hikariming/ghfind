@@ -12,14 +12,14 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("advances only the roast version for pronoun-aware wording", () => {
+  it("advances only the score version for the newcomer maturity bonus", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
       score: "v10",
-      roast: "v10",
+      roast: "v11",
       collection: "v5",
     });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
-      score: "v10",
+      score: "v11",
       roast: "v11",
       collection: "v5",
     });
@@ -31,9 +31,9 @@ describe("release version contract", () => {
       RELEASE_VERSION_MANIFEST.previousRelease,
     );
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v10", roast: "v11" },
+      { score: "v11", roast: "v11" },
     ]);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v10"]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v11"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -54,7 +54,7 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("keeps collection v5 unchanged for a wording-only release", () => {
+  it("keeps collection v5 unchanged for a score-only release", () => {
     expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v5"]);
   });
 
