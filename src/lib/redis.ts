@@ -659,6 +659,28 @@ export async function checkRoastNetworkRateLimit(ip: string): Promise<RateLimitR
   }
 }
 
+/**
+ * Comment posting budget. Anonymous comments are allowed, so the cap is
+ * tight: keyed by GitHub login when signed in, otherwise by client IP.
+ */
+export async function checkCommentRateLimit(principal: string): Promise<RateLimitResult> {
+  const commentMinuteLimiter = rateLimiter("rl:comment:m", 6, "60 s");
+  const commentDayLimiter = rateLimiter("rl:comment:d", 40, "1 d");
+  if (!commentMinuteLimiter || !commentDayLimiter) return unavailableRateLimitResult("comment", "missing_redis_config");
+  try {
+    const [minute, day] = await Promise.all([
+      commentMinuteLimiter.limit(principal),
+      commentDayLimiter.limit(principal),
+    ]);
+    return { success: minute.success && day.success };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "comment",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
 /** Cached roast: the LLM-written report + deterministic score metadata, keyed
  * by every input contract plus language and username (48h). A compatible
  * persisted roast can re-warm this cache after expiry without another LLM call.

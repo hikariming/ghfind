@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   createBlogComment: vi.fn(),
   getBlogComments: vi.fn(),
   getPost: vi.fn(),
+  checkCommentRateLimit: vi.fn(async () => ({ success: true })),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -29,6 +30,11 @@ vi.mock("@/lib/blog", () => ({
 vi.mock("@/lib/db", () => ({
   createBlogComment: mocks.createBlogComment,
   getBlogComments: mocks.getBlogComments,
+}));
+
+vi.mock("@/lib/redis", () => ({
+  checkCommentRateLimit: mocks.checkCommentRateLimit,
+  rateLimitHeaders: vi.fn(() => ({})),
 }));
 
 import { GET, POST } from "./route";
