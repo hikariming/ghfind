@@ -955,6 +955,13 @@ function ensureSchema(db: Client): Promise<void> {
              PRIMARY KEY (repo_key, username, relation)
            )`,
           `CREATE INDEX IF NOT EXISTS idx_repo_developers_user ON repo_developers(username)`,
+          // devscore collect store fallback when the DEVSCORE_CACHE R2 binding
+          // is absent (local Turso/dev).
+          `CREATE TABLE IF NOT EXISTS devscore_cache (
+             key        TEXT PRIMARY KEY,
+             value      TEXT NOT NULL,
+             expires_at INTEGER
+           )`,
         ],
         "write",
       );
@@ -7457,4 +7464,36 @@ export async function saveResumeLibrary(githubId: number, login: string, data: s
         });
     return result.rowsAffected === 1 ? "saved" : "conflict";
   } catch { return "unavailable"; }
+}
+
+/**
+ * Durable fallback for the devscore collect store when the DEVSCORE_CACHE R2
+ * binding is absent (local Turso development). `undefined` = no database.
+ */
+export async function readDevscoreCache(key: string, now: number): Promise<string | null | undefined> {
+  const db = getClient();
+  if (!db) return undefined;
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT value FROM devscore_cache WHERE key = ? AND (expires_at IS NULL OR expires_at > ?) LIMIT 1`,
+    args: [key, now],
+  });
+  const row = result.rows[0] as Record<string, unknown> | undefined;
+  return typeof row?.value === "string" ? row.value : null;
+}
+
+export async function writeDevscoreCache(
+  key: string,
+  value: string,
+  expiresAt: number | null,
+): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  await ensureSchema(db);
+  await db.execute({
+    sql: `INSERT INTO devscore_cache (key, value, expires_at) VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`,
+    args: [key, value, expiresAt],
+  });
+  return true;
 }
