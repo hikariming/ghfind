@@ -2,6 +2,7 @@ import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme-init";
+import { CONSENT_INIT_SCRIPT } from "@/lib/consent-init";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,13 @@ const geistMono = Geist_Mono({
 /** Google Analytics 4 measurement ID (override via env in other environments). */
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
+
+/**
+ * Funding Choices (Google-certified CMP) tag URL, from AdSense → Privacy &
+ * messaging. Unset until the AdSense account exists; the consent defaults
+ * above keep EEA/UK/CH compliant in the meantime.
+ */
+const FUNDING_CHOICES_URL = process.env.NEXT_PUBLIC_FUNDING_CHOICES_URL;
 
 // The verdict route's human-check moved from Vercel BotID to Turnstile
 // (VsVerdictLive gates its auto-fire on a token; the route verifies it).
@@ -41,6 +49,14 @@ export default function RootLayout({
           id="theme-init"
           dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
         />
+        {/* Consent Mode defaults must sit in <head>, ahead of gtag.js. */}
+        <script
+          id="consent-init"
+          dangerouslySetInnerHTML={{ __html: CONSENT_INIT_SCRIPT }}
+        />
+        {FUNDING_CHOICES_URL ? (
+          <script async src={FUNDING_CHOICES_URL} />
+        ) : null}
       </head>
       <body className="min-h-full flex flex-col">
         {/* Google tag (gtag.js) - loaded on every page via the root layout */}
