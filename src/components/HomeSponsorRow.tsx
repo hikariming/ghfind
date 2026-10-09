@@ -11,7 +11,7 @@ import { HOME_SPONSOR_SLOTS } from "@/config/sponsors";
 export function HomeSponsorRow() {
   const t = useTranslations("sponsor");
   const sponsors = useSponsorRecords();
-  const holders = (sponsors ?? []).filter((sponsor) => sponsor.tier === "人上人").slice(0, HOME_SPONSOR_SLOTS);
+  const holders = (sponsors ?? []).filter((sponsor) => sponsor.tier === "人上人");
   const open = HOME_SPONSOR_SLOTS - holders.length;
 
   return (
