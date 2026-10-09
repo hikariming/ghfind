@@ -9,7 +9,7 @@ INSERT INTO sponsorships (
 ) VALUES (
   'sponsor-modaleap-recruiting', '人上人', 'ModaLeap 大量岗位招聘',
   'https://www.modaleap.cn/join#jobs', '/modaleap.svg',
-  '一起搞中国最夯的AI产业落地！',
+  '一起搞中国最夯的 AI 产业落地！',
   0, 0, NULL, NULL,
   CAST(strftime('%s', 'now') AS INTEGER) * 1000,
   CAST(strftime('%s', 'now') AS INTEGER) * 1000,
