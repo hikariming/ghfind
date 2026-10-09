@@ -796,6 +796,10 @@
       {
         "h": "Roast dengan key milik sendiri",
         "p": "Fitur roast opsional bisa memakai key penyedia modelmu sendiri. Saat kamu memberikannya, key itu tetap di browsermu dan diteruskan sekali lewat server kami untuk memanggil model — tidak pernah disimpan dan tidak pernah di-log, dan dibuang setelah permintaan selesai."
+      },
+      {
+        "h": "Iklan dan cookie",
+        "p": "Saat kami menampilkan iklan, vendor pihak ketiga, termasuk Google, menggunakan cookie, web beacon, dan teknologi serupa untuk menayangkan iklan berdasarkan kunjungan Anda sebelumnya ke situs ini atau situs lain. Penggunaan cookie iklan oleh Google memungkinkan Google dan mitranya menayangkan iklan kepada Anda berdasarkan kunjungan Anda ke situs ini dan/atau situs lain di Internet. Anda dapat menonaktifkan iklan yang dipersonalisasi dengan mengunjungi Setelan Iklan Google (https://adssettings.google.com). Untuk menonaktifkan penggunaan cookie iklan yang dipersonalisasi oleh sebagian vendor pihak ketiga, kunjungi www.aboutads.info/choices."
       }
     ]
   },

@@ -796,6 +796,10 @@
       {
         "h": "Zoadas com sua própria key",
         "p": "O recurso opcional de zoada pode usar a key do seu próprio provedor de modelo. Quando você fornece uma, ela fica no seu navegador e passa uma única vez pelo nosso servidor para chamar o modelo — nunca é armazenada, nunca é logada, e é descartada quando a requisição termina."
+      },
+      {
+        "h": "Publicidade e cookies",
+        "p": "Quando exibimos anúncios, fornecedores terceiros, incluindo o Google, usam cookies, web beacons e tecnologias semelhantes para veicular anúncios com base nas suas visitas anteriores a este ou a outros sites. O uso de cookies de publicidade pelo Google permite que ele e seus parceiros veiculem anúncios para você com base na sua visita a este site e/ou a outros sites na Internet. Você pode desativar a publicidade personalizada nas Configurações de anúncios do Google (https://adssettings.google.com). Para desativar o uso de cookies de publicidade personalizada por alguns fornecedores terceiros, acesse www.aboutads.info/choices."
       }
     ]
   },
