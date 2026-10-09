@@ -7,7 +7,7 @@ INSERT INTO sponsorships (
   is_anonymous, is_perpetual, started_at, expires_at,
   created_at, updated_at, display_order
 ) VALUES (
-  'sponsor-modaleap-recruiting', '人上人', '模态跃迁 modaleap 招聘',
+  'sponsor-modaleap-recruiting', '人上人', 'ModaLeap 大量岗位招聘',
   'https://www.modaleap.cn/join#jobs', '/modaleap.svg',
   '一起搞中国最夯的AI产业落地！',
   0, 0, NULL, NULL,
