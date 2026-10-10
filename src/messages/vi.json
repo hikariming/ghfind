@@ -53,9 +53,11 @@
       "resume": "Tạo CV lập trình viên từ dữ liệu GitHub",
       "talent": "Tìm lập trình viên đáng để làm quen",
       "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Vị trí đang tuyển tại công ty AI và mã nguồn mở"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "Việc làm"
   },
   "globalSearch": {
     "open": "Mở tìm kiếm toàn trang",
@@ -115,15 +117,7 @@
     "openBoard": "Mở bảng xếp hạng đầy đủ →",
     "disclaimer1": "Điểm số và các màn cà khịa được tạo tự động chỉ từ <b>dữ liệu GitHub công khai</b>. Chúng tôi cà khịa hành vi và số liệu công khai của tài khoản, không phải con người. Kết quả không phải khẳng định thực tế về bất kỳ ai — xin đừng dùng để quấy rối.",
     "disclaimer2": "Lõi chấm điểm được mã nguồn mở dưới dạng skill <code>github-account-value</code> · API key riêng của bạn chỉ nằm trong trình duyệt của bạn.",
-    "viewAll": "Xem tất cả",
-    "hiring": {
-      "heading": "Tuyển dụng lập trình viên",
-      "subtitle": "Biến đóng góp mã nguồn mở thành bước đầu cho công việc tiếp theo.",
-      "postJob": "Đăng tin tuyển dụng",
-      "sponsored": "Nhà tài trợ · Ghim",
-      "sponsorNote": "Tin của nhà tài trợ được ưu tiên hiển thị",
-      "becomeSponsor": "Trở thành nhà tài trợ"
-    }
+    "viewAll": "Xem tất cả"
   },
   "leaderboard": {
     "heading": "🏆 Đại sảnh Danh vọng",
@@ -1634,6 +1628,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Việc làm cho lập trình viên: vị trí đang tuyển tại công ty AI · ghfind",
+    "metaDescription": "Các vị trí kỹ thuật, nghiên cứu và sản phẩm tại những công ty AI như DeepSeek và ModaLeap, kèm liên kết ứng tuyển trên trang tuyển dụng của từng công ty.",
+    "heading": "Tuyển dụng lập trình viên",
+    "subtitle": "Biến đóng góp mã nguồn mở thành bước đầu cho công việc tiếp theo.",
+    "postJob": "Đăng tin tuyển dụng",
+    "viewAll": "Xem tất cả",
+    "sponsored": "Nhà tài trợ · Ghim",
+    "sponsorNote": "Tin của nhà tài trợ được ưu tiên hiển thị",
+    "becomeSponsor": "Trở thành nhà tài trợ",
+    "filterLabel": "Lọc theo công ty",
+    "allCompanies": "Tất cả công ty",
+    "openJobs": "{count} vị trí đang tuyển",
+    "sponsorTag": "Nhà tài trợ",
+    "careersSite": "Trang tuyển dụng",
+    "empty": "Hiện chưa có vị trí nào đang tuyển. Hãy quay lại sau.",
+    "disclaimer": "Tin tuyển dụng được tổng hợp từ trang tuyển dụng công khai của từng công ty. Hãy ứng tuyển trên trang của công ty; ghfind không tham gia quyết định tuyển dụng.",
+    "type": {
+      "full_time": "Toàn thời gian",
+      "intern": "Thực tập",
+      "part_time": "Bán thời gian"
     }
   }
 }

@@ -53,9 +53,11 @@
       "resume": "GitHub データから開発者履歴書を作成",
       "talent": "知り合う価値のある開発者を探す",
       "githubBot": "作成者のスコアで issue と PR に自動ラベル付け",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "AI・オープンソース企業の募集職種"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "求人"
   },
   "globalSearch": {
     "open": "グローバル検索を開く",
@@ -115,15 +117,7 @@
     "openBoard": "ランキングを全部見る →",
     "disclaimer1": "スコアとローストは <b>GitHubの公開データ</b> のみから自動生成しています。刺しているのはアカウントの公開挙動と数字であって、人格ではありません。結果は誰かに関する事実認定ではないので、ハラスメントに使わないでください。",
     "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。",
-    "viewAll": "すべて見る",
-    "hiring": {
-      "heading": "開発者採用",
-      "subtitle": "オープンソースへの貢献を、次の仕事の出発点に。",
-      "postJob": "求人を掲載",
-      "sponsored": "スポンサー · 固定",
-      "sponsorNote": "スポンサーの求人を優先表示しています",
-      "becomeSponsor": "スポンサーになる"
-    }
+    "viewAll": "すべて見る"
   },
   "leaderboard": {
     "heading": "🏆 殿堂",
@@ -1634,6 +1628,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "開発者求人：AI 企業の募集職種 · ghfind",
+    "metaDescription": "DeepSeek や ModaLeap など AI 企業のエンジニア・研究・プロダクト職の求人。各社の採用ページから直接応募できます。",
+    "heading": "開発者採用",
+    "subtitle": "オープンソースへの貢献を、次の仕事の出発点に。",
+    "postJob": "求人を掲載",
+    "viewAll": "すべて見る",
+    "sponsored": "スポンサー · 固定",
+    "sponsorNote": "スポンサーの求人を優先表示しています",
+    "becomeSponsor": "スポンサーになる",
+    "filterLabel": "企業で絞り込む",
+    "allCompanies": "すべての企業",
+    "openJobs": "募集中 {count} 件",
+    "sponsorTag": "スポンサー",
+    "careersSite": "採用サイト",
+    "empty": "現在募集中の求人はありません。また後でご確認ください。",
+    "disclaimer": "求人情報は各社の公開採用ページから収集しています。応募は各社のサイトから行ってください。ghfind は採用の判断に関与しません。",
+    "type": {
+      "full_time": "正社員",
+      "intern": "インターン",
+      "part_time": "パートタイム"
     }
   }
 }

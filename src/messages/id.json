@@ -53,9 +53,11 @@
       "resume": "Buat CV developer dari data GitHub",
       "talent": "Temukan developer yang layak dikenal",
       "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Posisi terbuka di perusahaan AI dan open source"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "Lowongan"
   },
   "globalSearch": {
     "open": "Buka pencarian global",
@@ -115,15 +117,7 @@
     "openBoard": "Buka peringkat lengkap →",
     "disclaimer1": "Skor dan roast dibuat otomatis hanya dari <b>data publik GitHub</b>. Yang kami roast adalah perilaku dan statistik publik sebuah akun, bukan orangnya. Hasilnya bukan klaim faktual tentang siapa pun — jangan dipakai untuk merundung.",
     "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu.",
-    "viewAll": "Lihat semua",
-    "hiring": {
-      "heading": "Lowongan developer",
-      "subtitle": "Jadikan kontribusi open source awal pekerjaan berikutnya.",
-      "postJob": "Pasang lowongan",
-      "sponsored": "Sponsor · Disematkan",
-      "sponsorNote": "Lowongan sponsor ditampilkan lebih dulu",
-      "becomeSponsor": "Jadi sponsor"
-    }
+    "viewAll": "Lihat semua"
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",
@@ -1634,6 +1628,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Lowongan developer: posisi terbuka di perusahaan AI · ghfind",
+    "metaDescription": "Lowongan engineering, riset, dan produk di perusahaan AI seperti DeepSeek dan ModaLeap, dengan tautan untuk melamar di situs karier masing-masing.",
+    "heading": "Lowongan developer",
+    "subtitle": "Jadikan kontribusi open source awal pekerjaan berikutnya.",
+    "postJob": "Pasang lowongan",
+    "viewAll": "Lihat semua",
+    "sponsored": "Sponsor · Disematkan",
+    "sponsorNote": "Lowongan sponsor ditampilkan lebih dulu",
+    "becomeSponsor": "Jadi sponsor",
+    "filterLabel": "Filter per perusahaan",
+    "allCompanies": "Semua perusahaan",
+    "openJobs": "{count} posisi terbuka",
+    "sponsorTag": "Sponsor",
+    "careersSite": "Situs karier",
+    "empty": "Belum ada posisi terbuka. Cek lagi nanti.",
+    "disclaimer": "Lowongan dikumpulkan dari halaman karier publik tiap perusahaan. Lamar di situs perusahaan; ghfind tidak terlibat dalam keputusan perekrutan.",
+    "type": {
+      "full_time": "Penuh waktu",
+      "intern": "Magang",
+      "part_time": "Paruh waktu"
     }
   }
 }

@@ -50,6 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "blog", href: "/blog", icon: "newspaper" },
   ] },
   { label: "groupCareer", beta: true, items: [
+    { key: "jobs", href: "/jobs", icon: "building" },
     { key: "resume", href: "/resume", icon: "resume" },
   ] },
   { label: "groupTools", items: [

@@ -53,9 +53,11 @@
       "resume": "Crea un currículum de desarrollador con tus datos de GitHub",
       "talent": "Encuentra desarrolladores que vale la pena conocer",
       "githubBot": "Etiqueta issues y PR según la puntuación del autor",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Vacantes en empresas de IA y open source"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "Empleo"
   },
   "globalSearch": {
     "open": "Abrir búsqueda global",
@@ -115,15 +117,7 @@
     "openBoard": "Abrir el ranking completo →",
     "disclaimer1": "Los scores y roasts se generan automáticamente solo a partir de <b>datos públicos de GitHub</b>. Roasteamos el comportamiento y las estadísticas públicas de una cuenta, no a la persona. Los resultados no son afirmaciones factuales sobre nadie — por favor no los uses para acosar.",
     "disclaimer2": "El núcleo de scoring es open source como la skill <code>github-account-value</code> · tu propia API key nunca sale de tu navegador.",
-    "viewAll": "Ver todo",
-    "hiring": {
-      "heading": "Empleo para desarrolladores",
-      "subtitle": "Convierte tu trabajo open source en tu próximo empleo.",
-      "postJob": "Publicar oferta",
-      "sponsored": "Patrocinador · Fijado",
-      "sponsorNote": "Las ofertas de patrocinadores aparecen primero",
-      "becomeSponsor": "Hazte patrocinador"
-    }
+    "viewAll": "Ver todo"
   },
   "leaderboard": {
     "heading": "🏆 Salón de la Fama",
@@ -1634,6 +1628,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Empleo para desarrolladores: vacantes en empresas de IA · ghfind",
+    "metaDescription": "Vacantes de ingeniería, investigación y producto en empresas de IA como DeepSeek y ModaLeap, con enlace para postularte en la web de cada empresa.",
+    "heading": "Empleo para desarrolladores",
+    "subtitle": "Convierte tu trabajo open source en tu próximo empleo.",
+    "postJob": "Publicar oferta",
+    "viewAll": "Ver todo",
+    "sponsored": "Patrocinador · Fijado",
+    "sponsorNote": "Las ofertas de patrocinadores aparecen primero",
+    "becomeSponsor": "Hazte patrocinador",
+    "filterLabel": "Filtrar por empresa",
+    "allCompanies": "Todas las empresas",
+    "openJobs": "Vacantes: {count}",
+    "sponsorTag": "Patrocinador",
+    "careersSite": "Web de empleo",
+    "empty": "No hay vacantes abiertas por ahora. Vuelve pronto.",
+    "disclaimer": "Las ofertas se recopilan de las páginas públicas de empleo de cada empresa. Postúlate en su web; ghfind no participa en las decisiones de contratación.",
+    "type": {
+      "full_time": "Jornada completa",
+      "intern": "Prácticas",
+      "part_time": "Media jornada"
     }
   }
 }

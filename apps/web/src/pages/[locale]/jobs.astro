@@ -1,0 +1,19 @@
+---
+import Base from "../../layouts/Base.astro";
+import { Jobs } from "../../views";
+import { getTranslator, routeLocale } from "../../lib/i18n";
+import { loadJobsPage } from "@/lib/pages/jobs";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+const [t, data] = await Promise.all([
+  getTranslator(locale, "jobs"),
+  loadJobsPage(locale, Astro.url.searchParams.get("company")),
+]);
+// Next: force-dynamic. Listings change rarely; a short edge cache is enough.
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
+---
+<Base locale={locale} path="/jobs" title={t("metaTitle")} description={t("metaDescription")}>
+  <Jobs route={{ locale, path: "/jobs" }} t={t} {...data} />
+</Base>

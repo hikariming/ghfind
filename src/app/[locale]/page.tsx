@@ -8,6 +8,7 @@ import { HomeSponsorRow } from "@/components/HomeSponsorRow";
 import { LeaderboardRail } from "@/components/LeaderboardRail";
 import { Roaster } from "@/components/Roaster";
 import { HomeView } from "@/components/pages/HomeView";
+import { listJobs } from "@/lib/jobs";
 import { asTranslator } from "@/lib/translator";
 // ISR: the homepage shell is fully static (the scan form, tier pills and copy are
 // locale-only; DeveloperCount and the leaderboard rail fetch client-side from
@@ -26,14 +27,16 @@ export const revalidate = 3600;
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tFaq, tBoards, tCollections, tBlog, cards, projectEntries] = await Promise.all([
+  const [t, tFaq, tBoards, tCollections, tBlog, tJobs, cards, projectEntries, jobs] = await Promise.all([
     getTranslations("home"),
     getTranslations("faq"),
     getTranslations("projectBoards"),
     getTranslations("collections"),
     getTranslations("blog"),
+    getTranslations("jobs"),
     loadHomeCollectionCards(locale),
     loadHomeProjectEntries(),
+    listJobs(locale, { limit: 4 }),
   ]);
 
   return (
@@ -42,6 +45,8 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       t={asTranslator(t)}
       tFaq={asTranslator(tFaq)}
       tBoards={asTranslator(tBoards)}
+      tJobs={asTranslator(tJobs)}
+      jobs={jobs}
       faq={faqItems(asTranslator(tFaq))}
       projectEntries={projectEntries}
       roaster={<Roaster />}

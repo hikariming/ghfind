@@ -53,9 +53,11 @@
       "resume": "用 GitHub 数据生成开发者简历",
       "talent": "发现值得认识的开发者",
       "githubBot": "按作者评分给 issue 和 PR 自动打标签",
-      "cliApi": "安装 ghfind CLI、配置 Agent Skill 并管理 API Token"
+      "cliApi": "安装 ghfind CLI、配置 Agent Skill 并管理 API Token",
+      "jobs": "AI 与开源公司的在招职位"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "招聘"
   },
   "globalSearch": {
     "open": "打开全局搜索",
@@ -115,15 +117,7 @@
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
     "disclaimer2": "评分核心开源于 <skill>github-account-value</skill> 技能 · 自带 Key 仅存于你的浏览器本地。",
-    "viewAll": "查看全部",
-    "hiring": {
-      "heading": "开发者招聘",
-      "subtitle": "让开源贡献，成为下一份工作的起点",
-      "postJob": "发布职位",
-      "sponsored": "赞助商 · 置顶",
-      "sponsorNote": "赞助商职位优先展示",
-      "becomeSponsor": "成为赞助商"
-    }
+    "viewAll": "查看全部"
   },
   "leaderboard": {
     "heading": "🏆 名人堂",
@@ -1641,6 +1635,29 @@
       "protected": "完整扫描及依赖扫描能力的 roast 请求需要 GHFIND_API_KEY。",
       "credentialNote": "将 Token 保存在环境变量或密钥管理器中。不要把它提交到代码仓库或交给不可信的 Agent。",
       "apiDocs": "API 文档"
+    }
+  },
+  "jobs": {
+    "metaTitle": "开发者招聘：AI 公司在招职位 · ghfind",
+    "metaDescription": "DeepSeek、模态跃迁（ModaLeap）等 AI 公司在招的工程、研究与产品岗位，直达各公司官方招聘页投递。",
+    "heading": "开发者招聘",
+    "subtitle": "让开源贡献，成为下一份工作的起点",
+    "postJob": "发布职位",
+    "viewAll": "查看全部",
+    "sponsored": "赞助商 · 置顶",
+    "sponsorNote": "赞助商职位优先展示",
+    "becomeSponsor": "成为赞助商",
+    "filterLabel": "按公司筛选",
+    "allCompanies": "全部公司",
+    "openJobs": "{count} 个在招职位",
+    "sponsorTag": "赞助商",
+    "careersSite": "官方招聘页",
+    "empty": "暂时没有在招职位，稍后再来看看。",
+    "disclaimer": "职位信息整理自各公司公开的招聘页面，请前往公司官网投递；ghfind 不参与招聘决策。",
+    "type": {
+      "full_time": "全职",
+      "intern": "实习",
+      "part_time": "兼职"
     }
   }
 }
