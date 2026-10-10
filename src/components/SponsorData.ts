@@ -1,30 +1,35 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useState } from "react";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import type { SponsorRecord, SponsorsResponse } from "@/lib/sponsorships";
 
-let sponsorsRequest: Promise<SponsorRecord[]> | null = null;
+/** One request per locale per page load, shared by every sponsor surface. */
+const sponsorsRequests = new Map<string, Promise<SponsorRecord[]>>();
 
-function fetchSponsors(): Promise<SponsorRecord[]> {
+function fetchSponsors(locale: string): Promise<SponsorRecord[]> {
+  let sponsorsRequest = sponsorsRequests.get(locale);
   if (!sponsorsRequest) {
-    sponsorsRequest = fetch("/api/sponsors", { cache: "no-store" })
+    sponsorsRequest = fetch(`/api/sponsors?locale=${encodeURIComponent(locale)}`, { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return [];
         const payload = (await response.json()) as SponsorsResponse;
         return Array.isArray(payload.sponsors) ? payload.sponsors : [];
       })
       .catch(() => []);
+    sponsorsRequests.set(locale, sponsorsRequest);
   }
   return sponsorsRequest;
 }
 
 export function useSponsorRecords(): SponsorRecord[] | null {
+  const locale = useLocale();
   const [sponsors, setSponsors] = useState<SponsorRecord[] | null>(null);
 
   useMountEffect(() => {
     let cancelled = false;
-    void fetchSponsors().then((records) => {
+    void fetchSponsors(locale).then((records) => {
       if (!cancelled) setSponsors(records);
     });
     return () => {

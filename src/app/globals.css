@@ -864,7 +864,7 @@ html .omnibox-field input { height: 42px; background: transparent; font-size: 14
 .home-content h2 { font-size: 20px; letter-spacing: -.025em; }
 /* Home card bands size to the main column (narrowed by the rail and the
    workspace sidebar), not the viewport: 4 per row when there's room. */
-.home-content section:has(> .collection-grid, > .hiring-grid) { container-type: inline-size; }
+.home-content section:has(> .collection-grid, > .hiring-grid), .jobs-company { container-type: inline-size; }
 :is(.collection-grid, .hiring-grid) { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; margin-top: 20px; }
 @container (min-width: 480px) { :is(.collection-grid, .hiring-grid) { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @container (min-width: 720px) { :is(.collection-grid, .hiring-grid) { grid-template-columns: repeat(4, minmax(0,1fr)); } }
@@ -902,6 +902,19 @@ html .omnibox-field input { height: 42px; background: transparent; font-size: 14
 .hiring-card:hover .hiring-arrow { transform: translate(2px,-2px); color: var(--link); }
 html[data-theme="dark"] .hiring-badge { color: #fdba74; }
 html[data-theme="dark"] .hiring-salary { color: #fb923c; }
+.hiring-summary { margin-top: 10px; font-size: 12px; line-height: 1.7; color: var(--muted-foreground); }
+.jobs-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.jobs-filter a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; color: var(--muted-foreground); transition: border-color 180ms, color 180ms; }
+.jobs-filter a:hover { color: var(--foreground); border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
+.jobs-filter a[aria-current="page"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.jobs-filter a > span { font-size: 11px; opacity: .7; }
+.jobs-company { margin-top: 40px; }
+.jobs-company-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.jobs-company-head h2 { font-size: 18px; font-weight: 500; letter-spacing: -.02em; }
+.jobs-sponsor-tag { padding: 1px 8px; border-radius: 999px; font-size: 11px; color: #c2410c; background: color-mix(in srgb, #f97316 14%, transparent); }
+html[data-theme="dark"] .jobs-sponsor-tag { color: #fdba74; }
+.jobs-careers { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: auto; font-size: 13px; color: var(--link); }
+.jobs-careers:hover { text-decoration: underline; text-underline-offset: 4px; }
 .hiring-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--muted-foreground); }
 .hiring-note > svg { color: #f97316; }
 .hiring-note-rule { flex: 1; height: 1px; background: var(--border-soft); }
@@ -970,7 +983,7 @@ html .omnibox-field { background: var(--input); }
   html .omnibox-field.flex-wrap { border-radius: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .collection-arrow, .omnibox-field, .collection-card, .hiring-card, .hiring-arrow { transition: none; }
+  .collection-arrow, .omnibox-field, .collection-card, .hiring-card, .hiring-arrow, .jobs-filter a { transition: none; }
 }
 
 @media (max-width: 1023px) {

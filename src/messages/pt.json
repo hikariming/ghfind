@@ -53,9 +53,11 @@
       "resume": "Monte um currículo de desenvolvedor com seus dados do GitHub",
       "talent": "Encontre desenvolvedores que valem a pena conhecer",
       "githubBot": "Rotula issues e PRs pela nota do autor",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Vagas em empresas de IA e open source"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "Vagas"
   },
   "globalSearch": {
     "open": "Abrir busca global",
@@ -115,15 +117,7 @@
     "openBoard": "Ver ranking completo →",
     "disclaimer1": "Notas e zoadas são geradas automaticamente só a partir de <b>dados públicos do GitHub</b>. A gente zoa o comportamento público e as estatísticas da conta, não a pessoa. Os resultados não são afirmações factuais sobre ninguém — não use isso pra assediar, por favor.",
     "disclaimer2": "O núcleo de pontuação é open source como a skill <code>github-account-value</code> · sua API key fica só no seu navegador.",
-    "viewAll": "Ver tudo",
-    "hiring": {
-      "heading": "Vagas para desenvolvedores",
-      "subtitle": "Transforme seu trabalho open source no seu próximo emprego.",
-      "postJob": "Publicar vaga",
-      "sponsored": "Patrocinador · Fixado",
-      "sponsorNote": "Vagas de patrocinadores aparecem primeiro",
-      "becomeSponsor": "Seja patrocinador"
-    }
+    "viewAll": "Ver tudo"
   },
   "leaderboard": {
     "heading": "🏆 Hall da Fama",
@@ -1363,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Alimente as avaliações e apareça sempre que uma for gerada.",
+        "summary": "Alimente as avaliações, apareça sempre que uma for gerada e mostre suas vagas primeiro.",
         "perks": [
           {
             "text": "Crédito do patrocinador do modelo durante a geração da avaliação"
           },
           {
             "text": "Informações e logo do patrocinador na página inicial"
+          },
+          {
+            "text": "Suas vagas aparecem primeiro na seção de vagas da página inicial e em /jobs"
           }
         ]
       },
@@ -1634,6 +1631,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Vagas para desenvolvedores: empresas de IA contratando · ghfind",
+    "metaDescription": "Vagas de engenharia, pesquisa e produto em empresas de IA como DeepSeek e ModaLeap, com link para se candidatar no site de cada empresa.",
+    "heading": "Vagas para desenvolvedores",
+    "subtitle": "Transforme seu trabalho open source no seu próximo emprego.",
+    "postJob": "Publicar vaga",
+    "viewAll": "Ver tudo",
+    "sponsored": "Patrocinador · Fixado",
+    "sponsorNote": "Vagas de patrocinadores aparecem primeiro",
+    "becomeSponsor": "Seja patrocinador",
+    "filterLabel": "Filtrar por empresa",
+    "allCompanies": "Todas as empresas",
+    "openJobs": "Vagas abertas: {count}",
+    "sponsorTag": "Patrocinador",
+    "careersSite": "Site de carreiras",
+    "empty": "Nenhuma vaga aberta no momento. Volte em breve.",
+    "disclaimer": "As vagas são coletadas das páginas públicas de carreiras de cada empresa. Candidate-se no site da empresa; o ghfind não participa das decisões de contratação.",
+    "type": {
+      "full_time": "Tempo integral",
+      "intern": "Estágio",
+      "part_time": "Meio período"
     }
   }
 }

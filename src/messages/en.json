@@ -53,9 +53,11 @@
       "resume": "Build a developer résumé from your GitHub data",
       "talent": "Find developers worth knowing",
       "githubBot": "Auto-label issues and PRs by author score",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Open roles at AI and open-source companies"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "Jobs"
   },
   "globalSearch": {
     "open": "Open global search",
@@ -115,15 +117,7 @@
     "openBoard": "Open full leaderboard →",
     "disclaimer1": "Scores and roasts are generated automatically from <b>public GitHub data</b> only. We roast an account's public behavior and stats, not the person. Results are not factual claims about anyone — please don't use them to harass.",
     "disclaimer2": "The scoring core is open-sourced as the <code>github-account-value</code> skill · your own API key stays in your browser only.",
-    "viewAll": "View all",
-    "hiring": {
-      "heading": "Developer hiring",
-      "subtitle": "Turn open-source work into your next job.",
-      "postJob": "Post a job",
-      "sponsored": "Sponsor · Pinned",
-      "sponsorNote": "Sponsor listings are shown first",
-      "becomeSponsor": "Become a sponsor"
-    }
+    "viewAll": "View all"
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",
@@ -1363,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Power the roasts and get seen every time one is generated.",
+        "summary": "Power the roasts, get seen every time one is generated, and put your open roles first.",
         "perks": [
           {
             "text": "Model sponsor credit shown while a roast is generated"
           },
           {
             "text": "Sponsor info and logo on the homepage"
+          },
+          {
+            "text": "Your job listings shown first on the homepage hiring section and the /jobs page"
           }
         ]
       },
@@ -1634,6 +1631,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Developer jobs: open roles at AI companies · ghfind",
+    "metaDescription": "Open engineering, research and product roles at AI companies like DeepSeek and ModaLeap, with links to apply on each company's careers site.",
+    "heading": "Developer hiring",
+    "subtitle": "Turn open-source work into your next job.",
+    "postJob": "Post a job",
+    "viewAll": "View all",
+    "sponsored": "Sponsor · Pinned",
+    "sponsorNote": "Sponsor listings are shown first",
+    "becomeSponsor": "Become a sponsor",
+    "filterLabel": "Filter by company",
+    "allCompanies": "All companies",
+    "openJobs": "Open roles: {count}",
+    "sponsorTag": "Sponsor",
+    "careersSite": "Careers site",
+    "empty": "No open roles right now — check back soon.",
+    "disclaimer": "Listings are collected from each company's public careers page. Apply on the company's site; ghfind is not involved in hiring decisions.",
+    "type": {
+      "full_time": "Full-time",
+      "intern": "Intern",
+      "part_time": "Part-time"
     }
   }
 }

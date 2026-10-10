@@ -3,6 +3,7 @@ import { HomeFaq, type FaqItem } from "@/components/HomeFaq";
 import { HomeHiring } from "@/components/HomeHiring";
 import { HomeProjectBoards } from "@/components/HomeProjectBoards";
 import { JsonLd, faqJsonLd } from "@/components/JsonLd";
+import type { JobListing } from "@/lib/jobs";
 import type { ProjectAssessment } from "@/lib/project-analysis-db";
 import type { Translator } from "@/lib/translator";
 
@@ -17,7 +18,9 @@ export function HomeView({
   t,
   tFaq,
   tBoards,
+  tJobs,
   faq,
+  jobs,
   projectEntries,
   roaster,
   developerCount,
@@ -32,7 +35,11 @@ export function HomeView({
   tFaq: Translator;
   /** "projectBoards" namespace. */
   tBoards: Translator;
+  /** "jobs" namespace. */
+  tJobs: Translator;
   faq: FaqItem[];
+  /** Homepage hiring band: pinned sponsor roles first (loadHomeJobs). */
+  jobs: JobListing[];
   projectEntries: ProjectAssessment[];
   roaster: ReactNode;
   developerCount: ReactNode;
@@ -65,7 +72,7 @@ export function HomeView({
           column, main content first. Pattern mirrors /u/[username]. */}
       <div className="home-content flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-12">
-          <HomeHiring locale={locale} t={t} />
+          <HomeHiring jobs={jobs} t={tJobs} />
           {collections}
           <HomeProjectBoards locale={locale} t={tBoards} entries={projectEntries} />
         </div>

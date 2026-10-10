@@ -1,3 +1,4 @@
+import { LOCALES } from "@ghfind/i18n";
 import { getD1Binding } from "@/lib/d1-client";
 import { SPONSOR_TIER_ORDER, type SponsorRecord, type SponsorTier } from "@/lib/sponsorships";
 
@@ -23,7 +24,17 @@ const nullableString = (value: unknown): string | null =>
 const nullableNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
-export async function GET() {
+const isLocale = (value: string | null): value is (typeof LOCALES)[number] =>
+  (LOCALES as readonly string[]).includes(value ?? "");
+
+/**
+ * `?locale=` picks per-locale copy from sponsorship_translations (falling back
+ * to en, then the sponsorships row). If that table isn't migrated yet the
+ * untranslated query still serves, so the sponsor row never disappears.
+ */
+export async function GET(request?: Request) {
+  const requested = request ? new URL(request.url).searchParams.get("locale") : null;
+  const locale = isLocale(requested) ? requested : null;
   const db = getD1Binding();
   if (!db) {
     return Response.json(
@@ -35,18 +46,31 @@ export async function GET() {
   const asOf = Date.now();
   try {
     const tierOrder = SPONSOR_TIER_ORDER.map((tier, index) => `WHEN '${tier}' THEN ${index}`).join(" ");
-    const { results } = await db
-      .prepare(
-        `SELECT id, tier, sponsor_name, sponsor_url, icon_url, mark, description,
-                is_anonymous, is_perpetual, started_at, expires_at
-         FROM sponsorships
-         WHERE (started_at IS NULL OR started_at <= ?)
-           AND (expires_at IS NULL OR expires_at > ?)
-         ORDER BY CASE tier ${tierOrder} ELSE ${SPONSOR_TIER_ORDER.length} END,
-                  display_order, COALESCE(started_at, 0), created_at, id`,
-      )
-      .bind(asOf, asOf)
-      .all();
+    const listing = (name: string, description: string, joins: string) =>
+      `SELECT s.id, s.tier, ${name} AS sponsor_name, s.sponsor_url, s.icon_url, s.mark,
+              ${description} AS description, s.is_anonymous, s.is_perpetual,
+              s.started_at, s.expires_at
+       FROM sponsorships s ${joins}
+       WHERE (s.started_at IS NULL OR s.started_at <= ?)
+         AND (s.expires_at IS NULL OR s.expires_at > ?)
+       ORDER BY CASE s.tier ${tierOrder} ELSE ${SPONSOR_TIER_ORDER.length} END,
+                s.display_order, COALESCE(s.started_at, 0), s.created_at, s.id`;
+    const base = () =>
+      db.prepare(listing("s.sponsor_name", "s.description", "")).bind(asOf, asOf).all();
+    const { results } = locale
+      ? await db
+          .prepare(
+            listing(
+              "COALESCE(t.sponsor_name, te.sponsor_name, s.sponsor_name)",
+              "COALESCE(t.description, te.description, s.description)",
+              `LEFT JOIN sponsorship_translations t ON t.sponsorship_id = s.id AND t.locale = ?
+               LEFT JOIN sponsorship_translations te ON te.sponsorship_id = s.id AND te.locale = 'en'`,
+            ),
+          )
+          .bind(locale, asOf, asOf)
+          .all()
+          .catch(base)
+      : await base();
 
     const sponsors: SponsorRecord[] = (results as SponsorRow[]).map((row) => {
       const isAnonymous = row.is_anonymous === 1;

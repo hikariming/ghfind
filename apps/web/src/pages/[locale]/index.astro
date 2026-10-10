@@ -10,23 +10,26 @@ import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib
 import { faqItems } from "@/components/HomeFaq";
 import { loadHomeCollectionCards } from "@/lib/pages/home";
 import { loadHomeProjectEntries } from "@/components/HomeProjectBoards";
+import { listJobs } from "@/lib/jobs";
 
 const locale = routeLocale(Astro.params.locale);
 if (!locale) return new Response(null, { status: 404 });
-const [t, tFaq, tBoards, messages, cards, projectEntries] = await Promise.all([
+const [t, tFaq, tBoards, tJobs, messages, cards, projectEntries, jobs] = await Promise.all([
   getTranslator(locale, "home"),
   getTranslator(locale, "faq"),
   getTranslator(locale, "projectBoards"),
+  getTranslator(locale, "jobs"),
   getMessages(locale),
   loadHomeCollectionCards(locale),
   loadHomeProjectEntries(),
+  listJobs(locale, { limit: 4 }),
 ]);
 const intl = (namespaces: string[]) => ({ locale, pathname: "/", messages: pickMessages(messages, namespaces) });
 // Next: force-static with revalidate = 3600.
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=31536000");
 ---
 <Base locale={locale} path="/" alternates="layout">
-  <Home route={{ locale, path: "/" }} locale={locale} t={t} tFaq={tFaq} tBoards={tBoards} faq={faqItems(tFaq)} projectEntries={projectEntries}>
+  <Home route={{ locale, path: "/" }} locale={locale} t={t} tFaq={tFaq} tBoards={tBoards} tJobs={tJobs} jobs={jobs} faq={faqItems(tFaq)} projectEntries={projectEntries}>
     <RoasterIsland slot="roaster" client:load intl={intl(["badge", "byok", "detail", "dimensions", "omnibox", "roaster", "scanErrors", "share", "shareCard", "tiers"])} />
     <DeveloperCountIsland slot="developerCount" client:idle intl={intl([])} />
     <HomeSponsorRowIsland slot="sponsorRow" client:idle intl={intl(["sponsor"])} />

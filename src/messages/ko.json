@@ -53,9 +53,11 @@
       "resume": "GitHub 데이터로 개발자 이력서 만들기",
       "talent": "알아 둘 만한 개발자 찾기",
       "githubBot": "작성자 점수로 issue와 PR에 자동 라벨",
-      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens"
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "AI·오픈소스 기업의 채용 공고"
     },
-    "cliApi": "CLI & API"
+    "cliApi": "CLI & API",
+    "jobs": "채용"
   },
   "globalSearch": {
     "open": "전체 검색 열기",
@@ -115,15 +117,7 @@
     "openBoard": "전체 랭킹 열기 →",
     "disclaimer1": "점수와 독설은 GitHub <b>공개 데이터</b>만으로 자동 생성됩니다. 계정의 공개 활동과 수치를 까는 것이지 사람을 공격하는 게 아니에요. 결과는 누군가에 대한 사실 판단이 아니니 괴롭힘에 쓰지 마세요.",
     "disclaimer2": "채점 코어는 <code>github-account-value</code> 스킬로 오픈소스 공개 · 직접 넣은 API 키는 브라우저에만 저장됩니다.",
-    "viewAll": "전체 보기",
-    "hiring": {
-      "heading": "개발자 채용",
-      "subtitle": "오픈소스 기여를 다음 커리어의 출발점으로.",
-      "postJob": "채용 공고 등록",
-      "sponsored": "스폰서 · 고정",
-      "sponsorNote": "스폰서 공고가 먼저 표시됩니다",
-      "becomeSponsor": "스폰서 되기"
-    }
+    "viewAll": "전체 보기"
   },
   "leaderboard": {
     "heading": "🏆 명예의 전당",
@@ -1363,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "독설 평가에 모델을 제공하고 생성될 때마다 노출됩니다.",
+        "summary": "독설 평가에 모델을 제공하고 생성될 때마다 노출되며, 채용 공고도 우선 노출됩니다.",
         "perks": [
           {
             "text": "평가 생성 시 모델 후원사 크레딧 표시"
           },
           {
             "text": "홈페이지에 후원사 정보와 로고 노출"
+          },
+          {
+            "text": "홈페이지 채용 섹션과 /jobs 페이지에 채용 공고 우선 노출"
           }
         ]
       },
@@ -1634,6 +1631,29 @@
       "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
       "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
       "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "개발자 채용: AI 기업 채용 공고 · ghfind",
+    "metaDescription": "DeepSeek, ModaLeap 등 AI 기업의 엔지니어링·연구·프로덕트 채용 공고. 각 회사 채용 페이지에서 바로 지원하세요.",
+    "heading": "개발자 채용",
+    "subtitle": "오픈소스 기여를 다음 커리어의 출발점으로.",
+    "postJob": "채용 공고 등록",
+    "viewAll": "전체 보기",
+    "sponsored": "스폰서 · 고정",
+    "sponsorNote": "스폰서 공고가 먼저 표시됩니다",
+    "becomeSponsor": "스폰서 되기",
+    "filterLabel": "회사별 필터",
+    "allCompanies": "모든 회사",
+    "openJobs": "채용 중 {count}건",
+    "sponsorTag": "스폰서",
+    "careersSite": "채용 사이트",
+    "empty": "현재 채용 중인 공고가 없습니다. 나중에 다시 확인해 주세요.",
+    "disclaimer": "공고는 각 회사의 공개 채용 페이지에서 수집했습니다. 지원은 회사 사이트에서 진행하며, ghfind는 채용 결정에 관여하지 않습니다.",
+    "type": {
+      "full_time": "정규직",
+      "intern": "인턴",
+      "part_time": "파트타임"
     }
   }
 }
