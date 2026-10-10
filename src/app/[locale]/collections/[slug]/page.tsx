@@ -1,27 +1,19 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { routing } from "@/i18n/routing";
 import { CollectionCommentBubbles } from "@/components/CollectionCommentBubbles";
 import { CollectionView } from "@/components/pages/CollectionViews";
 import {
   collectionAlternates,
   getCollection,
-  getCollectionSlugs,
+  getCollectionArticle,
   pickText,
 } from "@/lib/collections";
 import { localePath } from "@/lib/site";
 import { asTranslator } from "@/lib/translator";
 
-// Fully static: pure fs reads, prerendered per slug × locale at build time —
-// a feature piece landing on a hot feed never touches a function invocation.
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return getCollectionSlugs().flatMap((slug) =>
-    routing.locales.map((locale) => ({ locale, slug })),
-  );
-}
+// Reads the collection from D1 per request (the build has no D1 binding).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -29,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const collection = getCollection(slug);
+  const collection = await getCollection(slug);
   if (!collection) return {};
   const title = pickText(collection.title, locale);
   const description = pickText(collection.intro, locale);
@@ -55,9 +47,10 @@ export default async function CollectionPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const collection = getCollection(slug);
+  const collection = await getCollection(slug);
   if (!collection) notFound();
   setRequestLocale(locale);
+  const article = await getCollectionArticle(collection, locale);
   const t = await getTranslations("collections");
   const tBlog = await getTranslations("blog");
   const tTiers = await getTranslations("tiers");
@@ -72,6 +65,7 @@ export default async function CollectionPage({
         locale={locale}
         slug={slug}
         collection={collection}
+        article={article}
         t={asTranslator(t)}
         tBlog={asTranslator(tBlog)}
         tTiers={asTranslator(tTiers)}

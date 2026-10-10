@@ -10,7 +10,7 @@ import {
   type CommentAuthor,
   type CreateCollectionCommentResponse,
 } from "@/lib/comments";
-import { getCollection } from "@/lib/collections";
+import { collectionExists } from "@/lib/collections";
 import { createCollectionComment, getCollectionComments } from "@/lib/db";
 import { checkCommentRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { decodeRouteParam } from "@/lib/route-params";
@@ -32,10 +32,10 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
   });
 }
 
-function collectionSlugFromParam(value: string | undefined): string | null {
+async function collectionSlugFromParam(value: string | undefined): Promise<string | null> {
   try {
     const slug = normalizeBlogSlug(decodeRouteParam(value ?? ""));
-    return slug && getCollection(slug) ? slug : null;
+    return slug && (await collectionExists(slug)) ? slug : null;
   } catch {
     return null;
   }
@@ -46,7 +46,7 @@ export async function GET(
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug: rawSlug } = await ctx.params;
-  const collectionSlug = collectionSlugFromParam(rawSlug);
+  const collectionSlug = await collectionSlugFromParam(rawSlug);
   if (!collectionSlug) {
     return jsonNoStore({ error: "invalid_collection" }, { status: 404 });
   }
@@ -60,7 +60,7 @@ export async function POST(
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug: rawSlug } = await ctx.params;
-  const collectionSlug = collectionSlugFromParam(rawSlug);
+  const collectionSlug = await collectionSlugFromParam(rawSlug);
   if (!collectionSlug) {
     return jsonNoStore({ error: "invalid_collection" }, { status: 404 });
   }

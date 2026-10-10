@@ -4,15 +4,17 @@ import { CollectionPage } from "../../../views";
 import { CollectionCommentsIsland } from "../../../islands/CollectionCommentsIsland";
 import { getTranslator, routeLocale } from "../../../lib/i18n";
 import { notFound, STATIC_PAGE_CACHE } from "../../../lib/not-found";
-import { collectionAlternates, getCollection, pickText } from "@/lib/collections";
+import { collectionAlternates, getCollection, getCollectionArticle, pickText } from "@/lib/collections";
 import { localePath } from "@/lib/site";
 
 const locale = routeLocale(Astro.params.locale);
 const slug = Astro.params.slug ?? "";
-const collection = getCollection(slug);
+// D1 errors propagate (5xx, not cached) instead of a 404 that deindexes the page.
+const collection = locale ? await getCollection(slug) : null;
 if (!locale || !collection) return notFound();
 
-const [t, tBlog, tTiers] = await Promise.all([
+const [article, t, tBlog, tTiers] = await Promise.all([
+  getCollectionArticle(collection, locale),
   getTranslator(locale, "collections"),
   getTranslator(locale, "blog"),
   getTranslator(locale, "tiers"),
@@ -33,6 +35,6 @@ Astro.response.headers.set("Cache-Control", STATIC_PAGE_CACHE);
 >
   <main class="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:px-6 sm:py-20">
     <CollectionCommentsIsland client:idle intl={{ locale, pathname: path, messages: {} }} lang={locale === "zh" ? "zh" : "en"} collectionSlug={slug} />
-    <CollectionPage route={{ locale, path }} locale={locale} slug={slug} collection={collection} t={t} tBlog={tBlog} tTiers={tTiers} />
+    <CollectionPage route={{ locale, path }} locale={locale} slug={slug} collection={collection} article={article} t={t} tBlog={tBlog} tTiers={tTiers} />
   </main>
 </Base>

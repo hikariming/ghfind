@@ -5,8 +5,8 @@ import { localeAlternates } from "@/lib/site";
 import { CollectionsIndexView } from "@/components/pages/CollectionViews";
 import { asTranslator } from "@/lib/translator";
 
-// Fully static: pure fs reads, prerendered per locale at build time — zero
-// function invocations and zero ISR writes, no matter how hard crawlers hit it.
+// Reads the collection list from D1 per request (the build has no D1 binding).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -34,7 +34,7 @@ export default async function CollectionsIndexPage({
   return (
     <CollectionsIndexView
       locale={locale}
-      collections={listCollections()}
+      collections={await listCollections()}
       t={asTranslator(t)}
       tBlog={asTranslator(tBlog)}
     />
