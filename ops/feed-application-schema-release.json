@@ -32,6 +32,10 @@
     {
       "name": "0018_ghfind_api_token_scopes.sql",
       "sha256": "e0ae26fbf0b597d755e3297284a0cdeb9b4d50db7037752297a2b2ca9f863ca8"
+    },
+    {
+      "name": "0020_jobs.sql",
+      "sha256": "7ac1712ec54a736a33ba9141d47839c7938a23bde2275a189a4d0e94632cd484"
     }
   ],
   "feed": [
