@@ -115,7 +115,15 @@
     "openBoard": "Ver ranking completo →",
     "disclaimer1": "Notas e zoadas são geradas automaticamente só a partir de <b>dados públicos do GitHub</b>. A gente zoa o comportamento público e as estatísticas da conta, não a pessoa. Os resultados não são afirmações factuais sobre ninguém — não use isso pra assediar, por favor.",
     "disclaimer2": "O núcleo de pontuação é open source como a skill <code>github-account-value</code> · sua API key fica só no seu navegador.",
-    "viewAll": "Ver tudo"
+    "viewAll": "Ver tudo",
+    "hiring": {
+      "heading": "Vagas para desenvolvedores",
+      "subtitle": "Transforme seu trabalho open source no seu próximo emprego.",
+      "postJob": "Publicar vaga",
+      "sponsored": "Patrocinador · Fixado",
+      "sponsorNote": "Vagas de patrocinadores aparecem primeiro",
+      "becomeSponsor": "Seja patrocinador"
+    }
   },
   "leaderboard": {
     "heading": "🏆 Hall da Fama",

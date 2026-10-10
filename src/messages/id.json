@@ -115,7 +115,15 @@
     "openBoard": "Buka peringkat lengkap →",
     "disclaimer1": "Skor dan roast dibuat otomatis hanya dari <b>data publik GitHub</b>. Yang kami roast adalah perilaku dan statistik publik sebuah akun, bukan orangnya. Hasilnya bukan klaim faktual tentang siapa pun — jangan dipakai untuk merundung.",
     "disclaimer2": "Inti mesin skor di-open-source sebagai skill <code>github-account-value</code> · API key milikmu hanya tersimpan di browsermu.",
-    "viewAll": "Lihat semua"
+    "viewAll": "Lihat semua",
+    "hiring": {
+      "heading": "Lowongan developer",
+      "subtitle": "Jadikan kontribusi open source awal pekerjaan berikutnya.",
+      "postJob": "Pasang lowongan",
+      "sponsored": "Sponsor · Disematkan",
+      "sponsorNote": "Lowongan sponsor ditampilkan lebih dulu",
+      "becomeSponsor": "Jadi sponsor"
+    }
   },
   "leaderboard": {
     "heading": "🏆 Hall of Fame",

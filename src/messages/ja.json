@@ -115,7 +115,15 @@
     "openBoard": "ランキングを全部見る →",
     "disclaimer1": "スコアとローストは <b>GitHubの公開データ</b> のみから自動生成しています。刺しているのはアカウントの公開挙動と数字であって、人格ではありません。結果は誰かに関する事実認定ではないので、ハラスメントに使わないでください。",
     "disclaimer2": "採点コアは <code>github-account-value</code> スキルとしてオープンソース · 自前のAPIキーはあなたのブラウザにしか残りません。",
-    "viewAll": "すべて見る"
+    "viewAll": "すべて見る",
+    "hiring": {
+      "heading": "開発者採用",
+      "subtitle": "オープンソースへの貢献を、次の仕事の出発点に。",
+      "postJob": "求人を掲載",
+      "sponsored": "スポンサー · 固定",
+      "sponsorNote": "スポンサーの求人を優先表示しています",
+      "becomeSponsor": "スポンサーになる"
+    }
   },
   "leaderboard": {
     "heading": "🏆 殿堂",
