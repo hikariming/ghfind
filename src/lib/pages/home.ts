@@ -6,7 +6,7 @@ import { getCollectionArticle, getGitHubNickname, listCollections, pickText } fr
  * imports the content library (src/lib/collections embeds every article).
  */
 export async function loadHomeCollectionCards(locale: string) {
-  const collections = listCollections().slice(0, 6);
+  const collections = listCollections().slice(0, 8);
   return Promise.all(
     collections.map(async (collection, index) => {
       const githubUsername =

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { HomeFaq, type FaqItem } from "@/components/HomeFaq";
+import { HomeHiring } from "@/components/HomeHiring";
 import { HomeProjectBoards } from "@/components/HomeProjectBoards";
 import { JsonLd, faqJsonLd } from "@/components/JsonLd";
 import type { ProjectAssessment } from "@/lib/project-analysis-db";
@@ -59,11 +60,12 @@ export function HomeView({
       </section>
 
       {/* Content zone: directory-style two-column layout on desktop — main
-          stream (editor's picks + project feed slot) with a sticky right rail
+          stream (hiring, editor's picks, project feed slot) with a sticky right rail
           (leaderboard teaser + discover links). Mobile folds to a single
           column, main content first. Pattern mirrors /u/[username]. */}
       <div className="home-content flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-12">
+          <HomeHiring locale={locale} t={t} />
           {collections}
           <HomeProjectBoards locale={locale} t={tBoards} entries={projectEntries} />
         </div>

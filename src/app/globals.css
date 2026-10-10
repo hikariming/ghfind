@@ -862,10 +862,15 @@ html .omnibox-field input { height: 42px; background: transparent; font-size: 14
 .home-content { margin-top: 58px; padding-top: 28px; border-top: 1px solid var(--border); }
 .home-content > aside { top: 122px; }
 .home-content h2 { font-size: 20px; letter-spacing: -.025em; }
-.collection-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0 32px; margin-top: 20px; }
-.collection-card { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 24px 0; border-top: 1px solid var(--border-soft); }
-.collection-card:nth-child(-n+2) { border-top: 0; padding-top: 8px; }
-.collection-card-link { position: absolute; inset: 8px -10px; z-index: 1; border-radius: 10px; }
+/* Home card bands size to the main column (narrowed by the rail and the
+   workspace sidebar), not the viewport: 4 per row when there's room. */
+.home-content section:has(> .collection-grid, > .hiring-grid) { container-type: inline-size; }
+:is(.collection-grid, .hiring-grid) { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; margin-top: 20px; }
+@container (min-width: 480px) { :is(.collection-grid, .hiring-grid) { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@container (min-width: 720px) { :is(.collection-grid, .hiring-grid) { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+.collection-card { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--border); border-radius: 12px; transition: border-color 180ms; }
+.collection-card:hover { border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
+.collection-card-link { position: absolute; inset: 0; z-index: 1; border-radius: 12px; }
 .collection-card-link:hover { background: color-mix(in srgb, var(--foreground) 2%, transparent); }
 .collection-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .collection-avatar { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; color: var(--muted-foreground); background: var(--surface-muted); font-size: 15px; }
@@ -873,10 +878,33 @@ html .omnibox-field input { height: 42px; background: transparent; font-size: 14
 .collection-identity-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
 .collection-arrow { margin-inline-start: auto; flex-shrink: 0; color: var(--muted-foreground); width: 16px; height: 16px; transition: transform 180ms; }
 .collection-card:hover .collection-arrow { transform: translate(2px,-2px); color: var(--link); }
-.collection-card h3 { font-size: 17px; font-weight: 500; line-height: 1.6; margin-top: 14px; letter-spacing: -.02em; }
+.collection-card h3 { font-size: 15px; font-weight: 500; line-height: 1.6; margin-top: 12px; letter-spacing: -.02em; }
 .collection-card p { font-size: 13px; color: var(--muted-foreground); line-height: 1.8; margin-top: 8px; }
-.collection-meta { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 18px; color: var(--muted-foreground); font-size: 10px; }
-.collection-meta > span:first-child { color: var(--link); }
+.collection-meta { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 18px; color: var(--muted-foreground); font-size: 10px; }
+.collection-meta > span:first-child { color: var(--link); flex-shrink: 0; white-space: nowrap; }
+.collection-meta > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hiring-post { color: var(--link); }
+.hiring-card { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); transition: border-color 180ms; }
+.hiring-card:hover { border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
+.hiring-card-sponsored { --hiring-accent: #f97316; border-color: color-mix(in srgb, var(--hiring-accent) 35%, var(--border)); background: color-mix(in srgb, var(--hiring-accent) 5%, var(--card)); }
+.hiring-card-sponsored:hover { border-color: color-mix(in srgb, var(--hiring-accent) 60%, var(--border)); }
+.hiring-company { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hiring-logo { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: var(--surface-muted); color: var(--muted-foreground); font-size: 14px; }
+.hiring-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hiring-company-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.hiring-badge { position: absolute; top: -9px; inset-inline-end: 12px; display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border: 1px solid color-mix(in srgb, var(--hiring-accent) 35%, var(--border)); border-radius: 999px; font-size: 10px; line-height: 16px; white-space: nowrap; color: #c2410c; background: color-mix(in srgb, var(--hiring-accent) 10%, var(--background)); }
+.hiring-card h3 { font-size: 16px; font-weight: 500; margin-top: 14px; letter-spacing: -.02em; }
+.hiring-salary { margin-top: 6px; font-size: 16px; font-weight: 500; color: #ea580c; }
+.hiring-location { margin-top: 4px; font-size: 12px; color: var(--muted-foreground); }
+.hiring-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 14px; }
+.hiring-tags > span { padding: 2px 8px; border-radius: 6px; font-size: 11px; color: var(--muted-foreground); background: var(--surface-muted); }
+.hiring-arrow { margin-inline-start: auto; width: 15px; height: 15px; color: var(--muted-foreground); transition: transform 180ms; }
+.hiring-card:hover .hiring-arrow { transform: translate(2px,-2px); color: var(--link); }
+html[data-theme="dark"] .hiring-badge { color: #fdba74; }
+html[data-theme="dark"] .hiring-salary { color: #fb923c; }
+.hiring-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--muted-foreground); }
+.hiring-note > svg { color: #f97316; }
+.hiring-note-rule { flex: 1; height: 1px; background: var(--border-soft); }
 html .home-rail { background: transparent; border: 0; border-inline-start: 1px solid var(--border); border-radius: 0; padding: 4px 0 0 24px; }
 .home-rail h2 { font-size: 15px; font-weight: 500; }
 .home-rail ol { margin-top: 16px; }
@@ -922,6 +950,8 @@ html[data-theme="light"] .bg-white\/\[0\.035\] { background-color: var(--card); 
 html input::placeholder { color: var(--muted-foreground); }
 /* Explicit surfaces win over the legacy light/dark utility compatibility map. */
 html[data-theme] :is(.collection-card, .home-rail, .leaderboard-row) { background: transparent; }
+html[data-theme] .hiring-card { background: var(--card); }
+html[data-theme] .hiring-card-sponsored { background: color-mix(in srgb, var(--hiring-accent) 5%, var(--card)); }
 html[data-theme] .content-card { background: var(--card); }
 html .omnibox-field { background: var(--input); }
 
@@ -933,17 +963,14 @@ html .omnibox-field { background: var(--input); }
   .home-content { margin-top: 36px; padding-top: 24px; }
   .home-faq { grid-template-columns: 1fr; gap: 24px; }
   .omnibox-submit { padding-inline: 16px; }
-  .collection-grid { gap: 0 24px; }
 }
 @media (max-width: 639px) {
-  .collection-grid { grid-template-columns: 1fr; }
-  .collection-card:nth-child(2) { border-top: 1px solid var(--border-soft); padding-top: 24px; }
-  .collection-card h3 { font-size: 18px; }
+  .hiring-note-rule { display: none; }
   html .home-rail { border-inline-start: 0; border-top: 1px solid var(--border); padding: 24px 0 0; }
   html .omnibox-field.flex-wrap { border-radius: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .collection-arrow, .omnibox-field { transition: none; }
+  .collection-arrow, .omnibox-field, .collection-card, .hiring-card, .hiring-arrow { transition: none; }
 }
 
 @media (max-width: 1023px) {
