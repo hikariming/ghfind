@@ -94,10 +94,22 @@ def _auth_headers() -> Dict[str, str]:
     return headers
 
 
-def _http(method: str, url: str, headers: Dict[str, str], body: Optional[bytes]) -> Tuple[int, Dict[str, str], bytes]:
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler())
+
+
+def _http(
+    method: str, url: str, headers: Dict[str, str], body: Optional[bytes],
+    follow_redirects: bool = True,
+) -> Tuple[int, Dict[str, str], bytes]:
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req) as resp:
+        opener = urllib.request.urlopen if follow_redirects else _NO_REDIRECT_OPENER.open
+        with opener(req) as resp:
             return resp.status, {k.lower(): v for k, v in resp.headers.items()}, resp.read()
     except urllib.error.HTTPError as e:
         data = e.read() if e.fp else b""
@@ -501,6 +513,45 @@ def _fetch_repo_languages(owner: str, repo: str) -> List[Dict[str, Any]]:
 
 def _fetch_repo_details(owner: str, repo: str) -> Optional[Dict[str, Any]]:
     return _rest_get_opt(f"repos/{owner}/{repo}")
+
+
+def repository_id_from_transfer_location(location: Optional[str]) -> Optional[int]:
+    if not location:
+        return None
+    try:
+        parsed = urllib.parse.urlparse(urllib.parse.urljoin(f"{GITHUB_API}/", location))
+        if parsed.scheme != "https" or parsed.netloc.lower() != "api.github.com":
+            return None
+        match = re.fullmatch(r"/repositories/(\d+)/?", parsed.path)
+        repo_id = int(match.group(1)) if match else 0
+        return repo_id if repo_id > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _has_repository_transfer_redirect(
+    scored_login: str, current_repo: Dict[str, Any]
+) -> bool:
+    repo_id = current_repo.get("id")
+    name = current_repo.get("name")
+    if not isinstance(repo_id, int) or repo_id <= 0 or not name:
+        return False
+    login_path = urllib.parse.quote(scored_login, safe="")
+    name_path = urllib.parse.quote(name, safe="")
+    status, headers, _ = _http(
+        "GET",
+        f"{GITHUB_API}/repos/{login_path}/{name_path}",
+        _auth_headers(),
+        None,
+        follow_redirects=False,
+    )
+    if status in (403, 429):
+        if headers.get("x-ratelimit-remaining") == "0":
+            raise GitHubRateLimitError()
+        return False
+    if status not in (301, 308):
+        return False
+    return repository_id_from_transfer_location(headers.get("location")) == repo_id
 
 
 def _has_release_or_tag_author(owner: str, repo: str, login_lower: str) -> bool:
@@ -925,20 +976,21 @@ def _is_public_org_member(owner_login: str, organizations: List[str]) -> bool:
     return any(organization.lower() == owner for organization in organizations)
 
 
-def _is_org_owned_long_term_candidate(repo: Dict[str, Any], login_lower: str) -> bool:
+def _is_external_original_candidate(repo: Dict[str, Any], login_lower: str) -> bool:
     if repo["is_private"] or repo["is_fork"]:
         return False
     if repo["owner_login"].lower() == login_lower:
         return False
     if _is_doc_like_repo(repo["repo"]):
         return False
-    return _has_strong_long_term_org_contribution(repo)
+    return True
 
 
 def compute_org_repo_attribution(
     repo: Dict[str, Any], organizations: List[str], pinned_repos: Optional[List[str]] = None,
     release_or_tag_author_hit: bool = False, maintainer_file_hit: bool = False,
     scored_login: Optional[str] = None, first_commit_login: Optional[str] = None,
+    transfer_redirect_hit: bool = False,
 ) -> Optional[Dict[str, Any]]:
     owner = repo["owner_login"].lower()
     orgs = {o.lower() for o in organizations}
@@ -946,11 +998,23 @@ def compute_org_repo_attribution(
     scored = (scored_login or "").strip().lower()
     first_login = (first_commit_login or "").strip().lower()
     first_commit_match = len(scored) > 0 and first_login == scored
-    if not member and not first_commit_match:
-        return None
+    pinned = any(r.lower() == repo["repo"].lower() for r in (pinned_repos or []))
+    transferred_original = transfer_redirect_hit and pinned and len(scored) > 0
     if repo["is_private"] or repo["is_fork"]:
         return None
     if _is_doc_like_repo(repo["repo"]):
+        return None
+    if transferred_original:
+        evidence = [
+            f"repository transfer redirect from {scored}/{_repo_name(repo['repo'])}",
+            "pinned by user",
+        ]
+        if repo["commits"] > 0 or repo["prs"] > 0:
+            evidence.append(
+                f"{repo['commits']} commits + {repo['prs']} PRs across {repo['active_years']} years"
+            )
+        return {"repo": repo["repo"], "evidence": evidence, "score": ORG_ATTRIBUTED_MIN_SCORE + 1}
+    if not member and not first_commit_match:
         return None
     if not _has_strong_long_term_org_contribution(repo):
         return None
@@ -959,7 +1023,7 @@ def compute_org_repo_attribution(
         f"{repo['commits']} commits + {repo['prs']} PRs across {repo['active_years']} years",
     ]
     score = 1 + 4
-    if any(r.lower() == repo["repo"].lower() for r in (pinned_repos or [])):
+    if pinned:
         score += 1
         evidence.append("pinned by user")
     if release_or_tag_author_hit:
@@ -1201,21 +1265,46 @@ def _collect_attributed_original_repos(
     contrib_repos: List[Dict[str, Any]], organizations: List[str],
     pinned_repos: List[str], login_lower: str, profile_url: Optional[str],
 ) -> List[Dict[str, Any]]:
+    pinned = {repo.lower() for repo in pinned_repos}
+    contributions = {repo["repo"].lower(): repo for repo in contrib_repos}
     structural = [
-        r for r in contrib_repos if _is_org_owned_long_term_candidate(r, login_lower)
+        repo for repo in contrib_repos
+        if _is_external_original_candidate(repo, login_lower)
+        and _has_strong_long_term_org_contribution(repo)
     ]
-    if len(structural) == 0:
+    candidates = {
+        repo["repo"].lower(): repo
+        for repo in sorted(
+            structural,
+            key=lambda r: (r["stars"], r["commits"] + r["prs"]),
+            reverse=True,
+        )[:8]
+    }
+    for repo_key in pinned_repos:
+        parts = repo_key.split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            continue
+        owner, _ = parts
+        if owner.lower() == login_lower or _is_doc_like_repo(repo_key):
+            continue
+        key = repo_key.lower()
+        candidates[key] = contributions.get(key) or {
+            "repo": repo_key,
+            "stars": 0,
+            "is_private": False,
+            "is_fork": False,
+            "owner_login": owner,
+            "commits": 0,
+            "prs": 0,
+            "active_years": 0,
+        }
+    if len(candidates) == 0:
         return []
-    candidates = sorted(
-        structural,
-        key=lambda r: (r["stars"], r["commits"] + r["prs"]),
-        reverse=True,
-    )[:8]
 
     out = []
-    for candidate in candidates:
+    for candidate in candidates.values():
         parts = candidate["repo"].split("/")
-        if len(parts) < 2 or not parts[0] or not parts[1]:
+        if len(parts) != 2 or not parts[0] or not parts[1]:
             continue
         owner, name = parts[0], parts[1]
         detail = _fetch_repo_details(owner, name)
@@ -1224,6 +1313,24 @@ def _collect_attributed_original_repos(
         if _is_doc_like_repo(candidate["repo"]) or _has_doc_like_topic(detail):
             continue
         member = _is_public_org_member(owner, organizations)
+        is_pinned = candidate["repo"].lower() in pinned
+        transfer_redirect_hit = (
+            _has_repository_transfer_redirect(login_lower, detail)
+            if is_pinned else False
+        )
+        if transfer_redirect_hit:
+            attribution = compute_org_repo_attribution(
+                candidate,
+                organizations,
+                pinned_repos,
+                scored_login=login_lower,
+                transfer_redirect_hit=True,
+            )
+            if attribution:
+                out.append(_repo_to_top_repo(detail, owner, attribution))
+            continue
+        if not _has_strong_long_term_org_contribution(candidate):
+            continue
         first_commit_login = None
         if not member:
             first = fetch_default_branch_first_commit(owner, name)
@@ -1240,7 +1347,7 @@ def _collect_attributed_original_repos(
         if not attribution:
             continue
         out.append(_repo_to_top_repo(detail, owner, attribution))
-    return out
+    return sorted(out, key=lambda repo: repo["stars"], reverse=True)[:8]
 
 
 _CONTRIB_QUERY = """query($login: String!) {
