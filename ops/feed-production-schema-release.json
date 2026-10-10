@@ -56,6 +56,10 @@
     {
       "name": "0021_sponsorship_translations.sql",
       "sha256": "00c9b0e999725ae5a4b35fcfe0d31d69b687ebb7b50e17d08b973b9df3ac2d18"
+    },
+    {
+      "name": "0022_collections.sql",
+      "sha256": "6dbb2163279d4f4a5f672312b5deb24fd6ba1925c4a4d478db1eb974fdcfe489"
     }
   ],
   "feed": [
