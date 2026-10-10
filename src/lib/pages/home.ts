@@ -1,12 +1,19 @@
-import { getCollectionArticle, getGitHubNickname, listCollections, pickText } from "@/lib/collections";
+import { articleReadingMinutes, getGitHubNickname, listCollections, pickText } from "@/lib/collections";
 
 /**
  * Homepage data shared by the Next page and apps/web. Collection cards are
  * resolved to plain, localized values here, so the client card band never
- * imports the content library (src/lib/collections embeds every article).
+ * imports the collections loader. A D1 failure drops the band rather than
+ * failing the whole homepage.
  */
 export async function loadHomeCollectionCards(locale: string) {
-  const collections = listCollections().slice(0, 8);
+  const collections = await listCollections().then(
+    (all) => all.slice(0, 8),
+    (error: unknown) => {
+      console.error("loadHomeCollectionCards failed:", error);
+      return [];
+    },
+  );
   return Promise.all(
     collections.map(async (collection, index) => {
       const githubUsername =
@@ -14,10 +21,6 @@ export async function loadHomeCollectionCards(locale: string) {
       const identityName =
         collection.subject?.nickname ??
         (githubUsername ? await getGitHubNickname(githubUsername) : null);
-      const article =
-        collection.bodyLocales.length > 0
-          ? getCollectionArticle(collection.slug, locale)
-          : null;
       const avatarOwner = collection.subject
         ? collection.subject.kind === "repo"
           ? collection.subject.id.split("/")[0]
@@ -37,7 +40,7 @@ export async function loadHomeCollectionCards(locale: string) {
         identityName: displayName ?? undefined,
         avatarUrl: avatarOwner ? `https://github.com/${avatarOwner}.png?size=112` : null,
         publishedAt: collection.publishedAt,
-        readingMinutes: article?.readingMinutes ?? null,
+        readingMinutes: articleReadingMinutes(collection, locale),
       };
     }),
   );

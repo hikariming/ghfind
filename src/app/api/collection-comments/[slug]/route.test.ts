@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   authConfigured: vi.fn(() => true),
   createCollectionComment: vi.fn(),
   getCollectionComments: vi.fn(),
-  getCollection: vi.fn(),
+  collectionExists: vi.fn(),
   checkCommentRateLimit: vi.fn(async () => ({ success: true })),
 }));
 
@@ -24,7 +24,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/collections", () => ({
-  getCollection: mocks.getCollection,
+  collectionExists: mocks.collectionExists,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -51,7 +51,7 @@ beforeEach(() => {
       login: "Commenter",
     },
   });
-  mocks.getCollection.mockReturnValue({ slug: "lofisu" });
+  mocks.collectionExists.mockResolvedValue(true);
   mocks.getCollectionComments.mockResolvedValue([]);
   mocks.createCollectionComment.mockImplementation(
     async (input: CreateCollectionCommentInput) => ({
@@ -148,7 +148,7 @@ describe("collection comments API", () => {
   });
 
   it("rejects comments for a collection that does not exist", async () => {
-    mocks.getCollection.mockReturnValue(null);
+    mocks.collectionExists.mockResolvedValue(false);
     const missingCollectionContext = { params: Promise.resolve({ slug: "missing-collection" }) };
 
     const response = await POST(

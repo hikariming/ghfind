@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { createClient, type InArgs } from "@libsql/client";
+import { readFileSync } from "node:fs";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { D1DatabaseLike } from "../d1-client";
 import {
   collectionAlternates,
+  collectionExists,
   getCollection,
   getCollectionArticle,
   getCollectionSlugs,
@@ -8,16 +12,54 @@ import {
   pickText,
 } from "../collections";
 
+const state = vi.hoisted(() => ({ binding: null as D1DatabaseLike | null, fail: false }));
+vi.mock("../d1-client", async (original) => ({
+  ...(await original<typeof import("../d1-client")>()),
+  getD1Binding: () => state.binding,
+}));
+
+// The real migration (schema + seed) on in-memory SQLite behind a D1-shaped binding.
+const client = createClient({ url: "file::memory:" });
+const binding: D1DatabaseLike = {
+  prepare(sql) {
+    let args: unknown[] = [];
+    const prepared = {
+      bind(...values: unknown[]) {
+        args = values;
+        return prepared;
+      },
+      async all() {
+        if (state.fail) throw Error("DB down");
+        const result = await client.execute({ sql, args: args as InArgs });
+        return { results: result.rows.map((row) => ({ ...row })), meta: {} };
+      },
+    };
+    return prepared;
+  },
+  batch: (prepared) => Promise.all(prepared.map((statement) => statement.all())),
+};
+
+beforeAll(async () => {
+  await client.executeMultiple(
+    readFileSync(new URL("../../../migrations/0022_collections.sql", import.meta.url), "utf8"),
+  );
+});
+beforeEach(() => {
+  state.binding = binding;
+  state.fail = false;
+});
+afterAll(() => client.close());
+
 const TIERS = ["夯", "顶级", "人上人", "NPC", "拉完了"];
 
 describe("collections content", () => {
-  it("ships at least one collection", () => {
-    expect(getCollectionSlugs().length).toBeGreaterThan(0);
+  it("ships at least one collection", async () => {
+    expect((await getCollectionSlugs()).length).toBeGreaterThan(0);
   });
 
-  it("every shipped collection is well-formed", () => {
-    for (const slug of getCollectionSlugs()) {
-      const c = getCollection(slug);
+  it("every shipped collection is well-formed", async () => {
+    for (const slug of await getCollectionSlugs()) {
+      const c = await getCollection(slug);
       expect(c, slug).not.toBeNull();
       if (!c) continue;
       expect(["projects", "developers", "mixed"], `${slug}: type`).toContain(c.type);
@@ -64,12 +106,12 @@ describe("collections content", () => {
     }
   });
 
-  it("serves article bodies with locale fallback (requested → en → zh)", () => {
-    for (const slug of getCollectionSlugs()) {
-      const c = getCollection(slug);
+  it("serves article bodies with locale fallback (requested → en → zh)", async () => {
+    for (const slug of await getCollectionSlugs()) {
+      const c = await getCollection(slug);
       if (!c || c.bodyLocales.length === 0) continue;
       for (const locale of ["zh", "en", "ja", "ar"]) {
-        const article = getCollectionArticle(slug, locale);
+        const article = await getCollectionArticle(c, locale);
         expect(article, `${slug}: article for ${locale}`).not.toBeNull();
         if (!article) continue;
         expect(c.bodyLocales, `${slug}: served locale`).toContain(article.bodyLocale);
@@ -78,19 +120,50 @@ describe("collections content", () => {
         }
         expect(article.body.length, `${slug}: body`).toBeGreaterThan(0);
         expect(article.readingMinutes, `${slug}: reading time`).toBeGreaterThan(0);
+        expect(c.readingMinutes[article.bodyLocale], `${slug}: listed reading time`).toBe(
+          article.readingMinutes,
+        );
       }
     }
   });
 
-  it("rejects slugs that could escape the content dir", () => {
-    expect(getCollection("../secrets")).toBeNull();
-    expect(getCollection("No_Caps")).toBeNull();
-    expect(getCollection("nope.json")).toBeNull();
+  it("rejects malformed and unknown slugs", async () => {
+    expect(await getCollection("../secrets")).toBeNull();
+    expect(await getCollection("No_Caps")).toBeNull();
+    expect(await getCollection("nope.json")).toBeNull();
+    expect(await getCollection("does-not-exist")).toBeNull();
+    expect(await collectionExists("does-not-exist")).toBe(false);
+    expect(await collectionExists("dify")).toBe(true);
   });
 
-  it("lists collections newest first", () => {
-    const dates = listCollections().map((c) => c.publishedAt);
-    expect(dates).toEqual([...dates].sort().reverse());
+  it("lists collections newest first, ties by slug descending", async () => {
+    const list = await listCollections();
+    const keys = list.map((c) => `${c.publishedAt} ${c.slug}`);
+    expect(keys).toEqual([...keys].sort().reverse());
+  });
+
+  it("hides drafts from listing, lookup and the comment check", async () => {
+    await client.execute("UPDATE collections SET status = 'draft' WHERE slug = 'dify'");
+    try {
+      expect(await getCollectionSlugs()).not.toContain("dify");
+      expect(await getCollection("dify")).toBeNull();
+      expect(await collectionExists("dify")).toBe(false);
+    } finally {
+      await client.execute("UPDATE collections SET status = 'published' WHERE slug = 'dify'");
+    }
+  });
+
+  it("throws on D1 failures instead of reporting a missing collection", async () => {
+    state.fail = true;
+    await expect(listCollections()).rejects.toThrow("DB down");
+    await expect(getCollection("dify")).rejects.toThrow("DB down");
+    expect(await collectionExists("dify")).toBe(false);
+  });
+
+  it("is empty without a D1 binding", async () => {
+    state.binding = null;
+    expect(await listCollections()).toEqual([]);
+    expect(await getCollection("dify")).toBeNull();
   });
 
   it("serves zh copy to zh and en copy to every other locale", () => {

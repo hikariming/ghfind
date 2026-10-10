@@ -1,20 +1,23 @@
 import { HTML_LANG, routing } from "@/i18n/routing";
-import { readingMinutes } from "@/lib/blog";
-import { contentFileExists, listContentDir, readContentFile } from "@/lib/content-files";
+import { getD1Binding } from "@/lib/d1-client";
 import { getCachedGitHubName, setCachedGitHubName } from "@/lib/redis";
 import type { Tier } from "@/lib/types";
 
 /**
- * Loader for the curated picks section ("编辑推荐"), reading the embedded
- * content map (`@/lib/content-files` — no runtime filesystem). Each entry is a
- * directory `content/collections/<slug>/` holding:
+ * Loader for the curated picks section ("编辑推荐" / Founder's picks), backed
+ * by D1 (migrations/0022_collections.sql; scripts/collections-to-sql.mts turns
+ * meta.json + `<locale>.md` folders into upsert SQL). Each collection has:
  *
- * - `meta.json` — type, bilingual title/intro, tags, optional feature
- *   `subject` (the person/repo the piece is about) and optional `items`
- *   (card-list picks for roundup-style collections).
- * - `<locale>.md` — optional long-form article body. Editorial content ships
- *   zh + en plus ja/ko translations; a locale without its own body falls back
- *   locale → en → zh.
+ * - a type, multilingual title/intro, tags, an optional feature `subject`
+ *   (the person/repo the piece is about) and optional `items` (card-list
+ *   picks for roundup-style collections);
+ * - optional long-form article bodies per locale; a locale without its own
+ *   body falls back locale → en → zh.
+ *
+ * Listing reads never load article bodies (reading time is precomputed).
+ * With no D1 binding (tests, the Next build) everything is empty; a failing
+ * query throws, so pages answer 5xx — never a cacheable 404 or empty index
+ * that would get the URLs dropped from search results.
  *
  * Item `stats` are static editorial numbers for now; the real-data phase
  * resolves live stats from `repos`/`scores` at render time and keeps `stats`
@@ -49,7 +52,7 @@ export type CollectionSubject = {
   kind: "developer" | "repo";
   /** GitHub username or "owner/name". */
   id: string;
-  /** PR-editable display-name override, e.g. "张昱轩 (Yuxuan Zhang)". */
+  /** Editorial display-name override, e.g. "张昱轩 (Yuxuan Zhang)". */
   nickname?: string;
   headline?: LocalizedText;
 };
@@ -66,8 +69,10 @@ export type Collection = {
   tags: string[];
   subject?: CollectionSubject;
   items: CollectionItem[];
-  /** Locales that have a long-form article body (`<locale>.md` present). */
+  /** Locales that have a long-form article body. */
   bodyLocales: string[];
+  /** Precomputed reading time per body locale. */
+  readingMinutes: Record<string, number>;
 };
 
 export type CollectionArticle = {
@@ -77,48 +82,182 @@ export type CollectionArticle = {
   readingMinutes: number;
 };
 
-export function getCollectionSlugs(): string[] {
-  return listContentDir("collections").filter((slug) =>
-    contentFileExists(`collections/${slug}/meta.json`),
-  );
+type Row = Record<string, unknown>;
+
+const SLUG = /^[a-z0-9-]+$/;
+const str = (value: unknown): string | null =>
+  typeof value === "string" && value.length > 0 ? value : null;
+
+function localized(rows: Row[], field: string): LocalizedText | undefined {
+  const text: Record<string, string> = {};
+  for (const row of rows) {
+    const value = str(row[field]);
+    if (value) text[String(row.locale)] = value;
+  }
+  if (Object.keys(text).length === 0) return undefined;
+  return { zh: "", en: "", ...text };
 }
 
-export function getCollection(slug: string): Collection | null {
+function groupBy(rows: Row[], key: (row: Row) => string): Map<string, Row[]> {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const group = groups.get(k);
+    if (group) group.push(row);
+    else groups.set(k, [row]);
+  }
+  return groups;
+}
+
+/**
+ * Published collections, newest first (ties: slug descending, the order the
+ * file-based loader produced). `slug` narrows to one collection.
+ */
+async function queryCollections(slug?: string): Promise<Collection[]> {
+  const db = getD1Binding();
+  if (!db) return [];
+  const where = slug === undefined ? "" : "AND c.slug = ?";
+  const bind = slug === undefined ? [] : [slug];
+  const [collections, translations, items, blurbs] = await db.batch([
+    db
+      .prepare(
+        `SELECT slug, type, published_at, tags, subject_kind, subject_id, subject_nickname
+         FROM collections c WHERE status = 'published' ${where}
+         ORDER BY published_at DESC, slug DESC`,
+      )
+      .bind(...bind),
+    db
+      .prepare(
+        `SELECT t.slug, t.locale, t.title, t.intro, t.subject_headline,
+                t.body IS NOT NULL AS has_body, t.reading_minutes
+         FROM collection_translations t JOIN collections c ON c.slug = t.slug
+         WHERE c.status = 'published' ${where}
+         ORDER BY t.slug, t.locale`,
+      )
+      .bind(...bind),
+    db
+      .prepare(
+        `SELECT i.slug, i.position, i.kind, i.item_id, i.stats
+         FROM collection_items i JOIN collections c ON c.slug = i.slug
+         WHERE c.status = 'published' ${where}
+         ORDER BY i.slug, i.position`,
+      )
+      .bind(...bind),
+    db
+      .prepare(
+        `SELECT b.slug, b.position, b.locale, b.blurb
+         FROM collection_item_translations b JOIN collections c ON c.slug = b.slug
+         WHERE c.status = 'published' ${where}`,
+      )
+      .bind(...bind),
+  ]);
+  const translationsBySlug = groupBy(translations.results, (row) => String(row.slug));
+  const itemsBySlug = groupBy(items.results, (row) => String(row.slug));
+  const blurbsByItem = groupBy(blurbs.results, (row) => `${row.slug}/${row.position}`);
+
+  return collections.results.map((row) => {
+    const slug = String(row.slug);
+    const texts = translationsBySlug.get(slug) ?? [];
+    const bodies = texts.filter((t) => Number(t.has_body) === 1);
+    const subjectKind = row.subject_kind;
+    const subjectId = str(row.subject_id);
+    const subject: CollectionSubject | undefined =
+      (subjectKind === "developer" || subjectKind === "repo") && subjectId
+        ? {
+            kind: subjectKind,
+            id: subjectId,
+            ...(str(row.subject_nickname) ? { nickname: String(row.subject_nickname) } : {}),
+            ...(localized(texts, "subject_headline")
+              ? { headline: localized(texts, "subject_headline") }
+              : {}),
+          }
+        : undefined;
+    return {
+      slug,
+      type: row.type as CollectionType,
+      title: localized(texts, "title") ?? { zh: slug, en: slug },
+      intro: localized(texts, "intro") ?? { zh: "", en: "" },
+      publishedAt: String(row.published_at),
+      tags: JSON.parse(String(row.tags ?? "[]")) as string[],
+      ...(subject ? { subject } : {}),
+      items: (itemsBySlug.get(slug) ?? []).map(
+        (item) =>
+          ({
+            kind: item.kind,
+            id: String(item.item_id),
+            blurb: localized(blurbsByItem.get(`${slug}/${item.position}`) ?? [], "blurb") ?? {
+              zh: "",
+              en: "",
+            },
+            stats: JSON.parse(String(item.stats ?? "{}")),
+          }) as CollectionItem,
+      ),
+      bodyLocales: bodies.map((t) => String(t.locale)),
+      readingMinutes: Object.fromEntries(
+        bodies.map((t) => [String(t.locale), Number(t.reading_minutes) || 1]),
+      ),
+    };
+  });
+}
+
+export async function listCollections(): Promise<Collection[]> {
+  return queryCollections();
+}
+
+export async function getCollectionSlugs(): Promise<string[]> {
+  return (await listCollections()).map((c) => c.slug);
+}
+
+export async function getCollection(slug: string): Promise<Collection | null> {
   // Slugs come from route params — refuse anything that isn't a plain slug.
-  if (!/^[a-z0-9-]+$/.test(slug)) return null;
-  const rawMeta = readContentFile(`collections/${slug}/meta.json`);
-  if (rawMeta === null) return null;
-  const meta = JSON.parse(rawMeta) as Omit<
-    Collection,
-    "slug" | "items" | "bodyLocales"
-  > & { items?: CollectionItem[] };
-  const bodyLocales = listContentDir(`collections/${slug}`)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => f.slice(0, -3));
-  return { ...meta, slug, items: meta.items ?? [], bodyLocales };
+  if (!SLUG.test(slug)) return null;
+  return (await queryCollections(slug))[0] ?? null;
+}
+
+/** Cheap published-slug check (comment routes); false on any D1 failure. */
+export async function collectionExists(slug: string): Promise<boolean> {
+  const db = getD1Binding();
+  if (!db || !SLUG.test(slug)) return false;
+  try {
+    const { results } = await db
+      .prepare("SELECT 1 FROM collections WHERE slug = ? AND status = 'published'")
+      .bind(slug)
+      .all();
+    return results.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Body locale served for `locale`: requested → en → zh, or null without a body. */
+export function articleLocale(bodyLocales: string[], locale: string): string | null {
+  return [locale, "en", "zh"].find((l) => bodyLocales.includes(l)) ?? null;
+}
+
+/** Reading time of the body served for `locale`, without loading the body. */
+export function articleReadingMinutes(collection: Collection, locale: string): number | null {
+  const bodyLocale = articleLocale(collection.bodyLocales, locale);
+  return bodyLocale ? (collection.readingMinutes[bodyLocale] ?? null) : null;
 }
 
 /** Long-form body with content-locale fallback: requested → en → zh. */
-export function getCollectionArticle(
-  slug: string,
+export async function getCollectionArticle(
+  collection: Collection,
   locale: string,
-): CollectionArticle | null {
-  const collection = getCollection(slug);
-  if (!collection || collection.bodyLocales.length === 0) return null;
-  const bodyLocale = [locale, "en", "zh"].find((l) =>
-    collection.bodyLocales.includes(l),
-  );
-  if (!bodyLocale) return null;
-  const body = readContentFile(`collections/${slug}/${bodyLocale}.md`);
-  if (body === null) return null;
-  return { body, bodyLocale, readingMinutes: readingMinutes(body) };
-}
-
-export function listCollections(): Collection[] {
-  return getCollectionSlugs()
-    .map((slug) => getCollection(slug))
-    .filter((c): c is Collection => c !== null)
-    .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+): Promise<CollectionArticle | null> {
+  const bodyLocale = articleLocale(collection.bodyLocales, locale);
+  const db = getD1Binding();
+  if (!bodyLocale || !db) return null;
+  const { results } = await db
+    .prepare(
+      "SELECT body, reading_minutes FROM collection_translations WHERE slug = ? AND locale = ?",
+    )
+    .bind(collection.slug, bodyLocale)
+    .all();
+  const row = results[0];
+  const body = str(row?.body);
+  if (!body) return null;
+  return { body, bodyLocale, readingMinutes: Number(row?.reading_minutes) || 1 };
 }
 
 /** Editorial copy ships zh + en (+ ja/ko where translated); fall back locale → en → zh. */

@@ -1,7 +1,7 @@
 // Produce reviewable, repeatable SQL; this script never writes to a database.
 // node --import tsx scripts/seed-talent.mts > /tmp/seed-talent.sql
 // pnpm exec wrangler d1 execute ghfind --remote --env production --file /tmp/seed-talent.sql
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import type { Talent } from "../src/components/talent/data";
 
 type EditorialTalent = {
@@ -16,6 +16,10 @@ type EditorialTalent = {
 const rows: EditorialTalent[] = JSON.parse(readFileSync(
   new URL("./data/talent-editorial.json", import.meta.url), "utf8",
 ));
+const seededCollections = new Set(
+  [...readFileSync(new URL("../migrations/0022_collections.sql", import.meta.url), "utf8")
+    .matchAll(/^INSERT INTO collections \([^)]*\) VALUES \('([a-z0-9-]+)'/gm)].map((m) => m[1]),
+);
 const ids = new Set<string>();
 for (const row of rows) {
   const id = row.id.toLowerCase();
@@ -27,9 +31,9 @@ for (const row of rows) {
     if (!entry.url) throw new Error(`Missing evidence URL: ${row.id}`);
     if (entry.url.startsWith("/collections/")) {
       const slug = entry.url.slice("/collections/".length);
-      if (!/^[a-z0-9-]+$/.test(slug) || !existsSync(new URL(`../content/collections/${slug}/meta.json`, import.meta.url))) {
-        throw new Error(`Unknown collection: ${entry.url}`);
-      }
+      if (!/^[a-z0-9-]+$/.test(slug)) throw new Error(`Invalid collection link: ${entry.url}`);
+      // Collections live in D1; only the seeded ones are known offline.
+      if (!seededCollections.has(slug)) console.warn(`Collection not in the 0022 seed (check it is published): ${entry.url}`);
     } else if (new URL(entry.url).protocol !== "https:") {
       throw new Error(`Unsafe evidence URL: ${entry.url}`);
     }

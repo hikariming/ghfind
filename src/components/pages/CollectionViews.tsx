@@ -7,9 +7,10 @@ import {
 import { PostBody } from "@/components/blog/PostBody";
 import { CollectionItemCard } from "@/components/collections/CollectionItemCard";
 import {
-  getCollectionArticle,
+  articleReadingMinutes,
   pickText,
   type Collection,
+  type CollectionArticle,
   type CollectionSubject,
 } from "@/lib/collections";
 import { bcp47, localePath } from "@/lib/site";
@@ -52,10 +53,7 @@ export function CollectionsIndexView({
 
       <div className="mt-10 flex flex-col gap-6">
         {collections.map((collection) => {
-          const article =
-            collection.bodyLocales.length > 0
-              ? getCollectionArticle(collection.slug, locale)
-              : null;
+          const minutes = articleReadingMinutes(collection, locale);
           const avatarOwner = collection.subject
             ? collection.subject.kind === "repo"
               ? collection.subject.id.split("/")[0]
@@ -109,11 +107,11 @@ export function CollectionsIndexView({
                           date: dateFmt.format(new Date(collection.publishedAt)),
                         })}
                       </time>
-                      {article && (
+                      {minutes !== null && (
                         <>
                           <span aria-hidden>·</span>
                           <span>
-                            {tBlog("readingTime", { minutes: article.readingMinutes })}
+                            {tBlog("readingTime", { minutes })}
                           </span>
                         </>
                       )}
@@ -200,12 +198,14 @@ function SubjectCard({
 /**
  * The content column of a collection page. The surrounding <main> and the
  * comment bubbles (a client component) stay with each page, because the
- * Astro page hydrates the bubbles as a separate island.
+ * Astro page hydrates the bubbles as a separate island. `article` is the
+ * body served for `locale` (getCollectionArticle), null when there is none.
  */
 export function CollectionView({
   locale,
   slug,
   collection,
+  article,
   t,
   tBlog,
   tTiers,
@@ -213,11 +213,11 @@ export function CollectionView({
   locale: string;
   slug: string;
   collection: Collection;
+  article: CollectionArticle | null;
   t: Translator;
   tBlog: Translator;
   tTiers: Translator;
 }) {
-  const article = getCollectionArticle(slug, locale);
   const isFallbackBody = article !== null && article.bodyLocale !== locale;
   const dateFmt = longDate(locale);
 
