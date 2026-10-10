@@ -84,6 +84,7 @@ browser ─▶ /api/scan ─▶ [Redis cache?] ─▶ lib/github.ts  (GitHub RES
 - **The base score is deterministic** — computed server-side by `lib/score.ts`.
 - The LLM runs in two separated passes: a factual judge may apply a bounded **±10** calibration, then a writer turns the fixed result into tags, the top roast line, and the report. The writer cannot change the score.
 - 6 dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) + 10 farming red flags. Weights lean toward **hard-to-fake** signals (PRs merged into real repos, sustained activity) and discount **buyable** ones (stars, followers).
+- **Super newcomer bonus**: evidence-backed accounts with strong project substance, contribution quality, ecosystem depth, and activity can earn up to 4 extra maturity points, decaying to zero at age 3. Existing risk deductions stay unchanged. See [the rule and limits](docs/scoring/super-newcomer.md).
 - The site also includes share cards, README badges, profile comments, and GitHub-authenticated profile reactions.
 
 ## ghfind API, MCP server & SDKs

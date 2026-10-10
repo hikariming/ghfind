@@ -6,9 +6,9 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// Formal successor to the previous production score contract. Six positive
-// dimensions remain stable; v10 adds the structured risk layer.
-export const SCORE_CACHE_VERSION = "v10";
+// v11 adds an evidence-gated, age-decaying maturity bonus for exceptional
+// newcomers. The six dimensions and v10 risk layer keep their existing limits.
+export const SCORE_CACHE_VERSION = "v11";
 // Formal successor to the previous production report contract.
 export const ROAST_CACHE_VERSION = "v11";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

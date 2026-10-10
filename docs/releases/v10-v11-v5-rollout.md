@@ -1,5 +1,8 @@
 # v10 / v11 / v5 pronoun-aware roast wording
 
+Historical release plan. The next isolated score release is
+[v11 / v11 / v5 newcomer maturity](v11-v11-v5-rollout.md).
+
 ## Change
 
 Roast v11 respects explicitly provided profile pronouns and uses neutral wording

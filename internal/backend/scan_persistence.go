@@ -17,7 +17,7 @@ const (
 	// written on every scan and every read filter (canonicalScoreVersion in
 	// turso.go aliases it). A scoring-rule bump changes this one line, in the
 	// same review as src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion      = "v10"
+	goCanonicalScoreVersion      = "v11"
 	goCanonicalCollectionVersion = "v4"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )

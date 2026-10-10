@@ -3,6 +3,7 @@ package backend
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 // RawMetrics is the wire contract used by the existing Node collector and the
@@ -367,6 +368,76 @@ func tierFor(final float64) (string, string) {
 	}
 }
 
+// isCanonicalGitHubTimestamp accepts only calendar-valid, whole-second UTC
+// timestamps in the GitHub wire format. It never consults the current time.
+func isCanonicalGitHubTimestamp(value *string) bool {
+	if value == nil || len(*value) != 20 {
+		return false
+	}
+	const layout = "2006-01-02T15:04:05Z"
+	parsed, err := time.Parse(layout, *value)
+	return err == nil && parsed.Year() > 0 && parsed.Format(layout) == *value
+}
+
+func newcomerClamp01(value float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+	return max(0, min(value, 1))
+}
+
+func smoothRamp(value, lo, hi float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+	x := newcomerClamp01((value - lo) / (hi - lo))
+	return x * x * (3 - 2*x)
+}
+
+// newcomerMaturityBonus uses completed hard scores and the existing risk
+// assessment, without changing any baseline formula or risk signal. Core PR
+// count is a non-doc-like approximation, not an audit of code quality.
+func newcomerMaturityBonus(m RawMetrics, sub SubScores, risk RiskAssessment, totalPenalty float64) float64 {
+	age := m.AccountAgeYears
+	if math.IsNaN(age) || math.IsInf(age, 0) || age < 0 || age >= 3 ||
+		!isCanonicalGitHubTimestamp(m.CreatedAt) ||
+		math.IsNaN(m.NonemptyOriginalRepoCount) || math.IsInf(m.NonemptyOriginalRepoCount, 0) || m.NonemptyOriginalRepoCount <= 0 ||
+		m.DaysSinceLastActivity == nil {
+		return 0
+	}
+	days := *m.DaysSinceLastActivity
+	if math.IsNaN(days) || math.IsInf(days, 0) || days < 0 || days > 90 ||
+		m.MergedPRContributionAggregationIncomplete || m.StarInflationSuspect ||
+		math.IsNaN(totalPenalty) || math.IsInf(totalPenalty, 0) || totalPenalty > 0 {
+		return 0
+	}
+	for _, signal := range risk.Signals {
+		if signal.Family == "contribution" {
+			return 0
+		}
+	}
+	// Ecosystem strength accepts either multi-repo depth or total landed work
+	// volume in star-qualified repos: a creator maintaining one exceptional
+	// repo is not weaker than a contributor touching many. Volume only counts
+	// work that already passed the same >=200-star external / >=1000-star own
+	// gates, so it cannot be farmed in small or self-created low-star repos.
+	impactWork := valueOrZero(m.ImpactCommitCount) + m.ImpactPRCount
+	ecosystemRatio := math.Max(m.ImpactDepthRaw/8, LogRatio(impactWork, 400))
+	evidence := min(
+		smoothRamp(valueOrZero(m.BestOriginalRepoQualityScore), 0.55, 0.85),
+		smoothRamp(sub.ContributionQuality/27, 0.55, 0.85),
+		smoothRamp(ecosystemRatio, 0.55, 0.85),
+		smoothRamp(sub.ActivityAuthenticity/17, 0.55, 0.85),
+	)
+	confidence := min(
+		newcomerClamp01(valueOrZero(m.VerifiedImpactPRCount)/5),
+		newcomerClamp01(valueOrZero(m.CoreImpactPRCount)/3),
+		newcomerClamp01(m.RecentMergedPRSample/20),
+	)
+	decay := 1 - age/3
+	return 4 * evidence * confidence * decay * decay
+}
+
 // Score is a direct Go port of src/lib/score.ts. The API contract and scoring
 // rules stay unchanged while the collector and persistence move out of Next.
 func Score(m RawMetrics) Scoring {
@@ -463,8 +534,11 @@ func Score(m RawMetrics) Scoring {
 	}
 	sub.ActivityAuthenticity = roundToEven(contributionPoints+recencyPoints+min(m.ActivityTypeCount, 4)*1.125, 1)
 
-	base := roundToEven(sub.AccountMaturity+sub.OriginalProjectQuality+sub.ContributionQuality+sub.EcosystemImpact+sub.CommunityInfluence+sub.ActivityAuthenticity, 1)
 	riskAssessment, riskNotes, redFlags, totalPenalty := AssessRisk(m)
+	if bonus := newcomerMaturityBonus(m, sub, riskAssessment, totalPenalty); bonus > 0 {
+		sub.AccountMaturity = roundToEven(min(10, agePoints+spanPoints+bonus), 1)
+	}
+	base := roundToEven(sub.AccountMaturity+sub.OriginalProjectQuality+sub.ContributionQuality+sub.EcosystemImpact+sub.CommunityInfluence+sub.ActivityAuthenticity, 1)
 	final := clampScore(roundToEven(base-totalPenalty, 2))
 	tier, tierLabel := tierFor(final)
 	return Scoring{SubScores: sub, BaseScore: base, RedFlags: redFlags, RiskAssessment: riskAssessment, RiskNotes: riskNotes, TotalPenalty: totalPenalty, FinalScore: final, Tier: tier, TierLabel: tierLabel}
