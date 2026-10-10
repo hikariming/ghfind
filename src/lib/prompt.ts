@@ -394,7 +394,7 @@ const SYSTEM_PROMPT_ZH = `你是「GitHub 毒舌锐评写手」。分数、档�
 - templated_pr_flooding（看 flood_pr_titles 与 pr_flood_suspect）：只能写成“近期样本里 PR 高度集中且标题模板化，像批量推进同类改动，需要人工看 diff 判断含金量”。**禁止**把“疑似 AI/模板化”写成事实，禁止写“垃圾场/DDoS/必然低质”。若 core_impact_pr_count 很高或 impact_quality_cap 不存在，必须承认有实质贡献，只能吐槽模式化风险；不得把近期样本外推成“全是测试/全是模板/核心代码很少/几乎没有核心贡献”。
 - 高核心影响账号：如果 metrics.core_impact_pr_count >= 10、metrics.impact_pr_count 很高、外部 doc-like 占比低、PR 拒收率低，正文必须写成“有大量实质合并贡献，但近期模式集中需要复核”，不能写成低质量账号或刷量定论。
 - 注意：**给自己仓库提 PR（自产自销）完全正常**，是个人项目/学习/测试的正常开发流程，**不要**据此扣分或嘲讽刷量；只有"给别人热门项目灌水 PR"和"向别人仓库模板化批量刷 PR"才是刷量。
-- closed PR 口径：只有 maintainer_closed_unmerged_pr_count 才能称为"被维护者拒绝/关闭"；self_closed_external_pr_count 和 self_closed_own_repo_pr_count 是作者主动关闭，不要写成被拒。若有 workflow_landed_pr_count，它们是目标仓库官方机器人标记为已落地后关闭的 PR：不能叫 GitHub 原生合并，但也绝不能写成被拒。贡献质量行必须写 PR 状态拆分：GitHub 合并 PR、官方工作流已落地 PR（如有）、总 PR、维护者关闭未合并、作者主动关闭外部/自有仓库 PR。
+- closed PR 口径：只有 maintainer_closed_unmerged_pr_count 才能称为"被维护者拒绝/关闭"；self_closed_external_pr_count 和 self_closed_own_repo_pr_count 是作者主动关闭，不要写成被拒。若有 workflow_landed_pr_count，它们是目标仓库官方机器人标记为已落地后关闭的 PR：不能叫 GitHub 原生合并，但也绝不能写成被拒。若有 default_branch_landed_pr_count，它们是维护者把作者 commit 推到上游默认分支后手动关闭的 PR：已经落地，算被接纳的贡献，绝不能写成被拒。贡献质量行必须写 PR 状态拆分：GitHub 合并 PR、官方工作流已落地 PR（如有）、默认分支已落地 PR（如有）、总 PR、维护者关闭未合并、作者主动关闭外部/自有仓库 PR。
 - high_pr_rejection（pr_rejection_rate 高）：「PR 被维护者关闭未合并率 X%，提一堆退一堆，维护者的 close 按钮都被你按出包浆了。」
 - 夯：「挑了半天毛病，发现唯一的缺点是让我没东西可吐槽。」
 
@@ -609,10 +609,13 @@ function buildPayload(scan: ScanResult, lang: Lang) {
           total_merged_pr_count: scan.metrics.merged_pr_count,
           follower_following_fact: followerFollowingFact,
           workflow_landed_pr_count: scan.metrics.workflow_landed_pr_count ?? 0,
+          default_branch_landed_pr_count: scan.metrics.default_branch_landed_pr_count ?? 0,
           impact_repos_scope:
             "impact_repos / metrics.impact_pr_count summarize all-time substantial PRs/commits into popular repos. workflow_landed_impact_pr_count is the subset verified by an official repository bot rather than GitHub's native merged state.",
           workflow_landing_scope:
             "Never call workflow-landed PRs GitHub merges. They are separately verified only when the same official bot applied the exact Merged label and then closed the PR. They are valid ecosystem-impact evidence and must not be called rejections.",
+          default_branch_landing_scope:
+            "default_branch_landed_pr_count counts closed, unmerged PRs whose commits the maintainer pushed to the upstream default branch with the author's authorship (evidenced by commitContributionsByRepository), then closed by hand. They landed — treat them as accepted contributions, never as maintainer rejections, and they are already excluded from maintainer_closed_unmerged_pr_count and pr_rejection_rate.",
           verified_impact_sample_scope:
             "verified_impact_prs is a file-level sample only. Do not turn the sample count into the all-time contribution count.",
           doc_like_scope:
@@ -667,10 +670,13 @@ function buildPayload(scan: ScanResult, lang: Lang) {
           total_merged_pr_count: scan.metrics.merged_pr_count,
           follower_following_fact: followerFollowingFact,
           workflow_landed_pr_count: scan.metrics.workflow_landed_pr_count ?? 0,
+          default_branch_landed_pr_count: scan.metrics.default_branch_landed_pr_count ?? 0,
           impact_repos_scope:
             "impact_repos / metrics.impact_pr_count 汇总的是长期高星仓库实质 PR/commit 贡献；workflow_landed_impact_pr_count 是其中经仓库官方机器人验证、但不是 GitHub 原生 merged 的部分。",
           workflow_landing_scope:
             "不得把官方工作流已落地 PR 写成 GitHub 合并。它们只有在同一个官方机器人打上精确 Merged 标签、再关闭 PR 时才会被单独验证；可作为生态影响证据，但绝不能写成被拒。",
+          default_branch_landing_scope:
+            "default_branch_landed_pr_count 是这样一批 closed 未 merged 的 PR：维护者把作者的 commit（保留作者身份）推到了上游默认分支后手动关闭（由 commitContributionsByRepository 佐证）。它们已经落地，应视为被接纳的贡献，绝不能写成被维护者拒绝；它们已从 maintainer_closed_unmerged_pr_count 和 pr_rejection_rate 中剔除。",
           verified_impact_sample_scope:
             "verified_impact_prs 只是文件级可验证样本，不能把样本条数写成长期贡献总数。",
           doc_like_scope:

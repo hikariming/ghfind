@@ -1717,7 +1717,7 @@ interface AnyPr {
 interface ClosedPrNode {
   id?: string | null;
   author: { login: string } | null;
-  repository: { owner: { login: string } | null } | null;
+  repository: { nameWithOwner?: string | null; owner: { login: string } | null } | null;
   timelineItems: {
     nodes: ({ actor: { login: string } | null } | null)[];
   } | null;
@@ -1940,24 +1940,43 @@ export interface ClosedPrBreakdown {
   maintainer_closed_unmerged_pr_count: number;
   self_closed_external_pr_count: number;
   self_closed_own_repo_pr_count: number;
+  default_branch_landed_pr_count: number;
   unknown_closed_unmerged_pr_count: number;
 }
 
+/**
+ * Classify closed, unmerged PRs from who closed them and where.
+ *
+ * `landedRepos` (lowercased `nameWithOwner`) are external repos where the user
+ * has landed default-branch commit contributions. Some upstream projects land
+ * an external PR by pushing the author's commits to the default branch with
+ * authorship preserved, then closing the GitHub PR by hand — no `mergedAt`, no
+ * official merge-bot label, so {@link isWorkflowLandedPr} never fires. Without
+ * this signal such a PR reads as a maintainer rejection and is double-counted
+ * against the author (the landed commits already count as impact via
+ * `commitContributionsByRepository`). Because the upstream default branch is
+ * maintainer-controlled, this evidence is not farmable — the same trust level
+ * as a native merge. It generalizes the existing exact-match `git/git`
+ * default-branch-authorship exception in {@link computeImpactFromContribMap}.
+ */
 export function computeClosedPrBreakdown(
   nodes: ClosedPrNode[],
   total: number,
   loginLower: string,
   workflowLandedIds: ReadonlySet<string> = new Set(),
+  landedRepos: ReadonlySet<string> = new Set(),
 ): ClosedPrBreakdown {
   let maintainerClosed = 0;
   let selfClosedExternal = 0;
   let selfClosedOwnRepo = 0;
+  let defaultBranchLanded = 0;
   let unknownClosed = Math.max(0, total - nodes.length);
 
   for (const node of nodes) {
     if (node.id && workflowLandedIds.has(node.id)) continue;
     const author = (node.author?.login ?? loginLower).toLowerCase();
     const repoOwner = node.repository?.owner?.login?.toLowerCase() ?? "";
+    const repoKey = node.repository?.nameWithOwner?.trim().toLowerCase() ?? "";
     const actor = node.timelineItems?.nodes?.[0]?.actor?.login?.toLowerCase() ?? "";
     if (!actor) {
       unknownClosed += 1;
@@ -1966,16 +1985,21 @@ export function computeClosedPrBreakdown(
       else selfClosedExternal += 1;
     } else if (repoOwner === loginLower) {
       unknownClosed += 1;
+    } else if (repoKey && landedRepos.has(repoKey)) {
+      // Maintainer closed an external PR, but the user's commits are on that
+      // repo's default branch: landed via maintainer push, not rejected.
+      defaultBranchLanded += 1;
     } else {
       maintainerClosed += 1;
     }
   }
 
   return {
-    closed_unmerged_pr_count: Math.max(0, total - workflowLandedIds.size),
+    closed_unmerged_pr_count: Math.max(0, total - workflowLandedIds.size - defaultBranchLanded),
     maintainer_closed_unmerged_pr_count: maintainerClosed,
     self_closed_external_pr_count: selfClosedExternal,
     self_closed_own_repo_pr_count: selfClosedOwnRepo,
+    default_branch_landed_pr_count: defaultBranchLanded,
     unknown_closed_unmerged_pr_count: unknownClosed,
   };
 }
@@ -2792,7 +2816,7 @@ const CLOSED_PR_OVERVIEW_FIELDS = `closedPRs: pullRequests(states: CLOSED, first
           nodes {
             id
             author { login }
-            repository { owner { login } }
+            repository { nameWithOwner owner { login } }
             timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
               nodes {
                 ... on ClosedEvent {
@@ -3124,11 +3148,28 @@ export async function collect(username: string): Promise<{
   ]);
   const organizations = await fetchOrganizations(login);
   const totalPrCount = overview.allPRs?.totalCount ?? 0;
+  // External repos where the user has landed default-branch commits (GitHub only
+  // counts commitContributionsByRepository after commits reach the upstream
+  // default branch). Evidence that a maintainer-closed PR into such a repo was
+  // landed-then-closed rather than rejected. Forks excluded: a fork's default
+  // branch is not the upstream one.
+  const defaultBranchLandedRepos = new Set(
+    contribRepos
+      .filter(
+        (r) =>
+          r.commits >= 1 &&
+          !r.is_private &&
+          !r.is_fork &&
+          r.owner_login.toLowerCase() !== loginLower,
+      )
+      .map((r) => r.repo.trim().toLowerCase()),
+  );
   const closedPrBreakdown = computeClosedPrBreakdown(
     closedPrNodes,
     overview.closedPRs?.totalCount ?? 0,
     loginLower,
     new Set(workflowLandedPrs.map((pr) => pr.id)),
+    defaultBranchLandedRepos,
   );
   const issuesCreated = overview.issues?.totalCount ?? 0;
   const decidedPrCount = mergedPrCount + closedPrBreakdown.maintainer_closed_unmerged_pr_count;
@@ -3362,6 +3403,7 @@ export async function collect(username: string): Promise<{
       closedPrBreakdown.maintainer_closed_unmerged_pr_count,
     self_closed_external_pr_count: closedPrBreakdown.self_closed_external_pr_count,
     self_closed_own_repo_pr_count: closedPrBreakdown.self_closed_own_repo_pr_count,
+    default_branch_landed_pr_count: closedPrBreakdown.default_branch_landed_pr_count,
     unknown_closed_unmerged_pr_count: closedPrBreakdown.unknown_closed_unmerged_pr_count,
     pr_rejection_rate: prRejectionRate,
     recent_pr_sample: flood.recent_pr_sample,
