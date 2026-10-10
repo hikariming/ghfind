@@ -52,6 +52,10 @@
     {
       "name": "0020_jobs.sql",
       "sha256": "7ac1712ec54a736a33ba9141d47839c7938a23bde2275a189a4d0e94632cd484"
+    },
+    {
+      "name": "0021_sponsorship_translations.sql",
+      "sha256": "00c9b0e999725ae5a4b35fcfe0d31d69b687ebb7b50e17d08b973b9df3ac2d18"
     }
   ],
   "feed": [
