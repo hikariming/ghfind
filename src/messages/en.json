@@ -437,6 +437,35 @@
     "github_unavailable": "GitHub data is temporarily unavailable — try again later.",
     "scan_failed": "The scan crashed — try again later."
   },
+  "scoreJob": {
+    "computing": "Computing",
+    "computingHint": "A first-time score takes a few minutes: we're collecting public contribution data. Keep this page open and it will appear automatically.",
+    "progress": "{percent} done",
+    "failed": "Score computation failed — try again later.",
+    "timeout": "Still computing — check back later.",
+    "phase": {
+      "queued": "Queued",
+      "running": "Computing",
+      "user": "Profile",
+      "contribs": "Contributions",
+      "maintainer": "Maintainer data",
+      "gap_fill": "Backfilling history",
+      "merged_prs": "Merged PRs",
+      "repo_meta": "Repo metadata",
+      "pr_samples": "PR samples",
+      "pr_details": "PR details",
+      "mutual_mergers": "Merge links",
+      "histories": "Commit history",
+      "signals": "Signals",
+      "per_repo": "Per-repo analysis",
+      "owner_types": "Owner types",
+      "star_history": "Star history",
+      "rejected": "Rejected PRs",
+      "ext_prs": "External PRs",
+      "assemble": "Assembling",
+      "publish": "Publishing score"
+    }
+  },
   "share": {
     "open": "🔗 Share",
     "heading": "Share to",

@@ -437,6 +437,35 @@
     "github_unavailable": "GitHub 数据暂时不可用，稍后再试。",
     "scan_failed": "扫描翻车了，稍后再试。"
   },
+  "scoreJob": {
+    "computing": "计算中",
+    "computingHint": "首次评分需要几分钟：正在收集公开贡献数据，保持页面打开即可自动出分。",
+    "progress": "已完成 {percent}",
+    "failed": "评分计算失败了，稍后再试试。",
+    "timeout": "还在计算中，稍后回来看看。",
+    "phase": {
+      "queued": "排队中",
+      "running": "计算中",
+      "user": "获取资料",
+      "contribs": "贡献记录",
+      "maintainer": "维护者信息",
+      "gap_fill": "补全历史",
+      "merged_prs": "合并 PR",
+      "repo_meta": "仓库信息",
+      "pr_samples": "PR 抽样",
+      "pr_details": "PR 详情",
+      "mutual_mergers": "合并关系",
+      "histories": "提交历史",
+      "signals": "信号",
+      "per_repo": "逐仓库分析",
+      "owner_types": "所有者类型",
+      "star_history": "Star 历史",
+      "rejected": "被拒 PR",
+      "ext_prs": "外部 PR",
+      "assemble": "汇总",
+      "publish": "发布分数"
+    }
+  },
   "share": {
     "open": "🔗 分享",
     "heading": "分享到",

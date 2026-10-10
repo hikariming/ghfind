@@ -9,7 +9,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { splitReport } from "@/lib/report";
 import { consumeRoastStream, pendingScanKey } from "@/lib/roast-stream";
-import { readScanResponse } from "@/lib/scan-job-client";
+import { readScanResponse, type ScanJobStatus } from "@/lib/scan-job-client";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { RoastLine, RoastMeta, ScanResult, SubScoreKey, Tags, Tier } from "@/lib/types";
 import {
@@ -24,6 +24,7 @@ import { ShareCard } from "./ShareCard";
 import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
+import { ScoreJobProgress } from "./ScoreJobProgress";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { Omnibox } from "./Omnibox";
 import { DimensionStarChart } from "./DimensionStarChart";
@@ -52,6 +53,7 @@ export function Roaster({
 }: RoasterProps = {}) {
   const t = useTranslations("roaster");
   const tScan = useTranslations("scanErrors");
+  const tJob = useTranslations("scoreJob");
   const tTier = useTranslations("tiers");
   const tDetail = useTranslations("detail");
   const tDim = useTranslations("dimensions");
@@ -62,6 +64,9 @@ export function Roaster({
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
   const [scanning, setScanning] = useState(false);
+  // Live devscore job status: present only while a 202 background score job is
+  // being polled (first-time score). Drives the phase/progress UI.
+  const [jobStatus, setJobStatus] = useState<ScanJobStatus | null>(null);
   const [roasting, setRoasting] = useState(false);
   // Live progress label streamed from the server during the (slow, reasoning-model)
   // judge → roast wait, so the card shows "正在校准评分… (8s)" instead of a frozen spinner.
@@ -194,6 +199,7 @@ export function Roaster({
       setMetaRoast(null);
       setThinking("");
       setScanning(true);
+      setJobStatus(null);
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
@@ -238,7 +244,8 @@ export function Roaster({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
-        const data = await readScanResponse(res);
+        const data = await readScanResponse(res, { onStatus: setJobStatus });
+        setJobStatus(null);
         if (!res.ok) {
           const code = data && typeof data === "object" && "error" in data ? String(data.error) : "";
           setError(tScan.has(code) ? tScan(code) : t("errScanFailed"));
@@ -257,8 +264,16 @@ export function Roaster({
           return;
         }
         presentScan(data as ScanResult);
-      } catch {
-        setError(t("errNetworkScan"));
+      } catch (e) {
+        const code = (e as { code?: string })?.code;
+        if (code === "scan_timeout") {
+          setError(tJob("timeout"));
+        } else if (typeof code === "string" && code !== "scan_aborted") {
+          setError(tScan.has(code) ? tScan(code) : tJob("failed"));
+        } else {
+          setError(t("errNetworkScan"));
+        }
+        setJobStatus(null);
         setScanning(false);
       }
     },
@@ -274,6 +289,7 @@ export function Roaster({
       searchParams,
       t,
       tScan,
+      tJob,
     ],
   );
 
@@ -421,12 +437,18 @@ export function Roaster({
         ) : null}
       </div>
 
-      {/* Scanning skeleton */}
-      {scanning && (
-        <div className="mt-10 animate-pulse text-center text-zinc-500">
-          {t("scanning", { username })}
-        </div>
-      )}
+      {/* Scanning state: a queued/running devscore job shows live phase +
+          progress; a synchronous scan keeps the old skeleton line. */}
+      {scanning &&
+        (jobStatus ? (
+          <div className="mt-10 px-5">
+            <ScoreJobProgress status={jobStatus} username={username} />
+          </div>
+        ) : (
+          <div className="mt-10 animate-pulse text-center text-zinc-500">
+            {t("scanning", { username })}
+          </div>
+        ))}
 
       {/* Score reveal */}
       {scan && display && style && (

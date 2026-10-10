@@ -437,6 +437,35 @@
     "github_unavailable": "GitHub 데이터를 잠시 사용할 수 없어요 — 나중에 다시 시도하세요.",
     "scan_failed": "스캔이 터졌어요 — 잠시 후 다시 시도하세요."
   },
+  "scoreJob": {
+    "computing": "계산 중",
+    "computingHint": "첫 점수는 몇 분 걸려요. 공개 기여 데이터를 수집하는 중입니다. 페이지를 열어 두면 자동으로 완성돼요.",
+    "progress": "{percent} 완료",
+    "failed": "점수 계산에 실패했어요 — 나중에 다시 시도하세요.",
+    "timeout": "아직 계산 중이에요 — 나중에 다시 확인하세요.",
+    "phase": {
+      "queued": "대기 중",
+      "running": "계산 중",
+      "user": "프로필",
+      "contribs": "기여 기록",
+      "maintainer": "메인테이너 정보",
+      "gap_fill": "이력 보완",
+      "merged_prs": "머지된 PR",
+      "repo_meta": "저장소 정보",
+      "pr_samples": "PR 샘플",
+      "pr_details": "PR 상세",
+      "mutual_mergers": "머지 관계",
+      "histories": "커밋 이력",
+      "signals": "시그널",
+      "per_repo": "저장소별 분석",
+      "owner_types": "소유자 유형",
+      "star_history": "Star 이력",
+      "rejected": "거절된 PR",
+      "ext_prs": "외부 PR",
+      "assemble": "집계",
+      "publish": "점수 발표"
+    }
+  },
   "share": {
     "open": "🔗 공유",
     "heading": "공유하기",

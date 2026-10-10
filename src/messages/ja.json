@@ -437,6 +437,35 @@
     "github_unavailable": "GitHubのデータが一時的に取得できません。あとで再試行を。",
     "scan_failed": "スキャンがクラッシュしました。あとで再試行を。"
   },
+  "scoreJob": {
+    "computing": "計算中",
+    "computingHint": "初回スコアには数分かかります。公開コントリビューションを収集中です。このページを開いたままにすると自動で結果が出ます。",
+    "progress": "{percent} 完了",
+    "failed": "スコア計算に失敗しました。あとで再試行を。",
+    "timeout": "まだ計算中です。あとで見に来てください。",
+    "phase": {
+      "queued": "キュー待ち",
+      "running": "計算中",
+      "user": "プロフィール",
+      "contribs": "コントリビューション",
+      "maintainer": "メンテナ情報",
+      "gap_fill": "履歴の補完",
+      "merged_prs": "マージ済みPR",
+      "repo_meta": "リポジトリ情報",
+      "pr_samples": "PRサンプル",
+      "pr_details": "PR詳細",
+      "mutual_mergers": "マージ関係",
+      "histories": "コミット履歴",
+      "signals": "シグナル",
+      "per_repo": "リポジトリ別分析",
+      "owner_types": "所有者タイプ",
+      "star_history": "Star履歴",
+      "rejected": "却下されたPR",
+      "ext_prs": "外部PR",
+      "assemble": "集計",
+      "publish": "スコア公開"
+    }
+  },
   "share": {
     "open": "🔗 シェア",
     "heading": "シェア先",
