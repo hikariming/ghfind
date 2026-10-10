@@ -38,7 +38,7 @@ export function SponsorView({ t }: { t: Translator }) {
       <div className={styles.grid}>
         {SPONSOR_TIERS.map((tier, index) => {
           const perks = t.raw(`tiers.${tier.id}.perks`) as Perk[];
-          const off = Math.round((1 - tier.price / tier.listPrice) * 100);
+          const listPrice = tier.listPrice && tier.listPrice > tier.price ? tier.listPrice : null;
           return (
             <article key={tier.id} className={styles.card} data-tier={tier.displayTier} data-sold-out={tier.soldOut || undefined}>
               <div className={styles.cardTop}>
@@ -53,8 +53,12 @@ export function SponsorView({ t }: { t: Translator }) {
               <div className={styles.price}>
                 <strong>{usd(tier.price)}</strong>
                 <span>{t("perMonth")}</span>
-                <s aria-label={t("listPrice", { price: usd(tier.listPrice) })}>{usd(tier.listPrice)}</s>
-                <em>{t("off", { off })}</em>
+                {listPrice && (
+                  <>
+                    <s aria-label={t("listPrice", { price: usd(listPrice) })}>{usd(listPrice)}</s>
+                    <em>{t("off", { off: Math.round((1 - tier.price / listPrice) * 100) })}</em>
+                  </>
+                )}
               </div>
 
               <ul className={styles.perks}>

@@ -1357,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Mendukung model untuk ulasan dan tampil setiap kali ulasan dibuat.",
+        "summary": "Mendukung model untuk ulasan, tampil setiap kali ulasan dibuat, dan lowongan Anda tampil paling atas.",
         "perks": [
           {
             "text": "Kredit sponsor model saat ulasan dibuat"
           },
           {
             "text": "Info dan logo sponsor di beranda"
+          },
+          {
+            "text": "Lowongan Anda tampil paling atas di bagian rekrutmen beranda dan halaman /jobs"
           }
         ]
       },

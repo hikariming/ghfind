@@ -1357,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Alimente as avaliações e apareça sempre que uma for gerada.",
+        "summary": "Alimente as avaliações, apareça sempre que uma for gerada e mostre suas vagas primeiro.",
         "perks": [
           {
             "text": "Crédito do patrocinador do modelo durante a geração da avaliação"
           },
           {
             "text": "Informações e logo do patrocinador na página inicial"
+          },
+          {
+            "text": "Suas vagas aparecem primeiro na seção de vagas da página inicial e em /jobs"
           }
         ]
       },

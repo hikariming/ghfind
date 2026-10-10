@@ -1357,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Impulsa las opiniones y aparece cada vez que se genera una.",
+        "summary": "Impulsa las opiniones, aparece cada vez que se genera una y destaca tus vacantes primero.",
         "perks": [
           {
             "text": "Crédito del patrocinador del modelo mientras se genera la opinión"
           },
           {
             "text": "Información y logo del patrocinador en la página de inicio"
+          },
+          {
+            "text": "Tus vacantes aparecen primero en la sección de empleo de la portada y en /jobs"
           }
         ]
       },

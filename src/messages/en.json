@@ -1357,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Power the roasts and get seen every time one is generated.",
+        "summary": "Power the roasts, get seen every time one is generated, and put your open roles first.",
         "perks": [
           {
             "text": "Model sponsor credit shown while a roast is generated"
           },
           {
             "text": "Sponsor info and logo on the homepage"
+          },
+          {
+            "text": "Your job listings shown first on the homepage hiring section and the /jobs page"
           }
         ]
       },

@@ -1357,13 +1357,16 @@
       },
       "model": {
         "name": "顶级",
-        "summary": "Cung cấp mô hình cho các nhận xét và xuất hiện mỗi lần nhận xét được tạo.",
+        "summary": "Cung cấp mô hình cho các nhận xét, xuất hiện mỗi lần nhận xét được tạo và tin tuyển dụng được ưu tiên hiển thị.",
         "perks": [
           {
             "text": "Hiển thị nhà tài trợ mô hình khi tạo nhận xét"
           },
           {
             "text": "Thông tin và logo nhà tài trợ trên trang chủ"
+          },
+          {
+            "text": "Tin tuyển dụng của bạn được ưu tiên hiển thị ở mục tuyển dụng trên trang chủ và trang /jobs"
           }
         ]
       },
