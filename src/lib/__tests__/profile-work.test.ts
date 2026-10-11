@@ -76,6 +76,40 @@ describe("rankProfileWorks", () => {
     ]);
   });
 
+  it("matches pinned repositories by full owner/name instead of basename", () => {
+    const works = rankProfileWorks({
+      username: "dev",
+      pinnedRepos: ["company/runtime"],
+      topRepos: [
+        {
+          name: "runtime",
+          name_with_owner: "dev/runtime",
+          stars: 2,
+          forks: 0,
+          open_issues: 0,
+          size: 1,
+          language: "TypeScript",
+          description: null,
+          pushed_at: null,
+        },
+        {
+          name: "runtime",
+          name_with_owner: "company/runtime",
+          owner_login: "company",
+          stars: 1,
+          forks: 0,
+          open_issues: 0,
+          size: 1,
+          language: "Go",
+          description: null,
+          pushed_at: null,
+        },
+      ],
+    });
+
+    expect(works.map((work) => work.repo)).toEqual(["company/runtime", "dev/runtime"]);
+  });
+
   it("shows independently proven organization maintenance without promoting it to own work", () => {
     const works = rankProfileWorks({
       username: "dev",

@@ -10,6 +10,7 @@ from ghfind._github import (
     is_doc_like_impact_pr,
     original_repo_quality_score,
     parse_github_noreply_login,
+    repository_id_from_transfer_location,
     resolve_first_commit_github_login,
 )
 
@@ -85,6 +86,16 @@ def test_github_noreply_login_parsing():
     assert parse_github_noreply_login("person@example.com") is None
 
 
+def test_repository_transfer_location_parsing():
+    assert repository_id_from_transfer_location(
+        "https://api.github.com/repositories/985266942"
+    ) == 985266942
+    assert repository_id_from_transfer_location("/repositories/42/") == 42
+    assert repository_id_from_transfer_location("https://api.github.com/repos/org/project") is None
+    assert repository_id_from_transfer_location("https://example.com/repositories/not-a-number") is None
+    assert repository_id_from_transfer_location("https://example.com/repositories/42") is None
+
+
 def test_first_commit_login_resolution_order():
     assert resolve_first_commit_github_login(
         author_login="alice",
@@ -122,6 +133,49 @@ def test_first_commit_does_not_skip_long_term_gate():
         [],
         scored_login="alice",
         first_commit_login="alice",
+    ) is None
+
+
+def test_verified_pinned_transfer_can_skip_long_term_gate():
+    attribution = compute_org_repo_attribution(
+        _repo(
+            repo="company/runtime",
+            owner_login="company",
+            commits=0,
+            prs=0,
+            active_years=0,
+        ),
+        [],
+        pinned_repos=["company/runtime"],
+        scored_login="creator",
+        transfer_redirect_hit=True,
+    )
+
+    assert attribution["repo"] == "company/runtime"
+    assert "repository transfer redirect from creator/runtime" in attribution["evidence"]
+    assert "pinned by user" in attribution["evidence"]
+
+
+def test_pin_or_unrelated_transfer_signal_does_not_prove_ownership():
+    repo = _repo(
+        repo="company/runtime",
+        owner_login="company",
+        commits=0,
+        prs=0,
+        active_years=0,
+    )
+    assert compute_org_repo_attribution(
+        repo,
+        [],
+        pinned_repos=["company/runtime"],
+        scored_login="creator",
+    ) is None
+    assert compute_org_repo_attribution(
+        repo,
+        [],
+        pinned_repos=["company/another-repo"],
+        scored_login="creator",
+        transfer_redirect_hit=True,
     ) is None
 
 

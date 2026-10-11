@@ -839,6 +839,58 @@ Run the CLI with the default config.
     ).toBeNull();
   });
 
+  it("attributes a pinned transfer when the former owner path resolves to the same repo", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({
+        repo: "company/runtime",
+        owner_login: "company",
+        commits: 0,
+        prs: 0,
+        active_years: 0,
+      }),
+      organizations: [],
+      pinnedRepos: ["company/runtime"],
+      scoredLogin: "creator",
+      transferRedirectHit: true,
+    });
+
+    expect(attribution?.repo).toBe("company/runtime");
+    expect(attribution?.evidence).toEqual(
+      expect.arrayContaining([
+        "repository transfer redirect from creator/runtime",
+        "pinned by user",
+      ]),
+    );
+  });
+
+  it("does not let a pin or an unrelated transfer signal prove ownership", () => {
+    const repo = contribRepo({
+      repo: "company/runtime",
+      owner_login: "company",
+      commits: 0,
+      prs: 0,
+      active_years: 0,
+    });
+
+    expect(
+      computeOrgRepoAttribution({
+        repo,
+        organizations: [],
+        pinnedRepos: ["company/runtime"],
+        scoredLogin: "creator",
+      }),
+    ).toBeNull();
+    expect(
+      computeOrgRepoAttribution({
+        repo,
+        organizations: [],
+        pinnedRepos: ["company/another-repo"],
+        scoredLogin: "creator",
+        transferRedirectHit: true,
+      }),
+    ).toBeNull();
+  });
+
   it("does not attribute when the first commit belongs to someone else", () => {
     expect(
       computeOrgRepoAttribution({
