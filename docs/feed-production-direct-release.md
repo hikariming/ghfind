@@ -90,7 +90,10 @@ The two private runtime deployments use `--containers-rollout=immediate` after
 the existing Go gateway has been paused (or while the first-release Web still
 uses legacy Feed). This requests one 100% Container replacement step instead of
 the platform default gradual steps for a two-instance application. It does not
-make rollout transactional or prove instances finished replacing. The actual
+make rollout transactional or prove instances finished replacing. Platform
+rollout inspection retries HTTP 429, 408, 500, 502, 503 and 504 inside the
+existing 300-second, 120-request budget, honors Retry-After up to 30 seconds,
+and still fails closed on 401, 403, 404 and 400. The actual
 image and direct application version still gate admission. Each fixed Durable
 Object captures its own actor ID and native `ctx.container.running` after the
 real Go readiness response, and the Worker compares the actor with

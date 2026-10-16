@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Read platform rollout completion before stopping any fixed actor. Configuration
 // image alone is not evidence that old placements have finished being replaced.
+// wrangler deploy can burst the Containers API; HTTP 429/408/5xx retry inside
+// the existing read budget. Other 4xx still fail closed.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,7 +14,21 @@ const check=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=x=>typeof x==='string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(x);
 const integer=x=>Number.isSafeInteger(x)&&x>=0;
 const date=x=>typeof x==='string'&&Number.isFinite(Date.parse(x));
-export const limits=Object.freeze({durationMs:300000,requests:120,requestMs:10000,intervalMs:10000,responseBytes:524288});
+export const limits=Object.freeze({durationMs:300000,requests:120,requestMs:10000,intervalMs:10000,retryAfterMsMax:30000,responseBytes:524288});
+export const retryableHttpStatuses=Object.freeze([408,429,500,502,503,504]);
+function retryAfterMs(response){
+  const raw=response.headers?.get?.('retry-after');
+  if(typeof raw!=='string'||raw==='')return;
+  if(/^\d+$/.test(raw)){const ms=Number(raw)*1000;return Number.isSafeInteger(ms)&&ms>0&&ms<=limits.durationMs?ms:undefined;}
+  const at=Date.parse(raw);if(!Number.isFinite(at))return;
+  const ms=at-Date.now();return Number.isSafeInteger(ms)&&ms>0&&ms<=limits.durationMs?ms:undefined;
+}
+function httpReadError(response){
+  const retryable=retryableHttpStatuses.includes(response.status);
+  const error=new Error(retryable?'rollout_http_retryable':'rollout_http_read_failed');
+  error.httpStatus=response.status;if(retryable){const wait=retryAfterMs(response);if(wait!==undefined)error.retryAfterMs=wait;}
+  return error;
+}
 
 export function inspectRollout(application, rollouts, previous, image, anchor) {
   check(application?.id===previous.id && application.name===previous.name && application.account_id===ACCOUNT &&
@@ -71,19 +87,36 @@ export async function waitForRollouts(manifest,image,previous,{get,record=()=>{}
   };
   try {
     for(;;){
-      const round=[];
-      for(const app of apps){
-        const path=`/containers/applications/${app.id}`;
-        const application=await read(path),rollouts=await read(`${path}/rollouts`);
-        const result=inspectRollout(application,rollouts,app,image,anchors.get(app.id));
-        if(result.rolloutId)anchors.set(app.id,result);
-        round.push(result);receipt.observations.push({...result,observedAt:new Date(now()).toISOString()});record(receipt);
+      try{
+        const round=[];
+        for(const app of apps){
+          const path=`/containers/applications/${app.id}`;
+          const application=await read(path),rollouts=await read(`${path}/rollouts`);
+          const result=inspectRollout(application,rollouts,app,image,anchors.get(app.id));
+          if(result.rolloutId)anchors.set(app.id,result);
+          round.push(result);receipt.observations.push({...result,observedAt:new Date(now()).toISOString()});record(receipt);
+        }
+        if(round.every(r=>r.status==='passed')){receipt.status='passed';receipt.applications=round;receipt.completedAt=new Date(now()).toISOString();record(receipt);return receipt;}
+        check(now()+limits.intervalMs<deadline&&receipt.requests+4<=limits.requests,'rollout_wait_budget_exhausted');
+        await sleep(limits.intervalMs);
+      }catch(error){
+        const retryable=error?.message==='rollout_http_retryable'&&Number.isInteger(error.httpStatus)&&error.httpStatus>=100&&error.httpStatus<=599;
+        if(!retryable)throw error;
+        const retries=receipt.observations.filter(o=>o.reason==='http_retryable').length;
+        const suggested=Number.isSafeInteger(error.retryAfterMs)&&error.retryAfterMs>0?error.retryAfterMs:limits.intervalMs*Math.min(4,retries+1);
+        const wait=Math.min(limits.retryAfterMsMax,Math.max(limits.intervalMs,suggested));
+        receipt.httpStatus=error.httpStatus;
+        receipt.observations.push({status:'pending',reason:'http_retryable',httpStatus:error.httpStatus,observedAt:new Date(now()).toISOString()});
+        record(receipt);
+        check(now()+wait<deadline&&receipt.requests+4<=limits.requests,'rollout_wait_budget_exhausted');
+        await sleep(wait);
       }
-      if(round.every(r=>r.status==='passed')){receipt.status='passed';receipt.applications=round;receipt.completedAt=new Date(now()).toISOString();record(receipt);return receipt;}
-      check(now()+limits.intervalMs<deadline&&receipt.requests+4<=limits.requests,'rollout_wait_budget_exhausted');
-      await sleep(limits.intervalMs);
     }
-  }catch(error){receipt.status='failed';receipt.failureCode=/^rollout_[a-z_]+$/.test(error?.message??'')?error.message:'rollout_read_failed';record(receipt);throw error;}
+  }catch(error){
+    receipt.status='failed';receipt.failureCode=/^rollout_[a-z_]+$/.test(error?.message??'')?error.message:'rollout_read_failed';
+    if(Number.isInteger(error?.httpStatus)&&error.httpStatus>=100&&error.httpStatus<=599)receipt.httpStatus=error.httpStatus;
+    record(receipt);throw error;
+  }
 }
 export function rolloutReader(token,fetcher=fetch){
   check(typeof token==='string'&&token.length>0&&!/[\x00-\x20\x7f]/.test(token),'rollout_token_required');
@@ -91,7 +124,8 @@ export function rolloutReader(token,fetcher=fetch){
     check(/^\/containers\/applications\/[a-f0-9-]{36}(?:\/rollouts)?$/.test(path),'rollout_read_path_invalid');
     const response=await fetcher(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`,{
       method:'GET',redirect:'error',signal,headers:{authorization:`Bearer ${token}`,accept:'application/json'}});
-    check(response.ok,'rollout_http_read_failed');let size=0;const chunks=[];
+    if(!response.ok){await response.body?.cancel().catch(()=>{});throw httpReadError(response);}
+    let size=0;const chunks=[];
     for await(const chunk of response.body??[]){size+=chunk.byteLength;check(size<=limits.responseBytes,'rollout_response_too_large');chunks.push(chunk);}
     let body;try{body=JSON.parse(Buffer.concat(chunks));}catch{throw new Error('rollout_invalid_json');}
     check(body?.success===true&&body.result!==undefined,'rollout_api_read_failed');return body.result;

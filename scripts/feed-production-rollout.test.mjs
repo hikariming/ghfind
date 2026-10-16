@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ACCOUNT} from './feed-production-release.mjs';
-import {inspectRollout,waitForRollouts,rolloutReader,limits} from './feed-production-rollout.mjs';
+import {inspectRollout,waitForRollouts,rolloutReader,limits,retryableHttpStatuses} from './feed-production-rollout.mjs';
 const manifest=JSON.parse(readFileSync(new URL('../ops/feed-production-manifest.json',import.meta.url)));
 const img=n=>`registry.cloudflare.com/${ACCOUNT}/ghfind-feed@sha256:${n.repeat(64)}`;
 const image=img('b'),before=img('a');
@@ -62,4 +62,32 @@ test('reader only permits fixed application GETs, bounds responses and rejects e
   await assert.rejects(reader('/containers/applications/foreign/restart'),/path/);
   for(const response of [new Response('',{status:403}),new Response('invalid'),Response.json({success:false,result:[]}),new Response('x'.repeat(limits.responseBytes+1))])
     await assert.rejects(rolloutReader('private',async()=>response)(`/containers/applications/${previous[0].id}`));
+});
+test('rate-limited Containers reads retry inside the budget and 403 still fails closed',async()=>{
+  assert.deepEqual(retryableHttpStatuses,[408,429,500,502,503,504]);
+  let clock=Date.parse('2026-10-16T16:35:36.188Z'),reads=0;const records=[];
+  const retry=status=>{const error=new Error('rollout_http_retryable');error.httpStatus=status;error.retryAfterMs=15000;throw error;};
+  const result=await waitForRollouts(manifest,image,previous,{now:()=>clock,sleep:async ms=>{clock+=ms;},record:v=>records.push(structuredClone(v)),get:async path=>{
+    reads++;if(reads===8)retry(429);if(path.endsWith('/rollouts'))return [rollout(clock<Date.parse('2026-10-16T16:36:10Z')?'progressing':'completed')];return get(path);
+  }});
+  assert.equal(result.status,'passed');assert.ok(clock>=Date.parse('2026-10-16T16:36:10Z'));
+  assert.ok(records.some(r=>r.observations.some(o=>o.reason==='http_retryable'&&o.httpStatus===429&&o.status==='pending')));
+  assert.equal(JSON.stringify(result).includes('private'),false);
+  const reader=rolloutReader('private',async()=>new Response('private token detail',{status:429,headers:{'retry-after':'12'}}));
+  await assert.rejects(reader(`/containers/applications/${previous[0].id}/rollouts`),error=>{
+    assert.equal(error.message,'rollout_http_retryable');assert.equal(error.httpStatus,429);assert.equal(error.retryAfterMs,12000);
+    assert.equal(error.message.includes('private'),false);return true;
+  });
+  await assert.rejects(rolloutReader('private',async()=>new Response('',{status:403}))(`/containers/applications/${previous[0].id}`),/rollout_http_read_failed/);
+  let last,denied=0;
+  await assert.rejects(waitForRollouts(manifest,image,previous,{record:v=>{last=structuredClone(v);},get:async()=>{denied++;const error=new Error('rollout_http_read_failed');error.httpStatus=403;throw error;}}),/rollout_http_read_failed/);
+  assert.equal(last.status,'failed');assert.equal(last.failureCode,'rollout_http_read_failed');assert.equal(last.httpStatus,403);assert.equal(denied,1);
+});
+test('retryable HTTP still fails closed when the wait budget is spent',async()=>{
+  let clock=0,last,hits=0;
+  await assert.rejects(waitForRollouts(manifest,image,previous,{now:()=>clock,sleep:async ms=>{clock+=ms;},record:v=>{last=structuredClone(v);},get:async()=>{
+    hits++;const error=new Error('rollout_http_retryable');error.httpStatus=429;throw error;
+  }}),/budget/);
+  assert.equal(last.status,'failed');assert.equal(last.failureCode,'rollout_wait_budget_exhausted');assert.equal(last.httpStatus,429);
+  assert.ok(hits<=limits.requests);assert.ok(clock<=limits.durationMs);assert.ok(last.observations.every(o=>o.status!=='passed'));
 });
