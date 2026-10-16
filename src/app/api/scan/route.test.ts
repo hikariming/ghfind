@@ -43,6 +43,7 @@ vi.mock("@/lib/anonymous-session", () => ({
   establishAnonymousSession: mocks.establishAnonymousSession,
 }));
 
+import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
 import { POST } from "./route";
 
 const quickScan = {
@@ -139,9 +140,9 @@ describe("POST /api/scan immediate quick contract", () => {
     await expect(response.json()).resolves.toMatchObject({
       coverage: "legacy",
       legacy_read_fallback: true,
-      served_score_version: "v11",
-      served_roast_version: "v11",
-      served_collection_version: "v5",
+      served_score_version: LEGACY_READ_FALLBACK.score,
+      served_roast_version: LEGACY_READ_FALLBACK.roast,
+      served_collection_version: LEGACY_READ_FALLBACK.collection,
     });
   });
 
