@@ -120,7 +120,11 @@ while that actor has a lifecycle transition in progress.
 
 A reset can interrupt its own RPC response, so neither an acknowledgement nor a
 lost response proves success. The release never resends a dispatched or uncertain
-refresh; it resumes bounded, read-only configuration checks. Only an exact
+refresh; it resumes bounded, read-only configuration checks. Those checks wait
+on HTTP 503 with `container_starting`, `container_dependency_not_ready`,
+`runtime_configuration_unavailable` or `actor_reset_by_deploy`, and never
+dispatch a second refresh for a starting actor. `runtime_configuration_invalid`
+and unknown 503 responses still fail closed. Only an exact
 known-off edge rejection that proves no actor RPC was dispatched permits another
 HTTP attempt, with three attempts maximum and fresh edge, actor and paused-Web
 checks. An actor that has already adopted the exact baseline version rejects the

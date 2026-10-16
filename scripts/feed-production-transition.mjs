@@ -49,6 +49,28 @@ export async function readTransitionResponse(response, target, offVersion) {
 // refresh with its paused-Web check. It never grants lifecycle retries.
 // https://developers.cloudflare.com/durable-objects/platform/known-issues/#code-updates
 export const configurationLimits = Object.freeze({ durationMs: 180000, reads: 90, edgeAttempts: 45, intervalMs: 5000 });
+export const configurationRetryCodes = Object.freeze([
+  'container_starting', 'container_dependency_not_ready', 'runtime_configuration_unavailable', 'actor_reset_by_deploy',
+]);
+export class ConfigurationRetry extends Error {
+  constructor(code) {
+    super('runtime configuration retryable');
+    this.name = 'ConfigurationRetry';
+    this.httpStatus = 503;
+    this.code = code;
+  }
+}
+export async function readConfigurationResponse(response) {
+  if (response.status === 200) return boundedJSON(response, 2048);
+  let code = 'unrecognized_error_body';
+  try {
+    const value = await boundedJSON(response, 2048);
+    if (value && Object.keys(value).join(',') === 'error' && typeof value.error === 'string' && /^[a-z0-9_]{1,64}$/.test(value.error))
+      code = value.error;
+  } catch { code = 'unreadable_error_body'; }
+  if (response.status === 503 && configurationRetryCodes.includes(code)) throw new ConfigurationRetry(code);
+  throw new Error(`runtime configuration preflight rejected (${response.status})`);
+}
 export async function readRefreshResponse(response, offVersionId, baselineVersionId) {
   // A reset may disconnect its own RPC. None of these outcomes proves the new
   // object exists; only a subsequent exact configuration GET can do that.
@@ -89,10 +111,20 @@ export function edgePreflight(identity, off, { read, readActor, refresh, now = D
       reads++;
       return Math.max(1, deadline - now());
     };
+    const starting = error => error instanceof ConfigurationRetry && error.httpStatus === 503 && configurationRetryCodes.includes(error.code);
     while (attempts < configurationLimits.edgeAttempts && now() < deadline && reads < configurationLimits.reads) {
       const attempt = ++attempts;
       observe({ attempt, status: 'attempted_unverified' });
-      const value = await read(remaining());
+      let value;
+      try { value = await read(remaining()); }
+      catch (error) {
+        if (!starting(error)) throw error;
+        observe({ attempt, status: 'starting', httpStatus: error.httpStatus, code: error.code });
+        if (attempts < configurationLimits.edgeAttempts && now() + configurationLimits.intervalMs < deadline) {
+          await sleep(configurationLimits.intervalMs); continue;
+        }
+        throw new Error('runtime edge preflight exhausted');
+      }
       requireThat(now() < deadline, 'runtime edge preflight deadline exceeded');
       requireThat(value && Object.keys(value).sort().join(',') === ['service','version','contractVersion','workerVersionId','configuredImage','imageBuildId','mode','writerEpoch'].sort().join(',') &&
         value.service === 'feed-runtime' && value.version === identity.sourceSha && value.contractVersion === '1' &&
@@ -109,7 +141,14 @@ export function edgePreflight(identity, off, { read, readActor, refresh, now = D
           let recheckEdge=false;
           while (true) {
             if(recheckEdge) {
-              const edge=await read(remaining());
+              let edge;
+              try { edge=await read(remaining()); }
+              catch (error) {
+                if (!starting(error)) throw error;
+                observe({scope:'refresh_edge',actor,status:'starting',httpStatus:error.httpStatus,code:error.code});
+                requireThat(now()+configurationLimits.intervalMs<deadline,'runtime configuration preflight exhausted');
+                await sleep(configurationLimits.intervalMs);continue;
+              }
               requireThat(edge && Object.keys(edge).sort().join(',')==='configuredImage,contractVersion,imageBuildId,mode,service,version,workerVersionId,writerEpoch' &&
                 edge.service==='feed-runtime' && edge.version===identity.sourceSha && edge.contractVersion==='1' &&
                 edge.configuredImage===off.image && edge.imageBuildId===identity.imageBuildId && edge.writerEpoch===identity.writerEpoch,
@@ -123,7 +162,14 @@ export function edgePreflight(identity, off, { read, readActor, refresh, now = D
               requireThat(edge.mode==='baseline'&&edge.workerVersionId===baselineVersion,'refresh retry baseline identity differs');
               recheckEdge=false;
             }
-            const configuration = await readActor(actor, remaining());
+            let configuration;
+            try { configuration = await readActor(actor, remaining()); }
+            catch (error) {
+              if (!starting(error)) throw error;
+              observe({ scope: 'actor', actor, read: reads, status: 'starting', httpStatus: error.httpStatus, code: error.code });
+              requireThat(reads < configurationLimits.reads && now() + configurationLimits.intervalMs < deadline, 'runtime configuration preflight exhausted');
+              await sleep(configurationLimits.intervalMs); continue;
+            }
             requireThat(now() < deadline, 'runtime actor preflight deadline exceeded');
             requireThat(configuration && typeof configuration === 'object' && !Array.isArray(configuration) &&
               Object.keys(configuration).sort().join(',') === 'actorId,configuredImage,imageBuildId,mode,sourceSha,target,workerVersionId,writerEpoch' &&
@@ -249,10 +295,10 @@ async function main() {
       method: 'GET', redirect: 'error', signal: AbortSignal.timeout(Math.min(10000, remaining)),
       headers: { authorization: `Bearer ${process.env.FEED_RUNTIME_ADMIN_SECRET}`, accept: 'application/json' },
     });
-    // Missing RPC methods on a previous DO version are not proof of known off
-    // identity. Fail closed; never infer permission for a lifecycle POST.
-    requireThat(response.status === 200, `runtime configuration preflight rejected (${response.status})`);
-    return boundedJSON(response, 2048);
+    // Missing RPC methods and invalid configuration are not proof of known off
+    // identity. Allowlisted starting/unavailable 503s wait inside the shared
+    // budget; none of these outcomes authorize a lifecycle POST.
+    return readConfigurationResponse(response);
   };
   let first = true;
   await transitionActors(identity, {

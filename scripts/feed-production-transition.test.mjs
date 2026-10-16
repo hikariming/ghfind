@@ -340,3 +340,65 @@ test('already-current refresh response only reconciles GET and never resends',as
  assert.equal((await transitionActors(identity,{paused:async()=>anchor,preflight,send:async(target,body)=>({restarted:true,target,...body})})).status,'passed');
  assert.deepEqual([...attempts.values()],[1,1,1]);
 });
+
+import { ConfigurationRetry, configurationRetryCodes, readConfigurationResponse } from './feed-production-transition.mjs';
+test('allowlisted configuration 503s wait after an uncertain refresh without a second reset',async()=>{
+ assert.deepEqual(configurationRetryCodes,['container_starting','container_dependency_not_ready','runtime_configuration_unavailable','actor_reset_by_deploy']);
+ let clock=0,refreshes=0;const seen=new Map();
+ const preflight=edgePreflight(identity,nativeOff,{now:()=>clock,sleep:async ms=>{clock+=ms;},read:async()=>configuration(),
+  readActor:async target=>{
+   const n=seen.get(target)??0;seen.set(target,n+1);
+   if(n===0)return actorConfiguration(target,'off');
+   if(n===1)throw new ConfigurationRetry('runtime_configuration_unavailable');
+   if(n===2)throw new ConfigurationRetry('container_starting');
+   return actorConfiguration(target);
+  },
+  refresh:async()=>{refreshes++;return {status:'uncertain',httpStatus:503};}});
+ const result=await transitionActors(identity,{paused:async()=>anchor,preflight,send:async(target,body)=>({restarted:true,target,...body})});
+ assert.equal(result.status,'passed');assert.equal(refreshes,3);
+ assert.ok(result.edgePreflight.some(o=>o.scope==='actor'&&o.status==='starting'&&o.code==='runtime_configuration_unavailable'&&o.httpStatus===503));
+ assert.ok(result.edgePreflight.some(o=>o.scope==='actor'&&o.status==='starting'&&o.code==='container_starting'));
+ assert.equal(result.edgePreflight.filter(o=>o.scope==='refresh'&&o.status==='attempted_unverified').length,3);
+ assert.ok(clock<=configurationLimits.durationMs);
+});
+test('edge configuration 503s wait inside the shared budget before actor inspection',async()=>{
+ let clock=0,edgeReads=0,actorReads=0,refreshes=0;
+ const preflight=edgePreflight(identity,nativeOff,{now:()=>clock,sleep:async ms=>{clock+=ms;},
+  read:async()=>{edgeReads++;if(edgeReads===1)throw new ConfigurationRetry('actor_reset_by_deploy');return configuration();},
+  readActor:async target=>{actorReads++;return actorConfiguration(target);},
+  refresh:async()=>{refreshes++;}});
+ const result=await transitionActors(identity,{paused:async()=>anchor,preflight,send:async(target,body)=>({restarted:true,target,...body})});
+ assert.equal(result.status,'passed');assert.equal(refreshes,0);assert.equal(actorReads,5);
+ assert.ok(result.edgePreflight.some(o=>o.status==='starting'&&o.code==='actor_reset_by_deploy'&&o.httpStatus===503));
+ assert.equal(clock,configurationLimits.intervalMs);
+});
+test('invalid or unknown configuration 503s remain fail-closed without mutation',async()=>{
+ assert.deepEqual(await readConfigurationResponse(Response.json(configuration())),configuration());
+ for(const code of configurationRetryCodes){
+  await assert.rejects(readConfigurationResponse(Response.json({error:code},{status:503})),error=>{
+   assert.ok(error instanceof ConfigurationRetry);assert.equal(error.code,code);assert.equal(error.httpStatus,503);return true;
+  });
+ }
+ for(const [status,body] of [
+  [503,{error:'runtime_configuration_invalid'}],[503,{error:'container_starting',extra:true}],
+  [503,{error:'private provider message'}],[500,{error:'container_starting'}],[403,{error:'container_starting'}],
+ ]) await assert.rejects(readConfigurationResponse(Response.json(body,{status})),new RegExp(`preflight rejected \\(${status}\\)`));
+ await assert.rejects(readConfigurationResponse(new Response('unreadable',{status:503})),/preflight rejected \(503\)/);
+ let sends=0,refreshes=0,reads=0;
+ const preflight=edgePreflight(identity,nativeOff,{read:async()=>configuration(),
+  readActor:async()=>{reads++;throw new Error('runtime configuration preflight rejected (503)');},
+  refresh:async()=>{refreshes++;}});
+ await assert.rejects(transitionActors(identity,{paused:async()=>anchor,preflight,send:async()=>{sends++;}}),/preflight rejected \(503\)/);
+ assert.equal(sends,0);assert.equal(refreshes,0);assert.equal(reads,1);
+});
+test('retryable configuration 503s still fail closed when the shared budget is spent',async()=>{
+ let clock=0,sends=0,refreshes=0,last;
+ const preflight=edgePreflight(identity,nativeOff,{now:()=>clock,sleep:async ms=>{clock+=ms;},read:async()=>configuration(),
+  readActor:async target=>{if(refreshes===0)return actorConfiguration(target,'off');throw new ConfigurationRetry('container_dependency_not_ready');},
+  refresh:async()=>{refreshes++;return {status:'uncertain',httpStatus:503};}});
+ await assert.rejects(transitionActors(identity,{paused:async()=>anchor,preflight,record:e=>{last=JSON.parse(JSON.stringify(e));},send:async()=>{sends++;}}),/exhausted|deadline/);
+ assert.equal(sends,0);assert.equal(refreshes,1);assert.equal(last.status,'failed');
+ assert.ok(clock<=configurationLimits.durationMs);
+ assert.ok(last.edgePreflight.some(o=>o.status==='starting'&&o.code==='container_dependency_not_ready'));
+ assert.equal(last.edgePreflight.filter(o=>o.scope==='refresh'&&o.status==='attempted_unverified').length,1);
+});
