@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { fetchContribOverview, fetchRecentPrs, ghFetch, collect, computeClosedPrBreakdown } from "../github";
+import { fetchContribOverview, fetchRecentPrs, ghFetch, collect, computeClosedPrBreakdown, GitHubCollectDeadlineError } from "../github";
 const original = process.env.GITHUB_TOKEN;
 afterEach(() => {
   if (original === undefined) delete process.env.GITHUB_TOKEN;
@@ -200,3 +200,11 @@ it("bounds the closed-PR fallback even when GitHub returns short pages", async (
   expect(computeClosedPrBreakdown(result.overview.closedPRs.nodes, 100, "active"))
     .toMatchObject({ unknown_closed_unmerged_pr_count: 100, maintainer_closed_unmerged_pr_count: 0 });
 });
+
+it("fails an interactive collect at the deadline instead of hanging until 524", async () => {
+  process.env.GITHUB_TOKEN = "one,two";
+  const mock = vi.fn(() => new Promise<Response>(() => {}));
+  vi.stubGlobal("fetch", mock);
+  await expect(collect("slow-dev", { deadlineMs: 40 })).rejects.toBeInstanceOf(GitHubCollectDeadlineError);
+  expect(mock.mock.calls.length).toBeLessThanOrEqual(1);
+}, 1000);

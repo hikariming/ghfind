@@ -41,6 +41,82 @@ export class GitHubResourceLimitError extends GitHubDataUnavailableError {}
 /** An oversized query can hit GitHub's gateway timeout before returning JSON. */
 export class GitHubQueryTimeoutError extends GitHubDataUnavailableError {}
 
+/** Interactive collect() hit its wall-clock budget. Distinct from a GitHub
+ *  gateway 502/504 so callers must not split/retry the same oversized query. */
+export class GitHubCollectDeadlineError extends GitHubDataUnavailableError {}
+
+/** Homepage /api/scan and /api/score live-crawls must finish before Cloudflare's
+ *  ~100s 524. Leave room for persist + JSON after this budget. */
+export const COLLECT_DEADLINE_MS = 45_000;
+
+const collectSignalContext = new AsyncLocalStorage<AbortSignal>();
+
+function isAbortError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "name" in error &&
+      (error.name === "AbortError" || error.name === "TimeoutError"),
+  );
+}
+
+function rethrowIfAborted(error: unknown): void {
+  if (isAbortError(error) || error instanceof GitHubCollectDeadlineError) throw error;
+}
+
+function abortReason(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) return signal.reason;
+  const error = new Error("This operation was aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function collectSignal(): AbortSignal | undefined {
+  return collectSignalContext.getStore();
+}
+
+function githubRequestSignal(init?: RequestInit): AbortSignal {
+  const context = collectSignal();
+  if (init?.signal && context && init.signal !== context) {
+    return AbortSignal.any([init.signal, context]);
+  }
+  return init?.signal ?? context ?? new AbortController().signal;
+}
+
+/** Bound GitHub fetches in this async tree. Used by homepage scoring. */
+export async function withCollectDeadline<T>(deadlineMs: number, run: () => Promise<T>): Promise<T> {
+  const parent = collectSignalContext.getStore();
+  const timeout = AbortSignal.timeout(Math.max(0, deadlineMs));
+  const signal = parent ? AbortSignal.any([parent, timeout]) : timeout;
+  const deadlineError = () =>
+    new GitHubCollectDeadlineError("GitHub collection exceeded the interactive deadline.");
+  return collectSignalContext.run(signal, async () => {
+    let onAbort: (() => void) | undefined;
+    const aborted = new Promise<T>((_, reject) => {
+      onAbort = () => reject(deadlineError());
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([run(), aborted]);
+    } catch (error) {
+      if (error instanceof GitHubCollectDeadlineError) throw error;
+      if (signal.aborted || isAbortError(error)) throw deadlineError();
+      throw error;
+    } finally {
+      if (onAbort) signal.removeEventListener("abort", onAbort);
+    }
+  });
+}
+
+function swallowUnlessAborted(error: unknown): null {
+  rethrowIfAborted(error);
+  return null;
+}
+
 /** GitHub failed the whole response with `errors[].type = INTERNAL` while
  *  resolving one node (observed on `["user","closedPRs","nodes",N]`). The
  *  offending node is data-dependent and fails deterministically for that
@@ -118,8 +194,21 @@ function retryable(res: Response): boolean {
 const RETRY_BACKOFF_MS = [250, 500, 1000];
 const MAX_RETRY_AFTER_MS = 2000; // don't stall a serverless invocation waiting
 
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  const ctx = signal ?? collectSignal();
+  if (!ctx) return new Promise((resolve) => setTimeout(resolve, ms));
+  if (ctx.aborted) throw abortReason(ctx);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ctx.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortReason(ctx));
+    };
+    ctx.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /** Centralized GitHub fetch: attaches a round-robin token, and on a retryable
@@ -139,6 +228,7 @@ export async function ghFetch(
   // This keeps a request's own retries on distinct tokens regardless of what
   // concurrent requests do to the shared cursor.
   const base = nextOffset();
+  const signal = githubRequestSignal(init);
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     const token = tokens.length ? tokens[(base + i) % tokens.length] : undefined;
@@ -152,12 +242,13 @@ export async function ghFetch(
         // Cancelling our branch then waits forever for its retained twin.
         // An explicit signal opts this independently managed request out of
         // deduplication, so failed bodies can be fully released before retry.
-        signal: init.signal ?? new AbortController().signal,
+        signal,
       });
     } catch (e) {
       lastErr = e;
+      if (isAbortError(e) || signal.aborted) throw isAbortError(e) ? e : abortReason(signal);
       if (i < attempts - 1) {
-        await sleep(RETRY_BACKOFF_MS[i] ?? 1000);
+        await sleep(RETRY_BACKOFF_MS[i] ?? 1000, signal);
         continue;
       }
       throw e;
@@ -167,12 +258,13 @@ export async function ghFetch(
     if (!res.ok) await res.body?.cancel().catch(() => undefined);
     if (options.splitOnTimeout && (res.status === 502 || res.status === 504)) return res;
     if (retryable(res) && i < attempts - 1) {
+      if (signal.aborted) throw abortReason(signal);
       const retryAfter = Number(res.headers.get("retry-after"));
       const wait =
         Number.isFinite(retryAfter) && retryAfter > 0
           ? Math.min(retryAfter * 1000, MAX_RETRY_AFTER_MS)
           : (RETRY_BACKOFF_MS[i] ?? 1000);
-      await sleep(wait);
+      await sleep(wait, signal);
       continue;
     }
     return res;
@@ -249,7 +341,8 @@ async function restGet<T>(path: string): Promise<T | null> {
     // Edge/runtime caching is handled by our own Redis layer; skip Next cache
     // (ghFetch already sets cache: "no-store"). ghFetch rotates tokens + retries.
     res = await ghFetch(`${GITHUB_API}/${path}`);
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return null;
   }
   if (res.status === 404) throw new AccountNotFoundError();
@@ -369,7 +462,8 @@ export async function searchPublicCommitCandidates(input: {
         },
       },
     );
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     throw new GitHubDataUnavailableError("GitHub commit search failed.");
   }
   if (res.status === 403 || res.status === 429) throw new GitHubRateLimitError();
@@ -444,7 +538,8 @@ export async function listPublicDefaultBranchCommits(input: {
     res = await ghFetch(
       `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?${params.toString()}`,
     );
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     throw new GitHubDataUnavailableError("GitHub default-branch commit lookup failed.");
   }
   if (res.status === 403 || res.status === 429) throw new GitHubRateLimitError();
@@ -482,7 +577,11 @@ async function graphql<T>(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
     }, options);
-  } catch {
+  } catch (error) {
+    if (error instanceof GitHubCollectDeadlineError) throw error;
+    if (isAbortError(error)) {
+      throw new GitHubCollectDeadlineError("GitHub GraphQL request aborted.");
+    }
     throw new GitHubDataUnavailableError("GitHub GraphQL request failed.");
   }
   if (res.status === 403 || res.status === 429) {
@@ -541,7 +640,8 @@ async function fetchOrganizations(username: string): Promise<string[]> {
         variables: { login: username },
       }),
     });
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return [];
   }
 
@@ -601,7 +701,8 @@ async function fetchLatestPublicEvent(username: string): Promise<Date | null> {
       if (ts && (latest === null || ts > latest)) latest = ts;
     }
     return latest;
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return null;
   }
 }
@@ -1006,9 +1107,10 @@ async function readTextWithLimit(
       headers: { "User-Agent": "github-roast", Range: `bytes=0-${limit - 1}` },
       cache: "no-store",
       // The bounded reader cancels truncated bodies; avoid Next's retained tee.
-      signal: new AbortController().signal,
+      signal: githubRequestSignal(),
     });
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return null;
   }
   if (!res.ok) {
@@ -1047,7 +1149,7 @@ async function readTextWithLimit(
 async function fetchReadmeDocument(owner: string, repo: string): Promise<RepoReadme | null> {
   const data = await restGet<RestReadme>(
     `repos/${owner}/${repo}/readme`,
-  ).catch(() => null);
+  ).catch(swallowUnlessAborted);
   if (!data) return null;
 
   let markdown: string | null = null;
@@ -1060,7 +1162,8 @@ async function fetchReadmeDocument(owner: string, repo: string): Promise<RepoRea
       markdown = raw?.text ?? null;
       truncated = truncated || (raw?.truncated ?? false);
     }
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return null;
   }
   if (markdown === null) return null;
@@ -1085,7 +1188,7 @@ async function fetchRepoLanguages(
 ): Promise<{ name: string; size: number }[]> {
   const data = await restGet<Record<string, number>>(
     `repos/${owner}/${repo}/languages`,
-  ).catch(() => null);
+  ).catch(swallowUnlessAborted);
   if (!data) return [];
   return Object.entries(data)
     .map(([name, size]) => ({ name, size: size ?? 0 }))
@@ -1115,13 +1218,13 @@ export async function hydrateTopRepoEvidence(
 }
 
 async function fetchRepoDetails(owner: string, repo: string): Promise<RestRepo | null> {
-  return restGet<RestRepo>(`repos/${owner}/${repo}`).catch(() => null);
+  return restGet<RestRepo>(`repos/${owner}/${repo}`).catch(swallowUnlessAborted);
 }
 
 async function hasReleaseOrTagAuthor(owner: string, repo: string, loginLower: string): Promise<boolean> {
   const releases = await restGet<RestRelease[]>(
     `repos/${owner}/${repo}/releases?per_page=10`,
-  ).catch(() => null);
+  ).catch(swallowUnlessAborted);
   if (
     releases?.some((r) => r.author?.login?.toLowerCase() === loginLower)
   ) {
@@ -1129,7 +1232,7 @@ async function hasReleaseOrTagAuthor(owner: string, repo: string, loginLower: st
   }
 
   const tags = await restGet<RestTag[]>(`repos/${owner}/${repo}/tags?per_page=5`).catch(
-    () => null,
+    swallowUnlessAborted,
   );
   if (!tags?.length) return false;
 
@@ -1139,7 +1242,7 @@ async function hasReleaseOrTagAuthor(owner: string, repo: string, loginLower: st
       .filter((sha): sha is string => typeof sha === "string" && sha.length > 0)
       .slice(0, 5)
       .map((sha) =>
-        restGet<RestCommit>(`repos/${owner}/${repo}/commits/${sha}`).catch(() => null),
+        restGet<RestCommit>(`repos/${owner}/${repo}/commits/${sha}`).catch(swallowUnlessAborted),
       ),
   );
   return commits.some(
@@ -1176,7 +1279,7 @@ async function hasMaintainerFileHit(
   for (const path of MAINTAINER_FILE_PATHS) {
     const data = await restGet<RestReadme>(
       `repos/${owner}/${repo}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`,
-    ).catch(() => null);
+    ).catch(swallowUnlessAborted);
     if (!data?.content || data.encoding !== "base64") continue;
     try {
       const text = Buffer.from(data.content.replace(/\s+/g, ""), "base64").toString("utf-8");
@@ -1369,7 +1472,7 @@ async function restAuthorLoginForCommit(
   sha: string,
 ): Promise<string | null> {
   const commit = await restGet<RestCommit>(`repos/${owner}/${name}/commits/${sha}`).catch(
-    () => null,
+    swallowUnlessAborted,
   );
   return commit?.author?.login?.trim() || null;
 }
@@ -2016,7 +2119,8 @@ async function fetchWorkflowLandedPrs(
         stars: node.repository!.stargazerCount,
         owner_login: node.repository!.owner?.login ?? node.repository!.nameWithOwner.split("/", 1)[0],
       }));
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     // This is an optional enrichment. Preserve the established native-merge
     // scan when GitHub declines timeline access or a transient error occurs.
     return [];
@@ -3691,7 +3795,9 @@ async function communityGraphql<T>(query: string, variables: Record<string, unkn
       if (
         attempt >= COMMUNITY_GRAPHQL_ATTEMPTS ||
         error instanceof GitHubRateLimitError ||
-        error instanceof GitHubAuthRequiredError
+        error instanceof GitHubAuthRequiredError ||
+        error instanceof GitHubCollectDeadlineError ||
+        isAbortError(error)
       ) {
         throw error;
       }
@@ -4086,7 +4192,8 @@ async function fetchRepoEngagementRatio(
       { owner, name },
     );
     return engagementRatio(data.repository);
-  } catch {
+  } catch (error) {
+    rethrowIfAborted(error);
     return undefined;
   }
 }
@@ -4383,6 +4490,11 @@ export interface CollectOptions {
   /** Cache for slow-moving community facts (profiles, per-repo facts,
    * outside-PR counts). Omitted = always fetch. */
   cache?: CollectCache;
+  /** Wall-clock budget for this collect. Homepage scoring sets this so the
+   *  Worker can fail and serve a legacy fallback before Cloudflare's ~100s 524. */
+  deadlineMs?: number;
+  /** Extra abort signal combined with `deadlineMs` when both are set. */
+  signal?: AbortSignal;
 }
 
 export async function collect(username: string, options: CollectOptions = {}): Promise<{
@@ -4397,6 +4509,17 @@ export async function collect(username: string, options: CollectOptions = {}): P
   organization_maintained_repos?: OrganizationMaintainedRepo[];
   estimated_contribution_languages?: EstimatedContributionLanguages;
 }> {
+  if (options.deadlineMs != null || options.signal) {
+    const deadlineMs = options.deadlineMs;
+    const signal = options.signal;
+    const rest = { ...options, deadlineMs: undefined, signal: undefined };
+    const run = () => collect(username, rest);
+    if (signal && deadlineMs != null) {
+      return collectSignalContext.run(signal, () => withCollectDeadline(deadlineMs, run));
+    }
+    if (deadlineMs != null) return withCollectDeadline(deadlineMs, run);
+    return collectSignalContext.run(signal!, run);
+  }
   if (!hasGithubToken()) {
     throw new GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.");
   }

@@ -442,6 +442,7 @@
     "rate_limited": "Nhanh quá — hít thở sâu rồi thử lại sau một phút.",
     "github_rate_limited": "API của GitHub đang quá tải — chờ chút nhé.",
     "github_unavailable": "Dữ liệu GitHub tạm thời không khả dụng — thử lại sau.",
+    "scan_busy": "Hệ thống đang chấm điểm — thử lại sau một chút nhé.",
     "scan_failed": "Quét bị sập — thử lại sau nhé."
   },
   "share": {

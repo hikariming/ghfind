@@ -442,6 +442,7 @@
     "rate_limited": "速すぎです。深呼吸して1分後にもう一度。",
     "github_rate_limited": "GitHubのAPIが今パンク中です。少し待ってください。",
     "github_unavailable": "GitHubのデータが一時的に取得できません。あとで再試行を。",
+    "scan_busy": "採点処理が混み合っています。少し待って再試行を。",
     "scan_failed": "スキャンがクラッシュしました。あとで再試行を。"
   },
   "share": {

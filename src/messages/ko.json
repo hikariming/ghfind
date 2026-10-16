@@ -442,6 +442,7 @@
     "rate_limited": "손이 너무 빨라요 — 숨 한번 쉬고 1분 뒤에 다시 오세요.",
     "github_rate_limited": "GitHub API가 지금 꽉 찼어요 — 잠시만 기다려 주세요.",
     "github_unavailable": "GitHub 데이터를 잠시 사용할 수 없어요 — 나중에 다시 시도하세요.",
+    "scan_busy": "채점 중인 요청이 많아요 — 잠시 후 다시 시도하세요.",
     "scan_failed": "스캔이 터졌어요 — 잠시 후 다시 시도하세요."
   },
   "share": {

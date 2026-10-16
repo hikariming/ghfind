@@ -173,6 +173,14 @@ export function releaseVersionErrors(
   for (const component of RELEASE_COMPONENTS) {
     const previous = Number(previousRelease[component].slice(1));
     const target = Number(targetRelease[component].slice(1));
+    if (component === "score") {
+      if (target > previous && target - previous > 1) {
+        errors.push(
+          `${component} target must stay put, advance by exactly one formal version, or roll back to a previously shipped version`,
+        );
+      }
+      continue;
+    }
     if (target < previous || target - previous > 1) {
       errors.push(`${component} target must stay put or advance by exactly one formal version`);
     }

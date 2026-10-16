@@ -122,14 +122,6 @@ func TestCommunityStarInflationAndOwnPRShare(t *testing.T) {
 	if share != 0.6 {
 		t.Fatalf("own PR community share = %v", share)
 	}
-	external, one := 20.0, 1.0
-	m := RawMetrics{MergedPRCount: 220, TotalPRCount: 220, ExternalMergedPRCount: &external, ExternalHighStarPRShare: &one, MaintainerClosedUnmergedPRCount: floatPointer(0)}
-	base, _ := contributionVolumeAndAcceptance(m)
-	m.OwnPRCommunity = &one
-	lifted, _ := contributionVolumeAndAcceptance(m)
-	if math.Abs(lifted-base-6) > 1e-9 {
-		t.Fatalf("own PR cap lift = %v", lifted-base)
-	}
 }
 
 type recordingCollectCache struct {

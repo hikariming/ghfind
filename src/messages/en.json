@@ -442,6 +442,7 @@
     "rate_limited": "Too fast — take a breath and try again in a minute.",
     "github_rate_limited": "GitHub's API is maxed out right now — give it a moment.",
     "github_unavailable": "GitHub data is temporarily unavailable — try again later.",
+    "scan_busy": "Score generation is busy — retry shortly.",
     "scan_failed": "The scan crashed — try again later."
   },
   "share": {

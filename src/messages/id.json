@@ -442,6 +442,7 @@
     "rate_limited": "Kecepatan — tarik napas dan coba lagi semenit lagi.",
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
+    "scan_busy": "Pembuatan skor sedang sibuk — coba lagi sebentar lagi.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
   },
   "share": {

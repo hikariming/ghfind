@@ -138,7 +138,7 @@ func TestV10RiskRules(t *testing.T) {
 	})
 }
 
-// v10 remains the newcomer eligibility guard, not the active score deduction.
+// v10 risk is the active score deduction.
 func eligibilityRiskOutput(m RawMetrics) Scoring {
 	assessment, notes, flags, penalty := AssessRisk(m)
 	return Scoring{RiskAssessment: assessment, RiskNotes: notes, RedFlags: flags, TotalPenalty: penalty}

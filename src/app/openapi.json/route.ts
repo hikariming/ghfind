@@ -669,6 +669,7 @@ export function GET() {
                 "account_not_found",
                 "github_rate_limited",
                 "github_unavailable",
+                "scan_busy",
                 "scan_failed",
                 "not_scored",
                 "unauthorized",

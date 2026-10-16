@@ -8,6 +8,10 @@ export class ScanBusyError extends Error {
 // every isolate. Ninety-six is 24 in-flight scans for each of the four tokens.
 // Leases recover capacity after an invocation is killed.
 export const SCAN_COLD_CONCURRENCY = 96;
+/** Producer lock TTL. Must exceed collect+persist and stay under Cloudflare's ~100s 524. */
+export const SCAN_LEASE_MS = 70_000;
+/** Waiters give up in time to return 503/legacy before the edge 524. */
+export const SCAN_WAIT_MS = 55_000;
 export const ADMIT_SCAN = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
 if redis.call('EXISTS', KEYS[3]) == 1 then return -1 end
@@ -88,13 +92,15 @@ export async function protectedScan<T>(options: {
   const wait =
     options.wait ??
     (() => new Promise<void>((r) => setTimeout(r, 450 + Math.random() * 100)));
-  const deadline = Date.now() + 45_000;
-  for (let i = 0; i < (options.attempts ?? 90) && Date.now() < deadline; i++) {
+  const waitMs = SCAN_WAIT_MS;
+  const deadline = Date.now() + waitMs;
+  const attempts = options.attempts ?? Math.ceil(waitMs / 400) + 10;
+  for (let i = 0; i < attempts && Date.now() < deadline; i++) {
     const cached = await read();
     if (cached) return cached;
     let admission: unknown;
     try {
-      admission = await coordinator.admit(owner, Date.now(), 300_000, SCAN_COLD_CONCURRENCY);
+      admission = await coordinator.admit(owner, Date.now(), SCAN_LEASE_MS, SCAN_COLD_CONCURRENCY);
     } catch {
       throw new ScanBusyError();
     }

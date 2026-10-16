@@ -442,6 +442,7 @@
     "rate_limited": "Muy rápido — respira y vuelve a intentarlo en un minuto.",
     "github_rate_limited": "La API de GitHub está al límite ahora mismo — dale un momento.",
     "github_unavailable": "Los datos de GitHub no están disponibles por ahora — inténtalo más tarde.",
+    "scan_busy": "La generación de puntuación está ocupada — reintenta en un momento.",
     "scan_failed": "El escaneo se estrelló — inténtalo más tarde."
   },
   "share": {

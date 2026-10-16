@@ -12,8 +12,7 @@ import {
   type OwnRepoCommunityFacts,
   type OwnRepoCommunityRaw,
 } from "../github";
-import { contributionVolumeAndAcceptance, logRatio } from "../score";
-import type { RawMetrics } from "../types";
+import { logRatio } from "../score";
 import fixtures from "./community-fixtures.json";
 
 // Shared with internal/backend: raw community samples must produce the same
@@ -155,20 +154,6 @@ describe("community in ecosystem impact and contribution quality", () => {
     expect(ownPrCommunityShare(repos, "me", 0)).toBe(0);
   });
 
-  it("raises the own-PR volume cap from 4 to 10 with community", () => {
-    const m = {
-      merged_pr_count: 220,
-      external_merged_pr_count: 20,
-      external_high_star_pr_share: 1,
-      maintainer_closed_unmerged_pr_count: 0,
-      total_pr_count: 220,
-    } as RawMetrics;
-    const base = contributionVolumeAndAcceptance(m).prVolume;
-    const full = contributionVolumeAndAcceptance({ ...m, own_pr_community: 1 }).prVolume;
-    const half = contributionVolumeAndAcceptance({ ...m, own_pr_community: 0.5 }).prVolume;
-    expect(full - base).toBeCloseTo(6, 6);
-    expect(half - base).toBeCloseTo(3, 6);
-  });
 });
 
 describe("collectOwnRepoCommunities", () => {

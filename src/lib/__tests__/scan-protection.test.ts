@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Redis } from "@upstash/redis";
-import { protectedScan, ScanBusyError, scanTtl } from "../scan-protection";
+import { protectedScan, ScanBusyError, scanTtl, SCAN_LEASE_MS, SCAN_WAIT_MS } from "../scan-protection";
 
 function client(admission: number) {
   const evalMock = vi.fn<Redis["eval"]>().mockResolvedValue(admission);
@@ -100,6 +100,19 @@ describe("cold scan admission", () => {
       expect.any(String),
       "failed",
     ]);
+  });
+  it("uses a producer lease shorter than Cloudflare's ~100s 524", async () => {
+    const { redis, evalMock } = client(1);
+    await protectedScan({
+      redis,
+      key: "scan:test",
+      read: async () => null,
+      produce: async () => ({ score: 82 }),
+    });
+    expect(evalMock.mock.calls[0]?.[2]?.[2]).toBe(SCAN_LEASE_MS);
+    expect(SCAN_LEASE_MS).toBeLessThan(100_000);
+    expect(SCAN_WAIT_MS).toBeLessThan(SCAN_LEASE_MS);
+    expect(SCAN_WAIT_MS).toBeGreaterThan(45_000);
   });
   it("spreads expiration over 22–24h", () => {
     const values = Array.from({ length: 100 }, scanTtl);

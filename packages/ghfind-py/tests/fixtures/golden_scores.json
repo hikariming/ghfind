@@ -75,20 +75,6 @@
       },
       "base_score": 94.6,
       "red_flags": [],
-      "risk_notes": [],
-      "risk_assessment": {
-        "version": "v9",
-        "risk_score": 0,
-        "level": "none",
-        "confidence": 100,
-        "applied_penalty": 0,
-        "signals": [],
-        "coverage": {
-          "repo": 1,
-          "merged_pr": 1,
-          "all_pr": 1
-        }
-      },
       "total_penalty": 0,
       "final_score": 94.6,
       "tier": "夯",
@@ -171,20 +157,6 @@
       },
       "base_score": 31.4,
       "red_flags": [],
-      "risk_notes": [],
-      "risk_assessment": {
-        "version": "v9",
-        "risk_score": 0,
-        "level": "none",
-        "confidence": 60,
-        "applied_penalty": 0,
-        "signals": [],
-        "coverage": {
-          "repo": 1,
-          "merged_pr": 0,
-          "all_pr": 1
-        }
-      },
       "total_penalty": 0,
       "final_score": 31.4,
       "tier": "拉完了",
@@ -261,28 +233,14 @@
         "account_maturity": 10,
         "original_project_quality": 16.2,
         "contribution_quality": 21.7,
-        "ecosystem_impact": 10.3,
+        "ecosystem_impact": 10.7,
         "community_influence": 8,
         "activity_authenticity": 4.5
       },
-      "base_score": 70.7,
+      "base_score": 71.1,
       "red_flags": [],
-      "risk_notes": [],
-      "risk_assessment": {
-        "version": "v9",
-        "risk_score": 0,
-        "level": "none",
-        "confidence": 100,
-        "applied_penalty": 0,
-        "signals": [],
-        "coverage": {
-          "repo": 1,
-          "merged_pr": 1,
-          "all_pr": 1
-        }
-      },
       "total_penalty": 0,
-      "final_score": 70.7,
+      "final_score": 71.1,
       "tier": "人上人",
       "tier_label": "优质贡献者 · 值得信任"
     }
@@ -363,132 +321,6 @@
       },
       "base_score": 32.2,
       "red_flags": [],
-      "risk_notes": [
-        {
-          "flag": "trivial_pr_farming",
-          "family": "contribution",
-          "disposition": "note",
-          "severity": 0.0104,
-          "confidence": 0.25,
-          "penalty": 0,
-          "detail": "外部热门仓库中的低实质 PR 比例偏高，但合并样本不足 20 个，仅作风险提示。",
-          "evidence": {
-            "observed": {
-              "external_trivial_pr_count": 1,
-              "merged_pr_sample": 1,
-              "smoothed_rate": 0.6667
-            },
-            "sample_size": 1,
-            "threshold": {
-              "minimum_sample": 20,
-              "smoothed_rate": 0.5
-            },
-            "coverage": {
-              "repo": 1,
-              "merged_pr": 1,
-              "all_pr": 1
-            },
-            "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs"
-          }
-        },
-        {
-          "flag": "high_pr_rejection",
-          "family": "contribution",
-          "disposition": "note",
-          "severity": 0,
-          "confidence": 0.25,
-          "penalty": 0,
-          "detail": "维护者关闭未合并的 PR 比例偏高，但样本量或 Wilson 95% 下界未达到扣分门槛，仅作风险提示。",
-          "evidence": {
-            "observed": {
-              "maintainer_closed_unmerged_pr_count": 1,
-              "merged_pr_count": 1,
-              "decided_pr_count": 2,
-              "wilson_lower": 0.0945
-            },
-            "sample_size": 2,
-            "threshold": {
-              "minimum_decisions": 20,
-              "wilson_lower": 0.4
-            },
-            "coverage": {
-              "repo": 1,
-              "merged_pr": 1,
-              "all_pr": 1
-            },
-            "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs"
-          }
-        }
-      ],
-      "risk_assessment": {
-        "version": "v9",
-        "risk_score": 0,
-        "level": "none",
-        "confidence": 100,
-        "applied_penalty": 0,
-        "signals": [
-          {
-            "flag": "trivial_pr_farming",
-            "family": "contribution",
-            "disposition": "note",
-            "severity": 0.0104,
-            "confidence": 0.25,
-            "penalty": 0,
-            "detail": "外部热门仓库中的低实质 PR 比例偏高，但合并样本不足 20 个，仅作风险提示。",
-            "evidence": {
-              "observed": {
-                "external_trivial_pr_count": 1,
-                "merged_pr_sample": 1,
-                "smoothed_rate": 0.6667
-              },
-              "sample_size": 1,
-              "threshold": {
-                "minimum_sample": 20,
-                "smoothed_rate": 0.5
-              },
-              "coverage": {
-                "repo": 1,
-                "merged_pr": 1,
-                "all_pr": 1
-              },
-              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs"
-            }
-          },
-          {
-            "flag": "high_pr_rejection",
-            "family": "contribution",
-            "disposition": "note",
-            "severity": 0,
-            "confidence": 0.25,
-            "penalty": 0,
-            "detail": "维护者关闭未合并的 PR 比例偏高，但样本量或 Wilson 95% 下界未达到扣分门槛，仅作风险提示。",
-            "evidence": {
-              "observed": {
-                "maintainer_closed_unmerged_pr_count": 1,
-                "merged_pr_count": 1,
-                "decided_pr_count": 2,
-                "wilson_lower": 0.0945
-              },
-              "sample_size": 2,
-              "threshold": {
-                "minimum_decisions": 20,
-                "wilson_lower": 0.4
-              },
-              "coverage": {
-                "repo": 1,
-                "merged_pr": 1,
-                "all_pr": 1
-              },
-              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs"
-            }
-          }
-        ],
-        "coverage": {
-          "repo": 1,
-          "merged_pr": 1,
-          "all_pr": 1
-        }
-      },
       "total_penalty": 0,
       "final_score": 32.2,
       "tier": "拉完了",
@@ -580,20 +412,6 @@
       },
       "base_score": 96.9,
       "red_flags": [],
-      "risk_notes": [],
-      "risk_assessment": {
-        "version": "v9",
-        "risk_score": 0,
-        "level": "none",
-        "confidence": 100,
-        "applied_penalty": 0,
-        "signals": [],
-        "coverage": {
-          "repo": 1,
-          "merged_pr": 1,
-          "all_pr": 1
-        }
-      },
       "total_penalty": 0,
       "final_score": 96.9,
       "tier": "夯",

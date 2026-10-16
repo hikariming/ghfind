@@ -4,7 +4,7 @@
     "before_final_score": 59.3,
     "expected_final_range": [
       57,
-      59.9
+      62
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -538,13 +538,13 @@
       "impact_repo_count": 4,
       "sub_scores": {
         "account_maturity": 6,
-        "original_project_quality": 9.5,
-        "contribution_quality": 13.8,
-        "ecosystem_impact": 9.2,
+        "original_project_quality": 9.6,
+        "contribution_quality": 15.3,
+        "ecosystem_impact": 10,
         "community_influence": 7.8,
         "activity_authenticity": 13
       },
-      "final_score": 59.3
+      "final_score": 61.7
     }
   },
   "ccch1mneyyy": {
@@ -1254,14 +1254,14 @@
       "impact_depth_raw": 6.58,
       "impact_repo_count": 8,
       "sub_scores": {
-        "account_maturity": 4.3,
+        "account_maturity": 1.7,
         "original_project_quality": 18,
         "contribution_quality": 27,
-        "ecosystem_impact": 12.1,
-        "community_influence": 4.5,
+        "ecosystem_impact": 13.9,
+        "community_influence": 5.6,
         "activity_authenticity": 17
       },
-      "final_score": 82.9
+      "final_score": 83.2
     }
   },
   "hikariming": {
@@ -1269,7 +1269,7 @@
     "before_final_score": 83.5,
     "expected_final_range": [
       82,
-      86
+      91
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -2356,13 +2356,13 @@
       "impact_repo_count": 13,
       "sub_scores": {
         "account_maturity": 10,
-        "original_project_quality": 14.8,
-        "contribution_quality": 22.7,
+        "original_project_quality": 15.4,
+        "contribution_quality": 26.2,
         "ecosystem_impact": 15.9,
-        "community_influence": 5.6,
+        "community_influence": 6.2,
         "activity_authenticity": 17
       },
-      "final_score": 86
+      "final_score": 90.7
     }
   },
   "zhaochenyang20": {
@@ -6889,12 +6889,12 @@
       "sub_scores": {
         "account_maturity": 7.2,
         "original_project_quality": 12,
-        "contribution_quality": 4.4,
-        "ecosystem_impact": 3.4,
+        "contribution_quality": 6.9,
+        "ecosystem_impact": 4.2,
         "community_influence": 8,
         "activity_authenticity": 16.3
       },
-      "final_score": 51.3
+      "final_score": 54.6
     }
   },
   "louislam": {
@@ -6902,7 +6902,7 @@
     "before_final_score": 78.6,
     "expected_final_range": [
       89,
-      94
+      97
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -7991,12 +7991,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 18,
-        "contribution_quality": 20.8,
+        "contribution_quality": 26.1,
         "ecosystem_impact": 18.9,
         "community_influence": 8,
         "activity_authenticity": 16
       },
-      "final_score": 91.7
+      "final_score": 97
     }
   },
   "jesseduffield": {
@@ -8004,7 +8004,7 @@
     "before_final_score": 86.1,
     "expected_final_range": [
       89,
-      94
+      96
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -9088,12 +9088,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15,
-        "contribution_quality": 23.6,
-        "ecosystem_impact": 17.8,
+        "contribution_quality": 27,
+        "ecosystem_impact": 18.5,
         "community_influence": 8,
         "activity_authenticity": 17
       },
-      "final_score": 91.4
+      "final_score": 95.5
     }
   }
 }

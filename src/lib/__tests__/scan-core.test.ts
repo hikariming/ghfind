@@ -155,13 +155,19 @@ describe("buildRecentSignatureWork", () => {
 
 describe("safe scan failure diagnostics", () => {
   it("logs a static GitHub category without upstream messages or tokens", async () => {
-    const { GitHubInternalQueryError, GitHubResourceLimitError, GitHubQueryTimeoutError } = await import("../github");
+    const {
+      GitHubInternalQueryError,
+      GitHubResourceLimitError,
+      GitHubQueryTimeoutError,
+      GitHubCollectDeadlineError,
+    } = await import("../github");
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       for (const [ErrorType, category] of [
         [GitHubInternalQueryError, "github_internal"],
         [GitHubResourceLimitError, "github_resource_limit"],
         [GitHubQueryTimeoutError, "github_query_timeout"],
+        [GitHubCollectDeadlineError, "github_collect_deadline"],
       ] as const) {
         logFreshScanFailure(new ErrorType("secret Authorization: Bearer ghp_test"), {
           route: "scan", username: "Cyrene2008", persistenceFailure: false,
@@ -177,6 +183,11 @@ describe("safe scan failure diagnostics", () => {
         route: "score", username: "invalid", category: "score_persistence",
       });
       scanErrorResponse(new Error("secret upstream body"));
+      expect(scanErrorResponse(new GitHubCollectDeadlineError("secret"))).toMatchObject({
+        error: "github_unavailable",
+        status: 503,
+        retry_after: 60,
+      });
       expect(JSON.stringify(log.mock.calls)).not.toContain("secret");
       expect(JSON.stringify(log.mock.calls)).not.toContain("ghp_test");
     } finally {

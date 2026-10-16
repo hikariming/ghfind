@@ -6,8 +6,9 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// v12 restores pre-v10 flat deductions while preserving v11 newcomer eligibility.
-export const SCORE_CACHE_VERSION = "v12";
+// Formal successor to the previous production score contract. Six positive
+// dimensions remain stable; v10 adds the structured risk layer.
+export const SCORE_CACHE_VERSION = "v10";
 // v12 keeps language proficiency out of engineering judgments and roast targets.
 export const ROAST_CACHE_VERSION = "v12";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

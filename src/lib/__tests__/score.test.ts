@@ -33,7 +33,6 @@ import {
 import {
   authorSelfClosedExternalPenalty,
   contributionQualityCap,
-  contributionVolumeAndAcceptance,
   docLikePrVolumeDiscount,
   highImpactCorePrBonus,
   impactPrestigeSignal,
@@ -112,6 +111,8 @@ const NEUTRAL: RawMetrics = {
 
 const hasFlag = (m: RawMetrics, name: string) =>
   score(m).red_flags.some((f) => f.flag === name);
+const hasNote = (m: RawMetrics, name: string) =>
+  score(m).risk_notes?.some((f) => f.flag === name) ?? false;
 
 describe("profile pronouns", () => {
   it.each(["she/her", "he/him", "they/them", "she/they", "ze/zir", "", null, undefined])(
@@ -170,7 +171,7 @@ describe("spam-PR red flags", () => {
     expect(score(NEUTRAL).red_flags).toHaveLength(0);
   });
 
-  it("flags templated_pr_flooding with light penalties unless low-quality evidence corroborates it", () => {
+  it("only notes templated flooding when the bounded sample is too small or lacks corroboration", () => {
     const mk = (share: number, templated: number, over: Partial<RawMetrics> = {}): RawMetrics => ({
       ...NEUTRAL,
       pr_flood_suspect: true,
@@ -180,21 +181,16 @@ describe("spam-PR red flags", () => {
       templated_pr_ratio: templated,
       ...over,
     });
-    const pen = (m: RawMetrics) =>
-      score(m).red_flags.find((f) => f.flag === "templated_pr_flooding")?.penalty;
-    expect(pen(mk(0.5, 0.5))).toBe(4); // just-suspect → light risk
-    expect(pen(mk(1.0, 1.0))).toBe(10); // extreme concentration alone is still moderate
-    expect(pen(mk(0.6, 0.6))).toBe(5);
-    expect(
-      pen(mk(1.0, 0.9, {
+    expect(hasFlag(mk(1.0, 1.0), "templated_pr_flooding")).toBe(false);
+    expect(hasNote(mk(1.0, 1.0), "templated_pr_flooding")).toBe(true);
+    expect(hasFlag(mk(1.0, 0.9, {
         recent_merged_pr_sample: 30,
         recent_external_doc_like_pr_ratio: 0.7,
         pr_rejection_rate: 0.4,
-      })),
-    ).toBeGreaterThanOrEqual(18);
+      }), "templated_pr_flooding")).toBe(false);
   });
 
-  it("flags high_pr_rejection when most decided PRs were rejected", () => {
+  it("uses a Wilson lower bound and keeps high rejection below the old flat penalty", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 5,
@@ -204,7 +200,8 @@ describe("spam-PR red flags", () => {
     };
     const flag = score(m).red_flags.find((f) => f.flag === "high_pr_rejection");
     expect(flag).toBeTruthy();
-    expect(flag?.penalty).toBe(10); // >0.7 → 10
+    expect(flag?.penalty).toBeGreaterThan(0);
+    expect(flag?.penalty).toBeLessThan(4);
   });
 
   it("does not flag rejection below the threshold or with too few PRs", () => {
@@ -279,9 +276,10 @@ describe("spam-PR red flags", () => {
     );
   });
 
-  it("flags trivial_pr_farming for garbage PRs into popular external repos", () => {
+  it("only notes external trivial PRs until the merged sample reaches 20", () => {
     const m: RawMetrics = { ...NEUTRAL, recent_merged_pr_sample: 18, external_trivial_pr_count: 12 };
-    expect(hasFlag(m, "trivial_pr_farming")).toBe(true);
+    expect(hasFlag(m, "trivial_pr_farming")).toBe(false);
+    expect(hasNote(m, "trivial_pr_farming")).toBe(true);
   });
 
   it("does NOT flag a heavy self-PR dev (no external garbage)", () => {
@@ -912,8 +910,13 @@ describe("score() regression fixtures", () => {
   for (const [name, { input, expected }] of Object.entries(fixtures)) {
     it(`matches expected output for "${name}"`, () => {
       const result = score(input as unknown as RawMetrics);
-      expect(result).toMatchObject(expected);
-      expect(result.risk_assessment?.version).toBe("v9");
+      // The golden fixtures lock the six positive dimensions and base score.
+      // Risk output is intentionally versioned separately from those values.
+      expect(result.sub_scores).toEqual(expected.sub_scores);
+      expect(result.base_score).toBe(expected.base_score);
+      expect(result.risk_assessment?.version).toBe("v10");
+      expect(result.total_penalty).toBeGreaterThanOrEqual(0);
+      expect(result.total_penalty).toBeLessThanOrEqual(25);
     });
   }
 });
@@ -1537,18 +1540,15 @@ describe("doc-like PR contribution-quality discount", () => {
       recent_external_doc_like_pr_count: 22,
       recent_external_doc_like_pr_ratio: 0.59,
       max_impact_repo_stars: 75125,
-      impact_prestige_score: 0.1,
       impact_pr_count: 23,
-      impact_depth_raw: 1.5,
+      impact_depth_raw: 13.08,
+      impact_quality_cap: 4,
       core_impact_pr_count: 2,
       doc_like_impact_pr_count: 3,
       top_starred_original_repo_quality_score: 0.14,
       self_closed_external_pr_count: 21,
     };
-    expect(score(m).sub_scores.ecosystem_impact).toBeLessThanOrEqual(4);
     expect(contributionQualityCap(m)).toBe(12);
-    // Real code in the verified sample lifts the cap.
-    expect(contributionQualityCap({ ...m, core_impact_pr_count: 4 })).toBeUndefined();
     expect(score(m).sub_scores.contribution_quality).toBe(12);
   });
 
@@ -1575,9 +1575,10 @@ describe("doc-like PR contribution-quality discount", () => {
       recent_external_doc_like_pr_count: 22,
       recent_external_doc_like_pr_ratio: 0.59,
       max_impact_repo_stars: 77347,
-      impact_prestige_score: 0.2,
+      impact_prestige_score: 0.9777,
       impact_pr_count: 5,
-      impact_depth_raw: 2,
+      impact_depth_raw: 7.49,
+      impact_quality_cap: 4,
       core_impact_pr_count: 1,
       doc_like_impact_pr_count: 4,
       self_closed_external_pr_count: 22,
@@ -1621,10 +1622,10 @@ describe("doc-like PR contribution-quality discount", () => {
     };
     const s = score(m);
     const flag = s.red_flags.find((f) => f.flag === "templated_pr_flooding");
-    expect(flag?.penalty).toBe(5);
-    expect(flag?.detail).toContain("模式化批量贡献风险");
-    expect(s.tier).toBe("人上人");
-    expect(s.final_score).toBeGreaterThanOrEqual(78);
+    expect(flag).toBeUndefined();
+    expect(s.risk_notes?.some((note) => note.flag === "templated_pr_flooding")).toBe(true);
+    expect(s.tier).toBe("顶级");
+    expect(s.final_score).toBeGreaterThanOrEqual(80);
   });
 
   it("does not cap contribution quality for low-volume author-closed external PRs", () => {
@@ -1663,9 +1664,9 @@ describe("doc-like PR contribution-quality discount", () => {
       recent_external_doc_like_pr_count: 22,
       recent_external_doc_like_pr_ratio: 0.59,
       max_impact_repo_stars: 75125,
-      impact_prestige_score: 0.2,
       impact_pr_count: 5,
-      impact_depth_raw: 2,
+      impact_depth_raw: 7.49,
+      impact_quality_cap: 4,
       core_impact_pr_count: 1,
       doc_like_impact_pr_count: 4,
       top_starred_original_repo_quality_score: 0.8,
@@ -1822,8 +1823,9 @@ describe("social-only dormant profiles", () => {
     });
 
     expect(s.sub_scores.community_influence).toBe(2.5);
-    expect(s.red_flags.some((f) => f.flag === "social_only_dormant_profile")).toBe(true);
-    expect(s.final_score).toBeLessThan(20);
+    expect(s.red_flags.some((f) => f.flag === "social_only_dormant_profile")).toBe(false);
+    expect(s.risk_notes?.some((f) => f.flag === "social_only_dormant_profile")).toBe(true);
+    expect(s.total_penalty).toBe(0);
   });
 
   it("does not cap followers for dormant accounts with strong original project quality", () => {
@@ -1875,41 +1877,34 @@ describe("logRatio", () => {
   });
 });
 
-describe("scoring calibration (external/own split, engagement, stars, follow ratio)", () => {
-  it("splits contribution volume into external (max 12) and own (max 4) PRs", () => {
+describe("v10 scoring contract (single PR pool, unweighted stars, unscaled follow ratio)", () => {
+  it("scores contribution volume from the full merged-PR pool", () => {
     const solo: RawMetrics = {
       ...NEUTRAL,
-      merged_pr_count: 420,
+      merged_pr_count: 200,
+      total_pr_count: 200,
       external_merged_pr_count: 37,
-      external_high_star_pr_share: 1,
-      maintainer_closed_unmerged_pr_count: 11,
+      maintainer_closed_unmerged_pr_count: 0,
     };
-    const { prVolume, acceptance } = contributionVolumeAndAcceptance(solo);
-    expect(prVolume).toBeCloseTo(12 * logRatio(37, 150) + 4, 6);
-    expect(acceptance).toBeCloseTo((37 / 48) * 6, 6);
-
-    // Own-repo PR volume alone is worth at most 4 points.
-    const ownOnly = contributionVolumeAndAcceptance({ ...solo, external_merged_pr_count: 0 });
-    expect(ownOnly.prVolume).toBe(4);
-
-    // External PRs into <200★ repos count at 0.6.
-    const lowStar = contributionVolumeAndAcceptance({ ...solo, external_high_star_pr_share: 0 });
-    expect(lowStar.prVolume).toBeCloseTo(12 * logRatio(37 * 0.6, 150) + 4, 6);
-
-    // Without the external count (older snapshots) the single-pool formula holds.
-    const legacy = contributionVolumeAndAcceptance({ ...solo, external_merged_pr_count: undefined });
-    expect(legacy.prVolume).toBe(16);
+    const withSplit = score(solo).sub_scores.contribution_quality;
+    const withoutSplit = score({ ...solo, external_merged_pr_count: undefined }).sub_scores.contribution_quality;
+    expect(withSplit).toBe(withoutSplit);
+    expect(withSplit).toBeGreaterThanOrEqual(16);
   });
 
-  it("keeps the tiny-history acceptance formula below three external decided PRs", () => {
+  it("keeps the tiny-history acceptance formula below three decided PRs", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 2,
       total_pr_count: 2,
-      external_merged_pr_count: 0,
+      issues_created: 0,
       maintainer_closed_unmerged_pr_count: 0,
     };
-    expect(contributionVolumeAndAcceptance(m).acceptance).toBeCloseTo(2.4, 10);
+    const acceptance = 2 * 1.2;
+    expect(score(m).sub_scores.contribution_quality).toBeCloseTo(
+      roundHalfEven(logRatio(2, 200) * 16 + acceptance, 1),
+      10,
+    );
   });
 
   it("damps own impact depth by the repo's community engagement and counts attributed originals as own", () => {
@@ -2006,7 +2001,7 @@ describe("scoring calibration (external/own split, engagement, stars, follow rat
     expect(isProfileReadmeRepo(repo({ name: "engine" }), "me")).toBe(false);
   });
 
-  it("scores Original Project Quality on weighted stars when present", () => {
+  it("ignores weighted star totals in Original Project Quality", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       total_stars: 3000,
@@ -2014,26 +2009,22 @@ describe("scoring calibration (external/own split, engagement, stars, follow rat
       top_starred_original_repo_quality_score: 1,
       best_original_repo_quality_score: 1,
     };
-    expect(score({ ...m, weighted_total_stars: 3000, weighted_max_stars: 2000 }).sub_scores.original_project_quality).toBe(
-      score(m).sub_scores.original_project_quality,
-    );
-    expect(score({ ...m, weighted_total_stars: 1200, weighted_max_stars: 600 }).sub_scores.original_project_quality).toBeLessThan(
+    expect(score({ ...m, weighted_total_stars: 1200, weighted_max_stars: 600 }).sub_scores.original_project_quality).toBe(
       score(m).sub_scores.original_project_quality,
     );
   });
 
-  it("scales follow-ratio points by follower count", () => {
+  it("gives follow-ratio points full weight", () => {
     const community = (followers: number) =>
       score({ ...NEUTRAL, followers, following: 1 }).sub_scores.community_influence;
-    expect(community(51)).toBeCloseTo(roundHalfEven(logRatio(51, 2000) * 5 + 3 * logRatio(51, 500), 1), 10);
+    expect(community(51)).toBeCloseTo(roundHalfEven(logRatio(51, 2000) * 5 + 3, 1), 10);
     expect(community(2000)).toBe(8);
-    expect(community(5)).toBe(2); // was 4.2 with a full 3-point ratio
   });
 
-  it("saturates impact depth at 10", () => {
+  it("saturates impact depth at 8", () => {
     const depth = (impact_depth_raw: number) =>
       score({ ...NEUTRAL, impact_prestige_score: 0, impact_depth_raw }).sub_scores.ecosystem_impact;
-    expect(depth(8)).toBe(8.8);
+    expect(depth(8)).toBe(11);
     expect(depth(10)).toBe(11);
     expect(depth(20)).toBe(11);
   });

@@ -14,6 +14,8 @@ import {
   topStarredOriginalRepoQuality,
   weightedOriginalStars,
   collect,
+  COLLECT_DEADLINE_MS,
+  GitHubCollectDeadlineError,
   type ContribRepoAgg,
 } from "@/lib/github";
 import { collectorCache } from "@/lib/redis";
@@ -196,7 +198,10 @@ export function buildPublicSignatureWork(
  * requests only crawls GitHub once.
  */
 export async function buildScanResult(username: string): Promise<ScanResult> {
-  const collected = await collect(username, { cache: collectorCache });
+  const collected = await collect(username, {
+    cache: collectorCache,
+    deadlineMs: COLLECT_DEADLINE_MS,
+  });
   const scan = {
     ...collected,
     scoring: score(collected.metrics),
@@ -338,6 +343,7 @@ export function logFreshScanFailure(error: unknown, context: {
     : error instanceof GitHubInternalQueryError ? "github_internal"
     : error instanceof GitHubResourceLimitError ? "github_resource_limit"
     : error instanceof GitHubQueryTimeoutError ? "github_query_timeout"
+    : error instanceof GitHubCollectDeadlineError ? "github_collect_deadline"
     : error instanceof GitHubRateLimitError ? "github_rate_limited"
     : error instanceof GitHubAuthRequiredError ? "github_token_required"
     : error instanceof AccountNotFoundError ? "account_not_found"

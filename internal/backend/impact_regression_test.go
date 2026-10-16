@@ -295,18 +295,7 @@ func TestAggregateMergedPRNodesDedupesWindowAndExternalSearch(t *testing.T) {
 	}
 }
 
-func TestContributionVolumeSplitsExternalAndOwnPRs(t *testing.T) {
-	external, share, closed := 37.0, 1.0, 11.0
-	m := RawMetrics{MergedPRCount: 420, ExternalMergedPRCount: &external, ExternalHighStarPRShare: &share, MaintainerClosedUnmergedPRCount: &closed}
-	volume, acceptance := contributionVolumeAndAcceptance(m)
-	if math.Abs(volume-(12*LogRatio(37, 150)+4)) > 1e-9 || math.Abs(acceptance-37.0/48*6) > 1e-9 {
-		t.Fatalf("volume %v acceptance %v", volume, acceptance)
-	}
-	m.ExternalMergedPRCount = nil
-	if legacy, _ := contributionVolumeAndAcceptance(m); legacy != 16 {
-		t.Fatalf("legacy volume = %v", legacy)
-	}
-}
+
 
 func TestFetchImpactRepoSignalsQueriesEligibleReposAndCountsMerges(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
