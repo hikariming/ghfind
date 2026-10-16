@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { LiveRoast } from "@/components/LiveRoast";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
+import { ScoreJobProgress } from "@/components/ScoreJobProgress";
+import { waitForScanJob, type ScanJobStatus } from "@/lib/scan-job-client";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { bcp47 } from "@/lib/site";
 import { rankProfileWorks } from "@/lib/profile-work";
@@ -27,11 +29,15 @@ import {
 export function PendingProfile({
   username,
   initialScan,
+  initialJobStatus = null,
   fromHome = false,
   advx = false,
 }: {
   username: string;
   initialScan: ScanResult | null;
+  /** Server-side devscore job status when the score is still computing — the
+   * shell shows live phase/progress and polls until the persisted row exists. */
+  initialJobStatus?: ScanJobStatus | null;
   /** Arrived via the homepage `?roasting=1` handoff → the share popup opens
    * immediately, seeded with the deterministic scan score. LLM tags, one-liner,
    * and report stream in place; the score remains deterministic. */
@@ -41,6 +47,7 @@ export function PendingProfile({
   const t = useTranslations("detail");
   const tDim = useTranslations("dimensions");
   const tTier = useTranslations("tiers");
+  const tJob = useTranslations("scoreJob");
   const locale = useLocale();
 
   // Lazy init resolves the scan without a flash in the common cases: the server
@@ -52,7 +59,11 @@ export function PendingProfile({
   );
   const [resolved, setResolved] = useState<boolean>(scan != null);
   const looked = useRef(scan != null);
-
+  const router = useRouter();
+  // Live devscore job status while no scan is available yet. Seeded from the
+  // server prop; advanced by each poll tick below.
+  const [jobStatus, setJobStatus] = useState<ScanJobStatus | null>(initialJobStatus);
+  const [jobFailed, setJobFailed] = useState<string | null>(null);
   // Hard-reload fallback: on SSR the lazy init couldn't see sessionStorage, so
   // read it once after mount. Ref-guarded, so no cascading re-renders.
   useEffect(() => {
@@ -64,6 +75,27 @@ export function PendingProfile({
     setResolved(true);
   }, [username, scan]);
 
+  // No scan yet but a score job is running: poll `/api/scan/status/<login>` —
+  // each poll also advances the job server-side. When the result lands, the
+  // server now has a persisted row, so a refresh swaps this shell for the full
+  // profile.
+  const waitsOnJob = !scan && resolved && jobStatus != null;
+  useEffect(() => {
+    if (!waitsOnJob) return;
+    const controller = new AbortController();
+    waitForScanJob(username, {
+      signal: controller.signal,
+      onStatus: setJobStatus,
+    })
+      .then(() => router.refresh())
+      .catch((e) => {
+        const code = (e as { code?: string })?.code;
+        if (code === "scan_aborted") return;
+        setJobFailed(code === "scan_timeout" ? "timeout" : "failed");
+      });
+    return () => controller.abort();
+  }, [waitsOnJob, username, router]);
+
   if (!scan) {
     // Still checking sessionStorage → neutral spinner (avoids a not-found flash).
     if (!resolved) {
@@ -73,7 +105,31 @@ export function PendingProfile({
         </main>
       );
     }
-    // No scan anywhere (direct visit to an unscanned handle) → point home.
+    // A devscore job is in flight: show the computing shell — identity header
+    // without an avatar yet, live phase/progress — until the poll finishes and
+    // the refresh renders the real profile.
+    if (jobStatus) {
+      return (
+        <main className="flex w-full flex-1 items-center justify-center px-5 py-20">
+          <div className="flex w-full max-w-lg flex-col items-center gap-5">
+            <div className="max-w-full break-all rounded-full bg-black/35 px-4 py-1.5 text-xl font-black leading-tight text-zinc-200 ring-1 ring-white/10">
+              @{username}
+            </div>
+            {jobFailed ? (
+              <p className="text-center text-sm text-rose-300">
+                {jobFailed === "timeout" ? tJob("timeout") : tJob("failed")}{" "}
+                <Link href="/" className="text-orange-400 hover:underline">
+                  {t("liveGoHome")}
+                </Link>
+              </p>
+            ) : (
+              <ScoreJobProgress status={jobStatus} />
+            )}
+          </div>
+        </main>
+      );
+    }
+    // No scan and no job (direct visit to an unscanned handle) → point home.
     return (
       <main className="flex w-full flex-1 items-center justify-center px-5 py-20">
         <p className="text-center text-sm text-zinc-400">

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { readScanResponse } from "@/lib/scan-job-client";
+import { readScanResponse, type ScanJobStatus } from "@/lib/scan-job-client";
 import { consumeRoastStream } from "@/lib/roast-stream";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+import { ScoreJobProgress } from "./ScoreJobProgress";
 
 type Status = "idle" | "scanning" | "roasting" | "error";
 
@@ -18,9 +19,13 @@ type Status = "idle" | "scanning" | "roasting" | "error";
  */
 export function VsSummonButton({ username }: { username: string }) {
   const t = useTranslations("vs");
+  const tScan = useTranslations("scanErrors");
+  const tJob = useTranslations("scoreJob");
   const locale = useLocale();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
+  const [jobStatus, setJobStatus] = useState<ScanJobStatus | null>(null);
+  const [errorText, setErrorText] = useState("");
   const [token, setToken] = useState("");
   const [needVerify, setNeedVerify] = useState(false);
   const pendingRef = useRef(false);
@@ -34,6 +39,8 @@ export function VsSummonButton({ username }: { username: string }) {
       return;
     }
     setStatus("scanning");
+    setJobStatus(null);
+    setErrorText("");
     try {
       const scanRes = await fetch("/api/scan", {
         method: "POST",
@@ -44,7 +51,8 @@ export function VsSummonButton({ username }: { username: string }) {
         setStatus("error");
         return;
       }
-      const scan = (await readScanResponse(scanRes)) as ScanResult;
+      const scan = (await readScanResponse(scanRes, { onStatus: setJobStatus })) as ScanResult;
+      setJobStatus(null);
       setStatus("roasting");
       const roastRes = await fetch("/api/roast", {
         method: "POST",
@@ -62,10 +70,21 @@ export function VsSummonButton({ username }: { username: string }) {
       if (errored) return;
       router.refresh();
       setStatus("idle");
-    } catch {
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      setErrorText(
+        code === "scan_timeout"
+          ? tJob("timeout")
+          : typeof code === "string" && code !== "scan_aborted"
+            ? tScan.has(code)
+              ? tScan(code)
+              : tJob("failed")
+            : t("summonError"),
+      );
+      setJobStatus(null);
       setStatus("error");
     }
-  }, [token, username, locale, router]);
+  }, [token, username, locale, router, t, tJob, tScan]);
 
   // Resume a click that was waiting on the Turnstile token.
   useEffect(() => {
@@ -77,7 +96,12 @@ export function VsSummonButton({ username }: { username: string }) {
 
   const label =
     status === "scanning"
-      ? t("summonScanning")
+      ? jobStatus
+        ? tJob("computing") +
+          (typeof jobStatus.progress === "number"
+            ? ` ${Math.round(Math.min(1, Math.max(0, jobStatus.progress)) * 100)}%`
+            : "…")
+        : t("summonScanning")
       : status === "roasting"
         ? t("summonRoasting")
         : t("summon");
@@ -93,8 +117,13 @@ export function VsSummonButton({ username }: { username: string }) {
         {label}
       </button>
       {needVerify && !token && <Turnstile onToken={setToken} />}
+      {status === "scanning" && jobStatus && (
+        <div className="text-xs text-zinc-400">
+          <ScoreJobProgress compact status={jobStatus} />
+        </div>
+      )}
       {status === "error" && (
-        <div className="text-xs text-rose-300">{t("summonError")}</div>
+        <div className="text-xs text-rose-300">{errorText || t("summonError")}</div>
       )}
     </div>
   );
