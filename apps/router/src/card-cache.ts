@@ -171,6 +171,14 @@ function remember(key: string, entry: StoredCard): void {
   }
 }
 
+function touch(key: string): StoredCard | undefined {
+  const entry = isolate.get(key);
+  if (!entry) return undefined;
+  isolate.delete(key);
+  isolate.set(key, entry);
+  return entry;
+}
+
 function toResponse(entry: StoredCard, method: string): Response {
   return new Response(method === "HEAD" ? null : entry.body.slice(0), {
     status: entry.status,
@@ -225,7 +233,7 @@ export async function serveCard(
   }
   const key = card.canonical.toString();
   const now = Date.now();
-  const cached = isolate.get(key);
+  const cached = touch(key);
   if (cached && cached.freshUntil > now) {
     return mark(toResponse(cached, request.method), "HIT");
   }
