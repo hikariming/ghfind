@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ModeTransition, type TransitionRequest, type TransitionHooks } from "../src/transition";
+import { ModeTransition, transitionTeardown, type TransitionRequest, type TransitionHooks } from "../src/transition";
 import { handleRequest, type RuntimeSettings } from "../src/router";
 const env: RuntimeSettings = {
   FEED_ENVIRONMENT: "production", FEED_IMAGE_BUILD_ID: "d".repeat(64), FEED_RELEASE_SHA: "a".repeat(40),
@@ -45,6 +45,26 @@ test("pinned SDK start leaves running off-mode environment unchanged until nativ
   const stillRunning = {container:{running:true,signal:()=>{signals++;}},syncPendingStoppedEvents:async()=>{}};
   await stop.call(stillRunning);
   assert.equal(signals,1); assert.equal(stillRunning.container.running,true);
+  const onStartAt = sdk.indexOf("    onStart()", destroyAt);
+  assert.ok(onStartAt > destroyAt);
+  const destroy = Function(`return ({${sdk.slice(destroyAt, onStartAt)}})` )().destroy;
+  let destroyed = 0;
+  await destroy.call({container:{destroy:async()=>{destroyed++;}}});
+  assert.equal(destroyed,1);
+});
+test("off teardown destroys the instance; baseline still SIGTERM-stops the current image", async () => {
+  const calls: string[] = [];
+  const sdk = {
+    destroy: async () => { calls.push("destroy"); },
+    stop: async (signal: "SIGTERM") => { calls.push(`stop:${signal}`); },
+  };
+  await transitionTeardown("off", sdk);
+  await transitionTeardown("baseline", sdk);
+  assert.deepEqual(calls, ["destroy", "stop:SIGTERM"]);
+  const source = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
+  assert.equal(source.split("transitionTeardown(input.mode").length - 1, 2);
+  assert.equal(source.split("super.destroy()").length - 1, 2);
+  assert.equal(source.split('instance(target).stop("SIGTERM")').length - 1, 1);
 });
 test("off to baseline waits for native stop, applies new env, then verifies the actual binary", async () => {
   const f = fixture();
@@ -260,6 +280,18 @@ test("mixed-version DO and edge replies keep the successful receipt accepted by 
 });
 
 
+test("off bootstrap destroy-then-start cannot reuse a still-running old instance", async () => {
+  const f = fixture(); f.state.mode = "baseline";
+  const off = {...env, FEED_MODE: "off"}, request: TransitionRequest = {...input, mode: "off"};
+  f.hooks.stop = async () => { f.state.stops++; f.state.running = false; };
+  f.hooks.start = async () => {
+    assert.equal(f.state.running, false, "start must observe the destroyed instance");
+    f.state.starts++; f.state.running = true; f.state.mode = "off";
+  };
+  const result = await new ModeTransition(limits).run("api-0", off, request, f.hooks);
+  assert.deepEqual(result, {restarted: true, target: "api-0", ...request});
+  assert.equal(f.state.stops, 1); assert.equal(f.state.starts, 1);
+});
 test("off bootstrap replaces an old running process without claiming its binary is current", async () => {
   const f = fixture(); f.state.mode = "baseline";
   const off = {...env, FEED_MODE: "off"}, request: TransitionRequest = {...input, mode: "off"};

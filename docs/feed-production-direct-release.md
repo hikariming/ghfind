@@ -71,6 +71,16 @@ receipts and actual repository protection. The workflow then:
    deadline. It then runs the full ordinary baseline verification. A fixed sleep
    cannot replace this: SDK 0.3.7 does not apply new envVars to a running process.
    A Worker variable change alone cannot prove the container changed modes.
+   Off-mode process replacement is a separate step after platform rollout
+   completion. Rollout completion is application-level and does not replace a
+   Durable Object's existing container instance. SDK 0.3.7 `stop()` only sends
+   SIGTERM; `startAndWaitForPorts` is a no-op while `running` remains true;
+   `start()` does not pass an image digest, so the same instance keeps its old
+   compiled binary. After the paused Web and detached consumers are proved,
+   off-transition destroys each fixed actor's container instance (process
+   teardown, not D1/R2 or Durable Object storage deletion) and then
+   `startAndWaitForPorts` from the current application image. Final Go `/readyz`
+   identity comparison stays fail-closed.
    Revalidates the completed real assessment against the durable checked-in
    checkpoint and current source/outbox/Go projection rows, then runs bounded
    authenticated service-contract smoke with nonempty eligible candidates. This
