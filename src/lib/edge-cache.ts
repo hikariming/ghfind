@@ -1,62 +1,17 @@
 /**
- * Cheap, colo-local caches for read models that are not worth a Workers KV
- * write: the Workers Cache API (`caches.default`, free writes, per data
- * center) plus a bounded in-isolate map in front of it.
+ * Bounded in-isolate cache for read models that are not worth a Workers KV
+ * write: empty discovery answers and crawler renders. A KV write costs more
+ * than the database read it would save on that long tail.
  *
- * Use these for results that a crawler long tail rarely re-reads (empty
- * discovery answers, crawler renders): a KV write costs more than the
- * database read it would save. Everything here is best-effort — outside
- * Workers (Node tests, scripts) the Cache API is absent and only the
- * in-isolate tier works.
+ * The Workers Cache API (`caches.default.match` / `caches.open`) generates an
+ * internal 504 on miss or expiry. Cloudflare Logs record that as
+ * `RequestSource: edgeWorkerCacheAPI`, and zone GraphQL
+ * `httpRequestsAdaptiveGroups` counts it as a ghfind.com 5xx even when the
+ * cache key uses a never-served host (`edge-cache.ghfind.internal`). Dashboard
+ * HTTP/Cache Analytics filter `requestSource=eyeball`; GraphQL does not.
+ * Named caches and a different key origin still log those 504s, so this
+ * module stays isolate-local. #464 still holds: nothing here writes KV.
  */
-
-// Cache API keys must be URLs; this host is never fetched or served.
-const CACHE_KEY_ORIGIN = "https://edge-cache.ghfind.internal/";
-
-type DefaultCache = {
-  match(request: Request | string): Promise<Response | undefined>;
-  put(request: Request | string, response: Response): Promise<void>;
-};
-
-function defaultCache(): DefaultCache | null {
-  try {
-    const storage = (globalThis as { caches?: { default?: DefaultCache } }).caches;
-    return storage?.default ?? null;
-  } catch {
-    return null;
-  }
-}
-
-const cacheUrl = (key: string) => `${CACHE_KEY_ORIGIN}${encodeURIComponent(key)}`;
-
-export async function edgeCacheGet<T>(key: string): Promise<T | null> {
-  const cache = defaultCache();
-  if (!cache) return null;
-  try {
-    const hit = await cache.match(cacheUrl(key));
-    return hit ? ((await hit.json()) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function edgeCachePut(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-  const cache = defaultCache();
-  if (!cache) return;
-  try {
-    await cache.put(
-      cacheUrl(key),
-      new Response(JSON.stringify(value), {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": `public, max-age=${Math.max(1, Math.floor(ttlSeconds))}`,
-        },
-      }),
-    );
-  } catch {
-    // best-effort
-  }
-}
 
 /** Bounded TTL map (oldest-inserted evicted first) for one isolate. */
 export function createLocalCache<T>(ttlMs: number, maxEntries: number) {

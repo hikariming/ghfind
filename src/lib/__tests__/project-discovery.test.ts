@@ -34,23 +34,6 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@/lib/bot-user-agent", () => ({ isBotRequest: vi.fn(() => false) }));
 
-/** Minimal `caches.default` (Workers Cache API) honoring max-age. */
-function installEdgeCache() {
-  const entries = new Map<string, { body: string; expires: number }>();
-  const cache = {
-    async match(url: string) {
-      const hit = entries.get(url);
-      return hit && hit.expires > Date.now() ? new Response(hit.body) : undefined;
-    },
-    async put(url: string, response: Response) {
-      const maxAge = Number(/max-age=(\d+)/.exec(response.headers.get("Cache-Control") ?? "")?.[1] ?? 0);
-      entries.set(url, { body: await response.text(), expires: Date.now() + maxAge * 1000 });
-    },
-  };
-  vi.stubGlobal("caches", { default: cache });
-  return entries;
-}
-
 const item = (key: string) => ({ repo: { repo_key: key } }) as unknown as ProjectListItem;
 const related = (key: string, sharedContributorCount: number): RelatedProject =>
   ({ project: item(key), sharedContributorCount }) as unknown as RelatedProject;
@@ -143,7 +126,7 @@ describe("project discovery cache", () => {
   });
 });
 
-describe("colo-local tiers", () => {
+describe("in-isolate cache", () => {
   it("keeps values that fail `persist` out of KV and serves them from the isolate", async () => {
     const cacheSet = vi.fn(async () => undefined);
     const dbLoad = vi.fn(async () => [] as string[]);
@@ -183,8 +166,8 @@ describe("colo-local tiers", () => {
     expect(cacheSet).toHaveBeenCalledExactlyOnceWith("visited", ["visited"]);
   });
 
-  it("shares values kept out of KV across isolates through the Cache API", async () => {
-    const edge = installEdgeCache();
+  it("does not write KV for empty results, and a second isolate reloads from the database", async () => {
+    // Cache API match-miss is a zone 504, so empty answers stay isolate-local.
     const options = {
       cacheGet: async () => null,
       cacheSet: vi.fn(async () => undefined),
@@ -193,11 +176,10 @@ describe("colo-local tiers", () => {
       persist: (value: string[]) => value.length > 0,
       localTtlSeconds: 3600,
     };
-    await createCachedLoader<string[]>(options)("shared-empty");
-    expect(edge.size).toBe(1);
-    // A second loader stands in for another isolate in the same colo.
     await expect(createCachedLoader<string[]>(options)("shared-empty")).resolves.toEqual([]);
     expect(options.dbLoad).toHaveBeenCalledOnce();
+    await expect(createCachedLoader<string[]>(options)("shared-empty")).resolves.toEqual([]);
+    expect(options.dbLoad).toHaveBeenCalledTimes(2);
     expect(options.cacheSet).not.toHaveBeenCalled();
   });
 });

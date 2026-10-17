@@ -7,7 +7,7 @@ import {
   type RelatedProject,
 } from "@/lib/db";
 import { isBotRequest } from "@/lib/bot-user-agent";
-import { createLocalCache, edgeCacheGet, edgeCachePut } from "@/lib/edge-cache";
+import { createLocalCache } from "@/lib/edge-cache";
 import type { ProjectSort } from "@/lib/projects";
 import { getCachedProjectValue, setCachedProjectValue } from "@/lib/redis";
 
@@ -20,13 +20,14 @@ type CacheLoaderDeps<T, Args extends unknown[] = []> = {
    * TTL (the homepage projects band vanished for 6h per hiccup). */
   fallback: T;
   /** Whether a loaded value earns a shared KV entry (default: every value).
-   * Rejected values stay in the colo-local tiers instead (see below). */
+   * Rejected values stay in the in-isolate map instead (see below). */
   persist?: (value: T) => boolean;
   /** Keep crawler renders out of KV (lib/bot-user-agent): a long-tail crawler
    * fetches each page about once per TTL, so its KV write is never read back. */
   skipBotWrites?: boolean;
-  /** TTL of the colo-local tiers — an in-isolate map plus the Workers Cache
-   * API — that hold values kept out of KV. Without it they are not cached. */
+  /** TTL of the in-isolate map that holds values kept out of KV. Without it
+   * they are not cached. The Workers Cache API is intentionally unused:
+   * `cache.match` miss/expiry is logged as a zone 504. */
   localTtlSeconds?: number;
   isBot?: () => boolean;
 };
@@ -41,15 +42,6 @@ export function createCachedLoader<T, Args extends unknown[] = []>(deps: CacheLo
   return async (key: string, ...args: Args): Promise<T> => {
     const memo = local?.get(key);
     if (memo !== undefined) return memo;
-    // The Cache API before KV: it only ever holds values kept out of KV, and
-    // a match is free while a KV read is billed.
-    if (local) {
-      const edge = await edgeCacheGet<T>(key);
-      if (edge !== null) {
-        local.set(key, edge);
-        return edge;
-      }
-    }
     try {
       const cached = await deps.cacheGet(key);
       if (cached !== null) return cached;
@@ -74,10 +66,7 @@ export function createCachedLoader<T, Args extends unknown[] = []>(deps: CacheLo
       const shared = (deps.persist?.(value) ?? true) && !(deps.skipBotWrites && isBot());
       try {
         if (shared) await deps.cacheSet(key, value);
-        else if (local && ttl) {
-          local.set(key, value);
-          await edgeCachePut(key, value, ttl);
-        }
+        else if (local) local.set(key, value);
       } catch {
         // Cache writes must never break a discovery page.
       }
@@ -140,7 +129,7 @@ export async function getProjectsCached(options: ProjectListCacheOptions) {
 // - empty or filler-only answers (no shared contributors — the cheap case: the
 //   neighbor query reads only this repo's few contributors, and the filler is
 //   the per-language list already cached in KV) and crawler renders stay in
-//   the colo-local tiers, so repeats still skip the database.
+//   the in-isolate map, so repeats in the same isolate still skip the database.
 const RELATED_TTL_SECONDS = 86400; // 24h
 
 const relatedOptions = new Map<string, { repoKey: string; limit: number }>();
@@ -197,9 +186,9 @@ export async function getRelatedProjectsCached(repoKey: string, limit = 6) {
 //
 // D1 stays bounded without KV for the common answer. "Nothing in common" — the
 // overwhelmingly common result — costs only username/primary-key index seeks
-// (the project query never runs), and it is still cached colo-locally (isolate
-// + Cache API), so repeat renders don't reach the database. Only non-empty
-// answers rendered for humans earn a KV entry.
+// (the project query never runs), and it is still cached in-isolate, so repeat
+// renders in the same isolate don't reach the database. Only non-empty answers
+// rendered for humans earn a KV entry.
 const PROFILE_COMMON_TTL_SECONDS = 21600; // 6h, the PROJECT_DISCOVERY TTL
 
 function profileCommonProjectsCacheKey(username: string, candidates: string[], limit: number): string {

@@ -45,11 +45,6 @@ function nonProductionCrawlResponse(url: URL): Response | null {
   return null;
 }
 
-/** `caches.default` where the runtime has it (absent in Node tests). */
-function edgeCache(): Cache | null {
-  return (globalThis as { caches?: { default?: Cache } }).caches?.default ?? null;
-}
-
 export default {
   async fetch(request, env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -63,13 +58,12 @@ export default {
       const res = await env.API.fetch(new Request(new URL("/index.md", url), request));
       return finish(new Response(res.body, res), "api", env);
     }
-    // README cards/badges: canonical URL, malformed embeds redirected, edge
-    // cached (card-cache.ts). The rollback switch bypasses all of it.
+    // README cards/badges: canonical URL, malformed embeds redirected, isolate
+    // cached with stale fallback (card-cache.ts). Rollback bypasses all of it.
     const card = forceLegacy ? null : cardRequest(url);
     if (card && pickTarget(card.canonical.pathname) === "api") {
       if (card.redirect) return finish(cardRedirect(card), "router", env);
       const res = await serveCard(request, card, env.API, {
-        cache: edgeCache(),
         waitUntil: ctx ? (promise) => ctx.waitUntil(promise) : undefined,
       });
       return finish(res, "api", env);

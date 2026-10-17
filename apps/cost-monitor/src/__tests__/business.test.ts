@@ -17,6 +17,15 @@ describe("critical business telemetry",()=>{
     expect(summarize([trace("/api/roast",400)])).toEqual([]);
     expect(summarize([trace("/api/roast",200,{path:"byo",source:"generate",ok:false})])[0].failed).toBe(0);
   });
+  it("ignores Cache API internal hosts so match-miss 504s are not card failures",()=>{
+    const item=trace("/api/card/alice",504);
+    (item.event as {request:{url:string}}).request.url="https://edge-cache.ghfind.internal/api/card/alice";
+    expect(summarize([item])).toEqual([]);
+    const named=trace("/api/card/alice",504);
+    (named.event as {request:{url:string}}).request.url="https://card-cache.ghfind.internal/api/card/alice";
+    expect(summarize([named])).toEqual([]);
+    expect(summarize([trace("/api/card/alice",504)])[0].failed).toBe(1);
+  });
   it("does not infer recovery from missing traffic; requires two observed healthy windows",()=>{
     const s=emptyState(),at=1_800_000_000_000;
     for(const [i,failed] of [[0,1],[1,null],[2,0],[3,0]] as const){

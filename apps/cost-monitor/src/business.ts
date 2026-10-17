@@ -25,7 +25,10 @@ export function summarize(events:TraceItem[]):BusinessCount[] {
   const counts=new Map<string,BusinessCount>();
   for(const item of events){
     if(item.scriptName!=="ghfind-api" || !item.event || !("request" in item.event) || !item.eventTimestamp)continue;
-    let path:string;try{path=new URL(item.event.request.url).pathname;}catch{continue;}
+    let path:string;let host:string;
+    try{const url=new URL(item.event.request.url);path=url.pathname;host=url.hostname;}catch{continue;}
+    // Cache API match-miss 504s are keyed on *.ghfind.internal and are not user 5xx.
+    if(host==="edge-cache.ghfind.internal"||host.endsWith(".ghfind.internal"))continue;
     const feature= /^\/api\/(card|badge|material-card)\//.test(path)?"card":path==="/api/roast"?"roast":path==="/api/scan"?"scan":null;
     if(!feature)continue;
     if(["clientDisconnected","responseStreamDisconnected"].includes(item.outcome))continue;
