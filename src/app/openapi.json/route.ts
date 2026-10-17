@@ -101,8 +101,11 @@ export function GET() {
           description:
             "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
             "final_score. Deterministic — no LLM. Scans run synchronously and return the persisted " +
-            "result inline (cached snapshots replay instantly; `?force=1` bypasses the cache for a " +
-            "rescan). In production, machine callers send " +
+            "result inline (cached snapshots and verified indexed v10 rows replay instantly; " +
+            "`?force=1` bypasses the cache for a rescan). Interactive GitHub collection has a " +
+            "deadline: timeout is `github_collect_deadline` (503). When GitHub is busy or " +
+            "unavailable the route may return HTTP 200 with `stale: true` from a previous " +
+            "snapshot. In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
           parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -144,7 +147,7 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "503": { description: "GitHub or request protection temporarily unavailable", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "GitHub collection deadline, scan busy, GitHub unavailable, or request protection temporarily unavailable (`github_collect_deadline`, `scan_busy`, `github_unavailable`)", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -669,6 +672,7 @@ export function GET() {
                 "account_not_found",
                 "github_rate_limited",
                 "github_unavailable",
+                "github_collect_deadline",
                 "scan_busy",
                 "scan_failed",
                 "not_scored",

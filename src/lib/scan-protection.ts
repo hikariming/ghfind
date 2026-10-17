@@ -24,7 +24,8 @@ return 1`;
 export const PUBLISH_SCAN = `
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
 redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3])
-if KEYS[3] then redis.call('SET', KEYS[3], ARGV[1], 'EX', ARGV[3]) end
+if KEYS[3] and KEYS[3] ~= '' then redis.call('SET', KEYS[3], ARGV[1], 'EX', ARGV[3]) end
+if KEYS[4] and KEYS[4] ~= '' then redis.call('SET', KEYS[4], ARGV[2], 'EX', ARGV[4]) end
 return 1`;
 export const RELEASE_SCAN = `
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -35,6 +36,10 @@ redis.call('ZREM', KEYS[2], ARGV[1])
 return 1`;
 
 export const scanTtl = () => 86400 - Math.floor(Math.random() * 7201); // 22–24h
+/** Expired scan:v5 snapshots stay readable as emergency stale for about a week. */
+export const SCAN_STALE_TTL_SECONDS = 7 * 24 * 60 * 60;
+/** NX cooldown so a failed background refresh cannot amplify GitHub traffic. */
+export const SCAN_REFRESH_COOLDOWN_SECONDS = 15 * 60;
 
 /**
  * The atomic steps protectedScan needs from shared storage. Results keep the
@@ -43,7 +48,12 @@ export const scanTtl = () => 86400 - Math.floor(Math.random() * 7201); // 22–2
  */
 export interface ScanCoordinator {
   admit(owner: string, now: number, leaseMs: number, capacity: number): Promise<unknown>;
-  publish(owner: string, payload: string, ttlSeconds: number): Promise<unknown>;
+  publish(
+    owner: string,
+    payload: string,
+    ttlSeconds: number,
+    staleTtlSeconds?: number,
+  ): Promise<unknown>;
   release(owner: string, failed: boolean): Promise<unknown>;
 }
 
@@ -56,8 +66,14 @@ function redisScanCoordinator(
 ): ScanCoordinator {
   return {
     admit: (owner, now, leaseMs, capacity) => redis.eval(ADMIT_SCAN, keys, [owner, now, leaseMs, capacity]),
-    publish: (owner, payload, ttlSeconds) =>
-      redis.eval(PUBLISH_SCAN, revisionKey ? [keys[0], key, revisionKey] : [keys[0], key], [owner, payload, ttlSeconds]),
+    publish: (owner, payload, ttlSeconds, staleTtlSeconds) =>
+      redis.eval(
+        PUBLISH_SCAN,
+        [keys[0], key, revisionKey ?? "", staleTtlSeconds ? `${key}:stale` : ""],
+        staleTtlSeconds
+          ? [owner, payload, ttlSeconds, staleTtlSeconds]
+          : [owner, payload, ttlSeconds],
+      ),
     release: (owner, failed) => redis.eval(RELEASE_SCAN, keys, [owner, failed ? "failed" : "ok"]),
   };
 }
@@ -75,6 +91,8 @@ export async function protectedScan<T>(options: {
   wait?: () => Promise<void>;
   attempts?: number;
   ttl?: (result: T) => number;
+  /** When set, a successful owner publish also writes the 7-day stale shadow. */
+  staleTtl?: number;
   capacityKey?: string;
   revisionKey?: string;
 }): Promise<T> {
@@ -124,6 +142,7 @@ export async function protectedScan<T>(options: {
         owner,
         JSON.stringify(result),
         options.ttl?.(result) ?? scanTtl(),
+        options.staleTtl,
       );
       if (published !== 1) throw new ScanBusyError();
       failed = false;

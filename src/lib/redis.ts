@@ -8,7 +8,13 @@
  * and a cache hit avoids both GitHub API calls and an LLM call.
  */
 
-import { protectedScan, ScanBusyError, scanTtl } from "./scan-protection";
+import {
+  protectedScan,
+  ScanBusyError,
+  scanTtl,
+  SCAN_STALE_TTL_SECONDS,
+  SCAN_REFRESH_COOLDOWN_SECONDS,
+} from "./scan-protection";
 import { selectCacheStore, type CacheStore } from "./cache-store";
 import { selectAtomicStore, type AtomicStore } from "./atomic-store";
 import { parsePayload, scanSlot, scanSlots, slotCoordinator } from "./scan-slots";
@@ -148,15 +154,21 @@ function cacheStore(): CacheStore | null {
 
 export const scanKey = (username: string) =>
   `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+export const scanStaleKey = (username: string) => `${scanKey(username)}:stale`;
+const scanRefreshKey = (username: string) =>
+  `scan-refresh:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function parseCachedScan(cached: ScanResult | null): ScanResult | null {
+  return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+}
 
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
   if (bypassGeneratedCaches()) return null;
   const slots = scanSlots();
   if (slots) {
     try {
-      const cached = parsePayload<ScanResult>(await scanSlot(slots, scanKey(username)).payload());
-      return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+      return parseCachedScan(parsePayload<ScanResult>(await scanSlot(slots, scanKey(username)).payload()));
     } catch {
       return null;
     }
@@ -164,10 +176,42 @@ export async function getCachedScan(username: string): Promise<ScanResult | null
   const r = getRedis();
   if (!r) return null;
   try {
-    const cached = (await r.get<ScanResult>(scanKey(username))) ?? null;
-    return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+    return parseCachedScan((await r.get<ScanResult>(scanKey(username))) ?? null);
   } catch {
     return null;
+  }
+}
+
+/** Expired scan:v5 snapshot kept as a 7-day emergency read. Fresh success only. */
+export async function getStaleCachedScan(username: string): Promise<ScanResult | null> {
+  if (bypassGeneratedCaches()) return null;
+  const slots = scanSlots();
+  if (slots) {
+    try {
+      return parseCachedScan(
+        parsePayload<ScanResult>(await scanSlot(slots, scanKey(username)).stalePayload()),
+      );
+    } catch {
+      return null;
+    }
+  }
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return parseCachedScan((await r.get<ScanResult>(scanStaleKey(username))) ?? null);
+  } catch {
+    return null;
+  }
+}
+
+/** One background GitHub refresh per handle per cooldown. Fail closed: skip. */
+export async function tryAcquireScanRefresh(username: string): Promise<boolean> {
+  const r = atomicStore();
+  if (!r) return false;
+  try {
+    return await r.setIfAbsent(scanRefreshKey(username), "1", SCAN_REFRESH_COOLDOWN_SECONDS);
+  } catch {
+    return false;
   }
 }
 
@@ -196,7 +240,10 @@ export async function clearCachedScan(username: string): Promise<void> {
   }
   const r = getRedis();
   if (!r) return;
-  await r.del(scanKey(username)).catch(() => {});
+  await Promise.all([
+    r.del(scanKey(username)).catch(() => {}),
+    r.del(scanStaleKey(username)).catch(() => {}),
+  ]);
 }
 
 const scoreDetailRevisionKey = (username: string) =>
@@ -298,9 +345,11 @@ return redis.call('GET', KEYS[1])`;
 export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; background?: boolean } = {},
 ): Promise<ScanResult> {
   if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
+  const backgroundWait = options.background ? async () => {} : undefined;
+  const backgroundAttempts = options.background ? 1 : undefined;
   const slots = scanSlots();
   if (slots) {
     const slot = scanSlot(slots, scanKey(username));
@@ -319,6 +368,9 @@ export async function coalesceScan(
         } catch { throw new ScanBusyError(); }
       } : () => getCachedScan(username),
       produce: producer,
+      staleTtl: SCAN_STALE_TTL_SECONDS,
+      wait: backgroundWait,
+      attempts: backgroundAttempts,
     });
   }
   const r = getRedis();
@@ -343,6 +395,9 @@ export async function coalesceScan(
       } catch { throw new ScanBusyError(); }
     } : () => getCachedScan(username),
     produce: producer,
+    staleTtl: SCAN_STALE_TTL_SECONDS,
+    wait: backgroundWait,
+    attempts: backgroundAttempts,
   });
 }
 

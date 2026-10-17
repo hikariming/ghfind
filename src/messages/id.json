@@ -431,6 +431,7 @@
     "errScanFailed": "Pemindaian gagal, coba lagi nanti.",
     "errScanPending": "Sedang mengumpulkan riwayat PR dan commit publik lengkap. Akan berlanjut otomatis saat siap.",
     "errNetworkScan": "Kesalahan jaringan — GitHub saja tak tergapai.",
+    "dataUpdating": "Data sedang diperbarui…",
     "byoReasonQuota": "Kuota gratis habis 😵 Tambahkan API key sendiri untuk terus me-roast (OpenAI / StepFun / Groq semuanya bisa).",
     "byoReasonRate": "Kamu sudah banyak me-roast hari ini 🥵 Istirahat dulu, atau tambahkan API key sendiri untuk roast tanpa batas.",
     "byoReasonDefault": "Server belum mengonfigurasi model default — tambahkan API key sendiri untuk mulai me-roast."
@@ -442,6 +443,7 @@
     "rate_limited": "Kecepatan — tarik napas dan coba lagi semenit lagi.",
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
+    "github_collect_deadline": "Pengumpulan GitHub kehabisan waktu — coba lagi sebentar lagi.",
     "scan_busy": "Pembuatan skor sedang sibuk — coba lagi sebentar lagi.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
   },

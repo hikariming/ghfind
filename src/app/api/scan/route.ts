@@ -3,6 +3,8 @@ import { notifyCampaignCardGenerated } from "@/lib/campaign-notify";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
   hasLegacyReadFallbackProfile,
+  getCurrentCanonicalQuickScan,
+  getLatestVerifiedCanonicalScan,
   getLegacyReadFallbackScan,
   publishCompleteQuickScan,
   recordAccountLookup,
@@ -12,8 +14,14 @@ import {
   checkRateLimit,
   coalesceScan,
   getCachedScan,
+  getStaleCachedScan,
   rateLimitHeaders,
+  tryAcquireScanRefresh,
 } from "@/lib/redis";
+import { GitHubDataUnavailableError } from "@/lib/github";
+import { ScanBusyError } from "@/lib/scan-protection";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import type { ScanResult } from "@/lib/types";
 import {
   attachAnonymousSession,
   establishAnonymousSession,
@@ -60,7 +68,7 @@ function scorePersistenceUnavailable(headers: Record<string, string>) {
 class ScorePersistenceError extends Error {}
 
 async function persistQuickScan(
-  scan: import("@/lib/types").ScanResult,
+  scan: ScanResult,
   scannedAt: number,
 ): Promise<boolean> {
   try {
@@ -91,26 +99,85 @@ async function recordSuccessfulLookup(
  * A verified previous-release profile is only an emergency read fallback. Successful
  * current quick scans always win and immediately refresh the v10 profile.
  */
-async function legacyReadFallbackResponse(input: {
-  scan: import("@/lib/types").ScanResult;
+function scanTimestamp(scan: ScanResult): number | undefined {
+  const value = (scan as ScanResult & { scanned_at?: unknown }).scanned_at;
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+function isEmergencyFallbackError(error: unknown): boolean {
+  return error instanceof ScanBusyError || error instanceof GitHubDataUnavailableError;
+}
+
+async function produceFreshScan(username: string): Promise<ScanResult> {
+  const scannedAt = Date.now();
+  const quickScan = await buildScanResult(username);
+  if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
+  return Object.assign(quickScan, { scanned_at: scannedAt });
+}
+
+async function refreshScanInBackground(username: string): Promise<void> {
+  if (!(await tryAcquireScanRefresh(username))) return;
+  try {
+    await coalesceScan(username, () => produceFreshScan(username), { background: true });
+  } catch (error) {
+    logFreshScanFailure(error, {
+      route: "scan",
+      username,
+      persistenceFailure: error instanceof ScorePersistenceError,
+    });
+  }
+}
+
+function scheduleBackgroundRefresh(username: string): void {
+  after(() => refreshScanInBackground(username));
+}
+
+async function staleReadResponse(input: {
+  scan: ScanResult;
   headers: Record<string, string>;
+  coverage: "quick" | "legacy";
+  servedScoreVersion: string;
+  scannedAt?: number;
+  legacy?: boolean;
 }) {
+  const scannedAt = input.scannedAt ?? scanTimestamp(input.scan);
   return NextResponse.json(
     {
       ...input.scan,
       cached: true,
-      coverage: "legacy",
+      coverage: input.coverage,
       stale: true,
-      legacy_read_fallback: true,
-      served_score_version: LEGACY_READ_FALLBACK.score,
-      served_roast_version: LEGACY_READ_FALLBACK.roast,
-      served_collection_version: LEGACY_READ_FALLBACK.collection,
+      served_score_version: input.servedScoreVersion,
+      served_collection_version:
+        input.coverage === "legacy"
+          ? LEGACY_READ_FALLBACK.collection
+          : RUNTIME_RELEASE_VERSIONS.collection,
       target_score_version: RUNTIME_RELEASE_VERSIONS.score,
-      target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
       target_collection_version: RUNTIME_RELEASE_VERSIONS.collection,
+      ...(scannedAt ? { scanned_at: scannedAt } : {}),
+      ...(input.legacy
+        ? {
+            legacy_read_fallback: true,
+            served_roast_version: LEGACY_READ_FALLBACK.roast,
+            target_roast_version: RUNTIME_RELEASE_VERSIONS.roast,
+          }
+        : {}),
     },
     { headers: { ...input.headers, "Cache-Control": "no-store" } },
   );
+}
+
+async function legacyReadFallbackResponse(input: {
+  scan: ScanResult;
+  headers: Record<string, string>;
+}) {
+  return staleReadResponse({
+    scan: input.scan,
+    headers: input.headers,
+    coverage: "legacy",
+    servedScoreVersion: LEGACY_READ_FALLBACK.score,
+    legacy: true,
+  });
 }
 
 async function legacyReadFallbackProfileResponse(input: {
@@ -136,10 +203,12 @@ async function legacyReadFallbackProfileResponse(input: {
 }
 
 function immediateResponse(input: {
-  scan: import("@/lib/types").ScanResult;
+  scan: ScanResult;
   cached: boolean;
   headers: Record<string, string>;
+  scannedAt?: number;
 }) {
+  const scannedAt = input.scannedAt ?? scanTimestamp(input.scan);
   return NextResponse.json(
     {
       ...input.scan,
@@ -147,6 +216,7 @@ function immediateResponse(input: {
       // The bounded collector is the product contract. It never waits for a
       // second full-history pass before scoring or roasting the account.
       coverage: "quick",
+      ...(scannedAt ? { scanned_at: scannedAt } : {}),
     },
     { headers: input.headers },
   );
@@ -227,14 +297,24 @@ export async function POST(req: NextRequest) {
       anonymousSession,
     );
   }
+  if (!force) {
+    const indexed = await getCurrentCanonicalQuickScan(username);
+    if (indexed) {
+      await recordSuccessfulLookup(indexed.scan.metrics.username, ip, campaign);
+      return attachAnonymousSession(
+        immediateResponse({
+          scan: indexed.scan,
+          cached: true,
+          headers: { ...idem, ...rlHeaders },
+          scannedAt: indexed.scannedAt,
+        }),
+        anonymousSession,
+      );
+    }
+  }
 
   try {
-    const result = await coalesceScan(username, async () => {
-      const scannedAt = Date.now();
-      const quickScan = await buildScanResult(username);
-      if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
-      return quickScan;
-    }, { force });
+    const result = await coalesceScan(username, () => produceFreshScan(username), { force });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     return attachAnonymousSession(
       immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),
@@ -246,28 +326,61 @@ export async function POST(req: NextRequest) {
       username: username,
       persistenceFailure: error instanceof ScorePersistenceError,
     });
+    const fallbackHeaders = { ...idem, ...rlHeaders };
+    if (isEmergencyFallbackError(error)) {
+      const staleCached = await getStaleCachedScan(username);
+      if (staleCached) {
+        scheduleBackgroundRefresh(username);
+        await recordSuccessfulLookup(staleCached.metrics.username, ip, campaign);
+        return attachAnonymousSession(
+          await staleReadResponse({
+            scan: staleCached,
+            headers: fallbackHeaders,
+            coverage: "quick",
+            servedScoreVersion: SCORE_CACHE_VERSION,
+          }),
+          anonymousSession,
+        );
+      }
+      const verified = await getLatestVerifiedCanonicalScan(username);
+      if (verified) {
+        scheduleBackgroundRefresh(username);
+        await recordSuccessfulLookup(verified.scan.metrics.username, ip, campaign);
+        return attachAnonymousSession(
+          await staleReadResponse({
+            scan: verified.scan,
+            headers: fallbackHeaders,
+            coverage: "quick",
+            servedScoreVersion: SCORE_CACHE_VERSION,
+            scannedAt: verified.scannedAt,
+          }),
+          anonymousSession,
+        );
+      }
+    }
     const legacyScan = await getLegacyReadFallbackScan(username);
     if (legacyScan) {
+      if (isEmergencyFallbackError(error)) scheduleBackgroundRefresh(username);
       return attachAnonymousSession(
-        await legacyReadFallbackResponse({ scan: legacyScan, headers: { ...idem, ...rlHeaders } }),
+        await legacyReadFallbackResponse({ scan: legacyScan, headers: fallbackHeaders }),
         anonymousSession,
       );
     }
     if (await hasLegacyReadFallbackProfile(username)) {
+      if (isEmergencyFallbackError(error)) scheduleBackgroundRefresh(username);
       return attachAnonymousSession(
-        await legacyReadFallbackProfileResponse({ username, headers: { ...idem, ...rlHeaders } }),
+        await legacyReadFallbackProfileResponse({ username, headers: fallbackHeaders }),
         anonymousSession,
       );
     }
     if (error instanceof ScorePersistenceError) {
-      return scorePersistenceUnavailable({ ...idem, ...rlHeaders });
+      return scorePersistenceUnavailable(fallbackHeaders);
     }
     const { error: code, status, retry_after } = scanErrorResponse(error);
     return apiError(code as Parameters<typeof apiError>[0], {
       status,
       headers: {
-        ...idem,
-        ...rlHeaders,
+        ...fallbackHeaders,
         ...(retry_after ? { "Retry-After": String(retry_after) } : {}),
       },
     });

@@ -431,6 +431,7 @@
     "errScanFailed": "스캔에 실패했어요. 잠시 후 다시 시도하세요.",
     "errScanPending": "공개 PR 및 커밋 전체 기록을 수집하고 있습니다. 준비되면 자동으로 계속합니다.",
     "errNetworkScan": "네트워크 오류 — GitHub에 닿지도 못했어요.",
+    "dataUpdating": "데이터를 업데이트하는 중…",
     "byoReasonQuota": "무료 할당량이 다 떨어졌어요 😵 본인 API 키를 넣으면 계속 로스트할 수 있어요 (OpenAI / StepFun / Groq 다 됩니다).",
     "byoReasonRate": "오늘 로스트 좀 많이 하셨네요 🥵 잠깐 쉬거나, 본인 API 키를 넣으면 무제한입니다.",
     "byoReasonDefault": "서버에 기본 모델이 설정되어 있지 않아요 — 본인 API 키를 넣으면 바로 시작합니다."
@@ -442,6 +443,7 @@
     "rate_limited": "손이 너무 빨라요 — 숨 한번 쉬고 1분 뒤에 다시 오세요.",
     "github_rate_limited": "GitHub API가 지금 꽉 찼어요 — 잠시만 기다려 주세요.",
     "github_unavailable": "GitHub 데이터를 잠시 사용할 수 없어요 — 나중에 다시 시도하세요.",
+    "github_collect_deadline": "GitHub 수집이 시간 초과됐어요 — 잠시 후 다시 시도하세요.",
     "scan_busy": "채점 중인 요청이 많아요 — 잠시 후 다시 시도하세요.",
     "scan_failed": "스캔이 터졌어요 — 잠시 후 다시 시도하세요."
   },

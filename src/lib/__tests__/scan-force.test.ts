@@ -19,6 +19,7 @@ vi.mock("@upstash/redis", () => ({ Redis: class {
       if (state.values.get(keys[0]) !== args[0]) return 0;
       state.values.set(keys[1], JSON.parse(String(args[1])));
       if (keys[2]) state.values.set(keys[2], args[0]);
+      if (keys[3]) state.values.set(keys[3], JSON.parse(String(args[1])));
       return 1;
     }
     if (script === RELEASE_SCAN) {
@@ -36,7 +37,8 @@ vi.mock("@upstash/redis", () => ({ Redis: class {
   }
 } }));
 vi.mock("../score", () => ({ score: (metrics: unknown) => ({ metrics }) }));
-import { coalesceScan, READ_REFRESHED_SCAN, scanKey } from "../redis";
+import { coalesceScan, getCachedScan, getStaleCachedScan, READ_REFRESHED_SCAN, scanKey, scanStaleKey } from "../redis";
+import { SCAN_STALE_TTL_SECONDS } from "../scan-protection";
 const scan = (name: string) => ({ metrics: { username: name }, scoring: {} }) as ScanResult;
 const key = scanKey("demo");
 const revision = `revision:${key}`;
@@ -105,6 +107,30 @@ it("retains the old cache and cooldown when a forced producer fails", async () =
   expect(state.values.get(key)).toBe(old);
   expect(state.values.get(revision)).toBe("baseline");
   expect(state.values.has(`cooldown:${key}`)).toBe(true);
+});
+
+it("writes a 7-day stale shadow only on a successful owner publish", async () => {
+  const producer = vi.fn(async () => scan("fresh"));
+  await coalesceScan("demo", producer);
+  expect(state.values.get(scanStaleKey("demo"))).toMatchObject({ metrics: { username: "fresh" } });
+  expect(SCAN_STALE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+});
+
+it("serves the stale shadow after the hot payload is gone", async () => {
+  await coalesceScan("demo", async () => scan("fresh"));
+  state.values.delete(key);
+  expect(await getCachedScan("demo")).toBeNull();
+  expect(await getStaleCachedScan("demo")).toMatchObject({ metrics: { username: "fresh" } });
+});
+
+it("does not let a lost owner overwrite the stale shadow", async () => {
+  await coalesceScan("demo", async () => scan("fresh"));
+  const previous = state.values.get(scanStaleKey("demo"));
+  await expect(coalesceScan("demo", async () => {
+    state.values.set(`lock:${key}`, "new-owner");
+    return scan("expired-owner");
+  }, { force: true })).rejects.toBeInstanceOf(ScanBusyError);
+  expect(state.values.get(scanStaleKey("demo"))).toBe(previous);
 });
 
 it("rejects an expired owner without changing either fresh payload or revision", async () => {

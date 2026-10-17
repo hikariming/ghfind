@@ -431,6 +431,7 @@
     "errScanFailed": "スキャンに失敗しました。あとで再試行を。",
     "errScanPending": "公開 PR と commit の全履歴を収集中です。準備でき次第、自動的に続行します。",
     "errNetworkScan": "ネットワークエラー。GitHubにすら届きませんでした。",
+    "dataUpdating": "データを更新しています…",
     "byoReasonQuota": "無料枠が尽きました 😵 自分のAPIキーを入れればロースト続行できます（OpenAI / StepFun / Groq いずれも可）。",
     "byoReasonRate": "今日はロースト三昧ですね 🥵 一息つくか、自分のAPIキーで無制限にどうぞ。",
     "byoReasonDefault": "サーバーにデフォルトモデルが未設定です。自分のAPIキーを入れればロースト開始できます。"
@@ -442,6 +443,7 @@
     "rate_limited": "速すぎです。深呼吸して1分後にもう一度。",
     "github_rate_limited": "GitHubのAPIが今パンク中です。少し待ってください。",
     "github_unavailable": "GitHubのデータが一時的に取得できません。あとで再試行を。",
+    "github_collect_deadline": "GitHubの収集が時間切れです。少し待って再試行を。",
     "scan_busy": "採点処理が混み合っています。少し待って再試行を。",
     "scan_failed": "スキャンがクラッシュしました。あとで再試行を。"
   },

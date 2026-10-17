@@ -431,6 +431,7 @@
     "errScanFailed": "扫描失败，稍后再试。",
     "errScanPending": "正在补全该账号的全部公开 PR 与 commit，完成后会自动继续。",
     "errNetworkScan": "网络出错，连 GitHub 都连不上。",
+    "dataUpdating": "数据更新中…",
     "byoReasonQuota": "免费额度用完了 😵 填入你自己的 API Key 继续毒舌（OpenAI / StepFun / Groq 都行）。",
     "byoReasonRate": "你今天点评得有点多啦 🥵 歇会儿，或填入自己的 API Key 不限量继续。",
     "byoReasonDefault": "服务端还没配默认模型，填入你自己的 API Key 即可开评。"
@@ -442,6 +443,7 @@
     "rate_limited": "手速太快了，喘口气，一分钟后再来。",
     "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",
     "github_unavailable": "GitHub 数据暂时不可用，稍后再试。",
+    "github_collect_deadline": "GitHub 采集超时，请稍后再试。",
     "scan_busy": "评分通道正忙，请稍后再试。",
     "scan_failed": "扫描翻车了，稍后再试。"
   },

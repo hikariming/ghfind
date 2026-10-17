@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Redis } from "@upstash/redis";
-import { protectedScan, ScanBusyError, scanTtl, SCAN_LEASE_MS, SCAN_WAIT_MS } from "../scan-protection";
+import {
+  protectedScan,
+  ScanBusyError,
+  scanTtl,
+  SCAN_LEASE_MS,
+  SCAN_WAIT_MS,
+  SCAN_STALE_TTL_SECONDS,
+  PUBLISH_SCAN,
+} from "../scan-protection";
 
 function client(admission: number) {
   const evalMock = vi.fn<Redis["eval"]>().mockResolvedValue(admission);
@@ -119,5 +127,19 @@ describe("cold scan admission", () => {
     expect(Math.min(...values)).toBeGreaterThanOrEqual(79200);
     expect(Math.max(...values)).toBeLessThanOrEqual(86400);
     expect(new Set(values).size).toBeGreaterThan(20);
+  });
+  it("writes the 7-day stale shadow only while the owner still holds the lock", async () => {
+    const { redis, evalMock } = client(1);
+    await protectedScan({
+      redis,
+      key: "scan:v5:demo",
+      read: async () => null,
+      produce: async () => ({ score: 82 }),
+      staleTtl: SCAN_STALE_TTL_SECONDS,
+    });
+    const publish = evalMock.mock.calls.find((call) => call[0] === PUBLISH_SCAN);
+    expect(publish?.[1]).toEqual(["lock:scan:v5:demo", "scan:v5:demo", "", "scan:v5:demo:stale"]);
+    expect(publish?.[2]?.[3]).toBe(SCAN_STALE_TTL_SECONDS);
+    expect(SCAN_STALE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
   });
 });

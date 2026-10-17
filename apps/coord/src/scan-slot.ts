@@ -11,7 +11,7 @@ import { DurableObject } from "cloudflare:workers";
  * storage once everything has expired.
  */
 
-type Field = "payload" | "lock" | "cooldown" | "revision";
+type Field = "payload" | "lock" | "cooldown" | "revision" | "stale";
 
 interface Entry {
   value: string;
@@ -49,14 +49,20 @@ export class ScanSlot extends DurableObject<Env> {
     return this.read("payload");
   }
 
+  /** GET the 7-day stale shadow written only by a successful owner publish. */
+  stalePayload(): string | null {
+    return this.read("stale");
+  }
+
   /** SET payload EX ttl (plain cache write, outside admission). */
   setPayload(value: string, ttlSeconds: number): void {
     this.write("payload", value, ttlSeconds * 1000);
   }
 
-  /** DEL payload. */
+  /** DEL payload and its stale shadow. */
   clearPayload(): void {
     this.ctx.storage.kv.delete("payload");
+    this.ctx.storage.kv.delete("stale");
   }
 
   /** GET revision (publication marker). */
@@ -93,10 +99,17 @@ export class ScanSlot extends DurableObject<Env> {
   }
 
   /** PUBLISH_SCAN: store the result only if `owner` still holds the lock. */
-  publish(owner: string, payload: string, ttlSeconds: number, withRevision: boolean): number {
+  publish(
+    owner: string,
+    payload: string,
+    ttlSeconds: number,
+    withRevision: boolean,
+    staleTtlSeconds = 0,
+  ): number {
     if (this.read("lock") !== owner) return 0;
     this.write("payload", payload, ttlSeconds * 1000);
     if (withRevision) this.write("revision", owner, ttlSeconds * 1000);
+    if (staleTtlSeconds > 0) this.write("stale", payload, staleTtlSeconds * 1000);
     return 1;
   }
 
@@ -112,7 +125,7 @@ export class ScanSlot extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     const now = Date.now();
-    for (const field of ["payload", "lock", "cooldown", "revision"] as const) this.read(field, now);
+    for (const field of ["payload", "lock", "cooldown", "revision", "stale"] as const) this.read(field, now);
     const remaining = [...this.ctx.storage.kv.list<Entry>()];
     if (remaining.length === 0) await this.ctx.storage.deleteAll();
     else this.scheduleReclaim();

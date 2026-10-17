@@ -10,12 +10,19 @@ import type { ScanCoordinator } from "./scan-protection";
 /** RPC surface of apps/coord's ScanSlot Durable Object. */
 interface ScanSlotStub {
   payload(): Promise<string | null>;
+  stalePayload(): Promise<string | null>;
   setPayload(value: string, ttlSeconds: number): Promise<void>;
   clearPayload(): Promise<void>;
   revision(): Promise<string | null>;
   payloadAfter(baseline: string): Promise<string | null>;
   admit(owner: string, leaseMs: number, capacityKey: string, capacity: number): Promise<number>;
-  publish(owner: string, payload: string, ttlSeconds: number, withRevision: boolean): Promise<number>;
+  publish(
+    owner: string,
+    payload: string,
+    ttlSeconds: number,
+    withRevision: boolean,
+    staleTtlSeconds?: number,
+  ): Promise<number>;
   release(owner: string, failed: boolean, capacityKey: string): Promise<void>;
 }
 
@@ -49,7 +56,8 @@ export function parsePayload<T>(value: string | null): T | null {
 export function slotCoordinator(slot: ScanSlot, capacityKey: string, withRevision: boolean): ScanCoordinator {
   return {
     admit: (owner, _now, leaseMs, capacity) => slot.admit(owner, leaseMs, capacityKey, capacity),
-    publish: (owner, payload, ttlSeconds) => slot.publish(owner, payload, ttlSeconds, withRevision),
+    publish: (owner, payload, ttlSeconds, staleTtlSeconds) =>
+      slot.publish(owner, payload, ttlSeconds, withRevision, staleTtlSeconds ?? 0),
     release: (owner, failed) => slot.release(owner, failed, capacityKey),
   };
 }

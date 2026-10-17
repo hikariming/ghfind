@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { LiveRoast } from "@/components/LiveRoast";
+import { StaleScanHint } from "@/components/StaleScanHint";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -172,6 +173,7 @@ export function PendingProfile({
                 {scoring.final_score.toFixed(2)}
                 <span className="text-2xl text-zinc-600">/100</span>
               </div>
+              {fromHome && <StaleScanHint username={metrics.username} />}
               <div className={`mt-1 text-2xl font-bold ${style.text}`}>
                 {style.emoji} {tTier(`${tierKey}.name`)}
               </div>

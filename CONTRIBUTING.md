@@ -141,7 +141,7 @@ For frontend changes, follow [AGENTS.md](AGENTS.md):
 | `file:` database URL fails | Use an HTTP libSQL server or hosted Turso URL; this application uses the web client. |
 | Startup requests Cloudflare authentication | Use `CI=true pnpm dev` for the isolated libSQL setup. Check that inherited environment variables do not point to remote services. |
 | `github_token_required` or GitHub authentication failure | Replace `ghp_xxx` with a valid public-data PAT; restart the dev server after configuration changes. |
-| `github_rate_limited` / `scan_busy` | Respect `Retry-After`; avoid repeatedly scanning large accounts. |
+| `github_rate_limited` / `scan_busy` / `github_collect_deadline` | Respect `Retry-After`; avoid repeatedly scanning large accounts. |
 | Turnstile failure | Leave Turnstile unconfigured for the minimal local setup, or exercise the configured browser verification flow. |
 | Roast text fails but scoring works | Configure a supported LLM provider when testing text generation; an LLM key is not needed for score verification. |
 

@@ -160,6 +160,7 @@ describe("safe scan failure diagnostics", () => {
       GitHubResourceLimitError,
       GitHubQueryTimeoutError,
       GitHubCollectDeadlineError,
+      GitHubDataUnavailableError,
     } = await import("../github");
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
@@ -184,6 +185,11 @@ describe("safe scan failure diagnostics", () => {
       });
       scanErrorResponse(new Error("secret upstream body"));
       expect(scanErrorResponse(new GitHubCollectDeadlineError("secret"))).toMatchObject({
+        error: "github_collect_deadline",
+        status: 503,
+        retry_after: 15,
+      });
+      expect(scanErrorResponse(new GitHubDataUnavailableError("secret"))).toMatchObject({
         error: "github_unavailable",
         status: 503,
         retry_after: 60,

@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  getStaleCachedScan: vi.fn(),
+  tryAcquireScanRefresh: vi.fn(),
+  getCurrentCanonicalQuickScan: vi.fn(),
+  getLatestVerifiedCanonicalScan: vi.fn(),
   getLegacyReadFallbackScan: vi.fn(),
   hasLegacyReadFallbackProfile: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
@@ -19,9 +23,12 @@ const mocks = vi.hoisted(() => ({
   anonymousSessionPrincipal: vi.fn(),
   attachAnonymousSession: vi.fn(),
   establishAnonymousSession: vi.fn(),
+  after: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
+  getCurrentCanonicalQuickScan: mocks.getCurrentCanonicalQuickScan,
+  getLatestVerifiedCanonicalScan: mocks.getLatestVerifiedCanonicalScan,
   getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
   hasLegacyReadFallbackProfile: mocks.hasLegacyReadFallbackProfile,
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
@@ -33,9 +40,22 @@ vi.mock("@/lib/redis", () => ({
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
+  getStaleCachedScan: mocks.getStaleCachedScan,
+  tryAcquireScanRefresh: mocks.tryAcquireScanRefresh,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
-vi.mock("@/lib/scan-core", () => ({ buildScanResult: mocks.buildScanResult, logFreshScanFailure: mocks.logFreshScanFailure }));
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: mocks.after };
+});
+vi.mock("@/lib/scan-core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/scan-core")>();
+  return {
+    ...actual,
+    buildScanResult: mocks.buildScanResult,
+    logFreshScanFailure: mocks.logFreshScanFailure,
+  };
+});
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/anonymous-session", () => ({
   anonymousSessionPrincipal: mocks.anonymousSessionPrincipal,
@@ -44,6 +64,9 @@ vi.mock("@/lib/anonymous-session", () => ({
 }));
 
 import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
+import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { GitHubCollectDeadlineError, GitHubDataUnavailableError } from "@/lib/github";
+import { ScanBusyError } from "@/lib/scan-protection";
 import { POST } from "./route";
 
 const quickScan = {
@@ -66,6 +89,11 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.getStaleCachedScan.mockResolvedValue(null);
+    mocks.tryAcquireScanRefresh.mockResolvedValue(true);
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
+    mocks.getLatestVerifiedCanonicalScan.mockResolvedValue(null);
+    mocks.after.mockImplementation((task: () => unknown) => { void task(); });
     mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
     mocks.buildScanResult.mockResolvedValue(quickScan);
     mocks.publishCompleteQuickScan.mockResolvedValue(true);
@@ -106,6 +134,7 @@ describe("POST /api/scan immediate quick contract", () => {
     const response = await POST(req);
     expect(response.status).toBe(200);
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
+    expect(mocks.getCurrentCanonicalQuickScan).not.toHaveBeenCalled();
     expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { force: true });
   });
 
@@ -163,5 +192,119 @@ describe("POST /api/scan immediate quick contract", () => {
       expect.any(Response),
       { id: "session-fixture", issued: true },
     );
+  });
+
+  it("serves a verified indexed v10 snapshot without crawling GitHub", async () => {
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue({
+      scan: quickScan,
+      snapshotHash: "a".repeat(64),
+      scannedAt: 1_800_000_000_000,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({
+      cached: true,
+      coverage: "quick",
+      scanned_at: 1_800_000_000_000,
+      scoring: { final_score: 71 },
+    });
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the stale scan:v5 shadow after logging a collect deadline", async () => {
+    mocks.coalesceScan.mockRejectedValue(new GitHubCollectDeadlineError("deadline"));
+    mocks.getStaleCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(GitHubCollectDeadlineError), {
+      route: "scan", username: "DemoDev", persistenceFailure: false,
+    });
+    expect(mocks.logFreshScanFailure.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.getStaleCachedScan.mock.invocationCallOrder[0]);
+    await expect(response.json()).resolves.toMatchObject({
+      stale: true,
+      coverage: "quick",
+      served_score_version: SCORE_CACHE_VERSION,
+    });
+    expect(mocks.after).toHaveBeenCalledOnce();
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { background: true });
+  });
+
+  it("skips background GitHub refresh when the cooldown is held", async () => {
+    mocks.coalesceScan.mockRejectedValue(new GitHubCollectDeadlineError("deadline"));
+    mocks.getStaleCachedScan.mockResolvedValue(quickScan);
+    mocks.tryAcquireScanRefresh.mockResolvedValue(false);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.after).toHaveBeenCalledOnce();
+    expect(mocks.coalesceScan).toHaveBeenCalledTimes(1);
+    expect(mocks.coalesceScan).not.toHaveBeenCalledWith(
+      "DemoDev",
+      expect.any(Function),
+      { background: true },
+    );
+  });
+
+  it("falls back to a verified D1 v10 row when the stale shadow is empty", async () => {
+    mocks.coalesceScan.mockRejectedValue(new ScanBusyError());
+    mocks.getLatestVerifiedCanonicalScan.mockResolvedValue({
+      scan: quickScan,
+      snapshotHash: "b".repeat(64),
+      scannedAt: 1_750_000_000_000,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      stale: true,
+      coverage: "quick",
+      served_score_version: SCORE_CACHE_VERSION,
+      scanned_at: 1_750_000_000_000,
+    });
+    expect(mocks.getLegacyReadFallbackScan).not.toHaveBeenCalled();
+  });
+
+  it("uses the stale chain for github_unavailable", async () => {
+    mocks.coalesceScan.mockRejectedValue(new GitHubDataUnavailableError("upstream"));
+    mocks.getStaleCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ stale: true, coverage: "quick" });
+  });
+
+  it("returns github_collect_deadline with a short Retry-After when no snapshot remains", async () => {
+    mocks.coalesceScan.mockRejectedValue(new GitHubCollectDeadlineError("deadline"));
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("15");
+    await expect(response.json()).resolves.toMatchObject({ error: "github_collect_deadline" });
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("does not use the emergency stale chain for a missing GitHub account", async () => {
+    const { AccountNotFoundError } = await import("@/lib/github");
+    mocks.coalesceScan.mockRejectedValue(new AccountNotFoundError("missing"));
+    mocks.getStaleCachedScan.mockResolvedValue(quickScan);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(404);
+    expect(mocks.getStaleCachedScan).not.toHaveBeenCalled();
+    expect(mocks.getLatestVerifiedCanonicalScan).not.toHaveBeenCalled();
   });
 });

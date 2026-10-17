@@ -24,6 +24,7 @@ import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { RescanButton } from "@/components/RescanButton";
+import { StaleScanHint } from "@/components/StaleScanHint";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -416,6 +417,7 @@ export function ProfileView({
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
         </div>
+        {fromHome && <StaleScanHint username={d.username} />}
         <ScoreBreakdownSummary breakdown={scoreBreakdown} copy={scoreBreakdownCopy} />
         <div className={`mt-1 text-2xl font-bold ${style.text}`}>
           {style.emoji} {tTier(`${tierKey}.name`)}

@@ -613,6 +613,28 @@ describe("canonical score materialization", () => {
     await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
   });
 
+  it("keeps a verified v10 public snapshot readable after the scores row moves off canonical", async () => {
+    const username = "verified-v10-after-overwrite-fixture";
+    const scannedAt = 1_910_000_020_000;
+    const scan = syntheticScan(username);
+    await expect(db.publishCompleteQuickScan(scan, scannedAt)).resolves.toBeTruthy();
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toMatchObject({
+      scan: { metrics: { username } },
+      scannedAt,
+    });
+
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET score_version = ? WHERE username = ?`,
+      args: [LEGACY_READ_FALLBACK.score, username],
+    });
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
+    await expect(db.getLatestVerifiedCanonicalScan(username)).resolves.toMatchObject({
+      scan: { metrics: { username } },
+      scannedAt,
+    });
+  });
+
   it("recomputes canonical scoring when a promoted snapshot embeds legacy scoring", async () => {
     const username = "promoted-v9-snapshot-fixture";
     const scan = syntheticScan(username);

@@ -15,6 +15,7 @@ export type ApiErrorCode =
   | "account_not_found"
   | "github_rate_limited"
   | "github_unavailable"
+  | "github_collect_deadline"
   | "scan_busy"
   | "queue_full"
   | "admission_limited"
@@ -34,6 +35,7 @@ const HINTS: Partial<Record<ApiErrorCode, string>> = {
   account_not_found: "That GitHub login does not exist.",
   github_rate_limited: "GitHub's API is rate limited right now — retry shortly.",
   github_unavailable: "GitHub is temporarily unavailable — retry later.",
+  github_collect_deadline: "GitHub collection timed out — retry shortly.",
   scan_busy: "Score generation is busy — retry shortly.",
   queue_full: "Historical scan capacity is busy — retry after the Retry-After interval.",
   admission_limited: "Too many new historical scans from this source — retry after the Retry-After interval.",

@@ -1,8 +1,9 @@
 import {describe,it,expect} from "vitest";
 import {summarize,businessPoints,probe} from "../business";
 import {emptyState,evaluate,acknowledge,WINDOW_MS} from "../engine";
-function trace(path:string,status=200,summary?:Record<string,unknown>):TraceItem {
-  return {scriptName:"ghfind-api",eventTimestamp:1_800_000_000_000,event:{request:{url:`https://ghfind.com${path}`,method:"GET",headers:{}},response:{status}},logs:summary?[{message:["roast.summary",JSON.stringify(summary)]}]:[],exceptions:[],outcome:"ok",wallTime:100} as unknown as TraceItem;
+function trace(path:string,status=200,summary?:Record<string,unknown>,extra?:{category?:string;wallTime?:number}):TraceItem {
+  const logs=summary?[{message:["roast.summary",JSON.stringify(summary)]}]:extra?.category?[{message:["fresh_scan_failed",{route:"scan",username:"private-user",category:extra.category}]}]:[];
+  return {scriptName:"ghfind-api",eventTimestamp:1_800_000_000_000,event:{request:{url:`https://ghfind.com${path}`,method:"GET",headers:{}},response:{status}},logs,exceptions:[],outcome:"ok",wallTime:extra?.wallTime??100} as unknown as TraceItem;
 }
 describe("critical business telemetry",()=>{
   it("detects failed streaming generation despite HTTP 200 without persisting private logs",()=>{
@@ -51,4 +52,20 @@ it("silently clears recovered business incidents instead of emailing zero failur
 it("ignores disconnected streaming clients even when their logs report failure",()=>{
   const item=trace("/api/roast",200,{path:"default",source:"generate",ok:false});
   expect(summarize([{...item,outcome:"clientDisconnected"}])).toEqual([]);
+});
+it("treats scan collect deadlines and scan_busy as degraded, not failures",()=>{
+  expect(summarize([trace("/api/scan",503,undefined,{category:"github_collect_deadline"})])[0]).toMatchObject({feature:"scan",failed:0,total:1});
+  expect(summarize([trace("/api/scan",503,undefined,{category:"scan_busy"})])[0]).toMatchObject({failed:0});
+  expect(summarize([trace("/api/scan",200,undefined,{category:"github_collect_deadline"})])[0]).toMatchObject({failed:0});
+  expect(JSON.stringify(summarize([trace("/api/scan",503,undefined,{category:"github_collect_deadline"})]))).not.toContain("private-user");
+  expect(summarize([trace("/api/scan",503)])[0]).toMatchObject({failed:1});
+});
+it("requires a 20% scan failure rate and at least 3 failures before paging",()=>{
+  const s=emptyState(),at=1_800_000_000_000;
+  evaluate(s,{at,points:businessPoints([{at,feature:"scan",total:10,failed:2,slow:0}]),healthy:[],errors:[]},at);
+  expect(s.outbox).toEqual([]);
+  evaluate(s,{at:at+WINDOW_MS,points:businessPoints([{at,feature:"scan",total:20,failed:3,slow:0}]),healthy:[],errors:[]},at+WINDOW_MS);
+  expect(s.outbox).toEqual([]);
+  evaluate(s,{at:at+2*WINDOW_MS,points:businessPoints([{at,feature:"scan",total:10,failed:3,slow:0}]),healthy:[],errors:[]},at+2*WINDOW_MS);
+  expect(s.outbox[0]).toMatchObject({severity:2,key:"Service:scan:errors"});
 });

@@ -431,6 +431,7 @@
     "errScanFailed": "Falha no scan, tente de novo mais tarde.",
     "errScanPending": "Coletando todo o histórico público de PRs e commits. Continuará automaticamente quando estiver pronto.",
     "errNetworkScan": "Erro de rede — não deu nem pra alcançar o GitHub.",
+    "dataUpdating": "Atualizando os dados…",
     "byoReasonQuota": "A cota grátis acabou 😵 Adicione sua própria API key pra continuar zoando (OpenAI / StepFun / Groq funcionam).",
     "byoReasonRate": "Você zoou demais hoje 🥵 Respira, ou adicione sua própria API key pra zoadas ilimitadas.",
     "byoReasonDefault": "Nenhum modelo padrão está configurado no servidor — adicione sua própria API key pra começar a zoar."
@@ -442,6 +443,7 @@
     "rate_limited": "Rápido demais — respira e tente de novo em um minuto.",
     "github_rate_limited": "A API do GitHub está no limite agora — espera um pouquinho.",
     "github_unavailable": "Os dados do GitHub estão temporariamente indisponíveis — tente mais tarde.",
+    "github_collect_deadline": "A coleta do GitHub estourou o tempo — tente de novo daqui a pouco.",
     "scan_busy": "A geração de score está ocupada — tente de novo daqui a pouco.",
     "scan_failed": "O scan quebrou — tente de novo mais tarde."
   },

@@ -25,6 +25,7 @@ import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+import { isStaleScanPayload, StaleScanHint } from "./StaleScanHint";
 import { Omnibox } from "./Omnibox";
 import { DimensionStarChart } from "./DimensionStarChart";
 import { SITE_URL } from "@/lib/site";
@@ -69,6 +70,7 @@ export function Roaster({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
+  const [staleScan, setStaleScan] = useState(false);
   const [byoOpen, setByoOpen] = useState(false);
   const [byoReason, setByoReason] = useState<string | undefined>();
   const [percentile, setPercentile] = useState<{
@@ -186,6 +188,7 @@ export function Roaster({
         return;
       }
       setError("");
+      setStaleScan(false);
       setScan(null);
       setReport("");
       setPercentile(null);
@@ -198,6 +201,7 @@ export function Roaster({
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
       const presentScan = (result: ScanResult) => {
+        setStaleScan(isStaleScanPayload(result));
         const byoKey = loadByoKey();
         const forceProfileHandoff =
           process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
@@ -388,6 +392,7 @@ export function Roaster({
         />
         <Turnstile onToken={setToken} />
         {error && <p className="text-sm text-rose-400">{error}</p>}
+        {staleScan && !scan && <StaleScanHint show />}
       </div>
 
       <div className="mt-3 flex flex-col items-center gap-3">
@@ -457,6 +462,7 @@ export function Roaster({
               {display.score.toFixed(2)}
               <span className="text-2xl text-zinc-600">/100</span>
             </div>
+            {staleScan && <StaleScanHint show />}
             <div className={`mt-1 text-2xl font-bold ${style.text}`}>
               {style.emoji} {tTier(`${TIER_KEY[display.tier]}.name`)}
             </div>

@@ -323,6 +323,9 @@ export function scanErrorResponse(e: unknown): {
   if (e instanceof GitHubRateLimitError) {
     return { error: "github_rate_limited", status: 503 };
   }
+  if (e instanceof GitHubCollectDeadlineError) {
+    return { error: "github_collect_deadline", status: 503, retry_after: 15 };
+  }
   if (e instanceof GitHubDataUnavailableError) {
     return { error: "github_unavailable", status: 503, retry_after: 60 };
   }
