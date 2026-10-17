@@ -1,5 +1,5 @@
 import { refreshActor, type RefreshRequest } from "./refresh";
-import { ModeTransition, type TransitionRequest } from "./transition";
+import { ModeTransition, transitionTeardown, type TransitionRequest } from "./transition";
 import { captureTransitionResult, readTransitionResult } from "./transition-rpc";
 import { assertDeploymentIdentity } from "./deployment-identity";
 import { containerEnvironment } from "./environment";
@@ -46,7 +46,10 @@ export class FeedAPI extends Container<RuntimeEnv> {
     return captureTransitionResult(() => this.modeTransition.run(target, this.env, input, {
       state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
       fetch: (request) => super.fetch(request),
-      stop: () => super.stop("SIGTERM"),
+      stop: () => transitionTeardown(input.mode, {
+        destroy: () => super.destroy(),
+        stop: (signal) => super.stop(signal),
+      }),
       start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
     }));
   }
@@ -83,7 +86,10 @@ export class FeedExecutor extends Container<RuntimeEnv> {
     return captureTransitionResult(() => this.modeTransition.run(target, this.env, input, {
       state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
       fetch: (request) => super.fetch(request),
-      stop: () => super.stop("SIGTERM"),
+      stop: () => transitionTeardown(input.mode, {
+        destroy: () => super.destroy(),
+        stop: (signal) => super.stop(signal),
+      }),
       start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
     }));
   }

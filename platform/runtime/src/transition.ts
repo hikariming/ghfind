@@ -17,6 +17,19 @@ export type TransitionHooks = {
   stop(): Promise<void>;
   start(signal: AbortSignal): Promise<void>;
 };
+export type TransitionTeardown = {
+  destroy(): Promise<void>;
+  stop(signal: "SIGTERM"): Promise<void>;
+};
+// Off replacement must destroy the instance. SDK 0.3.7 stop() only SIGTERM and
+// does not mark running=false; startContainerIfNotRunning is then a no-op, and
+// start() omits the image digest, so the same process keeps its old binary.
+export function transitionTeardown(
+  mode: TransitionRequest["mode"],
+  sdk: TransitionTeardown,
+): Promise<void> {
+  return mode === "off" ? sdk.destroy() : sdk.stop("SIGTERM");
+}
 
 // A lock per DO also covers a timed-out underlying SDK operation until it settles.
 // A caller deadline never authorizes concurrent lifecycle mutations on that actor.
@@ -62,6 +75,9 @@ export class ModeTransition {
         // Off bootstrap is an authorized replacement of this fixed actor's old
         // process. It may belong to a previous release or retain baseline env.
         // Requiring it to match the new binary would make upgrades impossible.
+        // The wired stop hook destroys that instance so startAndWaitForPorts
+        // places a new process from the current application image. Destroy is
+        // container-process teardown, not Durable Object or D1/R2 deletion.
         // Baseline activation still requires the already verified current image.
         if (input.mode === "baseline") await check(true);
         const stopAt = Date.now() + this.limits.stopMs;
@@ -72,7 +88,7 @@ export class ModeTransition {
             stopTimer = setTimeout(() => reject(new HTTPError(503, "transition_stop_timeout")), this.limits.stopMs);
           })]);
         } finally { clearTimeout(stopTimer); }
-        // SIGTERM acknowledgement is not an exit observation.
+        // Teardown acknowledgement is not an exit observation.
         controller.signal.throwIfAborted();
         while (hooks.state().running) {
           if (Date.now() >= stopAt) throw new HTTPError(503, "transition_stop_timeout");
