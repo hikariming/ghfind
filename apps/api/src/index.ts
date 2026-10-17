@@ -76,4 +76,6 @@ app.onError((err) => {
   return Response.json({ error: "internal_error" }, { status: 500 });
 });
 
+export { ScanContinueEntrypoint } from "./scan-continue";
+
 export default app;

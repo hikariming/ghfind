@@ -7,6 +7,12 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { ScanCoordinator } from "./scan-protection";
 
+export interface ScanSlotPending {
+  owner: string;
+  username: string;
+  startedAt: number;
+}
+
 /** RPC surface of apps/coord's ScanSlot Durable Object. */
 interface ScanSlotStub {
   payload(): Promise<string | null>;
@@ -24,6 +30,9 @@ interface ScanSlotStub {
     staleTtlSeconds?: number,
   ): Promise<number>;
   release(owner: string, failed: boolean, capacityKey: string): Promise<void>;
+  markPending(owner: string, username: string, ttlMs: number): Promise<number>;
+  pending(): Promise<ScanSlotPending | null>;
+  renew(owner: string, leaseMs: number, capacityKey: string): Promise<number>;
 }
 
 export interface ScanSlotNamespace {
@@ -59,5 +68,7 @@ export function slotCoordinator(slot: ScanSlot, capacityKey: string, withRevisio
     publish: (owner, payload, ttlSeconds, staleTtlSeconds) =>
       slot.publish(owner, payload, ttlSeconds, withRevision, staleTtlSeconds ?? 0),
     release: (owner, failed) => slot.release(owner, failed, capacityKey),
+    markPending: (owner, username, ttlMs) => slot.markPending(owner, username, ttlMs),
+    pending: () => slot.pending(),
   };
 }

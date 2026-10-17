@@ -60,9 +60,9 @@ function namespace<T extends object>(make: (ctx: ReturnType<typeof fakeCtx>) => 
   };
 }
 
-function world() {
+function world(api?: { run: (username: string, owner: string) => Promise<{ ok: boolean; status: string }> }) {
   const capacity = namespace((ctx) => new ScanCapacity(ctx as never, {} as never));
-  const slots = namespace((ctx) => new ScanSlot(ctx as never, { SCAN_CAPACITY: capacity } as never));
+  const slots = namespace((ctx) => new ScanSlot(ctx as never, { SCAN_CAPACITY: capacity, GHFIND_API: api } as never));
   const kv = namespace((ctx) => new KeyValue(ctx as never, {} as never));
   return { capacity, slots, kv };
 }
@@ -133,6 +133,48 @@ describe("ScanSlot", () => {
     expect(await slot.stalePayload()).toBe('"fresh"');
   });
 
+  it("arms pending only for the lock owner and requires the API binding", async () => {
+    const { slots } = world();
+    const slot = slots.get("scan:k");
+    expect(await slot.markPending("ghost", "tj", 240_000)).toBe(0);
+    await slot.admit("a", 240_000, "pool", 96);
+    expect(await slot.markPending("a", "tj", 240_000)).toBe(-1);
+    const api = { run: vi.fn(async () => ({ ok: true, status: "published" })) };
+    const armed = world(api);
+    const live = armed.slots.get("scan:k");
+    await live.admit("a", 240_000, "pool", 96);
+    expect(await live.markPending("a", "tj", 240_000)).toBe(1);
+    expect(await live.pending()).toMatchObject({ owner: "a", username: "tj" });
+    await live.alarm();
+    expect(api.run).toHaveBeenCalledWith("tj", "a");
+  });
+
+  it("retries the API RPC on throw without reclaiming the owner", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const api = { run: vi.fn(async () => { throw new Error("api down"); }) };
+    const { slots } = world(api);
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 240_000, "pool", 96);
+    expect(await slot.markPending("a", "tj", 240_000)).toBe(1);
+    await slot.alarm();
+    expect(await slot.pending()).toMatchObject({ owner: "a", username: "tj" });
+    expect(await slot.publish("a", "{}", 60, true)).toBe(1);
+  });
+
+  it("renews only the living owner and rejects a stolen publish", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { slots, capacity } = world();
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 1_000, "pool", 96);
+    vi.setSystemTime(1_000);
+    expect(await slot.renew("a", 240_000, "pool")).toBe(0);
+    expect(await slot.publish("a", "{}", 60, true)).toBe(0);
+    await slot.admit("b", 240_000, "pool", 96);
+    expect(await slot.renew("b", 240_000, "pool")).toBe(1);
+    expect(await capacity.get("pool").renew("b", 240_000)).toBe(true);
+    expect(await slot.publish("a", '"stolen"', 60, true)).toBe(0);
+  });
+
   it("serves a forced reader only a publication newer than its baseline", async () => {
     const { slots } = world();
     const slot = slots.get("scan:k");
@@ -178,7 +220,11 @@ describe("redis.ts scan paths on Durable Objects", () => {
       await new Promise((r) => setTimeout(r, 20));
       return scan("u");
     };
-    const results = await Promise.all([coalesceScan("u", producer), coalesceScan("U", producer), coalesceScan("u", producer)]);
+    const results = await Promise.all([
+      coalesceScan("u", producer),
+      coalesceScan("U", producer),
+      coalesceScan("u", producer),
+    ]);
     expect(produced).toBe(1);
     expect(results.map((r) => (r as unknown as { login: string }).login)).toEqual(["u", "u", "u"]);
     vi.doUnmock("../../../../src/lib/score");

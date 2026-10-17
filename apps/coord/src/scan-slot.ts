@@ -11,15 +11,27 @@ import { DurableObject } from "cloudflare:workers";
  * storage once everything has expired.
  */
 
-type Field = "payload" | "lock" | "cooldown" | "revision" | "stale";
+type Field = "payload" | "lock" | "cooldown" | "revision" | "stale" | "pending";
 
 interface Entry {
   value: string;
   expiresAt: number;
 }
 
+export interface ScanPending {
+  owner: string;
+  username: string;
+  startedAt: number;
+}
+
+interface ScanContinueApi {
+  run(username: string, owner: string): Promise<{ ok: boolean; status: string }>;
+}
+
 interface Env {
   SCAN_CAPACITY: DurableObjectNamespace<import("./scan-capacity").ScanCapacity>;
+  /** ghfind-api ScanContinueEntrypoint — runs collect with GitHub tokens. */
+  GHFIND_API?: ScanContinueApi;
 }
 
 export class ScanSlot extends DurableObject<Env> {
@@ -107,9 +119,58 @@ export class ScanSlot extends DurableObject<Env> {
     staleTtlSeconds = 0,
   ): number {
     if (this.read("lock") !== owner) return 0;
+    this.ctx.storage.kv.delete("pending");
     this.write("payload", payload, ttlSeconds * 1000);
     if (withRevision) this.write("revision", owner, ttlSeconds * 1000);
     if (staleTtlSeconds > 0) this.write("stale", payload, staleTtlSeconds * 1000);
+    return 1;
+  }
+
+  /**
+   * Arm background collect for this owner. 1 = alarm scheduled, 0 = not the
+   * owner, -1 = this deployment cannot continue (no API binding) so the
+   * caller must produce inline.
+   */
+  markPending(owner: string, username: string, ttlMs: number): number {
+    if (this.read("lock") !== owner) return 0;
+    if (!this.env.GHFIND_API) return -1;
+    const pending: ScanPending = { owner, username, startedAt: Date.now() };
+    this.write("pending", JSON.stringify(pending), ttlMs);
+    void this.ctx.storage.setAlarm(Date.now());
+    return 1;
+  }
+
+  pending(): ScanPending | null {
+    const raw = this.read("pending");
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as ScanPending;
+      if (
+        typeof parsed.owner !== "string" ||
+        typeof parsed.username !== "string" ||
+        typeof parsed.startedAt !== "number"
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Stretch the producer lock and capacity lease. 1 while `owner` still holds both. */
+  async renew(owner: string, leaseMs: number, capacityKey: string): Promise<number> {
+    if (this.read("lock") !== owner) return 0;
+    const pool = this.env.SCAN_CAPACITY.get(this.env.SCAN_CAPACITY.idFromName(capacityKey));
+    const leased = await pool.renew(owner, leaseMs);
+    if (!leased) {
+      this.ctx.storage.kv.delete("lock");
+      this.ctx.storage.kv.delete("pending");
+      return 0;
+    }
+    this.write("lock", owner, leaseMs);
+    const pending = this.pending();
+    if (pending && pending.owner === owner) this.write("pending", JSON.stringify(pending), leaseMs);
     return 1;
   }
 
@@ -117,6 +178,7 @@ export class ScanSlot extends DurableObject<Env> {
   async release(owner: string, failed: boolean, capacityKey: string): Promise<void> {
     if (this.read("lock") === owner) {
       this.ctx.storage.kv.delete("lock");
+      this.ctx.storage.kv.delete("pending");
       if (failed) this.write("cooldown", "1", 15_000);
     }
     const pool = this.env.SCAN_CAPACITY.get(this.env.SCAN_CAPACITY.idFromName(capacityKey));
@@ -124,8 +186,22 @@ export class ScanSlot extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    const pending = this.pending();
+    const lock = this.read("lock");
+    if (pending && lock === pending.owner && this.env.GHFIND_API) {
+      try {
+        await this.env.GHFIND_API.run(pending.username, pending.owner);
+      } catch {
+        // Keep the lease; try again shortly. run() itself never re-collects
+        // when the owner is gone or a payload is already published.
+        void this.ctx.storage.setAlarm(Date.now() + 15_000);
+        return;
+      }
+    }
     const now = Date.now();
-    for (const field of ["payload", "lock", "cooldown", "revision", "stale"] as const) this.read(field, now);
+    for (const field of ["payload", "lock", "cooldown", "revision", "stale", "pending"] as const) {
+      this.read(field, now);
+    }
     const remaining = [...this.ctx.storage.kv.list<Entry>()];
     if (remaining.length === 0) await this.ctx.storage.deleteAll();
     else this.scheduleReclaim();

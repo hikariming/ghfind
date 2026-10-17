@@ -26,6 +26,16 @@ export class ScanCapacity extends DurableObject {
     return true;
   }
 
+  /** Stretch an existing lease. Expired or unknown owners cannot re-enter the pool. */
+  renew(owner: string, leaseMs: number): boolean {
+    const now = Date.now();
+    this.prune(now);
+    if (this.ctx.storage.kv.get<number>(`l:${owner}`) == null) return false;
+    this.ctx.storage.kv.put(`l:${owner}`, now + leaseMs);
+    void this.ctx.storage.setAlarm(now + leaseMs);
+    return true;
+  }
+
   release(owner: string): void {
     this.ctx.storage.kv.delete(`l:${owner}`);
   }

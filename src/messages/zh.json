@@ -429,6 +429,7 @@
     "errRoastFailed": "毒舌生成失败，稍后再试或换用自己的 Key。",
     "errNetworkRoast": "网络中断，毒舌没说完。",
     "errScanFailed": "扫描失败，稍后再试。",
+    "largeAccountCollecting": "大号数据采集中",
     "errScanPending": "正在补全该账号的全部公开 PR 与 commit，完成后会自动继续。",
     "errNetworkScan": "网络出错，连 GitHub 都连不上。",
     "dataUpdating": "数据更新中…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",
     "github_unavailable": "GitHub 数据暂时不可用，稍后再试。",
     "github_collect_deadline": "GitHub 采集超时，请稍后再试。",
+    "scan_pending": "大号数据采集中",
     "scan_busy": "评分通道正忙，请稍后再试。",
     "scan_failed": "扫描翻车了，稍后再试。"
   },

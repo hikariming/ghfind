@@ -429,6 +429,7 @@
     "errRoastFailed": "Pembuatan roast gagal — coba lagi nanti atau pakai key sendiri.",
     "errNetworkRoast": "Koneksi putus — roast-nya kepotong.",
     "errScanFailed": "Pemindaian gagal, coba lagi nanti.",
+    "largeAccountCollecting": "Mengumpulkan data akun besar…",
     "errScanPending": "Sedang mengumpulkan riwayat PR dan commit publik lengkap. Akan berlanjut otomatis saat siap.",
     "errNetworkScan": "Kesalahan jaringan — GitHub saja tak tergapai.",
     "dataUpdating": "Data sedang diperbarui…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
     "github_collect_deadline": "Pengumpulan GitHub kehabisan waktu — coba lagi sebentar lagi.",
+    "scan_pending": "Mengumpulkan data akun besar…",
     "scan_busy": "Pembuatan skor sedang sibuk — coba lagi sebentar lagi.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
   },

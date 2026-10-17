@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
   getStaleCachedScan: vi.fn(),
+  isScanPending: vi.fn(),
   tryAcquireScanRefresh: vi.fn(),
   getCurrentCanonicalQuickScan: vi.fn(),
   getLatestVerifiedCanonicalScan: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("@/lib/redis", () => ({
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
   getStaleCachedScan: mocks.getStaleCachedScan,
+  isScanPending: mocks.isScanPending,
   tryAcquireScanRefresh: mocks.tryAcquireScanRefresh,
   rateLimitHeaders: mocks.rateLimitHeaders,
 }));
@@ -66,8 +68,8 @@ vi.mock("@/lib/anonymous-session", () => ({
 import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { GitHubCollectDeadlineError, GitHubDataUnavailableError } from "@/lib/github";
-import { ScanBusyError } from "@/lib/scan-protection";
-import { POST } from "./route";
+import { ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
+import { GET, POST } from "./route";
 
 const quickScan = {
   metrics: { username: "DemoDev", profile_url: "https://github.com/DemoDev", avatar_url: null },
@@ -90,6 +92,7 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
     mocks.getStaleCachedScan.mockResolvedValue(null);
+    mocks.isScanPending.mockResolvedValue(false);
     mocks.tryAcquireScanRefresh.mockResolvedValue(true);
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
     mocks.getLatestVerifiedCanonicalScan.mockResolvedValue(null);
@@ -135,7 +138,10 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(response.status).toBe(200);
     expect(mocks.getCachedScan).not.toHaveBeenCalled();
     expect(mocks.getCurrentCanonicalQuickScan).not.toHaveBeenCalled();
-    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), { force: true });
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), {
+      force: true,
+      continueOnDeadline: true,
+    });
   });
 
   it("serves a cached quick scan without republishing it as newly scanned", async () => {
@@ -306,5 +312,54 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(response.status).toBe(404);
     expect(mocks.getStaleCachedScan).not.toHaveBeenCalled();
     expect(mocks.getLatestVerifiedCanonicalScan).not.toHaveBeenCalled();
+  });
+
+  it("returns 202 scan_pending with Retry-After and a GET poll Location", async () => {
+    mocks.coalesceScan.mockRejectedValue(new ScanPendingError());
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(202);
+    expect(response.headers.get("retry-after")).toBe("5");
+    expect(response.headers.get("location")).toBe("/api/scan?username=DemoDev");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      error: "scan_pending",
+      scan_pending: true,
+      poll: { method: "GET", path: "/api/scan?username=DemoDev", interval_seconds: 5 },
+      status: { state: "running" },
+    });
+    expect(mocks.logFreshScanFailure).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), {
+      force: false,
+      continueOnDeadline: true,
+    });
+  });
+
+  it("GET polls a pending collect without starting GitHub work", async () => {
+    mocks.isScanPending.mockResolvedValue(true);
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=tj"));
+    expect(response.status).toBe(202);
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.checkScanNetworkRateLimit).toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({ error: "scan_pending", scan_pending: true });
+  });
+
+  it("GET serves a cached snapshot as 200", async () => {
+    mocks.getCachedScan.mockResolvedValue(quickScan);
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=DemoDev"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({ cached: true, coverage: "quick" });
+  });
+
+  it("GET returns 404 when nothing is cached or in flight", async () => {
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=nobody"));
+    expect(response.status).toBe(404);
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({ error: "not_scored" });
   });
 });

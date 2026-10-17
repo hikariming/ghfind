@@ -429,6 +429,7 @@
     "errRoastFailed": "La generación del roast falló — inténtalo más tarde o usa tu propia key.",
     "errNetworkRoast": "Se cayó la conexión — el roast quedó a medias.",
     "errScanFailed": "El escaneo falló, inténtalo más tarde.",
+    "largeAccountCollecting": "Recopilando datos de una cuenta grande…",
     "errScanPending": "Se está recopilando el historial público completo de PR y commits. Continuará automáticamente cuando esté listo.",
     "errNetworkScan": "Error de red — ni siquiera pudimos llegar a GitHub.",
     "dataUpdating": "Actualizando los datos…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "La API de GitHub está al límite ahora mismo — dale un momento.",
     "github_unavailable": "Los datos de GitHub no están disponibles por ahora — inténtalo más tarde.",
     "github_collect_deadline": "La recolección de GitHub agotó el tiempo — reintenta en un momento.",
+    "scan_pending": "Recopilando datos de una cuenta grande…",
     "scan_busy": "La generación de puntuación está ocupada — reintenta en un momento.",
     "scan_failed": "El escaneo se estrelló — inténtalo más tarde."
   },

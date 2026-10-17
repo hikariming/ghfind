@@ -429,6 +429,7 @@
     "errRoastFailed": "Tạo bài cà khịa thất bại — thử lại sau hoặc dùng key của riêng bạn.",
     "errNetworkRoast": "Rớt mạng — màn cà khịa bị cắt ngang.",
     "errScanFailed": "Quét thất bại, thử lại sau nhé.",
+    "largeAccountCollecting": "Đang thu thập dữ liệu tài khoản lớn…",
     "errScanPending": "Đang thu thập toàn bộ lịch sử PR và commit công khai. Sẽ tự động tiếp tục khi hoàn tất.",
     "errNetworkScan": "Lỗi mạng — còn chẳng chạm được tới GitHub.",
     "dataUpdating": "Đang cập nhật dữ liệu…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "API của GitHub đang quá tải — chờ chút nhé.",
     "github_unavailable": "Dữ liệu GitHub tạm thời không khả dụng — thử lại sau.",
     "github_collect_deadline": "Thu thập GitHub đã hết thời gian — thử lại sau một chút nhé.",
+    "scan_pending": "Đang thu thập dữ liệu tài khoản lớn…",
     "scan_busy": "Hệ thống đang chấm điểm — thử lại sau một chút nhé.",
     "scan_failed": "Quét bị sập — thử lại sau nhé."
   },

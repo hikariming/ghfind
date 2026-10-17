@@ -429,6 +429,7 @@
     "errRoastFailed": "독설 생성 실패 — 잠시 후 다시 하거나 본인 키를 쓰세요.",
     "errNetworkRoast": "연결이 끊겨서 독설이 중간에 끊겼어요.",
     "errScanFailed": "스캔에 실패했어요. 잠시 후 다시 시도하세요.",
+    "largeAccountCollecting": "대형 계정 데이터 수집 중…",
     "errScanPending": "공개 PR 및 커밋 전체 기록을 수집하고 있습니다. 준비되면 자동으로 계속합니다.",
     "errNetworkScan": "네트워크 오류 — GitHub에 닿지도 못했어요.",
     "dataUpdating": "데이터를 업데이트하는 중…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "GitHub API가 지금 꽉 찼어요 — 잠시만 기다려 주세요.",
     "github_unavailable": "GitHub 데이터를 잠시 사용할 수 없어요 — 나중에 다시 시도하세요.",
     "github_collect_deadline": "GitHub 수집이 시간 초과됐어요 — 잠시 후 다시 시도하세요.",
+    "scan_pending": "대형 계정 데이터 수집 중…",
     "scan_busy": "채점 중인 요청이 많아요 — 잠시 후 다시 시도하세요.",
     "scan_failed": "스캔이 터졌어요 — 잠시 후 다시 시도하세요."
   },

@@ -71,6 +71,7 @@ All errors are JSON: \`{ "error": "<code>", "message": "...", "hint": "..." }\`.
 Relevant codes: \`invalid_body\`, \`invalid_username\`, \`turnstile_failed\` (403),
 \`rate_limited\` (429, with \`Retry-After\`), \`account_not_found\` (404),
 \`github_unavailable\` (503), \`github_collect_deadline\` (503, short \`Retry-After\`),
+\`scan_pending\` (202, \`Retry-After\` and \`Location\` — poll GET /api/scan?username= until 200),
 \`scan_busy\` (503). Responses carry \`RateLimit-Limit\`,
 \`RateLimit-Remaining\`, and \`RateLimit-Reset\` so you can self-throttle.
 

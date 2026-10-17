@@ -4,6 +4,14 @@ export class ScanBusyError extends Error {
   }
 }
 
+/** Interactive wait ended; the admitted owner is still collecting in the background. */
+export class ScanPendingError extends Error {
+  readonly retryAfter = SCAN_PENDING_RETRY_AFTER_SECONDS;
+  constructor() {
+    super("GitHub collection is still running");
+  }
+}
+
 // One in-flight crawl per username, and at most this many cold crawls across
 // every isolate. Ninety-six is 24 in-flight scans for each of the four tokens.
 // Leases recover capacity after an invocation is killed.
@@ -12,6 +20,18 @@ export const SCAN_COLD_CONCURRENCY = 96;
 export const SCAN_LEASE_MS = 70_000;
 /** Waiters give up in time to return 503/legacy before the edge 524. */
 export const SCAN_WAIT_MS = 55_000;
+/**
+ * Background GitHub collect keeps the same capacity slot. Four minutes covers a
+ * large-account crawl without letting a dead owner hold the global pool.
+ */
+export const SCAN_BACKGROUND_LEASE_MS = 240_000;
+/** Homepage and API poll interval advertised on 202 scan_pending. */
+export const SCAN_PENDING_RETRY_AFTER_SECONDS = 5;
+/** Interactive wait for a deferred collect before returning 202. Matches COLLECT_DEADLINE_MS. */
+export const SCAN_CONTINUE_WAIT_MS = 45_000;
+/** Wall-clock budget for the deferred collect (DO alarm → api RPC), not waitUntil. */
+export const BACKGROUND_COLLECT_DEADLINE_MS = 180_000;
+export const SCAN_PRODUCER_CAPACITY_KEY = "scan:active-producers:v1";
 export const ADMIT_SCAN = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
 if redis.call('EXISTS', KEYS[3]) == 1 then return -1 end
@@ -55,6 +75,9 @@ export interface ScanCoordinator {
     staleTtlSeconds?: number,
   ): Promise<unknown>;
   release(owner: string, failed: boolean): Promise<unknown>;
+  /** 1 armed, 0 not owner, -1 cannot defer. Omitted on the Redis coordinator. */
+  markPending?(owner: string, username: string, ttlMs: number): Promise<number>;
+  pending?(): Promise<{ owner: string; username: string; startedAt: number } | null>;
 }
 
 /** Redis coordinator: the original Lua scripts over lock/capacity/cooldown keys. */
@@ -95,11 +118,19 @@ export async function protectedScan<T>(options: {
   staleTtl?: number;
   capacityKey?: string;
   revisionKey?: string;
+  leaseMs?: number;
+  /**
+   * After admission, hand collect to a durable continuation (ScanSlot alarm)
+   * instead of producing in this isolate. `"deferred"` keeps the lease.
+   */
+  continueProduce?: (owner: string) => Promise<"deferred" | "inline">;
+  /** How long the admitted caller waits for a deferred payload before 202. */
+  continueWaitMs?: number;
 }): Promise<T> {
   const { key, read, produce } = options;
   const keys = [
     `lock:${key}`,
-    options.capacityKey ?? "scan:active-producers:v1",
+    options.capacityKey ?? SCAN_PRODUCER_CAPACITY_KEY,
     `cooldown:${key}`,
   ];
   const coordinator =
@@ -113,12 +144,17 @@ export async function protectedScan<T>(options: {
   const waitMs = SCAN_WAIT_MS;
   const deadline = Date.now() + waitMs;
   const attempts = options.attempts ?? Math.ceil(waitMs / 400) + 10;
+  const leaseMs = options.leaseMs ?? SCAN_LEASE_MS;
   for (let i = 0; i < attempts && Date.now() < deadline; i++) {
     const cached = await read();
     if (cached) return cached;
+    if (options.continueProduce && coordinator.pending) {
+      const pending = await coordinator.pending().catch(() => null);
+      if (pending) throw new ScanPendingError();
+    }
     let admission: unknown;
     try {
-      admission = await coordinator.admit(owner, Date.now(), SCAN_LEASE_MS, SCAN_COLD_CONCURRENCY);
+      admission = await coordinator.admit(owner, Date.now(), leaseMs, SCAN_COLD_CONCURRENCY);
     } catch {
       throw new ScanBusyError();
     }
@@ -129,12 +165,29 @@ export async function protectedScan<T>(options: {
       continue;
     }
     let failed = true;
+    let holdLease = false;
     try {
       // A previous owner may have published between our read and admission.
       const recheck = await read();
       if (recheck) {
         failed = false;
         return recheck;
+      }
+      const mode = options.continueProduce ? await options.continueProduce(owner) : "inline";
+      if (mode === "deferred") {
+        const continueUntil = Date.now() + (options.continueWaitMs ?? waitMs);
+        while (Date.now() < continueUntil) {
+          const ready = await read();
+          if (ready) {
+            failed = false;
+            holdLease = true;
+            return ready;
+          }
+          await wait();
+        }
+        failed = false;
+        holdLease = true;
+        throw new ScanPendingError();
       }
       const result = await produce();
       // An expired owner must never overwrite a newer producer's snapshot.
@@ -149,7 +202,8 @@ export async function protectedScan<T>(options: {
       return result;
     } finally {
       // Failure cooldown stops waiters immediately retrying the same bad origin.
-      await coordinator.release(owner, failed).catch(() => {});
+      // A deferred collect keeps the lease until the background owner publishes.
+      if (!holdLease) await coordinator.release(owner, failed).catch(() => {});
     }
   }
   // Never turn every timed-out waiter into a new producer.

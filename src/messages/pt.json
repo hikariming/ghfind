@@ -429,6 +429,7 @@
     "errRoastFailed": "A geração da zoada falhou — tente mais tarde ou use sua própria key.",
     "errNetworkRoast": "A conexão caiu — a zoada foi cortada no meio.",
     "errScanFailed": "Falha no scan, tente de novo mais tarde.",
+    "largeAccountCollecting": "Coletando dados de uma conta grande…",
     "errScanPending": "Coletando todo o histórico público de PRs e commits. Continuará automaticamente quando estiver pronto.",
     "errNetworkScan": "Erro de rede — não deu nem pra alcançar o GitHub.",
     "dataUpdating": "Atualizando os dados…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "A API do GitHub está no limite agora — espera um pouquinho.",
     "github_unavailable": "Os dados do GitHub estão temporariamente indisponíveis — tente mais tarde.",
     "github_collect_deadline": "A coleta do GitHub estourou o tempo — tente de novo daqui a pouco.",
+    "scan_pending": "Coletando dados de uma conta grande…",
     "scan_busy": "A geração de score está ocupada — tente de novo daqui a pouco.",
     "scan_failed": "O scan quebrou — tente de novo mais tarde."
   },

@@ -16,6 +16,7 @@ export type ApiErrorCode =
   | "github_rate_limited"
   | "github_unavailable"
   | "github_collect_deadline"
+  | "scan_pending"
   | "scan_busy"
   | "queue_full"
   | "admission_limited"
@@ -36,6 +37,7 @@ const HINTS: Partial<Record<ApiErrorCode, string>> = {
   github_rate_limited: "GitHub's API is rate limited right now — retry shortly.",
   github_unavailable: "GitHub is temporarily unavailable — retry later.",
   github_collect_deadline: "GitHub collection timed out — retry shortly.",
+  scan_pending: "Large-account GitHub collection is still running. Poll GET /api/scan?username=… until 200.",
   scan_busy: "Score generation is busy — retry shortly.",
   queue_full: "Historical scan capacity is busy — retry after the Retry-After interval.",
   admission_limited: "Too many new historical scans from this source — retry after the Retry-After interval.",

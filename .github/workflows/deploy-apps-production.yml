@@ -64,6 +64,11 @@ jobs:
           set -euo pipefail
           release_config="$(node scripts/feed-platform-schema-release.mjs production "$RUNNER_TEMP/apps-production-schema")"
           pnpm exec wrangler d1 migrations apply ghfind --remote --config "$release_config"
+      # ScanSlot alarms RPC into ghfind-api's ScanContinueEntrypoint. Publish that
+      # named export before coord binds it, otherwise the first alarms 404 until
+      # the later api deploy and can miss the 4-minute background lease.
+      - name: Deploy ghfind-api ScanContinueEntrypoint before coord
+        run: pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-coord
         run: pnpm --filter @ghfind/coord exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-web

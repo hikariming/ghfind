@@ -63,6 +63,7 @@ export function Roaster({
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [scanPending, setScanPending] = useState(false);
   const [roasting, setRoasting] = useState(false);
   // Live progress label streamed from the server during the (slow, reasoning-model)
   // judge → roast wait, so the card shows "正在校准评分… (8s)" instead of a frozen spinner.
@@ -189,6 +190,7 @@ export function Roaster({
       }
       setError("");
       setStaleScan(false);
+      setScanPending(false);
       setScan(null);
       setReport("");
       setPercentile(null);
@@ -201,6 +203,7 @@ export function Roaster({
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
       const presentScan = (result: ScanResult) => {
+        setScanPending(false);
         setStaleScan(isStaleScanPayload(result));
         const byoKey = loadByoKey();
         const forceProfileHandoff =
@@ -242,11 +245,13 @@ export function Roaster({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: uname, turnstileToken: token, campaign }),
         });
+        if (res.status === 202) setScanPending(true);
         const data = await readScanResponse(res);
         if (!res.ok) {
           const code = data && typeof data === "object" && "error" in data ? String(data.error) : "";
           setError(tScan.has(code) ? tScan(code) : t("errScanFailed"));
           setScanning(false);
+          setScanPending(false);
           return;
         }
         if (
@@ -264,6 +269,7 @@ export function Roaster({
       } catch {
         setError(t("errNetworkScan"));
         setScanning(false);
+        setScanPending(false);
       }
     },
     [
@@ -432,8 +438,8 @@ export function Roaster({
 
       {/* Scanning skeleton */}
       {scanning && (
-        <div className="mt-10 animate-pulse text-center text-zinc-500">
-          {t("scanning", { username })}
+        <div className="mt-10 animate-pulse text-center text-zinc-500" role="status">
+          {scanPending ? t("largeAccountCollecting") : t("scanning", { username })}
         </div>
       )}
 

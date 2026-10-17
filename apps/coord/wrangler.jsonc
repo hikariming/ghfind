@@ -39,6 +39,9 @@
       // dev also holds every PR preview's builds, so it churns faster.
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }],
       "triggers": { "crons": ["23 */6 * * *"] },
+      "services": [
+        { "binding": "GHFIND_API", "service": "ghfind-api-dev", "entrypoint": "ScanContinueEntrypoint" }
+      ],
       "vars": {
         "NEXT_CACHE_GC_KEEP_NEWEST": "2",
         "NEXT_CACHE_GC_MIN_IDLE_DAYS": "3",
@@ -59,6 +62,9 @@
       // Keep 3 builds and a week of idleness so rollbacks keep their cache.
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }],
       "triggers": { "crons": ["41 3 * * *"] },
+      "services": [
+        { "binding": "GHFIND_API", "service": "ghfind-api", "entrypoint": "ScanContinueEntrypoint" }
+      ],
       "vars": {
         "NEXT_CACHE_GC_KEEP_NEWEST": "3",
         "NEXT_CACHE_GC_MIN_IDLE_DAYS": "7",

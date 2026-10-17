@@ -197,10 +197,13 @@ export function buildPublicSignatureWork(
  * Wrap calls in `coalesceScan()` (single-flight + cache) so a burst of identical
  * requests only crawls GitHub once.
  */
-export async function buildScanResult(username: string): Promise<ScanResult> {
+export async function buildScanResult(
+  username: string,
+  options: { deadlineMs?: number } = {},
+): Promise<ScanResult> {
   const collected = await collect(username, {
     cache: collectorCache,
-    deadlineMs: COLLECT_DEADLINE_MS,
+    deadlineMs: options.deadlineMs ?? COLLECT_DEADLINE_MS,
   });
   const scan = {
     ...collected,

@@ -429,6 +429,7 @@
     "errRoastFailed": "ローストの生成に失敗。あとで再試行するか、自分のキーをどうぞ。",
     "errNetworkRoast": "接続が切れて、毒舌が途中で止まりました。",
     "errScanFailed": "スキャンに失敗しました。あとで再試行を。",
+    "largeAccountCollecting": "大規模アカウントのデータを収集中…",
     "errScanPending": "公開 PR と commit の全履歴を収集中です。準備でき次第、自動的に続行します。",
     "errNetworkScan": "ネットワークエラー。GitHubにすら届きませんでした。",
     "dataUpdating": "データを更新しています…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "GitHubのAPIが今パンク中です。少し待ってください。",
     "github_unavailable": "GitHubのデータが一時的に取得できません。あとで再試行を。",
     "github_collect_deadline": "GitHubの収集が時間切れです。少し待って再試行を。",
+    "scan_pending": "大規模アカウントのデータを収集中…",
     "scan_busy": "採点処理が混み合っています。少し待って再試行を。",
     "scan_failed": "スキャンがクラッシュしました。あとで再試行を。"
   },

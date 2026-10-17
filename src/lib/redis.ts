@@ -9,6 +9,9 @@
  */
 
 import {
+  SCAN_BACKGROUND_LEASE_MS,
+  SCAN_CONTINUE_WAIT_MS,
+  SCAN_PRODUCER_CAPACITY_KEY,
   protectedScan,
   ScanBusyError,
   scanTtl,
@@ -345,7 +348,7 @@ return redis.call('GET', KEYS[1])`;
 export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
-  options: { force?: boolean; background?: boolean } = {},
+  options: { force?: boolean; background?: boolean; continueOnDeadline?: boolean } = {},
 ): Promise<ScanResult> {
   if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
   const backgroundWait = options.background ? async () => {} : undefined;
@@ -358,8 +361,9 @@ export async function coalesceScan(
       try { baseline = (await slot.revision()) ?? ""; }
       catch { throw new ScanBusyError(); }
     }
+    const continueOnDeadline = options.continueOnDeadline === true && !options.background;
     return protectedScan({
-      coordinator: slotCoordinator(slot, "scan:active-producers:v1", true),
+      coordinator: slotCoordinator(slot, SCAN_PRODUCER_CAPACITY_KEY, true),
       key: scanKey(username),
       read: options.force ? async () => {
         try {
@@ -371,6 +375,16 @@ export async function coalesceScan(
       staleTtl: SCAN_STALE_TTL_SECONDS,
       wait: backgroundWait,
       attempts: backgroundAttempts,
+      leaseMs: continueOnDeadline ? SCAN_BACKGROUND_LEASE_MS : undefined,
+      continueWaitMs: continueOnDeadline ? SCAN_CONTINUE_WAIT_MS : undefined,
+      continueProduce: continueOnDeadline
+        ? async (owner) => {
+            const marked = await slot.markPending(owner, username, SCAN_BACKGROUND_LEASE_MS);
+            if (marked === 1) return "deferred";
+            if (marked === -1) return "inline";
+            throw new ScanBusyError();
+          }
+        : undefined,
     });
   }
   const r = getRedis();
@@ -399,6 +413,17 @@ export async function coalesceScan(
     wait: backgroundWait,
     attempts: backgroundAttempts,
   });
+}
+
+/** True while a ScanSlot owner is still collecting this handle. */
+export async function isScanPending(username: string): Promise<boolean> {
+  const slots = scanSlots();
+  if (!slots) return false;
+  try {
+    return (await scanSlot(slots, scanKey(username)).pending()) != null;
+  } catch {
+    return false;
+  }
 }
 
 /**

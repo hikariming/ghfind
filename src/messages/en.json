@@ -429,6 +429,7 @@
     "errRoastFailed": "Roast generation failed — try again later or use your own key.",
     "errNetworkRoast": "Connection dropped — the roast got cut off.",
     "errScanFailed": "Scan failed, try again later.",
+    "largeAccountCollecting": "Collecting data for a large account…",
     "errScanPending": "Collecting the account's full public PR and commit history. This will continue automatically when ready.",
     "errNetworkScan": "Network error — couldn't even reach GitHub.",
     "dataUpdating": "Score data is updating…",
@@ -444,6 +445,7 @@
     "github_rate_limited": "GitHub's API is maxed out right now — give it a moment.",
     "github_unavailable": "GitHub data is temporarily unavailable — try again later.",
     "github_collect_deadline": "GitHub collection timed out — retry shortly.",
+    "scan_pending": "Collecting data for a large account…",
     "scan_busy": "Score generation is busy — retry shortly.",
     "scan_failed": "The scan crashed — try again later."
   },

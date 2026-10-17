@@ -9,6 +9,11 @@ Cold GitHub scans use the same admission mechanism with a separate global capaci
 - At most eight active cold crawls, plus a separate maximum of eight indexed-detail reads.
 - Followers wait up to approximately 45 seconds for cached results, then receive
   `503 scan_busy` with `Retry-After: 15`; they never independently fall through to GitHub.
+  A cold GitHub collect that is still running after the interactive deadline returns
+  `202 scan_pending` and keeps the original owner's lease; poll GET `/api/scan?username=`
+  until 200. Background collect uses the ScanSlot alarm (ghfind-api RPC), not `after()` /
+  waitUntil. GET polls use the wider 60/60s read limiter so they cannot start a second crawl
+  or consume the 10/60s produce budget.
 - Redis admission failures fail closed. Local development without Redis still works.
 - Cache writes and release use owner-checked Lua, so an expired producer cannot overwrite
   a newer cache entry or release someone else's lease.

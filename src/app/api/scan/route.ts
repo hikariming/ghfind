@@ -12,14 +12,16 @@ import {
 } from "@/lib/db";
 import {
   checkRateLimit,
+  checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
   getStaleCachedScan,
+  isScanPending,
   rateLimitHeaders,
   tryAcquireScanRefresh,
 } from "@/lib/redis";
 import { GitHubDataUnavailableError } from "@/lib/github";
-import { ScanBusyError } from "@/lib/scan-protection";
+import { SCAN_PENDING_RETRY_AFTER_SECONDS, ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult } from "@/lib/types";
 import {
@@ -202,6 +204,30 @@ async function legacyReadFallbackProfileResponse(input: {
   );
 }
 
+export function scanPendingResponse(username: string, headers: Record<string, string>) {
+  const path = `/api/scan?username=${encodeURIComponent(username)}`;
+  return NextResponse.json(
+    {
+      error: "scan_pending",
+      scan_pending: true,
+      message: "scan pending",
+      hint: "Large-account GitHub collection is still running. Poll GET /api/scan?username=… until 200.",
+      username,
+      poll: { method: "GET", path, interval_seconds: SCAN_PENDING_RETRY_AFTER_SECONDS },
+      status: { state: "running" },
+    },
+    {
+      status: 202,
+      headers: {
+        ...headers,
+        "Retry-After": String(SCAN_PENDING_RETRY_AFTER_SECONDS),
+        Location: path,
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
 function immediateResponse(input: {
   scan: ScanResult;
   cached: boolean;
@@ -314,13 +340,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await coalesceScan(username, () => produceFreshScan(username), { force });
+    const result = await coalesceScan(username, () => produceFreshScan(username), {
+      force,
+      continueOnDeadline: true,
+    });
     await recordSuccessfulLookup(result.metrics.username, ip, campaign);
     return attachAnonymousSession(
       immediateResponse({ scan: result, cached: false, headers: { ...idem, ...rlHeaders } }),
       anonymousSession,
     );
   } catch (error) {
+    if (error instanceof ScanPendingError) {
+      return attachAnonymousSession(
+        scanPendingResponse(username, { ...idem, ...rlHeaders }),
+        anonymousSession,
+      );
+    }
     logFreshScanFailure(error, {
       route: "scan",
       username: username,
@@ -385,4 +420,44 @@ export async function POST(req: NextRequest) {
       },
     });
   }
+}
+
+/** Read-only poll for a deferred collect. Never starts a new GitHub crawl. */
+export async function GET(req: NextRequest) {
+  const username = normalizeUsername(req.nextUrl.searchParams.get("username"));
+  if (!username) return apiError("invalid_username", { status: 400 });
+
+  const ip = clientIp(req);
+  // Read-only poll: 60/60s so a 5s Retry-After loop cannot burn the 10/60s
+  // GitHub-produce budget.
+  const limit = await checkScanNetworkRateLimit(ip);
+  const rlHeaders = rateLimitHeaders(limit);
+  if (!limit.success) {
+    return apiError(limit.unavailable ? "rate_limit_unavailable" : "rate_limited", {
+      status: limit.unavailable ? 503 : 429,
+      headers: { ...rlHeaders, "Cache-Control": "no-store" },
+    });
+  }
+
+  const pollHeaders = { ...rlHeaders, "Cache-Control": "no-store" };
+  const cached = await getCachedScan(username);
+  if (cached) {
+    return immediateResponse({ scan: cached, cached: true, headers: pollHeaders });
+  }
+  const indexed = await getCurrentCanonicalQuickScan(username);
+  if (indexed) {
+    return immediateResponse({
+      scan: indexed.scan,
+      cached: true,
+      headers: pollHeaders,
+      scannedAt: indexed.scannedAt,
+    });
+  }
+  if (await isScanPending(username)) {
+    return scanPendingResponse(username, pollHeaders);
+  }
+  return apiError("not_scored", {
+    status: 404,
+    headers: pollHeaders,
+  });
 }

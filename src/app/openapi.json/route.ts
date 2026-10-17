@@ -100,11 +100,12 @@ export function GET() {
           summary: "Run a bounded GitHub scan and compute the deterministic score",
           description:
             "Bounded factual payload: metrics, repo/PR signals, sub_scores, red_flags, and " +
-            "final_score. Deterministic — no LLM. Scans run synchronously and return the persisted " +
-            "result inline (cached snapshots and verified indexed v10 rows replay instantly; " +
-            "`?force=1` bypasses the cache for a rescan). Interactive GitHub collection has a " +
-            "deadline: timeout is `github_collect_deadline` (503). When GitHub is busy or " +
-            "unavailable the route may return HTTP 200 with `stale: true` from a previous " +
+            "final_score. Deterministic — no LLM. Cached snapshots and verified indexed v10 rows " +
+            "replay instantly as 200; `?force=1` bypasses the cache for a rescan. A cold GitHub " +
+            "collect that needs more than the interactive deadline returns 202 `scan_pending` with " +
+            "`Retry-After` and `Location: /api/scan?username=…` — poll GET until 200. The admitted " +
+            "owner keeps collecting in the background (ScanSlot alarm, not waitUntil). When GitHub " +
+            "is busy or unavailable the route may return HTTP 200 with `stale: true` from a previous " +
             "snapshot. In production, machine callers send " +
             "`Authorization: Bearer <api-key>`; browser callers pass a Cloudflare Turnstile token.",
           security: [{ bearerAuth: [] }, {}],
@@ -134,6 +135,14 @@ export function GET() {
               },
               content: { "application/json": { schema: { $ref: "#/components/schemas/ScanResult" } } },
             },
+            "202": {
+              description: "Cold GitHub collect still running (`scan_pending`). Poll `Location` or GET `/api/scan?username=` until 200.",
+              headers: {
+                "Retry-After": { $ref: "#/components/headers/Retry-After" },
+                Location: { description: "GET URL to poll for the finished scan", schema: { type: "string" } },
+              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
             "400": { description: "Invalid body or username", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
             "401": {
               description: "Invalid API key",
@@ -147,7 +156,30 @@ export function GET() {
               headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
-            "503": { description: "GitHub collection deadline, scan busy, GitHub unavailable, or request protection temporarily unavailable (`github_collect_deadline`, `scan_busy`, `github_unavailable`)", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "503": { description: "Scan busy, GitHub unavailable, leftover collect deadline, or request protection temporarily unavailable (`scan_busy`, `github_unavailable`, `github_collect_deadline`)", headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+        get: {
+          tags: ["scoring"],
+          operationId: "scanStatus",
+          summary: "Poll a deferred scan without starting a new GitHub collect",
+          description:
+            "Read-only. Returns the cached or indexed snapshot as 200, 202 `scan_pending` while the " +
+            "admitted owner is still collecting, or 404 `not_scored` when nothing is in flight.",
+          parameters: [
+            { name: "username", in: "query", required: true, schema: { type: "string" }, description: "GitHub login" },
+          ],
+          responses: {
+            "200": {
+              description: "Full scan result",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ScanResult" } } },
+            },
+            "202": {
+              description: "`scan_pending` — poll again after Retry-After",
+              headers: { "Retry-After": { $ref: "#/components/headers/Retry-After" } },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
+            "404": { description: "No snapshot and no in-flight collect", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
@@ -673,6 +705,7 @@ export function GET() {
                 "github_rate_limited",
                 "github_unavailable",
                 "github_collect_deadline",
+                "scan_pending",
                 "scan_busy",
                 "scan_failed",
                 "not_scored",
