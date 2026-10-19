@@ -15,6 +15,12 @@ export interface ReleaseVersionManifest {
   schemaVersion: number;
   previousRelease: ReleaseVersionSet;
   targetRelease: ReleaseVersionSet;
+  /**
+   * Score labels that were shipped and then rolled back. An advance may skip
+   * these so a restored previous (v10) can become v13 without reusing the
+   * contaminated v11/v12 rows.
+   */
+  skippedScoreVersions?: string[];
   runtimeEnforcement: {
     state: "source_changes_only" | "canonical";
     trackingIssue: number | null;
@@ -52,6 +58,35 @@ export const RUNTIME_RELEASE_VERSIONS: ReleaseVersionSet = {
   roast: ROAST_CACHE_VERSION,
   collection: PUBLIC_SCAN_COLLECTION_VERSION,
 };
+
+export const PUBLIC_SCORE_READ_ORDER: readonly string[] =
+  RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder;
+
+export function isPublicScoreVersion(version: unknown): version is string {
+  return typeof version === "string" && PUBLIC_SCORE_READ_ORDER.includes(version);
+}
+
+/** SQL fragment `alias.score_version IN ('v13', 'v10')` from the read order. */
+export function publicScoreVersionSql(alias?: string): string {
+  const column = alias ? `${alias}.score_version` : "score_version";
+  const list = PUBLIC_SCORE_READ_ORDER.map((version) => `'${version}'`).join(", ");
+  return `${column} IN (${list})`;
+}
+
+function versionNumber(version: string): number {
+  return Number(version.slice(1));
+}
+
+function expectedPublicScoreReadOrder(
+  previousRelease: ReleaseVersionSet,
+  targetRelease: ReleaseVersionSet,
+): string[] {
+  if (targetRelease.score === previousRelease.score) return [targetRelease.score];
+  if (versionNumber(targetRelease.score) > versionNumber(previousRelease.score)) {
+    return [targetRelease.score, previousRelease.score];
+  }
+  return [targetRelease.score];
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -170,14 +205,30 @@ export function releaseVersionErrors(
   const typed = manifest as unknown as ReleaseVersionManifest;
   const { previousRelease, targetRelease } = typed;
 
+  const skippedScoreVersions = Array.isArray(typed.skippedScoreVersions)
+    ? typed.skippedScoreVersions
+    : [];
+  if (skippedScoreVersions.some((value) => !isVersion(value))) {
+    errors.push("skippedScoreVersions must be formal vN labels");
+  }
+
   for (const component of RELEASE_COMPONENTS) {
-    const previous = Number(previousRelease[component].slice(1));
-    const target = Number(targetRelease[component].slice(1));
+    const previous = versionNumber(previousRelease[component]);
+    const target = versionNumber(targetRelease[component]);
     if (component === "score") {
-      if (target > previous && target - previous > 1) {
-        errors.push(
-          `${component} target must stay put, advance by exactly one formal version, or roll back to a previously shipped version`,
-        );
+      if (target > previous) {
+        const skippedBetween = skippedScoreVersions.filter((value) => {
+          const n = versionNumber(value);
+          return n > previous && n < target;
+        });
+        if (skippedBetween.length !== skippedScoreVersions.length) {
+          errors.push("skippedScoreVersions must sit strictly between previous and target score");
+        }
+        if (target - previous - skippedBetween.length > 1) {
+          errors.push(
+            `${component} target must stay put, advance by exactly one formal version, skip only retired labels, or roll back to a previously shipped version`,
+          );
+        }
       }
       continue;
     }
@@ -209,8 +260,15 @@ export function releaseVersionErrors(
   if (!isRecord(typed.compatibility)) {
     errors.push("compatibility matrix is missing");
   } else {
-    if (!exactList(typed.compatibility.publicScoreReadOrder, [targetRelease.score])) {
-      errors.push("public score reads must only serve the canonical target release");
+    if (
+      !exactList(
+        typed.compatibility.publicScoreReadOrder,
+        expectedPublicScoreReadOrder(previousRelease, targetRelease),
+      )
+    ) {
+      errors.push(
+        "public score reads must prefer the canonical target and keep the previous score only after a score-version advance",
+      );
     }
     const collectionReadOrder =
       targetRelease.collection === previousRelease.collection

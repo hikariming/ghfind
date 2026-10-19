@@ -111,9 +111,9 @@ LEFT JOIN (
   SELECT username, COUNT(*) AS recent_lookup_count
   FROM account_lookup_limits WHERE last_counted_at >= ? GROUP BY username
 ) AS recent ON recent.username = s.username
-WHERE s.hidden = 0 AND s.score_version = ? AND s.final_score >= ? %s
-ORDER BY %s`, progressColumn, activeClause, order)
-	args := []any{minimumRecordedLookups, cutoff, canonicalScoreVersion, leaderboardMinScore}
+WHERE s.hidden = 0 AND %s AND s.final_score >= ? %s
+ORDER BY %s`, progressColumn, publicScoreVersionClause("s.score_version"), activeClause, order)
+	args := append([]any{minimumRecordedLookups, cutoff}, append(publicScoreVersionArgs(), leaderboardMinScore)...)
 	if limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, limit)
@@ -150,10 +150,10 @@ LEFT JOIN (
   SELECT username, COUNT(*) AS recent_lookup_count
   FROM account_lookup_limits WHERE last_counted_at >= ? GROUP BY username
 ) AS recent ON recent.username = s.username
-WHERE s.hidden = 0 AND s.score_version = ? AND s.prev_score IS NOT NULL
+WHERE s.hidden = 0 AND %s AND s.prev_score IS NOT NULL
   AND s.final_score > s.prev_score %s
-ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC LIMIT ?`, activeClause)
-	rows, err := s.db.QueryContext(ctx, query, minimumRecordedLookups, cutoff, canonicalScoreVersion, leaderboardLimit)
+ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC LIMIT ?`, publicScoreVersionClause("s.score_version"), activeClause)
+	rows, err := s.db.QueryContext(ctx, query, append([]any{minimumRecordedLookups, cutoff}, append(publicScoreVersionArgs(), leaderboardLimit)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("query progress leaderboard: %w", err)
 	}

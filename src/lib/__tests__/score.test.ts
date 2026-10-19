@@ -38,6 +38,7 @@ import {
   impactPrestigeSignal,
   lowPrestigeBulkContributionCap,
   logRatio,
+  ownPrCommunityCredit,
   score,
   roundHalfEven,
   spamBotScore,
@@ -903,6 +904,76 @@ describe("isExternalTrivialFarmPr (garbage into popular community repos)", () =>
     expect(
       isExternalTrivialFarmPr(pr({ repo: "someone/tiny", repo_stars: 12, trivial: true }), me),
     ).toBe(false);
+  });
+});
+
+describe("ownPrCommunityCredit (v13 extra on v10)", () => {
+  it("is zero when external_merged_pr_count is missing", () => {
+    expect(ownPrCommunityCredit({ ...NEUTRAL, own_pr_community: 1, merged_pr_count: 200 })).toBe(0);
+    expect(score({ ...NEUTRAL, own_pr_community: 1, merged_pr_count: 200 })).toEqual(
+      score({ ...NEUTRAL, merged_pr_count: 200 }),
+    );
+  });
+
+  it("is zero when A is 0 even with many own PRs", () => {
+    expect(
+      ownPrCommunityCredit({
+        ...NEUTRAL,
+        merged_pr_count: 200,
+        external_merged_pr_count: 0,
+        own_pr_community: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it("adds 6·A·logRatio(own, 200) and never decreases the v10 score", () => {
+    expect(
+      ownPrCommunityCredit({
+        ...NEUTRAL,
+        merged_pr_count: 200,
+        external_merged_pr_count: 0,
+        own_pr_community: 1,
+      }),
+    ).toBe(6);
+    const base = {
+      ...NEUTRAL,
+      merged_pr_count: 50,
+      total_pr_count: 55,
+      external_merged_pr_count: 0,
+    };
+    const withCommunity = { ...base, own_pr_community: 1 };
+    expect(ownPrCommunityCredit(withCommunity)).toBeCloseTo(logRatio(50, 200) * 6, 10);
+    const v10 = score(base);
+    const v13 = score(withCommunity);
+    expect(v13.sub_scores.contribution_quality).toBeGreaterThan(v10.sub_scores.contribution_quality);
+    expect(v13.final_score).toBeGreaterThan(v10.final_score);
+    expect(v13.final_score - v10.final_score).toBeLessThanOrEqual(6);
+    const capped = {
+      ...NEUTRAL,
+      merged_pr_count: 200,
+      total_pr_count: 210,
+      external_merged_pr_count: 0,
+    };
+    expect(score({ ...capped, own_pr_community: 1 }).final_score).toBeGreaterThanOrEqual(
+      score(capped).final_score,
+    );
+  });
+
+  it("scales with A and saturates own volume at 200 PRs", () => {
+    const half = ownPrCommunityCredit({
+      ...NEUTRAL,
+      merged_pr_count: 400,
+      external_merged_pr_count: 0,
+      own_pr_community: 0.5,
+    });
+    expect(half).toBe(3);
+    const partialOwn = ownPrCommunityCredit({
+      ...NEUTRAL,
+      merged_pr_count: 50,
+      external_merged_pr_count: 40,
+      own_pr_community: 1,
+    });
+    expect(partialOwn).toBeCloseTo(logRatio(10, 200) * 6, 10);
   });
 });
 

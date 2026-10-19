@@ -376,7 +376,7 @@ func (s *APIServer) mcpScoreUser(ctx context.Context, rawUsername string) any {
 	if err != nil {
 		return mcpToolError{Error: "scan_failed", Message: "could not score " + username}
 	}
-	if detail != nil && detail.ScoreVersion == canonicalScoreVersion && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+	if detail != nil && isPublicScoreVersion(detail.ScoreVersion) && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
 		return s.mcpStoredScorePayload(ctx, *detail, "indexed", true)
 	}
 	scan, err := s.mcpQuickScan(ctx, username)

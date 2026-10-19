@@ -181,6 +181,29 @@ export function highImpactCorePrBonus(m: RawMetrics): number {
   return Math.min(2, starSignal * 0.8 + coreSignal * 1.2);
 }
 
+/** Own-repo merged PRs saturate at 200. */
+const OWN_PR_VOLUME_FULL_AT = 200;
+/**
+ * 209ff9f5 community extra on own-repo PR volume. In that formula own volume
+ * was `(4 + 6·A)·logRatio(own, 200)` capped at 10; v10 already counts own PRs
+ * in the 16-point combined pool (the 4), so v13 restores only `6·A·logRatio`.
+ */
+const OWN_PR_COMMUNITY_BONUS = 6;
+
+/**
+ * Extra contribution-quality points when own-repo merged PRs landed in an
+ * outside community. `A` is `own_pr_community` (0..1). Snapshots without
+ * `external_merged_pr_count` keep the v10 single-pool score (credit 0).
+ */
+export function ownPrCommunityCredit(m: RawMetrics): number {
+  if (m.external_merged_pr_count === undefined) return 0;
+  const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
+  if (community === 0) return 0;
+  const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
+  const own = Math.max(0, m.merged_pr_count - external);
+  return logRatio(own, OWN_PR_VOLUME_FULL_AT) * OWN_PR_COMMUNITY_BONUS * community;
+}
+
 export function impactPrestigeSignal(m: RawMetrics): number {
   return Math.max(
     0,
@@ -294,6 +317,7 @@ export function score(m: RawMetrics): Scoring {
   const issuePts = logRatio(m.issues_created, 100) * 5;
   const contributionQualityRaw =
     prVolume +
+    ownPrCommunityCredit(m) +
     acceptance +
     issuePts +
     highImpactCorePrBonus(m) -

@@ -87,7 +87,15 @@ describe("bounded score leaderboard", () => {
       ({ username, final_score, lookup_count, recent_lookup_count }))).toEqual(reference.rows.map(row => ({ ...row })));
     const plan = await client.execute({ sql: `EXPLAIN QUERY PLAN ${current.sql}`, args: current.args as InArgs });
     const details = plan.rows.map(row => String(row.detail));
-    expect(details.some(detail => detail.includes("idx_scores_public_order"))).toBe(true);
+    // Equality on one score_version uses idx_scores_public_order. An IN list of
+    // public versions (v13, leftover v10) prefers idx_scores_hidden_score and
+    // still avoids a scores table scan.
+    expect(
+      details.some(
+        (detail) =>
+          detail.includes("idx_scores_public_order") || detail.includes("idx_scores_hidden_score"),
+      ),
+    ).toBe(true);
     expect(details.some(detail => detail.includes("idx_account_lookup_limits_user_counted") && detail.includes("username=?"))).toBe(true);
     expect(details.some(detail => detail.includes("SCAN l"))).toBe(false);
     expect(details.some(detail => detail.includes("TEMP B-TREE FOR GROUP BY"))).toBe(false);

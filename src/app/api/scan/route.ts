@@ -99,7 +99,7 @@ async function recordSuccessfulLookup(
 
 /**
  * A verified previous-release profile is only an emergency read fallback. Successful
- * current quick scans always win and immediately refresh the v10 profile.
+ * current quick scans always win and immediately refresh the current profile.
  */
 function scanTimestamp(scan: ScanResult): number | undefined {
   const value = (scan as ScanResult & { scanned_at?: unknown }).scanned_at;

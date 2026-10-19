@@ -1269,7 +1269,7 @@
     "before_final_score": 83.5,
     "expected_final_range": [
       82,
-      91
+      92
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -2357,12 +2357,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15.4,
-        "contribution_quality": 26.2,
+        "contribution_quality": 27,
         "ecosystem_impact": 15.9,
         "community_influence": 6.2,
         "activity_authenticity": 17
       },
-      "final_score": 90.7
+      "final_score": 91.5
     }
   },
   "zhaochenyang20": {
@@ -6898,11 +6898,11 @@
     }
   },
   "louislam": {
-    "description": "Real snapshot. Solo maintainer of uptime-kuma (community ~0.95) and dockge; almost all merged PRs are into his own repos. Guards own-project community credit: target 89-94.",
+    "description": "Real snapshot. Solo maintainer of uptime-kuma (community ~0.95) and dockge; almost all merged PRs are into his own repos. Guards own-project community credit: target 89-98.",
     "before_final_score": 78.6,
     "expected_final_range": [
       89,
-      97
+      98
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
@@ -7991,12 +7991,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 18,
-        "contribution_quality": 26.1,
+        "contribution_quality": 27,
         "ecosystem_impact": 18.9,
         "community_influence": 8,
         "activity_authenticity": 16
       },
-      "final_score": 97
+      "final_score": 97.9
     }
   },
   "jesseduffield": {

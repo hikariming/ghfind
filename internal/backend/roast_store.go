@@ -61,17 +61,17 @@ func (s *TursoStore) GetCanonicalRoastScan(ctx context.Context, username string)
       FROM public_scan_runs r
       INNER JOIN scores s ON s.username = r.username
         AND s.hidden = 0
-        AND s.score_version = ?
+        AND `+publicScoreVersionClause("s.score_version")+`
         AND s.score_source_collection_version = ?
         AND s.score_source_snapshot_hash = r.snapshot_hash
       WHERE r.username = ?
-        AND r.score_version = ?
+        AND `+publicScoreVersionClause("r.score_version")+`
         AND r.collection_version = ?
         AND r.state = 'complete_public'
         AND r.snapshot IS NOT NULL
         AND r.snapshot_hash IS NOT NULL
       ORDER BY s.scanned_at DESC, r.completed_at DESC, r.id DESC
-      LIMIT 1`, canonicalScoreVersion, goCanonicalCollectionVersion, strings.ToLower(username), canonicalScoreVersion, goCanonicalCollectionVersion).Scan(&snapshot, &snapshotHash)
+      LIMIT 1`, append(append(publicScoreVersionArgs(), goCanonicalCollectionVersion, strings.ToLower(username)), append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)...).Scan(&snapshot, &snapshotHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -271,10 +271,10 @@ func (s *TursoStore) GetRoastRank(ctx context.Context, score float64) (*RoastRan
 	err := s.db.QueryRowContext(ctx, `SELECT
       COALESCE(SUM(CASE WHEN final_score > ? THEN 1 ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN final_score < ? THEN 1 ELSE 0 END), 0),
-      COUNT(*) FROM scores WHERE hidden = 0 AND score_version = ?
+      COUNT(*) FROM scores WHERE hidden = 0 AND `+publicScoreVersionClause("score_version")+`
         AND score_source_collection_version = ?
         AND length(score_source_snapshot_hash) = 64
-        AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'`, score, score, canonicalScoreVersion, goCanonicalCollectionVersion).Scan(&above, &below, &total)
+        AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'`, append([]any{score, score}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)...).Scan(&above, &below, &total)
 	if err != nil {
 		return nil, fmt.Errorf("read roast rank: %w", err)
 	}

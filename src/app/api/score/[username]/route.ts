@@ -18,7 +18,7 @@ import {
   rateLimitHeaders,
 } from "@/lib/redis";
 import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
-import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { isPublicScoreVersion } from "@/lib/release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
@@ -127,7 +127,7 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
 
 function isCanonicalDetail(detail: AccountDetail): boolean {
   return (
-    detail.score_version === SCORE_CACHE_VERSION &&
+    isPublicScoreVersion(detail.score_version) &&
     detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
     typeof detail.score_source_snapshot_hash === "string" &&
     /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)

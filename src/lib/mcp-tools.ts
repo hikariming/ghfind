@@ -7,6 +7,7 @@ import type { LeaderboardWindow } from "@/lib/db";
 import { coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { isPublicScoreVersion } from "@/lib/release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -38,7 +39,7 @@ async function quickScan(handle: string): Promise<ScanResult> {
 
 function isCanonicalDetail(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>): boolean {
   return (
-    detail.score_version === SCORE_CACHE_VERSION &&
+    isPublicScoreVersion(detail.score_version) &&
     detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
     typeof detail.score_source_snapshot_hash === "string" &&
     /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)

@@ -152,7 +152,7 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 	if err != nil {
 		return nil, fmt.Errorf("read stored score: %w", err)
 	}
-	if detail == nil || detail.ScoreVersion != canonicalScoreVersion || detail.CollectionVersion != goCanonicalCollectionVersion || !canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+	if detail == nil || !isPublicScoreVersion(detail.ScoreVersion) || detail.CollectionVersion != goCanonicalCollectionVersion || !canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
 		fallback, fallbackErr := read(`SELECT username, display_name, avatar_url, profile_url, final_score, tier,
 			tags, roast_line, sub_scores, score_version, collection_version,
 			NULL, roast, roast_en, roast_version, roast_en_version,
@@ -163,7 +163,7 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 			detail = fallback
 		}
 	}
-	if detail == nil || (detail.ScoreVersion != canonicalScoreVersion && !detail.LegacyFallback) {
+	if detail == nil || (!isPublicScoreVersion(detail.ScoreVersion) && !detail.LegacyFallback) {
 		return nil, nil
 	}
 	return detail, nil
@@ -173,7 +173,7 @@ func (s *TursoStore) GetScorePercentile(ctx context.Context, score float64) (*Sc
 	bucket := int(math.Floor(score*10 + 0.5))
 	var total, below int
 	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) < ? THEN 1 ELSE 0 END), 0)
-		FROM scores WHERE score_version = ?`, bucket, canonicalScoreVersion).Scan(&total, &below)
+		FROM scores WHERE `+publicScoreVersionClause("score_version"), append([]any{bucket}, publicScoreVersionArgs()...)...).Scan(&total, &below)
 	if err != nil {
 		return nil, fmt.Errorf("score percentile: %w", err)
 	}
@@ -186,7 +186,7 @@ func (s *TursoStore) GetScorePercentile(ctx context.Context, score float64) (*Sc
 		result.Beat = &beat
 		var visibleTotal, above int
 		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) > ? THEN 1 ELSE 0 END), 0)
-			FROM scores WHERE score_version = ? AND hidden = 0`, bucket, canonicalScoreVersion).Scan(&visibleTotal, &above); err != nil {
+			FROM scores WHERE `+publicScoreVersionClause("score_version")+` AND hidden = 0`, append([]any{bucket}, publicScoreVersionArgs()...)...).Scan(&visibleTotal, &above); err != nil {
 			return nil, fmt.Errorf("score rank: %w", err)
 		}
 		if visibleTotal > 1 {
@@ -330,7 +330,7 @@ func (s *APIServer) score(w http.ResponseWriter, request *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "scan_failed", "message": "score persistence is temporarily unavailable", "hint": "Retry later; no incomplete score was published."}, map[string]string{"Cache-Control": "no-store", "Retry-After": "5"})
 		return
 	}
-	if detail != nil && detail.ScoreVersion == canonicalScoreVersion && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+	if detail != nil && isPublicScoreVersion(detail.ScoreVersion) && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
 		writeJSON(w, http.StatusOK, s.storedScorePayload(request.Context(), *detail, "indexed", true), map[string]string{"Cache-Control": scoreRatedCache})
 		return
 	}

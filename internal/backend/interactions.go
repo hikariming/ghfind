@@ -319,8 +319,8 @@ func (s *TursoStore) RemoveFollow(ctx context.Context, githubID int64, target st
 
 func (s *TursoStore) ListFollowedAccounts(ctx context.Context, githubID int64, now time.Time) ([]FollowedAccount, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT f.target_username, f.created_at, s.display_name, s.avatar_url, s.final_score, s.tier, s.prev_score, s.prev_scanned_at
-		FROM follows f LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0 AND s.score_version = ?
-		WHERE f.follower_github_id = ? ORDER BY f.created_at DESC LIMIT ?`, canonicalScoreVersion, githubID, maxFollows)
+		FROM follows f LEFT JOIN scores s ON s.username = f.target_username AND s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+`
+		WHERE f.follower_github_id = ? ORDER BY f.created_at DESC LIMIT ?`, append(publicScoreVersionArgs(), githubID, maxFollows)...)
 	if err != nil {
 		return nil, fmt.Errorf("list follows: %w", err)
 	}

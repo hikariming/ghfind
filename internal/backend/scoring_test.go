@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,6 +41,77 @@ func TestScoreMatchesCanonicalNodeFixtures(t *testing.T) {
 				t.Fatalf("invalid v10 risk output: %#v", got.RiskAssessment)
 			}
 		})
+	}
+}
+
+func ptrFloat(value float64) *float64 { return &value }
+
+func TestOwnPRCommunityCredit(t *testing.T) {
+	m := neutralRiskMetrics()
+	m.MergedPRCount = 200
+	m.OwnPRCommunity = ptrFloat(1)
+	if got := ownPRCommunityCredit(m); got != 0 {
+		t.Fatalf("missing external_merged_pr_count must keep v10: got %v", got)
+	}
+
+	zero := 0.0
+	m.ExternalMergedPRCount = &zero
+	m.OwnPRCommunity = ptrFloat(0)
+	if got := ownPRCommunityCredit(m); got != 0 {
+		t.Fatalf("A=0 must add nothing: got %v", got)
+	}
+
+	m.OwnPRCommunity = ptrFloat(1)
+	if got := ownPRCommunityCredit(m); got != 6 {
+		t.Fatalf("saturated own PRs with A=1: got %v want 6", got)
+	}
+
+	lift := m
+	lift.MergedPRCount = 50
+	lift.TotalPRCount = 55
+	without := lift
+	without.OwnPRCommunity = nil
+	v10 := Score(without)
+	v13 := Score(lift)
+	if v13.SubScores.ContributionQuality <= v10.SubScores.ContributionQuality {
+		t.Fatalf("community credit must raise contribution quality: v10=%v v13=%v", v10.SubScores.ContributionQuality, v13.SubScores.ContributionQuality)
+	}
+	if v13.FinalScore <= v10.FinalScore || v13.FinalScore-v10.FinalScore > 6 {
+		t.Fatalf("v13 must not decrease or spike: v10=%v v13=%v", v10.FinalScore, v13.FinalScore)
+	}
+	capped := Score(m)
+	m.OwnPRCommunity = nil
+	if capped.FinalScore < Score(m).FinalScore {
+		t.Fatalf("capped community credit must not decrease: v10=%v v13=%v", Score(m).FinalScore, capped.FinalScore)
+	}
+	m.OwnPRCommunity = ptrFloat(1)
+
+	m.MergedPRCount = 400
+	m.OwnPRCommunity = ptrFloat(0.5)
+	if got := ownPRCommunityCredit(m); got != 3 {
+		t.Fatalf("A=0.5 saturates at 3: got %v", got)
+	}
+
+	m.MergedPRCount = 50
+	external := 40.0
+	m.ExternalMergedPRCount = &external
+	m.OwnPRCommunity = ptrFloat(1)
+	want := LogRatio(10, 200) * 6
+	if got := ownPRCommunityCredit(m); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("partial own volume: got %v want %v", got, want)
+	}
+}
+
+func TestPublicScoreReadOrder(t *testing.T) {
+	if publicScoreVersionClause("score_version") != "score_version IN (?, ?)" {
+		t.Fatalf("clause=%q", publicScoreVersionClause("score_version"))
+	}
+	args := publicScoreVersionArgs()
+	if len(args) != 2 || args[0] != "v13" || args[1] != "v10" {
+		t.Fatalf("args=%v", args)
+	}
+	if !isPublicScoreVersion("v13") || !isPublicScoreVersion("v10") || isPublicScoreVersion("v12") {
+		t.Fatal("v13 and leftover v10 are public; retired v12 is not")
 	}
 }
 

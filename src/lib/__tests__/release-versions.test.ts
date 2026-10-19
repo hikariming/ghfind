@@ -12,28 +12,29 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
-  it("rolls score back to v10 while keeping roast v12 and collection v5", () => {
+  it("advances score to v13 while keeping roast v12 and collection v5", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
-      score: "v12",
-      roast: "v12",
-      collection: "v5",
-    });
-    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
       score: "v10",
       roast: "v12",
       collection: "v5",
     });
+    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
+      score: "v13",
+      roast: "v12",
+      collection: "v5",
+    });
+    expect(RELEASE_VERSION_MANIFEST.skippedScoreVersions).toEqual(["v11", "v12"]);
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
   });
 
-  it("serves v10 publicly and keeps v12 only as the emergency read fallback", () => {
+  it("prefers v13 publicly, keeps v10 readable, and uses v10 as the emergency fallback", () => {
     expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual(
-      { score: "v12", roast: "v12", collection: "v5" },
+      { score: "v10", roast: "v12", collection: "v5" },
     );
     expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v10", roast: "v12" },
+      { score: "v13", roast: "v12" },
     ]);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v10"]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v13", "v10"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -64,6 +65,7 @@ describe("release version contract", () => {
     manifest.targetRelease = { ...manifest.targetRelease, collection: "v6" };
     manifest.legacyReadFallback = { ...manifest.previousRelease };
     manifest.compatibility.collectionReadOrder = ["v6", "v5"];
+    manifest.compatibility.publicScoreReadOrder = [manifest.targetRelease.score];
 
     expect(
       releaseVersionErrors(manifest, { ...manifest.targetRelease }),
@@ -84,7 +86,7 @@ describe("release version contract", () => {
     const stalePublicRead = manifestCopy();
     stalePublicRead.compatibility.publicScoreReadOrder = ["v9", "v8"];
     expect(releaseVersionErrors(stalePublicRead)).toContain(
-      "public score reads must only serve the canonical target release",
+      "public score reads must prefer the canonical target and keep the previous score only after a score-version advance",
     );
 
     const changedFallback = manifestCopy();
@@ -96,7 +98,21 @@ describe("release version contract", () => {
 
   it("allows a score rollback to a previously shipped version", () => {
     const manifest = manifestCopy();
+    manifest.previousRelease = { score: "v13", roast: "v12", collection: "v5" };
+    manifest.targetRelease = { score: "v10", roast: "v12", collection: "v5" };
+    manifest.skippedScoreVersions = [];
+    manifest.legacyReadFallback = { ...manifest.previousRelease };
+    manifest.compatibility.publicScoreReadOrder = ["v10"];
+    manifest.compatibility.roastReplay = [{ score: "v10", roast: "v12" }];
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
+  });
+
+  it("rejects a score jump that does not list the retired labels it skips", () => {
+    const manifest = manifestCopy();
+    manifest.skippedScoreVersions = ["v11"];
+    expect(releaseVersionErrors(manifest, manifest.targetRelease)).toContain(
+      "score target must stay put, advance by exactly one formal version, skip only retired labels, or roll back to a previously shipped version",
+    );
   });
 
   it("detects multi-component changes for CI change control", () => {

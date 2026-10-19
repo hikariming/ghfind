@@ -346,6 +346,26 @@ func highImpactCorePRBonus(m RawMetrics) float64 {
 	return min(2, starSignal*0.8+min(core/5, 1)*1.2)
 }
 
+const (
+	ownPRVolumeFullAt   = 200.0
+	ownPRCommunityBonus = 6.0
+)
+
+// ownPRCommunityCredit is the v13 extra 6·A·logRatio(own, 200). Snapshots
+// without ExternalMergedPRCount keep the v10 single-pool score.
+func ownPRCommunityCredit(m RawMetrics) float64 {
+	if m.ExternalMergedPRCount == nil {
+		return 0
+	}
+	community := max(0, min(valueOrZero(m.OwnPRCommunity), 1))
+	if community == 0 {
+		return 0
+	}
+	external := max(0, min(*m.ExternalMergedPRCount, m.MergedPRCount))
+	own := max(0, m.MergedPRCount-external)
+	return LogRatio(own, ownPRVolumeFullAt) * ownPRCommunityBonus * community
+}
+
 func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
 	if m.MergedPRCount < 80 || impactPrestigeSignal(m) >= LogRatio(10000, 100000) || m.MaxStars >= 1000 {
 		return 0, false
@@ -415,7 +435,7 @@ func Score(m RawMetrics) Scoring {
 		acceptance = m.MergedPRCount * 1.2
 	}
 	acceptance = min(acceptance, 6)
-	contributionRaw := prVolume + acceptance + LogRatio(m.IssuesCreated, 100)*5 + highImpactCorePRBonus(m)
+	contributionRaw := prVolume + ownPRCommunityCredit(m) + acceptance + LogRatio(m.IssuesCreated, 100)*5 + highImpactCorePRBonus(m)
 	contributionCap := 27.0
 	if cap, applies := contributionQualityCap(m); applies {
 		contributionCap = min(contributionCap, cap)

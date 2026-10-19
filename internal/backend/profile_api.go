@@ -334,7 +334,7 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 		return nil, fmt.Errorf("read profile detail: %w", err)
 	}
 
-	current := version.String == canonicalScoreVersion
+	current := isPublicScoreVersion(version.String)
 	canonical := current && collection.String == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(hash.String)
 	legacy := version.String == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
 	if !current && !legacy {
@@ -435,7 +435,7 @@ func (s *TursoStore) GetProfileRank(ctx context.Context, score float64) (*Profil
 	err := s.db.QueryRowContext(ctx, `SELECT
 		COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) > ? THEN 1 ELSE 0 END), 0),
 		COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) < ? THEN 1 ELSE 0 END), 0),
-		COUNT(*) FROM scores WHERE hidden = 0 AND score_version = ?`, bucket, bucket, canonicalScoreVersion).Scan(&above, &below, &total)
+		COUNT(*) FROM scores WHERE hidden = 0 AND `+publicScoreVersionClause("score_version"), append([]any{bucket, bucket}, publicScoreVersionArgs()...)...).Scan(&above, &below, &total)
 	if err != nil {
 		return nil, fmt.Errorf("read profile rank: %w", err)
 	}
@@ -465,12 +465,12 @@ func (s *TursoStore) GetSimilarProfiles(ctx context.Context, username string, fi
 	rows, err := s.db.QueryContext(ctx, `SELECT s.username, s.display_name, s.avatar_url, s.profile_url, s.final_score, s.tier,
 		s.tags, s.sub_scores, MAX(COALESCE(stats.lookup_count, 0), 1) AS lookup_count
 		FROM scores AS s LEFT JOIN account_stats AS stats ON stats.username = s.username
-		WHERE s.hidden = 0 AND s.score_version = ?
+		WHERE s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+`
 			AND s.score_source_collection_version = ?
 			AND length(s.score_source_snapshot_hash) = 64
 			AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
 			AND s.username != ? AND s.final_score BETWEEN ? AND ?
-		ORDER BY s.final_score DESC LIMIT 300`, canonicalScoreVersion, goCanonicalCollectionVersion, strings.ToLower(username), finalScore-10, finalScore+10)
+		ORDER BY s.final_score DESC LIMIT 300`, append(publicScoreVersionArgs(), goCanonicalCollectionVersion, strings.ToLower(username), finalScore-10, finalScore+10)...)
 	if err != nil {
 		return nil, fmt.Errorf("read similar profiles: %w", err)
 	}
@@ -527,12 +527,12 @@ func (s *TursoStore) GetCommonProfileProjects(ctx context.Context, username stri
 			JOIN repos AS r ON r.repo_key = mine.repo_key
 			JOIN repo_developers AS members ON members.repo_key = mine.repo_key
 			JOIN scores AS s ON s.username = members.username
-			WHERE mine.username = ? AND s.hidden = 0 AND s.score_version = ?
+			WHERE mine.username = ? AND s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+`
 				AND s.score_source_collection_version = ?
 				AND length(s.score_source_snapshot_hash) = 64
 				AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
 			GROUP BY r.repo_key ORDER BY AVG(s.final_score) DESC, r.repo_key ASC LIMIT ?`,
-			strings.ToLower(candidate), strings.ToLower(username), canonicalScoreVersion, goCanonicalCollectionVersion, limit)
+			append([]any{strings.ToLower(candidate), strings.ToLower(username)}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion, limit)...)...)
 		if err != nil {
 			return nil, fmt.Errorf("read profile common projects: %w", err)
 		}

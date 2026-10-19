@@ -136,7 +136,7 @@ func projectOrder(left, right ProjectListItem, mode string) bool {
 func (s *TursoStore) GetProjects(ctx context.Context, input ProjectListOptions) ([]ProjectListItem, error) {
 	options := projectOptions(input)
 	where := ""
-	args := []any{time.Now().UnixMilli() - int64(7*24*time.Hour/time.Millisecond), canonicalScoreVersion, goCanonicalCollectionVersion}
+	args := append([]any{time.Now().UnixMilli() - int64(7*24*time.Hour/time.Millisecond)}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)
 	if options.Language != "" {
 		where = "WHERE lower(r.language) = lower(?)"
 		args = append(args, options.Language)
@@ -173,7 +173,7 @@ func (s *TursoStore) GetProjects(ctx context.Context, input ProjectListOptions) 
 		COALESCE(SUM(recent.recent_lookup_count), 0) AS recent_lookup_count
 	FROM repos AS r JOIN edges ON edges.repo_key = r.repo_key
 		JOIN scores AS s ON s.username = edges.username AND s.hidden = 0
-		AND s.score_version = ? AND s.score_source_collection_version = ?
+		AND `+publicScoreVersionClause("s.score_version")+` AND s.score_source_collection_version = ?
 		AND length(s.score_source_snapshot_hash) = 64 AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
 		LEFT JOIN recent ON recent.username = edges.username
 	`+where+` GROUP BY r.repo_key`, args...)
@@ -225,9 +225,9 @@ func (s *TursoStore) attachProjectTopContributors(ctx context.Context, items []P
 		rows, err := s.db.QueryContext(ctx, `SELECT s.username, s.display_name, s.avatar_url, s.final_score, s.tier
 			FROM (SELECT DISTINCT username FROM repo_developers WHERE repo_key = ?) AS edges
 			JOIN scores AS s ON s.username = edges.username
-			WHERE s.hidden = 0 AND s.score_version = ? AND s.score_source_collection_version = ?
+			WHERE s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+` AND s.score_source_collection_version = ?
 				AND length(s.score_source_snapshot_hash) = 64 AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
-				AND s.final_score >= ? ORDER BY s.final_score DESC, s.username ASC LIMIT 3`, items[index].Repo.RepoKey, canonicalScoreVersion, goCanonicalCollectionVersion, leaderboardMinScore)
+				AND s.final_score >= ? ORDER BY s.final_score DESC, s.username ASC LIMIT 3`, append([]any{items[index].Repo.RepoKey}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion, leaderboardMinScore)...)...)
 		if err != nil {
 			return err
 		}
@@ -266,8 +266,8 @@ func (s *TursoStore) GetProjectOverview(ctx context.Context, key string) (*Proje
 	var owner ProjectOwner
 	var display, avatar sql.NullString
 	err := s.db.QueryRowContext(ctx, `SELECT username, display_name, avatar_url, final_score, tier FROM scores
-		WHERE username = ? AND hidden = 0 AND score_version = ? AND score_source_collection_version = ?
-		AND length(score_source_snapshot_hash) = 64 AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*' LIMIT 1`, repo.OwnerLogin, canonicalScoreVersion, goCanonicalCollectionVersion).Scan(&owner.Username, &display, &avatar, &owner.FinalScore, &owner.Tier)
+		WHERE username = ? AND hidden = 0 AND `+publicScoreVersionClause("score_version")+` AND score_source_collection_version = ?
+		AND length(score_source_snapshot_hash) = 64 AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*' LIMIT 1`, append([]any{repo.OwnerLogin}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)...).Scan(&owner.Username, &display, &avatar, &owner.FinalScore, &owner.Tier)
 	if err == nil {
 		owner.DisplayName, owner.AvatarURL = nullableProfileString(display), nullableProfileString(avatar)
 		result.Owner = &owner
@@ -275,8 +275,8 @@ func (s *TursoStore) GetProjectOverview(ctx context.Context, key string) (*Proje
 		return nil, err
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT s.tier, s.final_score FROM repo_developers AS rd JOIN scores AS s ON s.username = rd.username
-		WHERE rd.repo_key = ? AND s.hidden = 0 AND s.score_version = ? AND s.score_source_collection_version = ?
-		AND length(s.score_source_snapshot_hash) = 64 AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'`, key, canonicalScoreVersion, goCanonicalCollectionVersion)
+		WHERE rd.repo_key = ? AND s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+` AND s.score_source_collection_version = ?
+		AND length(s.score_source_snapshot_hash) = 64 AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'`, append([]any{key}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)...)
 	if err != nil {
 		return nil, err
 	}

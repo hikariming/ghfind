@@ -170,6 +170,22 @@ def high_impact_core_pr_bonus(m: Mapping[str, Any]) -> float:
     return min(2, star_signal * 0.8 + core_signal * 1.2)
 
 
+OWN_PR_VOLUME_FULL_AT = 200
+OWN_PR_COMMUNITY_BONUS = 6
+
+
+def own_pr_community_credit(m: Mapping[str, Any]) -> float:
+    """v13 extra: 6·A·logRatio(own, 200). Missing external count keeps v10."""
+    if m.get("external_merged_pr_count") is None:
+        return 0.0
+    community = max(0.0, min(_nz(m.get("own_pr_community"), 0), 1.0))
+    if community == 0:
+        return 0.0
+    external = max(0.0, min(m["external_merged_pr_count"], m["merged_pr_count"]))
+    own = max(0.0, m["merged_pr_count"] - external)
+    return log_ratio(own, OWN_PR_VOLUME_FULL_AT) * OWN_PR_COMMUNITY_BONUS * community
+
+
 def impact_prestige_signal(m: Mapping[str, Any]) -> float:
     return max(
         0.0,
@@ -290,6 +306,7 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     issue_pts = log_ratio(m["issues_created"], 100) * 5
     contribution_quality_raw = (
         pr_volume
+        + own_pr_community_credit(m)
         + acceptance
         + issue_pts
         + high_impact_core_pr_bonus(m)

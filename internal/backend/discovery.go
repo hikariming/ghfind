@@ -105,8 +105,8 @@ func (s *TursoStore) searchUsers(ctx context.Context, query string) ([]UserSugge
 	like := escapeLike(query) + "%"
 	rows, err := s.db.QueryContext(ctx, `SELECT username, display_name, avatar_url, final_score, tier
 		FROM scores
-		WHERE hidden = 0 AND score_version = ? AND username LIKE ? ESCAPE '\\'
-		ORDER BY final_score DESC LIMIT 6`, canonicalScoreVersion, like)
+		WHERE hidden = 0 AND `+publicScoreVersionClause("score_version")+` AND username LIKE ? ESCAPE '\\'
+		ORDER BY final_score DESC LIMIT 6`, append(publicScoreVersionArgs(), like)...)
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}
@@ -174,8 +174,8 @@ func (s *TursoStore) facetCategories(ctx context.Context, facetType string) ([]f
 	rows, err := s.db.QueryContext(ctx, `SELECT f.facet_value, COUNT(*) AS count
 		FROM developer_facets AS f
 		JOIN scores AS s ON s.username = f.username
-		WHERE f.facet_type = ? AND s.hidden = 0 AND s.score_version = ? AND s.final_score >= 60
-		GROUP BY f.facet_value ORDER BY count DESC, f.facet_value ASC LIMIT 100`, facetType, canonicalScoreVersion)
+		WHERE f.facet_type = ? AND s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+` AND s.final_score >= 60
+		GROUP BY f.facet_value ORDER BY count DESC, f.facet_value ASC LIMIT 100`, append([]any{facetType}, publicScoreVersionArgs()...)...)
 	if err != nil {
 		return nil, fmt.Errorf("list %s facets: %w", facetType, err)
 	}
