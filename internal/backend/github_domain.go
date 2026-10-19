@@ -751,7 +751,7 @@ func hasStrongLongTermOrgContribution(repo ContribRepoAgg) bool {
 // non-documentation repository owned by a public organization the developer
 // belongs to may be credited as their original work, and it needs long-term
 // contribution evidence. Pinned/release/maintainer proofs strengthen it.
-func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos []string, releaseOrTagAuthorHit, maintainerFileHit bool) *OrgRepoAttribution {
+func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos []string, releaseOrTagAuthorHit, maintainerFileHit bool, creatorLogins ...string) *OrgRepoAttribution {
 	member := false
 	for _, organization := range organizations {
 		if strings.EqualFold(organization, repo.OwnerLogin) {
@@ -759,10 +759,15 @@ func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos [
 			break
 		}
 	}
-	if !member || repo.IsPrivate || repo.IsFork || isDocLikeRepo(repo.Repo) || !hasStrongLongTermOrgContribution(repo) {
+	firstCommitMatch := len(creatorLogins) == 2 && strings.TrimSpace(creatorLogins[0]) != "" && strings.EqualFold(strings.TrimSpace(creatorLogins[0]), strings.TrimSpace(creatorLogins[1]))
+	if (!member && !firstCommitMatch) || repo.IsPrivate || repo.IsFork || isDocLikeRepo(repo.Repo) || !hasStrongLongTermOrgContribution(repo) {
 		return nil
 	}
-	evidence := []string{"org member of " + repo.OwnerLogin, formatNumber(repo.Commits) + " commits + " + formatNumber(repo.PRs) + " PRs across " + formatNumber(repo.ActiveYears) + " years"}
+	identity := "org member of " + repo.OwnerLogin
+	if !member {
+		identity = "first commit author is " + creatorLogins[1]
+	}
+	evidence := []string{identity, formatNumber(repo.Commits) + " commits + " + formatNumber(repo.PRs) + " PRs across " + formatNumber(repo.ActiveYears) + " years"}
 	score := 5.0
 	for _, pinned := range pinnedRepos {
 		if strings.EqualFold(pinned, repo.Repo) {

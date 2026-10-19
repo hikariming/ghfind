@@ -4,6 +4,8 @@
 `score(metrics)` 没变；改变的是采集时派生的 impact、外部 PR 分类、社区事实，旧 metrics
 无法通过纯重算恢复缺失的仓和证据，因此必须新采集标签。社区事实缓存 v1 → v2。
 Python 本地采集同步公式、社区过滤和归因证据，不伪造服务端 provenance。
+Go 补齐 TS/Python 已有的 first-commit 采集路径：相同默认分支 history cursor、
+GitHub author/committer/noreply 解析优先级与原有长期贡献门槛，不新增身份判据。
 
 ## 行为
 

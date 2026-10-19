@@ -447,7 +447,7 @@ func (c *GitHubClient) hasMaintainerFileHit(ctx context.Context, owner, repo, lo
 func (c *GitHubClient) collectAttributedOriginalRepos(ctx context.Context, contributions []ContribRepoAgg, organizations, pinnedRepos []string, loginLower string, profileURL *string) []TopRepo {
 	candidates := []ContribRepoAgg{}
 	for _, contribution := range contributions {
-		if ComputeOrgRepoAttribution(contribution, organizations, pinnedRepos, false, false) != nil {
+		if !contribution.IsPrivate && !contribution.IsFork && !strings.EqualFold(contribution.OwnerLogin, loginLower) && !isDocLikeRepo(contribution.Repo) && hasStrongLongTermOrgContribution(contribution) {
 			candidates = append(candidates, contribution)
 		}
 	}
@@ -467,7 +467,20 @@ func (c *GitHubClient) collectAttributedOriginalRepos(ctx context.Context, contr
 		if err != nil || detail == nil || detail.Private || detail.Fork || isDocLikeRepo(candidate.Repo) || hasDocLikeTopic(*detail) {
 			continue
 		}
-		attribution := ComputeOrgRepoAttribution(candidate, organizations, pinnedRepos, c.hasReleaseOrTagAuthor(ctx, owner, name, loginLower), c.hasMaintainerFileHit(ctx, owner, name, loginLower, profileURL))
+		member := false
+		for _, org := range organizations {
+			if strings.EqualFold(org, owner) {
+				member = true
+			}
+		}
+		firstLogin := ""
+		if !member {
+			firstLogin = c.fetchDefaultBranchFirstCommit(ctx, owner, name)
+			if !strings.EqualFold(firstLogin, loginLower) {
+				continue
+			}
+		}
+		attribution := ComputeOrgRepoAttribution(candidate, organizations, pinnedRepos, c.hasReleaseOrTagAuthor(ctx, owner, name, loginLower), c.hasMaintainerFileHit(ctx, owner, name, loginLower, profileURL), loginLower, firstLogin)
 		if attribution != nil {
 			result = append(result, topRepoFromGitHub(*detail, owner, true, attribution.Evidence))
 		}

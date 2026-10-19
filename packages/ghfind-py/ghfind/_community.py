@@ -161,7 +161,7 @@ def collect_own_repo_communities(repos, login, organizations, now):
             }''', dict(o=owner, n=name, m=query('is:pr is:merged sort:created-desc'), i=query('is:issue sort:created-desc'),
                        c=query('is:pr is:closed is:unmerged'), p=query('is:pr')))
             contributors = [dict(login=c['login'], type=c.get('type', 'User'), contributions=c.get('contributions', 0))
-                            for c in (_rest_get_opt('/repos/' + r['repo'] + '/contributors?per_page=100') or []) if c.get('login')]
+                            for c in (_rest_get_opt('repos/' + r['repo'] + '/contributors?per_page=100') or []) if c.get('login')]
             merged = [dict(author=(p.get('author') or {}).get('login'), author_type=(p.get('author') or {}).get('__typename'),
                            created_at=p['createdAt'], merged_at=p['mergedAt'], title=p.get('title'),
                            churn=p.get('additions', 0) + p.get('deletions', 0), files=[f['path'] for f in (p.get('files') or {}).get('nodes', [])])
