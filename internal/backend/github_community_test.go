@@ -119,7 +119,7 @@ func TestCommunityStarInflationAndOwnPRShare(t *testing.T) {
 	attributed := communityRepo("big-org/engine", "big-org", 70000, 40, &full)
 	attributed.AttributedOriginal = true
 	share := OwnPRCommunityShare([]ContribRepoAgg{communityRepo("me/tool", "me", 500, 150, &high), communityRepo("me/side", "me", 300, 50, nil), attributed}, "me", 200)
-	if share != 0.6 {
+	if share != 0.8 {
 		t.Fatalf("own PR community share = %v", share)
 	}
 }
@@ -195,7 +195,7 @@ func TestCollectOwnRepoCommunitiesCachesAndRespectsBudget(t *testing.T) {
 	if len(facts) != 1 || !ok || got.WeightedContributors != 1 || got.OutsideAcceptance != 0.8 || got.Forks != 40 || got.OwnerResponseShare != 1 {
 		t.Fatalf("facts = %#v", facts)
 	}
-	if cache.ttls["community:counts:v1:me"] != 24*time.Hour || cache.ttls["community:facts:v1:me:me/tool"] != 7*24*time.Hour || cache.ttls["community:profile:v1:bob"] != 30*24*time.Hour {
+	if cache.ttls["community:counts:v2:me"] != 24*time.Hour || cache.ttls["community:facts:v2:me:me/tool"] != 7*24*time.Hour || cache.ttls["community:profile:v2:bob"] != 30*24*time.Hour {
 		t.Fatalf("cache TTLs = %#v", cache.ttls)
 	}
 	before := calls

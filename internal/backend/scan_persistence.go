@@ -19,7 +19,7 @@ const (
 	// src/lib/cache-version.ts and release-versions.json.
 	goCanonicalScoreVersion      = "v13"
 	goPreviousPublicScoreVersion = "v10"
-	goCanonicalCollectionVersion = "v4"
+	goCanonicalCollectionVersion = "v5"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
 

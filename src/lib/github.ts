@@ -2274,9 +2274,14 @@ export function computeFloodSignals(prs: AnyPr[], loginLower = ""): FloodSignals
  * credited through the contribution aggregates and Original Project Quality,
  * not as "ecosystem" PRs.
  */
-export function isEcosystemImpactPr(pr: RecentPr, loginLower: string): boolean {
+export function isEcosystemImpactPr(pr: RecentPr, loginLower: string, repos?: ContribRepoAgg[]): boolean {
   const owner = repoOwner(pr.repo);
   if (!owner || owner === loginLower || pr.trivial) return false;
+  const repo = repos?.find((r) => r.repo.toLowerCase() === pr.repo?.toLowerCase());
+  if (repo && isOwnImpactRepo(repo, loginLower)) {
+    return hasAttributedCreatorStarCredit(repo, loginLower) && passesImpactRepoGates(repo, loginLower) &&
+      (repo.stars >= DOC_RESOURCE_IMPACT_MIN_STARS || !isDocOrResourceRepo(repo));
+  }
   return pr.repo_stars >= 200;
 }
 
@@ -2378,8 +2383,9 @@ export function computeImpactQualitySignals(
   impactPrCount: number,
   loginLower: string,
   workflowLandedImpactPrCount = 0,
+  repos?: ContribRepoAgg[],
 ): ImpactQualitySignals {
-  const verifiedImpactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower));
+  const verifiedImpactPrs = recentPrs.filter((p) => isEcosystemImpactPr(p, loginLower, repos));
   const docLikeCount = verifiedImpactPrs.filter(isDocLikeImpactPr).length;
   // Bot-verified workflow landings are valid impact facts, but lack the
   // file-level sample needed to classify them as core/doc-like. Keep them out
@@ -2429,6 +2435,9 @@ export interface ContribRepoAgg {
   engagement?: number;
   /** An org repo credited as the user's original project: it counts as own. */
   attributed_original?: boolean;
+  attribution_evidence?: string[];
+  forks?: number;
+  star_inflation_suspect?: boolean;
   /** Own-project community facts (own-account repos and attributed originals
    * with outside contributors). Absent = not measured. */
   community_facts?: OwnRepoCommunityFacts;
@@ -2605,7 +2614,7 @@ function passesImpactRepoGates(r: ContribRepoAgg, loginLower: string): boolean {
   // Own repos need 1000★, unless a measured outside community vouches for
   // them: their credit then comes from that community, not from stars.
   const threshold =
-    isOwnImpactRepo(r, loginLower) && !((r.community ?? 0) > 0) ? 1000 : 200;
+    isOwnImpactRepo(r, loginLower) && !((r.community ?? 0) > 0) && !hasAttributedCreatorStarCredit(r, loginLower) ? 1000 : 200;
   if (r.stars < threshold) return false;
   return r.commits >= defaultBranchCommitMin(r.repo) || r.prs >= 1;
 }
@@ -2631,6 +2640,16 @@ const IMPACT_TENURE_FULL_MONTHS = 6;
 /** The user's own repos, including org repos credited as their originals. */
 function isOwnImpactRepo(r: Pick<ContribRepoAgg, "owner_login" | "attributed_original">, loginLower: string): boolean {
   return r.attributed_original === true || r.owner_login.toLowerCase() === loginLower;
+}
+
+/** A proven attributed creator needs outside adoption; org membership alone is insufficient.
+ * Keep the historical external star formula only behind these gates. */
+export function hasAttributedCreatorStarCredit(r: ContribRepoAgg, loginLower: string): boolean {
+  return r.attributed_original === true && !r.star_inflation_suspect &&
+    (r.attribution_evidence ?? []).some((e) =>
+      e === "release/tag author" || e.toLowerCase() === `first commit author is ${loginLower}`) &&
+    ((r.community_facts?.outside_merged_prs ?? 0) >= 1 ||
+      Math.max(r.forks ?? 0, r.community_facts?.forks ?? 0) >= 10);
 }
 
 /**
@@ -2746,6 +2765,7 @@ export interface OwnRepoCommunityFacts {
   owner_response_share: number;
   outside_acceptance: number;
   forks: number;
+  outside_merged_prs?: number;
   days_since_outside_merge: number | null;
   /** 1 for repos on the user's account; for attributed org originals, the
    * user's commits relative to the repo's top contributor. */
@@ -2753,7 +2773,7 @@ export interface OwnRepoCommunityFacts {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const COMMUNITY_ESTABLISHED_DAYS = 180;
+
 const COMMUNITY_MIN_FOLLOWERS = 10;
 const COMMUNITY_MIN_OUTSIDE_MERGED_PRS = 3;
 const COMMUNITY_MUTUAL_WEIGHT = 0.5;
@@ -2780,7 +2800,7 @@ function isCommunityBot(login: string | null, type: string | null): boolean {
   return !login || (type !== null && type !== "User") || BOT_LOGIN.test(login);
 }
 
-/** An established outside account: at least 180 days old when it acted, and
+/** An established outside account: at least 90 days old when it acted, and
  * an independent footprint (followers, or merged PRs beyond those seen here). */
 function isEstablishedAccount(
   profile: CommunityProfile | undefined,
@@ -2791,7 +2811,7 @@ function isEstablishedAccount(
   const created = Date.parse(profile.created_at);
   const acted = Date.parse(at);
   if (!Number.isFinite(created) || !Number.isFinite(acted)) return false;
-  if (acted - created < COMMUNITY_ESTABLISHED_DAYS * DAY_MS) return false;
+  if (acted - created < 90 * DAY_MS) return false;
   return (
     profile.followers >= COMMUNITY_MIN_FOLLOWERS ||
     profile.merged_prs - seenHere >= COMMUNITY_MIN_OUTSIDE_MERGED_PRS
@@ -2846,14 +2866,26 @@ export function computeOwnRepoCommunityFacts(
     kept.push(pr);
   }
   const decided = kept.length + trivial;
-  const substantiveShare = decided > 0 ? kept.length / decided : 0.5;
+  const substantiveShare = decided > 0 ? Math.max(0.5, kept.length / decided) : 0.5;
 
   // Contributors: GitHub's contributor list (commits), filtered the same way.
   let weighted = 0;
   let sustained = 0;
   let topCommits = 0;
   let userCommits = 0;
-  for (const c of raw.contributors) {
+  // A merged author may be missing from GitHub's delayed/squash contributor stats.
+  // max, not sum: a landed PR can already be counted as a commit.
+  const contributors = new Map(raw.contributors.map((c) => [c.login.toLowerCase(), { ...c }]));
+  for (const pr of raw.merged) {
+    if (isCommunityBot(pr.author, pr.author_type) || pr.author!.toLowerCase() === loginLower) continue;
+    const lower = pr.author!.toLowerCase();
+    const existing = contributors.get(lower);
+    contributors.set(lower, {
+      login: pr.author!, type: pr.author_type ?? "User",
+      contributions: Math.max(existing?.contributions ?? 0, seen.get(lower) ?? 0),
+    });
+  }
+  for (const c of contributors.values()) {
     const lower = c.login.toLowerCase();
     if (isCommunityBot(c.login, c.type)) continue;
     topCommits = Math.max(topCommits, c.contributions);
@@ -2861,7 +2893,7 @@ export function computeOwnRepoCommunityFacts(
       userCommits = c.contributions;
       continue;
     }
-    if (isInsider(c.login) || !isEstablishedAccount(profileOf(c.login), ctx.now, c.contributions)) continue;
+    if (isInsider(c.login) || !isEstablishedAccount(profileOf(c.login), ctx.now, seen.get(lower) ?? 0)) continue;
     weighted += logRatio(c.contributions, 10) * (mutual.has(lower) ? COMMUNITY_MUTUAL_WEIGHT : 1);
     if (c.contributions >= COMMUNITY_SUSTAINED_COMMITS) sustained += 1;
   }
@@ -2904,6 +2936,8 @@ export function computeOwnRepoCommunityFacts(
     owner_response_share: answerable.length > 0 ? round4(answered.length / answerable.length) : 0,
     outside_acceptance: decidedPrs > 0 ? round4(raw.merged_total / decidedPrs) : 0,
     forks: raw.forks,
+    outside_merged_prs: raw.merged.filter((pr) =>
+      !isCommunityBot(pr.author, pr.author_type) && pr.author!.toLowerCase() !== loginLower).length,
     days_since_outside_merge: lastMerge > 0 ? round4(Math.max(0, nowMs - lastMerge) / DAY_MS) : null,
     lead_share: ctx.attributed
       ? topCommits > 0
@@ -2951,8 +2985,8 @@ export function ownRepoCommunity(f: OwnRepoCommunityFacts): number {
 
 /**
  * Contribution Quality's own-PR weight: the share of the user's own-repo PRs
- * that landed in repos with a community, weighted by that community. Only repos
- * on the user's account count (PRs into org repos are external PRs).
+ * that landed in repos with a community, weighted by that community. Repos
+ * on the user's account and attributed originals count.
  */
 export function ownPrCommunityShare(
   repos: ContribRepoAgg[],
@@ -2962,7 +2996,7 @@ export function ownPrCommunityShare(
   if (ownPrs <= 0) return 0;
   const weighted = repos.reduce(
     (a, r) =>
-      r.owner_login.toLowerCase() === loginLower && !r.is_fork && (r.community ?? 0) > 0
+      isOwnImpactRepo(r, loginLower) && !r.is_fork && (r.community ?? 0) > 0
         ? a + r.prs * (r.community ?? 0)
         : a,
     0,
@@ -2991,8 +3025,10 @@ export function authoredCommits(r: Pick<ContribRepoAgg, "commits" | "merge_commi
  *   - tenure ({@link impactRepoTenureWeight}): a one-month burst earns ~0.75;
  *   - docs/site/resource repos (see {@link isDocOrResourceRepo}) need
  *     {@link DOC_RESOURCE_IMPACT_MIN_STARS} and then count at half weight.
- * Own repos (including attributed originals) never earn impact from their
- * stars, which already count in Original Project Quality. They earn it from
+ * Own repos (including attributed originals) do not normally earn impact from their
+ * stars by default. Proven attributed creators with outside adoption retain
+ * the historical external star formula (max with community, no code/tenure
+ * discount), unless star inflation is suspected. Other own repos earn it from
  * their outside community ({@link ownRepoCommunity}): community × work ×
  * code share × tenure × doc weight as prestige, plus 2.5 × community × repo
  * weight as depth on top of the legacy damped star depth (0.3 × engagement
@@ -3032,7 +3068,11 @@ export function computeImpactFromContribMap(
           (isOwn(r) ? (r.community ?? 0) : logRatio(r.stars, 100_000)) *
           prestigeWorkMultiplier(authoredCommits(r), r.prs) *
           repoWeight(r);
-        return Math.max(a, repoPrestige);
+        const historical = hasAttributedCreatorStarCredit(r, loginLower)
+          ? logRatio(r.stars, 100_000) * prestigeWorkMultiplier(authoredCommits(r), r.prs) *
+            (isDocOrResourceRepo(r) ? DOC_RESOURCE_IMPACT_WEIGHT : 1)
+          : 0;
+        return Math.max(a, repoPrestige, historical);
       }, 0) * 10_000,
     ) / 10_000;
   const impactDepthRaw =
@@ -3052,7 +3092,11 @@ export function computeImpactFromContribMap(
                 repoWeight(r) *
                 (OWN_REPO_IMPACT_DEPTH_WEIGHT * starEngagementMultiplier(r.engagement))
               : 0;
-          return a + starDepth + COMMUNITY_DEPTH * (r.community ?? 0) * repoWeight(r);
+          const communityDepth = starDepth + COMMUNITY_DEPTH * (r.community ?? 0) * repoWeight(r);
+          const historical = hasAttributedCreatorStarCredit(r, loginLower)
+            ? logRatio(r.stars, 5000) * weight * (isDocOrResourceRepo(r) ? DOC_RESOURCE_IMPACT_WEIGHT : 1)
+            : 0;
+          return a + Math.max(communityDepth, historical);
         }
         return a + logRatio(r.stars, 5000) * weight * repoWeight(r);
       }, 0) * 100,
@@ -3719,7 +3763,7 @@ const COMMUNITY_GRAPHQL_FLOOR = 500;
 const COMMUNITY_PROFILE_TTL = 30 * 24 * 60 * 60;
 const COMMUNITY_FACTS_TTL = 7 * 24 * 60 * 60;
 const COMMUNITY_COUNTS_TTL = 24 * 60 * 60;
-const COMMUNITY_CACHE_VERSION = "v1";
+const COMMUNITY_CACHE_VERSION = "v2";
 
 class CommunityBudgetExhausted extends Error {}
 
@@ -4156,8 +4200,8 @@ export function applyOwnRepoCommunities(
 ): ContribRepoAgg[] {
   return repos.map((r) => {
     const f = facts.get(r.repo.toLowerCase());
-    if (!f) return r;
-    return { ...r, community_facts: f, community: starInflationSuspect ? 0 : ownRepoCommunity(f) };
+    if (!f) return { ...r, star_inflation_suspect: starInflationSuspect };
+    return { ...r, star_inflation_suspect: starInflationSuspect, community_facts: f, community: starInflationSuspect ? 0 : ownRepoCommunity(f) };
   });
 }
 
@@ -4660,7 +4704,11 @@ export async function collect(username: string, options: CollectOptions = {}): P
   // and to classify per-repo code share for ecosystem impact.
   const recentPrWindow = await fetchRecentPrs(login, 100);
   const ownedContribRepos = signaledContribRepos.map((r) =>
-    attributedNames.has(r.repo.toLowerCase()) ? { ...r, attributed_original: true } : r,
+    attributedNames.has(r.repo.toLowerCase()) ? {
+      ...r, attributed_original: true,
+      attribution_evidence: attributedOriginalRepos.find((a) => repoDisplayName(a).toLowerCase() === r.repo.toLowerCase())?.attribution_evidence,
+      forks: attributedOriginalRepos.find((a) => repoDisplayName(a).toLowerCase() === r.repo.toLowerCase())?.forks,
+    } : r,
   );
   const scoredOriginalRepos = [
     ...new Map(
@@ -4740,7 +4788,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     starInflationSuspect,
   );
   const unsignaledCommunityRepos = communityRepos.filter(
-    (r) => (r.community ?? 0) > 0 && r.topics === undefined,
+    (r) => ((r.community ?? 0) > 0 || hasAttributedCreatorStarCredit(r, loginLower)) && r.topics === undefined,
   );
   const signaledCommunityRepos = unsignaledCommunityRepos.length
     ? applyImpactRepoSignals(
@@ -4786,9 +4834,10 @@ export async function collect(username: string, options: CollectOptions = {}): P
     impact.impact_pr_count,
     loginLower,
     workflowLandedImpactPrCount,
+    contribRepos,
   );
   const verifiedImpactPrs = recentPrWindow
-    .filter((p) => isEcosystemImpactPr(p, loginLower))
+    .filter((p) => isEcosystemImpactPr(p, loginLower, contribRepos))
     .slice(0, 12)
     .map((p) => ({
       ...p,
@@ -4805,6 +4854,10 @@ export async function collect(username: string, options: CollectOptions = {}): P
     isExternalTrivialFarmPr(p, loginLower),
   ).length;
 
+  const attributedPrs = contribRepos.reduce((sum, r) => sum +
+    (r.attributed_original && r.owner_login.toLowerCase() !== loginLower ? r.prs : 0), 0);
+  const externalPrCount = externalMergedPrs
+    ? Math.max(0, Math.min(externalMergedPrs.total, mergedPrCount) - attributedPrs) : 0;
   const metrics: RawMetrics = {
     username: login,
     profile_url: user.html_url,
@@ -4838,12 +4891,12 @@ export async function collect(username: string, options: CollectOptions = {}): P
     merged_pr_count: mergedPrCount,
     ...(externalMergedPrs
       ? {
-          external_merged_pr_count: Math.min(externalMergedPrs.total, mergedPrCount),
-          external_high_star_pr_share: highStarPrShare(externalMergedPrs.nodes),
+          external_merged_pr_count: externalPrCount,
+          external_high_star_pr_share: highStarPrShare(externalMergedPrs.nodes.filter((p) => !attributedNames.has((p.repository?.nameWithOwner ?? "").toLowerCase()))),
           own_pr_community: ownPrCommunityShare(
             contribRepos,
             loginLower,
-            mergedPrCount - Math.min(externalMergedPrs.total, mergedPrCount),
+            mergedPrCount - externalPrCount,
           ),
         }
       : {}),

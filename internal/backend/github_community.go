@@ -80,13 +80,14 @@ type OwnRepoCommunityFacts struct {
 	OwnerResponseShare    float64  `json:"owner_response_share"`
 	OutsideAcceptance     float64  `json:"outside_acceptance"`
 	Forks                 float64  `json:"forks"`
+	OutsideMergedPRs      float64  `json:"outside_merged_prs"`
 	DaysSinceOutsideMerge *float64 `json:"days_since_outside_merge"`
 	LeadShare             float64  `json:"lead_share"`
 }
 
 const (
 	communityDayMillis           = 24 * 60 * 60 * 1000
-	communityEstablishedDays     = 180
+	communityEstablishedDays     = 90
 	communityMinFollowers        = 10
 	communityMinOutsideMergedPRs = 3
 	communitySustainedCommits    = 5
@@ -106,7 +107,7 @@ const (
 	communityProfileConcurrency  = 4
 	communityRESTFloor           = 300
 	communityGraphQLFloor        = 500
-	communityCacheVersion        = "v1"
+	communityCacheVersion        = "v2"
 	communityProfileTTL          = 30 * 24 * time.Hour
 	communityFactsTTL            = 7 * 24 * time.Hour
 	communityCountsTTL           = 24 * time.Hour
@@ -219,11 +220,34 @@ func ComputeOwnRepoCommunityFacts(raw OwnRepoCommunityRaw, ctx OwnRepoCommunityC
 	decided := float64(len(kept)) + trivial
 	substantiveShare := 0.5
 	if decided > 0 {
-		substantiveShare = float64(len(kept)) / decided
+		substantiveShare = max(0.5, float64(len(kept))/decided)
 	}
 
 	weighted, sustained, topCommits, userCommits := 0.0, 0.0, 0.0, 0.0
-	for _, contributor := range raw.Contributors {
+	contributors := map[string]CommunityContributor{}
+	for _, c := range raw.Contributors {
+		contributors[strings.ToLower(c.Login)] = c
+	}
+	outsideMerged := 0.0
+	for _, pr := range raw.Merged {
+		if isCommunityBot(pr.Author, pr.AuthorType) || strings.EqualFold(*pr.Author, loginLower) {
+			continue
+		}
+		outsideMerged++
+		lower := strings.ToLower(*pr.Author)
+		c := contributors[lower]
+		c.Login, c.Type = *pr.Author, "User"
+		c.Contributions = max(c.Contributions, seen[lower])
+		contributors[lower] = c
+	}
+	// Sort so float accumulation is deterministic across languages.
+	keys := make([]string, 0, len(contributors))
+	for key := range contributors {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		contributor := contributors[key]
 		login, typ := contributor.Login, contributor.Type
 		lower := strings.ToLower(login)
 		if isCommunityBot(&login, &typ) {
@@ -234,7 +258,7 @@ func ComputeOwnRepoCommunityFacts(raw OwnRepoCommunityRaw, ctx OwnRepoCommunityC
 			userCommits = contributor.Contributions
 			continue
 		}
-		if isInsider(&login) || !isEstablishedAccount(profileOf(&login), ctx.Now, contributor.Contributions) {
+		if isInsider(&login) || !isEstablishedAccount(profileOf(&login), ctx.Now, seen[lower]) {
 			continue
 		}
 		weight := 1.0
@@ -306,6 +330,7 @@ func ComputeOwnRepoCommunityFacts(raw OwnRepoCommunityRaw, ctx OwnRepoCommunityC
 		OutsideDemand:         round4(demand),
 		MergeLatencyDays:      latency,
 		Forks:                 raw.Forks,
+		OutsideMergedPRs:      outsideMerged,
 		LeadShare:             1,
 	}
 	if answerable > 0 {
@@ -357,7 +382,7 @@ func OwnPRCommunityShare(repos []ContribRepoAgg, loginLower string, ownPRs float
 	}
 	weighted := 0.0
 	for _, repo := range repos {
-		if strings.EqualFold(repo.OwnerLogin, loginLower) && !repo.IsFork && valueOrZero(repo.Community) > 0 {
+		if isOwnImpactRepo(repo, loginLower) && !repo.IsFork && valueOrZero(repo.Community) > 0 {
 			weighted += repo.PRs * valueOrZero(repo.Community)
 		}
 	}
@@ -395,6 +420,7 @@ func contributedRepoOwners(repos []ContribRepoAgg, loginLower string) []string {
 func ApplyOwnRepoCommunities(repos []ContribRepoAgg, facts map[string]OwnRepoCommunityFacts, starInflationSuspect bool) []ContribRepoAgg {
 	result := make([]ContribRepoAgg, 0, len(repos))
 	for _, repo := range repos {
+		repo.StarInflationSuspect = starInflationSuspect
 		if f, ok := facts[strings.ToLower(repo.Repo)]; ok {
 			copied := f
 			repo.CommunityFacts = &copied

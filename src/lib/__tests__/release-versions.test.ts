@@ -8,33 +8,35 @@ import {
 } from "../release-versions";
 
 function manifestCopy(): ReleaseVersionManifest {
-  return structuredClone(RELEASE_VERSION_MANIFEST);
+  // Historical score-transition baseline keeps transition cases independent of the active release.
+  return { ...structuredClone(RELEASE_VERSION_MANIFEST),
+    previousRelease: { score: "v10", roast: "v12", collection: "v5" },
+    targetRelease: { score: "v13", roast: "v12", collection: "v5" },
+    skippedScoreVersions: ["v11", "v12"],
+    legacyReadFallback: { score: "v10", roast: "v12", collection: "v5" },
+    compatibility: { publicScoreReadOrder: ["v13", "v10"], collectionReadOrder: ["v5"], roastReplay: [{ score: "v13", roast: "v12" }] },
+  };
 }
 
 describe("release version contract", () => {
-  it("advances score to v13 while keeping roast v12 and collection v5", () => {
-    expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({
-      score: "v10",
-      roast: "v12",
-      collection: "v5",
-    });
-    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({
-      score: "v13",
-      roast: "v12",
-      collection: "v5",
-    });
-    expect(RELEASE_VERSION_MANIFEST.skippedScoreVersions).toEqual(["v11", "v12"]);
+  it("advances collection alone to v6", () => {
+    expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({ score: "v13", roast: "v12", collection: "v5" });
+    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({ score: "v13", roast: "v12", collection: "v6" });
+    expect(RELEASE_VERSION_MANIFEST.skippedScoreVersions).toEqual([]);
     expect(RELEASE_VERSION_MANIFEST.aliases).toEqual([]);
+    expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual(RELEASE_VERSION_MANIFEST.previousRelease);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v13", "v10"]);
   });
 
-  it("prefers v13 publicly, keeps v10 readable, and uses v10 as the emergency fallback", () => {
-    expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual(
-      { score: "v10", roast: "v12", collection: "v5" },
+  it("cannot introduce a newly readable score through collection compatibility", () => {
+    const before = manifestCopy();
+    const after = structuredClone(RELEASE_VERSION_MANIFEST);
+    after.compatibility.retainedPublicScoreVersions = ["v9"];
+    after.compatibility.publicScoreReadOrder = ["v13", "v9"];
+    expect(releaseTransitionErrors({ beforeManifest: before, afterManifest: after,
+      beforeRuntime: before.targetRelease, afterRuntime: after.targetRelease })).toContain(
+      "retained public score versions must already be readable before this release",
     );
-    expect(RELEASE_VERSION_MANIFEST.compatibility.roastReplay).toEqual([
-      { score: "v13", roast: "v12" },
-    ]);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v13", "v10"]);
   });
 
   it("requires the runtime to remain on the canonical release after normalization", () => {
@@ -55,8 +57,8 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("keeps collection v5 unchanged for a score-only release", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v5"]);
+  it("reads collection v6 before v5", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v6", "v5"]);
   });
 
   it("includes the previous collection only after a collection-version change", () => {

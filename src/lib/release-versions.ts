@@ -27,6 +27,8 @@ export interface ReleaseVersionManifest {
   };
   compatibility: {
     publicScoreReadOrder: string[];
+    /** Previously readable score labels retained through a collection-only release. */
+    retainedPublicScoreVersions?: string[];
     roastReplay: { score: string; roast: string }[];
     collectionReadOrder: string[];
   };
@@ -80,8 +82,9 @@ function versionNumber(version: string): number {
 function expectedPublicScoreReadOrder(
   previousRelease: ReleaseVersionSet,
   targetRelease: ReleaseVersionSet,
+  retained: string[] = [],
 ): string[] {
-  if (targetRelease.score === previousRelease.score) return [targetRelease.score];
+  if (targetRelease.score === previousRelease.score) return [targetRelease.score, ...retained];
   if (versionNumber(targetRelease.score) > versionNumber(previousRelease.score)) {
     return [targetRelease.score, previousRelease.score];
   }
@@ -153,6 +156,13 @@ export function releaseTransitionErrors(input: {
     !sameVersions(input.afterRuntime, input.afterManifest.targetRelease)
   ) {
     errors.push("changed runtime constants must exactly match the formal target release");
+  }
+  const retained = input.afterManifest.compatibility.retainedPublicScoreVersions ?? [];
+  if (retained.some((v) => !input.beforeManifest.compatibility.publicScoreReadOrder.includes(v))) {
+    errors.push("retained public score versions must already be readable before this release");
+  }
+  if (retained.length && targetChanges.includes("score")) {
+    errors.push("retained public score versions cannot accompany a score-version change");
   }
   if (targetChanges.length > 1) {
     errors.push(
@@ -263,12 +273,16 @@ export function releaseVersionErrors(
     if (
       !exactList(
         typed.compatibility.publicScoreReadOrder,
-        expectedPublicScoreReadOrder(previousRelease, targetRelease),
+        expectedPublicScoreReadOrder(previousRelease, targetRelease, typed.compatibility.retainedPublicScoreVersions),
       )
     ) {
       errors.push(
         "public score reads must prefer the canonical target and keep the previous score only after a score-version advance",
       );
+    }
+    const retained = typed.compatibility.retainedPublicScoreVersions ?? [];
+    if (!Array.isArray(retained) || retained.some((v) => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.score)) || new Set(retained).size !== retained.length || (retained.length > 0 && previousRelease.score !== targetRelease.score)) {
+      errors.push("retained public score versions must be distinct older labels on a non-score release");
     }
     const collectionReadOrder =
       targetRelease.collection === previousRelease.collection

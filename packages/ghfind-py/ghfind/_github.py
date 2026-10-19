@@ -658,13 +658,16 @@ def compute_flood_signals(prs: List[Dict[str, str]], login_lower: str = "") -> D
     }
 
 
-def is_ecosystem_impact_pr(pr: Dict[str, Any], login_lower: str) -> bool:
+def is_ecosystem_impact_pr(pr: Dict[str, Any], login_lower: str, repos=None) -> bool:
     repo = pr.get("repo") or ""
     owner = repo.split("/")[0].lower() if "/" in repo else ""
-    if not owner or pr["trivial"]:
+    from ._community import is_own_impact_repo, has_attributed_creator_star_credit
+    if not owner or owner == login_lower or pr['trivial']:
         return False
-    threshold = 1000 if owner == login_lower else 200
-    return pr["repo_stars"] >= threshold
+    for r in repos or []:
+        if r['repo'].lower() == repo.lower() and is_own_impact_repo(r, login_lower):
+            return has_attributed_creator_star_credit(r, login_lower) and _passes_impact_repo_gates(r, login_lower) and (r['stars'] >= 5000 or not _is_doc_or_resource_repo(r))
+    return pr['repo_stars'] >= 200
 
 
 def is_external_trivial_farm_pr(pr: Dict[str, Any], login_lower: str) -> bool:
@@ -727,8 +730,8 @@ def is_doc_like_impact_pr(pr: Dict[str, Any]) -> bool:
     return doc_like > 0 and (core_code == 0 or doc_like / len(files) >= 0.6)
 
 
-def compute_impact_quality_signals(recent_prs: List[Dict[str, Any]], impact_pr_count: int, login_lower: str) -> Dict[str, Any]:
-    verified = [p for p in recent_prs if is_ecosystem_impact_pr(p, login_lower)]
+def compute_impact_quality_signals(recent_prs: List[Dict[str, Any]], impact_pr_count: int, login_lower: str, repos=None) -> Dict[str, Any]:
+    verified = [p for p in recent_prs if is_ecosystem_impact_pr(p, login_lower, repos)]
     doc_like_count = sum(1 for p in verified if is_doc_like_impact_pr(p))
     core_count = len(verified) - doc_like_count
     unverified = max(0, impact_pr_count - len(verified))
@@ -971,47 +974,56 @@ def compute_org_repo_attribution(
     return {"repo": repo["repo"], "evidence": evidence, "score": score} if score >= ORG_ATTRIBUTED_MIN_SCORE else None
 
 
-def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: str) -> Dict[str, Any]:
-    qualifying = []
-    for r in repos:
-        if r["is_private"] or r["is_fork"]:
-            continue
-        # A single merged entry can surface as both one PR and one contribution-
-        # graph commit. Exclude that shallow registry/directory entry without
-        # discarding sustained maintenance work in the same repository.
-        if _is_low_signal_entry_repo(r["repo"]) and r["commits"] <= 1 and r["prs"] <= 1:
-            continue
-        is_external = r["owner_login"].lower() != login_lower
-        threshold = 200 if is_external else 1000
-        if r["stars"] < threshold:
-            continue
-        commit_min = (
-            1
-            if r["repo"].strip().lower() in SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS
-            else IMPACT_COMMIT_MIN
-        )
-        if r["commits"] >= commit_min or r["prs"] >= 1:
-            qualifying.append(r)
+def _is_doc_or_resource_repo(r):
+    return _is_doc_like_repo(r['repo']) or any(re.match(r'^(awesome|awesome-lists?|courses?|tutorials?|notes|docs|documentation)$', t, re.I) for t in r.get('topics', []))
 
-    max_impact_repo_stars = max((r["stars"] for r in qualifying), default=0)
-    impact_prestige_score = (
-        _math_round(
-            max(
-                (
-                    log_ratio(r["stars"], 100_000)
-                    * prestige_work_multiplier(r["commits"], r["prs"])
-                    for r in qualifying
-                ),
-                default=0,
-            )
-            * 10_000
-        )
-        / 10_000
-    )
-    depth_sum = 0.0
+
+def _passes_impact_repo_gates(r, login):
+    from ._community import is_own_impact_repo, has_attributed_creator_star_credit
+    if r['is_private'] or r['is_fork']:
+        return False
+    if _is_low_signal_entry_repo(r['repo']) and r['commits'] <= 1 and r['prs'] <= 1:
+        return False
+    threshold = 1000 if is_own_impact_repo(r, login) and not r.get('community', 0) > 0 and not has_attributed_creator_star_credit(r, login) else 200
+    commit_min = 1 if r['repo'].strip().lower() in SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS else IMPACT_COMMIT_MIN
+    return r['stars'] >= threshold and (r['commits'] >= commit_min or r['prs'] >= 1)
+
+
+def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: str) -> Dict[str, Any]:
+    from ._community import is_own_impact_repo, has_attributed_creator_star_credit
+    from ._score import star_engagement_multiplier
+    qualifying = [r for r in repos if _passes_impact_repo_gates(r, login_lower) and
+                  (r['stars'] >= 5000 or not _is_doc_or_resource_repo(r))]
+    max_impact_repo_stars = max((r['stars'] for r in qualifying), default=0)
+    prestige, depth_sum = 0.0, 0.0
     for r in qualifying:
-        weight = min(1 + math.log10(r["commits"] + r["prs"]), 2.5)
-        depth_sum += log_ratio(r["stars"], 5000) * weight
+        authored = max(0, r['commits'] - max(0, r.get('merge_commits', 0)))
+        sample = r.get('pr_sample', 0)
+        share = .7
+        if sample > 0:
+            observed = max(0, min(r.get('code_pr_sample', 0) / sample, 1))
+            coverage = min(1, sample / min(10, max(r['prs'], authored, 1)))
+            share = coverage * observed + (1 - coverage) * share
+        months = len(r.get('months', []))
+        doc_weight = .5 if _is_doc_or_resource_repo(r) else 1
+        repo_weight = doc_weight * (.3 + .7 * share) * (.7 + .3 * min(months / 6, 1) if months else 1)
+        own = is_own_impact_repo(r, login_lower)
+        work_multiplier = prestige_work_multiplier(authored, r['prs'])
+        prestige = max(prestige, (r.get('community', 0) if own else log_ratio(r['stars'], 100000)) * work_multiplier * repo_weight)
+        historical = has_attributed_creator_star_credit(r, login_lower)
+        if historical:
+            prestige = max(prestige, log_ratio(r['stars'], 100000) * work_multiplier * doc_weight)
+        work = authored + r['prs']
+        weight = min(1 + math.log10(work), 2.5) if work > 0 else 0
+        if own:
+            star_depth = log_ratio(r['stars'], 5000) * weight * repo_weight * .3 * star_engagement_multiplier(r.get('engagement')) if r['stars'] >= 1000 else 0
+            depth = star_depth + 2.5 * r.get('community', 0) * repo_weight
+            if historical:
+                depth = max(depth, log_ratio(r['stars'], 5000) * weight * doc_weight)
+        else:
+            depth = log_ratio(r['stars'], 5000) * weight * repo_weight
+        depth_sum += depth
+    impact_prestige_score = _math_round(prestige * 10000) / 10000
     impact_depth_raw = _math_round(depth_sum * 100) / 100
 
     by_stars = sorted(qualifying, key=lambda r: r["stars"], reverse=True)[:6]
@@ -1391,6 +1403,22 @@ def collect(username: str) -> Dict[str, Any]:
 
     flood = compute_flood_signals(_fetch_recent_all_prs(login), login_lower)
 
+    star_inflation_suspect = False
+    if len(top_repos) > 0 and top_repos[0]["stars"] >= 100:
+        top = top_repos[0]
+        forks_per_100 = top["forks"] / (top["stars"] / 100)
+        if forks_per_100 < 1.0 and top["open_issues"] <= 1:
+            star_inflation_suspect = True
+
+    from ._community import collect_own_repo_communities, own_pr_community_share
+    attributed_by_name = {_repo_display_name(r).lower(): r for r in attributed_original_repos}
+    for r in contrib_repos or []:
+        attributed = attributed_by_name.get(r['repo'].lower())
+        if attributed:
+            r.update(attributed_original=True, attribution_evidence=attributed.get('attribution_evidence', []), forks=attributed.get('forks', 0))
+        r['star_inflation_suspect'] = star_inflation_suspect
+    collect_own_repo_communities(contrib_repos or [], login, organizations, now)
+
     if contrib_repos:
         impact = compute_impact_from_contrib_map(contrib_repos, login_lower)
     else:
@@ -1410,10 +1438,10 @@ def collect(username: str) -> Dict[str, Any]:
             "impact_pr_count": len(impact_prs),
             "impact_repos": [],
         }
-    impact_quality = compute_impact_quality_signals(recent_pr_window, impact["impact_pr_count"], login_lower)
+    impact_quality = compute_impact_quality_signals(recent_pr_window, impact["impact_pr_count"], login_lower, contrib_repos)
     verified_impact_prs = [
         {**p, "title": (p["title"][:200] if p.get("title") else None), "files": (p.get("files") or [])[:20]}
-        for p in recent_pr_window if is_ecosystem_impact_pr(p, login_lower)
+        for p in recent_pr_window if is_ecosystem_impact_pr(p, login_lower, contrib_repos)
     ][:12]
     impact = {**impact, **impact_quality}
     max_impact_repo_stars = impact["max_impact_repo_stars"]
@@ -1421,13 +1449,16 @@ def collect(username: str) -> Dict[str, Any]:
 
     external_trivial_pr_count = sum(1 for p in recent_prs if is_external_trivial_farm_pr(p, login_lower))
 
-    star_inflation_suspect = False
-    if len(top_repos) > 0 and top_repos[0]["stars"] >= 100:
-        top = top_repos[0]
-        forks_per_100 = top["forks"] / (top["stars"] / 100)
-        if forks_per_100 < 1.0 and top["open_issues"] <= 1:
-            star_inflation_suspect = True
-
+    external_counts = None
+    try:
+        external_counts = _graphql('query($q: String!) { search(query: $q, type: ISSUE, first: 0) { issueCount } }',
+                                  {'q': 'author:' + login + ' is:pr is:merged is:public -user:' + login})['search']['issueCount']
+    except GitHubRateLimitError:
+        raise
+    except Exception:
+        pass
+    attributed_prs = sum(r['prs'] for r in contrib_repos or [] if r.get('attributed_original') and r['owner_login'].lower() != login_lower)
+    external_count = max(0, min(external_counts, merged_pr_count) - attributed_prs) if external_counts is not None else None
     metrics: Dict[str, Any] = {
         "username": login,
         "profile_url": user.get("html_url"),
@@ -1455,6 +1486,8 @@ def collect(username: str) -> Dict[str, Any]:
         "top_starred_original_repo_quality_score": top_starred_original_quality["score"],
         "top_starred_original_repo_quality_repo": top_starred_original_quality["repo"],
         "merged_pr_count": merged_pr_count,
+        **({'external_merged_pr_count': external_count,
+            'own_pr_community': own_pr_community_share(contrib_repos or [], login_lower, merged_pr_count - external_count)} if external_count is not None else {}),
         "total_pr_count": total_pr_count,
         "issues_created": issues_created,
         "last_year_contributions": last_year_contributions,

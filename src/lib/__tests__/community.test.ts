@@ -150,7 +150,7 @@ describe("community in ecosystem impact and contribution quality", () => {
       repo({ repo: "me/side", prs: 50 }),
       repo({ repo: "big-org/engine", owner_login: "big-org", attributed_original: true, prs: 40, community: 1 }),
     ];
-    expect(ownPrCommunityShare(repos, "me", 200)).toBe(0.6);
+    expect(ownPrCommunityShare(repos, "me", 200)).toBe(0.8);
     expect(ownPrCommunityShare(repos, "me", 0)).toBe(0);
   });
 
@@ -223,9 +223,9 @@ describe("collectOwnRepoCommunities", () => {
     const result = await collectOwnRepoCommunities({ repos, login: "me", ownerOrgs: [], now, cache });
     expect([...result.keys()]).toEqual(["me/tool"]);
     expect(result.get("me/tool")).toMatchObject({ weighted_contributors: 1, outside_acceptance: 0.8, forks: 40, owner_response_share: 1 });
-    expect(store.get("community:counts:v1:me")?.ttl).toBe(86400);
-    expect(store.get("community:facts:v1:me:me/tool")?.ttl).toBe(7 * 86400);
-    expect(store.get("community:profile:v1:bob")?.ttl).toBe(30 * 86400);
+    expect(store.get("community:counts:v2:me")?.ttl).toBe(86400);
+    expect(store.get("community:facts:v2:me:me/tool")?.ttl).toBe(7 * 86400);
+    expect(store.get("community:profile:v2:bob")?.ttl).toBe(30 * 86400);
 
     const calls = fetchMock.mock.calls.length;
     const again = await collectOwnRepoCommunities({ repos, login: "me", ownerOrgs: [], now, cache });

@@ -129,6 +129,12 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	for _, repo := range signaledContributions {
 		if attributedRepoKeys[strings.ToLower(repo.Repo)] {
 			repo.AttributedOriginal = true
+			for _, a := range attributed {
+				if strings.EqualFold(repoDisplayName(a), repo.Repo) {
+					repo.AttributionEvidence = a.AttributionEvidence
+					repo.Forks = a.Forks
+				}
+			}
 		}
 		ownedContributions = append(ownedContributions, repo)
 	}
@@ -195,7 +201,7 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	communityRepos := ApplyOwnRepoCommunities(ownedContributions, communityFacts, starInflation)
 	unsignaled := []ContribRepoAgg{}
 	for _, repo := range communityRepos {
-		if valueOrZero(repo.Community) > 0 && repo.Topics == nil {
+		if (valueOrZero(repo.Community) > 0 || hasAttributedCreatorStarCredit(repo, loginLower)) && repo.Topics == nil {
 			unsignaled = append(unsignaled, repo)
 		}
 	}
@@ -228,10 +234,10 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 			workflowImpact++
 		}
 	}
-	quality := ComputeImpactQualitySignals(recentWindow, impact.ImpactPRCount, loginLower, workflowImpact)
+	quality := ComputeImpactQualitySignals(recentWindow, impact.ImpactPRCount, loginLower, workflowImpact, contributions)
 	verifiedImpact := []RecentPR{}
 	for _, pr := range recentWindow {
-		if IsEcosystemImpactPR(pr, loginLower) {
+		if IsEcosystemImpactPR(pr, loginLower, contributions) {
 			verifiedImpact = append(verifiedImpact, trimRecentPR(pr))
 			if len(verifiedImpact) == 12 {
 				break
@@ -286,9 +292,22 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	// Calculate the deterministic score before any presentation-only language
 	// enrichment, so the score path cannot observe or depend on that work.
 	if external != nil {
-		metrics.ExternalMergedPRCount = floatPointer(min(external.Total, overview.MergedPRCount))
-		metrics.ExternalHighStarPRShare = floatPointer(highStarPRShare(external.Nodes))
-		metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(contributions, loginLower, overview.MergedPRCount-min(external.Total, overview.MergedPRCount)))
+		attributedPRs := 0.0
+		for _, repo := range contributions {
+			if repo.AttributedOriginal && !strings.EqualFold(repo.OwnerLogin, loginLower) {
+				attributedPRs += repo.PRs
+			}
+		}
+		externalCount := max(0, min(external.Total, overview.MergedPRCount)-attributedPRs)
+		metrics.ExternalMergedPRCount = floatPointer(externalCount)
+		externalNodes := []mergedPRNode{}
+		for _, node := range external.Nodes {
+			if node.Repository != nil && !attributedRepoKeys[strings.ToLower(node.Repository.NameWithOwner)] {
+				externalNodes = append(externalNodes, node)
+			}
+		}
+		metrics.ExternalHighStarPRShare = floatPointer(highStarPRShare(externalNodes))
+		metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(contributions, loginLower, overview.MergedPRCount-externalCount))
 	}
 	metrics.Pronouns = overview.Pronouns
 	scoring := Score(metrics)

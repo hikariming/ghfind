@@ -268,7 +268,8 @@
       "outside_acceptance": 0.8,
       "forks": 1500,
       "days_since_outside_merge": 12,
-      "lead_share": 1
+      "lead_share": 1,
+      "outside_merged_prs": 7
     },
     "expected_community": 0.2311
   },
@@ -405,7 +406,8 @@
       "outside_acceptance": 0.8,
       "forks": 30000,
       "days_since_outside_merge": 283.5,
-      "lead_share": 0.75
+      "lead_share": 0.75,
+      "outside_merged_prs": 1
     },
     "expected_community": 0.1782
   },
@@ -510,7 +512,8 @@
       "outside_acceptance": 0,
       "forks": 3,
       "days_since_outside_merge": null,
-      "lead_share": 1
+      "lead_share": 1,
+      "outside_merged_prs": 0
     },
     "expected_community": 0
   }
