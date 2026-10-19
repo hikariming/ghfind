@@ -56,6 +56,7 @@ import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
 import {
   isPublicScoreVersion,
+  isRetainedPublicScoreArtifact,
   LEGACY_READ_FALLBACK,
   publicScoreVersionSql,
   RELEASE_VERSION_MANIFEST,
@@ -6388,14 +6389,17 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     // A broken/incomplete public-version row must not hide the last verified
     // release during an incident. A hashed public v13/v10 row always wins;
     // otherwise prefer the immutable previous-release copy when one was captured.
-    const fallbackRow = canonicalScore
+    const retainedScore = Boolean(currentRow && isRetainedPublicScoreArtifact(
+      currentRow.score_version, currentRow.score_source_collection_version, currentRow.score_source_snapshot_hash,
+    ));
+    const fallbackRow = canonicalScore || retainedScore
       ? null
       : await getLegacyReadFallbackRow(db, username);
     const r = fallbackRow ?? currentRow;
     if (!r) return null;
     const resolvedCurrentScore = !fallbackRow && isTargetReleaseScoreRow(r);
     const legacyReadFallback =
-      !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
+      !resolvedCurrentScore && (retainedScore || isLegacyReadFallbackProfile(r));
     const readableArtifacts = resolvedCurrentScore || legacyReadFallback;
     if (!readableArtifacts) return null;
     const artifactRoastVersion = canonicalScore && resolvedCurrentScore

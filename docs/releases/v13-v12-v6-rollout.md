@@ -28,7 +28,9 @@ GitHub author/committer/noreply 解析优先级与原有长期贡献门槛，不
 collection 新缓存键自然隔离旧 metrics。公开 score 读序保留 [v13,v10]，紧急只读回退为 v13/v12/v5。manifest 显式记录
 retainedPublicScoreVersions=[v10]，校验只能延续升级前已可读的旧标签，不能引入新别名；
 score 升级时不得使用此延续字段。避免 collection 升级意外隐藏旧分数或要求全站回填。
-需扫描的其他账户走现有有机刷新；本 PR 不自动触发全站扫描。
+旧 collection 的已标记分数只读展示，并明确 stale；仍要求保留的 score/collection 标签和
+格式正确的快照 hash，不允许重放为当前 collection 或写回。GET /score 不因升级触发全站
+GitHub 抓取；新采集走现有 POST /scan（含 force）路径。本 PR 不自动触发全站扫描。
 
 ## 验收与回滚
 

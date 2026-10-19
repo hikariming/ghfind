@@ -301,6 +301,19 @@ describe("getArchivedRoast", () => {
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
   });
 
+  it("retains v10/v5 as read-only history after the collection bump", async () => {
+    const username = "previous-collection-v10";
+    await writeScore({ ...entry, username });
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({ sql: `UPDATE scores SET score_version = 'v10', score_source_collection_version = 'v5' WHERE username = ?`, args: [username] });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      username, score_version: "v10", score_source_collection_version: "v5",
+      final_score: entry.final_score, legacy_read_fallback: true,
+    });
+    await client.execute({ sql: `UPDATE scores SET score_source_snapshot_hash = NULL WHERE username = ?`, args: [username] });
+    await expect(db.getAccountDetail(username)).resolves.toBeNull();
+  });
+
   it("serves a leftover public v10 scores row as current, not emergency fallback", async () => {
     const username = "public-v10-leftover-fixture";
     await writeScore({ ...entry, username });

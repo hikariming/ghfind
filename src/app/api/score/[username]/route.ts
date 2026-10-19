@@ -18,7 +18,7 @@ import {
   rateLimitHeaders,
 } from "@/lib/redis";
 import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
-import { isPublicScoreVersion } from "@/lib/release-versions";
+import { isPublicScoreVersion, isRetainedPublicScoreArtifact } from "@/lib/release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
@@ -195,6 +195,14 @@ export async function GET(
   }
   if (detail && isCanonicalDetail(detail)) {
     return persistedScoreResponse(detail, { source: "indexed", current: true });
+  }
+
+  // A collection-only release must not turn every existing score read into a
+  // GitHub crawl. Serve the explicitly retained artifact as stale; POST /scan
+  // remains the fresh collection path. Never relabel or materialize it.
+  if (detail && isRetainedPublicScoreArtifact(detail.score_version,
+    detail.score_source_collection_version, detail.score_source_snapshot_hash)) {
+    return persistedScoreResponse(detail, { source: "indexed", current: false });
   }
 
   const limit = await checkRateLimit(clientIp(req));

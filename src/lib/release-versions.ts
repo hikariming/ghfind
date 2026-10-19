@@ -68,6 +68,17 @@ export function isPublicScoreVersion(version: unknown): version is string {
   return typeof version === "string" && PUBLIC_SCORE_READ_ORDER.includes(version);
 }
 
+/** Read-only prior-collection artifacts retain their original labels and hash.
+ * This never grants canonical scan, replay, or write eligibility. */
+export function isRetainedPublicScoreArtifact(
+  scoreVersion: unknown, collectionVersion: unknown, snapshotHash: unknown,
+): boolean {
+  return isPublicScoreVersion(scoreVersion) && typeof collectionVersion === "string" &&
+    collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION &&
+    RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder.includes(collectionVersion) &&
+    typeof snapshotHash === "string" && /^[a-f0-9]{64}$/.test(snapshotHash);
+}
+
 /** SQL fragment `alias.score_version IN ('v13', 'v10')` from the read order. */
 export function publicScoreVersionSql(alias?: string): string {
   const column = alias ? `${alias}.score_version` : "score_version";

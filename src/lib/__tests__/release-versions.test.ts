@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RELEASE_VERSION_MANIFEST,
+  isRetainedPublicScoreArtifact,
   changedVersionComponents,
   releaseVersionErrors,
   releaseTransitionErrors,
@@ -19,6 +20,14 @@ function manifestCopy(): ReleaseVersionManifest {
 }
 
 describe("release version contract", () => {
+  it("retains only explicitly readable prior collection labels with a hash", () => {
+    expect(isRetainedPublicScoreArtifact("v10", "v5", "a".repeat(64))).toBe(true);
+    expect(isRetainedPublicScoreArtifact("v13", "v5", "a".repeat(64))).toBe(true);
+    for (const [score, collection, hash] of [["v12", "v5", "a".repeat(64)], ["v10", "v4", "a".repeat(64)], ["v13", "v6", "a".repeat(64)], ["v10", "v5", null]]) {
+      expect(isRetainedPublicScoreArtifact(score, collection, hash)).toBe(false);
+    }
+  });
+
   it("advances collection alone to v6", () => {
     expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({ score: "v13", roast: "v12", collection: "v5" });
     expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({ score: "v13", roast: "v12", collection: "v6" });

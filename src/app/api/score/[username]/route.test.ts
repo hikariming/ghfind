@@ -98,6 +98,20 @@ describe("GET /api/score immediate quick contract", () => {
     mocks.scanErrorResponse.mockReturnValue({ error: "scan_failed", status: 500 });
   });
 
+  it("serves a retained v10/v5 score as stale without crawling or publishing", async () => {
+    mocks.getAccountDetail.mockResolvedValue({ ...legacyFallback,
+      score_version: "v10", score_source_collection_version: "v5",
+      score_source_snapshot_hash: "a".repeat(64),
+    });
+    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
+      params: Promise.resolve({ username: "fixture-user" }),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ source: "indexed", stale: true, coverage: "legacy", final_score: 64 });
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
   it("materializes a cold account instead of returning 202", async () => {
     const response = await GET(new NextRequest("https://example.test/api/score/DemoDev"), {
       params: Promise.resolve({ username: "DemoDev" }),
