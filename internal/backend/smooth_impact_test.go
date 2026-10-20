@@ -77,6 +77,29 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 			prev = cur
 		}
 	}
+	for _, forks := range []bool{true, false} {
+		gate := 1.0
+		if forks {
+			gate = 10
+		}
+		values := []float64{}
+		for _, n := range []float64{gate - .001, gate + .001} {
+			r := base
+			facts := *base.CommunityFacts
+			r.CommunityFacts = &facts
+			if forks {
+				r.Forks = n
+				facts.Forks = n
+			} else {
+				facts.OutsideMergedPRs = n
+			}
+			values = append(values, attributedCreatorWeight(r, "maker"))
+		}
+		if math.Abs(values[1]-values[0]) >= .002 {
+			t.Fatal("evidence cliff", values)
+		}
+	}
+
 	for _, gate := range []float64{200, 1000} {
 		r := base
 		r.Forks = 33

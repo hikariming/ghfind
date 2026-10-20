@@ -32,6 +32,10 @@ def test_monotonicity_continuity_and_diminishing_evidence():
             gain = weight - last_weight
             if n: assert gain <= last_gain + 1e-12
             last_gain, last_weight, prev = gain if n else 1, weight, cur
+    for field, gate in [('outside_merged_prs', 1), ('forks', 10)]:
+        values = [attributed_creator_weight(dict(base, forks=n if field == 'forks' else 0,
+                  community_facts=dict(base['community_facts'], **{field:n})), 'maker') for n in [gate-.001,gate+.001]]
+        assert abs(values[1]-values[0]) < .002
     for gate in [200,1000]:
         a,b = [compute_impact_from_contrib_map([dict(base, stars=gate+d, forks=33)], 'maker') for d in [-1,1]]
         assert abs(a['impact_prestige_score']-b['impact_prestige_score']) < .002

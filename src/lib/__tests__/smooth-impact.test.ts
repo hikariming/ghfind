@@ -31,6 +31,11 @@ it("is monotone in evidence and continuous at the former star gates", () => {
       lastGain = n > 0 ? gain : 1; lastWeight = weight; previous = current;
     }
   }
+  for (const [field, gate] of [["outside_merged_prs", 1], ["forks", 10]] as const) {
+    const run = (n: number) => attributedCreatorWeight({ ...base, forks: field === "forks" ? n : 0,
+      community_facts: { ...base.community_facts!, [field]: n } }, "maker");
+    expect(Math.abs(run(gate + .001) - run(gate - .001))).toBeLessThan(.002);
+  }
   for (const gate of [200, 1000]) {
     const run = (stars: number) => computeImpactFromContribMap([{ ...base, stars, forks: 33 }], "maker");
     expect(Math.abs(run(gate + 1).impact_prestige_score - run(gate - 1).impact_prestige_score)).toBeLessThan(.002);
