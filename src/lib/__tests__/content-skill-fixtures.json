@@ -1,0 +1,293 @@
+[
+  {
+    "name": "pure-markdown",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 1000
+        },
+        {
+          "name": "Python",
+          "size": 0
+        }
+      ]
+    },
+    "share": 1.0,
+    "weight": 0.25
+  },
+  {
+    "name": "code-tool",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 0
+        },
+        {
+          "name": "Python",
+          "size": 1000
+        }
+      ]
+    },
+    "share": 0.10999999999999999,
+    "weight": 0.9747715
+  },
+  {
+    "name": "mostly-code",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 100.0
+        },
+        {
+          "name": "Python",
+          "size": 900.0
+        }
+      ]
+    },
+    "share": 0.23860000000000003,
+    "weight": 0.8922828226839999
+  },
+  {
+    "name": "mixed",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 500.0
+        },
+        {
+          "name": "Python",
+          "size": 500.0
+        }
+      ]
+    },
+    "share": 0.665,
+    "weight": 0.44611318749999995
+  },
+  {
+    "name": "below-old-cutoff",
+    "repo": {
+      "name": "fixture-engine",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 799.0
+        },
+        {
+          "name": "Python",
+          "size": 200.99999999999994
+        }
+      ]
+    },
+    "share": 0.799,
+    "weight": 0.3287213485
+  },
+  {
+    "name": "above-old-cutoff",
+    "repo": {
+      "name": "fixture-engine",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 801.0
+        },
+        {
+          "name": "Python",
+          "size": 198.99999999999994
+        }
+      ]
+    },
+    "share": 0.801,
+    "weight": 0.32728135150000004
+  },
+  {
+    "name": "normal-software",
+    "repo": {
+      "name": "fixture-engine",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "Markdown",
+          "size": 0
+        },
+        {
+          "name": "Python",
+          "size": 1000
+        }
+      ]
+    },
+    "share": 0,
+    "weight": 1.0
+  },
+  {
+    "name": "missing-languages",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": null,
+      "description": null,
+      "pushed_at": null
+    },
+    "share": 0.55,
+    "weight": 0.5689374999999999
+  },
+  {
+    "name": "wrapped-skill-layout",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "TypeScript",
+          "size": 1000
+        }
+      ],
+      "root_paths": [
+        "SKILL.md",
+        "README.md",
+        "skills",
+        "package.json"
+      ]
+    },
+    "share": 0.87203125,
+    "weight": 0.2837025776348113
+  },
+  {
+    "name": "real-tool-with-skill",
+    "repo": {
+      "name": "fixture-skills",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "TypeScript",
+          "size": 1000
+        }
+      ],
+      "root_paths": [
+        "SKILL.md",
+        "README.md",
+        "src",
+        "package.json"
+      ]
+    },
+    "share": 0.1308046875,
+    "weight": 0.9648598769543698
+  },
+  {
+    "name": "normal-app-readme",
+    "repo": {
+      "name": "fixture-engine",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "TypeScript",
+          "size": 1000
+        }
+      ],
+      "root_paths": [
+        "README.md",
+        "src",
+        "package.json"
+      ]
+    },
+    "share": 0,
+    "weight": 1.0
+  },
+  {
+    "name": "css-product",
+    "repo": {
+      "name": "fixture-styles",
+      "stars": 5000,
+      "forks": 50,
+      "open_issues": 2,
+      "size": 1000,
+      "language": "Python",
+      "description": null,
+      "pushed_at": "2026-10-01T00:00:00Z",
+      "languages": [
+        {
+          "name": "CSS",
+          "size": 1000
+        }
+      ]
+    },
+    "share": 0,
+    "weight": 1
+  }
+]

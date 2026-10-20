@@ -33,6 +33,8 @@ export interface RepoReadme {
 }
 
 export interface TopRepo {
+  root_paths?: string[];
+  content_skill_share?: number;
   name: string;
   owner_login?: string;
   name_with_owner?: string;
@@ -174,6 +176,8 @@ export interface RawMetrics {
   /** Stars discounted per repo for staleness (no push in 12–36 months) and
    * dataset/content kind; Original Project Quality uses these when present.
    * Optional so older snapshots fall back to the raw totals. */
+  content_skill_star_share?: number;
+  content_skill_confidence?: number;
   weighted_total_stars?: number;
   weighted_max_stars?: number;
   /** (watchers + issues ever + PRs ever) / stars for the top-starred original

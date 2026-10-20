@@ -26,8 +26,8 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	if !reflect.DeepEqual(facts, f.ExpectedFacts) {
 		t.Fatalf("facts %#v != %#v", facts, f.ExpectedFacts)
 	}
-	repos := ApplyOwnRepoCommunities([]ContribRepoAgg{f.Repo}, map[string]OwnRepoCommunityFacts{"ephemeral-ai-lab/layerfs": facts}, false)
-	impact := ComputeImpactFromContribMap(repos, "yifanxuaaa")
+	repos := ApplyOwnRepoCommunities([]ContribRepoAgg{f.Repo}, map[string]OwnRepoCommunityFacts{"fixture-account-027/layerfs": facts}, false)
+	impact := ComputeImpactFromContribMap(repos, "fixture-account-070")
 	if impact.ImpactRepoCount != 1 || impact.ImpactPrestigeScore != .5417 || impact.ImpactDepthRaw != 1.83 {
 		t.Fatalf("impact %+v", impact)
 	}
@@ -39,7 +39,7 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	f.Metrics.ImpactPRCount = impact.ImpactPRCount
 	f.Metrics.MaxImpactRepoStars = impact.MaxImpactRepoStars
 	f.Metrics.ExternalMergedPRCount = floatPointer(29)
-	f.Metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(repos, "yifanxuaaa", 79))
+	f.Metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(repos, "fixture-account-070", 79))
 	result := Score(f.Metrics)
 	if result.SubScores.EcosystemImpact != 8.1 || result.FinalScore != 76.5 {
 		t.Fatalf("score %+v", result)
@@ -53,18 +53,18 @@ func TestAttributedCreatorImpact(t *testing.T) {
 			case "two-forks":
 				r.Forks = 2
 			case "member":
-				r.AttributionEvidence = []string{"org member of Ephemeral-AI-Lab"}
+				r.AttributionEvidence = []string{"org member of fixture-account-027"}
 			case "inflated":
 				r.StarInflationSuspect = true
 			case "personal":
 				r.AttributedOriginal = false
-				r.OwnerLogin = "yifanxuaaa"
+				r.OwnerLogin = "fixture-account-070"
 			}
-			if ComputeImpactFromContribMap([]ContribRepoAgg{r}, "yifanxuaaa").ImpactRepoCount != 0 {
+			if ComputeImpactFromContribMap([]ContribRepoAgg{r}, "fixture-account-070").ImpactRepoCount != 0 {
 				t.Fatal("unearned impact")
 			}
 			pr := RecentPR{Repo: &r.Repo, RepoStars: 520}
-			if IsEcosystemImpactPR(pr, "yifanxuaaa", []ContribRepoAgg{r}) {
+			if IsEcosystemImpactPR(pr, "fixture-account-070", []ContribRepoAgg{r}) {
 				t.Fatal("unearned verified PR")
 			}
 		})

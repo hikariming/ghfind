@@ -327,6 +327,52 @@ def best_original_repo_quality(repos: List[Dict[str, Any]], login_lower: str, no
     return best
 
 
+_CONTENT_NAME = re.compile(r"(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?|skills?|handbooks?|playbooks?)([-_.]|$)", re.I)
+_CONTENT_TOPIC = re.compile(r"^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?|skills?|agent-skills?|handbooks?|playbooks?)$", re.I)
+_NON_CODE = {"asciidoc", "html", "markdown", "mdx", "restructuredtext", "rst", "plain text", "rich text format", "roff", "tex", "text"}
+
+
+def content_skill_share(repo):
+    named = bool(_CONTENT_NAME.search(repo["name"]) or any(_CONTENT_TOPIC.search(t) for t in repo.get("topics", [])))
+    languages = repo.get("languages") or []
+    total = sum(max(0, l["size"]) for l in languages)
+    non_code = sum(max(0, l["size"]) for l in languages if l["name"].lower() in _NON_CODE)
+    prose = non_code / total if total > 0 else 0
+    naming = 0.55 * (0.2 + 0.8 * prose if total > 0 else 1) if named else 0
+    paths = [p.lower() for p in repo.get("root_paths") or []]
+    if not paths:
+        return 1 - (1-prose)*(1-naming)
+    markdown = max(0,sum(bool(re.search(r"\.(md|mdx|rst|adoc|txt)$", p)) for p in paths)-1)/len(paths)
+    skill = any(p in {"skill.md", "skills", "prompts", ".claude"} for p in paths)
+    layout = 1-(1-.75*markdown)*(1-(.65 if skill else 0))
+    application = any(p in {"src", "app", "lib", "cmd", "crates", "packages", "backend", "frontend", "server", "client", "api", "core", "include", "sources"} or re.search(r"\.(go|rs|py|ts|tsx|js|jsx|java|kt|cs|cpp|cc|c|swift)$",p) for p in paths)
+    protection = 1-.85*(1-prose) if application and total > 0 else 1
+    return (1-(1-prose)*(1-(.55 if named else 0))*(1-layout))*protection
+
+
+def content_skill_signals(repos):
+    stars = content = evidence = 0
+    for repo in repos:
+        weight = max(0, repo["stars"]) * project_share(repo)
+        stars += weight
+        content += weight * content_skill_share(repo)
+        evidence += weight * (1 if repo.get("root_paths") or any(l["size"] > 0 for l in repo.get("languages") or []) else 0.5)
+    return dict(content_skill_star_share=content/stars if stars else 0, content_skill_confidence=evidence/stars if stars else 0)
+
+
+def original_repo_star_weight(repo, now):
+    pushed = _parse_ts(repo.get("pushed_at"))
+    months = max(0, (_ms(now)-_ms(pushed))/((365.25/12)*24*60*60*1000)) if pushed else 0
+    liveness = 1 - 0.5 * min(max((months-12)/24, 0), 1)
+    share = content_skill_share(repo)
+    return liveness * (1 - 0.75*share*share*(3-2*share))
+
+
+def weighted_original_stars(repos, now):
+    weights = [max(0,r["stars"])*project_share(r)*original_repo_star_weight(r,now) for r in repos]
+    return dict(weighted_total_stars=math.floor(sum(weights)*100+0.5)/100, weighted_max_stars=math.floor(max(weights,default=0)*100+0.5)/100)
+
+
 def top_starred_original_repo_quality(repos: List[Dict[str, Any]], login_lower: str, now: datetime) -> Dict[str, Any]:
     starred = [r for r in repos if r["stars"] > 0]
     if not starred:
@@ -1512,6 +1558,10 @@ def collect(username: str) -> Dict[str, Any]:
         repo["readme"] = readme
         repo["readme_excerpt"] = readme["features"]["prompt_summary"] if readme else None
         repo["languages"] = languages
+        entries = _rest_get_opt(f"repos/{owner}/{repo['name']}/contents")
+        if isinstance(entries,list):
+            repo["root_paths"] = [e["name"] for e in entries[:1000]]
+        repo["content_skill_share"] = content_skill_share(repo)
 
     from ._score import original_project_quality
     def is_profile_repo(r):
@@ -1520,7 +1570,7 @@ def collect(username: str) -> Dict[str, Any]:
     star_top_repos=[r for r in top_repos if not is_profile_repo(r)]
     personal_stars=[r for r in personal_original_repos if not is_profile_repo(r)]
     personal_engagement=_fetch_repo_engagement_ratio(personal_stars[0].get('owner_login') or login,personal_stars[0]['name']) if personal_stars and personal_stars[0]['stars']>=500 else None
-    personal_quality=original_project_quality(dict(nonempty_original_repo_count=sum(r['size']>0 for r in personal_original_repos),total_stars=sum(r['stars'] for r in personal_stars),max_stars=max([0]+[r['stars'] for r in personal_stars]),best_original_repo_quality_score=best_original_repo_quality(personal_original_repos[:10],login_lower,now)['score'],top_starred_original_repo_quality_score=top_starred_original_repo_quality(personal_stars,login_lower,now)['score'],top_repo_engagement_ratio=personal_engagement))
+    personal_quality=original_project_quality(dict(**weighted_original_stars(personal_stars, now), **content_skill_signals(personal_stars), nonempty_original_repo_count=sum(r['size']>0 for r in personal_original_repos),total_stars=sum(r['stars'] for r in personal_stars),max_stars=max([0]+[r['stars'] for r in personal_stars]),best_original_repo_quality_score=best_original_repo_quality(personal_original_repos[:10],login_lower,now)['score'],top_starred_original_repo_quality_score=top_starred_original_repo_quality(personal_stars,login_lower,now)['score'],top_repo_engagement_ratio=personal_engagement))
     best_original_quality = best_original_repo_quality(top_repos, login_lower, now)
     top_starred_original_quality = top_starred_original_repo_quality(star_top_repos, login_lower, now)
 
@@ -1556,6 +1606,9 @@ def collect(username: str) -> Dict[str, Any]:
             r.update(attributed_original=True, co_creator_facts=attributed.get("co_creator_facts"), attribution_share=project_share(attributed), attribution_evidence=attributed.get('attribution_evidence', []), forks=attributed.get('forks', 0))
         if not attributed:
             r['forks'] = next((a.get('forks', 0) for a in personal_original_repos if _repo_display_name(a).lower() == r['repo'].lower()), r.get('forks', 0))
+        original = next((a for a in star_repos if _repo_display_name(a).lower() == r["repo"].lower()), None)
+        if original is not None:
+            r["content_skill_share"] = content_skill_share(original)
         r['star_inflation_suspect'] = star_inflation_suspect
     collect_own_repo_communities(contrib_repos or [], login, organizations, now)
     from ._community import impact_star_severity
@@ -1622,6 +1675,8 @@ def collect(username: str) -> Dict[str, Any]:
         "empty_original_repo_count": len(empty),
         "total_stars": sum((r.get("stars") or 0)*project_share(r) for r in star_repos),
         "max_stars": max(((r.get("stars") or 0)*project_share(r) for r in star_repos), default=0),
+        **weighted_original_stars(star_repos, now),
+        **content_skill_signals(star_repos),
         "personal_original_project_quality_score": personal_quality,
         "top_repo_engagement_ratio": top_repo_engagement,
         "attributed_original_repo_count": len(attributed_original_repos),

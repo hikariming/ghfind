@@ -238,10 +238,10 @@ describe("first-commit identity", () => {
   });
 
   it("parses only GitHub noreply mailbox logins", () => {
-    expect(parseGithubNoreplyLogin("48499089+yifanxuaaa@users.noreply.github.com")).toBe(
-      "yifanxuaaa",
+    expect(parseGithubNoreplyLogin("48499089+fixture-account-070@users.noreply.github.com")).toBe(
+      "fixture-account-070",
     );
-    expect(parseGithubNoreplyLogin("samzong@users.noreply.github.com")).toBe("samzong");
+    expect(parseGithubNoreplyLogin("fixture-account-057@users.noreply.github.com")).toBe("fixture-account-057");
     expect(parseGithubNoreplyLogin("person@example.com")).toBeNull();
   });
 
@@ -261,10 +261,10 @@ describe("first-commit identity", () => {
     ).toEqual({ login: "bob", source: "committer.user" });
     expect(
       resolveFirstCommitGithubLogin({
-        authorEmail: "12+carol@users.noreply.github.com",
+        authorEmail: "12+fixture-account-017@users.noreply.github.com",
       }),
-    ).toEqual({ login: "carol", source: "noreply-email" });
-    expect(resolveFirstCommitGithubLogin({ authorEmail: "carol@example.com" })).toEqual({
+    ).toEqual({ login: "fixture-account-017", source: "noreply-email" });
+    expect(resolveFirstCommitGithubLogin({ authorEmail: "fixture-account-017@example.com" })).toEqual({
       login: null,
       source: "none",
     });

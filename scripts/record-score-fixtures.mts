@@ -17,6 +17,7 @@
  * Nothing is written to any database.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { anonymizeScoreFixture } from "./lib/anonymize-score-fixture";
 
 import { collect, isEcosystemImpactPr, type ContribRepoAgg } from "../src/lib/github";
 import { score } from "../src/lib/score";
@@ -50,6 +51,8 @@ function starRepoFact(repo: TopRepo): TopRepo {
     description: repo.description,
     pushed_at: repo.pushed_at,
     topics: repo.topics ?? [],
+    root_paths: repo.root_paths,
+    content_skill_share: repo.content_skill_share,
     ...(repo.languages ? { languages: repo.languages } : {}),
     ...(repo.attributed_original ? { attributed_original: true } : {}),
   };
@@ -69,12 +72,13 @@ for (const login of logins) {
       inputs = record;
     },
   });
-  if (!inputs) throw new Error(`no score inputs recorded for ${login}`);
+  if (!inputs) throw new Error("no score inputs recorded for requested fixture");
   const metrics = collected.metrics;
   const loginLower = metrics.username.toLowerCase();
   const scoring = score(metrics);
-  const previous = fixtures[login] ?? {};
-  fixtures[login] = {
+  const alias = `fixture-recorded-${logins.indexOf(login) + 1}`;
+  const previous = fixtures[alias] ?? {};
+  fixtures[alias] = anonymizeScoreFixture({
     description: previous.description ?? "",
     before_final_score: previous.before_final_score ?? null,
     expected_final_range: previous.expected_final_range ?? [
@@ -93,7 +97,7 @@ for (const login of logins) {
       sub_scores: scoring.sub_scores,
       final_score: scoring.final_score,
     },
-  };
-  console.log(`${login}: ${scoring.final_score}`, scoring.sub_scores);
+  }, alias);
+  console.log(`${alias}: ${scoring.final_score}`, scoring.sub_scores);
 }
 writeFileSync(FIXTURES, `${JSON.stringify(fixtures, null, 2)}\n`);

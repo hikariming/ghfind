@@ -7,7 +7,7 @@ import fixture from "./attributed-impact-fixture.json";
 import cases from "./presentation-fixtures.json";
 
 it.each(cases)("continuous presentation parity: $name", c => {
-  const signals = presentationSignals(c.prs as RecentPr[], "maker", c.own_repos);
+  const signals = presentationSignals(c.prs as RecentPr[], "fixture-account-045", c.own_repos);
   for (const [key,value] of Object.entries(c.expected)) expect(signals[key as keyof typeof signals]).toBeCloseTo(value,12);
   expect(presentationDiscount(signals as RawMetrics)).toBeCloseTo(c.discount,12);
 });
@@ -30,8 +30,8 @@ it("uses changed lines, not a documentation title or file count",()=>{
 });
 it("one external merge is stronger than ten forks across star scales",()=>{
  for(const stars of [100,520,1000,10000]) {
- const base={...fixture.repo,repo:'org/tool',owner_login:'org',stars,attributed_original:true,attribution_evidence:['first commit author is maker','release/tag author']} as ContribRepoAgg;
- const weight=(prs:number,forks:number)=>attributedCreatorWeight({...base,forks,community_facts:{outside_merged_prs:prs,forks} as ContribRepoAgg['community_facts']},'maker');
+ const base={...fixture.repo,repo:'org/tool',owner_login:'org',stars,attributed_original:true,attribution_evidence:['first commit author is fixture-account-045','release/tag author']} as ContribRepoAgg;
+ const weight=(prs:number,forks:number)=>attributedCreatorWeight({...base,forks,community_facts:{outside_merged_prs:prs,forks} as ContribRepoAgg['community_facts']},'fixture-account-045');
  expect(weight(1,0)).toBeGreaterThan(weight(0,10));
  expect(weight(1,0)).toBeGreaterThan(.72);
  expect(weight(1,0)).toBeLessThan(.79);

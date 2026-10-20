@@ -1,13 +1,13 @@
 {
   "provenance": "Original Oct 18 production metrics from read-only handoff. layerfs aggregates and outside-author facts reconstructed from its GitHub audit; sample dates normalized (not an archived API response). Existing radar impact is preserved verbatim in acceptance replay.",
   "metrics": {
-    "username": "yifanxuaaa",
-    "profile_url": "https://github.com/yifanxuaaa",
-    "avatar_url": "https://avatars.githubusercontent.com/u/48499089?v=4",
-    "name": "yifanxu_ephai",
-    "bio": "🇨🇦 CS @ UofT · 🇸🇬 MSAI dropout @ NTU\r\n🧪 Founder, Ephemeral AI Lab\r\n🤖 Building agent infra ",
-    "pronouns": "he/him",
-    "company": "Ephemeral AI Lab",
+    "username": "fixture-account-070",
+    "profile_url": "https://example.com/fixture-account-070",
+    "avatar_url": "https://example.com/fixture-account-070",
+    "name": null,
+    "bio": null,
+    "pronouns": null,
+    "company": null,
     "account_age_years": 7.6,
     "created_at": "2019-03-13T00:08:27Z",
     "followers": 39,
@@ -26,14 +26,14 @@
     "attributed_original_repo_count": 3,
     "attributed_original_repo_stars": 529,
     "attributed_original_repos": [
-      "Ephemeral-AI-Lab/layerfs",
-      "synvo-ai/mobile-cocoa",
-      "Ephemeral-AI-Lab/layerfs-engine-lab"
+      "fixture-account-027/layerfs",
+      "fixture-owner-038/mobile-cocoa",
+      "fixture-account-027/layerfs-engine-lab"
     ],
     "best_original_repo_quality_score": 1,
-    "best_original_repo_quality_repo": "Ephemeral-AI-Lab/layerfs",
+    "best_original_repo_quality_repo": "fixture-account-027/layerfs",
     "top_starred_original_repo_quality_score": 1,
-    "top_starred_original_repo_quality_repo": "Ephemeral-AI-Lab/layerfs",
+    "top_starred_original_repo_quality_repo": "fixture-account-027/layerfs",
     "merged_pr_count": 108,
     "external_merged_pr_count": 108,
     "external_high_star_pr_share": 0.7315,
@@ -74,14 +74,14 @@
     "unknown_closed_unmerged_pr_count": 0,
     "pr_rejection_rate": 0.02,
     "recent_pr_sample": 30,
-    "top_repo_pr_target": "Ephemeral-AI-Lab/layerfs",
+    "top_repo_pr_target": "fixture-account-027/layerfs",
     "top_repo_pr_share": 1,
     "templated_pr_ratio": 0.03,
     "pr_flood_suspect": false
   },
   "repo": {
-    "repo": "Ephemeral-AI-Lab/layerfs",
-    "owner_login": "Ephemeral-AI-Lab",
+    "repo": "fixture-account-027/layerfs",
+    "owner_login": "fixture-account-027",
     "stars": 520,
     "commits": 3235,
     "prs": 79,
@@ -90,7 +90,7 @@
     "is_fork": false,
     "attributed_original": true,
     "attribution_evidence": [
-      "first commit author is yifanxuaaa",
+      "first commit author is fixture-account-070",
       "release/tag author"
     ],
     "forks": 33,
@@ -105,7 +105,7 @@
     "community": 0
   },
   "raw": {
-    "repo": "Ephemeral-AI-Lab/layerfs",
+    "repo": "fixture-account-027/layerfs",
     "forks": 33,
     "merged_total": 3,
     "closed_unmerged_total": 0,
@@ -113,19 +113,19 @@
     "issues_total": 1,
     "contributors": [
       {
-        "login": "yifanxuaaa",
+        "login": "fixture-account-070",
         "type": "User",
         "contributions": 3235
       },
       {
-        "login": "scarletkc",
+        "login": "fixture-account-058",
         "type": "User",
         "contributions": 1
       }
     ],
     "merged": [
       {
-        "author": "runyuan-wang",
+        "author": "fixture-account-056",
         "author_type": "User",
         "created_at": "2026-08-13T00:00:00Z",
         "merged_at": "2026-08-14T00:00:00Z",
@@ -136,7 +136,7 @@
         ]
       },
       {
-        "author": "runyuan-wang",
+        "author": "fixture-account-056",
         "author_type": "User",
         "created_at": "2026-08-14T00:00:00Z",
         "merged_at": "2026-08-15T00:00:00Z",
@@ -147,7 +147,7 @@
         ]
       },
       {
-        "author": "scarletkc",
+        "author": "fixture-account-058",
         "author_type": "User",
         "created_at": "2026-09-25T00:00:00Z",
         "merged_at": "2026-09-26T00:00:00Z",
@@ -161,23 +161,23 @@
     "issues": []
   },
   "context": {
-    "login": "yifanxuaaa",
+    "login": "fixture-account-070",
     "owner_orgs": [
-      "agent-infra-foundation"
+      "fixture-owner-001"
     ],
     "attributed": true,
     "mutual_owners": [],
     "now": "2026-10-18T05:43:44Z",
     "profiles": {
-      "runyuan-wang": {
-        "login": "runyuan-wang",
+      "fixture-account-056": {
+        "login": "fixture-account-056",
         "created_at": "2026-05-05T00:00:00Z",
         "followers": 2,
         "merged_prs": 48,
         "orgs": []
       },
-      "scarletkc": {
-        "login": "scarletkc",
+      "fixture-account-058": {
+        "login": "fixture-account-058",
         "created_at": "2019-05-01T00:00:00Z",
         "followers": 121,
         "merged_prs": 431,

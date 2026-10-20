@@ -9,7 +9,7 @@ def test_co_creator_evidence(case):
     assert co_creator_share(case['facts'])==pytest.approx(case['share'],abs=1e-12)
     repo=dict(repo=case.get('repo','person/project'),owner_login=case.get('owner','person'),is_fork=case.get('fork',False),is_private=case.get('private',False),topics=case.get('topics',[]),commits=583,prs=148,active_years=2)
     f=case['facts']
-    result=compute_org_repo_attribution(repo,[],['person/project'],f.get('release_author',False),f.get('maintainer_file',False),'maker',None,f)
+    result=compute_org_repo_attribution(repo,[],['person/project'],f.get('release_author',False),f.get('maintainer_file',False),'fixture-account-045',None,f)
     if not case['eligible'] or not case['share']:
         assert result is None
     else:

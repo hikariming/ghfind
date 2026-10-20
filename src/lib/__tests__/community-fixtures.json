@@ -25,39 +25,39 @@
           "contributions": 40
         },
         {
-          "login": "erin",
+          "login": "fixture-account-028",
           "type": "User",
           "contributions": 12
         },
         {
-          "login": "frank",
+          "login": "fixture-account-030",
           "type": "User",
           "contributions": 8
         },
         {
-          "login": "carol",
+          "login": "fixture-account-017",
           "type": "User",
           "contributions": 6
         },
         {
-          "login": "dave",
+          "login": "fixture-account-021",
           "type": "User",
           "contributions": 3
         },
         {
-          "login": "quinn",
+          "login": "fixture-account-054",
           "type": "User",
           "contributions": 2
         },
         {
-          "login": "grace",
+          "login": "fixture-account-033",
           "type": "User",
           "contributions": 1
         }
       ],
       "merged": [
         {
-          "author": "frank",
+          "author": "fixture-account-030",
           "author_type": "User",
           "created_at": "2026-10-01T00:00:00Z",
           "merged_at": "2026-10-01T12:00:00Z",
@@ -91,7 +91,7 @@
           ]
         },
         {
-          "author": "carol",
+          "author": "fixture-account-017",
           "author_type": "User",
           "created_at": "2026-08-15T00:00:00Z",
           "merged_at": "2026-08-15T06:00:00Z",
@@ -102,7 +102,7 @@
           ]
         },
         {
-          "author": "carol",
+          "author": "fixture-account-017",
           "author_type": "User",
           "created_at": "2026-08-01T00:00:00Z",
           "merged_at": "2026-08-11T00:00:00Z",
@@ -113,7 +113,7 @@
           ]
         },
         {
-          "author": "dave",
+          "author": "fixture-account-021",
           "author_type": "User",
           "created_at": "2026-09-10T00:00:00Z",
           "merged_at": "2026-09-11T00:00:00Z",
@@ -124,7 +124,7 @@
           ]
         },
         {
-          "author": "erin",
+          "author": "fixture-account-028",
           "author_type": "User",
           "created_at": "2026-09-12T00:00:00Z",
           "merged_at": "2026-09-12T01:00:00Z",
@@ -135,7 +135,7 @@
           ]
         },
         {
-          "author": "dependabot",
+          "author": "fixture-account-023",
           "author_type": "Bot",
           "created_at": "2026-09-13T00:00:00Z",
           "merged_at": "2026-09-13T00:10:00Z",
@@ -157,13 +157,13 @@
           ]
         },
         {
-          "author": "carol",
+          "author": "fixture-account-017",
           "author_type": "User",
           "created_at": "2026-10-12T00:00:00Z",
           "commenters": []
         },
         {
-          "author": "dave",
+          "author": "fixture-account-021",
           "author_type": "User",
           "created_at": "2026-09-25T00:00:00Z",
           "commenters": [
@@ -171,13 +171,13 @@
           ]
         },
         {
-          "author": "github-actions",
+          "author": "fixture-account-032",
           "author_type": "Bot",
           "created_at": "2026-09-26T00:00:00Z",
           "commenters": []
         },
         {
-          "author": "frank",
+          "author": "fixture-account-030",
           "author_type": "User",
           "created_at": "2026-07-01T00:00:00Z",
           "commenters": [
@@ -193,7 +193,7 @@
       ],
       "attributed": false,
       "mutual_owners": [
-        "frank"
+        "fixture-account-030"
       ],
       "profiles": {
         "bob": {
@@ -203,22 +203,22 @@
           "merged_prs": 5,
           "orgs": []
         },
-        "carol": {
-          "login": "carol",
+        "fixture-account-017": {
+          "login": "fixture-account-017",
           "created_at": "2019-05-01T00:00:00Z",
           "followers": 2,
           "merged_prs": 20,
           "orgs": []
         },
-        "dave": {
-          "login": "dave",
+        "fixture-account-021": {
+          "login": "fixture-account-021",
           "created_at": "2026-08-15T00:00:00Z",
           "followers": 100,
           "merged_prs": 100,
           "orgs": []
         },
-        "erin": {
-          "login": "erin",
+        "fixture-account-028": {
+          "login": "fixture-account-028",
           "created_at": "2015-01-01T00:00:00Z",
           "followers": 80,
           "merged_prs": 300,
@@ -226,31 +226,31 @@
             "alice-org"
           ]
         },
-        "frank": {
-          "login": "frank",
+        "fixture-account-030": {
+          "login": "fixture-account-030",
           "created_at": "2017-01-01T00:00:00Z",
           "followers": 12,
           "merged_prs": 0,
           "orgs": []
         },
-        "yuki": {
-          "login": "yuki",
+        "fixture-account-071": {
+          "login": "fixture-account-071",
           "created_at": "2016-01-01T00:00:00Z",
           "followers": 40,
           "merged_prs": 10,
           "orgs": [
-            "big-org"
+            "fixture-owner-004"
           ]
         },
-        "zed": {
-          "login": "zed",
+        "fixture-account-072": {
+          "login": "fixture-account-072",
           "created_at": "2014-01-01T00:00:00Z",
           "followers": 900,
           "merged_prs": 2000,
           "orgs": []
         },
-        "quinn": {
-          "login": "quinn",
+        "fixture-account-054": {
+          "login": "fixture-account-054",
           "created_at": "2020-01-01T00:00:00Z",
           "followers": 1,
           "merged_prs": 1,
@@ -276,7 +276,7 @@
   {
     "name": "attributed org original: lead share and org insiders",
     "raw": {
-      "repo": "big-org/engine",
+      "repo": "fixture-owner-004/engine",
       "forks": 30000,
       "merged_total": 4000,
       "closed_unmerged_total": 1000,
@@ -284,7 +284,7 @@
       "issues_total": 9000,
       "contributors": [
         {
-          "login": "zed",
+          "login": "fixture-account-072",
           "type": "User",
           "contributions": 400
         },
@@ -294,7 +294,7 @@
           "contributions": 300
         },
         {
-          "login": "yuki",
+          "login": "fixture-account-071",
           "type": "User",
           "contributions": 50
         },
@@ -323,7 +323,7 @@
           "author_type": "User",
           "created_at": "2026-01-05T00:00:00Z",
           "commenters": [
-            "zed"
+            "fixture-account-072"
           ]
         }
       ]
@@ -341,22 +341,22 @@
           "merged_prs": 5,
           "orgs": []
         },
-        "carol": {
-          "login": "carol",
+        "fixture-account-017": {
+          "login": "fixture-account-017",
           "created_at": "2019-05-01T00:00:00Z",
           "followers": 2,
           "merged_prs": 20,
           "orgs": []
         },
-        "dave": {
-          "login": "dave",
+        "fixture-account-021": {
+          "login": "fixture-account-021",
           "created_at": "2026-08-15T00:00:00Z",
           "followers": 100,
           "merged_prs": 100,
           "orgs": []
         },
-        "erin": {
-          "login": "erin",
+        "fixture-account-028": {
+          "login": "fixture-account-028",
           "created_at": "2015-01-01T00:00:00Z",
           "followers": 80,
           "merged_prs": 300,
@@ -364,31 +364,31 @@
             "alice-org"
           ]
         },
-        "frank": {
-          "login": "frank",
+        "fixture-account-030": {
+          "login": "fixture-account-030",
           "created_at": "2017-01-01T00:00:00Z",
           "followers": 12,
           "merged_prs": 0,
           "orgs": []
         },
-        "yuki": {
-          "login": "yuki",
+        "fixture-account-071": {
+          "login": "fixture-account-071",
           "created_at": "2016-01-01T00:00:00Z",
           "followers": 40,
           "merged_prs": 10,
           "orgs": [
-            "big-org"
+            "fixture-owner-004"
           ]
         },
-        "zed": {
-          "login": "zed",
+        "fixture-account-072": {
+          "login": "fixture-account-072",
           "created_at": "2014-01-01T00:00:00Z",
           "followers": 900,
           "merged_prs": 2000,
           "orgs": []
         },
-        "quinn": {
-          "login": "quinn",
+        "fixture-account-054": {
+          "login": "fixture-account-054",
           "created_at": "2020-01-01T00:00:00Z",
           "followers": 1,
           "merged_prs": 1,
@@ -437,7 +437,7 @@
       ],
       "attributed": false,
       "mutual_owners": [
-        "frank"
+        "fixture-account-030"
       ],
       "profiles": {
         "bob": {
@@ -447,22 +447,22 @@
           "merged_prs": 5,
           "orgs": []
         },
-        "carol": {
-          "login": "carol",
+        "fixture-account-017": {
+          "login": "fixture-account-017",
           "created_at": "2019-05-01T00:00:00Z",
           "followers": 2,
           "merged_prs": 20,
           "orgs": []
         },
-        "dave": {
-          "login": "dave",
+        "fixture-account-021": {
+          "login": "fixture-account-021",
           "created_at": "2026-08-15T00:00:00Z",
           "followers": 100,
           "merged_prs": 100,
           "orgs": []
         },
-        "erin": {
-          "login": "erin",
+        "fixture-account-028": {
+          "login": "fixture-account-028",
           "created_at": "2015-01-01T00:00:00Z",
           "followers": 80,
           "merged_prs": 300,
@@ -470,31 +470,31 @@
             "alice-org"
           ]
         },
-        "frank": {
-          "login": "frank",
+        "fixture-account-030": {
+          "login": "fixture-account-030",
           "created_at": "2017-01-01T00:00:00Z",
           "followers": 12,
           "merged_prs": 0,
           "orgs": []
         },
-        "yuki": {
-          "login": "yuki",
+        "fixture-account-071": {
+          "login": "fixture-account-071",
           "created_at": "2016-01-01T00:00:00Z",
           "followers": 40,
           "merged_prs": 10,
           "orgs": [
-            "big-org"
+            "fixture-owner-004"
           ]
         },
-        "zed": {
-          "login": "zed",
+        "fixture-account-072": {
+          "login": "fixture-account-072",
           "created_at": "2014-01-01T00:00:00Z",
           "followers": 900,
           "merged_prs": 2000,
           "orgs": []
         },
-        "quinn": {
-          "login": "quinn",
+        "fixture-account-054": {
+          "login": "fixture-account-054",
           "created_at": "2020-01-01T00:00:00Z",
           "followers": 1,
           "merged_prs": 1,

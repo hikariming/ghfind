@@ -60,10 +60,10 @@ const subScores = {
 };
 
 const detail = {
-  username: "octocat",
-  display_name: "The Octocat",
+  username: "fixture-account-049",
+  display_name: "The fixture-account-049",
   avatar_url: null,
-  profile_url: "https://github.com/octocat",
+  profile_url: "https://github.com/fixture-account-049",
   final_score: 77.7,
   tier: "人上人",
   tags: { zh: [], en: [] },
@@ -96,8 +96,8 @@ const canonicalScan = (overrides: Record<string, unknown> = {}) => ({
 
 const snapshot = {
   top_repos: [
-    { name: "hello", owner_login: "octocat", stars: 3, forks: 0, open_issues: 0, size: 1 },
-    { name: "world", name_with_owner: "octocat/world", stars: 2, forks: 0, open_issues: 0, size: 1 },
+    { name: "hello", owner_login: "fixture-account-049", stars: 3, forks: 0, open_issues: 0, size: 1 },
+    { name: "world", name_with_owner: "fixture-account-049/world", stars: 2, forks: 0, open_issues: 0, size: 1 },
   ],
   impact_repos: [{ repo: "vercel/next.js", stars: 1, commits: 1, prs: 1 }],
   signature_work: null,
@@ -115,9 +115,9 @@ const commonItem = (repoKey: string, avgScore: number) => ({
 });
 
 const matchup = {
-  handleA: "octocat",
-  handleB: "torvalds",
-  winner: "torvalds",
+  handleA: "fixture-account-049",
+  handleB: "fixture-account-065",
+  winner: "fixture-account-065",
   bucket: "crush",
   gap: 12,
   scoreA: 77.7,
@@ -159,9 +159,9 @@ beforeEach(() => {
     total: 42,
     ahead: null,
   });
-  mocks.getWeeklyBaselines.mockResolvedValue(new Map([["octocat", 70.2]]));
+  mocks.getWeeklyBaselines.mockResolvedValue(new Map([["fixture-account-049", 70.2]]));
   mocks.resolveWeeklyDelta.mockReturnValue(7.5);
-  mocks.filterExistingRepoKeys.mockResolvedValue(new Set(["octocat/world"]));
+  mocks.filterExistingRepoKeys.mockResolvedValue(new Set(["fixture-account-049/world"]));
   mocks.getMatchup.mockResolvedValue(matchup);
   mocks.getTrendingMatchups.mockResolvedValue([matchup]);
   mocks.getCachedScan.mockResolvedValue(null);
@@ -176,10 +176,10 @@ describe("getGoProfilePresentation", () => {
       [],
     ]);
 
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
 
     expect(presentation).not.toBeNull();
-    expect(presentation?.detail).toMatchObject({ username: "octocat", score_version: "v9" });
+    expect(presentation?.detail).toMatchObject({ username: "fixture-account-049", score_version: "v9" });
     expect(presentation?.snapshot).toEqual(snapshot);
     expect(presentation?.rank).toEqual({ rank: 12, total: 100, below: 80 });
     expect(presentation?.percentile).toEqual({ beat: 75, total: 120, rank: 12 });
@@ -187,7 +187,7 @@ describe("getGoProfilePresentation", () => {
     expect(presentation?.similar).toHaveLength(4);
     expect(presentation?.battles).toEqual([matchup]);
     expect(presentation?.facetRank).toMatchObject({ facetValue: "Go", rank: 3 });
-    expect(presentation?.existing_repo_keys).toEqual(["octocat/world"]);
+    expect(presentation?.existing_repo_keys).toEqual(["fixture-account-049/world"]);
     // Per-candidate batches sort by avgScore desc and dedupe across candidates.
     expect(presentation?.common_projects).toEqual([
       commonItem("a/high", 90),
@@ -195,19 +195,19 @@ describe("getGoProfilePresentation", () => {
       commonItem("b/mid", 80),
     ]);
 
-    expect(mocks.getSimilarAccounts).toHaveBeenCalledWith("octocat", 77.7, subScores, 6);
-    expect(mocks.getUserMatchups).toHaveBeenCalledWith("octocat", 8);
-    expect(mocks.getFacetRank).toHaveBeenCalledWith("octocat", 77.7);
+    expect(mocks.getSimilarAccounts).toHaveBeenCalledWith("fixture-account-049", 77.7, subScores, 6);
+    expect(mocks.getUserMatchups).toHaveBeenCalledWith("fixture-account-049", 8);
+    expect(mocks.getFacetRank).toHaveBeenCalledWith("fixture-account-049", 77.7);
     // Common projects consider only the first 3 similar developers, read in
     // one per-profile call (one cache entry, one database round trip).
     expect(mocks.getProfileCommonProjectsCached).toHaveBeenCalledExactlyOnceWith(
-      "octocat",
+      "fixture-account-049",
       ["s1", "s2", "s3"],
       6,
     );
     expect(mocks.filterExistingRepoKeys).toHaveBeenCalledWith([
-      "octocat/hello",
-      "octocat/world",
+      "fixture-account-049/hello",
+      "fixture-account-049/world",
       "vercel/next.js",
     ]);
     expect(mocks.resolveWeeklyDelta).toHaveBeenCalledWith({
@@ -221,7 +221,7 @@ describe("getGoProfilePresentation", () => {
   it("passes the canonical scan's score breakdown through the local presentation", async () => {
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(canonicalScan());
 
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
 
     expect(presentation?.detail.score_breakdown).toEqual({
       base_score: 87.7,
@@ -232,7 +232,7 @@ describe("getGoProfilePresentation", () => {
       risk_notes: [],
       complete: true,
     });
-    expect(mocks.getCurrentCanonicalQuickScan).toHaveBeenCalledWith("octocat");
+    expect(mocks.getCurrentCanonicalQuickScan).toHaveBeenCalledWith("fixture-account-049");
   });
 
   it("preserves a complete v9-policy breakdown with the restored 40-point cap", async () => {
@@ -252,7 +252,7 @@ describe("getGoProfilePresentation", () => {
       },
       risk_notes: [],
     }));
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
     expect(presentation?.detail.score_breakdown).toMatchObject({
       complete: true, total_penalty: 40, applied_penalty: 40,
       risk_assessment: { version: "v9", risk_score: 100 }, red_flags: flags,
@@ -268,7 +268,7 @@ describe("getGoProfilePresentation", () => {
   ])("does not expose an unverified breakdown when %s", async (_reason, overrides) => {
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(canonicalScan(overrides));
 
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
 
     expect(presentation?.detail.score_breakdown).toBeUndefined();
   });
@@ -276,7 +276,7 @@ describe("getGoProfilePresentation", () => {
   it("pins the optional score_version to null in the public contract", async () => {
     mocks.getAccountDetail.mockResolvedValue({ ...detail, score_version: undefined });
 
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
 
     expect(presentation?.detail.score_version).toBeNull();
   });
@@ -288,7 +288,7 @@ describe("getGoProfilePresentation", () => {
       legacy_read_fallback: true,
     });
 
-    const presentation = await getGoProfilePresentation("octocat");
+    const presentation = await getGoProfilePresentation("fixture-account-049");
 
     expect(presentation?.facetRank).toBeNull();
     expect(presentation?.delta).toBeNull();
@@ -308,16 +308,16 @@ describe("getGoProfilePresentation", () => {
 
   it("returns null when the common-projects cache loader unexpectedly rejects", async () => {
     mocks.getProfileCommonProjectsCached.mockRejectedValue(new Error("turso down"));
-    await expect(getGoProfilePresentation("octocat")).resolves.toBeNull();
+    await expect(getGoProfilePresentation("fixture-account-049")).resolves.toBeNull();
   });
 });
 
 describe("getGoProfileCardPresentation", () => {
   it("returns what cards render without any discovery read", async () => {
-    const card = await getGoProfileCardPresentation("octocat");
+    const card = await getGoProfileCardPresentation("fixture-account-049");
 
     expect(card).toEqual({
-      detail: expect.objectContaining({ username: "octocat", score_version: "v9" }),
+      detail: expect.objectContaining({ username: "fixture-account-049", score_version: "v9" }),
       snapshot,
       rank: { rank: 12, total: 100, below: 80 },
       percentile: { beat: 75, total: 120, rank: 12 },
@@ -343,19 +343,19 @@ describe("getGoProfileCardPresentation", () => {
 describe("getGoVsPresentation", () => {
   it("returns per-side details plus the stored matchup", async () => {
     mocks.getAccountDetail.mockImplementation(async (username: string) =>
-      username === "octocat" ? detail : null,
+      username === "fixture-account-049" ? detail : null,
     );
 
-    const vs = await getGoVsPresentation("octocat", "torvalds");
+    const vs = await getGoVsPresentation("fixture-account-049", "fixture-account-065");
 
-    expect(vs?.a).toMatchObject({ username: "octocat", score_version: "v9" });
+    expect(vs?.a).toMatchObject({ username: "fixture-account-049", score_version: "v9" });
     expect(vs?.b).toBeNull();
     expect(vs?.matchup).toEqual(matchup);
-    expect(mocks.getMatchup).toHaveBeenCalledWith("octocat", "torvalds");
+    expect(mocks.getMatchup).toHaveBeenCalledWith("fixture-account-049", "fixture-account-065");
   });
 
   it("rejects invalid handles before any read", async () => {
-    await expect(getGoVsPresentation("octocat", "-nope")).resolves.toBeNull();
+    await expect(getGoVsPresentation("fixture-account-049", "-nope")).resolves.toBeNull();
     expect(mocks.getAccountDetail).not.toHaveBeenCalled();
   });
 });
@@ -369,11 +369,11 @@ describe("getGoTrendingVsMatchups", () => {
 
 describe("getGoLiveProfileScan", () => {
   it("serves only the already-cached scan for a normalized handle", async () => {
-    const scan = { metrics: { username: "octocat" } } as unknown as ScanResult;
+    const scan = { metrics: { username: "fixture-account-049" } } as unknown as ScanResult;
     mocks.getCachedScan.mockResolvedValue(scan);
 
-    await expect(getGoLiveProfileScan("@octocat")).resolves.toBe(scan);
-    expect(mocks.getCachedScan).toHaveBeenCalledWith("octocat");
+    await expect(getGoLiveProfileScan("@fixture-account-049")).resolves.toBe(scan);
+    expect(mocks.getCachedScan).toHaveBeenCalledWith("fixture-account-049");
   });
 
   it("returns null for invalid handles", async () => {

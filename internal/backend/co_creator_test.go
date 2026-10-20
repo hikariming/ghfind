@@ -39,7 +39,7 @@ func TestCoCreatorSharedEvidence(t *testing.T) {
 				owner = "person"
 			}
 			r := ContribRepoAgg{Repo: name, OwnerLogin: owner, IsFork: c.Fork, IsPrivate: c.Private, Topics: c.Topics, CoCreatorFacts: &c.Facts}
-			got := ComputeOrgRepoAttribution(r, nil, []string{"person/project"}, c.Facts.ReleaseAuthor, c.Facts.MaintainerFile, "maker", "")
+			got := ComputeOrgRepoAttribution(r, nil, []string{"person/project"}, c.Facts.ReleaseAuthor, c.Facts.MaintainerFile, "fixture-account-045", "")
 			if !c.Eligible || c.Share == 0 {
 				if got != nil {
 					t.Fatal("unexpected attribution")

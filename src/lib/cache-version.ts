@@ -6,8 +6,8 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// v15 adds continuous presentation concentration and corrects external adoption evidence.
-export const SCORE_CACHE_VERSION = "v15";
+// v16 weights original stars by continuous content/skill evidence.
+export const SCORE_CACHE_VERSION = "v16";
 // v12 keeps language proficiency out of engineering judgments and roast targets.
 export const ROAST_CACHE_VERSION = "v12";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

@@ -228,6 +228,17 @@ def next_tier(final: float) -> Optional[Dict[str, Any]]:
     return None
 
 
+def content_skill_discount(m):
+    share = max(0, min(1, _nz(m.get("content_skill_star_share"), 0)))
+    confidence = max(0, min(1, _nz(m.get("content_skill_confidence"), 0)))
+    external = max(0, _nz(m.get("external_merged_pr_count"), 0))
+    external_share = min(1,external/max(1,m.get("merged_pr_count",0)))
+    engineering = max(max(0,_nz(m.get("core_impact_pr_count"),0))*external_share, external*(1-max(0,min(1,_nz(m.get("presentation_churn_share"),0))))/20)
+    stars = max(0,m["total_stars"])
+    star_mass = stars/(stars+5000)
+    return 1-0.9*share*share*(3-2*share)*confidence*star_mass/(1+engineering)
+
+
 def original_project_quality(m):
     if m["nonempty_original_repo_count"] == 0:
         return 0.0
@@ -238,9 +249,10 @@ def original_project_quality(m):
             else 1
         )
         star_pts = (
-            (log_ratio(m["total_stars"], 5000) * 7 + log_ratio(m["max_stars"], 2000) * 5)
+            (log_ratio(_nz(m.get("weighted_total_stars"), m["total_stars"]), 5000) * 7 + log_ratio(_nz(m.get("weighted_max_stars"), m["max_stars"]), 2000) * 5)
             * star_quality
             * star_engagement_multiplier(m.get("top_repo_engagement_ratio"))
+            * content_skill_discount(m)
         )
         project_substance = max(0, min(_nz(m.get("best_original_repo_quality_score"), 0), 1)) * 6
         return round(star_pts + project_substance, 1)
@@ -305,7 +317,8 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     prestige = impact_prestige_signal(m) * 9
     depth = min(m["impact_depth_raw"] / 8.0, 1.0) * 11
     from ._presentation import ecosystem_presentation_discount
-    ecosystem_raw = (prestige + depth) * ecosystem_presentation_discount(m)
+    external_share = min(1,max(0,_nz(m.get("external_merged_pr_count"),0))/max(1,m["merged_pr_count"]))
+    ecosystem_raw = (prestige + depth) * ecosystem_presentation_discount(m) * (1-(1-content_skill_discount(m))*(1-external_share))
     sub["ecosystem_impact"] = round(
         ecosystem_raw,
         1,

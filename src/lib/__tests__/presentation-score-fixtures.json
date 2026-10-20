@@ -1,14 +1,14 @@
 [
   {
-    "name": "lofisu",
+    "name": "fixture-account-042",
     "metrics": {
-      "username": "LofiSu",
-      "profile_url": "https://github.com/LofiSu",
-      "avatar_url": "https://avatars.githubusercontent.com/u/163713803?v=4",
-      "name": "LofiSu",
-      "bio": "Learning is a Lifelong Journey.\r\n\r\n\r\n",
-      "pronouns": "she/her",
-      "company": "@ByteDance",
+      "username": "fixture-account-042",
+      "profile_url": "https://example.com/fixture-account-042",
+      "avatar_url": "https://example.com/fixture-account-042",
+      "name": null,
+      "bio": null,
+      "pronouns": null,
+      "company": null,
       "account_age_years": 2.59,
       "created_at": "2024-03-17T06:54:52Z",
       "followers": 1474,
@@ -27,23 +27,23 @@
       "attributed_original_repo_count": 5,
       "attributed_original_repo_stars": 7.45069976236963,
       "attributed_original_repos": [
-        "bytedance/deer-flow",
-        "onehumanbeing/adventurex-2025",
-        "openyurtio/openyurt.io",
-        "HydroRoll-Team/HydroRollSite",
-        "Tencent/omi"
+        "fixture-account-016/deer-flow",
+        "fixture-owner-016/adventurex-2025",
+        "fixture-owner-019/openyurt.io",
+        "fixture-owner-010/HydroRollSite",
+        "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "bytedance/deer-flow": 0.00008254181368192397,
-        "onehumanbeing/adventurex-2025": 0.000007223618154379307,
-        "openyurtio/openyurt.io": 0.00013938240018098743,
-        "hydroroll-team/hydrorollsite": 0.000010881714727108589,
-        "tencent/omi": 0.00003765939972732856
+        "fixture-account-016/deer-flow": 8.254181368192397e-05,
+        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-owner-019/openyurt.io": 0.00013938240018098743,
+        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
+        "fixture-account-063/omi": 3.765939972732856e-05
       },
       "best_original_repo_quality_score": 0.95,
-      "best_original_repo_quality_repo": "LofiSu/recruiting-skills",
+      "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
       "top_starred_original_repo_quality_score": 0.69,
-      "top_starred_original_repo_quality_repo": "LofiSu/LLM-NoteBook",
+      "top_starred_original_repo_quality_repo": "fixture-account-042/LLM-NoteBook",
       "merged_pr_count": 39,
       "external_merged_pr_count": 36.99945076987132,
       "external_high_star_pr_share": 0.0968,
@@ -89,33 +89,52 @@
       "unknown_closed_unmerged_pr_count": 0,
       "pr_rejection_rate": 0.17,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "hetaoBackend/deer-flow",
+      "top_repo_pr_target": "fixture-owner-009/deer-flow",
       "top_repo_pr_share": 0.4,
       "templated_pr_ratio": 0.07,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 54.7,
       "sub_scores": {
         "account_maturity": 6,
-        "original_project_quality": 9.6,
+        "original_project_quality": 9.5,
         "contribution_quality": 13.8,
         "ecosystem_impact": 4.5,
         "community_influence": 7.8,
         "activity_authenticity": 13
-      }
+      },
+      "base_score": 54.6,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 54.6,
+      "tier": "NPC",
+      "tier_label": "普通账号 · 特征平庸存疑"
     }
   },
   {
-    "name": "yifanxuaaa",
+    "name": "fixture-account-070",
     "metrics": {
-      "username": "yifanxuaaa",
-      "profile_url": "https://github.com/yifanxuaaa",
-      "avatar_url": "https://avatars.githubusercontent.com/u/48499089?v=4",
-      "name": "yifanxu_ephai",
-      "bio": "🇨🇦 CS @ UofT · 🇸🇬 MSAI dropout @ NTU\r\n🧪 Founder, Ephemeral AI Lab\r\n🤖 Building agent infra ",
-      "pronouns": "he/him",
-      "company": "Ephemeral AI Lab",
+      "username": "fixture-account-070",
+      "profile_url": "https://example.com/fixture-account-070",
+      "avatar_url": "https://example.com/fixture-account-070",
+      "name": null,
+      "bio": null,
+      "pronouns": null,
+      "company": null,
       "account_age_years": 7.61,
       "created_at": "2019-03-13T00:08:27Z",
       "followers": 48,
@@ -135,29 +154,29 @@
       "attributed_original_repo_count": 8,
       "attributed_original_repo_stars": 1066.2166024858866,
       "attributed_original_repos": [
-        "Ephemeral-AI-Lab/layerfs",
-        "Ephemeral-AI-Lab/ephemeral-sandbox",
-        "synvo-ai/mobile-cocoa",
-        "Ephemeral-AI-Lab/layerfs-engine-lab",
-        "agent-infra-foundation/agent-infra-book",
-        "Ephemeral-AI-Lab/ephemeral-sandbox-console",
-        "Ephemeral-AI-Lab/dsh-plugins",
-        "Life-of-Vibe-Coding/vibe-coding-everywhere"
+        "fixture-account-027/layerfs",
+        "fixture-account-027/ephemeral-sandbox",
+        "fixture-owner-038/mobile-cocoa",
+        "fixture-account-027/layerfs-engine-lab",
+        "fixture-owner-001/agent-infra-book",
+        "fixture-account-027/ephemeral-sandbox-console",
+        "fixture-account-027/dsh-plugins",
+        "fixture-owner-013/vibe-coding-everywhere"
       ],
       "attributed_original_repo_shares": {
-        "ephemeral-ai-lab/layerfs": 0.997966508784687,
-        "ephemeral-ai-lab/ephemeral-sandbox": 0.02597048777871106,
-        "synvo-ai/mobile-cocoa": 0.03833161697440238,
-        "ephemeral-ai-lab/layerfs-engine-lab": 0.08381252315987713,
-        "agent-infra-foundation/agent-infra-book": 0.7393202189444872,
-        "ephemeral-ai-lab/ephemeral-sandbox-console": 0.006422954602937669,
-        "ephemeral-ai-lab/dsh-plugins": 0.9576172566210113,
-        "life-of-vibe-coding/vibe-coding-everywhere": 0.7994509309882596
+        "fixture-account-027/layerfs": 0.997966508784687,
+        "fixture-account-027/ephemeral-sandbox": 0.02597048777871106,
+        "fixture-owner-038/mobile-cocoa": 0.03833161697440238,
+        "fixture-account-027/layerfs-engine-lab": 0.08381252315987713,
+        "fixture-owner-001/agent-infra-book": 0.7393202189444872,
+        "fixture-account-027/ephemeral-sandbox-console": 0.006422954602937669,
+        "fixture-account-027/dsh-plugins": 0.9576172566210113,
+        "fixture-owner-013/vibe-coding-everywhere": 0.7994509309882596
       },
       "best_original_repo_quality_score": 0.997966508784687,
-      "best_original_repo_quality_repo": "Ephemeral-AI-Lab/layerfs",
+      "best_original_repo_quality_repo": "fixture-account-027/layerfs",
       "top_starred_original_repo_quality_score": 0.997966508784687,
-      "top_starred_original_repo_quality_repo": "Ephemeral-AI-Lab/layerfs",
+      "top_starred_original_repo_quality_repo": "fixture-account-027/layerfs",
       "merged_pr_count": 109,
       "external_merged_pr_count": 18.271720205534322,
       "external_high_star_pr_share": 0,
@@ -203,13 +222,12 @@
       "unknown_closed_unmerged_pr_count": 0,
       "pr_rejection_rate": 0.02,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "Ephemeral-AI-Lab/layerfs",
+      "top_repo_pr_target": "fixture-account-027/layerfs",
       "top_repo_pr_share": 1,
       "templated_pr_ratio": 0.03,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 79.8,
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 16.2,
@@ -217,19 +235,39 @@
         "ecosystem_impact": 9.9,
         "community_influence": 5.6,
         "activity_authenticity": 15.9
-      }
+      },
+      "base_score": 79.8,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 79.8,
+      "tier": "人上人",
+      "tier_label": "优质贡献者 · 值得信任"
     }
   },
   {
-    "name": "samzong",
+    "name": "fixture-account-057",
     "metrics": {
-      "username": "samzong",
-      "profile_url": "https://github.com/samzong",
-      "avatar_url": "https://avatars.githubusercontent.com/u/13782141?v=4",
+      "username": "fixture-account-057",
+      "profile_url": "https://example.com/fixture-account-057",
+      "avatar_url": "https://example.com/fixture-account-057",
       "name": null,
-      "bio": "Engineer for AI-native systems. building @langgenius, and the tools I use myself.",
+      "bio": null,
       "pronouns": null,
-      "company": "@langgenius, Ex @DaoCloud",
+      "company": null,
       "account_age_years": 11.19,
       "created_at": "2015-08-13T13:15:34Z",
       "followers": 232,
@@ -249,29 +287,29 @@
       "attributed_original_repo_count": 8,
       "attributed_original_repo_stars": 650.6606880899336,
       "attributed_original_repos": [
-        "lathe-cli/lathe",
-        "clawwork-ai/ClawWork",
-        "lathe-cli/kitup",
-        "langgenius/mosoo",
-        "langgenius/tokener-cli",
-        "openclaw/openclaw",
-        "vllm-project/semantic-router",
-        "langgenius/mosoo-agent-driver"
+        "fixture-owner-012/lathe",
+        "fixture-owner-005/ClawWork",
+        "fixture-owner-012/kitup",
+        "fixture-account-039/mosoo",
+        "fixture-account-039/tokener-cli",
+        "fixture-owner-018/fixture-owner-018",
+        "fixture-owner-042/semantic-router",
+        "fixture-account-039/mosoo-agent-driver"
       ],
       "attributed_original_repo_shares": {
-        "lathe-cli/lathe": 0.9999996922423581,
-        "clawwork-ai/clawwork": 0.9880855092552205,
-        "lathe-cli/kitup": 0.9999891321345273,
-        "langgenius/mosoo": 0.026381007916618782,
-        "langgenius/tokener-cli": 0.9999907328373667,
-        "openclaw/openclaw": 0.00005842938036428414,
-        "vllm-project/semantic-router": 0.0002628757242105954,
-        "langgenius/mosoo-agent-driver": 0.025469880169628825
+        "fixture-owner-012/lathe": 0.9999996922423581,
+        "fixture-owner-005/clawwork": 0.9880855092552205,
+        "fixture-owner-012/kitup": 0.9999891321345273,
+        "fixture-account-039/mosoo": 0.026381007916618782,
+        "fixture-account-039/tokener-cli": 0.9999907328373667,
+        "fixture-owner-018/fixture-owner-018": 5.842938036428414e-05,
+        "fixture-owner-042/semantic-router": 0.0002628757242105954,
+        "fixture-account-039/mosoo-agent-driver": 0.025469880169628825
       },
       "best_original_repo_quality_score": 1,
-      "best_original_repo_quality_repo": "samzong/Recall",
+      "best_original_repo_quality_repo": "fixture-account-057/Recall",
       "top_starred_original_repo_quality_score": 0.9880855092552205,
-      "top_starred_original_repo_quality_repo": "clawwork-ai/ClawWork",
+      "top_starred_original_repo_quality_repo": "fixture-owner-005/ClawWork",
       "merged_pr_count": 2103,
       "external_merged_pr_count": 1060.0128975664927,
       "external_high_star_pr_share": 0.2,
@@ -317,13 +355,12 @@
       "unknown_closed_unmerged_pr_count": 34,
       "pr_rejection_rate": 0.01,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "samzong/spale",
+      "top_repo_pr_target": "fixture-account-057/spale",
       "top_repo_pr_share": 0.27,
       "templated_pr_ratio": 0.07,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 95.5,
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15.9,
@@ -331,19 +368,39 @@
         "ecosystem_impact": 19,
         "community_influence": 6.6,
         "activity_authenticity": 17
-      }
+      },
+      "base_score": 95.5,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 95.5,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
     }
   },
   {
-    "name": "hikariming",
+    "name": "fixture-account-035",
     "metrics": {
-      "username": "hikariming",
-      "profile_url": "https://github.com/hikariming",
-      "avatar_url": "https://avatars.githubusercontent.com/u/23065064?v=4",
-      "name": "akou",
-      "bio": "love ai,love agent~",
-      "pronouns": "he/him",
-      "company": "Tsinghua University",
+      "username": "fixture-account-035",
+      "profile_url": "https://example.com/fixture-account-035",
+      "avatar_url": "https://example.com/fixture-account-035",
+      "name": null,
+      "bio": null,
+      "pronouns": null,
+      "company": null,
       "account_age_years": 9.98,
       "created_at": "2016-10-25T22:58:49Z",
       "followers": 138,
@@ -363,27 +420,27 @@
       "attributed_original_repo_count": 7,
       "attributed_original_repo_stars": 301.50590671132056,
       "attributed_original_repos": [
-        "oh-my-dsh/dsh-plugin-upgrade-skill",
-        "Huanshere/VideoLingo",
-        "agentscope-ai/QwenPaw",
-        "langgenius/dify",
-        "arco-design/arco-design-pro-vue",
-        "zutoData/pindata",
-        "anywhere-labs/dsh-desktop"
+        "fixture-account-050/dsh-plugin-upgrade-skill",
+        "fixture-account-037/VideoLingo",
+        "fixture-account-003/QwenPaw",
+        "fixture-account-039/dify",
+        "fixture-account-010/arco-design-pro-vue",
+        "fixture-owner-045/pindata",
+        "fixture-account-008/dsh-desktop"
       ],
       "attributed_original_repo_shares": {
-        "oh-my-dsh/dsh-plugin-upgrade-skill": 0.997594504962869,
-        "huanshere/videolingo": 3.196945661357926e-7,
-        "agentscope-ai/qwenpaw": 0.00013957936803068863,
-        "langgenius/dify": 4.583632384868418e-9,
-        "arco-design/arco-design-pro-vue": 0.000004027270507271016,
-        "zutodata/pindata": 0.004437343154612945,
-        "anywhere-labs/dsh-desktop": 0.0000059303794188898866
+        "fixture-account-050/dsh-plugin-upgrade-skill": 0.997594504962869,
+        "fixture-account-037/videolingo": 3.196945661357926e-07,
+        "fixture-account-003/qwenpaw": 0.00013957936803068863,
+        "fixture-account-039/dify": 4.583632384868418e-09,
+        "fixture-account-010/arco-design-pro-vue": 4.027270507271016e-06,
+        "fixture-owner-045/pindata": 0.004437343154612945,
+        "fixture-account-008/dsh-desktop": 5.9303794188898866e-06
       },
       "best_original_repo_quality_score": 1,
-      "best_original_repo_quality_repo": "hikariming/dshfind",
+      "best_original_repo_quality_repo": "fixture-account-035/dshfind",
       "top_starred_original_repo_quality_score": 0.84,
-      "top_starred_original_repo_quality_repo": "hikariming/chat-dataset-baseline",
+      "top_starred_original_repo_quality_repo": "fixture-account-035/chat-dataset-baseline",
       "merged_pr_count": 223,
       "external_merged_pr_count": 24.030412427167306,
       "external_high_star_pr_share": 1,
@@ -429,33 +486,52 @@
       "unknown_closed_unmerged_pr_count": 1,
       "pr_rejection_rate": 0.05,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "hikariming/ghfind",
+      "top_repo_pr_target": "fixture-account-035/ghfind",
       "top_repo_pr_share": 1,
       "templated_pr_ratio": 0.07,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 91.8,
       "sub_scores": {
         "account_maturity": 10,
-        "original_project_quality": 15.4,
+        "original_project_quality": 15.3,
         "contribution_quality": 27,
         "ecosystem_impact": 16.2,
         "community_influence": 6.2,
         "activity_authenticity": 17
-      }
+      },
+      "base_score": 91.7,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 91.7,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
     }
   },
   {
-    "name": "asperformias",
+    "name": "fixture-account-012",
     "metrics": {
-      "username": "AsperforMias",
-      "profile_url": "https://github.com/AsperforMias",
-      "avatar_url": "https://avatars.githubusercontent.com/u/109743670?v=4",
-      "name": "AsperforMias",
-      "bio": "The inescapable lot of solitude.",
+      "username": "fixture-account-012",
+      "profile_url": "https://example.com/fixture-account-012",
+      "avatar_url": "https://example.com/fixture-account-012",
+      "name": null,
+      "bio": null,
       "pronouns": null,
-      "company": "@mercallureAI",
+      "company": null,
       "account_age_years": 4.25,
       "created_at": "2022-07-21T13:42:30Z",
       "followers": 69,
@@ -474,27 +550,27 @@
       "attributed_original_repo_count": 7,
       "attributed_original_repo_stars": 85.5503700721712,
       "attributed_original_repos": [
-        "hikariming/ghfind",
-        "hikariming/dshfind",
-        "langgenius/mosoo",
-        "yixiaojiu/yuiju",
-        "apache/dubbo-go",
-        "KurosawaGeeker/keypocket",
-        "langgenius/dify"
+        "fixture-account-035/ghfind",
+        "fixture-account-035/dshfind",
+        "fixture-account-039/mosoo",
+        "fixture-owner-044/yuiju",
+        "fixture-owner-003/dubbo-go",
+        "fixture-owner-011/keypocket",
+        "fixture-account-039/dify"
       ],
       "attributed_original_repo_shares": {
-        "hikariming/ghfind": 0.29282852148147187,
-        "hikariming/dshfind": 0.02427309741462087,
-        "langgenius/mosoo": 0.0067499237912015675,
-        "yixiaojiu/yuiju": 0.011722038615447562,
-        "apache/dubbo-go": 0.0000344874270075839,
-        "kurosawageeker/keypocket": 0.005352659791584178,
-        "langgenius/dify": 0.0000010360882904486496
+        "fixture-account-035/ghfind": 0.29282852148147187,
+        "fixture-account-035/dshfind": 0.02427309741462087,
+        "fixture-account-039/mosoo": 0.0067499237912015675,
+        "fixture-owner-044/yuiju": 0.011722038615447562,
+        "fixture-owner-003/dubbo-go": 3.44874270075839e-05,
+        "fixture-owner-011/keypocket": 0.005352659791584178,
+        "fixture-account-039/dify": 1.0360882904486496e-06
       },
       "best_original_repo_quality_score": 1,
-      "best_original_repo_quality_repo": "AsperforMias/ScriptForge",
+      "best_original_repo_quality_repo": "fixture-account-012/ScriptForge",
       "top_starred_original_repo_quality_score": 0.29282852148147187,
-      "top_starred_original_repo_quality_repo": "hikariming/ghfind",
+      "top_starred_original_repo_quality_repo": "fixture-account-035/ghfind",
       "merged_pr_count": 255,
       "external_merged_pr_count": 155.44183603728203,
       "external_high_star_pr_share": 0.4118,
@@ -540,13 +616,12 @@
       "unknown_closed_unmerged_pr_count": 0,
       "pr_rejection_rate": 0.02,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "hikariming/ghfind",
+      "top_repo_pr_target": "fixture-account-035/ghfind",
       "top_repo_pr_share": 0.73,
       "templated_pr_ratio": 0.03,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 76.9,
       "sub_scores": {
         "account_maturity": 8,
         "original_project_quality": 7.9,
@@ -554,19 +629,39 @@
         "ecosystem_impact": 16,
         "community_influence": 4.3,
         "activity_authenticity": 16.9
-      }
+      },
+      "base_score": 76.9,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 76.9,
+      "tier": "人上人",
+      "tier_label": "优质贡献者 · 值得信任"
     }
   },
   {
-    "name": "asukaminato0721",
+    "name": "fixture-account-013",
     "metrics": {
-      "username": "asukaminato0721",
-      "profile_url": "https://github.com/asukaminato0721",
-      "avatar_url": "https://avatars.githubusercontent.com/u/30024051?v=4",
-      "name": "Asuka Minato",
+      "username": "fixture-account-013",
+      "profile_url": "https://example.com/fixture-account-013",
+      "avatar_url": "https://example.com/fixture-account-013",
+      "name": null,
       "bio": null,
       "pronouns": null,
-      "company": "dify",
+      "company": null,
       "account_age_years": 9.28,
       "created_at": "2017-07-09T15:22:42Z",
       "followers": 629,
@@ -586,27 +681,27 @@
       "attributed_original_repo_count": 7,
       "attributed_original_repo_stars": 3591.2742341530034,
       "attributed_original_repos": [
-        "langgenius/dify",
-        "facebook/pyrefly",
-        "xmoezzz/siglus_rs",
-        "processing/p5.js",
-        "open-spaced-repetition/fsrs-rs",
-        "sinelaw/fresh",
-        "apache/opendal"
+        "fixture-account-039/dify",
+        "fixture-owner-008/pyrefly",
+        "fixture-owner-043/siglus_rs",
+        "fixture-owner-031/p5.js",
+        "fixture-owner-017/fsrs-rs",
+        "fixture-owner-034/fresh",
+        "fixture-owner-003/opendal"
       ],
       "attributed_original_repo_shares": {
-        "langgenius/dify": 0.021952378250430258,
-        "facebook/pyrefly": 0.0006359510134309954,
-        "xmoezzz/siglus_rs": 0.027287283738466703,
-        "processing/p5.js": 0.0009655106702374027,
-        "open-spaced-repetition/fsrs-rs": 0.11893035584468599,
-        "sinelaw/fresh": 0.0009277921827052333,
-        "apache/opendal": 0.0013976251548175618
+        "fixture-account-039/dify": 0.021952378250430258,
+        "fixture-owner-008/pyrefly": 0.0006359510134309954,
+        "fixture-owner-043/siglus_rs": 0.027287283738466703,
+        "fixture-owner-031/p5.js": 0.0009655106702374027,
+        "fixture-owner-017/fsrs-rs": 0.11893035584468599,
+        "fixture-owner-034/fresh": 0.0009277921827052333,
+        "fixture-owner-003/opendal": 0.0013976251548175618
       },
       "best_original_repo_quality_score": 0.9,
-      "best_original_repo_quality_repo": "asukaminato0721/cs61a-2021-summer",
+      "best_original_repo_quality_repo": "fixture-account-013/cs61a-2021-summer",
       "top_starred_original_repo_quality_score": 0.021952378250430258,
-      "top_starred_original_repo_quality_repo": "langgenius/dify",
+      "top_starred_original_repo_quality_repo": "fixture-account-039/dify",
       "merged_pr_count": 1642,
       "external_merged_pr_count": 1514.2934328306994,
       "external_high_star_pr_share": 0.0377,
@@ -652,13 +747,12 @@
       "unknown_closed_unmerged_pr_count": 539,
       "pr_rejection_rate": 0.04,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "langgenius/dify",
+      "top_repo_pr_target": "fixture-account-039/dify",
       "top_repo_pr_share": 0.93,
       "templated_pr_ratio": 0.2,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 91,
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 9.9,
@@ -666,19 +760,39 @@
         "ecosystem_impact": 19.9,
         "community_influence": 7.2,
         "activity_authenticity": 17
-      }
+      },
+      "base_score": 91,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 98.65,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 0.9662,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 91,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
     }
   },
   {
     "name": "self-closed-0",
     "metrics": {
-      "username": "LofiSu",
-      "profile_url": "https://github.com/LofiSu",
-      "avatar_url": "https://avatars.githubusercontent.com/u/163713803?v=4",
-      "name": "LofiSu",
-      "bio": "Learning is a Lifelong Journey.\r\n\r\n\r\n",
-      "pronouns": "she/her",
-      "company": "@ByteDance",
+      "username": "fixture-account-042",
+      "profile_url": "https://example.com/fixture-account-042",
+      "avatar_url": "https://example.com/fixture-account-042",
+      "name": null,
+      "bio": null,
+      "pronouns": null,
+      "company": null,
       "account_age_years": 2.59,
       "created_at": "2024-03-17T06:54:52Z",
       "followers": 1474,
@@ -697,23 +811,23 @@
       "attributed_original_repo_count": 5,
       "attributed_original_repo_stars": 7.45069976236963,
       "attributed_original_repos": [
-        "bytedance/deer-flow",
-        "onehumanbeing/adventurex-2025",
-        "openyurtio/openyurt.io",
-        "HydroRoll-Team/HydroRollSite",
-        "Tencent/omi"
+        "fixture-account-016/deer-flow",
+        "fixture-owner-016/adventurex-2025",
+        "fixture-owner-019/openyurt.io",
+        "fixture-owner-010/HydroRollSite",
+        "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "bytedance/deer-flow": 0.00008254181368192397,
-        "onehumanbeing/adventurex-2025": 0.000007223618154379307,
-        "openyurtio/openyurt.io": 0.00013938240018098743,
-        "hydroroll-team/hydrorollsite": 0.000010881714727108589,
-        "tencent/omi": 0.00003765939972732856
+        "fixture-account-016/deer-flow": 8.254181368192397e-05,
+        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-owner-019/openyurt.io": 0.00013938240018098743,
+        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
+        "fixture-account-063/omi": 3.765939972732856e-05
       },
       "best_original_repo_quality_score": 0.95,
-      "best_original_repo_quality_repo": "LofiSu/recruiting-skills",
+      "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
       "top_starred_original_repo_quality_score": 0.69,
-      "top_starred_original_repo_quality_repo": "LofiSu/LLM-NoteBook",
+      "top_starred_original_repo_quality_repo": "fixture-account-042/LLM-NoteBook",
       "merged_pr_count": 39,
       "external_merged_pr_count": 36.99945076987132,
       "external_high_star_pr_share": 0.0968,
@@ -759,33 +873,52 @@
       "unknown_closed_unmerged_pr_count": 0,
       "pr_rejection_rate": 0.17,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "hetaoBackend/deer-flow",
+      "top_repo_pr_target": "fixture-owner-009/deer-flow",
       "top_repo_pr_share": 0.4,
       "templated_pr_ratio": 0.07,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 54.7,
       "sub_scores": {
         "account_maturity": 6,
-        "original_project_quality": 9.6,
+        "original_project_quality": 9.5,
         "contribution_quality": 13.8,
         "ecosystem_impact": 4.5,
         "community_influence": 7.8,
         "activity_authenticity": 13
-      }
+      },
+      "base_score": 54.6,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 54.6,
+      "tier": "NPC",
+      "tier_label": "普通账号 · 特征平庸存疑"
     }
   },
   {
     "name": "self-closed-10000",
     "metrics": {
-      "username": "LofiSu",
-      "profile_url": "https://github.com/LofiSu",
-      "avatar_url": "https://avatars.githubusercontent.com/u/163713803?v=4",
-      "name": "LofiSu",
-      "bio": "Learning is a Lifelong Journey.\r\n\r\n\r\n",
-      "pronouns": "she/her",
-      "company": "@ByteDance",
+      "username": "fixture-account-042",
+      "profile_url": "https://example.com/fixture-account-042",
+      "avatar_url": "https://example.com/fixture-account-042",
+      "name": null,
+      "bio": null,
+      "pronouns": null,
+      "company": null,
       "account_age_years": 2.59,
       "created_at": "2024-03-17T06:54:52Z",
       "followers": 1474,
@@ -804,23 +937,23 @@
       "attributed_original_repo_count": 5,
       "attributed_original_repo_stars": 7.45069976236963,
       "attributed_original_repos": [
-        "bytedance/deer-flow",
-        "onehumanbeing/adventurex-2025",
-        "openyurtio/openyurt.io",
-        "HydroRoll-Team/HydroRollSite",
-        "Tencent/omi"
+        "fixture-account-016/deer-flow",
+        "fixture-owner-016/adventurex-2025",
+        "fixture-owner-019/openyurt.io",
+        "fixture-owner-010/HydroRollSite",
+        "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "bytedance/deer-flow": 0.00008254181368192397,
-        "onehumanbeing/adventurex-2025": 0.000007223618154379307,
-        "openyurtio/openyurt.io": 0.00013938240018098743,
-        "hydroroll-team/hydrorollsite": 0.000010881714727108589,
-        "tencent/omi": 0.00003765939972732856
+        "fixture-account-016/deer-flow": 8.254181368192397e-05,
+        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-owner-019/openyurt.io": 0.00013938240018098743,
+        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
+        "fixture-account-063/omi": 3.765939972732856e-05
       },
       "best_original_repo_quality_score": 0.95,
-      "best_original_repo_quality_repo": "LofiSu/recruiting-skills",
+      "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
       "top_starred_original_repo_quality_score": 0.69,
-      "top_starred_original_repo_quality_repo": "LofiSu/LLM-NoteBook",
+      "top_starred_original_repo_quality_repo": "fixture-account-042/LLM-NoteBook",
       "merged_pr_count": 39,
       "external_merged_pr_count": 36.99945076987132,
       "external_high_star_pr_share": 0.0968,
@@ -866,21 +999,40 @@
       "unknown_closed_unmerged_pr_count": 0,
       "pr_rejection_rate": 0.17,
       "recent_pr_sample": 30,
-      "top_repo_pr_target": "hetaoBackend/deer-flow",
+      "top_repo_pr_target": "fixture-owner-009/deer-flow",
       "top_repo_pr_share": 0.4,
       "templated_pr_ratio": 0.07,
       "pr_flood_suspect": false
     },
     "expected": {
-      "final_score": 54.7,
       "sub_scores": {
         "account_maturity": 6,
-        "original_project_quality": 9.6,
+        "original_project_quality": 9.5,
         "contribution_quality": 13.8,
         "ecosystem_impact": 4.5,
         "community_influence": 7.8,
         "activity_authenticity": 13
-      }
+      },
+      "base_score": 54.6,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 54.6,
+      "tier": "NPC",
+      "tier_label": "普通账号 · 特征平庸存疑"
     }
   }
 ]

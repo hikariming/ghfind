@@ -20,14 +20,14 @@ def test_yifan_oct18_replay():
     facts = compute_own_repo_community_facts(f['raw'], f['context'])
     assert facts == f['expected_facts']
     r = dict(f['repo'], community_facts=facts, community=own_repo_community(facts))
-    impact = compute_impact_from_contrib_map([r], 'yifanxuaaa')
+    impact = compute_impact_from_contrib_map([r], 'fixture-account-070')
     assert impact['impact_prestige_score'] == .5417
     assert impact['impact_depth_raw'] == 1.83
     assert impact['impact_repos'][0]['repo'] == r['repo']
     assert score(f['metrics'])['final_score'] == 68.1
     metrics = dict(f['metrics'], **impact)
     metrics.update(impact_depth_raw=impact['impact_depth_raw'] + f['metrics']['impact_depth_raw'],
-                   external_merged_pr_count=29, own_pr_community=own_pr_community_share([r], 'yifanxuaaa', 79))
+                   external_merged_pr_count=29, own_pr_community=own_pr_community_share([r], 'fixture-account-070', 79))
     assert score(metrics)['final_score'] == 76.5
     assert score(metrics)['sub_scores']['ecosystem_impact'] == 8.1
 
@@ -36,5 +36,5 @@ def test_yifan_oct18_replay():
 def test_no_empty_org_star_credit(overrides):
     f = json.loads((FIXTURES / 'attributed-impact-fixture.json').read_text())
     r = dict(f['repo'], **overrides)
-    assert compute_impact_from_contrib_map([r], 'yifanxuaaa')['impact_repo_count'] == 0
-    assert not is_ecosystem_impact_pr(dict(repo=r['repo'], repo_stars=520, trivial=False), 'yifanxuaaa', [r])
+    assert compute_impact_from_contrib_map([r], 'fixture-account-070')['impact_repo_count'] == 0
+    assert not is_ecosystem_impact_pr(dict(repo=r['repo'], repo_stars=520, trivial=False), 'fixture-account-070', [r])

@@ -25,7 +25,7 @@ func TestPresentationParity(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
 			var m RawMetrics
-			applyPresentationSignals(&m, c.PRs, "maker", c.OwnRepos)
+			applyPresentationSignals(&m, c.PRs, "fixture-account-045", c.OwnRepos)
 			for _, pair := range [][2]*float64{{m.PresentationChurnShare, c.Expected.PresentationChurnShare}, {m.PresentationCoreChurnShare, c.Expected.PresentationCoreChurnShare}, {m.PresentationRepoConcentration, c.Expected.PresentationRepoConcentration}, {m.PresentationPRSample, c.Expected.PresentationPRSample}, {m.PresentationCorePRCount, c.Expected.PresentationCorePRCount}} {
 				if math.Abs(*pair[0]-*pair[1]) > 1e-12 {
 					t.Fatalf("signals: %+v expected %+v", m, c.Expected)

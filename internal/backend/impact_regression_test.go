@@ -77,6 +77,9 @@ func TestImpactRegressionFixturesMatchNode(t *testing.T) {
 			m.UnverifiedImpactPRCount = &quality.UnverifiedImpactPRCount
 			m.WeightedTotalStars = &weightedTotal
 			m.WeightedMaxStars = &weightedMax
+			contentShare, contentConfidence := ContentSkillSignals(fixture.StarRepos)
+			m.ContentSkillStarShare = &contentShare
+			m.ContentSkillConfidence = &contentConfidence
 
 			// The Go pure pipeline reproduces what the Node collector recorded.
 			for field, pair := range map[string][2]float64{
@@ -134,12 +137,12 @@ func TestImpactRegressionFixturesMatchNode(t *testing.T) {
 }
 
 func TestDocLikeRepoNames(t *testing.T) {
-	for _, repo := range []string{"socketio/socket.io", "socket.io", "foo/bar.org", "org/composite", "org/parasite", "org/homepage-builder-sdk"} {
+	for _, repo := range []string{"fixture-owner-035/socket.io", "socket.io", "foo/bar.org", "org/composite", "org/parasite", "org/homepage-builder-sdk"} {
 		if isDocLikeRepo(repo) {
 			t.Errorf("%s must not be doc-like", repo)
 		}
 	}
-	for _, repo := range []string{"someone/someone.github.io", "bytedance/deerflow-website", "org/project-site", "org/project-homepage", "org/website", "org/site", "org/mywebsite"} {
+	for _, repo := range []string{"someone/someone.github.io", "fixture-account-016/deerflow-website", "org/project-site", "org/project-homepage", "org/website", "org/site", "org/mywebsite"} {
 		if !isDocLikeRepo(repo) {
 			t.Errorf("%s must be doc-like", repo)
 		}
@@ -264,11 +267,11 @@ func TestOriginalStarWeightsAndProfileReadme(t *testing.T) {
 	}{
 		{repo("engine", "2026-09-01T00:00:00Z"), 1},
 		{repo("engine", "2020-01-01T00:00:00Z"), 0.5},
-		{repo("chat-dataset-baseline", "2026-09-01T00:00:00Z"), 0.6},
-		{repo("engine", "2026-09-01T00:00:00Z", "dataset"), 0.6},
-		{TopRepo{Name: "slides", Stars: 1, PushedAt: stringPointer("2026-09-01T00:00:00Z"), Languages: []RepoLanguage{{Name: "HTML", Size: 900}, {Name: "Python", Size: 100}}}, 0.6},
+		{repo("chat-dataset-baseline", "2026-09-01T00:00:00Z"), 0.5689375},
+		{repo("engine", "2026-09-01T00:00:00Z", "dataset"), 0.5689375},
+		{TopRepo{Name: "slides", Stars: 1, PushedAt: stringPointer("2026-09-01T00:00:00Z"), Languages: []RepoLanguage{{Name: "HTML", Size: 900}, {Name: "Python", Size: 100}}}, 0.271},
 	} {
-		if got := OriginalRepoStarWeight(tc.repo, now); got != tc.want {
+		if got := OriginalRepoStarWeight(tc.repo, now); math.Abs(got-tc.want) > 1e-12 {
 			t.Errorf("%s weight = %v, want %v", tc.repo.Name, got, tc.want)
 		}
 	}

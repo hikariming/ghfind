@@ -43,6 +43,8 @@ type RepoLanguage struct {
 }
 
 type TopRepo struct {
+	RootPaths           []string        `json:"root_paths,omitempty"`
+	ContentSkillShare   *float64        `json:"content_skill_share,omitempty"`
 	AttributionShare    *float64        `json:"attribution_share,omitempty"`
 	CoCreatorFacts      *CoCreatorFacts `json:"co_creator_facts,omitempty"`
 	Name                string          `json:"name"`
@@ -477,16 +479,17 @@ func ComputeImpactQualitySignals(recentPRs []RecentPR, impactPRCount float64, lo
 }
 
 type ContribRepoAgg struct {
-	AttributionShare *float64        `json:"attribution_share,omitempty"`
-	CoCreatorFacts   *CoCreatorFacts `json:"co_creator_facts,omitempty"`
-	Repo             string          `json:"repo"`
-	Stars            float64         `json:"stars"`
-	IsPrivate        bool            `json:"is_private"`
-	IsFork           bool            `json:"is_fork"`
-	OwnerLogin       string          `json:"owner_login"`
-	Commits          float64         `json:"commits"`
-	PRs              float64         `json:"prs"`
-	ActiveYears      float64         `json:"active_years"`
+	ContentSkillShare float64         `json:"content_skill_share,omitempty"`
+	AttributionShare  *float64        `json:"attribution_share,omitempty"`
+	CoCreatorFacts    *CoCreatorFacts `json:"co_creator_facts,omitempty"`
+	Repo              string          `json:"repo"`
+	Stars             float64         `json:"stars"`
+	IsPrivate         bool            `json:"is_private"`
+	IsFork            bool            `json:"is_fork"`
+	OwnerLogin        string          `json:"owner_login"`
+	Commits           float64         `json:"commits"`
+	PRs               float64         `json:"prs"`
+	ActiveYears       float64         `json:"active_years"`
 	// MergeCommits estimates how many of Commits are merge commits (more than
 	// one parent); Topics feeds resource-repo detection. Both are absent when
 	// the repo signal query was unavailable.
@@ -592,7 +595,8 @@ func impactStarDiscount(repo ContribRepoAgg) float64 {
 	if repo.StarInflationSeverity != nil {
 		severity = *repo.StarInflationSeverity
 	}
-	return math.Exp(-7 * max(0, min(1, severity)))
+	share := max(0, min(1, repo.ContentSkillShare))
+	return math.Exp(-7*max(0, min(1, severity))) * (1 - 0.75*share*share*(3-2*share))
 }
 func attributedCreatorWeight(repo ContribRepoAgg, loginLower string) float64 {
 	if !repo.AttributedOriginal {
@@ -971,37 +975,98 @@ func isProfileReadmeRepo(repo TopRepo, loginLower string) bool {
 	return !repo.AttributedOriginal && strings.ToLower(repo.Name) == loginLower && owner == loginLower
 }
 
-var contentRepoNameRE = regexp.MustCompile(`(?i)(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?)([-_.]|$)`)
-var contentRepoTopicRE = regexp.MustCompile(`(?i)^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?)$`)
+var contentRepoNameRE = regexp.MustCompile(`(?i)(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?|skills?|handbooks?|playbooks?)([-_.]|$)`)
+var contentRepoTopicRE = regexp.MustCompile(`(?i)^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?|skills?|agent-skills?|handbooks?|playbooks?)$`)
+var rootSourceFileRE = regexp.MustCompile(`(?i)\.(go|rs|py|ts|tsx|js|jsx|java|kt|cs|cpp|cc|c|swift)$`)
 var nonCodeLanguages = map[string]bool{
-	"asciidoc": true, "css": true, "html": true, "markdown": true, "mdx": true,
-	"restructuredtext": true, "rich text format": true, "roff": true, "tex": true, "text": true,
+	"asciidoc": true, "html": true, "markdown": true, "mdx": true,
+	"restructuredtext": true, "rst": true, "plain text": true, "rich text format": true, "roff": true, "tex": true, "text": true,
 }
 
-// isContentLikeOriginalRepo mirrors isContentLikeOriginalRepo: datasets,
-// lists, books and prose collections by name, topic, or >=80% non-code bytes.
-func isContentLikeOriginalRepo(repo TopRepo) bool {
-	if contentRepoNameRE.MatchString(repo.Name) {
-		return true
-	}
+// ContentSkillShare combines prose bytes and naming with continuous code protection.
+func ContentSkillShare(repo TopRepo) float64 {
+	named := contentRepoNameRE.MatchString(repo.Name)
 	for _, topic := range repo.Topics {
-		if contentRepoTopicRE.MatchString(topic) {
-			return true
-		}
+		named = named || contentRepoTopicRE.MatchString(topic)
 	}
 	total, nonCode := 0.0, 0.0
-	for _, language := range repo.Languages {
-		total += max(0, language.Size)
-	}
-	if total <= 0 {
-		return false
-	}
-	for _, language := range repo.Languages {
-		if nonCodeLanguages[strings.ToLower(language.Name)] {
-			nonCode += max(0, language.Size)
+	for _, l := range repo.Languages {
+		total += max(0, l.Size)
+		if nonCodeLanguages[strings.ToLower(l.Name)] {
+			nonCode += max(0, l.Size)
 		}
 	}
-	return nonCode/total >= 0.8
+	prose, naming := 0.0, 0.0
+	if total > 0 {
+		prose = nonCode / total
+	}
+	if named {
+		naming = 0.55
+		if total > 0 {
+			naming *= 0.2 + 0.8*prose
+		}
+	}
+	if len(repo.RootPaths) == 0 {
+		return 1 - (1-prose)*(1-naming)
+	}
+	markdown, skill, application := 0.0, false, false
+	for _, path := range repo.RootPaths {
+		path = strings.ToLower(path)
+		for _, suffix := range []string{".md", ".mdx", ".rst", ".adoc", ".txt"} {
+			if strings.HasSuffix(path, suffix) {
+				markdown++
+				break
+			}
+		}
+		switch path {
+		case "skill.md", "skills", "prompts", ".claude":
+			skill = true
+		}
+		switch path {
+		case "src", "app", "lib", "cmd", "crates", "packages", "backend", "frontend", "server", "client", "api", "core", "include", "sources":
+			application = true
+		}
+	}
+	for _, path := range repo.RootPaths {
+		if rootSourceFileRE.MatchString(path) {
+			application = true
+		}
+	}
+	markdown = max(0, markdown-1) / float64(len(repo.RootPaths))
+	skillEvidence, nameEvidence, protection := 0.0, 0.0, 1.0
+	if skill {
+		skillEvidence = 0.65
+	}
+	if named {
+		nameEvidence = 0.55
+	}
+	layout := 1 - (1-0.75*markdown)*(1-skillEvidence)
+	if application && total > 0 {
+		protection = 1 - 0.85*(1-prose)
+	}
+	return (1 - (1-prose)*(1-nameEvidence)*(1-layout)) * protection
+}
+func ContentSkillSignals(repos []TopRepo) (float64, float64) {
+	stars, content, evidence := 0.0, 0.0, 0.0
+	for _, repo := range repos {
+		weight := max(0, repo.Stars) * projectShare(repo.AttributionShare)
+		confidence := 0.5
+		if len(repo.RootPaths) > 0 {
+			confidence = 1
+		}
+		for _, l := range repo.Languages {
+			if l.Size > 0 {
+				confidence = 1
+			}
+		}
+		stars += weight
+		content += weight * ContentSkillShare(repo)
+		evidence += weight * confidence
+	}
+	if stars == 0 {
+		return 0, 0
+	}
+	return content / stars, evidence / stars
 }
 
 // Star liveness: full weight when pushed within 12 months, falling linearly
@@ -1010,7 +1075,6 @@ var (
 	starLivenessFullMonths  = 12.0
 	starLivenessFloorMonths = 36.0
 	starLivenessFloor       = 0.5
-	contentRepoStarWeight   = 0.6
 	monthMillis             = (365.25 / 12) * 24 * 60 * 60 * 1000
 )
 
@@ -1022,10 +1086,8 @@ func OriginalRepoStarWeight(repo TopRepo, now time.Time) float64 {
 		stale := min(max((months-starLivenessFullMonths)/(starLivenessFloorMonths-starLivenessFullMonths), 0), 1)
 		liveness = 1 - (1-starLivenessFloor)*stale
 	}
-	if isContentLikeOriginalRepo(repo) {
-		return liveness * contentRepoStarWeight
-	}
-	return liveness * 1
+	share := ContentSkillShare(repo)
+	return liveness * (1 - 0.75*share*share*(3-2*share))
 }
 
 // WeightedOriginalStars mirrors weightedOriginalStars: liveness- and

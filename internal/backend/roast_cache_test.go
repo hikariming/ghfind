@@ -21,25 +21,25 @@ func TestRoastCachePreservesNodeKeysTTLAndLockLifetime(t *testing.T) {
 	}))
 	defer server.Close()
 	store := &UpstashStatusStore{baseURL: server.URL, token: "token", client: server.Client()}
-	if err := store.SetCachedRoast(context.Background(), "OctoCat", roastLanguageEN, CachedRoast{Report: "# report", Delta: 0}); err != nil {
+	if err := store.SetCachedRoast(context.Background(), "fixture-account-049", roastLanguageEN, CachedRoast{Report: "# report", Delta: 0}); err != nil {
 		t.Fatal(err)
 	}
-	if acquired, err := store.TryAcquireRoastLock(context.Background(), "OctoCat", roastLanguageEN); err != nil || !acquired {
+	if acquired, err := store.TryAcquireRoastLock(context.Background(), "fixture-account-049", roastLanguageEN); err != nil || !acquired {
 		t.Fatalf("acquired=%v err=%v", acquired, err)
 	}
-	if err := store.ClearCachedRoast(context.Background(), "OctoCat", roastLanguageEN); err != nil {
+	if err := store.ClearCachedRoast(context.Background(), "fixture-account-049", roastLanguageEN); err != nil {
 		t.Fatal(err)
 	}
 
 	setCache, setLock, clearCache := <-commands, <-commands, <-commands
 	assertCommandString(t, setCache, 0, "SET")
-	assertCommandString(t, setCache, 1, "roast:v12:v15:v5:en:octocat")
+	assertCommandString(t, setCache, 1, "roast:v12:v16:v5:en:fixture-account-049")
 	assertCommandNumber(t, setCache, 4, 172800)
 	assertCommandString(t, setLock, 0, "SET")
-	assertCommandString(t, setLock, 1, "lock:roast:v12:v15:v5:en:octocat")
+	assertCommandString(t, setLock, 1, "lock:roast:v12:v16:v5:en:fixture-account-049")
 	assertCommandNumber(t, setLock, 5, 270)
 	assertCommandString(t, clearCache, 0, "DEL")
-	assertCommandString(t, clearCache, 1, "roast:v12:v15:v5:en:octocat")
+	assertCommandString(t, clearCache, 1, "roast:v12:v16:v5:en:fixture-account-049")
 }
 
 func assertCommandString(t *testing.T, command []json.RawMessage, index int, want string) {

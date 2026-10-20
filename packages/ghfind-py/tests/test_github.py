@@ -80,8 +80,8 @@ def test_first_commit_history_cursor():
 
 
 def test_github_noreply_login_parsing():
-    assert parse_github_noreply_login("48499089+yifanxuaaa@users.noreply.github.com") == "yifanxuaaa"
-    assert parse_github_noreply_login("samzong@users.noreply.github.com") == "samzong"
+    assert parse_github_noreply_login("48499089+fixture-account-070@users.noreply.github.com") == "fixture-account-070"
+    assert parse_github_noreply_login("fixture-account-057@users.noreply.github.com") == "fixture-account-057"
     assert parse_github_noreply_login("person@example.com") is None
 
 
@@ -96,9 +96,9 @@ def test_first_commit_login_resolution_order():
         "source": "committer.user",
     }
     assert resolve_first_commit_github_login(
-        author_email="12+carol@users.noreply.github.com",
-    ) == {"login": "carol", "source": "noreply-email"}
-    assert resolve_first_commit_github_login(author_email="carol@example.com") == {
+        author_email="12+fixture-account-017@users.noreply.github.com",
+    ) == {"login": "fixture-account-017", "source": "noreply-email"}
+    assert resolve_first_commit_github_login(author_email="fixture-account-017@example.com") == {
         "login": None,
         "source": "none",
     }

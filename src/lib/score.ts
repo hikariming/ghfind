@@ -1,4 +1,4 @@
-import { presentationDiscount, ecosystemPresentationDiscount } from "./presentation-concentration";
+import { presentationDiscount, ecosystemPresentationDiscount, externalPrShare } from "./presentation-concentration";
 /**
  * Deterministic 0-100 value/trust scorer.
  *
@@ -217,6 +217,16 @@ function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
   );
 }
 
+/** Only star points are discounted; independently measured substance survives. */
+export function contentSkillDiscount(m: RawMetrics): number {
+  const share = Math.max(0, Math.min(1, m.content_skill_star_share ?? 0));
+  const confidence = Math.max(0, Math.min(1, m.content_skill_confidence ?? 0));
+  const external = Math.max(0, m.external_merged_pr_count ?? 0);
+  const engineering = Math.max(Math.max(0, m.core_impact_pr_count ?? 0) * externalPrShare({ ...m, merged_pr_count: m.merged_pr_count ?? 0 }), external * (1 - Math.max(0, Math.min(1, m.presentation_churn_share ?? 0))) / 20);
+  const starMass = Math.max(0, m.total_stars) / (Math.max(0, m.total_stars) + 5000);
+  return 1 - 0.9 * share * share * (3 - 2 * share) * confidence * starMass / (1 + engineering);
+}
+
 export function originalProjectQuality(m: RawMetrics): number {
   if (m.nonempty_original_repo_count === 0) {
     return 0.0;
@@ -226,9 +236,9 @@ export function originalProjectQuality(m: RawMetrics): number {
         ? Math.max(0, Math.min(m.top_starred_original_repo_quality_score ?? 1, 1))
         : 1;
     const starPts =
-      (logRatio(m.total_stars, 5000) * 7 + logRatio(m.max_stars, 2000) * 5) *
+      (logRatio(m.weighted_total_stars ?? m.total_stars, 5000) * 7 + logRatio(m.weighted_max_stars ?? m.max_stars, 2000) * 5) *
       starQuality *
-      starEngagementMultiplier(m.top_repo_engagement_ratio);
+      starEngagementMultiplier(m.top_repo_engagement_ratio) * contentSkillDiscount(m);
     const projectSubstance = Math.max(
       0,
       Math.min(m.best_original_repo_quality_score ?? 0, 1),
@@ -308,7 +318,8 @@ export function score(m: RawMetrics): Scoring {
   // creator/maintainer value.
   const prestige = impactPrestigeSignal(m) * 9;
   const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
-  const ecosystemRaw = (prestige + depth) * ecosystemPresentationDiscount(m);
+  const ecosystemRaw = (prestige + depth) * ecosystemPresentationDiscount(m) *
+    (1 - (1 - contentSkillDiscount(m)) * (1 - externalPrShare(m)));
   sub.ecosystem_impact = roundHalfEven(
     ecosystemRaw,
     1,

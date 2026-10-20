@@ -128,7 +128,8 @@ def impact_star_severity(r):
 
 def impact_star_discount(r):
     severity = r.get('star_inflation_severity', .9 if r.get('star_inflation_suspect') else impact_star_severity(r))
-    return math.exp(-7 * max(0, min(1, severity)))
+    share = max(0, min(1, r.get("content_skill_share", 0)))
+    return math.exp(-7 * max(0, min(1, severity))) * (1 - 0.75*share*share*(3-2*share))
 
 
 def attributed_creator_weight(r, login):

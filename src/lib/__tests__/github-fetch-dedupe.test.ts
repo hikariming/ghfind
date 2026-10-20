@@ -46,6 +46,7 @@ it("releases a truncated raw README body through Next fetch", async () => {
     if (url.endsWith("/readme")) return Response.json({
       size: 2 * 1024 * 1024, download_url: "https://raw.githubusercontent.com/org/repo/main/README.md",
     });
+    if (url.endsWith("/contents")) return Response.json([{ name: "src" }, { name: "README.md" }]);
     if (url.endsWith("/languages")) return Response.json({ TypeScript: 100 });
     return new Response(new ReadableStream({
       start(controller) { controller.enqueue(new Uint8Array(1024 * 1024 + 1).fill(65)); },

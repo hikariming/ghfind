@@ -64,8 +64,8 @@ describe("own-project community fixtures (TypeScript/Go parity)", () => {
 
   it("applies every anti-gaming filter in the own-account case", () => {
     const own = (fixtures as unknown as CommunityFixture[])[0];
-    // Kept PRs: frank, bob (code), carol (plugin); trivial/doc: bob docs, carol typo.
-    // Contributors: bob 1.0 + frank (mutual) 0.5·logRatio(8,10) + carol logRatio(6,10),
+    // Kept PRs: fixture-account-030, bob (code), fixture-account-017 (plugin); trivial/doc: bob docs, fixture-account-017 typo.
+    // Contributors: bob 1.0 + fixture-account-030 (mutual) 0.5·logRatio(8,10) + fixture-account-017 logRatio(6,10),
     // scaled by the 3/5 substantive share. Bots, the new account, the org
     // insider, the footprint-less and the profile-less accounts are excluded.
     const expected = (1 + 0.5 * logRatio(8, 10) + logRatio(6, 10)) * 0.6;
@@ -128,8 +128,8 @@ describe("community in ecosystem impact and contribution quality", () => {
 
   it("credits attributed org originals through their community", () => {
     const attributed = repo({
-      repo: "big-org/engine",
-      owner_login: "big-org",
+      repo: "fixture-owner-004/engine",
+      owner_login: "fixture-owner-004",
       attributed_original: true,
       stars: 70_000,
       community: 0.9,
@@ -148,7 +148,7 @@ describe("community in ecosystem impact and contribution quality", () => {
     const repos = [
       repo({ prs: 150, community: 0.8 }),
       repo({ repo: "me/side", prs: 50 }),
-      repo({ repo: "big-org/engine", owner_login: "big-org", attributed_original: true, prs: 40, community: 1 }),
+      repo({ repo: "fixture-owner-004/engine", owner_login: "fixture-owner-004", attributed_original: true, prs: 40, community: 1 }),
     ];
     expect(ownPrCommunityShare(repos, "me", 200)).toBe(0.8);
     expect(ownPrCommunityShare(repos, "me", 0)).toBe(0);

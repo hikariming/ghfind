@@ -1,10 +1,10 @@
 {
   "metrics": {
-    "username": "newcomer-fixture",
-    "profile_url": null,
-    "avatar_url": null,
-    "name": "Newcomer",
-    "bio": "Maintainer and contributor",
+    "username": "fixture-account-048",
+    "profile_url": "https://example.com/fixture-account-048",
+    "avatar_url": "https://example.com/fixture-account-048",
+    "name": null,
+    "bio": null,
     "company": null,
     "account_age_years": 0.5,
     "created_at": "2026-04-09T00:00:00Z",

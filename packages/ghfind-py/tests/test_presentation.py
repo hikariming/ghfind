@@ -5,7 +5,7 @@ from ghfind._presentation import presentation_signals, presentation_discount
 CASES=json.loads((Path(__file__).resolve().parents[3]/'src/lib/__tests__/presentation-fixtures.json').read_text())
 @pytest.mark.parametrize('case',CASES,ids=lambda c:c['name'])
 def test_presentation_parity(case):
-    signals=presentation_signals(case['prs'],'maker',case['own_repos'])
+    signals=presentation_signals(case['prs'],'fixture-account-045',case['own_repos'])
     assert signals == pytest.approx(case['expected'],abs=1e-12)
     assert presentation_discount(signals) == pytest.approx(case['discount'],abs=1e-12)
 

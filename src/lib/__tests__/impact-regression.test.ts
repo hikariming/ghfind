@@ -5,6 +5,7 @@ import {
   ownPrCommunityShare,
   ownRepoCommunity,
   weightedOriginalStars,
+  contentSkillSignals,
   type ContribRepoAgg,
 } from "../github";
 import { score } from "../score";
@@ -54,6 +55,7 @@ function recompute(f: ScoreRegressionFixture) {
     impact_pr_count: impact.impact_pr_count,
     ...quality,
     ...stars,
+    ...contentSkillSignals(f.star_repos),
   };
   return { impact, metrics, scoring: score(metrics) };
 }
@@ -114,9 +116,9 @@ describe("score regression fixtures (real snapshots)", () => {
   it("keeps the control account above 92 and lowers the inflated ones", () => {
     const final = (name: keyof typeof fixtures) =>
       recompute(fixtures[name] as unknown as ScoreRegressionFixture).scoring.final_score;
-    expect(final("zhaochenyang20")).toBeGreaterThanOrEqual(92);
-    expect(final("ccch1mneyyy")).toBeLessThan(final("hikariming"));
-    expect(final("hikariming")).toBeLessThan(final("zhaochenyang20"));
-    expect(final("alchaincyf")).toBeLessThanOrEqual(60);
+    expect(final("fixture-account-074")).toBeGreaterThanOrEqual(92);
+    expect(final("fixture-account-018")).toBeLessThan(final("fixture-account-035"));
+    expect(final("fixture-account-035")).toBeLessThan(final("fixture-account-074"));
+    expect(final("fixture-account-004")).toBeLessThanOrEqual(60);
   });
 });

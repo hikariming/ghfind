@@ -43,6 +43,8 @@ type RawMetrics struct {
 	EmptyOriginalRepoCount             float64  `json:"empty_original_repo_count"`
 	TotalStars                         float64  `json:"total_stars"`
 	MaxStars                           float64  `json:"max_stars"`
+	ContentSkillStarShare              *float64 `json:"content_skill_star_share,omitempty"`
+	ContentSkillConfidence             *float64 `json:"content_skill_confidence,omitempty"`
 	WeightedTotalStars                 *float64 `json:"weighted_total_stars,omitempty"`
 	WeightedMaxStars                   *float64 `json:"weighted_max_stars,omitempty"`
 	TopRepoEngagementRatio             *float64 `json:"top_repo_engagement_ratio,omitempty"`
@@ -384,6 +386,15 @@ func tierFor(final float64) (string, string) {
 
 // Score is a direct Go port of src/lib/score.ts. The API contract and scoring
 // rules stay unchanged while the collector and persistence move out of Next.
+func contentSkillDiscount(m RawMetrics) float64 {
+	share := max(0, min(1, valueOrZero(m.ContentSkillStarShare)))
+	confidence := max(0, min(1, valueOrZero(m.ContentSkillConfidence)))
+	external := max(0, valueOrZero(m.ExternalMergedPRCount))
+	engineering := max(max(0, valueOrZero(m.CoreImpactPRCount))*externalPRShare(m), external*(1-max(0, min(1, valueOrZero(m.PresentationChurnShare))))/20)
+	starMass := max(0, m.TotalStars) / (max(0, m.TotalStars) + 5000)
+	return 1 - 0.9*share*share*(3-2*share)*confidence*starMass/(1+engineering)
+}
+
 func originalProjectQuality(m RawMetrics) float64 {
 	if m.NonemptyOriginalRepoCount == 0 {
 		return 0
@@ -392,7 +403,7 @@ func originalProjectQuality(m RawMetrics) float64 {
 		if m.TotalStars > 0 {
 			starQuality = max(0, min(valueOr(m.TopStarredOriginalRepoQualityScore, 1), 1))
 		}
-		starPoints := (LogRatio(m.TotalStars, 5000)*7 + LogRatio(m.MaxStars, 2000)*5) * starQuality * starEngagementMultiplier(m.TopRepoEngagementRatio)
+		starPoints := (LogRatio(valueOr(m.WeightedTotalStars, m.TotalStars), 5000)*7 + LogRatio(valueOr(m.WeightedMaxStars, m.MaxStars), 2000)*5) * starQuality * starEngagementMultiplier(m.TopRepoEngagementRatio) * contentSkillDiscount(m)
 		projectSubstance := max(0, min(valueOr(m.BestOriginalRepoQualityScore, 0), 1)) * 6
 		return roundToEven(starPoints+projectSubstance, 1)
 	}
@@ -438,7 +449,7 @@ func Score(m RawMetrics) Scoring {
 	}
 	sub.ContributionQuality = roundToEven(min(contributionRaw, contributionCap), 1)
 
-	ecosystemRaw := (impactPrestigeSignal(m)*9 + min(m.ImpactDepthRaw/8, 1)*11) * ecosystemPresentationDiscount(m)
+	ecosystemRaw := (impactPrestigeSignal(m)*9 + min(m.ImpactDepthRaw/8, 1)*11) * ecosystemPresentationDiscount(m) * (1 - (1-contentSkillDiscount(m))*(1-externalPRShare(m)))
 	sub.EcosystemImpact = roundToEven(ecosystemRaw, 1)
 
 	followerPoints := LogRatio(m.Followers, 2000) * 5

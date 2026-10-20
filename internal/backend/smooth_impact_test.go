@@ -23,8 +23,8 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 	}
 	for _, f := range cases {
 		t.Run(f.Name, func(t *testing.T) {
-			impact := ComputeImpactFromContribMap([]ContribRepoAgg{f.Repo}, "maker")
-			actual := map[string]float64{"weight": attributedCreatorWeight(f.Repo, "maker"), "evidence": impactEvidenceWeight(f.Repo), "discount": impactStarDiscount(f.Repo), "star_weight": ownStarWeight(f.Repo.Stars), "impact_prestige_score": impact.ImpactPrestigeScore, "impact_depth_raw": impact.ImpactDepthRaw, "impact_repo_count": impact.ImpactRepoCount}
+			impact := ComputeImpactFromContribMap([]ContribRepoAgg{f.Repo}, "fixture-account-045")
+			actual := map[string]float64{"weight": attributedCreatorWeight(f.Repo, "fixture-account-045"), "evidence": impactEvidenceWeight(f.Repo), "discount": impactStarDiscount(f.Repo), "star_weight": ownStarWeight(f.Repo.Stars), "impact_prestige_score": impact.ImpactPrestigeScore, "impact_depth_raw": impact.ImpactDepthRaw, "impact_repo_count": impact.ImpactRepoCount}
 			for k, v := range actual {
 				if math.Abs(v-f.Expected[k]) > 1e-12 {
 					t.Errorf("%s=%v want %v", k, v, f.Expected[k])
@@ -36,7 +36,7 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 		values := []float64{}
 		for _, f := range cases {
 			if strings.HasPrefix(f.Name, "farm-stars-") && f.Repo.StarInflationSeverity != nil && *f.Repo.StarInflationSeverity == severity {
-				values = append(values, attributedCreatorWeight(f.Repo, "maker")*LogRatio(f.Repo.Stars, 100000))
+				values = append(values, attributedCreatorWeight(f.Repo, "fixture-account-045")*LogRatio(f.Repo.Stars, 100000))
 			}
 		}
 		if len(values) != 4 || values[2]-values[1] >= values[1]-values[0] || values[3]-values[2] >= values[2]-values[1] {
@@ -61,7 +61,7 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 			} else {
 				facts.OutsideMergedPRs = float64(n)
 			}
-			cur := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "maker")
+			cur := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "fixture-account-045")
 			if cur.ImpactPrestigeScore < prev.ImpactPrestigeScore || cur.ImpactDepthRaw < prev.ImpactDepthRaw {
 				t.Fatalf("nonmonotone at %d", n)
 			}
@@ -93,7 +93,7 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 			} else {
 				facts.OutsideMergedPRs = n
 			}
-			values = append(values, attributedCreatorWeight(r, "maker"))
+			values = append(values, attributedCreatorWeight(r, "fixture-account-045"))
 		}
 		if math.Abs(values[1]-values[0]) >= .002 {
 			t.Fatal("evidence cliff", values)
@@ -104,9 +104,9 @@ func TestSmoothImpactSharedFixtures(t *testing.T) {
 		r := base
 		r.Forks = 33
 		r.Stars = gate - 1
-		a := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "maker")
+		a := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "fixture-account-045")
 		r.Stars = gate + 1
-		b := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "maker")
+		b := ComputeImpactFromContribMap([]ContribRepoAgg{r}, "fixture-account-045")
 		if math.Abs(a.ImpactPrestigeScore-b.ImpactPrestigeScore) >= .002 || math.Abs(a.ImpactDepthRaw-b.ImpactDepthRaw) >= .02 {
 			t.Fatalf("cliff at %v", gate)
 		}

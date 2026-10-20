@@ -9,7 +9,7 @@ it.each(cases)('continuous co-creator evidence: $name',c=>{
  expect(coCreatorShare(c.facts)).toBeCloseTo(c.share,12);
  const row=c as typeof c & {owner?:string;repo?:string;fork?:boolean;private?:boolean;topics?:string[]};
  const repo={...fixture.repo,repo:row.repo??'person/project',owner_login:row.owner??'person',is_fork:row.fork??false,is_private:row.private??false,topics:row.topics??[]} as ContribRepoAgg;
- const result=computeOrgRepoAttribution({repo,organizations:[],scoredLogin:'maker',facts:c.facts,releaseOrTagAuthorHit:(c.facts as CoCreatorFacts).release_author,maintainerFileHit:(c.facts as CoCreatorFacts).maintainer_file,pinnedRepos:['person/project']});
+ const result=computeOrgRepoAttribution({repo,organizations:[],scoredLogin:'fixture-account-045',facts:c.facts,releaseOrTagAuthorHit:(c.facts as CoCreatorFacts).release_author,maintainerFileHit:(c.facts as CoCreatorFacts).maintainer_file,pinnedRepos:['person/project']});
  if(!c.eligible||c.share===0)expect(result).toBeNull();else expect(result?.share).toBeCloseTo(c.share,12);
 });
 it('bounds combined co-built shares while retaining founding provenance',()=>{
@@ -32,7 +32,7 @@ it('substantial founding code survives a recent documentation-heavy sample',()=>
 
 it('allocates ecosystem credit between own and external channels without double counting', () => {
  const base={...fixture.repo,community:.2,attributed_original:true} as ContribRepoAgg;
- const impact=(share:number, stars=520)=>computeImpactFromContribMap([{...base,stars,attribution_share:share}], 'yifanxuaaa');
+ const impact=(share:number, stars=520)=>computeImpactFromContribMap([{...base,stars,attribution_share:share}], 'fixture-account-070');
  const own=impact(1), external=impact(0), half=impact(.5);
  expect(half.impact_prestige_score).toBeCloseTo((own.impact_prestige_score+external.impact_prestige_score)/2,3);
  expect(half.impact_depth_raw).toBeCloseTo((own.impact_depth_raw+external.impact_depth_raw)/2,1);

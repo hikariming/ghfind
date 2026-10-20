@@ -332,6 +332,19 @@ func (c *GitHubClient) hydrateTopRepoEvidence(ctx context.Context, repos []TopRe
 			repos[index].ReadmeExcerpt = stringPointer(readme.Features.PromptSummary)
 		}
 		repos[index].Languages = languages
+		var entries []struct {
+			Name string `json:"name"`
+		}
+		if c.restGet(ctx, "repos/"+owner+"/"+repos[index].Name+"/contents", &entries) == nil {
+			for i, entry := range entries {
+				if i >= 1000 {
+					break
+				}
+				repos[index].RootPaths = append(repos[index].RootPaths, entry.Name)
+			}
+		}
+		share := ContentSkillShare(repos[index])
+		repos[index].ContentSkillShare = &share
 	}
 	return nil
 }

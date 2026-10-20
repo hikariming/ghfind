@@ -501,7 +501,7 @@
     "name": "spread-docs",
     "prs": [
       {
-        "repo": "org0/docs",
+        "repo": "fixture-owner-020/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -516,7 +516,7 @@
         "trivial": false
       },
       {
-        "repo": "org1/docs",
+        "repo": "fixture-owner-021/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -531,7 +531,7 @@
         "trivial": false
       },
       {
-        "repo": "org2/docs",
+        "repo": "fixture-owner-022/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -546,7 +546,7 @@
         "trivial": false
       },
       {
-        "repo": "org3/docs",
+        "repo": "fixture-owner-023/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -561,7 +561,7 @@
         "trivial": false
       },
       {
-        "repo": "org4/docs",
+        "repo": "fixture-owner-024/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -576,7 +576,7 @@
         "trivial": false
       },
       {
-        "repo": "org5/docs",
+        "repo": "fixture-owner-025/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -591,7 +591,7 @@
         "trivial": false
       },
       {
-        "repo": "org6/docs",
+        "repo": "fixture-owner-026/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -606,7 +606,7 @@
         "trivial": false
       },
       {
-        "repo": "org7/docs",
+        "repo": "fixture-owner-027/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -621,7 +621,7 @@
         "trivial": false
       },
       {
-        "repo": "org8/docs",
+        "repo": "fixture-owner-028/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -636,7 +636,7 @@
         "trivial": false
       },
       {
-        "repo": "org9/docs",
+        "repo": "fixture-owner-029/docs",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -873,7 +873,7 @@
     "name": "own-neutral",
     "prs": [
       {
-        "repo": "maker/site",
+        "repo": "fixture-account-045/site",
         "repo_stars": 1000,
         "title": "docs: site animation",
         "churn": 100,
@@ -954,7 +954,7 @@
     "name": "io-library-is-not-a-website",
     "prs": [
       {
-        "repo": "socketio/socket.io",
+        "repo": "fixture-owner-035/socket.io",
         "repo_stars": 1000,
         "title": "fix",
         "churn": 100,

@@ -1108,7 +1108,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_pr_count).toBe(1);
   });
 
-  it("preserves sustained maintenance work in a registry repo", () => {
+  it("preserves fixture-owner-037 maintenance work in a registry repo", () => {
     const m = computeImpactFromContribMap(
       [
         agg({
@@ -1189,7 +1189,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_prestige_score).toBeLessThan(1);
   });
 
-  it("lets sustained merged-PR work anchor prestige without a commit trail", () => {
+  it("lets fixture-owner-037 merged-PR work anchor prestige without a commit trail", () => {
     const m = computeImpactFromContribMap(
       [
         agg({
@@ -1322,7 +1322,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
 
 describe("doc/resource repo detection", () => {
   it("does not treat .io/.org project names as doc sites", () => {
-    expect(isDocLikeRepo("socketio/socket.io")).toBe(false);
+    expect(isDocLikeRepo("fixture-owner-035/socket.io")).toBe(false);
     expect(isDocLikeRepo("socket.io")).toBe(false);
     expect(isDocLikeRepo("foo/bar.org")).toBe(false);
   });
@@ -1330,7 +1330,7 @@ describe("doc/resource repo detection", () => {
   it("matches GitHub Pages and site/website/homepage names", () => {
     for (const repo of [
       "someone/someone.github.io",
-      "bytedance/deerflow-website",
+      "fixture-account-016/deerflow-website",
       "org/project-site",
       "org/project-homepage",
       "org/website",
@@ -1365,7 +1365,7 @@ describe("impact quality signals and per-repo code share", () => {
       isDocLikeImpactPr(
         pr({
           title: "fix(frontend): avoid stale chat route state",
-          repo: "big-org/workflow",
+          repo: "fixture-owner-004/workflow",
           repo_stars: 75000,
           files: ["web/src/routes/chat.tsx", "web/src/store/session.ts"],
         }),
@@ -1377,7 +1377,7 @@ describe("impact quality signals and per-repo code share", () => {
     const recentPrs = [
       pr({
         title: "fix(frontend): avoid stale chat route state",
-        repo: "big-org/workflow",
+        repo: "fixture-owner-004/workflow",
         repo_stars: 75000,
         files: ["web/src/routes/chat.tsx"],
       }),
@@ -1747,7 +1747,7 @@ describe("doc-like PR contribution-quality discount", () => {
     expect(score(sameVolumeHighImpact).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 
-  it("does not cliff a sustained high-impact account into the low-prestige bulk cap", () => {
+  it("does not cliff a fixture-owner-037 high-impact account into the low-prestige bulk cap", () => {
     const platform: ContribRepoAgg = {
       repo: "foundation/platform",
       owner_login: "foundation",
@@ -1974,16 +1974,16 @@ describe("v10 scoring contract (single PR pool, unweighted stars, unscaled follo
     expect(originalRepoStarWeight(repo({ pushed_at: "2025-10-13T00:00:00Z" }), now)).toBeCloseTo(1, 2);
     expect(originalRepoStarWeight(repo({ pushed_at: "2024-10-13T00:00:00Z" }), now)).toBeCloseTo(0.75, 2);
     expect(originalRepoStarWeight(repo({ pushed_at: "2020-01-01T00:00:00Z" }), now)).toBe(0.5);
-    expect(originalRepoStarWeight(repo({ name: "chat-dataset-baseline" }), now)).toBe(0.6);
-    expect(originalRepoStarWeight(repo({ topics: ["dataset"] }), now)).toBe(0.6);
+    expect(originalRepoStarWeight(repo({ name: "chat-dataset-baseline" }), now)).toBeCloseTo(0.5689375);
+    expect(originalRepoStarWeight(repo({ topics: ["dataset"] }), now)).toBeCloseTo(0.5689375);
     expect(
       originalRepoStarWeight(repo({ languages: [{ name: "HTML", size: 900 }, { name: "Python", size: 100 }] }), now),
-    ).toBe(0.6);
+    ).toBeCloseTo(0.271);
     expect(
       originalRepoStarWeight(repo({ languages: [{ name: "Jupyter Notebook", size: 900 }, { name: "Python", size: 100 }] }), now),
     ).toBe(1);
     expect(weightedOriginalStars([repo({}), repo({ name: "notes-dataset", stars: 500 })], now)).toEqual({
-      weighted_total_stars: 1300,
+      weighted_total_stars: 1284.47,
       weighted_max_stars: 1000,
     });
 
@@ -1992,7 +1992,7 @@ describe("v10 scoring contract (single PR pool, unweighted stars, unscaled follo
     expect(isProfileReadmeRepo(repo({ name: "engine" }), "me")).toBe(false);
   });
 
-  it("ignores weighted star totals in Original Project Quality", () => {
+  it("uses weighted star totals in Original Project Quality", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       total_stars: 3000,
@@ -2000,7 +2000,7 @@ describe("v10 scoring contract (single PR pool, unweighted stars, unscaled follo
       top_starred_original_repo_quality_score: 1,
       best_original_repo_quality_score: 1,
     };
-    expect(score({ ...m, weighted_total_stars: 1200, weighted_max_stars: 600 }).sub_scores.original_project_quality).toBe(
+    expect(score({ ...m, weighted_total_stars: 1200, weighted_max_stars: 600 }).sub_scores.original_project_quality).toBeLessThan(
       score(m).sub_scores.original_project_quality,
     );
   });

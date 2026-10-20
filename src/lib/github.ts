@@ -875,43 +875,61 @@ export function isProfileReadmeRepo(repo: TopRepo, loginLower: string): boolean 
   );
 }
 
-const CONTENT_REPO_NAME = /(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?)([-_.]|$)/i;
-const CONTENT_REPO_TOPIC = /^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?)$/i;
+const CONTENT_REPO_NAME = /(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?|skills?|handbooks?|playbooks?)([-_.]|$)/i;
+const CONTENT_REPO_TOPIC = /^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?|skills?|agent-skills?|handbooks?|playbooks?)$/i;
 const NON_CODE_LANGUAGES = new Set([
   "asciidoc",
-  "css",
   "html",
   "markdown",
   "mdx",
   "restructuredtext",
+  "rst",
+  "plain text",
   "rich text format",
   "roff",
   "tex",
   "text",
 ]);
 
-/** Datasets, lists, books and prose collections, by name, topic, or (when the
- * language breakdown was fetched) ≥80% non-code bytes. */
-function isContentLikeOriginalRepo(repo: TopRepo): boolean {
-  if (CONTENT_REPO_NAME.test(repo.name)) return true;
-  if ((repo.topics ?? []).some((t) => CONTENT_REPO_TOPIC.test(t))) return true;
+/** Continuous content evidence; missing language data is neutral. Code bytes
+ * suppress naming evidence so a tool that ships skills stays a software repo. */
+export function contentSkillShare(repo: TopRepo): number {
+  const named = CONTENT_REPO_NAME.test(repo.name) || (repo.topics ?? []).some(t => CONTENT_REPO_TOPIC.test(t));
   const languages = repo.languages ?? [];
-  const total = languages.reduce((a, l) => a + Math.max(0, l.size), 0);
-  if (total <= 0) return false;
-  const nonCode = languages
-    .filter((l) => NON_CODE_LANGUAGES.has(l.name.toLowerCase()))
-    .reduce((a, l) => a + Math.max(0, l.size), 0);
-  return nonCode / total >= 0.8;
+  const total = languages.reduce((n, l) => n + Math.max(0, l.size), 0);
+  const nonCode = languages.filter(l => NON_CODE_LANGUAGES.has(l.name.toLowerCase())).reduce((n, l) => n + Math.max(0, l.size), 0);
+  const prose = total > 0 ? nonCode / total : 0;
+  const naming = named ? 0.55 * (total > 0 ? 0.2 + 0.8 * prose : 1) : 0;
+  const paths = repo.root_paths?.map(p => p.toLowerCase());
+  if (!paths?.length) return 1 - (1 - prose) * (1 - naming);
+  const markdown = Math.max(0, paths.filter(p => /\.(md|mdx|rst|adoc|txt)$/.test(p)).length - 1) / paths.length;
+  const skill = paths.some(p => /^(skill\.md|skills|prompts|\.claude)$/.test(p));
+  const layout = 1 - (1 - 0.75 * markdown) * (1 - (skill ? 0.65 : 0));
+  const application = paths.some(p => /^(src|app|lib|cmd|crates|packages|backend|frontend|server|client|api|core|include|sources)$|\.(go|rs|py|ts|tsx|js|jsx|java|kt|cs|cpp|cc|c|swift)$/.test(p));
+  const protection = application && total > 0 ? 1 - 0.85 * (1 - prose) : 1;
+  return (1 - (1 - prose) * (1 - (named ? 0.55 : 0)) * (1 - layout)) * protection;
+}
+
+export function contentSkillSignals(repos: TopRepo[]) {
+  let stars = 0, content = 0, evidence = 0;
+  for (const repo of repos) {
+    const weight = Math.max(0, repo.stars) * projectShare(repo);
+    stars += weight;
+    content += weight * contentSkillShare(repo);
+    evidence += weight * ((repo.root_paths?.length || (repo.languages ?? []).some(l => l.size > 0)) ? 1 : 0.5);
+  }
+  return { content_skill_star_share: stars > 0 ? content / stars : 0,
+    content_skill_confidence: stars > 0 ? evidence / stars : 0 };
 }
 
 const STAR_LIVENESS_FULL_MONTHS = 12;
 const STAR_LIVENESS_FLOOR_MONTHS = 36;
 const STAR_LIVENESS_FLOOR = 0.5;
-const CONTENT_REPO_STAR_WEIGHT = 0.6;
+
 const MONTH_MS = (365.25 / 12) * 24 * 60 * 60 * 1000;
 
 /** Star weight for Original Project Quality: liveness (1.0 when pushed within
- * 12 months, falling linearly to 0.5 at 36) × kind (0.6 for content repos). */
+ * 12 months, falling linearly to 0.5 at 36) × continuous content-kind weight (floor 0.25). */
 export function originalRepoStarWeight(repo: TopRepo, now: Date): number {
   const pushed = parseTs(repo.pushed_at);
   let liveness = 1;
@@ -923,7 +941,8 @@ export function originalRepoStarWeight(repo: TopRepo, now: Date): number {
     );
     liveness = 1 - (1 - STAR_LIVENESS_FLOOR) * stale;
   }
-  return liveness * (isContentLikeOriginalRepo(repo) ? CONTENT_REPO_STAR_WEIGHT : 1);
+  const share = contentSkillShare(repo);
+  return liveness * (1 - 0.75 * share * share * (3 - 2 * share));
 }
 
 /** Liveness- and kind-weighted star total / max over the scored originals. */
@@ -1197,6 +1216,12 @@ async function fetchRepoLanguages(
     .sort((a, b) => b.size - a.size);
 }
 
+/** One bounded root listing; failure adds no negative evidence. No recursive tree. */
+async function fetchRepoRootPaths(owner: string, repo: string): Promise<string[] | undefined> {
+  const data = await restGet<{name: string}[]>(`repos/${owner}/${repo}/contents`).catch(swallowUnlessAborted);
+  return Array.isArray(data) ? data.slice(0, 1000).map(entry => entry.name) : undefined;
+}
+
 /** Hydrate bounded README/language evidence after a durable repo inventory. */
 export async function hydrateTopRepoEvidence(
   repos: TopRepo[],
@@ -1207,13 +1232,16 @@ export async function hydrateTopRepoEvidence(
   await Promise.all(
     selected.map(async (repo) => {
       const owner = repo.owner_login ?? fallbackOwner;
-      const [readme, languages] = await Promise.all([
+      const [readme, languages, rootPaths] = await Promise.all([
         fetchReadmeDocument(owner, repo.name),
         fetchRepoLanguages(owner, repo.name),
+        fetchRepoRootPaths(owner, repo.name),
       ]);
       repo.readme = readme ?? undefined;
       repo.readme_excerpt = readme?.features.prompt_summary ?? null;
       repo.languages = languages;
+      repo.root_paths = rootPaths;
+      repo.content_skill_share = contentSkillShare(repo);
     }),
   );
   return repos;
@@ -2489,6 +2517,7 @@ export function computeImpactQualitySignals(
  * contribution graph can include opened-but-unmerged PRs, so it is not safe as
  * a landed-impact source. */
 export interface ContribRepoAgg {
+  content_skill_share?: number;
   repo: string;
   stars: number;
   is_private: boolean;
@@ -2761,7 +2790,8 @@ export function impactStarSeverity(r: ContribRepoAgg): number {
 export function impactStarDiscount(r: ContribRepoAgg): number {
   // Old serialized boolean-only inputs retain a strong (nonzero) discount.
   const severity = r.star_inflation_severity ?? (r.star_inflation_suspect ? 0.9 : impactStarSeverity(r));
-  return Math.exp(-7 * Math.max(0, Math.min(1, severity)));
+  const share = Math.max(0, Math.min(1, r.content_skill_share ?? 0));
+  return Math.exp(-7 * Math.max(0, Math.min(1, severity))) * (1 - 0.75 * share * share * (3 - 2 * share));
 }
 
 export function attributedCreatorWeight(r: ContribRepoAgg, loginLower: string): number {
@@ -4885,17 +4915,22 @@ export async function collect(username: string, options: CollectOptions = {}): P
     hydrateOpenIssueCounts(topRepos),
     ...Array.from(new Map([...topRepos.slice(0,6), ...personalOriginalRepos.sort((a,b)=>b.stars-a.stars).slice(0,6)].map(r=>[repoDisplayName(r),r])).values()).map(async (repo) => {
       const owner = repo.owner_login ?? login;
-      const [readme, languages] = await Promise.all([
+      const [readme, languages, rootPaths] = await Promise.all([
         fetchReadmeDocument(owner, repo.name),
         fetchRepoLanguages(owner, repo.name),
+        fetchRepoRootPaths(owner, repo.name),
       ]);
       repo.readme = readme ?? undefined;
       repo.readme_excerpt = readme?.features.prompt_summary ?? null;
       repo.languages = languages;
+      repo.root_paths = rootPaths;
+      repo.content_skill_share = contentSkillShare(repo);
     }),
   ]);
   const personalStarRepos=personalOriginalRepos.filter(r=>!isProfileReadmeRepo(r,loginLower));
   const personalQuality=originalProjectQuality({
+    ...weightedOriginalStars(personalStarRepos, now),
+    ...contentSkillSignals(personalStarRepos),
     nonempty_original_repo_count: personalOriginalRepos.filter(r=>r.size>0).length,
     total_stars: personalStarRepos.reduce((sum,r)=>sum+r.stars,0),
     max_stars: personalStarRepos.reduce((best,r)=>Math.max(best,r.stars),0),
@@ -4905,7 +4940,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
   } as RawMetrics);
   const bestOriginalQuality = bestOriginalRepoQuality(topRepos, loginLower, now);
   const topStarredOriginalQuality = topStarredOriginalRepoQuality(starTopRepos, loginLower, now);
-  const weightedStars = weightedOriginalStars(starRepos, now);
+  const weightedStars = { ...weightedOriginalStars(starRepos, now), ...contentSkillSignals(starRepos) };
 
   // Star-inflation signal: notable stars but almost no forks/issues engagement
   let starInflationSuspect = false;
@@ -4918,6 +4953,10 @@ export async function collect(username: string, options: CollectOptions = {}): P
   // Own-project community: outside people building in the user's own repos.
   // Star-inflation suspects get none. Own repos that now qualify through their
   // community (200–999★) get the merge/topic signals the first pass skipped.
+  for (const repo of ownedContribRepos) {
+    const original = starRepos.find(r => repoDisplayName(r).toLowerCase() === repo.repo.toLowerCase());
+    if (original) repo.content_skill_share = contentSkillShare(original);
+  }
   const communityRepos = applyOwnRepoCommunities(
     ownedContribRepos,
     await collectOwnRepoCommunities({

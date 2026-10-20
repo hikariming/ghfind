@@ -94,6 +94,8 @@ const REQUIRED_NUMBER_METRICS = [
 ] as const satisfies readonly (keyof RawMetrics)[];
 
 const OPTIONAL_NUMBER_METRICS = [
+  "content_skill_star_share",
+  "content_skill_confidence",
   "weighted_total_stars",
   "weighted_max_stars",
   "top_repo_engagement_ratio",
@@ -211,6 +213,8 @@ function hasValidTopRepo(value: unknown): value is TopRepo {
   if (!optionalMatches(value, "name_with_owner", (item) => typeof item === "string")) return false;
   if (!optionalMatches(value, "readme_excerpt", isNullableString)) return false;
   if (!optionalMatches(value, "topics", isStringArray)) return false;
+  if (!optionalMatches(value, "root_paths", isStringArray)) return false;
+  if (!optionalMatches(value, "content_skill_share", (item) => typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 1)) return false;
   if (!optionalMatches(value, "attributed_original", (item) => typeof item === "boolean")) return false;
   if (!optionalMatches(value, "attribution_evidence", isStringArray)) return false;
   if (!optionalMatches(value, "attribution_share", item => typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 1)) return false;

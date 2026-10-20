@@ -41,6 +41,10 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		if strings.HasSuffix(request.URL.Path, "/contents") {
+			_, _ = w.Write([]byte(`[{"name":"src"},{"name":"README.md"}]`))
+			return
+		}
 		if request.URL.Path != "/graphql" {
 			t.Errorf("unexpected request %s", request.URL)
 			w.WriteHeader(http.StatusNotFound)
