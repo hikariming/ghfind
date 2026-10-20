@@ -19,20 +19,21 @@ const (
 	// src/lib/cache-version.ts and release-versions.json.
 	goCanonicalScoreVersion      = "v14"
 	goPreviousPublicScoreVersion = "v13"
+	goRetainedPublicScoreVersion = "v10"
 	goCanonicalCollectionVersion = "v5"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
 
 func publicScoreVersionClause(column string) string {
-	return column + " IN (?, ?)"
+	return column + " IN (?, ?, ?)"
 }
 
 func publicScoreVersionArgs() []any {
-	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion}
+	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goRetainedPublicScoreVersion}
 }
 
 func isPublicScoreVersion(version string) bool {
-	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion
+	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goRetainedPublicScoreVersion
 }
 
 var ErrScanJobConflict = errors.New("scan job conflicts with an existing result")

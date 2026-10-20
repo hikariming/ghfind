@@ -42,3 +42,15 @@ Historical regression: alchaincyf 54.6 → 59.9 because the collector now forwar
 already-fetched personal-repo fork counts and removes the own 1000-star cliff.
 The observed star-repo inputs are retained; other sampled users move by at most
 0.4. Oct18 yifan replay: #505 76.3 / 8.1 → v14 76.2 / 8.0.
+
+## Public-read compatibility correction
+
+Production canary octocat still has a verified v10/v5 snapshot. A two-entry
+v14/v13 read order hid it and caused the production profile smoke to return
+404. Preserve the full v14 → v13 → v10 read chain and collection v6 → v5.
+The retained history is pinned to the actual pre-v14 main commit 65c99256;
+versions:check verifies its exact manifest and ancestry. Unknown v9 labels
+remain forbidden, v11/v12 stay retired. Canonical writes remain v14/v6;
+v10/v5 is hashed stale read-only history and cannot become a canonical scan.
+No score formula or version changes in this follow-up; no bulk rescan/backfill.
+Go public read SQL includes v10 as well. Python has no server read registry.

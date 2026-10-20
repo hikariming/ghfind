@@ -18,7 +18,8 @@
   "compatibility": {
     "publicScoreReadOrder": [
       "v14",
-      "v13"
+      "v13",
+      "v10"
     ],
     "roastReplay": [
       {
@@ -27,7 +28,14 @@
       }
     ],
     "collectionReadOrder": [
-      "v6"
+      "v6",
+      "v5"
+    ],
+    "retainedPublicScoreVersions": [
+      "v10"
+    ],
+    "retainedCollectionVersions": [
+      "v5"
     ]
   },
   "legacyReadFallback": {

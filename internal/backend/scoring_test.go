@@ -103,14 +103,14 @@ func TestOwnPRCommunityCredit(t *testing.T) {
 }
 
 func TestPublicScoreReadOrder(t *testing.T) {
-	if publicScoreVersionClause("score_version") != "score_version IN (?, ?)" {
+	if publicScoreVersionClause("score_version") != "score_version IN (?, ?, ?)" {
 		t.Fatalf("clause=%q", publicScoreVersionClause("score_version"))
 	}
 	args := publicScoreVersionArgs()
-	if len(args) != 2 || args[0] != "v14" || args[1] != "v13" {
+	if len(args) != 3 || args[0] != "v14" || args[1] != "v13" || args[2] != "v10" {
 		t.Fatalf("args=%v", args)
 	}
-	if !isPublicScoreVersion("v14") || !isPublicScoreVersion("v13") || isPublicScoreVersion("v12") {
+	if !isPublicScoreVersion("v14") || !isPublicScoreVersion("v13") || !isPublicScoreVersion("v10") || isPublicScoreVersion("v12") {
 		t.Fatal("v14 and leftover v13 are public; retired v12 is not")
 	}
 }

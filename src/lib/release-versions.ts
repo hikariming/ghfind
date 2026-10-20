@@ -1,3 +1,4 @@
+import publicReadHistory from "../../config/public-read-history.json";
 import manifestJson from "../../config/release-versions.json";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "./cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
@@ -27,8 +28,9 @@ export interface ReleaseVersionManifest {
   };
   compatibility: {
     publicScoreReadOrder: string[];
-    /** Previously readable score labels retained through a collection-only release. */
+    /** Previously public score labels retained as reads across release boundaries. */
     retainedPublicScoreVersions?: string[];
+    retainedCollectionVersions?: string[];
     roastReplay: { score: string; roast: string }[];
     collectionReadOrder: string[];
   };
@@ -97,7 +99,7 @@ function expectedPublicScoreReadOrder(
 ): string[] {
   if (targetRelease.score === previousRelease.score) return [targetRelease.score, ...retained];
   if (versionNumber(targetRelease.score) > versionNumber(previousRelease.score)) {
-    return [targetRelease.score, previousRelease.score];
+    return [...new Set([targetRelease.score, previousRelease.score, ...retained])];
   }
   return [targetRelease.score];
 }
@@ -169,11 +171,12 @@ export function releaseTransitionErrors(input: {
     errors.push("changed runtime constants must exactly match the formal target release");
   }
   const retained = input.afterManifest.compatibility.retainedPublicScoreVersions ?? [];
-  if (retained.some((v) => !input.beforeManifest.compatibility.publicScoreReadOrder.includes(v))) {
+  if (retained.some((v) => !input.beforeManifest.compatibility.publicScoreReadOrder.includes(v) && !publicReadHistory.scoreVersions.includes(v))) {
     errors.push("retained public score versions must already be readable before this release");
   }
-  if (retained.length && targetChanges.includes("score")) {
-    errors.push("retained public score versions cannot accompany a score-version change");
+  const retainedCollections = input.afterManifest.compatibility.retainedCollectionVersions ?? [];
+  if (retainedCollections.some(v => !input.beforeManifest.compatibility.collectionReadOrder.includes(v) && !publicReadHistory.collectionVersions.includes(v))) {
+    errors.push("retained collection versions must already be publicly readable");
   }
   if (targetChanges.length > 1) {
     errors.push(
@@ -292,13 +295,18 @@ export function releaseVersionErrors(
       );
     }
     const retained = typed.compatibility.retainedPublicScoreVersions ?? [];
-    if (!Array.isArray(retained) || retained.some((v) => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.score)) || new Set(retained).size !== retained.length || (retained.length > 0 && previousRelease.score !== targetRelease.score)) {
-      errors.push("retained public score versions must be distinct older labels on a non-score release");
+    if (!Array.isArray(retained) || retained.some((v) => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.score)) || new Set(retained).size !== retained.length) {
+      errors.push("retained public score versions must be distinct older labels");
     }
-    const collectionReadOrder =
-      targetRelease.collection === previousRelease.collection
-        ? [targetRelease.collection]
-        : [targetRelease.collection, previousRelease.collection];
+    const retainedCollections = typed.compatibility.retainedCollectionVersions ?? [];
+    if (!Array.isArray(retainedCollections) || retainedCollections.some(v => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.collection)) || new Set(retainedCollections).size !== retainedCollections.length) {
+      errors.push("retained collection versions must be distinct older labels");
+    }
+    const collectionReadOrder = [...new Set([
+      targetRelease.collection,
+      ...(targetRelease.collection === previousRelease.collection ? [] : [previousRelease.collection]),
+      ...retainedCollections,
+    ])];
     if (!exactList(typed.compatibility.collectionReadOrder, collectionReadOrder)) {
       errors.push(
         "collection reads must prefer target and include the previous release only after a collection-version change",

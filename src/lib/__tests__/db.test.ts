@@ -301,11 +301,15 @@ describe("getArchivedRoast", () => {
     await expect(db.getAccountDetail(username)).resolves.toMatchObject({ roast: null });
   });
 
-  it("does not serve retired v10/v5 artifacts after the v14 score advance", async () => {
+  it("retains v10/v5 artifacts after the v14 score advance", async () => {
     const username = "retired-score-v10";
     await writeScore({ ...entry, username });
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
     await client.execute({ sql: `UPDATE scores SET score_version = 'v10', score_source_collection_version = 'v5' WHERE username = ?`, args: [username] });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      score_version: "v10", score_source_collection_version: "v5", legacy_read_fallback: true,
+    });
+    await client.execute({ sql: `UPDATE scores SET score_source_snapshot_hash = NULL WHERE username = ?`, args: [username] });
     await expect(db.getAccountDetail(username)).resolves.toBeNull();
   });
 
