@@ -66,7 +66,7 @@ jobs:
           pnpm exec wrangler d1 migrations apply ghfind --remote --config "$release_config"
       # ScanSlot alarms RPC into ghfind-api's ScanContinueEntrypoint. Publish that
       # named export before coord binds it, otherwise the first alarms 404 until
-      # the later api deploy and can miss the 4-minute background lease.
+      # the later api deploy and can miss the 6-minute background lease.
       - name: Deploy ghfind-api ScanContinueEntrypoint before coord
         run: pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-coord

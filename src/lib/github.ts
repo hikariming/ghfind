@@ -1700,38 +1700,43 @@ async function collectOrganizationMaintainedRepos(
     .slice(0, MAX_ORGANIZATION_MAINTAINED_REPOS);
 
   const result: OrganizationMaintainedRepo[] = [];
-  for (const candidate of candidates) {
-    const [owner, name] = candidate.repo.split("/");
-    if (!owner || !name) continue;
-    const detail = await fetchRepoDetails(owner, name);
-    if (
-      !detail ||
-      detail.private ||
-      detail.fork ||
-      detail.owner?.type?.toLowerCase() !== "organization"
-    ) {
-      continue;
-    }
-    const [releaseOrTagAuthor, maintainerFileHit] = await Promise.all([
-      hasReleaseOrTagAuthor(owner, name, loginLower),
-      hasMaintainerFileHit(owner, name, loginLower, profileUrl),
-    ]);
-    if (!releaseOrTagAuthor && !maintainerFileHit) continue;
-    const evidence = [
-      `${candidate.commits} commits + ${candidate.prs} PRs across ${candidate.active_years} years`,
-    ];
-    if (releaseOrTagAuthor) evidence.push("release/tag author");
-    if (maintainerFileHit) evidence.push("listed in maintainer/codeowner docs");
-    const repository = repoToTopRepo(detail, owner);
-    const languages = await fetchRepoLanguages(owner, name).catch(() => []);
-    if (languages.length) repository.languages = languages;
-    result.push({
-      repository,
-      commits: candidate.commits,
-      prs: candidate.prs,
-      active_years: candidate.active_years,
-      evidence,
-    });
+  // Bound the display-only repository fan-out and preserve candidate order.
+  // A long maintainer-file chain must not serialize all six repositories.
+  for (let offset = 0; offset < candidates.length; offset += 2) {
+    const batch = await Promise.all(candidates.slice(offset, offset + 2).map(async (candidate): Promise<OrganizationMaintainedRepo | null> => {
+      const [owner, name] = candidate.repo.split("/");
+      if (!owner || !name) return null;
+      const detail = await fetchRepoDetails(owner, name);
+      if (
+        !detail ||
+        detail.private ||
+        detail.fork ||
+        detail.owner?.type?.toLowerCase() !== "organization"
+      ) {
+        return null;
+      }
+      const [releaseOrTagAuthor, maintainerFileHit] = await Promise.all([
+        hasReleaseOrTagAuthor(owner, name, loginLower),
+        hasMaintainerFileHit(owner, name, loginLower, profileUrl),
+      ]);
+      if (!releaseOrTagAuthor && !maintainerFileHit) return null;
+      const evidence = [
+        `${candidate.commits} commits + ${candidate.prs} PRs across ${candidate.active_years} years`,
+      ];
+      if (releaseOrTagAuthor) evidence.push("release/tag author");
+      if (maintainerFileHit) evidence.push("listed in maintainer/codeowner docs");
+      const repository = repoToTopRepo(detail, owner);
+      const languages = await fetchRepoLanguages(owner, name).catch(() => []);
+      if (languages.length) repository.languages = languages;
+      return {
+        repository,
+        commits: candidate.commits,
+        prs: candidate.prs,
+        active_years: candidate.active_years,
+        evidence,
+      };
+    }));
+    result.push(...batch.filter((repo): repo is OrganizationMaintainedRepo => repo !== null));
   }
   return result;
 }
@@ -1748,7 +1753,7 @@ function contributionLanguageWorkUnits(c: ContribRepoAgg): number {
  * describe the repository, log-scaled user work units decide its influence.
  * (Ported from the Go backend's collectEstimatedContributionLanguages.)
  */
-async function collectEstimatedContributionLanguages(
+export async function collectEstimatedContributionLanguages(
   contributions: ContribRepoAgg[],
 ): Promise<EstimatedContributionLanguages | null> {
   const candidates = contributions
@@ -1766,13 +1771,20 @@ async function collectEstimatedContributionLanguages(
   const candidateRepoCount = candidates.length;
   const selected = candidates.slice(0, MAX_CONTRIBUTION_LANGUAGE_REPOS);
 
+  // Fetch in bounded batches, then accumulate in the original order so neither
+  // floating-point sums nor tie ordering depend on network completion order.
+  const sampledLanguages: Awaited<ReturnType<typeof fetchRepoLanguages>>[] = [];
+  for (let offset = 0; offset < selected.length; offset += 4) {
+    sampledLanguages.push(...await Promise.all(selected.slice(offset, offset + 4).map((candidate) => {
+      const [owner, name] = candidate.repo.split("/");
+      // Language display must never fail or alter a scored scan.
+      return owner && name ? fetchRepoLanguages(owner, name).catch(() => []) : Promise.resolve([]);
+    })));
+  }
   const weights = new Map<string, number>();
   let sampledRepoCount = 0;
-  for (const candidate of selected) {
-    const [owner, name] = candidate.repo.split("/");
-    if (!owner || !name) continue;
-    // Language display must never fail or alter a scored scan.
-    const languages = await fetchRepoLanguages(owner, name).catch(() => []);
+  for (const [index, candidate] of selected.entries()) {
+    const languages = sampledLanguages[index];
     const languageBytes = languages.reduce((a, l) => a + Math.max(0, l.size), 0);
     if (languageBytes === 0) continue;
     const repoWeight = Math.log1p(contributionLanguageWorkUnits(candidate));

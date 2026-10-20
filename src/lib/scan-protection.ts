@@ -21,16 +21,17 @@ export const SCAN_LEASE_MS = 70_000;
 /** Waiters give up in time to return 503/legacy before the edge 524. */
 export const SCAN_WAIT_MS = 55_000;
 /**
- * Background GitHub collect keeps the same capacity slot. Four minutes covers a
- * large-account crawl without letting a dead owner hold the global pool.
+ * Background GitHub collect keeps the same capacity slot. The bounded v15
+ * co-creator evidence can exceed three minutes on large accounts; retain one
+ * minute after the five-minute collect budget for persistence and cleanup.
  */
-export const SCAN_BACKGROUND_LEASE_MS = 240_000;
+export const SCAN_BACKGROUND_LEASE_MS = 360_000;
 /** Homepage and API poll interval advertised on 202 scan_pending. */
 export const SCAN_PENDING_RETRY_AFTER_SECONDS = 5;
 /** Interactive wait for a deferred collect before returning 202. Matches COLLECT_DEADLINE_MS. */
 export const SCAN_CONTINUE_WAIT_MS = 45_000;
 /** Wall-clock budget for the deferred collect (DO alarm → api RPC), not waitUntil. */
-export const BACKGROUND_COLLECT_DEADLINE_MS = 180_000;
+export const BACKGROUND_COLLECT_DEADLINE_MS = 300_000;
 export const SCAN_PRODUCER_CAPACITY_KEY = "scan:active-producers:v1";
 export const ADMIT_SCAN = `
 if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
