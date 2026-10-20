@@ -501,7 +501,9 @@ func impactCodeSample(prs []RecentPR) ImpactCodeSample {
 	}
 	sample := ImpactCodeSample{PRSample: float64(len(prs))}
 	for _, pr := range prs {
-		if !IsDocLikeImpactPR(pr) {
+		if share, ok := prPresentationShare(pr); ok {
+			sample.CodePRSample += 1 - share
+		} else if !IsDocLikeImpactPR(pr) {
 			sample.CodePRSample++
 		}
 	}
@@ -572,7 +574,7 @@ func (c *GitHubClient) collectImpactCodeSamples(ctx context.Context, repos []Con
 fragment CodeSamplePr on PullRequest {
   title additions deletions changedFiles
   repository { nameWithOwner stargazerCount isPrivate }
-  files(first: 50) { nodes { path } }
+  files(first: 100) { nodes { path additions deletions } }
 }`
 	var result map[string]*struct {
 		Nodes []graphPRNode `json:"nodes"`

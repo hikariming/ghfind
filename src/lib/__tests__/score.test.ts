@@ -1304,7 +1304,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(ownOnly.impact_repo_count).toBe(1);
     expect(ownOnly.impact_prestige_score).toBe(0);
     expect(ownOnly.impact_depth_raw).toBeCloseTo(
-      computeImpactFromContribMap([external], me).impact_depth_raw * 0.3,
+      computeImpactFromContribMap([external], me).impact_depth_raw * 0.3 * (1 - Math.exp(-0.6 * Math.log1p(1000))),
       1,
     );
   });
@@ -1570,93 +1570,11 @@ describe("impact quality signals and per-repo code share", () => {
 });
 
 describe("doc-like PR contribution-quality discount", () => {
-  it("strongly discounts PR volume for docs/site/examples/template-heavy histories", () => {
-    const m: RawMetrics = {
-      ...NEUTRAL,
-      username: "DocsHeavyUser",
-      account_age_years: 2.28,
-      contribution_years_active: 3,
-      nonempty_original_repo_count: 14,
-      total_stars: 158,
-      max_stars: 85,
-      merged_pr_count: 38,
-      total_pr_count: 68,
-      issues_created: 65,
-      followers: 1047,
-      following: 33,
-      last_year_contributions: 356,
-      activity_type_count: 2,
-      recent_merged_pr_sample: 38,
-      recent_doc_like_pr_count: 25,
-      recent_doc_like_pr_ratio: 0.66,
-      max_impact_repo_stars: 75125,
-      impact_pr_count: 23,
-      impact_depth_raw: 13.08,
-      impact_quality_cap: 4,
-    };
-    const prVolume = logRatio(m.merged_pr_count, 200) * 16;
-    expect(docLikePrVolumeDiscount(m, prVolume)).toBeCloseTo(5.5, 1);
-    expect(score(m).sub_scores.contribution_quality).toBe(13.4);
-  });
-
-  it("caps contribution quality for low-trust high-star doc-heavy histories", () => {
-    const m: RawMetrics = {
-      ...NEUTRAL,
-      merged_pr_count: 38,
-      total_pr_count: 68,
-      issues_created: 65,
-      total_stars: 158,
-      recent_merged_pr_sample: 38,
-      recent_external_pr_sample: 37,
-      recent_external_doc_like_pr_count: 22,
-      recent_external_doc_like_pr_ratio: 0.59,
-      max_impact_repo_stars: 75125,
-      impact_pr_count: 23,
-      impact_depth_raw: 13.08,
-      impact_quality_cap: 4,
-      core_impact_pr_count: 2,
-      doc_like_impact_pr_count: 3,
-      top_starred_original_repo_quality_score: 0.14,
-      self_closed_external_pr_count: 21,
-    };
-    expect(contributionQualityCap(m)).toBe(12);
-    expect(score(m).sub_scores.contribution_quality).toBe(12);
-  });
-
-  it("keeps low-quality external PR profiles below 50", () => {
-    const m: RawMetrics = {
-      ...NEUTRAL,
-      username: "DocsHeavyUser",
-      account_age_years: 2.34,
-      contribution_years_active: 3,
-      nonempty_original_repo_count: 16,
-      total_stars: 157,
-      max_stars: 83,
-      best_original_repo_quality_score: 0.77,
-      top_starred_original_repo_quality_score: 0.39,
-      merged_pr_count: 38,
-      total_pr_count: 69,
-      issues_created: 65,
-      followers: 1040,
-      following: 36,
-      last_year_contributions: 370,
-      activity_type_count: 2,
-      recent_merged_pr_sample: 38,
-      recent_external_pr_sample: 37,
-      recent_external_doc_like_pr_count: 22,
-      recent_external_doc_like_pr_ratio: 0.59,
-      max_impact_repo_stars: 77347,
-      impact_prestige_score: 0.9777,
-      impact_pr_count: 5,
-      impact_depth_raw: 7.49,
-      impact_quality_cap: 4,
-      core_impact_pr_count: 1,
-      doc_like_impact_pr_count: 4,
-      self_closed_external_pr_count: 22,
-    };
-    const s = score(m);
-    expect(contributionQualityCap(m)).toBe(12);
-    expect(s.final_score).toBeLessThan(50);
+  it("does not infer a presentation penalty from old binary metadata", () => {
+    const m = {...NEUTRAL, recent_external_pr_sample: 40, recent_external_doc_like_pr_ratio: 1, impact_quality_cap: 4};
+    expect(docLikePrVolumeDiscount(m, 16)).toBe(0);
+    expect(contributionQualityCap(m)).toBeUndefined();
+    expect(score(m)).toEqual(score({...m, impact_quality_cap: undefined}));
   });
 
   it("does not heavily penalize templated high-impact core contribution by title pattern alone", () => {
@@ -1722,7 +1640,7 @@ describe("doc-like PR contribution-quality discount", () => {
     expect(contributionQualityCap(m)).toBeUndefined();
   });
 
-  it("uses heavy author-closed external PRs as combined evidence with low-trust impact", () => {
+  it("keeps heavy author-closed external PRs neutral even with old low-trust metadata", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 38,
@@ -1743,7 +1661,8 @@ describe("doc-like PR contribution-quality discount", () => {
       top_starred_original_repo_quality_score: 0.8,
       self_closed_external_pr_count: 22,
     };
-    expect(contributionQualityCap(m)).toBe(12);
+    expect(contributionQualityCap(m)).toBeUndefined();
+    expect(score(m)).toEqual(score({...m, self_closed_external_pr_count: 0}));
   });
 
   it("does not discount normal histories with a small docs share", () => {

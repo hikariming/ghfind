@@ -185,7 +185,7 @@ func TestImpactExcludesMergesDocsAndOwnPrestige(t *testing.T) {
 	ownRepo.Forks = 1000
 	own := ComputeImpactFromContribMap([]ContribRepoAgg{ownRepo}, "me")
 	if own.ImpactRepoCount != 1 || own.ImpactPrestigeScore != 0 || own.ImpactDepthRaw != 0.58 {
-		t.Fatalf("own repo impact = %#v, want depth 0.59 and no prestige", own)
+		t.Fatalf("own repo impact = %#v, want depth 0.58 and no prestige", own)
 	}
 }
 

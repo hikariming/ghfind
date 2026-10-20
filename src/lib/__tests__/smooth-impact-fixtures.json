@@ -22,8 +22,17 @@
       "star_inflation_suspect": false
     },
     "expected": {
-      "weight": 0.0,
-      "evidence": 0.0,
+      "weight": 0,
+      "evidence": 0,
+      "discount": 0.002820142842530105,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    },
+    "v14_expected": {
+      "weight": 0,
+      "evidence": 0,
       "discount": 0.0028201428425301055,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0,
@@ -54,8 +63,17 @@
       "star_inflation_suspect": true
     },
     "expected": {
-      "weight": 0.0,
-      "evidence": 0.0,
+      "weight": 0,
+      "evidence": 0,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    },
+    "v14_expected": {
+      "weight": 0,
+      "evidence": 0,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0,
@@ -86,6 +104,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.25141455174965677,
+      "evidence": 0.4827181420282134,
+      "discount": 0.5208309567427908,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.1366,
+      "impact_depth_raw": 0.53,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.25141455174965677,
       "evidence": 0.4827181420282134,
       "discount": 0.5208309567427908,
@@ -121,9 +148,18 @@
       "weight": 0.0008864176301649267,
       "evidence": 0.4827181420282134,
       "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0005,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.0008864176301649267,
+      "evidence": 0.4827181420282134,
+      "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0005,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -150,6 +186,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.7266463352661968,
+      "evidence": 0.7627728513382842,
+      "discount": 0.9526379104753093,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.3948,
+      "impact_depth_raw": 1.41,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.7266463352661968,
       "evidence": 0.7627728513382842,
       "discount": 0.9526379104753093,
@@ -185,9 +230,18 @@
       "weight": 0.0014006834307004517,
       "evidence": 0.7627728513382842,
       "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0008,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.0014006834307004517,
+      "evidence": 0.7627728513382842,
+      "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0008,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -214,6 +268,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9034527501895749,
+      "evidence": 0.9054943237014074,
+      "discount": 0.9977453491884002,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4909,
+      "impact_depth_raw": 1.69,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9034527501895749,
       "evidence": 0.9054943237014074,
       "discount": 0.9977453491884002,
@@ -249,9 +312,18 @@
       "weight": 0.0016627635521854539,
       "evidence": 0.9054943237014074,
       "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.0016627635521854539,
+      "evidence": 0.9054943237014074,
+      "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0009,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -278,6 +350,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.7407696549754506,
+      "evidence": 0.8350615111533882,
+      "discount": 0.887083939424173,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4025,
+      "impact_depth_raw": 1.43,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.14897055593750774,
       "evidence": 0.6464466094067263,
       "discount": 0.2304452583860326,
@@ -310,12 +391,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0015334274420439448,
+      "evidence": 0.8350615111533882,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0008,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0011870729969477114,
       "evidence": 0.6464466094067263,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0006,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -342,6 +432,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.902584005221503,
+      "evidence": 0.9146803120383659,
+      "discount": 0.9867753720533174,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4904,
+      "impact_depth_raw": 1.69,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.6941549864722282,
       "evidence": 0.8171132452216865,
       "discount": 0.8495211533181068,
@@ -374,12 +473,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0016796318264503426,
+      "evidence": 0.9146803120383659,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0015004689555741758,
       "evidence": 0.8171132452216865,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0008,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -406,6 +514,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9599211162830754,
+      "evidence": 0.9608721125863461,
+      "discount": 0.9990102779643475,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5216,
+      "impact_depth_raw": 1.78,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9050819473398162,
       "evidence": 0.9161275372498758,
       "discount": 0.987943174437025,
@@ -438,12 +555,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0017644540504561652,
+      "evidence": 0.9608721125863461,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.001682289373019675,
       "evidence": 0.9161275372498758,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0009,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -470,6 +596,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9843670304239079,
+      "evidence": 0.984412376563883,
+      "discount": 0.9999539358290747,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5349,
+      "impact_depth_raw": 1.81,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9660419073052677,
       "evidence": 0.9665871977143222,
       "discount": 0.9994358600958673,
@@ -502,12 +637,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0018076811496506378,
+      "evidence": 0.984412376563883,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0017749486885777945,
       "evidence": 0.9665871977143222,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.001,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -534,6 +678,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9571026098247641,
+      "evidence": 0.9727952948969961,
+      "discount": 0.9838684611710693,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5201,
+      "impact_depth_raw": 1.77,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.6062475508973876,
       "evidence": 0.875,
       "discount": 0.6928543438827287,
@@ -566,12 +719,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0017863486470905984,
+      "evidence": 0.9727952948969961,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0016067666799002938,
       "evidence": 0.875,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0009,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -598,6 +760,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9841475297927261,
+      "evidence": 0.9859274995987436,
+      "discount": 0.9981946240400619,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5348,
+      "impact_depth_raw": 1.81,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.8979723183461883,
       "evidence": 0.9353397677535267,
       "discount": 0.9600493310606407,
@@ -630,12 +801,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0018104633773173388,
+      "evidence": 0.9859274995987436,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0017175688836709095,
       "evidence": 0.9353397677535267,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0009,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -662,6 +842,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9934127762390731,
+      "evidence": 0.9935463053782315,
+      "discount": 0.999865603506917,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5398,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9674084636513329,
       "evidence": 0.9703466064172855,
       "discount": 0.9969720687983845,
@@ -694,12 +883,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.001824453826765468,
+      "evidence": 0.9935463053782315,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0017818521087378503,
       "evidence": 0.9703466064172855,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.001,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -726,6 +924,15 @@
       "star_inflation_suspect": false
     },
     "expected": {
+      "weight": 0.9974227644192122,
+      "evidence": 0.9974290009457368,
+      "discount": 0.9999937473980416,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.542,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9880473920688261,
       "evidence": 0.9881867904626759,
       "discount": 0.9998589351778477,
@@ -758,12 +965,21 @@
       "star_inflation_suspect": true
     },
     "expected": {
+      "weight": 0.0018315836391838269,
+      "evidence": 0.9974290009457368,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018146121239234754,
       "evidence": 0.9881867904626759,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.001,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -789,6 +1005,15 @@
       }
     },
     "expected": {
+      "weight": 0.07840808766579578,
+      "evidence": 0.3402460446135529,
+      "discount": 0.2304452583860326,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0426,
+      "impact_depth_raw": 0.17,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.07840808766579578,
       "evidence": 0.3402460446135529,
       "discount": 0.2304452583860326,
@@ -823,6 +1048,15 @@
       "weight": 0.706114506153634,
       "evidence": 0.748811356849042,
       "discount": 0.9429804979520156,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.3837,
+      "impact_depth_raw": 1.37,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.706114506153634,
+      "evidence": 0.748811356849042,
+      "discount": 0.9429804979520156,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.3837,
       "impact_depth_raw": 1.37,
@@ -851,6 +1085,15 @@
       }
     },
     "expected": {
+      "weight": 0.743884617515412,
+      "evidence": 0.7748399935798977,
+      "discount": 0.9600493310606407,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4042,
+      "impact_depth_raw": 1.44,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.743884617515412,
       "evidence": 0.7748399935798977,
       "discount": 0.9600493310606407,
@@ -885,6 +1128,15 @@
       "weight": 0.9367405611785579,
       "evidence": 0.9372798373771636,
       "discount": 0.9994246369364833,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.509,
+      "impact_depth_raw": 1.74,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.9367405611785579,
+      "evidence": 0.9372798373771636,
+      "discount": 0.9994246369364833,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.509,
       "impact_depth_raw": 1.74,
@@ -913,6 +1165,15 @@
       }
     },
     "expected": {
+      "weight": 0.9841548034142177,
+      "evidence": 0.9841605698336435,
+      "discount": 0.9999941407737695,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5348,
+      "impact_depth_raw": 1.81,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9841548034142177,
       "evidence": 0.9841605698336435,
       "discount": 0.9999941407737695,
@@ -947,6 +1208,15 @@
       "weight": 0.996019108675391,
       "evidence": 0.9960191671396599,
       "discount": 0.9999999413020645,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5412,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0.996019108675391,
+      "evidence": 0.9960191671396599,
+      "discount": 0.9999999413020645,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.5412,
       "impact_depth_raw": 1.83,
@@ -975,6 +1245,15 @@
       }
     },
     "expected": {
+      "weight": 0.9103436645881793,
+      "evidence": 0.9425242380031348,
+      "discount": 0.9658570335728083,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4947,
+      "impact_depth_raw": 1.7,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.42059699238354387,
       "evidence": 0.8075499102701247,
       "discount": 0.5208309567427908,
@@ -1006,6 +1285,15 @@
       }
     },
     "expected": {
+      "weight": 0.9964659870271673,
+      "evidence": 0.9980394450523825,
+      "discount": 0.998423451063968,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5414,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9265259889041129,
       "evidence": 0.9725898777656579,
       "discount": 0.9526379104753093,
@@ -1037,6 +1325,15 @@
       }
     },
     "expected": {
+      "weight": 0.9999775977807522,
+      "evidence": 0.9999938515672363,
+      "discount": 0.99998374611358,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5434,
+      "impact_depth_raw": 1.84,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9984400184388953,
       "evidence": 0.9990148146631584,
       "discount": 0.9994246369364833,
@@ -1068,10 +1365,19 @@
       }
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
-      "star_weight": 0.0,
+      "discount": 1,
+      "star_weight": 0,
       "impact_prestige_score": 0,
       "impact_depth_raw": 0,
       "impact_repo_count": 0
@@ -1099,6 +1405,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967207192818911,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999998339221958,
+      "star_weight": 0.00990099009900991,
+      "impact_prestige_score": 0.06,
+      "impact_depth_raw": 0.2,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849294524586999,
       "evidence": 0.9849331431250706,
       "discount": 0.999996252876252,
@@ -1130,6 +1445,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967097576117212,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999888361891927,
+      "star_weight": 0.6655518394648829,
+      "impact_prestige_score": 0.4587,
+      "impact_depth_raw": 1.55,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846850845936855,
       "evidence": 0.9849331431250706,
       "discount": 0.9997481468329942,
@@ -1161,6 +1485,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967097389732937,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999888174894466,
+      "star_weight": 0.6666666666666666,
+      "impact_prestige_score": 0.4591,
+      "impact_depth_raw": 1.55,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846846691376734,
       "evidence": 0.9849331431250706,
       "discount": 0.9997477250216102,
@@ -1192,6 +1525,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967097204587101,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999887989139518,
+      "star_weight": 0.6677740863787375,
+      "impact_prestige_score": 0.4596,
+      "impact_depth_raw": 1.55,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846842564423397,
       "evidence": 0.9849331431250706,
       "discount": 0.9997473060131359,
@@ -1223,6 +1565,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967069571841302,
+      "evidence": 0.996720884815107,
+      "discount": 0.999986026548466,
+      "star_weight": 0.8330550918196995,
+      "impact_prestige_score": 0.538,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846226641198316,
       "evidence": 0.9849331431250706,
       "discount": 0.9996847714919472,
@@ -1254,6 +1605,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967069525323153,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999860218813472,
+      "star_weight": 0.8333333333333333,
+      "impact_prestige_score": 0.5382,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846225604357809,
       "evidence": 0.9849331431250706,
       "discount": 0.9996846662218064,
@@ -1285,6 +1645,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967069478959808,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999860172297595,
+      "star_weight": 0.8336106489184691,
+      "impact_prestige_score": 0.5384,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846224570967794,
       "evidence": 0.9849331431250706,
       "discount": 0.9996845613019931,
@@ -1316,12 +1685,21 @@
       }
     },
     "expected": {
+      "weight": 0.9967056873537692,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999847525404861,
+      "star_weight": 0.9090081892629663,
+      "impact_prestige_score": 0.598,
+      "impact_depth_raw": 2.02,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9845943613265715,
       "evidence": 0.9849331431250706,
       "discount": 0.9996560357412442,
       "star_weight": 0.9090081892629663,
       "impact_prestige_score": 0.5908,
-      "impact_depth_raw": 2.0,
+      "impact_depth_raw": 2,
       "impact_repo_count": 1
     }
   },
@@ -1347,12 +1725,21 @@
       }
     },
     "expected": {
+      "weight": 0.9967056859708093,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999847511529765,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.5981,
+      "impact_depth_raw": 2.02,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9845943305027003,
       "evidence": 0.9849331431250706,
       "discount": 0.9996560044458497,
       "star_weight": 0.9090909090909091,
       "impact_prestige_score": 0.5908,
-      "impact_depth_raw": 2.0,
+      "impact_depth_raw": 2,
       "impact_repo_count": 1
     }
   },
@@ -1378,12 +1765,21 @@
       }
     },
     "expected": {
+      "weight": 0.9967056845903617,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999847497679873,
+      "star_weight": 0.9091734786557675,
+      "impact_prestige_score": 0.5982,
+      "impact_depth_raw": 2.02,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9845942997348225,
       "evidence": 0.9849331431250706,
       "discount": 0.9996559732073051,
       "star_weight": 0.9091734786557675,
       "impact_prestige_score": 0.5909,
-      "impact_depth_raw": 2.0,
+      "impact_depth_raw": 2,
       "impact_repo_count": 1
     }
   },
@@ -1409,6 +1805,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967049622221,
+      "evidence": 0.996720884815107,
+      "discount": 0.999984025023204,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.6581,
+      "impact_depth_raw": 2.23,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9845781994757631,
       "evidence": 0.9849331431250706,
       "discount": 0.9996396266571136,
@@ -1440,6 +1845,15 @@
       }
     },
     "expected": {
+      "weight": 0.9967045738693507,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999836353928118,
+      "star_weight": 0.975609756097561,
+      "impact_prestige_score": 0.7181,
+      "impact_depth_raw": 2.43,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9845695439117238,
       "evidence": 0.9849331431250706,
       "discount": 0.9996308386859709,
@@ -1472,9 +1886,18 @@
       "star_inflation_severity": 0
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5416,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
+      "discount": 1,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.5352,
       "impact_depth_raw": 1.81,
@@ -1504,6 +1927,15 @@
       "star_inflation_severity": 0.1
     },
     "expected": {
+      "weight": 0.49495694338115237,
+      "evidence": 0.996720884815107,
+      "discount": 0.49658530379140947,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.2689,
+      "impact_depth_raw": 1,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.489103324092991,
       "evidence": 0.9849331431250706,
       "discount": 0.49658530379140947,
@@ -1536,6 +1968,15 @@
       "star_inflation_severity": 0.3
     },
     "expected": {
+      "weight": 0.12205487951960979,
+      "evidence": 0.996720884815107,
+      "discount": 0.1224564282529819,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0663,
+      "impact_depth_raw": 0.26,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.12061139477507916,
       "evidence": 0.9849331431250706,
       "discount": 0.1224564282529819,
@@ -1568,6 +2009,15 @@
       "star_inflation_severity": 0.6
     },
     "expected": {
+      "weight": 0.014946404596819446,
+      "evidence": 0.996720884815107,
+      "discount": 0.014995576820477703,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0081,
+      "impact_depth_raw": 0.03,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.014769640610766558,
       "evidence": 0.9849331431250706,
       "discount": 0.014995576820477703,
@@ -1600,12 +2050,21 @@
       "star_inflation_severity": 0.9
     },
     "expected": {
+      "weight": 0.00183028332215046,
+      "evidence": 0.996720884815107,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018086374357746634,
       "evidence": 0.9849331431250706,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.001,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -1632,12 +2091,21 @@
       "star_inflation_severity": 1
     },
     "expected": {
+      "weight": 0.0009088917995544363,
+      "evidence": 0.996720884815107,
+      "discount": 0.0009118819655545162,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.0005,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.000898142770492677,
       "evidence": 0.9849331431250706,
       "discount": 0.0009118819655545162,
       "star_weight": 0.8387096774193549,
       "impact_prestige_score": 0.0005,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -1662,6 +2130,15 @@
       }
     },
     "expected": {
+      "weight": 0.8472008332501643,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999859317005708,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.4603,
+      "impact_depth_raw": 1.61,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.8369274734453191,
       "evidence": 0.9849331431250706,
       "discount": 0.9996826321331966,
@@ -1692,6 +2169,15 @@
       }
     },
     "expected": {
+      "weight": 0.6976948038530764,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999859317005708,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.3791,
+      "impact_depth_raw": 1.39,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.6892343898961452,
       "evidence": 0.9849331431250706,
       "discount": 0.9996826321331966,
@@ -1722,11 +2208,20 @@
       }
     },
     "expected": {
-      "weight": 0.0,
+      "weight": 0,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999859317005708,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0.36,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0,
       "evidence": 0.9849331431250706,
       "discount": 0.9996826321331966,
       "star_weight": 0.8387096774193549,
-      "impact_prestige_score": 0.0,
+      "impact_prestige_score": 0,
       "impact_depth_raw": 0.36,
       "impact_repo_count": 1
     }
@@ -1753,11 +2248,20 @@
       }
     },
     "expected": {
-      "weight": 0.0,
+      "weight": 0,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999859317005708,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0.36,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
+      "weight": 0,
       "evidence": 0.9849331431250706,
       "discount": 0.9996826321331966,
       "star_weight": 0.8387096774193549,
-      "impact_prestige_score": 0.0,
+      "impact_prestige_score": 0,
       "impact_depth_raw": 0.36,
       "impact_repo_count": 1
     }
@@ -1784,8 +2288,17 @@
       }
     },
     "expected": {
-      "weight": 0.0,
-      "evidence": 0.0,
+      "weight": 0,
+      "evidence": 0,
+      "discount": 0.0009182811110734757,
+      "star_weight": 0.999000999000999,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    },
+    "v14_expected": {
+      "weight": 0,
+      "evidence": 0,
       "discount": 0.0009182811110734757,
       "star_weight": 0.999000999000999,
       "impact_prestige_score": 0,
@@ -1816,6 +2329,15 @@
       "community": 0.2
     },
     "expected": {
+      "weight": 0.9967068626472522,
+      "evidence": 0.996720884815107,
+      "discount": 0.9999859317005708,
+      "star_weight": 0.8387096774193548,
+      "impact_prestige_score": 0.5421,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9846205569944931,
       "evidence": 0.9849331431250706,
       "discount": 0.9996826321331966,
@@ -1848,9 +2370,18 @@
       "star_inflation_severity": 0
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0.8333333333333333,
+      "impact_prestige_score": 0.5382,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
+      "discount": 1,
       "star_weight": 0.8333333333333334,
       "impact_prestige_score": 0.5318,
       "impact_depth_raw": 1.8,
@@ -1880,12 +2411,21 @@
       "star_inflation_severity": 0.9
     },
     "expected": {
+      "weight": 0.00183028332215046,
+      "evidence": 0.996720884815107,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8333333333333333,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018086374357746634,
       "evidence": 0.9849331431250706,
       "discount": 0.0018363047770289071,
       "star_weight": 0.8333333333333334,
       "impact_prestige_score": 0.001,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -1912,12 +2452,21 @@
       "star_inflation_severity": 0
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.5981,
+      "impact_depth_raw": 2.02,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
+      "discount": 1,
       "star_weight": 0.9090909090909091,
       "impact_prestige_score": 0.591,
-      "impact_depth_raw": 2.0,
+      "impact_depth_raw": 2,
       "impact_repo_count": 1
     }
   },
@@ -1944,12 +2493,21 @@
       "star_inflation_severity": 0.9
     },
     "expected": {
+      "weight": 0.00183028332215046,
+      "evidence": 0.996720884815107,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.0011,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018086374357746634,
       "evidence": 0.9849331431250706,
       "discount": 0.0018363047770289071,
       "star_weight": 0.9090909090909091,
       "impact_prestige_score": 0.0011,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -1976,9 +2534,18 @@
       "star_inflation_severity": 0
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0.9375,
+      "impact_prestige_score": 0.6332,
+      "impact_depth_raw": 2.14,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
+      "discount": 1,
       "star_weight": 0.9375,
       "impact_prestige_score": 0.6257,
       "impact_depth_raw": 2.12,
@@ -2008,12 +2575,21 @@
       "star_inflation_severity": 0.9
     },
     "expected": {
+      "weight": 0.00183028332215046,
+      "evidence": 0.996720884815107,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9375,
+      "impact_prestige_score": 0.0012,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018086374357746634,
       "evidence": 0.9849331431250706,
       "discount": 0.0018363047770289071,
       "star_weight": 0.9375,
       "impact_prestige_score": 0.0011,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   },
@@ -2040,9 +2616,18 @@
       "star_inflation_severity": 0
     },
     "expected": {
+      "weight": 0.996720884815107,
+      "evidence": 0.996720884815107,
+      "discount": 1,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.6581,
+      "impact_depth_raw": 2.23,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.9849331431250706,
       "evidence": 0.9849331431250706,
-      "discount": 1.0,
+      "discount": 1,
       "star_weight": 0.9523809523809523,
       "impact_prestige_score": 0.6503,
       "impact_depth_raw": 2.2,
@@ -2072,12 +2657,21 @@
       "star_inflation_severity": 0.9
     },
     "expected": {
+      "weight": 0.00183028332215046,
+      "evidence": 0.996720884815107,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.0012,
+      "impact_depth_raw": 0.01,
+      "impact_repo_count": 1
+    },
+    "v14_expected": {
       "weight": 0.0018086374357746634,
       "evidence": 0.9849331431250706,
       "discount": 0.0018363047770289071,
       "star_weight": 0.9523809523809523,
       "impact_prestige_score": 0.0012,
-      "impact_depth_raw": 0.0,
+      "impact_depth_raw": 0,
       "impact_repo_count": 1
     }
   }

@@ -11,6 +11,8 @@ runs sequentially; the derived metrics are order-independent, so results match.
 
 from __future__ import annotations
 
+from ._presentation import presentation_signals, pr_presentation_share, UI_LIBRARY
+
 import base64
 import json
 import math
@@ -697,15 +699,17 @@ def _is_doc_like_path(path: str) -> bool:
     )
 
 
-def _is_core_code_path(path: str) -> bool:
+def _is_core_code_path(path: str, ui_library=False) -> bool:
     p = path.lower()
-    if _is_doc_like_path(p) or _is_presentation_only_path(p):
+    if _is_doc_like_path(p) or _is_presentation_only_path(p, ui_library):
         return False
-    return bool(re.search(r"\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|mm|php|py|rb|rs|scala|swift|ts|tsx)$", p, re.I))
+    return bool((ui_library and re.search(r"\.(css|scss|sass|less|styl)$",p)) or re.search(r"\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|mm|php|py|rb|rs|scala|swift|ts|tsx)$", p, re.I))
 
 
-def _is_presentation_only_path(path: str) -> bool:
+def _is_presentation_only_path(path: str, ui_library=False) -> bool:
     p = path.lower()
+    if ui_library and re.search(r"\.(css|scss|sass|less|styl)$",p):
+        return False
     return bool(
         re.search(r"\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp)$", p, re.I)
         or re.search(r"(^|/)(__snapshots__|demo|demos|examples?|templates?|storybook|screenshots?|assets?|public)(/|$)", p)
@@ -714,6 +718,9 @@ def _is_presentation_only_path(path: str) -> bool:
 
 
 def is_doc_like_impact_pr(pr: Dict[str, Any]) -> bool:
+    share = pr_presentation_share(pr)
+    if share is not None:
+        return share >= .6
     if _is_doc_like_repo(pr.get("repo")):
         return True
     title = pr.get("title") or ""
@@ -725,8 +732,9 @@ def is_doc_like_impact_pr(pr: Dict[str, Any]) -> bool:
     files = pr.get("files") or []
     if len(files) == 0:
         return False
-    doc_like = sum(1 for f in files if _is_doc_like_path(f) or _is_presentation_only_path(f))
-    core_code = sum(1 for f in files if _is_core_code_path(f))
+    ui_library = bool(UI_LIBRARY.search(pr.get("repo") or ""))
+    doc_like = sum(1 for f in files if _is_doc_like_path(f) or _is_presentation_only_path(f, ui_library))
+    core_code = sum(1 for f in files if _is_core_code_path(f, ui_library))
     return doc_like > 0 and (core_code == 0 or doc_like / len(files) >= 0.6)
 
 
@@ -1102,7 +1110,7 @@ def _fetch_recent_prs(username: str, count: int = 50) -> List[Dict[str, Any]]:
           nodes {
             title additions deletions changedFiles
             repository { nameWithOwner stargazerCount isPrivate }
-            files(first: 50) { nodes { path } }
+            files(first: 100) { nodes { path additions deletions } }
           }
         }
       }
@@ -1111,21 +1119,65 @@ def _fetch_recent_prs(username: str, count: int = 50) -> List[Dict[str, Any]]:
     if not data.get("user"):
         raise GitHubDataUnavailableError("GitHub GraphQL returned no PR data.")
     nodes = ((data["user"].get("pullRequests") or {}).get("nodes")) or []
-    out = []
-    for n in nodes:
-        repo = n.get("repository")
-        churn = (n.get("additions") or 0) + (n.get("deletions") or 0)
-        files = [(f or {}).get("path") for f in ((n.get("files") or {}).get("nodes") or [])]
-        out.append({
-            "title": n.get("title"),
-            "repo": repo.get("nameWithOwner") if repo else None,
-            "repo_stars": repo.get("stargazerCount") if repo else 0,
-            "churn": churn,
-            "changed_files": n.get("changedFiles") or 0,
-            "trivial": churn <= 5,
-            "files": [p for p in files if p],
-        })
-    return out
+    return [_recent_pr_from_node(n) for n in nodes]
+
+
+def _recent_pr_from_node(n):
+    repo = n.get("repository")
+    churn = (n.get("additions") or 0) + (n.get("deletions") or 0)
+    files = ((n.get("files") or {}).get("nodes") or [])
+    pr = {
+        "title": n.get("title"),
+        "repo": repo.get("nameWithOwner") if repo else None,
+        "repo_stars": repo.get("stargazerCount") if repo else 0,
+        "churn": churn,
+        "changed_files": n.get("changedFiles") or 0,
+        "trivial": churn <= 5,
+        "files": [f["path"] for f in files if f.get("path")],
+        "file_changes": [f for f in files if f.get("path") and f.get("additions") is not None and f.get("deletions") is not None],
+    }
+    share = pr_presentation_share(pr)
+    if share is not None:
+        pr["presentation_share"] = share
+    return pr
+
+
+def impact_code_sample(prs):
+    sample = prs[:10]
+    code = 0
+    for pr in sample:
+        share = pr_presentation_share(pr)
+        code += 1-share if share is not None else int(not is_doc_like_impact_pr(pr))
+    return dict(pr_sample=len(sample), code_pr_sample=code)
+
+
+def collect_impact_code_samples(repos, login, recent_pr_window):
+    by_repo = {}
+    for pr in recent_pr_window:
+        if pr.get("repo"):
+            by_repo.setdefault(pr["repo"].lower(), []).append(pr)
+    samples = {key: impact_code_sample(prs) for key, prs in by_repo.items()}
+    candidates = sorted((r for r in repos if r['prs'] > 0 and '/' in r['repo'] and
+                         _passes_impact_repo_gates(r, login.lower()) and
+                         (r['stars'] >= 5000 or not _is_doc_or_resource_repo(r))),
+                        key=lambda r: (-r['stars'],r['repo']))[:12]
+    candidates = [r for r in candidates if len(by_repo.get(r['repo'].lower(), [])) < min(10,r['prs'])]
+    if candidates:
+        declarations = ', '.join('$q%d: String!' % i for i in range(len(candidates)))
+        aliases = '\n'.join('s%d: search(query: $q%d, type: ISSUE, first: 10) { nodes { ...CodeSamplePr } }' % (i,i) for i in range(len(candidates)))
+        query = 'query(%s) {%s} fragment CodeSamplePr on PullRequest { title additions deletions changedFiles repository { nameWithOwner stargazerCount isPrivate } files(first: 100) { nodes { path additions deletions } } }' % (declarations, aliases)
+        variables = {'q%d' % i: 'repo:%s is:pr is:merged author:%s sort:created-desc' % (r['repo'],login) for i,r in enumerate(candidates)}
+        try:
+            data = _graphql(query,variables)
+            for i,r in enumerate(candidates):
+                prs = [_recent_pr_from_node(n) for n in ((data.get('s%d' % i) or {}).get('nodes') or []) if n and n.get('repository')]
+                if prs:
+                    samples[r['repo'].lower()] = impact_code_sample(prs)
+        except GitHubRateLimitError:
+            raise
+        except (GitHubDataUnavailableError, urllib.error.URLError, KeyError, ValueError):
+            pass
+    return [{**r, **samples.get(r['repo'].lower(), {})} for r in repos]
 
 
 def _fetch_recent_all_prs(username: str, count: int = 30) -> List[Dict[str, str]]:
@@ -1428,6 +1480,7 @@ def collect(username: str) -> Dict[str, Any]:
         r['star_inflation_severity'] = impact_star_severity(r)
 
     if contrib_repos:
+        contrib_repos = collect_impact_code_samples(contrib_repos, login, recent_pr_window)
         impact = compute_impact_from_contrib_map(contrib_repos, login_lower)
     else:
         impact_prs = [p for p in recent_prs if is_ecosystem_impact_pr(p, login_lower)]
@@ -1509,6 +1562,7 @@ def collect(username: str) -> Dict[str, Any]:
         "recent_external_pr_sample": len(recent_external_prs),
         "recent_external_doc_like_pr_count": external_doc_like_pr_count,
         "recent_external_doc_like_pr_ratio": external_doc_like_pr_ratio,
+        **presentation_signals(recent_prs, login_lower, attributed_original_repo_names),
         "max_impact_repo_stars": max_impact_repo_stars,
         "impact_prestige_score": impact["impact_prestige_score"],
         "impact_pr_count": impact["impact_pr_count"],

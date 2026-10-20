@@ -1,3 +1,4 @@
+import { presentationSignals, prPresentationShare } from "./presentation-concentration";
 /**
  * GitHub public-signal collection.
  *
@@ -1748,7 +1749,7 @@ interface PrNode {
     stargazerCount: number;
     isPrivate: boolean;
   } | null;
-  files?: { nodes: { path: string | null }[] | null } | null;
+  files?: { nodes: { path: string | null; additions?: number; deletions?: number }[] | null } | null;
 }
 
 type DurablePrState = "MERGED" | "CLOSED";
@@ -1866,7 +1867,7 @@ export async function fetchRecentPrs(username: string, count = 50): Promise<Rece
             nodes {
               title additions deletions changedFiles
               repository { nameWithOwner stargazerCount isPrivate }
-              files(first: 50) { nodes { path } }
+              files(first: 100) { nodes { path additions deletions } }
             }
             pageInfo { hasNextPage endCursor }
           }
@@ -1889,7 +1890,7 @@ export async function fetchRecentPrs(username: string, count = 50): Promise<Rece
 function toRecentPr(n: PrNode): RecentPr {
   const repo = n.repository;
   const churn = (n.additions ?? 0) + (n.deletions ?? 0);
-  return {
+  const pr: RecentPr = {
     title: n.title,
     repo: repo?.nameWithOwner ?? null,
     repo_stars: repo?.stargazerCount ?? 0,
@@ -1897,7 +1898,10 @@ function toRecentPr(n: PrNode): RecentPr {
     changed_files: n.changedFiles ?? 0,
     trivial: churn <= 5,
     files: (n.files?.nodes ?? []).map((f) => f.path).filter((p): p is string => Boolean(p)),
+    file_changes: (n.files?.nodes ?? []).filter(f => f.path && f.additions !== undefined && f.deletions !== undefined).map(f => ({path: f.path!, additions: f.additions!, deletions: f.deletions!})),
   };
+  pr.presentation_share = prPresentationShare(pr);
+  return pr;
 }
 
 interface AnyPr {
@@ -2321,7 +2325,7 @@ const STYLE_FILE = /\.(css|scss|sass|less|styl)$/i;
 
 // UI libraries, design systems and component kits ship their styles: there a
 // stylesheet is product code, not presentation (e.g. ant-design/x).
-const UI_LIBRARY_REPO = /(^|[-_./])(ui|design|design-system|components?|widgets?|styles?|css|themes?|antd|mui|chakra|shadcn|tailwind(css)?)([-_./]|$)/i;
+const UI_LIBRARY_REPO = /(^|[-_./])(ui|design|design-system|components?|widgets?|styles?|css|themes?|antd|mui|chakra|shadcn|patternfly|tailwind(css)?)([-_./]|$)/i;
 
 export function isUiLibraryRepo(nameWithOwner: string | null | undefined): boolean {
   return UI_LIBRARY_REPO.test(nameWithOwner ?? "");
@@ -2349,6 +2353,8 @@ function isCoreCodePath(path: string, uiLibrary = false): boolean {
 }
 
 export function isDocLikeImpactPr(pr: RecentPr): boolean {
+  const share = prPresentationShare(pr);
+  if (share !== undefined) return share >= 0.6;
   if (isDocLikeRepo(pr.repo)) return true;
   const title = pr.title ?? "";
   if (/\b(docs?|readme|typo|translate|translation|i18n|website|site|blog|examples?|templates?|tutorial|guide)\b/i.test(title)) {
@@ -2639,17 +2645,17 @@ function isOwnImpactRepo(r: Pick<ContribRepoAgg, "owner_login" | "attributed_ori
   return r.attributed_original === true || r.owner_login.toLowerCase() === loginLower;
 }
 
-/** v14: independent adoption saturates in log space; PRs outweigh forks. */
+/** v15: independent adoption saturates in log space; PRs outweigh forks. */
 export function impactEvidenceWeight(r: ContribRepoAgg): number {
   const prs = Math.max(0, r.community_facts?.outside_merged_prs ?? 0);
   const forks = Math.max(0, r.forks ?? 0, r.community_facts?.forks ?? 0);
-  return 1 - Math.exp(-1.5 * Math.log1p(prs) - 0.6 * Math.log1p(forks));
+  return 1 - Math.exp(-2.6 * Math.log1p(prs) - 0.6 * Math.log1p(forks));
 }
 
 export function impactStarSeverity(r: ContribRepoAgg): number {
   const prs = Math.max(0, r.community_facts?.outside_merged_prs ?? 0);
   const forks = Math.max(0, r.forks ?? 0, r.community_facts?.forks ?? 0);
-  return Math.max(0, r.stars) / (Math.max(0, r.stars) + 100) / ((1 + forks) ** 2 * (1 + prs) ** 2);
+  return Math.max(0, r.stars) / (Math.max(0, r.stars) + 100) / ((1 + forks) ** 2 * (1 + 6 * prs) ** 2);
 }
 
 export function impactStarDiscount(r: ContribRepoAgg): number {
@@ -3673,7 +3679,10 @@ export function impactCodeSample(prs: RecentPr[]): ImpactCodeSample {
   const sample = prs.slice(0, IMPACT_CODE_SAMPLE_SIZE);
   return {
     pr_sample: sample.length,
-    code_pr_sample: sample.filter((pr) => !isDocLikeImpactPr(pr)).length,
+    code_pr_sample: sample.reduce((sum, pr) => {
+      const share = prPresentationShare(pr);
+      return sum + (share === undefined ? Number(!isDocLikeImpactPr(pr)) : 1 - share);
+    }, 0),
   };
 }
 
@@ -3740,7 +3749,7 @@ export async function collectImpactCodeSamples(
       fragment CodeSamplePr on PullRequest {
         title additions deletions changedFiles
         repository { nameWithOwner stargazerCount isPrivate }
-        files(first: 50) { nodes { path } }
+        files(first: 100) { nodes { path additions deletions } }
       }`;
   const variables: Record<string, unknown> = {};
   candidates.forEach((r, i) => {
@@ -4936,6 +4945,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     recent_trivial_pr_count: trivialPrs,
     recent_doc_like_pr_count: docLikePrCount,
     recent_doc_like_pr_ratio: docLikePrRatio,
+    ...presentationSignals(recentPrs, loginLower, attributedOriginalRepoNames),
     recent_external_pr_sample: recentExternalPrs.length,
     recent_external_doc_like_pr_count: externalDocLikePrCount,
     recent_external_doc_like_pr_ratio: externalDocLikePrRatio,

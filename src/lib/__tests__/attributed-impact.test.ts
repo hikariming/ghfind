@@ -19,12 +19,12 @@ describe("attributed creator impact", () => {
       external_merged_pr_count: 108 - 79,
       own_pr_community: ownPrCommunityShare(repos, "yifanxuaaa", 79),
     });
-    expect(score(f.metrics).final_score).toBe(67.2);
+    expect(score(f.metrics).final_score).toBe(69.7);
     expect(impact.impact_repos.map((r) => r.repo)).toContain(repo.repo);
     expect(isEcosystemImpactPr({ repo: repo.repo, repo_stars: 520, trivial: false, title: "fix", churn: 55, changed_files: 1 }, "yifanxuaaa", repos)).toBe(true);
     // Community is a competing channel, never added to historical star depth.
-    expect(impact.impact_depth_raw).toBe(1.81);
-    expect(result.sub_scores.ecosystem_impact).toBeGreaterThanOrEqual(7.6);
+    expect(impact.impact_depth_raw).toBe(1.83);
+    expect(result.sub_scores.ecosystem_impact).toBeGreaterThanOrEqual(7.0);
     expect(result.sub_scores.ecosystem_impact).toBeLessThanOrEqual(8.3);
     expect(result.final_score).toBeGreaterThanOrEqual(74);
     expect(result.final_score).toBeLessThanOrEqual(77);

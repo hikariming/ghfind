@@ -62,14 +62,22 @@ type TopRepo struct {
 	AttributionEvidence []string       `json:"attribution_evidence,omitempty"`
 }
 
+type PRFileChange struct {
+	Path      string  `json:"path"`
+	Additions float64 `json:"additions"`
+	Deletions float64 `json:"deletions"`
+}
+
 type RecentPR struct {
-	Title        *string  `json:"title"`
-	Repo         *string  `json:"repo"`
-	RepoStars    float64  `json:"repo_stars"`
-	Churn        float64  `json:"churn"`
-	ChangedFiles float64  `json:"changed_files"`
-	Trivial      bool     `json:"trivial"`
-	Files        []string `json:"files,omitempty"`
+	PresentationShare *float64       `json:"presentation_share,omitempty"`
+	FileChanges       []PRFileChange `json:"file_changes,omitempty"`
+	Title             *string        `json:"title"`
+	Repo              *string        `json:"repo"`
+	RepoStars         float64        `json:"repo_stars"`
+	Churn             float64        `json:"churn"`
+	ChangedFiles      float64        `json:"changed_files"`
+	Trivial           bool           `json:"trivial"`
+	Files             []string       `json:"files,omitempty"`
 }
 
 type ImpactRepo struct {
@@ -392,7 +400,7 @@ func isDocOrResourceRepo(repo ContribRepoAgg) bool {
 // UI libraries, design systems and component kits ship their styles: there a
 // stylesheet is product code, not presentation (e.g. ant-design/x).
 var styleFileRE = regexp.MustCompile(`(?i)\.(css|scss|sass|less|styl)$`)
-var uiLibraryRepoRE = regexp.MustCompile(`(?i)(^|[-_./])(ui|design|design-system|components?|widgets?|styles?|css|themes?|antd|mui|chakra|shadcn|tailwind(css)?)([-_./]|$)`)
+var uiLibraryRepoRE = regexp.MustCompile(`(?i)(^|[-_./])(ui|design|design-system|components?|widgets?|styles?|css|themes?|antd|mui|chakra|shadcn|patternfly|tailwind(css)?)([-_./]|$)`)
 
 func isUiLibraryRepo(repo string) bool { return uiLibraryRepoRE.MatchString(repo) }
 
@@ -413,6 +421,9 @@ func isCoreCodePath(path string, uiLibrary bool) bool {
 }
 
 func IsDocLikeImpactPR(pr RecentPR) bool {
+	if share, ok := prPresentationShare(pr); ok {
+		return share >= .6
+	}
 	if pr.Repo != nil && isDocLikeRepo(*pr.Repo) {
 		return true
 	}
@@ -551,14 +562,14 @@ func passesImpactRepoGates(repo ContribRepoAgg, loginLower string) bool {
 	return repo.Commits >= defaultBranchCommitMin(repo.Repo) || repo.PRs >= 1
 }
 
-// v14 adoption saturates in log space; merged PRs outweigh forks.
+// v15 adoption saturates in log space; merged PRs outweigh forks.
 func impactEvidenceWeight(repo ContribRepoAgg) float64 {
 	forks, prs := max(0, repo.Forks), 0.0
 	if repo.CommunityFacts != nil {
 		forks = max(forks, repo.CommunityFacts.Forks)
 		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
 	}
-	return 1 - math.Exp(-1.5*math.Log1p(prs)-0.6*math.Log1p(forks))
+	return 1 - math.Exp(-2.6*math.Log1p(prs)-0.6*math.Log1p(forks))
 }
 func impactStarSeverity(repo ContribRepoAgg) float64 {
 	forks, prs := max(0, repo.Forks), 0.0
@@ -567,7 +578,7 @@ func impactStarSeverity(repo ContribRepoAgg) float64 {
 		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
 	}
 	stars := max(0, repo.Stars)
-	return stars / (stars + 100) / ((1 + forks) * (1 + forks) * (1 + prs) * (1 + prs))
+	return stars / (stars + 100) / ((1 + forks) * (1 + forks) * (1 + 6*prs) * (1 + 6*prs))
 }
 func impactStarDiscount(repo ContribRepoAgg) float64 {
 	severity := impactStarSeverity(repo)

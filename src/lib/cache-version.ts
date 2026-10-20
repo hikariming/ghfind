@@ -6,8 +6,8 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// v14 smooths attributed creator impact and own-star depth; v13 remains readable.
-export const SCORE_CACHE_VERSION = "v14";
+// v15 adds continuous presentation concentration and corrects external adoption evidence.
+export const SCORE_CACHE_VERSION = "v15";
 // v12 keeps language proficiency out of engineering judgments and roast targets.
 export const ROAST_CACHE_VERSION = "v12";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

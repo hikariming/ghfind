@@ -114,7 +114,7 @@ def impact_evidence_weight(r):
     facts = r.get('community_facts') or {}
     prs = max(0, facts.get('outside_merged_prs', 0))
     forks = max(0, r.get('forks', 0), facts.get('forks', 0))
-    return 1 - math.exp(-1.5 * math.log1p(prs) - .6 * math.log1p(forks))
+    return 1 - math.exp(-2.6 * math.log1p(prs) - .6 * math.log1p(forks))
 
 
 def impact_star_severity(r):
@@ -122,7 +122,7 @@ def impact_star_severity(r):
     prs = max(0, facts.get('outside_merged_prs', 0))
     forks = max(0, r.get('forks', 0), facts.get('forks', 0))
     stars = max(0, r['stars'])
-    return stars / (stars + 100) / ((1 + forks) ** 2 * (1 + prs) ** 2)
+    return stars / (stars + 100) / ((1 + forks) ** 2 * (1 + 6 * prs) ** 2)
 
 
 def impact_star_discount(r):

@@ -28,11 +28,11 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	}
 	repos := ApplyOwnRepoCommunities([]ContribRepoAgg{f.Repo}, map[string]OwnRepoCommunityFacts{"ephemeral-ai-lab/layerfs": facts}, false)
 	impact := ComputeImpactFromContribMap(repos, "yifanxuaaa")
-	if impact.ImpactRepoCount != 1 || impact.ImpactPrestigeScore != .5356 || impact.ImpactDepthRaw != 1.81 {
+	if impact.ImpactRepoCount != 1 || impact.ImpactPrestigeScore != .5417 || impact.ImpactDepthRaw != 1.83 {
 		t.Fatalf("impact %+v", impact)
 	}
-	if Score(f.Metrics).FinalScore != 67.2 {
-		t.Fatal("original snapshot changed")
+	if Score(f.Metrics).FinalScore != 69.7 {
+		t.Fatal("v15 replay of original snapshot changed")
 	}
 	f.Metrics.ImpactPrestigeScore = &impact.ImpactPrestigeScore
 	f.Metrics.ImpactDepthRaw += impact.ImpactDepthRaw
@@ -41,7 +41,7 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	f.Metrics.ExternalMergedPRCount = floatPointer(29)
 	f.Metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(repos, "yifanxuaaa", 79))
 	result := Score(f.Metrics)
-	if result.SubScores.EcosystemImpact != 8.0 || result.FinalScore != 76.2 {
+	if result.SubScores.EcosystemImpact != 8.1 || result.FinalScore != 76.7 {
 		t.Fatalf("score %+v", result)
 	}
 	for _, name := range []string{"empty"} {

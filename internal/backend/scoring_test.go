@@ -103,11 +103,11 @@ func TestOwnPRCommunityCredit(t *testing.T) {
 }
 
 func TestPublicScoreReadOrder(t *testing.T) {
-	if publicScoreVersionClause("score_version") != "score_version IN (?, ?, ?)" {
+	if publicScoreVersionClause("score_version") != "score_version IN (?, ?, ?, ?)" {
 		t.Fatalf("clause=%q", publicScoreVersionClause("score_version"))
 	}
 	args := publicScoreVersionArgs()
-	if len(args) != 3 || args[0] != "v14" || args[1] != "v13" || args[2] != "v10" {
+	if len(args) != 4 || args[0] != "v15" || args[1] != "v14" || args[2] != "v13" || args[3] != "v10" {
 		t.Fatalf("args=%v", args)
 	}
 	if !isPublicScoreVersion("v14") || !isPublicScoreVersion("v13") || !isPublicScoreVersion("v10") || isPublicScoreVersion("v12") {
@@ -212,7 +212,7 @@ func TestV10RiskBreakdownAtTwentyFivePointCap(t *testing.T) {
 }
 
 func TestScanCacheSeparatesDerivedImpactVersions(t *testing.T) {
-	if scanCacheKey(" Maker ") != "scan:v14:v5:maker" || scanFlightKey(" Maker ") != "lock:scan:v14:v5:maker" {
+	if scanCacheKey(" Maker ") != "scan:v15:v5:maker" || scanFlightKey(" Maker ") != "lock:scan:v15:v5:maker" {
 		t.Fatal("derived-impact cache must isolate v14")
 	}
 }

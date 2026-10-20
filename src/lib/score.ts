@@ -1,3 +1,4 @@
+import { presentationDiscount, ecosystemPresentationDiscount } from "./presentation-concentration";
 /**
  * Deterministic 0-100 value/trust scorer.
  *
@@ -116,52 +117,12 @@ export function spamBotScore(m: RawMetrics): number {
   return Math.round(Math.max(0, Math.min(s, 10)) * 10) / 10;
 }
 
+/** Retained API: v15 replaces binary caps with evidence-based continuous weighting. */
 export function docLikePrVolumeDiscount(m: RawMetrics, prVolume: number): number {
-  const sample = m.recent_external_pr_sample ?? m.recent_merged_pr_sample ?? 0;
-  const ratio =
-    m.recent_external_doc_like_pr_ratio ??
-    m.recent_doc_like_pr_ratio ??
-    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
-      ? m.recent_external_doc_like_pr_count / sample
-      : sample > 0 && m.recent_doc_like_pr_count !== undefined
-        ? m.recent_doc_like_pr_count / sample
-      : 0);
-  if (sample < 20 || ratio < 0.55) return 0;
-
-  const severity = Math.max(0, Math.min(1, (ratio - 0.55) / 0.075));
-  return Math.min(prVolume * 0.55, 2.5 + severity * 3.0);
+  const share = Math.min(1, Math.max(0, m.external_merged_pr_count ?? 0) / Math.max(1, m.merged_pr_count));
+  return prVolume * share * (1 - presentationDiscount(m)) * 0.8;
 }
-
-export function contributionQualityCap(m: RawMetrics): number | undefined {
-  const sample = m.recent_external_pr_sample ?? m.recent_merged_pr_sample ?? 0;
-  const ratio =
-    m.recent_external_doc_like_pr_ratio ??
-    m.recent_doc_like_pr_ratio ??
-    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
-      ? m.recent_external_doc_like_pr_count / sample
-      : sample > 0 && m.recent_doc_like_pr_count !== undefined
-        ? m.recent_doc_like_pr_count / sample
-        : 0);
-  if (sample < 20 || ratio < 0.55) return undefined;
-
-  const lowTrustImpact =
-    m.impact_quality_cap !== undefined &&
-    m.impact_quality_cap <= 4 &&
-    (m.core_impact_pr_count ?? 0) <= 2;
-  const weakTopStarProject =
-    (m.top_starred_original_repo_quality_score ?? 1) < 0.3 && m.total_stars > 0;
-  const selfClosedExternal = m.self_closed_external_pr_count ?? 0;
-  const totalExternalish =
-    m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosedExternal;
-  const heavySelfClosedExternal =
-    totalExternalish >= 20 && selfClosedExternal / totalExternalish >= 0.25;
-  const weakOwnProjectSignal =
-    m.max_stars < 100 &&
-    m.total_stars < 300 &&
-    (m.top_starred_original_repo_quality_score ?? 1) < 0.6;
-  if (lowTrustImpact && (weakTopStarProject || weakOwnProjectSignal || heavySelfClosedExternal)) {
-    return 12;
-  }
+export function contributionQualityCap(_m: RawMetrics): number | undefined {
   return undefined;
 }
 
@@ -318,9 +279,9 @@ export function score(m: RawMetrics): Scoring {
   const contributionQualityRaw =
     prVolume +
     ownPrCommunityCredit(m) +
-    acceptance +
+    acceptance - docLikePrVolumeDiscount(m, acceptance) +
     issuePts +
-    highImpactCorePrBonus(m) -
+    highImpactCorePrBonus(m) * (1 - (1 - presentationDiscount(m)) * 0.8) -
     authorSelfClosedExternalPenalty(m);
   const contributionCap = Math.min(
     contributionQualityCap(m) ?? Infinity,
@@ -338,11 +299,9 @@ export function score(m: RawMetrics): Scoring {
   // creator/maintainer value.
   const prestige = impactPrestigeSignal(m) * 9;
   const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
-  const ecosystemRaw = prestige + depth;
+  const ecosystemRaw = (prestige + depth) * ecosystemPresentationDiscount(m);
   sub.ecosystem_impact = roundHalfEven(
-    m.impact_quality_cap === undefined
-      ? ecosystemRaw
-      : Math.min(ecosystemRaw, m.impact_quality_cap),
+    ecosystemRaw,
     1,
   );
 

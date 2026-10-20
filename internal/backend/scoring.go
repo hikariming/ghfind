@@ -16,6 +16,11 @@ import (
 // Do not change this formula without changing src/lib/score.ts and its shared
 // regression fixtures in the same review.
 type RawMetrics struct {
+	PresentationCoreChurnShare    *float64 `json:"presentation_core_churn_share,omitempty"`
+	PresentationChurnShare        *float64 `json:"presentation_churn_share,omitempty"`
+	PresentationRepoConcentration *float64 `json:"presentation_repo_concentration,omitempty"`
+	PresentationPRSample          *float64 `json:"presentation_pr_sample,omitempty"`
+	PresentationCorePRCount       *float64 `json:"presentation_core_pr_count,omitempty"`
 	// Explicit profile pronouns are writer context only; Score never uses them.
 	Pronouns                           *string  `json:"pronouns,omitempty"`
 	Username                           string   `json:"username"`
@@ -306,32 +311,9 @@ func docLikeSample(m RawMetrics) float64 {
 }
 
 func docLikePRVolumeDiscount(m RawMetrics, prVolume float64) float64 {
-	sample := docLikeSample(m)
-	ratio := docLikePRRatio(m, sample)
-	if sample < 20 || ratio < 0.55 {
-		return 0
-	}
-	severity := max(0, min(1, (ratio-0.55)/0.075))
-	return min(prVolume*0.55, 2.5+severity*3)
+	return prVolume * externalPRShare(m) * (1 - presentationDiscount(m)) * .8
 }
-
-func contributionQualityCap(m RawMetrics) (float64, bool) {
-	sample := docLikeSample(m)
-	ratio := docLikePRRatio(m, sample)
-	if sample < 20 || ratio < 0.55 {
-		return 0, false
-	}
-	lowTrustImpact := m.ImpactQualityCap != nil && *m.ImpactQualityCap <= 4 && valueOrZero(m.CoreImpactPRCount) <= 2
-	weakTopStarProject := valueOr(m.TopStarredOriginalRepoQualityScore, 1) < 0.3 && m.TotalStars > 0
-	selfClosedExternal := valueOrZero(m.SelfClosedExternalPRCount)
-	totalExternalish := m.MergedPRCount + valueOrZero(m.MaintainerClosedUnmergedPRCount) + selfClosedExternal
-	heavySelfClosedExternal := totalExternalish >= 20 && selfClosedExternal/totalExternalish >= 0.25
-	weakOwnProjectSignal := m.MaxStars < 100 && m.TotalStars < 300 && valueOr(m.TopStarredOriginalRepoQualityScore, 1) < 0.6
-	if lowTrustImpact && (weakTopStarProject || weakOwnProjectSignal || heavySelfClosedExternal) {
-		return 12, true
-	}
-	return 0, false
-}
+func contributionQualityCap(m RawMetrics) (float64, bool) { return 0, false }
 
 func impactPrestigeSignal(m RawMetrics) float64 {
 	return max(0, min(valueOr(m.ImpactPrestigeScore, LogRatio(m.MaxImpactRepoStars, 100000)), 1))
@@ -435,7 +417,7 @@ func Score(m RawMetrics) Scoring {
 		acceptance = m.MergedPRCount * 1.2
 	}
 	acceptance = min(acceptance, 6)
-	contributionRaw := prVolume + ownPRCommunityCredit(m) + acceptance + LogRatio(m.IssuesCreated, 100)*5 + highImpactCorePRBonus(m)
+	contributionRaw := prVolume + ownPRCommunityCredit(m) + acceptance - docLikePRVolumeDiscount(m, acceptance) + LogRatio(m.IssuesCreated, 100)*5 + highImpactCorePRBonus(m)*(1-(1-presentationDiscount(m))*.8)
 	contributionCap := 27.0
 	if cap, applies := contributionQualityCap(m); applies {
 		contributionCap = min(contributionCap, cap)
@@ -445,10 +427,7 @@ func Score(m RawMetrics) Scoring {
 	}
 	sub.ContributionQuality = roundToEven(min(contributionRaw, contributionCap), 1)
 
-	ecosystemRaw := impactPrestigeSignal(m)*9 + min(m.ImpactDepthRaw/8, 1)*11
-	if m.ImpactQualityCap != nil {
-		ecosystemRaw = min(ecosystemRaw, *m.ImpactQualityCap)
-	}
+	ecosystemRaw := (impactPrestigeSignal(m)*9 + min(m.ImpactDepthRaw/8, 1)*11) * ecosystemPresentationDiscount(m)
 	sub.EcosystemImpact = roundToEven(ecosystemRaw, 1)
 
 	followerPoints := LogRatio(m.Followers, 2000) * 5

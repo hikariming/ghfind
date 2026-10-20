@@ -17,23 +17,24 @@ const (
 	// also accept goPreviousPublicScoreVersion until organic rescan (see
 	// publicScoreVersionClause). Keep this in the same review as
 	// src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion      = "v14"
-	goPreviousPublicScoreVersion = "v13"
-	goRetainedPublicScoreVersion = "v10"
+	goCanonicalScoreVersion      = "v15"
+	goPreviousPublicScoreVersion = "v14"
+	goRetainedPublicScoreVersion = "v13"
+	goOldestPublicScoreVersion   = "v10"
 	goCanonicalCollectionVersion = "v5"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
 
 func publicScoreVersionClause(column string) string {
-	return column + " IN (?, ?, ?)"
+	return column + " IN (?, ?, ?, ?)"
 }
 
 func publicScoreVersionArgs() []any {
-	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goRetainedPublicScoreVersion}
+	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goRetainedPublicScoreVersion, goOldestPublicScoreVersion}
 }
 
 func isPublicScoreVersion(version string) bool {
-	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goRetainedPublicScoreVersion
+	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goRetainedPublicScoreVersion || version == goOldestPublicScoreVersion
 }
 
 var ErrScanJobConflict = errors.New("scan job conflicts with an existing result")

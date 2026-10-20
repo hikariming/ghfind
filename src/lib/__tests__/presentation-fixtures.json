@@ -1,0 +1,1166 @@
+[
+  {
+    "name": "mixed-lines-title-neutral",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 1000,
+        "changed_files": 2,
+        "file_changes": [
+          {
+            "path": "src/main.ts",
+            "additions": 900,
+            "deletions": 0
+          },
+          {
+            "path": "README.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0.1,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 0.9
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "concentrated-docs",
+    "prs": [
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 1,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 30,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 0.34375
+  },
+  {
+    "name": "spread-docs",
+    "prs": [
+      {
+        "repo": "org0/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org1/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org2/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org3/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org4/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org5/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org6/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org7/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org8/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      },
+      {
+        "repo": "org9/docs",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "guide.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 1,
+      "presentation_repo_concentration": 0.2,
+      "presentation_pr_sample": 10,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 0.6499999999999999
+  },
+  {
+    "name": "ui-library-product-style",
+    "prs": [
+      {
+        "repo": "ant-design/x",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "components/button/style.css",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "patternfly-product-style",
+    "prs": [
+      {
+        "repo": "patternfly/patternfly",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "src/button.scss",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "asset-data-is-core",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 1000,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "assets/data/map.json",
+            "additions": 1000,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "demo-implementation-is-core",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "demos/player.c",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "site-build-and-frontend",
+    "prs": [
+      {
+        "repo": "org/site",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 1000,
+        "changed_files": 2,
+        "file_changes": [
+          {
+            "path": "package-lock.json",
+            "additions": 900,
+            "deletions": 0
+          },
+          {
+            "path": "src/App.vue",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 1,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 0.7666666666666667
+  },
+  {
+    "name": "application-frontend-is-core",
+    "prs": [
+      {
+        "repo": "org/app",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "src/App.vue",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "truncated-neutral",
+    "prs": [
+      {
+        "repo": "org/site",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 2,
+        "file_changes": [
+          {
+            "path": "README.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 0,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "own-neutral",
+    "prs": [
+      {
+        "repo": "maker/site",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "README.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 0,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "attributed-neutral",
+    "prs": [
+      {
+        "repo": "org/site",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "README.md",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [
+      "org/site"
+    ],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 0,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "missing-neutral",
+    "prs": [
+      {
+        "repo": "org/site",
+        "repo_stars": 1000,
+        "title": "docs",
+        "churn": 100,
+        "changed_files": 1
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 0,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 1.0
+  },
+  {
+    "name": "io-library-is-not-a-website",
+    "prs": [
+      {
+        "repo": "socketio/socket.io",
+        "repo_stars": 1000,
+        "title": "fix",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "src/index.ts",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1
+  },
+  {
+    "name": "site-server-remains-core",
+    "prs": [
+      {
+        "repo": "org/site",
+        "repo_stars": 1000,
+        "title": "fix",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "src/server/api.ts",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1
+  },
+  {
+    "name": "docusaurus-evidence",
+    "prs": [
+      {
+        "repo": "org/project.io",
+        "repo_stars": 1000,
+        "title": "change frontend",
+        "churn": 100,
+        "changed_files": 2,
+        "file_changes": [
+          {
+            "path": "docusaurus.config.js",
+            "additions": 10,
+            "deletions": 0
+          },
+          {
+            "path": "src/components/Feature.tsx",
+            "additions": 90,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 1,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 0.7666666666666667
+  },
+  {
+    "name": "documentation-owner-is-not-repository-evidence",
+    "prs": [
+      {
+        "repo": "docs/engine",
+        "repo_stars": 1000,
+        "title": "fix",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "src/index.ts",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1
+  },
+  {
+    "name": "substantial-core-churn-protects-mixed-maintainer",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 1000,
+        "changed_files": 2,
+        "file_changes": [
+          {
+            "path": "src/main.ts",
+            "additions": 400,
+            "deletions": 0
+          },
+          {
+            "path": "README.md",
+            "additions": 600,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0.6,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0.4
+    },
+    "discount": 1
+  },
+  {
+    "name": "generated-frontend-bundle",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "static/html/assets/vendor.CRBq5BKZ.js",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 1,
+      "presentation_repo_concentration": 1,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 0,
+      "presentation_core_churn_share": 0
+    },
+    "discount": 0.7666666666666667
+  },
+  {
+    "name": "public-service-worker-is-core",
+    "prs": [
+      {
+        "repo": "org/engine",
+        "repo_stars": 1000,
+        "title": "docs: site animation",
+        "churn": 100,
+        "changed_files": 1,
+        "file_changes": [
+          {
+            "path": "public/service-worker.js",
+            "additions": 100,
+            "deletions": 0
+          }
+        ],
+        "trivial": false
+      }
+    ],
+    "own_repos": [],
+    "expected": {
+      "presentation_churn_share": 0,
+      "presentation_repo_concentration": 0,
+      "presentation_pr_sample": 1,
+      "presentation_core_pr_count": 1,
+      "presentation_core_churn_share": 1
+    },
+    "discount": 1
+  }
+]

@@ -75,6 +75,8 @@ export interface RecentPr {
   changed_files: number;
   trivial: boolean;
   files?: string[];
+  file_changes?: { path: string; additions: number; deletions: number }[];
+  presentation_share?: number;
 }
 
 /**
@@ -210,6 +212,11 @@ export interface RawMetrics {
   recent_doc_like_pr_ratio?: number;
   recent_external_pr_sample?: number;
   recent_external_doc_like_pr_count?: number;
+  presentation_churn_share?: number;
+  presentation_core_churn_share?: number;
+  presentation_repo_concentration?: number;
+  presentation_pr_sample?: number;
+  presentation_core_pr_count?: number;
   recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;

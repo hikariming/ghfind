@@ -273,7 +273,9 @@ type graphPRNode struct {
 	} `json:"repository"`
 	Files *struct {
 		Nodes []struct {
-			Path *string `json:"path"`
+			Path      *string  `json:"path"`
+			Additions *float64 `json:"additions"`
+			Deletions *float64 `json:"deletions"`
 		} `json:"nodes"`
 	} `json:"files"`
 }
@@ -293,8 +295,14 @@ func mapRecentPR(node graphPRNode) RecentPR {
 		for _, file := range node.Files.Nodes {
 			if file.Path != nil && *file.Path != "" {
 				pr.Files = append(pr.Files, *file.Path)
+				if file.Additions != nil && file.Deletions != nil {
+					pr.FileChanges = append(pr.FileChanges, PRFileChange{Path: *file.Path, Additions: *file.Additions, Deletions: *file.Deletions})
+				}
 			}
 		}
+	}
+	if share, ok := prPresentationShare(pr); ok {
+		pr.PresentationShare = &share
 	}
 	return pr
 }
@@ -313,7 +321,7 @@ func (c *GitHubClient) fetchRecentPRs(ctx context.Context, username string, coun
       nodes {
         title additions deletions changedFiles
         repository { nameWithOwner stargazerCount isPrivate }
-        files(first: 50) { nodes { path } }
+        files(first: 100) { nodes { path additions deletions } }
       }
     }
   }
