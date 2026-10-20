@@ -2438,6 +2438,7 @@ export interface ContribRepoAgg {
   attribution_evidence?: string[];
   forks?: number;
   star_inflation_suspect?: boolean;
+  star_inflation_severity?: number;
   /** Own-project community facts (own-account repos and attributed originals
    * with outside contributors). Absent = not measured. */
   community_facts?: OwnRepoCommunityFacts;
@@ -2611,11 +2612,9 @@ function passesImpactRepoGates(r: ContribRepoAgg, loginLower: string): boolean {
   // commit. Do not let that personal registry/directory entry borrow the
   // repository's star count, while preserving credit for actual maintainers.
   if (isLowSignalEntryRepo(r.repo) && r.commits <= 1 && r.prs <= 1) return false;
-  // Own repos need 1000★, unless a measured outside community vouches for
-  // them: their credit then comes from that community, not from stars.
-  const threshold =
-    isOwnImpactRepo(r, loginLower) && !((r.community ?? 0) > 0) && !hasAttributedCreatorStarCredit(r, loginLower) ? 1000 : 200;
-  if (r.stars < threshold) return false;
+  if (isOwnImpactRepo(r, loginLower)) {
+    if (r.stars <= 0 || ((r.community ?? 0) <= 0 && impactEvidenceWeight(r) <= 0)) return false;
+  } else if (r.stars < 200) return false;
   return r.commits >= defaultBranchCommitMin(r.repo) || r.prs >= 1;
 }
 
@@ -2626,8 +2625,6 @@ const DOC_RESOURCE_IMPACT_WEIGHT = 0.5;
 /** The user's own repos already earn their stars in Original Project Quality;
  * in ecosystem impact they add depth at this weight and never prestige. */
 const OWN_REPO_IMPACT_DEPTH_WEIGHT = 0.3;
-/** Stars an own repo needs to count without a measured community. */
-const OWN_REPO_IMPACT_MIN_STARS = 1000;
 
 /** Code share assumed for a repo without a classified PR sample. */
 const IMPACT_CODE_SHARE_PRIOR = 0.7;
@@ -2642,14 +2639,41 @@ function isOwnImpactRepo(r: Pick<ContribRepoAgg, "owner_login" | "attributed_ori
   return r.attributed_original === true || r.owner_login.toLowerCase() === loginLower;
 }
 
-/** A proven attributed creator needs outside adoption; org membership alone is insufficient.
- * Keep the historical external star formula only behind these gates. */
+/** v14: independent adoption saturates in log space; PRs outweigh forks. */
+export function impactEvidenceWeight(r: ContribRepoAgg): number {
+  const prs = Math.max(0, r.community_facts?.outside_merged_prs ?? 0);
+  const forks = Math.max(0, r.forks ?? 0, r.community_facts?.forks ?? 0);
+  return 1 - Math.exp(-1.5 * Math.log1p(prs) - 0.6 * Math.log1p(forks));
+}
+
+export function impactStarSeverity(r: ContribRepoAgg): number {
+  const prs = Math.max(0, r.community_facts?.outside_merged_prs ?? 0);
+  const forks = Math.max(0, r.forks ?? 0, r.community_facts?.forks ?? 0);
+  return Math.max(0, r.stars) / (Math.max(0, r.stars) + 100) / ((1 + forks) ** 2 * (1 + prs) ** 2);
+}
+
+export function impactStarDiscount(r: ContribRepoAgg): number {
+  // Old serialized boolean-only inputs retain a strong (nonzero) discount.
+  const severity = r.star_inflation_severity ?? (r.star_inflation_suspect ? 0.9 : impactStarSeverity(r));
+  return Math.exp(-7 * Math.max(0, Math.min(1, severity)));
+}
+
+export function attributedCreatorWeight(r: ContribRepoAgg, loginLower: string): number {
+  if (!r.attributed_original) return 0;
+  const evidence = r.attribution_evidence ?? [];
+  const first = evidence.some(e => e.toLowerCase() === `first commit author is ${loginLower}`);
+  const release = evidence.includes("release/tag author");
+  const creator = first && release ? 1 : first ? 0.85 : release ? 0.7 : 0;
+  return impactEvidenceWeight(r) * creator * impactStarDiscount(r);
+}
+
 export function hasAttributedCreatorStarCredit(r: ContribRepoAgg, loginLower: string): boolean {
-  return r.attributed_original === true && !r.star_inflation_suspect &&
-    (r.attribution_evidence ?? []).some((e) =>
-      e === "release/tag author" || e.toLowerCase() === `first commit author is ${loginLower}`) &&
-    ((r.community_facts?.outside_merged_prs ?? 0) >= 1 ||
-      Math.max(r.forks ?? 0, r.community_facts?.forks ?? 0) >= 10);
+  return attributedCreatorWeight(r, loginLower) > 0;
+}
+
+/** Smooth replacement for the 1000-star own-depth gate: 500=.833, 1000=.909. */
+export function ownStarWeight(stars: number): number {
+  return 1 - Math.exp(-Math.log1p(Math.max(0, stars) / 100));
 }
 
 /**
@@ -3012,7 +3036,7 @@ export function authoredCommits(r: Pick<ContribRepoAgg, "commits" | "merge_commi
 /**
  * Compute Ecosystem & Maintainer Impact from all-time per-repo contribution
  * aggregates (commits + PRs), instead of the recent-PR window. A repo qualifies
- * when it is popular enough (external ≥200★, the user's own ≥1000★) AND the
+ * when it is popular enough (external ≥200★, own repos with outside evidence) AND the
  * user did real work in it (normally ≥{@link IMPACT_COMMIT_MIN} landed commits
  * OR ≥1 PR). Canonical projects whose official patch flow does not produce
  * GitHub merged PRs can use a narrower repo-specific commit minimum. Private
@@ -3032,7 +3056,7 @@ export function authoredCommits(r: Pick<ContribRepoAgg, "commits" | "merge_commi
  * their outside community ({@link ownRepoCommunity}): community × work ×
  * code share × tenure × doc weight as prestige, plus 2.5 × community × repo
  * weight as depth on top of the legacy damped star depth (0.3 × engagement
- * multiplier, ≥1000★ only). With a measured community they qualify at the
+ * multiplier, smooth star/adoption weights). With a measured community they qualify at the
  * external 200★ bar. Merge commits never count as work.
  *
  * TODO(content-repos): also treat a repo as content when its file tree is
@@ -3072,7 +3096,7 @@ export function computeImpactFromContribMap(
           ? logRatio(r.stars, 100_000) * prestigeWorkMultiplier(authoredCommits(r), r.prs) *
             (isDocOrResourceRepo(r) ? DOC_RESOURCE_IMPACT_WEIGHT : 1)
           : 0;
-        return Math.max(a, repoPrestige, historical);
+        return Math.max(a, repoPrestige + attributedCreatorWeight(r, loginLower) * Math.max(0, historical - repoPrestige));
       }, 0) * 10_000,
     ) / 10_000;
   const impactDepthRaw =
@@ -3084,19 +3108,15 @@ export function computeImpactFromContribMap(
         const work = authoredCommits(r) + r.prs;
         const weight = work > 0 ? Math.min(1 + Math.log10(work), 2.5) : 0;
         if (isOwn(r)) {
-          // Legacy damped star depth (own repos ≥1000★) plus community depth.
-          const starDepth =
-            r.stars >= OWN_REPO_IMPACT_MIN_STARS
-              ? logRatio(r.stars, 5000) *
-                weight *
-                repoWeight(r) *
-                (OWN_REPO_IMPACT_DEPTH_WEIGHT * starEngagementMultiplier(r.engagement))
-              : 0;
+          // Damped own-star depth rises continuously with adoption and stars.
+          const starDepth = logRatio(r.stars, 5000) * weight * repoWeight(r) *
+            OWN_REPO_IMPACT_DEPTH_WEIGHT * starEngagementMultiplier(r.engagement) *
+            ownStarWeight(r.stars) * impactEvidenceWeight(r) * impactStarDiscount(r);
           const communityDepth = starDepth + COMMUNITY_DEPTH * (r.community ?? 0) * repoWeight(r);
           const historical = hasAttributedCreatorStarCredit(r, loginLower)
             ? logRatio(r.stars, 5000) * weight * (isDocOrResourceRepo(r) ? DOC_RESOURCE_IMPACT_WEIGHT : 1)
             : 0;
-          return a + Math.max(communityDepth, historical);
+          return a + communityDepth + attributedCreatorWeight(r, loginLower) * Math.max(0, historical - communityDepth);
         }
         return a + logRatio(r.stars, 5000) * weight * repoWeight(r);
       }, 0) * 100,
@@ -4200,8 +4220,9 @@ export function applyOwnRepoCommunities(
 ): ContribRepoAgg[] {
   return repos.map((r) => {
     const f = facts.get(r.repo.toLowerCase());
-    if (!f) return { ...r, star_inflation_suspect: starInflationSuspect };
-    return { ...r, star_inflation_suspect: starInflationSuspect, community_facts: f, community: starInflationSuspect ? 0 : ownRepoCommunity(f) };
+    const repo = { ...r, star_inflation_suspect: starInflationSuspect, ...(f ? { community_facts: f } : {}) };
+    repo.star_inflation_severity = impactStarSeverity(repo);
+    return f ? { ...repo, community: ownRepoCommunity(f) * impactStarDiscount(repo) } : repo;
   });
 }
 
@@ -4708,7 +4729,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
       ...r, attributed_original: true,
       attribution_evidence: attributedOriginalRepos.find((a) => repoDisplayName(a).toLowerCase() === r.repo.toLowerCase())?.attribution_evidence,
       forks: attributedOriginalRepos.find((a) => repoDisplayName(a).toLowerCase() === r.repo.toLowerCase())?.forks,
-    } : r,
+    } : { ...r, forks: personalOriginalRepos.find(a => repoDisplayName(a).toLowerCase() === r.repo.toLowerCase())?.forks ?? r.forks },
   );
   const scoredOriginalRepos = [
     ...new Map(

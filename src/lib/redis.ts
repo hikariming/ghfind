@@ -156,10 +156,10 @@ function cacheStore(): CacheStore | null {
 }
 
 export const scanKey = (username: string) =>
-  `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+  `scan:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 export const scanStaleKey = (username: string) => `${scanKey(username)}:stale`;
 const scanRefreshKey = (username: string) =>
-  `scan-refresh:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+  `scan-refresh:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function parseCachedScan(cached: ScanResult | null): ScanResult | null {

@@ -1,0 +1,2084 @@
+[
+  {
+    "name": "pr0-fork0-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 0
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.0,
+      "evidence": 0.0,
+      "discount": 0.0028201428425301055,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    }
+  },
+  {
+    "name": "pr0-fork0-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 0
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0,
+      "evidence": 0.0,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    }
+  },
+  {
+    "name": "pr0-fork2-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 2
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.25141455174965677,
+      "evidence": 0.4827181420282134,
+      "discount": 0.5208309567427908,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.1366,
+      "impact_depth_raw": 0.53,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr0-fork2-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 2
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0008864176301649267,
+      "evidence": 0.4827181420282134,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0005,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr0-fork10-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 10
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.7266463352661968,
+      "evidence": 0.7627728513382842,
+      "discount": 0.9526379104753093,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.3948,
+      "impact_depth_raw": 1.41,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr0-fork10-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 10
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0014006834307004517,
+      "evidence": 0.7627728513382842,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0008,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr0-fork50-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 50
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.9034527501895749,
+      "evidence": 0.9054943237014074,
+      "discount": 0.9977453491884002,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.4909,
+      "impact_depth_raw": 1.69,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr0-fork50-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 50
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0016627635521854539,
+      "evidence": 0.9054943237014074,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork0-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 0
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.14897055593750774,
+      "evidence": 0.6464466094067263,
+      "discount": 0.2304452583860326,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0809,
+      "impact_depth_raw": 0.32,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork0-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 0
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0011870729969477114,
+      "evidence": 0.6464466094067263,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0006,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork2-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 2
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.6941549864722282,
+      "evidence": 0.8171132452216865,
+      "discount": 0.8495211533181068,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.3772,
+      "impact_depth_raw": 1.35,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork2-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 2
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0015004689555741758,
+      "evidence": 0.8171132452216865,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0008,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork10-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 10
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.9050819473398162,
+      "evidence": 0.9161275372498758,
+      "discount": 0.987943174437025,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.4918,
+      "impact_depth_raw": 1.69,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork10-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 10
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.001682289373019675,
+      "evidence": 0.9161275372498758,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork50-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 50
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.9660419073052677,
+      "evidence": 0.9665871977143222,
+      "discount": 0.9994358600958673,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5249,
+      "impact_depth_raw": 1.79,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr1-fork50-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 1,
+        "forks": 50
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0017749486885777945,
+      "evidence": 0.9665871977143222,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork0-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 0
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.6062475508973876,
+      "evidence": 0.875,
+      "discount": 0.6928543438827287,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.3294,
+      "impact_depth_raw": 1.2,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork0-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 0
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0016067666799002938,
+      "evidence": 0.875,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork2-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 2
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.8979723183461883,
+      "evidence": 0.9353397677535267,
+      "discount": 0.9600493310606407,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.4879,
+      "impact_depth_raw": 1.68,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork2-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 2,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 2
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0017175688836709095,
+      "evidence": 0.9353397677535267,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0009,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork10-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 10
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.9674084636513329,
+      "evidence": 0.9703466064172855,
+      "discount": 0.9969720687983845,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5257,
+      "impact_depth_raw": 1.79,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork10-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 10
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0017818521087378503,
+      "evidence": 0.9703466064172855,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork50-suspectFalse",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 50
+      },
+      "star_inflation_suspect": false
+    },
+    "expected": {
+      "weight": 0.9880473920688261,
+      "evidence": 0.9881867904626759,
+      "discount": 0.9998589351778477,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5369,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr3-fork50-suspectTrue",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 50,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 50
+      },
+      "star_inflation_suspect": true
+    },
+    "expected": {
+      "weight": 0.0018146121239234754,
+      "evidence": 0.9881867904626759,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-1",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 1,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 1
+      }
+    },
+    "expected": {
+      "weight": 0.07840808766579578,
+      "evidence": 0.3402460446135529,
+      "discount": 0.2304452583860326,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0426,
+      "impact_depth_raw": 0.17,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 9,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 9
+      }
+    },
+    "expected": {
+      "weight": 0.706114506153634,
+      "evidence": 0.748811356849042,
+      "discount": 0.9429804979520156,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.3837,
+      "impact_depth_raw": 1.37,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-11",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 11,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 11
+      }
+    },
+    "expected": {
+      "weight": 0.743884617515412,
+      "evidence": 0.7748399935798977,
+      "discount": 0.9600493310606407,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.4042,
+      "impact_depth_raw": 1.44,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-100",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 100,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 100
+      }
+    },
+    "expected": {
+      "weight": 0.9367405611785579,
+      "evidence": 0.9372798373771636,
+      "discount": 0.9994246369364833,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.509,
+      "impact_depth_raw": 1.74,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-1000",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 1000,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 1000
+      }
+    },
+    "expected": {
+      "weight": 0.9841548034142177,
+      "evidence": 0.9841605698336435,
+      "discount": 0.9999941407737695,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5348,
+      "impact_depth_raw": 1.81,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "fork-10000",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 10000,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 10000
+      }
+    },
+    "expected": {
+      "weight": 0.996019108675391,
+      "evidence": 0.9960191671396599,
+      "discount": 0.9999999413020645,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5412,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr-2",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 2,
+        "forks": 0
+      }
+    },
+    "expected": {
+      "weight": 0.42059699238354387,
+      "evidence": 0.8075499102701247,
+      "discount": 0.5208309567427908,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.2285,
+      "impact_depth_raw": 0.86,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr-10",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 10,
+        "forks": 0
+      }
+    },
+    "expected": {
+      "weight": 0.9265259889041129,
+      "evidence": 0.9725898777656579,
+      "discount": 0.9526379104753093,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5034,
+      "impact_depth_raw": 1.73,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "pr-100",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 100,
+        "forks": 0
+      }
+    },
+    "expected": {
+      "weight": 0.9984400184388953,
+      "evidence": 0.9990148146631584,
+      "discount": 0.9994246369364833,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5425,
+      "impact_depth_raw": 1.83,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 0,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.0,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    }
+  },
+  {
+    "name": "stars-1",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9849294524586999,
+      "evidence": 0.9849331431250706,
+      "discount": 0.999996252876252,
+      "star_weight": 0.009900990099009901,
+      "impact_prestige_score": 0.0593,
+      "impact_depth_raw": 0.2,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-199",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 199,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846850845936855,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9997481468329942,
+      "star_weight": 0.6655518394648829,
+      "impact_prestige_score": 0.4532,
+      "impact_depth_raw": 1.54,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-200",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 200,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846846691376734,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9997477250216102,
+      "star_weight": 0.6666666666666666,
+      "impact_prestige_score": 0.4536,
+      "impact_depth_raw": 1.54,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-201",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 201,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846842564423397,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9997473060131359,
+      "star_weight": 0.6677740863787376,
+      "impact_prestige_score": 0.454,
+      "impact_depth_raw": 1.54,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-499",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 499,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846226641198316,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996847714919472,
+      "star_weight": 0.8330550918196995,
+      "impact_prestige_score": 0.5315,
+      "impact_depth_raw": 1.8,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-500",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 500,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846225604357809,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996846662218064,
+      "star_weight": 0.8333333333333334,
+      "impact_prestige_score": 0.5317,
+      "impact_depth_raw": 1.8,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-501",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 501,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9846224570967794,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996845613019931,
+      "star_weight": 0.8336106489184693,
+      "impact_prestige_score": 0.5318,
+      "impact_depth_raw": 1.8,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-999",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 999,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9845943613265715,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996560357412442,
+      "star_weight": 0.9090081892629663,
+      "impact_prestige_score": 0.5908,
+      "impact_depth_raw": 2.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-1000",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9845943305027003,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996560044458497,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.5908,
+      "impact_depth_raw": 2.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-1001",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1001,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9845942997348225,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996559732073051,
+      "star_weight": 0.9091734786557675,
+      "impact_prestige_score": 0.5909,
+      "impact_depth_raw": 2.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-2000",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 2000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9845781994757631,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996396266571136,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.6501,
+      "impact_depth_raw": 2.2,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "stars-4000",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 4000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.9845695439117238,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996308386859709,
+      "star_weight": 0.975609756097561,
+      "impact_prestige_score": 0.7093,
+      "impact_depth_raw": 2.41,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5352,
+      "impact_depth_raw": 1.81,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-0.1",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.1
+    },
+    "expected": {
+      "weight": 0.489103324092991,
+      "evidence": 0.9849331431250706,
+      "discount": 0.49658530379140947,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.2658,
+      "impact_depth_raw": 0.99,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-0.3",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.3
+    },
+    "expected": {
+      "weight": 0.12061139477507916,
+      "evidence": 0.9849331431250706,
+      "discount": 0.1224564282529819,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0655,
+      "impact_depth_raw": 0.26,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-0.6",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.6
+    },
+    "expected": {
+      "weight": 0.014769640610766558,
+      "evidence": 0.9849331431250706,
+      "discount": 0.014995576820477703,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.008,
+      "impact_depth_raw": 0.03,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-0.9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.9
+    },
+    "expected": {
+      "weight": 0.0018086374357746634,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "severity-1",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 1
+    },
+    "expected": {
+      "weight": 0.000898142770492677,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0009118819655545162,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0005,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "first-only",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.8369274734453191,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996826321331966,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.4548,
+      "impact_depth_raw": 1.6,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "release-only",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.6892343898961452,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996826321331966,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.3745,
+      "impact_depth_raw": 1.38,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "member-only",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "org member of org"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.0,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996826321331966,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0,
+      "impact_depth_raw": 0.36,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "personal",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "maker",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": false,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      }
+    },
+    "expected": {
+      "weight": 0.0,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996826321331966,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.0,
+      "impact_depth_raw": 0.36,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "empty-high-star-org",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 100000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 0,
+      "community_facts": {
+        "outside_merged_prs": 0,
+        "forks": 0
+      }
+    },
+    "expected": {
+      "weight": 0.0,
+      "evidence": 0.0,
+      "discount": 0.0009182811110734757,
+      "star_weight": 0.999000999000999,
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 0,
+      "impact_repo_count": 0
+    }
+  },
+  {
+    "name": "community",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 520,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "community": 0.2
+    },
+    "expected": {
+      "weight": 0.9846205569944931,
+      "evidence": 0.9849331431250706,
+      "discount": 0.9996826321331966,
+      "star_weight": 0.8387096774193549,
+      "impact_prestige_score": 0.5374,
+      "impact_depth_raw": 1.82,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-500-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 500,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.8333333333333334,
+      "impact_prestige_score": 0.5318,
+      "impact_depth_raw": 1.8,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-500-0.9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 500,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.9
+    },
+    "expected": {
+      "weight": 0.0018086374357746634,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.8333333333333334,
+      "impact_prestige_score": 0.001,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-1000-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.591,
+      "impact_depth_raw": 2.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-1000-0.9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.9
+    },
+    "expected": {
+      "weight": 0.0018086374357746634,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9090909090909091,
+      "impact_prestige_score": 0.0011,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-1500-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1500,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.9375,
+      "impact_prestige_score": 0.6257,
+      "impact_depth_raw": 2.12,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-1500-0.9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 1500,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.9
+    },
+    "expected": {
+      "weight": 0.0018086374357746634,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9375,
+      "impact_prestige_score": 0.0011,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-2000-0",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 2000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0
+    },
+    "expected": {
+      "weight": 0.9849331431250706,
+      "evidence": 0.9849331431250706,
+      "discount": 1.0,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.6503,
+      "impact_depth_raw": 2.2,
+      "impact_repo_count": 1
+    }
+  },
+  {
+    "name": "farm-stars-2000-0.9",
+    "repo": {
+      "repo": "org/tool",
+      "owner_login": "org",
+      "stars": 2000,
+      "commits": 100,
+      "prs": 3,
+      "is_private": false,
+      "is_fork": false,
+      "attributed_original": true,
+      "attribution_evidence": [
+        "first commit author is maker",
+        "release/tag author"
+      ],
+      "forks": 33,
+      "community_facts": {
+        "outside_merged_prs": 3,
+        "forks": 33
+      },
+      "star_inflation_severity": 0.9
+    },
+    "expected": {
+      "weight": 0.0018086374357746634,
+      "evidence": 0.9849331431250706,
+      "discount": 0.0018363047770289071,
+      "star_weight": 0.9523809523809523,
+      "impact_prestige_score": 0.0012,
+      "impact_depth_raw": 0.0,
+      "impact_repo_count": 1
+    }
+  }
+]

@@ -110,12 +110,42 @@ def is_own_impact_repo(r, login):
     return r.get('attributed_original', False) or r['owner_login'].lower() == login
 
 
-def has_attributed_creator_star_credit(r, login):
+def impact_evidence_weight(r):
     facts = r.get('community_facts') or {}
-    return bool(r.get('attributed_original') and not r.get('star_inflation_suspect') and
-                any(e == 'release/tag author' or e.lower() == 'first commit author is ' + login
-                    for e in r.get('attribution_evidence', [])) and
-                (facts.get('outside_merged_prs', 0) >= 1 or max(r.get('forks', 0), facts.get('forks', 0)) >= 10))
+    prs = max(0, facts.get('outside_merged_prs', 0))
+    forks = max(0, r.get('forks', 0), facts.get('forks', 0))
+    return 1 - math.exp(-1.5 * math.log1p(prs) - .6 * math.log1p(forks))
+
+
+def impact_star_severity(r):
+    facts = r.get('community_facts') or {}
+    prs = max(0, facts.get('outside_merged_prs', 0))
+    forks = max(0, r.get('forks', 0), facts.get('forks', 0))
+    stars = max(0, r['stars'])
+    return stars / (stars + 100) / ((1 + forks) ** 2 * (1 + prs) ** 2)
+
+
+def impact_star_discount(r):
+    severity = r.get('star_inflation_severity', .9 if r.get('star_inflation_suspect') else impact_star_severity(r))
+    return math.exp(-7 * max(0, min(1, severity)))
+
+
+def attributed_creator_weight(r, login):
+    if not r.get('attributed_original'):
+        return 0
+    evidence = r.get('attribution_evidence', [])
+    first = any(e.lower() == 'first commit author is ' + login for e in evidence)
+    release = 'release/tag author' in evidence
+    creator = 1 if first and release else .85 if first else .7 if release else 0
+    return impact_evidence_weight(r) * creator * impact_star_discount(r)
+
+
+def own_star_weight(stars):
+    return 1 - math.exp(-math.log1p(max(0, stars) / 100))
+
+
+def has_attributed_creator_star_credit(r, login):
+    return attributed_creator_weight(r, login) > 0
 
 
 def own_pr_community_share(repos, login, own_prs):
@@ -183,7 +213,8 @@ def collect_own_repo_communities(repos, login, organizations, now):
             facts = compute_own_repo_community_facts(raw, dict(login=login, owner_orgs=organizations,
                 attributed=bool(r.get('attributed_original')), mutual_owners=mutual, profiles=profiles, now=now.isoformat()))
             r['community_facts'] = facts
-            r['community'] = 0 if r.get('star_inflation_suspect') else own_repo_community(facts)
+            r['star_inflation_severity'] = impact_star_severity(r)
+            r['community'] = own_repo_community(facts) * impact_star_discount(r)
         except GitHubRateLimitError:
             raise
         except Exception:

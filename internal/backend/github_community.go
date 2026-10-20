@@ -424,12 +424,11 @@ func ApplyOwnRepoCommunities(repos []ContribRepoAgg, facts map[string]OwnRepoCom
 		if f, ok := facts[strings.ToLower(repo.Repo)]; ok {
 			copied := f
 			repo.CommunityFacts = &copied
-			community := 0.0
-			if !starInflationSuspect {
-				community = OwnRepoCommunity(f)
-			}
+			repo.StarInflationSeverity = floatPointer(impactStarSeverity(repo))
+			community := OwnRepoCommunity(f) * impactStarDiscount(repo)
 			repo.Community = &community
 		}
+		repo.StarInflationSeverity = floatPointer(impactStarSeverity(repo))
 		result = append(result, repo)
 	}
 	return result

@@ -79,7 +79,33 @@
       "top_repo_pr_target": "hetaoBackend/deer-flow",
       "top_repo_pr_share": 0.4,
       "templated_pr_ratio": 0.07,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "bytedance/deer-flow",
+          "stars": 83816,
+          "commits": 100,
+          "prs": 1
+        },
+        {
+          "repo": "Tencent/omi",
+          "stars": 13276,
+          "commits": 2,
+          "prs": 1
+        },
+        {
+          "repo": "alibaba/spring-ai-alibaba",
+          "stars": 11006,
+          "commits": 0,
+          "prs": 1
+        },
+        {
+          "repo": "ant-design/x",
+          "stars": 4811,
+          "commits": 1,
+          "prs": 1
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -269,7 +295,7 @@
         ]
       },
       {
-        "title": "Feat：Integrate chat, image, and audio for a front-end project. Build an initial front-end project with these integrations.",
+        "title": "Feat\uff1aIntegrate chat, image, and audio for a front-end project. Build an initial front-end project with these integrations.",
         "repo": "spring-ai-alibaba/examples",
         "repo_stars": 2910,
         "churn": 4649,
@@ -326,7 +352,7 @@
         "open_issues": 0,
         "size": 1484,
         "language": null,
-        "description": "LLM-NoteBook 大模型算法笔记",
+        "description": "LLM-NoteBook \u5927\u6a21\u578b\u7b97\u6cd5\u7b14\u8bb0",
         "pushed_at": "2025-08-02T16:23:31Z",
         "topics": [],
         "languages": []
@@ -340,7 +366,7 @@
         "open_issues": 0,
         "size": 25,
         "language": "HTML",
-        "description": "🔥Kimi K2+ClaudeCode实战！极速提升开发效率🚀手把手快速搭建一个DeepReSearchAgent！",
+        "description": "\ud83d\udd25Kimi K2+ClaudeCode\u5b9e\u6218\uff01\u6781\u901f\u63d0\u5347\u5f00\u53d1\u6548\u7387\ud83d\ude80\u624b\u628a\u624b\u5feb\u901f\u642d\u5efa\u4e00\u4e2aDeepReSearchAgent\uff01",
         "pushed_at": "2025-07-14T17:18:42Z",
         "topics": [],
         "languages": [
@@ -488,7 +514,7 @@
         "open_issues": 0,
         "size": 69,
         "language": null,
-        "description": "雅思学习记录，偶尔放一点东西进去。",
+        "description": "\u96c5\u601d\u5b66\u4e60\u8bb0\u5f55\uff0c\u5076\u5c14\u653e\u4e00\u70b9\u4e1c\u897f\u8fdb\u53bb\u3002",
         "pushed_at": "2025-09-09T07:35:09Z",
         "topics": []
       },
@@ -501,7 +527,7 @@
         "open_issues": 0,
         "size": 42630,
         "language": "JavaScript",
-        "description": "华为商城网页Vmall 原生Html css js  模仿仅供学习",
+        "description": "\u534e\u4e3a\u5546\u57ce\u7f51\u9875Vmall \u539f\u751fHtml css js  \u6a21\u4eff\u4ec5\u4f9b\u5b66\u4e60",
         "pushed_at": "2024-04-25T16:38:45Z",
         "topics": []
       },
@@ -514,7 +540,7 @@
         "open_issues": 1,
         "size": 255,
         "language": "TypeScript",
-        "description": "express框架搭建的mcp-sdk实例",
+        "description": "express\u6846\u67b6\u642d\u5efa\u7684mcp-sdk\u5b9e\u4f8b",
         "pushed_at": "2025-05-04T17:34:08Z",
         "topics": []
       },
@@ -527,7 +553,7 @@
         "open_issues": 0,
         "size": 1111,
         "language": "JavaScript",
-        "description": "React Native with expo 最简单的贴纸app",
+        "description": "React Native with expo \u6700\u7b80\u5355\u7684\u8d34\u7eb8app",
         "pushed_at": "2024-07-26T15:56:26Z",
         "topics": []
       }
@@ -545,10 +571,98 @@
         "activity_authenticity": 13
       },
       "final_score": 61.7
+    },
+    "v13_metrics": {
+      "username": "LofiSu",
+      "profile_url": "https://github.com/LofiSu",
+      "avatar_url": "https://avatars.githubusercontent.com/u/163713803?v=4",
+      "name": "LofiSu",
+      "bio": "Learning is a Lifelong Journey.\r\n\r\n\r\n",
+      "pronouns": "she/her",
+      "company": "@ByteDance",
+      "account_age_years": 2.58,
+      "created_at": "2024-03-17T06:54:52Z",
+      "followers": 1460,
+      "following": 43,
+      "public_repos": 74,
+      "fetched_repo_count": 74,
+      "original_repo_count": 18,
+      "nonempty_original_repo_count": 16,
+      "fork_repo_count": 56,
+      "empty_original_repo_count": 2,
+      "total_stars": 88,
+      "max_stars": 18,
+      "weighted_total_stars": 75.33,
+      "weighted_max_stars": 17.11,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 0.95,
+      "best_original_repo_quality_repo": "LofiSu/recruiting-skills",
+      "top_starred_original_repo_quality_score": 0.69,
+      "top_starred_original_repo_quality_repo": "LofiSu/LLM-NoteBook",
+      "merged_pr_count": 39,
+      "external_merged_pr_count": 37,
+      "external_high_star_pr_share": 0.1351,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 70,
+      "issues_created": 65,
+      "last_year_contributions": 375,
+      "activity_type_count": 2,
+      "contribution_years_active": 3,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 39,
+      "recent_trivial_pr_count": 2,
+      "recent_doc_like_pr_count": 24,
+      "recent_doc_like_pr_ratio": 0.62,
+      "recent_external_pr_sample": 37,
+      "recent_external_doc_like_pr_count": 23,
+      "recent_external_doc_like_pr_ratio": 0.62,
+      "max_impact_repo_stars": 83816,
+      "impact_prestige_score": 0.6788,
+      "impact_pr_count": 4,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 2.84,
+      "verified_impact_pr_count": 5,
+      "core_impact_pr_count": 1,
+      "doc_like_impact_pr_count": 4,
+      "unverified_impact_pr_count": 0,
+      "impact_repo_count": 4,
+      "impact_commit_count": 103,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": false,
+      "external_trivial_pr_count": 0,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 30,
+      "maintainer_closed_unmerged_pr_count": 8,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 0,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.17,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "hetaoBackend/deer-flow",
+      "top_repo_pr_share": 0.4,
+      "templated_pr_ratio": 0.07,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
+      "impact_prestige_score": 0.6788,
+      "impact_depth_raw": 2.84,
+      "impact_repo_count": 4,
+      "sub_scores": {
+        "account_maturity": 6,
+        "original_project_quality": 9.6,
+        "contribution_quality": 15.3,
+        "ecosystem_impact": 10,
+        "community_influence": 7.8,
+        "activity_authenticity": 13
+      },
+      "final_score": 61.7
     }
   },
   "ccch1mneyyy": {
-    "description": "Real snapshot. 7-month-old account: most merged PRs are self-merged into dsh-TUI, which has a real outside community (~0.68), so own PRs and maintainer prestige earn community credit; voyager work is one month of half-docs PRs. Target ≈83.",
+    "description": "Real snapshot. 7-month-old account: most merged PRs are self-merged into dsh-TUI, which has a real outside community (~0.68), so own PRs and maintainer prestige earn community credit; voyager work is one month of half-docs PRs. Target \u224883.",
     "before_final_score": 77.4,
     "expected_final_range": [
       81,
@@ -560,7 +674,7 @@
       "profile_url": "https://github.com/ccch1mneyyy",
       "avatar_url": "https://avatars.githubusercontent.com/u/268149062?v=4",
       "name": "Chimney",
-      "bio": "试图用ai做点东西~",
+      "bio": "\u8bd5\u56fe\u7528ai\u505a\u70b9\u4e1c\u897f~",
       "pronouns": null,
       "company": null,
       "account_age_years": 0.58,
@@ -607,7 +721,7 @@
       "impact_prestige_score": 0.5385,
       "impact_pr_count": 265,
       "workflow_landed_impact_pr_count": 0,
-      "impact_depth_raw": 6.58,
+      "impact_depth_raw": 6.86,
       "verified_impact_pr_count": 5,
       "core_impact_pr_count": 5,
       "doc_like_impact_pr_count": 0,
@@ -628,7 +742,57 @@
       "top_repo_pr_target": "ccch1mneyyy/dsh-TUI",
       "top_repo_pr_share": 0.7,
       "templated_pr_ratio": 0.03,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "voyager-crew/voyager",
+          "stars": 20368,
+          "commits": 16,
+          "prs": 15
+        },
+        {
+          "repo": "ccch1mneyyy/dsh-TUI",
+          "stars": 4551,
+          "commits": 1625,
+          "prs": 213
+        },
+        {
+          "repo": "dsh-tauri/deepseek-harness-desktop",
+          "stars": 2816,
+          "commits": 2,
+          "prs": 2
+        },
+        {
+          "repo": "metasequoiaime/msime",
+          "stars": 709,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "ccch1mneyyy/working-activity",
+          "stars": 663,
+          "commits": 72,
+          "prs": 0
+        },
+        {
+          "repo": "liguobao/ds-harness-remote",
+          "stars": 327,
+          "commits": 8,
+          "prs": 2
+        },
+        {
+          "repo": "oh-my-dsh/dsh-plugin-upgrade-skill",
+          "stars": 284,
+          "commits": 42,
+          "prs": 31
+        },
+        {
+          "repo": "hikariming/ghfind",
+          "stars": 250,
+          "commits": 3,
+          "prs": 1
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -671,7 +835,8 @@
         },
         "community": 0.6812,
         "pr_sample": 10,
-        "code_pr_sample": 9
+        "code_pr_sample": 9,
+        "forks": 254
       },
       {
         "repo": "ccch1mneyyy/working-activity",
@@ -708,7 +873,8 @@
           "working-line"
         ],
         "merge_commits": 3,
-        "engagement": 0.0965
+        "engagement": 0.0965,
+        "forks": 236
       },
       {
         "repo": "oh-my-dsh/dsh-plugin-upgrade-skill",
@@ -902,7 +1068,7 @@
         ]
       },
       {
-        "title": "fix(worktree): 修复切换工作树丢失会话历史",
+        "title": "fix(worktree): \u4fee\u590d\u5207\u6362\u5de5\u4f5c\u6811\u4e22\u5931\u4f1a\u8bdd\u5386\u53f2",
         "repo": "dsh-tauri/deepseek-harness-desktop",
         "repo_stars": 2816,
         "churn": 338,
@@ -1026,7 +1192,7 @@
         "open_issues": 93,
         "size": 45433,
         "language": "TypeScript",
-        "description": "DSH's officially top-recommended TUI plugin — high performance, low overhead, cute pixel whale, smooth mouse interaction. One-command install via npm. / DSH 官方首推的 TUI 插件，高性能低占用，可爱像素鲸鱼，流畅鼠标交互，npm 一键安装",
+        "description": "DSH's officially top-recommended TUI plugin \u2014 high performance, low overhead, cute pixel whale, smooth mouse interaction. One-command install via npm. / DSH \u5b98\u65b9\u9996\u63a8\u7684 TUI \u63d2\u4ef6\uff0c\u9ad8\u6027\u80fd\u4f4e\u5360\u7528\uff0c\u53ef\u7231\u50cf\u7d20\u9cb8\u9c7c\uff0c\u6d41\u7545\u9f20\u6807\u4ea4\u4e92\uff0cnpm \u4e00\u952e\u5b89\u88c5",
         "pushed_at": "2026-10-13T20:45:10Z",
         "topics": [
           "claude-code",
@@ -1101,7 +1267,7 @@
         "open_issues": 0,
         "size": 9294,
         "language": "Dart",
-        "description": "PiPilot - pi coding agent 的手机远程控制端：Flutter 应用 + Source Hub 桥接 + 桌面 TUI 中继",
+        "description": "PiPilot - pi coding agent \u7684\u624b\u673a\u8fdc\u7a0b\u63a7\u5236\u7aef\uff1aFlutter \u5e94\u7528 + Source Hub \u6865\u63a5 + \u684c\u9762 TUI \u4e2d\u7ee7",
         "pushed_at": "2026-09-01T16:51:41Z",
         "topics": [],
         "languages": [
@@ -1198,7 +1364,7 @@
         "open_issues": 0,
         "size": 156,
         "language": "TypeScript",
-        "description": "已归档:合并至 working-activity,pi 版与 DSH 版同仓维护",
+        "description": "\u5df2\u5f52\u6863:\u5408\u5e76\u81f3 working-activity,pi \u7248\u4e0e DSH \u7248\u540c\u4ed3\u7ef4\u62a4",
         "pushed_at": "2026-08-15T05:24:33Z",
         "topics": [
           "coding-agent",
@@ -1250,6 +1416,95 @@
       }
     ],
     "expected": {
+      "impact_prestige_score": 0.5385,
+      "impact_depth_raw": 6.86,
+      "impact_repo_count": 8,
+      "sub_scores": {
+        "account_maturity": 1.7,
+        "original_project_quality": 18,
+        "contribution_quality": 27,
+        "ecosystem_impact": 14.3,
+        "community_influence": 5.6,
+        "activity_authenticity": 17
+      },
+      "final_score": 83.6
+    },
+    "v13_metrics": {
+      "username": "ccch1mneyyy",
+      "profile_url": "https://github.com/ccch1mneyyy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/268149062?v=4",
+      "name": "Chimney",
+      "bio": "\u8bd5\u56fe\u7528ai\u505a\u70b9\u4e1c\u897f~",
+      "pronouns": null,
+      "company": null,
+      "account_age_years": 0.58,
+      "created_at": "2026-03-14T10:37:13Z",
+      "followers": 52,
+      "following": 8,
+      "public_repos": 19,
+      "fetched_repo_count": 19,
+      "original_repo_count": 8,
+      "nonempty_original_repo_count": 8,
+      "fork_repo_count": 11,
+      "empty_original_repo_count": 0,
+      "total_stars": 5239,
+      "max_stars": 4551,
+      "weighted_total_stars": 5239,
+      "weighted_max_stars": 4551,
+      "top_repo_engagement_ratio": 0.3191,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 1,
+      "best_original_repo_quality_repo": "ccch1mneyyy/dsh-TUI",
+      "top_starred_original_repo_quality_score": 1,
+      "top_starred_original_repo_quality_repo": "ccch1mneyyy/dsh-TUI",
+      "merged_pr_count": 274,
+      "external_merged_pr_count": 61,
+      "external_high_star_pr_share": 0.8525,
+      "own_pr_community": 0.6812,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 293,
+      "issues_created": 95,
+      "last_year_contributions": 2321,
+      "activity_type_count": 4,
+      "contribution_years_active": 1,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 50,
+      "recent_trivial_pr_count": 3,
+      "recent_doc_like_pr_count": 11,
+      "recent_doc_like_pr_ratio": 0.22,
+      "recent_external_pr_sample": 9,
+      "recent_external_doc_like_pr_count": 4,
+      "recent_external_doc_like_pr_ratio": 0.44,
+      "max_impact_repo_stars": 20368,
+      "impact_prestige_score": 0.5385,
+      "impact_pr_count": 265,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 6.58,
+      "verified_impact_pr_count": 5,
+      "core_impact_pr_count": 5,
+      "doc_like_impact_pr_count": 0,
+      "unverified_impact_pr_count": 260,
+      "impact_repo_count": 8,
+      "impact_commit_count": 1769,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": false,
+      "external_trivial_pr_count": 1,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 15,
+      "maintainer_closed_unmerged_pr_count": 6,
+      "self_closed_external_pr_count": 0,
+      "self_closed_own_repo_pr_count": 7,
+      "unknown_closed_unmerged_pr_count": 2,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "ccch1mneyyy/dsh-TUI",
+      "top_repo_pr_share": 0.7,
+      "templated_pr_ratio": 0.03,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
       "impact_prestige_score": 0.5385,
       "impact_depth_raw": 6.58,
       "impact_repo_count": 8,
@@ -1324,15 +1579,15 @@
       "recent_external_doc_like_pr_ratio": 0,
       "max_impact_repo_stars": 158383,
       "impact_prestige_score": 0.5392,
-      "impact_pr_count": 172,
+      "impact_pr_count": 192,
       "workflow_landed_impact_pr_count": 0,
-      "impact_depth_raw": 10.02,
+      "impact_depth_raw": 10.93,
       "verified_impact_pr_count": 4,
       "core_impact_pr_count": 1,
       "doc_like_impact_pr_count": 3,
-      "unverified_impact_pr_count": 168,
-      "impact_repo_count": 13,
-      "impact_commit_count": 826,
+      "unverified_impact_pr_count": 188,
+      "impact_repo_count": 15,
+      "impact_commit_count": 1490,
       "commit_contribution_aggregation_unavailable": false,
       "merged_pr_contribution_aggregation_incomplete": true,
       "external_trivial_pr_count": 0,
@@ -1347,7 +1602,75 @@
       "top_repo_pr_target": "hikariming/ghfind",
       "top_repo_pr_share": 0.57,
       "templated_pr_ratio": 0.27,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "langgenius/dify",
+          "stars": 158383,
+          "commits": 5,
+          "prs": 4
+        },
+        {
+          "repo": "chatchat-space/Langchain-Chatchat",
+          "stars": 38682,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "agentscope-ai/QwenPaw",
+          "stars": 35651,
+          "commits": 6,
+          "prs": 6
+        },
+        {
+          "repo": "anywhere-labs/dsh-desktop",
+          "stars": 30686,
+          "commits": 1,
+          "prs": 2
+        },
+        {
+          "repo": "Huanshere/VideoLingo",
+          "stars": 18784,
+          "commits": 11,
+          "prs": 5
+        },
+        {
+          "repo": "EvoScientist/EvoScientist",
+          "stars": 4972,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "hikariming/ghfind",
+          "stars": 250,
+          "commits": 527,
+          "prs": 135
+        },
+        {
+          "repo": "hikariming/openkoto",
+          "stars": 458,
+          "commits": 422,
+          "prs": 19
+        },
+        {
+          "repo": "oh-my-dsh/dsh-plugin-upgrade-skill",
+          "stars": 284,
+          "commits": 258,
+          "prs": 13
+        },
+        {
+          "repo": "hikariming/dshfind",
+          "stars": 305,
+          "commits": 242,
+          "prs": 1
+        },
+        {
+          "repo": "hikariming/chat-dataset-baseline",
+          "stars": 1191,
+          "commits": 11,
+          "prs": 0
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -1395,7 +1718,8 @@
         "merge_commits": 163,
         "engagement": 1.908,
         "pr_sample": 10,
-        "code_pr_sample": 8
+        "code_pr_sample": 8,
+        "forks": 45
       },
       {
         "repo": "hikariming/openkoto",
@@ -1422,7 +1746,8 @@
           "2026-10"
         ],
         "pr_sample": 10,
-        "code_pr_sample": 9
+        "code_pr_sample": 9,
+        "forks": 38
       },
       {
         "repo": "oh-my-dsh/dsh-plugin-upgrade-skill",
@@ -1455,7 +1780,8 @@
         },
         "community": 0.1101,
         "pr_sample": 10,
-        "code_pr_sample": 2
+        "code_pr_sample": 2,
+        "forks": 34
       },
       {
         "repo": "hikariming/dshfind",
@@ -1470,7 +1796,8 @@
           "2026-08",
           "2026-09",
           "2026-10"
-        ]
+        ],
+        "forks": 21
       },
       {
         "repo": "agentscope-ai/QwenPaw",
@@ -1682,7 +2009,8 @@
           "days_since_outside_merge": null,
           "lead_share": 1
         },
-        "community": 0.0312
+        "community": 0.0312,
+        "forks": 98
       },
       {
         "repo": "langgenius/dify-official-plugins",
@@ -1865,7 +2193,7 @@
         ]
       },
       {
-        "title": "feat(benchmark): unified GLM-5.3-Flash 64-trial two-arm run (workplan §5 middle-config cell) + frozen GLM-5.2 kit",
+        "title": "feat(benchmark): unified GLM-5.3-Flash 64-trial two-arm run (workplan \u00a75 middle-config cell) + frozen GLM-5.2 kit",
         "repo": "oh-my-dsh/dsh-plugin-upgrade-skill",
         "repo_stars": 284,
         "churn": 27941,
@@ -1950,7 +2278,7 @@
         "open_issues": 29,
         "size": 18702,
         "language": "Jupyter Notebook",
-        "description": "人工精调的中文对话数据集和一段chatglm的微调代码",
+        "description": "\u4eba\u5de5\u7cbe\u8c03\u7684\u4e2d\u6587\u5bf9\u8bdd\u6570\u636e\u96c6\u548c\u4e00\u6bb5chatglm\u7684\u5fae\u8c03\u4ee3\u7801",
         "pushed_at": "2025-05-03T02:36:56Z",
         "topics": [
           "alpaca",
@@ -1981,7 +2309,7 @@
         "open_issues": 2,
         "size": 111628,
         "language": "Swift",
-        "description": "AI based foreign language reading and learning tool that allows you to learn foreign languages using any text content of interest,TextLingo是一款兴趣驱动的AI外语阅读与学习软件",
+        "description": "AI based foreign language reading and learning tool that allows you to learn foreign languages using any text content of interest,TextLingo\u662f\u4e00\u6b3e\u5174\u8da3\u9a71\u52a8\u7684AI\u5916\u8bed\u9605\u8bfb\u4e0e\u5b66\u4e60\u8f6f\u4ef6",
         "pushed_at": "2026-10-01T16:57:42Z",
         "topics": [],
         "languages": [
@@ -2028,7 +2356,7 @@
         "open_issues": 38,
         "size": 21059,
         "language": "TypeScript",
-        "description": "DSH (DeepSeek Harness) 原理学习、插件市场与最佳实践 · Learn DSH principles, plugin marketplace & best practices",
+        "description": "DSH (DeepSeek Harness) \u539f\u7406\u5b66\u4e60\u3001\u63d2\u4ef6\u5e02\u573a\u4e0e\u6700\u4f73\u5b9e\u8df5 \u00b7 Learn DSH principles, plugin marketplace & best practices",
         "pushed_at": "2026-10-13T09:55:54Z",
         "topics": [
           "deepseek-harness",
@@ -2063,7 +2391,7 @@
         "open_issues": 19,
         "size": 23633,
         "language": "JavaScript",
-        "description": "帮助插件自动随着dsh版本升级的skill",
+        "description": "\u5e2e\u52a9\u63d2\u4ef6\u81ea\u52a8\u968f\u7740dsh\u7248\u672c\u5347\u7ea7\u7684skill",
         "pushed_at": "2026-10-05T08:43:43Z",
         "topics": [],
         "languages": [
@@ -2115,7 +2443,7 @@
         "open_issues": 36,
         "size": 17211,
         "language": "TypeScript",
-        "description": "Discover the best developers — and become one. Drop a GitHub handle for a 0–100 value & trust score in 30s: see your gaps, discover top devs, get found. Exposes PR farmers, AI bots & fork-hoarders. Deterministic scoring, self-hostable.",
+        "description": "Discover the best developers \u2014 and become one. Drop a GitHub handle for a 0\u2013100 value & trust score in 30s: see your gaps, discover top devs, get found. Exposes PR farmers, AI bots & fork-hoarders. Deterministic scoring, self-hostable.",
         "pushed_at": "2026-10-13T16:39:58Z",
         "topics": [
           "ai",
@@ -2179,7 +2507,7 @@
         "open_issues": 5,
         "size": 706,
         "language": "Python",
-        "description": "AI狼人杀",
+        "description": "AI\u72fc\u4eba\u6740",
         "pushed_at": "2026-05-06T09:30:30Z",
         "topics": [],
         "languages": [
@@ -2198,7 +2526,7 @@
         "open_issues": 2,
         "size": 4245,
         "language": null,
-        "description": "人员佩戴口罩检测数据集",
+        "description": "\u4eba\u5458\u4f69\u6234\u53e3\u7f69\u68c0\u6d4b\u6570\u636e\u96c6",
         "pushed_at": "2020-04-17T13:04:36Z",
         "topics": []
       },
@@ -2227,7 +2555,7 @@
         "open_issues": 0,
         "size": 1581,
         "language": "JavaScript",
-        "description": "LLM智能路由网关、 Enterprise Intelligent AI-API Distribution Gateway",
+        "description": "LLM\u667a\u80fd\u8def\u7531\u7f51\u5173\u3001 Enterprise Intelligent AI-API Distribution Gateway",
         "pushed_at": "2025-01-24T16:03:27Z",
         "topics": [
           "api-gateway",
@@ -2256,7 +2584,7 @@
         "open_issues": 0,
         "size": 23759,
         "language": null,
-        "description": "difyの使用テクニックとリソース",
+        "description": "dify\u306e\u4f7f\u7528\u30c6\u30af\u30cb\u30c3\u30af\u3068\u30ea\u30bd\u30fc\u30b9",
         "pushed_at": "2025-04-07T15:45:40Z",
         "topics": []
       },
@@ -2306,7 +2634,7 @@
         "open_issues": 0,
         "size": 2,
         "language": "Python",
-        "description": "kaggle数字识别大赛，正确率99.771%模型的源代码",
+        "description": "kaggle\u6570\u5b57\u8bc6\u522b\u5927\u8d5b\uff0c\u6b63\u786e\u738799.771%\u6a21\u578b\u7684\u6e90\u4ee3\u7801",
         "pushed_at": "2018-03-06T10:05:29Z",
         "topics": []
       },
@@ -2319,7 +2647,7 @@
         "open_issues": 0,
         "size": 260,
         "language": "Rust",
-        "description": "Minecraft 启动器式的外置 DSH 启动器：多版本共存、实例隔离、插件管理、环境医生 | External launcher for DeepSeek Harness",
+        "description": "Minecraft \u542f\u52a8\u5668\u5f0f\u7684\u5916\u7f6e DSH \u542f\u52a8\u5668\uff1a\u591a\u7248\u672c\u5171\u5b58\u3001\u5b9e\u4f8b\u9694\u79bb\u3001\u63d2\u4ef6\u7ba1\u7406\u3001\u73af\u5883\u533b\u751f | External launcher for DeepSeek Harness",
         "pushed_at": "2026-08-16T14:48:39Z",
         "topics": []
       },
@@ -2345,12 +2673,103 @@
         "open_issues": 0,
         "size": 760,
         "language": "TeX",
-        "description": "清华大学 工程管理专业课程论文 非官方模板",
+        "description": "\u6e05\u534e\u5927\u5b66 \u5de5\u7a0b\u7ba1\u7406\u4e13\u4e1a\u8bfe\u7a0b\u8bba\u6587 \u975e\u5b98\u65b9\u6a21\u677f",
         "pushed_at": "2021-10-03T09:53:35Z",
         "topics": []
       }
     ],
     "expected": {
+      "impact_prestige_score": 0.5392,
+      "impact_depth_raw": 10.93,
+      "impact_repo_count": 15,
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 15.4,
+        "contribution_quality": 27,
+        "ecosystem_impact": 15.9,
+        "community_influence": 6.2,
+        "activity_authenticity": 17
+      },
+      "final_score": 91.5
+    },
+    "v13_metrics": {
+      "username": "hikariming",
+      "profile_url": "https://github.com/hikariming",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23065064?v=4",
+      "name": "akou",
+      "bio": "love ai,love agent~",
+      "pronouns": "he/him",
+      "company": "Tsinghua University",
+      "account_age_years": 9.97,
+      "created_at": "2016-10-25T22:58:49Z",
+      "followers": 135,
+      "following": 7,
+      "public_repos": 53,
+      "fetched_repo_count": 53,
+      "original_repo_count": 28,
+      "nonempty_original_repo_count": 27,
+      "fork_repo_count": 26,
+      "empty_original_repo_count": 1,
+      "total_stars": 2748,
+      "max_stars": 1191,
+      "weighted_total_stars": 2105.5,
+      "weighted_max_stars": 634.56,
+      "top_repo_engagement_ratio": 0.0848,
+      "attributed_original_repo_count": 1,
+      "attributed_original_repo_stars": 284,
+      "attributed_original_repos": [
+        "oh-my-dsh/dsh-plugin-upgrade-skill"
+      ],
+      "best_original_repo_quality_score": 1,
+      "best_original_repo_quality_repo": "hikariming/dshfind",
+      "top_starred_original_repo_quality_score": 0.84,
+      "top_starred_original_repo_quality_repo": "hikariming/chat-dataset-baseline",
+      "merged_pr_count": 428,
+      "external_merged_pr_count": 37,
+      "external_high_star_pr_share": 1,
+      "own_pr_community": 0.1835,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 463,
+      "issues_created": 52,
+      "last_year_contributions": 2655,
+      "activity_type_count": 4,
+      "contribution_years_active": 11,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 50,
+      "recent_trivial_pr_count": 1,
+      "recent_doc_like_pr_count": 6,
+      "recent_doc_like_pr_ratio": 0.12,
+      "recent_external_pr_sample": 0,
+      "recent_external_doc_like_pr_count": 0,
+      "recent_external_doc_like_pr_ratio": 0,
+      "max_impact_repo_stars": 158383,
+      "impact_prestige_score": 0.5392,
+      "impact_pr_count": 172,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 10.02,
+      "verified_impact_pr_count": 4,
+      "core_impact_pr_count": 1,
+      "doc_like_impact_pr_count": 3,
+      "unverified_impact_pr_count": 168,
+      "impact_repo_count": 13,
+      "impact_commit_count": 826,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": true,
+      "external_trivial_pr_count": 0,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 33,
+      "maintainer_closed_unmerged_pr_count": 11,
+      "self_closed_external_pr_count": 6,
+      "self_closed_own_repo_pr_count": 15,
+      "unknown_closed_unmerged_pr_count": 1,
+      "pr_rejection_rate": 0.03,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "hikariming/ghfind",
+      "top_repo_pr_share": 0.57,
+      "templated_pr_ratio": 0.27,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
       "impact_prestige_score": 0.5392,
       "impact_depth_raw": 10.02,
       "impact_repo_count": 13,
@@ -2377,8 +2796,8 @@
       "username": "zhaochenyang20",
       "profile_url": "https://github.com/zhaochenyang20",
       "avatar_url": "https://avatars.githubusercontent.com/u/74843776?v=4",
-      "name": "赵晨阳",
-      "bio": "平庸消耗的时间与伟大相同",
+      "name": "\u8d75\u6668\u9633",
+      "bio": "\u5e73\u5eb8\u6d88\u8017\u7684\u65f6\u95f4\u4e0e\u4f1f\u5927\u76f8\u540c",
       "pronouns": "he/him",
       "company": "RadixArk, Inc.",
       "account_age_years": 5.89,
@@ -2425,7 +2844,7 @@
       "impact_prestige_score": 0.753,
       "impact_pr_count": 252,
       "workflow_landed_impact_pr_count": 0,
-      "impact_depth_raw": 13.41,
+      "impact_depth_raw": 13.4,
       "verified_impact_pr_count": 88,
       "core_impact_pr_count": 72,
       "doc_like_impact_pr_count": 16,
@@ -2446,7 +2865,63 @@
       "top_repo_pr_target": "sgl-project/sglang-omni",
       "top_repo_pr_share": 0.97,
       "templated_pr_ratio": 0.1,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "PKUanonym/REKCARC-TSC-UHT",
+          "stars": 37851,
+          "commits": 26,
+          "prs": 0
+        },
+        {
+          "repo": "sgl-project/sglang",
+          "stars": 37096,
+          "commits": 145,
+          "prs": 65
+        },
+        {
+          "repo": "verl-project/verl",
+          "stars": 23857,
+          "commits": 30,
+          "prs": 19
+        },
+        {
+          "repo": "THUDM/slime",
+          "stars": 8656,
+          "commits": 28,
+          "prs": 10
+        },
+        {
+          "repo": "zhaochenyang20/Awesome-ML-SYS-Tutorial",
+          "stars": 7499,
+          "commits": 632,
+          "prs": 4
+        },
+        {
+          "repo": "areal-project/AReaL",
+          "stars": 5829,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "sgl-project/sglang-omni",
+          "stars": 1439,
+          "commits": 408,
+          "prs": 100
+        },
+        {
+          "repo": "neulab/prompt2model",
+          "stars": 2021,
+          "commits": 45,
+          "prs": 37
+        },
+        {
+          "repo": "radixark/miles",
+          "stars": 3112,
+          "commits": 13,
+          "prs": 9
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -2539,7 +3014,8 @@
         },
         "community": 0,
         "pr_sample": 4,
-        "code_pr_sample": 0
+        "code_pr_sample": 0,
+        "forks": 520
       },
       {
         "repo": "sgl-project/sglang",
@@ -4922,7 +5398,7 @@
         ]
       },
       {
-        "title": "  [Benchmarking] Redesign benchmark architecture with task×model framework and WER evaluation    ",
+        "title": "  [Benchmarking] Redesign benchmark architecture with task\u00d7model framework and WER evaluation    ",
         "repo": "sgl-project/sglang-omni",
         "repo_stars": 1439,
         "churn": 3325,
@@ -4998,7 +5474,7 @@
         "open_issues": 1,
         "size": 117563,
         "language": "HTML",
-        "description": "贵系 2022 年人智导全部资料，from homework to course review",
+        "description": "\u8d35\u7cfb 2022 \u5e74\u4eba\u667a\u5bfc\u5168\u90e8\u8d44\u6599\uff0cfrom homework to course review",
         "pushed_at": "2025-07-26T06:34:17Z",
         "topics": [
           "deep-learning",
@@ -5086,7 +5562,7 @@
         "open_issues": 0,
         "size": 27977,
         "language": "Python",
-        "description": "日本购岛时间中的中日“网络民族主义”分析",
+        "description": "\u65e5\u672c\u8d2d\u5c9b\u65f6\u95f4\u4e2d\u7684\u4e2d\u65e5\u201c\u7f51\u7edc\u6c11\u65cf\u4e3b\u4e49\u201d\u5206\u6790",
         "pushed_at": "2023-05-23T05:10:10Z",
         "topics": []
       },
@@ -5138,7 +5614,7 @@
         "open_issues": 0,
         "size": 13407,
         "language": "HTML",
-        "description": "贵系 2022 春季软工大作业（小组展示得到了全场最高分😯",
+        "description": "\u8d35\u7cfb 2022 \u6625\u5b63\u8f6f\u5de5\u5927\u4f5c\u4e1a\uff08\u5c0f\u7ec4\u5c55\u793a\u5f97\u5230\u4e86\u5168\u573a\u6700\u9ad8\u5206\ud83d\ude2f",
         "pushed_at": "2023-06-13T01:45:05Z",
         "topics": []
       },
@@ -5151,7 +5627,7 @@
         "open_issues": 0,
         "size": 4592604,
         "language": null,
-        "description": "我的壁纸仓库，主要用来给博客做壁纸",
+        "description": "\u6211\u7684\u58c1\u7eb8\u4ed3\u5e93\uff0c\u4e3b\u8981\u7528\u6765\u7ed9\u535a\u5ba2\u505a\u58c1\u7eb8",
         "pushed_at": "2023-06-04T12:47:46Z",
         "topics": []
       },
@@ -5177,7 +5653,7 @@
         "open_issues": 2,
         "size": 68,
         "language": "Python",
-        "description": "为清华大学答疑坊所写的数据分析脚本",
+        "description": "\u4e3a\u6e05\u534e\u5927\u5b66\u7b54\u7591\u574a\u6240\u5199\u7684\u6570\u636e\u5206\u6790\u811a\u672c",
         "pushed_at": "2023-05-15T01:10:25Z",
         "topics": [
           "data",
@@ -5206,7 +5682,7 @@
         "open_issues": 1,
         "size": 22786,
         "language": "Python",
-        "description": "数据挖掘",
+        "description": "\u6570\u636e\u6316\u6398",
         "pushed_at": "2023-06-15T12:56:45Z",
         "topics": []
       },
@@ -5219,7 +5695,7 @@
         "open_issues": 0,
         "size": 13,
         "language": null,
-        "description": "赵晨阳写字的地方",
+        "description": "\u8d75\u6668\u9633\u5199\u5b57\u7684\u5730\u65b9",
         "pushed_at": "2025-03-22T15:42:48Z",
         "topics": []
       },
@@ -5232,7 +5708,7 @@
         "open_issues": 1,
         "size": 54454,
         "language": "HTML",
-        "description": "数学实验 2023 春",
+        "description": "\u6570\u5b66\u5b9e\u9a8c 2023 \u6625",
         "pushed_at": "2023-06-27T04:56:49Z",
         "topics": []
       },
@@ -5304,6 +5780,95 @@
     ],
     "expected": {
       "impact_prestige_score": 0.753,
+      "impact_depth_raw": 13.4,
+      "impact_repo_count": 15,
+      "sub_scores": {
+        "account_maturity": 9.9,
+        "original_project_quality": 14.8,
+        "contribution_quality": 27,
+        "ecosystem_impact": 17.8,
+        "community_influence": 8,
+        "activity_authenticity": 17
+      },
+      "final_score": 94.5
+    },
+    "v13_metrics": {
+      "username": "zhaochenyang20",
+      "profile_url": "https://github.com/zhaochenyang20",
+      "avatar_url": "https://avatars.githubusercontent.com/u/74843776?v=4",
+      "name": "\u8d75\u6668\u9633",
+      "bio": "\u5e73\u5eb8\u6d88\u8017\u7684\u65f6\u95f4\u4e0e\u4f1f\u5927\u76f8\u540c",
+      "pronouns": "he/him",
+      "company": "RadixArk, Inc.",
+      "account_age_years": 5.89,
+      "created_at": "2020-11-22T01:44:56Z",
+      "followers": 2952,
+      "following": 70,
+      "public_repos": 60,
+      "fetched_repo_count": 60,
+      "original_repo_count": 24,
+      "nonempty_original_repo_count": 24,
+      "fork_repo_count": 36,
+      "empty_original_repo_count": 0,
+      "total_stars": 7920,
+      "max_stars": 7499,
+      "weighted_total_stars": 4749.79,
+      "weighted_max_stars": 4499.4,
+      "top_repo_engagement_ratio": 0.0493,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 0.97,
+      "best_original_repo_quality_repo": "zhaochenyang20/sglang-diffusion-routing",
+      "top_starred_original_repo_quality_score": 0.75,
+      "top_starred_original_repo_quality_repo": "zhaochenyang20/Awesome-ML-SYS-Tutorial",
+      "merged_pr_count": 431,
+      "external_merged_pr_count": 374,
+      "external_high_star_pr_share": 0.8467,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 524,
+      "issues_created": 384,
+      "last_year_contributions": 2658,
+      "activity_type_count": 4,
+      "contribution_years_active": 7,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 50,
+      "recent_trivial_pr_count": 1,
+      "recent_doc_like_pr_count": 12,
+      "recent_doc_like_pr_ratio": 0.24,
+      "recent_external_pr_sample": 50,
+      "recent_external_doc_like_pr_count": 12,
+      "recent_external_doc_like_pr_ratio": 0.24,
+      "max_impact_repo_stars": 37851,
+      "impact_prestige_score": 0.753,
+      "impact_pr_count": 252,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 13.41,
+      "verified_impact_pr_count": 88,
+      "core_impact_pr_count": 72,
+      "doc_like_impact_pr_count": 16,
+      "unverified_impact_pr_count": 164,
+      "impact_repo_count": 15,
+      "impact_commit_count": 1336,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": true,
+      "external_trivial_pr_count": 1,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 84,
+      "maintainer_closed_unmerged_pr_count": 8,
+      "self_closed_external_pr_count": 72,
+      "self_closed_own_repo_pr_count": 4,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "sgl-project/sglang-omni",
+      "top_repo_pr_share": 0.97,
+      "templated_pr_ratio": 0.1,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
+      "impact_prestige_score": 0.753,
       "impact_depth_raw": 13.41,
       "impact_repo_count": 15,
       "sub_scores": {
@@ -5318,19 +5883,1689 @@
     }
   },
   "alchaincyf": {
-    "description": "Real snapshot. Audience-driven content/skill repos (<1% engagement) and 2 self-merged PRs; no external ecosystem work. Target 50-60.",
+    "description": "Real snapshot. Audience-driven content/skill repos (<1% engagement) and 2 self-merged PRs; no external ecosystem work. Target 50-60. v14: observed personal-repo forks now reach impact; smooth own depth replaces the 1000-star gate (v13=54.6, v14=59.9).",
     "before_final_score": 51.3,
     "expected_final_range": [
-      50,
-      55
+      58,
+      61
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
     "metrics": {
       "username": "alchaincyf",
       "profile_url": "https://github.com/alchaincyf",
       "avatar_url": "https://avatars.githubusercontent.com/u/127714341?v=4",
-      "name": "花叔",
-      "bio": "AI Native Coder. Ship products without writing code. Author of nuwa-skill · huashu-design · darwin-skill.",
+      "name": "\u82b1\u53d4",
+      "bio": "AI Native Coder. Ship products without writing code. Author of nuwa-skill \u00b7 huashu-design \u00b7 darwin-skill.",
+      "pronouns": null,
+      "company": null,
+      "account_age_years": 3.59,
+      "created_at": "2023-03-13T04:44:42Z",
+      "followers": 10752,
+      "following": 1,
+      "public_repos": 90,
+      "fetched_repo_count": 90,
+      "original_repo_count": 65,
+      "nonempty_original_repo_count": 65,
+      "fork_repo_count": 25,
+      "empty_original_repo_count": 0,
+      "total_stars": 102970,
+      "max_stars": 34285,
+      "weighted_total_stars": 96271.2,
+      "weighted_max_stars": 34285,
+      "top_repo_engagement_ratio": 0.0057,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 1,
+      "best_original_repo_quality_repo": "alchaincyf/nuwa-skill",
+      "top_starred_original_repo_quality_score": 1,
+      "top_starred_original_repo_quality_repo": "alchaincyf/nuwa-skill",
+      "merged_pr_count": 2,
+      "external_merged_pr_count": 0,
+      "external_high_star_pr_share": 1,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 4,
+      "issues_created": 2,
+      "last_year_contributions": 1016,
+      "activity_type_count": 4,
+      "contribution_years_active": 4,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 2,
+      "recent_trivial_pr_count": 0,
+      "recent_doc_like_pr_count": 1,
+      "recent_doc_like_pr_ratio": 0.5,
+      "recent_external_pr_sample": 0,
+      "recent_external_doc_like_pr_count": 0,
+      "recent_external_doc_like_pr_ratio": 0,
+      "max_impact_repo_stars": 34285,
+      "impact_prestige_score": 0,
+      "impact_pr_count": 2,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 6.88,
+      "verified_impact_pr_count": 0,
+      "core_impact_pr_count": 0,
+      "doc_like_impact_pr_count": 0,
+      "unverified_impact_pr_count": 2,
+      "impact_repo_count": 31,
+      "impact_commit_count": 884,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": false,
+      "external_trivial_pr_count": 0,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 2,
+      "maintainer_closed_unmerged_pr_count": 0,
+      "self_closed_external_pr_count": 0,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0,
+      "recent_pr_sample": 4,
+      "top_repo_pr_target": "alchaincyf/huashu-design",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0.25,
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "alchaincyf/nuwa-skill",
+          "stars": 34285,
+          "commits": 60,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/huashu-design",
+          "stars": 24915,
+          "commits": 109,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/zhangxuefeng-skill",
+          "stars": 10472,
+          "commits": 11,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/darwin-skill",
+          "stars": 6313,
+          "commits": 40,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/hermes-agent-orange-book",
+          "stars": 4977,
+          "commits": 15,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/huashu-art-motion",
+          "stars": 3833,
+          "commits": 19,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/fanbox",
+          "stars": 1024,
+          "commits": 165,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/img2046",
+          "stars": 220,
+          "commits": 159,
+          "prs": 0
+        },
+        {
+          "repo": "alchaincyf/huashu-chrome",
+          "stars": 317,
+          "commits": 54,
+          "prs": 1
+        },
+        {
+          "repo": "alchaincyf/huasheng_editor",
+          "stars": 768,
+          "commits": 46,
+          "prs": 1
+        },
+        {
+          "repo": "alchaincyf/huashu-excel",
+          "stars": 435,
+          "commits": 29,
+          "prs": 0
+        }
+      ]
+    },
+    "contrib_repos": [
+      {
+        "repo": "alchaincyf/fanbox",
+        "stars": 1024,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 165,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "topics": [
+          "agent",
+          "ai",
+          "claude",
+          "codex",
+          "electron",
+          "file-manager",
+          "local-first",
+          "macos",
+          "terminal",
+          "vibe-coding"
+        ],
+        "merge_commits": 28,
+        "engagement": 0.0654,
+        "forks": 148
+      },
+      {
+        "repo": "alchaincyf/huashu-design",
+        "stars": 24915,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 109,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "topics": [],
+        "merge_commits": 11,
+        "engagement": 0.0062,
+        "forks": 2813
+      },
+      {
+        "repo": "alchaincyf/nuwa-skill",
+        "stars": 34285,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 60,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-10"
+        ],
+        "topics": [],
+        "merge_commits": 2,
+        "engagement": 0.0057,
+        "forks": 4544
+      },
+      {
+        "repo": "alchaincyf/huashu-chrome",
+        "stars": 317,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 54,
+        "prs": 1,
+        "active_years": 1,
+        "months": [
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "pr_sample": 1,
+        "code_pr_sample": 0,
+        "forks": 48
+      },
+      {
+        "repo": "alchaincyf/darwin-skill",
+        "stars": 6313,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 40,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09"
+        ],
+        "topics": [],
+        "merge_commits": 5,
+        "engagement": 0.0078,
+        "forks": 661
+      },
+      {
+        "repo": "alchaincyf/huashu-excel",
+        "stars": 435,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 29,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "forks": 66
+      },
+      {
+        "repo": "alchaincyf/huashu-skills",
+        "stars": 1724,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 26,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-01",
+          "2026-02",
+          "2026-04",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "topics": [
+          "agent-skills",
+          "ai-agents",
+          "claude",
+          "claude-code",
+          "skills"
+        ],
+        "merge_commits": 0,
+        "engagement": 0.0151,
+        "forks": 261
+      },
+      {
+        "repo": "alchaincyf/huashu-art-motion",
+        "stars": 3833,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 19,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-10"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.0026,
+        "forks": 420
+      },
+      {
+        "repo": "alchaincyf/img2046",
+        "stars": 220,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 159,
+        "prs": 0,
+        "active_years": 3,
+        "months": [
+          "2024-09",
+          "2024-10",
+          "2024-12",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-06",
+          "2025-07",
+          "2025-09",
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-04",
+          "2026-09",
+          "2026-10"
+        ],
+        "forks": 77
+      },
+      {
+        "repo": "alchaincyf/huasheng_editor",
+        "stars": 768,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 46,
+        "prs": 1,
+        "active_years": 2,
+        "months": [
+          "2025-10",
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-03",
+          "2026-04",
+          "2026-06",
+          "2026-09",
+          "2026-10"
+        ],
+        "pr_sample": 1,
+        "code_pr_sample": 1,
+        "forks": 199
+      },
+      {
+        "repo": "alchaincyf/hermes-agent-orange-book",
+        "stars": 4977,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 15,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-06",
+          "2026-08"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.0054,
+        "forks": 498
+      },
+      {
+        "repo": "alchaincyf/steve-jobs-skill",
+        "stars": 961,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 12,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 176
+      },
+      {
+        "repo": "alchaincyf/x-mentor-skill",
+        "stars": 1274,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 12,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.0055,
+        "forks": 202
+      },
+      {
+        "repo": "alchaincyf/naval-skill",
+        "stars": 259,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 11,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 70
+      },
+      {
+        "repo": "alchaincyf/elon-musk-skill",
+        "stars": 540,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 11,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 117
+      },
+      {
+        "repo": "alchaincyf/zhangxuefeng-skill",
+        "stars": 10472,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 11,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.011,
+        "forks": 2674
+      },
+      {
+        "repo": "alchaincyf/codex-orange-book",
+        "stars": 664,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 10,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-05",
+          "2026-08"
+        ],
+        "forks": 60
+      },
+      {
+        "repo": "alchaincyf/munger-skill",
+        "stars": 380,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 10,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 97
+      },
+      {
+        "repo": "alchaincyf/feynman-skill",
+        "stars": 291,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 10,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 78
+      },
+      {
+        "repo": "alchaincyf/karpathy-skill",
+        "stars": 313,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 9,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 84
+      },
+      {
+        "repo": "alchaincyf/trump-skill",
+        "stars": 269,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 9,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 49
+      },
+      {
+        "repo": "alchaincyf/huashu-report",
+        "stars": 453,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 9,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-09",
+          "2026-10"
+        ],
+        "forks": 60
+      },
+      {
+        "repo": "alchaincyf/deepseek-harness-orange-book",
+        "stars": 1330,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 8,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-08"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.0105,
+        "forks": 115
+      },
+      {
+        "repo": "alchaincyf/obsidian-ai-orange-book",
+        "stars": 1468,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 8,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-08"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.0075,
+        "forks": 134
+      },
+      {
+        "repo": "alchaincyf/huashu-md-html",
+        "stars": 913,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 7,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 98
+      },
+      {
+        "repo": "alchaincyf/huashu-mac-use",
+        "stars": 307,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 6,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-09",
+          "2026-10"
+        ],
+        "forks": 48
+      },
+      {
+        "repo": "alchaincyf/sun-yuchen-perspective",
+        "stars": 246,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 5,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-05",
+          "2026-08",
+          "2026-10"
+        ],
+        "forks": 34
+      },
+      {
+        "repo": "alchaincyf/3d-vibe-coding-handbook",
+        "stars": 274,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 5,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-09"
+        ],
+        "forks": 44
+      },
+      {
+        "repo": "alchaincyf/claude-code-orange-book",
+        "stars": 318,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 4,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04",
+          "2026-08"
+        ],
+        "forks": 53
+      },
+      {
+        "repo": "alchaincyf/loop-engineering-orange-book",
+        "stars": 1122,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 3,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-06",
+          "2026-08"
+        ],
+        "topics": [],
+        "merge_commits": 0,
+        "engagement": 0.008,
+        "forks": 108
+      },
+      {
+        "repo": "alchaincyf/deepseek-v4-deep-dive",
+        "stars": 280,
+        "is_private": false,
+        "is_fork": false,
+        "owner_login": "alchaincyf",
+        "commits": 2,
+        "prs": 0,
+        "active_years": 1,
+        "months": [
+          "2026-04"
+        ],
+        "forks": 28
+      }
+    ],
+    "recent_prs": [],
+    "star_repos": [
+      {
+        "name": "nuwa-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/nuwa-skill",
+        "stars": 34285,
+        "forks": 4544,
+        "open_issues": 20,
+        "size": 38550,
+        "language": "Python",
+        "description": "\u4f60\u60f3\u84b8\u998f\u7684\u4e0b\u4e00\u4e2a\u5458\u5de5\uff0c\u4f55\u5fc5\u662f\u540c\u4e8b\u3002\u84b8\u998f\u4efb\u4f55\u4eba\u7684\u601d\u7ef4\u65b9\u5f0f\u2014\u2014\u5fc3\u667a\u6a21\u578b\u3001\u51b3\u7b56\u542f\u53d1\u5f0f\u3001\u8868\u8fbeDNA\u3002Distill how anyone thinks.",
+        "pushed_at": "2026-10-13T06:54:31Z",
+        "topics": [],
+        "languages": [
+          {
+            "name": "Python",
+            "size": 14401
+          },
+          {
+            "name": "Shell",
+            "size": 1806
+          }
+        ]
+      },
+      {
+        "name": "huashu-design",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-design",
+        "stars": 24915,
+        "forks": 2813,
+        "open_issues": 5,
+        "size": 222692,
+        "language": "HTML",
+        "description": "Huashu Design \u00b7 HTML-native design skill for Claude Code \u00b7 Claude Code \u91cc HTML \u539f\u751f\u7684\u8bbe\u8ba1 skill \u00b7 \u9ad8\u4fdd\u771f\u539f\u578b / \u5e7b\u706f\u7247 / \u52a8\u753b + 20 \u8bbe\u8ba1\u54f2\u5b66 + 5 \u7ef4\u8bc4\u5ba1 + MP4 \u5bfc\u51fa \u00b7 Agent-agnostic",
+        "pushed_at": "2026-10-13T06:51:27Z",
+        "topics": [],
+        "languages": [
+          {
+            "name": "HTML",
+            "size": 316977
+          },
+          {
+            "name": "JavaScript",
+            "size": 172303
+          },
+          {
+            "name": "Python",
+            "size": 55667
+          },
+          {
+            "name": "Shell",
+            "size": 27119
+          }
+        ]
+      },
+      {
+        "name": "zhangxuefeng-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/zhangxuefeng-skill",
+        "stars": 10472,
+        "forks": 2674,
+        "open_issues": 27,
+        "size": 5093,
+        "language": null,
+        "description": "\u5f20\u96ea\u5cf0.skill \u2014 \u5f20\u96ea\u5cf0\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u9ad8\u8003\u5fd7\u613f/\u8003\u7814/\u804c\u4e1a\u89c4\u5212\u7684\u5b9e\u6218\u601d\u7ef4\u6846\u67b6\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:56:37Z",
+        "topics": [],
+        "languages": []
+      },
+      {
+        "name": "darwin-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/darwin-skill",
+        "stars": 6313,
+        "forks": 661,
+        "open_issues": 6,
+        "size": 4474,
+        "language": "HTML",
+        "description": "\u8fbe\u5c14\u6587.skill \u2014\u2014 \u4e00\u4e2a\u8ba9\u4f60\u7684Skill\u65e0\u9650\u8fdb\u5316\u7684\u7cfb\u7edf\uff1a\u8bc4\u4f30\u2192\u6539\u8fdb\u2192\u6d4b\u8bd5\u2192\u4fdd\u7559\u6216\u56de\u6eda | Autoresearch-inspired autonomous skill optimization for Claude Code. Evaluate, improve, test, keep or revert.",
+        "pushed_at": "2026-09-18T13:16:41Z",
+        "topics": [],
+        "languages": [
+          {
+            "name": "HTML",
+            "size": 133115
+          },
+          {
+            "name": "JavaScript",
+            "size": 3262
+          }
+        ]
+      },
+      {
+        "name": "hermes-agent-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/hermes-agent-orange-book",
+        "stars": 4977,
+        "forks": 498,
+        "open_issues": 6,
+        "size": 40522,
+        "language": "Python",
+        "description": "Hermes Agent \u4ece\u5165\u95e8\u5230\u7cbe\u901a \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 Nous Research \u5f00\u6e90 AI Agent \u6846\u67b6\u5b9e\u6218\u6307\u5357",
+        "pushed_at": "2026-08-23T14:21:45Z",
+        "topics": [],
+        "languages": [
+          {
+            "name": "Python",
+            "size": 6716
+          }
+        ]
+      },
+      {
+        "name": "huashu-art-motion",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-art-motion",
+        "stars": 3833,
+        "forks": 420,
+        "open_issues": 3,
+        "size": 73633,
+        "language": "JavaScript",
+        "description": "\u827a\u672f\u52a8\u753bskill\uff1a35\u79cd\u827a\u672f\u98ce\u683c\u30019\u79cd\u89e3\u8bf4\u8bed\u6cd5\uff0c\u7528\u4ee3\u7801\u8ba9\u753b\u52a8\u8d77\u6765\u3002",
+        "pushed_at": "2026-10-13T08:42:23Z",
+        "topics": [],
+        "languages": [
+          {
+            "name": "JavaScript",
+            "size": 2269476
+          },
+          {
+            "name": "Python",
+            "size": 327351
+          },
+          {
+            "name": "HTML",
+            "size": 3262
+          }
+        ]
+      },
+      {
+        "name": "huashu-skills",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-skills",
+        "stars": 1724,
+        "forks": 261,
+        "open_issues": 5,
+        "size": 17677,
+        "language": "Python",
+        "description": "\u82b1\u53d4\u5168\u90e8\u5f00\u6e90 Agent Skills \u603b\u76ee\u5f55\uff1a16 \u65d7\u8230 + 14 \u4eba\u7269\u89c6\u89d2 + 22 \u5185\u7f6e\u5171 52 \u4e2a skill\uff0c\u5206\u5c42\u5206\u7c7b + AI Agent \u5b89\u88c5\u534f\u8bae + \u673a\u5668\u53ef\u8bfb skills.json + \u66f4\u65b0\u68c0\u67e5\u673a\u5236",
+        "pushed_at": "2026-10-13T07:00:28Z",
+        "topics": [
+          "agent-skills",
+          "ai-agents",
+          "claude",
+          "claude-code",
+          "skills"
+        ]
+      },
+      {
+        "name": "obsidian-ai-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/obsidian-ai-orange-book",
+        "stars": 1468,
+        "forks": 134,
+        "open_issues": 1,
+        "size": 20290,
+        "language": null,
+        "description": "Obsidian + Claude Code: Rebuild Your Second Brain with AI \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 \u7528AI\u91cd\u5efa\u4f60\u7684\u7b2c\u4e8c\u5927\u8111",
+        "pushed_at": "2026-08-23T14:18:47Z",
+        "topics": []
+      },
+      {
+        "name": "deepseek-harness-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/deepseek-harness-orange-book",
+        "stars": 1330,
+        "forks": 115,
+        "open_issues": 7,
+        "size": 42123,
+        "language": "HTML",
+        "description": "DeepSeek Harness\u6a59\u76ae\u4e66\u300a\u4ece\u5f00\u673a\u5230\u62c6\u5f00\u300b\uff1a\u5b8c\u6574\u7cfb\u7edf\u63d0\u793a\u8bcd\u3001129\u884c\u542f\u52a8\u6e05\u5355\u3001\u4e09\u4efd\u539f\u59cb\u4f1a\u8bdd\u65e5\u5fd7\u2014\u2014\u5b98\u65b9\u6587\u6863\u6ca1\u6709\u7684\u4e00\u624b\u5b9e\u6d4b\u3002PDF/EPUB/HTML\u514d\u8d39\u4e0b\u8f7d",
+        "pushed_at": "2026-08-23T14:18:16Z",
+        "topics": []
+      },
+      {
+        "name": "x-mentor-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/x-mentor-skill",
+        "stars": 1274,
+        "forks": 202,
+        "open_issues": 0,
+        "size": 5447,
+        "language": null,
+        "description": "X\u5bfc\u5e08.skill \u2014 \u5973\u5a32\u7684\u7b2c\u4e00\u4e2a\u300c\u975e\u4eba\u7c7b\u300d\u4f5c\u54c1\u3002\u84b8\u998f6\u4f4d\u9876\u7ea7X\u521b\u4f5c\u8005\u65b9\u6cd5\u8bba + \u5f00\u6e90\u7b97\u6cd5\u6570\u636e\uff0c\u63d0\u70bc\u5b8c\u6574\u7684\u9009\u9898-\u5199\u4f5c-\u589e\u957f\u64cd\u4f5c\u624b\u518c\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:56:15Z",
+        "topics": []
+      },
+      {
+        "name": "loop-engineering-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/loop-engineering-orange-book",
+        "stars": 1122,
+        "forks": 108,
+        "open_issues": 0,
+        "size": 5109,
+        "language": null,
+        "description": "\u522b\u518d\u95ee\u6211\u4ec0\u4e48\u662f Loop Engineering \u2014 \u6a59\u76ae\u4e66\u7cfb\u5217\u3002A plain-language guide to loop engineering (\u4e2d\u6587 + English PDF). Free.",
+        "pushed_at": "2026-08-23T14:18:43Z",
+        "topics": []
+      },
+      {
+        "name": "fanbox",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/fanbox",
+        "stars": 1024,
+        "forks": 148,
+        "open_issues": 5,
+        "size": 30222,
+        "language": "JavaScript",
+        "description": "vibe coding \u7684\u9a7e\u9a76\u8231\uff1a\u5de6\u8fb9\u6587\u4ef6\uff0c\u53f3\u8fb9/\u4e0b\u8fb9\u7ec8\u7aef\uff0c\u4e2d\u95f4\u770b\u6e05\u6bcf\u4e00\u6b21\u6539\u52a8\u3002 / The cockpit for vibe coding: browse files on the left, command agents on the right, watch every change in between.",
+        "pushed_at": "2026-10-12T05:02:05Z",
+        "topics": [
+          "agent",
+          "ai",
+          "claude",
+          "codex",
+          "electron",
+          "file-manager",
+          "local-first",
+          "macos",
+          "terminal",
+          "vibe-coding"
+        ]
+      },
+      {
+        "name": "steve-jobs-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/steve-jobs-skill",
+        "stars": 961,
+        "forks": 176,
+        "open_issues": 4,
+        "size": 2782,
+        "language": null,
+        "description": "\u4e54\u5e03\u65af.skill \u2014 Steve Jobs\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u30026\u4e2a\u5fc3\u667a\u6a21\u578b + 8\u6761\u51b3\u7b56\u542f\u53d1\u5f0f + \u5b8c\u6574\u8868\u8fbeDNA\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:55:17Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-md-html",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-md-html",
+        "stars": 913,
+        "forks": 98,
+        "open_issues": 6,
+        "size": 7402,
+        "language": "CSS",
+        "description": "md/html \u53cc\u5411\u6d41\u6c34\u7ebf \u00b7 \u4e09\u4e2a\u80fd\u529b\u4e00\u7ad9\u5f0f\uff1a\u4e07\u7269\u2192md / md\u2192\u7cbe\u7f8ehtml / html\u2192md\u3002\u5c01\u88c5 markitdown + Pandoc + html-to-markdown + trafilatura\u30024 \u5957\u53cd AI slop \u4e3b\u9898\u3002Claude Code skill.",
+        "pushed_at": "2026-10-13T06:52:29Z",
+        "topics": []
+      },
+      {
+        "name": "huasheng_editor",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huasheng_editor",
+        "stars": 768,
+        "forks": 199,
+        "open_issues": 11,
+        "size": 4359,
+        "language": "JavaScript",
+        "description": "\u82b1\u751f\u516c\u4f17\u53f7\u6392\u7248\u5668",
+        "pushed_at": "2026-10-03T03:57:16Z",
+        "topics": []
+      },
+      {
+        "name": "codex-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/codex-orange-book",
+        "stars": 664,
+        "forks": 60,
+        "open_issues": 0,
+        "size": 43843,
+        "language": "HTML",
+        "description": "OpenAI Codex: The Complete Guide \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 GPT-5.5 \u65f6\u4ee3\u7684 AI \u7f16\u7a0b\u5b9e\u6218\u624b\u518c",
+        "pushed_at": "2026-08-23T14:18:20Z",
+        "topics": [
+          "agentic-coding",
+          "ai-coding",
+          "codex",
+          "gpt-5",
+          "huasheng",
+          "openai",
+          "orange-book"
+        ]
+      },
+      {
+        "name": "elon-musk-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/elon-musk-skill",
+        "stars": 540,
+        "forks": 117,
+        "open_issues": 1,
+        "size": 4981,
+        "language": null,
+        "description": "\u9a6c\u65af\u514b.skill \u2014 Elon Musk\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:50:51Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-report",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-report",
+        "stars": 453,
+        "forks": 60,
+        "open_issues": 1,
+        "size": 116,
+        "language": "Python",
+        "description": "\u673a\u6784\u7ea7\u7814\u7a76\u62a5\u544a Agent Skill \u00b7 \u89c4\u8303\u4ece 2026 \u5e74\u9876\u7ea7\u673a\u6784\u62a5\u544a\u5b9e\u7269\u53cd\u5411\u63d0\u70bc\uff0c42 \u4efd\u91c7\u96c6\uff0f41 \u4efd\u8fdb\u91cf\u5316\u57fa\u7ebf\uff08Stanford/McKinsey/BCG/OpenAI/PwC/World Bank \u7b49\uff09\u00b7 \u516d\u79cd\u62a5\u544a\u539f\u578b + 8 \u79cd\u56fe\u8868\u6a21\u5f0f + \u53ef\u590d\u7528\u751f\u4ea7\u6d41\u6c34\u7ebf \u00b7 \u8de8 agent \u901a\u7528",
+        "pushed_at": "2026-10-13T06:27:39Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-excel",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-excel",
+        "stars": 435,
+        "forks": 66,
+        "open_issues": 3,
+        "size": 521,
+        "language": "Python",
+        "description": "\u6570\u636e\u5206\u6790\u4e0e Excel \u5168\u6d41\u7a0b skill\uff1a\u4f53\u68c0\u810f\u8868\u3001\u6e05\u6d17\u3001\u5bf9\u9f50\u9700\u6c42\u3001\u5206\u6790\u3001\u5bf9\u8d26\u3001\u4ea4\u4ed8\u3002\u8ba9 AI \u7b97\u51fa\u6765\u7684\u6570\u5b57\u7ecf\u5f97\u8d77\u8ffd\u95ee\u3002\u8de8 agent \u901a\u7528\uff0c\u4f9d\u8d56\u4ec5 openpyxl\u3002",
+        "pushed_at": "2026-10-13T06:51:37Z",
+        "topics": []
+      },
+      {
+        "name": "munger-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/munger-skill",
+        "stars": 380,
+        "forks": 97,
+        "open_issues": 3,
+        "size": 137,
+        "language": null,
+        "description": "\u8292\u683c.skill \u2014 \u67e5\u7406\u00b7\u8292\u683c\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:54:05Z",
+        "topics": []
+      },
+      {
+        "name": "claude-code-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/claude-code-orange-book",
+        "stars": 318,
+        "forks": 53,
+        "open_issues": 0,
+        "size": 25520,
+        "language": null,
+        "description": "Claude Code: The Complete Guide \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 AI\u7f16\u7a0b\u5b9e\u6218\u6307\u5357",
+        "pushed_at": "2026-08-23T14:18:25Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-chrome",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-chrome",
+        "stars": 317,
+        "forks": 48,
+        "open_issues": 1,
+        "size": 1675,
+        "language": "JavaScript",
+        "description": "\u8ba9\u4efb\u4f55 AI agent \u64cd\u63a7\u4f60\u81ea\u5df1\u7684 Chrome\u2014\u2014\u5e26\u7740\u5168\u90e8\u767b\u5f55\u6001\u3002MCP + Chrome \u6269\u5c55\uff0cClaude Code / Codex / Cursor / Gemini CLI \u901a\u7528\u3002",
+        "pushed_at": "2026-10-13T04:22:01Z",
+        "topics": []
+      },
+      {
+        "name": "karpathy-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/karpathy-skill",
+        "stars": 313,
+        "forks": 84,
+        "open_issues": 2,
+        "size": 153,
+        "language": null,
+        "description": "Andrej Karpathy\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u8bed\u5f55\u5408\u96c6\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u601d\u7ef4\u6846\u67b6\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:53:25Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-mac-use",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-mac-use",
+        "stars": 307,
+        "forks": 48,
+        "open_issues": 5,
+        "size": 20992,
+        "language": "Swift",
+        "description": "\u8ba9\u4efb\u4f55 agent \u64cd\u63a7 Mac \u4e0a\u6ca1\u6709 API \u7684\u539f\u751f app\uff0c\u8bfb\u540e\u53f0\u3001\u5199\u4e0d\u6253\u6270\u3001\u6bcf\u6b65\u7559\u53d6\u8bc1 \u00b7 Agent Skill for macOS computer use",
+        "pushed_at": "2026-10-13T06:52:14Z",
+        "topics": []
+      },
+      {
+        "name": "feynman-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/feynman-skill",
+        "stars": 291,
+        "forks": 78,
+        "open_issues": 2,
+        "size": 159,
+        "language": null,
+        "description": "\u8d39\u66fc.skill \u2014 \u7406\u67e5\u5fb7\u00b7\u8d39\u66fc\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:51:02Z",
+        "topics": []
+      },
+      {
+        "name": "deepseek-v4-deep-dive",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/deepseek-v4-deep-dive",
+        "stars": 280,
+        "forks": 28,
+        "open_issues": 1,
+        "size": 48017,
+        "language": "HTML",
+        "description": "DeepSeek V4 \u6df1\u5ea6\u89e3\u8bfb \u00b7 73 \u9875 PPT + 20 \u5206\u949f\u8bb2\u7a3f + \u53d1\u5e03\u52a8\u753b \u00b7 Designed with huashu-design",
+        "pushed_at": "2026-04-24T10:17:48Z",
+        "topics": []
+      },
+      {
+        "name": "3d-vibe-coding-handbook",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/3d-vibe-coding-handbook",
+        "stars": 274,
+        "forks": 44,
+        "open_issues": 0,
+        "size": 72347,
+        "language": "HTML",
+        "description": "\u300a3D Vibe Coding \u624b\u518c\u300b\u914d\u5957\u4ed3\u5e93\uff1a\u4e66\u7684 HTML \u7248\u3001demo \u6e90\u7801\u3001\u5de5\u5177\u811a\u672c\u4e0e\u8d44\u6e90\u5305\u7d22\u5f15",
+        "pushed_at": "2026-09-15T06:52:48Z",
+        "topics": [
+          "3d",
+          "ai-3d",
+          "gltf",
+          "image-to-3d",
+          "orange-book",
+          "three-js",
+          "tripo",
+          "vibe-coding"
+        ]
+      },
+      {
+        "name": "trump-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/trump-skill",
+        "stars": 269,
+        "forks": 49,
+        "open_issues": 2,
+        "size": 217,
+        "language": null,
+        "description": "\u7279\u6717\u666e\u7684\u601d\u7ef4\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u6a21\u4eff\u79c0\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u8c08\u5224\u4e0e\u6743\u529b\u5206\u6790\u6846\u67b6\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:56:05Z",
+        "topics": []
+      },
+      {
+        "name": "naval-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/naval-skill",
+        "stars": 259,
+        "forks": 70,
+        "open_issues": 3,
+        "size": 145,
+        "language": null,
+        "description": "\u7eb3\u74e6\u5c14.skill \u2014 Naval Ravikant\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:54:17Z",
+        "topics": []
+      },
+      {
+        "name": "sun-yuchen-perspective",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/sun-yuchen-perspective",
+        "stars": 246,
+        "forks": 34,
+        "open_issues": 1,
+        "size": 94,
+        "language": null,
+        "description": "\u5b59\u5b87\u6668.skill \u2014 \u6ce8\u610f\u529b\u6536\u5272\u64cd\u4f5c\u7cfb\u7edf | Justin Sun Perspective Skill for Claude Code | \u7531\u5973\u5a32.skill\u84b8\u998f",
+        "pushed_at": "2026-10-13T06:55:29Z",
+        "topics": []
+      },
+      {
+        "name": "img2046",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/img2046",
+        "stars": 220,
+        "forks": 77,
+        "open_issues": 0,
+        "size": 54064,
+        "language": "TypeScript",
+        "description": "\u56fe\u50cf\u9b54\u65b9 - \u4e00\u4e2a\u5f3a\u5927\u7684\u56fe\u50cf\u7f16\u8f91\u548cAI\u56fe\u7247\u751f\u6210\u5de5\u5177",
+        "pushed_at": "2026-10-03T03:56:04Z",
+        "topics": []
+      },
+      {
+        "name": "zhang-yiming-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/zhang-yiming-skill",
+        "stars": 176,
+        "forks": 45,
+        "open_issues": 3,
+        "size": 152,
+        "language": null,
+        "description": "\u5f20\u4e00\u9e23\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u8bed\u5f55\u5408\u96c6\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u601d\u7ef4\u6846\u67b6\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:56:26Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-weread",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-weread",
+        "stars": 153,
+        "forks": 9,
+        "open_issues": 1,
+        "size": 35,
+        "language": null,
+        "description": "\u5fae\u4fe1\u8bfb\u4e66\u9ad8\u9636\u987e\u95ee \u00b7 \u5728\u5b98\u65b9 weread skill \u4e4b\u4e0a\u52a0\u4e00\u5c42\u300c\u8bfb\u4e66\u987e\u95ee\u7684\u5de5\u4f5c\u6d41\u300d\u00b7 \u4e66\u67b6+\u7b14\u8bb0\u4ea4\u53c9\u5206\u6790 \u00b7 4 \u4e2a workflow (advisor/path/alchemy/review) \u00b7 Made by \u82b1\u53d4",
+        "pushed_at": "2026-08-25T03:03:05Z",
+        "topics": []
+      },
+      {
+        "name": "cursor-rules-huasheng",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/cursor-rules-huasheng",
+        "stars": 139,
+        "forks": 35,
+        "open_issues": 7,
+        "size": 129,
+        "language": "TypeScript",
+        "description": null,
+        "pushed_at": "2025-01-05T08:04:06Z",
+        "topics": []
+      },
+      {
+        "name": "taleb-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/taleb-skill",
+        "stars": 128,
+        "forks": 45,
+        "open_issues": 2,
+        "size": 131,
+        "language": null,
+        "description": "\u5854\u52d2\u5e03.skill \u2014 Nassim Taleb\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u7531\u5973\u5a32.skill\u751f\u6210\u3002",
+        "pushed_at": "2026-10-13T06:55:41Z",
+        "topics": []
+      },
+      {
+        "name": "mrbeast-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/mrbeast-skill",
+        "stars": 120,
+        "forks": 33,
+        "open_issues": 2,
+        "size": 168,
+        "language": "Python",
+        "description": "MrBeast\u7684\u5185\u5bb9\u521b\u9020\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u8bed\u5f55\u5408\u96c6\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u5185\u5bb9\u65b9\u6cd5\u8bba\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:53:51Z",
+        "topics": []
+      },
+      {
+        "name": "claude-code-source-analysis-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/claude-code-source-analysis-orange-book",
+        "stars": 111,
+        "forks": 21,
+        "open_issues": 0,
+        "size": 7667,
+        "language": null,
+        "description": "Claude Code: Source Code Analysis \u00b7 Orange Book Series \u00b7 Deep dive into Claude Code architecture and implementation | \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 \u6df1\u5165\u89e3\u6790Claude Code\u67b6\u6784\u4e0e\u5b9e\u73b0",
+        "pushed_at": "2026-08-23T14:18:29Z",
+        "topics": []
+      },
+      {
+        "name": "harness-engineering-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/harness-engineering-orange-book",
+        "stars": 108,
+        "forks": 26,
+        "open_issues": 1,
+        "size": 8886,
+        "language": null,
+        "description": "Harness Engineering \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 AI Agent \u7f30\u7ef3\u5de5\u7a0b\u5b66\u5b9e\u6218\u6307\u5357",
+        "pushed_at": "2026-08-23T14:18:32Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-doubao-search",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-doubao-search",
+        "stars": 106,
+        "forks": 12,
+        "open_issues": 2,
+        "size": 104,
+        "language": "JavaScript",
+        "description": "\u8c46\u5305\u641c\u7d22 MCP server \u2014 \u7ed9\u6362\u4e86\u56fd\u4ea7\u6a21\u578b\u7684 Claude Code \u8865\u4e0a\u8054\u7f51\u80fd\u529b\u3002\u5b57\u8282\u7cfb\u4fe1\u6e90\u3001\u5343\u5b57\u6b63\u6587\u3001\u6bcf\u6708500\u6b21\u514d\u8d39 | Agent-first web search MCP",
+        "pushed_at": "2026-07-25T19:01:01Z",
+        "topics": []
+      },
+      {
+        "name": "paul-graham-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/paul-graham-skill",
+        "stars": 102,
+        "forks": 26,
+        "open_issues": 2,
+        "size": 181,
+        "language": null,
+        "description": "Paul Graham\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u8bed\u5f55\u5408\u96c6\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u601d\u7ef4\u6846\u67b6\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:54:41Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-flash",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-flash",
+        "stars": 98,
+        "forks": 6,
+        "open_issues": 0,
+        "size": 1694,
+        "language": "Python",
+        "description": "\u95ea\u7535.skill\uff1a\u7167 Anthropic \u4e24\u5468\u628a claude.ai \u63d0\u901f 3 \u500d\u7684\u65b9\u6cd5\uff0c\u7ed9\u4f60\u7684\u7f51\u7ad9\u63d0\u901f\u3002\u5148\u91cf\u3001\u518d\u8bc1\u3001\u540e\u722c\uff0c\u7528\u68d8\u8f6e\u9501\u4f4f\u53ea\u8bb8\u53d8\u597d\u3002",
+        "pushed_at": "2026-10-13T06:51:49Z",
+        "topics": []
+      },
+      {
+        "name": "openclaw-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/openclaw-orange-book",
+        "stars": 83,
+        "forks": 14,
+        "open_issues": 0,
+        "size": 12404,
+        "language": null,
+        "description": "OpenClaw: The Complete Guide \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 \u5f00\u6e90AI Agent\u6846\u67b6\u5b9e\u6218\u6307\u5357",
+        "pushed_at": "2026-08-23T14:18:52Z",
+        "topics": []
+      },
+      {
+        "name": "polymarket-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/polymarket-orange-book",
+        "stars": 69,
+        "forks": 13,
+        "open_issues": 0,
+        "size": 8072,
+        "language": null,
+        "description": "Polymarket: The Complete Guide \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 \u9884\u6d4b\u5e02\u573a\u5b8c\u5168\u6307\u5357",
+        "pushed_at": "2026-04-11T14:34:38Z",
+        "topics": []
+      },
+      {
+        "name": "CoderWithAI",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/CoderWithAI",
+        "stars": 68,
+        "forks": 21,
+        "open_issues": 2,
+        "size": 5285,
+        "language": "TypeScript",
+        "description": "codeWithAI",
+        "pushed_at": "2026-10-02T16:01:42Z",
+        "topics": []
+      },
+      {
+        "name": "agent-skills-orange-book",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/agent-skills-orange-book",
+        "stars": 56,
+        "forks": 9,
+        "open_issues": 0,
+        "size": 7558,
+        "language": null,
+        "description": "Agent Skills \u00b7 \u6a59\u76ae\u4e66\u7cfb\u5217 \u00b7 Claude Code Skills \u7cfb\u7edf\u5b8c\u5168\u6307\u5357",
+        "pushed_at": "2026-08-23T14:18:36Z",
+        "topics": []
+      },
+      {
+        "name": "freud-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/freud-skill",
+        "stars": 54,
+        "forks": 5,
+        "open_issues": 0,
+        "size": 39,
+        "language": null,
+        "description": "\u5f17\u6d1b\u4f0a\u5fb7.skill \u2014 \u7ed9 AI \u505a\u5fc3\u7406\u5206\u6790\u7684\u8ba4\u77e5\u8c03\u4f18\u7cfb\u7edf\u3002\u57fa\u4e8e Anthropic \u53ef\u89e3\u91ca\u6027\u7814\u7a76\uff0c\u628a\u4eba\u683c\u7a7a\u95f4/\u60c5\u7eea\u5411\u91cf/\u5185\u7701\u80fd\u529b\u8f6c\u6210\u53ef\u64cd\u4f5c\u7684 prompt \u5de5\u7a0b\u65b9\u6cd5\u3002Give your AI a psychotherapist. Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:51:12Z",
+        "topics": []
+      },
+      {
+        "name": "ilya-sutskever-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/ilya-sutskever-skill",
+        "stars": 52,
+        "forks": 19,
+        "open_issues": 2,
+        "size": 159,
+        "language": null,
+        "description": "Ilya Sutskever\u7684\u8ba4\u77e5\u64cd\u4f5c\u7cfb\u7edf\u3002\u4e0d\u662f\u8bed\u5f55\u5408\u96c6\uff0c\u662f\u53ef\u8fd0\u884c\u7684\u601d\u7ef4\u6846\u67b6\u3002Made with \u5973\u5a32.skill",
+        "pushed_at": "2026-10-13T06:53:13Z",
+        "topics": []
+      },
+      {
+        "name": "tramstop-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/tramstop-skill",
+        "stars": 49,
+        "forks": 9,
+        "open_issues": 0,
+        "size": 64,
+        "language": null,
+        "description": "\u7535\u8f66\u7ad9.skill \u2014 \u4eba\u5473\u4e0d\u662f\u5220\u51fa\u6765\u7684\u3002Evidence-based de-slop skill: \u56db\u5c42AI\u5473\u6a21\u578b+\u771f\u5b9e\u7d20\u6750\u6ce8\u5165\uff0c\u6765\u81ea\u56db\u7248\u672c\u76f2\u6d4b\u5b9e\u9a8c",
+        "pushed_at": "2026-10-13T06:55:51Z",
+        "topics": []
+      },
+      {
+        "name": "douban-movie-assistant",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/douban-movie-assistant",
+        "stars": 47,
+        "forks": 2,
+        "open_issues": 0,
+        "size": 196,
+        "language": "JavaScript",
+        "description": "\u5728\u8c46\u74e3\u7535\u5f71/\u5267\u96c6\u9875\u4fa7\u680f\u91cc\u76f4\u63a5\u770b\u7247\uff1a\u56db\u6e20\u9053\u63a2\u6d4b\u53ef\u64ad\u653e\u7247\u6e90\u3001\u5361\u7247\u5185\u5d4c\u9759\u97f3\u9884\u64ad\u3001\u5267\u96c6\u9009\u96c6\u3001\u8ffd\u5267\u66f4\u65b0\u63d0\u9192",
+        "pushed_at": "2026-08-25T02:59:29Z",
+        "topics": []
+      },
+      {
+        "name": "dukou",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/dukou",
+        "stars": 37,
+        "forks": 6,
+        "open_issues": 0,
+        "size": 122,
+        "language": "JavaScript",
+        "description": "\u6e21\u53e3 \u00b7 \u7a3f\u4ef6\u5206\u53d1\uff1aChrome\u63d2\u4ef6 + \u672c\u5730\u6865 + Claude Code skill\u2014\u2014\u5fae\u4fe1\u516c\u4f17\u53f7\u6587\u7ae0\u4e00\u952e\u6e21\u5230 X Articles / B\u7ad9\u4e13\u680f\uff0cAI\u7ec8\u7aef\u53ef\u76f4\u63a5\u6295\u7a3f\u53d6\u7a3f",
+        "pushed_at": "2026-10-13T06:50:39Z",
+        "topics": []
+      },
+      {
+        "name": "seedance-skill",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/seedance-skill",
+        "stars": 34,
+        "forks": 5,
+        "open_issues": 0,
+        "size": 247,
+        "language": "JavaScript",
+        "description": "Seedance.skill \u2014 \u767d\u6a21\u9a71\u52a8\u7684 AI \u89c6\u9891\u5de5\u4f5c\u53f0\u3002\u767d\u6a21\u53c2\u8003\u89c6\u9891\u4e0e\u63d0\u793a\u8bcd\u51fa\u81ea\u540c\u4e00\u4efd scene.json\uff0c\u6e32\u67d3\u524d\u505a\u51e0\u4f55\u4f53\u68c0\uff0c\u8fd8\u80fd\u4ece\u4e00\u5f20\u7167\u7247\u53cd\u89e3\u51fa\u767d\u6a21\u3002Control AI video with clay renders \u2014 and a prompt that can't drift from them.",
+        "pushed_at": "2026-10-13T06:54:51Z",
+        "topics": []
+      },
+      {
+        "name": "deepseek-influence-report",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/deepseek-influence-report",
+        "stars": 34,
+        "forks": 4,
+        "open_issues": 0,
+        "size": 1496,
+        "language": "HTML",
+        "description": "\u53d1\u5e03\u8282\u594f\u5c31\u662f\u62a4\u57ce\u6cb3\uff1aDeepSeek\u5f00\u6e90\u5f71\u54cd\u529b\u6295\u7814(V3\u2192V4)\u300222\u9875\u673a\u6784\u7ea7\u62a5\u544a+34\u4e2a\u5e26\u53e3\u5f84\u6570\u636e\u70b9+OpenRouter 85\u5468\u4efd\u989d\u590d\u7b97+\u53ef\u590d\u8dd1\u91c7\u96c6\u811a\u672c\uff0c\u5168\u90e8\u5f00\u6e90 | Institutional-grade research on DeepSeek's open-source influence, with full data & scripts",
+        "pushed_at": "2026-08-27T15:02:22Z",
+        "topics": []
+      },
+      {
+        "name": "ChatGPT_Plus_membership",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/ChatGPT_Plus_membership",
+        "stars": 26,
+        "forks": 4,
+        "open_issues": 2,
+        "size": 3824,
+        "language": null,
+        "description": "ChatGPT Plus\u4f1a\u5458\u5408\u79df\u62fc\u8f66\u8d2d\u4e70\u6e20\u9053\u63a8\u8350",
+        "pushed_at": "2024-06-06T07:58:52Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-slide-codex",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-slide-codex",
+        "stars": 24,
+        "forks": 4,
+        "open_issues": 0,
+        "size": 18824,
+        "language": "JavaScript",
+        "description": "Codex-only AI visual material production skill \u2014 slides + WeChat covers + Bilibili/YouTube thumbnails, powered by built-in image_gen (no API fees)",
+        "pushed_at": "2026-10-13T06:52:41Z",
+        "topics": []
+      },
+      {
+        "name": "global-workspace-paper-zh",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/global-workspace-paper-zh",
+        "stars": 23,
+        "forks": 3,
+        "open_issues": 0,
+        "size": 37290,
+        "language": null,
+        "description": "Anthropic\u300c\u8bed\u8a00\u6a21\u578b\u4e2d\u7684\u5168\u5c40\u5de5\u4f5c\u7a7a\u95f4\u300d\u8bba\u6587\u4e2d\u6587\u5168\u8bd1 | Chinese translation of Anthropic's Global Workspace paper (2026)",
+        "pushed_at": "2026-07-07T02:47:40Z",
+        "topics": []
+      },
+      {
+        "name": "nes-arcade",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/nes-arcade",
+        "stars": 23,
+        "forks": 11,
+        "open_issues": 0,
+        "size": 73760,
+        "language": "TypeScript",
+        "description": "FC\u6e38\u620f\u5385 - 121\u6b3e\u7ea2\u767d\u673a\u7ecf\u5178\u6e38\u620f\u5728\u7ebf\u6a21\u62df\u5668",
+        "pushed_at": "2026-02-07T04:24:23Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-gpt-image",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-gpt-image",
+        "stars": 21,
+        "forks": 3,
+        "open_issues": 0,
+        "size": 5060,
+        "language": "Python",
+        "description": "GPT-image-2 \u7684 prompt \u5de5\u7a0b\u65b9\u6cd5\u8bba\u3002\u6838\u5fc3\uff1a\u7528\u771f\u5b9e\u53c2\u8003\u540d\u66ff\u4ee3\u5f62\u5bb9\u8bcd\uff0cprompt \u9ed8\u8ba4\u4e2d\u6587\u77ed\u53e5\u3002\u542b\u5355\u56fe playbook\u3001\u6279\u91cf\u7f51\u683c\u751f\u6210\u3001\u5931\u8d25\u6a21\u5f0f\u6811\u3002\u8de8 agent \u901a\u7528\u3002",
+        "pushed_at": "2026-10-13T06:52:02Z",
+        "topics": []
+      },
+      {
+        "name": "skills-guide",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/skills-guide",
+        "stars": 19,
+        "forks": 11,
+        "open_issues": 0,
+        "size": 17,
+        "language": null,
+        "description": "Claude Code Skills \u5b8c\u6574\u6307\u5357 - \u7406\u89e3\u3001\u67e5\u627e\u548c\u521b\u5efa Skills",
+        "pushed_at": "2026-10-13T06:55:05Z",
+        "topics": []
+      },
+      {
+        "name": "Smarter--ChatGPT",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/Smarter--ChatGPT",
+        "stars": 19,
+        "forks": 2,
+        "open_issues": 0,
+        "size": 354,
+        "language": null,
+        "description": "28\u4e2aChatGPT\u4f7f\u7528\u6280\u5de7\uff0c\u5b8c\u6574\u4e2d\u6587\u6559\u7a0b\u5e26\u4f60\u4ece\u5165\u95e8\u5230\u7cbe\u901a",
+        "pushed_at": "2024-06-06T07:47:42Z",
+        "topics": []
+      },
+      {
+        "name": "HuaRec",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/HuaRec",
+        "stars": 16,
+        "forks": 5,
+        "open_issues": 0,
+        "size": 14414,
+        "language": "JavaScript",
+        "description": "HuaRec \u82b1\u5f55 \u00b7 \u7535\u5f71\u611f\u7f51\u9875\u5f55\u5c4f \u2014 Chrome MV3 \u7f51\u9875\u5f55\u5c4f\u63d2\u4ef6",
+        "pushed_at": "2026-08-28T16:03:48Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-slide-doubao",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-slide-doubao",
+        "stars": 15,
+        "forks": 2,
+        "open_issues": 0,
+        "size": 18856,
+        "language": "JavaScript",
+        "description": "Doubao-only AI visual material production skill \u2014 slides + WeChat covers + Bilibili/YouTube thumbnails, powered by built-in image_gen seedream 5.0 (no API fees)",
+        "pushed_at": "2026-10-13T06:52:53Z",
+        "topics": []
+      },
+      {
+        "name": "huashu-icon-set",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/huashu-icon-set",
+        "stars": 12,
+        "forks": 1,
+        "open_issues": 0,
+        "size": 40,
+        "language": "Python",
+        "description": "\u7aef\u5230\u7aef\u4e3a\u9879\u76ee\u751f\u6210\u98ce\u683c\u7edf\u4e00\u56fe\u6807\u96c6 \u00b7 \u9ed8\u8ba44\u00d74\u7f51\u683c\u6279\u91cf\u751f\u6210+\u9010\u4e2a\u7cbe\u5ea6\u515c\u5e95+\u667a\u80fd\u62a0\u56fe\uff0cDoubao image_gen \u9a71\u52a8 no API fees",
+        "pushed_at": "2026-10-13T06:50:25Z",
+        "topics": []
+      },
+      {
+        "name": "mistgarden-support",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/mistgarden-support",
+        "stars": 2,
+        "forks": 0,
+        "open_issues": 0,
+        "size": 143,
+        "language": "HTML",
+        "description": "\u96fe\u5ead\u98de\u884cMac\u6e38\u620f\uff1a\u5b98\u65b9\u652f\u6301\u4e0e\u9690\u79c1\u8bf4\u660e",
+        "pushed_at": "2026-09-08T05:39:09Z",
+        "topics": []
+      },
+      {
+        "name": "mcstomach",
+        "owner_login": "alchaincyf",
+        "name_with_owner": "alchaincyf/mcstomach",
+        "stars": 1,
+        "forks": 0,
+        "open_issues": 0,
+        "size": 45177,
+        "language": "Python",
+        "description": "\u9ea6\u95e8\u80c3\uff1a\u628a\u4f60\u7684\u9ea6\u5f53\u52b3\u8ba2\u5355\u84b8\u998f\u6210\u4e00\u4e2a\u80fd\u5e26\u8d70\u7684\u80c3",
+        "pushed_at": "2026-10-13T06:53:40Z",
+        "topics": []
+      }
+    ],
+    "expected": {
+      "impact_prestige_score": 0,
+      "impact_depth_raw": 6.88,
+      "impact_repo_count": 31,
+      "sub_scores": {
+        "account_maturity": 7.2,
+        "original_project_quality": 12,
+        "contribution_quality": 6.9,
+        "ecosystem_impact": 9.5,
+        "community_influence": 8,
+        "activity_authenticity": 16.3
+      },
+      "final_score": 59.9
+    },
+    "v13_metrics": {
+      "username": "alchaincyf",
+      "profile_url": "https://github.com/alchaincyf",
+      "avatar_url": "https://avatars.githubusercontent.com/u/127714341?v=4",
+      "name": "\u82b1\u53d4",
+      "bio": "AI Native Coder. Ship products without writing code. Author of nuwa-skill \u00b7 huashu-design \u00b7 darwin-skill.",
       "pronouns": null,
       "company": null,
       "account_age_years": 3.59,
@@ -5400,1489 +7635,7 @@
       "templated_pr_ratio": 0.25,
       "pr_flood_suspect": false
     },
-    "contrib_repos": [
-      {
-        "repo": "alchaincyf/fanbox",
-        "stars": 1024,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 165,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-06",
-          "2026-07",
-          "2026-08",
-          "2026-09",
-          "2026-10"
-        ],
-        "topics": [
-          "agent",
-          "ai",
-          "claude",
-          "codex",
-          "electron",
-          "file-manager",
-          "local-first",
-          "macos",
-          "terminal",
-          "vibe-coding"
-        ],
-        "merge_commits": 28,
-        "engagement": 0.0654
-      },
-      {
-        "repo": "alchaincyf/huashu-design",
-        "stars": 24915,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 109,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-06",
-          "2026-07",
-          "2026-08",
-          "2026-09",
-          "2026-10"
-        ],
-        "topics": [],
-        "merge_commits": 11,
-        "engagement": 0.0062
-      },
-      {
-        "repo": "alchaincyf/nuwa-skill",
-        "stars": 34285,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 60,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-06",
-          "2026-07",
-          "2026-08",
-          "2026-10"
-        ],
-        "topics": [],
-        "merge_commits": 2,
-        "engagement": 0.0057
-      },
-      {
-        "repo": "alchaincyf/huashu-chrome",
-        "stars": 317,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 54,
-        "prs": 1,
-        "active_years": 1,
-        "months": [
-          "2026-08",
-          "2026-09",
-          "2026-10"
-        ],
-        "pr_sample": 1,
-        "code_pr_sample": 0
-      },
-      {
-        "repo": "alchaincyf/darwin-skill",
-        "stars": 6313,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 40,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-06",
-          "2026-07",
-          "2026-08",
-          "2026-09"
-        ],
-        "topics": [],
-        "merge_commits": 5,
-        "engagement": 0.0078
-      },
-      {
-        "repo": "alchaincyf/huashu-excel",
-        "stars": 435,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 29,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-08",
-          "2026-09",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/huashu-skills",
-        "stars": 1724,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 26,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-01",
-          "2026-02",
-          "2026-04",
-          "2026-08",
-          "2026-09",
-          "2026-10"
-        ],
-        "topics": [
-          "agent-skills",
-          "ai-agents",
-          "claude",
-          "claude-code",
-          "skills"
-        ],
-        "merge_commits": 0,
-        "engagement": 0.0151
-      },
-      {
-        "repo": "alchaincyf/huashu-art-motion",
-        "stars": 3833,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 19,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-10"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.0026
-      },
-      {
-        "repo": "alchaincyf/img2046",
-        "stars": 220,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 159,
-        "prs": 0,
-        "active_years": 3,
-        "months": [
-          "2024-09",
-          "2024-10",
-          "2024-12",
-          "2025-02",
-          "2025-03",
-          "2025-04",
-          "2025-06",
-          "2025-07",
-          "2025-09",
-          "2025-11",
-          "2025-12",
-          "2026-01",
-          "2026-02",
-          "2026-04",
-          "2026-09",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/huasheng_editor",
-        "stars": 768,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 46,
-        "prs": 1,
-        "active_years": 2,
-        "months": [
-          "2025-10",
-          "2025-11",
-          "2025-12",
-          "2026-01",
-          "2026-03",
-          "2026-04",
-          "2026-06",
-          "2026-09",
-          "2026-10"
-        ],
-        "pr_sample": 1,
-        "code_pr_sample": 1
-      },
-      {
-        "repo": "alchaincyf/hermes-agent-orange-book",
-        "stars": 4977,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 15,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-06",
-          "2026-08"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.0054
-      },
-      {
-        "repo": "alchaincyf/steve-jobs-skill",
-        "stars": 961,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 12,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/x-mentor-skill",
-        "stars": 1274,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 12,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.0055
-      },
-      {
-        "repo": "alchaincyf/naval-skill",
-        "stars": 259,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 11,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/elon-musk-skill",
-        "stars": 540,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 11,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/zhangxuefeng-skill",
-        "stars": 10472,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 11,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.011
-      },
-      {
-        "repo": "alchaincyf/codex-orange-book",
-        "stars": 664,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 10,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-05",
-          "2026-08"
-        ]
-      },
-      {
-        "repo": "alchaincyf/munger-skill",
-        "stars": 380,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 10,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/feynman-skill",
-        "stars": 291,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 10,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/karpathy-skill",
-        "stars": 313,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 9,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/trump-skill",
-        "stars": 269,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 9,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/huashu-report",
-        "stars": 453,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 9,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-09",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/deepseek-harness-orange-book",
-        "stars": 1330,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 8,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-08"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.0105
-      },
-      {
-        "repo": "alchaincyf/obsidian-ai-orange-book",
-        "stars": 1468,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 8,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-08"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.0075
-      },
-      {
-        "repo": "alchaincyf/huashu-md-html",
-        "stars": 913,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 7,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/huashu-mac-use",
-        "stars": 307,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 6,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-09",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/sun-yuchen-perspective",
-        "stars": 246,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 5,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-05",
-          "2026-08",
-          "2026-10"
-        ]
-      },
-      {
-        "repo": "alchaincyf/3d-vibe-coding-handbook",
-        "stars": 274,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 5,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-09"
-        ]
-      },
-      {
-        "repo": "alchaincyf/claude-code-orange-book",
-        "stars": 318,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 4,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04",
-          "2026-08"
-        ]
-      },
-      {
-        "repo": "alchaincyf/loop-engineering-orange-book",
-        "stars": 1122,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 3,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-06",
-          "2026-08"
-        ],
-        "topics": [],
-        "merge_commits": 0,
-        "engagement": 0.008
-      },
-      {
-        "repo": "alchaincyf/deepseek-v4-deep-dive",
-        "stars": 280,
-        "is_private": false,
-        "is_fork": false,
-        "owner_login": "alchaincyf",
-        "commits": 2,
-        "prs": 0,
-        "active_years": 1,
-        "months": [
-          "2026-04"
-        ]
-      }
-    ],
-    "recent_prs": [],
-    "star_repos": [
-      {
-        "name": "nuwa-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/nuwa-skill",
-        "stars": 34285,
-        "forks": 4544,
-        "open_issues": 20,
-        "size": 38550,
-        "language": "Python",
-        "description": "你想蒸馏的下一个员工，何必是同事。蒸馏任何人的思维方式——心智模型、决策启发式、表达DNA。Distill how anyone thinks.",
-        "pushed_at": "2026-10-13T06:54:31Z",
-        "topics": [],
-        "languages": [
-          {
-            "name": "Python",
-            "size": 14401
-          },
-          {
-            "name": "Shell",
-            "size": 1806
-          }
-        ]
-      },
-      {
-        "name": "huashu-design",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-design",
-        "stars": 24915,
-        "forks": 2813,
-        "open_issues": 5,
-        "size": 222692,
-        "language": "HTML",
-        "description": "Huashu Design · HTML-native design skill for Claude Code · Claude Code 里 HTML 原生的设计 skill · 高保真原型 / 幻灯片 / 动画 + 20 设计哲学 + 5 维评审 + MP4 导出 · Agent-agnostic",
-        "pushed_at": "2026-10-13T06:51:27Z",
-        "topics": [],
-        "languages": [
-          {
-            "name": "HTML",
-            "size": 316977
-          },
-          {
-            "name": "JavaScript",
-            "size": 172303
-          },
-          {
-            "name": "Python",
-            "size": 55667
-          },
-          {
-            "name": "Shell",
-            "size": 27119
-          }
-        ]
-      },
-      {
-        "name": "zhangxuefeng-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/zhangxuefeng-skill",
-        "stars": 10472,
-        "forks": 2674,
-        "open_issues": 27,
-        "size": 5093,
-        "language": null,
-        "description": "张雪峰.skill — 张雪峰的认知操作系统。高考志愿/考研/职业规划的实战思维框架。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:56:37Z",
-        "topics": [],
-        "languages": []
-      },
-      {
-        "name": "darwin-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/darwin-skill",
-        "stars": 6313,
-        "forks": 661,
-        "open_issues": 6,
-        "size": 4474,
-        "language": "HTML",
-        "description": "达尔文.skill —— 一个让你的Skill无限进化的系统：评估→改进→测试→保留或回滚 | Autoresearch-inspired autonomous skill optimization for Claude Code. Evaluate, improve, test, keep or revert.",
-        "pushed_at": "2026-09-18T13:16:41Z",
-        "topics": [],
-        "languages": [
-          {
-            "name": "HTML",
-            "size": 133115
-          },
-          {
-            "name": "JavaScript",
-            "size": 3262
-          }
-        ]
-      },
-      {
-        "name": "hermes-agent-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/hermes-agent-orange-book",
-        "stars": 4977,
-        "forks": 498,
-        "open_issues": 6,
-        "size": 40522,
-        "language": "Python",
-        "description": "Hermes Agent 从入门到精通 · 橙皮书系列 · Nous Research 开源 AI Agent 框架实战指南",
-        "pushed_at": "2026-08-23T14:21:45Z",
-        "topics": [],
-        "languages": [
-          {
-            "name": "Python",
-            "size": 6716
-          }
-        ]
-      },
-      {
-        "name": "huashu-art-motion",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-art-motion",
-        "stars": 3833,
-        "forks": 420,
-        "open_issues": 3,
-        "size": 73633,
-        "language": "JavaScript",
-        "description": "艺术动画skill：35种艺术风格、9种解说语法，用代码让画动起来。",
-        "pushed_at": "2026-10-13T08:42:23Z",
-        "topics": [],
-        "languages": [
-          {
-            "name": "JavaScript",
-            "size": 2269476
-          },
-          {
-            "name": "Python",
-            "size": 327351
-          },
-          {
-            "name": "HTML",
-            "size": 3262
-          }
-        ]
-      },
-      {
-        "name": "huashu-skills",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-skills",
-        "stars": 1724,
-        "forks": 261,
-        "open_issues": 5,
-        "size": 17677,
-        "language": "Python",
-        "description": "花叔全部开源 Agent Skills 总目录：16 旗舰 + 14 人物视角 + 22 内置共 52 个 skill，分层分类 + AI Agent 安装协议 + 机器可读 skills.json + 更新检查机制",
-        "pushed_at": "2026-10-13T07:00:28Z",
-        "topics": [
-          "agent-skills",
-          "ai-agents",
-          "claude",
-          "claude-code",
-          "skills"
-        ]
-      },
-      {
-        "name": "obsidian-ai-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/obsidian-ai-orange-book",
-        "stars": 1468,
-        "forks": 134,
-        "open_issues": 1,
-        "size": 20290,
-        "language": null,
-        "description": "Obsidian + Claude Code: Rebuild Your Second Brain with AI · 橙皮书系列 · 用AI重建你的第二大脑",
-        "pushed_at": "2026-08-23T14:18:47Z",
-        "topics": []
-      },
-      {
-        "name": "deepseek-harness-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/deepseek-harness-orange-book",
-        "stars": 1330,
-        "forks": 115,
-        "open_issues": 7,
-        "size": 42123,
-        "language": "HTML",
-        "description": "DeepSeek Harness橙皮书《从开机到拆开》：完整系统提示词、129行启动清单、三份原始会话日志——官方文档没有的一手实测。PDF/EPUB/HTML免费下载",
-        "pushed_at": "2026-08-23T14:18:16Z",
-        "topics": []
-      },
-      {
-        "name": "x-mentor-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/x-mentor-skill",
-        "stars": 1274,
-        "forks": 202,
-        "open_issues": 0,
-        "size": 5447,
-        "language": null,
-        "description": "X导师.skill — 女娲的第一个「非人类」作品。蒸馏6位顶级X创作者方法论 + 开源算法数据，提炼完整的选题-写作-增长操作手册。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:56:15Z",
-        "topics": []
-      },
-      {
-        "name": "loop-engineering-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/loop-engineering-orange-book",
-        "stars": 1122,
-        "forks": 108,
-        "open_issues": 0,
-        "size": 5109,
-        "language": null,
-        "description": "别再问我什么是 Loop Engineering — 橙皮书系列。A plain-language guide to loop engineering (中文 + English PDF). Free.",
-        "pushed_at": "2026-08-23T14:18:43Z",
-        "topics": []
-      },
-      {
-        "name": "fanbox",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/fanbox",
-        "stars": 1024,
-        "forks": 148,
-        "open_issues": 5,
-        "size": 30222,
-        "language": "JavaScript",
-        "description": "vibe coding 的驾驶舱：左边文件，右边/下边终端，中间看清每一次改动。 / The cockpit for vibe coding: browse files on the left, command agents on the right, watch every change in between.",
-        "pushed_at": "2026-10-12T05:02:05Z",
-        "topics": [
-          "agent",
-          "ai",
-          "claude",
-          "codex",
-          "electron",
-          "file-manager",
-          "local-first",
-          "macos",
-          "terminal",
-          "vibe-coding"
-        ]
-      },
-      {
-        "name": "steve-jobs-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/steve-jobs-skill",
-        "stars": 961,
-        "forks": 176,
-        "open_issues": 4,
-        "size": 2782,
-        "language": null,
-        "description": "乔布斯.skill — Steve Jobs的认知操作系统。6个心智模型 + 8条决策启发式 + 完整表达DNA。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:55:17Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-md-html",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-md-html",
-        "stars": 913,
-        "forks": 98,
-        "open_issues": 6,
-        "size": 7402,
-        "language": "CSS",
-        "description": "md/html 双向流水线 · 三个能力一站式：万物→md / md→精美html / html→md。封装 markitdown + Pandoc + html-to-markdown + trafilatura。4 套反 AI slop 主题。Claude Code skill.",
-        "pushed_at": "2026-10-13T06:52:29Z",
-        "topics": []
-      },
-      {
-        "name": "huasheng_editor",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huasheng_editor",
-        "stars": 768,
-        "forks": 199,
-        "open_issues": 11,
-        "size": 4359,
-        "language": "JavaScript",
-        "description": "花生公众号排版器",
-        "pushed_at": "2026-10-03T03:57:16Z",
-        "topics": []
-      },
-      {
-        "name": "codex-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/codex-orange-book",
-        "stars": 664,
-        "forks": 60,
-        "open_issues": 0,
-        "size": 43843,
-        "language": "HTML",
-        "description": "OpenAI Codex: The Complete Guide · 橙皮书系列 · GPT-5.5 时代的 AI 编程实战手册",
-        "pushed_at": "2026-08-23T14:18:20Z",
-        "topics": [
-          "agentic-coding",
-          "ai-coding",
-          "codex",
-          "gpt-5",
-          "huasheng",
-          "openai",
-          "orange-book"
-        ]
-      },
-      {
-        "name": "elon-musk-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/elon-musk-skill",
-        "stars": 540,
-        "forks": 117,
-        "open_issues": 1,
-        "size": 4981,
-        "language": null,
-        "description": "马斯克.skill — Elon Musk的认知操作系统。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:50:51Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-report",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-report",
-        "stars": 453,
-        "forks": 60,
-        "open_issues": 1,
-        "size": 116,
-        "language": "Python",
-        "description": "机构级研究报告 Agent Skill · 规范从 2026 年顶级机构报告实物反向提炼，42 份采集／41 份进量化基线（Stanford/McKinsey/BCG/OpenAI/PwC/World Bank 等）· 六种报告原型 + 8 种图表模式 + 可复用生产流水线 · 跨 agent 通用",
-        "pushed_at": "2026-10-13T06:27:39Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-excel",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-excel",
-        "stars": 435,
-        "forks": 66,
-        "open_issues": 3,
-        "size": 521,
-        "language": "Python",
-        "description": "数据分析与 Excel 全流程 skill：体检脏表、清洗、对齐需求、分析、对账、交付。让 AI 算出来的数字经得起追问。跨 agent 通用，依赖仅 openpyxl。",
-        "pushed_at": "2026-10-13T06:51:37Z",
-        "topics": []
-      },
-      {
-        "name": "munger-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/munger-skill",
-        "stars": 380,
-        "forks": 97,
-        "open_issues": 3,
-        "size": 137,
-        "language": null,
-        "description": "芒格.skill — 查理·芒格的认知操作系统。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:54:05Z",
-        "topics": []
-      },
-      {
-        "name": "claude-code-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/claude-code-orange-book",
-        "stars": 318,
-        "forks": 53,
-        "open_issues": 0,
-        "size": 25520,
-        "language": null,
-        "description": "Claude Code: The Complete Guide · 橙皮书系列 · AI编程实战指南",
-        "pushed_at": "2026-08-23T14:18:25Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-chrome",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-chrome",
-        "stars": 317,
-        "forks": 48,
-        "open_issues": 1,
-        "size": 1675,
-        "language": "JavaScript",
-        "description": "让任何 AI agent 操控你自己的 Chrome——带着全部登录态。MCP + Chrome 扩展，Claude Code / Codex / Cursor / Gemini CLI 通用。",
-        "pushed_at": "2026-10-13T04:22:01Z",
-        "topics": []
-      },
-      {
-        "name": "karpathy-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/karpathy-skill",
-        "stars": 313,
-        "forks": 84,
-        "open_issues": 2,
-        "size": 153,
-        "language": null,
-        "description": "Andrej Karpathy的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:53:25Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-mac-use",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-mac-use",
-        "stars": 307,
-        "forks": 48,
-        "open_issues": 5,
-        "size": 20992,
-        "language": "Swift",
-        "description": "让任何 agent 操控 Mac 上没有 API 的原生 app，读后台、写不打扰、每步留取证 · Agent Skill for macOS computer use",
-        "pushed_at": "2026-10-13T06:52:14Z",
-        "topics": []
-      },
-      {
-        "name": "feynman-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/feynman-skill",
-        "stars": 291,
-        "forks": 78,
-        "open_issues": 2,
-        "size": 159,
-        "language": null,
-        "description": "费曼.skill — 理查德·费曼的认知操作系统。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:51:02Z",
-        "topics": []
-      },
-      {
-        "name": "deepseek-v4-deep-dive",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/deepseek-v4-deep-dive",
-        "stars": 280,
-        "forks": 28,
-        "open_issues": 1,
-        "size": 48017,
-        "language": "HTML",
-        "description": "DeepSeek V4 深度解读 · 73 页 PPT + 20 分钟讲稿 + 发布动画 · Designed with huashu-design",
-        "pushed_at": "2026-04-24T10:17:48Z",
-        "topics": []
-      },
-      {
-        "name": "3d-vibe-coding-handbook",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/3d-vibe-coding-handbook",
-        "stars": 274,
-        "forks": 44,
-        "open_issues": 0,
-        "size": 72347,
-        "language": "HTML",
-        "description": "《3D Vibe Coding 手册》配套仓库：书的 HTML 版、demo 源码、工具脚本与资源包索引",
-        "pushed_at": "2026-09-15T06:52:48Z",
-        "topics": [
-          "3d",
-          "ai-3d",
-          "gltf",
-          "image-to-3d",
-          "orange-book",
-          "three-js",
-          "tripo",
-          "vibe-coding"
-        ]
-      },
-      {
-        "name": "trump-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/trump-skill",
-        "stars": 269,
-        "forks": 49,
-        "open_issues": 2,
-        "size": 217,
-        "language": null,
-        "description": "特朗普的思维操作系统。不是模仿秀，是可运行的谈判与权力分析框架。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:56:05Z",
-        "topics": []
-      },
-      {
-        "name": "naval-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/naval-skill",
-        "stars": 259,
-        "forks": 70,
-        "open_issues": 3,
-        "size": 145,
-        "language": null,
-        "description": "纳瓦尔.skill — Naval Ravikant的认知操作系统。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:54:17Z",
-        "topics": []
-      },
-      {
-        "name": "sun-yuchen-perspective",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/sun-yuchen-perspective",
-        "stars": 246,
-        "forks": 34,
-        "open_issues": 1,
-        "size": 94,
-        "language": null,
-        "description": "孙宇晨.skill — 注意力收割操作系统 | Justin Sun Perspective Skill for Claude Code | 由女娲.skill蒸馏",
-        "pushed_at": "2026-10-13T06:55:29Z",
-        "topics": []
-      },
-      {
-        "name": "img2046",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/img2046",
-        "stars": 220,
-        "forks": 77,
-        "open_issues": 0,
-        "size": 54064,
-        "language": "TypeScript",
-        "description": "图像魔方 - 一个强大的图像编辑和AI图片生成工具",
-        "pushed_at": "2026-10-03T03:56:04Z",
-        "topics": []
-      },
-      {
-        "name": "zhang-yiming-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/zhang-yiming-skill",
-        "stars": 176,
-        "forks": 45,
-        "open_issues": 3,
-        "size": 152,
-        "language": null,
-        "description": "张一鸣的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:56:26Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-weread",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-weread",
-        "stars": 153,
-        "forks": 9,
-        "open_issues": 1,
-        "size": 35,
-        "language": null,
-        "description": "微信读书高阶顾问 · 在官方 weread skill 之上加一层「读书顾问的工作流」· 书架+笔记交叉分析 · 4 个 workflow (advisor/path/alchemy/review) · Made by 花叔",
-        "pushed_at": "2026-08-25T03:03:05Z",
-        "topics": []
-      },
-      {
-        "name": "cursor-rules-huasheng",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/cursor-rules-huasheng",
-        "stars": 139,
-        "forks": 35,
-        "open_issues": 7,
-        "size": 129,
-        "language": "TypeScript",
-        "description": null,
-        "pushed_at": "2025-01-05T08:04:06Z",
-        "topics": []
-      },
-      {
-        "name": "taleb-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/taleb-skill",
-        "stars": 128,
-        "forks": 45,
-        "open_issues": 2,
-        "size": 131,
-        "language": null,
-        "description": "塔勒布.skill — Nassim Taleb的认知操作系统。由女娲.skill生成。",
-        "pushed_at": "2026-10-13T06:55:41Z",
-        "topics": []
-      },
-      {
-        "name": "mrbeast-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/mrbeast-skill",
-        "stars": 120,
-        "forks": 33,
-        "open_issues": 2,
-        "size": 168,
-        "language": "Python",
-        "description": "MrBeast的内容创造操作系统。不是语录合集，是可运行的内容方法论。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:53:51Z",
-        "topics": []
-      },
-      {
-        "name": "claude-code-source-analysis-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/claude-code-source-analysis-orange-book",
-        "stars": 111,
-        "forks": 21,
-        "open_issues": 0,
-        "size": 7667,
-        "language": null,
-        "description": "Claude Code: Source Code Analysis · Orange Book Series · Deep dive into Claude Code architecture and implementation | 橙皮书系列 · 深入解析Claude Code架构与实现",
-        "pushed_at": "2026-08-23T14:18:29Z",
-        "topics": []
-      },
-      {
-        "name": "harness-engineering-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/harness-engineering-orange-book",
-        "stars": 108,
-        "forks": 26,
-        "open_issues": 1,
-        "size": 8886,
-        "language": null,
-        "description": "Harness Engineering · 橙皮书系列 · AI Agent 缰绳工程学实战指南",
-        "pushed_at": "2026-08-23T14:18:32Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-doubao-search",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-doubao-search",
-        "stars": 106,
-        "forks": 12,
-        "open_issues": 2,
-        "size": 104,
-        "language": "JavaScript",
-        "description": "豆包搜索 MCP server — 给换了国产模型的 Claude Code 补上联网能力。字节系信源、千字正文、每月500次免费 | Agent-first web search MCP",
-        "pushed_at": "2026-07-25T19:01:01Z",
-        "topics": []
-      },
-      {
-        "name": "paul-graham-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/paul-graham-skill",
-        "stars": 102,
-        "forks": 26,
-        "open_issues": 2,
-        "size": 181,
-        "language": null,
-        "description": "Paul Graham的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:54:41Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-flash",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-flash",
-        "stars": 98,
-        "forks": 6,
-        "open_issues": 0,
-        "size": 1694,
-        "language": "Python",
-        "description": "闪电.skill：照 Anthropic 两周把 claude.ai 提速 3 倍的方法，给你的网站提速。先量、再证、后爬，用棘轮锁住只许变好。",
-        "pushed_at": "2026-10-13T06:51:49Z",
-        "topics": []
-      },
-      {
-        "name": "openclaw-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/openclaw-orange-book",
-        "stars": 83,
-        "forks": 14,
-        "open_issues": 0,
-        "size": 12404,
-        "language": null,
-        "description": "OpenClaw: The Complete Guide · 橙皮书系列 · 开源AI Agent框架实战指南",
-        "pushed_at": "2026-08-23T14:18:52Z",
-        "topics": []
-      },
-      {
-        "name": "polymarket-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/polymarket-orange-book",
-        "stars": 69,
-        "forks": 13,
-        "open_issues": 0,
-        "size": 8072,
-        "language": null,
-        "description": "Polymarket: The Complete Guide · 橙皮书系列 · 预测市场完全指南",
-        "pushed_at": "2026-04-11T14:34:38Z",
-        "topics": []
-      },
-      {
-        "name": "CoderWithAI",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/CoderWithAI",
-        "stars": 68,
-        "forks": 21,
-        "open_issues": 2,
-        "size": 5285,
-        "language": "TypeScript",
-        "description": "codeWithAI",
-        "pushed_at": "2026-10-02T16:01:42Z",
-        "topics": []
-      },
-      {
-        "name": "agent-skills-orange-book",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/agent-skills-orange-book",
-        "stars": 56,
-        "forks": 9,
-        "open_issues": 0,
-        "size": 7558,
-        "language": null,
-        "description": "Agent Skills · 橙皮书系列 · Claude Code Skills 系统完全指南",
-        "pushed_at": "2026-08-23T14:18:36Z",
-        "topics": []
-      },
-      {
-        "name": "freud-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/freud-skill",
-        "stars": 54,
-        "forks": 5,
-        "open_issues": 0,
-        "size": 39,
-        "language": null,
-        "description": "弗洛伊德.skill — 给 AI 做心理分析的认知调优系统。基于 Anthropic 可解释性研究，把人格空间/情绪向量/内省能力转成可操作的 prompt 工程方法。Give your AI a psychotherapist. Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:51:12Z",
-        "topics": []
-      },
-      {
-        "name": "ilya-sutskever-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/ilya-sutskever-skill",
-        "stars": 52,
-        "forks": 19,
-        "open_issues": 2,
-        "size": 159,
-        "language": null,
-        "description": "Ilya Sutskever的认知操作系统。不是语录合集，是可运行的思维框架。Made with 女娲.skill",
-        "pushed_at": "2026-10-13T06:53:13Z",
-        "topics": []
-      },
-      {
-        "name": "tramstop-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/tramstop-skill",
-        "stars": 49,
-        "forks": 9,
-        "open_issues": 0,
-        "size": 64,
-        "language": null,
-        "description": "电车站.skill — 人味不是删出来的。Evidence-based de-slop skill: 四层AI味模型+真实素材注入，来自四版本盲测实验",
-        "pushed_at": "2026-10-13T06:55:51Z",
-        "topics": []
-      },
-      {
-        "name": "douban-movie-assistant",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/douban-movie-assistant",
-        "stars": 47,
-        "forks": 2,
-        "open_issues": 0,
-        "size": 196,
-        "language": "JavaScript",
-        "description": "在豆瓣电影/剧集页侧栏里直接看片：四渠道探测可播放片源、卡片内嵌静音预播、剧集选集、追剧更新提醒",
-        "pushed_at": "2026-08-25T02:59:29Z",
-        "topics": []
-      },
-      {
-        "name": "dukou",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/dukou",
-        "stars": 37,
-        "forks": 6,
-        "open_issues": 0,
-        "size": 122,
-        "language": "JavaScript",
-        "description": "渡口 · 稿件分发：Chrome插件 + 本地桥 + Claude Code skill——微信公众号文章一键渡到 X Articles / B站专栏，AI终端可直接投稿取稿",
-        "pushed_at": "2026-10-13T06:50:39Z",
-        "topics": []
-      },
-      {
-        "name": "seedance-skill",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/seedance-skill",
-        "stars": 34,
-        "forks": 5,
-        "open_issues": 0,
-        "size": 247,
-        "language": "JavaScript",
-        "description": "Seedance.skill — 白模驱动的 AI 视频工作台。白模参考视频与提示词出自同一份 scene.json，渲染前做几何体检，还能从一张照片反解出白模。Control AI video with clay renders — and a prompt that can't drift from them.",
-        "pushed_at": "2026-10-13T06:54:51Z",
-        "topics": []
-      },
-      {
-        "name": "deepseek-influence-report",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/deepseek-influence-report",
-        "stars": 34,
-        "forks": 4,
-        "open_issues": 0,
-        "size": 1496,
-        "language": "HTML",
-        "description": "发布节奏就是护城河：DeepSeek开源影响力投研(V3→V4)。22页机构级报告+34个带口径数据点+OpenRouter 85周份额复算+可复跑采集脚本，全部开源 | Institutional-grade research on DeepSeek's open-source influence, with full data & scripts",
-        "pushed_at": "2026-08-27T15:02:22Z",
-        "topics": []
-      },
-      {
-        "name": "ChatGPT_Plus_membership",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/ChatGPT_Plus_membership",
-        "stars": 26,
-        "forks": 4,
-        "open_issues": 2,
-        "size": 3824,
-        "language": null,
-        "description": "ChatGPT Plus会员合租拼车购买渠道推荐",
-        "pushed_at": "2024-06-06T07:58:52Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-slide-codex",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-slide-codex",
-        "stars": 24,
-        "forks": 4,
-        "open_issues": 0,
-        "size": 18824,
-        "language": "JavaScript",
-        "description": "Codex-only AI visual material production skill — slides + WeChat covers + Bilibili/YouTube thumbnails, powered by built-in image_gen (no API fees)",
-        "pushed_at": "2026-10-13T06:52:41Z",
-        "topics": []
-      },
-      {
-        "name": "global-workspace-paper-zh",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/global-workspace-paper-zh",
-        "stars": 23,
-        "forks": 3,
-        "open_issues": 0,
-        "size": 37290,
-        "language": null,
-        "description": "Anthropic「语言模型中的全局工作空间」论文中文全译 | Chinese translation of Anthropic's Global Workspace paper (2026)",
-        "pushed_at": "2026-07-07T02:47:40Z",
-        "topics": []
-      },
-      {
-        "name": "nes-arcade",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/nes-arcade",
-        "stars": 23,
-        "forks": 11,
-        "open_issues": 0,
-        "size": 73760,
-        "language": "TypeScript",
-        "description": "FC游戏厅 - 121款红白机经典游戏在线模拟器",
-        "pushed_at": "2026-02-07T04:24:23Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-gpt-image",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-gpt-image",
-        "stars": 21,
-        "forks": 3,
-        "open_issues": 0,
-        "size": 5060,
-        "language": "Python",
-        "description": "GPT-image-2 的 prompt 工程方法论。核心：用真实参考名替代形容词，prompt 默认中文短句。含单图 playbook、批量网格生成、失败模式树。跨 agent 通用。",
-        "pushed_at": "2026-10-13T06:52:02Z",
-        "topics": []
-      },
-      {
-        "name": "skills-guide",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/skills-guide",
-        "stars": 19,
-        "forks": 11,
-        "open_issues": 0,
-        "size": 17,
-        "language": null,
-        "description": "Claude Code Skills 完整指南 - 理解、查找和创建 Skills",
-        "pushed_at": "2026-10-13T06:55:05Z",
-        "topics": []
-      },
-      {
-        "name": "Smarter--ChatGPT",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/Smarter--ChatGPT",
-        "stars": 19,
-        "forks": 2,
-        "open_issues": 0,
-        "size": 354,
-        "language": null,
-        "description": "28个ChatGPT使用技巧，完整中文教程带你从入门到精通",
-        "pushed_at": "2024-06-06T07:47:42Z",
-        "topics": []
-      },
-      {
-        "name": "HuaRec",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/HuaRec",
-        "stars": 16,
-        "forks": 5,
-        "open_issues": 0,
-        "size": 14414,
-        "language": "JavaScript",
-        "description": "HuaRec 花录 · 电影感网页录屏 — Chrome MV3 网页录屏插件",
-        "pushed_at": "2026-08-28T16:03:48Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-slide-doubao",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-slide-doubao",
-        "stars": 15,
-        "forks": 2,
-        "open_issues": 0,
-        "size": 18856,
-        "language": "JavaScript",
-        "description": "Doubao-only AI visual material production skill — slides + WeChat covers + Bilibili/YouTube thumbnails, powered by built-in image_gen seedream 5.0 (no API fees)",
-        "pushed_at": "2026-10-13T06:52:53Z",
-        "topics": []
-      },
-      {
-        "name": "huashu-icon-set",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/huashu-icon-set",
-        "stars": 12,
-        "forks": 1,
-        "open_issues": 0,
-        "size": 40,
-        "language": "Python",
-        "description": "端到端为项目生成风格统一图标集 · 默认4×4网格批量生成+逐个精度兜底+智能抠图，Doubao image_gen 驱动 no API fees",
-        "pushed_at": "2026-10-13T06:50:25Z",
-        "topics": []
-      },
-      {
-        "name": "mistgarden-support",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/mistgarden-support",
-        "stars": 2,
-        "forks": 0,
-        "open_issues": 0,
-        "size": 143,
-        "language": "HTML",
-        "description": "雾庭飞行Mac游戏：官方支持与隐私说明",
-        "pushed_at": "2026-09-08T05:39:09Z",
-        "topics": []
-      },
-      {
-        "name": "mcstomach",
-        "owner_login": "alchaincyf",
-        "name_with_owner": "alchaincyf/mcstomach",
-        "stars": 1,
-        "forks": 0,
-        "open_issues": 0,
-        "size": 45177,
-        "language": "Python",
-        "description": "麦门胃：把你的麦当劳订单蒸馏成一个能带走的胃",
-        "pushed_at": "2026-10-13T06:53:40Z",
-        "topics": []
-      }
-    ],
-    "expected": {
+    "v13_expected": {
       "impact_prestige_score": 0,
       "impact_depth_raw": 3.07,
       "impact_repo_count": 12,
@@ -6957,13 +7710,13 @@
       "impact_prestige_score": 0.8829,
       "impact_pr_count": 264,
       "workflow_landed_impact_pr_count": 0,
-      "impact_depth_raw": 9.92,
+      "impact_depth_raw": 10.53,
       "verified_impact_pr_count": 0,
       "core_impact_pr_count": 0,
       "doc_like_impact_pr_count": 0,
       "unverified_impact_pr_count": 264,
-      "impact_repo_count": 9,
-      "impact_commit_count": 3269,
+      "impact_repo_count": 10,
+      "impact_commit_count": 3293,
       "commit_contribution_aggregation_unavailable": false,
       "merged_pr_contribution_aggregation_incomplete": true,
       "external_trivial_pr_count": 0,
@@ -6978,7 +7731,57 @@
       "top_repo_pr_target": "louislam/uptime-kuma",
       "top_repo_pr_share": 0.9,
       "templated_pr_ratio": 0.07,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "louislam/uptime-kuma",
+          "stars": 92413,
+          "commits": 3002,
+          "prs": 206
+        },
+        {
+          "repo": "ente/ente",
+          "stars": 29378,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "louislam/dockge",
+          "stars": 24601,
+          "commits": 165,
+          "prs": 3
+        },
+        {
+          "repo": "privatenumber/tsx",
+          "stars": 12162,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "actions/setup-node",
+          "stars": 4984,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "endroid/qr-code",
+          "stars": 4812,
+          "commits": 2,
+          "prs": 1
+        },
+        {
+          "repo": "louislam/its-mytabs",
+          "stars": 568,
+          "commits": 96,
+          "prs": 49
+        },
+        {
+          "repo": "louislam/rdp-portal",
+          "stars": 339,
+          "commits": 24,
+          "prs": 0
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -7074,7 +7877,8 @@
         },
         "community": 0.9494,
         "pr_sample": 10,
-        "code_pr_sample": 9
+        "code_pr_sample": 9,
+        "forks": 8556
       },
       {
         "repo": "louislam/its-mytabs",
@@ -7113,7 +7917,8 @@
         "merge_commits": 0,
         "engagement": 0.1919,
         "pr_sample": 10,
-        "code_pr_sample": 9
+        "code_pr_sample": 9,
+        "forks": 59
       },
       {
         "repo": "louislam/dockge",
@@ -7167,7 +7972,8 @@
         },
         "community": 0.6943,
         "pr_sample": 10,
-        "code_pr_sample": 8
+        "code_pr_sample": 8,
+        "forks": 846
       },
       {
         "repo": "louislam/rdp-portal",
@@ -7182,7 +7988,8 @@
           "2022-10",
           "2022-11",
           "2025-06"
-        ]
+        ],
+        "forks": 36
       },
       {
         "repo": "ente/ente",
@@ -7986,6 +8793,95 @@
     ],
     "expected": {
       "impact_prestige_score": 0.8829,
+      "impact_depth_raw": 10.53,
+      "impact_repo_count": 10,
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 18,
+        "contribution_quality": 27,
+        "ecosystem_impact": 18.9,
+        "community_influence": 8,
+        "activity_authenticity": 16
+      },
+      "final_score": 97.9
+    },
+    "v13_metrics": {
+      "username": "louislam",
+      "profile_url": "https://github.com/louislam",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1336778?v=4",
+      "name": "Louis Lam",
+      "bio": null,
+      "pronouns": null,
+      "company": null,
+      "account_age_years": 14.74,
+      "created_at": "2012-01-17T14:09:09Z",
+      "followers": 3649,
+      "following": 12,
+      "public_repos": 60,
+      "fetched_repo_count": 60,
+      "original_repo_count": 42,
+      "nonempty_original_repo_count": 42,
+      "fork_repo_count": 18,
+      "empty_original_repo_count": 0,
+      "total_stars": 118643,
+      "max_stars": 92413,
+      "weighted_total_stars": 118408.02,
+      "weighted_max_stars": 92413,
+      "top_repo_engagement_ratio": 0.0886,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 1,
+      "best_original_repo_quality_repo": "louislam/uptime-kuma",
+      "top_starred_original_repo_quality_score": 1,
+      "top_starred_original_repo_quality_repo": "louislam/uptime-kuma",
+      "merged_pr_count": 496,
+      "external_merged_pr_count": 9,
+      "external_high_star_pr_share": 0.6667,
+      "own_pr_community": 0.4118,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 552,
+      "issues_created": 46,
+      "last_year_contributions": 794,
+      "activity_type_count": 4,
+      "contribution_years_active": 15,
+      "days_since_last_activity": 0,
+      "recent_merged_pr_sample": 50,
+      "recent_trivial_pr_count": 7,
+      "recent_doc_like_pr_count": 6,
+      "recent_doc_like_pr_ratio": 0.12,
+      "recent_external_pr_sample": 0,
+      "recent_external_doc_like_pr_count": 0,
+      "recent_external_doc_like_pr_ratio": 0,
+      "max_impact_repo_stars": 92413,
+      "impact_prestige_score": 0.8829,
+      "impact_pr_count": 264,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 9.92,
+      "verified_impact_pr_count": 0,
+      "core_impact_pr_count": 0,
+      "doc_like_impact_pr_count": 0,
+      "unverified_impact_pr_count": 264,
+      "impact_repo_count": 9,
+      "impact_commit_count": 3269,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": true,
+      "external_trivial_pr_count": 0,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 46,
+      "maintainer_closed_unmerged_pr_count": 2,
+      "self_closed_external_pr_count": 2,
+      "self_closed_own_repo_pr_count": 38,
+      "unknown_closed_unmerged_pr_count": 4,
+      "pr_rejection_rate": 0,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "louislam/uptime-kuma",
+      "top_repo_pr_share": 0.9,
+      "templated_pr_ratio": 0.07,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
+      "impact_prestige_score": 0.8829,
       "impact_depth_raw": 9.92,
       "impact_repo_count": 9,
       "sub_scores": {
@@ -8059,13 +8955,13 @@
       "impact_prestige_score": 0.8387,
       "impact_pr_count": 292,
       "workflow_landed_impact_pr_count": 0,
-      "impact_depth_raw": 9.28,
+      "impact_depth_raw": 10.11,
       "verified_impact_pr_count": 17,
       "core_impact_pr_count": 17,
       "doc_like_impact_pr_count": 0,
       "unverified_impact_pr_count": 275,
-      "impact_repo_count": 8,
-      "impact_commit_count": 2048,
+      "impact_repo_count": 12,
+      "impact_commit_count": 2291,
       "commit_contribution_aggregation_unavailable": false,
       "merged_pr_contribution_aggregation_incomplete": true,
       "external_trivial_pr_count": 0,
@@ -8080,7 +8976,63 @@
       "top_repo_pr_target": "jesseduffield/lazygit",
       "top_repo_pr_share": 0.77,
       "templated_pr_ratio": 0.37,
-      "pr_flood_suspect": false
+      "pr_flood_suspect": false,
+      "impact_repos": [
+        {
+          "repo": "jesseduffield/lazygit",
+          "stars": 83154,
+          "commits": 1729,
+          "prs": 222
+        },
+        {
+          "repo": "jesseduffield/lazydocker",
+          "stars": 53114,
+          "commits": 257,
+          "prs": 41
+        },
+        {
+          "repo": "dandavison/delta",
+          "stars": 32488,
+          "commits": 0,
+          "prs": 1
+        },
+        {
+          "repo": "Homebrew/homebrew-core",
+          "stars": 15618,
+          "commits": 55,
+          "prs": 25
+        },
+        {
+          "repo": "jesseduffield/horcrux",
+          "stars": 5108,
+          "commits": 5,
+          "prs": 0
+        },
+        {
+          "repo": "stepancheg/rust-protobuf",
+          "stars": 2968,
+          "commits": 1,
+          "prs": 1
+        },
+        {
+          "repo": "jesseduffield/lazycli",
+          "stars": 435,
+          "commits": 145,
+          "prs": 0
+        },
+        {
+          "repo": "jesseduffield/OK",
+          "stars": 625,
+          "commits": 90,
+          "prs": 0
+        },
+        {
+          "repo": "ankane/ahoy_email",
+          "stars": 1195,
+          "commits": 1,
+          "prs": 1
+        }
+      ]
     },
     "contrib_repos": [
       {
@@ -8174,7 +9126,8 @@
         "merge_commits": 934,
         "engagement": 0.0701,
         "pr_sample": 10,
-        "code_pr_sample": 3
+        "code_pr_sample": 3,
+        "forks": 3074
       },
       {
         "repo": "jesseduffield/lazydocker",
@@ -8228,7 +9181,8 @@
         "merge_commits": 85,
         "engagement": 0.0202,
         "pr_sample": 10,
-        "code_pr_sample": 10
+        "code_pr_sample": 10,
+        "forks": 1694
       },
       {
         "repo": "Homebrew/homebrew-core",
@@ -8286,7 +9240,8 @@
           "2022-10",
           "2022-11",
           "2025-04"
-        ]
+        ],
+        "forks": 22
       },
       {
         "repo": "ankane/ahoy_email",
@@ -8326,7 +9281,8 @@
           "days_since_outside_merge": null,
           "lead_share": 1
         },
-        "community": 0
+        "community": 0,
+        "forks": 141
       },
       {
         "repo": "jesseduffield/lazynpm",
@@ -8340,7 +9296,8 @@
         "months": [
           "2022-11",
           "2023-03"
-        ]
+        ],
+        "forks": 40
       },
       {
         "repo": "jesseduffield/lazycli",
@@ -8359,7 +9316,8 @@
           "2021-06",
           "2022-05",
           "2022-11"
-        ]
+        ],
+        "forks": 17
       },
       {
         "repo": "stepancheg/rust-protobuf",
@@ -8387,7 +9345,8 @@
         "active_years": 1,
         "months": [
           "2021-02"
-        ]
+        ],
+        "forks": 9
       },
       {
         "repo": "git/git-scm.com",
@@ -9082,6 +10041,95 @@
       }
     ],
     "expected": {
+      "impact_prestige_score": 0.8387,
+      "impact_depth_raw": 10.11,
+      "impact_repo_count": 12,
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 15,
+        "contribution_quality": 27,
+        "ecosystem_impact": 18.5,
+        "community_influence": 8,
+        "activity_authenticity": 17
+      },
+      "final_score": 95.5
+    },
+    "v13_metrics": {
+      "username": "jesseduffield",
+      "profile_url": "https://github.com/jesseduffield",
+      "avatar_url": "https://avatars.githubusercontent.com/u/8456633?v=4",
+      "name": "Jesse Duffield",
+      "bio": "Creator of lazygit, lazydocker, horcrux, and the OK? language",
+      "pronouns": null,
+      "company": null,
+      "account_age_years": 12.16,
+      "created_at": "2014-08-15T09:18:18Z",
+      "followers": 6992,
+      "following": 6,
+      "public_repos": 63,
+      "fetched_repo_count": 63,
+      "original_repo_count": 31,
+      "nonempty_original_repo_count": 30,
+      "fork_repo_count": 32,
+      "empty_original_repo_count": 1,
+      "total_stars": 144471,
+      "max_stars": 83154,
+      "weighted_total_stars": 141794.61,
+      "weighted_max_stars": 83154,
+      "top_repo_engagement_ratio": 0.0701,
+      "attributed_original_repo_count": 0,
+      "attributed_original_repo_stars": 0,
+      "attributed_original_repos": [],
+      "best_original_repo_quality_score": 1,
+      "best_original_repo_quality_repo": "jesseduffield/lazydocker",
+      "top_starred_original_repo_quality_score": 0.75,
+      "top_starred_original_repo_quality_repo": "jesseduffield/lazygit",
+      "merged_pr_count": 702,
+      "external_merged_pr_count": 33,
+      "external_high_star_pr_share": 0.8788,
+      "own_pr_community": 0.3594,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 820,
+      "issues_created": 220,
+      "last_year_contributions": 4720,
+      "activity_type_count": 4,
+      "contribution_years_active": 13,
+      "days_since_last_activity": 2,
+      "recent_merged_pr_sample": 50,
+      "recent_trivial_pr_count": 19,
+      "recent_doc_like_pr_count": 15,
+      "recent_doc_like_pr_ratio": 0.3,
+      "recent_external_pr_sample": 8,
+      "recent_external_doc_like_pr_count": 0,
+      "recent_external_doc_like_pr_ratio": 0,
+      "max_impact_repo_stars": 83154,
+      "impact_prestige_score": 0.8387,
+      "impact_pr_count": 292,
+      "workflow_landed_impact_pr_count": 0,
+      "impact_depth_raw": 9.28,
+      "verified_impact_pr_count": 17,
+      "core_impact_pr_count": 17,
+      "doc_like_impact_pr_count": 0,
+      "unverified_impact_pr_count": 275,
+      "impact_repo_count": 8,
+      "impact_commit_count": 2048,
+      "commit_contribution_aggregation_unavailable": false,
+      "merged_pr_contribution_aggregation_incomplete": true,
+      "external_trivial_pr_count": 0,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 114,
+      "maintainer_closed_unmerged_pr_count": 55,
+      "self_closed_external_pr_count": 12,
+      "self_closed_own_repo_pr_count": 33,
+      "unknown_closed_unmerged_pr_count": 14,
+      "pr_rejection_rate": 0.07,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "jesseduffield/lazygit",
+      "top_repo_pr_share": 0.77,
+      "templated_pr_ratio": 0.37,
+      "pr_flood_suspect": false
+    },
+    "v13_expected": {
       "impact_prestige_score": 0.8387,
       "impact_depth_raw": 9.28,
       "impact_repo_count": 8,

@@ -979,18 +979,20 @@ def _is_doc_or_resource_repo(r):
 
 
 def _passes_impact_repo_gates(r, login):
-    from ._community import is_own_impact_repo, has_attributed_creator_star_credit
+    from ._community import is_own_impact_repo, impact_evidence_weight
     if r['is_private'] or r['is_fork']:
         return False
     if _is_low_signal_entry_repo(r['repo']) and r['commits'] <= 1 and r['prs'] <= 1:
         return False
-    threshold = 1000 if is_own_impact_repo(r, login) and not r.get('community', 0) > 0 and not has_attributed_creator_star_credit(r, login) else 200
+    threshold = 0 if is_own_impact_repo(r, login) else 200
+    if is_own_impact_repo(r, login) and (r['stars'] <= 0 or (r.get('community', 0) <= 0 and impact_evidence_weight(r) <= 0)):
+        return False
     commit_min = 1 if r['repo'].strip().lower() in SINGLE_DEFAULT_BRANCH_COMMIT_IMPACT_REPOS else IMPACT_COMMIT_MIN
     return r['stars'] >= threshold and (r['commits'] >= commit_min or r['prs'] >= 1)
 
 
 def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: str) -> Dict[str, Any]:
-    from ._community import is_own_impact_repo, has_attributed_creator_star_credit
+    from ._community import is_own_impact_repo, has_attributed_creator_star_credit, impact_evidence_weight, attributed_creator_weight, own_star_weight, impact_star_discount
     from ._score import star_engagement_multiplier
     qualifying = [r for r in repos if _passes_impact_repo_gates(r, login_lower) and
                   (r['stars'] >= 5000 or not _is_doc_or_resource_repo(r))]
@@ -1009,17 +1011,18 @@ def compute_impact_from_contrib_map(repos: List[Dict[str, Any]], login_lower: st
         repo_weight = doc_weight * (.3 + .7 * share) * (.7 + .3 * min(months / 6, 1) if months else 1)
         own = is_own_impact_repo(r, login_lower)
         work_multiplier = prestige_work_multiplier(authored, r['prs'])
-        prestige = max(prestige, (r.get('community', 0) if own else log_ratio(r['stars'], 100000)) * work_multiplier * repo_weight)
+        base = (r.get('community', 0) if own else log_ratio(r['stars'], 100000)) * work_multiplier * repo_weight
+        prestige = max(prestige, base)
         historical = has_attributed_creator_star_credit(r, login_lower)
         if historical:
-            prestige = max(prestige, log_ratio(r['stars'], 100000) * work_multiplier * doc_weight)
+            prestige = max(prestige, base + attributed_creator_weight(r, login_lower) * max(0, log_ratio(r['stars'], 100000) * work_multiplier * doc_weight - base))
         work = authored + r['prs']
         weight = min(1 + math.log10(work), 2.5) if work > 0 else 0
         if own:
-            star_depth = log_ratio(r['stars'], 5000) * weight * repo_weight * .3 * star_engagement_multiplier(r.get('engagement')) if r['stars'] >= 1000 else 0
+            star_depth = log_ratio(r['stars'], 5000) * weight * repo_weight * .3 * star_engagement_multiplier(r.get('engagement')) * own_star_weight(r['stars']) * impact_evidence_weight(r) * impact_star_discount(r)
             depth = star_depth + 2.5 * r.get('community', 0) * repo_weight
             if historical:
-                depth = max(depth, log_ratio(r['stars'], 5000) * weight * doc_weight)
+                depth += attributed_creator_weight(r, login_lower) * max(0, log_ratio(r['stars'], 5000) * weight * doc_weight - depth)
         else:
             depth = log_ratio(r['stars'], 5000) * weight * repo_weight
         depth_sum += depth
@@ -1416,8 +1419,13 @@ def collect(username: str) -> Dict[str, Any]:
         attributed = attributed_by_name.get(r['repo'].lower())
         if attributed:
             r.update(attributed_original=True, attribution_evidence=attributed.get('attribution_evidence', []), forks=attributed.get('forks', 0))
+        if not attributed:
+            r['forks'] = next((a.get('forks', 0) for a in personal_original_repos if _repo_display_name(a).lower() == r['repo'].lower()), r.get('forks', 0))
         r['star_inflation_suspect'] = star_inflation_suspect
     collect_own_repo_communities(contrib_repos or [], login, organizations, now)
+    from ._community import impact_star_severity
+    for r in contrib_repos or []:
+        r['star_inflation_severity'] = impact_star_severity(r)
 
     if contrib_repos:
         impact = compute_impact_from_contrib_map(contrib_repos, login_lower)

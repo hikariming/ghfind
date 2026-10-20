@@ -107,11 +107,11 @@ func TestPublicScoreReadOrder(t *testing.T) {
 		t.Fatalf("clause=%q", publicScoreVersionClause("score_version"))
 	}
 	args := publicScoreVersionArgs()
-	if len(args) != 2 || args[0] != "v13" || args[1] != "v10" {
+	if len(args) != 2 || args[0] != "v14" || args[1] != "v13" {
 		t.Fatalf("args=%v", args)
 	}
-	if !isPublicScoreVersion("v13") || !isPublicScoreVersion("v10") || isPublicScoreVersion("v12") {
-		t.Fatal("v13 and leftover v10 are public; retired v12 is not")
+	if !isPublicScoreVersion("v14") || !isPublicScoreVersion("v13") || isPublicScoreVersion("v12") {
+		t.Fatal("v14 and leftover v13 are public; retired v12 is not")
 	}
 }
 
@@ -208,5 +208,11 @@ func TestV10RiskBreakdownAtTwentyFivePointCap(t *testing.T) {
 	got.RiskAssessment.RiskScore = 100
 	if validProfileScoring(&got, detail) {
 		t.Fatal("v10 must keep the 25-point cap")
+	}
+}
+
+func TestScanCacheSeparatesDerivedImpactVersions(t *testing.T) {
+	if scanCacheKey(" Maker ") != "scan:v14:v5:maker" || scanFlightKey(" Maker ") != "lock:scan:v14:v5:maker" {
+		t.Fatal("derived-impact cache must isolate v14")
 	}
 }

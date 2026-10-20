@@ -489,12 +489,13 @@ type ContribRepoAgg struct {
 	Engagement *float64 `json:"engagement,omitempty"`
 	// AttributedOriginal marks an org repo credited as the user's original
 	// project: it counts as own.
-	AttributedOriginal   bool     `json:"attributed_original,omitempty"`
-	AttributionEvidence  []string `json:"attribution_evidence,omitempty"`
-	Forks                float64  `json:"forks,omitempty"`
-	StarInflationSuspect bool     `json:"star_inflation_suspect,omitempty"`
+	AttributedOriginal    bool     `json:"attributed_original,omitempty"`
+	AttributionEvidence   []string `json:"attribution_evidence,omitempty"`
+	Forks                 float64  `json:"forks,omitempty"`
+	StarInflationSeverity *float64 `json:"star_inflation_severity,omitempty"`
+	StarInflationSuspect  bool     `json:"star_inflation_suspect,omitempty"`
 	// CommunityFacts/Community: own-project community (absent = not measured);
-	// Community is 0 for star-inflation suspects.
+	// Community receives a continuous star-inflation discount.
 	CommunityFacts *OwnRepoCommunityFacts `json:"community_facts,omitempty"`
 	Community      *float64               `json:"community,omitempty"`
 }
@@ -540,32 +541,70 @@ func passesImpactRepoGates(repo ContribRepoAgg, loginLower string) bool {
 	if repo.IsPrivate || repo.IsFork || (isLowSignalEntryRepo(repo.Repo) && repo.Commits <= 1 && repo.PRs <= 1) {
 		return false
 	}
-	// Own repos need 1000★ unless a measured outside community vouches for them.
-	threshold := 200.0
-	if isOwnImpactRepo(repo, loginLower) && !(valueOrZero(repo.Community) > 0) && !hasAttributedCreatorStarCredit(repo, loginLower) {
-		threshold = ownRepoImpactMinStars
-	}
-	return repo.Stars >= threshold && (repo.Commits >= defaultBranchCommitMin(repo.Repo) || repo.PRs >= 1)
-}
-
-// isOwnImpactRepo covers the user's own repos and org repos credited as
-// their original projects.
-func hasAttributedCreatorStarCredit(repo ContribRepoAgg, loginLower string) bool {
-	if !repo.AttributedOriginal || repo.StarInflationSuspect {
+	if isOwnImpactRepo(repo, loginLower) {
+		if repo.Stars <= 0 || (valueOrZero(repo.Community) <= 0 && impactEvidenceWeight(repo) <= 0) {
+			return false
+		}
+	} else if repo.Stars < 200 {
 		return false
 	}
-	author := false
-	for _, e := range repo.AttributionEvidence {
-		if e == "release/tag author" || strings.EqualFold(e, "first commit author is "+loginLower) {
-			author = true
-		}
-	}
-	forks, outside := repo.Forks, 0.0
+	return repo.Commits >= defaultBranchCommitMin(repo.Repo) || repo.PRs >= 1
+}
+
+// v14 adoption saturates in log space; merged PRs outweigh forks.
+func impactEvidenceWeight(repo ContribRepoAgg) float64 {
+	forks, prs := max(0, repo.Forks), 0.0
 	if repo.CommunityFacts != nil {
 		forks = max(forks, repo.CommunityFacts.Forks)
-		outside = repo.CommunityFacts.OutsideMergedPRs
+		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
 	}
-	return author && (outside >= 1 || forks >= 10)
+	return 1 - math.Exp(-1.5*math.Log1p(prs)-0.6*math.Log1p(forks))
+}
+func impactStarSeverity(repo ContribRepoAgg) float64 {
+	forks, prs := max(0, repo.Forks), 0.0
+	if repo.CommunityFacts != nil {
+		forks = max(forks, repo.CommunityFacts.Forks)
+		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
+	}
+	stars := max(0, repo.Stars)
+	return stars / (stars + 100) / ((1 + forks) * (1 + forks) * (1 + prs) * (1 + prs))
+}
+func impactStarDiscount(repo ContribRepoAgg) float64 {
+	severity := impactStarSeverity(repo)
+	if repo.StarInflationSuspect {
+		severity = 0.9
+	}
+	if repo.StarInflationSeverity != nil {
+		severity = *repo.StarInflationSeverity
+	}
+	return math.Exp(-7 * max(0, min(1, severity)))
+}
+func attributedCreatorWeight(repo ContribRepoAgg, loginLower string) float64 {
+	if !repo.AttributedOriginal {
+		return 0
+	}
+	first, release := false, false
+	for _, e := range repo.AttributionEvidence {
+		if strings.EqualFold(e, "first commit author is "+loginLower) {
+			first = true
+		}
+		if e == "release/tag author" {
+			release = true
+		}
+	}
+	creator := 0.0
+	if first && release {
+		creator = 1
+	} else if first {
+		creator = 0.85
+	} else if release {
+		creator = 0.7
+	}
+	return impactEvidenceWeight(repo) * creator * impactStarDiscount(repo)
+}
+func ownStarWeight(stars float64) float64 { return 1 - math.Exp(-math.Log1p(max(0, stars)/100)) }
+func hasAttributedCreatorStarCredit(repo ContribRepoAgg, loginLower string) bool {
+	return attributedCreatorWeight(repo, loginLower) > 0
 }
 
 func isOwnImpactRepo(repo ContribRepoAgg, loginLower string) bool {
@@ -621,9 +660,9 @@ func authoredCommits(repo ContribRepoAgg) float64 {
 // src/lib/github.ts. Each repo is weighted by doc/resource kind, code share and
 // tenure. Own repos (including attributed originals) earn impact from their
 // outside community by default; proven attributed creators with outside adoption
-// retain the historical external star formula unless inflation is suspected.
+// blend toward historical external star credit with a continuous suspicion discount.
 // Otherwise they earn community-based prestige, plus
-// 2.5 x community depth on top of the legacy damped star depth (>=1000★).
+// 2.5 x community depth on top of the smooth damped star depth.
 //
 // TODO(content-repos): also treat a repo as content when its file tree is
 // >=70% md/pdf/png/mp3/html with fewer than 15 code files. The collector has
@@ -653,9 +692,10 @@ func ComputeImpactFromContribMap(repos []ContribRepoAgg, loginLower string) Impa
 		if own {
 			prestigeBase = valueOrZero(repo.Community)
 		}
-		prestige = max(prestige, prestigeBase*prestigeWorkMultiplier(authoredCommits(repo), repo.PRs)*repoWeight)
+		base := prestigeBase * prestigeWorkMultiplier(authoredCommits(repo), repo.PRs) * repoWeight
+		prestige = max(prestige, base)
 		if hasAttributedCreatorStarCredit(repo, loginLower) {
-			prestige = max(prestige, LogRatio(repo.Stars, 100000)*prestigeWorkMultiplier(authoredCommits(repo), repo.PRs)*docWeight)
+			prestige = max(prestige, base+attributedCreatorWeight(repo, loginLower)*max(0, LogRatio(repo.Stars, 100000)*prestigeWorkMultiplier(authoredCommits(repo), repo.PRs)*docWeight-base))
 		}
 		work := authoredCommits(repo) + repo.PRs
 		weight := 0.0
@@ -663,14 +703,11 @@ func ComputeImpactFromContribMap(repos []ContribRepoAgg, loginLower string) Impa
 			weight = min(1+math.Log10(work), 2.5)
 		}
 		if own {
-			// Legacy damped star depth (>=1000★ only) plus community depth.
-			starDepth := 0.0
-			if repo.Stars >= ownRepoImpactMinStars {
-				starDepth = LogRatio(repo.Stars, 5000) * weight * repoWeight * (ownRepoImpactDepthWeight * starEngagementMultiplier(repo.Engagement))
-			}
+			// Smooth damped own-star depth plus community depth.
+			starDepth := LogRatio(repo.Stars, 5000) * weight * repoWeight * (ownRepoImpactDepthWeight * starEngagementMultiplier(repo.Engagement)) * ownStarWeight(repo.Stars) * impactEvidenceWeight(repo) * impactStarDiscount(repo)
 			ownDepth := starDepth + communityDepth*valueOrZero(repo.Community)*repoWeight
 			if hasAttributedCreatorStarCredit(repo, loginLower) {
-				ownDepth = max(ownDepth, LogRatio(repo.Stars, 5000)*weight*docWeight)
+				ownDepth += attributedCreatorWeight(repo, loginLower) * max(0, LogRatio(repo.Stars, 5000)*weight*docWeight-ownDepth)
 			}
 			depth += ownDepth
 		} else {

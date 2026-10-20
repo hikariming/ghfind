@@ -109,11 +109,11 @@ func TestCommunityImpactGateAndCredit(t *testing.T) {
 func TestCommunityStarInflationAndOwnPRShare(t *testing.T) {
 	measured := map[string]OwnRepoCommunityFacts{"me/tool": fullCommunityFacts()}
 	repos := []ContribRepoAgg{communityRepo("me/tool", "me", 500, 150, nil)}
-	if got := ApplyOwnRepoCommunities(repos, measured, false); valueOrZero(got[0].Community) != 1 {
+	if got := ApplyOwnRepoCommunities(repos, measured, false); valueOrZero(got[0].Community) < .9999 {
 		t.Fatalf("community = %#v", got[0].Community)
 	}
-	if got := ApplyOwnRepoCommunities(repos, measured, true); got[0].Community == nil || *got[0].Community != 0 || got[0].CommunityFacts == nil {
-		t.Fatalf("star-inflation suspect kept community: %#v", got[0])
+	if got := ApplyOwnRepoCommunities(repos, measured, true); got[0].Community == nil || *got[0].Community < .9999 || got[0].CommunityFacts == nil {
+		t.Fatalf("continuous discount lost measured community: %#v", got[0])
 	}
 	high, full := 0.8, 1.0
 	attributed := communityRepo("big-org/engine", "big-org", 70000, 40, &full)

@@ -136,6 +136,13 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 				}
 			}
 		}
+		if !repo.AttributedOriginal {
+			for _, a := range personalOriginal {
+				if strings.EqualFold(repoDisplayName(a), repo.Repo) {
+					repo.Forks = a.Forks
+				}
+			}
+		}
 		ownedContributions = append(ownedContributions, repo)
 	}
 	// Keep verified organization-maintenance work out of the score-bearing

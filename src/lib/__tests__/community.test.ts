@@ -137,10 +137,10 @@ describe("community in ecosystem impact and contribution quality", () => {
     expect(computeImpactFromContribMap([attributed], "me").impact_prestige_score).toBe(0.9);
   });
 
-  it("zeroes community for star-inflation suspects", () => {
+  it("discounts community continuously from measured evidence", () => {
     const measured = new Map([["me/tool", facts()]]);
-    expect(applyOwnRepoCommunities([repo({})], measured, false)[0].community).toBe(1);
-    expect(applyOwnRepoCommunities([repo({})], measured, true)[0].community).toBe(0);
+    expect(applyOwnRepoCommunities([repo({})], measured, false)[0].community).toBeCloseTo(1, 4);
+    expect(applyOwnRepoCommunities([repo({})], measured, true)[0].community).toBeCloseTo(1, 4);
     expect(applyOwnRepoCommunities([repo({})], measured, true)[0].community_facts).toEqual(facts());
   });
 

@@ -17,8 +17,8 @@ const (
 	// also accept goPreviousPublicScoreVersion until organic rescan (see
 	// publicScoreVersionClause). Keep this in the same review as
 	// src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion      = "v13"
-	goPreviousPublicScoreVersion = "v10"
+	goCanonicalScoreVersion      = "v14"
+	goPreviousPublicScoreVersion = "v13"
 	goCanonicalCollectionVersion = "v5"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )

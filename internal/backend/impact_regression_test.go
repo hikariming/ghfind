@@ -181,8 +181,10 @@ func TestImpactExcludesMergesDocsAndOwnPrestige(t *testing.T) {
 	}
 
 	// 0.3 own weight x 0.79 code-share prior, no prestige.
-	own := ComputeImpactFromContribMap([]ContribRepoAgg{agg("me/tool", "me", 30000, 200, 0, 0)}, "me")
-	if own.ImpactRepoCount != 1 || own.ImpactPrestigeScore != 0 || own.ImpactDepthRaw != 0.59 {
+	ownRepo := agg("me/tool", "me", 30000, 200, 0, 0)
+	ownRepo.Forks = 1000
+	own := ComputeImpactFromContribMap([]ContribRepoAgg{ownRepo}, "me")
+	if own.ImpactRepoCount != 1 || own.ImpactPrestigeScore != 0 || own.ImpactDepthRaw != 0.58 {
 		t.Fatalf("own repo impact = %#v, want depth 0.59 and no prestige", own)
 	}
 }
@@ -294,8 +296,6 @@ func TestAggregateMergedPRNodesDedupesWindowAndExternalSearch(t *testing.T) {
 		t.Fatalf("high-star share = %v", share)
 	}
 }
-
-
 
 func TestFetchImpactRepoSignalsQueriesEligibleReposAndCountsMerges(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

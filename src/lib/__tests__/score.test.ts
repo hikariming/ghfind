@@ -1248,11 +1248,11 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_repo_count).toBe(0);
   });
 
-  it("applies the higher ≥1000★ bar to the user's OWN repos", () => {
+  it("requires outside evidence even for high-star own repos", () => {
     const own500 = computeImpactFromContribMap([agg({ repo: "contributor/proj", owner_login: "contributor", stars: 500, commits: 50 })], me);
     expect(own500.impact_repo_count).toBe(0);
     const own2000 = computeImpactFromContribMap([agg({ repo: "contributor/proj", owner_login: "contributor", stars: 2000, commits: 50 })], me);
-    expect(own2000.impact_repo_count).toBe(1);
+    expect(own2000.impact_repo_count).toBe(0);
   });
 
   it("does NOT count an external repo below 200★", () => {
@@ -1298,7 +1298,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   });
 
   it("gives own repos damped depth and no prestige", () => {
-    const own = agg({ repo: "contributor/tool", owner_login: "contributor", stars: 30000, commits: 200 });
+    const own = agg({ repo: "contributor/tool", owner_login: "contributor", stars: 30000, commits: 200, forks: 1000 });
     const external = agg({ repo: "org/tool", owner_login: "org", stars: 30000, commits: 200 });
     const ownOnly = computeImpactFromContribMap([own], me);
     expect(ownOnly.impact_repo_count).toBe(1);
