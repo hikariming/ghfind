@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Tier text utilities come from src/lib/tier.ts; retain them in every build. */
+@source inline("text-amber-300 text-violet-300 text-emerald-300 text-sky-300 text-rose-400");
+
 :root {
   --background: #141414;
   --foreground: #eeeeec;
@@ -352,6 +355,10 @@ html[data-theme="light"] .text-amber-300 {
 
 html[data-theme="light"] .text-sky-200\/90 {
   color: #0369a1;
+}
+
+html[data-theme="light"] .text-sky-300 {
+  color: #0284c7;
 }
 
 html[data-theme="light"] .text-violet-300 {
