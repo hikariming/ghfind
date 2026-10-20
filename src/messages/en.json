@@ -374,7 +374,8 @@
     "battleLoss": "Loss",
     "battleTie": "Tie",
     "selfCta": "Rate your own GitHub →",
-    "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version."
+    "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version.",
+    "coCreatorShare": "Led / co-built ({share}% share)"
   },
   "reactions": {
     "heading": "Community reactions",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "Account maturity",
-    "original_project_quality": "Original project quality",
+    "original_project_quality": "Original & Led Projects",
     "contribution_quality": "Contribution quality",
     "ecosystem_impact": "Ecosystem / maintenance impact",
     "community_influence": "Community influence",
@@ -601,7 +602,7 @@
       },
       {
         "q": "How is the score calculated?",
-        "a": "The engine scores six weighted dimensions that sum to 100 — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — and subtracts penalties for red flags such as PR farming or star inflation. It runs only on public GitHub data."
+        "a": "The engine scores six weighted dimensions that sum to 100 — account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — and subtracts penalties for red flags such as PR farming or star inflation. It runs only on public GitHub data."
       },
       {
         "q": "Is the score deterministic and reproducible?",
@@ -623,7 +624,7 @@
   },
   "homeIntro": {
     "whatHeading": "What is ghfind?",
-    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
+    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
     "howHeading": "How ghfind works",
     "steps": [
       {
@@ -632,7 +633,7 @@
       },
       {
         "title": "2. Score six deterministic dimensions",
-        "body": "The snapshot is scored across account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
+        "body": "The snapshot is scored across account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
       },
       {
         "title": "3. Get a score, tier, and roast",
@@ -780,7 +781,7 @@
     "heading": "About ghfind",
     "paragraphs": [
       "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 for real contribution value and trustworthiness, using a fully deterministic engine that runs only on public GitHub data. The same inputs always produce the same score — no large language model is involved in the number itself — so results are reproducible and auditable rather than opaque.",
-      "The score is built from six weighted dimensions that sum to 100: account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
+      "The score is built from six weighted dimensions that sum to 100: account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
       "The scoring engine is open source under the AGPL license as the github-account-value skill, and the same code paths power the website, the official npm and PyPI packages, the command-line tool, and the Model Context Protocol server. ghfind exists to make GitHub contribution legible: to reward genuine open-source work, surface developers worth following, and make farmed or faked activity easy to spot by looking at patterns instead of raw counts."
     ]
   },
@@ -837,7 +838,7 @@
     "dimensionsIntro": "Each dimension contributes to the 100-point base score. Together they reward sustained, original, widely-used open-source work over raw activity counts.",
     "dimensionDetails": {
       "account_maturity": "How established and consistent the account is over time — age, sustained activity, and a credibility curve that resists overnight inflation.",
-      "original_project_quality": "The quality and reception of repositories the account actually owns and authored, not forks or trivial projects.",
+      "original_project_quality": "Quality and reception of personally authored projects and substantially led or co-built projects, weighted by attribution share; excludes forks.",
       "contribution_quality": "The substance of contributions to other projects — merged, meaningful pull requests versus template spam.",
       "ecosystem_impact": "How much the account's work is depended on and maintained across the wider ecosystem.",
       "community_influence": "Genuine reach and standing in the community, normalized so raw follower or star counts cannot dominate.",

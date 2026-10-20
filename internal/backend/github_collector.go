@@ -132,6 +132,8 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 			for _, a := range attributed {
 				if strings.EqualFold(repoDisplayName(a), repo.Repo) {
 					repo.AttributionEvidence = a.AttributionEvidence
+					repo.AttributionShare = a.AttributionShare
+					repo.CoCreatorFacts = a.CoCreatorFacts
 					repo.Forks = a.Forks
 				}
 			}
@@ -156,12 +158,23 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 			nonemptyOriginal++
 		}
 	}
-	sort.SliceStable(allOriginal, func(i, j int) bool { return allOriginal[i].Stars > allOriginal[j].Stars })
+	sort.SliceStable(allOriginal, func(i, j int) bool {
+		return allOriginal[i].Stars*projectShare(allOriginal[i].AttributionShare) > allOriginal[j].Stars*projectShare(allOriginal[j].AttributionShare)
+	})
 	topRepos := append(make([]TopRepo, 0, len(allOriginal)), allOriginal...)
 	if len(topRepos) > 10 {
 		topRepos = topRepos[:10]
 	}
 	_ = c.github.hydrateTopRepoEvidence(ctx, topRepos, login, 6)
+	sort.SliceStable(personalOriginal, func(i, j int) bool { return personalOriginal[i].Stars > personalOriginal[j].Stars })
+	_ = c.github.hydrateTopRepoEvidence(ctx, personalOriginal, login, 6)
+	for i := range topRepos {
+		for _, own := range personalOriginal {
+			if strings.EqualFold(repoDisplayName(topRepos[i]), repoDisplayName(own)) {
+				topRepos[i] = own
+			}
+		}
+	}
 	c.github.hydrateOpenIssueCounts(ctx, topRepos)
 	// The profile README repo (<login>/<login>) is a profile page: it never
 	// counts toward star totals or stands in as the top-starred project.
@@ -191,6 +204,27 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	}
 	bestQuality, bestRepo := BestOriginalRepoQuality(topRepos, loginLower, now)
 	topStarredQuality, topStarredRepo := TopStarredOriginalRepoQuality(starTopRepos, loginLower, now)
+	personalStarRepos := []TopRepo{}
+	personalNonempty := 0.0
+	for _, r := range personalOriginal {
+		if r.Size > 0 {
+			personalNonempty++
+		}
+		if !isProfileReadmeRepo(r, loginLower) {
+			personalStarRepos = append(personalStarRepos, r)
+		}
+	}
+	personalTop := personalOriginal
+	if len(personalTop) > 10 {
+		personalTop = personalTop[:10]
+	}
+	personalBest, _ := BestOriginalRepoQuality(personalTop, loginLower, now)
+	personalTopQuality, _ := TopStarredOriginalRepoQuality(personalStarRepos, loginLower, now)
+	var personalEngagement *float64
+	if len(personalStarRepos) > 0 && personalStarRepos[0].Stars >= 500 {
+		personalEngagement = c.github.fetchRepoEngagementRatio(ctx, valueOrString(personalStarRepos[0].OwnerLogin, login), personalStarRepos[0].Name)
+	}
+	personalQuality := originalProjectQuality(RawMetrics{NonemptyOriginalRepoCount: personalNonempty, TotalStars: repoStarsTotal(personalStarRepos), MaxStars: repoStarsMax(personalStarRepos), BestOriginalRepoQualityScore: &personalBest, TopStarredOriginalRepoQualityScore: &personalTopQuality, TopRepoEngagementRatio: personalEngagement})
 	weightedTotalStars, weightedMaxStars := WeightedOriginalStars(starRepos, now)
 	starInflation := false
 	if len(starTopRepos) > 0 && starTopRepos[0].Stars >= 100 && starTopRepos[0].Forks/(starTopRepos[0].Stars/100) < 1 && starTopRepos[0].OpenIssues <= 1 {
@@ -290,12 +324,16 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	}
 	attributedStars := 0.0
 	attributedNames := []string{}
+	attributedShares := map[string]float64{}
 	for _, repo := range attributed {
-		attributedStars += repo.Stars
+		attributedStars += repo.Stars * projectShare(repo.AttributionShare)
 		attributedNames = append(attributedNames, repoDisplayName(repo))
+		attributedShares[strings.ToLower(repoDisplayName(repo))] = projectShare(repo.AttributionShare)
 	}
 
 	metrics := RawMetrics{Username: login, ProfileURL: user.HTMLURL, AvatarURL: user.AvatarURL, Name: user.Name, Bio: user.Bio, Company: user.Company, AccountAgeYears: accountAgeYears(user.CreatedAt, now), CreatedAt: user.CreatedAt, Followers: user.Followers, Following: user.Following, PublicRepos: user.PublicRepos, FetchedRepoCount: float64(len(repos)), OriginalRepoCount: float64(len(original) + len(attributed)), NonemptyOriginalRepoCount: nonemptyOriginal, ForkRepoCount: float64(len(forks)), EmptyOriginalRepoCount: float64(len(empty)), TotalStars: repoStarsTotal(starRepos), MaxStars: repoStarsMax(starRepos), WeightedTotalStars: floatPointer(weightedTotalStars), WeightedMaxStars: floatPointer(weightedMaxStars), TopRepoEngagementRatio: engagement, AttributedOriginalRepoCount: floatPointer(float64(len(attributed))), AttributedOriginalRepoStars: floatPointer(attributedStars), AttributedOriginalRepos: attributedNames, BestOriginalRepoQualityScore: floatPointer(bestQuality), BestOriginalRepoQualityRepo: bestRepo, TopStarredOriginalRepoQualityScore: floatPointer(topStarredQuality), TopStarredOriginalRepoQualityRepo: topStarredRepo, MergedPRCount: overview.MergedPRCount, WorkflowLandedPRCount: floatPointer(float64(len(workflowLanded))), TotalPRCount: overview.AllPRCount, IssuesCreated: overview.IssuesCreated, LastYearContributions: lastYearContributions, ActivityTypeCount: activityTypeCount(stats, lastYearContributions, overview.AllPRCount, overview.IssuesCreated), ContributionYearsActive: boundedContributionYearsActive(overview.ContributionYears, user.CreatedAt, now), DaysSinceLastActivity: daysSinceActivity, RecentMergedPRSample: float64(len(recentPRs)), RecentTrivialPRCount: trivial, RecentDocLikePRCount: floatPointer(docLike), RecentDocLikePRRatio: floatPointer(ratio(docLike, float64(len(recentPRs)))), RecentExternalPRSample: floatPointer(externalCount), RecentExternalDocLikePRCount: floatPointer(externalDocLike), RecentExternalDocLikePRRatio: floatPointer(ratio(externalDocLike, externalCount)), ExternalTrivialPRCount: externalTrivial, MaxImpactRepoStars: impact.MaxImpactRepoStars, ImpactPrestigeScore: floatPointer(impact.ImpactPrestigeScore), ImpactPRCount: impact.ImpactPRCount, WorkflowLandedImpactPRCount: floatPointer(workflowImpact), ImpactDepthRaw: impact.ImpactDepthRaw, VerifiedImpactPRCount: floatPointer(quality.VerifiedImpactPRCount), CoreImpactPRCount: floatPointer(quality.CoreImpactPRCount), DocLikeImpactPRCount: floatPointer(quality.DocLikeImpactPRCount), UnverifiedImpactPRCount: floatPointer(quality.UnverifiedImpactPRCount), ImpactRepoCount: floatPointer(impact.ImpactRepoCount), ImpactCommitCount: floatPointer(impact.ImpactCommitCount), CommitContributionAggregationUnavailable: commitAggregationUnavailable, MergedPRContributionAggregationIncomplete: mergedAggregationIncomplete, StarInflationSuspect: starInflation, ClosedUnmergedPRCount: closed.ClosedUnmergedPRCount, MaintainerClosedUnmergedPRCount: floatPointer(closed.MaintainerClosedUnmergedPRCount), SelfClosedExternalPRCount: floatPointer(closed.SelfClosedExternalPRCount), SelfClosedOwnRepoPRCount: floatPointer(closed.SelfClosedOwnRepoPRCount), UnknownClosedUnmergedPRCount: floatPointer(closed.UnknownClosedUnmergedPRCount), PRRejectionRate: rejectionRate, RecentPRSample: flood.RecentPRSample, TopRepoPRTarget: flood.TopRepoPRTarget, TopRepoPRShare: flood.TopRepoPRShare, TemplatedPRRatio: flood.TemplatedPRRatio, PRFloodSuspect: flood.PRFloodSuspect}
+	metrics.PersonalOriginalProjectQualityScore = &personalQuality
+	metrics.AttributedOriginalRepoShares = attributedShares
 	applyPresentationSignals(&metrics, recentPRs, login, attributedNames)
 	// Calculate the deterministic score before any presentation-only language
 	// enrichment, so the score path cannot observe or depend on that work.
@@ -303,7 +341,7 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 		attributedPRs := 0.0
 		for _, repo := range contributions {
 			if repo.AttributedOriginal && !strings.EqualFold(repo.OwnerLogin, loginLower) {
-				attributedPRs += repo.PRs
+				attributedPRs += repo.PRs * projectShare(repo.AttributionShare)
 			}
 		}
 		externalCount := max(0, min(external.Total, overview.MergedPRCount)-attributedPRs)
@@ -345,7 +383,7 @@ func dedupeTopRepos(repos []TopRepo) []TopRepo {
 func repoStarsTotal(repos []TopRepo) float64 {
 	total := 0.0
 	for _, repo := range repos {
-		total += max(0, repo.Stars)
+		total += max(0, repo.Stars) * projectShare(repo.AttributionShare)
 	}
 	return total
 }
@@ -353,7 +391,7 @@ func repoStarsTotal(repos []TopRepo) float64 {
 func repoStarsMax(repos []TopRepo) float64 {
 	maximum := 0.0
 	for _, repo := range repos {
-		maximum = max(maximum, repo.Stars)
+		maximum = max(maximum, repo.Stars*projectShare(repo.AttributionShare))
 	}
 	return maximum
 }

@@ -30,6 +30,10 @@ function graphqlQuery(init?: RequestInit): string {
   return (JSON.parse(String(init?.body ?? "{}")) as { query?: string }).query ?? "";
 }
 
+function coCreatorResponse(commits: number, association = "MEMBER") {
+  return jsonResponse({data:{repository:{pullRequests:{totalCount:20},defaultBranchRef:{target:{history:{totalCount:commits*2}}}},search:{issueCount:10,nodes:Array.from({length:3},()=>({authorAssociation:association,changedFiles:1,files:{nodes:[{path:"src/main.go",additions:500,deletions:10}]}}))}}});
+}
+
 function firstCommitOrgCollectFetch(input: {
   login: string;
   owner: string;
@@ -37,6 +41,7 @@ function firstCommitOrgCollectFetch(input: {
   stars: number;
   commits: number;
   firstCommitLogin: string;
+  member?: boolean;
 }) {
   const nameWithOwner = `${input.owner}/${input.name}`;
   const repoNode = {
@@ -83,6 +88,7 @@ function firstCommitOrgCollectFetch(input: {
         topics: [],
       });
     }
+    if (url.includes(`/repos/${nameWithOwner}/contributors?`)) return jsonResponse([{login:input.login,contributions:input.commits},{login:"other",contributions:input.commits}]);
     if (url.startsWith(`https://api.github.com/repos/${nameWithOwner}/releases`)) {
       return jsonResponse([]);
     }
@@ -106,6 +112,7 @@ function firstCommitOrgCollectFetch(input: {
     }
     if (url === "https://api.github.com/graphql") {
       const query = graphqlQuery(init);
+      if (query.includes("authorAssociation changedFiles")) return coCreatorResponse(input.commits);
       if (query.includes("contributionsCollection(from:")) {
         return jsonResponse({
           data: {
@@ -120,7 +127,7 @@ function firstCommitOrgCollectFetch(input: {
         });
       }
       if (query.includes("organizations(first:")) {
-        return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+        return jsonResponse({ data: { user: { organizations: { nodes: input.member ? [{login: input.owner}] : [] } } } });
       }
       if (query.includes("pullRequests(first:") && query.includes("states: MERGED")) {
         return jsonResponse({
@@ -768,6 +775,7 @@ describe("collect", () => {
         });
       }
 
+      if (url.includes("repos/acme/core/contributors?")) return jsonResponse([{login:"dev",contributions:75},{login:"other",contributions:25}]);
       if (url === "https://api.github.com/repos/acme/core/releases?per_page=10") {
         return jsonResponse([{ author: { login: "dev" }, tag_name: "v1.0.0" }]);
       }
@@ -813,6 +821,7 @@ ${"Useful project detail. ".repeat(50)}
       if (url === "https://api.github.com/graphql") {
         const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
         const query = body.query ?? "";
+        if (query.includes("authorAssociation changedFiles")) return coCreatorResponse(75);
         if (query.includes("contributionsCollection(from:")) {
           const repo = {
             nameWithOwner: "acme/core",
@@ -903,7 +912,9 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.metrics.attributed_original_repo_count).toBe(1);
     expect(result.metrics.nonempty_original_repo_count).toBe(1);
-    expect(result.metrics.total_stars).toBe(12345);
+    expect(result.metrics.total_stars).toBeGreaterThan(0);
+    expect(result.metrics.total_stars).toBeLessThan(12345);
+    expect(result.metrics.total_stars).toBeCloseTo(12345*result.top_repos[0].attribution_share!,8);
     // Engagement of the top-starred repo: (300 + 800 + 400) / 12345
     expect(result.metrics.top_repo_engagement_ratio).toBeCloseTo(0.1215, 3);
     expect(result.top_repos[0]).toMatchObject({
@@ -913,14 +924,14 @@ ${"Useful project detail. ".repeat(50)}
       attributed_original: true,
       open_issue_count: 0,
     });
-    expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain("75 commits");
+    expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain("75/");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.github.com/repos/acme/core/readme",
       expect.anything(),
     );
   });
 
-  it("attributes a long-term org repo when the first commit author is the scored user", async () => {
+  it.each([false, true])("preserves founding evidence with organization membership=%s", async (member) => {
     vi.stubGlobal(
       "fetch",
       firstCommitOrgCollectFetch({
@@ -930,6 +941,7 @@ ${"Useful project detail. ".repeat(50)}
         stars: 80,
         commits: 200,
         firstCommitLogin: "alice",
+        member,
       }),
     );
 
@@ -947,7 +959,7 @@ ${"Useful project detail. ".repeat(50)}
     );
   });
 
-  it("does not attribute an org repo whose first commit belongs to someone else", async () => {
+  it("attributes a substantive co-builder without claiming first authorship", async () => {
     vi.stubGlobal(
       "fetch",
       firstCommitOrgCollectFetch({
@@ -962,8 +974,10 @@ ${"Useful project detail. ".repeat(50)}
 
     const result = await collect("alice");
 
-    expect(result.metrics.attributed_original_repo_count).toBe(0);
-    expect(result.top_repos).toHaveLength(0);
+    expect(result.metrics.attributed_original_repo_count).toBe(1);
+    expect(result.top_repos[0].attribution_share).toBeGreaterThan(0);
+    expect(result.top_repos[0].attribution_evidence?.join(" ")).not.toContain("first commit author is alice");
+    expect(result.top_repos).toHaveLength(1);
   });
 
   it("does not count unmerged PR contribution graph entries as high-star impact", async () => {

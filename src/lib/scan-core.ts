@@ -1,3 +1,4 @@
+import { projectShare } from "./co-creator";
 import { ScanBusyError } from "./scan-protection";
 import {
   AccountNotFoundError,
@@ -291,8 +292,8 @@ export function applyPublicOriginalRepoInventory(
     original_repo_count: all.length,
     nonempty_original_repo_count: all.filter((repo) => repo.size > 0).length,
     empty_original_repo_count: ownedRepos.filter((repo) => repo.size <= 0).length,
-    total_stars: starRepos.reduce((sum, repo) => sum + Math.max(0, repo.stars), 0),
-    max_stars: starRepos.reduce((max, repo) => Math.max(max, repo.stars), 0),
+    total_stars: starRepos.reduce((sum, repo) => sum + Math.max(0, repo.stars)*projectShare(repo), 0),
+    max_stars: starRepos.reduce((max, repo) => Math.max(max, repo.stars*projectShare(repo)), 0),
     ...weightedOriginalStars(starRepos, new Date()),
     best_original_repo_quality_score: best.score,
     best_original_repo_quality_repo: best.repo,
@@ -302,7 +303,7 @@ export function applyPublicOriginalRepoInventory(
   return {
     ...scan,
     metrics,
-    top_repos: all.sort((a, b) => b.stars - a.stars || b.size - a.size).slice(0, 10),
+    top_repos: all.sort((a, b) => b.stars * projectShare(b) - a.stars * projectShare(a) || b.size - a.size).slice(0, 10),
     scoring: score(metrics),
   };
 }

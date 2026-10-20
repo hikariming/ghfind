@@ -56,7 +56,18 @@ func applyPresentationSignals(m *RawMetrics, prs []RecentPR, login string, ownRe
 		if pr.Repo != nil {
 			repo = strings.ToLower(*pr.Repo)
 		}
-		if !strings.Contains(repo, "/") || strings.Split(repo, "/")[0] == strings.ToLower(login) || owned[repo] {
+		if !strings.Contains(repo, "/") || strings.Split(repo, "/")[0] == strings.ToLower(login) {
+			continue
+		}
+		external := 1.0
+		if owned[repo] {
+			share, ok := m.AttributedOriginalRepoShares[repo]
+			if !ok {
+				share = 1
+			}
+			external = 1 - coUnit(share)
+		}
+		if external <= 0 {
 			continue
 		}
 		if len(pr.FileChanges) == 0 || float64(len(pr.FileChanges)) < pr.ChangedFiles {
@@ -75,19 +86,19 @@ func applyPresentationSignals(m *RawMetrics, prs []RecentPR, login string, ownRe
 			if isPresentationPath(f.Path, repo, docSite) {
 				amount += c
 			} else if presentationCoreFile.MatchString(f.Path) {
-				coreChurn += c
+				coreChurn += external * c
 			}
 		}
 		if total <= 0 {
 			continue
 		}
-		churn += total
-		presentation += amount
-		n++
+		churn += external * total
+		presentation += external * amount
+		n += external
 		if total > 5 && amount/total <= .4 && pr.RepoStars >= 200 {
-			core++
+			core += external
 		}
-		byRepo[repo] += amount
+		byRepo[repo] += external * amount
 	}
 	p, c := 0.0, 0.0
 	if churn > 0 {

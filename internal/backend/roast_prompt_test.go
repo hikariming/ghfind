@@ -157,7 +157,7 @@ func TestRoastSystemPromptsCarryMainReportTemplate(t *testing.T) {
 		"   第一行必须严格写 `@@ADJUST 0@@`。",
 		"| 维度 | 得分 | 说明 |\n|------|------|------|",
 		"| 账号成熟度 | x/10 | 注册 N 年，贡献跨 M 个自然年 |",
-		"| 原创项目质量 | x/18 | 总 star …, 最高 star … |",
+		"| 原创与主导项目质量 | x/18 | 总 star …, 最高 star … |",
 		"| 贡献质量 | x/27 | 合并 PR …, 总 PR …；维护者关闭未合并 …，作者主动关闭外部 PR …，作者主动关闭自有仓库 PR … |",
 		"| 生态/维护影响力 | x/20 | 向 ★… 仓库长期贡献 N 个 PR + M 个 commit(综合长期贡献，见 impact_summary/impact_repos；可验证样本只用于举例，不是总量) |",
 		"| 社区影响力 | x/8 | followers … |",
@@ -386,7 +386,7 @@ func TestRoastPromptMarksRecentPRsAsSample(t *testing.T) {
 		"no_sample_extrapolation":       "不要仅凭 recent_prs",
 		"workflow_landing_scope":        "不得把官方工作流已落地 PR 写成 GitHub 合并",
 		"affiliation_scope":             "不能作为夸奖或背书理由",
-		"attributed_original_scope":     "组织名下可归属/主导维护项目",
+		"attributed_original_scope":     "主导/共建（份额 xx%）",
 		"organization_maintained_scope": "它不参与评分",
 	} {
 		if !strings.Contains(context[key].(string), needle) {

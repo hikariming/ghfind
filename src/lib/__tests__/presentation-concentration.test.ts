@@ -40,7 +40,7 @@ it("one external merge is stronger than ten forks across star scales",()=>{
 
 import scoreFixtures from "./presentation-score-fixtures.json";
 it.each(scoreFixtures)("full v15 scoring parity: $name", ({metrics, expected}) => {
-  expect(score(metrics)).toMatchObject(expected);
+  expect(score(metrics as unknown as RawMetrics)).toMatchObject(expected);
 });
 
 import { impactCodeSample } from "../github";

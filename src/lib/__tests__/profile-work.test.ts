@@ -117,3 +117,19 @@ describe("rankProfileWorks", () => {
     ]);
   });
 });
+
+
+it("retains co-built shares when merging work and does not rank tiny shares by raw stars", () => {
+  const repo = {name: "project", name_with_owner: "other/project", stars: 100000,
+    forks: 0, open_issues: 0, size: 1, language: "Go", description: "Shared work", pushed_at: null,
+    attributed_original: true, attribution_share: .001};
+  const own = {...repo, name: "tool", name_with_owner: "dev/tool", stars: 10,
+    attributed_original: false, attribution_share: undefined};
+  const works = rankProfileWorks({username: "dev", topRepos: [repo, own]});
+  expect(works.map(work => work.repo)).toEqual(["dev/tool", "other/project"]);
+  expect(works[1]).toMatchObject({source: "co_created", attributionShare: .001});
+  const merged = rankProfileWorks({username: "dev", topRepos: [repo],
+    impactRepos: [{repo: "other/project", stars: 100000, prs: 20, commits: 40}]});
+  expect(merged).toHaveLength(1);
+  expect(merged[0]).toMatchObject({repo: "other/project", attributionShare: .001, prs: 20});
+});

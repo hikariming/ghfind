@@ -31,10 +31,21 @@ pnpm exec tsx scripts/research/v15-distribution.mts \
 
 Three account workers share four HTTP slots. Each execution has a bounded
 request budget (default 4500); respect the GitHub quota and resume after reset
-when necessary. Completed records carry the candidate's collector/presentation/
+when necessary. Completed records carry the candidate's collector/presentation/co-creator/
 scorer hash and are reused only for the same code. A cached rerun can use
 `V15_REPLAY_ONLY_EXISTING=1`; `V15_MAX_REQUESTS` reduces the request budget.
 The report rejects stale candidate records and exits nonzero unless sample,
 named-user, lofisu, protected-control and median gates all pass. The largest
-20 declines still require manual review, including core work and repository
-context; automatic numeric gates alone do not authorize release.
+20 declines and 20 increases still require manual review, including core work and repository
+context and unsupported-star/trivial-work evidence; automatic numeric gates alone do not authorize release.
+
+Release records must have `rate_guarded: true`: a rate-limit response invalidates
+every in-flight paired result, even when a best-effort evidence helper would
+otherwise return neutral data. Quota/request-budget exhaustion also rejects all
+in-flight rows. `V15_HTTP_SLOTS=1` serializes network reads for the final cached
+replay; only validated rows with the current candidate hash enter the report.
+
+The exact REST `/contributors` 403 saying the history/contributor list is too
+large is a stable unavailable-evidence response, not a quota event. It may be
+cached like a 404; it supplies no positive contributor-rank evidence. Other 403s
+and all 429s trigger the rate guard and honor cooldowns.

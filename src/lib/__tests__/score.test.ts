@@ -1730,7 +1730,7 @@ describe("doc-like PR contribution-quality discount", () => {
       total_pr_count: 120,
       issues_created: 45,
       max_stars: 50,
-      max_impact_repo_stars: 5500,
+      max_impact_repo_stars: 500,
       impact_pr_count: 19,
       impact_depth_raw: 9.6,
     };
@@ -1740,9 +1740,10 @@ describe("doc-like PR contribution-quality discount", () => {
       core_impact_pr_count: 3,
     };
 
-    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBe(22);
-    expect(score(bulkSmallRepoHistory).sub_scores.contribution_quality).toBe(22);
-    expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)).toBeUndefined();
+    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBeGreaterThan(20);
+    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBeLessThan(24);
+    expect(score(bulkSmallRepoHistory).sub_scores.contribution_quality).toBeLessThan(24);
+    expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)).toBe(27);
     expect(score(sameVolumeHighImpact).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 
@@ -1780,7 +1781,7 @@ describe("doc-like PR contribution-quality discount", () => {
     };
 
     expect(impactPrestigeSignal(m)).toBeGreaterThan(logRatio(10_000, 100_000));
-    expect(lowPrestigeBulkContributionCap(m)).toBeUndefined();
+    expect(lowPrestigeBulkContributionCap(m)).toBe(27);
     expect(score(m).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 });

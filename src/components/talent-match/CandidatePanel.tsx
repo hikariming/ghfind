@@ -21,7 +21,7 @@ import { OpenToOpportunities } from "./OpenToOpportunities";
 
 const DIMENSION_LABELS: Record<SubScoreKey, [string, string]> = {
   account_maturity: ["账号成熟度", "Account maturity"],
-  original_project_quality: ["原创项目质量", "Original project quality"],
+  original_project_quality: ["原创与主导项目质量", "Original & Led Projects"],
   contribution_quality: ["贡献质量", "Contribution quality"],
   ecosystem_impact: ["生态影响力", "Ecosystem impact"],
   community_influence: ["社区影响力", "Community influence"],

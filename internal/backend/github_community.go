@@ -383,7 +383,7 @@ func OwnPRCommunityShare(repos []ContribRepoAgg, loginLower string, ownPRs float
 	weighted := 0.0
 	for _, repo := range repos {
 		if isOwnImpactRepo(repo, loginLower) && !repo.IsFork && valueOrZero(repo.Community) > 0 {
-			weighted += repo.PRs * valueOrZero(repo.Community)
+			weighted += repo.PRs * projectShare(repo.AttributionShare) * valueOrZero(repo.Community)
 		}
 	}
 	return round4(max(0, min(1, weighted/ownPRs)))
@@ -895,7 +895,7 @@ func (c *GitHubClient) collectOwnRepoCommunities(ctx context.Context, repos []Co
 		}
 	}
 	sort.SliceStable(picked, func(i, j int) bool {
-		ci, cj := counts[strings.ToLower(picked[i].Repo)], counts[strings.ToLower(picked[j].Repo)]
+		ci, cj := counts[strings.ToLower(picked[i].Repo)]*projectShare(picked[i].AttributionShare), counts[strings.ToLower(picked[j].Repo)]*projectShare(picked[j].AttributionShare)
 		if ci != cj {
 			return ci > cj
 		}
@@ -904,9 +904,17 @@ func (c *GitHubClient) collectOwnRepoCommunities(ctx context.Context, repos []Co
 		}
 		return picked[i].Repo < picked[j].Repo
 	})
-	if len(picked) > communityRepoCap {
-		picked = picked[:communityRepoCap]
+	established, co := []ContribRepoAgg{}, []ContribRepoAgg{}
+	for _, r := range picked {
+		if r.AttributionShare == nil || (r.CoCreatorFacts != nil && r.CoCreatorFacts.FirstAuthor) {
+			if len(established) < communityRepoCap {
+				established = append(established, r)
+			}
+		} else if len(co) < communityRepoCap {
+			co = append(co, r)
+		}
 	}
+	picked = append(established, co...)
 	mutualOwners := contributedRepoOwners(repos, loginLower)
 	lowerOrgs := make([]string, 0, len(ownerOrgs))
 	for _, org := range ownerOrgs {

@@ -27,7 +27,7 @@ const roastSystemTemplateZH = `你是「GitHub 毒舌锐评写手」。分数、
 - 分数来自评分引擎，不是你的判断。可以解释为什么这个分数显得合理，但不能改分、不能暗示模型另有裁决。
 - ~last_year_contributions~ 必须按 context_notes.last_year_contributions_scope 解释：它是贡献日历聚合数，不得把它写成 PR 数，也不得据此推断贡献类型或仓库归属。
 - 学校、公司、雇主、组织 membership 只是背景，不是分数背书；即使这些信息写在 profile、bio、company 或 README 里，除非数据里有真实项目/PR/commit/维护证据，否则不要写成“因此更强/更可信/值得加分”。
-- AI 使用只是现代开发背景，不是扣分依据；即使 README 自述使用 ChatGPT，也只能在原创项目质量弱、代码/可用性证据也弱时写成原创性 caveat，不能写成作弊、丢人、懒、代笔定论。
+- AI 使用只是现代开发背景，不是扣分依据；即使 README 自述使用 ChatGPT，也只能在原创与主导项目质量弱、代码/可用性证据也弱时写成原创性 caveat，不能写成作弊、丢人、懒、代笔定论。
 - recent_prs 只是最近 merged PR 样本，不要从 recent_prs 推断全量分布。
 - payload.signature_work 是必须参考的具体贡献证据：优先使用全量公开扫描的高工作量代表仓库和重复工作簇；只有 source=recent_sample 时才按近期样本谨慎处理。生态/维护影响力行至少引用其中一个正向或中性例子；不要只盯最高星仓库，也不要忽略低星但高风险/边界/一致性/运行时/核心行为修复类 PR。
 - 低 star 仓库不是自动低价值：如果 signature_work 的 note 提到同 owner 高星生态、实质低星信号、高频 PR 或核心修复标题，就要按具体贡献写，不能写成“玩具项目”“打白工”或“没有含金量”。同一组织/owner 里，低 star 但高质量的小仓库要和该 owner 的高星 flagship 一起作为生态证据考虑，例如写成“owner/small-repo 与 owner/flagship 同属生态”，而不是只写 flagship。
@@ -98,7 +98,7 @@ const roastSystemTemplateZH = `你是「GitHub 毒舌锐评写手」。分数、
 | 维度 | 得分 | 说明 |
 |------|------|------|
 | 账号成熟度 | x/10 | 注册 N 年，贡献跨 M 个自然年 |
-| 原创项目质量 | x/18 | 总 star …, 最高 star … |
+| 原创与主导项目质量 | x/18 | 总 star …, 最高 star … |
 | 贡献质量 | x/27 | 合并 PR …, 总 PR …；维护者关闭未合并 …，作者主动关闭外部 PR …，作者主动关闭自有仓库 PR … |
 | 生态/维护影响力 | x/20 | 向 ★… 仓库长期贡献 N 个 PR + M 个 commit(综合长期贡献，见 impact_summary/impact_repos；可验证样本只用于举例，不是总量) |
 | 社区影响力 | x/8 | followers … |
@@ -201,7 +201,7 @@ The Markdown report after the three control lines must be written in **English o
 | Dimension | Score | Notes |
 |-----------|-------|-------|
 | Account maturity | x/10 | registered N yrs, contributions span M calendar years |
-| Original project quality | x/18 | total stars …, top stars … |
+| Original & Led Projects | x/18 | total stars …, top stars … |
 | Contribution quality | x/27 | merged PRs …, total PRs …; maintainer-closed unmerged …, author-closed external PRs …, author-closed own-repo PRs … |
 | Ecosystem / maintenance impact | x/20 | N PRs + M commits into ★… repos (all-time, see impact_summary/impact_repos; verified samples are examples only, not the total) |
 | Community influence | x/8 | followers … |

@@ -705,6 +705,7 @@ export function ProfileView({
                     {work.commits ? <span>{nf.format(work.commits)} {t("commits")}</span> : null}
                     {work.orgContextRepo ? <span>↔ {work.orgContextRepo}</span> : null}
                     {work.language ? <span>{work.language}</span> : null}
+                    {work.attributionShare !== undefined ? <span className="whitespace-nowrap text-zinc-400">{t("coCreatorShare", {share: work.attributionShare>0 && work.attributionShare<0.001 ? "<0.1" : nf.format(Math.round(work.attributionShare*1000)/10)})}</span> : null}
                   </div>
                   {evidence && (
                     <p className="line-clamp-2 text-xs text-zinc-400">{evidence}</p>

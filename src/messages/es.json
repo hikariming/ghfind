@@ -374,7 +374,8 @@
     "battleLoss": "Derrota",
     "battleTie": "Empate",
     "selfCta": "Evalúa tu propio GitHub →",
-    "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés."
+    "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés.",
+    "coCreatorShare": "Liderado / cocreado ({share}%)"
   },
   "reactions": {
     "heading": "Reacciones de la comunidad",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "Madurez de la cuenta",
-    "original_project_quality": "Calidad de proyectos originales",
+    "original_project_quality": "Proyectos originales y liderados",
     "contribution_quality": "Calidad de contribuciones",
     "ecosystem_impact": "Impacto en el ecosistema / mantenimiento",
     "community_influence": "Influencia en la comunidad",
@@ -837,7 +838,7 @@
     "dimensionsIntro": "Cada dimensión aporta al score base de 100 puntos. Juntas premian el trabajo open source sostenido, original y ampliamente usado por encima de los conteos crudos de actividad.",
     "dimensionDetails": {
       "account_maturity": "Qué tan establecida y consistente es la cuenta a lo largo del tiempo — antigüedad, actividad sostenida y una curva de credibilidad que resiste la inflación de la noche a la mañana.",
-      "original_project_quality": "La calidad y recepción de los repositorios que la cuenta realmente posee y escribió, no forks ni proyectos triviales.",
+      "original_project_quality": "Calidad y recepción de proyectos propios o sustancialmente liderados o cocreados, ponderadas por la participación atribuida; excluye forks.",
       "contribution_quality": "La sustancia de las contribuciones a otros proyectos — pull requests significativos y mergeados versus spam con plantillas.",
       "ecosystem_impact": "Cuánto se depende del trabajo de la cuenta y cuánto se mantiene en el ecosistema más amplio.",
       "community_influence": "Alcance y reputación genuinos en la comunidad, normalizados para que los conteos crudos de seguidores o stars no puedan dominar.",

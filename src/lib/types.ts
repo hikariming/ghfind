@@ -65,6 +65,8 @@ export interface TopRepo {
    * maintenance signals. */
   attributed_original?: boolean;
   attribution_evidence?: string[];
+  attribution_share?: number;
+  co_creator_facts?: import("./co-creator").CoCreatorFacts;
 }
 
 export interface RecentPr {
@@ -179,9 +181,11 @@ export interface RawMetrics {
    * (scored as "no penalty"). Viral-but-hollow repos run <1%, genuinely used
    * projects ≥5%. */
   top_repo_engagement_ratio?: number;
+  personal_original_project_quality_score?: number;
   attributed_original_repo_count?: number;
   attributed_original_repo_stars?: number;
   attributed_original_repos?: string[];
+  attributed_original_repo_shares?: Record<string, number>;
   best_original_repo_quality_score?: number;
   best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_score?: number;

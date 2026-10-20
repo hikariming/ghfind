@@ -462,7 +462,7 @@ var (
 	roastLinePattern    = regexp.MustCompile(`(?s)@@ROAST\s*(.*?)@@`)
 	roastHeadingPattern = regexp.MustCompile(`(?m)^\s*##\s`)
 	cjkRunePattern      = regexp.MustCompile(`[㐀-鿿]`)
-	englishMarker       = regexp.MustCompile(`(?:\*\*(?:一句话结论|风险标记|人工修正|建议)\*\*|毒舌点评|账号成熟度|原创项目质量|贡献质量|社区影响力|活跃真实性)`)
+	englishMarker       = regexp.MustCompile(`(?:\*\*(?:一句话结论|风险标记|人工修正|建议)\*\*|毒舌点评|账号成熟度|原创(?:与主导)?项目(?:质量)?|贡献质量|社区影响力|活跃真实性)`)
 	internalTerms       = regexp.MustCompile(`(?i)\b(judge_result|delta|red_flags|metrics|impact_quality_cap|verified_impact_pr|self_closed_external_pr|top_starred_original_repo_quality_score|doc_like|core_impact_pr_count)\b`)
 )
 

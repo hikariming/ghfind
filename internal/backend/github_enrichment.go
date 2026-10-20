@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -447,12 +448,12 @@ func (c *GitHubClient) hasMaintainerFileHit(ctx context.Context, owner, repo, lo
 func (c *GitHubClient) collectAttributedOriginalRepos(ctx context.Context, contributions []ContribRepoAgg, organizations, pinnedRepos []string, loginLower string, profileURL *string) []TopRepo {
 	candidates := []ContribRepoAgg{}
 	for _, contribution := range contributions {
-		if !contribution.IsPrivate && !contribution.IsFork && !strings.EqualFold(contribution.OwnerLogin, loginLower) && !isDocLikeRepo(contribution.Repo) && hasStrongLongTermOrgContribution(contribution) {
+		if !contribution.IsPrivate && !contribution.IsFork && !strings.EqualFold(contribution.OwnerLogin, loginLower) && !isDocLikeRepo(contribution.Repo) && contribution.Commits+contribution.PRs > 0 {
 			candidates = append(candidates, contribution)
 		}
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].Stars > candidates[j].Stars || (candidates[i].Stars == candidates[j].Stars && candidates[i].Commits+candidates[i].PRs > candidates[j].Commits+candidates[j].PRs)
+		return candidates[i].Commits+4*candidates[i].PRs > candidates[j].Commits+4*candidates[j].PRs || (candidates[i].Commits+4*candidates[i].PRs == candidates[j].Commits+4*candidates[j].PRs && candidates[i].Stars > candidates[j].Stars)
 	})
 	if len(candidates) > 8 {
 		candidates = candidates[:8]
@@ -467,23 +468,20 @@ func (c *GitHubClient) collectAttributedOriginalRepos(ctx context.Context, contr
 		if err != nil || detail == nil || detail.Private || detail.Fork || isDocLikeRepo(candidate.Repo) || hasDocLikeTopic(*detail) {
 			continue
 		}
-		member := false
-		for _, org := range organizations {
-			if strings.EqualFold(org, owner) {
-				member = true
-			}
+		facts := c.collectCoCreatorFacts(ctx, candidate, loginLower)
+		if facts.SubstantiveSamples <= 0 || facts.CoreChurn <= 0 {
+			continue
 		}
-		firstLogin := ""
-		if !member {
-			firstLogin = c.fetchDefaultBranchFirstCommit(ctx, owner, name)
-			if !strings.EqualFold(firstLogin, loginLower) {
-				continue
-			}
-		}
+		firstLogin := c.fetchDefaultBranchFirstCommit(ctx, owner, name)
+		facts.InflationSeverity = candidate.Stars / (candidate.Stars + 100) / math.Pow(1+detail.ForksCount, 2) / math.Pow(1+6*max(0, facts.TotalMergedPRs-facts.UserMergedPRs), 2)
+		candidate.CoCreatorFacts = &facts
 		attribution := ComputeOrgRepoAttribution(candidate, organizations, pinnedRepos, c.hasReleaseOrTagAuthor(ctx, owner, name, loginLower), c.hasMaintainerFileHit(ctx, owner, name, loginLower, profileURL), loginLower, firstLogin)
 		if attribution != nil {
-			result = append(result, topRepoFromGitHub(*detail, owner, true, attribution.Evidence))
+			r := topRepoFromGitHub(*detail, owner, true, attribution.Evidence)
+			r.AttributionShare = attribution.Share
+			r.CoCreatorFacts = attribution.Facts
+			result = append(result, r)
 		}
 	}
-	return result
+	return budgetCoCreatorShares(result)
 }

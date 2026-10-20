@@ -1,0 +1,398 @@
+[
+  {
+    "name": "merged_pr_count-40--0.00001",
+    "metrics": {
+      "merged_pr_count": 39.99999,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "merged_pr_count-40-0",
+    "metrics": {
+      "merged_pr_count": 40,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "merged_pr_count-40-0.00001",
+    "metrics": {
+      "merged_pr_count": 40.00001,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 26.999999999999847
+  },
+  {
+    "name": "merged_pr_count-80--0.00001",
+    "metrics": {
+      "merged_pr_count": 79.99999,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.37000061125
+  },
+  {
+    "name": "merged_pr_count-80-0",
+    "metrics": {
+      "merged_pr_count": 80,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.37
+  },
+  {
+    "name": "merged_pr_count-80-0.00001",
+    "metrics": {
+      "merged_pr_count": 80.00001,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.369999388750003
+  },
+  {
+    "name": "merged_pr_count-120--0.00001",
+    "metrics": {
+      "merged_pr_count": 119.99999,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 23.740000000000155
+  },
+  {
+    "name": "merged_pr_count-120-0",
+    "metrics": {
+      "merged_pr_count": 120,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 23.740000000000002
+  },
+  {
+    "name": "merged_pr_count-120-0.00001",
+    "metrics": {
+      "merged_pr_count": 120.00001,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 23.740000000000002
+  },
+  {
+    "name": "max_stars-950--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 949.99999,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.249375
+  },
+  {
+    "name": "max_stars-950-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 950,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.249375
+  },
+  {
+    "name": "max_stars-950-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 950.00001,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.249375000000086
+  },
+  {
+    "name": "max_stars-1000--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 999.99999,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.62468708740625
+  },
+  {
+    "name": "max_stars-1000-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1000,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.6246875
+  },
+  {
+    "name": "max_stars-1000-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1000.00001,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 25.62468791259375
+  },
+  {
+    "name": "max_stars-1050--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1049.99999,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 26.99999999999992
+  },
+  {
+    "name": "max_stars-1050-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1050,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "max_stars-1050-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1050.00001,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "impact_prestige_score-0.3--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.29999,
+      "core_impact_pr_count": 88
+    },
+    "expected": 22.98375
+  },
+  {
+    "name": "impact_prestige_score-0.3-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.3,
+      "core_impact_pr_count": 88
+    },
+    "expected": 22.98375
+  },
+  {
+    "name": "impact_prestige_score-0.3-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.30001,
+      "core_impact_pr_count": 88
+    },
+    "expected": 22.98375000303746
+  },
+  {
+    "name": "impact_prestige_score-0.65--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.6499900000000001,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.968186211285037
+  },
+  {
+    "name": "impact_prestige_score-0.65-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.65,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.968249999999998
+  },
+  {
+    "name": "impact_prestige_score-0.65-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.65001,
+      "core_impact_pr_count": 88
+    },
+    "expected": 24.968313806084083
+  },
+  {
+    "name": "impact_prestige_score-0.8--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.7999900000000001,
+      "core_impact_pr_count": 88
+    },
+    "expected": 26.999999977163423
+  },
+  {
+    "name": "impact_prestige_score-0.8-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.8,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "impact_prestige_score-0.8-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.80001,
+      "core_impact_pr_count": 88
+    },
+    "expected": 27
+  },
+  {
+    "name": "core_impact_pr_count-40--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 39.99999
+    },
+    "expected": 22.359375
+  },
+  {
+    "name": "core_impact_pr_count-40-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 40
+    },
+    "expected": 22.359375
+  },
+  {
+    "name": "core_impact_pr_count-40-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 40.00001
+    },
+    "expected": 22.359375000000178
+  },
+  {
+    "name": "core_impact_pr_count-70--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 69.99999
+    },
+    "expected": 23.41406197265625
+  },
+  {
+    "name": "core_impact_pr_count-70-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 70
+    },
+    "expected": 23.4140625
+  },
+  {
+    "name": "core_impact_pr_count-70-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 70.00001
+    },
+    "expected": 23.414063027343747
+  },
+  {
+    "name": "core_impact_pr_count-100--0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 99.99999
+    },
+    "expected": 24.468749999999822
+  },
+  {
+    "name": "core_impact_pr_count-100-0",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 100
+    },
+    "expected": 24.46875
+  },
+  {
+    "name": "core_impact_pr_count-100-0.00001",
+    "metrics": {
+      "merged_pr_count": 100,
+      "max_stars": 1,
+      "max_impact_repo_stars": 0,
+      "impact_prestige_score": 0.55,
+      "core_impact_pr_count": 100.00001
+    },
+    "expected": 24.46875
+  }
+]

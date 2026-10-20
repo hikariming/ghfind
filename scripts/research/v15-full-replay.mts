@@ -8,7 +8,7 @@ import { collect as newCollect, type CollectOptions } from "../../src/lib/github
 import { score as newScore } from "../../src/lib/score";
 
 type ScoreInputs = Parameters<NonNullable<CollectOptions["recordScoreInputs"]>>[0];
-interface ResponseRecord { status: number; body: string }
+interface ResponseRecord { status: number; body: string; unavailable_contributor_list?: boolean }
 interface SampleRow { username: string }
 interface ProxyDispatcher { close(): Promise<void> }
 interface HttpRuntime {
@@ -20,7 +20,7 @@ const runtime = createRequire(require.resolve("wrangler/package.json"))("undici"
 const dispatcher = new runtime.ProxyAgent({ uri: "http://127.0.0.1:1082", connections: 4 });
 
 const candidateHash = createHash("sha256").update([
-  "src/lib/github.ts", "src/lib/presentation-concentration.ts", "src/lib/score.ts",
+  "src/lib/github.ts", "src/lib/presentation-concentration.ts", "src/lib/co-creator.ts", "src/lib/score.ts",
 ].map(path => readFileSync(path, "utf8")).join("\n")).digest("hex");
 const baseline = process.env.V15_BASELINE_REF ?? "2010358b9e0360f13d88a2f696f73dd8ff64b60d";
 // The pinned scorer's remaining runtime dependencies must still be identical.
@@ -43,13 +43,17 @@ const maxRequests = Number(process.env.V15_MAX_REQUESTS ?? 4500);
 if (!Number.isInteger(maxRequests) || maxRequests < 200 || maxRequests > 4500) {
   throw new Error("Request budget must be between 200 and 4500");
 }
+const httpSlots = Number(process.env.V15_HTTP_SLOTS ?? 4);
+if (![1,2,3,4].includes(httpSlots)) throw new Error("HTTP slots must be 1–4");
 let active = 0;
 let requests = 0;
 let quotaLow = false;
+let cooldownUntil = 0;
+let rateEpoch = 0;
 const queue: (() => void)[] = [];
 const cache = new Map<string, Promise<ResponseRecord>>();
 async function acquire() {
-  if (active < 4) { active++; return; }
+  if (active < httpSlots) { active++; return; }
   await new Promise<void>(resolve => queue.push(resolve));
 }
 function release() {
@@ -61,18 +65,35 @@ function release() {
 async function request(url: string, init: RequestInit, body: string | undefined): Promise<ResponseRecord> {
   await acquire();
   try {
-    if (++requests > maxRequests) throw new Error("Read-only replay request budget exhausted");
+    if (++requests > maxRequests) {
+      quotaLow = true; // Reject every in-flight row; never accept partial evidence.
+      throw new Error("Read-only replay request budget exhausted");
+    }
     if (quotaLow) throw new Error("GitHub quota guard reached; resume after reset");
     // Reuse connections through the existing Wrangler HTTP runtime. Credentials
     // remain in memory and never enter argv, logs or the response cache.
+    if (cooldownUntil > Date.now()) await new Promise(resolve => setTimeout(resolve, cooldownUntil - Date.now()));
     const timeout = AbortSignal.timeout(50_000);
     const response = await runtime.fetch(url, {
       method: init.method ?? "GET", headers: Object.fromEntries(new Headers(init.headers)), body,
       signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout, dispatcher,
     });
+    const responseBody = await response.text();
+    let message = "";
+    try { message = String(JSON.parse(responseBody).message ?? ""); } catch { /* Non-JSON responses are not evidence of this documented API limit. */ }
+    const unavailableContributors = response.status === 403 && /\/contributors\?/.test(url) &&
+      message === "The history or contributor list is too large to list contributors for this repository via the API.";
+    if ((response.status === 403 && !unavailableContributors) || response.status === 429) {
+      rateEpoch++;
+      const retrySeconds = Number(response.headers.get("retry-after") ?? 60);
+      cooldownUntil = Date.now() + Math.max(60, Number.isFinite(retrySeconds) ? retrySeconds : 60) * 1000;
+      let reason = "";
+      try { reason = String(JSON.parse(responseBody).message ?? "").slice(0, 250); } catch { /* No response or credential dump. */ }
+      console.log("GitHub rate limit: honoring cooldown before further reads", reason);
+    }
     const remaining = response.headers.get("x-ratelimit-remaining");
     if (remaining !== null && Number(remaining) < 350) quotaLow = true;
-    return { status: response.status, body: await response.text() };
+    return { status: response.status, body: responseBody, ...(unavailableContributors ? {unavailable_contributor_list: true} : {}) };
   } finally { release(); }
 }
 
@@ -100,8 +121,10 @@ globalThis.fetch = async (input, init = {}) => {
       const result = await request(url, init, body);
       let errors = false;
       try { errors = Boolean((JSON.parse(result.body) as { errors?: unknown[] }).errors?.length); } catch { /* Non-JSON bodies are valid REST facts. */ }
-      if ((result.status >= 200 && result.status < 300 && !errors) || result.status === 404) {
+      if ((result.status >= 200 && result.status < 300 && !errors) || result.status === 404 || result.unavailable_contributor_list) {
         writeFileSync(path, JSON.stringify(result));
+      } else {
+        cache.delete(key); // A later collector retry must make a fresh read.
       }
       return result;
     })();
@@ -121,19 +144,20 @@ rows.sort((a, b) => Number(controls.has(b.username.toLowerCase())) - Number(cont
 const now = new Date("2026-10-20T12:00:00Z");
 async function replay(row: SampleRow) {
   const path = `${directory}/${row.username.toLowerCase()}.json`;
-  if (process.env.V15_REPLAY_FORCE !== "1" && existsSync(path) && JSON.parse(readFileSync(path, "utf8")).candidate_hash === candidateHash) return;
+  if (process.env.V15_REPLAY_FORCE !== "1" && existsSync(path) && JSON.parse(readFileSync(path, "utf8")).candidate_hash === candidateHash && JSON.parse(readFileSync(path, "utf8")).rate_guarded === true) return;
   try {
+    const startedRateEpoch = rateEpoch;
     let scoreInputs: ScoreInputs | undefined;
     const after = await newCollect(row.username, { now, deadlineMs: 300_000, recordScoreInputs: inputs => { scoreInputs = inputs; } });
     const before = await oldCollect(row.username, { now, deadlineMs: 300_000 });
-    if (quotaLow) throw new Error("Quota guard interrupted this replay; result not accepted");
+    if (quotaLow || rateEpoch !== startedRateEpoch) throw new Error("Rate/quota guard interrupted this replay; result not accepted");
     writeFileSync(path, JSON.stringify({
-      candidate_hash: candidateHash, source_ref: baseline, username: row.username, score_inputs: scoreInputs,
+      rate_guarded: true, candidate_hash: candidateHash, source_ref: baseline, username: row.username, score_inputs: scoreInputs,
       before: oldScore(before.metrics), after: newScore(after.metrics),
-      before_metrics: before.metrics, after_metrics: after.metrics, recent_prs: after.recent_prs,
+      before_metrics: before.metrics, after_metrics: after.metrics, recent_prs: after.recent_prs, top_repos: after.top_repos,
     }));
     console.log(row.username, "ok", requests);
-  } catch (error) { console.log(row.username, "FAILED", String(error).slice(0, 160), requests); }
+  } catch (error) { console.log(row.username, "FAILED", (error instanceof Error ? `${error.name}: ${error.message} ${error.stack}` : String(error)).slice(0, 1200), requests); }
 }
 let next = 0;
 try {

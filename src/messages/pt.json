@@ -374,7 +374,8 @@
     "battleLoss": "Derrota",
     "battleTie": "Empate",
     "selfCta": "Avaliar meu próprio GitHub →",
-    "reportLangNotice": "O relatório de zoada da IA por enquanto só sai em inglês e chinês — você está lendo a versão em inglês."
+    "reportLangNotice": "O relatório de zoada da IA por enquanto só sai em inglês e chinês — você está lendo a versão em inglês.",
+    "coCreatorShare": "Liderado / cocriado ({share}%)"
   },
   "reactions": {
     "heading": "Reações da comunidade",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "Maturidade da conta",
-    "original_project_quality": "Qualidade de projetos originais",
+    "original_project_quality": "Projetos originais e liderados",
     "contribution_quality": "Qualidade das contribuições",
     "ecosystem_impact": "Impacto no ecossistema / manutenção",
     "community_influence": "Influência na comunidade",
@@ -837,7 +838,7 @@
     "dimensionsIntro": "Cada dimensão contribui para a nota base de 100 pontos. Juntas, elas recompensam trabalho open source sustentado, original e amplamente usado em vez de contagens brutas de atividade.",
     "dimensionDetails": {
       "account_maturity": "O quanto a conta é estabelecida e consistente ao longo do tempo — idade, atividade sustentada e uma curva de credibilidade que resiste a inflação da noite pro dia.",
-      "original_project_quality": "A qualidade e a recepção dos repositórios que a conta realmente possui e criou, não forks nem projetos triviais.",
+      "original_project_quality": "Qualidade e recepção de projetos autorais, liderados ou cocriados de forma substancial, ponderadas pela participação atribuída; exclui forks.",
       "contribution_quality": "A substância das contribuições a outros projetos — pull requests mesclados e significativos versus spam de template.",
       "ecosystem_impact": "O quanto o trabalho da conta é usado como dependência e mantido no ecossistema mais amplo.",
       "community_influence": "Alcance e reputação genuínos na comunidade, normalizados pra que contagens brutas de seguidores ou stars não dominem.",

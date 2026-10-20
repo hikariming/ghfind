@@ -16,11 +16,13 @@ import (
 // Do not change this formula without changing src/lib/score.ts and its shared
 // regression fixtures in the same review.
 type RawMetrics struct {
-	PresentationCoreChurnShare    *float64 `json:"presentation_core_churn_share,omitempty"`
-	PresentationChurnShare        *float64 `json:"presentation_churn_share,omitempty"`
-	PresentationRepoConcentration *float64 `json:"presentation_repo_concentration,omitempty"`
-	PresentationPRSample          *float64 `json:"presentation_pr_sample,omitempty"`
-	PresentationCorePRCount       *float64 `json:"presentation_core_pr_count,omitempty"`
+	PersonalOriginalProjectQualityScore *float64           `json:"personal_original_project_quality_score,omitempty"`
+	AttributedOriginalRepoShares        map[string]float64 `json:"attributed_original_repo_shares,omitempty"`
+	PresentationCoreChurnShare          *float64           `json:"presentation_core_churn_share,omitempty"`
+	PresentationChurnShare              *float64           `json:"presentation_churn_share,omitempty"`
+	PresentationRepoConcentration       *float64           `json:"presentation_repo_concentration,omitempty"`
+	PresentationPRSample                *float64           `json:"presentation_pr_sample,omitempty"`
+	PresentationCorePRCount             *float64           `json:"presentation_core_pr_count,omitempty"`
 	// Explicit profile pronouns are writer context only; Score never uses them.
 	Pronouns                           *string  `json:"pronouns,omitempty"`
 	Username                           string   `json:"username"`
@@ -349,10 +351,14 @@ func ownPRCommunityCredit(m RawMetrics) float64 {
 }
 
 func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
-	if m.MergedPRCount < 80 || impactPrestigeSignal(m) >= LogRatio(10000, 100000) || m.MaxStars >= 1000 {
-		return 0, false
-	}
-	return 22, true
+	smooth := func(value float64) float64 { x := max(0, min(1, value)); return x * x * (3 - 2*x) }
+	volume := smooth((m.MergedPRCount - 40) / 80)
+	protection := smooth((m.MaxStars - 950) / 100)
+	prestige := impactPrestigeSignal(m)
+	strongPrestige := smooth((prestige - .65) / .15)
+	coreProtection := smooth((valueOrZero(m.CoreImpactPRCount) - 40) / 60)
+	prestigeCap := 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige)
+	return 27 - (27-prestigeCap)*volume*(1-protection), true
 }
 
 func hasSocialOnlyDormantSignal(m RawMetrics) bool {
@@ -378,6 +384,21 @@ func tierFor(final float64) (string, string) {
 
 // Score is a direct Go port of src/lib/score.ts. The API contract and scoring
 // rules stay unchanged while the collector and persistence move out of Next.
+func originalProjectQuality(m RawMetrics) float64 {
+	if m.NonemptyOriginalRepoCount == 0 {
+		return 0
+	} else {
+		starQuality := 1.0
+		if m.TotalStars > 0 {
+			starQuality = max(0, min(valueOr(m.TopStarredOriginalRepoQualityScore, 1), 1))
+		}
+		starPoints := (LogRatio(m.TotalStars, 5000)*7 + LogRatio(m.MaxStars, 2000)*5) * starQuality * starEngagementMultiplier(m.TopRepoEngagementRatio)
+		projectSubstance := max(0, min(valueOr(m.BestOriginalRepoQualityScore, 0), 1)) * 6
+		return roundToEven(starPoints+projectSubstance, 1)
+	}
+
+}
+
 func Score(m RawMetrics) Scoring {
 	sub := SubScores{}
 	agePoints := min(m.AccountAgeYears/6, 1) * 7
@@ -391,17 +412,7 @@ func Score(m RawMetrics) Scoring {
 	}
 	sub.AccountMaturity = roundToEven(agePoints+spanPoints, 1)
 
-	if m.NonemptyOriginalRepoCount == 0 {
-		sub.OriginalProjectQuality = 0
-	} else {
-		starQuality := 1.0
-		if m.TotalStars > 0 {
-			starQuality = max(0, min(valueOr(m.TopStarredOriginalRepoQualityScore, 1), 1))
-		}
-		starPoints := (LogRatio(m.TotalStars, 5000)*7 + LogRatio(m.MaxStars, 2000)*5) * starQuality * starEngagementMultiplier(m.TopRepoEngagementRatio)
-		projectSubstance := max(0, min(valueOr(m.BestOriginalRepoQualityScore, 0), 1)) * 6
-		sub.OriginalProjectQuality = roundToEven(starPoints+projectSubstance, 1)
-	}
+	sub.OriginalProjectQuality = max(originalProjectQuality(m), max(0, min(18, valueOrZero(m.PersonalOriginalProjectQualityScore))))
 
 	prVolumeRaw := LogRatio(m.MergedPRCount, 200) * 16
 	prVolume := max(0, prVolumeRaw-docLikePRVolumeDiscount(m, prVolumeRaw))

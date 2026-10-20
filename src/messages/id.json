@@ -374,7 +374,8 @@
     "battleLoss": "Kalah",
     "battleTie": "Seri",
     "selfCta": "Nilai GitHub-mu sendiri →",
-    "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya."
+    "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya.",
+    "coCreatorShare": "Dipimpin / dibangun bersama ({share}%)"
   },
   "reactions": {
     "heading": "Reaksi komunitas",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "Kematangan akun",
-    "original_project_quality": "Kualitas proyek orisinal",
+    "original_project_quality": "Proyek Orisinal & Dipimpin",
     "contribution_quality": "Kualitas kontribusi",
     "ecosystem_impact": "Dampak ekosistem / pemeliharaan",
     "community_influence": "Pengaruh komunitas",
@@ -837,7 +838,7 @@
     "dimensionsIntro": "Setiap dimensi berkontribusi pada skor dasar 100 poin. Bersama-sama mereka menghargai kerja open source yang berkelanjutan, orisinal, dan banyak dipakai — bukan sekadar angka aktivitas mentah.",
     "dimensionDetails": {
       "account_maturity": "Seberapa mapan dan konsisten akun itu dari waktu ke waktu — usia, aktivitas berkelanjutan, dan kurva kredibilitas yang tahan terhadap penggelembungan semalam jadi.",
-      "original_project_quality": "Kualitas dan sambutan atas repositori yang benar-benar dimiliki dan ditulis akun itu, bukan fork atau proyek receh.",
+      "original_project_quality": "Kualitas dan penerimaan proyek orisinal serta proyek yang dipimpin atau dibangun bersama secara substansial, dibobot menurut porsi atribusi; tidak termasuk fork.",
       "contribution_quality": "Bobot kontribusi ke proyek lain — pull request yang di-merge dan bermakna versus spam templat.",
       "ecosystem_impact": "Seberapa besar karya akun itu diandalkan dan dirawat di ekosistem yang lebih luas.",
       "community_influence": "Jangkauan dan reputasi tulen di komunitas, dinormalisasi agar angka follower atau star mentah tidak bisa mendominasi.",

@@ -31,7 +31,7 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	if impact.ImpactRepoCount != 1 || impact.ImpactPrestigeScore != .5417 || impact.ImpactDepthRaw != 1.83 {
 		t.Fatalf("impact %+v", impact)
 	}
-	if Score(f.Metrics).FinalScore != 69.7 {
+	if Score(f.Metrics).FinalScore != 68.1 {
 		t.Fatal("v15 replay of original snapshot changed")
 	}
 	f.Metrics.ImpactPrestigeScore = &impact.ImpactPrestigeScore
@@ -41,7 +41,7 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	f.Metrics.ExternalMergedPRCount = floatPointer(29)
 	f.Metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(repos, "yifanxuaaa", 79))
 	result := Score(f.Metrics)
-	if result.SubScores.EcosystemImpact != 8.1 || result.FinalScore != 76.7 {
+	if result.SubScores.EcosystemImpact != 8.1 || result.FinalScore != 76.5 {
 		t.Fatalf("score %+v", result)
 	}
 	for _, name := range []string{"empty"} {

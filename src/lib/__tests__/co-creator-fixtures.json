@@ -1,0 +1,221 @@
+[
+  {
+    "name": "personal-repo-leading-contributor",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "organization-member-leader",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "MEMBER",
+      "pinned": true,
+      "release_author": true,
+      "maintainer_file": true
+    },
+    "eligible": true,
+    "share": 0.5168097394570619
+  },
+  {
+    "name": "trivial-commit-volume",
+    "facts": {
+      "user_commits": 50000,
+      "total_commits": 50000,
+      "leading_commits": 50000,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 0,
+      "sampled_churn": 2500,
+      "substantive_samples": 0,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0
+  },
+  {
+    "name": "original-owner-no-extra-attribution",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": false,
+    "owner": "maker",
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "fork-excluded",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": false,
+    "fork": true,
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "private-excluded",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": false,
+    "private": true,
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "docs-excluded",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": false,
+    "repo": "org/docs",
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "resource-topic-excluded",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": false,
+    "topics": [
+      "awesome"
+    ],
+    "share": 0.22452719084968506
+  },
+  {
+    "name": "inflated-stars-continuous-discount",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true,
+      "inflation_severity": 0.9
+    },
+    "eligible": true,
+    "share": 0.001257244733092113
+  },
+  {
+    "name": "role-alone-is-insufficient",
+    "facts": {
+      "user_commits": 0,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 0,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 2000,
+      "sampled_churn": 2500,
+      "substantive_samples": 8,
+      "samples": 10,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0
+  },
+  {
+    "name": "missing-implementation-evidence-neutral",
+    "facts": {
+      "user_commits": 583,
+      "total_commits": 1200,
+      "leading_commits": 583,
+      "user_merged_prs": 148,
+      "total_merged_prs": 354,
+      "active_years": 2,
+      "core_churn": 0,
+      "sampled_churn": 0,
+      "substantive_samples": 0,
+      "samples": 0,
+      "association": "OWNER",
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0
+  }
+]

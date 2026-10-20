@@ -374,7 +374,8 @@
     "battleLoss": "패",
     "battleTie": "무",
     "selfCta": "내 GitHub도 평가받기 →",
-    "reportLangNotice": "AI 독설 리포트는 현재 영어와 중국어만 지원해요 — 지금 보고 계신 건 영어판입니다."
+    "reportLangNotice": "AI 독설 리포트는 현재 영어와 중국어만 지원해요 — 지금 보고 계신 건 영어판입니다.",
+    "coCreatorShare": "주도·공동 개발 (기여 지분 {share}%)"
   },
   "reactions": {
     "heading": "커뮤니티 반응",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "계정 성숙도",
-    "original_project_quality": "오리지널 프로젝트 퀄리티",
+    "original_project_quality": "창작 및 주도 프로젝트",
     "contribution_quality": "기여 퀄리티",
     "ecosystem_impact": "생태계 / 유지보수 영향력",
     "community_influence": "커뮤니티 영향력",
@@ -837,7 +838,7 @@
     "dimensionsIntro": "각 지표는 100점 기본 점수에 기여합니다. 이들이 합쳐져 원시 활동량이 아니라 꾸준하고 독창적이며 널리 쓰이는 오픈소스 작업에 보상합니다.",
     "dimensionDetails": {
       "account_maturity": "계정이 시간에 걸쳐 얼마나 자리 잡고 일관적인가 — 나이, 지속적 활동, 하룻밤 부풀리기에 버티는 신뢰도 곡선.",
-      "original_project_quality": "포크나 사소한 프로젝트가 아니라, 계정이 실제로 소유하고 만든 저장소의 퀄리티와 평판.",
+      "original_project_quality": "창작 및 주도 프로젝트",
       "contribution_quality": "다른 프로젝트에 대한 기여의 실속 — 템플릿 도배가 아닌, 머지된 의미 있는 PR.",
       "ecosystem_impact": "계정의 작업이 더 넓은 생태계에서 얼마나 의존되고 유지보수되는가.",
       "community_influence": "커뮤니티에서의 진짜 도달력과 위상. 원시 팔로워나 스타 수가 지배하지 못하도록 정규화됨.",

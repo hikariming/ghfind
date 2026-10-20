@@ -172,13 +172,16 @@ def impact_prestige_signal(m: Mapping[str, Any]) -> float:
 
 
 def low_prestige_bulk_contribution_cap(m: Mapping[str, Any]) -> Optional[float]:
-    if m["merged_pr_count"] < 80:
-        return None
-    if impact_prestige_signal(m) >= log_ratio(10_000, 100_000):
-        return None
-    if m["max_stars"] >= 1000:
-        return None
-    return 22
+    def smooth(value):
+        x = max(0, min(1, value))
+        return x*x*(3-2*x)
+    volume = smooth((m["merged_pr_count"]-40)/80)
+    protection = smooth((m["max_stars"]-950)/100)
+    prestige=impact_prestige_signal(m)
+    strong_prestige=smooth((prestige-.65)/.15)
+    core_protection=smooth(((m.get("core_impact_pr_count") or 0)-40)/60)
+    prestige_cap=20+3*smooth((prestige-.3)/.5)+4*strong_prestige+2.5*core_protection*(1-strong_prestige)
+    return 27-(27-prestige_cap)*volume*(1-protection)
 
 
 def author_self_closed_external_penalty(m: Mapping[str, Any]) -> float:
@@ -225,6 +228,24 @@ def next_tier(final: float) -> Optional[Dict[str, Any]]:
     return None
 
 
+def original_project_quality(m):
+    if m["nonempty_original_repo_count"] == 0:
+        return 0.0
+    else:
+        star_quality = (
+            max(0, min(_nz(m.get("top_starred_original_repo_quality_score"), 1), 1))
+            if m["total_stars"] > 0
+            else 1
+        )
+        star_pts = (
+            (log_ratio(m["total_stars"], 5000) * 7 + log_ratio(m["max_stars"], 2000) * 5)
+            * star_quality
+            * star_engagement_multiplier(m.get("top_repo_engagement_ratio"))
+        )
+        project_substance = max(0, min(_nz(m.get("best_original_repo_quality_score"), 0), 1)) * 6
+        return round(star_pts + project_substance, 1)
+
+
 def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub: Dict[str, float] = {
         "account_maturity": 0,
@@ -242,21 +263,7 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub["account_maturity"] = round(age_pts + span_pts, 1)
 
     # 2. Original Project Quality (18)
-    if m["nonempty_original_repo_count"] == 0:
-        sub["original_project_quality"] = 0.0
-    else:
-        star_quality = (
-            max(0, min(_nz(m.get("top_starred_original_repo_quality_score"), 1), 1))
-            if m["total_stars"] > 0
-            else 1
-        )
-        star_pts = (
-            (log_ratio(m["total_stars"], 5000) * 7 + log_ratio(m["max_stars"], 2000) * 5)
-            * star_quality
-            * star_engagement_multiplier(m.get("top_repo_engagement_ratio"))
-        )
-        project_substance = max(0, min(_nz(m.get("best_original_repo_quality_score"), 0), 1)) * 6
-        sub["original_project_quality"] = round(star_pts + project_substance, 1)
+    sub["original_project_quality"] = max(original_project_quality(m), max(0,min(18,m.get("personal_original_project_quality_score",0))))
 
     # 3. Contribution Quality (27)
     pr_volume_raw = log_ratio(m["merged_pr_count"], 200) * 16

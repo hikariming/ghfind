@@ -97,6 +97,7 @@ const OPTIONAL_NUMBER_METRICS = [
   "weighted_total_stars",
   "weighted_max_stars",
   "top_repo_engagement_ratio",
+  "personal_original_project_quality_score",
   "attributed_original_repo_count",
   "attributed_original_repo_stars",
   "best_original_repo_quality_score",
@@ -212,6 +213,7 @@ function hasValidTopRepo(value: unknown): value is TopRepo {
   if (!optionalMatches(value, "topics", isStringArray)) return false;
   if (!optionalMatches(value, "attributed_original", (item) => typeof item === "boolean")) return false;
   if (!optionalMatches(value, "attribution_evidence", isStringArray)) return false;
+  if (!optionalMatches(value, "attribution_share", item => typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 1)) return false;
   if (
     !optionalMatches(
       value,

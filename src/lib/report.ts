@@ -14,7 +14,7 @@ import type { Lang } from "./lang";
 const ROAST_MARKER = /🔥\s*\*{0,2}\s*(?:毒舌点评|Roast)\s*\*{0,2}\s*[：:]/i;
 const CJK_RE = /[㐀-鿿]/g;
 const CHINESE_REPORT_MARKER_RE =
-  /(?:\*\*(?:一句话结论|风险标记|人工修正|建议)\*\*|毒舌点评|账号成熟度|原创项目质量|贡献质量|社区影响力|活跃真实性)/;
+  /(?:\*\*(?:一句话结论|风险标记|人工修正|建议)\*\*|毒舌点评|账号成熟度|原创(?:与主导)?项目(?:质量)?|贡献质量|社区影响力|活跃真实性)/;
 const ENGLISH_REPORT_CJK_LIMIT = 12;
 
 export function splitReport(md: string): { body: string; roast: string } {

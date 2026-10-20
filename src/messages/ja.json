@@ -374,7 +374,8 @@
     "battleLoss": "負",
     "battleTie": "分",
     "selfCta": "自分のGitHubも採点する →",
-    "reportLangNotice": "AIローストレポートは現在英語と中国語のみ対応です。表示中は英語版です。"
+    "reportLangNotice": "AIローストレポートは現在英語と中国語のみ対応です。表示中は英語版です。",
+    "coCreatorShare": "主導・共同開発（割合 {share}%）"
   },
   "reactions": {
     "heading": "コミュニティの反応",
@@ -541,7 +542,7 @@
   },
   "dimensions": {
     "account_maturity": "アカウント成熟度",
-    "original_project_quality": "オリジナルプロジェクトの質",
+    "original_project_quality": "オリジナル・主導プロジェクト",
     "contribution_quality": "コントリビューションの質",
     "ecosystem_impact": "エコシステム / メンテナンス影響力",
     "community_influence": "コミュニティ影響力",
@@ -837,7 +838,7 @@
     "dimensionsIntro": "各ディメンションが100点の基礎点に寄与します。全体として、生のアクティビティ数ではなく、継続的でオリジナルで広く使われるオープンソースの仕事に報いる設計です。",
     "dimensionDetails": {
       "account_maturity": "アカウントが時間をかけてどれだけ確立され一貫しているか——年数、継続的なアクティビティ、一夜漬けの膨張に耐える信頼度カーブ。",
-      "original_project_quality": "フォークや取るに足らないプロジェクトではなく、アカウントが実際に所有し作り上げたリポジトリの質と評価。",
+      "original_project_quality": "オリジナル・主導プロジェクト",
       "contribution_quality": "他プロジェクトへのコントリビューションの中身——テンプレスパムではなく、マージされた意味のあるPR。",
       "ecosystem_impact": "アカウントの仕事がより広いエコシステムでどれだけ依存され、メンテナンスされているか。",
       "community_influence": "コミュニティでの本物のリーチと存在感。フォロワー数やスター数の生の値が支配しないよう正規化済み。",

@@ -20,23 +20,25 @@ export function isPresentationPath(path: string, repo: string, docSite = false):
 }
 
 /** Missing/truncated file evidence is neutral; never infer line counts from titles. */
-export function presentationSignals(prs: RecentPr[], login: string, ownRepos: string[] = []) {
+export function presentationSignals(prs: RecentPr[], login: string, ownRepos: string[] = [], ownShares: Record<string, number> = {}) {
   const owned = new Set(ownRepos.map(r => r.toLowerCase()));
   let churn = 0, presentation = 0, coreChurn = 0, n = 0, core = 0;
   const byRepo = new Map<string, number>();
   for (const pr of prs) {
     const repo = pr.repo?.toLowerCase() ?? "";
-    if (!repo.includes("/") || repo.split("/")[0] === login.toLowerCase() || owned.has(repo)) continue;
+    if (!repo.includes("/") || repo.split("/")[0] === login.toLowerCase()) continue;
+    const external = owned.has(repo) ? 1-Math.max(0,Math.min(1,ownShares[repo] ?? 1)) : 1;
+    if (external <= 0) continue;
     const files = pr.file_changes;
     if (!files?.length || files.length < pr.changed_files) continue;
     const total = files.reduce((s, f) => s + Math.max(0, f.additions) + Math.max(0, f.deletions), 0);
     if (total <= 0) continue;
     const docSite = files.some(f => /(^|\/)docusaurus\.config\.[cm]?[jt]s$/.test(f.path));
     const amount = files.reduce((s, f) => s + (isPresentationPath(f.path, repo, docSite) ? Math.max(0, f.additions) + Math.max(0, f.deletions) : 0), 0);
-    coreChurn += files.reduce((sum, f) => sum + (CORE_FILE.test(f.path) && !isPresentationPath(f.path, repo, docSite) ? Math.max(0, f.additions) + Math.max(0, f.deletions) : 0), 0);
-    churn += total; presentation += amount; n++;
-    if (total > 5 && amount / total <= 0.4 && pr.repo_stars >= 200) core++;
-    byRepo.set(repo, (byRepo.get(repo) ?? 0) + amount);
+    coreChurn += external * files.reduce((sum, f) => sum + (CORE_FILE.test(f.path) && !isPresentationPath(f.path, repo, docSite) ? Math.max(0, f.additions) + Math.max(0, f.deletions) : 0), 0);
+    churn += external*total; presentation += external*amount; n += external;
+    if (total > 5 && amount / total <= 0.4 && pr.repo_stars >= 200) core += external;
+    byRepo.set(repo, (byRepo.get(repo) ?? 0) + external*amount);
   }
   const shares = [...byRepo.values()].sort((a,b) => b-a);
   return {

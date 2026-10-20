@@ -19,14 +19,17 @@ def is_presentation_path(path, repo, doc_site=False):
         re.search(r'(^|/)(pages/home|components/home[^/]*)(/|$)', p) or
         ((SITE.search(repo.rsplit('/', 1)[-1]) or doc_site) and not UI_LIBRARY.search(repo) and (re.search(r'\.(jsx?|tsx?|vue|svelte|astro|html)$', p) or re.search(r'(^|/)(package(-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|tsconfig\.json)$', p))))
 
-def presentation_signals(prs, login, own_repos=()):
+def presentation_signals(prs, login, own_repos=(), own_shares=None):
+    own_shares=own_shares or {}
     owned = {r.lower() for r in own_repos}
     churn = presentation = core_churn = n = core = 0
     by_repo = {}
     for pr in prs:
         repo = (pr.get('repo') or '').lower()
-        if '/' not in repo or repo.split('/')[0] == login.lower() or repo in owned:
+        if '/' not in repo or repo.split('/')[0] == login.lower():
             continue
+        external=1-max(0,min(1,own_shares.get(repo,1))) if repo in owned else 1
+        if external<=0: continue
         files = pr.get('file_changes') or []
         if not files or len(files) < pr.get('changed_files', 0):
             continue
@@ -35,13 +38,13 @@ def presentation_signals(prs, login, own_repos=()):
             continue
         doc_site = any(re.search(r'(^|/)docusaurus\.config\.[cm]?[jt]s$',f['path']) for f in files)
         amount = sum(max(0, f['additions']) + max(0, f['deletions']) for f in files if is_presentation_path(f['path'], repo, doc_site))
-        core_churn += sum(max(0,f["additions"])+max(0,f["deletions"]) for f in files if CORE_FILE.search(f["path"]) and not is_presentation_path(f["path"],repo,doc_site))
-        churn += total
-        presentation += amount
-        n += 1
+        core_churn += external*sum(max(0,f["additions"])+max(0,f["deletions"]) for f in files if CORE_FILE.search(f["path"]) and not is_presentation_path(f["path"],repo,doc_site))
+        churn += external*total
+        presentation += external*amount
+        n += external
         if total > 5 and amount / total <= .4 and pr.get('repo_stars', 0) >= 200:
-            core += 1
-        by_repo[repo] = by_repo.get(repo, 0) + amount
+            core += external
+        by_repo[repo] = by_repo.get(repo, 0) + external*amount
     return dict(presentation_core_churn_share=core_churn/churn if churn else 0, presentation_churn_share=presentation/churn if churn else 0,
                 presentation_repo_concentration=sum(sorted(by_repo.values(), reverse=True)[:2])/presentation if presentation else 0,
                 presentation_pr_sample=n, presentation_core_pr_count=core)
