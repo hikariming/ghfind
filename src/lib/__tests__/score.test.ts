@@ -1868,7 +1868,7 @@ describe("logRatio", () => {
   });
 });
 
-describe("v10 scoring contract (single PR pool, unweighted stars, unscaled follow ratio)", () => {
+describe("scoring contract (single PR pool, weighted originals, unscaled follow ratio)", () => {
   it("scores contribution volume from the full merged-PR pool", () => {
     const solo: RawMetrics = {
       ...NEUTRAL,

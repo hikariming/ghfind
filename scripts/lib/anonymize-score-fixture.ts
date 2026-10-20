@@ -18,21 +18,16 @@ export function anonymizeScoreFixture<T>(value: T, alias: string): T {
   scan(value);
   const root=value as {metrics?:{username?:string}};
   if(root.metrics?.username)identities.set(root.metrics.username.toLowerCase(),alias);
-  const replace=(s:string):string=>{
-    let result=s;
-    for(const [name,pseudonym] of [...identities].sort((a,b)=>b[0].length-a[0].length)){
-      const escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      result=result.replace(new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`,'gi'),pseudonym);
-    }
-    return result;
-  };
+  const names=[...identities.keys()].sort((a,b)=>b.length-a.length).map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  const identityPattern=names.length?new RegExp(`(?<![\\w])(?:${names.join('|')})(?![\\w])`,'gi'):null;
+  const replace=(s:string):string=>identityPattern?s.replace(identityPattern,match=>identities.get(match.toLowerCase())!):s;
   const clean=(v:unknown,key=''):unknown=>{
     if(['avatar_url','profile_url','html_url'].includes(key))return 'https://example.com/fixture';
     if(['user_id','author_id','node_id'].includes(key))return null;
     if(['bio','company','description','readme_excerpt','prompt_summary'].includes(key))return null;
     if(typeof v==='string')return replace(v);
     if(Array.isArray(v))return v.map(x=>clean(x));
-    if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[replace(k), k==='name'&&'username' in v ? null : clean(x,k)]));
+    if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[replace(k), (k==='name'&&'username' in v)||(k==='id'&&typeof x==='number'&&('login' in v||'username' in v)) ? null : clean(x,k)]));
     return v;
   };
   return clean(value) as T;
