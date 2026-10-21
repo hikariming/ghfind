@@ -20,6 +20,6 @@ async function main(){
   await fs.writeFile(path.join(process.env.RUNNER_TEMP??"/tmp","ghfind-traffic-preview.encrypted.json"),encryptPreview(html,process.env.TRAFFIC_PREVIEW_PUBLIC_KEY));
   console.log(JSON.stringify({event:"traffic_preview_saved_encrypted",bytes:Buffer.byteLength(html),hasVisitorData:/24h 访客 [\d,]+/.test(html)}));
   const health=await fetch(`${base.replace(/\/$/,"")}/health`,{headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(30_000)}).then(r=>r.json());
-  console.log(JSON.stringify({event:"traffic_schedule_verified",nextTrafficReport:health.nextTrafficReport,lastTrafficError:health.lastTrafficError,heartbeatHealthy:health.heartbeatHealthy}));
+  console.log(JSON.stringify({event:"traffic_schedule_verified",nextTrafficReport:health.nextTrafficReport,lastTrafficError:health.lastTrafficError,heartbeatHealthy:health.heartbeatHealthy,lastBilling:health.lastBilling,lastBillingAttempt:health.lastBillingAttempt,lastBillingError:health.lastBillingError}));
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))await main();
