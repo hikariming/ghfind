@@ -16,6 +16,8 @@ describe("traffic HTML",()=>{
 describe("traffic schedule",()=>{
  const noon=Date.parse("2026-10-22T04:00:00Z");
  it("waits until noon then sends only once",()=>{const s:TrafficSchedule={};expect(trafficDue(s,noon-1)).toBe(false);expect(trafficDue(s,noon)).toBe(true);trafficComplete(s,noon);expect(trafficDue(s,noon+1)).toBe(false);expect(trafficDue(s,noon+DAY)).toBe(true);});
+ it("a first deployment after local midnight still waits for local noon",()=>{const s:TrafficSchedule={};expect(trafficDue(s,noon-11*3600_000)).toBe(false);expect(s.nextTrafficReport).toBe(noon);});
+ it("keeps same-local-day receipts when overnight catchup crosses the noon slot",()=>{const s:TrafficSchedule={nextTrafficReport:noon-DAY};expect(trafficDue(s,noon-11*3600_000)).toBe(true);s.trafficRecipients=["owner@example.org"];trafficComplete(s,noon-11*3600_000);expect(trafficDue(s,noon)).toBe(true);expect(s.trafficRecipients).toEqual(["owner@example.org"]);trafficComplete(s,noon);expect(trafficDue(s,noon+1)).toBe(false);});
  it("catches up one report after multiple missed days",()=>{const s:TrafficSchedule={nextTrafficReport:noon};expect(trafficDue(s,noon+4*DAY+1)).toBe(true);trafficComplete(s,noon+4*DAY+1);expect(s.nextTrafficReport).toBe(noon+5*DAY);expect(trafficDue(s,noon+4*DAY+2)).toBe(false);});
  it("preserves accepted recipients on retry and resets on next slot",()=>{const s:TrafficSchedule={};trafficDue(s,noon);s.trafficRecipients=["owner@example.org"];trafficDue(s,noon+1);expect(s.trafficRecipients).toHaveLength(1);trafficDue(s,noon+DAY);expect(s.trafficRecipients).toEqual([]);});
 });
