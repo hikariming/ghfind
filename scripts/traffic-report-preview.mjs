@@ -1,0 +1,12 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+const base=process.env.COST_MONITOR_URL;
+if(!base||!process.env.MONITOR_ADMIN_TOKEN)throw new Error("Missing preview configuration");
+const response=await fetch(`${base.replace(/\/$/,"")}/traffic-report/preview`,{method:"POST",headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(120_000)});
+if(!response.ok)throw new Error(`Traffic preview HTTP ${response.status}`);
+const html=await response.text();
+if(!html.includes("流量日报")||!html.includes("7 天访客趋势"))throw new Error("Invalid traffic preview");
+await fs.writeFile(path.join(process.env.RUNNER_TEMP??"/tmp","ghfind-traffic-preview.html"),html);
+console.log(JSON.stringify({event:"traffic_preview_saved",bytes:Buffer.byteLength(html),hasVisitorData:/24h 访客 [\d,]+/.test(html)}));
+const health=await fetch(`${base.replace(/\/$/,"")}/health`,{headers:{authorization:`Bearer ${process.env.MONITOR_ADMIN_TOKEN}`},signal:AbortSignal.timeout(30_000)}).then(r=>r.json());
+console.log(JSON.stringify({event:"traffic_schedule_verified",nextTrafficReport:health.nextTrafficReport,lastTrafficError:health.lastTrafficError,heartbeatHealthy:health.heartbeatHealthy}));

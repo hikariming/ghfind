@@ -32,6 +32,7 @@ jobs:
       MONITOR_ADMIN_TOKEN: ${{ secrets.COST_MONITOR_ADMIN_TOKEN }}
       ALERT_RECIPIENTS: ${{ secrets.COST_MONITOR_RECIPIENTS }}
       PROBE_GITHUB_LOGIN: ${{ secrets.COST_MONITOR_PROBE_GITHUB_LOGIN }}
+      CF_ZONE_ID: ${{ vars.COST_MONITOR_ZONE_ID }}
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +70,7 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'JS'
           import fs from 'node:fs';
-          fs.writeFileSync(`${process.env.RUNNER_TEMP}/cost-monitor-secrets.json`,JSON.stringify({CF_MONITOR_API_TOKEN:process.env.CF_MONITOR_API_TOKEN,MONITOR_ADMIN_TOKEN:process.env.MONITOR_ADMIN_TOKEN,ALERT_RECIPIENTS:process.env.ALERT_RECIPIENTS,PROBE_GITHUB_LOGIN:process.env.PROBE_GITHUB_LOGIN}),{mode:0o600});
+          fs.writeFileSync(`${process.env.RUNNER_TEMP}/cost-monitor-secrets.json`,JSON.stringify({CF_MONITOR_API_TOKEN:process.env.CF_MONITOR_API_TOKEN,MONITOR_ADMIN_TOKEN:process.env.MONITOR_ADMIN_TOKEN,ALERT_RECIPIENTS:process.env.ALERT_RECIPIENTS,PROBE_GITHUB_LOGIN:process.env.PROBE_GITHUB_LOGIN,...(process.env.CF_ZONE_ID?{CF_ZONE_ID:process.env.CF_ZONE_ID}:{})}),{mode:0o600});
           JS
           pnpm --filter @ghfind/cost-monitor exec wrangler secret bulk "$RUNNER_TEMP/cost-monitor-secrets.json" --env production
           rm "$RUNNER_TEMP/cost-monitor-secrets.json"
@@ -78,7 +79,16 @@ jobs:
         if: steps.current.outputs.current == 'true'
         env:
           COST_MONITOR_URL: ${{ vars.COST_MONITOR_URL }}
-        run: node scripts/cost-monitor-verify.mjs
+        run: |
+          node scripts/cost-monitor-verify.mjs
+          node scripts/traffic-report-preview.mjs
+      - name: Save authenticated traffic preview
+        if: steps.current.outputs.current == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-report-preview
+          path: ${{ runner.temp }}/ghfind-traffic-preview.html
+          retention-days: 7
   watchdog:
     if: github.event_name != 'workflow_run' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

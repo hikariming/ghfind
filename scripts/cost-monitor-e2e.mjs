@@ -37,6 +37,11 @@ try {
     const live=await request("/run");assert.equal(live.status,200);assert.equal(live.body.status,"ok");assert.ok(live.body.points>0);assert.deepEqual(live.body.errors,[]);result.steps.push({name:"real Cloudflare collection",...live.body});
     await request("/test/reset");
   }
+  const traffic=(await request("/test/traffic")).body;
+  assert.equal(traffic.before,0);assert.equal(traffic.partial,1);assert.equal(traffic.failed,true);assert.equal(traffic.retry,2);assert.equal(traffic.attempts,123);assert.equal(traffic.duplicate,2);assert.equal(traffic.missed,2);assert.equal(traffic.after,2);
+  result.steps.push({name:"traffic noon schedule, persistent partial retry, quota independence and missed-day catchup"});
+  const deniedPreview=await fetch(`${base}/traffic-report/preview`,{method:"POST"});assert.equal(deniedPreview.status,401);
+  await request("/test/reset");
   const daily=(await request("/test/daily")).body;
   assert.equal(daily.failureReported,true);assert.equal(daily.partial,1);assert.equal(daily.retry,2);assert.equal(daily.duplicate,2);assert.equal(daily.pending,0);
   assert.match(daily.subject,/\[日报\] 全部正常/);

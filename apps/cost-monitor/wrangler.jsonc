@@ -65,7 +65,14 @@
         "HOURLY_WARNING_USD": "0.5",
         "HOURLY_CRITICAL_USD": "2",
         "DAILY_WARNING_USD": "10"
-      }
+      },
+      "d1_databases": [
+        {
+          "binding": "TRAFFIC_DB",
+          "database_name": "ghfind",
+          "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d"
+        }
+      ]
     },
     "e2e": {
       "name": "ghfind-cost-monitor-e2e",

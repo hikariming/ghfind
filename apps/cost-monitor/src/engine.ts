@@ -1,3 +1,4 @@
+import type { TrafficSchedule } from "./traffic-schedule";
 // Bounded, aggregated telemetry only: no user IDs, SQL text, parameters or bodies.
 import { classify } from "./classify";
 import { userFacing } from "./mail-policy";
@@ -69,7 +70,7 @@ export interface MetricState {
 }
 export interface NoticeEvidence { startedAt?: number; resource: string; metric: string; value: string; threshold?: string; window: string; action: string; impact?: string; cost?: string }
 export interface Notice { startedAt?: number; id: string; key: string; kind: "open" | "reminder" | "escalation" | "recovery"; severity: number; text: string; evidence?: NoticeEvidence; delivered: string[]; attempts: number; expiresAt: number }
-export interface State {
+export interface State extends TrafficSchedule {
   lastFrame: number;
   lastSuccess: number;
   lastAttempt: number;

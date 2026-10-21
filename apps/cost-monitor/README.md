@@ -243,3 +243,35 @@ For an explicitly authorized live rehearsal, dispatch the cost-monitor workflow
 with `exercise=true`. It verifies production health, deploys the isolated E2E Worker,
 and sends simulated all-clear and P0-warning messages using the private recipients.
 No production state is reset.
+
+### Daily traffic report
+
+The same five-minute cron sends a separate traffic report at 04:00 UTC (12:00
+UTC+8). `nextTrafficReport` and accepted recipients survive retries; missed days
+collapse into one report. Traffic sends bypass alert classification and limits,
+but count towards mail attempt statistics. `TRAFFIC_REPORT_RECIPIENTS` optionally
+overrides `ALERT_RECIPIENTS`. `/health` exposes the next send and traffic error.
+
+Set repository variable `COST_MONITOR_ZONE_ID`; deployment copies it to private
+Worker configuration `CF_ZONE_ID`. Analytics needs Zone Analytics:Read for this
+zone and Account Analytics:Read for RUM. `TRAFFIC_HOST` defaults to `ghfind.com`.
+RUM visits are browser visits, not distinct people. If RUM comparisons are empty
+or incomplete, every visitor window uses zone unique IPs instead. Missing data
+is shown as unavailable, never zero. Zone referrer is unavailable on the current
+plan; referrer rankings use RUM page loads.
+
+All sources use the latest complete UTC-day cutoff (08:00 UTC+8), including the
+previous comparison periods. This permits 24h, 3d and 7d comparisons on the
+current plan, whose hourly retention cannot cover 14 days. Each email spells
+out current/previous ranges. Unique IPs are queried as whole-window aggregates,
+not summed from daily values. The production D1 binding only executes EXPLAIN
+and bounded counts using the existing covering state/time index. Scan counts
+are completed/partial runs by update time, not new scores or first-time accounts.
+Other business counts lack suitable time indexes and are explicitly unavailable.
+
+Authenticated `POST /traffic-report/preview` renders live HTML without sending.
+Production verification saves this HTML as the seven-day-retention
+`traffic-report-preview` Actions artifact. The local workerd suite tests the
+noon boundary, receipt persistence, partial failures and missed-day catchup using
+captured synthetic mail. Real provider acceptance followed by a crash before
+receipt persistence remains an at-least-once delivery edge case.
