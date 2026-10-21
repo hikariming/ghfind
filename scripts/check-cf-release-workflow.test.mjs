@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const checker = resolve('scripts/check-cf-release-workflow.mts');
-const originals = Object.fromEntries(['ci.yml', 'deploy-cf-production.yml', 'feed-catalog-reconcile.yml'].map(name => [name, readFileSync(`.github/workflows/${name}`, 'utf8')]));
+const originals = Object.fromEntries(['ci.yml', 'deploy-cf-production.yml', 'feed-catalog-reconcile.yml', 'cost-monitor.yml', 'deploy-apps-production.yml'].map(name => [name, readFileSync(`.github/workflows/${name}`, 'utf8')]));
 function check(change = {}) {
   const temporary = mkdtempSync(join(tmpdir(), 'feed-workflow-contract-'));
   try {
@@ -25,7 +25,7 @@ test('bot release cannot precede SCORE, use a stale SHA, skip migrations or esca
   const begin = production.indexOf('\n  deploy-bot:\n');
   for (const fragment of ['needs: [deploy]', 'environment: Production', 'group: ghfind-bot-production',
     'cancel-in-progress: false', 'ref: ${{ github.event.workflow_run.head_sha }}',
-    'test "$current_main" = "$RELEASE_SHA"', 'pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production',
+    'if [ "$current_main" != "$RELEASE_SHA" ]; then', 'pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production',
     "github.event.workflow_run.event == 'push'"]) {
     const unsafe = production.slice(0, begin) + production.slice(begin).replace(fragment, 'removed');
     assert.throws(() => check({ 'deploy-cf-production.yml': unsafe }), /Bot production gate/);
@@ -140,4 +140,11 @@ test('off process replacement cannot bypass pause evidence, deployment or readin
 
 test("off restart requires bounded platform rollout completion", () => {
   assert.throws(() => check({"deploy-cf-production.yml": originals["deploy-cf-production.yml"].replace("310s node scripts/feed-production-rollout.mjs", "310s node scripts/removed.mjs")}));
+});
+
+test('superseded release guards protect every following deployment step',()=>{
+ for(const name of ['deploy-cf-production.yml','cost-monitor.yml','deploy-apps-production.yml']){
+  const content=originals[name].replace("        if: steps.current.outputs.current == 'true'\n",'');
+  assert.throws(()=>check({[name]:content}),/unguarded post-authorization step/);
+ }
 });
