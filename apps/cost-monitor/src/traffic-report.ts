@@ -37,11 +37,38 @@ function requestSection(data:RequestTraffic):{html:string;text:string} {
     text:["全部请求量 · 7 天",data.source,...data.values.map((v,i)=>`${["24h","3d","7d"][i]}: ${valueText(v)} (${comparisonDelta(v).text})`),why?`分类/边缘数据：${why}`:"",legend,...data.days.map(d=>`${d.date}: 总量 ${trafficNumber(d.total)} / 浏览器 UA 页面 ${trafficNumber(d.browser)} / API ${trafficNumber(d.api)} / 其他 ${trafficNumber(d.other)}${d.reason?` (${d.reason})`:""}`),`Workers 补充（不相加）：${workers}`,scripts].filter(Boolean).join("\n"),
   };
 }
+// Apply explicit colors to our own escaped template, including nested table cells.
+// Matching Outlook attributes restore the same palette after webmail dark-mode edits.
+function lightOnly(template:string):string {
+  const rules=new Map<string,string>();
+  const html=template.replace(/<(body|table|thead|tbody|tr|td|th|p|h1|h2|span|strong)(\s[^>]*|)>/g,(_all,tag:string,attrs:string)=>{
+    let style=attrs.match(/ style="([^"]*)"/)?.[1]??"";
+    const bg=style.match(/(?:^|;)background(?:-color)?:\s*(#[\da-f]+)/i)?.[1]??"#ffffff";
+    const fg=style.match(/(?:^|;)color:\s*(#[\da-f]+)/i)?.[1]??"#0f172a";
+    const names=[`light-bg-${bg.slice(1)}`,`light-fg-${fg.slice(1)}`];
+    for(const [name,property,value] of [[names[0],"background-color",bg],[names[1],"color",fg]]){
+      rules.set(name,`[data-ogsc] .${name},[data-ogsb] .${name},[data-ogsc].${name},[data-ogsb].${name}{${property}:${value}!important}`);
+    }
+    style+=`;background-color:${bg};color:${fg};`;
+    attrs=attrs.replace(/ style="[^"]*"/,"");
+    attrs=attrs.includes(' class="')?attrs.replace(/ class="([^"]*)"/,` class="$1 ${names.join(" ")}"`):attrs+` class="${names.join(" ")}"`;
+    if(["body","table","tr","td","th"].includes(tag)&&!attrs.includes(' bgcolor="'))attrs+=` bgcolor="${bg}"`;
+    return `<${tag}${attrs} style="${style}">`;
+  });
+  return html.replace("</style>",[...rules.values()].join("")+"</style>");
+}
+const compactCount=(n:number)=>n>=10000?`${(n/10000).toFixed(1)} 万`:trafficNumber(n);
+export function trafficSubject(data:TrafficReport,manual=false):string {
+  const window=`${local(data.end-86400_000).slice(5,10)}→${local(data.end).slice(5,10)}`;
+  const visitor=data.metrics.find(m=>m.key==="visitors")?.values[0]?.current??null;
+  // Only edge requests belong in the headline; Workers invocations can double count.
+  const counts=["requests","api"].map(key=>data.metrics.find(m=>m.key===key)?.values[0]?.current??null);
+  return `[ghfind]${manual?"[手动]":""}[流量日报] ${window} · 访客 ${trafficNumber(visitor)}`+counts.map((n,i)=>n===null?"":` · ${i?"API":"请求"} ${compactCount(n)}`).join("");
+}
 export function renderTrafficReport(data:TrafficReport): {subject:string;html:string;text:string;headers:Record<string,string>} {
   const visitor=data.metrics.find(m=>m.key==="visitors")?.values[0]??{current:null,previous:null};
-  const delta=comparisonDelta(visitor);
-  const summary=`24h 访客 ${valueText(visitor)}（${delta.text}）`;
-  const subject=`[ghfind][流量日报] ${summary} · ${local(data.generatedAt).slice(5,10)}`;
+  const summary=`24h 访客 ${trafficNumber(visitor.current)}`;
+  const subject=trafficSubject(data);
   const requests=data.requests?requestSection(data.requests):{html:"",text:""};
   const border="border-bottom:1px solid #e2e8f0;";
   const cell=`overflow-wrap:anywhere;word-break:normal;padding:12px 6px;${border}text-align:right;vertical-align:top;`;
@@ -52,7 +79,7 @@ export function renderTrafficReport(data:TrafficReport): {subject:string;html:st
   const ranges=[1,3,7].map(d=>`${d===1?"24h":`${d}d`}：${local(data.end-d*86400_000)} → ${local(data.end)}；前期 ${local(data.end-2*d*86400_000)} → ${local(data.end-d*86400_000)}`);
   const window=`窗口：${local(data.end-86400_000)} → ${local(data.end)} UTC+8`;
   const notes=[`访客口径：${data.visitorSource}`,"全部时间为 UTC+8；右边界不包含在内。",...ranges,...data.notes,`生成时间：${local(data.generatedAt)} UTC+8`];
-  const html=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><style>@media(prefers-color-scheme:dark){body,.canvas{background:#111827!important}.sheet{background:#1e293b!important;color:#f1f5f9!important}td,th{border-color:#475569!important}.muted{color:#cbd5e1!important}.delta-up{color:#86efac!important}.delta-down{color:#fca5a5!important}.delta-neutral{color:#cbd5e1!important}}</style></head><body style="margin:0;background:#f1f5f9;font-family:Arial,'Microsoft YaHei',sans-serif;color:#0f172a"><table role="presentation" class="canvas" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9"><tr><td align="center" style="padding:24px 8px"><table role="presentation" class="sheet" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fff;color:#0f172a;border-radius:12px"><tr><td style="padding:28px 16px"><p class="muted" style="margin:0;color:#64748b;font-size:12px;letter-spacing:1px">GHFIND / 流量日报 · ${local(data.generatedAt).slice(0,10)}</p><h1 style="font-size:24px;line-height:1.4;margin:16px 0 8px">${escape(summary)}</h1><p class="muted" style="font-size:13px;color:#475569;margin:0 0 24px">${escape(data.visitorSource)}<br>${escape(window)}<br>按完整 UTC 日统计；正式日报每天 12:00 UTC+8 发送。</p><table width="100%" style="border-collapse:collapse;table-layout:fixed"><thead><tr><th style="${cell}text-align:left;width:31%">指标</th>${["24h","3d","7d"].map(s=>`<th scope="col" style="${cell}font-size:13px">${s}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table><h2 style="font-size:17px;margin:28px 0 14px">7 天访客趋势</h2><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>${bars}</tr></table><p class="muted" style="font-size:11px;color:#64748b">按 UTC 日分桶；每个柱覆盖北京时间 08:00 至次日 08:00。</p>${requests.html}${lists}<h2 style="font-size:16px;margin:28px 0 12px">数据说明</h2>${notes.map(n=>`<p class="muted" style="font-size:11px;line-height:1.7;color:#64748b;margin:7px 0;overflow-wrap:anywhere">${escape(n)}</p>`).join("")}</td></tr></table></td></tr></table></body></html>`;
+  const html=lightOnly(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(subject)}</title><style>:root{color-scheme:light only}</style></head><body style="margin:0;background:#f1f5f9;font-family:Arial,'Microsoft YaHei',sans-serif;color:#0f172a"><table role="presentation" class="canvas" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9"><tr><td align="center" style="padding:24px 8px"><table role="presentation" class="sheet" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fff;color:#0f172a;border-radius:12px"><tr><td style="padding:28px 16px"><p class="muted" style="margin:0;color:#64748b;font-size:12px;letter-spacing:1px">GHFIND / 流量日报 · ${local(data.end-86400_000).slice(5,10)}→${local(data.end).slice(5,10)}</p><h1 style="font-size:24px;line-height:1.4;margin:16px 0 8px">${escape(summary)}</h1><p class="muted" style="font-size:13px;color:#475569;margin:0 0 24px">${escape(data.visitorSource)}<br>${escape(window)}<br>按完整 UTC 日统计；正式日报每天 12:00 UTC+8 发送。</p><table width="100%" style="border-collapse:collapse;table-layout:fixed"><thead><tr><th style="${cell}text-align:left;width:31%">指标</th>${["24h","3d","7d"].map(s=>`<th scope="col" style="${cell}font-size:13px">${s}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table><h2 style="font-size:17px;margin:28px 0 14px">7 天访客趋势</h2><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>${bars}</tr></table><p class="muted" style="font-size:11px;color:#64748b">按 UTC 日分桶；每个柱覆盖北京时间 08:00 至次日 08:00。</p>${requests.html}${lists}<h2 style="font-size:16px;margin:28px 0 12px">数据说明</h2>${notes.map(n=>`<p class="muted" style="font-size:11px;line-height:1.7;color:#64748b;margin:7px 0;overflow-wrap:anywhere">${escape(n)}</p>`).join("")}</td></tr></table></td></tr></table></body></html>`);
   const text=[subject,window,`访客口径：${data.visitorSource}`,"指标 | 24h | 3d | 7d",...data.metrics.map(m=>`${m.label} | ${m.values.map(v=>`${valueText(v,m.unit)} (${comparisonDelta(v).text})`).join(" | ")}`),"7 天访客趋势",...data.days.map(d=>`${d.date}: ${trafficNumber(d.value)}`),requests.text,...([['Top 路径',data.paths,data.unavailable?.paths],['Top 国家 / 地区',data.countries,data.unavailable?.countries],['Top referrer',data.referrers,data.unavailable?.referrers]] as const).flatMap(([n,rs,why])=>[n,...(rs.length?rs.map(r=>`${r.label}: ${trafficNumber(r.value)}`):[why??"暂无可用数据"])]),...notes].join("\n");
   return {subject,html,text,headers:{"Auto-Submitted":"auto-generated","Content-Language":"zh-CN"}};
 }

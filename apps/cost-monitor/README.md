@@ -297,3 +297,12 @@ introduced. Email includes plain text, table-based charts, Auto-Submitted and
 Content-Language headers. SPF/DKIM/DMARC and provider acceptance cannot guarantee
 Outlook inbox placement. Do not invent a Reply-To mailbox or unsubscribe endpoint
 for this owner-only operational report.
+
+Traffic email always requests the light palette, including explicit nested cell
+colors and Outlook data-ogsc/data-ogsb overrides. Client-side forced inversion
+can still vary; verify the actual received message as well as browser previews.
+Subjects use the UTC+8 data-window dates and available visitor/edge-request/API
+totals. Changes stay in the body. Missing edge/API totals are omitted; Workers
+fallback invocations never masquerade as edge requests in a subject. Manually
+sent real reports use `[手动]`; the isolated synthetic E2E environment keeps its
+`[模拟]` safety marker. Deployment previews reject older theme/title templates.
