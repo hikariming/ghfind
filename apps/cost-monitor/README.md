@@ -270,8 +270,10 @@ are completed/partial runs by update time, not new scores or first-time accounts
 Other business counts lack suitable time indexes and are explicitly unavailable.
 
 Authenticated `POST /traffic-report/preview` renders live HTML without sending.
-Production verification saves this HTML as the seven-day-retention
-`traffic-report-preview` Actions artifact. The local workerd suite tests the
+Production verification encrypts this HTML with AES-256-GCM and an RSA-OAEP
+wrapped key using repository variable `TRAFFIC_PREVIEW_PUBLIC_KEY`. Only
+ciphertext is uploaded as the seven-day-retention `traffic-report-preview`
+Actions artifact; the owner keeps the private key locally. The local workerd suite tests the
 noon boundary, receipt persistence, partial failures and missed-day catchup using
 captured synthetic mail. Real provider acceptance followed by a crash before
 receipt persistence remains an at-least-once delivery edge case.

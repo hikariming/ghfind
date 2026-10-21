@@ -79,15 +79,16 @@ jobs:
         if: steps.current.outputs.current == 'true'
         env:
           COST_MONITOR_URL: ${{ vars.COST_MONITOR_URL }}
+          TRAFFIC_PREVIEW_PUBLIC_KEY: ${{ vars.TRAFFIC_PREVIEW_PUBLIC_KEY }}
         run: |
           node scripts/cost-monitor-verify.mjs
           node scripts/traffic-report-preview.mjs
-      - name: Save authenticated traffic preview
+      - name: Save encrypted traffic preview
         if: steps.current.outputs.current == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: traffic-report-preview
-          path: ${{ runner.temp }}/ghfind-traffic-preview.html
+          path: ${{ runner.temp }}/ghfind-traffic-preview.encrypted.json
           retention-days: 7
   watchdog:
     if: github.event_name != 'workflow_run' && github.ref == 'refs/heads/main'
