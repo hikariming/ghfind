@@ -255,15 +255,17 @@ overrides `ALERT_RECIPIENTS`. `/health` exposes the next send and traffic error.
 Set repository variable `COST_MONITOR_ZONE_ID`; deployment copies it to private
 Worker configuration `CF_ZONE_ID`. Analytics needs Zone Analytics:Read for this
 zone and Account Analytics:Read for RUM. `TRAFFIC_HOST` defaults to `ghfind.com`.
-RUM visits are browser visits, not distinct people. If RUM comparisons are empty
-or incomplete, every visitor window uses zone unique IPs instead. Missing data
+RUM visits are browser visits, not distinct people. When no current RUM window is complete and nonempty, visitor windows fall back
+to zone unique IPs. A missing previous period only suppresses that comparison. Missing data
 is shown as unavailable, never zero. Zone referrer is unavailable on the current
 plan; referrer rankings use RUM page loads.
 
 All sources use the latest complete UTC-day cutoff (08:00 UTC+8), including the
-previous comparison periods. This permits 24h, 3d and 7d comparisons on the
-current plan, whose hourly retention cannot cover 14 days. Each email spells
-out current/previous ranges. Unique IPs are queried as whole-window aggregates,
+previous comparison periods. Retention and query duration are discovered per dataset: only complete daily
+buckets within retention qualify for 24h, 3d and 7d comparisons. Missing or
+partially retained days suppress comparisons with a reason, rather than inflate
+percentages. Each email spells out current/previous ranges and the prominent
+24h window; a manual send before 08:00 correctly ends on the previous local day. Unique IPs are queried as whole-window aggregates,
 not summed from daily values. The production D1 binding only executes EXPLAIN
 and bounded counts using the existing covering state/time index. Scan counts
 are completed/partial runs by update time, not new scores or first-time accounts.
@@ -277,3 +279,21 @@ Actions artifact; the owner keeps the private key locally. The local workerd sui
 noon boundary, receipt persistence, partial failures and missed-day catchup using
 captured synthetic mail. Real provider acceptance followed by a crash before
 receipt persistence remains an at-least-once delivery edge case.
+
+The separate all-request chart uses zone Adaptive edge requests, then zone daily
+totals, then explicitly labeled Workers invocations as a fallback. It retains
+the RUM chart and never adds Workers calls to edge totals (service bindings can
+count one incoming request multiple times). API/MCP/webhook paths take priority;
+Mozilla UA requests excluding API/static paths approximate browser pages. The
+remaining segment includes non-browser, static and unclassified requests. UA is
+spoofable; this is not a human/bot classification. Accept filtering is unavailable
+on the current plan. Missing or inconsistent sampled segments render a total-only
+gray bar, never fabricated zeros. Workers include router/web/api/legacy services.
+
+Two capability queries and five bounded data queries collect all windows, daily
+buckets and rankings. Budget/rate-limit failures retry once, then display the
+reason; permission errors do not retry. No extra cron or persistent counters are
+introduced. Email includes plain text, table-based charts, Auto-Submitted and
+Content-Language headers. SPF/DKIM/DMARC and provider acceptance cannot guarantee
+Outlook inbox placement. Do not invent a Reply-To mailbox or unsubscribe endpoint
+for this owner-only operational report.

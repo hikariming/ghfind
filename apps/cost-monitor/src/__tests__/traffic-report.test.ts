@@ -8,6 +8,15 @@ describe("traffic HTML",()=>{
   const r=renderTrafficReport(fixture);expect(r.subject).toBe("[ghfind][流量日报] 24h 访客 1,234（↑23.4%） · 10-22");
   expect(r).toMatchSnapshot();expect(r.html).not.toContain("<script>");expect(r.html).toContain("&lt;script&gt;");expect(r.html).not.toMatch(/<svg|<img|<script/);expect(r.text).toContain("2.00 GB");expect(r.text).toContain("Top referrer");expect(r.text).toContain("2026-10-22 08:00");
  });
+ it("shows unavailable reasons inline without emitting a misleading percentage",()=>{
+  const data=structuredClone(fixture);data.metrics[0].values[0]={current:1234,previous:null,previousReason:"前期数据不足 2 天"};data.metrics[1].values[0]={current:null,previous:null,currentReason:"需要 Zone Analytics 读权限"};
+  data.unavailable={paths:"需要 Zone Analytics 读权限"};data.paths=[];
+  const r=renderTrafficReport(data);expect(r.subject).toContain("—（前期数据不足 2 天）");expect(r.html).toContain("需要 Zone Analytics 读权限");expect(r.text).toContain("窗口：2026-10-21 08:00 → 2026-10-22 08:00 UTC+8");expect(r.headers).toEqual({"Auto-Submitted":"auto-generated","Content-Language":"zh-CN"});
+ });
+ it("renders email-safe stacked request bars alongside RUM and preserves unknown segments",()=>{
+  const data=structuredClone(fixture);data.requests={source:"边缘全部请求（估算）",values:fixture.metrics[0].values,days:[{date:"2026-10-21",total:100,browser:30,api:20,other:50},{date:"2026-10-20",total:80,browser:null,api:null,other:null,reason:"本次限流未取到"}],workers:{values:fixture.metrics[0].values,scripts:[{label:"ghfind-api",value:200}]}};
+  const r=renderTrafficReport(data);expect(r.html).toContain("7 天访客趋势");expect(r.html).toContain("全部请求量 · 7 天");expect(r.html).toContain('bgcolor="#0d9488"');expect(r.html).toContain('bgcolor="#2563eb"');expect(r.text).toContain("总量 100 / 浏览器 UA 页面 30 / API 20 / 其他 50");expect(r.text).toContain("浏览器 UA 页面 —");expect(r.html).not.toMatch(/<svg|<img|<canvas/);
+ });
  it("handles zero denominators, missing values and the neutral band",()=>{
   expect(trafficDelta(0,0).text).toBe("±0%");expect(trafficDelta(1,0).text).toContain("新增");expect(trafficDelta(null,1).text).toBe("—");expect(trafficDelta(0,1).text).toBe("↓100.0%");expect(trafficDelta(105,100).color).toBe(trafficDelta(95,100).color);expect(trafficDelta(106,100).color).not.toBe(trafficDelta(94,100).color);
  });
