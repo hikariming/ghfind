@@ -140,14 +140,14 @@ describe("bounded Cloudflare incident policy",()=>{
     for(let i=21;i<=40;i++)run(s,i,380_000);
     expect(s.metrics['D1:core:read'].baseline).toBe(before);
   });
-  it("reminds at six hours, escalates immediately, recovers only after two valid windows",()=>{
+  it("reminds P2 at 24 hours, escalates immediately, recovers only after two valid windows",()=>{
     const s=emptyState();worker(s,1,3);worker(s,2,3);ack(s,2);
     worker(s,3,8);expect(s.outbox[0].kind).toBe("escalation");ack(s,3);
     worker(s,8,8);expect(s.outbox).toHaveLength(0);
     worker(s,74,8);expect(s.outbox).toHaveLength(0);
-    worker(s,75,8);expect(s.outbox[0].kind).toBe("reminder");ack(s,75);
-    worker(s,76);expect(s.outbox).toHaveLength(0);
-    worker(s,77);expect(s.outbox[0].kind).toBe("recovery");
+    worker(s,291,8);expect(s.outbox[0].kind).toBe("reminder");ack(s,291);
+    worker(s,292);expect(s.outbox).toHaveLength(0);
+    worker(s,293);expect(s.outbox).toEqual([]);expect(s.recovered).toHaveLength(1);
     expect(reminderInterval("Billing:account:daily")).toBe(24*3600_000);
   });
   it("drops a partially delivered open after recovery instead of notifying remaining recipients of a stale fault",()=>{
@@ -160,12 +160,11 @@ describe("bounded Cloudflare incident policy",()=>{
   it("replaces a pending reminder or escalation with current recovery evidence",()=>{
     for(const kind of ["reminder","escalation"] as const){
       const s=emptyState();worker(s,1,3);worker(s,2,3);ack(s,2);
-      const start=kind==="reminder"?74:3;
+      const start=kind==="reminder"?290:3;
       worker(s,start,kind==="reminder"?3:8);
       expect(s.outbox[0].kind).toBe(kind);s.outbox[0].delivered=["one@example.org"];
       worker(s,start+1);worker(s,start+2);
-      expect(s.outbox).toHaveLength(1);expect(s.outbox[0]).toMatchObject({kind:"recovery",severity:0,delivered:[]});
-      expect(s.outbox[0].text).toContain("已连续两个有效窗口恢复正常");
+      expect(s.outbox).toEqual([]);expect(s.recovered).toHaveLength(1);
     }
   });
   it("silently closes recovered service failures even when only one recipient received the open",()=>{
@@ -229,7 +228,7 @@ describe("bounded Cloudflare incident policy",()=>{
   it("recovers an active burn after two observed low windows without waiting for the long average",()=>{
     const s=emptyState();run(s,1,200,{usd:2});ack(s,1);
     run(s,2);expect(s.outbox).toEqual([]);
-    run(s,3);expect(s.outbox.find(n=>n.key==='account:burn')?.kind).toBe("recovery");
+    run(s,3);expect(s.recovered?.some(n=>n.key==='account:burn')).toBe(true);
   });
   it("does not let optional diagnostic failure or billing unavailability invalidate covered core costs",()=>{
     const s=emptyState();evaluate(s,{...frame(1,200,{usd:2}),costComplete:true,errors:["Billing unavailable"],diagnostics:["SQL unavailable"]},base+WINDOW_MS);
@@ -279,7 +278,7 @@ describe("bounded Cloudflare incident policy",()=>{
     run(s,2,200,{usd:0.001});expect(s.metrics['account:burn'].severity).toBe(2);
     run(s,3,200,{usd:0.001});
     expect(s.metrics['account:burn'].burnWindows).toEqual([[base+2*WINDOW_MS,0.001],[base+3*WINDOW_MS,0.001]]);
-    expect(s.outbox).toHaveLength(1);expect(s.outbox[0]).toMatchObject({key:"account:burn",kind:"recovery"});
+    expect(s.outbox).toEqual([]);expect(s.recovered?.[0].key).toBe("account:burn");
   });
   it("respects a configured partial-cost threshold and never fills absent history with zero",()=>{
     const s=emptyState(),f={...frame(1,200,{usd:3}),costComplete:false,errors:["Workers unavailable"]};
@@ -354,7 +353,7 @@ describe("bounded Cloudflare incident policy",()=>{
   });
   it("expires metric state, pending notices and delivery receipts",()=>{
     const s=emptyState();worker(s,1,8);ack(s,1);expect(s.recentDelivery).toHaveLength(1);
-    worker(s,73,8);expect(s.outbox).toHaveLength(1);compact(s,base+73*WINDOW_MS+STATE_TTL_MS+1);
+    worker(s,289,8);expect(s.outbox).toHaveLength(1);compact(s,base+289*WINDOW_MS+STATE_TTL_MS+1);
     expect(Object.keys(s.metrics)).toHaveLength(0);expect(s.outbox).toHaveLength(0);expect(s.recentDelivery).toHaveLength(0);
   });
   it("migrates 64 old SQL notices so a user-facing Worker incident can use the queue",()=>{
@@ -385,4 +384,18 @@ describe("bounded Cloudflare incident policy",()=>{
     expect(s.metrics['Workers:busy-0:cpu']).toBeUndefined();expect(s.metrics['D1:core:read'].severity).toBe(2);
     expect(Object.keys(s.metrics)).toHaveLength(MAX_METRICS);
   });
+});
+
+it("uses P0 two-hour, daily-billing 24-hour, P1 six-hour and P2 24-hour reminders",()=>{
+ expect(reminderInterval("account:burn",1)).toBe(2*3600_000);
+ expect(reminderInterval("Billing:account:daily",1)).toBe(24*3600_000);
+ expect(reminderInterval("Service:scan:errors",2)).toBe(6*3600_000);
+ expect(reminderInterval("Service:roast:slow",1)).toBe(24*3600_000);
+});
+
+it("retains P2 cooldown across recovery and reopen while preserving the new active state",()=>{
+ const s=emptyState();worker(s,1,8);ack(s,1);worker(s,2);worker(s,3);
+ worker(s,4,8);expect(s.metrics['Workers:bot:errors'].severity).toBe(2);expect(s.outbox).toEqual([]);
+ expect(s.recovered).toHaveLength(1);
+ worker(s,289,8);expect(s.outbox).toHaveLength(1);
 });

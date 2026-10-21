@@ -35,7 +35,7 @@ describe("critical business telemetry",()=>{
     expect(s.metrics["Service:card:errors"].severity).toBe(0);
   });
   it("treats an HTTP 200 HTML challenge on a card URL as unavailable",async()=>{
-    const points=await probe(Date.now(),async()=>new Response("challenge",{headers:{"content-type":"text/html"}}));
+    const points=await probe(Date.now(),async()=>new Response("challenge",{headers:{"content-type":"text/html"}}),"fixture-user");
     expect(points.find(p=>p.resource.includes("炫耀大卡"))?.amount).toBe(1);
   });
   it("suppresses the reported tiny DO relative spike but retains material billing spikes",()=>{
@@ -77,4 +77,9 @@ it("requires a 20% scan failure rate and at least 3 failures before paging",()=>
   expect(s.outbox).toEqual([]);
   evaluate(s,{at:at+2*WINDOW_MS,points:businessPoints([{at,feature:"scan",total:10,failed:3,slow:0}]),healthy:[],errors:[]},at+2*WINDOW_MS);
   expect(s.outbox[0]).toMatchObject({severity:2,key:"Service:scan:errors"});
+});
+
+it("skips account probes when unconfigured and never requests an account URL",async()=>{
+ const urls:string[]=[];const points=await probe(Date.now(),async url=>{urls.push(String(url));return new Response("ok",{headers:{"content-type":"text/html"}});});
+ expect(urls).toEqual(["https://ghfind.com/"]);expect(points).toHaveLength(1);
 });

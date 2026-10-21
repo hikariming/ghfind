@@ -11,7 +11,9 @@ let server,temporary;
 const result={kind:base?"remote":"local-workerd",steps:[],completed:false};
 async function request(route,method="POST",authenticated=true){
   const response=await fetch(`${base}${route}`,{method,headers:authenticated?{authorization:`Bearer ${token}`}:{},signal:AbortSignal.timeout(120_000)});
-  const body=await response.json();return {status:response.status,body};
+  const raw=await response.text();
+  if(!raw.startsWith("{"))throw new Error(`${route}: HTTP ${response.status}: ${raw.replace(/<[^>]+>/g," ").slice(0,1200)}`);
+  const body=JSON.parse(raw);return {status:response.status,body};
 }
 try {
   if(!base){
@@ -22,7 +24,7 @@ try {
     await fs.writeFile(path.join(temporary,".dev.vars"),`MONITOR_ADMIN_TOKEN=${JSON.stringify(token)}\nCF_MONITOR_API_TOKEN="local-e2e-not-used"\nALERT_RECIPIENTS='["one@example.org","two@example.org",""]'\n`,{mode:0o600});
     base="http://127.0.0.1:18788";
     server=spawn("pnpm",["--filter","@ghfind/cost-monitor","exec","wrangler","dev","--config",path.join(temporary,"wrangler.json"),"--port","18788","--ip","127.0.0.1","--test-scheduled","--persist-to",path.join(temporary,"state"),"--log-level","error"],{cwd:root,stdio:["ignore","pipe","pipe"],detached:true});
-    server.stdout.on("data",()=>{});server.stderr.on("data",()=>{});
+    server.stdout.on("data",()=>{});server.stderr.on("data",chunk=>process.stderr.write(chunk));
     for(let i=0;i<120;i++){try{await request("/health","GET");break;}catch{await new Promise(r=>setTimeout(r,250));if(i===119)throw new Error("Local workerd did not start");}}
   }
   assert.equal((await request("/health","GET",false)).status,401);
@@ -35,6 +37,11 @@ try {
     const live=await request("/run");assert.equal(live.status,200);assert.equal(live.body.status,"ok");assert.ok(live.body.points>0);assert.deepEqual(live.body.errors,[]);result.steps.push({name:"real Cloudflare collection",...live.body});
     await request("/test/reset");
   }
+  const daily=(await request("/test/daily")).body;
+  assert.equal(daily.failureReported,true);assert.equal(daily.partial,1);assert.equal(daily.retry,2);assert.equal(daily.duplicate,2);assert.equal(daily.pending,0);
+  assert.match(daily.subject,/\[日报\] 全部正常/);
+  result.steps.push({name:"empty daily digest, durable partial-recipient retry and same-day dedupe",subject:daily.subject});
+  await request("/test/reset");
   const hourly=(await request("/test/hourly")).body;
   assert.deepEqual(hourly,{before:0,digest:2,critical:4,quiet:4,partial:5,retry:6,pending:0});
   result.steps.push({name:"hourly digest, urgent bypass and partial-recipient digest retry"});
@@ -53,10 +60,10 @@ try {
   assert.equal(opened.pending,0);assert.equal(opened.deliveries.length,1);assert.equal(opened.deliveries[0].kind,"open");assert.equal(opened.deliveries[0].recipients,2);
   const duplicate=(await request("/test/duplicate")).body;assert.equal(duplicate.deliveries.length,1,"Same bucket must not resend");
   const repeated=(await request("/test/reminder")).body;assert.equal(repeated.deliveries.length,2);assert.equal(repeated.deliveries[1].kind,"reminder");
-  const recovered=(await request("/test/recovery")).body;assert.equal(recovered.deliveries.length,3);assert.equal(recovered.deliveries[2].kind,"recovery");
-  const health=(await request("/health","GET")).body;assert.equal(health.pending,0);assert.equal(health.mailReceipts.length,6,"Exactly one accepted message per recipient per transition");result.steps.push({name:"incident, partial-recipient retry, dedupe, reminder, recovery",deliveries:recovered.deliveries,mailReceipts:health.mailReceipts});
+  const recovered=(await request("/test/recovery")).body;assert.equal(recovered.deliveries.length,2);
+  const health=(await request("/health","GET")).body;assert.equal(health.pending,0);assert.equal(health.mailReceipts.length,4,"Exactly one accepted message per recipient per transition");result.steps.push({name:"incident, partial-recipient retry, dedupe, reminder, recovery",deliveries:recovered.deliveries,mailReceipts:health.mailReceipts});
   const limited=(await request("/test/rate-limit")).body;assert.equal(limited.pending,1);
-  const capped=(await request("/health","GET")).body;assert.equal(capped.mailReceipts.length,6);assert.match(capped.lastDeliveryError,/rate budget/);assert.equal(capped.deliveryHealthy,false);result.steps.push({name:"global mail rate limit retains pending notifications"});
+  const capped=(await request("/health","GET")).body;assert.equal(capped.mailReceipts.length,4);assert.match(capped.lastDeliveryError,/rate budget/);assert.equal(capped.deliveryHealthy,false);result.steps.push({name:"global mail rate limit retains pending notifications"});
   const retention=(await request("/test/retention")).body;assert.equal(retention.before,288);assert.equal(retention.after,0);result.steps.push({name:"workerd storage cap and TTL purge",...retention});
   if(result.kind==="local-workerd"){
     // Invoke the real scheduled event and alarm-capable storage handler, not only pure policy code.

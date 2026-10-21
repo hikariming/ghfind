@@ -35,20 +35,24 @@ included in mail. Recipient addresses remain private configuration.
 
 ## Notification timing
 
-| Event | First notification | Unchanged reminder |
+| Priority | Signal | Delivery / reminder |
 | --- | --- | --- |
-| Severe key-feature failure, account consumption or reported daily cost | Next evaluation, bypassing digest wait | 6 hours for fast telemetry; 24 hours for reported daily cost |
-| Other runtime failure, slow feature or account-cost warning | Next hourly digest after confirmation | 6 hours; 24 hours for reported daily cost |
-| Collection gap or resource-efficiency diagnostic | No customer email; authenticated health/logs | None |
-| Monitor stopped or email sending failed | Hourly Actions check; optional separate ops recipients | 12 hours per ops recipient |
+| P0 · 计费 | Account burn or reported daily cost, warning or critical | Immediate; 2h burn / 24h bill |
+| P1 · feature / availability | Critical service errors; two consecutive failed probes | Immediate; 6h |
+| P2 · feature / Worker | Slow responses, warning errors, Worker errors, one failed probe | Hourly; 24h reminder per key |
+| P3 · 监控 / 部署 | Delivery trouble; latest main deployment failure | Operations channel |
+| Information | Recovered incidents | Daily footer only |
 
-Escalation can notify sooner. Ordinary incidents that recover before their digest
-are withdrawn. Recovery needs two valid normal observations; missing source data
-is not recovery. Key-feature checks also require actual traffic or a new probe;
-a successfully collected Worker with no invocation errors can recover. Key-feature
-and collection recovery are silent. Other
-previously delivered incidents can appear as recovered in the next digest. Stale
-open/reminder messages are removed on confirmed recovery, including partial sends.
+Subjects include priority, category, observed value and threshold. Billing leads
+mixed incidents. Recovery never counts toward the active-item count. Each message
+starts with problem, UTC+8 start time and duration, and impact. Legacy notices are
+parsed into compact fields rather than copied verbatim.
+
+At 09:00 UTC+8 every day, a daily report is sent even with no incidents. It includes
+active issues, recoveries from the past 24 hours, observed consumption and coverage,
+the latest reported bill, and heartbeat. Persisted per-recipient receipts retry a
+missed daily send without duplicating successful recipients or the hourly digest.
+Missing observations remain unknown; they never establish recovery.
 
 A collection gap is one persisted diagnostic incident even if its reason changes;
 two distinct complete windows close it. Upgrades discard old collection/efficiency
@@ -188,7 +192,7 @@ independent delivery.
 ## Private configuration and rollout
 
 Use Wrangler secret input or a private bulk file for `CF_MONITOR_API_TOKEN`,
-`MONITOR_ADMIN_TOKEN` and `ALERT_RECIPIENTS`. The recipient JSON list supports empty
+`MONITOR_ADMIN_TOKEN`, `PROBE_GITHUB_LOGIN` and `ALERT_RECIPIENTS`. The recipient JSON list supports empty
 placeholders, for example `["owner@example.org", ""]`, with up to twenty addresses.
 Never commit real recipients, credentials or private incident evidence.
 
@@ -197,7 +201,7 @@ and Email Sending Edit for the external watchdog. Native Worker mail uses the
 `EMAIL` binding and an already-onboarded sender domain.
 
 GitHub uses `CF_MONITOR_API_TOKEN`, `COST_MONITOR_ADMIN_TOKEN` and
-`COST_MONITOR_RECIPIENTS` secrets plus the `COST_MONITOR_URL` variable. Optional
+`COST_MONITOR_RECIPIENTS` and `COST_MONITOR_PROBE_GITHUB_LOGIN` secrets plus the `COST_MONITOR_URL` variable. Optional
 `COST_MONITOR_OPS_RECIPIENTS` is an independent JSON address list for the watchdog;
 absent, blank or `[]` disables only its email path, not health checks. The workflow
 provides `WATCHDOG_STATE_FILE`. Production requires successful main CI and source
@@ -225,3 +229,17 @@ Design references: [Alertmanager grouping and inhibition](https://prometheus.io/
 [D1 metric definitions](https://developers.cloudflare.com/d1/observability/metrics-analytics/).
 The windowing technique informs this policy; USD thresholds do not implement
 Google's SLO error-budget formula.
+
+The probe account is private environment configuration. If absent or invalid, the
+homepage probe continues, account-card probes are skipped, and authenticated health
+reports the skipped configuration. Never put a real account login in fixtures.
+
+Superseded deployments exit successfully before mutations. The remote CI verifier
+returns a `superseded` result; only the production authorization caller opts into
+successful skip handling. Other callers fail closed. The watchdog records unhealthy
+state with an Actions notice, avoiding an additional hourly workflow-failure email.
+
+For an explicitly authorized live rehearsal, dispatch the cost-monitor workflow
+with `exercise=true`. It verifies production health, deploys the isolated E2E Worker,
+and sends simulated all-clear and P0-warning messages using the private recipients.
+No production state is reset.

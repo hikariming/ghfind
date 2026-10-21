@@ -27,7 +27,7 @@ for (const fragment of ['needs: [deploy]', 'environment: Production',
   'ref: ${{ github.event.workflow_run.head_sha }}', 'persist-credentials: false',
   'RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}',
   'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"',
-  'git ls-remote origin refs/heads/main', 'test "$current_main" = "$RELEASE_SHA"',
+  'git ls-remote origin refs/heads/main', 'if [ "$current_main" != "$RELEASE_SHA" ]; then',
   'pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production',
   'pnpm exec wrangler deploy --env production --tag "production-$RELEASE_SHA"']) {
   if (!botJob.includes(fragment)) throw new Error(`Bot production gate missing ${fragment}`);
@@ -46,7 +46,7 @@ for (const fragment of ["github.repository == 'hikariming/ghfind'", "github.even
 for (const job of [authorization,deployJob]) for (const fragment of ['ref: ${{ github.event.workflow_run.head_sha }}','persist-credentials: false']) {
   if (!job.includes(fragment)) throw new Error(`Exact checkout missing ${fragment}`);
 }
-for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api repos/hikariming/ghfind/git/ref/heads/main', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
+for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
   if (!deployJob.includes(fragment)) throw new Error(`Production job missing ${fragment}`);
 }
 const order = ['Build and push the portable image','Apply and verify explicitly approved','Pause an already active Go gateway','Detach only the owned consumers','Deploy private adapter and off-mode','Install a compatible paused gateway','Activate executor and verify actual baseline','Verify completed assessment and current durable projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
@@ -64,7 +64,7 @@ if (offRollout < offStep.indexOf('wrangler deploy --config platform/runtime/wran
 if (offTransition < offStep.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json') ||
     offTransition < 0 || offTransition >= offStep.indexOf('node scripts/feed-platform-production.mjs verify') ||
     !offStep.includes('consumer-pause.json" "$RUNNER_TEMP/feed-production-evidence/off-transition.json"') ||
-    /continue-on-error|if:|\|\|/.test(offStep))
+    /continue-on-error|if:|\|\|/.test(offStep.replace("        if: steps.current.outputs.current == 'true'\n", "")))
   throw new Error('Off process replacement must follow deployment and consumer detachment, and precede full readiness without bypass');
 const imageStep = /      - name: Build and push the portable image[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 for (const fragment of ['openssl rand -hex 32', '--build-arg IMAGE_BUILD_ID="$FEED_IMAGE_BUILD_ID"',
@@ -162,7 +162,7 @@ const projectionCheckpoint = /      - name: Verify completed assessment and curr
 const checkpointCommand = 'node scripts/feed-production-assessment-checkpoint.mjs "$RELEASE_SHA" ops/feed-production-assessment-checkpoint.json ops/feed-production-assessment-carryover.json';
 if (!sourceCheckpoint.includes(checkpointCommand) || !sourceCheckpoint.includes('assessment-source.json" --source-only') ||
     !projectionCheckpoint.includes(checkpointCommand) || !projectionCheckpoint.includes('assessment-result.json"') || projectionCheckpoint.includes('--source-only') ||
-    /if:|continue-on-error|\|\|/.test(sourceCheckpoint + projectionCheckpoint) ||
+    /if:|continue-on-error|\|\|/.test((sourceCheckpoint + projectionCheckpoint).replaceAll("        if: steps.current.outputs.current == 'true'\n", "")) ||
     deployJob.indexOf('Verify completed assessment source before deployment') >= deployJob.indexOf('Build the real Web') ||
     /assessment-operator\.mjs|assessment\.mjs (start|operator-window|wait)|assessment-recovery\.mjs/.test(deployJob))
   throw new Error('Completed assessment requires unskippable source preflight and live projection verification without provider mutation or expiring history');
@@ -172,3 +172,15 @@ const firstWebDeploy = deployJob.indexOf('wrangler deploy --config platform/runt
 if (cachePreflight < 0 || cachePreflight >= firstWebDeploy ||
     !deployJob.slice(cachePreflight, firstWebDeploy).includes('populateCache remote --config platform/runtime/wrangler.web.production.generated.json'))
   throw new Error('New build cache must be populated before replacing the public Web');
+
+// Every post-guard step must honor a successful superseded skip.
+for(const name of ['deploy-cf-production.yml','cost-monitor.yml','deploy-apps-production.yml']) {
+ const source=readFileSync(resolve('.github/workflows',name),'utf8');
+ for(const body of source.split(/^  [a-z][a-z0-9-]*:\n/m).slice(1)) {
+  const steps=body.split(/^      - /m);let guarded=false;
+  for(const step of steps){
+   if(step.includes('id: current')){guarded=true;continue;}
+   if(guarded&&!step.includes("if: steps.current.outputs.current == 'true'"))throw new Error(`${name}: unguarded post-authorization step`);
+  }
+ }
+}

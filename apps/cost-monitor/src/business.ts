@@ -61,8 +61,11 @@ export function businessPoints(rows:BusinessCount[]):Point[]{
     {key:`Service:${r.feature}:slow`,product:"Service" as const,resource:names[r.feature],label:"响应超过 30 秒",amount:r.slow,operations:r.total,unit:"次慢响应",usd:0,gauge:true,relative:false,minAmount:2,minOperations:1,efficiency:r.slow/r.total,efficiencyWarning:0.2,denominator:"已观测功能调用"},
   ]);
 }
-export async function probe(now:number,fetcher=fetch):Promise<Point[]>{
-  const targets=[{name:"首页公开访问",url:"https://ghfind.com/",type:"text/html"},{name:"README 炫耀大卡公开访问",url:"https://ghfind.com/api/card/torvalds",type:"image/png"},{name:"README 迷你卡公开访问",url:"https://ghfind.com/api/card/mini/torvalds",type:"image/svg+xml"}];
+export async function probe(now:number,fetcher=fetch,login?:string):Promise<Point[]>{
+  const targets=[{name:"首页公开访问",url:"https://ghfind.com/",type:"text/html"}];
+  if(login&&/^[a-zA-Z0-9-]{1,39}$/.test(login))targets.push(
+    {name:"README 炫耀大卡公开访问",url:`https://ghfind.com/api/card/${encodeURIComponent(login)}`,type:"image/png"},
+    {name:"README 迷你卡公开访问",url:`https://ghfind.com/api/card/mini/${encodeURIComponent(login)}`,type:"image/svg+xml"});
   return Promise.all(targets.map(async t=>{
     let failed=0;
     try{const response=await fetcher(t.url,{signal:AbortSignal.timeout(15_000),redirect:"follow"});

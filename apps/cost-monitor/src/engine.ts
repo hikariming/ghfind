@@ -1,4 +1,5 @@
 // Bounded, aggregated telemetry only: no user IDs, SQL text, parameters or bodies.
+import { classify } from "./classify";
 import { userFacing } from "./mail-policy";
 export const WINDOW_MS = 5 * 60_000;
 export const HISTORY_TTL_MS = 24 * 60 * 60_000;
@@ -11,7 +12,7 @@ export const MAX_NOTICES = 64;
 export const MAX_DIAGNOSTIC_METRICS = 96;
 export const MAX_WINDOW_BYTES = 48 * 1024;
 export const REMINDER_MS = 6 * 60 * 60_000;
-export function reminderInterval(key: string): number { return key.startsWith("Billing:") ? HISTORY_TTL_MS : REMINDER_MS; }
+export function reminderInterval(key: string, severity=2): number { return key.startsWith("Billing:") ? HISTORY_TTL_MS : classify({key,severity}).priority===0 ? 2*3600_000 : classify({key,severity}).priority===1 ? REMINDER_MS : HISTORY_TTL_MS; }
 export type Product = "D1" | "Workers" | "R2" | "KV" | "DO" | "Queues" | "Billing" | "Monitor" | "Service";
 export interface Point {
   key: string;
@@ -54,6 +55,7 @@ export interface MetricState {
   severity: number;
   notifiedSeverity: number;
   lastNotified: number;
+  lastP2Notified?: number;
   lastSeen: number;
   expiresAt: number;
   incident: number;
@@ -62,10 +64,11 @@ export interface MetricState {
   // Account-only closed 5-minute cost buckets. Never fill missing windows with zero.
   burnWindows?: [at: number, usd: number][];
   // Keep the last evidence that actually confirmed the incident's latched level.
+  evidence?: NoticeEvidence;
   trigger?: { at: number; severity: number; basis: "absolute" | "relative" | "burn" | "billing"; condition: string; observed: string };
 }
-export interface NoticeEvidence { resource: string; metric: string; value: string; threshold?: string; window: string; action: string; impact?: string; cost?: string }
-export interface Notice { id: string; key: string; kind: "open" | "reminder" | "escalation" | "recovery"; severity: number; text: string; evidence?: NoticeEvidence; delivered: string[]; attempts: number; expiresAt: number }
+export interface NoticeEvidence { startedAt?: number; resource: string; metric: string; value: string; threshold?: string; window: string; action: string; impact?: string; cost?: string }
+export interface Notice { startedAt?: number; id: string; key: string; kind: "open" | "reminder" | "escalation" | "recovery"; severity: number; text: string; evidence?: NoticeEvidence; delivered: string[]; attempts: number; expiresAt: number }
 export interface State {
   lastFrame: number;
   lastSuccess: number;
@@ -77,6 +80,11 @@ export interface State {
   mailReceipts: { at: number; messageId: string }[];
   mailBudget: { hour: number; hourly: number; day: number; daily: number };
   lastError: string | null;
+  nextDaily?: number;
+  dailyRecipients?: string[];
+  recovered?: {at:number; key:string; startedAt:number; evidence?:NoticeEvidence}[];
+  consumption?: [number,number][];
+  latestBill?: {at:number; value:number; date:string};
   nextDigest?: number;
   digestRecipients?: string[];
   collection?: import("./collection-health").CollectionHealthState;
@@ -142,6 +150,8 @@ export function compact(state: State, now: number): void {
   // Purge legacy operational mail before it can occupy the customer queue.
   state.outbox = state.outbox.filter(userFacing);
   for (const [key, value] of Object.entries(state.metrics)) if (value.expiresAt <= now) delete state.metrics[key];
+  state.recovered=(state.recovered??[]).filter(n=>n.at>now-HISTORY_TTL_MS).slice(-64);
+  state.consumption=(state.consumption??[]).filter(([at])=>at>now-HISTORY_TTL_MS).slice(-MAX_WINDOWS);
   // Migrate an old fingerprint-heavy state without letting optional query
   // diagnostics consume every slot needed by core usage and service incidents.
   const diagnostics = Object.entries(state.metrics).filter(([, m]) => m.diagnostic).sort((a, b) => b[1].lastSeen - a[1].lastSeen);
@@ -181,6 +191,9 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
   const priced = frame.points.filter(p => !p.diagnostic && p.product !== "Billing");
   const completeCost = (frame.costComplete ?? !frame.errors.length) && ["D1", "Workers", "R2", "KV", "DO", "Queues"].every(p => frame.healthy.includes(p as Product));
   const knownCost = priced.reduce((sum, point) => sum + point.usd, 0);
+  if(completeCost)state.consumption=[...(state.consumption??[]).filter(([at])=>at!==frame.at),[frame.at,knownCost] as [number,number]].slice(-MAX_WINDOWS);
+  const bill=frame.points.find(p=>p.key==="Billing:account:daily");
+  if(bill)state.latestBill={at:frame.at,value:bill.amount,date:bill.resource};
   // Missing sources cannot establish a safe total, but already observed cost
   // above the single-window limit is sufficient positive evidence of a spike.
   if (completeCost || knownCost >= rules.hourlyCritical) points.push({ key: "account:burn", product: "Monitor", resource: "account", label: "已覆盖产品的用量消耗速度（不含外部 LLM 等费用）", amount: knownCost*12, operations: 1, unit: "USD/hour", usd: knownCost, costLowerBound: completeCost ? undefined : true });
@@ -233,12 +246,14 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
     }
     const trigger = triggerFor(p, m, frame.at, rules);
     let level = trigger?.severity ?? 0;
+    const previousSeverity=m.severity;
+    if(p.key.startsWith("Service:probe-")&&level>0&&m.bad>=1){level=2;if(trigger){trigger.severity=2;trigger.condition="连续两次公开检查失败";}}
     const confirmedWindow = p.key === "account:burn" && level > 0;
     // Incomplete history cannot establish recovery while current usage is high.
     if (p.key === "account:burn" && !level && value >= rules.hourlyWarning && burnRate(m, frame.at, 12) === undefined) level = -1;
     if (level > 0) {
       m.bad++; m.good = 0;
-      if ((level === 2 && !p.diagnostic) || m.bad >= 2 || p.product === "Billing" || confirmedWindow) {
+      if (p.key.startsWith("Service:probe-") || (level === 2 && !p.diagnostic) || m.bad >= 2 || p.product === "Billing" || confirmedWindow) {
         if (!m.severity) m.incident = frame.at;
         if (trigger && level >= m.severity) m.trigger = trigger;
         m.severity = Math.max(m.severity, level);
@@ -257,9 +272,11 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
     m.lastSeen = frame.at; m.expiresAt = now + STATE_TTL_MS;
     // Recovery invalidates every queued fault, including a partially delivered
     // open/reminder/escalation. Do not send the remaining recipients stale faults.
-    // If nobody completed the notification cycle, close silently; otherwise a
-    // current recovery replaces the fault in the next digest.
+    // Recovery history is retained for the daily report only.
     if (!m.severity) {
+      if(previousSeverity&&userFacing(p)) {
+        state.recovered??=[];state.recovered.push({at:now,key:p.key,startedAt:m.incident,evidence:m.evidence??state.outbox.find(n=>n.key===p.key)?.evidence});
+      }
       delete m.trigger;
       state.outbox=state.outbox.filter(n=>n.key!==p.key || n.kind==="recovery");
       if (p.product === "Service") {
@@ -268,6 +285,7 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
         state.outbox = state.outbox.filter(n => n.key !== p.key);
       }
     }
+    if(userFacing(p)&&m.severity)m.evidence=describeEvidence(p,m,frame.at,rules);
     // Keep diagnosis and baseline state, but reserve all mail capacity for
     // observed business/runtime failures and account-level spend signals.
     if (!userFacing(p)) continue;
@@ -281,25 +299,27 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
       waiting.evidence = describeEvidence(p, m, frame.at, rules);
     }
     let kind: Notice["kind"] | undefined;
-    if (!m.severity && m.notifiedSeverity) kind = "recovery";
+    if (!m.severity) {m.notifiedSeverity=0;continue;}
     else if (m.severity && !m.notifiedSeverity) kind = "open";
     else if (m.severity > m.notifiedSeverity) kind = "escalation";
-    else if (m.severity && now - m.lastNotified >= reminderInterval(p.key)) kind = "reminder";
+    else if (m.severity && now - m.lastNotified >= reminderInterval(p.key,m.severity)) kind = "reminder";
+    if(kind&&kind!=="escalation"&&classify({key:p.key,severity:m.severity}).priority===2&&m.lastP2Notified&&now-m.lastP2Notified<HISTORY_TTL_MS)kind=undefined;
     if (kind && !state.outbox.some(n => n.key === p.key)) {
       if (state.outbox.length >= MAX_NOTICES) throw new Error("Notification outbox limit exceeded");
-      state.outbox.push({ id: `${p.key}:${m.incident}:${kind}:${Math.floor(now/reminderInterval(p.key))}`, key: p.key, kind, severity: m.severity,
+      state.outbox.push({ startedAt:m.incident, id: `${p.key}:${m.incident}:${kind}:${Math.floor(now/reminderInterval(p.key,m.severity))}`, key: p.key, kind, severity: m.severity,
         text: describeNotice(p, m, frame.at, ratio),
         evidence: describeEvidence(p, m, frame.at, rules),
         delivered: [], attempts: 0, expiresAt: now + STATE_TTL_MS });
     }
   }
+  for(const notice of state.outbox)if(state.metrics[notice.key])delete state.metrics[notice.key].evidence;
   state.lastFrame = frame.at;
   if (frame.costComplete !== false && ["D1", "Workers", "R2", "KV", "DO", "Queues"].every(p => frame.healthy.includes(p as Product)) && !frame.errors.length) state.lastSuccess = now;
   state.lastError = frame.errors.length ? frame.errors.join("; ").slice(0,500) : null;
 }
 export function acknowledge(state: State, notice: Notice, now: number): void {
   const m = state.metrics[notice.key];
-  if (m) { m.notifiedSeverity = notice.severity; m.lastNotified = now; }
+  if (m) { m.notifiedSeverity = notice.severity; m.lastNotified = now; m.evidence=notice.evidence;if(classify(notice).priority===2)m.lastP2Notified=now; }
   state.outbox = state.outbox.filter(n => n.id !== notice.id);
   state.recentDelivery.push({ at: now, id: notice.id, kind: notice.kind, recipients: notice.delivered.length });
   compact(state, now);
@@ -338,11 +358,17 @@ export function describeEvidence(p: Point, m: MetricState, at: number, rules = D
   const resource = RESOURCE_NAMES[p.resource] ?? p.resource;
   const time = (n: number) => new Date(n + 8 * 3600_000).toISOString().slice(5, 16).replace("T", " ");
   const e: NoticeEvidence = {
-    resource, metric: p.label, value: observation(p),
+    startedAt:m.incident, resource, metric: p.label, value: observation(p),
     window: p.observedAt ? `${time(p.observedAt)} 北京时间` : `${time(at)}–${time(at + WINDOW_MS)} 北京时间`,
     action: p.product === "Service" ? "检查该功能部署、上游服务及失败请求日志。" : p.product === "D1" ? "检查查询计划、索引与重复查询。" : p.product === "Workers" ? "检查错误日志、CPU 耗时与最近部署。" : "检查流量变化、重试与重复操作。",
   };
-  if (failureSignal(p)) e.impact = availabilityImpact(p);
+  if (failureSignal(p)) {
+    e.impact = availabilityImpact(p);
+    if(p.key.endsWith(":slow")&&p.operations>0&&p.efficiencyWarning!==undefined){
+      const excess=(p.amount/p.operations-p.efficiencyWarning)*100;
+      e.impact=`${percentage(p.amount/p.operations)} 请求超过 30 秒；${excess>=0?`高出阈值 ${excess.toFixed(1)} 个百分点`:"当前低于阈值，等待恢复确认"}。 ${e.impact??""}`;
+    }
+  }
   else if (p.product === "Billing") {
     e.window = `${p.resource} 已上报日账单`;
     e.cost = `已上报 $${p.amount.toFixed(2)}；账单可能调整。`;
@@ -355,6 +381,7 @@ export function describeEvidence(p: Point, m: MetricState, at: number, rules = D
     e.action = "核对各产品用量及 Cloudflare 已上报账单，排查流量或操作突增。";
   } else e.cost = `本 5 分钟 ${money(p.usd)}，按套餐外单价估算；未扣套餐额度。`;
   const current = triggerFor(p, m, at, rules);
+  if(current&&p.key.startsWith("Service:probe-")&&m.bad>=2){current.severity=2;current.condition="连续两次公开检查失败";}
   if (current?.basis === "relative") e.value += `；${current.observed}`;
   if (!m.severity) e.threshold = "已连续两个有效窗口恢复正常";
   else if (current && current.severity >= m.severity) e.threshold = current.condition;

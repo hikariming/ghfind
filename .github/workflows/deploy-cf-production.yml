@@ -17,6 +17,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   authorize:
+    outputs:
+      current: ${{ steps.authorization.outputs.current }}
     name: Require exact main CI and complete dual-profile E2E
     if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
     runs-on: ubuntu-latest
@@ -30,15 +32,28 @@ jobs:
         with:
           node-version: 22
       - name: Verify actual checkout, CI receipts and existing release protections
+        id: authorization
         env:
+          ALLOW_SUPERSEDED_SKIP: "1"
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+            echo "::notice::superseded"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           node scripts/feed-ci-evidence.mjs verify-ci-remote "$RELEASE_SHA" "$RUNNER_TEMP/feed-ci-evidence.json"
+          if [ "$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1])).status || ''" "$RUNNER_TEMP/feed-ci-evidence.json")" = superseded ]; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
           node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-github-protection.json"
       - uses: actions/upload-artifact@v4
+        if: steps.authorization.outputs.current == 'true'
         with:
           name: feed-production-authorization-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -48,6 +63,7 @@ jobs:
   deploy:
     name: Deploy verified Go Feed and cut over the production gateway
     needs: [authorize]
+    if: needs.authorize.outputs.current == 'true'
     environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -84,19 +100,27 @@ jobs:
         with:
           node-version: 22
       - name: Reject a superseded release before any mutation
+        id: current
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$(gh api repos/hikariming/ghfind/git/ref/heads/main --jq .object.sha)" = "$RELEASE_SHA"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+            echo "::notice::superseded"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
           test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
       - name: Install locked dependencies
+        if: steps.current.outputs.current == 'true'
         run: |
           pnpm install --frozen-lockfile
           npm ci --prefix platform/runtime
           pnpm -C platform/feed install --frozen-lockfile
       - name: Validate pinned production manifest and role credentials
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           mkdir "$RUNNER_TEMP/feed-production-evidence"
@@ -107,12 +131,15 @@ jobs:
       # validate authoritative D1 state, not expiring Actions artifacts. This
       # path has no provider start/retry capability and never resets its budgets.
       - name: Verify completed assessment source before deployment
+        if: steps.current.outputs.current == 'true'
         run: |
           node scripts/feed-production-assessment-checkpoint.mjs "$RELEASE_SHA" ops/feed-production-assessment-checkpoint.json ops/feed-production-assessment-carryover.json "$RUNNER_TEMP/feed-production-evidence/assessment-source.json" --source-only
       - name: Build the real Web without runtime secrets or local dotenv files
+        if: steps.current.outputs.current == 'true'
         timeout-minutes: 15
         run: node scripts/feed-production-release.mjs build
       - name: Build and push the portable image before touching active services
+        if: steps.current.outputs.current == 'true'
         id: image
         run: |
           set -euo pipefail
@@ -127,12 +154,14 @@ jobs:
           node scripts/feed-image-proof.mjs "$image_ref" "$RUNNER_TEMP/feed-production-evidence"
           echo "reference=$image_ref" >> "$GITHUB_OUTPUT"
       - name: Ensure the pinned resources and record their actual identities
+        if: steps.current.outputs.current == 'true'
         id: resources
         run: |
           set -euo pipefail
           node scripts/feed-production-release.mjs resources ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/resources.json"
           echo "backend=$(jq -er .existingBackend "$RUNNER_TEMP/feed-production-evidence/resources.json")" >> "$GITHUB_OUTPUT"
       - name: Apply and verify explicitly approved production D1 migrations
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           release_config="$(node scripts/feed-production-release.mjs schema "$RUNNER_TEMP/approved-feed-production-schema")"
@@ -140,18 +169,21 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler d1 migrations apply ghfind-feed --remote --config "$release_config"
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$release_config" --json --command "SELECT * FROM feed_runtime_control; SELECT * FROM feed_schema_compatibility; SELECT name FROM d1_migrations ORDER BY id;" > "$RUNNER_TEMP/feed-production-evidence/schema.json"
       - name: Populate new build cache before replacing the public Web
+        if: steps.current.outputs.current == 'true'
         run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
       - name: Pause an already active Go gateway before replacing its runtime
-        if: ${{ steps.resources.outputs.backend == 'go' }}
+        if: steps.current.outputs.current == 'true' && (steps.resources.outputs.backend == 'go')
         run: |
           set -euo pipefail
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Pause Go writes for compatible runtime update"
           node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-update-paused.json"
           sleep 35
       - name: Detach only the owned consumers before installing off-mode runtime
+        if: steps.current.outputs.current == 'true'
         run: |
           node scripts/feed-platform-production.mjs disable-consumers ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/consumer-pause.json"
       - name: Deploy private adapter and off-mode candidate by immutable digest
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" off
@@ -165,6 +197,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 240s node scripts/feed-production-off-transition.mjs ops/feed-production-manifest.json "${{ steps.image.outputs.reference }}" "$RUNNER_TEMP/feed-production-evidence/consumer-pause.json" "$RUNNER_TEMP/feed-production-evidence/off-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" off "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-off.json"
       - name: Install a compatible paused gateway before any new Go writer
+        if: steps.current.outputs.current == 'true'
         id: paused
         run: |
           set -euo pipefail
@@ -177,6 +210,7 @@ jobs:
           platform/runtime/node_modules/.bin/wrangler d1 execute ghfind-feed --remote --config "$RUNNER_TEMP/approved-feed-production-schema/wrangler.json" --command "SELECT enabled FROM feed_adapter_write_fence WHERE id=1; SELECT COUNT(*) AS leaked_contexts FROM feed_adapter_write_context; SELECT COUNT(*) AS legacy_triggers FROM sqlite_master WHERE type='trigger' AND (name LIKE 'feed_%_adapter_insert' OR name LIKE 'feed_%_adapter_update' OR name LIKE 'feed_%_adapter_delete');" --json > "$RUNNER_TEMP/feed-production-evidence/writer-fence.json"
           jq -e '.[0].results[0].enabled == 1 and .[1].results[0].leaked_contexts == 0 and .[2].results[0].legacy_triggers == 39' "$RUNNER_TEMP/feed-production-evidence/writer-fence.json" >/dev/null
       - name: Activate executor and verify actual baseline instances before gateway traffic
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-off.json"
@@ -187,16 +221,20 @@ jobs:
           timeout --signal=TERM --kill-after=5s 420s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
           node scripts/feed-platform-production.mjs verify ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-baseline.json" "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
       - name: Verify completed assessment and current durable projection
+        if: steps.current.outputs.current == 'true'
         run: |
           node scripts/feed-production-assessment-checkpoint.mjs "$RELEASE_SHA" ops/feed-production-assessment-checkpoint.json ops/feed-production-assessment-carryover.json "$RUNNER_TEMP/feed-production-evidence/assessment-result.json"
       - name: Verify bounded authenticated Go service contracts before opening the gateway
+        if: steps.current.outputs.current == 'true'
         run: |
           node scripts/feed-production-smoke.mjs --mode all --runtime-mode baseline --release-sha "$RELEASE_SHA" --image "${{ steps.image.outputs.reference }}" --writer-epoch 1 --profile cf_d1_r2 --output "$RUNNER_TEMP/feed-production-evidence/service-smoke.json" --execute
       - name: Record gateway admission intent before starting the cutover
+        if: steps.current.outputs.current == 'true'
         id: admission
         run: |
           echo "started=true" >> "$GITHUB_OUTPUT"
       - name: Cut all Feed requests to the verified Go runtime
+        if: steps.current.outputs.current == 'true'
         id: cutover
         run: |
           set -euo pipefail
@@ -205,6 +243,7 @@ jobs:
           node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" all "$RUNNER_TEMP/feed-production-evidence/web-all.json"
           node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
       - name: Bounded public production smoke
+        if: steps.current.outputs.current == 'true'
         id: smoke
         env:
           SMOKE_BASE_URL: https://ghfind.beiming1201.workers.dev
@@ -214,7 +253,7 @@ jobs:
           SMOKE_FACET_VALUE: TypeScript
         run: pnpm smoke:deployment
       - name: Contain failed cutover using the verified Go-only paused anchor
-        if: ${{ always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success' }}
+        if: steps.current.outputs.current == 'true' && (always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success')
         timeout-minutes: 3
         env:
           PAUSED_ANCHOR: ${{ steps.paused.outputs.version }}
@@ -224,7 +263,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 120s platform/runtime/node_modules/.bin/wrangler rollback "$PAUSED_ANCHOR" --name ghfind --message "Contain failed Go cutover; preserve writer2 data" --yes
           timeout --signal=TERM --kill-after=5s 30s node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/containment.json"
       - name: Preserve nonsecret actual evidence, including failures
-        if: always()
+        if: steps.current.outputs.current == 'true' && (always())
         uses: actions/upload-artifact@v4
         with:
           name: feed-production-${{ github.run_id }}-${{ github.run_attempt }}
@@ -232,7 +271,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - name: Remove temporary plaintext role credentials
-        if: always()
+        if: steps.current.outputs.current == 'true' && (always())
         run: rm -f "$RUNNER_TEMP/feed-web-secrets.json" "$RUNNER_TEMP/feed-runtime-secrets.json" "$RUNNER_TEMP/feed-adapter-secrets.json"
 
   deploy-bot:
@@ -265,12 +304,19 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - name: Require exact current main before production writes
+        id: current
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           current_main=$(git ls-remote origin refs/heads/main | cut -f1)
-          test "$current_main" = "$RELEASE_SHA"
+          if [ "$current_main" != "$RELEASE_SHA" ]; then
+            echo "::notice::superseded"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
       - name: Apply bot migrations then deploy the matching Worker
+        if: steps.current.outputs.current == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584

@@ -48,15 +48,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - name: Reject superseded releases
+        id: current
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$(gh api repos/hikariming/ghfind/git/ref/heads/main --jq .object.sha)" = "$RELEASE_SHA"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+            echo "::notice::superseded"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
           test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
       - run: pnpm install --frozen-lockfile
+        if: steps.current.outputs.current == 'true'
       - name: Apply approved core D1 migrations before deploying readers
+        if: steps.current.outputs.current == 'true'
         # The Astro/API Workers read the core database directly. Keep its
         # indexes available even when the independent Feed release is delayed.
         # Render only hash-approved files; do not apply any Feed migrations.
@@ -68,23 +76,30 @@ jobs:
       # named export before coord binds it, otherwise the first alarms 404 until
       # the later api deploy and can miss the 6-minute background lease.
       - name: Deploy ghfind-api ScanContinueEntrypoint before coord
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-coord
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/coord exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-web
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           CLOUDFLARE_ENV=production pnpm --filter @ghfind/web build
           pnpm --filter @ghfind/web exec wrangler deploy --tag "production-$RELEASE_SHA"
       # Tail consumer must exist before the API producer is deployed.
       - name: Deploy fault and cost monitor before API tail binding
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/cost-monitor exec wrangler deploy --env production --keep-vars --tag "production-$RELEASE_SHA"
       # Hosts the Talent Match Workflow that ghfind-api binds to, so before the API.
       - name: Deploy ghfind-talent
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/talent exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Deploy ghfind-api
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Sync release-managed credentials to ghfind-api
+        if: steps.current.outputs.current == 'true'
         # The legacy release writes these to the Web Worker on every release
         # (feed-production-release.mjs prepare); keep the api Worker identical.
         # Operator-held secrets (AUTH_*, GITHUB_TOKEN, LLM_*) are set once with
@@ -100,8 +115,10 @@ jobs:
           pnpm --filter @ghfind/api exec wrangler secret bulk "$RUNNER_TEMP/api-secrets.json" --env production
           rm -f "$RUNNER_TEMP/api-secrets.json"
       - name: Deploy ghfind-router
+        if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/router exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
       - name: Smoke-test the router on workers.dev
+        if: steps.current.outputs.current == 'true'
         run: |
           set -euo pipefail
           base=https://ghfind-router.beiming1201.workers.dev
