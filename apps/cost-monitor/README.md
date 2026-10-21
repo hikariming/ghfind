@@ -38,7 +38,7 @@ included in mail. Recipient addresses remain private configuration.
 | Priority | Signal | Delivery / reminder |
 | --- | --- | --- |
 | P0 · 计费 | Account burn or reported daily cost, warning or critical | Immediate; 2h burn / 24h bill |
-| P1 · feature / availability | Critical service errors; two consecutive failed probes | Immediate; 6h |
+| P1 · feature / availability / monitor | Critical service errors; two consecutive failed probes; watchdog heartbeat interruption | Immediate; 6h |
 | P2 · feature / Worker | Slow responses, warning errors, Worker errors, one failed probe | Hourly; 24h reminder per key |
 | P3 · 监控 / 部署 | Delivery trouble; latest main deployment failure | Operations channel |
 | Information | Recovered incidents | Daily footer only |

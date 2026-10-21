@@ -48,16 +48,16 @@ test("explicit delivery failure is actionable without declaring a billing oversp
   assert.doesNotMatch(sends[0].text,/Collection failed|Token 权限、数据延迟/);
 });
 
-test("persistent incidents notify at first detection and 12 hours, with no hourly repeats",async()=>{
+test("persistent incidents notify at first detection and six hours, with no hourly repeats",async()=>{
   let state;const sends=[];
-  for(let hour=0;hour<=12;hour++){
+  for(let hour=0;hour<=6;hour++){
     const result=await watchdog(env,scenario({lastAttempt:0},sends),now+hour*3600_000,{state,persist:s=>{state=structuredClone(s);}});
-    assert.equal(result.notified,hour===0||hour===12);
+    assert.equal(result.notified,hour===0||hour===6);
   }
-  assert.equal(sends.length,4);assert.match(sends[2].text,/持续 720 分钟/);
+  assert.equal(sends.length,4);assert.match(sends[2].text,/持续 360 分钟/);
 });
 
-test("one failed recipient retries while accepted recipients keep their 12-hour cooldown",async()=>{
+test("one failed recipient retries while accepted recipients keep their six-hour cooldown",async()=>{
   let state;const snapshots=[];const sends=[];
   const persist=s=>{state=structuredClone(s);snapshots.push(state);};
   const first=await watchdog(env,scenario({lastAttempt:0},sends,"two@example.org"),now,{persist});
@@ -180,4 +180,13 @@ test("CLI records an unhealthy monitor as notice without hourly failure mail", a
     assert.deepEqual(JSON.parse(result.stdout.split("\n")[0]),{healthy:false,notified:false,failed:0,reason:"heartbeat",notificationMode:"actions-only"});
     assert.equal((await readWatchdogState(join(dir,"state.json"))).incident.reason,"heartbeat");
   }finally{await new Promise(resolve=>server.close(resolve));await rm(dir,{recursive:true,force:true});}
+});
+
+test("P3 delivery reminders retain the quieter twelve-hour cadence",async()=>{
+ let state;const sends=[];const persist=s=>{state=structuredClone(s);};
+ await watchdog(env,scenario({...good,deliveryHealthy:false},sends),now,{state,persist});
+ await watchdog(env,scenario({...good,lastAttempt:now+REPEAT_MS,deliveryHealthy:false},sends),now+REPEAT_MS,{state,persist});
+ assert.equal(sends.length,2);
+ await watchdog(env,scenario({...good,lastAttempt:now+2*REPEAT_MS,deliveryHealthy:false},sends),now+2*REPEAT_MS,{state,persist});
+ assert.equal(sends.length,4);
 });

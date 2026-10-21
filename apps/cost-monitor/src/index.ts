@@ -234,6 +234,15 @@ export class CostMonitor extends DurableObject<MonitorEnv> {
         const subject=renderDailyDigest(restored,base+3600_000,{exercise:true}).subject;
         return {partial,retry,duplicate,failureReported,pending:restored.outbox.length,nextDaily:restored.nextDaily,subject};
       }
+      if(phase==="daily-mixed"){
+        const s=emptyState();s.nextDaily=base+3600_000;s.nextDigest=base+90*60_000;
+        s.outbox.push({id:"daily-slow",key:"Service:roast:slow",kind:"open",severity:1,text:"模拟慢响应",delivered:[],attempts:0,expiresAt:base+STATE_TTL_MS});
+        const subject=renderDailyDigest(s,base+3600_000,{exercise:true}).subject;
+        await this.deliver(s,base+3600_000);
+        const accepted=s.mailReceipts.length;
+        await this.deliver(s,base+95*60_000);
+        return {subject,accepted,afterHourly:s.mailReceipts.length,pending:s.outbox.length};
+      }
       if(phase==="hourly"){
         const s=emptyState();s.nextDaily=base+2*86400_000;const notice=(key:string,severity:number)=>({id:key,key,kind:"open" as const,severity,text:"hourly E2E",delivered:[],attempts:0,expiresAt:Date.now()+STATE_TTL_MS});
         s.outbox.push(notice("Service:roast:slow",1));
@@ -363,7 +372,7 @@ export default {
     const path=new URL(request.url).pathname,stub=env.MONITOR.getByName("account");
     if(path==="/health"&&request.method==="GET")return json(await stub.health());
     if(path==="/run"&&request.method==="POST")return json(await stub.tick());
-    if(env.E2E_ENABLED==="1"&&request.method==="POST"&&/^\/test\/(reset|billing|daily|hourly|business|collection|atomic|baseline|breach|partial|duplicate|reminder|recovery|retention|rate-limit)$/.test(path))return json(await stub.exercise(path.split("/").at(-1)!));
+    if(env.E2E_ENABLED==="1"&&request.method==="POST"&&/^\/test\/(reset|billing|daily|daily-mixed|hourly|business|collection|atomic|baseline|breach|partial|duplicate|reminder|recovery|retention|rate-limit)$/.test(path))return json(await stub.exercise(path.split("/").at(-1)!));
     return json({error:"Not found"},404);
   },
 } satisfies ExportedHandler<MonitorEnv>;

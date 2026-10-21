@@ -42,6 +42,11 @@ try {
   assert.match(daily.subject,/\[日报\] 全部正常/);
   result.steps.push({name:"empty daily digest, durable partial-recipient retry and same-day dedupe",subject:daily.subject});
   await request("/test/reset");
+  const mixedDaily=(await request("/test/daily-mixed")).body;
+  assert.equal(mixedDaily.accepted,2);assert.equal(mixedDaily.afterHourly,2);assert.equal(mixedDaily.pending,0);
+  assert.match(mixedDaily.subject,/1 项进行中/);
+  result.steps.push({name:"daily report absorbs pending hourly alerts without duplicate delivery"});
+  await request("/test/reset");
   const hourly=(await request("/test/hourly")).body;
   assert.deepEqual(hourly,{before:0,digest:2,critical:4,quiet:4,partial:5,retry:6,pending:0});
   result.steps.push({name:"hourly digest, urgent bypass and partial-recipient digest retry"});

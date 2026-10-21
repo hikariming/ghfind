@@ -3,7 +3,8 @@ import {mkdir,readFile,rename,stat,writeFile} from "node:fs/promises";
 import {dirname} from "node:path";
 import {pathToFileURL} from "node:url";
 
-export const REPEAT_MS=12*60*60_000;
+export const REPEAT_MS=6*60*60_000;
+const DELIVERY_REPEAT_MS=12*60*60_000;
 const HEARTBEAT_MS=30*60_000;
 const STATE_MAX_BYTES=8192;
 const keyedHash=(env,value)=>createHmac("sha256",env.MONITOR_ADMIN_TOKEN).update(value).digest("hex");
@@ -67,7 +68,7 @@ function message(reason,startedAt,now,e2e){
   const started=new Date(startedAt+8*3600_000).toISOString().replace("T"," ").slice(0,16)+" 北京时间";
   const duration=Math.max(0,Math.floor((now-startedAt)/60_000));
   const intro=e2e?"这是外部心跳告警演练。\n":"";
-  const text=`${intro}${title}\n${impact}\n\n首次检测：${started}（持续 ${duration} 分钟）\n下一步：${action}\n\n同一异常仅首次通知，持续时每 12 小时提醒；恢复后静默。此通知不代表已发生费用超支。`;
+  const text=`${intro}${title}\n${impact}\n\n首次检测：${started}（持续 ${duration} 分钟）\n下一步：${action}\n\n同一异常仅首次通知，持续时每 ${reason==="heartbeat"?6:12} 小时提醒；恢复后静默。此通知不代表已发生费用超支。`;
   const escaped=text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   return {subject:`[ghfind]${e2e?"[模拟]":""}[P${reason==="delivery"?3:1}][监控] ${title}`,text,html:`<div style="max-width:640px;font:15px/1.7 system-ui,sans-serif"><p style="white-space:pre-line">${escaped}</p></div>`};
 }
@@ -97,7 +98,7 @@ export async function watchdog(env,fetcher=fetch,now=Date.now(),options={}){
   if(state.incident?.reason!==reason)state.incident={scope:keyedHash(env,`monitor:${env.COST_MONITOR_URL}`),reason,startedAt:now,notified:{}};
   await persist();
   const notice=message(reason,state.incident.startedAt,now,env.WATCHDOG_E2E==="1");
-  const due=targets.filter(to=>{const at=state.incident.notified[keyedHash(env,`recipient:${to}`)];return at===undefined||now-at>=REPEAT_MS;});
+  const due=targets.filter(to=>{const at=state.incident.notified[keyedHash(env,`recipient:${to}`)];return at===undefined||now-at>=(reason==="heartbeat"?REPEAT_MS:DELIVERY_REPEAT_MS);});
   let notified=0,failed=0;
   // Groups of four keep worst-case calls below the workflow timeout. No raw
   // address is persisted, and accepted recipients survive another recipient's failure.
