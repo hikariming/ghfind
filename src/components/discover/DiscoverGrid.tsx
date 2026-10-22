@@ -17,15 +17,26 @@ export function DiscoverGrid({
   labels: { productScore: string; viewCard: string };
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
+  const armed = useRef(true);
+  useEffect(() => {
+    armed.current = true;
+  }, [items.length]);
   useEffect(() => {
     const node = sentinel.current;
-    if (!node) return;
+    if (!node || loading) return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+      const visible = entries.some((entry) => entry.isIntersecting);
+      if (!visible) {
+        armed.current = true;
+        return;
+      }
+      if (!armed.current) return;
+      armed.current = false;
+      onLoadMore();
     }, { rootMargin: "400px" });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [onLoadMore]);
+  }, [items.length, loading, onLoadMore]);
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">

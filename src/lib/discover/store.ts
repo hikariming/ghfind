@@ -21,12 +21,24 @@ export type DiscoverStore = {
   locale: string;
   githubLogin: string | null;
   publicBoard: ProjectBoard;
-  hydrate: (input: { locale: string; githubLogin: string | null; initial: DiscoverCard[]; mode?: DiscoverMode; board?: ProjectBoard }) => Promise<void>;
+  hydrate: (input: {
+    locale: string;
+    githubLogin: string | null;
+    initial: DiscoverCard[];
+    mode?: DiscoverMode;
+    board?: ProjectBoard;
+    /** Offset into `board` only. Null means that board is exhausted. Omitted falls back to initial.length. */
+    nextOffset?: number | null;
+  }) => Promise<void>;
   setMode: (mode: DiscoverMode) => void;
   loadMore: () => Promise<void>;
-  act: (action: DiscoverAction, visibleMs?: number) => Promise<void>;
+  act: (action: DiscoverAction, visibleMs?: number) => Promise<boolean>;
   undo: () => Promise<void>;
 };
+
+function publicIsDone(board: ProjectBoard, nextOffset: number | null): boolean {
+  return nextOffset == null && board === "all";
+}
 
 async function loadPersonalized(locale: string) {
   try {
@@ -57,7 +69,9 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
   locale: "zh",
   githubLogin: null,
   publicBoard: "treasure",
-  async hydrate({ locale, githubLogin, initial, mode, board }) {
+  async hydrate({ locale, githubLogin, initial, mode, board, nextOffset }) {
+    const boardName = board ?? "treasure";
+    const offset = nextOffset === undefined ? initial.length : nextOffset;
     set({
       locale,
       githubLogin,
@@ -67,14 +81,14 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
       banner: githubLogin ? null : "signed_out",
       source: "public",
       cursor: null,
-      offset: initial.length,
-      publicBoard: board ?? "treasure",
+      offset,
+      publicBoard: boardName,
       index: 0,
       history: [],
-      exhausted: initial.length === 0,
+      exhausted: publicIsDone(boardName, offset),
     });
     if (!githubLogin) {
-      set({ loading: false, exhausted: initial.length === 0 });
+      set({ loading: false });
       return;
     }
     try {
@@ -83,11 +97,12 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
       set({
         items: useFeed ? page.items : initial,
         cursor: useFeed ? page.nextCursor : null,
-        offset: useFeed ? null : initial.length,
+        offset: useFeed ? null : offset,
         source: useFeed ? "feed" : "public",
+        publicBoard: boardName,
         banner,
         loading: false,
-        exhausted: useFeed ? page.nextCursor == null : initial.length === 0,
+        exhausted: useFeed ? page.nextCursor == null : publicIsDone(boardName, offset),
       });
     } catch {
       set({ loading: false, banner: "feed_unavailable" });
@@ -102,46 +117,58 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
     set({ loading: true });
     try {
       if (state.source === "feed") {
+        let rebuilt = false;
+        let page: Awaited<ReturnType<typeof fetchFeedPage>>;
         try {
-          const page = await fetchFeedPage({ locale: state.locale, limit: 20, cursor: state.cursor });
-          set({
-            items: dedupeCards(state.items, page.items),
-            cursor: page.nextCursor,
-            loading: false,
-            exhausted: page.nextCursor == null,
-          });
+          page = await fetchFeedPage({ locale: state.locale, limit: 20, cursor: state.cursor });
         } catch (error) {
           if (error instanceof DiscoverClientError && (error.code === "feed_cursor_expired" || error.code === "invalid_cursor")) {
-            const page = await fetchFeedPage({ locale: state.locale, limit: 20 });
-            set({
-              items: dedupeCards(state.items, page.items),
-              cursor: page.nextCursor,
-              loading: false,
-              exhausted: page.nextCursor == null,
-            });
-            return;
+            rebuilt = true;
+            page = await fetchFeedPage({ locale: state.locale, limit: 20 });
+          } else {
+            throw error;
           }
-          throw error;
         }
-      } else {
-        const page = await fetchPublicPage({
-          locale: state.locale,
-          limit: 20,
-          offset: state.offset ?? 0,
-          board: state.publicBoard,
+        const startCursor = state.cursor;
+        set((current) => {
+          const seen = new Set(current.history.map((entry) => entry.card.repoKey));
+          const staleStream = !rebuilt && startCursor != null && current.cursor == null;
+          return {
+            items: dedupeCards(current.items, page.items.filter((card) => !seen.has(card.repoKey))),
+            cursor: staleStream ? null : page.nextCursor,
+            loading: false,
+            source: "feed",
+            exhausted: staleStream ? false : page.nextCursor == null,
+          };
         });
-        const boardIndex = PUBLIC_BOARDS.indexOf(state.publicBoard);
+        return;
+      }
+      let board = state.publicBoard;
+      let offset = state.offset ?? 0;
+      if (state.offset == null) {
+        const index = PUBLIC_BOARDS.indexOf(board);
+        if (index < 0 || index >= PUBLIC_BOARDS.length - 1) {
+          set({ loading: false, exhausted: true });
+          return;
+        }
+        board = PUBLIC_BOARDS[index + 1];
+        offset = 0;
+      }
+      const page = await fetchPublicPage({ locale: state.locale, limit: 20, offset, board });
+      set((current) => {
+        const seen = new Set(current.history.map((entry) => entry.card.repoKey));
+        const boardIndex = PUBLIC_BOARDS.indexOf(board);
         const nextBoard = page.nextOffset == null && boardIndex >= 0 && boardIndex < PUBLIC_BOARDS.length - 1
           ? PUBLIC_BOARDS[boardIndex + 1]
-          : state.publicBoard;
-        set({
-          items: dedupeCards(state.items, page.items),
-          offset: page.nextOffset ?? 0,
+          : board;
+        return {
+          items: dedupeCards(current.items, page.items.filter((card) => !seen.has(card.repoKey))),
+          offset: page.nextOffset == null ? (nextBoard === board ? null : 0) : page.nextOffset,
           publicBoard: nextBoard,
           loading: false,
-          exhausted: page.nextOffset == null && nextBoard === state.publicBoard,
-        });
-      }
+          exhausted: page.nextOffset == null && nextBoard === board,
+        };
+      });
     } catch {
       set({ loading: false });
     }
@@ -149,24 +176,31 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
   async act(action, visibleMs = 0) {
     const state = get();
     const card = state.items[state.index];
-    if (!card) return;
+    if (!card) return false;
     const writes = mapSwipeAction(card, action, crypto.randomUUID(), visibleMs);
     if (writes.length > 0) {
       try {
         await commitFeedWrites(writes);
       } catch {
-        return;
+        return false;
       }
     }
     const saved = writes.some((write) => write.kind === "state");
-    set({
-      items: state.items.filter((_, i) => i !== state.index),
-      history: [...state.history, { card, action }],
-      index: 0,
-      cursor: saved ? null : state.cursor,
+    let removed = false;
+    set((current) => {
+      if (!current.items.some((item) => item.repoKey === card.repoKey)) return current;
+      removed = true;
+      return {
+        items: current.items.filter((item) => item.repoKey !== card.repoKey),
+        history: [...current.history, { card, action }],
+        index: 0,
+        cursor: saved ? null : current.cursor,
+      };
     });
+    if (!removed) return false;
     const next = get();
-    if (next.items.length < 5) void next.loadMore();
+    if (next.items.length < 5 && !next.exhausted) void next.loadMore();
+    return true;
   },
   async undo() {
     const state = get();
@@ -180,11 +214,16 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
         return;
       }
     }
-    set({
-      items: [last.card, ...state.items.filter((card) => card.repoKey !== last.card.repoKey)],
-      history: state.history.slice(0, -1),
-      index: 0,
-      cursor: writes.some((write) => write.kind === "state") ? null : state.cursor,
+    const invalidate = writes.some((write) => write.kind === "state");
+    set((current) => {
+      const head = current.history.at(-1);
+      if (!head || head.card.repoKey !== last.card.repoKey || head.action !== last.action) return current;
+      return {
+        items: [last.card, ...current.items.filter((card) => card.repoKey !== last.card.repoKey)],
+        history: current.history.slice(0, -1),
+        index: 0,
+        cursor: invalidate ? null : current.cursor,
+      };
     });
   },
 }));

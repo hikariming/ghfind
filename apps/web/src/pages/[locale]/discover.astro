@@ -6,7 +6,7 @@ import { loadDiscoverPage } from "@/lib/pages/discover";
 
 const locale = routeLocale(Astro.params.locale);
 if (!locale) return new Response(null, { status: 404 });
-const [t, messages, { cards, board }] = await Promise.all([
+const [t, messages, { cards, board, nextOffset }] = await Promise.all([
   getTranslator(locale, "discover"),
   getMessages(locale),
   loadDiscoverPage(locale),
@@ -14,5 +14,5 @@ const [t, messages, { cards, board }] = await Promise.all([
 Astro.response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
 ---
 <Base locale={locale} path="/discover" title={t("metaTitle")} description={t("metaDescription")}>
-  <DiscoverIsland client:load locale={locale} initialCards={cards} initialBoard={board} intl={{ locale, pathname: "/discover", search: Astro.url.search, messages: pickMessages(messages, ["discover"]) }} />
+  <DiscoverIsland client:load locale={locale} initialCards={cards} initialBoard={board} initialOffset={nextOffset} intl={{ locale, pathname: "/discover", search: Astro.url.search, messages: pickMessages(messages, ["discover"]) }} />
 </Base>

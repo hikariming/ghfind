@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import { Heart, RotateCcw, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DiscoverCardView } from "./DiscoverCard";
 import { DiscoverPreview } from "./DiscoverPreview";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { commandFromKey } from "@/lib/discover/keyboard";
 import type { DiscoverAction, DiscoverCard } from "@/lib/discover/types";
 
@@ -40,7 +40,7 @@ export function DiscoverSwipe({
     language: string;
     openFull: string;
   };
-  onAct: (action: DiscoverAction, visibleMs: number) => void;
+  onAct: (action: DiscoverAction, visibleMs: number) => void | Promise<boolean>;
   onUndo: () => void;
   canUndo: boolean;
   previewOpen?: boolean;
@@ -50,8 +50,19 @@ export function DiscoverSwipe({
   const y = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-14, 14]);
   const shownAt = useRef(0);
+  const committed = useRef(false);
+  const [wide, setWide] = useState(false);
 
   useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setWide(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    committed.current = false;
     x.set(0);
     y.set(0);
     shownAt.current = Date.now();
@@ -63,22 +74,39 @@ export function DiscoverSwipe({
       const command = commandFromKey(event.key);
       if (!command) return;
       event.preventDefault();
-      if (command === "undo") onUndo();
-      else onAct(command, Date.now() - shownAt.current);
+      if (command === "undo") {
+        onUndo();
+        return;
+      }
+      if (committed.current) return;
+      committed.current = true;
+      void Promise.resolve(onAct(command, Date.now() - shownAt.current)).then((advanced) => {
+        if (advanced === false) committed.current = false;
+      });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onAct, onUndo]);
 
   const fly = async (action: DiscoverAction) => {
+    if (committed.current || !card) return;
+    committed.current = true;
     const toX = action === "skip" ? -FLY : action === "like" ? FLY : 0;
     const toY = action === "superlike" ? -FLY : 0;
-    await animate(x, toX, { duration: 0.3 });
-    await animate(y, toY, { duration: 0.3 });
-    onAct(action, Date.now() - shownAt.current);
+    await Promise.all([
+      animate(x, toX, { duration: 0.28 }),
+      animate(y, toY, { duration: 0.28 }),
+    ]);
+    const advanced = await onAct(action, Date.now() - shownAt.current);
+    if (advanced === false) {
+      committed.current = false;
+      await Promise.all([
+        animate(x, 0, { type: "spring", stiffness: 400, damping: 30 }),
+        animate(y, 0, { type: "spring", stiffness: 400, damping: 30 }),
+      ]);
+    }
   };
 
-  const preview = <DiscoverPreview card={card} labels={labels} />;
   const deck = (
     <div className="mx-auto w-full max-w-[380px]">
       <div className="relative">
@@ -87,8 +115,10 @@ export function DiscoverSwipe({
             className="relative"
             style={{ x, y, rotate, touchAction: "none" }}
             drag
+            dragMomentum={false}
             dragElastic={0.9}
             onDragEnd={(_, info) => {
+              if (committed.current) return;
               const dx = info.offset.x;
               const dy = info.offset.y;
               const vx = info.velocity.x;
@@ -123,26 +153,36 @@ export function DiscoverSwipe({
       </div>
       <p className="mt-3 text-center text-xs text-muted-foreground">{labels.hint}</p>
       <p className="mt-1 text-center text-[11px] text-muted-foreground">{labels.keyboard}</p>
-      <Button type="button" variant="ghost" size="sm" className="mt-2 w-full lg:hidden" onClick={() => onPreviewOpenChange?.(true)}>
-        {labels.quickPreview}
-      </Button>
     </div>
   );
 
-  return (
-    <>
-      <div className="hidden h-[min(70vh,36rem)] lg:block">
+  if (wide) {
+    return (
+      <div className="h-[min(70vh,36rem)]">
         <ResizablePanelGroup orientation="horizontal">
+          {/* v4 treats bare numbers as pixels; percent strings keep the split. */}
           <ResizablePanel defaultSize="48%" minSize="40%">{deck}</ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize="52%" minSize="32%">{preview}</ResizablePanel>
+          <ResizablePanel defaultSize="52%" minSize="32%">
+            <DiscoverPreview card={card} labels={labels} />
+          </ResizablePanel>
         </ResizablePanelGroup>
       </div>
-      <div className="lg:hidden">{deck}</div>
+    );
+  }
+
+  return (
+    <>
+      {deck}
       <Sheet open={previewOpen} onOpenChange={onPreviewOpenChange}>
-        <SheetContent side="bottom" className="h-[80vh] lg:hidden">
+        <SheetTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="mx-auto mt-2 flex w-full max-w-[380px]">
+            {labels.quickPreview}
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="h-[80vh]">
           <SheetTitle className="sr-only">{labels.quickPreview}</SheetTitle>
-          {preview}
+          <DiscoverPreview card={card} labels={labels} />
         </SheetContent>
       </Sheet>
     </>

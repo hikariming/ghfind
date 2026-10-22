@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Compass, LayoutGrid, SlidersHorizontal } from "lucide-react";
 import { fetchMe } from "@/lib/me-client";
 import { useDiscoverStore } from "@/lib/discover/store";
-import type { DiscoverCard, DiscoverMode } from "@/lib/discover/types";
+import type { DiscoverAction, DiscoverCard, DiscoverMode } from "@/lib/discover/types";
 import type { ProjectBoard } from "@/lib/project-analysis-db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,16 +20,33 @@ export function DiscoverApp({
   locale,
   initialCards,
   initialBoard = "treasure",
+  initialOffset,
 }: {
   locale: string;
   initialCards: DiscoverCard[];
   initialBoard?: ProjectBoard;
+  initialOffset?: number | null;
 }) {
   const t = useTranslations("discover");
   const search = useSearchParams();
   const requested = search.get("mode") === "swipe" ? "swipe" : "grid";
+  const initialMode = useRef(requested);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const store = useDiscoverStore();
+  const mode = useDiscoverStore((state) => state.mode);
+  const items = useDiscoverStore((state) => state.items);
+  const banner = useDiscoverStore((state) => state.banner);
+  const loading = useDiscoverStore((state) => state.loading);
+  const card = useDiscoverStore((state) => state.items[state.index]);
+  const canUndo = useDiscoverStore((state) => state.history.length > 0);
+  const setModeStore = useDiscoverStore((state) => state.setMode);
+  const loadMore = useDiscoverStore((state) => state.loadMore);
+  const act = useDiscoverStore((state) => state.act);
+  const undo = useDiscoverStore((state) => state.undo);
+  const initialKey = initialCards.map((item) => item.repoKey).join("|");
+  const initialCardsRef = useRef(initialCards);
+  useEffect(() => {
+    initialCardsRef.current = initialCards;
+  }, [initialCards]);
 
   useEffect(() => {
     let alive = true;
@@ -38,21 +55,25 @@ export function DiscoverApp({
       void useDiscoverStore.getState().hydrate({
         locale,
         githubLogin: me.user?.login ?? null,
-        initial: initialCards,
-        mode: requested,
+        initial: initialCardsRef.current,
+        mode: initialMode.current,
         board: initialBoard,
+        nextOffset: initialOffset,
       });
     });
     return () => { alive = false; };
-  }, [initialBoard, initialCards, locale, requested]);
+  }, [initialBoard, initialKey, initialOffset, locale]);
 
-  const setMode = useCallback((mode: DiscoverMode) => {
-    store.setMode(mode);
+  const setMode = useCallback((next: DiscoverMode) => {
+    setModeStore(next);
     const url = new URL(window.location.href);
-    if (mode === "swipe") url.searchParams.set("mode", "swipe");
+    if (next === "swipe") url.searchParams.set("mode", "swipe");
     else url.searchParams.delete("mode");
     window.history.replaceState(null, "", url.pathname + url.search);
-  }, [store]);
+  }, [setModeStore]);
+
+  const onAct = useCallback((action: DiscoverAction, visibleMs?: number) => act(action, visibleMs), [act]);
+  const onUndo = useCallback(() => { void undo(); }, [undo]);
 
   const labels = {
     productScore: t("productScore"),
@@ -70,8 +91,6 @@ export function DiscoverApp({
     openFull: t("openFull"),
   };
 
-  const loadMore = useCallback(() => { void store.loadMore(); }, [store]);
-
   return (
     <TooltipProvider>
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6">
@@ -85,7 +104,7 @@ export function DiscoverApp({
             <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{t("heading")}</h1>
           </div>
           <div className="flex items-center gap-2">
-            <ToggleGroup type="single" value={store.mode} onValueChange={(value) => { if (value === "grid" || value === "swipe") setMode(value); }}>
+            <ToggleGroup type="single" value={mode} onValueChange={(value) => { if (value === "grid" || value === "swipe") setMode(value); }}>
               <ToggleGroupItem value="grid" aria-label={t("modeGrid")}><LayoutGrid className="size-3.5" />{t("modeGrid")}</ToggleGroupItem>
               <ToggleGroupItem value="swipe" aria-label={t("modeSwipe")}>{t("modeSwipe")}</ToggleGroupItem>
             </ToggleGroup>
@@ -100,26 +119,26 @@ export function DiscoverApp({
             </Sheet>
           </div>
         </header>
-        {store.banner === "signed_out" && (
+        {banner === "signed_out" && (
           <p className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground">{t("signedOutBanner")}</p>
         )}
-        {store.banner === "feed_unavailable" && (
+        {banner === "feed_unavailable" && (
           <p className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground">{t("feedUnavailable")}</p>
         )}
-        {store.mode === "grid" ? (
-          <DiscoverGrid items={store.items} loading={store.loading} onLoadMore={loadMore} labels={labels} />
+        {mode === "grid" ? (
+          <DiscoverGrid items={items} loading={loading} onLoadMore={loadMore} labels={labels} />
         ) : (
           <DiscoverSwipe
-            card={store.items[store.index]}
+            card={card}
             labels={labels}
-            onAct={(action, visibleMs) => { void store.act(action, visibleMs); }}
-            onUndo={() => { void store.undo(); }}
-            canUndo={store.history.length > 0}
+            onAct={onAct}
+            onUndo={onUndo}
+            canUndo={canUndo}
             previewOpen={previewOpen}
             onPreviewOpenChange={setPreviewOpen}
           />
         )}
-        {store.items.length === 0 && !store.loading && (
+        {items.length === 0 && !loading && (
           <p className="py-12 text-center text-sm text-muted-foreground">{t("empty")}</p>
         )}
       </main>
