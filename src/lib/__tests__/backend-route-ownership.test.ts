@@ -36,6 +36,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   // Bearer personal token -> GitHub id, for the ghfind Review bot's CLI API.
   "src/app/api/account/whoami/route.ts",
   "src/app/api/developers/route.ts",
+  // Public discover preview: read-only project boards, no Feed profile writes.
+  "src/app/api/discover/public/route.ts",
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",
   "src/app/api/feed/profile/route.ts",
