@@ -59,8 +59,15 @@ const versions = {
   schema_version: "ghfind.project-analysis.v3",
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
+  // Current skill for new assessments. Checkpoint reuse still accepts the
+  // pre-rescore completed run (v4): Phase A ships discover_hook columns with
+  // empty defaults and must not require a production rescore to deploy Feed.
   skill_version: "ghfind-project-evaluator-v5",
 };
+const acceptedSkillVersions = new Set([
+  "ghfind-project-evaluator-v4",
+  "ghfind-project-evaluator-v5",
+]);
 export const SQL = Object.freeze({
   candidate: `SELECT p.repo_key,p.analysis_id,p.source_hash FROM feed_projects p WHERE p.published=1 AND (? IS NULL OR p.repo_key=?) AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL AND v.blocked_reason='')) AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1) ORDER BY p.repo_key LIMIT 1`,
   runs: `SELECT id,repo_key,requested_ref,status,idempotency_key,schema_version,rubric_version,agent_version,skill_version,created_at,create_attempts FROM project_analysis_runs WHERE repo_key=? AND requested_ref=? ORDER BY created_at LIMIT 2`,
@@ -380,7 +387,9 @@ function runIdentity(row, sha, wantedId) {
       (!wantedId || row.id === wantedId) &&
       row.repo_key === REPO &&
       row.requested_ref === sha &&
-      Object.entries(versions).every(([k, v]) => row[k] === v),
+      Object.entries(versions).every(([k, v]) =>
+        k === "skill_version" ? acceptedSkillVersions.has(row[k]) : row[k] === v,
+      ),
     "logical_assessment_identity_mismatch",
   );
   check(active.has(row.status), "logical_assessment_terminal_failure");

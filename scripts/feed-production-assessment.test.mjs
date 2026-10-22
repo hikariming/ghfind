@@ -416,6 +416,22 @@ test("failed, expired, ambiguous or foreign-version logical run prevents another
   }
 });
 
+test("Phase A: pinned completed assessment with skill v4 remains reusable without rescore", async (t) => {
+  const skillV4 = { skill_version: "ghfind-project-evaluator-v4" };
+  const h = await harness(t, {
+    rows: [run({ ...skillV4, status: "completed" })],
+    sources: [source(skillV4)],
+  });
+  const receipt = await startAssessment(SHA, h.receipt, h.options);
+  assert.equal(receipt.analysisId, ID);
+  assert.equal(receipt.status, "completed");
+  assert.equal(h.posts, 0);
+  const out = await waitAssessment(h.receipt, h.result, h.options);
+  assert.equal(out.status, "passed");
+  assert.equal(out.assessment, "reused_logical_assessment");
+  assert.equal(h.posts, 0);
+});
+
 test("main, deployed source flag, provider and paused admission must match before paid request", async (t) => {
   const variants = [
     { mainSHA: "f".repeat(40) },
