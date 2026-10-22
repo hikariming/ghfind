@@ -319,10 +319,10 @@ describe("Discover copy contract", () => {
   it("requires discover_hook for skill v5", () => {
     const bad = structuredClone(analysis);
     bad.skill_version = PROJECT_SKILL_VERSION;
-    delete bad.project.discover_hook;
+    const { discover_hook: _omit, ...projectSansHook } = bad.project;
     expect(() =>
       parseProjectAnalysisArtifacts({
-        analysisRaw: JSON.stringify(bad),
+        analysisRaw: JSON.stringify({ ...bad, project: projectSansHook }),
         evidenceRaw: JSON.stringify(evidence),
         reportMarkdown: "# ok",
         expectedAnalysisId: "analysis-1",

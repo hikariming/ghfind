@@ -24,6 +24,7 @@ const projection = (
   name: "repository",
   canonicalUrl: "https://github.com/project-owner/repository",
   summary: `Summary ${version}`,
+  discoverHook: `Hook ${version}`,
   painStatement: "A verified problem.",
   targetUsers: ["developers"],
   language: "Go",
