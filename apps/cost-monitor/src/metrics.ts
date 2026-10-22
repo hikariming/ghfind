@@ -5,6 +5,11 @@ const LIMIT = 128;
 const MAX_RESPONSE = 2 * 1024 * 1024;
 const INGESTION_LAG_MS = 2 * WINDOW_MS;
 export const STORAGE_LOOKBACK_MS = 3 * 3600_000;
+// Storage is grouped per hour (at most ~4 rows per bucket/class over the
+// lookback) and gets its own, larger bound: 14 buckets x 2 classes already
+// produce ~160 per-snapshot rows in 3h, which overflowed the shared 128 limit.
+// Reaching this bound is still a hard, reported truncation.
+export const STORAGE_LIMIT = 1000;
 // Only fixed categories leave this module: upstream messages can include query
 // text, credentials or account details and must never enter state or mail.
 function unavailable(error: unknown): string {
@@ -36,7 +41,7 @@ function number(row: Row, name: string, kind: "sum" | "max" = "sum"): number {
   if (typeof n !== "number" || !Number.isFinite(n) || n < 0) throw new Error(`Invalid ${name} metric`);
   return n;
 }
-async function graphql(config: CollectorConfig, selection: string, fetcher: typeof fetch): Promise<Row[]> {
+async function graphql(config: CollectorConfig, selection: string, fetcher: typeof fetch, limit = LIMIT): Promise<Row[]> {
   const response = await fetcher("https://api.cloudflare.com/client/v4/graphql", {
     method: "POST", headers: {authorization:`Bearer ${config.token}`, "content-type":"application/json"},
     body: JSON.stringify({query:`{viewer{accounts(filter:{accountTag:${JSON.stringify(config.account)}}){rows:${selection}}}}`}), signal:AbortSignal.timeout(20_000),
@@ -53,7 +58,7 @@ async function graphql(config: CollectorConfig, selection: string, fetcher: type
   if (!Array.isArray(accounts) || accounts.length !== 1) throw new Error("Account metrics unavailable");
   const rows = object(accounts[0]).rows;
   if (!Array.isArray(rows)) throw new Error("Metric result unavailable");
-  if (rows.length >= LIMIT) throw new Error("Metric result truncated");
+  if (rows.length >= limit) throw new Error("Metric result truncated");
   return rows.map(value => {
     const row = object(value); const dimensions = object(row.dimensions);
     if (Object.values(dimensions).some(v => typeof v !== "string")) throw new Error("Invalid metric dimensions");
@@ -134,10 +139,10 @@ export async function collect(config: CollectorConfig, now = Date.now(), fetcher
   // lookback still does (see evaluate()); absence never becomes zero.
   try {
     const storageFilter=`filter:{datetime_geq:${JSON.stringify(new Date(end-STORAGE_LOOKBACK_MS).toISOString())},datetime_lt:${JSON.stringify(new Date(end).toISOString())}}`;
-    const rows=await graphql(config,`r2StorageAdaptiveGroups(limit:${LIMIT},${storageFilter},orderBy:[datetime_DESC]){dimensions{datetime bucketName storageClass} max{payloadSize metadataSize}}`,fetcher);
+    const rows=await graphql(config,`r2StorageAdaptiveGroups(limit:${STORAGE_LIMIT},${storageFilter},orderBy:[datetimeHour_DESC]){dimensions{datetimeHour bucketName storageClass} max{payloadSize metadataSize}}`,fetcher,STORAGE_LIMIT);
     const latest=new Map<string,{at:number;row:Row}>();
     for(const r of rows){
-      const at=Date.parse(r.dimensions.datetime);
+      const at=Date.parse(r.dimensions.datetimeHour);
       if(!Number.isFinite(at))throw new Error("Invalid storage snapshot time");
       const id=JSON.stringify([r.dimensions.bucketName,r.dimensions.storageClass]),seen=latest.get(id);
       if(!seen||at>seen.at)latest.set(id,{at,row:r});
