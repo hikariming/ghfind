@@ -12,8 +12,8 @@ analysis_id
 repository { repo_key, canonical_url, requested_ref, resolved_commit_sha }
 rubric_version
 agent_version = project-evaluator-v3
-skill_version = ghfind-project-evaluator-v4
-project { name, summary, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
+skill_version = ghfind-project-evaluator-v5
+project { name, summary, discover_hook, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
 scores { pain, effectiveness, experience, value_density, product_score }
 confidence
 verification_level
@@ -47,6 +47,23 @@ Type-guide filenames are human-facing labels and are not valid enum values. For 
 - Do not use internal classifications or verification states as product tags, including `micro_tool`, `active_evolution`, or `source_inspected`.
 - Do not emit generic labels such as `开源项目 / Open-source project`, `工具 / Tool`, `高质量 / High quality`, or marketing claims unsupported by evidence.
 - Do not repeat the same idea with synonyms. Tags must distinguish this project from other projects in the same `project_type`.
+- Discover partitions (when applicable) must use these canonical ids: `use_case:ai-agent`, `use_case:agent-skill`, `artifact:microservice`, `artifact:sandbox`.
+
+## Discover card copy (skill v5)
+
+`project.discover_hook` is required. It is the primary Discover card line (≤120 Chinese characters / ≤140 English characters).
+
+Priority for card display: `discover_hook` → first sentence of `pain_statement` → stripped `summary`. Never compose "X is a Y project" in the UI.
+
+Hard bans for `discover_hook`, `summary`, and `pain_statement`:
+
+- Leads such as 「这是一个」「X 是一个」「X is a/an/the …」
+- 「X 是 Y 的项目」 / "X is a project by Y"
+- Generic-only sentences: 工具 / 项目 / Agent / Skill / 微服务 / 沙盒 / tool / project
+- Unsupported marketing fluff without evidence
+
+`pain_statement` must name the user, the recurring friction, and why the previous workaround is painful. `summary` may define the product without template leads. `target_users[0]` is the card audience line.
+
 
 Use only these machine values for `project.lifecycle`:
 
@@ -74,7 +91,7 @@ Use JSON `null` for unavailable `requested_ref`, `stars`, `dependents`, or `down
 
 The task carries a BCP 47 locale. Write all human-facing evaluation prose in the requested language and regional convention:
 
-- Analysis JSON: `project.summary`, every `project.target_users` item, `project.pain_statement`, all score `rationale` values, all `unknowns` items, every risk `summary`, `community_strength.rationale`, and `exposure.rationale`.
+- Analysis JSON: `project.summary`, `project.discover_hook`, every `project.target_users` item, `project.pain_statement`, all score `rationale` values, all `unknowns` items, every risk `summary`, `community_strength.rationale`, and `exposure.rationale`.
 - Evidence JSON: every entry `summary`.
 - Markdown: the complete report, including headings and all explanatory prose.
 

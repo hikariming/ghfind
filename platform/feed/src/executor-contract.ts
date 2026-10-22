@@ -37,6 +37,7 @@ const projection = z.strictObject({
   name: id,
   canonicalUrl: z.url().max(500),
   summary: z.string().max(16000),
+  discoverHook: z.string().max(16000).optional().default(""),
   painStatement: z.string().max(16000),
   targetUsers: strings,
   language: z.string().max(100).nullable(),

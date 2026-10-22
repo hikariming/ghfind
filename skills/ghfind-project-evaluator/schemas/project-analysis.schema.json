@@ -178,11 +178,17 @@
             ],
             "additionalProperties": false
           }
+        },
+        "discover_hook": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
         }
       },
       "required": [
         "name",
         "summary",
+        "discover_hook",
         "target_users",
         "pain_statement",
         "project_type",

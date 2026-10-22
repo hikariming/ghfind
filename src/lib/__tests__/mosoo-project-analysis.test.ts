@@ -25,7 +25,7 @@ const run: ProjectAnalysisRun = {
   schemaVersion: "ghfind.project-analysis.v3",
   rubricVersion: "project-value-v1",
   agentVersion: "project-evaluator-v3",
-  skillVersion: "ghfind-project-evaluator-v4",
+  skillVersion: "ghfind-project-evaluator-v5",
   verificationLevel: null,
   errorCode: null,
   errorMessage: null,

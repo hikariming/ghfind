@@ -33,7 +33,7 @@ const versions = {
   schema_version: "ghfind.project-analysis.v3",
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
-  skill_version: "ghfind-project-evaluator-v4",
+  skill_version: "ghfind-project-evaluator-v5",
 };
 const run = (extra = {}) => ({
   id: ID,

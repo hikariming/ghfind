@@ -59,7 +59,7 @@ const versions = {
   schema_version: "ghfind.project-analysis.v3",
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
-  skill_version: "ghfind-project-evaluator-v4",
+  skill_version: "ghfind-project-evaluator-v5",
 };
 export const SQL = Object.freeze({
   candidate: `SELECT p.repo_key,p.analysis_id,p.source_hash FROM feed_projects p WHERE p.published=1 AND (? IS NULL OR p.repo_key=?) AND (EXISTS(SELECT 1 FROM feed_submission_provenance v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM feed_project_source_versions v WHERE v.repo_key=p.repo_key AND v.analysis_id=p.analysis_id AND v.revoked_at IS NULL AND v.blocked_reason='')) AND NOT EXISTS(SELECT 1 FROM feed_project_moderation m WHERE m.repo_key=p.repo_key AND m.removed=1) ORDER BY p.repo_key LIMIT 1`,

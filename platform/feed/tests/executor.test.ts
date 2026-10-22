@@ -256,7 +256,7 @@ describe("D1 discrete job leases and ordered projection", () => {
       (await env.FEED_DB.prepare(
         "SELECT COUNT(*) AS n FROM feed_tag_definitions",
       ).first<{ n: number }>())!.n,
-    ).toBe(13);
+    ).toBe(17);
     const available = await success<{ available: Record<string, boolean> }>(
       "projects.available",
       { githubId: 1, repoKeys: [e.aggregateKey] },
@@ -370,7 +370,7 @@ describe("user tag proposal contract", () => {
       (await env.FEED_DB.prepare(
         "SELECT COUNT(*) AS n FROM feed_tag_definitions",
       ).first<{ n: number }>())!.n,
-    ).toBe(13);
+    ).toBe(17);
   });
   it("does not overwrite evidence or elevate an existing reviewed proposal", async () => {
     const input = await setup();

@@ -25,8 +25,12 @@ export function cardFromFeedProject(
     ownerLogin: project.ownerLogin || ownerLogin,
     name: project.name || name,
     summary: project.summary,
-    hook: discoverHook({ name: project.name || name, summary: project.summary }),
-    audience: null,
+    hook: discoverHook({
+      name: project.name || name,
+      summary: project.summary,
+      pain: project.discoverHook || project.painStatement || null,
+    }),
+    audience: project.audiencePrimary,
     coverUrl: null,
     language: project.language,
     tags: project.tags.slice(0, 5).map((tag) => ({
@@ -54,7 +58,9 @@ export function cardFromAssessment(assessment: ProjectAssessment, locale: string
     hook: discoverHook({
       name,
       summary: assessment.analysis.project.summary,
-      pain: assessment.analysis.project.pain_statement,
+      pain:
+        assessment.analysis.project.discover_hook ??
+        assessment.analysis.project.pain_statement,
     }),
     audience: assessment.analysis.project.target_users[0] ?? null,
     coverUrl: null,

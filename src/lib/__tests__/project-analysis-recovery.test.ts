@@ -36,7 +36,7 @@ afterAll(() => {
 async function seed(expired = true) {
   const analysisId = `operator-analysis-${++sequence}`, repoKey = `owner/recovery-${sequence}`;
   await db.createProjectAnalysisRun({ id: analysisId, repoKey, canonicalUrl: `https://github.com/${repoKey}`, requestedRef: sha,
-    schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+    schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
   await db.reserveProjectAnalysisExecutionSlot(analysisId, 100);
   await db.attachMosooThread({ analysisId, agentId: "project-agent", threadId: `${analysisId}-old-thread`, runId: `${analysisId}-old-run` });
   const original = (await db.getProjectAnalysisRun(analysisId))!;
@@ -136,7 +136,7 @@ describe("audited operator recovery", () => {
   it("a newer repository assessment prevents an expired result from being resurrected", async () => {
     const f = await seed(), remote = provider(f);
     await db.createProjectAnalysisRun({ id: `${f.input.analysisId}-newer`, repoKey: f.repoKey, canonicalUrl: `https://github.com/${f.repoKey}`,
-      requestedRef: sha, schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      requestedRef: sha, schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     await expect(service.recoverProjectAnalysis(f.input)).rejects.toThrow("superseded");
     expect(remote.posts).toHaveLength(0);
     expect(await db.getProjectAnalysisRecovery(f.input.analysisId)).toBeNull();
@@ -164,7 +164,7 @@ describe("audited operator recovery", () => {
     await service.recoverProjectAnalysis(f.input);
     now += 1;
     await db.createProjectAnalysisRun({ id: `${f.input.analysisId}-later`, repoKey: f.repoKey, canonicalUrl: `https://github.com/${f.repoKey}`,
-      requestedRef: "b".repeat(40), schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      requestedRef: "b".repeat(40), schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     const analysis: ProjectAnalysisArtifact = structuredClone(validProjectAnalysis);
     analysis.analysis_id = f.input.analysisId;
     analysis.repository = { ...analysis.repository, repo_key: f.repoKey, canonical_url: `https://github.com/${f.repoKey}`, requested_ref: sha };
@@ -259,7 +259,7 @@ describe("audited operator recovery", () => {
     now += 1;
     await db.createProjectAnalysisRun({ id: `${latest.input.analysisId}-newer-final`, repoKey: latest.repoKey,
       canonicalUrl: `https://github.com/${latest.repoKey}`, requestedRef: "b".repeat(40),
-      schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     await expect(service.recoverProjectAnalysis(latest.input)).rejects.toThrow("superseded");
     expect(remote.posts).toHaveLength(0);
     expect((await raw.execute({ sql: "SELECT COUNT(*) AS n FROM project_analysis_final_recoveries WHERE analysis_id=?", args: [latest.input.analysisId] })).rows[0].n).toBe(0);

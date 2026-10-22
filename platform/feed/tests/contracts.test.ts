@@ -180,7 +180,7 @@ describe("real workerd D1 capability contract", () => {
     await env.FEED_DB.batch(
       migration.queries.map((query) => env.FEED_DB.prepare(query)),
     );
-    expect((await json("taxonomy.list", {})).tags).toHaveLength(13);
+    expect((await json("taxonomy.list", {})).tags).toHaveLength(17);
   });
   it("quarantines assessed projects without submission evidence", async () => {
     await ensure();

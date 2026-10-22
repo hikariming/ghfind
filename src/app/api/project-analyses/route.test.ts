@@ -113,7 +113,7 @@ describe("POST /api/project-analyses", () => {
       schemaVersion: "ghfind.project-analysis.v3",
       rubricVersion: "project-value-v1",
       agentVersion: "project-evaluator-v3",
-      skillVersion: "ghfind-project-evaluator-v4",
+      skillVersion: "ghfind-project-evaluator-v5",
     });
     const analysis = {
       ...(validProjectAnalysis as ProjectAnalysisArtifact),

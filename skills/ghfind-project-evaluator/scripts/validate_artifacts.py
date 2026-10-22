@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 
 SCHEMA_VERSION = "ghfind.project-analysis.v3"
-SKILL_VERSION = "ghfind-project-evaluator-v4"
+SKILL_VERSION = "ghfind-project-evaluator-v5"
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 CHINESE_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 JAPANESE_PATTERN = re.compile(r"[\u3040-\u30ff]")
@@ -268,8 +268,24 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path, locale
     require(isinstance(project, dict), "project must be an object")
     require_locale_text(project.get("summary"), "analysis.project.summary", language)
     require_locale_text(project.get("pain_statement"), "analysis.project.pain_statement", language)
+    require_locale_text(project.get("discover_hook"), "analysis.project.discover_hook", language)
     for index, target_user in enumerate(project.get("target_users", [])):
         require_locale_text(target_user, f"analysis.project.target_users[{index}]", language)
+    name = project.get("name") if isinstance(project.get("name"), str) else ""
+    template = re.compile(
+        r"^(?:[\w.@+/-]+(?:/[\w.@+/-]+)?\s*)?(?:这是一个|这是一款|这是一种|这是|是一个|是一款|是一种|是面向|是|is an |is a |is the |is )",
+        re.I,
+    )
+    for field in ("summary", "pain_statement", "discover_hook"):
+        value = project.get(field)
+        require(isinstance(value, str) and value.strip(), f"project.{field} is required")
+        lowered = value.strip().lower()
+        require(not template.search(value.strip()), f"project.{field} uses banned Discover template prose")
+        if name:
+            require(
+                not lowered.startswith(f"{name.lower()} 是") and not lowered.startswith(f"{name.lower()} is"),
+                f"project.{field} uses banned name-lead template prose",
+            )
     for index, unknown in enumerate(analysis.get("unknowns", [])):
         require_locale_text(unknown, f"analysis.unknowns[{index}]", language)
     product_tags = project.get("product_tags")

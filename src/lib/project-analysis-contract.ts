@@ -2,10 +2,19 @@ import { z } from "zod";
 
 export const LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v1";
 export const PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v2";
+/** Still the wire schema for Phase A; v4 (required discover_hook) lands with gated dual-write. */
 export const PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v3";
 export const PROJECT_RUBRIC_VERSION = "project-value-v1";
 export const PROJECT_AGENT_VERSION = "project-evaluator-v3";
-export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v4";
+/** Discover-oriented copy + partition tag contract. */
+export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v5";
+/** Canonical Discover partition tags (taxonomy v2). */
+export const DISCOVER_PARTITION_TAG_IDS = [
+  "use_case:ai-agent",
+  "use_case:agent-skill",
+  "artifact:microservice",
+  "artifact:sandbox",
+] as const;
 
 export const projectAnalysisStatusSchema = z.enum([
   "queued",
@@ -142,6 +151,8 @@ const legacyCompatibleProjectSchema = z.object({
   summary: z.string().trim().min(1).max(2_000),
   target_users: z.array(z.string().trim().min(1).max(200)).min(1).max(20),
   pain_statement: z.string().trim().min(1).max(2_000),
+  /** Card-ready hook; optional on legacy rows, required by skill v5 validator. */
+  discover_hook: z.string().trim().min(1).max(200).optional(),
   project_type: projectTypeArtifactSchema,
   lifecycle: projectLifecycleSchema,
   product_tags: z.array(legacyProductTagSchema).max(5).default([]),
@@ -425,6 +436,45 @@ const GENERIC_PRODUCT_TAG_LABELS = new Set([
   "high quality",
 ]);
 
+const TEMPLATE_PROSE =
+  /^(?:[\w.@+/-]+(?:\/[\w.@+/-]+)?\s*)?(?:这是一个|这是一款|这是一种|这是|是一个|是一款|是一种|是面向|是|is an |is a |is the |is )/i;
+
+const GENERIC_HOOK_ONLY =
+  /^(?:工具|项目|插件|扩展|库|框架|应用|平台|系统|沙盒|微服务|agent|skill|tool|project|plugin|extension|library|framework|app|platform|system|sandbox|microservice)s?[。.!！？]?$/i;
+
+export function isDiscoverTemplateProse(text: string, name?: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (TEMPLATE_PROSE.test(trimmed) || GENERIC_HOOK_ONLY.test(trimmed)) return true;
+  if (name) {
+    const lower = trimmed.toLowerCase();
+    const nameLower = name.toLowerCase();
+    if (lower.startsWith(`${nameLower} 是`) || lower.startsWith(`${nameLower} is`)) return true;
+  }
+  return false;
+}
+
+function assertDiscoverCopy(analysis: ProjectAnalysisArtifact): void {
+  if (analysis.skill_version !== PROJECT_SKILL_VERSION) return;
+  const { name, summary, pain_statement, discover_hook } = analysis.project;
+  const fields: Array<[string, string | undefined]> = [
+    ["summary", summary],
+    ["pain_statement", pain_statement],
+    ["discover_hook", discover_hook],
+  ];
+  for (const [label, value] of fields) {
+    if (!value) {
+      if (label === "discover_hook") {
+        throw new Error("skill v5 requires project.discover_hook for Discover cards");
+      }
+      continue;
+    }
+    if (isDiscoverTemplateProse(value, name)) {
+      throw new Error(`Discover-banned template prose in project.${label}`);
+    }
+  }
+}
+
 function assertProductTags(analysis: ProjectAnalysisArtifact): void {
   if (analysis.schema_version === PROJECT_ANALYSIS_SCHEMA_VERSION) {
     if (analysis.project.product_tags.length < 3) {
@@ -504,6 +554,7 @@ export function parseProjectAnalysisArtifacts(
     throw new Error("Product score must equal the dimension sum");
   }
   assertProductTags(analysis);
+  assertDiscoverCopy(analysis);
   assertEvidenceReferences(analysis, evidence);
 
   return { analysis, evidence, reportMarkdown: input.reportMarkdown };

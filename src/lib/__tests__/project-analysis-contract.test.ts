@@ -3,9 +3,11 @@ import type { ProjectAnalysisArtifact, RuntimeEvidenceArtifact } from "../projec
 import {
   parseProjectAnalysisArtifacts,
   normalizeGitHubRepository,
+  isDiscoverTemplateProse,
   LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION,
 	PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_ANALYSIS_SCHEMA_VERSION,
+  PROJECT_SKILL_VERSION,
 } from "../project-analysis-contract";
 
 const evidence = {
@@ -35,10 +37,11 @@ const analysis = {
   },
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
-  skill_version: "ghfind-project-evaluator-v4",
+  skill_version: "ghfind-project-evaluator-v5",
   project: {
     name: "useful-tool",
     summary: "Converts one format into another.",
+    discover_hook: "Stop hand-converting the same payload every release.",
     target_users: ["developers"],
     pain_statement: "Manual conversion is repetitive.",
     project_type: "micro_tool",
@@ -304,6 +307,28 @@ describe("project analysis contract", () => {
         expectedRepoKey: "owner/useful-tool",
       }),
     ).toThrow(/missing evidence/i);
+  });
+});
+
+describe("Discover copy contract", () => {
+  it("flags template leads", () => {
+    expect(isDiscoverTemplateProse("useful-tool 是一个转换工具", "useful-tool")).toBe(true);
+    expect(isDiscoverTemplateProse("Stop hand-converting the same payload every release.")).toBe(false);
+  });
+
+  it("requires discover_hook for skill v5", () => {
+    const bad = structuredClone(analysis);
+    bad.skill_version = PROJECT_SKILL_VERSION;
+    delete bad.project.discover_hook;
+    expect(() =>
+      parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify(bad),
+        evidenceRaw: JSON.stringify(evidence),
+        reportMarkdown: "# ok",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      }),
+    ).toThrow(/discover_hook/);
   });
 });
 
