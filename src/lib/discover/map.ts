@@ -2,6 +2,7 @@ import type { FeedPage, FeedProject } from "@/lib/feed";
 import type { ProjectAssessment } from "@/lib/project-analysis-db";
 import { productTagLabel } from "@/lib/project-analysis-labels";
 import { discoverHook } from "./hook";
+import { discoverScoreFromAssessment } from "./score";
 import type { DiscoverCard, DiscoverPage } from "./types";
 
 export function splitRepoKey(repoKey: string): { ownerLogin: string; name: string } {
@@ -48,7 +49,11 @@ export function cardFromFeedProject(
   };
 }
 
-export function cardFromAssessment(assessment: ProjectAssessment, locale: string): DiscoverCard {
+export function cardFromAssessment(
+  assessment: ProjectAssessment,
+  locale: string,
+  options: { discoverScore?: boolean } = {},
+): DiscoverCard {
   const { ownerLogin, name } = splitRepoKey(assessment.repoKey);
   return {
     repoKey: assessment.repoKey.toLowerCase(),
@@ -77,6 +82,7 @@ export function cardFromAssessment(assessment: ProjectAssessment, locale: string
     impressionToken: null,
     source: "public",
     verificationLevel: assessment.verificationLevel,
+    ...(options.discoverScore ? { discoverScore: discoverScoreFromAssessment(assessment) } : {}),
   };
 }
 

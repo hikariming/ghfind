@@ -1,3 +1,5 @@
+import type { DiscoverScoreResult } from "../../../platform/shared/discover-score";
+
 export type DiscoverSource = "feed" | "public";
 export type DiscoverMode = "grid" | "swipe";
 export type DiscoverPartition = "all" | "agent" | "skill" | "microservice" | "sandbox";
@@ -27,6 +29,8 @@ export type DiscoverCard = {
   impressionToken: string | null;
   source: DiscoverSource;
   verificationLevel: string | null;
+  /** discover-score-v1; absent unless a caller opts in (default off). */
+  discoverScore?: DiscoverScoreResult | null;
 };
 
 export type DiscoverPage = {
