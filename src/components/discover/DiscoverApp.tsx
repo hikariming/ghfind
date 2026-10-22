@@ -45,8 +45,12 @@ export function DiscoverApp({
   const initialMode = useRef<DiscoverMode>(requested);
   const [previewOpen, setPreviewOpen] = useState(false);
   const mode = useDiscoverStore((state) => state.mode);
-  const items = useDiscoverStore((state) => state.items);
+  const storeItems = useDiscoverStore((state) => state.items);
+  const ready = useDiscoverStore((state) => state.ready);
   const partition = useDiscoverStore((state) => state.partition);
+  // Zustand starts empty; hydrate only runs after fetchMe in useEffect.
+  // Until then (including Astro SSR), paint initialCards so the grid is not empty.
+  const items = ready ? storeItems : initialCards;
   const banner = useDiscoverStore((state) => state.banner);
   const loading = useDiscoverStore((state) => state.loading);
   const exhausted = useDiscoverStore((state) => state.exhausted);
@@ -64,6 +68,8 @@ export function DiscoverApp({
 
   useEffect(() => {
     let alive = true;
+    // Drop ready so a prop change does not flash stale store items before hydrate.
+    useDiscoverStore.setState({ ready: false });
     fetchMe().then((me) => {
       if (!alive) return;
       void useDiscoverStore.getState().hydrate({

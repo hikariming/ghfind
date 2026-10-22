@@ -23,6 +23,8 @@ export type DiscoverStore = {
   githubLogin: string | null;
   publicBoard: ProjectBoard;
   partition: DiscoverPartition;
+  /** False until hydrate runs; DiscoverApp falls back to initialCards for SSR. */
+  ready: boolean;
   hydrate: (input: {
     locale: string;
     githubLogin: string | null;
@@ -73,6 +75,7 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
   githubLogin: null,
   publicBoard: "treasure",
   partition: "all",
+  ready: false,
   async hydrate({ locale, githubLogin, initial, mode, board, nextOffset }) {
     const boardName = board ?? "treasure";
     const offset = nextOffset === undefined ? initial.length : nextOffset;
@@ -82,6 +85,7 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
       mode: mode ?? "grid",
       items: initial,
       loading: true,
+      ready: true,
       banner: githubLogin ? null : "signed_out",
       source: "public",
       cursor: null,
