@@ -1,5 +1,5 @@
 import { describe,expect,it,vi } from "vitest";
-import { billable,collect } from "../metrics";
+import { billable,collect,STORAGE_LOOKBACK_MS } from "../metrics";
 import {emptyState,evaluate,validateFrame} from "../engine";
 const now=1_800_000_000_000;
 const config={account:"account",token:"private-token"};
@@ -9,7 +9,7 @@ function fixture(query:string){
   if(query.includes("d1Analytics"))return [{dimensions:{databaseId:"core"},sum:{rowsRead:38_000_000,rowsWritten:20,readQueries:100,writeQueries:2}}];
   if(query.includes("workersInvocations"))return [{dimensions:{scriptName:"app"},sum:{errors:0,requests:200,cpuTimeUs:100_000}}];
   if(query.includes("r2Operations"))return [{dimensions:{bucketName:"bucket",actionType:"ListParts",storageClass:"Standard"},sum:{errors:0,requests:100,responseObjectSize:0}}];
-  if(query.includes("r2Storage"))return [{dimensions:{bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1e9,metadataSize:0}}];
+  if(query.includes("r2Storage"))return [{dimensions:{datetime:new Date(now-2*3600_000).toISOString(),bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1e9,metadataSize:0}}];
   if(query.includes("kvOperations"))return [{dimensions:{namespaceId:"cache",actionType:"write"},sum:{errors:0,requests:100}}];
   return [];
 }
@@ -104,5 +104,43 @@ describe("aggregate collection",()=>{
     const start=new Date(now-2*86400_000).toISOString(),end=new Date(now-86400_000).toISOString();
     const fetcher=vi.fn(async()=>Response.json({success:true,result:[{ChargePeriodStart:start,ChargePeriodEnd:end,BillingCurrency:"USD",ServiceName:"Containers",EffectiveCost:12},{ChargePeriodStart:start,ChargePeriodEnd:end,BillingCurrency:"USD",ServiceName:"Email",EffectiveCost:1}]}));
     const p=await billable(config,now,fetcher as typeof fetch);expect(p[0].key).toBe("Billing:account:daily");expect(p[0].amount).toBe(13);expect(p[0].label).toContain("Containers");
+  });
+});
+
+describe("R2 storage snapshots",()=>{
+  const storageFetch=(rows:unknown[])=>vi.fn(async(_url:unknown,init?:RequestInit)=>{
+    const q=JSON.parse(String(init?.body)).query;
+    return api(q.includes("r2Storage")?rows:fixture(q));
+  });
+  const snap=(hoursAgo:number,bucket:string,payloadSize:number,storageClass="Standard")=>({dimensions:{datetime:new Date(now-hoursAgo*3600_000).toISOString(),bucketName:bucket,storageClass},max:{payloadSize,metadataSize:0}});
+  const storageQuery=(fetcher:ReturnType<typeof vi.fn>)=>fetcher.mock.calls.map(c=>JSON.parse(String((c[1] as RequestInit).body)).query as string).find(q=>q.includes("r2Storage"))!;
+  it("queries a three-hour lookback and keeps the latest snapshot per bucket and class",async()=>{
+    const fetcher=storageFetch([snap(1.2,"a",3e9),snap(2.5,"a",9e9),snap(2.8,"b",5e9),snap(1.5,"b",7e9,"InfrequentAccess")]);
+    const f=await collect(config,now,fetcher as typeof fetch);
+    expect(f.errors).toEqual([]);expect(f.costComplete).toBe(true);
+    const q=storageQuery(fetcher);expect(q).toContain("datetime bucketName storageClass");expect(q).toContain("orderBy:[datetime_DESC]");
+    const [from,to]=[...q.matchAll(/datetime_(?:geq|lt):"([^"]+)"/g)].map(m=>Date.parse(m[1]));
+    expect(to-from).toBe(STORAGE_LOOKBACK_MS);expect(STORAGE_LOOKBACK_MS).toBe(3*3600_000);
+    const storage=f.points.filter(p=>p.gauge&&p.product==="R2");
+    expect(storage.map(p=>[p.key,p.amount]).sort()).toEqual([["R2:a:storage:Standard",3e9],["R2:b:storage:InfrequentAccess",7e9],["R2:b:storage:Standard",5e9]]);
+  });
+  it("a snapshot older than the last hour still covers a known bucket (regression: flapping degraded)",async()=>{
+    const state=emptyState();
+    evaluate(state,await collect(config,now,storageFetch([snap(0.5,"bucket",1e9)]) as typeof fetch),now);
+    const later=await collect(config,now+300_000,storageFetch([snap(1.6,"bucket",1e9),snap(2.6,"bucket",2e9)]) as typeof fetch);
+    evaluate(state,later,now+300_000);
+    expect(later.errors).toEqual([]);expect(later.costComplete).toBe(true);
+    expect(later.points.find(p=>p.key==="R2:bucket:storage:Standard")?.amount).toBe(1e9);
+  });
+  it("stays strict when a known bucket has no snapshot in the whole lookback",async()=>{
+    const known=await collect(config,now,storageFetch([snap(2,"bucket",1e9)]) as typeof fetch);
+    const state=emptyState();evaluate(state,known,now);
+    const missing=await collect(config,now+300_000,storageFetch([]) as typeof fetch);
+    evaluate(state,missing,now+300_000);
+    expect(missing.costComplete).toBe(false);expect(missing.errors).toContain("R2 storage: known snapshot missing; coverage incomplete");
+  });
+  it("rejects a snapshot without a valid time instead of guessing which is latest",async()=>{
+    const f=await collect(config,now,storageFetch([{dimensions:{datetime:"not-a-time",bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1,metadataSize:0}}]) as typeof fetch);
+    expect(f.errors).toEqual(["R2 storage: collection unavailable"]);expect(f.costComplete).toBe(false);
   });
 });

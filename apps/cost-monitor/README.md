@@ -92,9 +92,9 @@ Fast estimates use published overage unit prices **before included allowances**,
 not the amount actually charged. They cover D1 rows, Workers requests/CPU, R2
 operations/storage, KV operations, DO SQL rows and Queue operations. External LLM
 fees, DO compute, KV/D1 storage and products without adapters are outside this
-fast total. R2 storage uses the last hour's peak and a 30-day conversion. A known
-storage gauge missing from the current snapshot makes account cost coverage
-incomplete: old charges are neither copied forward as current data nor assumed
+fast total. R2 storage uses the latest snapshot per bucket within the last three hours and
+a 30-day conversion. A known storage gauge with no snapshot in that whole
+lookback makes account cost coverage incomplete: old charges are neither copied forward as current data nor assumed
 zero. Deleted buckets can remain conservatively unknown until a new snapshot or
 the remembered gauge's original seven-day TTL expires. Observed Service failures,
 slow calls and application Worker errors continue to notify while account cost
