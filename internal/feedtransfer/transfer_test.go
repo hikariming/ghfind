@@ -358,7 +358,7 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	files, err := filepath.Glob("../../migrations-feed/*.sql")
-	if err != nil || len(files) != 12 {
+	if err != nil || len(files) != 13 {
 		t.Fatal("register the new D1 schema before use")
 	}
 	for _, path := range files {
@@ -404,7 +404,7 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 	// PG check inventories declarations only; actual PG migration/row semantics
 	// remain the existing mandatory database suite, not this protocol test.
 	files, err = filepath.Glob("../feedmigration/migrations/*.sql")
-	if err != nil || len(files) != 22 {
+	if err != nil || len(files) != 23 {
 		t.Fatal("register the new PG schema before use")
 	}
 	create := regexp.MustCompile(`(?i)CREATE TABLE (?:IF NOT EXISTS )?(feed\.[a-z_]+)`)
