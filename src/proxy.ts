@@ -113,5 +113,10 @@ export const config = {
   // etc. — the README-embedded endpoints — prefix-free and untouched. `mcp` is
   // excluded so its same-origin backend rewrite is not captured and rewritten
   // to `/zh/mcp` by next-intl.
-  matcher: ["/((?!api|mcp|_next|_vercel|.*\\..*).*)"],
+  matcher: [
+    "/((?!api|mcp|_next|_vercel|.*\\..*).*)",
+    // A repo or language name may contain dots; it is still a localized page.
+    "/developers/repo/:path*", "/developers/language/:path*", "/developers/org/:path*",
+    "/:locale/developers/repo/:path*", "/:locale/developers/language/:path*", "/:locale/developers/org/:path*",
+  ],
 };

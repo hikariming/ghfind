@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
-import proxy from "../proxy";
+import proxy, { config } from "../proxy";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
+import { isDeveloperFacetPath } from "@ghfind/i18n";
 
 function request(path: string, headers: Record<string, string> = {}) {
   return new NextRequest(new URL(path, "https://ghfind.com"), { headers });
@@ -9,6 +11,19 @@ function request(path: string, headers: Record<string, string> = {}) {
 const rewriteOf = (res: Response) => res.headers.get("x-middleware-rewrite");
 
 describe("proxy locale routing", () => {
+  it("routes dotted facet values as pages while leaving static assets alone", () => {
+    for (const path of ["/developers/repo/example-fixture/widget.js", "/developers/language/ASP.NET", "/en/developers/repo/example-fixture/widget.js"]) {
+      expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
+      expect(isDeveloperFacetPath(path)).toBe(true);
+    }
+    const res = proxy(request("/developers/repo/example-fixture/widget.js"));
+    expect(new URL(rewriteOf(res)!).pathname).toBe("/zh/developers/repo/example-fixture/widget.js");
+    for (const path of ["/_astro/bundle.js", "/fonts/font.woff2", "/favicon.ico"]) {
+      expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(false);
+      expect(isDeveloperFacetPath(path)).toBe(false);
+    }
+  });
+
   it("rewrites bare paths to the zh tree and remembers zh", () => {
     const res = proxy(request("/leaderboard"));
     expect(new URL(rewriteOf(res)!).pathname).toBe("/zh/leaderboard");

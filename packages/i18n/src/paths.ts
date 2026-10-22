@@ -44,3 +44,8 @@ export function splitLocale(pathname: string): { locale: Locale | null; path: st
   }
   return { locale: null, path: pathname };
 }
+
+/** Dots in repository/language values are page data, not file extensions. */
+export function isDeveloperFacetPath(pathname: string): boolean {
+  return /^\/developers\/(?:repo|org|language)\/[^/]/.test(splitLocale(pathname).path);
+}

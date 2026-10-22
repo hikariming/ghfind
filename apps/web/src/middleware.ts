@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { decideLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, splitLocale } from "@ghfind/i18n";
+import { decideLocale, isDeveloperFacetPath, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, splitLocale } from "@ghfind/i18n";
 import { AGENT_LINK_HEADER } from "@/lib/agent-docs";
 import { registerRequestProvider } from "@/lib/bot-user-agent";
 import { deployEnv } from "@/lib/deploy-env";
@@ -19,8 +19,8 @@ export const onRequest = defineMiddleware((ctx, next) => requestStore.run(ctx.re
 const route: Parameters<typeof defineMiddleware>[0] = async (ctx, next) => {
   const { pathname, search } = ctx.url;
   // Static assets and non-page routes skip locale handling (same as the
-  // Next matcher: anything with a dot, and the Astro build output).
-  if (pathname.startsWith("/_astro/") || pathname.startsWith("/_server-islands/") || /\/[^/]*\.[^/]+$/.test(pathname)) {
+  // Next matcher: file-like paths except developer facet values, plus build output).
+  if (pathname.startsWith("/_astro/") || pathname.startsWith("/_server-islands/") || (!isDeveloperFacetPath(pathname) && /\/[^/]*\.[^/]+$/.test(pathname))) {
     return next();
   }
 
