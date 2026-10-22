@@ -8,7 +8,8 @@ import { localeAlternates, localePath } from "@/lib/site";
 import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 import { ProfileView } from "@/components/pages/ProfileView";
 import { auth } from "@/lib/auth";
-import { getProfileComments } from "@/lib/db";
+import { UnratedProfile } from "@/components/pages/UnratedProfile";
+import { getProfileComments, getRetiredAccountIdentity } from "@/lib/db";
 import { oauthConfigured } from "@/lib/oauth-config";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { loadProfileRoastState, profileMetadata } from "@/lib/pages/profile";
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 
 // Dedupe Go presentation reads between metadata and the page render.
 const getProfile = cache((username: string) => getGoProfilePresentation(username));
+const getRetiredIdentity = cache(getRetiredAccountIdentity);
 const getLiveScan = cache((username: string) => getGoLiveProfileScan(username));
 
 export async function generateMetadata({
@@ -46,6 +48,8 @@ export async function generateMetadata({
         robots: { index: false, follow: true },
       };
     }
+    const identity = await getRetiredIdentity(decoded);
+    if (identity) return { title: t("unratedTitle", { username: identity.username }), robots: { index: false, follow: true }, alternates: localeAlternates(locale, `/u/${decoded}`) };
     return { title: t("notFoundTitle") };
   }
 
@@ -99,7 +103,12 @@ export default async function AccountPage({
     // completion. Otherwise it's a genuine unknown handle → 404.
     const scan = await getLiveScan(decoded);
     const roasting = query.roasting === "1";
-    if (!scan && !roasting) notFound();
+    if (!scan && !roasting) {
+      const identity = await getRetiredIdentity(decoded);
+      if (!identity) notFound();
+      const t = await getTranslations("detail");
+      return <UnratedProfile {...identity} locale={locale} message={t("unratedMessage")} action={t("unratedAction")} github={t("unratedGithub")} />;
+    }
     return (
       <PendingProfile
         username={decoded}

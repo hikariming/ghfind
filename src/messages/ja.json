@@ -301,6 +301,9 @@
     "signIn": "GitHubでログイン"
   },
   "detail": {
+    "unratedMessage": "この開発者のプロフィールは保存されていますが、現在表示できるスコアはありません。GitHub を確認するか、分析フォームから新しい結果を取得できます。",
+    "unratedAction": "分析フォームへ",
+    "unratedGithub": "GitHub で見る",
     "back": "← 殿堂に戻る",
     "backfilling": "🔍 OSSの足跡（リポジトリ / 言語 / コントリビューション）を取得中…",
     "rankTitle": "現在の順位",
@@ -399,6 +402,7 @@
     "cooldown": "再スキャンまであと {hours} 時間"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · 開発者プロフィール",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — {username} の完全スコアレポートは ghfind.com で。",
     "descPlain": "{username} のGitHub価値・信頼レポート — ghfind.com。",

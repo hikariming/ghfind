@@ -1,11 +1,12 @@
 ---
+import { UnratedProfile } from "@/components/pages/UnratedProfile";
 import Base from "../../../layouts/Base.astro";
 import { PendingProfileIsland } from "../../../islands/PendingProfileIsland";
 import { ProfileIsland } from "../../../islands/ProfileIsland";
 import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../lib/i18n";
 import { notFound } from "../../../lib/not-found";
 import { getAsViewer, getViewer, hasSessionCookie } from "../../../lib/session";
-import { getProfileComments, getProfileReactionState } from "@/lib/db";
+import { getProfileComments, getProfileReactionState, getRetiredAccountIdentity } from "@/lib/db";
 import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
 import { loadProfileRoastState, profileMetadata } from "@/lib/pages/profile";
 import type { ProfileReactionState } from "@/lib/reactions";
@@ -20,10 +21,11 @@ const decoded = decodeRouteParam(rawUsername);
 const sp = Astro.url.searchParams;
 const isAdvxCampaign = sp.get("campaign") === "advx";
 const fromHome = sp.get("roasting") === "1";
-const [presentation, messages, tMeta] = await Promise.all([
+const [presentation, messages, tMeta, tDetail] = await Promise.all([
   getGoProfilePresentation(decoded),
   getMessages(locale),
   getTranslator(locale, "detailMeta"),
+  getTranslator(locale, "detail"),
 ]);
 const d = presentation?.detail ?? null;
 const noStore = "private, no-cache, no-store, max-age=0, must-revalidate";
@@ -33,7 +35,8 @@ Astro.response.headers.set("Cache-Control", noStore);
 // pending shell when there is a scan to show; otherwise a genuine unknown
 // handle → legacy's 404.
 const pendingScan = d ? null : await getGoLiveProfileScan(decoded);
-if (!d && !pendingScan && !fromHome) return notFound();
+const retiredIdentity = !d && !pendingScan && !fromHome ? await getRetiredAccountIdentity(decoded) : null;
+if (!d && !pendingScan && !fromHome && !retiredIdentity) return notFound();
 
 let page: Omit<Parameters<typeof ProfileIsland>[0], "intl"> | null = null;
 let meta: ReturnType<typeof profileMetadata> | null = null;
@@ -83,6 +86,10 @@ const intl = { locale, pathname: path, search: Astro.url.search, messages: pickM
     twitter={{ card: "summary_large_image", title: meta.title, description: meta.description, images: [meta.image], imageAlt: meta.imageAlt }}
   >
     <ProfileIsland client:load {...page} intl={intl} />
+  </Base>
+) : retiredIdentity ? (
+  <Base locale={locale} path={path} title={tMeta("unratedTitle", { username: retiredIdentity.username })} alternates="layout" robots="noindex, follow">
+    <UnratedProfile {...retiredIdentity} locale={locale} message={tDetail("unratedMessage")} action={tDetail("unratedAction")} github={tDetail("unratedGithub")} />
   </Base>
 ) : (
   <Base locale={locale} path={path} title={pendingTitle} alternates="layout" robots="noindex, follow">

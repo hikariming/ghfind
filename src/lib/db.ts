@@ -6404,6 +6404,26 @@ export async function getIndexableMatchups(): Promise<
   }
 }
 
+/** Identity-only recovery for a known public account whose score release was
+ * retired. This never makes the retired score readable or starts collection. */
+export async function getRetiredAccountIdentity(username: string): Promise<{
+  username: string; displayName: string | null;
+} | null> {
+  if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(username)) return null;
+  const db = getClient();
+  if (!db) return null;
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT username, display_name FROM scores
+          WHERE username = ? AND hidden = 0
+            AND score_version NOT IN (${PUBLIC_SCORE_READ_ORDER.map(() => "?").join(", ")})
+          LIMIT 1`,
+    args: [username.toLowerCase(), ...PUBLIC_SCORE_READ_ORDER],
+  });
+  const row = result.rows[0];
+  return row ? { username: String(row.username), displayName: row.display_name ? String(row.display_name) : null } : null;
+}
+
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();

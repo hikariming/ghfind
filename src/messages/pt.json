@@ -301,6 +301,9 @@
     "signIn": "Entrar com GitHub"
   },
   "detail": {
+    "unratedMessage": "Este perfil está salvo, mas não há uma pontuação pública disponível no momento. Veja o perfil no GitHub ou solicite um novo resultado no formulário de análise.",
+    "unratedAction": "Abrir formulário de análise",
+    "unratedGithub": "Ver no GitHub",
     "back": "← Voltar ao Hall da Fama",
     "backfilling": "🔍 Buscando a pegada open source (repos / linguagens / contribuições)…",
     "rankTitle": "Sua posição",
@@ -399,6 +402,7 @@
     "cooldown": "Nova análise disponível em {hours}h"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · Perfil de desenvolvedor",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — veja o relatório completo de {username} no ghfind.com.",
     "descPlain": "Relatório de valor e confiança do GitHub de {username} — ghfind.com.",

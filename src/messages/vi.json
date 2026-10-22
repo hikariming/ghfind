@@ -301,6 +301,9 @@
     "signIn": "Đăng nhập bằng GitHub"
   },
   "detail": {
+    "unratedMessage": "Hồ sơ đã được lưu nhưng hiện chưa có điểm công khai để hiển thị. Bạn có thể xem GitHub hoặc yêu cầu kết quả mới trong biểu mẫu phân tích.",
+    "unratedAction": "Mở biểu mẫu phân tích",
+    "unratedGithub": "Xem trên GitHub",
     "back": "← Về Đại sảnh Danh vọng",
     "backfilling": "🔍 Đang lục lại dấu chân mã nguồn mở của họ (repo / ngôn ngữ / đóng góp)…",
     "rankTitle": "Vị trí của bạn",
@@ -399,6 +402,7 @@
     "cooldown": "Có thể làm mới sau {hours}h"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · Hồ sơ nhà phát triển",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — xem báo cáo điểm đầy đủ của {username} trên ghfind.com.",
     "descPlain": "Báo cáo giá trị & độ tin cậy GitHub của {username} — ghfind.com.",

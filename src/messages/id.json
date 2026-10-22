@@ -301,6 +301,9 @@
     "signIn": "Masuk dengan GitHub"
   },
   "detail": {
+    "unratedMessage": "Profil ini tersimpan, tetapi skor publik belum tersedia saat ini. Lihat profil GitHub atau minta hasil baru melalui formulir analisis.",
+    "unratedAction": "Buka formulir analisis",
+    "unratedGithub": "Lihat di GitHub",
     "back": "← Kembali ke Hall of Fame",
     "backfilling": "🔍 Mengambil jejak open source mereka (repo / bahasa / kontribusi)…",
     "rankTitle": "Posisimu",
@@ -399,6 +402,7 @@
     "cooldown": "Refresh tersedia dalam {hours} jam"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · Profil pengembang",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — lihat laporan skor lengkap {username} di ghfind.com.",
     "descPlain": "Laporan nilai & kepercayaan GitHub {username} — ghfind.com.",

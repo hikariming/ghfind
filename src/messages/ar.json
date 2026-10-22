@@ -301,6 +301,9 @@
     "signIn": "تسجيل الدخول عبر GitHub"
   },
   "detail": {
+    "unratedMessage": "هذا الملف محفوظ، لكن لا تتوفر نتيجة عامة حالياً. يمكنك زيارة ملف GitHub أو طلب نتيجة جديدة عبر نموذج التحليل.",
+    "unratedAction": "فتح نموذج التحليل",
+    "unratedGithub": "عرض على GitHub",
     "back": "→ العودة إلى قاعة المشاهير",
     "backfilling": "🔍 نجمع بصمته في عالم المصادر المفتوحة (المستودعات / اللغات / المساهمات)…",
     "rankTitle": "موقعك",
@@ -399,6 +402,7 @@
     "cooldown": "التحديث متاح بعد {hours} ساعة"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · ملف المطور",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — شاهد تقرير تقييم {username} الكامل على ghfind.com.",
     "descPlain": "تقرير قيمة وموثوقية {username} على GitHub — ghfind.com.",

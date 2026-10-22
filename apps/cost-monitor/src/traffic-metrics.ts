@@ -96,6 +96,7 @@ export async function collectTraffic(config:TrafficConfig,now=Date.now(),fetcher
   const end=Math.floor(now/DAY)*DAY;
   const report:TrafficReport={generatedAt:now,end,visitorSource:"Cloudflare 唯一 IP（非独立自然人）",metrics:[],days:Array.from({length:7},(_,i)=>({date:date(end-(7-i)*DAY),value:null})),paths:[],countries:[],referrers:[],unavailable:{},notes:[
     "全部窗口截至最新完整 UTC 日（北京时间 08:00）；24h / 3d / 7d 分别对比紧邻的前 24h / 3d / 7d。逐日检查保留期与完整性，缺少日期不按 0 计算。",
+    "全 zone 的请求、带宽、4xx/5xx 比例包含 ghfind.com、dev/bot 等子域名；开发域名的爬虫拦截不等同于主站业务失败。RUM 仅为配置的主站域名。",
     "Cloudflare zone 请求和 IP 指标包含机器人；uniq.uniques 使用服务端整个窗口聚合，不相加每日 IP 数。RUM visits 是浏览器访问次数，不是去重自然人数，可能受拦截器影响。",
     "Top 列表为最近 24h；Adaptive 数据为抽样估算。路径过滤静态文件、框架资源与 /cdn-cgi/；referrer 使用 RUM 页面加载来源，仅显示域名（zone 套餐不开放 referrer 字段）。",
     "D1 扫描数为 complete_public / partial_public 的 updated_at 窗口计数，不等同新评分或首次账号数。注册、登录、评分与首次账号时间列无适用索引，未扫描。卡片/锐评无可用的持久化时间索引表；MCP / GitHub App 无独立统计口径。",
@@ -177,7 +178,7 @@ export async function collectTraffic(config:TrafficConfig,now=Date.now(),fetcher
     {key:"requests",label:"请求数",values:values(zone,r=>numeric(r.sum?.requests),end,now)},
     {key:"pageViews",label:useRum?"页面浏览 · RUM":"页面浏览 · zone",values:values(useRum?rum:zone,r=>numeric(useRum?r.count:r.sum?.pageViews),end,now)},
     {key:"bytes",label:"带宽",unit:"bytes",values:values(zone,r=>numeric(r.sum?.bytes),end,now)},
-    ...[4,5].map(status=>({key:`${status}xx`,label:`${status}xx 比例`,unit:"percent" as const,values:values(zone,r=>{
+    ...[4,5].map(status=>({key:`${status}xx`,label:`${status}xx 比例 · 全 zone`,unit:"percent" as const,values:values(zone,r=>{
       const total=numeric(r.sum?.requests),map=r.sum?.responseStatusMap;
       if(!Array.isArray(map))throw new Error("Missing status map");
       const failed=map.filter(x=>Math.floor(numeric(x.edgeResponseStatus)/100)===status).reduce((n,x)=>n+numeric(x.requests),0);

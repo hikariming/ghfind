@@ -238,6 +238,25 @@ async function writeLegacyReadFallback(username: string): Promise<void> {
   );
 }
 
+describe("retired account identity", () => {
+  it("recovers only visible retired identities without exposing or changing their score", async () => {
+    const username = "retired-identity-fixture";
+    await writeScore({ ...entry, username });
+    expect(await db.getRetiredAccountIdentity(username)).toBeNull();
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({ sql: "UPDATE scores SET score_version = 'v11' WHERE username = ?", args: [username] });
+    const before = await client.execute({ sql: "SELECT * FROM scores WHERE username = ?", args: [username] });
+    expect(await db.getAccountDetail(username)).toBeNull();
+    expect(await db.getRetiredAccountIdentity(username.toUpperCase())).toEqual({ username, displayName: entry.display_name });
+    const after = await client.execute({ sql: "SELECT * FROM scores WHERE username = ?", args: [username] });
+    expect(after.rows).toEqual(before.rows);
+    await client.execute({ sql: "UPDATE scores SET hidden = 1 WHERE username = ?", args: [username] });
+    expect(await db.getRetiredAccountIdentity(username)).toBeNull();
+    expect(await db.getRetiredAccountIdentity("unknown-identity-fixture")).toBeNull();
+    expect(await db.getRetiredAccountIdentity("../invalid")).toBeNull();
+  });
+});
+
 describe("getArchivedRoast", () => {
   it("replays archived reports by username and language", async () => {
     const scoreWrite = await writeScore(entry);

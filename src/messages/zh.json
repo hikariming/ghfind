@@ -301,6 +301,9 @@
     "signIn": "用 GitHub 登录"
   },
   "detail": {
+    "unratedMessage": "这位开发者已有档案，但当前没有可展示的评分。你可以查看 GitHub 资料，或返回分析表单，手动获取新的结果。",
+    "unratedAction": "前往分析表单",
+    "unratedGithub": "查看 GitHub",
     "back": "← 返回名人堂",
     "backfilling": "🔍 正在补全 TA 的开源足迹（仓库 / 语言 / 贡献）…",
     "rankTitle": "我的位置",
@@ -399,6 +402,7 @@
     "cooldown": "{hours} 小时后可重新检测"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · 开发者档案",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} —— 在 ghfind.com 查看 {username} 的完整评分报告。",
     "descPlain": "{username} 的 GitHub 价值评分报告 —— ghfind.com。",

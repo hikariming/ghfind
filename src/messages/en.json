@@ -301,6 +301,9 @@
     "signIn": "Sign in to create token"
   },
   "detail": {
+    "unratedMessage": "This developer has a saved profile, but a public score is not available right now. You can view their GitHub profile or return to the analysis form to request a new result.",
+    "unratedAction": "Open analysis form",
+    "unratedGithub": "View on GitHub",
     "back": "← Back to Hall of Fame",
     "backfilling": "🔍 Fetching their open-source footprint (repos / languages / contributions)…",
     "rankTitle": "Your standing",
@@ -399,6 +402,7 @@
     "cooldown": "Refresh available in {hours}h"
   },
   "detailMeta": {
+    "unratedTitle": "{username} · Developer profile",
     "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — see {username}'s full score report on ghfind.com.",
     "descPlain": "{username}'s GitHub value & trust report — ghfind.com.",
