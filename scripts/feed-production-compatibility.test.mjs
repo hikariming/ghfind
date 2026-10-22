@@ -110,6 +110,7 @@ test(
           [
             "scripts/feed-production-compatibility.test.mjs",
             "migrations-feed/0012_feed_legacy_writer_fence.sql",
+            "migrations-feed/0013_feed_discover_copy_fields.sql",
             "platform/feed/src/store.ts",
             "platform/feed/src/governance.ts",
             "platform/feed/src/schema-readiness.ts",
@@ -280,13 +281,19 @@ test(
     );
 
     await t.test(
-      "0003..0012 with inactive legacy fence preserve existing facts and pending governance without inventing consent",
+      "0003..0013 with inactive legacy fence preserve existing facts and pending governance without inventing consent",
       async () => {
         await apply(feed, "migrations-feed", (n) => n >= "0003");
         await apply(core, "migrations", (n) => n >= "0005");
+        // 0013 adds discover copy columns with DEFAULT ''; facts otherwise unchanged.
         assert.deepEqual(
           await rows(feed, "SELECT * FROM feed_projects ORDER BY repo_key"),
-          before,
+          before.map((row) => ({
+            ...row,
+            discover_hook: "",
+            pain_statement: "",
+            audience_primary: "",
+          })),
         );
         assert.deepEqual(
           await rows(
