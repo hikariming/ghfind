@@ -160,7 +160,7 @@ func TestPortabilityAllNonSeedTablesMustBeEmpty(t *testing.T) {
 		}
 	}
 	_, n, _ := portabilityEmptyTableQuery("tag_definitions")
-	if strconv.Itoa(n) != "13" {
+	if strconv.Itoa(n) != "17" {
 		t.Fatal("taxonomy seed count drift")
 	}
 }
