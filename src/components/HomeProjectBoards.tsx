@@ -79,6 +79,7 @@ export function HomeProjectBoards({
             className="flex w-[20rem] shrink-0 snap-start sm:w-[22rem]"
           >
             <ProjectAssessmentCard
+              variant="compact"
               assessment={assessment}
               labels={labels}
               locale={locale}

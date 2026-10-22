@@ -946,6 +946,8 @@ html[data-theme] .content-card .card-blurb { background: transparent; border: 0;
 html .leaderboard-row { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding-block: 18px; }
 html[data-theme] .leaderboard-row:hover { background: var(--surface); }
 .assessment-card { padding: 22px; }
+.assessment-card.assessment-card-compact { padding: 16px; }
+html[data-theme="light"] .assessment-card-compact { --muted-foreground: #666663; }
 .assessment-card .assessment-score { font-size: 30px; font-weight: 500; color: var(--foreground); }
 .assessment-card .assessment-meta { border-top: 1px solid var(--border-soft); padding-top: 14px; }
 .assessment-meta > span { padding: 0; background: transparent; border-radius: 0; color: var(--muted-foreground); }
