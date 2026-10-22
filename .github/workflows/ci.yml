@@ -86,6 +86,11 @@ jobs:
       - name: Verify Docker HTTP harness ownership and cleanup guards
         run: python3 scripts/test-feed-docker-http.py
 
+      - name: Verify frontend stack (Nova / no duplicate UI libs)
+        run: |
+          pnpm frontend-stack:check
+          node --test scripts/check-frontend-stack.test.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 

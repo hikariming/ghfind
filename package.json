@@ -13,6 +13,7 @@
     "start:prod": "next start",
     "build/start": "tsx scripts/gen-embedded-assets.mts && next build && next start",
     "lint": "eslint",
+    "frontend-stack:check": "node scripts/check-frontend-stack.mjs",
     "knip": "knip",
     "smoke:backend:async": "tsx scripts/smoke-backend-async.mts",
     "smoke:backend:async:selftest": "tsx scripts/smoke-backend-async-selftest.mts",
