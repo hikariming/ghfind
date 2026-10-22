@@ -36,7 +36,7 @@ export function ProjectAssessmentCard({
     return (
       <article
         aria-label={`${assessment.repoKey} · ${board}`}
-        className="content-card assessment-card assessment-card-compact flex h-full min-h-[16.25rem] w-full min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4"
+        className="content-card assessment-card assessment-card-compact flex h-full w-full min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4"
       >
         <div className="flex min-w-0 items-center gap-3">
           <a
@@ -58,7 +58,7 @@ export function ProjectAssessmentCard({
           {analysis.project.summary}
         </p>
         <ProjectProductTags tags={analysis.project.product_tags} locale={locale} compact />
-        <div className="mt-auto flex items-center justify-between gap-3 pt-2 text-xs">
+        <div className="flex items-center justify-between gap-3 text-xs">
           <div className="min-w-0 text-muted-foreground">
             <span className="block">{labels.confidence} {assessment.confidence}%</span>
             <span className="block">{labels.communityStrength} {assessment.communityStrength}/100</span>

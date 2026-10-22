@@ -85,6 +85,8 @@ describe("compact assessment cards", () => {
     expect(markup).toContain('产品价值');
     expect(markup).toContain('置信度 79%');
     expect(markup).toContain('社区强度 43/100');
+    expect(markup).not.toContain('min-h-[16.25rem]');
+    expect(markup).not.toContain('mt-auto');
   });
 
   it("supports empty tags and preserves the fallback board classification", () => {

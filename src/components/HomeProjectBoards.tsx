@@ -76,7 +76,7 @@ export function HomeProjectBoards({
         {entries.map((assessment) => (
           <div
             key={assessment.repoKey}
-            className="flex w-[20rem] shrink-0 snap-start sm:w-[22rem]"
+            className="flex w-[20rem] shrink-0 snap-start items-stretch sm:w-[22rem]"
           >
             <ProjectAssessmentCard
               variant="compact"
