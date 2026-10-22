@@ -181,8 +181,10 @@ export function evaluate(state: State, frame: Frame, now: number, rules = DEFAUL
   // metric TTL; never reuse an old estimate as this window's observed cost.
   if (Object.entries(state.metrics).some(([key, metric]) => key.startsWith("R2:") && metric.gauge && !frame.points.some(point => point.key === key))) {
     frame.costComplete = false;
+    // When the storage query itself failed, that error already explains the
+    // gap; do not report the same failure twice.
     const reason = "R2 storage: known snapshot missing; coverage incomplete";
-    if (!frame.errors.includes(reason)) frame.errors.push(reason);
+    if (!frame.errors.some(error => error.startsWith("R2 storage:"))) frame.errors.push(reason);
   }
   if (frame.costComplete === false && !frame.errors.length) frame.errors.push("Monitor: consumption coverage incomplete");
   if (frame.at - state.lastFrame > WINDOW_MS && state.lastFrame) {

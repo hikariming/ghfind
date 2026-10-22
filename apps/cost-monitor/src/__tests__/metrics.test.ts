@@ -1,5 +1,5 @@
 import { describe,expect,it,vi } from "vitest";
-import { billable,collect,STORAGE_LOOKBACK_MS } from "../metrics";
+import { billable,collect,STORAGE_LIMIT,STORAGE_LOOKBACK_MS } from "../metrics";
 import {emptyState,evaluate,validateFrame} from "../engine";
 const now=1_800_000_000_000;
 const config={account:"account",token:"private-token"};
@@ -9,7 +9,7 @@ function fixture(query:string){
   if(query.includes("d1Analytics"))return [{dimensions:{databaseId:"core"},sum:{rowsRead:38_000_000,rowsWritten:20,readQueries:100,writeQueries:2}}];
   if(query.includes("workersInvocations"))return [{dimensions:{scriptName:"app"},sum:{errors:0,requests:200,cpuTimeUs:100_000}}];
   if(query.includes("r2Operations"))return [{dimensions:{bucketName:"bucket",actionType:"ListParts",storageClass:"Standard"},sum:{errors:0,requests:100,responseObjectSize:0}}];
-  if(query.includes("r2Storage"))return [{dimensions:{datetime:new Date(now-2*3600_000).toISOString(),bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1e9,metadataSize:0}}];
+  if(query.includes("r2Storage"))return [{dimensions:{datetimeHour:new Date(now-2*3600_000).toISOString(),bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1e9,metadataSize:0}}];
   if(query.includes("kvOperations"))return [{dimensions:{namespaceId:"cache",actionType:"write"},sum:{errors:0,requests:100}}];
   return [];
 }
@@ -112,13 +112,13 @@ describe("R2 storage snapshots",()=>{
     const q=JSON.parse(String(init?.body)).query;
     return api(q.includes("r2Storage")?rows:fixture(q));
   });
-  const snap=(hoursAgo:number,bucket:string,payloadSize:number,storageClass="Standard")=>({dimensions:{datetime:new Date(now-hoursAgo*3600_000).toISOString(),bucketName:bucket,storageClass},max:{payloadSize,metadataSize:0}});
+  const snap=(hoursAgo:number,bucket:string,payloadSize:number,storageClass="Standard")=>({dimensions:{datetimeHour:new Date(Math.floor((now-hoursAgo*3600_000)/3600_000)*3600_000).toISOString(),bucketName:bucket,storageClass},max:{payloadSize,metadataSize:0}});
   const storageQuery=(fetcher:ReturnType<typeof vi.fn>)=>fetcher.mock.calls.map(c=>JSON.parse(String((c[1] as RequestInit).body)).query as string).find(q=>q.includes("r2Storage"))!;
   it("queries a three-hour lookback and keeps the latest snapshot per bucket and class",async()=>{
     const fetcher=storageFetch([snap(1.2,"a",3e9),snap(2.5,"a",9e9),snap(2.8,"b",5e9),snap(1.5,"b",7e9,"InfrequentAccess")]);
     const f=await collect(config,now,fetcher as typeof fetch);
     expect(f.errors).toEqual([]);expect(f.costComplete).toBe(true);
-    const q=storageQuery(fetcher);expect(q).toContain("datetime bucketName storageClass");expect(q).toContain("orderBy:[datetime_DESC]");
+    const q=storageQuery(fetcher);expect(q).toContain("datetimeHour bucketName storageClass");expect(q).toContain("orderBy:[datetimeHour_DESC]");expect(q).toContain(`limit:${STORAGE_LIMIT}`);
     const [from,to]=[...q.matchAll(/datetime_(?:geq|lt):"([^"]+)"/g)].map(m=>Date.parse(m[1]));
     expect(to-from).toBe(STORAGE_LOOKBACK_MS);expect(STORAGE_LOOKBACK_MS).toBe(3*3600_000);
     const storage=f.points.filter(p=>p.gauge&&p.product==="R2");
@@ -139,8 +139,26 @@ describe("R2 storage snapshots",()=>{
     evaluate(state,missing,now+300_000);
     expect(missing.costComplete).toBe(false);expect(missing.errors).toContain("R2 storage: known snapshot missing; coverage incomplete");
   });
+  it("accepts more than 128 storage rows (regression: 14 buckets x 2 classes overflowed the shared limit)",async()=>{
+    const rows=Array.from({length:40},(_,b)=>[0.5,1.5,2.5].flatMap(h=>["Standard","InfrequentAccess"].map(c=>snap(h,`b${b}`,1e9+b,c)))).flat();
+    expect(rows.length).toBeGreaterThan(128);
+    const f=await collect(config,now,storageFetch(rows) as typeof fetch);
+    expect(f.errors).toEqual([]);expect(f.costComplete).toBe(true);
+    expect(f.points.filter(p=>p.gauge&&p.product==="R2")).toHaveLength(80);
+  });
+  it("still rejects a truncated storage result",async()=>{
+    const rows=Array.from({length:STORAGE_LIMIT},(_,i)=>snap(0.5,`b${i}`,1e9));
+    const f=await collect(config,now,storageFetch(rows) as typeof fetch);
+    expect(f.errors).toEqual(["R2 storage: result limit reached; coverage incomplete"]);expect(f.costComplete).toBe(false);
+  });
+  it("reports a failed storage query once, not again as a missing known snapshot",async()=>{
+    const state=emptyState();evaluate(state,await collect(config,now,storageFetch([snap(1,"bucket",1e9)]) as typeof fetch),now);
+    const failing=vi.fn(async(_url:unknown,init?:RequestInit)=>{const q=JSON.parse(String(init?.body)).query;return q.includes("r2Storage")?Response.json({errors:[{message:"private failure"}]}):api(fixture(q));});
+    const failed=await collect(config,now+300_000,failing as typeof fetch);evaluate(state,failed,now+300_000);
+    expect(failed.errors).toEqual(["R2 storage: collection unavailable"]);expect(failed.costComplete).toBe(false);
+  });
   it("rejects a snapshot without a valid time instead of guessing which is latest",async()=>{
-    const f=await collect(config,now,storageFetch([{dimensions:{datetime:"not-a-time",bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1,metadataSize:0}}]) as typeof fetch);
+    const f=await collect(config,now,storageFetch([{dimensions:{datetimeHour:"not-a-time",bucketName:"bucket",storageClass:"Standard"},max:{payloadSize:1,metadataSize:0}}]) as typeof fetch);
     expect(f.errors).toEqual(["R2 storage: collection unavailable"]);expect(f.costComplete).toBe(false);
   });
 });
