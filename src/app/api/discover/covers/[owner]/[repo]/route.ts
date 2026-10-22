@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { deleteCover, ownsRepo, readCover, writeCover } from "@/lib/discover/covers";
+import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function repoKey(owner: string, repo: string): string | null {
-  const key = `${decodeURIComponent(owner)}/${decodeURIComponent(repo)}`.toLowerCase();
+  const key = `${decodeRouteParam(owner)}/${decodeRouteParam(repo)}`.toLowerCase();
   if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(key)) return null;
   return key;
 }
