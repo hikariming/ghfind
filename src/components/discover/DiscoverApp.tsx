@@ -29,8 +29,8 @@ export function DiscoverApp({
 }) {
   const t = useTranslations("discover");
   const search = useSearchParams();
-  const requested = search.get("mode") === "swipe" ? "swipe" : "grid";
-  const initialMode = useRef(requested);
+  const requested: DiscoverMode = search.get("mode") === "swipe" ? "swipe" : "grid";
+  const initialMode = useRef<DiscoverMode>(requested);
   const [previewOpen, setPreviewOpen] = useState(false);
   const mode = useDiscoverStore((state) => state.mode);
   const items = useDiscoverStore((state) => state.items);
