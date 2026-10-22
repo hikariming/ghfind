@@ -1787,6 +1787,7 @@
     "language": "Ngôn ngữ",
     "openFull": "Mở báo cáo đầy đủ",
     "keyboard": "← bỏ qua · → lưu · ↑ nhấn mạnh · Backspace hoàn tác",
-    "hint": "Lưu là đánh dấu. Bỏ qua là tín hiệu yếu, không phải chặn."
+    "hint": "Lưu là đánh dấu. Bỏ qua là tín hiệu yếu, không phải chặn.",
+    "audience": "Cho"
   }
 }

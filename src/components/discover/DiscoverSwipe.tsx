@@ -39,6 +39,7 @@ export function DiscoverSwipe({
     communityStrength: string;
     language: string;
     openFull: string;
+    audience: string;
   };
   onAct: (action: DiscoverAction, visibleMs: number) => void | Promise<boolean>;
   onUndo: () => void;
@@ -108,7 +109,7 @@ export function DiscoverSwipe({
   };
 
   const deck = (
-    <div className="mx-auto w-full max-w-[380px]">
+    <div className="mx-auto w-full max-w-[480px]">
       <div className="relative">
         {card ? (
           <motion.div
@@ -131,7 +132,7 @@ export function DiscoverSwipe({
               }
             }}
           >
-            <DiscoverCardView card={card} labels={labels} compact={false} />
+            <DiscoverCardView card={card} labels={labels} />
           </motion.div>
         ) : (
           <div className="rounded-2xl border border-dashed border-white/10 p-8 text-sm text-muted-foreground" />

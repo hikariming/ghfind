@@ -1787,6 +1787,7 @@
     "language": "Lenguaje",
     "openFull": "Abrir informe completo",
     "keyboard": "← saltar · → guardar · ↑ destacar · Retroceso deshacer",
-    "hint": "Guardar marca el proyecto. Saltar es una señal débil, no un bloqueo."
+    "hint": "Guardar marca el proyecto. Saltar es una señal débil, no un bloqueo.",
+    "audience": "Para"
   }
 }

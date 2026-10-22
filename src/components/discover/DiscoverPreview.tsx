@@ -4,7 +4,6 @@ import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { coverMonogram, coverStyle } from "@/lib/discover/cover";
 import { reportHref } from "@/lib/discover/events";
 import type { DiscoverCard } from "@/lib/discover/types";
 
@@ -33,12 +32,8 @@ export function DiscoverPreview({
       <h2 className="mt-1 truncate text-xl font-bold tracking-tight">
         {card.ownerLogin}/{card.name}
       </h2>
-      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{card.summary}</p>
-      <div className="mt-3 flex gap-2">
-        <div className="size-16 overflow-hidden rounded-lg" style={coverStyle(card.repoKey)}>
-          <span className="flex size-full items-center justify-center text-sm font-bold text-white/80">{coverMonogram(card.name)}</span>
-        </div>
-      </div>
+      {card.coverUrl ? <img src={card.coverUrl} alt="" className="mt-3 aspect-[5/4] w-full rounded-xl object-cover" /> : null}
+      <p className="mt-3 line-clamp-5 text-base leading-7 text-foreground/90">{card.hook}</p>
       <ScrollArea className="mt-4 min-h-0 flex-1">
         <dl className="grid grid-cols-[6rem_1fr] gap-y-2 text-sm">
           <dt className="text-muted-foreground">{labels.productScore}</dt>

@@ -1787,6 +1787,7 @@
     "language": "Linguagem",
     "openFull": "Abrir relatório completo",
     "keyboard": "← pular · → salvar · ↑ destacar · Backspace desfazer",
-    "hint": "Salvar marca o projeto. Pular é um sinal fraco, não um bloqueio."
+    "hint": "Salvar marca o projeto. Pular é um sinal fraco, não um bloqueio.",
+    "audience": "Para"
   }
 }

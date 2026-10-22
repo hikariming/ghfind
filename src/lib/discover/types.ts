@@ -13,6 +13,9 @@ export type DiscoverCard = {
   ownerLogin: string;
   name: string;
   summary: string;
+  hook: string;
+  audience: string | null;
+  coverUrl: string | null;
   language: string | null;
   tags: DiscoverTag[];
   productScore: number;

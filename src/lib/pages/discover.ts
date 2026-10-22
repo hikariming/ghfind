@@ -1,3 +1,4 @@
+import { attachCoverUrls } from "@/lib/discover/covers";
 import { cardFromAssessment, dedupeCards } from "@/lib/discover/map";
 import type { DiscoverCard } from "@/lib/discover/types";
 import { listProjectBoard, type ProjectBoard } from "@/lib/project-analysis-db";
@@ -28,5 +29,5 @@ export async function loadDiscoverPage(locale: string): Promise<{
     }
     if (cards.length >= 8 || candidate === "all") break;
   }
-  return { cards, board, nextOffset, databaseError };
+  return { cards: await attachCoverUrls(cards), board, nextOffset, databaseError };
 }

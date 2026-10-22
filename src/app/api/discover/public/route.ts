@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attachCoverUrls } from "@/lib/discover/covers";
 import { cardFromAssessment } from "@/lib/discover/map";
 import { countProjectBoard, listProjectBoard, type ProjectBoard } from "@/lib/project-analysis-db";
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
       listProjectBoard(board, { limit, offset }),
       countProjectBoard(board),
     ]);
-    const items = entries.map((entry) => cardFromAssessment(entry, locale));
+    const items = await attachCoverUrls(entries.map((entry) => cardFromAssessment(entry, locale)));
     const nextOffset = offset + items.length < total ? offset + items.length : null;
     return NextResponse.json(
       { items, nextOffset, source: "public", degraded: [], requestId: null },

@@ -14,7 +14,10 @@ const card: DiscoverCard = {
   repoKey: "fixture-owner/fixture-repo",
   ownerLogin: "fixture-owner",
   name: "fixture-repo",
-  summary: "A compact CLI for fixtures.",
+  summary: "fixture-repo 是一个面向测试的工具。",
+  hook: "用 shell 命令过滤选区。",
+  audience: "插件作者",
+  coverUrl: null,
   language: "Go",
   tags: [
     { id: "a", label: "cli" },
@@ -36,16 +39,16 @@ describe("DiscoverCardView", () => {
     const markup = renderToStaticMarkup(
       <DiscoverCardView
         card={card}
-        labels={{ productScore: "产品价值", viewCard: "查看评估" }}
+        labels={{ productScore: "产品价值", viewCard: "查看评估", audience: "给" }}
       />,
     );
     expect(markup).toContain("fixture-owner/");
     expect(markup).toContain("fixture-repo");
-    expect(markup).toContain("A compact CLI for fixtures.");
-    expect(markup).toContain("line-clamp-1");
-    expect(markup).toContain("aspect-[16/10]");
+    expect(markup).toContain("用 shell 命令过滤选区。");
+    expect(markup).toContain("line-clamp-3");
+    expect(markup).not.toContain("aspect-[16/10]");
     expect(markup).toContain('href="https://github.com/fixture-owner/fixture-repo"');
     expect(markup).toContain('href="/projects/analyses/analysis-fixture"');
-    expect(markup).toContain("+1");
+    expect(markup).toContain("插件作者");
   });
 });

@@ -1787,6 +1787,7 @@
     "language": "Language",
     "openFull": "Open full report",
     "keyboard": "← skip · → save · ↑ highlight · Backspace undo",
-    "hint": "Save bookmarks a project. Skip is a weak signal, not a block."
+    "hint": "Save bookmarks a project. Skip is a weak signal, not a block.",
+    "audience": "For"
   }
 }

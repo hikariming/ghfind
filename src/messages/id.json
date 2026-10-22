@@ -1787,6 +1787,7 @@
     "language": "Bahasa",
     "openFull": "Buka laporan lengkap",
     "keyboard": "← lewati · → simpan · ↑ sorot · Backspace urungkan",
-    "hint": "Simpan menandai proyek. Lewati adalah sinyal lemah, bukan blokir."
+    "hint": "Simpan menandai proyek. Lewati adalah sinyal lemah, bukan blokir.",
+    "audience": "Untuk"
   }
 }

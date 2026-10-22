@@ -1,3 +1,4 @@
+import { discoverHook } from "./hook";
 import { splitRepoKey } from "./map";
 import type { DiscoverCard, DiscoverPage } from "./types";
 import type { FeedWrite } from "./events";
@@ -30,6 +31,9 @@ function asCard(value: unknown): DiscoverCard | null {
     ownerLogin: String(row.ownerLogin ?? splitRepoKey(row.repoKey).ownerLogin),
     name: String(row.name ?? splitRepoKey(row.repoKey).name),
     summary: row.summary,
+    hook: typeof row.hook === "string" && row.hook ? row.hook : discoverHook({ name: String(row.name ?? ""), summary: row.summary }),
+    audience: typeof row.audience === "string" ? row.audience : null,
+    coverUrl: typeof row.coverUrl === "string" ? row.coverUrl : null,
     language: typeof row.language === "string" ? row.language : null,
     tags: Array.isArray(row.tags)
       ? row.tags.flatMap((tag) => {
@@ -110,6 +114,9 @@ export async function fetchFeedPage(input: {
       ownerLogin: project.ownerLogin,
       name: project.name,
       summary: project.summary,
+      hook: discoverHook({ name: String(project.name ?? ""), summary: String(project.summary ?? "") }),
+      audience: null,
+      coverUrl: null,
       language: project.language,
       tags: Array.isArray(project.tags)
         ? project.tags.map((tag) => {

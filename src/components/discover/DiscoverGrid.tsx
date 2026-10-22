@@ -14,7 +14,7 @@ export function DiscoverGrid({
   items: DiscoverCardModel[];
   loading: boolean;
   onLoadMore: () => void;
-  labels: { productScore: string; viewCard: string };
+  labels: { productScore: string; viewCard: string; audience: string };
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const armed = useRef(true);
@@ -39,16 +39,17 @@ export function DiscoverGrid({
   }, [items.length, loading, onLoadMore]);
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((card) => (
         <DiscoverCardView key={card.repoKey} card={card} labels={labels} />
       ))}
       {loading && Array.from({ length: 4 }).map((_, i) => (
         <div key={`sk-${i}`} className="overflow-hidden rounded-2xl border border-white/10">
-          <Skeleton className="aspect-[16/10] w-full rounded-none" />
-          <div className="space-y-2 p-3">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-full" />
+          <div className="space-y-3 p-5">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-1/2" />
           </div>
         </div>
       ))}

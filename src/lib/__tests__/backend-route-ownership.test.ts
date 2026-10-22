@@ -38,6 +38,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/developers/route.ts",
   // Public discover preview: read-only project boards, no Feed profile writes.
   "src/app/api/discover/public/route.ts",
+  // Owner-uploaded discover covers. GET is public; writes require the GitHub owner.
+  "src/app/api/discover/covers/[owner]/[repo]/route.ts",
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",
   "src/app/api/feed/profile/route.ts",
