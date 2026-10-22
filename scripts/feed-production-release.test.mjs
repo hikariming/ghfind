@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { authorizeMutation, renderWeb, prepareSecrets, safeBuildEnv, verifyWeb, ensureResources } from './feed-production-release.mjs';
+import { authorizeMutation, renderWeb, prepareSecrets, safeBuildEnv, verifyWeb, ensureResources, webVerifyLimits, parseWranglerVersionId, wranglerOutputRetryable } from './feed-production-release.mjs';
+const instantVerify = { sleep: async () => {}, now: () => 0 };
+const verify = (sha, mode, provider, api, options = {}) => verifyWeb(sha, mode, provider, api, { ...instantVerify, ...options });
 import { approvedSchemas } from './feed-platform-schema-release.mjs';
 import { template } from './feed-platform-production.mjs';
 const sha='a'.repeat(40);
@@ -53,12 +55,12 @@ test('Web readback pins both immutable response and stable active deployment wit
  for(const environment of [undefined,'production']) {
   const f=webFixture();f.bindings.find(b=>b.name==='FEED_RUNTIME').environment=environment;
   f.bindings.push({name:'PRESERVED_EXISTING_SETTING',type:'plain_text',text:'private-not-in-receipt'});
-  const result=await verifyWeb(sha,'all',provider,f.api);
+  const result=await verify(sha,'all',provider,f.api);
   assert.equal(result.mode,'all');assert.equal(result.workerVersionId,f.versionId);assert.equal(result.deploymentId,f.deploymentId);
   assert.match(result.bindingSHA256,/^[a-f0-9]{64}$/);
   assert.ok(!JSON.stringify(result).includes('private-not-in-receipt'));
   assert.deepEqual(f.paths,['/workers/scripts/ghfind/deployments',`/workers/scripts/ghfind/versions/${f.versionId}`,'/workers/scripts/ghfind/deployments']);
-  await assert.rejects(verifyWeb(sha,'paused',provider,f.api));
+  await assert.rejects(verify(sha,'paused',provider,f.api));
  }
 });
 test('Web version response, source tag, binding names/types and production service target reject ambiguity',async()=>{
@@ -93,9 +95,9 @@ test('Web version response, source tag, binding names/types and production servi
   ]),
   f=>{f.bindings.find(b=>b.name==='GHFIND_COORD_BACKEND').text='redis';},
  ];
- for(const change of changes){const f=webFixture();change(f);await assert.rejects(verifyWeb(sha,'all',provider,f.api));}
+ for(const change of changes){const f=webFixture();change(f);await assert.rejects(verify(sha,'all',provider,f.api));}
  const f=webFixture();f.bindings.find(b=>b.name==='FEED_RUNTIME').entrypoint='default';
- assert.equal((await verifyWeb(sha,'all',provider,f.api)).status,'passed');
+ assert.equal((await verify(sha,'all',provider,f.api)).status,'passed');
 });
 test('Web readback rejects malformed, split, replaced or changed deployments including a same-version redeploy',async()=>{
  const changes=[
@@ -105,13 +107,111 @@ test('Web readback rejects malformed, split, replaced or changed deployments inc
   d=>{d.deployments[0].versions.push({...d.deployments[0].versions[0]});},
   d=>{d.deployments=[];},d=>{d.deployments[0].versions=null;},
  ];
- for(const change of changes){const f=webFixture();change(f.deployment);await assert.rejects(verifyWeb(sha,'all',provider,f.api));assert.equal(f.paths.length,1);}
+ for(const change of changes){const f=webFixture();change(f.deployment);await assert.rejects(verify(sha,'all',provider,f.api));assert.equal(f.paths.length,1);}
  for(const change of [d=>{d.deployments[0].id='33333333-3333-4333-8333-333333333333';},d=>{d.deployments[0].versions[0].version_id='33333333-3333-4333-8333-333333333333';},...changes]) {
   const f=webFixture();let reads=0;
   const api=async path=>{const data=await f.api(path);if(path.endsWith('/deployments') && ++reads===2)change(data);return data;};
-  await assert.rejects(verifyWeb(sha,'all',provider,api));assert.equal(f.paths.length,3);
+  await assert.rejects(verify(sha,'all',provider,api));assert.equal(f.paths.length,3);
  }
- const f=webFixture();await assert.rejects(verifyWeb(sha,'all',provider,async path=>{if(f.paths.length===2)throw new Error('readback_unavailable');return f.api(path);}),/readback_unavailable/);
+ const f=webFixture();await assert.rejects(verify(sha,'all',provider,async path=>{if(f.paths.length===2)throw new Error('readback_unavailable');return f.api(path);}),/readback_unavailable/);
+});
+test('parseWranglerVersionId reads a unique Current Version ID and rejects ambiguity',()=>{
+ assert.equal(parseWranglerVersionId('Current Version ID: 91d22358-f643-4c50-a7db-fa47b5263b20\n'),'91d22358-f643-4c50-a7db-fa47b5263b20');
+ assert.equal(parseWranglerVersionId('\u001B[32mCurrent Version ID: 91d22358-f643-4c50-a7db-fa47b5263b20\u001B[0m\n'),'91d22358-f643-4c50-a7db-fa47b5263b20');
+ assert.equal(parseWranglerVersionId('Uploaded ghfind\n'),undefined);
+ assert.throws(()=>parseWranglerVersionId('Current Version ID: 91d22358-f643-4c50-a7db-fa47b5263b20\nCurrent Version ID: 824aa110-aaaa-4bbb-8ccc-ddddeeeeffff\n'),/ambiguous wrangler version ID/);
+});
+test('Web verify polls a stale source tag then passes without relaxing the match',async()=>{
+ const f=webFixture();
+ const stale=structuredClone(f.version);
+ stale.annotations['workers/tag']='production-'+'b'.repeat(40);
+ let versionReads=0, sleeps=[];
+ const api=async path=>{
+  if(path.endsWith('/deployments')) return structuredClone(f.deployment);
+  versionReads+=1;
+  return structuredClone(versionReads===1?stale:f.version);
+ };
+ const result=await verifyWeb(sha,'all',provider,api,{sleep:async ms=>{sleeps.push(ms);},now:()=>sleeps.length*webVerifyLimits.intervalMs});
+ assert.equal(result.status,'passed');
+ assert.equal(result.workerVersionId,f.versionId);
+ assert.deepEqual(sleeps,[webVerifyLimits.intervalMs]);
+});
+test('Web verify fails closed when the source tag never matches',async()=>{
+ const f=webFixture();
+ f.version.annotations['workers/tag']='production-'+'b'.repeat(40);
+ let attempts=0, sleeps=[];
+ const api=async path=>{
+  if(path.endsWith('/versions/') || path.includes('/versions/')) attempts+=1;
+  return f.api(path);
+ };
+ await assert.rejects(verifyWeb(sha,'all',provider,api,{sleep:async ms=>{sleeps.push(ms);},now:()=>sleeps.length*webVerifyLimits.intervalMs}),/actual Web source tag mismatch/);
+ assert.equal(attempts,webVerifyLimits.attempts);
+ assert.equal(sleeps.length,webVerifyLimits.attempts-1);
+});
+test('Web verify polls Versions GET 100146 then passes; other 404s stay immediate',async()=>{
+ const f=webFixture();
+ let versionReads=0, sleeps=[];
+ const api=async path=>{
+  if(path.endsWith('/deployments')) return structuredClone(f.deployment);
+  versionReads+=1;
+  if(versionReads===1) throw Object.assign(new Error('Cloudflare request failed (404; 100146)'),{status:404,codes:[100146]});
+  return structuredClone(f.version);
+ };
+ const result=await verifyWeb(sha,'all',provider,api,{sleep:async ms=>{sleeps.push(ms);},now:()=>0});
+ assert.equal(result.status,'passed');
+ assert.deepEqual(sleeps,[webVerifyLimits.intervalMs]);
+ const hard=webFixture();
+ const hardApi=async path=>{
+  if(path.endsWith('/deployments')) return structuredClone(hard.deployment);
+  throw Object.assign(new Error('Cloudflare request failed (404; )'),{status:404,codes:[]});
+ };
+ let hardSleeps=0;
+ await assert.rejects(verifyWeb(sha,'all',provider,hardApi,{sleep:async()=>{hardSleeps+=1;},now:()=>0}),/Cloudflare request failed \(404/);
+ assert.equal(hardSleeps,0);
+});
+test('Web verify prefers wrangler Version ID over a stale same-SHA predecessor',async()=>{
+ const f=webFixture();
+ const expectedVersionId='33333333-3333-4333-8333-333333333333';
+ const fresh=structuredClone(f.version);
+ fresh.id=expectedVersionId;
+ const staleDeployment=structuredClone(f.deployment);
+ const liveDeployment={deployments:[{id:f.deploymentId,versions:[{percentage:100,version_id:expectedVersionId}]}]};
+ let versionReads=0, deploymentReads=0, sleeps=[], seenStaleBindings=false;
+ const api=async path=>{
+  if(path.endsWith('/deployments')) {
+   deploymentReads+=1;
+   return structuredClone(deploymentReads===1?staleDeployment:liveDeployment);
+  }
+  if(path.endsWith(`/versions/${expectedVersionId}`)) {
+   versionReads+=1;
+   if(versionReads===1) throw Object.assign(new Error('Cloudflare request failed (404; 100146)'),{status:404,codes:[100146]});
+   return structuredClone(fresh);
+  }
+  if(path.endsWith(`/versions/${f.versionId}`)) { seenStaleBindings=true; return structuredClone(f.version); }
+  throw new Error(`unexpected ${path}`);
+ };
+ const result=await verifyWeb(sha,'all',provider,api,{expectedVersionId,sleep:async ms=>{sleeps.push(ms);},now:()=>0});
+ assert.equal(result.status,'passed');
+ assert.equal(result.workerVersionId,expectedVersionId);
+ assert.equal(seenStaleBindings,false);
+ assert.ok(sleeps.length>=1);
+ const wrong=structuredClone(fresh);
+ wrong.annotations['workers/tag']='production-'+'b'.repeat(40);
+ let wrongSleeps=0;
+ const wrongApi=async path=>{
+  if(path.endsWith(`/versions/${expectedVersionId}`)) return structuredClone(wrong);
+  throw new Error(`unexpected ${path}`);
+ };
+ await assert.rejects(verifyWeb(sha,'all',provider,wrongApi,{expectedVersionId,sleep:async()=>{wrongSleeps+=1;},now:()=>0}),/actual Web source tag mismatch/);
+ assert.equal(wrongSleeps,0);
+});
+test('expected Web version ID must be a UUID',async()=>{
+ const f=webFixture();
+ await assert.rejects(verifyWeb(sha,'all',provider,f.api,{expectedVersionId:'not-a-uuid',...instantVerify}),/expected Web version ID must be a UUID/);
+});
+test('wrangler containers 100146 is retryable and other errors are not',()=>{
+ assert.equal(wranglerOutputRetryable('The requested Worker version could not be found ... [code: 100146]'), true);
+ assert.equal(wranglerOutputRetryable('Authentication error [code: 10000]'), false);
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));

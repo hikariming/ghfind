@@ -95,14 +95,13 @@ jobs:
       - name: Deploy web in the unchanged paused rollout mode
         run: |
           set -euo pipefail
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "manual web+cache repair: paused web redeploy, no feed cutover"
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "manual web+cache repair: paused web redeploy, no feed cutover" 2>&1 | tee "$RUNNER_TEMP/feed-production-evidence/web-paused-deploy.log"
           # The deployments API can briefly still report the previous version
-          # right after a deploy ("actual Web source tag mismatch"); retry.
-          for attempt in 1 2 3 4 5; do
-            if node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json"; then exit 0; fi
-            [ "$attempt" -lt 5 ] && sleep 10
-          done
-          exit 1
+          # right after a deploy ("actual Web source tag mismatch"); verifyWeb
+          # polls that class fail-closed, so this step does not stack a second
+          # 5×10s shell loop on top of the inner poll.
+          version_id="$(node scripts/feed-production-release.mjs web-version-id "$RUNNER_TEMP/feed-production-evidence/web-paused-deploy.log")"
+          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json" ${version_id:+"$version_id"}
 
       - name: Smoke SSG (dynamicParams = false) pages over the WAF-free workers.dev entrance
         run: |

@@ -66,7 +66,8 @@
       "githubBot": "作成者のスコアで issue と PR に自動ラベル付け",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "AI・オープンソース企業の募集職種",
-      "talentMatch": "AI 人材レポート・職種マッチ・成長アドバイス"
+      "talentMatch": "AI 人材レポート・職種マッチ・成長アドバイス",
+      "discover": "価値の高いリポジトリをグリッドまたはスワイプで発見"
     },
     "cliApi": "CLI & API",
     "jobs": "求人",
@@ -1760,5 +1761,32 @@
       "notLive": "企業側のマッチングはまだ公開前のため、現在あなたのプロフィールは誰にも見えません。今オンにすると、公開時に人材プールに含まれます。",
       "saveFailed": "保存できませんでした。もう一度お試しください。"
     }
+  },
+  "discover": {
+    "metaTitle": "プロジェクトを発見 · ghfind",
+    "metaDescription": "価値の高いオープンソースをコンパクトに流すフィード。",
+    "title": "発見",
+    "heading": "プロジェクトフィード",
+    "beta": "Beta",
+    "modeGrid": "グリッド",
+    "modeSwipe": "スワイプ",
+    "filters": "絞り込み",
+    "filtersBody": "保存はプロジェクトをブックマークします。スキップは端末内だけで、興味なしにはしません。",
+    "signedOutBanner": "GitHub でログインすると個別のおすすめになります。今は公開の注目プロジェクトです。",
+    "feedUnavailable": "個別フィードは使えません。公開の注目プロジェクトを表示しています。",
+    "empty": "いま表示できるプロジェクトはありません。",
+    "like": "保存",
+    "skip": "スキップ",
+    "superLike": "ハイライト",
+    "undo": "取り消す",
+    "viewCard": "評価を見る",
+    "quickPreview": "クイックプレビュー",
+    "productScore": "プロダクト価値",
+    "confidence": "確信度",
+    "communityStrength": "コミュニティ",
+    "language": "言語",
+    "openFull": "評価レポートを開く",
+    "keyboard": "← スキップ · → 保存 · ↑ ハイライト · Backspace 取り消し",
+    "hint": "保存はブックマークです。スキップは弱い信号で、ブロックではありません。"
   }
 }

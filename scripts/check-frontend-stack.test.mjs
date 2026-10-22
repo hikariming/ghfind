@@ -81,6 +81,19 @@ test("missing owner prompt or eslint bans fail", () => {
   assert.ok(eslint.some((e) => /eslint.config.mjs/.test(e)));
 });
 
+test("missing required instruction files fail closed", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "frontend-stack-missing-"));
+  try {
+    writeFileSync(join(temporary, "package.json"), JSON.stringify({ dependencies: {} }));
+    assert.throws(
+      () => execFileSync(process.execPath, [checker, temporary], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
+      /AGENTS\.md is required/,
+    );
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
 test("a workspace with a banned direct dependency is rejected from disk", () => {
   const temporary = mkdtempSync(join(tmpdir(), "frontend-stack-"));
   try {

@@ -66,7 +66,8 @@
       "githubBot": "작성자 점수로 issue와 PR에 자동 라벨",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "AI·오픈소스 기업의 채용 공고",
-      "talentMatch": "AI 인재 리포트, 직무 매칭, 성장 조언"
+      "talentMatch": "AI 인재 리포트, 직무 매칭, 성장 조언",
+      "discover": "가치 높은 저장소를 그리드 또는 스와이프로 발견"
     },
     "cliApi": "CLI & API",
     "jobs": "채용",
@@ -1760,5 +1761,32 @@
       "notLive": "기업 매칭은 아직 출시 전이라 지금은 아무도 내 프로필을 볼 수 없습니다. 지금 켜 두면 출시될 때 인재 풀에 포함됩니다.",
       "saveFailed": "저장하지 못했습니다. 다시 시도해 주세요."
     }
+  },
+  "discover": {
+    "metaTitle": "프로젝트 발견 · ghfind",
+    "metaDescription": "가치가 높은 오픈소스를 조밀하게 보여주는 피드.",
+    "title": "발견",
+    "heading": "프로젝트 피드",
+    "beta": "Beta",
+    "modeGrid": "그리드",
+    "modeSwipe": "스와이프",
+    "filters": "필터",
+    "filtersBody": "저장은 프로젝트를 북마크합니다. 건너뛰기는 이 기기에만 남고 관심 없음으로 표시하지 않습니다.",
+    "signedOutBanner": "GitHub로 로그인하면 맞춤 추천이 됩니다. 지금은 공개 하이라이트입니다.",
+    "feedUnavailable": "맞춤 피드를 쓸 수 없습니다. 공개 하이라이트를 보여 줍니다.",
+    "empty": "지금은 더 볼 프로젝트가 없습니다.",
+    "like": "저장",
+    "skip": "건너뛰기",
+    "superLike": "강조",
+    "undo": "실행 취소",
+    "viewCard": "평가 보기",
+    "quickPreview": "빠른 미리보기",
+    "productScore": "제품 가치",
+    "confidence": "신뢰도",
+    "communityStrength": "커뮤니티",
+    "language": "언어",
+    "openFull": "전체 평가 열기",
+    "keyboard": "← 건너뛰기 · → 저장 · ↑ 강조 · Backspace 실행 취소",
+    "hint": "저장은 북마크입니다. 건너뛰기는 약한 신호이며 차단이 아닙니다."
   }
 }

@@ -66,7 +66,8 @@
       "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Vị trí đang tuyển tại công ty AI và mã nguồn mở",
-      "talentMatch": "Báo cáo nhân tài AI, ghép vị trí và lời khuyên"
+      "talentMatch": "Báo cáo nhân tài AI, ghép vị trí và lời khuyên",
+      "discover": "Khám phá repo giá trị cao bằng lưới hoặc vuốt"
     },
     "cliApi": "CLI & API",
     "jobs": "Việc làm",
@@ -1760,5 +1761,32 @@
       "notLive": "Tính năng tìm kiếm cho doanh nghiệp chưa ra mắt nên hiện chưa ai xem được hồ sơ của bạn; bật ngay để có mặt trong kho khi tính năng mở.",
       "saveFailed": "Không lưu được lựa chọn. Vui lòng thử lại."
     }
+  },
+  "discover": {
+    "metaTitle": "Khám phá dự án · ghfind",
+    "metaDescription": "Luồng gọn các dự án mã nguồn mở có giá trị cao.",
+    "title": "Khám phá",
+    "heading": "Luồng dự án",
+    "beta": "Beta",
+    "modeGrid": "Lưới",
+    "modeSwipe": "Vuốt",
+    "filters": "Bộ lọc",
+    "filtersBody": "Lưu sẽ đánh dấu dự án. Bỏ qua chỉ ở máy này và không đánh dấu không quan tâm.",
+    "signedOutBanner": "Đăng nhập GitHub để cá nhân hóa. Hiện đang hiện các mục công khai.",
+    "feedUnavailable": "Luồng cá nhân chưa dùng được. Đang hiện các mục công khai.",
+    "empty": "Hiện chưa có thêm dự án.",
+    "like": "Lưu",
+    "skip": "Bỏ qua",
+    "superLike": "Nhấn mạnh",
+    "undo": "Hoàn tác",
+    "viewCard": "Xem báo cáo",
+    "quickPreview": "Xem nhanh",
+    "productScore": "Giá trị sản phẩm",
+    "confidence": "Độ tin cậy",
+    "communityStrength": "Cộng đồng",
+    "language": "Ngôn ngữ",
+    "openFull": "Mở báo cáo đầy đủ",
+    "keyboard": "← bỏ qua · → lưu · ↑ nhấn mạnh · Backspace hoàn tác",
+    "hint": "Lưu là đánh dấu. Bỏ qua là tín hiệu yếu, không phải chặn."
   }
 }

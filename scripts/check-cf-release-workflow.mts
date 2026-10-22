@@ -75,8 +75,8 @@ for (const fragment of ['openssl rand -hex 32', '--build-arg IMAGE_BUILD_ID="$FE
 const containment = /      - name: Contain failed cutover[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 if (!containment.includes("always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success'"))
   throw new Error('Incomplete or cancelled admission must retain Go-only containment');
-for (const fragment of ['timeout-minutes: 3', 'timeout --signal=TERM --kill-after=5s 120s',
-  'timeout --signal=TERM --kill-after=5s 30s', 'containment-attempt.json', 'attempted_unverified'])
+for (const fragment of ['timeout-minutes: 6', 'timeout --signal=TERM --kill-after=5s 120s',
+  'timeout --signal=TERM --kill-after=5s 90s', 'containment-attempt.json', 'attempted_unverified'])
   if (!containment.includes(fragment)) throw new Error(`Containment deadline/evidence missing ${fragment}`);
 const admissionAt = deployJob.indexOf('      - name: Record gateway admission intent');
 if (admissionAt < 0 || admissionAt >= deployJob.indexOf('      - name: Cut all Feed requests') ||

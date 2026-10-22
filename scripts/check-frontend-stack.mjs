@@ -171,7 +171,8 @@ export function checkFrontendStack({
     }
   }
 
-  if (componentsJson) {
+  if (!componentsJson) errors.push("components.json is required");
+  else {
     if (componentsJson.style !== "radix-nova") {
       errors.push(`components.json style must be radix-nova (shadcn/ui Nova on Radix), got ${JSON.stringify(componentsJson.style)}`);
     }
@@ -180,13 +181,16 @@ export function checkFrontendStack({
     }
   }
 
-  if (agentsMarkdown && !agentsMarkdown.includes(OWNER_FRONTEND_PROMPT)) {
+  if (!agentsMarkdown) errors.push("AGENTS.md is required");
+  else if (!agentsMarkdown.includes(OWNER_FRONTEND_PROMPT)) {
     errors.push("AGENTS.md is missing the owner Frontend Stack Rules prompt (verbatim)");
   }
-  if (claudeMarkdown && !/AGENTS\.md/.test(claudeMarkdown)) {
+  if (!claudeMarkdown) errors.push("CLAUDE.md is required");
+  else if (!/AGENTS\.md/.test(claudeMarkdown)) {
     errors.push("CLAUDE.md must reference AGENTS.md");
   }
-  if (eslintSource) {
+  if (!eslintSource) errors.push("eslint.config.mjs is required");
+  else {
     for (const needle of ["no-restricted-imports", "framer-motion", "@radix-ui/", "lucide-react"]) {
       if (!eslintSource.includes(needle)) errors.push(`eslint.config.mjs must enforce ${needle}`);
     }
@@ -230,26 +234,34 @@ export function checkRepository(root) {
     try {
       return readFileSync(join(root, rel), "utf8");
     } catch {
-      return "";
+      return null;
     }
   };
+  const errors = [];
   const componentsRaw = read("components.json");
   let componentsJson;
-  if (componentsRaw) {
+  if (componentsRaw === null) errors.push("components.json is required");
+  else {
     try {
       componentsJson = JSON.parse(componentsRaw);
     } catch {
       return [`components.json is not valid JSON`];
     }
   }
-  return checkFrontendStack({
+  const lockfile = read("pnpm-lock.yaml");
+  if (lockfile === null) errors.push("pnpm-lock.yaml is required");
+  const webAgents = read("apps/web/AGENTS.md");
+  if (webAgents === null) errors.push("apps/web/AGENTS.md is required");
+  else if (!/AGENTS\.md/.test(webAgents)) errors.push("apps/web/AGENTS.md must reference root AGENTS.md");
+  errors.push(...checkFrontendStack({
     manifests: collectWorkspaceManifests(root),
-    lockfile: read("pnpm-lock.yaml"),
+    lockfile: lockfile ?? "",
     componentsJson,
-    agentsMarkdown: read("AGENTS.md"),
-    claudeMarkdown: read("CLAUDE.md"),
-    eslintSource: read("eslint.config.mjs"),
-  });
+    agentsMarkdown: read("AGENTS.md") ?? "",
+    claudeMarkdown: read("CLAUDE.md") ?? "",
+    eslintSource: read("eslint.config.mjs") ?? "",
+  }));
+  return errors;
 }
 
 const here = dirname(fileURLToPath(import.meta.url));

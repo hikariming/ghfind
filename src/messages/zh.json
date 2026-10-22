@@ -66,7 +66,8 @@
       "githubBot": "按作者评分给 issue 和 PR 自动打标签",
       "cliApi": "安装 ghfind CLI、配置 Agent Skill 并管理 API Token",
       "jobs": "AI 与开源公司的在招职位",
-      "talentMatch": "AI 人才画像、岗位匹配与成长建议"
+      "talentMatch": "AI 人才画像、岗位匹配与成长建议",
+      "discover": "瀑布流或滑卡浏览高产品价值开源项目"
     },
     "cliApi": "CLI & API",
     "jobs": "招聘",
@@ -1767,5 +1768,32 @@
       "notLive": "企业端匹配尚未上线，目前没有人能看到你的画像；现在开启，上线后你会直接出现在人才池中。",
       "saveFailed": "保存失败，请重试。"
     }
+  },
+  "discover": {
+    "metaTitle": "发现项目 · ghfind",
+    "metaDescription": "高产品价值开源项目的紧凑推荐流。",
+    "title": "发现",
+    "heading": "项目推荐",
+    "beta": "Beta",
+    "modeGrid": "网格",
+    "modeSwipe": "滑卡",
+    "filters": "筛选",
+    "filtersBody": "喜欢会收藏项目。跳过只留在本地，不会标记为不感兴趣。",
+    "signedOutBanner": "用 GitHub 登录后可个性化推荐。当前展示公开精选。",
+    "feedUnavailable": "个性化推荐暂不可用。当前展示公开精选。",
+    "empty": "暂时没有更多项目。",
+    "like": "收藏",
+    "skip": "跳过",
+    "superLike": "高亮",
+    "undo": "撤销",
+    "viewCard": "查看评估",
+    "quickPreview": "快速预览",
+    "productScore": "产品价值",
+    "confidence": "置信度",
+    "communityStrength": "社区强度",
+    "language": "语言",
+    "openFull": "查看完整评估",
+    "keyboard": "← 跳过 · → 收藏 · ↑ 高亮 · Backspace 撤销",
+    "hint": "收藏会保存项目。跳过是弱信号，不是拉黑。"
   }
 }

@@ -66,7 +66,8 @@
       "githubBot": "Etiqueta issues y PR según la puntuación del autor",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Vacantes en empresas de IA y open source",
-      "talentMatch": "Informe de talento con IA, encaje con puestos y consejos"
+      "talentMatch": "Informe de talento con IA, encaje con puestos y consejos",
+      "discover": "Explora repos de alto valor en cuadrícula o deslizando"
     },
     "cliApi": "CLI & API",
     "jobs": "Empleo",
@@ -1760,5 +1761,32 @@
       "notLive": "La búsqueda para empresas aún no está disponible, así que hoy nadie puede ver tu perfil; si lo activas ahora, estarás en el banco cuando se abra.",
       "saveFailed": "No se pudo guardar tu elección. Inténtalo de nuevo."
     }
+  },
+  "discover": {
+    "metaTitle": "Descubrir proyectos · ghfind",
+    "metaDescription": "Un feed compacto de proyectos open source de alto valor.",
+    "title": "Descubrir",
+    "heading": "Feed de proyectos",
+    "beta": "Beta",
+    "modeGrid": "Cuadrícula",
+    "modeSwipe": "Deslizar",
+    "filters": "Filtros",
+    "filtersBody": "Guardar marca el proyecto. Saltar queda en este dispositivo y no lo marca como no interesado.",
+    "signedOutBanner": "Entra con GitHub para personalizar el feed. Ahora ves destacados públicos.",
+    "feedUnavailable": "El feed personalizado no está disponible. Mostramos destacados públicos.",
+    "empty": "No hay más proyectos por ahora.",
+    "like": "Guardar",
+    "skip": "Saltar",
+    "superLike": "Destacar",
+    "undo": "Deshacer",
+    "viewCard": "Ver informe",
+    "quickPreview": "Vista rápida",
+    "productScore": "Valor de producto",
+    "confidence": "Confianza",
+    "communityStrength": "Comunidad",
+    "language": "Lenguaje",
+    "openFull": "Abrir informe completo",
+    "keyboard": "← saltar · → guardar · ↑ destacar · Retroceso deshacer",
+    "hint": "Guardar marca el proyecto. Saltar es una señal débil, no un bloqueo."
   }
 }

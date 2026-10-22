@@ -24,6 +24,8 @@ const frontendStackBans = {
   ],
   patterns: [
     { group: ["framer-motion", "framer-motion/*"], message: "Use motion. Do not add framer-motion." },
+    { group: ["react-icons", "react-icons/*"], message: "Use lucide-react for icons." },
+    { group: ["jotai", "jotai/*"], message: "Use zustand for state." },
     { group: ["@heroicons/*"], message: "Use lucide-react for icons." },
     { group: ["@fortawesome/*"], message: "Use lucide-react for icons." },
     { group: ["@mui/*"], message: "Use shadcn/ui Nova components in src/components/ui." },

@@ -16,3 +16,9 @@ allowBuilds:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - framer-motion@14.6.0
+  - motion-dom@14.6.0
+  - motion-utils@14.6.0
+  - motion@14.6.0
+  - zustand@5.0.16

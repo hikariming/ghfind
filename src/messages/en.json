@@ -66,7 +66,8 @@
       "githubBot": "Auto-label issues and PRs by author score",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Open roles at AI and open-source companies",
-      "talentMatch": "AI talent report, role matching and growth advice"
+      "talentMatch": "AI talent report, role matching and growth advice",
+      "discover": "Swipe or scroll a compact feed of high-value repos"
     },
     "cliApi": "CLI & API",
     "jobs": "Jobs",
@@ -1760,5 +1761,32 @@
       "notLive": "Company matching isn't live yet, so nobody can see your profile today; opting in now puts you in the pool when it opens.",
       "saveFailed": "Couldn't save your choice. Please try again."
     }
+  },
+  "discover": {
+    "metaTitle": "Discover projects · ghfind",
+    "metaDescription": "A compact feed of high-value open-source projects.",
+    "title": "Discover",
+    "heading": "Project feed",
+    "beta": "Beta",
+    "modeGrid": "Grid",
+    "modeSwipe": "Swipe",
+    "filters": "Filters",
+    "filtersBody": "Likes save a project. Skips stay local and do not mark not-interested.",
+    "signedOutBanner": "Sign in with GitHub to personalize this feed. Showing public highlights.",
+    "feedUnavailable": "Personalized feed is unavailable. Showing public highlights.",
+    "empty": "No more projects right now.",
+    "like": "Save",
+    "skip": "Skip",
+    "superLike": "Highlight",
+    "undo": "Undo",
+    "viewCard": "View report",
+    "quickPreview": "Quick preview",
+    "productScore": "Product value",
+    "confidence": "Confidence",
+    "communityStrength": "Community",
+    "language": "Language",
+    "openFull": "Open full report",
+    "keyboard": "← skip · → save · ↑ highlight · Backspace undo",
+    "hint": "Save bookmarks a project. Skip is a weak signal, not a block."
   }
 }

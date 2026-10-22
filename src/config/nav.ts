@@ -43,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "versus", href: "/vs", exact: true, icon: "swords" },
   ] },
   { label: "groupDiscover", items: [
+    { key: "discover", href: "/discover", icon: "compass", beta: true },
     { key: "talent", href: "/talent", icon: "briefcase", beta: true },
     { key: "leaderboard", href: "/leaderboard", icon: "trophy" },
     { key: "projectBoards", href: "/projects", icon: "code" },

@@ -66,7 +66,8 @@
       "githubBot": "Rotula issues e PRs pela nota do autor",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Vagas em empresas de IA e open source",
-      "talentMatch": "Relatório de talento com IA, vagas compatíveis e conselhos"
+      "talentMatch": "Relatório de talento com IA, vagas compatíveis e conselhos",
+      "discover": "Explore repos de alto valor em grade ou deslizando"
     },
     "cliApi": "CLI & API",
     "jobs": "Vagas",
@@ -1760,5 +1761,32 @@
       "notLive": "A busca para empresas ainda não está no ar, então hoje ninguém vê seu perfil; ativando agora, você entra no banco quando ele abrir.",
       "saveFailed": "Não foi possível salvar sua escolha. Tente novamente."
     }
+  },
+  "discover": {
+    "metaTitle": "Descobrir projetos · ghfind",
+    "metaDescription": "Um feed compacto de projetos open source de alto valor.",
+    "title": "Descobrir",
+    "heading": "Feed de projetos",
+    "beta": "Beta",
+    "modeGrid": "Grade",
+    "modeSwipe": "Deslizar",
+    "filters": "Filtros",
+    "filtersBody": "Salvar marca o projeto. Pular fica neste aparelho e não marca como sem interesse.",
+    "signedOutBanner": "Entre com o GitHub para personalizar o feed. Agora você vê destaques públicos.",
+    "feedUnavailable": "O feed personalizado está indisponível. Mostrando destaques públicos.",
+    "empty": "Não há mais projetos agora.",
+    "like": "Salvar",
+    "skip": "Pular",
+    "superLike": "Destacar",
+    "undo": "Desfazer",
+    "viewCard": "Ver relatório",
+    "quickPreview": "Prévia rápida",
+    "productScore": "Valor do produto",
+    "confidence": "Confiança",
+    "communityStrength": "Comunidade",
+    "language": "Linguagem",
+    "openFull": "Abrir relatório completo",
+    "keyboard": "← pular · → salvar · ↑ destacar · Backspace desfazer",
+    "hint": "Salvar marca o projeto. Pular é um sinal fraco, não um bloqueio."
   }
 }

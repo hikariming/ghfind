@@ -63,8 +63,56 @@ export async function cf(path, body, method) {
   requireThat((process.env.CLOUDFLARE_API_TOKEN??'').length>=32,'production CF credential missing');
   const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`, {method:method??(body?'POST':'GET'),headers:{authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,'content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(30000)});
   const data=await response.json();
-  if(!response.ok || data.success!==true) throw Object.assign(new Error(`Cloudflare request failed (${response.status}; ${(data.errors??[]).map(e=>e.code).join(',')})`),{status:response.status});
+  const codes=(data.errors??[]).map(e=>e.code).filter(n=>Number.isInteger(n));
+  if(!response.ok || data.success!==true) throw Object.assign(new Error(`Cloudflare request failed (${response.status}; ${codes.join(',')})`),{status:response.status,codes});
   return data.result;
+}
+export const webVerifyLimits = Object.freeze({ attempts: 6, intervalMs: 10000, durationMs: 55000 });
+const WEB_VERSION_UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+export function isVersionMissing(error) {
+  return error?.status === 404 && Array.isArray(error.codes) && error.codes.includes(100146);
+}
+export function wranglerOutputRetryable(text) {
+  return /\[code:\s*100146\]/.test(String(text ?? ''));
+}
+export function parseWranglerVersionId(text) {
+  const cleaned = String(text ?? '').replace(/\u001B\[[0-9;]*m/g, '');
+  const ids = [...cleaned.matchAll(/^Current Version ID: ([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/gm)].map((match) => match[1]);
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return undefined;
+  requireThat(unique.length === 1, 'ambiguous wrangler version ID');
+  return unique[0];
+}
+function versionNotVisible(error) {
+  return Object.assign(new Error('Web version not yet visible'), { status: error?.status, codes: error?.codes });
+}
+async function readWebVersion(api, versionId) {
+  try {
+    return await api(`/workers/scripts/ghfind/versions/${versionId}`);
+  } catch (error) {
+    if (isVersionMissing(error)) throw versionNotVisible(error);
+    throw error;
+  }
+}
+async function observeWebIdentity(api, sha, expectedVersionId) {
+  if (expectedVersionId) {
+    const v = await readWebVersion(api, expectedVersionId);
+    requireThat(v?.id === expectedVersionId, 'immutable Web version response mismatch');
+    requireThat(v.annotations?.['workers/tag'] === `production-${sha}`, 'actual Web source tag mismatch');
+    const active = activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
+    if (active.versionId !== expectedVersionId) throw new Error('active Web version is not the expected immutable version');
+    return { active, v };
+  }
+  const active = activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
+  const v = await readWebVersion(api, active.versionId);
+  requireThat(v?.id === active.versionId, 'immutable Web version response mismatch');
+  requireThat(v.annotations?.['workers/tag'] === `production-${sha}`, 'actual Web source tag mismatch');
+  return { active, v };
+}
+function isPollableWebIdentityError(error, expectedVersionId) {
+  return error?.message === 'Web version not yet visible'
+    || (error?.message === 'actual Web source tag mismatch' && !expectedVersionId)
+    || error?.message === 'active Web version is not the expected immutable version';
 }
 function queueIdentity(q, name, id) {
   requireThat(q && q.queue_name===name && typeof q.queue_id==='string' && /^[a-f0-9]{32}$/.test(q.queue_id) && (id===undefined || q.queue_id===id),'queue identity mismatch');
@@ -145,12 +193,27 @@ function activeWebDeployment(data) {
     uuid.test(versions[0]?.version_id ?? ''), 'single 100% immutable Web deployment required');
   return { deploymentId: deployment.id, versionId: versions[0].version_id };
 }
-export async function verifyWeb(sha, mode, provider, api=cf) {
+export async function verifyWeb(sha, mode, provider, api=cf, options={}) {
   const expected=renderWeb(sha,mode,provider);
-  const active=activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
-  const v=await api(`/workers/scripts/ghfind/versions/${active.versionId}`);
-  requireThat(v?.id === active.versionId, 'immutable Web version response mismatch');
-  requireThat(v.annotations?.['workers/tag']===`production-${sha}`,'actual Web source tag mismatch');
+  const expectedVersionId = options.expectedVersionId ? String(options.expectedVersionId) : '';
+  if (expectedVersionId) requireThat(WEB_VERSION_UUID.test(expectedVersionId), 'expected Web version ID must be a UUID');
+  const limits = { ...webVerifyLimits, ...(options.limits ?? {}) };
+  const sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const now = options.now ?? Date.now;
+  const started = now();
+  let identity, lastError;
+  for (let attempt = 1; attempt <= limits.attempts; attempt++) {
+    try {
+      identity = await observeWebIdentity(api, sha, expectedVersionId);
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!isPollableWebIdentityError(error, expectedVersionId) || attempt >= limits.attempts || now() - started >= limits.durationMs) throw error;
+      await sleep(limits.intervalMs);
+    }
+  }
+  if (!identity) throw lastError;
+  const { active, v } = identity;
   const bindings=v.resources?.bindings;
   requireThat(Array.isArray(bindings) && bindings.every(b => b && typeof b.name === 'string' &&
     b.name.length > 0 && typeof b.type === 'string') && new Set(bindings.map(b=>b.name)).size === bindings.length,
@@ -214,8 +277,9 @@ async function main() {
   else if(cmd==='schema' && args.length===1)console.log(await renderSchemas(resolve(args[0])));
   else if(cmd==='prepare' && args.length===1) {const out=resolve(args[0]);requireThat(!out.startsWith(repository+'/'),'secrets must stay outside checkout');for(const [role,values]of Object.entries(prepareSecrets(process.env)))writeFileSync(resolve(out,`feed-${role}-secrets.json`),JSON.stringify(values),{mode:0o600,flag:'wx'});}
   else if(cmd==='web' && args.length===2)writeFileSync(webConfig,JSON.stringify(renderWeb(args[0],args[1],process.env),null,2));
-  else if(cmd==='web-verify' && args.length===3)writeFileSync(args[2],JSON.stringify(await verifyWeb(args[0],args[1],process.env),null,2),{flag:'wx'});
+  else if(cmd==='web-verify' && (args.length===3 || args.length===4))writeFileSync(args[2],JSON.stringify(await verifyWeb(args[0],args[1],process.env,cf,{expectedVersionId:args[3]}),null,2),{flag:'wx'});
+  else if(cmd==='web-version-id' && args.length===1) {const id=parseWranglerVersionId(readFileSync(args[0],'utf8')); if(id) console.log(id);}
   else if(cmd==='build' && args.length===0) {assertNoLocalEnvironmentFiles(repository);requireThat(!existsSync(resolve(repository,'.open-next')) && !existsSync(resolve(repository,'.next')),'fresh build outputs required');const r=spawnSync(process.execPath,[resolve(repository,'node_modules/@opennextjs/cloudflare/dist/cli/index.js'),'build','--config',webConfig],{cwd:repository,env:safeBuildEnv(),stdio:'inherit',timeout:780000});requireThat(r.status===0,'secret-free Web build failed');}
-  else throw new Error('usage: feed-production-release.mjs resources MANIFEST RECEIPT | schema NEW_DIR | prepare PRIVATE_DIR | web SHA paused|all | web-verify SHA MODE RECEIPT | build');
+  else throw new Error('usage: feed-production-release.mjs resources MANIFEST RECEIPT | schema NEW_DIR | prepare PRIVATE_DIR | web SHA paused|all | web-verify SHA MODE RECEIPT [VERSION_ID] | web-version-id LOG | build');
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href) main().catch(e=>{console.error(e.message);process.exitCode=1;});

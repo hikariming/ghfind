@@ -66,7 +66,8 @@
       "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis",
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Posisi terbuka di perusahaan AI dan open source",
-      "talentMatch": "Laporan talenta AI, pencocokan posisi, dan saran"
+      "talentMatch": "Laporan talenta AI, pencocokan posisi, dan saran",
+      "discover": "Temukan repo bernilai tinggi lewat grid atau geser"
     },
     "cliApi": "CLI & API",
     "jobs": "Lowongan",
@@ -1760,5 +1761,32 @@
       "notLive": "Pencocokan untuk perusahaan belum aktif, jadi saat ini tidak ada yang bisa melihat profil Anda; aktifkan sekarang agar Anda masuk pool saat dibuka.",
       "saveFailed": "Pilihan Anda gagal disimpan. Coba lagi."
     }
+  },
+  "discover": {
+    "metaTitle": "Jelajahi proyek · ghfind",
+    "metaDescription": "Feed ringkas proyek open source bernilai tinggi.",
+    "title": "Jelajahi",
+    "heading": "Feed proyek",
+    "beta": "Beta",
+    "modeGrid": "Kisi",
+    "modeSwipe": "Geser",
+    "filters": "Filter",
+    "filtersBody": "Simpan menandai proyek. Lewati hanya di perangkat ini dan tidak menandai tidak tertarik.",
+    "signedOutBanner": "Masuk dengan GitHub untuk feed personal. Sekarang yang tampil adalah sorotan publik.",
+    "feedUnavailable": "Feed personal tidak tersedia. Menampilkan sorotan publik.",
+    "empty": "Belum ada proyek lagi.",
+    "like": "Simpan",
+    "skip": "Lewati",
+    "superLike": "Sorot",
+    "undo": "Urungkan",
+    "viewCard": "Lihat laporan",
+    "quickPreview": "Pratinjau cepat",
+    "productScore": "Nilai produk",
+    "confidence": "Keyakinan",
+    "communityStrength": "Komunitas",
+    "language": "Bahasa",
+    "openFull": "Buka laporan lengkap",
+    "keyboard": "← lewati · → simpan · ↑ sorot · Backspace urungkan",
+    "hint": "Simpan menandai proyek. Lewati adalah sinyal lemah, bukan blokir."
   }
 }

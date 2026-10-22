@@ -175,8 +175,9 @@ jobs:
         if: steps.current.outputs.current == 'true' && (steps.resources.outputs.backend == 'go')
         run: |
           set -euo pipefail
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Pause Go writes for compatible runtime update"
-          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-update-paused.json"
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Pause Go writes for compatible runtime update" 2>&1 | tee "$RUNNER_TEMP/feed-production-evidence/web-update-paused-deploy.log"
+          version_id="$(node scripts/feed-production-release.mjs web-version-id "$RUNNER_TEMP/feed-production-evidence/web-update-paused-deploy.log")"
+          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-update-paused.json" ${version_id:+"$version_id"}
           sleep 35
       - name: Detach only the owned consumers before installing off-mode runtime
         if: steps.current.outputs.current == 'true'
@@ -189,7 +190,19 @@ jobs:
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" off
           node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-off.json"
           platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.adapter.production.generated.json --secrets-file "$RUNNER_TEMP/feed-adapter-secrets.json" --tag "production-$RELEASE_SHA"
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
+          runtime_attempt=1
+          while true; do
+            runtime_log="$RUNNER_TEMP/feed-production-evidence/runtime-off-deploy-${runtime_attempt}.log"
+            if platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA" >"$runtime_log" 2>&1; then
+              cat "$runtime_log"
+              break
+            fi
+            cat "$runtime_log"
+            if ! grep -Eq '\[code:[[:space:]]*100146\]' "$runtime_log"; then exit 1; fi
+            if [ "$runtime_attempt" -ge 6 ]; then exit 1; fi
+            runtime_attempt=$((runtime_attempt + 1))
+            sleep 10
+          done
           timeout --signal=TERM --kill-after=5s 310s node scripts/feed-production-rollout.mjs ops/feed-production-manifest.json "${{ steps.image.outputs.reference }}" "$RUNNER_TEMP/feed-production-evidence/applications-before-off.json" "$RUNNER_TEMP/feed-production-evidence/off-rollout.json"
           # DO code replacement does not replace an already-running process.
           # Only after pause + consumer detachment, replace each fixed actor and
@@ -201,8 +214,9 @@ jobs:
         id: paused
         run: |
           set -euo pipefail
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Go-only paused containment anchor $RELEASE_SHA"
-          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json"
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Go-only paused containment anchor $RELEASE_SHA" 2>&1 | tee "$RUNNER_TEMP/feed-production-evidence/web-paused-deploy.log"
+          version_id="$(node scripts/feed-production-release.mjs web-version-id "$RUNNER_TEMP/feed-production-evidence/web-paused-deploy.log")"
+          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/web-paused.json" ${version_id:+"$version_id"}
           echo "version=$(jq -er .workerVersionId "$RUNNER_TEMP/feed-production-evidence/web-paused.json")" >> "$GITHUB_OUTPUT"
           # HTTP requests have no wall-clock hard limit. A delay cannot prove
           # old requests drained: reject their SQL in the database instead.
@@ -215,7 +229,19 @@ jobs:
           set -euo pipefail
           node scripts/feed-platform-production.mjs render ops/feed-production-manifest.json "$RELEASE_SHA" "${{ steps.image.outputs.reference }}" baseline "$RUNNER_TEMP/feed-production-evidence/runtime-off.json"
           node scripts/feed-platform-production.mjs snapshot ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/applications-before-baseline.json"
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA"
+          runtime_attempt=1
+          while true; do
+            runtime_log="$RUNNER_TEMP/feed-production-evidence/runtime-baseline-deploy-${runtime_attempt}.log"
+            if platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.production.generated.json --containers-rollout=immediate --secrets-file "$RUNNER_TEMP/feed-runtime-secrets.json" --tag "production-$RELEASE_SHA" >"$runtime_log" 2>&1; then
+              cat "$runtime_log"
+              break
+            fi
+            cat "$runtime_log"
+            if ! grep -Eq '\[code:[[:space:]]*100146\]' "$runtime_log"; then exit 1; fi
+            if [ "$runtime_attempt" -ge 6 ]; then exit 1; fi
+            runtime_attempt=$((runtime_attempt + 1))
+            sleep 10
+          done
           # Explicitly stop and restart each fixed actor with baseline env.
           # The SDK does not replace envVars in an already running process.
           timeout --signal=TERM --kill-after=5s 420s node scripts/feed-production-transition.mjs ops/feed-production-manifest.json "$RUNNER_TEMP/feed-production-evidence/runtime-off.json" "$RUNNER_TEMP/feed-production-evidence/mode-transition.json"
@@ -239,8 +265,9 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/feed-production-release.mjs web "$RELEASE_SHA" all
-          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Go Feed all; unchanged D1; $RELEASE_SHA"
-          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" all "$RUNNER_TEMP/feed-production-evidence/web-all.json"
+          platform/runtime/node_modules/.bin/wrangler deploy --config platform/runtime/wrangler.web.production.generated.json --keep-vars --secrets-file "$RUNNER_TEMP/feed-web-secrets.json" --tag "production-$RELEASE_SHA" --message "Go Feed all; unchanged D1; $RELEASE_SHA" 2>&1 | tee "$RUNNER_TEMP/feed-production-evidence/web-all-deploy.log"
+          version_id="$(node scripts/feed-production-release.mjs web-version-id "$RUNNER_TEMP/feed-production-evidence/web-all-deploy.log")"
+          node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" all "$RUNNER_TEMP/feed-production-evidence/web-all.json" ${version_id:+"$version_id"}
           node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10
       - name: Bounded public production smoke
         if: steps.current.outputs.current == 'true'
@@ -254,14 +281,14 @@ jobs:
         run: pnpm smoke:deployment
       - name: Contain failed cutover using the verified Go-only paused anchor
         if: steps.current.outputs.current == 'true' && (always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success')
-        timeout-minutes: 3
+        timeout-minutes: 6
         env:
           PAUSED_ANCHOR: ${{ steps.paused.outputs.version }}
         run: |
           set -euo pipefail
           node -e 'require("node:fs").writeFileSync(process.env.RUNNER_TEMP+"/feed-production-evidence/containment-attempt.json",JSON.stringify({status:"attempted_unverified",sourceSha:process.env.RELEASE_SHA,pausedAnchor:process.env.PAUSED_ANCHOR,observedAt:new Date().toISOString()}),{mode:0o600,flag:"wx"})'
           timeout --signal=TERM --kill-after=5s 120s platform/runtime/node_modules/.bin/wrangler rollback "$PAUSED_ANCHOR" --name ghfind --message "Contain failed Go cutover; preserve writer2 data" --yes
-          timeout --signal=TERM --kill-after=5s 30s node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/containment.json"
+          timeout --signal=TERM --kill-after=5s 90s node scripts/feed-production-release.mjs web-verify "$RELEASE_SHA" paused "$RUNNER_TEMP/feed-production-evidence/containment.json"
       - name: Preserve nonsecret actual evidence, including failures
         if: steps.current.outputs.current == 'true' && (always())
         uses: actions/upload-artifact@v4
