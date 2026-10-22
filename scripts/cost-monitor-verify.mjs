@@ -9,6 +9,18 @@ export class MonitorVerificationError extends Error {
 const fail=code=>{throw new MonitorVerificationError(code);};
 const record=value=>value!==null&&typeof value==="object"&&!Array.isArray(value);
 const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+// Collector errors are "<source>: <detail>". Only allowlisted source prefixes are
+// logged so failures are diagnosable from public CI logs; details never are.
+export const ERROR_CATEGORIES=Object.freeze(["D1","D1 SQL","Workers","R2 operations","R2 storage","KV","DO","Queues","Billing","Monitor"]);
+export function errorCategories(errors){
+  if(!Array.isArray(errors))return null;
+  const found=new Set();
+  for(const error of errors.slice(0,32)){
+    const prefix=typeof error==="string"&&error.includes(":")?error.slice(0,error.indexOf(":")):"";
+    found.add(ERROR_CATEGORIES.includes(prefix)?prefix:"other");
+  }
+  return [...found].sort();
+}
 
 async function boundedJson(response,signal){
   const reader=response.body?.getReader();if(!reader)return {json:false};
@@ -64,7 +76,7 @@ export async function verifyMonitor(env,options={}){
       check();return {http:response?.status??null,json:false,transport:true};
     }
   };
-  const report=(stage,attempt,response,status)=>log({event:"cost_monitor_verify_attempt",stage,attempt,http:response.http,status,points:count(response.value?.points),errorCount:Array.isArray(response.value?.errors)?response.value.errors.length:null});
+  const report=(stage,attempt,response,status)=>log({event:"cost_monitor_verify_attempt",stage,attempt,http:response.http,status,points:count(response.value?.points),errorCount:Array.isArray(response.value?.errors)?response.value.errors.length:null,errorCategories:errorCategories(response.value?.errors)});
   try{
     for(let attempt=1;;attempt++){
       if(now()>=readyDeadline)fail("readiness_timeout");

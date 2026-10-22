@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {verifyMonitor,VERIFY_LIMITS,MonitorVerificationError} from "./cost-monitor-verify.mjs";
+import {verifyMonitor,VERIFY_LIMITS,MonitorVerificationError,errorCategories} from "./cost-monitor-verify.mjs";
 
 const env={COST_MONITOR_URL:"https://monitor.example",MONITOR_ADMIN_TOKEN:"private-admin-token"};
 const ready=()=>Response.json({version:2,lastAttempt:0,lastSuccess:0,healthy:false});
@@ -120,4 +120,24 @@ test("invalid configuration is rejected before network access",async()=>{
   for(const config of [{},{...env,MONITOR_ADMIN_TOKEN:""},{...env,COST_MONITOR_URL:"invalid"},{...env,COST_MONITOR_URL:"https://user:secret@monitor.example"}]){
     await assert.rejects(verifyMonitor(config,{fetcher:()=>{throw new Error("must not request");}}),error=>error instanceof MonitorVerificationError);
   }
+});
+
+test("degraded collections log only allowlisted error categories, never details",async()=>{
+  const errors=["R2 storage: known snapshot missing; coverage incomplete","Billing: reconciliation unavailable","Workers: access denied; check analytics token permissions","R2 storage: request timed out","private-admin-token: secret source details","no prefix secret source details",42];
+  const h=harness([ready,()=>Response.json({status:"degraded",points:141,errors})]);
+  await assert.rejects(h.run(),fails("collection_degraded"));
+  const row=h.logs.at(-1);
+  assert.equal(row.errorCount,7);
+  assert.deepEqual(row.errorCategories,["Billing","R2 storage","Workers","other"]);
+  const logs=JSON.stringify(h.logs);
+  for(const secret of [env.MONITOR_ADMIN_TOKEN,"secret source details","snapshot missing","reconciliation","access denied","timed out"])assert.equal(logs.includes(secret),false);
+  assert.equal(h.logs[0].errorCategories,null);
+});
+
+test("error categories are bounded and map unknown or detail-only prefixes to other",()=>{
+  assert.equal(errorCategories(undefined),null);
+  assert.deepEqual(errorCategories([]),[]);
+  assert.deepEqual(errorCategories(["D1 SQL: x","D1: y","Monitor: z","R2 operations: w","KV: a","DO: b","Queues: c"]),["D1","D1 SQL","DO","KV","Monitor","Queues","R2 operations"]);
+  assert.deepEqual(errorCategories(["R2: x"," R2 storage: y",{}]),["other"]);
+  assert.deepEqual(errorCategories(Array.from({length:1000},(_,i)=>`p${i}: secret`)),["other"]);
 });

@@ -4,6 +4,7 @@ interface Row { dimensions: Record<string,string>; sum?: Record<string,number>; 
 const LIMIT = 128;
 const MAX_RESPONSE = 2 * 1024 * 1024;
 const INGESTION_LAG_MS = 2 * WINDOW_MS;
+export const STORAGE_LOOKBACK_MS = 3 * 3600_000;
 // Only fixed categories leave this module: upstream messages can include query
 // text, credentials or account details and must never enter state or mail.
 function unavailable(error: unknown): string {
@@ -126,11 +127,22 @@ export async function collect(config: CollectorConfig, now = Date.now(), fetcher
     for(const p of grouped.values()) {p.efficiency=p.operations?p.amount/p.operations:0;frame.points.push(p);}
     frame.completeQueries=true;
   } catch (error) {frame.diagnostics!.push(`D1 SQL: ${unavailable(error)}`);}
-  // Storage snapshots have lower cadence than operation counters; preserve gauges on absence.
+  // Storage snapshots have a lower, irregular cadence than operation counters and
+  // a single snapshot can land late. Look back STORAGE_LOOKBACK_MS and keep the
+  // latest snapshot per bucket/storage class, so one delayed snapshot does not
+  // mark coverage incomplete. A known gauge with no snapshot in the whole
+  // lookback still does (see evaluate()); absence never becomes zero.
   try {
-    const storageFilter=`filter:{datetime_geq:${JSON.stringify(new Date(end-3600_000).toISOString())},datetime_lt:${JSON.stringify(new Date(end).toISOString())}}`;
-    const rows=await graphql(config,`r2StorageAdaptiveGroups(limit:${LIMIT},${storageFilter}){dimensions{bucketName storageClass} max{payloadSize metadataSize}}`,fetcher);
-    for(const r of rows){const bytes=number(r,"payloadSize","max")+number(r,"metadataSize","max"),ia=r.dimensions.storageClass==="InfrequentAccess";frame.points.push(metric("R2",r.dimensions.bucketName,`存储量（近一小时峰值，${r.dimensions.storageClass}）`,bytes,1,"bytes",(ia?0.01:0.015)/1e9/30/24/12,`storage:${r.dimensions.storageClass}`,{gauge:true,minAmount:1e9,efficiencyWarning:1e12,efficiencyCritical:5e12}));}
+    const storageFilter=`filter:{datetime_geq:${JSON.stringify(new Date(end-STORAGE_LOOKBACK_MS).toISOString())},datetime_lt:${JSON.stringify(new Date(end).toISOString())}}`;
+    const rows=await graphql(config,`r2StorageAdaptiveGroups(limit:${LIMIT},${storageFilter},orderBy:[datetime_DESC]){dimensions{datetime bucketName storageClass} max{payloadSize metadataSize}}`,fetcher);
+    const latest=new Map<string,{at:number;row:Row}>();
+    for(const r of rows){
+      const at=Date.parse(r.dimensions.datetime);
+      if(!Number.isFinite(at))throw new Error("Invalid storage snapshot time");
+      const id=JSON.stringify([r.dimensions.bucketName,r.dimensions.storageClass]),seen=latest.get(id);
+      if(!seen||at>seen.at)latest.set(id,{at,row:r});
+    }
+    for(const {row:r} of latest.values()){const bytes=number(r,"payloadSize","max")+number(r,"metadataSize","max"),ia=r.dimensions.storageClass==="InfrequentAccess";frame.points.push(metric("R2",r.dimensions.bucketName,`存储量（近三小时最新快照，${r.dimensions.storageClass}）`,bytes,1,"bytes",(ia?0.01:0.015)/1e9/30/24/12,`storage:${r.dimensions.storageClass}`,{gauge:true,minAmount:1e9,efficiencyWarning:1e12,efficiencyCritical:5e12}));}
   } catch (error) {frame.errors.push(`R2 storage: ${unavailable(error)}`);}
   const workerRequests=frame.points.filter(p=>p.product==="Workers" && p.key.endsWith(":requests")).reduce((s,p)=>s+p.amount,0);
   for(const p of frame.points)if(["R2","KV","DO","Queues"].includes(p.product) && !p.gauge){
