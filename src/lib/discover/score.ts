@@ -1,6 +1,8 @@
 import {
   computeDiscoverScore,
+  type DiscoverProjectType,
   type DiscoverScorePartition,
+  type DiscoverTimeToFirstValue,
   type DiscoverScoreResult,
 } from "../../../platform/shared/discover-score";
 import { DISCOVER_PARTITION_TAG_IDS, type ProjectAnalysisArtifact } from "@/lib/project-analysis-contract";
@@ -58,7 +60,17 @@ export function discoverScoreFromAssessment(
     communityStrength: Number.isFinite(assessment.communityStrength) ? assessment.communityStrength : null,
     risks: assessment.risks.map((risk) => ({ severity: risk.severity, category: risk.category })),
     partition,
+    projectType: assessment.projectType as DiscoverProjectType,
+    timeToFirstValue: timeToFirstValueOf(assessment.analysis.project),
   });
+}
+
+const TTFV = new Set<string>(["minutes", "hour", "day", "weeks"]);
+
+/** Skill v6 field; older artifacts do not carry it and fall back to a proxy. */
+function timeToFirstValueOf(project: object): DiscoverTimeToFirstValue | null {
+  const value = (project as { time_to_first_value?: unknown }).time_to_first_value;
+  return typeof value === "string" && TTFV.has(value) ? (value as DiscoverTimeToFirstValue) : null;
 }
 
 /** Opt-in only. Default off; flipping it in production needs owner sign-off. */

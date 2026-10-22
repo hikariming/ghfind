@@ -7,7 +7,10 @@
  * comparison to --out. It never talks to a database, queue or API, so it
  * cannot overwrite live assessments.
  *
- *   pnpm tsx scripts/discover-score-shadow.mts --analyses <dir> --out <dir> [--sample <file>]
+ *   pnpm tsx scripts/discover-score-shadow.mts --analyses <dir> --out <dir> [--sample <file>] [--control <file>]
+ *
+ * --control takes [{ id, repoKey, artifact }] where artifact is a local path
+ * to a skill v6 shadow analysis JSON (never a production row).
  *
  * Keep sample files (real repo keys) outside the repository.
  */
@@ -18,6 +21,8 @@ import {
   computeDiscoverScore,
   discoverScoreBand,
   lintDiscoverHookV6,
+  discoverScoreInputFromArtifact,
+  type DiscoverProjectType,
   type DiscoverScorePartition,
   type DiscoverScoreResult,
 } from "../platform/shared/discover-score";
@@ -25,6 +30,7 @@ import { discoverHook } from "../src/lib/discover/hook";
 
 type Assessment = {
   repoKey: string;
+  projectType?: DiscoverProjectType;
   productScore: number;
   painScore: number;
   effectivenessScore: number;
@@ -88,6 +94,7 @@ export function shadowRow(assessment: Assessment, sample?: SampleEntry) {
     communityStrength: assessment.communityStrength,
     risks: assessment.risks.map((risk) => ({ severity: risk.severity, category: risk.category })),
     partition,
+    projectType: assessment.projectType ?? null,
   });
   const project = assessment.analysis.project;
   const oldHook = discoverHook({
@@ -117,9 +124,44 @@ export function shadowRow(assessment: Assessment, sample?: SampleEntry) {
   };
 }
 
+type ControlEntry = { id: string; repoKey: string; artifact: string };
+
+/**
+ * Skill v6 control run: score the new artifact (its own canonical tags and
+ * time_to_first_value) next to the live assessment, with the same scorer.
+ */
+export function controlRow(assessment: Assessment, entry: ControlEntry, artifact: Parameters<typeof discoverScoreInputFromArtifact>[0] & {
+  project: { name: string; discover_hook?: string; summary: string; pain_statement: string; target_users: string[] };
+  skill_version?: string;
+}) {
+  const before = shadowRow(assessment);
+  const result = computeDiscoverScore(discoverScoreInputFromArtifact(artifact));
+  const hook = artifact.project.discover_hook ?? "";
+  return {
+    id: entry.id,
+    repoKey: assessment.repoKey,
+    old: { ...before.old, discoverScore: before.next },
+    v6: {
+      skillVersion: artifact.skill_version ?? null,
+      productScore: artifact.scores.product_score,
+      partition: artifact.project.discover_partition ?? null,
+      timeToFirstValue: artifact.project.time_to_first_value ?? null,
+      hook,
+      hookIssues: lintDiscoverHookV6(hook, artifact.project.name),
+      audience: artifact.project.target_users[0] ?? null,
+      discoverScore: result,
+    },
+  };
+}
+
 function main() {
   const { values } = parseArgs({
-    options: { analyses: { type: "string" }, out: { type: "string" }, sample: { type: "string" } },
+    options: {
+      analyses: { type: "string" },
+      out: { type: "string" },
+      sample: { type: "string" },
+      control: { type: "string" },
+    },
   });
   if (!values.analyses || !values.out) {
     throw new Error("usage: --analyses <dir> --out <dir> [--sample <file>]");
@@ -135,10 +177,24 @@ function main() {
     const assessment = byKey.get(entry.repoKey.toLowerCase());
     return assessment ? [shadowRow(assessment, entry)] : [];
   });
+  const control: ControlEntry[] = values.control ? JSON.parse(readFileSync(values.control, "utf8")) : [];
+  const controlled = control.flatMap((entry) => {
+    const assessment = byKey.get(entry.repoKey.toLowerCase());
+    if (!assessment) return [];
+    return [controlRow(assessment, entry, JSON.parse(readFileSync(entry.artifact, "utf8")))];
+  });
   mkdirSync(values.out, { recursive: true });
+  if (control.length) writeFileSync(join(values.out, "control-shadow.json"), JSON.stringify(controlled, null, 2));
   writeFileSync(join(values.out, "corpus-shadow.json"), JSON.stringify(corpus, null, 2));
   writeFileSync(join(values.out, "sample-shadow.json"), JSON.stringify(sampled, null, 2));
-  console.log(JSON.stringify({ corpus: corpus.length, sample: sampled.length, missing: sample.length - sampled.length }));
+  console.log(
+    JSON.stringify({
+      corpus: corpus.length,
+      sample: sampled.length,
+      missing: sample.length - sampled.length,
+      control: controlled.length,
+    }),
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

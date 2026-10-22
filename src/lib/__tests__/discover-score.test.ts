@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   DISCOVER_CALIBRATION_KNOTS,
   DISCOVER_PARTITION_WEIGHTS,
+  discoverScoreInputFromArtifact,
+  discoverTryGate,
   type DiscoverScoreInput,
 } from "../../../platform/shared/discover-score";
 import {
@@ -37,7 +39,7 @@ const withScores = (pain: number, eff: number, exp: number, vd: number, extra: P
 
 describe("discover-score-v1", () => {
   it("is versioned and every partition weight row sums to 1", () => {
-    expect(DISCOVER_SCORE_VERSION).toBe("discover-score-v1");
+    expect(DISCOVER_SCORE_VERSION).toBe("discover-score-v1.1");
     for (const weights of Object.values(DISCOVER_PARTITION_WEIGHTS)) {
       const sum = Object.values(weights).reduce((a, b) => a + b, 0);
       expect(sum).toBeCloseTo(1, 10);
@@ -191,7 +193,7 @@ describe("Discover card opt-in", () => {
 
   it("attaches the versioned score only when asked", () => {
     const card = cardFromAssessment(assessment, "en", { discoverScore: true });
-    expect(card.discoverScore?.version).toBe("discover-score-v1");
+    expect(card.discoverScore?.version).toBe("discover-score-v1.1");
     expect(card.discoverScore?.partition).toBe("skill");
     expect(card.productScore).toBe(70);
     expect(discoverScoreFromAssessment(assessment).score).toBe(card.discoverScore?.score);
@@ -214,5 +216,114 @@ describe("Discover hook copy contract v6", () => {
     expect(lintDiscoverHookV6("运维团队需要一个统一代理层，既要避免进程膨胀…")).toContain("truncated");
     expect(lintDiscoverHookV6("长".repeat(65))).toContain("too_long");
     expect(lintDiscoverHookV6("   ")).toEqual(["empty"]);
+  });
+});
+
+// v1.1: famous-but-hard-to-try projects must not fill the top band.
+describe("discover-score-v1.1 try gate", () => {
+  // A mainstream infrastructure tree: excellent for its own experts.
+  const megaInfra: DiscoverScoreInput = {
+    ...base,
+    pain: 23,
+    effectiveness: 28,
+    experience: 23,
+    valueDensity: 13,
+    productScore: 87,
+    confidence: 85,
+    lifecycle: "stable_maintenance",
+    exposureBand: "mainstream",
+    communityStrength: 95,
+    projectType: "framework_platform",
+  };
+  // The same numbers on a small tool a stranger installs in minutes.
+  const smallTool: DiscoverScoreInput = { ...megaInfra, exposureBand: "emerging", communityStrength: 45, projectType: "micro_tool" };
+
+  it("does not cap by popularity alone", () => {
+    const popularEasy = computeDiscoverScore({ ...megaInfra, experience: 27, productScore: 91, projectType: "micro_tool" });
+    expect(popularEasy.band).toBe("must_try");
+    expect(popularEasy.caps).not.toContain("hard_to_try");
+  });
+
+  it("keeps a hard-to-try mega project out of must_try (experience proxy)", () => {
+    const uncapped = computeDiscoverScore(smallTool);
+    const gated = computeDiscoverScore(megaInfra);
+    expect(uncapped.band).toBe("must_try");
+    expect(gated.score).toBe(84);
+    expect(gated.band).toBe("worth_a_look");
+    expect(gated.caps).toContain("hard_to_try");
+    expect(gated.limits).toContain("steep_setup");
+    expect(gated.tryGate).toMatchObject({ source: "experience_proxy", mega: true, threshold: 0.8 });
+  });
+
+  it("uses a higher bar only for mega projects", () => {
+    expect(discoverTryGate(megaInfra).threshold).toBe(0.8);
+    expect(discoverTryGate(smallTool).threshold).toBe(0.7);
+    expect(discoverTryGate({ ...smallTool, communityStrength: 80 }).mega).toBe(true);
+  });
+
+  it("prefers skill v6 time_to_first_value over the proxy", () => {
+    const minutes = computeDiscoverScore({ ...megaInfra, timeToFirstValue: "minutes" });
+    expect(minutes.tryGate.source).toBe("time_to_first_value");
+    expect(minutes.caps).not.toContain("hard_to_try");
+    const day = computeDiscoverScore({ ...smallTool, timeToFirstValue: "day" });
+    expect(day.score).toBeLessThanOrEqual(84);
+    const weeks = computeDiscoverScore({ ...megaInfra, timeToFirstValue: "weeks" });
+    expect(weeks.score).toBeLessThanOrEqual(69);
+    expect(weeks.caps).toContain("weeks_to_value");
+  });
+
+  it("weights time_to_first_value into tryability", () => {
+    const fast = computeDiscoverScore({ ...base, timeToFirstValue: "minutes" });
+    const slow = computeDiscoverScore({ ...base, timeToFirstValue: "day" });
+    expect(fast.components.tryability).toBeGreaterThan(slow.components.tryability);
+    expect(fast.score).toBeGreaterThan(slow.score);
+  });
+
+  it("never lifts a score below the top band", () => {
+    const mid = computeDiscoverScore({ ...megaInfra, pain: 15, effectiveness: 18, productScore: 69 });
+    const midProxyOff = computeDiscoverScore({ ...megaInfra, pain: 15, effectiveness: 18, productScore: 69, projectType: null });
+    expect(mid.score).toBe(midProxyOff.score);
+  });
+});
+
+describe("artifact -> scorer input", () => {
+  const artifact = {
+    project: {
+      project_type: "micro_tool",
+      lifecycle: "active_evolution" as const,
+      product_tags: [
+        { namespace: "use_case", slug: "agent-skill" },
+        { namespace: "domain", slug: "example-domain" },
+      ],
+      discover_partition: "skill",
+      time_to_first_value: "minutes",
+    },
+    scores: {
+      pain: { score: 18 },
+      effectiveness: { score: 22 },
+      experience: { score: 20 },
+      value_density: { score: 10 },
+      product_score: 70,
+    },
+    confidence: 70,
+    verification_level: "source_inspected" as const,
+    risks: [{ severity: "low" as const, category: "maintenance" }],
+    community_strength: { score: 20 },
+    exposure: { band: "low" as const },
+  };
+
+  it("maps canonical tags, project type and TTFV", () => {
+    const input = discoverScoreInputFromArtifact(artifact);
+    expect(input).toMatchObject({ partition: "skill", projectType: "micro_tool", timeToFirstValue: "minutes", communityStrength: 20 });
+  });
+
+  it("ignores unknown enum values instead of guessing", () => {
+    const input = discoverScoreInputFromArtifact({
+      ...artifact,
+      project: { ...artifact.project, project_type: "something_else", time_to_first_value: "soon", product_tags: [] },
+      community_strength: null,
+      exposure: null,
+    });
+    expect(input).toMatchObject({ partition: "none", projectType: null, timeToFirstValue: null, communityStrength: null, exposureBand: "unknown" });
   });
 });
