@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { transitionOffActors, validateConsumerReceipt, readOffResponse } from './feed-production-off-transition.mjs';
+import { transitionOffActors, validateConsumerReceipt, readOffResponse, OffRequestError } from './feed-production-off-transition.mjs';
 import { ACCOUNT } from './feed-production-release.mjs';
 const manifest=JSON.parse(readFileSync(new URL('../ops/feed-production-manifest.json',import.meta.url)));
 const env={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'hikariming/ghfind',GITHUB_REF:'refs/heads/main',
@@ -89,4 +89,22 @@ test('unknown network errors retain safe request context without exception conte
   await assert.rejects(transitionOffActors(identity,options({record:v=>{last=structuredClone(v);},send:async()=>{sends++;throw Error('PRIVATE_TOKEN');}})));
   assert.equal(sends,1);assert.deepEqual(last.error,{phase:'restart',path:'api-0/restart',status:null,code:'off_transition_failed'});
   assert.equal(JSON.stringify(last).includes('PRIVATE_TOKEN'),false);
+});
+
+test('transient actor configuration 503 is retried read-only and bounded; other errors are not',async()=>{
+  let fails=2,sends=0,slept=[];
+  const result=await transitionOffActors(identity,options({sleep:async ms=>{slept.push(ms);},
+    read:async p=>{if(p==='api-1/configuration'&&fails-->0)throw new OffRequestError(p,503,'runtime_configuration_unavailable');return read(p);},
+    send:async(target,body)=>{sends++;return {...body,target,restarted:true};}}));
+  assert.equal(result.status,'passed');assert.equal(sends,3);assert.equal(result.configurationRetries,2);assert.deepEqual(slept,[3000,6000]);
+  let calls=0;sends=0;
+  await assert.rejects(transitionOffActors(identity,options({sleep:async()=>{},
+    read:async p=>{if(p==='api-1/configuration'){calls++;throw new OffRequestError(p,503,'runtime_configuration_unavailable');}return read(p);},
+    send:async()=>{sends++;}})),/runtime_configuration_unavailable/);
+  assert.equal(calls,3);assert.equal(sends,0);
+  calls=0;
+  await assert.rejects(transitionOffActors(identity,options({sleep:async()=>{},
+    read:async p=>{if(p==='api-1/configuration'){calls++;throw new OffRequestError(p,503,'runtime_configuration_invalid');}return read(p);},
+    send:async()=>{sends++;}})));
+  assert.equal(calls,1);assert.equal(sends,0);
 });

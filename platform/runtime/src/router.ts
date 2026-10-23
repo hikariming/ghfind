@@ -198,6 +198,12 @@ export function actorConfiguration(env: RuntimeSettings, target: Target, actorId
   };
 }
 
+// A Container DO freshly reset by a deploy can hold its input gate for several
+// seconds while it reconciles the previous instance; 2s produced repeated false
+// "unavailable" results during production off transitions. Keep below the
+// operator's 10s per-request bound.
+const CONFIGURATION_READ_TIMEOUT_MS = 8000;
+
 async function readActorConfiguration(target: Target, dispatch: Dispatch) {
   if (!dispatch.configuration || !dispatch.actorId)
     throw new HTTPError(503, "runtime_configuration_unavailable");
@@ -205,7 +211,7 @@ async function readActorConfiguration(target: Target, dispatch: Dispatch) {
   let value: unknown;
   try {
     value = await Promise.race([dispatch.configuration(target), new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new HTTPError(503, "runtime_configuration_unavailable")), 2000);
+      timer = setTimeout(() => reject(new HTTPError(503, "runtime_configuration_unavailable")), CONFIGURATION_READ_TIMEOUT_MS);
     })]);
   } finally { clearTimeout(timer); }
   if (!value || typeof value !== "object" || Array.isArray(value))

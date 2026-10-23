@@ -31,7 +31,7 @@ type Registry struct {
 func RequiredRegistry(profile string) (Registry, error) {
 	schema := int64(23)
 	if profile == "cf_d1_r2" {
-		schema = 14
+		schema = 15
 	}
 	return RegistryForSchema(profile, schema)
 }
@@ -45,7 +45,7 @@ func RegistryForSchema(profile string, schema int64) (Registry, error) {
 	}
 	switch profile {
 	case "cf_d1_r2":
-		if schema != 11 && schema != 12 && schema != 13 && schema != 14 {
+		if schema != 11 && schema != 12 && schema != 13 && schema != 14 && schema != 15 {
 			return Registry{}, invalid("identity")
 		}
 		r.Schema = schema
