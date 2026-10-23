@@ -47,6 +47,9 @@ const projection = (
   publishable: true,
   blockedReason: "",
   riskOverrideEligible: false,
+  discoverScore: 84,
+  discoverBand: "worth_a_look",
+  discoverScoreVersion: "discover-score-v1.1",
   productTags: [
     {
       namespace: "use_case",
@@ -241,6 +244,14 @@ describe("D1 discrete job leases and ordered projection", () => {
     expect(source).toEqual({
       source_kind: "agent_submission",
       source_version: 1,
+    });
+    const shadow = await env.FEED_DB.prepare(
+      "SELECT discover_score,discover_band,discover_score_version FROM feed_projects",
+    ).first();
+    expect(shadow).toEqual({
+      discover_score: 84,
+      discover_band: "worth_a_look",
+      discover_score_version: "discover-score-v1.1",
     });
     const tags = await env.FEED_DB.prepare(
       "SELECT tag_id FROM feed_project_tags ORDER BY tag_id",

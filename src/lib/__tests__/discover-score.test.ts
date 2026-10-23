@@ -10,8 +10,11 @@ import {
   DISCOVER_SCORE_VERSION,
   computeDiscoverScore,
   discoverScoreBand,
+  discoverInternalGithubIds,
   discoverScoreFromAssessment,
   isDiscoverScoreEnabled,
+  isDiscoverScoreViewer,
+  sortByDiscoverScore,
   lintDiscoverHookV6,
   scoringPartitionFromTags,
 } from "../discover/score";
@@ -325,5 +328,68 @@ describe("artifact -> scorer input", () => {
       exposure: null,
     });
     expect(input).toMatchObject({ partition: "none", projectType: null, timeToFirstValue: null, communityStrength: null, exposureBand: "unknown" });
+  });
+});
+
+describe("internal discover-score gating", () => {
+  // Anonymized ids only.
+  const env = (flag: string | undefined, ids: string | undefined) => ({
+    GHFIND_DISCOVER_SCORE_V1: flag,
+    GHFIND_DISCOVER_INTERNAL_GITHUB_IDS: ids,
+  });
+
+  it("requires both the flag and an allowlisted id", () => {
+    expect(isDiscoverScoreViewer(1001, env("1", "1001,1002"))).toBe(true);
+    expect(isDiscoverScoreViewer(1002, env("1", " 1001 , 1002 "))).toBe(true);
+    expect(isDiscoverScoreViewer(1003, env("1", "1001,1002"))).toBe(false);
+    expect(isDiscoverScoreViewer(1001, env(undefined, "1001"))).toBe(false);
+    expect(isDiscoverScoreViewer(1001, env("0", "1001"))).toBe(false);
+  });
+
+  it("flag alone enables nobody", () => {
+    expect(isDiscoverScoreViewer(1001, env("1", undefined))).toBe(false);
+    expect(isDiscoverScoreViewer(1001, env("1", ""))).toBe(false);
+    expect(isDiscoverScoreViewer(null, env("1", "1001"))).toBe(false);
+    expect(isDiscoverScoreViewer(undefined, env("1", "1001"))).toBe(false);
+  });
+
+  it("fails closed on a malformed allowlist", () => {
+    expect(discoverInternalGithubIds(env("1", "1001,octocat"))).toEqual(new Set());
+    expect(discoverInternalGithubIds(env("1", "1001,,1002"))).toEqual(new Set());
+    expect(discoverInternalGithubIds(env("1", "-5"))).toEqual(new Set());
+    expect(isDiscoverScoreViewer(1001, env("1", "1001,octocat"))).toBe(false);
+  });
+
+  it("breaks score ties by stranger tryability, then product score, then repo key", () => {
+    const card = (repoKey: string, score: number, tryability: number, productScore = 80) => ({
+      repoKey,
+      productScore,
+      discoverScore: { score, tryGate: { strangerTryability: tryability } } as NonNullable<ReturnType<typeof discoverScoreFromAssessment>>,
+    });
+    const ranked = sortByDiscoverScore([
+      card("acme/c", 84, 40),
+      card("acme/a", 84, 70),
+      card("acme/z", 90, 10),
+      card("acme/b", 84, 70, 85),
+      card("acme/d", 84, 70, 85),
+      { repoKey: "acme/none", productScore: 99, discoverScore: null },
+    ]);
+    expect(ranked.map((c) => c.repoKey)).toEqual(["acme/z", "acme/b", "acme/d", "acme/a", "acme/c", "acme/none"]);
+  });
+});
+
+describe("discover-score golden (shared with the Go Feed projector)", () => {
+  it("matches internal/backend/testdata/discover-score-golden.json", async () => {
+    const { readFileSync } = await import("node:fs");
+    const golden = JSON.parse(readFileSync("internal/backend/testdata/discover-score-golden.json", "utf8")) as {
+      version: string;
+      cases: { input: DiscoverScoreInput; expected: { score: number; band: string; eligible: boolean; strangerTryability: number } }[];
+    };
+    expect(golden.version).toBe(DISCOVER_SCORE_VERSION);
+    expect(golden.cases.length).toBeGreaterThanOrEqual(100);
+    for (const c of golden.cases) {
+      const r = computeDiscoverScore(c.input);
+      expect({ score: r.score, band: r.band, eligible: r.eligible, strangerTryability: r.tryGate.strangerTryability }).toEqual(c.expected);
+    }
   });
 });

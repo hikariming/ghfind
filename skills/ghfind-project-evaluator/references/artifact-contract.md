@@ -12,8 +12,8 @@ analysis_id
 repository { repo_key, canonical_url, requested_ref, resolved_commit_sha }
 rubric_version
 agent_version = project-evaluator-v3
-skill_version = ghfind-project-evaluator-v5
-project { name, summary, discover_hook, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
+skill_version = ghfind-project-evaluator-v6
+project { name, summary, discover_hook, discover_partition, time_to_first_value, target_users[], pain_statement, project_type, lifecycle, product_tags[] }
 scores { pain, effectiveness, experience, value_density, product_score }
 confidence
 verification_level
@@ -49,21 +49,33 @@ Type-guide filenames are human-facing labels and are not valid enum values. For 
 - Do not repeat the same idea with synonyms. Tags must distinguish this project from other projects in the same `project_type`.
 - Discover partitions (when applicable) must use these canonical ids: `use_case:ai-agent`, `use_case:agent-skill`, `artifact:microservice`, `artifact:sandbox`.
 
-## Discover card copy (skill v5)
+## Discover card copy and partition (skill v6)
 
-`project.discover_hook` is required. It is the primary Discover card line (≤120 Chinese characters / ≤140 English characters).
+`project.discover_hook` is required. It is the one line a stranger reads on a Discover card. Hard limits: **≤64 characters when it contains CJK, ≤120 characters otherwise**. Write a complete sentence that fits; never cut off with "…".
 
-Priority for card display: `discover_hook` → first sentence of `pain_statement` → stripped `summary`. Never compose "X is a Y project" in the UI.
+Write it as: the concrete situation or friction → what you get / what changes. Prefer a question or a scene the reader recognizes, then the result. Name the real capability, not the category. When an honest trade-off or limit matters to a newcomer (abandoned, only a prototype, heavy cluster ops), state it inside the hook.
 
-Hard bans for `discover_hook`, `summary`, and `pain_statement`:
+Hard bans for `discover_hook`:
 
-- Leads such as 「这是一个」「X 是一个」「X is a/an/the …」
-- 「X 是 Y 的项目」 / "X is a project by Y"
-- Generic-only sentences: 工具 / 项目 / Agent / Skill / 微服务 / 沙盒 / tool / project
-- Unsupported marketing fluff without evidence
+- Template leads: 「这是一个」「X 是一个/一款/一套/面向」「一个……的工具/库/框架/平台」, "X is a/an/the …", "A … tool/library"
+- Starting with the project or repo name
+- Report voice: 「目标用户」「该产品瞄准」「没有本项目时」「本项目针对」「试图」「宣称」, "the target user", "this project aims"
+- Marketing filler: 强大的、高效的、简单易用、新一代、一站式、赋能、极致、革命性, powerful, seamless, next-gen
+- Claims not supported by evidence entries. Every factual detail in the hook (numbers, platforms, protocols) must appear in the repository evidence.
 
-`pain_statement` must name the user, the recurring friction, and why the previous workaround is painful. `summary` may define the product without template leads. `target_users[0]` is the card audience line.
+`summary` and `pain_statement` keep the v5 rules (no template leads); `pain_statement` must name the user, the recurring friction, and why the previous workaround is painful.
 
+`project.discover_partition` is required: one of `agent | skill | microservice | sandbox | none`.
+
+- `agent`: the product is an AI agent, agent runtime/orchestrator, or tooling whose primary user is someone running AI agents. Tag `use_case:ai-agent`.
+- `skill`: an installable capability for an AI host (Agent Skill, MCP server, Claude/Codex/Cursor plugin or rule pack). Tag `use_case:agent-skill`.
+- `microservice`: a network service or service framework you deploy and operate (RPC, gateway, broker, API server). Tag `artifact:microservice`.
+- `sandbox`: an isolation/execution environment (VM, container, code sandbox, emulator for untrusted code). Tag `artifact:sandbox`.
+- `none`: everything else. Do not stretch a partition from keywords alone ("代理" as a network proxy is not an agent; a sandbox *game* is not a sandbox).
+
+When the partition is not `none`, exactly one matching canonical tag (`namespace:slug` above) must be among the 3-5 product tags. When it is `none`, no canonical partition tag may appear.
+
+`project.time_to_first_value` is required: how long a **stranger** with a normal developer machine needs from landing on the repository to the first useful result, judged from install docs, prerequisites and the core flow. One of `minutes` (≤15 min, e.g. extension, `npm i`, single binary), `hour`, `day` (toolchain, hardware, accounts, cluster), `weeks` (only meaningful after deep study or large integration, e.g. an OS kernel tree). This is independent of the `experience` score, which judges the experience for the target users.
 
 Use only these machine values for `project.lifecycle`:
 

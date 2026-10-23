@@ -215,7 +215,12 @@ test('wrangler containers 100146 is retryable and other errors are not',()=>{
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));
- const r=await approvedSchemas(m);assert.equal(r.core.length,18);assert.equal(r.feed.length,12);
+ const r=await approvedSchemas(m);assert.equal(r.core.length,18);assert.equal(r.feed.length,13);
+ // 0014 is DDL-only (ADD COLUMN), so the enabled legacy-writer fence cannot
+ // abort it. 0013 stays unapproved: its tag-definition INSERT would trip the
+ // fence's feed_tag_definitions trigger in production.
+ assert.equal(r.feed.at(-1).name,'0014_feed_discover_score_shadow.sql');
+ assert.ok(!r.feed.some(e=>e.name==='0013_feed_discover_copy_fields.sql'));
  const legacy=JSON.parse(readFileSync(new URL('../ops/feed-application-schema-release.json',import.meta.url)));
  assert.equal(legacy.feed.length,2);
  assert.ok(r.core.some(e=>e.name==='0017_discovery_read_indexes.sql'));

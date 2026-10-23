@@ -183,6 +183,25 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200
+        },
+        "discover_partition": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "skill",
+            "microservice",
+            "sandbox",
+            "none"
+          ]
+        },
+        "time_to_first_value": {
+          "type": "string",
+          "enum": [
+            "minutes",
+            "hour",
+            "day",
+            "weeks"
+          ]
         }
       },
       "required": [
@@ -193,7 +212,9 @@
         "pain_statement",
         "project_type",
         "lifecycle",
-        "product_tags"
+        "product_tags",
+        "discover_partition",
+        "time_to_first_value"
       ],
       "additionalProperties": false
     },

@@ -358,7 +358,7 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	files, err := filepath.Glob("../../migrations-feed/*.sql")
-	if err != nil || len(files) != 13 {
+	if err != nil || len(files) != 14 {
 		t.Fatal("register the new D1 schema before use")
 	}
 	for _, path := range files {

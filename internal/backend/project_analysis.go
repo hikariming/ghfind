@@ -25,8 +25,38 @@ const (
 	ProjectAnalysisSchemaVersion         = "ghfind.project-analysis.v3"
 	ProjectRubricVersion                 = "project-value-v1"
 	ProjectAgentVersion                  = "project-evaluator-v3"
-	ProjectSkillVersion                  = "ghfind-project-evaluator-v4"
+	ProjectSkillVersion                  = "ghfind-project-evaluator-v6"
+	PreviousProjectSkillVersion          = "ghfind-project-evaluator-v5"
 )
+
+// acceptedArtifactSkillVersions mirrors ACCEPTED_ARTIFACT_SKILL_VERSIONS: the
+// Mosoo-registered skill snapshot is re-registered out of band, so a run
+// recorded at the current version may complete with an older snapshot's
+// artifact. The artifact keeps (and is validated by) its own version.
+var acceptedArtifactSkillVersions = map[string]struct{}{
+	"ghfind-project-evaluator-v4": {},
+	PreviousProjectSkillVersion:   {},
+	ProjectSkillVersion:           {},
+}
+
+// IsAcceptedArtifactSkillVersion mirrors isAcceptedArtifactSkillVersion.
+func IsAcceptedArtifactSkillVersion(artifactSkillVersion, runSkillVersion string) bool {
+	if artifactSkillVersion == runSkillVersion {
+		return true
+	}
+	_, artifactOK := acceptedArtifactSkillVersions[artifactSkillVersion]
+	_, runOK := acceptedArtifactSkillVersions[runSkillVersion]
+	return artifactOK && runOK
+}
+
+var discoverPartitionCanonicalTags = map[string]string{
+	"agent":        "use_case:ai-agent",
+	"skill":        "use_case:agent-skill",
+	"microservice": "artifact:microservice",
+	"sandbox":      "artifact:sandbox",
+}
+
+var timeToFirstValueValues = []string{"minutes", "hour", "day", "weeks"}
 
 // Sentinel errors distinguish contract failures from infrastructure failures
 // so callers can map them to the same public error codes as the Next service.
@@ -107,6 +137,10 @@ type ProjectInfo struct {
 	ProjectType   string       `json:"project_type"`
 	Lifecycle     string       `json:"lifecycle"`
 	ProductTags   []ProductTag `json:"product_tags"`
+	// Skill v5+/v6 optional fields; empty on legacy artifacts.
+	DiscoverHook      string `json:"discover_hook,omitempty"`
+	DiscoverPartition string `json:"discover_partition,omitempty"`
+	TimeToFirstValue  string `json:"time_to_first_value,omitempty"`
 }
 
 type ProjectRisk struct {
@@ -479,13 +513,16 @@ type rawProductTag struct {
 }
 
 type rawProject struct {
-	Name          *string          `json:"name"`
-	Summary       *string          `json:"summary"`
-	TargetUsers   *[]string        `json:"target_users"`
-	PainStatement *string          `json:"pain_statement"`
-	ProjectType   *string          `json:"project_type"`
-	Lifecycle     *string          `json:"lifecycle"`
-	ProductTags   *[]rawProductTag `json:"product_tags"`
+	Name              *string          `json:"name"`
+	Summary           *string          `json:"summary"`
+	TargetUsers       *[]string        `json:"target_users"`
+	PainStatement     *string          `json:"pain_statement"`
+	ProjectType       *string          `json:"project_type"`
+	Lifecycle         *string          `json:"lifecycle"`
+	ProductTags       *[]rawProductTag `json:"product_tags"`
+	DiscoverHook      *string          `json:"discover_hook"`
+	DiscoverPartition *string          `json:"discover_partition"`
+	TimeToFirstValue  *string          `json:"time_to_first_value"`
 }
 
 type rawRisk struct {
@@ -675,7 +712,7 @@ func parseProject(raw *rawProject, schemaVersion string) (ProjectInfo, error) {
 			tags = append(tags, tag)
 		}
 	}
-	return ProjectInfo{
+	info := ProjectInfo{
 		Name:          name,
 		Summary:       summary,
 		TargetUsers:   targetUsers,
@@ -683,7 +720,69 @@ func parseProject(raw *rawProject, schemaVersion string) (ProjectInfo, error) {
 		ProjectType:   projectType,
 		Lifecycle:     lifecycle,
 		ProductTags:   tags,
-	}, nil
+	}
+	if raw.DiscoverHook != nil {
+		hook, err := requiredTrimmedString(raw.DiscoverHook, "project.discover_hook", 1, 200)
+		if err != nil {
+			return ProjectInfo{}, err
+		}
+		info.DiscoverHook = hook
+	}
+	if raw.DiscoverPartition != nil {
+		partition, err := requiredEnum(raw.DiscoverPartition, "project.discover_partition", "agent", "skill", "microservice", "sandbox", "none")
+		if err != nil {
+			return ProjectInfo{}, err
+		}
+		info.DiscoverPartition = partition
+	}
+	if raw.TimeToFirstValue != nil {
+		ttfv, err := requiredEnum(raw.TimeToFirstValue, "project.time_to_first_value", timeToFirstValueValues...)
+		if err != nil {
+			return ProjectInfo{}, err
+		}
+		info.TimeToFirstValue = ttfv
+	}
+	return info, nil
+}
+
+// assertDiscoverV6 mirrors the structural part of the TS assertDiscoverV6
+// (partition + canonical tag, time-to-first-value). Hook copy lint lives in
+// the TS contract and the skill validator.
+func assertDiscoverV6(analysis *ProjectAnalysisArtifact) error {
+	if analysis.SkillVersion != ProjectSkillVersion {
+		return nil
+	}
+	project := analysis.Project
+	if project.DiscoverHook == "" {
+		return artifactErrorf("skill v6 requires project.discover_hook")
+	}
+	if project.TimeToFirstValue == "" {
+		return artifactErrorf("skill v6 requires project.time_to_first_value")
+	}
+	if project.DiscoverPartition == "" {
+		return artifactErrorf("skill v6 requires project.discover_partition")
+	}
+	tags := map[string]struct{}{}
+	for _, tag := range project.ProductTags {
+		tags[tag.Namespace+":"+tag.Slug] = struct{}{}
+	}
+	canonical := 0
+	for _, id := range discoverPartitionCanonicalTags {
+		if _, ok := tags[id]; ok {
+			canonical++
+		}
+	}
+	if project.DiscoverPartition == "none" {
+		if canonical > 0 {
+			return artifactErrorf("discover_partition none conflicts with a canonical partition tag")
+		}
+		return nil
+	}
+	want := discoverPartitionCanonicalTags[project.DiscoverPartition]
+	if _, ok := tags[want]; !ok || canonical != 1 {
+		return artifactErrorf("discover_partition %s requires exactly one canonical tag %s", project.DiscoverPartition, want)
+	}
+	return nil
 }
 
 // parseRisk mirrors the risk preprocess: summary wins, then description, then
@@ -1171,6 +1270,9 @@ func ParseProjectAnalysisArtifacts(input ProjectAnalysisArtifactsInput) (*Parsed
 	if err := assertProductTags(analysis); err != nil {
 		return nil, err
 	}
+	if err := assertDiscoverV6(analysis); err != nil {
+		return nil, err
+	}
 	if err := assertEvidenceReferences(analysis, evidence); err != nil {
 		return nil, err
 	}
@@ -1182,7 +1284,7 @@ func ParseProjectAnalysisArtifacts(input ProjectAnalysisArtifactsInput) (*Parsed
 		}
 		if analysis.RubricVersion != run.RubricVersion ||
 			analysis.AgentVersion != run.AgentVersion ||
-			analysis.SkillVersion != run.SkillVersion ||
+			!IsAcceptedArtifactSkillVersion(analysis.SkillVersion, run.SkillVersion) ||
 			!sameRef {
 			return nil, artifactErrorf("Artifact version or requested ref does not match the analysis run.")
 		}

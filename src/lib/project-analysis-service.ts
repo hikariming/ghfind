@@ -4,6 +4,7 @@ import {
   PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_RUBRIC_VERSION,
   PROJECT_SKILL_VERSION,
+  isAcceptedArtifactSkillVersion,
   normalizeGitHubRepository,
   parseProjectAnalysisArtifacts,
   type ProjectAnalysisPhase,
@@ -558,7 +559,7 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectA
     if (
       parsed.analysis.rubric_version !== run.rubricVersion ||
       parsed.analysis.agent_version !== run.agentVersion ||
-      parsed.analysis.skill_version !== run.skillVersion ||
+      !isAcceptedArtifactSkillVersion(parsed.analysis.skill_version, run.skillVersion) ||
       parsed.analysis.repository.requested_ref !== run.requestedRef
     ) {
       throw new Error("Artifact version or requested ref does not match the analysis run.");

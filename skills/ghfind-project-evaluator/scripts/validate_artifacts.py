@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 
 SCHEMA_VERSION = "ghfind.project-analysis.v3"
-SKILL_VERSION = "ghfind-project-evaluator-v5"
+SKILL_VERSION = "ghfind-project-evaluator-v6"
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 CHINESE_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 JAPANESE_PATTERN = re.compile(r"[\u3040-\u30ff]")
@@ -200,6 +200,47 @@ def validate_schema(value: dict[str, Any], schema_name: str, label: str) -> None
     validate_schema_value(value, schema, label)
 
 
+PARTITION_TAGS = {
+    "agent": ("use_case", "ai-agent"),
+    "skill": ("use_case", "agent-skill"),
+    "microservice": ("artifact", "microservice"),
+    "sandbox": ("artifact", "sandbox"),
+}
+CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
+V6_TEMPLATE_LEAD = re.compile(
+    r"^(?:这是一个|这是一款|这是一种|该项目|本项目|本仓库|该仓库|[^\s，。,]{1,40}?\s*(?:是一个|是一款|是一种|是一套|是面向)|[\w.@+/-]+\s+is\s+(?:a|an|the)\s|(?:a|an)\s[\w\s-]{0,40}(?:tool|library|framework|project|app)\b)",
+    re.I,
+)
+V6_TYPE_NOUN_LEAD = re.compile(
+    r"^(?:一个|一款|一套|一种)[^，。,；;]{0,48}的(?:[^，。,；;]{0,12})(?:工具|项目|库|框架|应用|平台|系统|插件|扩展|运行时|客户端|服务端|夹具|合集|集合|SDK|网站|站点)"
+)
+V6_MARKETING = re.compile(r"(强大的|高效的|简单易用|新一代|一站式|赋能|极致|革命性|blazing|powerful|next-gen|revolutionary|seamless)", re.I)
+V6_REPORT_VOICE = re.compile(r"(目标用户|该产品瞄准|没有本项目时|本项目针对|试图|宣称|the target user|this project aims)", re.I)
+
+
+def validate_discover_v6(project: dict, name: str) -> None:
+    hook = re.sub(r"\s+", " ", str(project.get("discover_hook") or "")).strip()
+    limit = 64 if CJK_RE.search(hook) else 120
+    require(len(hook) <= limit, f"project.discover_hook exceeds {limit} characters (v6)")
+    require(not (V6_TEMPLATE_LEAD.search(hook) or V6_TYPE_NOUN_LEAD.search(hook)), "project.discover_hook uses a template lead (v6)")
+    lowered = hook.lower()
+    short = name.lower().split("/")[-1] if name else ""
+    require(not (short and lowered.startswith(short)), "project.discover_hook starts with the project name (v6)")
+    require(not V6_MARKETING.search(hook), "project.discover_hook uses marketing filler (v6)")
+    require(not V6_REPORT_VOICE.search(hook), "project.discover_hook uses report voice (v6)")
+    require(not re.search(r"(…|\.\.\.)$", hook), "project.discover_hook looks truncated (v6)")
+    partition = project.get("discover_partition")
+    require(partition in ("agent", "skill", "microservice", "sandbox", "none"), "project.discover_partition is required (v6)")
+    require(project.get("time_to_first_value") in ("minutes", "hour", "day", "weeks"), "project.time_to_first_value is required (v6)")
+    tags = {(t.get("namespace"), t.get("slug")) for t in project.get("product_tags", []) if isinstance(t, dict)}
+    canonical = {pt for pt in PARTITION_TAGS.values() if pt in tags}
+    if partition == "none":
+        require(not canonical, "discover_partition none conflicts with a canonical partition tag (v6)")
+    else:
+        require(PARTITION_TAGS[partition] in tags, f"discover_partition {partition} requires canonical tag {':'.join(PARTITION_TAGS[partition])} (v6)")
+        require(len(canonical) == 1, "exactly one canonical partition tag is allowed (v6)")
+
+
 def validate(analysis_path: Path, evidence_path: Path, report_path: Path, locale: str) -> None:
     analysis = read_json(analysis_path)
     evidence = read_json(evidence_path)
@@ -286,6 +327,7 @@ def validate(analysis_path: Path, evidence_path: Path, report_path: Path, locale
                 not lowered.startswith(f"{name.lower()} 是") and not lowered.startswith(f"{name.lower()} is"),
                 f"project.{field} uses banned name-lead template prose",
             )
+    validate_discover_v6(project, name)
     for index, unknown in enumerate(analysis.get("unknowns", [])):
         require_locale_text(unknown, f"analysis.unknowns[{index}]", language)
     product_tags = project.get("product_tags")

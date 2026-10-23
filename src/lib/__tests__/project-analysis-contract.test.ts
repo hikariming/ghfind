@@ -8,6 +8,8 @@ import {
 	PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_SKILL_VERSION,
+  PREVIOUS_PROJECT_SKILL_VERSION,
+  isAcceptedArtifactSkillVersion,
 } from "../project-analysis-contract";
 
 const evidence = {
@@ -329,6 +331,77 @@ describe("Discover copy contract", () => {
         expectedRepoKey: "owner/useful-tool",
       }),
     ).toThrow(/discover_hook/);
+  });
+});
+
+describe("skill v6 contract", () => {
+  const v6 = () => {
+    const next = structuredClone(analysis) as Record<string, unknown> & typeof analysis;
+    next.skill_version = PROJECT_SKILL_VERSION;
+    Object.assign(next.project, {
+      discover_hook: "批量转换文件不用再写一次性脚本，一条命令出结果",
+      discover_partition: "none",
+      time_to_first_value: "minutes",
+    });
+    return next;
+  };
+  const parse = (value: unknown) =>
+    parseProjectAnalysisArtifacts({
+      analysisRaw: JSON.stringify(value),
+      evidenceRaw: JSON.stringify(evidence),
+      reportMarkdown: "# ok",
+      expectedAnalysisId: "analysis-1",
+      expectedRepoKey: "owner/useful-tool",
+    });
+
+  it("records v6 for new runs and keeps v6 fields through parsing", () => {
+    expect(PROJECT_SKILL_VERSION).toBe("ghfind-project-evaluator-v6");
+    const parsed = parse(v6());
+    expect(parsed.analysis.project.discover_partition).toBe("none");
+    expect(parsed.analysis.project.time_to_first_value).toBe("minutes");
+  });
+
+  it("requires partition and time_to_first_value on v6 only", () => {
+    const missing = v6();
+    delete (missing.project as Record<string, unknown>).time_to_first_value;
+    expect(() => parse(missing)).toThrow(/time_to_first_value/);
+    const noPartition = v6();
+    delete (noPartition.project as Record<string, unknown>).discover_partition;
+    expect(() => parse(noPartition)).toThrow(/discover_partition/);
+    // v5 artifacts without v6 fields stay valid (no backfill needed).
+    expect(() => parse({ ...analysis, skill_version: PREVIOUS_PROJECT_SKILL_VERSION })).not.toThrow();
+  });
+
+  it("enforces exactly one matching canonical partition tag", () => {
+    const agent = v6();
+    (agent.project as Record<string, unknown>).discover_partition = "agent";
+    expect(() => parse(agent)).toThrow(/use_case:ai-agent/);
+    agent.project.product_tags[0] = { ...agent.project.product_tags[0], namespace: "use_case", slug: "ai-agent" };
+    expect(() => parse(agent)).not.toThrow();
+    const conflict = v6();
+    conflict.project.product_tags[0] = { ...conflict.project.product_tags[0], namespace: "artifact", slug: "sandbox" };
+    expect(() => parse(conflict)).toThrow(/none conflicts/);
+  });
+
+  it("lints the v6 hook (length, template lead, marketing, truncation)", () => {
+    for (const hook of [
+      "这是一个把文件批量转换成另一种格式的命令行工具",
+      "强大的转换工具，一条命令出结果",
+      "批量转换文件不用再写一次性脚本……",
+      "转".repeat(65),
+    ]) {
+      const bad = v6();
+      bad.project.discover_hook = hook;
+      expect(() => parse(bad), hook).toThrow(/discover_hook/);
+    }
+  });
+
+  it("accepts an older snapshot's artifact on a v6 run but never an unknown version", () => {
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v4", PROJECT_SKILL_VERSION)).toBe(true);
+    expect(isAcceptedArtifactSkillVersion(PREVIOUS_PROJECT_SKILL_VERSION, PROJECT_SKILL_VERSION)).toBe(true);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v3", PROJECT_SKILL_VERSION)).toBe(false);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v99", PROJECT_SKILL_VERSION)).toBe(false);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v3", "ghfind-project-evaluator-v3")).toBe(true);
   });
 });
 

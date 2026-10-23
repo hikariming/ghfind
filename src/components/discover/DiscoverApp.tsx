@@ -43,6 +43,7 @@ export function DiscoverApp({
   const search = useSearchParams();
   const requested: DiscoverMode = search.get("mode") === "swipe" ? "swipe" : "grid";
   const initialMode = useRef<DiscoverMode>(requested);
+  const internalScoreRequested = useRef(search.get("score") === "v1");
   const [previewOpen, setPreviewOpen] = useState(false);
   const mode = useDiscoverStore((state) => state.mode);
   const storeItems = useDiscoverStore((state) => state.items);
@@ -79,6 +80,12 @@ export function DiscoverApp({
         mode: initialMode.current,
         board: initialBoard,
         nextOffset: initialOffset,
+      }).then(() => {
+        // Internal-only ranking preview (?score=v1). The server decides who
+        // may see it; everyone else keeps the public view unchanged.
+        if (alive && internalScoreRequested.current && me.user) {
+          void useDiscoverStore.getState().enableInternalScore();
+        }
       });
     });
     return () => { alive = false; };

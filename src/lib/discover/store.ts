@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { fetchFeedPage, fetchPublicPage, DiscoverClientError, commitFeedWrites } from "./client";
+import { fetchFeedPage, fetchInternalScorePage, fetchPublicPage, DiscoverClientError, commitFeedWrites } from "./client";
 import { dedupeCards } from "./map";
 import { mapSwipeAction, mapUndo } from "./events";
 import type { ProjectBoard } from "@/lib/project-analysis-db";
 import { filterCardsByPartition } from "./partition";
-import type { DiscoverAction, DiscoverBanner, DiscoverCard, DiscoverHistoryEntry, DiscoverMode, DiscoverPartition, DiscoverSource } from "./types";
+import type { DiscoverAction, DiscoverBanner, DiscoverCard, DiscoverHistoryEntry, DiscoverMode, DiscoverPage, DiscoverPartition, DiscoverSource } from "./types";
 
 const PUBLIC_BOARDS: ProjectBoard[] = ["treasure", "classic", "all"];
 
@@ -25,6 +25,8 @@ export type DiscoverStore = {
   partition: DiscoverPartition;
   /** False until hydrate runs; DiscoverApp falls back to initialCards for SSR. */
   ready: boolean;
+  /** Internal discover-score-v1.1 ranking (allowlisted accounts only). */
+  internalScore: boolean;
   hydrate: (input: {
     locale: string;
     githubLogin: string | null;
@@ -34,6 +36,8 @@ export type DiscoverStore = {
     /** Offset into `board` only. Null means that board is exhausted. Omitted falls back to initial.length. */
     nextOffset?: number | null;
   }) => Promise<void>;
+  /** Switch to the internal score ranking; no-op unless the server allows it. */
+  enableInternalScore: () => Promise<boolean>;
   setMode: (mode: DiscoverMode) => void;
   setPartition: (partition: DiscoverPartition) => void;
   loadMore: () => Promise<void>;
@@ -76,6 +80,30 @@ export const useDiscoverStore = create<DiscoverStore>((set, get) => ({
   publicBoard: "treasure",
   partition: "all",
   ready: false,
+  internalScore: false,
+  async enableInternalScore() {
+    let page: DiscoverPage | null = null;
+    try {
+      page = await fetchInternalScorePage(get().locale);
+    } catch {
+      page = null;
+    }
+    if (!page || page.items.length === 0) return false;
+    set({
+      items: page.items,
+      cursor: null,
+      offset: null,
+      source: "public",
+      publicBoard: "all",
+      banner: null,
+      loading: false,
+      exhausted: true,
+      index: 0,
+      history: [],
+      internalScore: true,
+    });
+    return true;
+  },
   async hydrate({ locale, githubLogin, initial, mode, board, nextOffset }) {
     const boardName = board ?? "treasure";
     const offset = nextOffset === undefined ? initial.length : nextOffset;

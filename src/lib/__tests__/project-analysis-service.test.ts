@@ -133,7 +133,7 @@ describe("project analysis reconciliation", () => {
       schemaVersion: "ghfind.project-analysis.v3",
       rubricVersion: "project-value-v1",
       agentVersion: "project-evaluator-v3",
-      skillVersion: "ghfind-project-evaluator-v5",
+      skillVersion: "ghfind-project-evaluator-v6",
     });
     const analysis = {
       ...(validProjectAnalysis as ProjectAnalysisArtifact),

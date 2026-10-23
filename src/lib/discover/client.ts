@@ -51,6 +51,36 @@ function asCard(value: unknown): DiscoverCard | null {
     impressionToken: typeof row.impressionToken === "string" ? row.impressionToken : null,
     source: row.source === "feed" ? "feed" : "public",
     verificationLevel: typeof row.verificationLevel === "string" ? row.verificationLevel : null,
+    ...(isDiscoverScore(row.discoverScore) ? { discoverScore: row.discoverScore } : {}),
+  };
+}
+
+function isDiscoverScore(value: unknown): value is NonNullable<DiscoverCard["discoverScore"]> {
+  if (!value || typeof value !== "object") return false;
+  const score = value as { score?: unknown; band?: unknown; tryGate?: unknown };
+  return typeof score.score === "number" && typeof score.band === "string" && !!score.tryGate && typeof score.tryGate === "object";
+}
+
+/**
+ * Internal discover-score view. Resolves null for everyone outside the
+ * internal allowlist (the endpoint answers 404), so callers fall back to
+ * the public view without surfacing an error.
+ */
+export async function fetchInternalScorePage(locale: string): Promise<DiscoverPage | null> {
+  const response = await fetch(`/api/discover/internal?locale=${encodeURIComponent(locale)}`, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const body = await readJson(response);
+  const items = Array.isArray(body.items) ? body.items.flatMap((item) => asCard(item) ?? []) : [];
+  return {
+    items,
+    nextCursor: null,
+    nextOffset: typeof body.nextOffset === "number" ? body.nextOffset : null,
+    source: "public",
+    degraded: [],
+    requestId: null,
   };
 }
 

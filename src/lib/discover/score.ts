@@ -73,7 +73,57 @@ function timeToFirstValueOf(project: object): DiscoverTimeToFirstValue | null {
   return typeof value === "string" && TTFV.has(value) ? (value as DiscoverTimeToFirstValue) : null;
 }
 
-/** Opt-in only. Default off; flipping it in production needs owner sign-off. */
-export function isDiscoverScoreEnabled(env: Record<string, string | undefined> = process.env): boolean {
+type Env = Record<string, string | undefined>;
+
+/**
+ * Opt-in only. Default off. Even when set, the score is shown only to the
+ * internal allowlist (`isDiscoverScoreViewer`); public Discover never reads it.
+ */
+export function isDiscoverScoreEnabled(env: Env = process.env): boolean {
   return env.GHFIND_DISCOVER_SCORE_V1 === "1";
+}
+
+/**
+ * Internal allowlist: comma-separated numeric GitHub account ids from
+ * `GHFIND_DISCOVER_INTERNAL_GITHUB_IDS` (a Worker secret). Ids, not logins,
+ * because logins can be renamed and re-registered. Any malformed entry
+ * disables the allowlist entirely (fail closed).
+ */
+export function discoverInternalGithubIds(env: Env = process.env): ReadonlySet<number> {
+  const raw = (env.GHFIND_DISCOVER_INTERNAL_GITHUB_IDS ?? "").trim();
+  if (!raw) return new Set();
+  const parts = raw.split(",").map((part) => part.trim());
+  if (parts.length > 20 || parts.some((part) => !/^[1-9]\d{0,15}$/.test(part) || !Number.isSafeInteger(Number(part)))) {
+    return new Set();
+  }
+  return new Set(parts.map(Number));
+}
+
+/** True only for a signed-in allowlisted account while the flag is on. */
+export function isDiscoverScoreViewer(githubId: number | null | undefined, env: Env = process.env): boolean {
+  if (!isDiscoverScoreEnabled(env)) return false;
+  if (typeof githubId !== "number" || !Number.isSafeInteger(githubId) || githubId <= 0) return false;
+  return discoverInternalGithubIds(env).has(githubId);
+}
+
+type ScoredCard = { repoKey: string; productScore: number; discoverScore?: DiscoverScoreResult | null };
+
+/**
+ * Internal ranking: discover score first. Ties (notably the 84 ceiling that
+ * hard_to_try projects collapse onto) break by how easily a stranger can try
+ * the project, then by product score, then by repo key for a stable order.
+ */
+export function compareByDiscoverScore(a: ScoredCard, b: ScoredCard): number {
+  const sa = a.discoverScore?.score ?? -1;
+  const sb = b.discoverScore?.score ?? -1;
+  if (sb !== sa) return sb - sa;
+  const ta = a.discoverScore?.tryGate.strangerTryability ?? -1;
+  const tb = b.discoverScore?.tryGate.strangerTryability ?? -1;
+  if (tb !== ta) return tb - ta;
+  if (b.productScore !== a.productScore) return b.productScore - a.productScore;
+  return a.repoKey < b.repoKey ? -1 : a.repoKey > b.repoKey ? 1 : 0;
+}
+
+export function sortByDiscoverScore<T extends ScoredCard>(cards: readonly T[]): T[] {
+  return [...cards].sort(compareByDiscoverScore);
 }

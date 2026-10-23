@@ -30,10 +30,20 @@ export function DiscoverCardView({
             <span className="block truncate text-xs font-medium text-muted-foreground">{card.ownerLogin}</span>
             <span className="mt-0.5 block line-clamp-1 text-base font-semibold leading-snug text-foreground">{card.name}</span>
           </a>
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-sm font-semibold tabular-nums text-foreground">
-            {card.productScore}
-            <span className="ms-1 text-[11px] font-medium text-muted-foreground">{labels.productScore}</span>
-          </span>
+          {card.discoverScore ? (
+            <span
+              title={`${card.discoverScore.version} · ${card.discoverScore.band} · try ${card.discoverScore.tryGate.strangerTryability} · product ${card.productScore}`}
+              className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-sm font-semibold tabular-nums text-foreground"
+            >
+              {card.discoverScore.score}
+              <span className="ms-1 text-[11px] font-medium text-muted-foreground">{card.discoverScore.band}</span>
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-sm font-semibold tabular-nums text-foreground">
+              {card.productScore}
+              <span className="ms-1 text-[11px] font-medium text-muted-foreground">{labels.productScore}</span>
+            </span>
+          )}
         </div>
         <p title={card.hook} className="line-clamp-2 text-sm leading-5 text-foreground/90">
           {card.hook}

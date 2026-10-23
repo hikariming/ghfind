@@ -214,9 +214,9 @@ export class FeedJobs extends FeedStore {
         input.sourceVersion,
       ),
       this.sql(
-        `INSERT INTO feed_projects(repo_key,analysis_id,owner_login,name,canonical_url,summary,discover_hook,pain_statement,audience_primary,language,topics_json,project_type,lifecycle,product_score,confidence,verification_level,exposure_band,treasure_eligible,classic_eligible,analyzed_at,risks_json,published,source_hash,projected_at)
-        SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CASE WHEN COALESCE((SELECT removed FROM feed_project_moderation WHERE repo_key=?),0)=1 THEN 0 WHEN ?=1 OR (?=1 AND COALESCE((SELECT allow_high_risk FROM feed_project_moderation WHERE repo_key=?),0)=1) THEN 1 ELSE 0 END,?,? FROM feed_projection_commands WHERE id=? AND applied=1
-        ON CONFLICT(repo_key) DO UPDATE SET analysis_id=excluded.analysis_id,owner_login=excluded.owner_login,name=excluded.name,canonical_url=excluded.canonical_url,summary=excluded.summary,discover_hook=excluded.discover_hook,pain_statement=excluded.pain_statement,audience_primary=excluded.audience_primary,language=excluded.language,topics_json=excluded.topics_json,project_type=excluded.project_type,lifecycle=excluded.lifecycle,product_score=excluded.product_score,confidence=excluded.confidence,verification_level=excluded.verification_level,exposure_band=excluded.exposure_band,treasure_eligible=excluded.treasure_eligible,classic_eligible=excluded.classic_eligible,analyzed_at=excluded.analyzed_at,risks_json=excluded.risks_json,published=excluded.published,source_hash=excluded.source_hash,projected_at=excluded.projected_at`,
+        `INSERT INTO feed_projects(repo_key,analysis_id,owner_login,name,canonical_url,summary,discover_hook,pain_statement,audience_primary,language,topics_json,project_type,lifecycle,product_score,confidence,verification_level,exposure_band,treasure_eligible,classic_eligible,analyzed_at,risks_json,discover_score,discover_band,discover_score_version,published,source_hash,projected_at)
+        SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CASE WHEN COALESCE((SELECT removed FROM feed_project_moderation WHERE repo_key=?),0)=1 THEN 0 WHEN ?=1 OR (?=1 AND COALESCE((SELECT allow_high_risk FROM feed_project_moderation WHERE repo_key=?),0)=1) THEN 1 ELSE 0 END,?,? FROM feed_projection_commands WHERE id=? AND applied=1
+        ON CONFLICT(repo_key) DO UPDATE SET analysis_id=excluded.analysis_id,owner_login=excluded.owner_login,name=excluded.name,canonical_url=excluded.canonical_url,summary=excluded.summary,discover_hook=excluded.discover_hook,pain_statement=excluded.pain_statement,audience_primary=excluded.audience_primary,language=excluded.language,topics_json=excluded.topics_json,project_type=excluded.project_type,lifecycle=excluded.lifecycle,product_score=excluded.product_score,confidence=excluded.confidence,verification_level=excluded.verification_level,exposure_band=excluded.exposure_band,treasure_eligible=excluded.treasure_eligible,classic_eligible=excluded.classic_eligible,analyzed_at=excluded.analyzed_at,risks_json=excluded.risks_json,discover_score=excluded.discover_score,discover_band=excluded.discover_band,discover_score_version=excluded.discover_score_version,published=excluded.published,source_hash=excluded.source_hash,projected_at=excluded.projected_at`,
         p.repoKey,
         p.analysisId,
         p.ownerLogin,
@@ -238,6 +238,9 @@ export class FeedJobs extends FeedStore {
         Number(p.classicEligible),
         Date.parse(p.analyzedAt),
         JSON.stringify(p.risks),
+        p.discoverScore ?? null,
+        p.discoverBand ?? "",
+        p.discoverScoreVersion ?? "",
         p.repoKey,
         Number(p.publishable),
         Number(p.riskOverrideEligible),

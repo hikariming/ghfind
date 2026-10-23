@@ -432,6 +432,27 @@ test("Phase A: pinned completed assessment with skill v4 remains reusable withou
   assert.equal(h.posts, 0);
 });
 
+test("skill v6: pinned completed assessment with skill v5 or v6 is reusable without rescore", async (t) => {
+  for (const skill_version of ["ghfind-project-evaluator-v5", "ghfind-project-evaluator-v6"]) {
+    const h = await harness(t, {
+      rows: [run({ skill_version, status: "completed" })],
+      sources: [source({ skill_version })],
+    });
+    const receipt = await startAssessment(SHA, h.receipt, h.options);
+    assert.equal(receipt.status, "completed");
+    const out = await waitAssessment(h.receipt, h.result, h.options);
+    assert.equal(out.assessment, "reused_logical_assessment");
+    assert.equal(h.posts, 0);
+  }
+});
+
+test("unknown skill version is refused before any paid request", async (t) => {
+  const unknown = { skill_version: "ghfind-project-evaluator-v99" };
+  const h = await harness(t, { rows: [run({ ...unknown, status: "completed" })], sources: [source(unknown)] });
+  await assert.rejects(startAssessment(SHA, h.receipt, h.options), /logical_assessment_identity_mismatch/);
+  assert.equal(h.posts, 0);
+});
+
 test("main, deployed source flag, provider and paused admission must match before paid request", async (t) => {
   const variants = [
     { mainSHA: "f".repeat(40) },

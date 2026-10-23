@@ -38,6 +38,9 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/developers/route.ts",
   // Public discover preview: read-only project boards, no Feed profile writes.
   "src/app/api/discover/public/route.ts",
+  // Internal discover-score ranking: 404 unless GHFIND_DISCOVER_SCORE_V1=1
+  // and the session's GitHub id is on the internal allowlist; private, no-store.
+  "src/app/api/discover/internal/route.ts",
   // Owner-uploaded discover covers. GET is public; writes require the GitHub owner.
   "src/app/api/discover/covers/[owner]/[repo]/route.ts",
   "src/app/api/feed/events/route.ts",

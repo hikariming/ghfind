@@ -122,6 +122,10 @@
     {
       "name": "0012_feed_legacy_writer_fence.sql",
       "sha256": "26bd945ec52baab00e4307f81258aa39dfef9dea75d979deefbe286c5cda0182"
+    },
+    {
+      "name": "0014_feed_discover_score_shadow.sql",
+      "sha256": "a192a650f2d8ba481ed1854051e94d976a2c36eda311b2d69db2d97e57c727d5"
     }
   ]
 }
