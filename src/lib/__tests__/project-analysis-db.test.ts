@@ -205,6 +205,37 @@ describe("project analysis persistence", () => {
     await db.failProjectAnalysis("slot-2", "test_complete", "Test slot released.");
   });
 
+  it("does not let a running row past its timeout hold a concurrency slot", async () => {
+    for (const id of ["stale-slot-1", "stale-slot-2"]) {
+      await db.createProjectAnalysisRun({
+        id,
+        repoKey: `owner/${id}`,
+        canonicalUrl: `https://github.com/owner/${id}`,
+        requestedRef: null,
+        schemaVersion: "ghfind.project-analysis.v1",
+        rubricVersion: "project-value-v1",
+        agentVersion: "project-evaluator-v1",
+        skillVersion: "ghfind-project-evaluator-v1",
+      });
+    }
+    await expect(db.reserveProjectAnalysisExecutionSlot("stale-slot-1", 1)).resolves.toBe(true);
+    await db.updateProjectAnalysisState({
+      analysisId: "stale-slot-1", status: "running", phase: "inspecting", progress: 20,
+    });
+    // Not yet stale (cutoff before its start): still counted.
+    await expect(
+      db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1, 30_000, Date.now() - 60_000),
+    ).resolves.toBe(false);
+    // Without a cutoff the old behaviour is unchanged.
+    await expect(db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1)).resolves.toBe(false);
+    // Started before the cutoff: past its timeout, no longer holds the slot.
+    await expect(
+      db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1, 30_000, Date.now() + 1_000),
+    ).resolves.toBe(true);
+    await db.failProjectAnalysis("stale-slot-1", "test_complete", "Test slot released.");
+    await db.failProjectAnalysis("stale-slot-2", "test_complete", "Test slot released.");
+  });
+
   it("releases a creation slot while a retry is backing off", async () => {
     await db.createProjectAnalysisRun({
       id: "retry-slot-1",

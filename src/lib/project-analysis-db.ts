@@ -511,6 +511,10 @@ export async function reserveProjectAnalysisExecutionSlot(
   analysisId: string,
   maximumConcurrentRuns: number,
   leaseDurationMs = 30_000,
+  // Running rows that started before this instant are past their execution
+  // timeout (and have no recovery deadline still open); they no longer hold a
+  // slot. Omit to count every active row (previous behaviour).
+  staleRunningBefore: number | null = null,
 ): Promise<boolean> {
   const db = database();
   await ensureSchema(db);
@@ -539,14 +543,26 @@ export async function reserveProjectAnalysisExecutionSlot(
           WHERE id = ? AND status = 'queued'
             AND (create_retry_at IS NULL OR create_retry_at <= ?)
             AND (
-              SELECT COUNT(*) FROM project_analysis_runs
-              WHERE status IN ('creating_thread', 'running', 'finalizing')
+              SELECT COUNT(*) FROM project_analysis_runs AS active
+              WHERE active.status IN ('creating_thread', 'running', 'finalizing')
+                AND NOT (
+                  ? IS NOT NULL AND active.status = 'running'
+                  AND active.started_at IS NOT NULL AND active.started_at < ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM project_analysis_recoveries rc
+                    WHERE rc.analysis_id = active.id
+                      AND (rc.execution_deadline_at IS NULL OR rc.execution_deadline_at > ?)
+                  )
+                )
             ) < ?`,
     args: [
       leaseUntil,
       now,
       now,
       analysisId,
+      now,
+      staleRunningBefore,
+      staleRunningBefore,
       now,
       Math.max(1, Math.floor(maximumConcurrentRuns)),
     ],

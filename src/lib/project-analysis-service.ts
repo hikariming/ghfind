@@ -329,6 +329,9 @@ async function createOrResumeMosooThread(run: ProjectAnalysisRun): Promise<Proje
     run.id,
     maximumConcurrentRuns(),
     createAttemptLeaseMs(),
+    // A run past its execution timeout is expired by the next reconcile; it
+    // must not block new work in the meantime.
+    Date.now() - analysisTimeoutMs(),
   );
   if (!reserved) return (await getProjectAnalysisRun(run.id)) ?? run;
   const attemptRun = (await getProjectAnalysisRun(run.id)) ?? run;
