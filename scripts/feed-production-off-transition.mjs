@@ -8,6 +8,7 @@ import { ACCOUNT, authorizeMutation, verifyWeb } from './feed-production-release
 import { production, validateManifest } from './feed-platform-production.mjs';
 import { boundedJSON } from './feed-platform-web-verify.mjs';
 const targets = ['api-0', 'api-1', 'executor-0'];
+const CONFIG_READ_ATTEMPTS = 3, CONFIG_READ_BACKOFF_MS = 3000;
 const check = (ok, message) => { if (!ok) throw new Error(message); };
 const uuid = value => /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value ?? '');
 const hex = (value, length) => typeof value === 'string' && new RegExp(`^[a-f0-9]{${length}}$`).test(value);
@@ -27,6 +28,7 @@ class OffRequestError extends Error {
     this.diagnostic = { path, phase: path.endsWith('/restart') ? 'restart' : 'configuration', status, code };
   }
 }
+export { OffRequestError };
 export async function readOffResponse(response, path) {
   check(/^(configuration|(api-[01]|executor-0)\/(configuration|restart))$/.test(path), 'invalid off request path');
   if (response.status === 200) return boundedJSON(response,2048);
@@ -54,7 +56,7 @@ export function validateConsumerReceipt(receipt, manifest, env) {
   'off transition consumer deletion identities differ');
   return receipt;
 }
-export async function transitionOffActors(identity, { consumerReceipt, manifest, env = process.env, paused, read, send, record = () => {}, now = Date.now }) {
+export async function transitionOffActors(identity, { consumerReceipt, manifest, env = process.env, paused, read, send, record = () => {}, now = Date.now, sleep = ms => new Promise(r => setTimeout(r, ms)) }) {
   authorizeMutation(env); validateManifest(manifest);
   check(hex(identity?.sourceSha,40) && hex(identity.imageBuildId,64) && identity.mode === 'off' && identity.writerEpoch === 1 &&
     identity.writerEpoch === manifest.writerEpoch && typeof identity.image === 'string' &&
@@ -66,7 +68,7 @@ export async function transitionOffActors(identity, { consumerReceipt, manifest,
   let operation = { phase:'consumer_validation', path:null, status:null };
   const invoke = async (fn, timeout, readonly = false) => {
     check(now() < deadline, 'off transition deadline exceeded');
-    if (readonly) check(++evidence.readonlyCalls <= 20, 'off transition read budget exceeded');
+    if (readonly) check(++evidence.readonlyCalls <= 32, 'off transition read budget exceeded');
     let timer;
     try { const value = await Promise.race([Promise.resolve().then(fn), new Promise((_, reject) => {
       timer=setTimeout(()=>reject(new Error('off transition operation timeout')),Math.min(timeout,deadline-now()));
@@ -97,7 +99,18 @@ export async function transitionOffActors(identity, { consumerReceipt, manifest,
       const currentActors={};
       for(const actor of targets) {
         operation={phase:'configuration',path:`${actor}/configuration`,status:null};
-        const config=await invoke(()=>read(`${actor}/configuration`),10000,true);
+        // Read-only metadata GET: a transient 503 runtime_configuration_unavailable
+        // (DO still waking after the deploy) is retried a bounded number of times.
+        // Lifecycle POSTs below are still never retried.
+        let config;
+        for (let attempt = 1; ; attempt++) {
+          try { config=await invoke(()=>read(`${actor}/configuration`),10000,true); break; }
+          catch (error) {
+            if (!(error instanceof OffRequestError) || error.diagnostic.code !== 'runtime_configuration_unavailable' || attempt >= CONFIG_READ_ATTEMPTS) throw error;
+            evidence.configurationRetries=(evidence.configurationRetries ?? 0)+1;
+            await invoke(()=>sleep(CONFIG_READ_BACKOFF_MS*attempt),CONFIG_READ_BACKOFF_MS*attempt+1000);
+          }
+        }
         check(exact(config,'actorId,configuredImage,imageBuildId,mode,sourceSha,target,workerVersionId,writerEpoch') &&
           config.target===actor && hex(config.actorId,64) && config.sourceSha===identity.sourceSha && config.configuredImage===identity.image &&
           config.imageBuildId===identity.imageBuildId && config.mode==='off' && config.writerEpoch===identity.writerEpoch &&
