@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   validProjectAnalysis,
@@ -36,6 +37,7 @@ afterAll(() => {
   delete process.env.PROJECT_ANALYSIS_RUNTIME_ALLOWLIST;
   delete process.env.PROJECT_ANALYSIS_CREATE_MAX_ATTEMPTS;
   delete process.env.PROJECT_ANALYSIS_CREATE_RETRY_BASE_MS;
+  delete process.env.PROJECT_ANALYSIS_MAX_CONCURRENCY;
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 
@@ -93,6 +95,7 @@ describe("project analysis reconciliation", () => {
               completedAt: "2026-07-15T00:00:10.000Z",
               updatedAt: "2026-07-15T00:00:10.000Z",
               trigger: "user_prompt",
+              error: { code: "provider.quota_exceeded", message: "Model quota exceeded", retryable: false },
             },
           });
         }
@@ -103,11 +106,19 @@ describe("project analysis reconciliation", () => {
       }),
     );
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const failed = await service.reconcileProjectAnalysis(analysisId);
     expect(failed).toMatchObject({
       status: "failed",
       errorCode: "mosoo_run_failed",
+      errorMessage: "Mosoo project analysis ended with failed (provider.quota_exceeded).",
     });
+    expect(
+      warn.mock.calls
+        .map(([line]) => String(line))
+        .some((line) => line.includes('"event":"project_analysis_run_terminal"') && line.includes('"runErrorCode":"provider.quota_exceeded"')),
+    ).toBe(true);
+    warn.mockRestore();
     await expect(service.reconcileProjectAnalysis(analysisId)).resolves.toMatchObject({
       status: "failed",
     });
@@ -133,7 +144,7 @@ describe("project analysis reconciliation", () => {
       schemaVersion: "ghfind.project-analysis.v3",
       rubricVersion: "project-value-v1",
       agentVersion: "project-evaluator-v3",
-      skillVersion: "ghfind-project-evaluator-v5",
+      skillVersion: "ghfind-project-evaluator-v6",
     });
     const analysis = {
       ...(validProjectAnalysis as ProjectAnalysisArtifact),
@@ -257,6 +268,78 @@ describe("project analysis reconciliation", () => {
     });
   });
 
+  it("requeues a Mosoo session-capacity rejection with backoff instead of failing the item", async () => {
+    const capacityId = "service-capacity-analysis";
+    await db.createProjectAnalysisRun({
+      id: capacityId,
+      repoKey: "owner/capacity-tool",
+      canonicalUrl: "https://github.com/owner/capacity-tool",
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v1",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v1",
+      skillVersion: "ghfind-project-evaluator-v1",
+    });
+    await db.attachMosooThread({ analysisId: capacityId, agentId: "project-agent", threadId: "capacity-thread", runId: "capacity-run" });
+    const posts: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "POST") {
+          posts.push(url);
+          return Response.json({ error: { code: "unexpected" } }, { status: 500 });
+        }
+        if (url.endsWith("/threads/capacity-thread")) {
+          return Response.json({
+            thread: { id: "capacity-thread", agent_id: "project-agent", kind: "cattle", status: "IDLE", client_external_ref: capacityId },
+            run: {
+              id: "capacity-run",
+              status: "failed",
+              createdAt: "2026-10-23T00:00:00.000Z",
+              startedAt: "2026-10-23T00:00:01.000Z",
+              completedAt: "2026-10-23T00:00:05.000Z",
+              updatedAt: "2026-10-23T00:00:05.000Z",
+              trigger: "user_prompt",
+              error: {
+                code: "runtime.capacity_exhausted",
+                message: "You already have 5 active sessions. Try again in a few minutes.",
+                retryable: false,
+              },
+            },
+          });
+        }
+        if (url.includes("/threads/capacity-thread/events")) return Response.json({ events: [], truncated: false });
+        return Response.json({ error: { code: "not_found" } }, { status: 404 });
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const before = Date.now();
+    try {
+      const requeued = await service.reconcileProjectAnalysis(capacityId);
+      expect(requeued).toMatchObject({
+        status: "queued",
+        mosooThreadId: null,
+        errorCode: null,
+        createAttempts: 0,
+      });
+      expect(requeued.idempotencyKey).toMatch(/-cap-1$/);
+      expect(requeued.createRetryAt).toBeGreaterThanOrEqual(before + service.mosooCapacityBackoffMs(1));
+      // Backoff is honoured: no new Thread is created before createRetryAt.
+      await expect(service.reconcileProjectAnalysis(capacityId)).resolves.toMatchObject({ status: "queued" });
+      expect(posts).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+    expect(service.mosooCapacityBackoffMs(1)).toBe(2 * 60_000);
+    expect(service.mosooCapacityBackoffMs(10)).toBe(30 * 60_000);
+    expect(service.MAX_MOSOO_CAPACITY_REQUEUES).toBeGreaterThan(1);
+    expect(service.DEFAULT_MAX_CONCURRENT_RUNS).toBe(2);
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await raw.execute({ sql: "UPDATE project_analysis_runs SET status = 'failed', active_key = NULL WHERE id = ?", args: [capacityId] });
+    raw.close();
+  });
+
   it("backs off failed Thread creation, releases the slot, and stops at the attempt limit", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-19T00:00:00.000Z"));
@@ -305,6 +388,147 @@ describe("project analysis reconciliation", () => {
       vi.useRealTimers();
       delete process.env.PROJECT_ANALYSIS_CREATE_MAX_ATTEMPTS;
       delete process.env.PROJECT_ANALYSIS_CREATE_RETRY_BASE_MS;
+    }
+  });
+});
+
+describe("project analysis reconcile under provider errors and the concurrency cap", () => {
+  const createRun = (id: string) =>
+    db.createProjectAnalysisRun({
+      id,
+      repoKey: `owner/${id}`,
+      canonicalUrl: `https://github.com/owner/${id}`,
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v1",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v1",
+      skillVersion: "ghfind-project-evaluator-v1",
+    });
+  const startRunning = async (id: string, startedAt: number) => {
+    await createRun(id);
+    await expect(db.reserveProjectAnalysisExecutionSlot(id, 20)).resolves.toBe(true);
+    await db.attachMosooThread({ analysisId: id, agentId: "project-agent", threadId: `${id}-thread`, runId: `${id}-run` });
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await raw.execute({ sql: "UPDATE project_analysis_runs SET started_at = ? WHERE id = ?", args: [startedAt, id] });
+    raw.close();
+  };
+  const countActive = async () => {
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    const result = await raw.execute(
+      "SELECT COUNT(*) AS n FROM project_analysis_runs WHERE status IN ('creating_thread', 'running', 'finalizing')",
+    );
+    raw.close();
+    return Number(result.rows[0]?.n);
+  };
+  const finish = async (ids: string[]) => {
+    for (const id of ids) {
+      const run = await db.getProjectAnalysisRun(id);
+      if (run && ["queued", "creating_thread", "running", "finalizing"].includes(run.status)) {
+        await db.failProjectAnalysis(id, "test_complete", "Test cleanup.");
+      }
+    }
+  };
+
+  it("expires a timed-out run even while its snapshot keeps failing with a retryable error, and logs the category", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      Response.json({ error: { code: "internal_error" } }, { status: 503 }),
+    ));
+    try {
+      await startRunning("snap-fresh", Date.now() - 60_000);
+      await startRunning("snap-stale", Date.now() - 16 * 60_000);
+      await expect(service.reconcileProjectAnalysis("snap-fresh")).resolves.toMatchObject({ status: "running" });
+      await expect(service.reconcileProjectAnalysis("snap-stale")).resolves.toMatchObject({
+        status: "expired",
+        errorCode: "analysis_timeout",
+      });
+      const logged = warn.mock.calls
+        .map(([line]) => (typeof line === "string" && line.startsWith("{") ? JSON.parse(line) : null))
+        .filter((entry) => entry?.event === "project_analysis_snapshot_error");
+      expect(logged).toEqual(expect.arrayContaining([
+        expect.objectContaining({ analysisId: "snap-fresh", errorCode: "mosoo_unavailable", httpStatus: 503, timedOut: false }),
+        expect.objectContaining({ analysisId: "snap-stale", errorCode: "mosoo_unavailable", timedOut: true }),
+      ]));
+    } finally {
+      warn.mockRestore();
+      await finish(["snap-fresh", "snap-stale"]);
+    }
+  });
+
+  it("never advances or fails a run on a Worker without Mosoo credentials", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    await createRun("no-token-queued");
+    await startRunning("no-token-running", Date.now() - 60_000);
+    const token = process.env.MOSOO_API_TOKEN;
+    delete process.env.MOSOO_API_TOKEN;
+    try {
+      await expect(service.reconcileProjectAnalysis("no-token-queued")).resolves.toMatchObject({ status: "queued", errorCode: null });
+      await expect(service.reconcileProjectAnalysis("no-token-running")).resolves.toMatchObject({ status: "running", errorCode: null });
+      await expect(service.getPublicProjectAnalysisView("no-token-running", true)).resolves.toMatchObject({ status: "running" });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      process.env.MOSOO_API_TOKEN = token;
+      warn.mockRestore();
+      await finish(["no-token-queued", "no-token-running"]);
+    }
+  });
+
+  it("reconciles in-flight runs before the queued backlog and never exceeds PROJECT_ANALYSIS_MAX_CONCURRENCY", async () => {
+    process.env.PROJECT_ANALYSIS_MAX_CONCURRENCY = "3";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const created: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/threads") && init?.method === "POST") {
+        const n = created.length + 1;
+        created.push(url);
+        return Response.json({
+          thread: { id: `cap-new-thread-${n}`, agent_id: "project-agent", kind: "cattle", status: "RUNNING", userId: "ghfind" },
+          run: {
+            id: `cap-new-run-${n}`, status: "running", createdAt: "2026-10-23T00:00:00.000Z",
+            startedAt: "2026-10-23T00:00:00.000Z", completedAt: null, updatedAt: "2026-10-23T00:00:00.000Z", trigger: "user_prompt",
+          },
+        }, { status: 201 });
+      }
+      // Every snapshot of an in-flight run fails retryably.
+      return Response.json({ error: { code: "internal_error" } }, { status: 503 });
+    }));
+    const running = ["cap-run-1", "cap-run-2", "cap-run-3"];
+    const backlog = Array.from({ length: 25 }, (_, i) => `cap-queued-${i + 1}`);
+    try {
+      // Start from an empty slot pool (earlier cases may leave an in-flight row).
+      const leftover = createClient({ url: process.env.TURSO_DATABASE_URL! });
+      const active = await leftover.execute(
+        "SELECT id FROM project_analysis_runs WHERE status IN ('creating_thread', 'running', 'finalizing')",
+      );
+      leftover.close();
+      await finish(active.rows.map((row) => String(row.id)));
+      // One of three in-flight runs is past its timeout.
+      await startRunning(running[0], Date.now() - 16 * 60_000);
+      await startRunning(running[1], Date.now() - 60_000);
+      await startRunning(running[2], Date.now() - 60_000);
+      for (const id of backlog) await createRun(id);
+      const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+      // The backlog is older than every in-flight row (it fills a 20-row batch on its own).
+      await raw.execute({ sql: `UPDATE project_analysis_runs SET updated_at = 1 WHERE id LIKE 'cap-queued-%'` });
+      raw.close();
+
+      const result = await service.reconcilePendingProjectAnalyses(20);
+      expect(result.errors).toEqual({ mosoo_unavailable: 3, analysis_timeout: 1 });
+      await expect(db.getProjectAnalysisRun(running[0])).resolves.toMatchObject({ status: "expired" });
+      expect(await countActive()).toBeLessThanOrEqual(3);
+      // Exactly the freed slot was reused.
+      expect(created.length).toBe(1);
+
+      await service.reconcilePendingProjectAnalyses(20);
+      expect(await countActive()).toBeLessThanOrEqual(3);
+      expect(created.length).toBe(1);
+    } finally {
+      delete process.env.PROJECT_ANALYSIS_MAX_CONCURRENCY;
+      warn.mockRestore();
+      await finish([...running, ...backlog]);
     }
   });
 });

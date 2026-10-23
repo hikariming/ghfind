@@ -303,6 +303,14 @@ function ensureSchema(db: Client): Promise<void> {
   next_idempotency_key TEXT NOT NULL,
   CHECK (execution_deadline_at IS NOT NULL AND execution_deadline_at > requested_at)
 )`,
+          // Reversible public hide list (e.g. upstream repo deleted). Rows are
+          // never deleted to restore a card: set restored_at instead.
+          `CREATE TABLE IF NOT EXISTS project_delistings (
+             repo_key TEXT PRIMARY KEY,
+             reason TEXT NOT NULL,
+             delisted_at INTEGER NOT NULL,
+             restored_at INTEGER
+           )`,
           `CREATE INDEX IF NOT EXISTS idx_treasure_entries_repo_selected
              ON treasure_entries(repo_key, selected_at DESC)`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_treasure_entries_one_active
@@ -535,12 +543,18 @@ export async function reserveProjectAnalysisExecutionSlot(
     sql: `UPDATE project_analysis_runs
           SET status = 'creating_thread', phase = 'creating_thread', progress = 5,
               create_attempts = create_attempts + 1, create_retry_at = ?,
-              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
+              -- The execution clock starts when a slot is granted: time spent
+              -- waiting in the queue (including create backoff) is not
+              -- execution time. Operator recoveries keep their audited clock.
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE ? END, updated_at = ?
           WHERE id = ? AND status = 'queued'
             AND (create_retry_at IS NULL OR create_retry_at <= ?)
+            -- Every in-flight row holds a slot until reconcile makes it
+            -- terminal (completed, failed, or expired on timeout), so the
+            -- number of live Mosoo runs never exceeds the cap.
             AND (
-              SELECT COUNT(*) FROM project_analysis_runs
-              WHERE status IN ('creating_thread', 'running', 'finalizing')
+              SELECT COUNT(*) FROM project_analysis_runs AS active
+              WHERE active.status IN ('creating_thread', 'running', 'finalizing')
             ) < ?`,
     args: [
       leaseUntil,
@@ -600,6 +614,7 @@ export async function prepareProjectAnalysisRetry(
   analysisId: string,
   expectedThreadId: string,
   nextIdempotencyKey: string,
+  retryAt: number | null = null,
 ): Promise<ProjectAnalysisRun | null> {
   const db = database();
   await ensureSchema(db);
@@ -610,7 +625,10 @@ export async function prepareProjectAnalysisRetry(
     sql: `UPDATE project_analysis_runs
           SET active_key = ?, idempotency_key = ?, status = 'queued',
               phase = 'queued', progress = 0,
-              create_attempts = 0, create_retry_at = NULL,
+              -- A provider capacity requeue waits retryAt before a slot is
+              -- granted again; create attempts restart (capacity is not a
+              -- creation failure of this item).
+              create_attempts = 0, create_retry_at = ?,
               mosoo_thread_id = NULL, mosoo_run_id = NULL,
               activities_json = '[]',
               error_code = NULL, error_message = NULL, completed_at = NULL,
@@ -620,6 +638,7 @@ export async function prepareProjectAnalysisRetry(
     args: [
       activeKey(current),
       nextIdempotencyKey,
+      retryAt === null ? null : Math.max(now, Math.floor(retryAt)),
       now,
       analysisId,
       expectedThreadId,
@@ -1204,12 +1223,26 @@ const ASSESSMENT_SELECT = `
   FROM project_assessments AS pa
   JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id`;
 
-export async function getProjectAssessment(repoKey: string): Promise<ProjectAssessment | null> {
+/**
+ * Public surfaces hide assessments whose repo has an active delisting (for
+ * example, the upstream GitHub repository was deleted). The assessment and
+ * run history are kept; restoring a card only sets restored_at.
+ */
+const NOT_DELISTED = `NOT EXISTS (
+    SELECT 1 FROM project_delistings AS d
+    WHERE d.repo_key = pa.repo_key AND d.restored_at IS NULL
+  )`;
+
+export async function getProjectAssessment(
+  repoKey: string,
+  options: { includeDelisted?: boolean } = {},
+): Promise<ProjectAssessment | null> {
   const db = database();
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
+  const delistedFilter = options.includeDelisted === false ? `AND ${NOT_DELISTED}` : "";
   const result = await db.execute({
-    sql: `${ASSESSMENT_SELECT} WHERE pa.repo_key = ? LIMIT 1`,
+    sql: `${ASSESSMENT_SELECT} WHERE pa.repo_key = ? ${delistedFilter} LIMIT 1`,
     args: [repoKey.toLowerCase()],
   });
   const row = result.rows[0];
@@ -1224,7 +1257,9 @@ export async function listProjectBoard(
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
   const eligibilityFilter =
-    board === "all" ? "" : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1`;
+    board === "all"
+      ? `WHERE ${NOT_DELISTED}`
+      : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1 AND ${NOT_DELISTED}`;
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
   const offset = Math.max(0, Math.floor(options.offset));
   const result = await db.execute({
@@ -1242,9 +1277,11 @@ export async function countProjectBoard(board: ProjectBoard): Promise<number> {
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
   const eligibilityFilter =
-    board === "all" ? "" : `WHERE ${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1`;
+    board === "all"
+      ? `WHERE ${NOT_DELISTED}`
+      : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1 AND ${NOT_DELISTED}`;
   const result = await db.execute({
-    sql: `SELECT COUNT(*) AS total FROM project_assessments ${eligibilityFilter}`,
+    sql: `SELECT COUNT(*) AS total FROM project_assessments AS pa ${eligibilityFilter}`,
     args: [],
   });
   return Number(result.rows[0]?.total ?? 0);
@@ -1262,7 +1299,13 @@ export async function listReconciliableProjectAnalysisRuns(
                status IN ('queued', 'creating_thread')
                AND (create_retry_at IS NULL OR create_retry_at <= ?)
              )
-          ORDER BY updated_at ASC LIMIT ?`,
+          -- In-flight rows first: they hold the concurrency slots and must be
+          -- finalized or expired before queued work can start. Ordering by
+          -- updated_at alone let a long backlog of old queued rows fill every
+          -- batch, so started runs were never reconciled again.
+          ORDER BY CASE WHEN status IN ('creating_thread', 'running', 'finalizing') THEN 0 ELSE 1 END,
+                   updated_at ASC
+          LIMIT ?`,
     args: [Date.now(), Math.max(1, Math.min(100, Math.floor(limit)))],
   });
   return result.rows.map((row) => mapRun(row as Record<string, unknown>));

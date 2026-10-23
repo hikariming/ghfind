@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { registerRequestProvider } from "@/lib/bot-user-agent";
 import { API_ROUTES } from "./routes";
 import { requestContext } from "./request-context";
+import { scheduledProjectAnalysisReconcile } from "./scheduled";
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Response | Promise<Response>;
 
@@ -78,4 +79,9 @@ app.onError((err) => {
 
 export { ScanContinueEntrypoint } from "./scan-continue";
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+    await scheduledProjectAnalysisReconcile((promise) => ctx.waitUntil(promise));
+  },
+};

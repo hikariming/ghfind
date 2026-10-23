@@ -39,7 +39,7 @@ export function bucketHeadingKey(type: FacetType): BucketHeadingKey {
 async function optionalProjectAssessment(type: FacetType, value: string) {
   if (type !== "repo") return { assessment: null, treasureHistory: [] };
   try {
-    const assessment = await getProjectAssessment(value);
+    const assessment = await getProjectAssessment(value, { includeDelisted: false });
     const treasureHistory = assessment ? await listTreasureHistory(value) : [];
     return { assessment, treasureHistory };
   } catch (error) {
